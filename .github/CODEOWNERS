@@ -1,0 +1,9 @@
+# Default reviewers per role (per docs/maintainers/roles.toml).
+# This file is the source of truth for which role owns which directories.
+*                              @thekozugroup
+/crates/entangle-runtime/      @thekozugroup
+/crates/entangle-broker/       @thekozugroup
+/crates/entangle-signing/      @thekozugroup
+/crates/entangle-host/         @thekozugroup
+/crates/entangle-mesh-*/       @thekozugroup
+/.github/                      @thekozugroup

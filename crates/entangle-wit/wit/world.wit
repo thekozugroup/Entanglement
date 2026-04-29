@@ -1,0 +1,36 @@
+package entangle:plugin@0.1.0;
+
+interface types {
+  variant plugin-error {
+    invalid-input(string),
+    resource-exhausted(string),
+    capability-denied(string),
+    internal(string),
+  }
+
+  type stream-handle = u64;
+}
+
+/// Imports a tier-1/2/3 plugin gets from the host.
+/// Tiers 4+ get this PLUS the privileged worlds (defined elsewhere).
+world plugin {
+  import logging;
+  import capability;
+  import host-info;
+  import types;
+  use types.{plugin-error};
+
+  // The plugin's exported entrypoint.
+  export run: func(input: list<u8>) -> result<list<u8>, plugin-error>;
+}
+
+world stream-plugin {
+  import logging;
+  import capability;
+  import host-info;
+  import %stream;
+  import types;
+  use types.{plugin-error, stream-handle};
+
+  export start-stream: func(input: list<u8>) -> result<stream-handle, plugin-error>;
+}

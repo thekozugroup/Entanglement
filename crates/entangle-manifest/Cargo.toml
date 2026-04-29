@@ -1,0 +1,19 @@
+[package]
+name = "entangle-manifest"
+description = "TOML manifest schema, parsing, and validation for Entanglement plugins"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+entangle-types = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+semver = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

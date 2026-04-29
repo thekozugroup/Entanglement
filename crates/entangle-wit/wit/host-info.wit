@@ -1,0 +1,11 @@
+package entangle:plugin@0.1.0;
+
+interface host-info {
+  record info {
+    daemon-version: string,
+    plugin-id: string,
+    declared-tier: u8,
+    effective-tier: u8,
+  }
+  get: func() -> info;
+}

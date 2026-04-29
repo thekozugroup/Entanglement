@@ -1,0 +1,6 @@
+package entangle:plugin@0.1.0;
+
+interface logging {
+  enum level { trace, debug, info, warn, error }
+  log: func(level: level, message: string);
+}

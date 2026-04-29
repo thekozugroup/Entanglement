@@ -1,0 +1,29 @@
+# Maintainer roster.
+#
+# INV-BUS-1 (spec §12.1): every role must have at least 2 active holders at all times.
+# A weekly CI workflow (.github/workflows/bus-factor.yml) checks this and opens
+# a P0 issue on violation.
+#
+# Current state: 1 holder per role. CI WILL FAIL until a second holder is seated
+# for each. This is intentional: the failure is the project's bus-factor problem
+# made visible. Phase 1 cannot ship until each role has its required quorum.
+
+[role.core-runtime-lead]
+description = "Owns crates/entangle-runtime, entangle-host, entangle-broker, entangle-types. Final say on kernel API changes."
+holders = ["thekozugroup"]
+
+[role.mesh-lead]
+description = "Owns crates/entangle-mesh-* (Phase 2). Transport, peer discovery, pairing UX, biscuit token attenuation."
+holders = ["thekozugroup"]
+
+[role.agent-lead]
+description = "Owns the AI sysadmin layer (Phase 2). MCP gateway, agent host plugin, Claude Code / Codex / OpenCode adapters."
+holders = ["thekozugroup"]
+
+[role.security-lead]
+description = "Owns crates/entangle-signing, threat model (spec §11), audit log policy, supply-chain story, SECURITY.md responses."
+holders = ["thekozugroup"]
+
+[role.release-lead]
+description = "Owns release workflow, Dockerfile, Homebrew tap, sigstore signing, version cadence, changelog discipline."
+holders = ["thekozugroup"]

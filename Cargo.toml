@@ -1,0 +1,107 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/entangle-types",
+    "crates/entangle-manifest",
+    "crates/entangle-signing",
+    "crates/entangle-wit",
+    "crates/entangle-host",
+    "crates/entangle-broker",
+    "crates/entangle-ipc",
+    "crates/entangle-core",
+    "crates/entangle-runtime",
+    "crates/entangle-sdk",
+    "crates/entangle-cli",
+    "crates/entangle-bin",
+    "crates/entangle-mesh-local",
+    "crates/entangle-oci",
+    "tools/xtask",
+    "crates/entangle-atc-matrix",
+]
+exclude = [
+    "examples/*",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/thekozugroup/Entanglement"
+authors = ["thekozugroup <thekozugroup@gmail.com>"]
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Cryptography
+ed25519-dalek = { version = "2", features = ["serde", "pkcs8", "pem", "rand_core"] }
+blake3 = "1"
+biscuit-auth = "6"
+rand_core = "0.6"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Versioning / IDs
+semver = { version = "1", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+hex = "0.4"
+tempfile = "3"
+
+# Utilities
+camino = "1"
+async-trait = "0.1"
+parking_lot = "0.12"
+
+# WebAssembly
+wasmtime = { version = "43", features = ["component-model"] }
+wasmtime-wasi = "43"
+wit-parser = "0.245"
+
+# Networking
+mdns-sd = "0.19"
+
+# CLI extras
+directories = "5"
+assert_cmd = "2"
+predicates = "3"
+
+# Meta-test tooling
+walkdir = "2"
+regex = "1"
+
+# First-party crates
+entangle-types = { path = "crates/entangle-types" }
+entangle-manifest = { path = "crates/entangle-manifest" }
+entangle-signing = { path = "crates/entangle-signing" }
+entangle-wit = { path = "crates/entangle-wit" }
+entangle-host = { path = "crates/entangle-host" }
+entangle-broker = { path = "crates/entangle-broker" }
+entangle-ipc = { path = "crates/entangle-ipc" }
+entangle-core = { path = "crates/entangle-core" }
+entangle-runtime = { path = "crates/entangle-runtime" }
+entangle-sdk = { path = "crates/entangle-sdk" }
+entangle-mesh-local = { path = "crates/entangle-mesh-local" }
+entangle-oci = { path = "crates/entangle-oci" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = 3
+
+[profile.dev]
+split-debuginfo = "unpacked"

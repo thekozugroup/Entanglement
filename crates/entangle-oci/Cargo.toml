@@ -1,0 +1,15 @@
+[package]
+name = "entangle-oci"
+description = "Phase-2 OCI distribution: fetch and verify plugins from OCI registries (stub)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+entangle-types = { workspace = true }
+entangle-signing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }

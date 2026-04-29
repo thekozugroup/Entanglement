@@ -1,0 +1,23 @@
+[package]
+name = "entangle-host"
+description = "Wasmtime engine wrapper and WebAssembly component host implementation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+entangle-types = { workspace = true }
+entangle-wit = { workspace = true }
+wasmtime = { workspace = true }
+wasmtime-wasi = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
+wat = "1"

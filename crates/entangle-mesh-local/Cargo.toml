@@ -1,0 +1,17 @@
+[package]
+name = "entangle-mesh-local"
+description = "Phase-1 mDNS-based local mesh networking for LAN-scoped Entanglement clusters"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+entangle-types = { workspace = true }
+entangle-signing = { workspace = true }
+mdns-sd = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }

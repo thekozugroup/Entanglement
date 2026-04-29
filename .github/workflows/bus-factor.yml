@@ -1,0 +1,90 @@
+name: Bus Factor Check
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  bus-factor:
+    name: bus-factor
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check role coverage
+        id: check
+        run: |
+          ROLES=(core-runtime-lead mesh-lead agent-lead security-lead release-lead)
+          VIOLATIONS=()
+          ROLES_FILE="docs/maintainers/roles.toml"
+
+          if [ ! -f "$ROLES_FILE" ]; then
+            echo "roles_file_missing=true" >> "$GITHUB_OUTPUT"
+            for role in "${ROLES[@]}"; do
+              VIOLATIONS+=("$role: 0 holders (file missing)")
+            done
+          else
+            for role in "${ROLES[@]}"; do
+              # Count active holders: lines after [roles.<role>] where active = true
+              # Simple heuristic: count occurrences of active = true within the role block
+              COUNT=$(python3 - "$ROLES_FILE" "$role" <<'PYEOF'
+          import sys, re
+
+          path, role = sys.argv[1], sys.argv[2]
+          with open(path) as f:
+              content = f.read()
+
+          # Find the role section and count active = true entries
+          pattern = rf'\[roles\.{re.escape(role)}\.holders\.[^\]]+\][^\[]*active\s*=\s*true'
+          matches = re.findall(pattern, content, re.DOTALL)
+          print(len(matches))
+          PYEOF
+          )
+              if [ "$COUNT" -lt 2 ]; then
+                VIOLATIONS+=("$role: $COUNT active holder(s) (need ≥ 2)")
+              fi
+            done
+          fi
+
+          if [ ${#VIOLATIONS[@]} -gt 0 ]; then
+            echo "violation=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "violation_body<<EOF"
+              echo "## P0: Bus Factor Violation (INV-BUS-1)"
+              echo ""
+              echo "The following roles have fewer than 2 active holders:"
+              echo ""
+              for v in "${VIOLATIONS[@]}"; do
+                echo "- $v"
+              done
+              echo ""
+              echo "**Required action**: Add active holders to \`docs/maintainers/roles.toml\` and update \`.github/CODEOWNERS\`."
+              echo ""
+              echo "See spec §12.1 INV-BUS-1 for requirements."
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "violation=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open P0 issue on violation
+        if: steps.check.outputs.violation == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "P0: Bus Factor Violation — role coverage below minimum (INV-BUS-1)" \
+            --label "P0" \
+            --body "${{ steps.check.outputs.violation_body }}" \
+            || echo "Issue may already exist; check open issues."
+
+      - name: Fail on violation
+        if: steps.check.outputs.violation == 'true'
+        run: |
+          echo "Bus factor check failed — see issue for details."
+          exit 1

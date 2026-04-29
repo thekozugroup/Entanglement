@@ -1,0 +1,16 @@
+package entangle:plugin@0.1.0;
+
+interface %stream {
+  variant chunk-result {
+    ok(list<u8>),
+    end,
+    error(string),
+  }
+
+  /// Yield one chunk. Blocks until host has credit, or returns `error`
+  /// if heartbeat missed (per §7.1 max_total_bytes / heartbeat_ms).
+  yield-chunk: func(handle: u64, chunk: list<u8>) -> result<_, string>;
+
+  /// Read one chunk from a stream the plugin is consuming.
+  next-chunk: func(handle: u64) -> chunk-result;
+}

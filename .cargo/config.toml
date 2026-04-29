@@ -1,0 +1,6 @@
+# Entanglement workspace — Cargo configuration
+# Members: 14 crates under crates/<name>/
+# See root Cargo.toml [workspace] for the full member list.
+
+[alias]
+xtask = "run --package xtask --release --"

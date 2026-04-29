@@ -1,0 +1,39 @@
+name: Release (skeleton)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-release:
+    name: build-release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.91"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binaries
+        run: cargo build --release --workspace
+
+      - name: Package tarball
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          TARBALL="entanglement-${VERSION}-x86_64-linux.tar.gz"
+          FILES=()
+          for bin in entangle entangled; do
+            BIN_PATH="target/release/$bin"
+            if [ -f "$BIN_PATH" ]; then
+              FILES+=("$BIN_PATH")
+            fi
+          done
+          FILES+=(LICENSE README.md)
+          tar -czf "$TARBALL" "${FILES[@]}"
+          echo "Packaged: $TARBALL"
+          ls -lh "$TARBALL"
+
+      # NOTE: GH Releases and publishing deferred until Phase 1 is declared shipped.
+      # Add: softprops/action-gh-release, sigstore attestation, and crates.io publish here.

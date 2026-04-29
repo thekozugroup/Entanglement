@@ -1,0 +1,35 @@
+package entangle:plugin@0.1.0;
+
+interface capability {
+  /// Plugin-side view of a granted capability handle.
+  /// Opaque integer; the host owns the actual implementation.
+  type handle = u32;
+
+  enum kind {
+    compute-cpu,
+    compute-gpu,
+    compute-npu,
+    storage-local,
+    storage-share,
+    net-lan,
+    net-wan,
+    mesh-peer,
+    agent-invoke,
+    host-docker-socket,
+    %custom,
+  }
+
+  variant fetch-error {
+    not-granted(string),
+    invalid-kind,
+    revoked,
+  }
+
+  /// Look up a granted capability by name. Returns a handle to the plugin
+  /// it can pass to other host calls. Per spec §4: capabilities are typed
+  /// handles, never ambient authority.
+  fetch: func(kind: kind, name: option<string>) -> result<handle, fetch-error>;
+
+  /// Release a handle. Idempotent.
+  release: func(h: handle);
+}

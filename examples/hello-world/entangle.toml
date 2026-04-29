@@ -1,0 +1,13 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/hello-world"   # replaced by `cargo xtask hello-world build` with real fingerprint
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "§9.3 walkthrough — hello-world plugin"
+
+[capabilities]
+# tier 1: no capabilities; pure compute (logging-only)
+
+[build]
+wit_world = "entangle:plugin@0.1.0/plugin"
+target = "wasm32-wasip2"

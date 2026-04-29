@@ -1,0 +1,8 @@
+target/
+.git/
+graphify-out/
+docs/
+SECURITY_SCAN.md
+*.original.md
+tools/graphify/
+.claude/

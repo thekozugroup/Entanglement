@@ -1,0 +1,14 @@
+version: '3.9'
+services:
+  entangled:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: entangled
+    restart: unless-stopped
+    volumes:
+      - entangle-data:/var/lib/entangle
+    # Phase 2 will expose mesh/Iroh ports; Phase 1 is local-only
+
+volumes:
+  entangle-data:

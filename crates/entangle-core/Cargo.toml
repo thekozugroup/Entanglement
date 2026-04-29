@@ -1,0 +1,15 @@
+[package]
+name = "entangle-core"
+description = "Shared kernel utilities: lifecycle, error types, and foundational abstractions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+entangle-types = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

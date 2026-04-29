@@ -1,0 +1,23 @@
+[package]
+name = "entangle-sdk"
+description = "Guest-side plugin SDK for authors building Entanglement plugins"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+# wit-bindgen 0.57.1 is the current stable release and matches the WIT format
+# used by entangle-wit. The `pub_export_macro = true` option was introduced in
+# 0.30+, so 0.57.1 is safe. Pin to a minor version to avoid breakage.
+[dependencies]
+entangle-types = { workspace = true }
+wit-bindgen = { version = "0.57", default-features = false, features = ["macros"] }
+serde = { workspace = true, features = ["derive"] }
+
+[lib]
+crate-type = ["rlib"]
+
+# The SDK is intentionally wasm32-wasip2 only for the generated WIT bindings.
+# Native cargo check/test is limited to the cfg-gated native tests below.

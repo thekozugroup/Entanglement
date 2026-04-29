@@ -1,0 +1,35 @@
+[package]
+name = "entangle-cli"
+description = "CLI front-end for the Entanglement plugin runtime (the `entangle` command)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "entangle"
+path = "src/main.rs"
+
+[dependencies]
+entangle-types    = { workspace = true }
+entangle-runtime  = { workspace = true }
+entangle-signing  = { workspace = true }
+entangle-manifest = { workspace = true }
+clap              = { workspace = true, features = ["derive"] }
+anyhow            = { workspace = true }
+tokio             = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "fs"] }
+tracing           = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+serde             = { workspace = true, features = ["derive"] }
+toml              = { workspace = true }
+directories       = "5"
+hex               = { workspace = true }
+
+[dev-dependencies]
+assert_cmd        = "2"
+tempfile          = { workspace = true }
+predicates        = "3"
+entangle-signing  = { workspace = true }
+hex               = { workspace = true }

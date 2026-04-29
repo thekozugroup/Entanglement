@@ -1,0 +1,30 @@
+[package]
+name = "entangle-runtime"
+description = "Top-level runtime orchestration: wires together core, host, broker, IPC, and signing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+entangle-core = { workspace = true }
+entangle-types = { workspace = true }
+entangle-manifest = { workspace = true }
+entangle-signing = { workspace = true }
+entangle-host = { workspace = true }
+entangle-broker = { workspace = true }
+entangle-ipc = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+toml = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["sync", "time", "rt", "rt-multi-thread", "macros"] }
+tempfile = { workspace = true }
+wat = "1"

@@ -1,0 +1,37 @@
+[package]
+name = "entangle-bin"
+description = "Daemon binary for the Entanglement plugin runtime (the `entangled` daemon)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "entangle_bin"
+path = "src/lib.rs"
+
+[[bin]]
+name = "entangled"
+path = "src/main.rs"
+
+[dependencies]
+entangle-types    = { workspace = true }
+entangle-runtime  = { workspace = true }
+entangle-signing  = { workspace = true }
+entangle-manifest = { workspace = true }
+entangle-broker   = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+anyhow = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+toml = { workspace = true }
+directories = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+tempfile = { workspace = true }
