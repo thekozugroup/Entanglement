@@ -1,0 +1,4 @@
+tools/
+graphify-out/
+*.original.md
+.git/
