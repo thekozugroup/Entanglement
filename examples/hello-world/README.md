@@ -77,8 +77,36 @@ cargo test -p entangle-runtime --test hello_world_e2e -- --ignored
 Expected output: four `ManifestValidated → SignatureVerified → Registered → Loaded`
 events followed by `Unloaded` after the kernel unloads the plugin.
 
-## Note on invoking the plugin
+## Invoke the plugin
 
-Direct invocation of the `run` export from the host requires WIT-generated
-host-side bindings. That is deferred to a later iteration. For now, successful
-instantiation and lifecycle events are the acceptance criteria.
+Once the plugin is loaded you can call its `run` export through the kernel:
+
+```sh
+entangle plugins load examples/hello-world/dist/
+# ✓ loaded <id>
+
+entangle plugins invoke <id> --input "world"
+# output: Hello, world!
+```
+
+Additional flags:
+
+```sh
+# Read input from a file instead of an inline string
+entangle plugins invoke <id> --input-file /path/to/input.bin
+
+# Override the default 30 s timeout (value is in milliseconds)
+entangle plugins invoke <id> --input "world" --timeout-ms 5000
+```
+
+The invoke command:
+
+1. Emits `Activated` on the lifecycle bus.
+2. Calls the plugin's `run` export with the input bytes.
+3. Emits `Idled` on the lifecycle bus.
+4. Prints the output as UTF-8 text (or base64 if the bytes are not printable).
+
+**Note**: the actual byte-level roundtrip (`Hello, world!` output) requires
+WIT-generated host-side bindings that are completed in a later iteration. The
+`Activated` / `Idled` lifecycle events and the `invoke` CLI plumbing are
+available now.

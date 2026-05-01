@@ -223,6 +223,71 @@ async fn tier_above_ceiling_blocks_load() {
     );
 }
 
+/// 6. invoke emits Activated then Idled around the plugin call.
+#[tokio::test(flavor = "multi_thread")]
+async fn invoke_plugin_emits_activated_and_idled() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    // Use the hello-pong fixture which has a real `run` export.
+    let wasm = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-host/tests/fixtures/hello-pong.wasm"
+    ))
+    .expect("hello-pong.wasm fixture not found — run fixtures-src/hello-pong/build.sh");
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let plugin_id_str = write_plugin_package(dir.path(), &keypair, &wasm, 1);
+
+    let kernel = Kernel::new(KernelConfig::default(), keyring).expect("kernel");
+
+    // Subscribe before load so we capture all events.
+    let mut sub = kernel.bus().subscribe();
+
+    let plugin_id = kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect("load ok");
+
+    // Drain the 4 load events (ManifestValidated, SignatureVerified, Registered, Loaded).
+    for _ in 0..4 {
+        tokio::time::timeout(Duration::from_secs(1), sub.recv())
+            .await
+            .expect("load event timeout")
+            .expect("recv ok");
+    }
+
+    // Invoke the plugin.
+    let _output = kernel
+        .invoke(&plugin_id, b"hi", 30_000)
+        .await
+        .expect("invoke ok");
+
+    // The next two events must be Activated then Idled, in order.
+    let activated = tokio::time::timeout(Duration::from_secs(2), sub.recv())
+        .await
+        .expect("Activated event timeout")
+        .expect("recv ok");
+    assert_eq!(
+        activated.payload.phase,
+        LifecyclePhase::Activated,
+        "expected Activated, got {:?}",
+        activated.payload.phase
+    );
+    assert_eq!(activated.payload.plugin.to_string(), plugin_id_str);
+
+    let idled = tokio::time::timeout(Duration::from_secs(2), sub.recv())
+        .await
+        .expect("Idled event timeout")
+        .expect("recv ok");
+    assert_eq!(
+        idled.payload.phase,
+        LifecyclePhase::Idled,
+        "expected Idled, got {:?}",
+        idled.payload.phase
+    );
+    assert_eq!(idled.payload.plugin.to_string(), plugin_id_str);
+}
+
 /// 5. Load then unload: list is empty, Unloaded event was emitted.
 #[tokio::test(flavor = "multi_thread")]
 async fn unload_plugin_emits_event_and_removes_from_list() {

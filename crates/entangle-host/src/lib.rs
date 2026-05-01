@@ -13,6 +13,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod bindings;
 pub mod engine;
 pub mod errors;
 pub mod plugin;

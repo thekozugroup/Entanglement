@@ -1,8 +1,9 @@
-//! `entangle plugins` subcommands — list, load, unload plugins via local kernel.
+//! `entangle plugins` subcommands — list, load, unload, invoke plugins via local kernel.
 //!
 //! Phase-1 builds a fresh in-process kernel per command invocation.
 //! Phase 2 will RPC into the running daemon for persistent state.
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use clap::{Args, Subcommand};
 use entangle_runtime::{Kernel, KernelConfig};
 use entangle_signing::Keyring;
@@ -36,6 +37,20 @@ pub enum PluginsCmd {
         /// Plugin ID in `<publisher>/<name>@<version>` format.
         plugin_id: String,
     },
+    /// Invoke a loaded plugin's `run` export.
+    Invoke {
+        /// Plugin ID in `<publisher>/<name>@<version>` format.
+        plugin_id: String,
+        /// Inline input string (UTF-8). Mutually exclusive with --input-file.
+        #[arg(long, conflicts_with = "input_file")]
+        input: Option<String>,
+        /// Path to a file whose contents are used as input bytes.
+        #[arg(long, conflicts_with = "input")]
+        input_file: Option<String>,
+        /// Timeout for the invocation in milliseconds (default: 30 000).
+        #[arg(long, default_value_t = 30_000)]
+        timeout_ms: u64,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -47,6 +62,12 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
         PluginsCmd::List => list().await,
         PluginsCmd::Load { dir } => load(dir).await,
         PluginsCmd::Unload { plugin_id } => unload(plugin_id).await,
+        PluginsCmd::Invoke {
+            plugin_id,
+            input,
+            input_file,
+            timeout_ms,
+        } => invoke(plugin_id, input, input_file, timeout_ms).await,
     }
 }
 
@@ -102,5 +123,40 @@ async fn unload(plugin_id: String) -> anyhow::Result<()> {
     let kernel = build_kernel()?;
     kernel.unload(&id).await?;
     println!("unloaded {plugin_id}");
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// invoke
+// ---------------------------------------------------------------------------
+
+async fn invoke(
+    plugin_id: String,
+    input: Option<String>,
+    input_file: Option<String>,
+    timeout_ms: u64,
+) -> anyhow::Result<()> {
+    let input_bytes: Vec<u8> = match (input, input_file) {
+        (Some(s), _) => s.into_bytes(),
+        (_, Some(path)) => tokio::fs::read(&path)
+            .await
+            .map_err(|e| anyhow::anyhow!("reading --input-file {path}: {e}"))?,
+        (None, None) => Vec::new(),
+    };
+
+    let id =
+        PluginId::from_str(&plugin_id).map_err(|e| anyhow::anyhow!("invalid plugin id: {e}"))?;
+
+    // Phase 1: load the plugin in-process, invoke, then drop the kernel.
+    // Phase 2 will RPC into the running daemon.
+    let kernel = build_kernel()?;
+    let output = kernel.invoke(&id, &input_bytes, timeout_ms).await?;
+
+    // Print as plain text if the output is valid UTF-8, otherwise as base64.
+    match std::str::from_utf8(&output) {
+        Ok(text) if !text.is_empty() => println!("output: {text}"),
+        Ok(_) => println!("output: (empty)"),
+        Err(_) => println!("output (base64): {}", BASE64.encode(&output)),
+    }
     Ok(())
 }

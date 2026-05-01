@@ -26,4 +26,8 @@ pub enum HostError {
     /// ENTANGLE-E0504: the plugin exceeded the configured wall-clock timeout.
     #[error("ENTANGLE-E0504: timed out after {0}ms")]
     Timeout(u64),
+
+    /// ENTANGLE-E0505: the plugin's `run` export returned an application-level error.
+    #[error("ENTANGLE-E0505: plugin returned error: {0}")]
+    PluginReturnedError(String),
 }

@@ -43,7 +43,6 @@ impl Default for KernelConfig {
 
 struct LoadedRecord {
     effective_tier: Tier,
-    #[allow(dead_code)] // plugin invocation is
     plugin: LoadedPlugin,
 }
 
@@ -174,6 +173,34 @@ impl Kernel {
         }
 
         Ok(plugin_id)
+    }
+
+    /// Invoke a loaded plugin's `run` export with `input` bytes; returns the
+    /// plugin's output bytes.
+    ///
+    /// Emits [`LifecyclePhase::Activated`] before calling into the plugin and
+    /// [`LifecyclePhase::Idled`] after it returns (whether or not it errors).
+    pub async fn invoke(
+        &self,
+        plugin_id: &PluginId,
+        input: &[u8],
+        timeout_ms: u64,
+    ) -> Result<Vec<u8>, RuntimeError> {
+        // Acquire the read lock, clone what we need, then release it before
+        // the async call so we don't hold a lock across an .await point.
+        let (plugin, effective_tier) = {
+            let plugins = self.plugins.read();
+            let record = plugins
+                .get(plugin_id)
+                .ok_or_else(|| RuntimeError::NotLoaded(plugin_id.clone()))?;
+            (record.plugin.clone(), record.effective_tier)
+        };
+
+        self.emit(plugin_id.clone(), effective_tier, LifecyclePhase::Activated);
+        let result = plugin.run_one_shot(&self.engine, input, timeout_ms).await;
+        self.emit(plugin_id.clone(), effective_tier, LifecyclePhase::Idled);
+
+        Ok(result?.output)
     }
 
     /// Unload a currently-loaded plugin.
