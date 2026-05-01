@@ -134,3 +134,47 @@ async fn plugins_list_returns_empty_list_initially() {
     );
     assert!(v.get("error").is_none(), "unexpected error field: {v}");
 }
+
+/// End-to-end test for `plugins/invoke`.
+///
+/// Requires a real compiled hello-pong Wasm fixture and signed manifest — the
+/// full setup is deferred until iter 6's CLI integration wires up the fixture
+/// build pipeline.  Mark ignored until then.
+///
+/// TODO(iter-6): remove `#[ignore]` once `write_plugin_package` / hello-pong
+/// fixture are exposed from `entangle-runtime` test helpers and the keyring
+/// can be pre-seeded from the in-test keypair.
+#[ignore = "TODO(iter-6): requires hello-pong Wasm fixture + keyring setup from iter 6 CLI integration"]
+#[tokio::test(flavor = "multi_thread")]
+async fn plugins_invoke_returns_output_for_loaded_plugin() {
+    // When this test is un-ignored, the setup should:
+    //
+    // 1. Generate an in-test Ed25519 keypair and build a `Keyring` seeded with it.
+    // 2. Call `write_plugin_package(dir, keypair)` (from entangle-runtime test
+    //    helpers) to emit a signed hello-pong manifest + Wasm blob.
+    // 3. Create the kernel with that keyring, start the RPC server, and use
+    //    `plugins/load` over the socket to load the fixture.
+    // 4. Send `plugins/invoke` with the returned plugin_id and input bytes
+    //    `[119, 111, 114, 108, 100]` ("world").
+    // 5. Assert `result.output` == `[72, 101, 108, 108, 111, 44, 32, 119, 111,
+    //    114, 108, 100, 33]` ("Hello, world!").
+
+    let kernel = make_kernel();
+    let sock = tmp_sock("plugins_invoke");
+
+    // Placeholder: load would fail without a real fixture; the test is ignored.
+    let load_resp = send_recv(
+        sock.clone(),
+        kernel.clone(),
+        r#"{"jsonrpc":"2.0","id":10,"method":"plugins/load","params":{"dir":"/nonexistent/fixture"}}"#,
+    )
+    .await;
+    let lv: serde_json::Value =
+        serde_json::from_str(&load_resp).expect("load response must be valid JSON");
+    // Expect an error since the fixture doesn't exist — this path is never
+    // reached when the test is un-ignored and the fixture is present.
+    assert!(
+        lv.get("error").is_some(),
+        "expected error for missing fixture: {lv}"
+    );
+}

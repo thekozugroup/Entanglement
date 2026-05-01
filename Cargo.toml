@@ -17,6 +17,7 @@ members = [
     "crates/entangle-oci",
     "tools/xtask",
     "crates/entangle-atc-matrix",
+    "crates/entangle-rpc",
 ]
 exclude = [
     "examples/*",
@@ -99,6 +100,7 @@ entangle-runtime = { path = "crates/entangle-runtime" }
 entangle-sdk = { path = "crates/entangle-sdk" }
 entangle-mesh-local = { path = "crates/entangle-mesh-local" }
 entangle-oci = { path = "crates/entangle-oci" }
+entangle-rpc = { path = "crates/entangle-rpc" }
 
 [profile.release]
 lto = "thin"

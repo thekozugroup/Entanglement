@@ -1,8 +1,8 @@
 //! `entangle` CLI — entry point.
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
-//! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload}.
-//! Daemon RPC arrives in.
+//! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke}.
+//! Daemon RPC wired in iter 4; falls back to local in-process kernel with --allow-local.
 
 use clap::{Parser, Subcommand};
 
@@ -20,6 +20,14 @@ use cmd::{keyring::KeyringArgs, plugins::PluginsArgs};
  long_about = None
 )]
 struct Cli {
+    /// Use local in-process kernel (no daemon, no persistent state). For testing only.
+    ///
+    /// When the daemon is not running, commands normally fail with an actionable error.
+    /// Pass this flag (or set ENTANGLE_ALLOW_LOCAL=1) to fall back to a short-lived
+    /// in-process kernel instead.  State is NOT shared with any running daemon.
+    #[arg(long, global = true)]
+    allow_local: bool,
+
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -28,7 +36,7 @@ struct Cli {
 enum Cmd {
     /// Generate identity, write ~/.entangle/identity.key and config.toml.
     Init,
-    /// Print detailed version information (CLI, runtime, toolchain).
+    /// Print detailed version information (CLI, runtime, toolchain, daemon).
     Version,
     /// Run health checks: identity, config, keyring, daemon reachability.
     Doctor,
@@ -50,7 +58,15 @@ async fn main() -> anyhow::Result<()> {
         .with_writer(std::io::stderr)
         .init();
 
-    match Cli::parse().cmd {
+    let cli = Cli::parse();
+
+    // Propagate --allow-local as an env var so subcommand modules can read it
+    // without threading the flag through every call frame.
+    if cli.allow_local {
+        std::env::set_var("ENTANGLE_ALLOW_LOCAL", "1");
+    }
+
+    match cli.cmd {
         Cmd::Init => cmd::init::run().await,
         Cmd::Version => cmd::version::run().await,
         Cmd::Doctor => cmd::doctor::run().await,

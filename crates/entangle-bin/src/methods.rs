@@ -1,11 +1,13 @@
 //! JSON-RPC 2.0 method dispatch for the `entangled` daemon.
 //!
 //! Supported Phase-1 methods:
-//! - `version`        → `{ "entangled": "0.1.0", "runtime": "0.1.0", "types": "0.1.0" }`
-//! - `plugins/list`   → `["<plugin_id>", …]`
-//! - `plugins/load`   → params `{ "dir": "<path>" }` → plugin id string
-//! - `plugins/unload` → params `{ "id": "<plugin_id>" }` → null
+//! - `version`         → `{ "entangled": "0.1.0", "runtime": "0.1.0", "types": "0.1.0" }`
+//! - `plugins/list`    → `["<plugin_id>", …]`
+//! - `plugins/load`    → params `{ "dir": "<path>" }` → plugin id string
+//! - `plugins/unload`  → params `{ "id": "<plugin_id>" }` → null
+//! - `plugins/invoke`  → params `{ "plugin_id": "<id>", "input": […], "timeout_ms": N }` → `{ "output": […] }`
 
+use entangle_rpc::methods::{method, PluginsInvokeParams, PluginsInvokeResult};
 use entangle_runtime::Kernel;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -85,10 +87,11 @@ pub async fn dispatch(line: &str, kernel: &Arc<Kernel>) -> String {
     tracing::debug!(method = %req.method, "RPC dispatch");
 
     match req.method.as_str() {
-        "version" => handle_version(req.id),
-        "plugins/list" => handle_plugins_list(req.id, kernel),
-        "plugins/load" => handle_plugins_load(req.id, req.params, kernel).await,
-        "plugins/unload" => handle_plugins_unload(req.id, req.params, kernel).await,
+        m if m == method::VERSION => handle_version(req.id),
+        m if m == method::PLUGINS_LIST => handle_plugins_list(req.id, kernel),
+        m if m == method::PLUGINS_LOAD => handle_plugins_load(req.id, req.params, kernel).await,
+        m if m == method::PLUGINS_UNLOAD => handle_plugins_unload(req.id, req.params, kernel).await,
+        m if m == method::PLUGINS_INVOKE => handle_plugins_invoke(req.id, req.params, kernel).await,
         _ => error_resp(req.id, -32601, format!("method not found: {}", req.method)),
     }
 }
@@ -160,6 +163,25 @@ async fn handle_plugins_unload(
     };
     match kernel.unload(&plugin_id).await {
         Ok(()) => ok_resp(id, serde_json::Value::Null),
+        Err(e) => error_resp(id, -32000, format!("server error: {e}")),
+    }
+}
+
+async fn handle_plugins_invoke(
+    id: serde_json::Value,
+    params: serde_json::Value,
+    kernel: &Arc<Kernel>,
+) -> String {
+    let p: PluginsInvokeParams = match serde_json::from_value(params) {
+        Ok(v) => v,
+        Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
+    };
+    let plugin_id: entangle_types::plugin_id::PluginId = match p.plugin_id.parse() {
+        Ok(pid) => pid,
+        Err(e) => return error_resp(id, -32602, format!("invalid plugin id: {e}")),
+    };
+    match kernel.invoke(&plugin_id, &p.input, p.timeout_ms).await {
+        Ok(output) => ok_resp(id, PluginsInvokeResult { output }),
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
 }

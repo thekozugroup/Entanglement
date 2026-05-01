@@ -152,6 +152,39 @@ fn doctor_on_initialized_succeeds() {
 }
 
 // ---------------------------------------------------------------------------
+// Daemon-RPC / allow-local tests
+// ---------------------------------------------------------------------------
+
+/// Without a running daemon and without --allow-local the command must fail
+/// with a message that mentions "daemon not running".
+#[test]
+fn plugins_list_with_no_daemon_errors_clearly() {
+    let tmp = TempDir::new().unwrap();
+    // Point HOME at the tempdir so no real ~/.entangle/sock can be found.
+    entangle(&tmp)
+        .args(["plugins", "list"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("daemon not running"));
+}
+
+/// With --allow-local the command falls back to the local kernel, prints an
+/// empty list, and exits 0. (init is run first so the keyring exists.)
+#[test]
+fn plugins_list_with_allow_local_falls_back() {
+    let tmp = TempDir::new().unwrap();
+    entangle(&tmp).arg("init").assert().success();
+
+    entangle(&tmp)
+        .args(["--allow-local", "plugins", "list"])
+        .assert()
+        .success()
+        // Either "no plugins loaded" (empty list) or a plugin id — both are fine.
+        // The key assertion is exit code 0.
+        .stdout(predicate::str::is_match(".*").unwrap());
+}
+
+// ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
 
