@@ -1,4 +1,4 @@
-//! RPC client tests for `mesh/peers` and `mesh/status` (iter 9).
+//! RPC client tests for `mesh/peers` and `mesh/status`.
 //!
 //! Uses a fake UDS server (same pattern as `tests/client.rs`) to verify the
 //! client correctly serialises requests and deserialises structured responses.

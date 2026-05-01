@@ -4,9 +4,9 @@
 //! extracts the typed [`ExtractedFacts`] by scanning the token's Datalog text
 //! representation.
 //!
-//! **Iter 16-17 workaround**: rather than driving a `biscuit-auth` `Authorizer`
+//! **Workaround**: rather than driving a `biscuit-auth` `Authorizer`
 //! with typed rules (which requires `TryFrom<Fact>` impls per fact arity that
-//! are not yet wired up in iter 16-17), we re-parse the token's `.print()` text
+//! are not yet wired up), we re-parse the token's `.print()` text
 //! directly. This is robust and avoids the full authorizer machinery.
 
 use biscuit_auth::{Biscuit, PublicKey};

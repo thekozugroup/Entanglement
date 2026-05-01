@@ -1,4 +1,4 @@
-//! CLI integration tests for the `entangle mesh` subcommand (iter 9).
+//! CLI integration tests for the `entangle mesh` subcommand.
 //!
 //! Tests avoid mDNS / multicast — all network-dependent paths are covered by
 //! daemon-not-running assertions or direct on-disk file writes.

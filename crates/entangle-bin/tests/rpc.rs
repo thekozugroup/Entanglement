@@ -157,13 +157,13 @@ async fn plugins_list_returns_empty_list_initially() {
 /// End-to-end test for `plugins/invoke`.
 ///
 /// Requires a real compiled hello-pong Wasm fixture and signed manifest — the
-/// full setup is deferred until iter 6's CLI integration wires up the fixture
+/// full setup is deferred until the CLI integration wires up the fixture
 /// build pipeline.  Mark ignored until then.
 ///
-/// TODO(iter-6): remove `#[ignore]` once `write_plugin_package` / hello-pong
+/// TODO: remove `#[ignore]` once `write_plugin_package` / hello-pong
 /// fixture are exposed from `entangle-runtime` test helpers and the keyring
 /// can be pre-seeded from the in-test keypair.
-#[ignore = "TODO(iter-6): requires hello-pong Wasm fixture + keyring setup from iter 6 CLI integration"]
+#[ignore = "TODO: requires hello-pong Wasm fixture + keyring setup from CLI integration"]
 #[tokio::test(flavor = "multi_thread")]
 async fn plugins_invoke_returns_output_for_loaded_plugin() {
     // When this test is un-ignored, the setup should:

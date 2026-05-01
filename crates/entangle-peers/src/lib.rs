@@ -6,7 +6,7 @@
 //!
 //! # Distinction from `entangle-mesh-local::PeerSeen`
 //! [`PeerStore`] holds **authenticated, trusted** peers.  The mesh-local crate
-//! introduces `PeerSeen` for unauthenticated mDNS sightings (iter 7); the two
+//! introduces `PeerSeen` for unauthenticated mDNS sightings; the two
 //! types are intentionally separate.
 //!
 //! # Persistence

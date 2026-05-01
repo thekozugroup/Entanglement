@@ -1,13 +1,13 @@
 //! `entangle compute` subcommands — dispatch a one-shot task via the scheduler.
 //!
-//! Iter 24: attempt RPC to the running `entangled` daemon first.
+//! Attempt RPC to the running `entangled` daemon first.
 //! Falls back to a local in-process kernel + ephemeral dispatcher ONLY when:
 //!   - The daemon is not running (`RpcError::DaemonNotRunning`), AND
 //!   - The user passed `--allow-local` (or `ENTANGLE_ALLOW_LOCAL=1`).
 //!
 //! Phase 1 note: the daemon's WorkerPool is empty — dispatches with zero
 //! resource requirements fall back to local kernel execution. Tasks that
-//! specify non-zero resources will fail until iter 26 populates the pool via
+//! specify non-zero resources will fail until the pool is populated via
 //! mesh-local advertisement.
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};

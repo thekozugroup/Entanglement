@@ -41,7 +41,7 @@ pub struct PluginsUnloadParams {
 
 /// Parameters for the `plugins/invoke` RPC method.
 ///
-/// Note: `plugins/invoke` is planned for the daemon in iter 5.
+/// Note: `plugins/invoke` is planned for the daemon.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PluginsInvokeParams {
     /// Id of the plugin to invoke.
@@ -168,12 +168,12 @@ pub mod method {
     pub const PLUGINS_LOAD: &str = "plugins/load";
     /// `plugins/unload` — unload a plugin by id.
     pub const PLUGINS_UNLOAD: &str = "plugins/unload";
-    /// `plugins/invoke` — invoke a plugin (daemon support planned for iter 5).
+    /// `plugins/invoke` — invoke a plugin (daemon support planned).
     pub const PLUGINS_INVOKE: &str = "plugins/invoke";
-    /// `mesh/peers` — list peers seen on the mesh (iter 9).
+    /// `mesh/peers` — list peers seen on the mesh.
     pub const MESH_PEERS: &str = "mesh/peers";
-    /// `mesh/status` — local mesh state: own peer id, transports, counts (iter 9).
+    /// `mesh/status` — local mesh state: own peer id, transports, counts.
     pub const MESH_STATUS: &str = "mesh/status";
-    /// `compute/dispatch` — dispatch a one-shot task via the scheduler (iter 24).
+    /// `compute/dispatch` — dispatch a one-shot task via the scheduler.
     pub const COMPUTE_DISPATCH: &str = "compute/dispatch";
 }

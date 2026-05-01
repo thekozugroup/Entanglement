@@ -1,4 +1,4 @@
-//! High-level `PairingSession` state machine (iter 12).
+//! High-level `PairingSession` state machine.
 //!
 //! Drives the full Initiator/Responder flow without depending on any
 //! transport. Feed-in events (envelopes) advance the state; the caller

@@ -116,7 +116,7 @@ impl Client {
 
     /// `plugins/invoke` — invoke a plugin with raw bytes input.
     ///
-    /// Note: `plugins/invoke` is planned for iter 5 on the daemon side.
+    /// Note: `plugins/invoke` is planned for the daemon side.
     pub async fn plugins_invoke(
         &self,
         plugin_id: &str,
@@ -131,18 +131,18 @@ impl Client {
         self.call(method::PLUGINS_INVOKE, p).await
     }
 
-    /// `mesh/peers` — list peers seen on the mesh (iter 9).
+    /// `mesh/peers` — list peers seen on the mesh.
     pub async fn mesh_peers(&self) -> Result<MeshPeersResult, RpcError> {
         self.call(method::MESH_PEERS, serde_json::Value::Null).await
     }
 
-    /// `mesh/status` — local mesh state: own peer id, transports, peer counts (iter 9).
+    /// `mesh/status` — local mesh state: own peer id, transports, peer counts.
     pub async fn mesh_status(&self) -> Result<MeshStatusResult, RpcError> {
         self.call(method::MESH_STATUS, serde_json::Value::Null)
             .await
     }
 
-    /// `compute/dispatch` — dispatch a one-shot task via the scheduler (iter 24).
+    /// `compute/dispatch` — dispatch a one-shot task via the scheduler.
     pub async fn compute_dispatch(
         &self,
         params: ComputeDispatchParams,

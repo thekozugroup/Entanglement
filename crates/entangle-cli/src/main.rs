@@ -3,7 +3,7 @@
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
 //! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke},
 //! mesh {peers,status,trust,untrust,revoke}, pair (initiator/responder).
-//! Daemon RPC wired in iter 4; falls back to local in-process kernel with --allow-local.
+//! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
 //! Pairing goes directly to peers.toml (no daemon RPC).
 
 use clap::{Parser, Subcommand};
