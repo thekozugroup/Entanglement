@@ -36,4 +36,8 @@ pub enum RuntimeError {
     /// An I/O error occurred (e.g. reading artifact bytes).
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
+
+    /// An integrity-policy check failed (spec §7.5).
+    #[error("integrity: {0}")]
+    Integrity(#[from] crate::integrity::IntegrityError),
 }

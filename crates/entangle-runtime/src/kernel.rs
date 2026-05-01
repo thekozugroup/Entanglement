@@ -203,6 +203,71 @@ impl Kernel {
         Ok(result?.output)
     }
 
+    /// Invoke a [`OneShotTask`] honoring its [`IntegrityPolicy`] (spec §7.5).
+    ///
+    /// Phase 1 enforcement:
+    /// - [`IntegrityPolicy::None`] — delegates straight to [`Kernel::invoke`].
+    /// - [`IntegrityPolicy::TrustedExecutor`] — checks that `local_peer` appears in
+    ///   the allowlist; then delegates to [`Kernel::invoke`].
+    /// - [`IntegrityPolicy::Deterministic { replicas: N }`] — when `N >= 2`, runs the
+    ///   plugin locally `N` times and BLAKE3-compares all outputs. Returns the
+    ///   canonical (first) output on agreement, [`RuntimeError::Integrity`] on mismatch.
+    ///   `N == 0` or `N == 1` are treated as no-ops (single invocation).
+    /// - [`IntegrityPolicy::SemanticEquivalent`] / [`IntegrityPolicy::Attested`] —
+    ///   immediately returns [`IntegrityError::NotImplemented`] (Phase 2/3).
+    ///
+    /// [`IntegrityPolicy`]: entangle_types::task::IntegrityPolicy
+    /// [`IntegrityError::NotImplemented`]: crate::integrity::IntegrityError::NotImplemented
+    pub async fn invoke_with_integrity(
+        &self,
+        task: &entangle_types::task::OneShotTask,
+        local_peer: entangle_types::peer_id::PeerId,
+    ) -> Result<Vec<u8>, RuntimeError> {
+        use crate::integrity::{
+            check_trusted_executor, verify_deterministic, IntegrityError, ReplicaOutput,
+        };
+        use entangle_types::task::IntegrityPolicy;
+
+        match &task.integrity {
+            IntegrityPolicy::None => {
+                self.invoke(&task.plugin, &task.input, task.timeout_ms)
+                    .await
+            }
+            IntegrityPolicy::TrustedExecutor { .. } => {
+                check_trusted_executor(&task.integrity, &local_peer)?;
+                self.invoke(&task.plugin, &task.input, task.timeout_ms)
+                    .await
+            }
+            IntegrityPolicy::Deterministic { replicas } => {
+                if *replicas == 0 || *replicas == 1 {
+                    // N=0 and N=1 are no-ops: fall through to a single invoke.
+                    return self
+                        .invoke(&task.plugin, &task.input, task.timeout_ms)
+                        .await;
+                }
+                let mut outs: Vec<ReplicaOutput> = Vec::with_capacity(*replicas as usize);
+                for _ in 0..*replicas {
+                    let bytes = self
+                        .invoke(&task.plugin, &task.input, task.timeout_ms)
+                        .await?;
+                    let h = blake3::hash(&bytes);
+                    outs.push(ReplicaOutput {
+                        blake3: *h.as_bytes(),
+                        bytes,
+                    });
+                }
+                let chosen = verify_deterministic(&outs, *replicas)?;
+                Ok(chosen.bytes.clone())
+            }
+            IntegrityPolicy::SemanticEquivalent { .. } => Err(RuntimeError::Integrity(
+                IntegrityError::NotImplemented("SemanticEquivalent"),
+            )),
+            IntegrityPolicy::Attested { .. } => Err(RuntimeError::Integrity(
+                IntegrityError::NotImplemented("Attested"),
+            )),
+        }
+    }
+
     /// Unload a currently-loaded plugin.
     ///
     /// De-registers from the broker and emits a [`LifecyclePhase::Unloaded`] event.

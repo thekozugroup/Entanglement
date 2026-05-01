@@ -18,6 +18,8 @@ entangle-broker = { workspace = true }
 entangle-ipc = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+blake3 = { workspace = true }
+hex = { workspace = true }
 parking_lot = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
 tracing = { workspace = true }

@@ -21,6 +21,7 @@ members = [
     "crates/entangle-peers",
     "crates/entangle-pairing",
     "crates/entangle-biscuits",
+    "crates/entangle-scheduler",
 ]
 exclude = [
     "examples/*",
@@ -108,6 +109,7 @@ entangle-rpc = { path = "crates/entangle-rpc" }
 entangle-peers = { path = "crates/entangle-peers" }
 entangle-pairing = { path = "crates/entangle-pairing" }
 entangle-biscuits = { path = "crates/entangle-biscuits" }
+entangle-scheduler = { path = "crates/entangle-scheduler" }
 
 [profile.release]
 lto = "thin"

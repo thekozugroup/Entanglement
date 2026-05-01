@@ -12,7 +12,10 @@ mod cmd;
 mod config;
 mod identity;
 
-use cmd::{keyring::KeyringArgs, mesh::MeshArgs, pair::PairArgs, plugins::PluginsArgs};
+use cmd::{
+    compute::ComputeArgs, keyring::KeyringArgs, mesh::MeshArgs, pair::PairArgs,
+    plugins::PluginsArgs,
+};
 
 #[derive(Parser)]
 #[command(
@@ -53,6 +56,9 @@ enum Cmd {
     Mesh(MeshArgs),
     /// Pair this device with another (short-code + fingerprint exchange).
     Pair(PairArgs),
+    /// Dispatch compute tasks via the scheduler.
+    #[command(subcommand_required = true)]
+    Compute(ComputeArgs),
 }
 
 #[tokio::main]
@@ -81,5 +87,6 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Plugins(a) => cmd::plugins::run(a).await,
         Cmd::Mesh(a) => cmd::mesh::run(a).await,
         Cmd::Pair(a) => cmd::pair::run(a).await,
+        Cmd::Compute(a) => cmd::compute::run(a).await,
     }
 }

@@ -13,13 +13,14 @@ name = "entangle"
 path = "src/main.rs"
 
 [dependencies]
-entangle-types    = { workspace = true }
-entangle-runtime  = { workspace = true }
-entangle-signing  = { workspace = true }
-entangle-manifest = { workspace = true }
-entangle-rpc      = { path = "../entangle-rpc" }
-entangle-peers    = { path = "../entangle-peers" }
-entangle-pairing  = { path = "../entangle-pairing" }
+entangle-types     = { workspace = true }
+entangle-runtime   = { workspace = true }
+entangle-signing   = { workspace = true }
+entangle-manifest  = { workspace = true }
+entangle-rpc       = { path = "../entangle-rpc" }
+entangle-peers     = { path = "../entangle-peers" }
+entangle-pairing   = { path = "../entangle-pairing" }
+entangle-scheduler = { path = "../entangle-scheduler" }
 clap              = { workspace = true, features = ["derive"] }
 anyhow            = { workspace = true }
 tokio             = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "fs"] }

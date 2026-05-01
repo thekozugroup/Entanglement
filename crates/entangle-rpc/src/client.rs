@@ -141,4 +141,12 @@ impl Client {
         self.call(method::MESH_STATUS, serde_json::Value::Null)
             .await
     }
+
+    /// `compute/dispatch` — dispatch a one-shot task via the scheduler (iter 24).
+    pub async fn compute_dispatch(
+        &self,
+        params: ComputeDispatchParams,
+    ) -> Result<ComputeDispatchResult, RpcError> {
+        self.call(method::COMPUTE_DISPATCH, params).await
+    }
 }

@@ -947,6 +947,7 @@ dependencies = [
  "entangle-manifest",
  "entangle-rpc",
  "entangle-runtime",
+ "entangle-scheduler",
  "entangle-signing",
  "entangle-types",
  "serde",
@@ -1005,6 +1006,7 @@ dependencies = [
  "entangle-peers",
  "entangle-rpc",
  "entangle-runtime",
+ "entangle-scheduler",
  "entangle-signing",
  "entangle-types",
  "hex",
@@ -1139,11 +1141,31 @@ name = "entangle-runtime"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "blake3",
  "entangle-broker",
  "entangle-core",
  "entangle-host",
  "entangle-ipc",
  "entangle-manifest",
+ "entangle-signing",
+ "entangle-types",
+ "hex",
+ "parking_lot",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml 0.8.23",
+ "tracing",
+ "wat",
+]
+
+[[package]]
+name = "entangle-scheduler"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "entangle-runtime",
  "entangle-signing",
  "entangle-types",
  "parking_lot",
@@ -1153,7 +1175,7 @@ dependencies = [
  "tokio",
  "toml 0.8.23",
  "tracing",
- "wat",
+ "uuid",
 ]
 
 [[package]]

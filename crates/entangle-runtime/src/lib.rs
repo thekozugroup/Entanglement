@@ -21,6 +21,7 @@
 #![warn(missing_docs)]
 
 pub mod errors;
+pub mod integrity;
 pub mod kernel;
 pub mod lifecycle;
 pub mod loader;
@@ -29,6 +30,7 @@ pub mod loader;
 mod tests;
 
 pub use errors::RuntimeError;
+pub use integrity::{check_trusted_executor, verify_deterministic, IntegrityError, ReplicaOutput};
 pub use kernel::{Kernel, KernelConfig};
 pub use lifecycle::{LifecycleEvent, LifecyclePhase};
 pub use loader::PluginPackage;
