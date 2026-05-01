@@ -2,7 +2,7 @@
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
 //! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload}.
-//! Daemon RPC arrives in iter 11.
+//! Daemon RPC arrives in.
 
 use clap::{Parser, Subcommand};
 
@@ -14,10 +14,10 @@ use cmd::{keyring::KeyringArgs, plugins::PluginsArgs};
 
 #[derive(Parser)]
 #[command(
-    name = "entangle",
-    version,
-    about = "Entanglement CLI — manage plugins, identity, and trusted keys",
-    long_about = None
+ name = "entangle",
+ version,
+ about = "Entanglement CLI — manage plugins, identity, and trusted keys",
+ long_about = None
 )]
 struct Cli {
     #[command(subcommand)]

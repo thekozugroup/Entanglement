@@ -10,7 +10,7 @@ use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 /// can wire up the WASI 0.2 host implementations.
 ///
 /// The WASI context is intentionally minimal: no filesystem preopens, no
-/// environment variables, no network sockets. The capability broker (iter 7-9)
+/// environment variables, no network sockets. The capability broker
 /// will extend the context per-plugin based on the granted tier and manifest.
 pub struct HostState {
     /// The plugin this store belongs to.

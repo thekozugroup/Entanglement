@@ -43,7 +43,7 @@ impl Default for KernelConfig {
 
 struct LoadedRecord {
     effective_tier: Tier,
-    #[allow(dead_code)] // plugin invocation is iter 13
+    #[allow(dead_code)] // plugin invocation is
     plugin: LoadedPlugin,
 }
 

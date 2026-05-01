@@ -1,4 +1,4 @@
-//! §16 Acceptance-Test Contracts — types-level phase (Phase 1 / iter 17).
+//! §16 Acceptance-Test Contracts — types-level phase (Phase 1 /).
 //!
 //! These tests verify what can be asserted at the type level today:
 //! correct field defaults, serde round-trips, and invariant assertions
@@ -198,7 +198,7 @@ fn atc_str_2_partial_result_policy_kebab_case_serde() {
 /// the ENTANGLE-E0300 error code and the declared/actual/peer values.
 ///
 /// Spec §0 error table defines:
-///   "ENTANGLE-E0300: output exceeds max_output_bytes (declared D, actual A) from peer P"
+/// "ENTANGLE-E0300: output exceeds max_output_bytes (declared D, actual A) from peer P"
 #[test]
 fn atc_out_1_output_size_exceeded_display_format() {
     let err = EntangleError::OutputSizeExceeded {

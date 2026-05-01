@@ -1,7 +1,7 @@
 //! Acceptance-test contract for `entangle-broker` — §16 ATC IDs.
 //!
 //! Each test carries a doc-comment with a `§16 ATC-*` identifier so the
-//! matrix runner (iter 19) can scrape them with:
+//! matrix runner can scrape them with:
 //!
 //! ```text
 //! grep -rn "§16 ATC-" crates/entangle-broker/tests/
@@ -9,15 +9,15 @@
 //!
 //! # Coverage
 //!
-//! | ATC ID          | Description                                              |
+//! | ATC ID | Description |
 //! |-----------------|----------------------------------------------------------|
-//! | ATC-CAP-1       | Declared capability → granted handle + audit event       |
-//! | ATC-CAP-2       | Undeclared capability → CapabilityNotDeclared + denied   |
-//! | ATC-CAP-3       | Released grant → new grant gets distinct id              |
-//! | ATC-MAX-TIER-1  | max_tier_allowed < plugin tier → TierAboveCeiling        |
-//! | ATC-MAX-TIER-2  | max_tier_allowed >= plugin tier → ok                     |
-//! | ATC-AUDIT-1     | Every broker decision records an AuditEvent              |
-//! | ATC-AUDIT-2     | Unregister → CapabilityReleased + PluginUnregistered     |
+//! | ATC-CAP-1 | Declared capability → granted handle + audit event |
+//! | ATC-CAP-2 | Undeclared capability → CapabilityNotDeclared + denied |
+//! | ATC-CAP-3 | Released grant → new grant gets distinct id |
+//! | ATC-MAX-TIER-1 | max_tier_allowed < plugin tier → TierAboveCeiling |
+//! | ATC-MAX-TIER-2 | max_tier_allowed >= plugin tier → ok |
+//! | ATC-AUDIT-1 | Every broker decision records an AuditEvent |
+//! | ATC-AUDIT-2 | Unregister → CapabilityReleased + PluginUnregistered |
 
 use entangle_broker::{
     audit::AuditEvent, broker::Broker, errors::BrokerError, policy::BrokerPolicy,
@@ -34,7 +34,7 @@ use entangle_types::{capability::CapabilityKind, tier::Tier};
 const PUB: &str = "aabbccddeeff00112233445566778899";
 
 /// Build a `ValidatedManifest` directly from raw components, bypassing TOML
-/// file I/O. Mirrors the pattern established in iter 7 unit tests.
+/// file I/O. Mirrors the pattern established in unit tests.
 fn make_manifest(
     name: &str,
     tier: u8,
@@ -92,9 +92,9 @@ fn atc_cap_1_grant_records_audit() {
     let events = broker.audit_log().snapshot();
     let granted = events.iter().any(|e| {
         matches!(
-            e,
-            AuditEvent::CapabilityGranted { capability, .. }
-                if capability == "compute.cpu"
+        e,
+        AuditEvent::CapabilityGranted { capability, .. }
+        if capability == "compute.cpu"
         )
     });
     assert!(granted, "ATC-CAP-1: expected AuditEvent::CapabilityGranted");
@@ -126,9 +126,9 @@ fn atc_cap_2_undeclared_capability_denied() {
     let events = broker.audit_log().snapshot();
     let denied = events.iter().any(|e| {
         matches!(
-            e,
-            AuditEvent::CapabilityDenied { capability, .. }
-                if capability == "host.docker-socket"
+        e,
+        AuditEvent::CapabilityDenied { capability, .. }
+        if capability == "host.docker-socket"
         )
     });
     assert!(denied, "ATC-CAP-2: expected AuditEvent::CapabilityDenied");
@@ -161,9 +161,9 @@ fn atc_cap_3_release_then_regrant_new_id() {
     let events_after_release = broker.audit_log().snapshot();
     let released = events_after_release.iter().any(|e| {
         matches!(
-            e,
-            AuditEvent::CapabilityReleased { grant_id, .. }
-                if *grant_id == original_id
+        e,
+        AuditEvent::CapabilityReleased { grant_id, .. }
+        if *grant_id == original_id
         )
     });
     assert!(
@@ -324,9 +324,9 @@ fn atc_audit_2_unregister_emits_released_and_unregistered() {
     for expected_gid in [gc1.grant_id, gc2.grant_id] {
         let released = events.iter().any(|e| {
             matches!(
-                e,
-                AuditEvent::CapabilityReleased { grant_id, .. }
-                    if *grant_id == expected_gid
+            e,
+            AuditEvent::CapabilityReleased { grant_id, .. }
+            if *grant_id == expected_gid
             )
         });
         assert!(

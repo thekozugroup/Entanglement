@@ -1,57 +1,27 @@
-# Entanglement
+A tiny Rust runtime that turns the devices you already own into one cooperative compute fabric. Plugins declare exactly what they need — CPU, GPU, network, storage — and the runtime grants nothing else. Devices pair with a 6-digit code and share work over an encrypted mesh.
 
-> A tiny Rust runtime + plugin ecosystem that turns the devices you already own into one cooperative compute fabric.
+## Screenshots
 
-**Status:** spec complete (v6, 100/100 from two independent harsh critics across five revision rounds). Implementation has not started. This repo currently contains the architecture, research, and review trail.
+![Entanglement architecture overview](./docs/screenshot.png)
 
----
+## How it works
 
-## What it is
+Every device runs the same single-binary daemon (`entangled`). On first run, `entangle init` generates an Ed25519 identity, writes a config file, and shows you a fingerprint. Pairing a second device is a 6-digit short-code with mutual TOFU — no central server, no account, no telemetry.
 
-Two roles drive every design decision:
+Plugins ship as signed `.wasm` components or `.tar.zst` bundles. Each one declares a permission tier (1 = pure sandbox, 5 = native subprocess) and a typed capability set. The capability broker is deny-by-default: a plugin only sees what it asked for and what the operator approved. Tier-5 native plugins exist as an honest escape hatch for workloads that can't run in WASM yet (Node-based AI agents, native GPU compute) — they sit behind OS-level sandboxes (Landlock, Seatbelt) and can be globally disabled with one config line.
 
-1. **AI sysadmin** — agents like Claude Code, Codex, and OpenCode operate the system on your behalf, including managing Docker on the host as a sealed tier-5 capability.
-2. **Swarm compute** — pool CPU/GPU/NPU across paired devices so individual workloads (LLM inference, batch jobs, test parallelization) finish faster than they would on any single machine.
+Three transport modes are mixable per device: a LAN-only mDNS path for offline-first households, an Iroh QUIC mesh with NAT hole-punching for cross-network setups, and a Tailscale path that piggybacks on your existing tailnet. Cross-device authorization uses biscuit-auth tokens, attenuable so a delegated capability can never widen.
 
-Everything else — the 5-tier permission model, the capability broker, the three mesh transports, biscuit auth, OCI/tarball plugin distribution — exists to make those two roles safe and ship-able.
+## Stack
 
-## Read the spec
+- Rust (workspace of 14 crates)
+- Wasmtime + WASI 0.2 component model
+- Iroh QUIC mesh, mDNS, Tailscale
+- Ed25519 + BLAKE3 publisher signing
+- biscuit-auth Datalog capability tokens
+- Tokio async runtime
+- JSON-RPC 2.0 over Unix domain sockets
 
-| Document | What |
-| --- | --- |
-| [REPORT.md](REPORT.md) | Plain-English architecture report + load-bearing decisions + 5-round review history |
-| [docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md](docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md) | Final spec (~185 KB, 16 sections, 35 acceptance tests, glossary) |
-| [docs/research/](docs/research/) | Six prior-art research reports (permissions, Rust plugins, distributed compute, agent layer, comparable systems, BitTorrent feasibility) |
-| [docs/superpowers/specs/critic-*-review-v*.md](docs/superpowers/specs/) | Two harsh critics × five revisions = ten review documents |
-| [graphify-out/GRAPH_REPORT.md](graphify-out/GRAPH_REPORT.md) | Knowledge graph — community structure, god nodes, surprising connections |
-| [graphify-out/graph.html](graphify-out/graph.html) | Open in any browser for an interactive map of the spec |
+## Status
 
-## Codename history
-
-Centrifuge → Strata → **Entanglement.** The first two were dropped over namespace collisions; v6 is a name-only revision of v5 and carries v5's grade forward. See `§0.1` of the spec for the audit trail.
-
-## Tooling — graphify
-
-The knowledge graph in `graphify-out/` was built with [safishamsi/graphify](https://github.com/safishamsi/graphify). To rebuild or update it locally:
-
-```bash
-# Install graphify (one-time, per machine)
-uv tool install graphifyy
-graphify install                  # registers as a /graphify skill in Claude Code
-graphify claude install           # adds the always-on PreToolUse hook
-
-# Then in Claude Code, type:
-/graphify .                       # build / update the graph for this repo
-```
-
-Graphify itself is **not** vendored in this repo. Clone it separately if you want to read its source.
-
-## License
-
-Apache-2.0. See [LICENSE](LICENSE).
-
-## Status, contributing, and contact
-
-Pre-implementation. The spec invites contributions but the implementation team is being assembled — see `§12.1` for the maintainer-role roster (`core-runtime-lead`, `mesh-lead`, `agent-lead`, `security-lead`, `release-lead`). Each role needs ≥2 active holders before Phase 1 can ship.
-
-For substantive architecture feedback, open a discussion or issue on this repo.
+In progress

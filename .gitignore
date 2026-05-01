@@ -1,21 +1,9 @@
-# External tooling — clone separately, do not vendor
-tools/
+# Build artifacts
+target/
+dist/
+node_modules/
 
-# Claude Code session state (safe to keep settings.json + CLAUDE.md, not lock files)
-.claude/scheduled_tasks.lock
-.claude/*.lock
-
-# Graphify operational artifacts — keep GRAPH_REPORT.md and graph.html;
-# exclude the rest (absolute paths, token telemetry)
-graphify-out/cache/
-graphify-out/cost.json
-graphify-out/manifest.json
-graphify-out/graph.json
-graphify-out/.graphify_python
-graphify-out/.graphify_root
-graphify-out/.graphify_*.json
-
-# Future Entanglement runtime
+# Runtime data (Entanglement)
 .entangle/
 *.key
 *.pem
@@ -23,22 +11,11 @@ graphify-out/.graphify_*.json
 .env
 .env.*
 
-# Build artifacts
-target/
-dist/
-node_modules/
-*.swp
-
 # OS / editor
 .DS_Store
+*.swp
 *.swo
 *.bak
 *.orig
 .idea/
 .vscode/
-
-# Backup files from rename agent
-*.original.md
-
-# Internal pre-publication scan (contains absolute local paths)
-SECURITY_SCAN.md

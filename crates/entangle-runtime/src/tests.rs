@@ -16,7 +16,7 @@ use crate::{Kernel, KernelConfig, LifecyclePhase};
 ///
 /// Uses `(component)` — the smallest valid component-model binary.
 /// Falls back to an empty vec if the `wat` crate does not support the
-/// component text format (same approach as entangle-host iter 6 tests).
+/// component text format (same approach as entangle-host tests).
 fn minimal_wasm() -> Vec<u8> {
     match wat::parse_str("(component)") {
         Ok(b) => b,

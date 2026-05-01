@@ -1,27 +1,27 @@
 //! §16 ATC-SIG-* acceptance tests for `entangle-signing`.
 //!
-//! Each test name is the ATC code lowercased, enabling iter-19's matrix runner
+//! Each test name is the ATC code lowercased, enabling's matrix runner
 //! to scrape `cargo test -- --list` output for spec coverage.
 //!
 //! ATC IDs implemented here:
-//!   ATC-SIG-1  sign-and-verify happy path
-//!   ATC-SIG-2  empty keyring → UnknownPublisher
-//!   ATC-SIG-3  mutated artifact bytes → ArtifactHashMismatch
-//!   ATC-SIG-4  mutated signature bytes → BadSignature
-//!   ATC-SIG-5  unsupported algorithm → UnsupportedAlgorithm
-//!   ATC-REP-1  Ed25519+BLAKE3 signatures are deterministic (differ only in created_at)
+//! ATC-SIG-1 sign-and-verify happy path
+//! ATC-SIG-2 empty keyring → UnknownPublisher
+//! ATC-SIG-3 mutated artifact bytes → ArtifactHashMismatch
+//! ATC-SIG-4 mutated signature bytes → BadSignature
+//! ATC-SIG-5 unsupported algorithm → UnsupportedAlgorithm
+//! ATC-REP-1 Ed25519+BLAKE3 signatures are deterministic (differ only in created_at)
 //!
 //! ATC IDs deferred (out of scope for entangle-signing):
-//!   ATC-BRG-{1..6}  — crates/entangle-signing (bridge biscuit module, future iter)
-//!   ATC-PKG-{1..4}  — crates/cargo-entangle  (reproducible packaging CLI)
-//!   ATC-INT-{1..6}  — crates/entangle-plugin-scheduler (IntegrityPolicy + verifier locality)
-//!   ATC-MAN-{1..4}  — crates/entangle-manifest (manifest + tier checks)
-//!   ATC-STR-{1..3}  — crates/entangle-plugin-scheduler (streaming credit/heartbeat)
-//!   ATC-WRP-{1..3}  — tests/bats (wrapper UX shell tests)
-//!   ATC-MAX-{1..3}  — tests/bats (max_tier_allowed interactive tests)
-//!   ATC-MIR-{1..2}  — crates/entangle-oci (mirror-as-CDN listing verification)
-//!   ATC-REL-{1..2}  — tests/integration (cosign + Shamir release signing)
-//!   ATC-BUS-{1..2}  — .github/workflows (bus-factor CI invariant)
+//! ATC-BRG-{1..6} — crates/entangle-signing (bridge biscuit module, future iter)
+//! ATC-PKG-{1..4} — crates/cargo-entangle (reproducible packaging CLI)
+//! ATC-INT-{1..6} — crates/entangle-plugin-scheduler (IntegrityPolicy + verifier locality)
+//! ATC-MAN-{1..4} — crates/entangle-manifest (manifest + tier checks)
+//! ATC-STR-{1..3} — crates/entangle-plugin-scheduler (streaming credit/heartbeat)
+//! ATC-WRP-{1..3} — tests/bats (wrapper UX shell tests)
+//! ATC-MAX-{1..3} — tests/bats (max_tier_allowed interactive tests)
+//! ATC-MIR-{1..2} — crates/entangle-oci (mirror-as-CDN listing verification)
+//! ATC-REL-{1..2} — tests/integration (cosign + Shamir release signing)
+//! ATC-BUS-{1..2} — .github/workflows (bus-factor CI invariant)
 
 use entangle_signing::{
     artifact::{sign_artifact, verify_artifact, VerificationError},
@@ -56,8 +56,8 @@ fn keyring_with(kp: &IdentityKeyPair) -> Keyring {
 /// §16 ATC-SIG-1 — Sign-and-verify happy path.
 ///
 /// GIVEN keypair K,
-/// WHEN  sign_artifact(A, K) produces bundle B AND verify_artifact(A, B, keyring{K}) runs,
-/// THEN  Ok(TrustEntry) is returned AND publisher_name matches.
+/// WHEN sign_artifact(A, K) produces bundle B AND verify_artifact(A, B, keyring{K}) runs,
+/// THEN Ok(TrustEntry) is returned AND publisher_name matches.
 #[test]
 fn atc_sig_1_sign_verify_happy_path() {
     let kp = IdentityKeyPair::generate();
@@ -87,8 +87,8 @@ fn atc_sig_1_sign_verify_happy_path() {
 /// §16 ATC-SIG-2 — Empty keyring yields UnknownPublisher.
 ///
 /// GIVEN signed artifact A,
-/// WHEN  verify_artifact(A, bundle, empty_keyring) runs,
-/// THEN  Err(VerificationError::UnknownPublisher) is returned.
+/// WHEN verify_artifact(A, bundle, empty_keyring) runs,
+/// THEN Err(VerificationError::UnknownPublisher) is returned.
 #[test]
 fn atc_sig_2_empty_keyring_unknown_publisher() {
     let kp = IdentityKeyPair::generate();
@@ -112,15 +112,15 @@ fn atc_sig_2_empty_keyring_unknown_publisher() {
 /// §16 ATC-SIG-3 — Mutated artifact bytes yield ArtifactHashMismatch.
 ///
 /// GIVEN signed artifact A,
-/// WHEN  bytes are mutated to A' AND verify_artifact(A', bundle_of_A, keyring) runs,
-/// THEN  Err(VerificationError::ArtifactHashMismatch) is returned.
+/// WHEN bytes are mutated to A' AND verify_artifact(A', bundle_of_A, keyring) runs,
+/// THEN Err(VerificationError::ArtifactHashMismatch) is returned.
 ///
 /// The bundle records BLAKE3(A); re-hashing A' produces a different digest.
 #[test]
 fn atc_sig_3_mutated_artifact_hash_mismatch() {
     let kp = IdentityKeyPair::generate();
     let original = b"atc-sig-3 original artifact";
-    let mutated = b"atc-sig-3 mutated  artifact";
+    let mutated = b"atc-sig-3 mutated artifact";
     let bundle = sign_artifact(original, &kp);
 
     let kr = keyring_with(&kp);
@@ -140,8 +140,8 @@ fn atc_sig_3_mutated_artifact_hash_mismatch() {
 /// §16 ATC-SIG-4 — Mutated signature bytes yield BadSignature.
 ///
 /// GIVEN signed artifact A,
-/// WHEN  one byte of bundle.signature is flipped AND verify_artifact(A, bundle', keyring) runs,
-/// THEN  Err(VerificationError::BadSignature) is returned.
+/// WHEN one byte of bundle.signature is flipped AND verify_artifact(A, bundle', keyring) runs,
+/// THEN Err(VerificationError::BadSignature) is returned.
 #[test]
 fn atc_sig_4_mutated_signature_bad_signature() {
     let kp = IdentityKeyPair::generate();
@@ -168,8 +168,8 @@ fn atc_sig_4_mutated_signature_bad_signature() {
 /// §16 ATC-SIG-5 — Unknown algorithm field yields UnsupportedAlgorithm.
 ///
 /// GIVEN a SignatureBundle with algorithm = "rsa-pkcs1v15" (not "ed25519"),
-/// WHEN  verify_artifact runs,
-/// THEN  Err(VerificationError::UnsupportedAlgorithm(_)) is returned.
+/// WHEN verify_artifact runs,
+/// THEN Err(VerificationError::UnsupportedAlgorithm(_)) is returned.
 #[test]
 fn atc_sig_5_unsupported_algorithm_rejected() {
     let kp = IdentityKeyPair::generate();
@@ -197,13 +197,13 @@ fn atc_sig_5_unsupported_algorithm_rejected() {
 /// §16 ATC-REP-1 — Ed25519 signatures over identical BLAKE3 hashes are deterministic.
 ///
 /// GIVEN identical artifact bytes and the same keypair K,
-/// WHEN  sign_artifact runs twice,
-/// THEN  bundle_a.signature == bundle_b.signature (Ed25519 is deterministic per RFC 8032)
-/// AND   bundle_a.artifact_blake3 == bundle_b.artifact_blake3
-/// AND   bundles MAY differ in created_at (wall-clock timestamp).
+/// WHEN sign_artifact runs twice,
+/// THEN bundle_a.signature == bundle_b.signature (Ed25519 is deterministic per RFC 8032)
+/// AND bundle_a.artifact_blake3 == bundle_b.artifact_blake3
+/// AND bundles MAY differ in created_at (wall-clock timestamp).
 ///
 /// Note: RFC 8032 / dalek Ed25519 is deterministic — same key + same message
-/// always produces the same 64-byte signature.  The only non-deterministic field
+/// always produces the same 64-byte signature. The only non-deterministic field
 /// is `created_at` (Unix seconds), so two back-to-back calls within the same
 /// second produce completely identical bundles; calls across a second boundary
 /// will differ only there.
