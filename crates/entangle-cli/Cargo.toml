@@ -19,6 +19,7 @@ entangle-signing  = { workspace = true }
 entangle-manifest = { workspace = true }
 entangle-rpc      = { path = "../entangle-rpc" }
 entangle-peers    = { path = "../entangle-peers" }
+entangle-pairing  = { path = "../entangle-pairing" }
 clap              = { workspace = true, features = ["derive"] }
 anyhow            = { workspace = true }
 tokio             = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "fs"] }
@@ -29,10 +30,14 @@ toml              = { workspace = true }
 directories       = "5"
 hex               = { workspace = true }
 base64            = { workspace = true }
+serde_json        = { workspace = true }
+rand_core         = { workspace = true, features = ["getrandom"] }
 
 [dev-dependencies]
 assert_cmd        = "2"
 tempfile          = { workspace = true }
 predicates        = "3"
 entangle-signing  = { workspace = true }
+entangle-pairing  = { path = "../entangle-pairing" }
 hex               = { workspace = true }
+serde_json        = { workspace = true }

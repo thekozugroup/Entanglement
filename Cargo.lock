@@ -830,6 +830,7 @@ dependencies = [
  "clap",
  "directories",
  "entangle-manifest",
+ "entangle-pairing",
  "entangle-peers",
  "entangle-rpc",
  "entangle-runtime",
@@ -837,7 +838,9 @@ dependencies = [
  "entangle-types",
  "hex",
  "predicates",
+ "rand_core",
  "serde",
+ "serde_json",
  "tempfile",
  "tokio",
  "toml 0.8.23",
@@ -916,6 +919,21 @@ dependencies = [
  "entangle-signing",
  "entangle-types",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "entangle-pairing"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "entangle-signing",
+ "entangle-types",
+ "hex",
+ "rand_core",
+ "regex",
+ "serde",
+ "thiserror 2.0.18",
+ "toml 0.8.23",
 ]
 
 [[package]]

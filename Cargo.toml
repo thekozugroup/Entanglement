@@ -19,6 +19,7 @@ members = [
     "crates/entangle-atc-matrix",
     "crates/entangle-rpc",
     "crates/entangle-peers",
+    "crates/entangle-pairing",
 ]
 exclude = [
     "examples/*",
@@ -103,6 +104,7 @@ entangle-mesh-local = { path = "crates/entangle-mesh-local" }
 entangle-oci = { path = "crates/entangle-oci" }
 entangle-rpc = { path = "crates/entangle-rpc" }
 entangle-peers = { path = "crates/entangle-peers" }
+entangle-pairing = { path = "crates/entangle-pairing" }
 
 [profile.release]
 lto = "thin"
