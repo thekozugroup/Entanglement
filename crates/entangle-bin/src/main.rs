@@ -6,6 +6,7 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use entangle_bin::{config, maintenance::MaintenanceLoop, server, state::DaemonState};
+use entangle_mesh_local::{Discovery, DiscoveryConfig, HardwareAdvert, LocalPeer};
 use entangle_peers::PeerStore;
 use entangle_runtime::{Kernel, KernelConfig};
 use entangle_scheduler::{Dispatcher, WorkerPool};
@@ -128,14 +129,94 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let display_name = std::env::var("HOSTNAME")
         .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_owned()))
         .unwrap_or_else(|_| "entangled".to_owned());
-    let state = Arc::new(DaemonState::new(
+    let mut daemon_state = DaemonState::new(
         kernel.clone(),
         dispatcher,
         worker_pool,
         peer_store,
         identity,
         display_name,
-    ));
+    );
+
+    // ── 3d. Spawn mDNS discovery (when `mesh.local` transport is configured) ─
+    // The discovery handle is stored in DaemonState so RPC handlers can call
+    // `snapshot_peers()` directly.
+    let _discovery_browser_handle = if cfg.mesh.transports.iter().any(|t| t == "local") {
+        let local = LocalPeer {
+            peer_id: daemon_state.local_peer_id,
+            display_name: daemon_state.local_display_name.clone(),
+            port: 7001, // Phase 1 placeholder; real port wiring is Phase 2 transport
+            version: env!("CARGO_PKG_VERSION").into(),
+            hardware: Some(detect_hardware()),
+        };
+        let discovery_cfg = DiscoveryConfig {
+            local,
+            announce_interval_secs: 30,
+            channel_capacity: 256,
+        };
+        match Discovery::new(discovery_cfg) {
+            Ok(d) => {
+                if let Err(e) = d.start_announcing() {
+                    tracing::warn!(error = %e, "mDNS announce failed — discovery disabled");
+                    None
+                } else {
+                    let browser_handle = d.spawn_browser().ok();
+                    let d = Arc::new(d);
+                    daemon_state.set_discovery(d.clone());
+
+                    // Worker-pool feeder: forward DiscoveryEvents into WorkerPool.
+                    let pool = daemon_state.worker_pool.clone();
+                    let mut sub = d.subscribe();
+                    let local_peer = daemon_state.local_peer_id;
+                    tokio::spawn(async move {
+                        use entangle_mesh_local::DiscoveryEvent;
+                        use entangle_scheduler::WorkerInfo;
+                        use entangle_types::resource::GpuRequirement;
+
+                        while let Ok(evt) = sub.recv().await {
+                            match evt {
+                                DiscoveryEvent::PeerAppeared(p)
+                                | DiscoveryEvent::PeerUpdated(p) => {
+                                    if p.peer_id == local_peer {
+                                        continue;
+                                    }
+                                    if let Some(hw) = &p.hardware {
+                                        pool.upsert(WorkerInfo {
+                                            peer_id: p.peer_id,
+                                            display_name: p.display_name.clone(),
+                                            cpu_cores: hw.cpu_cores,
+                                            memory_bytes: hw.memory_bytes,
+                                            gpu: hw.gpu_backend.map(|backend| GpuRequirement {
+                                                vram_min_bytes: hw.gpu_vram_bytes,
+                                                backend,
+                                            }),
+                                            npu: None, // Phase 2: NPU advertisement
+                                            network_bandwidth_bps: hw.network_bandwidth_bps,
+                                            rtt_ms: 5, // Phase 1 estimate; real RTT in Phase 2
+                                            load: 0.0,
+                                            cost: 1.0,
+                                        });
+                                    }
+                                }
+                                DiscoveryEvent::PeerDisappeared { peer_id, .. } => {
+                                    pool.remove(&peer_id);
+                                }
+                            }
+                        }
+                    });
+                    browser_handle
+                }
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Discovery::new failed — discovery disabled");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let state = Arc::new(daemon_state);
 
     tracing::info!(
         local_peer_id = %state.local_peer_id,
@@ -220,6 +301,21 @@ async fn status(args: StatusArgs) -> anyhow::Result<()> {
 }
 
 // ── Identity helper ───────────────────────────────────────────────────────────
+
+/// Best-effort detection of local hardware for mDNS advertisement.
+///
+/// Phase 1: only CPU core count is reliable.  Memory, GPU, and network
+/// bandwidth are stubbed at 0 and will be filled in Phase 2 via `sysinfo`
+/// and `wgpu` probing.
+fn detect_hardware() -> HardwareAdvert {
+    HardwareAdvert {
+        cpu_cores: num_cpus::get() as f32,
+        memory_bytes: 0,   // Phase 2: sysinfo crate
+        gpu_backend: None, // Phase 2: wgpu detection
+        gpu_vram_bytes: 0,
+        network_bandwidth_bps: 0,
+    }
+}
 
 /// Load the identity keypair from `path`, or generate and persist a new one.
 ///

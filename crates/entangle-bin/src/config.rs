@@ -9,6 +9,17 @@ use std::path::PathBuf;
 pub struct Config {
     /// Runtime-specific tuning knobs.
     pub runtime: RuntimeConfig,
+    /// Mesh transport configuration.
+    pub mesh: MeshConfig,
+}
+
+/// Mesh-layer configuration.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MeshConfig {
+    /// Active transport backends.  Phase 1 supports `"local"` (mDNS).
+    /// Example in `config.toml`: `transports = ["local"]`
+    pub transports: Vec<String>,
 }
 
 /// Runtime-related configuration knobs.

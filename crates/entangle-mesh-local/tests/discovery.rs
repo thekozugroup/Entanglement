@@ -9,7 +9,7 @@
 //! cargo test -p entangle-mesh-local -- --ignored manual_
 //! ```
 
-use entangle_mesh_local::{Discovery, DiscoveryConfig, LocalPeer};
+use entangle_mesh_local::{Discovery, DiscoveryConfig, HardwareAdvert, LocalPeer};
 use entangle_types::peer_id::PeerId;
 
 /// Fixed 32-byte seed for a deterministic peer id in tests.
@@ -23,6 +23,27 @@ fn make_config(key: &[u8; 32], port: u16, name: &str) -> DiscoveryConfig {
             display_name: name.to_string(),
             port,
             version: env!("CARGO_PKG_VERSION").to_string(),
+            hardware: None,
+        },
+        announce_interval_secs: 30,
+        channel_capacity: 64,
+    }
+}
+
+fn make_config_with_hardware(key: &[u8; 32], port: u16, name: &str) -> DiscoveryConfig {
+    DiscoveryConfig {
+        local: LocalPeer {
+            peer_id: PeerId::from_public_key_bytes(key),
+            display_name: name.to_string(),
+            port,
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            hardware: Some(HardwareAdvert {
+                cpu_cores: 8.0,
+                memory_bytes: 16_000_000_000,
+                gpu_backend: None,
+                gpu_vram_bytes: 0,
+                network_bandwidth_bps: 1_000_000_000,
+            }),
         },
         announce_interval_secs: 30,
         channel_capacity: 64,
@@ -56,6 +77,66 @@ fn smoke_announce_and_shutdown() {
         Ok(()) => {}
         Err(e) => eprintln!("shutdown failed (non-fatal in sandbox): {e}"),
     }
+}
+
+// ── HardwareAdvert unit tests ─────────────────────────────────────────────────
+
+/// Verify that a `LocalPeer` carrying a `HardwareAdvert` is correctly
+/// accepted by `DiscoveryConfig` and that the hardware fields are readable.
+///
+/// This does NOT run mDNS — it purely constructs the config and inspects the
+/// in-memory struct (the TXT encoding path is exercised indirectly by
+/// `smoke_announce_and_shutdown` which calls `start_announcing` → `txt_map`).
+#[test]
+fn local_peer_with_hardware_advert_fields() {
+    let cfg = make_config_with_hardware(&KEY_A, 17710, "hw-node");
+    let hw = cfg
+        .local
+        .hardware
+        .as_ref()
+        .expect("hardware should be Some");
+
+    assert_eq!(hw.cpu_cores, 8.0);
+    assert_eq!(hw.memory_bytes, 16_000_000_000);
+    assert!(hw.gpu_backend.is_none());
+    assert_eq!(hw.gpu_vram_bytes, 0);
+    assert_eq!(hw.network_bandwidth_bps, 1_000_000_000);
+}
+
+/// `HardwareAdvert` with a GPU backend is preserved.
+#[test]
+fn local_peer_hardware_with_gpu() {
+    use entangle_types::resource::GpuBackend;
+
+    let cfg = DiscoveryConfig {
+        local: LocalPeer {
+            peer_id: PeerId::from_public_key_bytes(&KEY_B),
+            display_name: "gpu-node".into(),
+            port: 17711,
+            version: env!("CARGO_PKG_VERSION").into(),
+            hardware: Some(HardwareAdvert {
+                cpu_cores: 16.0,
+                memory_bytes: 32_000_000_000,
+                gpu_backend: Some(GpuBackend::Metal),
+                gpu_vram_bytes: 8_000_000_000,
+                network_bandwidth_bps: 10_000_000_000,
+            }),
+        },
+        announce_interval_secs: 30,
+        channel_capacity: 64,
+    };
+
+    let hw = cfg.local.hardware.as_ref().unwrap();
+    assert_eq!(hw.gpu_backend, Some(GpuBackend::Metal));
+    assert_eq!(hw.gpu_vram_bytes, 8_000_000_000);
+    assert_eq!(hw.cpu_cores, 16.0);
+}
+
+/// `DiscoveryConfig::default()` produces a `LocalPeer` with `hardware: None`.
+#[test]
+fn default_config_has_no_hardware() {
+    let cfg = DiscoveryConfig::default();
+    assert!(cfg.local.hardware.is_none());
 }
 
 // ── ignored manual integration tests ─────────────────────────────────────────

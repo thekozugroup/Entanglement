@@ -13,7 +13,7 @@ mod config;
 mod identity;
 
 use cmd::{
-    compute::ComputeArgs, keyring::KeyringArgs, mesh::MeshArgs, pair::PairArgs,
+    compute::ComputeArgs, init::InitArgs, keyring::KeyringArgs, mesh::MeshArgs, pair::PairArgs,
     plugins::PluginsArgs,
 };
 
@@ -40,7 +40,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Cmd {
     /// Generate identity, write ~/.entangle/identity.key and config.toml.
-    Init,
+    Init(InitArgs),
     /// Print detailed version information (CLI, runtime, toolchain, daemon).
     Version,
     /// Run health checks: identity, config, keyring, daemon reachability.
@@ -74,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     match cli.cmd {
-        Cmd::Init => cmd::init::run().await,
+        Cmd::Init(a) => cmd::init::run(a).await,
         Cmd::Version => cmd::version::run().await,
         Cmd::Doctor => cmd::doctor::run().await,
         Cmd::Keyring(a) => cmd::keyring::run(a).await,

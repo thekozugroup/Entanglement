@@ -2,7 +2,7 @@
 
 use crate::{
     errors::DiscoveryError,
-    peer::{LocalPeer, PeerSeen},
+    peer::{HardwareAdvert, LocalPeer, PeerSeen},
 };
 use entangle_types::peer_id::PeerId;
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
@@ -52,6 +52,7 @@ impl Default for DiscoveryConfig {
                 display_name: "entangled".to_string(),
                 port: 7700,
                 version: env!("CARGO_PKG_VERSION").to_string(),
+                hardware: None,
             },
             announce_interval_secs: 30,
             channel_capacity: 256,
@@ -199,6 +200,26 @@ impl Discovery {
         m.insert("peer_id".into(), self.local.peer_id.to_hex());
         m.insert("display_name".into(), self.local.display_name.clone());
         m.insert("version".into(), self.local.version.clone());
+        if let Some(hw) = &self.local.hardware {
+            m.insert("cpu_cores".into(), hw.cpu_cores.to_string());
+            m.insert("memory_bytes".into(), hw.memory_bytes.to_string());
+            if let Some(backend) = hw.gpu_backend {
+                // Use serde's kebab-case representation for forward-compat.
+                let backend_str = match backend {
+                    entangle_types::resource::GpuBackend::Metal => "metal",
+                    entangle_types::resource::GpuBackend::Cuda => "cuda",
+                    entangle_types::resource::GpuBackend::Vulkan => "vulkan",
+                    entangle_types::resource::GpuBackend::Rocm => "rocm",
+                    entangle_types::resource::GpuBackend::Any => "any",
+                };
+                m.insert("gpu_backend".into(), backend_str.into());
+                m.insert("gpu_vram".into(), hw.gpu_vram_bytes.to_string());
+            }
+            m.insert(
+                "network_bandwidth_bps".into(),
+                hw.network_bandwidth_bps.to_string(),
+            );
+        }
         m
     }
 }
@@ -234,13 +255,67 @@ fn parse_service(info: &mdns_sd::ResolvedService) -> Option<PeerSeen> {
         })
         .collect();
 
+    // ── parse optional hardware advertisement ────────────────────────────
+    let hardware = parse_hardware(txt);
+
     Some(PeerSeen {
         peer_id,
         display_name,
         addresses,
         port: info.get_port(),
         version,
+        hardware,
         last_seen: SystemTime::now(),
+    })
+}
+
+/// Parse hardware advertisement fields from a mDNS TXT property map.
+///
+/// Returns `None` if the mandatory `cpu_cores` key is absent (i.e. the remote
+/// peer does not advertise hardware).
+fn parse_hardware(txt: &mdns_sd::TxtProperties) -> Option<HardwareAdvert> {
+    use entangle_types::resource::GpuBackend;
+
+    let cpu_cores: f32 = txt
+        .get_property_val_str("cpu_cores")?
+        .parse()
+        .unwrap_or(0.0);
+
+    let memory_bytes: u64 = txt
+        .get_property_val_str("memory_bytes")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+
+    let gpu_backend: Option<GpuBackend> =
+        txt.get_property_val_str("gpu_backend")
+            .and_then(|s| match s {
+                "metal" => Some(GpuBackend::Metal),
+                "cuda" => Some(GpuBackend::Cuda),
+                "vulkan" => Some(GpuBackend::Vulkan),
+                "rocm" => Some(GpuBackend::Rocm),
+                "any" => Some(GpuBackend::Any),
+                other => {
+                    warn!("unknown gpu_backend in mDNS TXT: {other}");
+                    None
+                }
+            });
+
+    let gpu_vram_bytes: u64 = txt
+        .get_property_val_str("gpu_vram")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+
+    let network_bandwidth_bps: u64 = txt
+        .get_property_val_str("network_bandwidth_bps")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+
+    Some(HardwareAdvert {
+        cpu_cores,
+        memory_bytes,
+        gpu_backend,
+        gpu_vram_bytes,
+        network_bandwidth_bps,
     })
 }
 

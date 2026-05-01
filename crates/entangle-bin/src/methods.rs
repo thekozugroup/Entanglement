@@ -292,29 +292,91 @@ async fn handle_compute_dispatch(
 
 // ── mesh/peers ────────────────────────────────────────────────────────────────
 
-/// Return all trusted (non-revoked) peers from the PeerStore.
+/// Return the merged view of sighted (mDNS) and trusted (PeerStore) peers.
 ///
-/// Phase 1: only PeerStore entries are returned (all marked `trusted=true`).
-/// Discovery-based sightings will be merged here in Phase 2.
+/// Merge rules:
+/// - All non-revoked `PeerStore` entries appear with `trusted=true`.
+/// - All mDNS-sighted peers appear; `trusted` is set if they are also in the store.
+/// - When a peer is both sighted and trusted the sighted view is used (live
+///   addresses + version) but `trusted=true` is set.
+/// - Trusted-but-not-sighted peers appear with empty `addresses` and
+///   `last_seen_secs_ago` derived from `last_seen_at`.
 fn handle_mesh_peers(id: serde_json::Value, state: &Arc<DaemonState>) -> String {
     use entangle_peers::TrustLevel;
+    use entangle_types::peer_id::PeerId;
+    use std::collections::HashMap;
+    use std::time::SystemTime;
 
-    let peers: Vec<MeshPeer> = state
+    // ── 1. Collect trusted peers from PeerStore ───────────────────────────
+    let trusted_map: HashMap<PeerId, _> = state
         .peer_store
         .list()
         .into_iter()
         .filter(|p| p.trust != TrustLevel::Revoked)
-        .map(|p| MeshPeer {
-            peer_id: p.peer_id.to_hex(),
-            display_name: p.display_name.clone(),
-            addresses: vec![],
-            port: 0,
-            version: String::new(),
-            last_seen_secs_ago: 0,
-            trusted: true,
-        })
+        .map(|p| (p.peer_id, p))
         .collect();
 
+    // ── 2. Collect sighted peers from Discovery snapshot ──────────────────
+    // `snapshot_peers` is async; use `block_in_place` to drive it from a sync
+    // context without starving the runtime.
+    let sighted: Vec<entangle_mesh_local::PeerSeen> = if let Some(d) = &state.discovery {
+        let d = d.clone();
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(d.snapshot_peers())
+        })
+    } else {
+        vec![]
+    };
+
+    // ── 3. Build merged peer list ─────────────────────────────────────────
+    let now = SystemTime::now();
+    let mut result: HashMap<PeerId, MeshPeer> = HashMap::new();
+
+    // Insert sighted peers first.
+    for p in &sighted {
+        let trusted = trusted_map.contains_key(&p.peer_id);
+        let last_seen_secs_ago = p.last_seen.elapsed().map(|d| d.as_secs()).unwrap_or(0);
+        result.insert(
+            p.peer_id,
+            MeshPeer {
+                peer_id: p.peer_id.to_hex(),
+                display_name: p.display_name.clone(),
+                addresses: p.addresses.iter().map(|a| a.to_string()).collect(),
+                port: p.port,
+                version: p.version.clone(),
+                last_seen_secs_ago,
+                trusted,
+            },
+        );
+    }
+
+    // Overlay trusted-but-not-sighted peers.
+    for (peer_id, tp) in &trusted_map {
+        if result.contains_key(peer_id) {
+            continue; // already present from sighted view
+        }
+        let last_seen_secs_ago = tp
+            .last_seen_at
+            .map(|unix_secs| {
+                let then = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(unix_secs);
+                now.duration_since(then).map(|d| d.as_secs()).unwrap_or(0)
+            })
+            .unwrap_or(0);
+        result.insert(
+            *peer_id,
+            MeshPeer {
+                peer_id: peer_id.to_hex(),
+                display_name: tp.display_name.clone(),
+                addresses: vec![],
+                port: 0,
+                version: String::new(),
+                last_seen_secs_ago,
+                trusted: true,
+            },
+        );
+    }
+
+    let peers: Vec<MeshPeer> = result.into_values().collect();
     ok_resp(id, MeshPeersResult { peers })
 }
 

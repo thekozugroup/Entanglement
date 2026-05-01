@@ -25,6 +25,10 @@ pub struct MeshConfig {
     /// Active transport backends. Phase 1 only supports "local".
     #[serde(default)]
     pub transports: Vec<String>,
+    /// When `true` the daemon requires at least one trusted peer before starting
+    /// (spec §11 #16).  Relevant to `doctor` check #5.
+    #[serde(default)]
+    pub multi_node: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

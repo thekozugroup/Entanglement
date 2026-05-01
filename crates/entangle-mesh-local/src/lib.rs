@@ -13,4 +13,4 @@ pub mod peer;
 
 pub use discovery::{Discovery, DiscoveryConfig, DiscoveryEvent};
 pub use errors::DiscoveryError;
-pub use peer::{LocalPeer, PeerSeen};
+pub use peer::{HardwareAdvert, LocalPeer, PeerSeen};

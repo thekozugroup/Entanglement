@@ -17,15 +17,17 @@ name = "entangled"
 path = "src/main.rs"
 
 [dependencies]
-entangle-types     = { workspace = true }
-entangle-rpc       = { path = "../entangle-rpc" }
-entangle-runtime   = { workspace = true }
-entangle-signing   = { workspace = true }
-entangle-manifest  = { workspace = true }
-entangle-broker    = { workspace = true }
-entangle-scheduler     = { path = "../entangle-scheduler" }
-entangle-peers         = { path = "../entangle-peers" }
-entangle-observability = { workspace = true }
+entangle-types      = { workspace = true }
+entangle-rpc        = { path = "../entangle-rpc" }
+entangle-runtime    = { workspace = true }
+entangle-signing    = { workspace = true }
+entangle-manifest   = { workspace = true }
+entangle-broker     = { workspace = true }
+entangle-scheduler      = { path = "../entangle-scheduler" }
+entangle-peers          = { path = "../entangle-peers" }
+entangle-mesh-local     = { workspace = true }
+entangle-observability  = { workspace = true }
+num_cpus = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

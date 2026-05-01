@@ -2,6 +2,7 @@
 //! and peer store. Constructed once at daemon startup, shared by all RPC
 //! handlers via `Arc<DaemonState>`.
 
+use entangle_mesh_local::Discovery;
 use entangle_peers::PeerStore;
 use entangle_runtime::Kernel;
 use entangle_scheduler::{Dispatcher, WorkerPool};
@@ -30,6 +31,8 @@ pub struct DaemonState {
     pub local_display_name: String,
     /// Ed25519 identity keypair (signing, pairing).
     pub identity: IdentityKeyPair,
+    /// mDNS discovery handle; `None` when `mesh.local` transport is disabled.
+    pub discovery: Option<Arc<Discovery>>,
 }
 
 impl DaemonState {
@@ -55,6 +58,13 @@ impl DaemonState {
             local_peer_id,
             local_display_name: display_name,
             identity,
+            discovery: None,
         }
+    }
+
+    /// Attach a running [`Discovery`] handle.  Called after construction when
+    /// the `mesh.local` transport is enabled in config.
+    pub fn set_discovery(&mut self, d: Arc<Discovery>) {
+        self.discovery = Some(d);
     }
 }

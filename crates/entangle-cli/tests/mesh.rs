@@ -58,7 +58,10 @@ fn mesh_status_with_no_daemon_errors_clearly() {
 #[test]
 fn mesh_trust_writes_peers_toml() {
     let tmp = TempDir::new().unwrap();
-    entangle(&tmp).arg("init").assert().success();
+    entangle(&tmp)
+        .args(["init", "--non-interactive"])
+        .assert()
+        .success();
 
     let (peer_id, pub_hex) = make_test_peer();
 
@@ -90,7 +93,10 @@ fn mesh_trust_writes_peers_toml() {
 #[test]
 fn mesh_untrust_removes_peer() {
     let tmp = TempDir::new().unwrap();
-    entangle(&tmp).arg("init").assert().success();
+    entangle(&tmp)
+        .args(["init", "--non-interactive"])
+        .assert()
+        .success();
 
     let (peer_id, pub_hex) = make_test_peer();
 
@@ -130,7 +136,10 @@ fn mesh_untrust_removes_peer() {
 #[test]
 fn mesh_peers_with_allow_local_falls_back() {
     let tmp = TempDir::new().unwrap();
-    entangle(&tmp).arg("init").assert().success();
+    entangle(&tmp)
+        .args(["init", "--non-interactive"])
+        .assert()
+        .success();
 
     entangle(&tmp)
         .args(["--allow-local", "mesh", "peers"])
