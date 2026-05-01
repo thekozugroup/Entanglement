@@ -2,6 +2,7 @@
 //!
 //! See spec §9.4 (`max_tier_allowed`) and §11 #16 (multi-node allowlist).
 
+use entangle_biscuits::PublicKey;
 use entangle_types::tier::Tier;
 
 /// Daemon-wide policy enforced by the [`crate::Broker`].
@@ -25,6 +26,32 @@ impl Default for BrokerPolicy {
             multi_node: false,
             peer_allowlist_populated: false,
         }
+    }
+}
+
+/// Policy for cross-node biscuit-based capability grants.
+///
+/// Populated from `~/.entangle/keyring.toml` (publisher keys for signed plugins)
+/// and `~/.entangle/peers.toml` (paired peer pubkeys). Any biscuit signed by
+/// one of the registered trust roots is considered valid for cross-node grants.
+#[derive(Clone, Default)]
+pub struct CrossNodePolicy {
+    /// Trust roots: any biscuit signed by one of these public keys is acceptable.
+    pub trust_roots: Vec<PublicKey>,
+}
+
+impl CrossNodePolicy {
+    /// Create an empty policy (no trust roots — all cross-node grants will be denied).
+    pub fn empty() -> Self {
+        Self {
+            trust_roots: vec![],
+        }
+    }
+
+    /// Add a trust root public key.
+    pub fn with_root(mut self, key: PublicKey) -> Self {
+        self.trust_roots.push(key);
+        self
     }
 }
 

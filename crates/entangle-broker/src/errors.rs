@@ -58,4 +58,12 @@ pub enum BrokerError {
     /// A plugin ID was not found in the broker registry.
     #[error("plugin not registered: {0}")]
     PluginNotRegistered(PluginId),
+
+    /// ENTANGLE-E0411: biscuit verification failed.
+    ///
+    /// Returned by [`crate::Broker::grant_with_biscuit`] when no trust root
+    /// accepts the presented token, or when the token's claims (expiry, peer,
+    /// capability surface) do not satisfy the requirements.
+    #[error("ENTANGLE-E0411: biscuit verification failed: {0}")]
+    BiscuitVerify(String),
 }

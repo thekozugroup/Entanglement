@@ -12,6 +12,7 @@ rust-version.workspace = true
 entangle-types = { workspace = true }
 entangle-manifest = { workspace = true }
 entangle-peers = { workspace = true }
+entangle-biscuits = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
@@ -19,5 +20,8 @@ async-trait = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+entangle-signing = { workspace = true }
+entangle-biscuits = { workspace = true }
+biscuit-auth = { workspace = true }
 semver = { workspace = true }
 toml = { workspace = true }

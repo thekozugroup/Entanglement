@@ -12,10 +12,11 @@
 use crate::{
     audit::{AuditEvent, AuditLog},
     errors::BrokerError,
-    policy::BrokerPolicy,
+    policy::{BrokerPolicy, CrossNodePolicy},
 };
+use entangle_biscuits::verifier;
 use entangle_manifest::ValidatedManifest;
-use entangle_types::{capability::CapabilityKind, plugin_id::PluginId};
+use entangle_types::{capability::CapabilityKind, peer_id::PeerId, plugin_id::PluginId};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -206,6 +207,61 @@ impl Broker {
         Ok(())
     }
 
+    /// Grant a capability AFTER verifying a presented biscuit cap.
+    ///
+    /// Used for cross-node grants where the caller presents a biscuit token
+    /// signed by a trusted issuer. Local in-process grants still use
+    /// [`Broker::grant`].
+    ///
+    /// The method enforces **two** independent deny-by-default layers:
+    /// 1. The biscuit must be signed by a key in `cross_node_policy.trust_roots`,
+    ///    not expired, bound to `local_peer_id`, and must contain the required
+    ///    capability surface.
+    /// 2. The plugin's manifest must also declare the requested capability
+    ///    (biscuit grants are **not** a manifest bypass).
+    pub fn grant_with_biscuit(
+        &self,
+        plugin: &PluginId,
+        requested: &CapabilityKind,
+        biscuit_bytes: &[u8],
+        local_peer_id: PeerId,
+        cross_node_policy: &CrossNodePolicy,
+    ) -> Result<GrantedCapability, BrokerError> {
+        // 1. Try every trust root until one accepts the biscuit.
+        let mut last_err: Option<String> = None;
+        let biscuit = cross_node_policy
+            .trust_roots
+            .iter()
+            .find_map(|root| match verifier::parse(biscuit_bytes, root) {
+                Ok(b) => Some(b),
+                Err(e) => {
+                    last_err = Some(e.to_string());
+                    None
+                }
+            })
+            .ok_or_else(|| {
+                BrokerError::BiscuitVerify(
+                    last_err.unwrap_or_else(|| "no trust root accepts this biscuit".into()),
+                )
+            })?;
+
+        // 2. Verify claims: expiry, peer binding, required capability surface.
+        let cap_str = format_cap(requested);
+        verifier::verify(
+            &biscuit,
+            &verifier::VerifyContext {
+                now_unix_secs: now_secs() as i64,
+                local_peer_id,
+            },
+            &cap_str,
+        )
+        .map_err(|e| BrokerError::BiscuitVerify(e.to_string()))?;
+
+        // 3. Biscuit is valid — ALSO enforce manifest deny-by-default.
+        //    A biscuit grants are never a bypass for the manifest layer.
+        self.grant(plugin, requested)
+    }
+
     /// Return all outstanding grants for a plugin.
     pub fn snapshot_grants(&self, plugin: &PluginId) -> Vec<GrantedCapability> {
         self.plugins
@@ -217,6 +273,13 @@ impl Broker {
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
 
 fn format_cap(c: &CapabilityKind) -> String {
     use CapabilityKind::*;

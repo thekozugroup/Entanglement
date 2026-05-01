@@ -20,6 +20,7 @@ members = [
     "crates/entangle-rpc",
     "crates/entangle-peers",
     "crates/entangle-pairing",
+    "crates/entangle-biscuits",
 ]
 exclude = [
     "examples/*",
@@ -55,6 +56,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 ed25519-dalek = { version = "2", features = ["serde", "pkcs8", "pem", "rand_core"] }
 blake3 = "1"
 biscuit-auth = "6"
+biscuit-quote = "0.3"
 rand_core = "0.6"
 
 # CLI
@@ -105,6 +107,7 @@ entangle-oci = { path = "crates/entangle-oci" }
 entangle-rpc = { path = "crates/entangle-rpc" }
 entangle-peers = { path = "crates/entangle-peers" }
 entangle-pairing = { path = "crates/entangle-pairing" }
+entangle-biscuits = { path = "crates/entangle-biscuits" }
 
 [profile.release]
 lto = "thin"

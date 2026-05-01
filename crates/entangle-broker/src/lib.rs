@@ -22,4 +22,4 @@ pub mod policy;
 pub use audit::{AuditEvent, AuditLog};
 pub use broker::{Broker, GrantId, GrantedCapability};
 pub use errors::BrokerError;
-pub use policy::{BrokerPolicy, PolicyError};
+pub use policy::{BrokerPolicy, CrossNodePolicy, PolicyError};

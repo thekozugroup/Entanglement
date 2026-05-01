@@ -1,0 +1,22 @@
+[package]
+name = "entangle-biscuits"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "Typed capability tokens (biscuits) for cross-node authorization — spec §6.5"
+
+[dependencies]
+entangle-types   = { workspace = true }
+entangle-signing = { workspace = true }
+biscuit-auth     = { workspace = true }
+serde            = { workspace = true, features = ["derive"] }
+thiserror        = { workspace = true }
+hex              = { workspace = true }
+ed25519-dalek    = { workspace = true }
+
+[dev-dependencies]
+rand_core = { workspace = true }
+# NOTE: biscuit-quote is not needed since we use the string-based API
