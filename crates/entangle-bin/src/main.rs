@@ -5,10 +5,12 @@
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use entangle_bin::{config, server};
+use entangle_bin::{config, maintenance::MaintenanceLoop, server, state::DaemonState};
+use entangle_peers::PeerStore;
 use entangle_runtime::{Kernel, KernelConfig};
-use entangle_signing::Keyring;
-use std::path::PathBuf;
+use entangle_scheduler::{Dispatcher, WorkerPool};
+use entangle_signing::{IdentityKeyPair, Keyring};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 // ── CLI definition ────────────────────────────────────────────────────────────
@@ -69,7 +71,7 @@ async fn run(_args: RunArgs) -> anyhow::Result<()> {
 #[cfg(unix)]
 async fn run(args: RunArgs) -> anyhow::Result<()> {
     // ── 1. Tracing setup ──────────────────────────────────────────────────────
-    init_tracing();
+    entangle_observability::init_default();
 
     let socket_path = args.socket.unwrap_or_else(config::default_socket_path);
     let config_dir = config::default_config_dir();
@@ -95,6 +97,15 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         Keyring::new()
     };
 
+    // ── 2b. Identity keypair ──────────────────────────────────────────────────
+    let identity_path = config_dir.join("identity.key");
+    let identity = ensure_identity(&identity_path)
+        .with_context(|| format!("loading/creating identity from {}", identity_path.display()))?;
+
+    // ── 2c. Peer store ────────────────────────────────────────────────────────
+    let peer_store = PeerStore::open(config_dir.join("peers.toml"))
+        .context("opening peer store")?;
+
     // ── 3. Build kernel ───────────────────────────────────────────────────────
     let kernel_cfg = KernelConfig {
         multi_node: cfg.runtime.multi_node,
@@ -103,23 +114,62 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     };
     let kernel = Arc::new(Kernel::new(kernel_cfg, keyring).context("initializing runtime kernel")?);
 
-    // ── 4 + 5. Bind socket and spawn RPC accept loop ──────────────────────────
+    // ── 3b. Worker pool + Dispatcher ─────────────────────────────────────────
+    let worker_pool = WorkerPool::new();
+    let local_peer_id =
+        entangle_types::peer_id::PeerId::from_public_key_bytes(identity.public().as_bytes());
+    let dispatcher = Arc::new(Dispatcher::new(
+        worker_pool.clone(),
+        kernel.clone(),
+        local_peer_id,
+    ));
+
+    // ── 3c. Assemble shared DaemonState ──────────────────────────────────────
+    let display_name = std::env::var("HOSTNAME")
+        .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_owned()))
+        .unwrap_or_else(|_| "entangled".to_owned());
+    let state = Arc::new(DaemonState::new(
+        kernel.clone(),
+        dispatcher,
+        worker_pool,
+        peer_store,
+        identity,
+        display_name,
+    ));
+
+    tracing::info!(
+        local_peer_id = %state.local_peer_id,
+        "daemon identity ready",
+    );
+
+    // ── 4. Shutdown channel (shared with maintenance loop) ────────────────────
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+
+    // ── 5. Spawn maintenance loop ─────────────────────────────────────────────
+    let maint = MaintenanceLoop::new(Default::default());
+    let maint_task = tokio::spawn(maint.run(shutdown_rx.clone()));
+
+    // ── 6. Bind socket and spawn RPC accept loop ──────────────────────────────
     let socket_path_clone = socket_path.clone();
-    let kernel_clone = kernel.clone();
+    let state_clone = state.clone();
     let rpc_task = tokio::spawn(async move {
-        if let Err(e) = server::serve(socket_path_clone, kernel_clone).await {
+        if let Err(e) = server::serve(socket_path_clone, state_clone).await {
             tracing::error!(error = %e, "RPC server fatal error");
         }
     });
 
-    // ── 6. Block on shutdown signal ───────────────────────────────────────────
+    // ── 7. Block on shutdown signal ───────────────────────────────────────────
     wait_for_shutdown().await;
 
     tracing::info!("shutting down entangled");
 
+    // Signal the maintenance loop (and any other watchers) to stop.
+    shutdown_tx.send(true).ok();
+
     // Abort the accept loop; in-flight client tasks will finish naturally.
     rpc_task.abort();
     let _ = rpc_task.await;
+    let _ = maint_task.await;
 
     // Remove the socket file on clean shutdown.
     let _ = std::fs::remove_file(&socket_path);
@@ -169,26 +219,31 @@ async fn status(args: StatusArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-// ── tracing initialisation ────────────────────────────────────────────────────
+// ── Identity helper ───────────────────────────────────────────────────────────
 
-fn init_tracing() {
-    use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
-
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,tokio=warn,wasmtime=warn"));
-
-    // JSON format when stderr is not a TTY (systemd / docker), compact otherwise.
-    let is_tty = std::io::IsTerminal::is_terminal(&std::io::stderr());
-
-    if is_tty {
-        tracing_subscriber::registry()
-            .with(filter)
-            .with(fmt::layer().compact().with_writer(std::io::stderr))
-            .init();
+/// Load the identity keypair from `path`, or generate and persist a new one.
+///
+/// The file is written with mode `0600` on Unix so only the owning user can
+/// read the private key material.
+fn ensure_identity(path: &Path) -> anyhow::Result<IdentityKeyPair> {
+    if path.exists() {
+        let pem = std::fs::read_to_string(path).context("read identity.key")?;
+        IdentityKeyPair::from_pem(&pem)
+            .context("parse identity.key")
+            .map_err(|e| anyhow::anyhow!(e.to_string()))
     } else {
-        tracing_subscriber::registry()
-            .with(filter)
-            .with(fmt::layer().json().with_writer(std::io::stderr))
-            .init();
+        let kp = IdentityKeyPair::generate();
+        let pem = kp.to_pem();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, &pem)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let perms = std::fs::Permissions::from_mode(0o600);
+            let _ = std::fs::set_permissions(path, perms);
+        }
+        Ok(kp)
     }
 }

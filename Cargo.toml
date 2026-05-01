@@ -22,6 +22,8 @@ members = [
     "crates/entangle-pairing",
     "crates/entangle-biscuits",
     "crates/entangle-scheduler",
+    "crates/entangle-observability",
+    "crates/entangle-agent-host",
 ]
 exclude = [
     "examples/*",
@@ -51,7 +53,13 @@ tokio = { version = "1", features = ["full"] }
 
 # Tracing
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+
+# Compression
+flate2 = "1"
+
+# Terminal detection
+is-terminal = "0.4"
 
 # Cryptography
 ed25519-dalek = { version = "2", features = ["serde", "pkcs8", "pem", "rand_core"] }
@@ -110,6 +118,7 @@ entangle-peers = { path = "crates/entangle-peers" }
 entangle-pairing = { path = "crates/entangle-pairing" }
 entangle-biscuits = { path = "crates/entangle-biscuits" }
 entangle-scheduler = { path = "crates/entangle-scheduler" }
+entangle-observability = { path = "crates/entangle-observability" }
 
 [profile.release]
 lto = "thin"

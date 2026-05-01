@@ -23,12 +23,15 @@ entangle-runtime   = { workspace = true }
 entangle-signing   = { workspace = true }
 entangle-manifest  = { workspace = true }
 entangle-broker    = { workspace = true }
-entangle-scheduler = { path = "../entangle-scheduler" }
+entangle-scheduler     = { path = "../entangle-scheduler" }
+entangle-peers         = { path = "../entangle-peers" }
+entangle-observability = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+flate2 = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 toml = { workspace = true }
@@ -37,3 +40,7 @@ directories = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
 tempfile = { workspace = true }
+entangle-signing = { workspace = true }
+entangle-peers   = { path = "../entangle-peers" }
+serde_json       = { workspace = true }
+hex              = { workspace = true }
