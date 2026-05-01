@@ -29,6 +29,21 @@ The daemon listens on a Unix-domain socket inside the container at
 docker compose -f docker/docker-compose.yml up --build
 ```
 
+## mDNS / network_mode: host
+
+`docker-compose.yml` sets `network_mode: host` so the `entangled` daemon can
+participate in `mesh.local` mDNS discovery on the LAN.
+
+**Linux hosts**: this works as intended — the daemon binds directly to the host
+network interface and mDNS multicast packets reach the physical LAN.
+
+**Mac + Docker Desktop**: `network_mode: host` does NOT bridge to the macOS
+network stack. Docker Desktop runs inside a lightweight Linux VM, so "host" means
+the VM's network, not your Mac's. mDNS discovery will not reach your LAN.
+Workaround options:
+- Use a Linux VM or bare-metal Linux for testing mDNS-dependent scenarios.
+- Or run `entangled` natively (outside Docker) on macOS for local development.
+
 ## Phase-1 caveats
 
 - No mesh ports are exposed. Phase 2 will add Iroh/mDNS transport ports.

@@ -1,39 +1,225 @@
-name: Release (skeleton)
+name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0) — leave blank to use latest git tag"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build-release:
-    name: build-release
-    runs-on: ubuntu-24.04
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 1: Build + package on each platform
+  # ─────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            strip_flags: ""
+          - os: macos-14
+            target: aarch64-apple-darwin
+            strip_flags: "-x"
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.91"
+          targets: ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            VERSION="${{ github.event.inputs.tag }}"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build release binaries
-        run: cargo build --release --workspace
+        run: cargo build --release --workspace --bins
 
-      - name: Package tarball
+      - name: Strip binaries
         run: |
-          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
-          TARBALL="entanglement-${VERSION}-x86_64-linux.tar.gz"
-          FILES=()
-          for bin in entangle entangled; do
-            BIN_PATH="target/release/$bin"
-            if [ -f "$BIN_PATH" ]; then
-              FILES+=("$BIN_PATH")
-            fi
-          done
-          FILES+=(LICENSE README.md)
-          tar -czf "$TARBALL" "${FILES[@]}"
-          echo "Packaged: $TARBALL"
-          ls -lh "$TARBALL"
+          strip ${{ matrix.strip_flags }} target/release/entangled || true
+          strip ${{ matrix.strip_flags }} target/release/entangle  || true
 
-      # NOTE: GH Releases and publishing deferred until Phase 1 is declared shipped.
-      # Add: softprops/action-gh-release, sigstore attestation, and crates.io publish here.
+      - name: Compute checksums and package tarball
+        id: package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARGET="${{ matrix.target }}"
+          TARBALL="entanglement-${VERSION}-${TARGET}.tar.gz"
+
+          # Collect existing binaries
+          BINS=()
+          for bin in entangled entangle; do
+            [ -f "target/release/${bin}" ] && BINS+=("target/release/${bin}")
+          done
+
+          # Extra docs — include if present
+          EXTRAS=()
+          for f in LICENSE README.md docs/architecture.md docs/tutorial.md; do
+            [ -f "$f" ] && EXTRAS+=("$f")
+          done
+
+          tar -czf "${TARBALL}" "${BINS[@]}" "${EXTRAS[@]}"
+
+          # SHA-256
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${TARBALL}" > "${TARBALL}.sha256"
+          else
+            shasum -a 256 "${TARBALL}" > "${TARBALL}.sha256"
+          fi
+
+          # BLAKE3 (b3sum available on ubuntu-24.04 via apt; skip gracefully)
+          if command -v b3sum >/dev/null 2>&1; then
+            b3sum "${TARBALL}" > "${TARBALL}.b3"
+          else
+            echo "b3sum not available — skipping BLAKE3" >&2
+          fi
+
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: |
+            entanglement-*.tar.gz
+            entanglement-*.tar.gz.sha256
+            entanglement-*.tar.gz.b3
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 2: Sigstore attestation + cosign signing
+  # ─────────────────────────────────────────────────────────────────────────────
+  sigstore-attest:
+    name: Sigstore / SLSA attestation
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write       # required for keyless OIDC signing
+      attestations: write   # required for SLSA provenance
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: SLSA provenance attestation (via actions/attest-build-provenance)
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: "entanglement-*.tar.gz"
+
+      - name: Cosign keyless sign-blob (one bundle per tarball)
+        run: |
+          for tarball in entanglement-*.tar.gz; do
+            bundle="${tarball}.sigstore"
+            cosign sign-blob \
+              --yes \
+              --bundle "${bundle}" \
+              "${tarball}"
+            echo "Signed ${tarball} -> ${bundle}"
+          done
+
+      - name: Upload sigstore bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: sigstore-bundles
+          path: "entanglement-*.tar.gz.sigstore"
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 3: Create GitHub Release (tag pushes only)
+  # ─────────────────────────────────────────────────────────────────────────────
+  release:
+    name: GitHub Release
+    needs: sigstore-attest
+    runs-on: ubuntu-24.04
+    # Only publish when a real tag was pushed (not manual dispatch without a tag)
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write       # create GH release + upload assets
+      id-token: write       # inherited for attestation context
+      attestations: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Determine pre-release flag
+        id: prerelease
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if echo "${TAG}" | grep -qiE 'alpha|beta|rc'; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # Try to extract the section for this version; fall back to Unreleased
+          NOTES=$(awk "/^## \[${TAG#v}\]/,/^## \[/" CHANGELOG.md 2>/dev/null \
+                  | head -n -1 \
+                  || awk '/^## \[Unreleased\]/,/^## \[/' CHANGELOG.md | head -n -1)
+          if [ -z "${NOTES}" ]; then
+            NOTES="See CHANGELOG.md for details."
+          fi
+          {
+            echo "notes<<EOF"
+            echo "${NOTES}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Entanglement ${{ github.ref_name }}"
+          body: ${{ steps.notes.outputs.notes }}
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
+          files: |
+            entanglement-*.tar.gz
+            entanglement-*.tar.gz.sha256
+            entanglement-*.tar.gz.b3
+            entanglement-*.tar.gz.sigstore
+          fail_on_unmatched_files: false

@@ -1,14 +1,26 @@
 version: '3.9'
+
+# network_mode: host is required for mesh.local mDNS discovery to reach the LAN.
+# On Mac + Docker Desktop this still does NOT work — Docker Desktop runs inside a
+# Linux VM and host networking does not bridge to the macOS network stack.
+# See docker/README.md for the full explanation and workarounds.
+
 services:
   entangled:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    image: entangledev/entangle:dev
     container_name: entangled
     restart: unless-stopped
     volumes:
       - entangle-data:/var/lib/entangle
-    # Phase 2 will expose mesh/Iroh ports; Phase 1 is local-only
+    network_mode: host        # for mDNS to actually work (Linux hosts only)
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/entangle", "doctor"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
 
 volumes:
   entangle-data:

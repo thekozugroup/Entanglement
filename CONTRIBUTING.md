@@ -1,73 +1,68 @@
 # Contributing to Entanglement
 
-Entanglement is an open, capability-isolated plugin runtime for local-first AI
-infrastructure. We welcome contributions from the community.
-
-## Project mission
-
-Provide a secure, verifiable plugin execution environment where every capability
-access is explicit, auditable, and deny-by-default — eliminating ambient authority
-from AI agent workloads. See spec §1 for the full mission statement:
-`docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`
-
-## Find the spec first
-
-Every contribution — code, docs, or tests — should reference a `§section` from the
-architecture spec. If your change touches something not covered by the spec, open an
-issue to discuss the design before submitting a PR.
+Entanglement is a tiny Rust runtime that turns the devices you own into one cooperative compute fabric. Every contribution should reference a section of [`docs/architecture.md`](docs/architecture.md) — the spec is the source of truth for behavior.
 
 ## Local dev setup
 
-**Prerequisites**: Rust (stable via `rust-toolchain.toml`), `cargo`, `git`.
+Prerequisites:
+- Rust 1.91 or newer (pinned via `rust-toolchain.toml`).
+- `wasm32-wasip2` target: `rustup target add wasm32-wasip2`.
+- macOS, Linux (tier-1), or Windows + WSL2.
 
 ```bash
-# Build the entire workspace
+git clone https://github.com/thekozugroup/Entanglement
+cd Entanglement
 cargo build --workspace
-
-# Run all tests
 cargo test --workspace
-
-# Check for lints (required before submitting)
-cargo clippy --workspace -- -D warnings
-
-# Verify docs build clean (required before submitting)
-RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
 ```
 
-## ATC tests (spec §16)
+## Building example plugins
 
-Every spec change must add an **Acceptance-Test Contract** (ATC) ID and a
-corresponding test. Format:
-
-```
-/// §16 ATC-<DOMAIN>-<N>: <one-line description>
-#[test]
-fn atc_<domain>_<n>_<description>() { ... }
+```bash
+cargo xtask hello-world build       # builds the hello-world wasm + signs it
+cargo xtask hash-it build           # builds the hash-it wasm + signs it
 ```
 
-See `crates/entangle-broker/tests/atc_spec.rs` for examples.
+Both require `~/.entangle/identity.key` (run `entangle init --non-interactive` first).
+
+## Running the daemon locally
+
+```bash
+cargo run --release -p entangle-bin -- run
+# In another terminal:
+cargo run --release -p entangle-cli -- doctor
+cargo run --release -p entangle-cli -- plugins list
+```
+
+Or `--allow-local` to skip the daemon and use an in-process kernel.
+
+## §16 acceptance tests
+
+Every spec change adds an ATC ID and a test. The test name maps to the ATC ID (lowercased, hyphen → underscore): `ATC-MAN-1` → `fn atc_man_1_<slug>`. The matrix runner at `crates/entangle-atc-matrix` scrapes them.
 
 ## Code review
 
-- PRs require **1 maintainer approval** (Phase 1).
-- Phase 2+ security-sensitive paths (signing, mesh transport) may require 2 approvals.
-- Every PR must pass `cargo test --workspace`, `cargo clippy`, and rustdoc.
-- Breaking changes require a migration guide in `docs/` before merging.
+PRs need 1 maintainer approval (per spec §12.1 role policy). Tier-5 / signing / cross-node changes need security-lead co-sign. Conventional Commits encouraged but not required. Sign your commits (`git commit -S`) where possible.
 
-## Commit style
+## Style
 
-Conventional commits are encouraged but not required:
-`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
+- `#![forbid(unsafe_code)]` is the workspace default. `unsafe` requires security-lead approval.
+- Every public item gets a `///` doc comment. `cargo doc --workspace --no-deps` must pass with `RUSTDOCFLAGS='-D warnings'`.
+- Use the existing `entangle-observability` crate for tracing setup; don't construct your own subscriber.
+- Capability surfaces, error codes, and ATC IDs follow the spec — don't invent new ones without spec changes.
 
-Commit signing is recommended for all contributors and **required** for
-`release-lead` PRs. See `docs/maintainers/release-lead.md`.
+## Testing patterns
 
-## Code of conduct
+- Unit tests in `src/<mod>.rs` `#[cfg(test)]`. Integration tests in `tests/<scenario>.rs`.
+- Tests that mutate `current_dir` or environment variables: mark `#[ignore = "mutates state"]` and document the run command.
+- Don't depend on `wasm32-wasip2` being installed in test code; commit pre-built fixtures (e.g. `crates/entangle-host/tests/fixtures/hello-pong.wasm`).
 
-All participants are expected to follow our
-[Code of Conduct](CODE_OF_CONDUCT.md) (Contributor Covenant 2.1).
+## Filing an issue
 
-## Maintainer roles
+Use the templates in `.github/ISSUE_TEMPLATE/`. Reference the spec section if behavior is in question. Security issues go to the [SECURITY.md](SECURITY.md) channel, NOT public issues.
 
-See `docs/maintainers/roles.toml` for the current roster and
-`docs/maintainers/<role>.md` for per-role responsibilities.
+## Code of Conduct
+
+We follow the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). Reports to `conduct@entanglement.dev`.

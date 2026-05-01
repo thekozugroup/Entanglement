@@ -77,6 +77,15 @@ jobs:
             echo "Wasm file is empty" && exit 1
           fi
 
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans licenses sources
+
   docs:
     name: docs
     strategy:
