@@ -1,0 +1,35 @@
+//! Peer descriptor types for the `mesh.local` discovery layer.
+
+use entangle_types::peer_id::PeerId;
+use std::net::IpAddr;
+use std::time::SystemTime;
+
+/// Local peer descriptor — what we publish about ourselves on mDNS.
+#[derive(Clone, Debug)]
+pub struct LocalPeer {
+    /// Ed25519 fingerprint, BLAKE3-16.
+    pub peer_id: PeerId,
+    /// Human-friendly hostname; user-overridable.
+    pub display_name: String,
+    /// ENet/QUIC port; placeholder until Phase 2.
+    pub port: u16,
+    /// `env!("CARGO_PKG_VERSION")` of entangled.
+    pub version: String,
+}
+
+/// Peer-seen record from mDNS browse.
+#[derive(Clone, Debug)]
+pub struct PeerSeen {
+    /// Ed25519 fingerprint, BLAKE3-16.
+    pub peer_id: PeerId,
+    /// Human-friendly display name from the TXT record.
+    pub display_name: String,
+    /// All resolved addresses for this peer.
+    pub addresses: Vec<IpAddr>,
+    /// Announced port.
+    pub port: u16,
+    /// Entangled crate version the peer is running.
+    pub version: String,
+    /// Wall-clock time of the most recent mDNS resolution.
+    pub last_seen: SystemTime,
+}

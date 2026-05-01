@@ -214,8 +214,7 @@ fn open_peer_store() -> anyhow::Result<PeerStore> {
 }
 
 fn parse_peer_id(hex_str: &str) -> anyhow::Result<PeerId> {
-    PeerId::from_hex(hex_str)
-        .map_err(|e| anyhow::anyhow!("invalid peer id '{}': {}", hex_str, e))
+    PeerId::from_hex(hex_str).map_err(|e| anyhow::anyhow!("invalid peer id '{}': {}", hex_str, e))
 }
 
 fn allow_local() -> bool {

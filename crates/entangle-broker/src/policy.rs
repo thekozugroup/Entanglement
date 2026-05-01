@@ -46,6 +46,22 @@ pub enum PolicyError {
 }
 
 impl BrokerPolicy {
+    /// Construct a `BrokerPolicy` from live state.
+    ///
+    /// `peer_allowlist_populated` is derived from [`entangle_peers::PeerStore::is_empty`]
+    /// so callers cannot accidentally supply a stale bool.
+    pub fn new(
+        max_tier: entangle_types::tier::Tier,
+        multi_node: bool,
+        peer_store: &entangle_peers::PeerStore,
+    ) -> Self {
+        Self {
+            max_tier_allowed: max_tier,
+            multi_node,
+            peer_allowlist_populated: !peer_store.is_empty(),
+        }
+    }
+
     /// Called at plugin load time. Returns `Err` if loading must be refused.
     ///
     /// Enforces §9.4.1: effective tier must not exceed [`Self::max_tier_allowed`].

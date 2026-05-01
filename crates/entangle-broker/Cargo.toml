@@ -11,6 +11,7 @@ rust-version.workspace = true
 [dependencies]
 entangle-types = { workspace = true }
 entangle-manifest = { workspace = true }
+entangle-peers = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }

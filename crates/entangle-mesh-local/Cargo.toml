@@ -1,6 +1,6 @@
 [package]
 name = "entangle-mesh-local"
-description = "Phase-1 mDNS-based local mesh networking for LAN-scoped Entanglement clusters"
+description = "mDNS-based LAN peer discovery for the mesh.local transport (Phase 1)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,8 +10,11 @@ rust-version.workspace = true
 
 [dependencies]
 entangle-types = { workspace = true }
-entangle-signing = { workspace = true }
 mdns-sd = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "time"] }
 tracing = { workspace = true }
-anyhow = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }

@@ -1,16 +1,16 @@
-//! mDNS-based local mesh transport for LAN-scoped Entanglement clusters.
+//! mDNS-based LAN peer discovery for the `mesh.local` transport.
 //!
-//! See spec §6 (mesh transport layer), §11 (multi-node invariants) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
-//!
-//! **Phase**: 2 scaffold (stub only in Phase 1; no public API beyond `version`).
-//!
-//! # Key items
-//! - [`version`] — returns the crate version string.
+//! Phase 1 scope: register the daemon as a mDNS service, browse for other
+//! Entanglement daemons on the same link-local network, report peer announce
+//! and bye-bye events on a tokio broadcast channel. Pairing, auth, and stream
+//! transport are out of scope for this crate.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-/// Returns the crate version.
-pub fn version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
-}
+pub mod discovery;
+pub mod errors;
+pub mod peer;
+
+pub use discovery::{Discovery, DiscoveryConfig, DiscoveryEvent};
+pub use errors::DiscoveryError;
+pub use peer::{LocalPeer, PeerSeen};
