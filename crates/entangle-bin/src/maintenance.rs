@@ -240,10 +240,7 @@ fn gzip_in_place(path: &Path) -> std::io::Result<()> {
 
     // Build the output path: `entangled.log.1234567890.gz`
     let gz_path = {
-        let ext = path
-            .extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("");
+        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
         if ext.is_empty() {
             path.with_extension("gz")
         } else {
@@ -349,10 +346,7 @@ mod tests {
     /// `std::fs::File::set_modified` (stable since Rust 1.75).
     fn backdate(path: &Path, age: Duration) {
         let target = SystemTime::now() - age;
-        let file = std::fs::OpenOptions::new()
-            .write(true)
-            .open(path)
-            .unwrap();
+        let file = std::fs::OpenOptions::new().write(true).open(path).unwrap();
         file.set_modified(target).unwrap();
     }
 

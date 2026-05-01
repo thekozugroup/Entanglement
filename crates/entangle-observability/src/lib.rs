@@ -25,8 +25,8 @@ pub fn init_default() {
 ///
 /// Panics if called more than once.
 pub fn init_with_filter(default_directive: &str) {
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(default_directive));
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_directive));
 
     let subscriber = tracing_subscriber::registry().with(filter);
 

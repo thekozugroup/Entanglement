@@ -103,8 +103,8 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         .with_context(|| format!("loading/creating identity from {}", identity_path.display()))?;
 
     // ── 2c. Peer store ────────────────────────────────────────────────────────
-    let peer_store = PeerStore::open(config_dir.join("peers.toml"))
-        .context("opening peer store")?;
+    let peer_store =
+        PeerStore::open(config_dir.join("peers.toml")).context("opening peer store")?;
 
     // ── 3. Build kernel ───────────────────────────────────────────────────────
     let kernel_cfg = KernelConfig {

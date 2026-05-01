@@ -7,17 +7,14 @@
 //! - `plugins/unload`  → params `{ "id": "<plugin_id>" }` → null
 //! - `plugins/invoke`  → params `{ "plugin_id": "<id>", "input": […], "timeout_ms": N }` → `{ "output": […] }`
 //! - `compute/dispatch` → params `ComputeDispatchParams` → `ComputeDispatchResult`
-//!
-//! Iter 9 stub methods (Discovery not yet wired into Kernel — see TODO below):
-//! - `mesh/peers`   → `{ "peers": [] }` stub
-//! - `mesh/status`  → `{ "local_peer_id": "", … }` stub
+//! - `mesh/peers`   → trusted peers from PeerStore (Discovery results join in Phase 2)
+//! - `mesh/status`  → local_peer_id (identity-derived), display_name, transport list, counts
 
+use crate::state::DaemonState;
 use entangle_rpc::methods::{
-    method, ComputeDispatchParams, ComputeDispatchResult, ComputeIntegrity, MeshPeersResult,
-    MeshStatusResult, PluginsInvokeParams, PluginsInvokeResult,
+    method, ComputeDispatchParams, ComputeDispatchResult, ComputeIntegrity, MeshPeer,
+    MeshPeersResult, MeshStatusResult, PluginsInvokeParams, PluginsInvokeResult,
 };
-use entangle_runtime::Kernel;
-use entangle_scheduler::{Dispatcher, WorkerPool};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -78,7 +75,7 @@ fn ok_resp<T: Serialize>(id: serde_json::Value, result: T) -> String {
 
 /// Parse `line` as a JSON-RPC 2.0 request, dispatch to the appropriate handler,
 /// and return a serialized JSON-RPC 2.0 response string.
-pub async fn dispatch(line: &str, kernel: &Arc<Kernel>) -> String {
+pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
     // -32700: Parse error
     let req: Req = match serde_json::from_str(line) {
         Ok(r) => r,
@@ -97,14 +94,14 @@ pub async fn dispatch(line: &str, kernel: &Arc<Kernel>) -> String {
 
     match req.method.as_str() {
         m if m == method::VERSION => handle_version(req.id),
-        m if m == method::PLUGINS_LIST => handle_plugins_list(req.id, kernel),
-        m if m == method::PLUGINS_LOAD => handle_plugins_load(req.id, req.params, kernel).await,
-        m if m == method::PLUGINS_UNLOAD => handle_plugins_unload(req.id, req.params, kernel).await,
-        m if m == method::PLUGINS_INVOKE => handle_plugins_invoke(req.id, req.params, kernel).await,
-        m if m == method::MESH_PEERS => handle_mesh_peers(req.id),
-        m if m == method::MESH_STATUS => handle_mesh_status(req.id),
+        m if m == method::PLUGINS_LIST => handle_plugins_list(req.id, state),
+        m if m == method::PLUGINS_LOAD => handle_plugins_load(req.id, req.params, state).await,
+        m if m == method::PLUGINS_UNLOAD => handle_plugins_unload(req.id, req.params, state).await,
+        m if m == method::PLUGINS_INVOKE => handle_plugins_invoke(req.id, req.params, state).await,
+        m if m == method::MESH_PEERS => handle_mesh_peers(req.id, state),
+        m if m == method::MESH_STATUS => handle_mesh_status(req.id, state),
         m if m == method::COMPUTE_DISPATCH => {
-            handle_compute_dispatch(req.id, req.params, kernel).await
+            handle_compute_dispatch(req.id, req.params, state).await
         }
         _ => error_resp(req.id, -32601, format!("method not found: {}", req.method)),
     }
@@ -129,8 +126,9 @@ fn handle_version(id: serde_json::Value) -> String {
     )
 }
 
-fn handle_plugins_list(id: serde_json::Value, kernel: &Arc<Kernel>) -> String {
-    let ids: Vec<String> = kernel
+fn handle_plugins_list(id: serde_json::Value, state: &Arc<DaemonState>) -> String {
+    let ids: Vec<String> = state
+        .kernel
         .list_plugins()
         .iter()
         .map(|p| p.to_string())
@@ -141,7 +139,7 @@ fn handle_plugins_list(id: serde_json::Value, kernel: &Arc<Kernel>) -> String {
 async fn handle_plugins_load(
     id: serde_json::Value,
     params: serde_json::Value,
-    kernel: &Arc<Kernel>,
+    state: &Arc<DaemonState>,
 ) -> String {
     #[derive(Deserialize)]
     struct LoadParams {
@@ -152,7 +150,7 @@ async fn handle_plugins_load(
         Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
     };
     let dir = std::path::PathBuf::from(&p.dir);
-    match kernel.load_plugin_from_dir(&dir).await {
+    match state.kernel.load_plugin_from_dir(&dir).await {
         Ok(plugin_id) => ok_resp(id, plugin_id.to_string()),
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
@@ -161,7 +159,7 @@ async fn handle_plugins_load(
 async fn handle_plugins_unload(
     id: serde_json::Value,
     params: serde_json::Value,
-    kernel: &Arc<Kernel>,
+    state: &Arc<DaemonState>,
 ) -> String {
     #[derive(Deserialize)]
     struct UnloadParams {
@@ -175,7 +173,7 @@ async fn handle_plugins_unload(
         Ok(pid) => pid,
         Err(e) => return error_resp(id, -32602, format!("invalid plugin id: {e}")),
     };
-    match kernel.unload(&plugin_id).await {
+    match state.kernel.unload(&plugin_id).await {
         Ok(()) => ok_resp(id, serde_json::Value::Null),
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
@@ -184,7 +182,7 @@ async fn handle_plugins_unload(
 async fn handle_plugins_invoke(
     id: serde_json::Value,
     params: serde_json::Value,
-    kernel: &Arc<Kernel>,
+    state: &Arc<DaemonState>,
 ) -> String {
     let p: PluginsInvokeParams = match serde_json::from_value(params) {
         Ok(v) => v,
@@ -194,7 +192,11 @@ async fn handle_plugins_invoke(
         Ok(pid) => pid,
         Err(e) => return error_resp(id, -32602, format!("invalid plugin id: {e}")),
     };
-    match kernel.invoke(&plugin_id, &p.input, p.timeout_ms).await {
+    match state
+        .kernel
+        .invoke(&plugin_id, &p.input, p.timeout_ms)
+        .await
+    {
         Ok(output) => ok_resp(id, PluginsInvokeResult { output }),
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
@@ -204,15 +206,13 @@ async fn handle_plugins_invoke(
 
 /// Handle `compute/dispatch`.
 ///
-/// Phase 1: builds an ephemeral `Dispatcher` with an empty `WorkerPool` per
-/// call. The empty pool causes placement to fall back to local kernel execution
-/// for tasks with zero resource requirements. Tasks that specify non-zero
-/// resources will fail with a placement error until iter 26 wires the real
-/// shared dispatcher populated by mesh-local advertisement.
+/// Uses the shared `Dispatcher` from `DaemonState` rather than building an
+/// ephemeral instance per call. The real `local_peer_id` comes from the
+/// identity keypair loaded at startup.
 async fn handle_compute_dispatch(
     id: serde_json::Value,
     params: serde_json::Value,
-    kernel: &Arc<Kernel>,
+    state: &Arc<DaemonState>,
 ) -> String {
     use entangle_types::{
         peer_id::PeerId,
@@ -233,7 +233,7 @@ async fn handle_compute_dispatch(
     };
 
     // Verify the plugin is loaded before dispatching.
-    if !kernel.list_plugins().contains(&plugin_id) {
+    if !state.kernel.list_plugins().contains(&plugin_id) {
         return error_resp(id, -32000, "plugin not loaded");
     }
 
@@ -267,18 +267,14 @@ async fn handle_compute_dispatch(
         }
     };
 
-    // Ephemeral local peer id (placeholder — iter 26 plumbs the real one from
-    // the daemon's identity).
-    let local_peer_id = PeerId::from_public_key_bytes(&[0u8; 32]);
-
-    // Build the OneShotTask.
+    // Build the OneShotTask using the identity-derived local_peer_id.
     let mut task = OneShotTask::with_defaults(plugin_id, p.input);
     task.resources = resources;
     task.integrity = integrity;
     task.timeout_ms = p.timeout_ms;
 
-    // Build an ephemeral Dispatcher (empty WorkerPool for Phase 1).
-    let dispatcher = Dispatcher::new(WorkerPool::new(), kernel.clone(), local_peer_id);
+    // Use the shared Dispatcher — no ephemeral construction per call.
+    let dispatcher = state.dispatcher.clone();
 
     match dispatcher.dispatch_one_shot(task).await {
         Ok(result) => {
@@ -294,23 +290,58 @@ async fn handle_compute_dispatch(
     }
 }
 
-// TODO(iter 7): wire entangle-mesh-local::Discovery into Kernel so these
-// handlers can return real peer data. Until Discovery is integrated, both
-// methods return empty/zero stubs.
+// ── mesh/peers ────────────────────────────────────────────────────────────────
 
-fn handle_mesh_peers(id: serde_json::Value) -> String {
-    ok_resp(id, MeshPeersResult { peers: vec![] })
+/// Return all trusted (non-revoked) peers from the PeerStore.
+///
+/// Phase 1: only PeerStore entries are returned (all marked `trusted=true`).
+/// Discovery-based sightings will be merged here in Phase 2.
+fn handle_mesh_peers(id: serde_json::Value, state: &Arc<DaemonState>) -> String {
+    use entangle_peers::TrustLevel;
+
+    let peers: Vec<MeshPeer> = state
+        .peer_store
+        .list()
+        .into_iter()
+        .filter(|p| p.trust != TrustLevel::Revoked)
+        .map(|p| MeshPeer {
+            peer_id: p.peer_id.to_hex(),
+            display_name: p.display_name.clone(),
+            addresses: vec![],
+            port: 0,
+            version: String::new(),
+            last_seen_secs_ago: 0,
+            trusted: true,
+        })
+        .collect();
+
+    ok_resp(id, MeshPeersResult { peers })
 }
 
-fn handle_mesh_status(id: serde_json::Value) -> String {
+// ── mesh/status ───────────────────────────────────────────────────────────────
+
+/// Return this node's mesh status.
+///
+/// `local_peer_id` is now the real identity-derived hex rather than an empty
+/// string.  `trusted_peer_count` is the live count from PeerStore.
+fn handle_mesh_status(id: serde_json::Value, state: &Arc<DaemonState>) -> String {
+    use entangle_peers::TrustLevel;
+
+    let trusted_peer_count = state
+        .peer_store
+        .list()
+        .into_iter()
+        .filter(|p| p.trust != TrustLevel::Revoked)
+        .count();
+
     ok_resp(
         id,
         MeshStatusResult {
-            local_peer_id: String::new(),
-            local_display_name: String::new(),
-            transports_active: vec![],
-            seen_peer_count: 0,
-            trusted_peer_count: 0,
+            local_peer_id: state.local_peer_id.to_hex(),
+            local_display_name: state.local_display_name.clone(),
+            transports_active: vec!["local".to_owned()],
+            seen_peer_count: trusted_peer_count,
+            trusted_peer_count,
         },
     )
 }

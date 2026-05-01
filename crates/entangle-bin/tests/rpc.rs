@@ -4,9 +4,12 @@
 //! file, connects with `UnixStream`, sends one request line, reads one
 //! response line, and asserts on the JSON-RPC 2.0 response envelope.
 
-use entangle_bin::server;
+use entangle_bin::{server, state::DaemonState};
+use entangle_peers::PeerStore;
 use entangle_runtime::{Kernel, KernelConfig};
-use entangle_signing::Keyring;
+use entangle_scheduler::{Dispatcher, WorkerPool};
+use entangle_signing::{IdentityKeyPair, Keyring};
+use entangle_types::peer_id::PeerId;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -14,20 +17,36 @@ use tokio::net::UnixStream;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-fn make_kernel() -> Arc<Kernel> {
-    Arc::new(
+fn make_state() -> Arc<DaemonState> {
+    let kernel = Arc::new(
         Kernel::new(KernelConfig::default(), Keyring::new())
             .expect("kernel construction must not fail in tests"),
-    )
+    );
+    let worker_pool = WorkerPool::new();
+    let identity = IdentityKeyPair::generate();
+    let local_peer_id = PeerId::from_public_key_bytes(identity.public().as_bytes());
+    let dispatcher = Arc::new(Dispatcher::new(
+        worker_pool.clone(),
+        kernel.clone(),
+        local_peer_id,
+    ));
+    Arc::new(DaemonState::new(
+        kernel,
+        dispatcher,
+        worker_pool,
+        PeerStore::new(),
+        identity,
+        "test-node".to_owned(),
+    ))
 }
 
 /// Spawn the RPC server task, connect, send `request` (LF appended), return
 /// the trimmed response line.
-async fn send_recv(socket_path: PathBuf, kernel: Arc<Kernel>, request: &str) -> String {
+async fn send_recv(socket_path: PathBuf, state: Arc<DaemonState>, request: &str) -> String {
     let sp = socket_path.clone();
-    let k = kernel.clone();
+    let s = state.clone();
     tokio::spawn(async move {
-        let _ = server::serve(sp, k).await;
+        let _ = server::serve(sp, s).await;
     });
 
     // Retry connect — the server task may not have bound yet.
@@ -65,7 +84,7 @@ fn tmp_sock(label: &str) -> PathBuf {
 async fn version_rpc_returns_versions() {
     let resp = send_recv(
         tmp_sock("version"),
-        make_kernel(),
+        make_state(),
         r#"{"jsonrpc":"2.0","id":1,"method":"version","params":{}}"#,
     )
     .await;
@@ -86,7 +105,7 @@ async fn version_rpc_returns_versions() {
 async fn invalid_method_returns_minus_32601() {
     let resp = send_recv(
         tmp_sock("badmethod"),
-        make_kernel(),
+        make_state(),
         r#"{"jsonrpc":"2.0","id":2,"method":"definitely/not/a/real/method","params":{}}"#,
     )
     .await;
@@ -105,7 +124,7 @@ async fn invalid_method_returns_minus_32601() {
 async fn malformed_json_returns_minus_32700() {
     let resp = send_recv(
         tmp_sock("malformed"),
-        make_kernel(),
+        make_state(),
         "{ this is not valid json }",
     )
     .await;
@@ -119,7 +138,7 @@ async fn malformed_json_returns_minus_32700() {
 async fn plugins_list_returns_empty_list_initially() {
     let resp = send_recv(
         tmp_sock("plugins_list"),
-        make_kernel(),
+        make_state(),
         r#"{"jsonrpc":"2.0","id":3,"method":"plugins/list","params":{}}"#,
     )
     .await;
@@ -152,20 +171,20 @@ async fn plugins_invoke_returns_output_for_loaded_plugin() {
     // 1. Generate an in-test Ed25519 keypair and build a `Keyring` seeded with it.
     // 2. Call `write_plugin_package(dir, keypair)` (from entangle-runtime test
     //    helpers) to emit a signed hello-pong manifest + Wasm blob.
-    // 3. Create the kernel with that keyring, start the RPC server, and use
+    // 3. Create the state with that keyring, start the RPC server, and use
     //    `plugins/load` over the socket to load the fixture.
     // 4. Send `plugins/invoke` with the returned plugin_id and input bytes
     //    `[119, 111, 114, 108, 100]` ("world").
     // 5. Assert `result.output` == `[72, 101, 108, 108, 111, 44, 32, 119, 111,
     //    114, 108, 100, 33]` ("Hello, world!").
 
-    let kernel = make_kernel();
+    let state = make_state();
     let sock = tmp_sock("plugins_invoke");
 
     // Placeholder: load would fail without a real fixture; the test is ignored.
     let load_resp = send_recv(
         sock.clone(),
-        kernel.clone(),
+        state.clone(),
         r#"{"jsonrpc":"2.0","id":10,"method":"plugins/load","params":{"dir":"/nonexistent/fixture"}}"#,
     )
     .await;

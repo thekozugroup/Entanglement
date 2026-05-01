@@ -4,7 +4,7 @@
 //! one response per line. Debug-friendly with `nc -U ~/.entangle/sock`.
 
 use crate::methods;
-use entangle_runtime::Kernel;
+use crate::state::DaemonState;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -13,8 +13,12 @@ use tokio::net::{UnixListener, UnixStream};
 /// Bind a Unix-domain socket at `socket_path` and accept connections
 /// indefinitely, spawning a task per client.
 ///
+/// All RPC handlers receive the full `Arc<DaemonState>` so they can reach
+/// the kernel, dispatcher, peer store, and identity without rebuilding them
+/// per-call.
+///
 /// Returns an error if the socket cannot be bound.
-pub async fn serve(socket_path: PathBuf, kernel: Arc<Kernel>) -> anyhow::Result<()> {
+pub async fn serve(socket_path: PathBuf, state: Arc<DaemonState>) -> anyhow::Result<()> {
     // Remove stale socket file so bind succeeds after a crash.
     if socket_path.exists() {
         std::fs::remove_file(&socket_path)?;
@@ -39,16 +43,16 @@ pub async fn serve(socket_path: PathBuf, kernel: Arc<Kernel>) -> anyhow::Result<
 
     loop {
         let (stream, _addr) = listener.accept().await?;
-        let k = kernel.clone();
+        let s = state.clone();
         tokio::spawn(async move {
-            if let Err(e) = serve_client(stream, k).await {
+            if let Err(e) = serve_client(stream, s).await {
                 tracing::warn!(error = %e, "client task ended with error");
             }
         });
     }
 }
 
-async fn serve_client(stream: UnixStream, kernel: Arc<Kernel>) -> anyhow::Result<()> {
+async fn serve_client(stream: UnixStream, state: Arc<DaemonState>) -> anyhow::Result<()> {
     let (rd, mut wr) = stream.into_split();
     let mut lines = BufReader::new(rd).lines();
 
@@ -56,7 +60,7 @@ async fn serve_client(stream: UnixStream, kernel: Arc<Kernel>) -> anyhow::Result
         if line.trim().is_empty() {
             continue;
         }
-        let resp = methods::dispatch(&line, &kernel).await;
+        let resp = methods::dispatch(&line, &state).await;
         wr.write_all(resp.as_bytes()).await?;
         wr.write_all(b"\n").await?;
         wr.flush().await?;
