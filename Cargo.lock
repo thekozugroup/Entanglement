@@ -811,6 +811,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "entangle-manifest",
+ "entangle-peers",
  "entangle-types",
  "parking_lot",
  "semver",
@@ -829,6 +830,7 @@ dependencies = [
  "clap",
  "directories",
  "entangle-manifest",
+ "entangle-peers",
  "entangle-rpc",
  "entangle-runtime",
  "entangle-signing",
@@ -898,10 +900,10 @@ dependencies = [
 name = "entangle-mesh-local"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "entangle-signing",
  "entangle-types",
  "mdns-sd",
+ "parking_lot",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
@@ -914,6 +916,19 @@ dependencies = [
  "entangle-signing",
  "entangle-types",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "entangle-peers"
+version = "0.1.0"
+dependencies = [
+ "entangle-types",
+ "hex",
+ "parking_lot",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.18",
+ "toml 0.8.23",
 ]
 
 [[package]]

@@ -1,7 +1,8 @@
 //! `entangle` CLI — entry point.
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
-//! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke}.
+//! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke},
+//! mesh {peers,status,trust,untrust,revoke}.
 //! Daemon RPC wired in iter 4; falls back to local in-process kernel with --allow-local.
 
 use clap::{Parser, Subcommand};
@@ -10,7 +11,7 @@ mod cmd;
 mod config;
 mod identity;
 
-use cmd::{keyring::KeyringArgs, plugins::PluginsArgs};
+use cmd::{keyring::KeyringArgs, mesh::MeshArgs, plugins::PluginsArgs};
 
 #[derive(Parser)]
 #[command(
@@ -46,6 +47,9 @@ enum Cmd {
     /// Manage loaded plugins.
     #[command(subcommand_required = true)]
     Plugins(PluginsArgs),
+    /// Manage the local mesh: list peers, trust/untrust/revoke.
+    #[command(subcommand_required = true)]
+    Mesh(MeshArgs),
 }
 
 #[tokio::main]
@@ -72,5 +76,6 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Doctor => cmd::doctor::run().await,
         Cmd::Keyring(a) => cmd::keyring::run(a).await,
         Cmd::Plugins(a) => cmd::plugins::run(a).await,
+        Cmd::Mesh(a) => cmd::mesh::run(a).await,
     }
 }

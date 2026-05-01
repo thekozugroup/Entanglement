@@ -3,5 +3,6 @@
 pub mod doctor;
 pub mod init;
 pub mod keyring;
+pub mod mesh;
 pub mod plugins;
 pub mod version;

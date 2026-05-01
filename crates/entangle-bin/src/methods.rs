@@ -6,8 +6,14 @@
 //! - `plugins/load`    → params `{ "dir": "<path>" }` → plugin id string
 //! - `plugins/unload`  → params `{ "id": "<plugin_id>" }` → null
 //! - `plugins/invoke`  → params `{ "plugin_id": "<id>", "input": […], "timeout_ms": N }` → `{ "output": […] }`
+//!
+//! Iter 9 stub methods (Discovery not yet wired into Kernel — see TODO below):
+//! - `mesh/peers`   → `{ "peers": [] }` stub
+//! - `mesh/status`  → `{ "local_peer_id": "", … }` stub
 
-use entangle_rpc::methods::{method, PluginsInvokeParams, PluginsInvokeResult};
+use entangle_rpc::methods::{
+    method, MeshPeersResult, MeshStatusResult, PluginsInvokeParams, PluginsInvokeResult,
+};
 use entangle_runtime::Kernel;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -92,6 +98,8 @@ pub async fn dispatch(line: &str, kernel: &Arc<Kernel>) -> String {
         m if m == method::PLUGINS_LOAD => handle_plugins_load(req.id, req.params, kernel).await,
         m if m == method::PLUGINS_UNLOAD => handle_plugins_unload(req.id, req.params, kernel).await,
         m if m == method::PLUGINS_INVOKE => handle_plugins_invoke(req.id, req.params, kernel).await,
+        m if m == method::MESH_PEERS => handle_mesh_peers(req.id),
+        m if m == method::MESH_STATUS => handle_mesh_status(req.id),
         _ => error_resp(req.id, -32601, format!("method not found: {}", req.method)),
     }
 }
@@ -184,4 +192,25 @@ async fn handle_plugins_invoke(
         Ok(output) => ok_resp(id, PluginsInvokeResult { output }),
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
+}
+
+// TODO(iter 7): wire entangle-mesh-local::Discovery into Kernel so these
+// handlers can return real peer data. Until Discovery is integrated, both
+// methods return empty/zero stubs.
+
+fn handle_mesh_peers(id: serde_json::Value) -> String {
+    ok_resp(id, MeshPeersResult { peers: vec![] })
+}
+
+fn handle_mesh_status(id: serde_json::Value) -> String {
+    ok_resp(
+        id,
+        MeshStatusResult {
+            local_peer_id: String::new(),
+            local_display_name: String::new(),
+            transports_active: vec![],
+            seen_peer_count: 0,
+            trusted_peer_count: 0,
+        },
+    )
 }

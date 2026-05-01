@@ -130,4 +130,15 @@ impl Client {
         };
         self.call(method::PLUGINS_INVOKE, p).await
     }
+
+    /// `mesh/peers` — list peers seen on the mesh (iter 9).
+    pub async fn mesh_peers(&self) -> Result<MeshPeersResult, RpcError> {
+        self.call(method::MESH_PEERS, serde_json::Value::Null).await
+    }
+
+    /// `mesh/status` — local mesh state: own peer id, transports, peer counts (iter 9).
+    pub async fn mesh_status(&self) -> Result<MeshStatusResult, RpcError> {
+        self.call(method::MESH_STATUS, serde_json::Value::Null)
+            .await
+    }
 }
