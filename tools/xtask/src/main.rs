@@ -6,6 +6,7 @@
 //! Usage:
 //! ```text
 //! cargo xtask hello-world build [--key PATH]
+//! cargo xtask hash-it build [--key PATH]
 //! ```
 
 use std::path::PathBuf;
@@ -30,6 +31,12 @@ enum Task {
         #[command(subcommand)]
         action: HelloWorldAction,
     },
+    /// Tasks for the hash-it example plugin.
+    #[command(name = "hash-it")]
+    HashIt {
+        #[command(subcommand)]
+        action: HashItAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -43,16 +50,41 @@ enum HelloWorldAction {
     },
 }
 
+#[derive(Subcommand)]
+enum HashItAction {
+    /// Build the hash-it plugin and sign it into dist/.
+    Build {
+        /// Path to the identity key PEM file.
+        /// Defaults to ~/.entangle/identity.key
+        #[arg(long)]
+        key: Option<PathBuf>,
+    },
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Task::HelloWorld {
             action: HelloWorldAction::Build { key },
-        } => hello_world_build(key),
+        } => build_example("hello-world", "entangle_hello_world", 1, key),
+        Task::HashIt {
+            action: HashItAction::Build { key },
+        } => build_example("hash-it", "entangle_hash_it", 2, key),
     }
 }
 
-fn hello_world_build(key_path: Option<PathBuf>) -> Result<()> {
+/// Shared build pipeline for example plugins.
+///
+/// - `example_name`: directory name under `examples/` (e.g. `"hello-world"`)
+/// - `artifact_stem`: Rust cdylib output stem with underscores (e.g. `"entangle_hello_world"`)
+/// - `tier`: plugin tier (1 or 2) — written into the dist `entangle.toml`
+/// - `key_path`: optional path to identity key PEM; defaults to `~/.entangle/identity.key`
+fn build_example(
+    example_name: &str,
+    artifact_stem: &str,
+    tier: u8,
+    key_path: Option<PathBuf>,
+) -> Result<()> {
     // Resolve workspace root (two levels up from tools/xtask/).
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
         .map(PathBuf::from)
@@ -63,7 +95,7 @@ fn hello_world_build(key_path: Option<PathBuf>) -> Result<()> {
         .map(|p| p.to_owned())
         .context("could not determine workspace root from CARGO_MANIFEST_DIR")?;
 
-    let example_dir = workspace_root.join("examples/hello-world");
+    let example_dir = workspace_root.join("examples").join(example_name);
     let example_manifest = example_dir.join("Cargo.toml");
     let dist_dir = example_dir.join("dist");
 
@@ -82,7 +114,7 @@ fn hello_world_build(key_path: Option<PathBuf>) -> Result<()> {
     }
 
     // Step 2: cargo build --release --target wasm32-wasip2.
-    println!("[xtask] building hello-world plugin...");
+    println!("[xtask] building {example_name} plugin...");
     let status = Command::new("cargo")
         .args([
             "build",
@@ -99,9 +131,10 @@ fn hello_world_build(key_path: Option<PathBuf>) -> Result<()> {
     }
 
     // Step 3: locate the built artifact.
-    // The wasm ends up relative to the example's own Cargo.toml, under
-    // examples/hello-world/target/ since the example has its own [workspace].
-    let wasm_src = example_dir.join("target/wasm32-wasip2/release/entangle_hello_world.wasm");
+    // The wasm ends up under the example's own target/ dir since it has its own [workspace].
+    let wasm_src = example_dir
+        .join("target/wasm32-wasip2/release")
+        .join(format!("{artifact_stem}.wasm"));
     if !wasm_src.exists() {
         bail!(
             "built artifact not found at {}\n\
@@ -144,22 +177,28 @@ fn hello_world_build(key_path: Option<PathBuf>) -> Result<()> {
     println!("[xtask] wrote {}", sig_dst.display());
 
     // Step 7: rewrite dist/entangle.toml with real fingerprint.
-    let plugin_id = format!("{fingerprint}/hello-world");
+    let plugin_id = format!("{fingerprint}/{example_name}");
+    let tier_comment = if tier == 1 {
+        "# tier 1: no capabilities; pure compute (logging-only)"
+    } else {
+        "# Pure compute — no caps required. Logging is host-provided convenience."
+    };
     let manifest_content = format!(
         r#"[plugin]
 id = "{plugin_id}"
 version = "0.1.0"
-tier = 1
+tier = {tier}
 runtime = "wasm"
-description = "§9.3 walkthrough — hello-world plugin"
+description = "{desc}"
 
 [capabilities]
-# tier 1: no capabilities; pure compute (logging-only)
+{tier_comment}
 
 [build]
 wit_world = "entangle:plugin@0.1.0/plugin"
 target = "wasm32-wasip2"
-"#
+"#,
+        desc = example_description(example_name),
     );
     let manifest_dst = dist_dir.join("entangle.toml");
     std::fs::write(&manifest_dst, &manifest_content)
@@ -173,9 +212,17 @@ target = "wasm32-wasip2"
     println!();
     println!("Next steps:");
     println!("  entangle keyring add {fingerprint} --name self");
-    println!("  entangle plugins load examples/hello-world/dist/");
+    println!("  entangle plugins load examples/{example_name}/dist/");
 
     Ok(())
+}
+
+fn example_description(name: &str) -> &'static str {
+    match name {
+        "hello-world" => "§9.3 walkthrough — hello-world plugin",
+        "hash-it" => "Pure-compute BLAKE3 hasher; demonstrates a zero-capability plugin",
+        _ => "Entanglement example plugin",
+    }
 }
 
 /// Return the user's home directory.

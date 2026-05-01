@@ -24,6 +24,7 @@ members = [
     "crates/entangle-scheduler",
     "crates/entangle-observability",
     "crates/entangle-agent-host",
+    "crates/entangle-bench",
 ]
 exclude = [
     "examples/*",
@@ -101,6 +102,7 @@ predicates = "3"
 # Meta-test tooling
 walkdir = "2"
 regex = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 # First-party crates
 entangle-types = { path = "crates/entangle-types" }

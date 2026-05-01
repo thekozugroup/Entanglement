@@ -1,0 +1,22 @@
+[workspace]
+# stand-alone — not a member of the Entanglement workspace.
+
+[package]
+name = "entangle-hash-it"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+entangle-sdk = { path = "../../crates/entangle-sdk" }
+blake3 = "1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"

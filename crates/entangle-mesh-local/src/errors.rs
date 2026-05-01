@@ -15,11 +15,11 @@ pub enum DiscoveryError {
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
 
-    /// [`Discovery::start_announcing`] was called while already running.
+    /// `Discovery::start_announcing` was called while already running.
     #[error("already running")]
     AlreadyRunning,
 
-    /// [`Discovery::shutdown`] was called while not running.
+    /// `Discovery::shutdown` was called while not running.
     #[error("not running")]
     NotRunning,
 }

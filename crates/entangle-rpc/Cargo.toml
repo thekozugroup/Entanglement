@@ -8,6 +8,10 @@ authors.workspace = true
 rust-version.workspace = true
 description = "Typed JSON-RPC 2.0 client for the entangled daemon"
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 entangle-types = { path = "../entangle-types" }
 serde = { workspace = true, features = ["derive"] }

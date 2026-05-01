@@ -203,20 +203,20 @@ impl Kernel {
         Ok(result?.output)
     }
 
-    /// Invoke a [`OneShotTask`] honoring its [`IntegrityPolicy`] (spec §7.5).
+    /// Invoke a [`entangle_types::task::OneShotTask`] honoring its
+    /// [`entangle_types::task::IntegrityPolicy`] (spec §7.5).
     ///
     /// Phase 1 enforcement:
-    /// - [`IntegrityPolicy::None`] — delegates straight to [`Kernel::invoke`].
-    /// - [`IntegrityPolicy::TrustedExecutor`] — checks that `local_peer` appears in
+    /// - `IntegrityPolicy::None` — delegates straight to [`Kernel::invoke`].
+    /// - `IntegrityPolicy::TrustedExecutor` — checks that `local_peer` appears in
     ///   the allowlist; then delegates to [`Kernel::invoke`].
-    /// - [`IntegrityPolicy::Deterministic { replicas: N }`] — when `N >= 2`, runs the
+    /// - `IntegrityPolicy::Deterministic { replicas: N }` — when `N >= 2`, runs the
     ///   plugin locally `N` times and BLAKE3-compares all outputs. Returns the
     ///   canonical (first) output on agreement, [`RuntimeError::Integrity`] on mismatch.
     ///   `N == 0` or `N == 1` are treated as no-ops (single invocation).
-    /// - [`IntegrityPolicy::SemanticEquivalent`] / [`IntegrityPolicy::Attested`] —
+    /// - `IntegrityPolicy::SemanticEquivalent` / `IntegrityPolicy::Attested` —
     ///   immediately returns [`IntegrityError::NotImplemented`] (Phase 2/3).
     ///
-    /// [`IntegrityPolicy`]: entangle_types::task::IntegrityPolicy
     /// [`IntegrityError::NotImplemented`]: crate::integrity::IntegrityError::NotImplemented
     pub async fn invoke_with_integrity(
         &self,

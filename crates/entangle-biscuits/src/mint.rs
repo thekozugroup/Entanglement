@@ -1,6 +1,6 @@
 //! Biscuit minting and attenuation helpers (spec §6).
 //!
-//! [`mint`] creates a new root biscuit from a [`KeyPair`] and an initial [`ClaimSet`].
+//! [`mint`] creates a new root biscuit from a `biscuit_auth::KeyPair` and an initial [`ClaimSet`].
 //! [`attenuate_biscuit`] appends an attenuation block signed by a fresh ephemeral key.
 
 use biscuit_auth::{builder::BlockBuilder, Biscuit, PublicKey};

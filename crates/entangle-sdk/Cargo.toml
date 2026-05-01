@@ -8,6 +8,10 @@ repository.workspace = true
 authors.workspace = true
 rust-version.workspace = true
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 # wit-bindgen 0.57.1 is the current stable release and matches the WIT format
 # used by entangle-wit. The `pub_export_macro = true` option was introduced in
 # 0.30+, so 0.57.1 is safe. Pin to a minor version to avoid breakage.

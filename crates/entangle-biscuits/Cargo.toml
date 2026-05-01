@@ -8,6 +8,10 @@ authors.workspace = true
 rust-version.workspace = true
 description = "Typed capability tokens (biscuits) for cross-node authorization — spec §6.5"
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 entangle-types   = { workspace = true }
 entangle-signing = { workspace = true }

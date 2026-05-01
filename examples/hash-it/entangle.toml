@@ -1,0 +1,13 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/hash-it"   # replaced by `cargo xtask hash-it build` with real fingerprint
+version = "0.1.0"
+tier = 2
+runtime = "wasm"
+description = "Pure-compute BLAKE3 hasher; demonstrates a zero-capability plugin"
+
+[capabilities]
+# Pure compute — no caps required. Logging is host-provided convenience.
+
+[build]
+wit_world = "entangle:plugin@0.1.0/plugin"
+target = "wasm32-wasip2"

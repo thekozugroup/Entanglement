@@ -1,0 +1,38 @@
+[package]
+name = "entangle-bench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+entangle-types    = { path = "../entangle-types" }
+entangle-manifest = { path = "../entangle-manifest" }
+entangle-signing  = { path = "../entangle-signing" }
+entangle-host     = { path = "../entangle-host" }
+entangle-runtime  = { path = "../entangle-runtime" }
+entangle-broker   = { path = "../entangle-broker" }
+entangle-pairing  = { path = "../entangle-pairing" }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+criterion = { workspace = true }
+toml      = { workspace = true }
+hex       = { workspace = true }
+semver    = { workspace = true }
+
+[[bench]]
+name = "kernel"
+harness = false
+
+[[bench]]
+name = "signing"
+harness = false
+
+[[bench]]
+name = "broker"
+harness = false
+
+[[bench]]
+name = "pairing"
+harness = false

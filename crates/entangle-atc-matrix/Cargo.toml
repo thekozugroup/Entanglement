@@ -1,5 +1,6 @@
 [package]
 name = "entangle-atc-matrix"
+description = "Architecture conformance tests for the Entanglement workspace (internal, publish=false)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
