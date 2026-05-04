@@ -139,7 +139,7 @@ jobs:
         uses: sigstore/cosign-installer@v3
 
       - name: SLSA provenance attestation (via actions/attest-build-provenance)
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: "entanglement-*.tar.gz"
 
