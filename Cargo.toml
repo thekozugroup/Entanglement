@@ -71,7 +71,7 @@ rand_core = "0.6"
 
 # CLI
 clap = { version = "4", features = ["derive"] }
-dialoguer = "0.11"
+dialoguer = "0.12"
 
 # Versioning / IDs
 semver = { version = "1", features = ["serde"] }
