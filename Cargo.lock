@@ -1396,7 +1396,7 @@ dependencies = [
 name = "entangle-wit"
 version = "0.1.0"
 dependencies = [
- "wit-parser 0.245.1",
+ "wit-parser 0.247.0",
 ]
 
 [[package]]
