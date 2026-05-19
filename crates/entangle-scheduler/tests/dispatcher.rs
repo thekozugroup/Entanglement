@@ -1,7 +1,7 @@
 //! Integration tests for the Dispatcher.
 
 use entangle_runtime::{Kernel, KernelConfig};
-use entangle_scheduler::{Dispatcher, WorkerPool};
+use entangle_scheduler::{DispatchError, Dispatcher, WorkerInfo, WorkerPool};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::{peer_id::PeerId, resource::ResourceSpec, task::OneShotTask};
 use std::sync::Arc;
@@ -110,4 +110,61 @@ async fn dispatch_with_empty_pool_falls_back_to_local_when_no_resources_required
         .await
         .expect("dispatch ok");
     assert_eq!(result.output, b"Hello, world!");
+}
+
+fn make_remote_worker(byte: u8) -> WorkerInfo {
+    WorkerInfo {
+        peer_id: PeerId::from_public_key_bytes(&[byte; 32]),
+        display_name: "remote-node".into(),
+        cpu_cores: 16.0,
+        memory_bytes: 64 * 1024 * 1024 * 1024,
+        gpu: None,
+        npu: None,
+        network_bandwidth_bps: 1_000_000_000,
+        rtt_ms: 1,
+        load: 0.0,
+        cost: 1.0,
+    }
+}
+
+/// In strict-remote mode the dispatcher refuses to silently rerun a remote
+/// placement on the local kernel; it returns `RemoteNotImplemented`.
+#[tokio::test]
+async fn strict_remote_returns_not_implemented_when_placement_picks_remote_peer() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = build_keyring(&keypair);
+    let kernel = Arc::new(Kernel::new(KernelConfig::default(), keyring).expect("kernel"));
+
+    let pool = WorkerPool::new();
+    pool.upsert(make_remote_worker(0x42));
+
+    let plugin_id: entangle_types::plugin_id::PluginId =
+        format!("{}/nothing@0.1.0", keypair.fingerprint_hex())
+            .parse()
+            .expect("parse plugin id");
+
+    let dispatcher =
+        Dispatcher::new(pool, kernel, local_peer()).with_strict_remote(true);
+
+    let task = OneShotTask {
+        id: uuid::Uuid::new_v4(),
+        plugin: plugin_id,
+        input: b"x".to_vec(),
+        max_input_bytes: OneShotTask::DEFAULT_MAX_INPUT_BYTES,
+        max_output_bytes: OneShotTask::DEFAULT_MAX_OUTPUT_BYTES,
+        resources: ResourceSpec::default(),
+        integrity: entangle_types::task::IntegrityPolicy::None,
+        timeout_ms: 5_000,
+    };
+
+    let err = dispatcher
+        .dispatch_one_shot(task)
+        .await
+        .expect_err("strict mode must reject remote placement");
+    match err {
+        DispatchError::RemoteNotImplemented { peer } => {
+            assert_eq!(peer, PeerId::from_public_key_bytes(&[0x42; 32]));
+        }
+        other => panic!("expected RemoteNotImplemented, got: {other:?}"),
+    }
 }

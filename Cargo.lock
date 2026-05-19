@@ -1064,6 +1064,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.18",
+ "tokio",
  "toml 0.8.23",
  "tracing",
 ]
@@ -1240,12 +1241,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "entangle-mesh-iroh"
+version = "0.1.0"
+dependencies = [
+ "entangle-types",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "entangle-mesh-local"
 version = "0.1.0"
 dependencies = [
  "entangle-types",
  "mdns-sd",
  "parking_lot",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "entangle-mesh-tailscale"
+version = "0.1.0"
+dependencies = [
+ "entangle-types",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

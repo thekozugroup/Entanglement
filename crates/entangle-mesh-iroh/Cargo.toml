@@ -1,6 +1,6 @@
 [package]
-name = "entangle-agent-host"
-description = "MCP config adapter layer for AI coding agents — snapshots, rewrites, and restores agent MCP configs"
+name = "entangle-mesh-iroh"
+description = "WAN Iroh-QUIC mesh transport for Entanglement (scaffold; real wiring is Phase 2)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,15 +13,9 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-entangle-types = { path = "../entangle-types" }
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-toml = { workspace = true }
+entangle-types = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-parking_lot = { workspace = true }
-camino = { workspace = true }
 
 [dev-dependencies]
-tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }
