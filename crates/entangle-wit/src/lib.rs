@@ -46,3 +46,42 @@ pub fn world(name: &str) -> Option<&'static str> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wit_files_returns_five_named_interfaces() {
+        let files = wit_files();
+        assert_eq!(files.len(), 5, "expected 5 WIT files; got {}", files.len());
+        let names: Vec<&str> = files.iter().map(|(n, _)| *n).collect();
+        for required in [
+            "world.wit",
+            "logging.wit",
+            "capability.wit",
+            "host-info.wit",
+            "stream.wit",
+        ] {
+            assert!(
+                names.contains(&required),
+                "missing required interface file {required} (got {names:?})"
+            );
+        }
+    }
+
+    #[test]
+    fn world_resolver_accepts_canonical_and_underscore_form() {
+        assert_eq!(world("plugin"), Some("plugin"));
+        assert_eq!(world("stream-plugin"), Some("stream-plugin"));
+        assert_eq!(world("stream_plugin"), Some("stream-plugin"));
+        assert_eq!(world("bogus"), None);
+    }
+
+    #[test]
+    fn wit_package_identifier_is_stable() {
+        assert_eq!(WIT_PACKAGE, "entangle:plugin@0.1.0");
+        assert_eq!(DEFAULT_WORLD, "plugin");
+        assert!(WORLDS.contains(&"plugin"));
+    }
+}

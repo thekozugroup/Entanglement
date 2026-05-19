@@ -68,3 +68,35 @@ pub fn find_adapter(name: &str) -> Option<Box<dyn Adapter>> {
         .into_iter()
         .find(|a| a.name().eq_ignore_ascii_case(name))
 }
+
+/// Comma-separated list of all known adapter names (for error messages).
+pub fn known_adapter_names() -> String {
+    registry()
+        .iter()
+        .map(|a| a.name().to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn known_adapter_names_lists_all_three_phase1_adapters() {
+        let names = known_adapter_names();
+        for n in ["claude-code", "codex", "opencode"] {
+            assert!(
+                names.contains(n),
+                "missing adapter {n} in known_adapter_names: {names}"
+            );
+        }
+    }
+
+    #[test]
+    fn find_adapter_is_case_insensitive() {
+        assert!(find_adapter("Claude-Code").is_some());
+        assert!(find_adapter("CODEX").is_some());
+        assert!(find_adapter("nope-not-an-agent").is_none());
+    }
+}

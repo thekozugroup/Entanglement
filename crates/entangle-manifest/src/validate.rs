@@ -414,4 +414,24 @@ mod tests {
             "got: {cap:?}"
         );
     }
+
+    #[test]
+    fn validate_rejects_tier_0() {
+        let m = minimal_manifest("zero-tier", 0, Runtime::Wasm);
+        let err = validate(m).expect_err("tier 0 must be rejected");
+        assert!(
+            matches!(err, ValidationError::InvalidTier(0)),
+            "got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn validate_rejects_tier_6() {
+        let m = minimal_manifest("over-tier", 6, Runtime::Native);
+        let err = validate(m).expect_err("tier 6 must be rejected");
+        assert!(
+            matches!(err, ValidationError::InvalidTier(6)),
+            "got: {err:?}"
+        );
+    }
 }

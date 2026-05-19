@@ -286,9 +286,16 @@ impl Kernel {
         Ok(())
     }
 
-    /// Return the ids of all currently loaded plugins.
+    /// Return the ids of all currently loaded plugins, sorted by their
+    /// string form.
+    ///
+    /// Deterministic ordering matters for `entangle plugins list --json`
+    /// (avoid spurious diffs in operator scripts) and for the daemon's
+    /// audit-log replay.
     pub fn list_plugins(&self) -> Vec<PluginId> {
-        self.plugins.read().keys().cloned().collect()
+        let mut v: Vec<PluginId> = self.plugins.read().keys().cloned().collect();
+        v.sort_by_key(|a| a.to_string());
+        v
     }
 
     // ── private ──────────────────────────────────────────────────────────────

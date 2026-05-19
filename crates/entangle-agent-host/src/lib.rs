@@ -13,7 +13,7 @@ pub mod errors;
 pub mod gateway;
 pub mod session;
 
-pub use adapters::{find_adapter, registry, Adapter, ConfigFormat, Snapshot};
+pub use adapters::{find_adapter, known_adapter_names, registry, Adapter, ConfigFormat, Snapshot};
 pub use errors::{AdapterError, SessionError};
 pub use gateway::{Gateway, GatewayConfig, GatewayError, GatewayHandle};
 pub use session::AgentSession;

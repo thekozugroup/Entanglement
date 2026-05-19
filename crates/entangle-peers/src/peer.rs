@@ -55,3 +55,46 @@ fn now_secs() -> u64 {
         .map(|d| d.as_secs())
         .unwrap_or(0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trusted_peer_toml_round_trip_preserves_fields() {
+        let peer = TrustedPeer {
+            peer_id: PeerId::from_public_key_bytes(&[7u8; 32]),
+            public_key_hex: "0".repeat(64),
+            display_name: "lab-mac".into(),
+            trust: TrustLevel::Observer,
+            paired_at: 1_700_000_000,
+            last_seen_at: Some(1_700_010_000),
+            note: "co-located in the LAN".into(),
+        };
+        let serialised = toml::to_string(&peer).expect("toml serialise");
+        let parsed: TrustedPeer = toml::from_str(&serialised).expect("toml deserialise");
+        assert_eq!(parsed, peer);
+    }
+
+    #[test]
+    fn trust_level_kebab_form_round_trips_via_json() {
+        // toml requires a top-level table so we use JSON to verify the
+        // kebab-case wire form directly.
+        let s = serde_json::to_string(&TrustLevel::Revoked).expect("serialise");
+        assert_eq!(s, "\"revoked\"");
+        let parsed: TrustLevel = serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(parsed, TrustLevel::Revoked);
+    }
+
+    #[test]
+    fn new_sets_trusted_level_and_no_last_seen() {
+        let p = TrustedPeer::new(
+            PeerId::from_public_key_bytes(&[1u8; 32]),
+            "ab".repeat(32),
+            "lap".into(),
+        );
+        assert_eq!(p.trust, TrustLevel::Trusted);
+        assert!(p.last_seen_at.is_none());
+        assert!(p.note.is_empty());
+    }
+}

@@ -79,6 +79,19 @@ impl WorkerPool {
     pub fn is_empty(&self) -> bool {
         self.inner.read().is_empty()
     }
+
+    /// Drop every worker whose last update is older than `ttl` and return
+    /// how many were removed.
+    ///
+    /// The maintenance loop in `entangled` calls this on a fixed interval
+    /// so stale peers don't grow the pool unboundedly.
+    pub fn remove_stale(&self, ttl: Duration) -> usize {
+        let now = Instant::now();
+        let mut guard = self.inner.write();
+        let before = guard.len();
+        guard.retain(|_, (_, ts)| now.duration_since(*ts) < ttl);
+        before - guard.len()
+    }
 }
 
 #[cfg(test)]
@@ -127,6 +140,27 @@ mod tests {
         assert!(removed.is_some());
         assert_eq!(removed.unwrap().peer_id, peer);
         assert!(pool.is_empty());
+    }
+
+    #[test]
+    fn remove_stale_drops_old_workers_returns_count() {
+        let pool = WorkerPool::new();
+        pool.upsert(make_worker(make_peer(10)));
+        pool.upsert(make_worker(make_peer(11)));
+        // Zero TTL = everything is stale.
+        let removed = pool.remove_stale(Duration::from_nanos(0));
+        assert_eq!(removed, 2);
+        assert!(pool.is_empty());
+    }
+
+    #[test]
+    fn remove_stale_keeps_fresh_workers() {
+        let pool = WorkerPool::new();
+        pool.upsert(make_worker(make_peer(12)));
+        // Very generous TTL = nothing is stale.
+        let removed = pool.remove_stale(Duration::from_secs(3600));
+        assert_eq!(removed, 0);
+        assert_eq!(pool.len(), 1);
     }
 
     #[test]

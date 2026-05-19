@@ -4,7 +4,7 @@ A snapshot of what's implemented vs. deferred for the Entanglement runtime
 as of the current `main` commit. Reflects the post-80-iter sprint
 state — see `.iterations/LOG.md` for what each iteration changed.
 
-**Build health (post-sprint):** 273 tests pass · 0 fail · 28 ignored ·
+**Build health (post-sprint-2):** 321 tests pass · 0 fail · 28 ignored ·
 `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
 and `RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps` are all
 clean on Rust 1.91.
