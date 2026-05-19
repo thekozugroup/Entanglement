@@ -90,6 +90,11 @@ impl Client {
         self.call(method::VERSION, serde_json::Value::Null).await
     }
 
+    /// `time` — daemon's view of wall-clock UNIX epoch milliseconds.
+    pub async fn time(&self) -> Result<TimeResult, RpcError> {
+        self.call(method::TIME, serde_json::Value::Null).await
+    }
+
     /// `plugins/list` — return the ids of currently loaded plugins.
     pub async fn plugins_list(&self) -> Result<PluginsListResult, RpcError> {
         self.call(method::PLUGINS_LIST, serde_json::Value::Null)

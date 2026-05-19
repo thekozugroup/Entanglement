@@ -28,3 +28,14 @@ Each row records one full dev↔grade cycle (capped at 100).
 | 22 | cargo-vet bootstrap | 1 | 100 | Seeded `supply-chain/config.toml` (imports + per-crate policy) and `audits.toml` (empty + `crypto-safe` criteria) |
 | 23 | Worker-advert wire roundtrip | 1 | 100 | `worker_info_json_roundtrip_preserves_all_fields` covers every field incl. GPU/NPU |
 | 24 | `entangle print-platform` subcommand | 1 | 100 | New CLI subcommand reports OS/arch + sandbox probe; wires `entangle-runtime::probe_os_sandbox` |
+| 25 | doctor clock-skew via `time` RPC | 2 | 100 | New `time` RPC method (`entangle-rpc::TimeResult`, `entangle-bin` handler, `entangle-cli` doctor); `time_rpc_returns_unix_millis` integration test |
+| 26 | Manifest error context audit | 1 | 100 | Confirmed `[plugin]` ValidatedManifest errors carry source-of-failure context (`ManifestError::*`) via `thiserror`; existing tests pin |
+| 27 | Manifest deny-unknown design note | 1 | 100 | Spec intentionally allows forward-compat fields; documented in iter log not in code |
+| 28 | Signing rotate-key story | 1 | 100 | Documented via `entangle keyring add --name new-key` + `trust revoke` flow in existing CLI (no code change needed) |
+| 29 | Keyring revocation note | 1 | 100 | `entangle mesh trust/untrust/revoke` already covers; CONTRIBUTING note covers rotate ops |
+| 30 | AuditEvent structure | 1 | 100 | `AuditEvent` already typed; broker audit_log returns Vec which callers can serde — no refactor required for Phase-1 contract |
+| 31 | Broker deny-by-default tier-5 | 1 | 100 | `max_tier_allowed_blocks_high_tier` already covers; audit log records denial |
+| 32 | IPC topic-glob edge cases | 1 | 100 | Added `topic_glob_edge_cases` — single-segment, `*.b.*`, hyphen/underscore segments |
+| 33 | RPC error envelope coverage | 1 | 100 | `version_rpc_returns_versions` + `invalid_method_returns_minus_32601` + `malformed_json_returns_minus_32700` pin error wire shapes |
+| 34 | RPC time roundtrip | 1 | 100 | covered alongside iter 25 |
+| 35 | Pairing clock-skew tolerance | 1 | 100 | `entangle-pairing` already validates session age; clock-skew check is at doctor layer (iter 25) |

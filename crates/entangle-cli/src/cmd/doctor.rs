@@ -465,15 +465,42 @@ fn free_bytes_via_df(path: &Path) -> Option<u64> {
 // Check 13 — clock-skew
 // ---------------------------------------------------------------------------
 
-/// Clock skew requires a daemon `time()` RPC not yet implemented.
-/// Skipped when daemon is unreachable; TODO when it is reachable.
-fn check_clock_skew(daemon_reachable: bool) -> CheckResult {
+/// Clock-skew check: ask the daemon for its wall-clock time, compare to local.
+async fn check_clock_skew(daemon_reachable: bool) -> CheckResult {
     if !daemon_reachable {
         return CheckResult::skip("clock-skew", "skipped (daemon not reachable)");
     }
-    // TODO: call daemon time() RPC when added; compare to SystemTime::now().
-    // For now always skip to avoid a false-fail.
-    CheckResult::skip("clock-skew", "time() RPC not yet implemented in daemon")
+    let client = entangle_rpc::Client::new(entangle_rpc::Client::default_socket());
+    let daemon_ms = match client.time().await {
+        Ok(t) => t.unix_millis,
+        Err(e) => {
+            return CheckResult::warn(
+                "clock-skew",
+                "time() RPC failed",
+                format!("could not read daemon clock: {e}"),
+            );
+        }
+    };
+    let local_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let skew_ms = local_ms.abs_diff(daemon_ms);
+    if skew_ms <= 2_000 {
+        CheckResult::ok("clock-skew", format!("OK — within {skew_ms}ms"))
+    } else if skew_ms <= 30_000 {
+        CheckResult::warn(
+            "clock-skew",
+            format!("{skew_ms}ms drift between CLI and daemon"),
+            "consider running NTP; biscuit-auth tokens have ±60s allowance",
+        )
+    } else {
+        CheckResult::fail(
+            "clock-skew",
+            format!("severe drift: {skew_ms}ms"),
+            "biscuit-auth and pairing TOFU may reject; sync system clock (NTP / chrony)",
+        )
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -566,7 +593,7 @@ pub async fn run() -> anyhow::Result<()> {
 
     results.push(check_os_sandbox());
     results.push(check_disk_space());
-    results.push(check_clock_skew(daemon_reachable));
+    results.push(check_clock_skew(daemon_reachable).await);
 
     for r in &results {
         print_check(r, color);

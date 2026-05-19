@@ -134,6 +134,39 @@ mod tests {
         assert!(!deep.matches("broker.*"));
     }
 
+    /// Edge cases for the glob matcher (spec §9 IPC topic rules).
+    #[test]
+    fn topic_glob_edge_cases() {
+        // Single-segment topic + single-segment patterns.
+        let single = topic("broker");
+        assert!(single.matches("broker"));
+        assert!(single.matches("*"));
+        assert!(single.matches("**"));
+        assert!(!single.matches("broker.*"));
+
+        // Literal mismatch on a single segment.
+        let other = topic("policy");
+        assert!(!other.matches("broker"));
+
+        // `broker.**` matches the bare `broker` prefix (`**` is "zero or more
+        // additional segments" per the doc-comment: prefix is empty, len 0).
+        assert!(topic("broker").matches("broker.**"));
+
+        // Mixed wildcard and literal — `*` only ever stands for ONE segment.
+        let three = topic("a.b.c");
+        assert!(three.matches("*.b.*"));
+        assert!(three.matches("a.*.c"));
+        assert!(!three.matches("a.*"));
+        assert!(three.matches("a.**"));
+
+        // Topic with hyphen and underscore in segments — allowed by the
+        // validator — still matches a literal pattern with the same shape.
+        let with_dash = topic("ent_runtime.plugin-lifecycle");
+        assert!(with_dash.matches("ent_runtime.plugin-lifecycle"));
+        assert!(with_dash.matches("ent_runtime.*"));
+        assert!(with_dash.matches("**"));
+    }
+
     // 3. publish → single subscriber receives
     #[tokio::test(flavor = "multi_thread")]
     async fn bus_publish_one_subscriber_receives() {

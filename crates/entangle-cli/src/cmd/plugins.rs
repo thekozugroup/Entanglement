@@ -120,8 +120,12 @@ async fn list() -> anyhow::Result<()> {
     let client = rpc_client();
     match client.plugins_list().await {
         Ok(r) => {
-            for p in &r.plugins {
-                println!("{p}");
+            if r.plugins.is_empty() {
+                eprintln!("no plugins loaded — load one with `entangle plugins load <dir>`");
+            } else {
+                for p in &r.plugins {
+                    println!("{p}");
+                }
             }
             Ok(())
         }
