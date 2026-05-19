@@ -60,13 +60,7 @@ impl Registry {
     ///
     /// `name` is the metric family name (e.g. `entangle_kernel_invocations_total`).
     /// `labels` may be empty.
-    pub fn inc_counter(
-        &self,
-        name: &str,
-        help: &str,
-        labels: &[(&str, &str)],
-        delta: f64,
-    ) {
+    pub fn inc_counter(&self, name: &str, help: &str, labels: &[(&str, &str)], delta: f64) {
         self.upsert(name, help, Kind::Counter, labels, |v| *v += delta);
     }
 
@@ -202,10 +196,7 @@ mod tests {
         r.set_gauge("temp_celsius", "ambient temp", &[("room", "lab")], 22.0);
         let out = r.render();
         assert!(out.contains("# TYPE temp_celsius gauge"));
-        assert!(
-            out.contains("temp_celsius{room=\"lab\"} 22"),
-            "got: {out}"
-        );
+        assert!(out.contains("temp_celsius{room=\"lab\"} 22"), "got: {out}");
     }
 
     #[test]

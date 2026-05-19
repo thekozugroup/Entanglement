@@ -143,8 +143,7 @@ async fn strict_remote_returns_not_implemented_when_placement_picks_remote_peer(
             .parse()
             .expect("parse plugin id");
 
-    let dispatcher =
-        Dispatcher::new(pool, kernel, local_peer()).with_strict_remote(true);
+    let dispatcher = Dispatcher::new(pool, kernel, local_peer()).with_strict_remote(true);
 
     let task = OneShotTask {
         id: uuid::Uuid::new_v4(),

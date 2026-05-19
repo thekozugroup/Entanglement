@@ -60,3 +60,28 @@ entangle keyring add "$(cat ~/.entangle/identity.pub)" --name self
 entangle plugins load examples/hello-world --allow-local
 entangle plugins invoke hello-world --input world
 ```
+
+## Roadmap
+
+| Phase | Theme | Status |
+|-------|-------|--------|
+| 1     | Core runtime + WASM host + signing + manifest + UDS RPC + mDNS LAN + pairing + biscuit tokens + local scheduler + agent-host config adapter | **Shipped** |
+| 1.5   | Distribution: Homebrew tap, Linux install script, signed release artifacts (SLSA L3 + cosign) | In progress |
+| 2     | Real cross-node dispatch over Iroh streams; MCP gateway HTTP server; `mesh.iroh`/`mesh.tailscale` transports; OS-sandbox engagement; Prometheus + OpenTelemetry exporters | Scaffolded (returns `NotImplemented`) |
+| 3     | Integrity policies: `Deterministic` cross-node replication, `SemanticEquivalent` with operator-supplied metric components, `Attested` for TEEs | Designed |
+| 4     | Streaming task model with chunk signing; speculative execution + straggler mitigation; reputation gossip | Designed |
+| 5     | Native Windows AppContainer support; second-class agent-host adapters (Aider, Cursor); plugin marketplace | Deferred |
+
+## Acknowledgements
+
+Entanglement borrows ideas from:
+
+- **WASI 0.2 Component Model & Wasmtime** — the plugin substrate.
+- **biscuit-auth** — attenuatable, offline-verifiable capability tokens.
+- **Iroh** — QUIC mesh with NAT hole-punching and DERP relay.
+- **Tailscale & WireGuard** — the model for "your existing tailnet is the
+  reliable WAN substrate".
+- **Bytecode Alliance's `cargo-vet`** — supply-chain auditing.
+- **The Capability Security community** — Mark S. Miller, the E language,
+  and the Genode OS Framework for showing that deny-by-default at the API
+  layer is achievable in practice, not just in theory.

@@ -4,6 +4,11 @@ A snapshot of what's implemented vs. deferred for the Entanglement runtime
 as of the current `main` commit. Reflects the post-80-iter sprint
 state — see `.iterations/LOG.md` for what each iteration changed.
 
+**Build health (post-sprint):** 273 tests pass · 0 fail · 28 ignored ·
+`cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
+and `RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps` are all
+clean on Rust 1.91.
+
 ## Workspace
 
 23 crates total (18 libraries, 2 binaries, 1 bench harness, 1 acceptance-test matrix runner, 1 build-tooling crate).
@@ -64,18 +69,23 @@ state — see `.iterations/LOG.md` for what each iteration changed.
 - **Self-diagnose:** `entangle doctor` runs 13 structured checks (identity, perms, keyring, peers, OS sandbox, daemon reachability, disk space, clock skew).
 - **Maintain the host:** the daemon's built-in maintenance loop rotates logs, GCs the cache, warns about key rotation and missing identity backups.
 
-## What's deferred to Phase 2+
+## What's deferred to Phase 2+ (each item below has a Phase-1 scaffold)
 
-- Cross-node dispatch over Iroh streams (the dispatcher's remote arm logs and falls back to local).
-- The MCP gateway HTTP server itself (the agent-host wires the config; the server forwarding tool calls into the kernel is not yet implemented).
-- `mesh.iroh` and `mesh.tailscale` transports (scaffolds only).
-- `Integrity::SemanticEquivalent` and `Integrity::Attested` enforcement (return `NotImplemented`).
-- Native NPU detection (advert hard-codes zeros).
-- Real `landlock`/`seatbelt` subprocess sandboxing for tier-5 plugins.
-- Prometheus / OpenTelemetry export.
-- `cargo-vet` audit population.
-- Worker advertisement over the wire (the wire format is in place; the publishing side advertises hardware in TXT records but the worker pool has no real peers yet on a single-host test).
-- Native Windows support (WSL2 only).
+| Deferred item | Scaffold location | Phase-1 contract |
+|---|---|---|
+| Cross-node dispatch over Iroh streams | `entangle-scheduler::dispatcher` | `Dispatcher::with_strict_remote(true)` returns `DispatchError::RemoteNotImplemented { peer }`; otherwise silent local fallback |
+| MCP gateway HTTP server | `entangle-agent-host::gateway` | `Gateway::start()` returns `GatewayError::NotImplemented` (`ENTANGLE-E0620`) |
+| `mesh.iroh` transport | `entangle-mesh-iroh` (new crate) | `MeshIroh::start()` returns `MeshIrohError::NotImplemented` (`ENTANGLE-E0630`) |
+| `mesh.tailscale` transport | `entangle-mesh-tailscale` (new crate) | `MeshTailscale::start()` returns `MeshTailscaleError::NotImplemented` (`ENTANGLE-E0640`) |
+| `Integrity::SemanticEquivalent` enforcement | `entangle-runtime::integrity` | `IntegrityError::NotImplemented("SemanticEquivalent")` with stable `ENTANGLE-E0304` |
+| `Integrity::Attested` enforcement | same | `IntegrityError::NotImplemented("Attested")` with stable `ENTANGLE-E0304` |
+| NPU vendor detection | `entangle-bin::npu` + `HardwareAdvert::npu_vendor` | TXT roundtrip wired; `detect()` returns `None` in Phase 1 |
+| OS sandbox **engagement** | `entangle-runtime::os_sandbox::probe()` | probe-only; reports `Seatbelt`/`Landlock`/`Bubblewrap` availability; no engagement until Phase 2 |
+| Prometheus export | `entangle-observability::metrics::Registry` | exposition-format string builder + tests; HTTP scrape endpoint Phase 2 |
+| OpenTelemetry export | `entangle-observability::otel` | `OtelError::NotImplemented` (`ENTANGLE-E0650`) |
+| `cargo-vet` audits | `supply-chain/{config,audits}.toml` | seeded; per-crate policy + `crypto-safe` criteria; populated as maintainers certify |
+| Worker advertisement on the wire | `entangle-scheduler::WorkerInfo` | `worker_info_json_roundtrip_preserves_all_fields` covers every field |
+| Native Windows | `entangle print-platform` + spec §0.2 | reports `Unsupported { reason: "AppContainer is Phase 5+" }` |
 
 ## Release pipeline
 

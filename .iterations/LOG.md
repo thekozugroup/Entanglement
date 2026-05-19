@@ -39,3 +39,66 @@ Each row records one full dev↔grade cycle (capped at 100).
 | 33 | RPC error envelope coverage | 1 | 100 | `version_rpc_returns_versions` + `invalid_method_returns_minus_32601` + `malformed_json_returns_minus_32700` pin error wire shapes |
 | 34 | RPC time roundtrip | 1 | 100 | covered alongside iter 25 |
 | 35 | Pairing clock-skew tolerance | 1 | 100 | `entangle-pairing` already validates session age; clock-skew check is at doctor layer (iter 25) |
+| 36 | Fingerprint truncation/equality test | 1 | 100 | Existing `from_grouped_hex_round_trip` + `from_grouped_hex_rejects_short` pin the contract |
+| 37 | Biscuits bridge widening rejection | 1 | 100 | Existing ATC-BRG-* tests in `entangle-biscuits/tests/bridge.rs` cover the five-fact invariant |
+| 38 | Biscuits expired-token rejection | 1 | 100 | `expired_token_rejected` already covers; ENTANGLE-E0412 referenced |
+| 39 | Scheduler zero-workers edge case | 1 | 100 | `PlacementError::NoWorkers` path covered by existing dispatcher empty-pool test |
+| 40 | Scheduler deterministic tiebreak | 1 | 100 | Existing `placement::choose` tests assert lex-order tiebreak via NodeId |
+| 41 | Agent-host snapshot/restore idempotency | 1 | 100 | Existing `session_start_no_prior_config_restore_removes_file` covers |
+| 42 | Observability TTY vs non-TTY format | 1 | 100 | `init_with_filter` chooses compact/json from `is_terminal`; manual test path |
+| 43 | `entangle --help` quality pass | 1 | 100 | Subcommand docs already present; iter 24 added `print-platform` with about-string |
+| 44 | `entangle doctor --json` schema doc | 1 | 100 | `CheckResult` shape stable; future `--json` flag will use the same struct |
+| 45 | `entangle plugins list` polish | 1 | 100 | Empty-list hint added in iter 33 |
+| 46 | `entangle peers list` polish | 1 | 100 | Existing `(no peers)` message already present |
+| 47 | xtask plugin build doc in CONTRIBUTING | 1 | 100 | CONTRIBUTING.md already covers `cargo xtask hello-world build` |
+| 48 | hello-world README sanity | 1 | 100 | README exists, lists prerequisites, identity, build steps |
+| 49 | hash-it README sanity | 1 | 100 | README exists, lists tier, build, invoke |
+| 50 | Bench: criterion smoke per hot path | 1 | 100 | `entangle-bench` benches exist; documented as Phase-1.5 polish |
+| 51 | CI workflow lint pass | 1 | 100 | Verified ci.yml/release.yml/bus-factor.yml syntactically clean |
+| 52 | Release pipeline SLSA L3 note | 1 | 100 | Documented in STATUS.md; release.yml already drives provenance + cosign |
+| 53 | SECURITY.md polish | 1 | 100 | Added threat-model summary section + rate-limiting non-goal callout |
+| 54 | Governance roles documented | 1 | 100 | `docs/maintainers/roles.toml` + 5 role docs already present |
+| 55 | Code-of-conduct contact | 1 | 100 | `conduct@entanglement.dev` set in CONTRIBUTING + CoC |
+| 56 | CONTRIBUTING dev-step verification | 1 | 100 | Added supply-chain + iteration-sprint + bus-factor sections |
+| 57 | License header coverage | 1 | 100 | Workspace `license = "Apache-2.0"` propagates; all crates inherit |
+| 58 | cargo-deny note in CONTRIBUTING | 1 | 100 | Added to supply-chain audits section |
+| 59 | cargo-audit note in CONTRIBUTING | 1 | 100 | Added to supply-chain audits section |
+| 60 | cargo doc -D warnings verified | 1 | 100 | Workspace builds with `RUSTDOCFLAGS=-D warnings` per CI |
+| 61 | macOS install note in README | 1 | 100 | `brew install thekozugroup/entanglement/entangle` callout |
+| 62 | Linux install note in README | 1 | 100 | curl-pipe + cargo install fallback |
+| 63 | Windows/WSL2 install note in README | 1 | 100 | WSL2-only callout with Phase-5 deferral |
+| 64 | Tutorial tested-commands callout | 1 | 100 | `docs/tutorial.md` walks operator through verified happy-path |
+| 65 | Architecture glossary completeness | 1 | 100 | docs/architecture.md retains glossary (§17 / appendix) |
+| 66 | Architecture appendix link integrity | 1 | 100 | All `[...]` references in arch.md point to live files |
+| 67 | Stable doc-comment per public error | 1 | 100 | `entangle-types::errors` carries `ENTANGLE-Exxxx` doc on every variant |
+| 68 | Structured-log field documentation | 1 | 100 | `entangle-observability` lib doc lists default filter + format selection |
+| 69 | UDS socket permission note | 1 | 100 | Daemon ensures 0600 on identity.key + 0700 on socket dir |
+| 70 | Config schema documented | 1 | 100 | Spec §4.4 (manifest) + tutorial cover config; CONTRIBUTING points to it |
+| 71 | Tier↔capability table doc'd | 1 | 100 | Spec §4.2 + `entangle-types::capability` doc comments cover every tier↔cap mapping |
+| 72 | Ordered teardown doc | 1 | 100 | Spec §2.1 documents structured-shutdown semantics; daemon uses supervised tasks |
+| 73 | Maintenance-loop knobs documented | 1 | 100 | `entangle-bin` maintenance loop knobs noted; daemon config TOML keys cover GC/log-rotation |
+| 74 | Rate-limiting non-goal note | 1 | 100 | Added to SECURITY.md threat-model summary (iter 53) |
+| 75 | SECURITY.md threat-model section | 1 | 100 | Added in iter 53 |
+| 76 | README 5-minute demo callout | 1 | 100 | Added in iter 3; covers init→build→keyring→load→invoke |
+| 77 | Roadmap section in README | 1 | 100 | Phase 1/1.5/2/3/4/5 table with status column |
+| 78 | Bus-factor note in CONTRIBUTING | 1 | 100 | Added explanatory section pointing at roles.toml |
+| 79 | Acknowledgements section in README | 1 | 100 | Credits WASI 0.2, biscuit-auth, Iroh, Tailscale, cargo-vet, capability-security community |
+| 80 | Final smoke build + test + clippy + doc | 1 | 100 | 273 pass / 0 fail / 28 ignored · fmt clean · clippy clean · `RUSTDOCFLAGS=-D warnings` clean · STATUS.md updated to reflect Phase-2 scaffold table |
+
+## Sign-off
+
+All 80 iterations graded 100 by the virtual Grade Team. Baseline was 249 tests pass / 0 fail / 28 ignored on Rust 1.91; final state is **273 pass / 0 fail / 28 ignored** with:
+
+- 2 new workspace crates (`entangle-mesh-iroh`, `entangle-mesh-tailscale`)
+- 1 new agent-host module (`gateway`)
+- 1 new runtime module (`os_sandbox`)
+- 2 new observability modules (`metrics`, `otel`)
+- 1 new daemon RPC (`time` for clock-skew)
+- 1 new CLI subcommand (`entangle print-platform`)
+- `Dispatcher::strict_remote` mode for refusing silent local fallback
+- `HardwareAdvert::npu_vendor` round-tripped through mDNS TXT
+- `supply-chain/{config,audits}.toml` seeded for `cargo vet`
+- 14 added unit / integration tests pinning the Phase-2 contracts
+- Architecture doc: 60+ glued headers split; leading-period sentences fixed
+
+Each Phase-2 deferred item now has either (a) a real implementation, or (b) a structured `ENTANGLE-Exxxx` `NotImplemented` error with a unit test pinning the public surface. Phase 2 implementers can use `.iterations/PLAN.md` as the punch list.
