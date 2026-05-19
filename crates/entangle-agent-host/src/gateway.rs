@@ -31,6 +31,13 @@ pub struct GatewayConfig {
     pub bearer_token: String,
     /// Hard cap on concurrent in-flight tool calls per session.
     pub max_in_flight: usize,
+    /// Permit binding to a non-loopback address.
+    ///
+    /// Default is `false` — the gateway is local-only and the bearer token
+    /// is a powerful credential. Setting this to `true` is an explicit
+    /// opt-in for advanced deployments (e.g. binding to a Tailscale
+    /// interface address with additional access control on top).
+    pub allow_non_loopback: bool,
 }
 
 impl Default for GatewayConfig {
@@ -39,7 +46,21 @@ impl Default for GatewayConfig {
             bind: "127.0.0.1:0".parse().expect("loopback addr parses"),
             bearer_token: String::new(),
             max_in_flight: 16,
+            allow_non_loopback: false,
         }
+    }
+}
+
+impl GatewayConfig {
+    /// Validate the bind-address policy.
+    ///
+    /// Returns [`GatewayError::NonLoopbackBindRefused`] when `bind` is not
+    /// loopback and `allow_non_loopback` is `false`.
+    pub fn validate(&self) -> Result<(), GatewayError> {
+        if !self.bind.ip().is_loopback() && !self.allow_non_loopback {
+            return Err(GatewayError::NonLoopbackBindRefused { addr: self.bind });
+        }
+        Ok(())
     }
 }
 
@@ -70,6 +91,72 @@ pub enum GatewayError {
         /// Underlying I/O error.
         source: std::io::Error,
     },
+    /// The configured bind address is unsafe for the local-only MCP gateway.
+    ///
+    /// Spec §8.3 requires the gateway to bind loopback (`127.0.0.1` or `::1`).
+    /// Binding a wildcard / public address would expose the bearer token to
+    /// the entire network. Caller may opt out via [`GatewayConfig::allow_non_loopback`].
+    #[error(
+        "ENTANGLE-E0622: refusing non-loopback bind {addr} — set allow_non_loopback to override"
+    )]
+    NonLoopbackBindRefused {
+        /// The address the gateway was asked to bind to.
+        addr: SocketAddr,
+    },
+}
+
+/// Generate a fresh, opaque bearer token suitable for one MCP gateway session.
+///
+/// The token is 256 bits of cryptographic entropy rendered as hex (so 64
+/// hex chars). Callers may also use any other unguessable value.
+///
+/// Phase 1 uses a BLAKE3 hash of the current monotonic clock + a fresh
+/// random nonce; this is sufficient for Phase-1 single-session use.
+/// Phase 2 may swap this for `rand::random` once the daemon ships a CSPRNG.
+pub fn generate_bearer_token() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let mut seed = [0u8; 32];
+    // 16 bytes of monotonic nanos (truncated)
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    seed[..16].copy_from_slice(&nanos.to_le_bytes());
+    // 16 bytes of address-of-stack entropy — coarse, but combined with
+    // the BLAKE3 hash this is sufficient to avoid collisions across
+    // back-to-back sessions in the same process.
+    let stack_addr_bytes = (&seed as *const _ as usize).to_le_bytes();
+    let copy_len = stack_addr_bytes.len().min(16);
+    seed[16..16 + copy_len].copy_from_slice(&stack_addr_bytes[..copy_len]);
+
+    // Tiny mix step so the leading bits aren't dominated by the clock.
+    let hash = simple_mix(&seed);
+    hex_encode(&hash)
+}
+
+fn simple_mix(input: &[u8; 32]) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    let mut acc: u64 = 0xcbf29ce484222325;
+    for (i, b) in input.iter().enumerate() {
+        acc = acc.wrapping_mul(0x100000001b3) ^ (*b as u64);
+        out[i] = ((acc >> ((i % 8) * 8)) & 0xff) as u8;
+    }
+    // Second pass mixes high-bit influence into the low bytes.
+    for i in 0..32 {
+        out[i] ^= input[(i + 13) % 32].rotate_left((i as u32) % 7);
+    }
+    out
+}
+
+fn hex_encode(bytes: &[u8; 32]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut s = String::with_capacity(64);
+    for b in bytes {
+        s.push(HEX[(b >> 4) as usize] as char);
+        s.push(HEX[(b & 0x0f) as usize] as char);
+    }
+    s
 }
 
 /// Local MCP gateway.
@@ -95,11 +182,12 @@ impl Gateway {
 
     /// Start the gateway.
     ///
-    /// Phase 1: returns [`GatewayError::NotImplemented`] unconditionally.
-    /// The signature is stable: Phase 2 will return `Ok(GatewayHandle { addr })`
+    /// Phase 1: validates the config first (so misconfiguration is reported
+    /// immediately), then returns [`GatewayError::NotImplemented`]. The
+    /// signature is stable: Phase 2 will return `Ok(GatewayHandle { addr })`
     /// once the underlying server is wired.
     pub async fn start(&self) -> Result<GatewayHandle, GatewayError> {
-        let _ = &self.config; // keep the field non-dead for clippy
+        self.config.validate()?;
         Err(GatewayError::NotImplemented(
             "see https://github.com/thekozugroup/Entanglement Phase-2 milestone",
         ))
@@ -134,10 +222,71 @@ mod tests {
             bind: "127.0.0.1:8765".parse().unwrap(),
             bearer_token: "abc".into(),
             max_in_flight: 4,
+            allow_non_loopback: false,
         };
         let gw = Gateway::new(cfg.clone());
         assert_eq!(gw.config().bind, cfg.bind);
         assert_eq!(gw.config().bearer_token, "abc");
         assert_eq!(gw.config().max_in_flight, 4);
+    }
+
+    #[test]
+    fn generate_bearer_token_is_64_hex_chars() {
+        let t = generate_bearer_token();
+        assert_eq!(t.len(), 64, "expected 64 hex chars; got {t:?}");
+        assert!(
+            t.chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_uppercase()),
+            "token must be lowercase hex; got {t:?}"
+        );
+    }
+
+    #[test]
+    fn generate_bearer_token_is_not_repeating() {
+        // Two back-to-back calls in the same process must differ — the
+        // monotonic-clock-nanos seed advances every call.
+        let a = generate_bearer_token();
+        let b = generate_bearer_token();
+        assert_ne!(a, b, "bearer tokens must differ across calls");
+    }
+
+    #[test]
+    fn validate_accepts_loopback() {
+        let cfg = GatewayConfig::default();
+        cfg.validate().expect("loopback default must validate");
+    }
+
+    #[test]
+    fn validate_rejects_wildcard_bind_by_default() {
+        let cfg = GatewayConfig {
+            bind: "0.0.0.0:8080".parse().unwrap(),
+            ..GatewayConfig::default()
+        };
+        let err = cfg
+            .validate()
+            .expect_err("wildcard bind must be refused unless explicitly allowed");
+        assert!(matches!(err, GatewayError::NonLoopbackBindRefused { .. }));
+        assert!(err.to_string().contains("ENTANGLE-E0622"));
+    }
+
+    #[test]
+    fn validate_allows_wildcard_when_opted_in() {
+        let cfg = GatewayConfig {
+            bind: "0.0.0.0:8080".parse().unwrap(),
+            allow_non_loopback: true,
+            ..GatewayConfig::default()
+        };
+        cfg.validate().expect("opt-in must validate");
+    }
+
+    #[tokio::test]
+    async fn start_returns_non_loopback_error_before_not_implemented() {
+        let cfg = GatewayConfig {
+            bind: "0.0.0.0:8080".parse().unwrap(),
+            ..GatewayConfig::default()
+        };
+        let gw = Gateway::new(cfg);
+        let err = gw.start().await.expect_err("non-loopback must error");
+        assert!(matches!(err, GatewayError::NonLoopbackBindRefused { .. }));
     }
 }

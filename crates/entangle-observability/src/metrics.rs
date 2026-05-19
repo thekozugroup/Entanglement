@@ -27,6 +27,7 @@ struct Family {
 enum Kind {
     Counter,
     Gauge,
+    Histogram,
 }
 
 impl Kind {
@@ -34,6 +35,7 @@ impl Kind {
         match self {
             Self::Counter => "counter",
             Self::Gauge => "gauge",
+            Self::Histogram => "histogram",
         }
     }
 }
@@ -42,6 +44,13 @@ impl Kind {
 struct Sample {
     labels: BTreeMap<String, String>,
     value: f64,
+    /// Histogram-only: ordered bucket upper bounds and cumulative counts.
+    ///
+    /// For non-histogram samples this is empty.
+    histogram: Vec<(f64, u64)>,
+    /// Histogram-only: cumulative `+Inf` bucket count and running sum.
+    hist_count: u64,
+    hist_sum: f64,
 }
 
 /// Process-wide Prometheus registry.
@@ -67,6 +76,65 @@ impl Registry {
     /// Set (or initialise) a gauge sample to `value`.
     pub fn set_gauge(&self, name: &str, help: &str, labels: &[(&str, &str)], value: f64) {
         self.upsert(name, help, Kind::Gauge, labels, |v| *v = value);
+    }
+
+    /// Observe a sample for a histogram metric.
+    ///
+    /// `buckets` is the ordered list of upper-inclusive bucket boundaries
+    /// (the implicit `+Inf` bucket is always present). The sample is added
+    /// to every bucket whose boundary is >= `value`.
+    ///
+    /// If the family does not yet exist, it is created with the supplied
+    /// bucket layout; later `observe_histogram` calls on the same family
+    /// MUST pass the same `buckets` slice — mismatches are tolerated for
+    /// existing samples but a freshly-seen `labels` set will inherit the
+    /// first-seen buckets.
+    pub fn observe_histogram(
+        &self,
+        name: &str,
+        help: &str,
+        labels: &[(&str, &str)],
+        buckets: &[f64],
+        value: f64,
+    ) {
+        let mut guard = self.families.lock();
+        let family = guard.entry(name.to_string()).or_insert_with(|| Family {
+            help: help.to_string(),
+            kind: Kind::Histogram,
+            samples: Vec::new(),
+        });
+        family.kind = Kind::Histogram;
+        if family.help.is_empty() {
+            family.help = help.to_string();
+        }
+
+        let mut labels_map = BTreeMap::new();
+        for (k, v) in labels {
+            labels_map.insert((*k).to_string(), (*v).to_string());
+        }
+
+        let sample = family.samples.iter_mut().find(|s| s.labels == labels_map);
+        let sample = match sample {
+            Some(s) => s,
+            None => {
+                family.samples.push(Sample {
+                    labels: labels_map,
+                    value: 0.0,
+                    histogram: buckets.iter().map(|b| (*b, 0u64)).collect(),
+                    hist_count: 0,
+                    hist_sum: 0.0,
+                });
+                family.samples.last_mut().expect("just pushed")
+            }
+        };
+
+        for (bound, count) in sample.histogram.iter_mut() {
+            if value <= *bound {
+                *count += 1;
+            }
+        }
+        sample.hist_count += 1;
+        sample.hist_sum += value;
     }
 
     fn upsert(
@@ -103,6 +171,9 @@ impl Registry {
                 let mut s = Sample {
                     labels: labels_map,
                     value: 0.0,
+                    histogram: Vec::new(),
+                    hist_count: 0,
+                    hist_sum: 0.0,
                 };
                 mutate(&mut s.value);
                 family.samples.push(s);
@@ -131,6 +202,10 @@ impl Registry {
             let mut samples = family.samples.clone();
             samples.sort_by(|a, b| a.labels.cmp(&b.labels));
             for s in samples {
+                if family.kind == Kind::Histogram {
+                    render_histogram_sample(&mut out, name, &s);
+                    continue;
+                }
                 out.push_str(name);
                 if !s.labels.is_empty() {
                     out.push('{');
@@ -155,6 +230,69 @@ impl Registry {
         }
         out
     }
+}
+
+/// Render the `_bucket{le="..."}`, `_sum`, `_count` lines for one
+/// histogram sample.
+fn render_histogram_sample(out: &mut String, name: &str, s: &Sample) {
+    let push_labels = |out: &mut String, extra: Option<(&str, &str)>| {
+        let has_any = !s.labels.is_empty() || extra.is_some();
+        if !has_any {
+            return;
+        }
+        out.push('{');
+        let mut first = true;
+        for (k, v) in &s.labels {
+            if !first {
+                out.push(',');
+            }
+            first = false;
+            out.push_str(k);
+            out.push_str("=\"");
+            out.push_str(&escape_label(v));
+            out.push('"');
+        }
+        if let Some((k, v)) = extra {
+            if !first {
+                out.push(',');
+            }
+            out.push_str(k);
+            out.push_str("=\"");
+            out.push_str(&escape_label(v));
+            out.push('"');
+        }
+        out.push('}');
+    };
+
+    for (bound, count) in &s.histogram {
+        out.push_str(name);
+        out.push_str("_bucket");
+        push_labels(out, Some(("le", &format_value(*bound))));
+        out.push(' ');
+        out.push_str(&count.to_string());
+        out.push('\n');
+    }
+    // +Inf bucket — cumulative count
+    out.push_str(name);
+    out.push_str("_bucket");
+    push_labels(out, Some(("le", "+Inf")));
+    out.push(' ');
+    out.push_str(&s.hist_count.to_string());
+    out.push('\n');
+
+    out.push_str(name);
+    out.push_str("_sum");
+    push_labels(out, None);
+    out.push(' ');
+    out.push_str(&format_value(s.hist_sum));
+    out.push('\n');
+
+    out.push_str(name);
+    out.push_str("_count");
+    push_labels(out, None);
+    out.push(' ');
+    out.push_str(&s.hist_count.to_string());
+    out.push('\n');
 }
 
 fn escape_help(s: &str) -> String {
@@ -226,5 +364,57 @@ mod tests {
         let a = out.find("a_total").unwrap();
         let b = out.find("b_total").unwrap();
         assert!(a < b, "families must render in alphabetical order: {out}");
+    }
+
+    /// Histogram buckets are cumulative — `_bucket{le="0.5"}` counts every
+    /// observation `≤ 0.5`, including those that also fall into smaller
+    /// buckets.
+    #[test]
+    fn histogram_buckets_are_cumulative() {
+        let r = Registry::new();
+        let buckets = [0.1, 0.5, 1.0, 5.0];
+        for v in [0.05, 0.2, 0.7, 1.5] {
+            r.observe_histogram("lat_seconds", "latency", &[], &buckets, v);
+        }
+        let out = r.render();
+        assert!(out.contains("# TYPE lat_seconds histogram"));
+        // 0.05 falls in all four declared buckets; 0.2 in {0.5, 1, 5};
+        // 0.7 in {1, 5}; 1.5 in {5}.
+        assert!(
+            out.contains("lat_seconds_bucket{le=\"0.1\"} 1"),
+            "got: {out}"
+        );
+        assert!(
+            out.contains("lat_seconds_bucket{le=\"0.5\"} 2"),
+            "got: {out}"
+        );
+        assert!(out.contains("lat_seconds_bucket{le=\"1\"} 3"), "got: {out}");
+        assert!(out.contains("lat_seconds_bucket{le=\"5\"} 4"), "got: {out}");
+        assert!(
+            out.contains("lat_seconds_bucket{le=\"+Inf\"} 4"),
+            "got: {out}"
+        );
+        assert!(out.contains("lat_seconds_count 4"), "got: {out}");
+        // sum = 0.05 + 0.2 + 0.7 + 1.5 = 2.45
+        assert!(
+            out.contains("lat_seconds_sum 2.45"),
+            "expected sum 2.45 in: {out}"
+        );
+    }
+
+    #[test]
+    fn histogram_label_preserved_on_bucket_lines() {
+        let r = Registry::new();
+        let buckets = [1.0, 10.0];
+        r.observe_histogram("rpc_dur", "dur", &[("method", "ping")], &buckets, 0.5);
+        let out = r.render();
+        assert!(
+            out.contains(r#"rpc_dur_bucket{method="ping",le="1"} 1"#),
+            "got: {out}"
+        );
+        assert!(
+            out.contains(r#"rpc_dur_count{method="ping"} 1"#),
+            "got: {out}"
+        );
     }
 }

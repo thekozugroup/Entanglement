@@ -34,6 +34,21 @@ pub struct MeshTailscaleConfig {
     pub acl_mode: AclMode,
 }
 
+impl MeshTailscaleConfig {
+    /// Resolve the configured CLI path to an actual command name for
+    /// `std::process::Command::new()`.
+    ///
+    /// If `tailscale_cli` is set, returns it verbatim. Otherwise returns
+    /// `"tailscale"` so the OS's `$PATH` lookup is used.
+    pub fn resolve_cli(&self) -> &str {
+        if self.tailscale_cli.is_empty() {
+            "tailscale"
+        } else {
+            self.tailscale_cli.as_str()
+        }
+    }
+}
+
 /// Errors emitted by the scaffold.
 #[derive(Debug, thiserror::Error)]
 pub enum MeshTailscaleError {
@@ -96,5 +111,20 @@ mod tests {
         let err = t.start().await.expect_err("Phase 1 must reject start");
         assert!(matches!(err, MeshTailscaleError::NotImplemented));
         assert!(err.to_string().contains("ENTANGLE-E0640"));
+    }
+
+    #[test]
+    fn resolve_cli_falls_back_to_path_when_empty() {
+        let c = MeshTailscaleConfig::default();
+        assert_eq!(c.resolve_cli(), "tailscale");
+    }
+
+    #[test]
+    fn resolve_cli_returns_configured_path_when_set() {
+        let c = MeshTailscaleConfig {
+            tailscale_cli: "/opt/tailscale/bin/tailscale".into(),
+            ..MeshTailscaleConfig::default()
+        };
+        assert_eq!(c.resolve_cli(), "/opt/tailscale/bin/tailscale");
     }
 }

@@ -240,4 +240,34 @@ mod tests {
         let received = sub.recv().await.unwrap();
         assert_eq!(received.priority, Priority::High);
     }
+
+    /// A subscriber that falls behind the bus's capacity gets a `Lagged(n)`
+    /// error reporting how many messages were dropped.
+    ///
+    /// Spec §9 ("backpressure") guarantees that the bus never blocks the
+    /// publisher: slow subscribers are skipped, and they are told so via
+    /// the typed error on `recv()`.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn slow_subscriber_gets_lagged_error() {
+        let bus: Bus<u32> = Bus::new(4);
+        let mut sub = bus.subscribe();
+
+        // Publish more than the channel capacity without ever calling recv.
+        for i in 0..16 {
+            bus.publish(Envelope::new(topic("count"), i)).unwrap();
+        }
+
+        // First recv on a far-behind subscriber must surface Lagged(n) with
+        // n > 0.
+        let err = sub
+            .recv()
+            .await
+            .expect_err("expected Lagged when subscriber fell behind");
+        match err {
+            IpcError::Lagged(n) => {
+                assert!(n > 0, "Lagged count must be > 0; got {n}");
+            }
+            other => panic!("expected IpcError::Lagged, got {other:?}"),
+        }
+    }
 }

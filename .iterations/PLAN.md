@@ -95,3 +95,95 @@ distribution, governance, and demo readiness.
 | 78 | Bus-factor note in CONTRIBUTING |
 | 79 | Acknowledgements / inspirations section |
 | 80 | Final smoke build + test + clippy + doc; sign-off line in STATUS.md |
+
+## Criteria 81–160 (sprint 2)
+
+Sprint 2 turns scaffolds into thicker contracts and adds real, testable
+behaviour wherever a Phase-2 implementation can land without external
+dependencies. Where the real implementation needs a network or kernel
+feature we can't add here, the scaffold gets richer typed surface +
+property tests instead.
+
+| #   | Criterion |
+|-----|-----------|
+| 81  | Prometheus exposition: serve via in-process `format_text` helper used by future HTTP scrape; CLI `entangle metrics` prints to stdout |
+| 82  | Prometheus Registry: histogram primitive + buckets test |
+| 83  | OTEL config validation: endpoint URL parse + error |
+| 84  | Kernel metrics: wire counter for `kernel.invocations_total` (Phase-1 friendly) |
+| 85  | OS sandbox: doctor falls back to runtime probe; remove duplicated logic |
+| 86  | Cross-node dispatch: typed `DispatchError::RemoteNotImplemented` carries the placement reason string |
+| 87  | MCP gateway: bearer-token generator helper + test |
+| 88  | MCP gateway: bind-addr validation rejects non-loopback by default |
+| 89  | mesh.iroh: scaffold `parse_node_addr` helper + test |
+| 90  | mesh.tailscale: `tailscale_cli_path` fallback to `$PATH` rule documented + tested |
+| 91  | NPU detect: explicit Linux/macOS branches with structured rationale |
+| 92  | Audit log: serde Serialize on `AuditEvent` for export |
+| 93  | Audit log: filtered iter helper (`since`, `kind`) |
+| 94  | Broker: capability surface enumeration helper for `entangle perms list` |
+| 95  | Broker: revocation of a granted capability handle |
+| 96  | IPC bus: backpressure semantics doc + test for lagged subscriber |
+| 97  | RPC client: connect-timeout option |
+| 98  | RPC server: per-method counters wired through metrics::Registry |
+| 99  | Pairing: code expiry test |
+| 100 | Pairing: rejection on fingerprint mismatch test |
+| 101 | Biscuits: token-too-large rejection |
+| 102 | Biscuits: bridge-cap byte-counter helper + test |
+| 103 | Scheduler placement: GPU backend mismatch returns NoMatch |
+| 104 | Scheduler placement: VRAM minimum enforcement |
+| 105 | Scheduler placement: NPU vendor exact-match enforcement |
+| 106 | Worker pool: bulk `remove_stale` after TTL |
+| 107 | Dispatcher: `dispatch_one_shot` propagates kernel error context |
+| 108 | Agent-host: snapshot file checksum carried in `Snapshot` |
+| 109 | Agent-host: adapter not-found returns helpful list of known agents |
+| 110 | Observability: documented env-var ladder (`RUST_LOG`, `ENTANGLE_LOG`) |
+| 111 | CLI version: detailed --json output |
+| 112 | CLI doctor: `--json` schema + tests |
+| 113 | CLI doctor: tier-5 max test |
+| 114 | CLI keyring: `--json` output |
+| 115 | CLI plugins: `--json` output |
+| 116 | CLI mesh peers: `--json` output |
+| 117 | CLI compute: `--json` output |
+| 118 | CLI metrics: new subcommand prints Prometheus exposition |
+| 119 | xtask: `cargo xtask --help` enumerates commands |
+| 120 | xtask: build outputs SHA256 alongside artifact |
+| 121 | Example hello-world: assert tier-1 build produces wasm component |
+| 122 | Example hash-it: assert tier-2 zero-cap build |
+| 123 | Bench harness: counter for plugin instantiation time |
+| 124 | Bench harness: capability grant micro-bench |
+| 125 | CI: fmt+clippy+docs+test matrix verified by inspection |
+| 126 | Release pipeline: sigstore bundle path documented |
+| 127 | Release verify script: documented contract |
+| 128 | Governance: at-rest holder count test |
+| 129 | Roles: every role has a doc file referenced |
+| 130 | CONTRIBUTING: link to `.iterations/` doc set |
+| 131 | LICENSE: Apache-2.0 retained; NOTICE file presence |
+| 132 | docs/architecture: glossary section anchor sanity |
+| 133 | docs/architecture: spec version header date refreshed |
+| 134 | docs/architecture: §0 acronyms table |
+| 135 | docs/tutorial: dry-run command listing |
+| 136 | docs/tutorial: troubleshooting section |
+| 137 | docs/operator: new ops runbook stub |
+| 138 | docker: minimal Dockerfile sanity check |
+| 139 | scripts/verify-release.sh: dry-run lint |
+| 140 | deny.toml: skip-list comment for known false-positives |
+| 141 | rust-toolchain: pin reason commented |
+| 142 | .gitignore: target/ + .iterations/runtime/ patterns |
+| 143 | rustfmt config: workspace defaults sufficient |
+| 144 | Manifest: helpful error on missing `[plugin]` table |
+| 145 | Manifest: helpful error on invalid tier (0 or 6) |
+| 146 | Signing: BLAKE3 short-fingerprint helper test |
+| 147 | Keyring: trust-anchor expiry field design note |
+| 148 | Runtime: panic on broker registration is caught + logged |
+| 149 | Runtime: kernel.list_plugins() returns deterministic order |
+| 150 | Runtime: kernel.unload_plugin() ok-when-absent semantics |
+| 151 | Host: WASI 0.2 component negative-test for unknown export |
+| 152 | Host: max-memory limit enforced + test |
+| 153 | Peers: peer-allowlist canonical form is sorted dedup |
+| 154 | Peers: peer record SerDe round-trip |
+| 155 | OCI: digest reference validation |
+| 156 | Wit: 5 interface enumeration test |
+| 157 | SDK: macro expansion smoke test |
+| 158 | atc-matrix: spec ↔ test cross-check helper |
+| 159 | Workspace: every crate has README front-matter (lib doc points at spec)
+| 160 | Final sprint-2 smoke build + test + clippy + doc; sign-off |
+

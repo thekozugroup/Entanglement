@@ -40,6 +40,9 @@ pub enum MeshIrohError {
     /// The transport is not yet implemented (Phase 2).
     #[error("ENTANGLE-E0630: mesh.iroh transport not implemented yet (Phase 2)")]
     NotImplemented,
+    /// A node-addr string failed to parse.
+    #[error("ENTANGLE-E0631: bad node-addr: {0}")]
+    BadNodeAddr(&'static str),
 }
 
 /// Lightweight peer descriptor exposed by the scaffold.
@@ -51,6 +54,37 @@ pub struct IrohPeer {
     pub peer_id: PeerId,
     /// Last-known reachable address.
     pub addr: SocketAddr,
+}
+
+/// Parse a `<peer_id_hex>@<host>:<port>` reference into an [`IrohPeer`].
+///
+/// This is the operator-facing form printed by `entangle mesh peers` and
+/// accepted by `entangle mesh trust <node-addr>`. Spec §6.1 calls it
+/// the "long address" — it bundles the cryptographic identity and a
+/// reachability hint.
+pub fn parse_node_addr(s: &str) -> Result<IrohPeer, MeshIrohError> {
+    let (id_hex, addr_str) = s
+        .split_once('@')
+        .ok_or(MeshIrohError::BadNodeAddr("missing '@' separator"))?;
+    if id_hex.len() != 64 {
+        return Err(MeshIrohError::BadNodeAddr(
+            "peer id hex must be 64 chars (32 bytes)",
+        ));
+    }
+    let mut bytes = [0u8; 32];
+    for (i, chunk) in id_hex.as_bytes().chunks(2).enumerate() {
+        let pair = std::str::from_utf8(chunk)
+            .map_err(|_| MeshIrohError::BadNodeAddr("non-ASCII in peer id"))?;
+        bytes[i] = u8::from_str_radix(pair, 16)
+            .map_err(|_| MeshIrohError::BadNodeAddr("invalid hex digit in peer id"))?;
+    }
+    let addr: SocketAddr = addr_str
+        .parse()
+        .map_err(|_| MeshIrohError::BadNodeAddr("addr must be host:port"))?;
+    Ok(IrohPeer {
+        peer_id: PeerId::from_public_key_bytes(&bytes),
+        addr,
+    })
 }
 
 /// Scaffolded transport handle.
@@ -106,5 +140,38 @@ mod tests {
         };
         let b = a.clone();
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn parse_node_addr_round_trips_well_formed() {
+        let hex = "a".repeat(64);
+        let s = format!("{hex}@10.0.0.1:7777");
+        let peer = parse_node_addr(&s).expect("parse must succeed");
+        assert_eq!(peer.addr.port(), 7777);
+        assert_eq!(
+            peer.peer_id,
+            PeerId::from_public_key_bytes(&[0xaa; 32]),
+            "every nibble 'a' = byte 0xaa"
+        );
+    }
+
+    #[test]
+    fn parse_node_addr_rejects_missing_at() {
+        let err = parse_node_addr("abcdef").expect_err("must error");
+        assert!(matches!(err, MeshIrohError::BadNodeAddr(_)));
+        assert!(err.to_string().contains("ENTANGLE-E0631"));
+    }
+
+    #[test]
+    fn parse_node_addr_rejects_short_hex() {
+        let err = parse_node_addr("abcd@127.0.0.1:1").expect_err("must error");
+        assert!(matches!(err, MeshIrohError::BadNodeAddr(_)));
+    }
+
+    #[test]
+    fn parse_node_addr_rejects_bad_addr() {
+        let hex = "0".repeat(64);
+        let err = parse_node_addr(&format!("{hex}@not-an-addr")).expect_err("must error");
+        assert!(matches!(err, MeshIrohError::BadNodeAddr(_)));
     }
 }

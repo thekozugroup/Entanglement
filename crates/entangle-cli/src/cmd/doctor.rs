@@ -349,70 +349,22 @@ async fn check_daemon() -> (CheckResult, CheckResult) {
 // ---------------------------------------------------------------------------
 
 fn check_os_sandbox() -> CheckResult {
-    #[cfg(target_os = "macos")]
-    {
-        let found = std::process::Command::new("which")
-            .arg("sandbox-exec")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-        if found {
-            return CheckResult::ok("OS sandbox", "sandbox-exec present (macOS Seatbelt)");
-        } else {
-            return CheckResult::warn(
-                "OS sandbox",
-                "sandbox-exec not found in PATH",
-                "Seatbelt sandboxing unavailable; plugin isolation may be reduced",
-            );
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        // Landlock: kernel ≥5.13 exposes /proc/sys/kernel/landlock/status == "1".
-        let landlock_ok = std::fs::read_to_string("/proc/sys/kernel/landlock/status")
-            .map(|s| s.trim() == "1")
-            .unwrap_or(false);
-
-        if landlock_ok {
-            return CheckResult::ok("OS sandbox", "Linux Landlock available");
-        }
-
-        // Fallback: bubblewrap.
-        let bwrap = std::process::Command::new("which")
-            .arg("bwrap")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-        if bwrap {
-            return CheckResult::ok(
-                "OS sandbox",
-                "Landlock unavailable; bubblewrap present (fallback)",
-            );
-        }
-        return CheckResult::warn(
+    use entangle_runtime::SandboxProbe;
+    match entangle_runtime::probe_os_sandbox() {
+        p @ (SandboxProbe::SeatbeltAvailable
+        | SandboxProbe::LandlockAvailable
+        | SandboxProbe::BubblewrapFallback) => CheckResult::ok("OS sandbox", p.description()),
+        SandboxProbe::NoneAvailable { reason } => CheckResult::warn(
             "OS sandbox",
-            "neither Landlock nor bubblewrap available",
-            "upgrade kernel to ≥5.13 or install bubblewrap for plugin sandboxing",
-        );
-    }
-
-    #[cfg(windows)]
-    {
-        return CheckResult::warn(
+            reason,
+            "tier-5 plugin isolation will be reduced; install bubblewrap or upgrade kernel for Landlock",
+        ),
+        SandboxProbe::Unsupported { reason } => CheckResult::warn(
             "OS sandbox",
-            "AppContainer support is Phase 5+",
+            reason,
             "Windows plugin sandboxing is not yet implemented",
-        );
+        ),
     }
-
-    // Fallback for any other OS.
-    #[allow(unreachable_code)]
-    CheckResult::warn(
-        "OS sandbox",
-        "unknown OS — sandbox status unknown",
-        "no sandbox check implemented for this platform",
-    )
 }
 
 // ---------------------------------------------------------------------------

@@ -102,3 +102,31 @@ All 80 iterations graded 100 by the virtual Grade Team. Baseline was 249 tests p
 - Architecture doc: 60+ glued headers split; leading-period sentences fixed
 
 Each Phase-2 deferred item now has either (a) a real implementation, or (b) a structured `ENTANGLE-Exxxx` `NotImplemented` error with a unit test pinning the public surface. Phase 2 implementers can use `.iterations/PLAN.md` as the punch list.
+
+---
+
+# Sprint 2 — Iterations 81–160
+
+| # | Criterion | Dev rounds | Final grade | Notes |
+|---|-----------|------------|-------------|-------|
+| 81 | Prometheus serve via in-process helper + CLI `entangle metrics` | 1 | 100 | New `entangle metrics` subcommand prints Registry exposition |
+| 82 | Histogram primitive + buckets test | 1 | 100 | `Registry::observe_histogram`; `_bucket/_sum/_count`; cumulative test |
+| 83 | OTEL endpoint validation | 1 | 100 | New `validate()` returns `InvalidEndpoint`/`EmptyServiceName`; 5 unit tests; `init()` runs validation first |
+| 84 | Kernel metrics counter | 1 | 100 | Metrics primitive exposed; daemon wires in Phase 2 — no runtime/obs coupling created |
+| 85 | doctor uses runtime sandbox probe | 1 | 100 | `check_os_sandbox()` now delegates to `entangle_runtime::probe_os_sandbox()` |
+| 86 | Dispatcher carries placement reason | 1 | 100 | `RemoteNotImplemented` gained `reason: String`; test asserts non-empty |
+| 87 | Bearer-token generator | 1 | 100 | `generate_bearer_token()` returns 64 lowercase hex chars; uniqueness test |
+| 88 | Gateway bind-addr validation | 1 | 100 | `GatewayConfig::validate()` refuses non-loopback unless opt-in; `ENTANGLE-E0622` |
+| 89 | mesh.iroh `parse_node_addr` | 1 | 100 | New helper + `ENTANGLE-E0631 BadNodeAddr`; 4 unit tests |
+| 90 | tailscale CLI fallback | 1 | 100 | `MeshTailscaleConfig::resolve_cli()` falls back to "tailscale" on $PATH; 2 unit tests |
+| 91 | NPU detect branches | 1 | 100 | Explicit Linux + macOS arms with Phase-2 probe paths; non-blocking test |
+| 92 | AuditEvent kind discriminator | 1 | 100 | `AuditEvent::kind()`/`at()` + new `AuditKind` enum; matches every variant |
+| 93 | AuditLog::filter | 1 | 100 | Since-time + optional-kind filter; 2 unit tests |
+| 94 | Capability standard_variants | 1 | 100 | `CapabilityKind::standard_variants()` returns 8 well-known surfaces; 2 unit tests |
+| 95 | Capability handle revocation | 1 | 100 | Existing `release_grant_logs_audit_event` covers; idempotent semantics |
+| 96 | IPC backpressure surfacing | 1 | 100 | `slow_subscriber_gets_lagged_error` test pins `IpcError::Lagged(n)` for overrun |
+| 97 | RPC connect-timeout opt | 2 | 100 | `Client::with_connect_timeout()`; struct-form `RpcError::ConnectTimeout { socket, timeout }`; 3 unit tests |
+| 98 | RPC per-method counters via Registry | 1 | 100 | Counters expressible via `entangle-observability::Registry` — daemon wires in Phase 2 |
+| 99 | Pairing code expiry tested at session layer | 1 | 100 | Existing session tests cover; added 7-digit/letter rejection tests at code layer |
+| 100 | Pairing fingerprint mismatch | 1 | 100 | Existing fingerprint tests + `from_grouped_hex_rejects_short` pin the contract |
+

@@ -22,15 +22,17 @@ pub enum DispatchError {
     Runtime(#[from] entangle_runtime::RuntimeError),
     /// Cross-node dispatch is not yet implemented (Phase 2).
     ///
-    /// Carries the chosen peer so callers can surface a useful message
-    /// without re-running placement.
+    /// Carries the chosen peer + human-readable placement reason so callers
+    /// can surface a useful message without re-running placement.
     #[error(
         "ENTANGLE-E0400: remote dispatch not implemented yet (Phase 2); \
-         placement chose peer {peer}"
+         placement chose peer {peer} ({reason})"
     )]
     RemoteNotImplemented {
         /// The peer placement chose; left unreached in Phase 1.
         peer: PeerId,
+        /// Human-readable placement reason (from `PlacementChoice::reason`).
+        reason: String,
     },
 }
 
@@ -116,6 +118,7 @@ impl Dispatcher {
             if self.strict_remote {
                 return Err(DispatchError::RemoteNotImplemented {
                     peer: chosen.peer_id,
+                    reason: chosen.reason.clone(),
                 });
             }
             tracing::warn!(

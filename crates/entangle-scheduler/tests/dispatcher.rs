@@ -161,8 +161,12 @@ async fn strict_remote_returns_not_implemented_when_placement_picks_remote_peer(
         .await
         .expect_err("strict mode must reject remote placement");
     match err {
-        DispatchError::RemoteNotImplemented { peer } => {
+        DispatchError::RemoteNotImplemented { peer, reason } => {
             assert_eq!(peer, PeerId::from_public_key_bytes(&[0x42; 32]));
+            assert!(
+                !reason.is_empty(),
+                "RemoteNotImplemented.reason must carry the placement reason"
+            );
         }
         other => panic!("expected RemoteNotImplemented, got: {other:?}"),
     }
