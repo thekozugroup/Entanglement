@@ -1,0 +1,41 @@
+# cargo-vet configuration (spec §10.1).
+#
+# Phase 1: no certifications yet. This file declares the *policy* — what
+# audit criteria are accepted from which sources — so that `cargo vet`
+# can be invoked locally without further setup.
+#
+# Run `cargo vet` to print the audits we still owe; `cargo vet certify <crate>`
+# once a maintainer has read the source.
+
+[cargo-vet]
+version = "0.10"
+
+# We accept audits from upstream review pools first; gaps fall to us.
+[imports.bytecode-alliance]
+url = "https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml"
+
+[imports.embark-studios]
+url = "https://raw.githubusercontent.com/EmbarkStudios/rust-ecosystem/main/audits.toml"
+
+[imports.google]
+url = "https://raw.githubusercontent.com/google/supply-chain/main/audits.toml"
+
+[imports.mozilla]
+url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
+
+[imports.zcash]
+url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/audits.toml"
+
+# Workspace policy — every crate in the workspace must satisfy at least
+# `safe-to-deploy`; release-critical crates raise the bar.
+[policy.entangle-bin]
+audit-as-crates-io = false
+criteria = "safe-to-deploy"
+
+[policy.entangle-cli]
+audit-as-crates-io = false
+criteria = "safe-to-deploy"
+
+[policy.entangle-runtime]
+audit-as-crates-io = false
+criteria = ["safe-to-deploy", "crypto-safe"]

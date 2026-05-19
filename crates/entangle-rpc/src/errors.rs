@@ -23,8 +23,13 @@ pub enum RpcError {
     DaemonNotRunning(std::path::PathBuf),
 
     /// Connecting to the daemon timed out after the given duration.
-    #[error("connect timeout after {0:?}")]
-    ConnectTimeout(std::time::Duration),
+    #[error("connect timeout after {timeout:?} to {socket}")]
+    ConnectTimeout {
+        /// The socket the client tried to connect to.
+        socket: std::path::PathBuf,
+        /// How long it waited before giving up.
+        timeout: std::time::Duration,
+    },
 
     /// The response did not conform to the expected JSON-RPC 2.0 structure.
     #[error("malformed response: {0}")]

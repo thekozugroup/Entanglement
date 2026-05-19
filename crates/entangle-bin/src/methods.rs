@@ -94,6 +94,7 @@ pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
 
     match req.method.as_str() {
         m if m == method::VERSION => handle_version(req.id),
+        m if m == method::TIME => handle_time(req.id),
         m if m == method::PLUGINS_LIST => handle_plugins_list(req.id, state),
         m if m == method::PLUGINS_LOAD => handle_plugins_load(req.id, req.params, state).await,
         m if m == method::PLUGINS_UNLOAD => handle_plugins_unload(req.id, req.params, state).await,
@@ -124,6 +125,15 @@ fn handle_version(id: serde_json::Value) -> String {
             types: env!("CARGO_PKG_VERSION"),
         },
     )
+}
+
+fn handle_time(id: serde_json::Value) -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let unix_millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    ok_resp(id, entangle_rpc::TimeResult { unix_millis })
 }
 
 fn handle_plugins_list(id: serde_json::Value, state: &Arc<DaemonState>) -> String {

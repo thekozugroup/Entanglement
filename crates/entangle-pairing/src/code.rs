@@ -120,4 +120,26 @@ mod tests {
         );
         assert!(s.contains("REDACTED"));
     }
+
+    #[test]
+    fn from_str_rejects_7_digits() {
+        let r: Result<PairingCode, _> = "1234567".parse();
+        assert!(r.is_err(), "7 digits should be rejected, got Ok");
+    }
+
+    #[test]
+    fn from_str_rejects_letters_only() {
+        let r: Result<PairingCode, _> = "abcdef".parse();
+        assert!(r.is_err(), "non-digit input must error");
+    }
+
+    #[test]
+    fn from_u32_rejects_leading_zero_range() {
+        let r = PairingCode::from_u32(99_999);
+        assert!(r.is_err(), "99_999 (5 digits) must be rejected");
+        match r.unwrap_err() {
+            crate::CodeError::OutOfRange(n) => assert_eq!(n, 99_999),
+            other => panic!("expected OutOfRange, got {other:?}"),
+        }
+    }
 }

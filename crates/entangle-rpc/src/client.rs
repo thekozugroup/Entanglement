@@ -2,8 +2,13 @@ use crate::{errors::RpcError, methods::*};
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
+
+/// Default connect timeout: 2 seconds. Short enough to fail fast in the CLI;
+/// long enough to tolerate a daemon that's just started up.
+pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// A typed JSON-RPC 2.0 client that connects to the `entangled` daemon over
 /// its Unix-domain socket.
@@ -13,15 +18,29 @@ use tokio::net::UnixStream;
 pub struct Client {
     socket_path: PathBuf,
     next_id: AtomicU64,
+    connect_timeout: Duration,
 }
 
 impl Client {
-    /// Create a client targeting the given socket path.
+    /// Create a client targeting the given socket path with the default
+    /// 2-second connect timeout.
     pub fn new(socket_path: impl Into<PathBuf>) -> Self {
         Self {
             socket_path: socket_path.into(),
             next_id: AtomicU64::new(1),
+            connect_timeout: DEFAULT_CONNECT_TIMEOUT,
         }
+    }
+
+    /// Override the connect timeout used for every call.
+    pub fn with_connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = timeout;
+        self
+    }
+
+    /// Currently-configured connect timeout.
+    pub fn connect_timeout(&self) -> Duration {
+        self.connect_timeout
     }
 
     /// Return the default socket path: `$HOME/.entangle/sock`.
@@ -51,7 +70,13 @@ impl Client {
         });
         let line = serde_json::to_string(&req)?;
 
-        let stream = UnixStream::connect(&self.socket_path).await?;
+        let stream =
+            tokio::time::timeout(self.connect_timeout, UnixStream::connect(&self.socket_path))
+                .await
+                .map_err(|_| RpcError::ConnectTimeout {
+                    socket: self.socket_path.clone(),
+                    timeout: self.connect_timeout,
+                })??;
         let (rd, mut wr) = stream.into_split();
 
         wr.write_all(line.as_bytes()).await?;
@@ -88,6 +113,11 @@ impl Client {
     /// `version` — return daemon / runtime / types version strings.
     pub async fn version(&self) -> Result<VersionResult, RpcError> {
         self.call(method::VERSION, serde_json::Value::Null).await
+    }
+
+    /// `time` — daemon's view of wall-clock UNIX epoch milliseconds.
+    pub async fn time(&self) -> Result<TimeResult, RpcError> {
+        self.call(method::TIME, serde_json::Value::Null).await
     }
 
     /// `plugins/list` — return the ids of currently loaded plugins.
@@ -148,5 +178,34 @@ impl Client {
         params: ComputeDispatchParams,
     ) -> Result<ComputeDispatchResult, RpcError> {
         self.call(method::COMPUTE_DISPATCH, params).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_connect_timeout_is_two_seconds() {
+        let c = Client::new("/tmp/nope.sock");
+        assert_eq!(c.connect_timeout(), Duration::from_secs(2));
+    }
+
+    #[test]
+    fn with_connect_timeout_overrides() {
+        let c = Client::new("/tmp/nope.sock").with_connect_timeout(Duration::from_millis(50));
+        assert_eq!(c.connect_timeout(), Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn missing_socket_yields_daemon_not_running() {
+        let c = Client::new("/var/empty/no-such-socket-2026.sock");
+        let err = c.version().await.expect_err("missing socket must error");
+        match err {
+            RpcError::DaemonNotRunning(p) => {
+                assert!(p.ends_with("no-such-socket-2026.sock"));
+            }
+            other => panic!("expected DaemonNotRunning, got: {other:?}"),
+        }
     }
 }

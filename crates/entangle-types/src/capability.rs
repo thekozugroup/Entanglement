@@ -110,11 +110,49 @@ impl CapabilityKind {
             CapabilityKind::Custom(_) => Tier::Pure,
         }
     }
+
+    /// Standard capability-surface variants in canonical order.
+    ///
+    /// Useful for `entangle perms list` and documentation pages that enumerate
+    /// every well-known capability. Does **not** include the `Custom(_)`
+    /// variant or parameterised variants (`StorageLocal`, `StorageShare`).
+    pub fn standard_variants() -> &'static [CapabilityKind] {
+        const VARIANTS: &[CapabilityKind] = &[
+            CapabilityKind::ComputeCpu,
+            CapabilityKind::ComputeGpu,
+            CapabilityKind::ComputeNpu,
+            CapabilityKind::NetLan,
+            CapabilityKind::NetWan,
+            CapabilityKind::MeshPeer,
+            CapabilityKind::AgentInvoke,
+            CapabilityKind::HostDockerSocket,
+        ];
+        VARIANTS
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn standard_variants_round_trips_min_tier() {
+        let all = CapabilityKind::standard_variants();
+        assert!(all.len() >= 7, "missing standard variants: {all:?}");
+        for v in all {
+            // every variant has a known min_tier
+            let _ = v.min_tier();
+        }
+    }
+
+    #[test]
+    fn standard_variants_includes_docker_socket_native_tier() {
+        let docker = CapabilityKind::standard_variants()
+            .iter()
+            .find(|v| matches!(v, CapabilityKind::HostDockerSocket))
+            .expect("HostDockerSocket must be in standard_variants");
+        assert_eq!(docker.min_tier(), Tier::Native);
+    }
 
     #[test]
     fn host_docker_socket_requires_native() {

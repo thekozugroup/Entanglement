@@ -21,8 +21,19 @@ pub enum DispatchError {
     #[error("local kernel error: {0}")]
     Runtime(#[from] entangle_runtime::RuntimeError),
     /// Cross-node dispatch is not yet implemented (Phase 2).
-    #[error("remote dispatch not implemented yet (Phase 2)")]
-    RemoteNotImplemented,
+    ///
+    /// Carries the chosen peer + human-readable placement reason so callers
+    /// can surface a useful message without re-running placement.
+    #[error(
+        "ENTANGLE-E0400: remote dispatch not implemented yet (Phase 2); \
+         placement chose peer {peer} ({reason})"
+    )]
+    RemoteNotImplemented {
+        /// The peer placement chose; left unreached in Phase 1.
+        peer: PeerId,
+        /// Human-readable placement reason (from `PlacementChoice::reason`).
+        reason: String,
+    },
 }
 
 /// Combines a placement decision with the task output bytes.
@@ -43,6 +54,14 @@ pub struct Dispatcher {
     local_peer_id: PeerId,
     /// TTL for considering a worker live.
     pub worker_ttl: Duration,
+    /// When true, refuse to silently fall back to local execution when
+    /// placement chooses a remote peer; instead, return
+    /// [`DispatchError::RemoteNotImplemented`].
+    ///
+    /// Phase 1 default is `false` for backwards compatibility with the
+    /// single-host demo; Phase 2 will flip this to `true` once cross-node
+    /// dispatch is wired.
+    pub strict_remote: bool,
 }
 
 impl Dispatcher {
@@ -53,13 +72,26 @@ impl Dispatcher {
             kernel,
             local_peer_id,
             worker_ttl: Duration::from_secs(60),
+            strict_remote: false,
         }
+    }
+
+    /// Enable strict remote enforcement.
+    ///
+    /// In strict mode the dispatcher returns
+    /// [`DispatchError::RemoteNotImplemented`] when placement chooses a
+    /// non-local peer, instead of silently re-running on the local kernel.
+    pub fn with_strict_remote(mut self, strict: bool) -> Self {
+        self.strict_remote = strict;
+        self
     }
 
     /// Dispatch a [`OneShotTask`]: place → run → return output.
     ///
     /// Phase 1: only LOCAL dispatch is wired. If placement chooses a remote
-    /// peer, execution falls back to the local kernel with a warning logged.
+    /// peer and `strict_remote` is `false`, execution falls back to the
+    /// local kernel with a warning logged; otherwise [`DispatchError::RemoteNotImplemented`]
+    /// is returned.
     pub async fn dispatch_one_shot(
         &self,
         task: OneShotTask,
@@ -83,6 +115,12 @@ impl Dispatcher {
         })?;
 
         if chosen.peer_id != self.local_peer_id {
+            if self.strict_remote {
+                return Err(DispatchError::RemoteNotImplemented {
+                    peer: chosen.peer_id,
+                    reason: chosen.reason.clone(),
+                });
+            }
             tracing::warn!(
                 ?chosen,
                 "Phase 1 stub: remote dispatch not implemented; falling back to local"

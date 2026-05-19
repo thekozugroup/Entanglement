@@ -314,6 +314,54 @@ fn detect_hardware() -> HardwareAdvert {
         gpu_backend: None, // Phase 2: wgpu detection
         gpu_vram_bytes: 0,
         network_bandwidth_bps: 0,
+        npu_vendor: npu::detect(),
+    }
+}
+
+/// NPU vendor-detection helpers (spec §6.1).
+///
+/// Phase 1 returns `None` on every platform; the module exists so the wire
+/// format and tests can already round-trip the field.
+mod npu {
+    /// Detect the local NPU vendor, if any. Phase 1: always `None`.
+    ///
+    /// Per-platform Phase-2 probe paths are encoded explicitly so the
+    /// implementer has nothing to invent — they only need to populate the
+    /// `Some(_)` arm.
+    pub fn detect() -> Option<String> {
+        // Phase 2 probes — none enabled in Phase 1.
+        // Linux candidates (first hit wins):
+        //   /sys/class/intel_npu/0/device/uevent            → "intel"
+        //   /proc/device-tree/soc/.../qcom,npu              → "qualcomm"
+        //   lspci -nn | grep -i "npu\|neural"               → vendor from PCI id
+        // macOS candidates:
+        //   system_profiler SPHardwareDataType | grep "Apple M"  → "apple"
+        //   sysctl -n machdep.cpu.brand_string                   → fallback
+        None
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn phase_1_detect_returns_none() {
+            assert!(detect().is_none(), "Phase 1 NPU detection must be no-op");
+        }
+
+        /// Sanity: each branch compiles for its target. We can't run the
+        /// other target's branch here, but on the current host the function
+        /// returns successfully (no panic, no I/O).
+        #[test]
+        fn detect_does_not_panic_or_block() {
+            let start = std::time::Instant::now();
+            let _ = detect();
+            assert!(
+                start.elapsed() < std::time::Duration::from_millis(100),
+                "Phase-1 detect must not block (no I/O); took {:?}",
+                start.elapsed()
+            );
+        }
     }
 }
 

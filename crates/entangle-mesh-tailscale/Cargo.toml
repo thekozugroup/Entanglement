@@ -1,6 +1,6 @@
 [package]
-name = "entangle-peers"
-description = "Persistent peer allowlist for the Entanglement daemon (spec §6.3, §11 #16)"
+name = "entangle-mesh-tailscale"
+description = "Tailscale-tailnet mesh transport for Entanglement (scaffold; real wiring is Phase 2)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,12 +14,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 entangle-types = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-toml = { workspace = true }
 thiserror = { workspace = true }
-hex = { workspace = true }
-parking_lot = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
-tempfile = { workspace = true }
-serde_json = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }

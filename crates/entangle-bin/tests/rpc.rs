@@ -102,6 +102,29 @@ async fn version_rpc_returns_versions() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn time_rpc_returns_unix_millis() {
+    let resp = send_recv(
+        tmp_sock("time"),
+        make_state(),
+        r#"{"jsonrpc":"2.0","id":7,"method":"time","params":{}}"#,
+    )
+    .await;
+
+    let v: serde_json::Value = serde_json::from_str(&resp).expect("response must be valid JSON");
+    assert_eq!(v["jsonrpc"], "2.0");
+    assert_eq!(v["id"], 7);
+    let ms = v["result"]["unix_millis"]
+        .as_u64()
+        .expect("unix_millis must be u64");
+    // Wall-clock millis since UNIX epoch should be >= year-2000 timestamp.
+    assert!(
+        ms > 946_684_800_000,
+        "unix_millis looks too small to be wall-clock: {ms}"
+    );
+    assert!(v.get("error").is_none());
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn invalid_method_returns_minus_32601() {
     let resp = send_recv(
         tmp_sock("badmethod"),

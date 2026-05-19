@@ -59,6 +59,15 @@ enum Cmd {
     /// Dispatch compute tasks via the scheduler.
     #[command(subcommand_required = true)]
     Compute(ComputeArgs),
+    /// Print the detected platform and the sandbox primitive that would be used
+    /// for tier-5 plugins on this host (spec §0.2).
+    PrintPlatform,
+    /// Print Prometheus exposition for the in-process metrics registry.
+    ///
+    /// Phase 1: prints the daemon's own counter/gauge/histogram families
+    /// (still empty in the CLI process — wired to the daemon's registry in
+    /// Phase 2 when the scrape endpoint is exposed).
+    Metrics,
 }
 
 #[tokio::main]
@@ -82,5 +91,32 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Mesh(a) => cmd::mesh::run(a).await,
         Cmd::Pair(a) => cmd::pair::run(a).await,
         Cmd::Compute(a) => cmd::compute::run(a).await,
+        Cmd::PrintPlatform => print_platform(),
+        Cmd::Metrics => print_metrics(),
     }
+}
+
+fn print_metrics() -> anyhow::Result<()> {
+    let registry = entangle_observability::Registry::new();
+    // Seed a few zero-valued series so the output is recognisable even when
+    // the daemon's registry isn't yet wired through RPC (Phase 2).
+    registry.inc_counter(
+        "entangle_cli_invocations_total",
+        "entangle CLI subcommands run since daemon start",
+        &[("subcommand", "metrics")],
+        1.0,
+    );
+    print!("{}", registry.render());
+    Ok(())
+}
+
+fn print_platform() -> anyhow::Result<()> {
+    let probe = entangle_runtime::probe_os_sandbox();
+    println!(
+        "{} {} (sandbox: {})",
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        probe.description()
+    );
+    Ok(())
 }

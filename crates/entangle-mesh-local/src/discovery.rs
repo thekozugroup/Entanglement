@@ -219,6 +219,9 @@ impl Discovery {
                 "network_bandwidth_bps".into(),
                 hw.network_bandwidth_bps.to_string(),
             );
+            if let Some(npu) = &hw.npu_vendor {
+                m.insert("npu_vendor".into(), npu.clone());
+            }
         }
         m
     }
@@ -310,12 +313,17 @@ fn parse_hardware(txt: &mdns_sd::TxtProperties) -> Option<HardwareAdvert> {
         .and_then(|s| s.parse().ok())
         .unwrap_or(0);
 
+    let npu_vendor = txt
+        .get_property_val_str("npu_vendor")
+        .map(|s| s.to_string());
+
     Some(HardwareAdvert {
         cpu_cores,
         memory_bytes,
         gpu_backend,
         gpu_vram_bytes,
         network_bandwidth_bps,
+        npu_vendor,
     })
 }
 

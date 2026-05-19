@@ -29,14 +29,59 @@ For a hands-on tour from `entangle init` through plugin invocation and peer pair
 
 ## Stack
 
-- Rust workspace: 18 lib crates, 2 binaries, 1 bench, 1 atc-matrix, 1 xtask (~23 crates total)
-- Wasmtime + WASI 0.2 component model
-- Iroh QUIC mesh, mDNS, Tailscale
-- Ed25519 + BLAKE3 publisher signing
-- biscuit-auth Datalog capability tokens
-- Tokio async runtime
-- JSON-RPC 2.0 over Unix domain sockets
+- Rust workspace: 18 lib crates, 2 binaries, 1 bench, 1 atc-matrix, 1 xtask (~23 crates total).
+- Wasmtime + WASI 0.2 component model.
+- mDNS-SD discovery on the LAN; Iroh QUIC and Tailscale transports scaffolded behind feature flags.
+- Ed25519 publisher signing + BLAKE3 artifact hashing.
+- biscuit-auth Datalog capability tokens with bridge attenuation.
+- Tokio async runtime.
+- JSON-RPC 2.0 over Unix domain sockets.
+
+## Install
+
+- macOS: `brew install thekozugroup/entanglement/entangle` (planned tap; Phase 1.5).
+- Linux: `curl -fsSL get.entanglement.dev | sh` (planned; Phase 1.5) — meanwhile, `cargo install --path crates/entangle-bin`.
+- Windows: WSL2 only; native AppContainer support is deferred to Phase 5.
 
 ## Status
 
-In progress
+Phase 1 capability is implemented end-to-end (see [`STATUS.md`](./STATUS.md)).
+Phase 2 scaffolds for cross-node dispatch, the MCP gateway, alt transports,
+and observability exporters return a structured `NotImplemented` error
+until they are filled in.
+
+## 5-minute demo
+
+```
+cargo install --path crates/entangle-bin
+entangle init --non-interactive
+cargo xtask hello-world build
+entangle keyring add "$(cat ~/.entangle/identity.pub)" --name self
+entangle plugins load examples/hello-world --allow-local
+entangle plugins invoke hello-world --input world
+```
+
+## Roadmap
+
+| Phase | Theme | Status |
+|-------|-------|--------|
+| 1     | Core runtime + WASM host + signing + manifest + UDS RPC + mDNS LAN + pairing + biscuit tokens + local scheduler + agent-host config adapter | **Shipped** |
+| 1.5   | Distribution: Homebrew tap, Linux install script, signed release artifacts (SLSA L3 + cosign) | In progress |
+| 2     | Real cross-node dispatch over Iroh streams; MCP gateway HTTP server; `mesh.iroh`/`mesh.tailscale` transports; OS-sandbox engagement; Prometheus + OpenTelemetry exporters | Scaffolded (returns `NotImplemented`) |
+| 3     | Integrity policies: `Deterministic` cross-node replication, `SemanticEquivalent` with operator-supplied metric components, `Attested` for TEEs | Designed |
+| 4     | Streaming task model with chunk signing; speculative execution + straggler mitigation; reputation gossip | Designed |
+| 5     | Native Windows AppContainer support; second-class agent-host adapters (Aider, Cursor); plugin marketplace | Deferred |
+
+## Acknowledgements
+
+Entanglement borrows ideas from:
+
+- **WASI 0.2 Component Model & Wasmtime** — the plugin substrate.
+- **biscuit-auth** — attenuatable, offline-verifiable capability tokens.
+- **Iroh** — QUIC mesh with NAT hole-punching and DERP relay.
+- **Tailscale & WireGuard** — the model for "your existing tailnet is the
+  reliable WAN substrate".
+- **Bytecode Alliance's `cargo-vet`** — supply-chain auditing.
+- **The Capability Security community** — Mark S. Miller, the E language,
+  and the Genode OS Framework for showing that deny-by-default at the API
+  layer is achievable in practice, not just in theory.

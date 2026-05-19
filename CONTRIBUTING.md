@@ -66,3 +66,32 @@ Use the templates in `.github/ISSUE_TEMPLATE/`. Reference the spec section if be
 ## Code of Conduct
 
 We follow the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). Reports to `conduct@entanglement.dev`.
+
+## Supply-chain audits
+
+```bash
+cargo install cargo-vet cargo-deny cargo-audit
+cargo deny check          # bans / licenses / advisories / sources
+cargo audit               # RustSec database
+cargo vet                 # supply-chain audit set; populate with `cargo vet certify <crate>`
+```
+
+The `supply-chain/` directory holds the workspace's vet config and audit set.
+Phase 1 ships the seed (`config.toml` + an empty `audits.toml`); maintainers
+certify crates as they review them.
+
+## Iteration sprint
+
+`.iterations/` carries a snapshot of the 80-iteration completion sprint that
+took the codebase from Phase-1-complete to Phase-2-scaffolded. See
+`.iterations/PLAN.md` for the criteria list and `LOG.md` for the per-iter
+grading record. Phase-2 implementers can use the criteria as a punch list:
+each item that returned `NotImplemented` has a stable error code and a unit
+test pinning the contract.
+
+## Bus factor
+
+Every named role in `docs/maintainers/roles.toml` should have ≥2 holders.
+The weekly `.github/workflows/bus-factor.yml` job fails by design until
+additional maintainers are seated; if you want to take on a role, open a
+PR adding yourself to the relevant role doc.

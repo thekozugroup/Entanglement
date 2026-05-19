@@ -364,4 +364,93 @@ mod tests {
             "GpuBackend::Any should accept both Metal and CUDA"
         );
     }
+
+    #[test]
+    fn choose_rejects_worker_with_too_little_vram() {
+        let p1 = peer(7);
+        let workers = vec![worker(
+            p1,
+            1,
+            0.0,
+            4.0,
+            8 * 1024 * 1024 * 1024,
+            Some(GpuRequirement {
+                vram_min_bytes: 2 * 1024 * 1024 * 1024,
+                backend: GpuBackend::Metal,
+            }),
+            None,
+            1.0,
+        )];
+        let spec = ResourceSpec {
+            cpu_cores: 1.0,
+            memory_bytes: 1024,
+            gpu: Some(GpuRequirement {
+                vram_min_bytes: 8 * 1024 * 1024 * 1024,
+                backend: GpuBackend::Metal,
+            }),
+            ..ResourceSpec::default()
+        };
+        let err = choose(&workers, &spec).expect_err("under-VRAM must NoMatch");
+        assert!(matches!(err, PlacementError::NoMatch(_)));
+    }
+
+    #[test]
+    fn choose_rejects_npu_vendor_mismatch_case_insensitive() {
+        let p1 = peer(8);
+        let workers = vec![worker(
+            p1,
+            1,
+            0.0,
+            4.0,
+            8 * 1024 * 1024 * 1024,
+            None,
+            Some(NpuRequirement {
+                vendor: "Qualcomm".into(),
+            }),
+            1.0,
+        )];
+        let spec = ResourceSpec {
+            cpu_cores: 1.0,
+            memory_bytes: 1024,
+            npu: Some(NpuRequirement {
+                vendor: "apple".into(),
+            }),
+            ..ResourceSpec::default()
+        };
+        let err = choose(&workers, &spec).expect_err("npu mismatch must NoMatch");
+        assert!(matches!(err, PlacementError::NoMatch(_)));
+    }
+
+    #[test]
+    fn choose_npu_vendor_match_is_case_insensitive() {
+        let p1 = peer(9);
+        let workers = vec![worker(
+            p1,
+            1,
+            0.0,
+            4.0,
+            8 * 1024 * 1024 * 1024,
+            None,
+            Some(NpuRequirement {
+                vendor: "APPLE".into(),
+            }),
+            1.0,
+        )];
+        let spec = ResourceSpec {
+            cpu_cores: 1.0,
+            memory_bytes: 1024,
+            npu: Some(NpuRequirement {
+                vendor: "apple".into(),
+            }),
+            ..ResourceSpec::default()
+        };
+        let pick = choose(&workers, &spec).expect("case-insensitive match must succeed");
+        assert_eq!(pick.peer_id, p1);
+    }
+
+    #[test]
+    fn choose_no_workers_returns_no_workers_error() {
+        let err = choose(&[], &basic_spec()).expect_err("empty pool must NoWorkers");
+        assert!(matches!(err, PlacementError::NoWorkers));
+    }
 }

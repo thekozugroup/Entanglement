@@ -228,6 +228,13 @@ async fn atc_int_5_semantic_equivalent_returns_not_implemented() {
         ),
         "ATC-INT-5: expected Integrity(NotImplemented(\"SemanticEquivalent\")), got: {err}"
     );
+
+    // Stable error code: ENTANGLE-E0304 is the contract surface for callers
+    // matching on the wire format rather than the typed variant.
+    assert!(
+        err.to_string().contains("ENTANGLE-E0304"),
+        "ATC-INT-5: error message must include stable ENTANGLE-E0304 code; got: {err}"
+    );
 }
 
 // ── §16 ATC-INT-6 ─────────────────────────────────────────────────────────────
@@ -262,5 +269,10 @@ async fn atc_int_6_attested_returns_not_implemented() {
             RuntimeError::Integrity(IntegrityError::NotImplemented("Attested"))
         ),
         "ATC-INT-6: expected Integrity(NotImplemented(\"Attested\")), got: {err}"
+    );
+
+    assert!(
+        err.to_string().contains("ENTANGLE-E0304"),
+        "ATC-INT-6: error message must include stable ENTANGLE-E0304 code; got: {err}"
     );
 }

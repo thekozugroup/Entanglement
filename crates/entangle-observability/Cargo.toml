@@ -16,3 +16,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter", "json", "fmt"] }
 is-terminal = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+
+[features]
+default = []
+# Phase-2 feature flags — the actual exporter wiring is deferred.
+prometheus = []
+otel = []

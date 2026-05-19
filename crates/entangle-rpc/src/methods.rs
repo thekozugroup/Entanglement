@@ -11,6 +11,13 @@ pub struct VersionResult {
     pub types: String,
 }
 
+/// Result of the `time` RPC method (used by `entangle doctor` for clock-skew).
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TimeResult {
+    /// Daemon's view of UNIX epoch time in milliseconds.
+    pub unix_millis: u64,
+}
+
 /// Result of the `plugins/list` RPC method.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PluginsListResult {
@@ -162,6 +169,8 @@ pub struct ComputeDispatchResult {
 pub mod method {
     /// `version` — return daemon / runtime / types version strings.
     pub const VERSION: &str = "version";
+    /// `time` — daemon's view of wall-clock UNIX epoch milliseconds.
+    pub const TIME: &str = "time";
     /// `plugins/list` — list loaded plugin ids.
     pub const PLUGINS_LIST: &str = "plugins/list";
     /// `plugins/load` — load a plugin from a directory path.

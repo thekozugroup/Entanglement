@@ -10,7 +10,11 @@
 //! | E0200–E0201 | Manifest / plugin id           |
 //! | E0300–E0301 | Task execution                 |
 //! | E0500       | I/O                            |
+//! | E0600–E0699 | Agent-host adapter (see `entangle-agent-host`) |
 //! | E9999       | Internal / unexpected          |
+//!
+//! Codes are stable across patch releases and only ever appended in the
+//! workspace; renaming or recycling a code is a breaking change.
 
 use crate::tier::Tier;
 
@@ -122,5 +126,69 @@ mod tests {
         let msg = e.to_string();
         assert!(msg.contains("ENTANGLE-E0042"));
         assert!(msg.contains("net.wan"));
+    }
+
+    /// Every variant must emit its declared `ENTANGLE-Exxxx` code in `Display`.
+    #[test]
+    fn every_variant_carries_code() {
+        let samples: Vec<(EntangleError, &str)> = vec![
+            (
+                EntangleError::TierBelowCapability {
+                    declared: Tier::Pure,
+                    implied: Tier::Networked,
+                    capability: "net.wan".into(),
+                },
+                "ENTANGLE-E0042",
+            ),
+            (
+                EntangleError::TierAboveDaemonCeiling(Tier::Native, Tier::Networked),
+                "ENTANGLE-E0043",
+            ),
+            (
+                EntangleError::SignatureInvalid("bad".into()),
+                "ENTANGLE-E0100",
+            ),
+            (EntangleError::UntrustedPublisher, "ENTANGLE-E0101"),
+            (
+                EntangleError::CapabilityDenied {
+                    capability: "fs.read".into(),
+                    plugin: "p".into(),
+                },
+                "ENTANGLE-E0120",
+            ),
+            (
+                EntangleError::BridgeAttenuationMissing("dest_pin".into()),
+                "ENTANGLE-E0122",
+            ),
+            (
+                EntangleError::ManifestInvalid("bad".into()),
+                "ENTANGLE-E0200",
+            ),
+            (
+                EntangleError::PluginIdInvalid("nope".into()),
+                "ENTANGLE-E0201",
+            ),
+            (
+                EntangleError::OutputSizeExceeded {
+                    declared: 100,
+                    actual: 200,
+                    peer: "bob".into(),
+                },
+                "ENTANGLE-E0300",
+            ),
+            (EntangleError::TaskTimeout(1234), "ENTANGLE-E0301"),
+            (
+                EntangleError::Io(std::io::Error::other("x")),
+                "ENTANGLE-E0500",
+            ),
+            (EntangleError::Internal("x".into()), "ENTANGLE-E9999"),
+        ];
+        for (e, code) in samples {
+            let msg = e.to_string();
+            assert!(
+                msg.contains(code),
+                "variant {e:?} does not carry code {code}: {msg}"
+            );
+        }
     }
 }

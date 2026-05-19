@@ -22,6 +22,10 @@ pub struct HardwareAdvert {
     pub gpu_vram_bytes: u64,
     /// Estimated egress network bandwidth in bits per second; `0` = unknown.
     pub network_bandwidth_bps: u64,
+    /// NPU vendor string if a neural accelerator is detected; `None` = no NPU.
+    ///
+    /// Phase 1: always `None` — see `entangle_bin::npu::detect()`.
+    pub npu_vendor: Option<String>,
 }
 
 /// Local peer descriptor — what we publish about ourselves on mDNS.

@@ -16,7 +16,9 @@
 
 **GitHub org:** `entanglement-dev` &nbsp;·&nbsp; **Crate prefix:** `entangle-*` &nbsp;·&nbsp; **Binaries:** `entangle` (CLI) and `entangled` (daemon) &nbsp;·&nbsp; **Homebrew tap:** `entanglement-dev/tap` &nbsp;·&nbsp; **Error code prefix:** `ENTANGLE-Exxxx`
 
-**Naming history.** This project went through two prior codenames before settling on Entanglement. *Centrifuge* collided with `centrifugal/centrifuge` (Go pubsub) and the Centrifuge Chain L1. *Strata* collided with the `crates.io/crates/strata` package (alpenlabs Bitcoin-Stratum) and Strata Identity at `strata.io`. *Entanglement* is a heavily-loaded term in quantum computing (IBM Quantum, several blockchain projects), but the metaphor — paired devices share state and compute as if quantum-entangled — is the best conceptual fit. Crate-prefix and org policy use `entangle-*` and `entanglement-dev` to keep namespace ownership clean. ### 0.2 Supported platforms
+**Naming history.** This project went through two prior codenames before settling on Entanglement. *Centrifuge* collided with `centrifugal/centrifuge` (Go pubsub) and the Centrifuge Chain L1. *Strata* collided with the `crates.io/crates/strata` package (alpenlabs Bitcoin-Stratum) and Strata Identity at `strata.io`. *Entanglement* is a heavily-loaded term in quantum computing (IBM Quantum, several blockchain projects), but the metaphor — paired devices share state and compute as if quantum-entangled — is the best conceptual fit. Crate-prefix and org policy use `entangle-*` and `entanglement-dev` to keep namespace ownership clean.
+
+### 0.2 Supported platforms
 
 Cross-platform support per OS: sandbox primitive and install path:
 
@@ -40,7 +42,9 @@ Entanglement only runs the daemon on the first three OSes, but the tailnet itsel
 
 ## 1. System Overview
 
-Entanglement is a **small Rust core runtime** that runs Wasm Component plugins under a capability-based permission model and federates them across a mesh of devices. It is the substrate for: distributed compute over LAN/WAN, AI agent hosting (Claude Code, Codex, OpenCode, Aider), batched compute scheduling, network management, and similar device-fleet workloads — all delivered *as plugins*. We previously called the trusted layer a "kernel.".. fixes this two ways: (1) renames the trusted layer to **core runtime**; (2) shrinks it materially  — see §2. ### What Entanglement IS
+Entanglement is a **small Rust core runtime** that runs Wasm Component plugins under a capability-based permission model and federates them across a mesh of devices. It is the substrate for: distributed compute over LAN/WAN, AI agent hosting (Claude Code, Codex, OpenCode, Aider), batched compute scheduling, network management, and similar device-fleet workloads — all delivered *as plugins*. We previously called the trusted layer a "kernel". This document fixes that two ways: (1) renames the trusted layer to **core runtime**; (2) shrinks it materially — see §2.
+
+### What Entanglement IS
 
 - A **plugin host** (Wasmtime + WASI 0.2/Preview 2 Component Model) with a typed capability surface.
 
@@ -50,7 +54,9 @@ Entanglement is a **small Rust core runtime** that runs Wasm Component plugins u
 
 - A **single static binary** (`entangled`) plus the same binary invoked as `entangle` for the CLI.
 
-- A **substrate** for: compute scheduler, agent host, network manager — each a plugin. ### What Entanglement IS NOT
+- A **substrate** for: compute scheduler, agent host, network manager — each a plugin.
+
+### What Entanglement IS NOT
 
 - Not a container runtime; not a Kubernetes alternative; not a general orchestrator.
 
@@ -58,7 +64,9 @@ Entanglement is a **small Rust core runtime** that runs Wasm Component plugins u
 
 - Not opinionated about scheduling, agent protocol, or network topology — those are plugins.
 
-- Not Byzantine-tolerant by default (§7.5 makes opt-in replication and reputation explicit). ### One-paragraph elevator
+- Not Byzantine-tolerant by default (§7.5 makes opt-in replication and reputation explicit).
+
+### One-paragraph elevator
 
 **Entanglement is a tiny Rust runtime + plugin ecosystem that turns the devices you already own into one cooperative compute fabric.** Two roles drive every design decision: (1) **AI sysadmin** plugins — agents like Claude Code, Codex, OpenCode that operate the system on the user's behalf, including managing Docker on the host as a sealed tier-5 capability; and (2) **swarm compute** — pooling CPU/GPU/NPU across paired devices so individual workloads (LLM inference, batch jobs, test parallelization) finish faster than they would on any single machine. Everything else in this document — the tier model, the capability broker, the three mesh transports, the biscuit auth, the OCI/tarball distribution — exists to make those two roles safe and ship-able. **How it actually feels to a user.** A user runs `brew install entangle && entangle init`. The init wizard generates an Ed25519 identity, writes `~/.config/entangle/config.toml`, opens the firewall hole (or skips it if Tailscale is detected), and prints a 6-digit pairing code. On the second device they run `entangle pair <code>` — TOFU on both sides with explicit accept. Each daemon discovers peers via mDNS on LAN, pkarr on WAN, or MagicDNS SRV/TXT records on a tailnet — whichever transports the node is configured to participate in. UDP-hostile network? Tell the user to install Tailscale; Entanglement's `mesh.tailscale` mode then works without our shipping our own TURN. Plugins — distributed as signed OCI artifacts *or* `.tar.zst` from an HTTPS URL — declare the capabilities they need. Capability handles are the only authority. From there: a `scheduler` plugin places signed Wasm work units (the swarm-compute role); an `agent-host-claude-code` subprocess plugin runs Claude Code with the kernel intercepting every MCP tool call (the AI-sysadmin role); a `entangle-mesh-fs` plugin shares storage. The core stays small. ---
 
@@ -72,7 +80,9 @@ The **core runtime** (`entangle-core` crate) owns, exhaustively, just three thin
 | **Plugin host** | Wasmtime engine ownership; component instantiation; lifecycle WIT; Cap'n Proto subprocess bridge |
 | **Capability broker bus** | Wires plugins to broker; mediates host calls; **does not implement** capability surfaces itself |
 
-Everything else — manifest validation, signature verification, OCI fetch, IPC framing, capability surfaces — is in **separate crates the core uses**. The core runtime depends on them but does not *contain* them. ### 2.1 Broker fault isolation
+Everything else — manifest validation, signature verification, OCI fetch, IPC framing, capability surfaces — is in **separate crates the core uses**. The core runtime depends on them but does not *contain* them.
+
+### 2.1 Broker fault isolation
 
 A panic in the capability broker would kill the daemon. commits:
 
@@ -82,7 +92,9 @@ A panic in the capability broker would kill the daemon. commits:
 
 - Plugin states are reconstructed on restart from manifest + last-known-good. Mesh re-converges via SWIM in <10s.
 
-- We accept the tradeoff that a core panic = brief unavailability, in exchange for the operational simplicity of one binary. Documented honestly in §11 and the operator runbook. ### 2.2 What's deliberately NOT in the core
+- We accept the tradeoff that a core panic = brief unavailability, in exchange for the operational simplicity of one binary. Documented honestly in §11 and the operator runbook.
+
+### 2.2 What's deliberately NOT in the core
 
 - HTTP server/client, telemetry exporter, config-reload watcher → plugins
 - Iroh transport itself → `entangle-mesh-iroh` plugin (also `entangle-mesh-local` LAN-only and `entangle-mesh-tailscale` plugins)
@@ -134,15 +146,23 @@ The trust footprint is L1+L2 — a CI check enforces that L1+L2 LOC stays under 
 
 ### 3.1 Mechanism: Wasm Component Model (Wasmtime + WASI 0.2)
 
-Plugins are **WebAssembly components** targeting WASI Preview 2, executed by Wasmtime ≥27 (pinning to a known stable line —.1). capability-by-construction, WIT as stable contract, AOT via Cranelift, multi-language, hot reload, production-grade. Tier-5 native plugins (§3.5) are the explicit escape hatch. ### 3.2 ABI / contract
+Plugins are **WebAssembly components** targeting WASI Preview 2, executed by Wasmtime ≥27 (pinning to a known stable line —.1). capability-by-construction, WIT as stable contract, AOT via Cranelift, multi-language, hot reload, production-grade. Tier-5 native plugins (§3.5) are the explicit escape hatch.
 
-Every plugin imports `entangle:plugin/lifecycle@0.1.0` plus its declared capability worlds. The lifecycle world (`init`/`activate`/`idle`/`shutdown`) is as defined. ### 3.3 Lifecycle
+### 3.2 ABI / contract
 
-Standard lifecycle — install → load → validate → verify → pre-compile → instantiate → init → activate ↔ idle → shutdown → unload. Hot-reload uses an explicit `migrate` hook OR drains then swaps; if the plugin holds long-lived stateful handles (e.g. iroh-blobs streams) it MUST implement `migrate` or the kernel refuses hot-reload and downgrades to drain-and-swap (closing.. ### 3.4 Tier-5 escape hatch: subprocess plugins
+Every plugin imports `entangle:plugin/lifecycle@0.1.0` plus its declared capability worlds. The lifecycle world (`init`/`activate`/`idle`/`shutdown`) is as defined.
 
-For plugins needing raw access (CUDA, Node.js, exotic devices), Entanglement launches a native binary in a sandboxed subprocess. IPC is **Cap'n Proto** over a Unix Domain Socket (or named pipe on Windows). The OS sandbox is per §0.2: Seatbelt on macOS, Landlock+seccomp on Linux, deferred on native Windows. .. commits to it (§8). ### 3.5 Subprocess sandbox honesty
+### 3.3 Lifecycle
 
-. documents the realities:
+Standard lifecycle — install → load → validate → verify → pre-compile → instantiate → init → activate ↔ idle → shutdown → unload. Hot-reload uses an explicit `migrate` hook OR drains then swaps; if the plugin holds long-lived stateful handles (e.g. iroh-blobs streams) it MUST implement `migrate` or the kernel refuses hot-reload and downgrades to drain-and-swap (closing streams cleanly).
+
+### 3.4 Tier-5 escape hatch: subprocess plugins
+
+For plugins needing raw access (CUDA, Node.js, exotic devices), Entanglement launches a native binary in a sandboxed subprocess. IPC is **Cap'n Proto** over a Unix Domain Socket (or named pipe on Windows). The OS sandbox is per §0.2: Seatbelt on macOS, Landlock+seccomp on Linux, deferred on native Windows. The agent-host commits to using this path for Claude Code, Codex, and OpenCode (§8).
+
+### 3.5 Subprocess sandbox honesty
+
+This section documents the realities:
 
 | Primitive | OS | Quality | Known weakness |
 |---|---|---|---|
@@ -150,9 +170,11 @@ For plugins needing raw access (CUDA, Node.js, exotic devices), Entanglement lau
 | Seatbelt (`sandbox-exec`) | macOS | Functional but on private API | Apple has signaled deprecation for years; we monitor and ship a Light entitlement-only fallback as Plan B |
 | (deferred) | Windows native | N/A in MVP | WSL2 used until Phase 5 |
 
-The threat model for tier-5 plugins is **per-OS** and stated up front: a user installing a tier-5 plugin sees the precise sandbox primitive being used in the install prompt, with a link to the per-OS limitations doc. ### 3.6 Distribution & signing — TWO paths
+The threat model for tier-5 plugins is **per-OS** and stated up front: a user installing a tier-5 plugin sees the precise sandbox primitive being used in the install prompt, with a link to the per-OS limitations doc.
 
-. supports two paths against the **same Ed25519 publisher key**:
+### 3.6 Distribution & signing — TWO paths
+
+Entanglement supports two paths against the **same Ed25519 publisher key**:
 
 **Path A — OCI artifact (production)**
 - `oci://ghcr.io/thekozugroup/entangle-scheduler:1.4.2`
@@ -181,7 +203,9 @@ The threat model for tier-5 plugins is **per-OS** and stated up front: a user in
 
 3. At install, the runtime computes the *minimum tier* implied by the capability set and ensures `declared_tier >= implied_tier`. A plugin that declares tier 2 but requests tier-4 capabilities **fails install**.
 
-4. At runtime, every capability invocation is checked against the granted handle (capability layer) AND the plugin's tier (a kernel-side flag controls "block tier ≥ N at runtime, e.g. user has globally disabled tier-5 plugins). ### 4.2 The 5 tiers (definitions)
+4. At runtime, every capability invocation is checked against the granted handle (capability layer) AND the plugin's tier (a kernel-side flag controls "block tier ≥ N at runtime, e.g. user has globally disabled tier-5 plugins).
+
+### 4.2 The 5 tiers (definitions)
 
 | Tier | Authority level | Examples | Default policy |
 |---|---|---|---|
@@ -201,7 +225,9 @@ fn implied_tier(caps: &CapSet) -> u8 {
 }
 ```
 
-This replaces the  hand-rolled if/else ladder. The function is one line; the data lives in the capability definitions. A property test enforces monotonicity (adding a capability never lowers implied tier). Adding a new capability requires declaring its `min_tier` — that's the security review surface. ### 4.4 Manifest schema (`entangle.toml`)
+This replaces the  hand-rolled if/else ladder. The function is one line; the data lives in the capability definitions. A property test enforces monotonicity (adding a capability never lowers implied tier). Adding a new capability requires declaring its `min_tier` — that's the security review surface.
+
+### 4.4 Manifest schema (`entangle.toml`)
 
 ```toml
 [plugin]
@@ -266,7 +292,9 @@ Install scheduler v1.4.2? Declared tier:   3 (Networked) — author's stated cei
   [Y]es / [n]o
 ```
 
-The user makes the decision against the *declared* ceiling (the worst-case). The author cannot stealth-add capabilities later without re-prompting, because every install/upgrade re-runs the powerbox flow against the *new* manifest. **Case C — author lies about the runtime kind.** `[runtime] kind = "wasm-component"` but the binary is a tier-5 native ELF. `entangle-manifest` rejects at parse time (the WIT validator fails); `entangle-host` rejects again at instantiation. Tier-5 is gated on `kind = "subprocess"` plus an OS-sandbox profile. These three cases are property-tested in `entangle-manifest`'s test suite; the test list is referenced from §12 Phase-1 deliverables. ### 4.5 Capability resolution flow
+The user makes the decision against the *declared* ceiling (the worst-case). The author cannot stealth-add capabilities later without re-prompting, because every install/upgrade re-runs the powerbox flow against the *new* manifest. **Case C — author lies about the runtime kind.** `[runtime] kind = "wasm-component"` but the binary is a tier-5 native ELF. `entangle-manifest` rejects at parse time (the WIT validator fails); `entangle-host` rejects again at instantiation. Tier-5 is gated on `kind = "subprocess"` plus an OS-sandbox profile. These three cases are property-tested in `entangle-manifest`'s test suite; the test list is referenced from §12 Phase-1 deliverables.
+
+### 4.5 Capability resolution flow
 
 ```mermaid
 flowchart TB
@@ -290,7 +318,9 @@ Standard lifecycle §4.6 in semantics: plugins request scopes at use-time; user 
 
 - **Headless mode:** `entangled` running as a service has no TTY. Powerbox prompts in headless mode are queued and presented via (a) `entangle perms pending` CLI command, (b) optional webhook to a configured admin URL, (c) optional desktop notification on macOS/Linux when a frontend is installed. A plugin requesting a powerbox grant with no consent path errors after 5 minutes.
 
-- **Audit:** every powerbox grant is logged with (plugin-id, capability, scope, timestamp, grant-method) to the observability plugin. `entangle perms list` shows current grants; `entangle perms revoke` removes them. ### 4.7 Monotonic narrowing
+- **Audit:** every powerbox grant is logged with (plugin-id, capability, scope, timestamp, grant-method) to the observability plugin. `entangle perms list` shows current grants; `entangle perms revoke` removes them.
+
+### 4.7 Monotonic narrowing
 
 `capabilities::drop(handle)` permanently surrenders authority. as defined. ---
 
@@ -314,7 +344,7 @@ interface compute-gpu {
 
 ### 6.1 Transports — three first-class modes, mixable
 
-. The  answer was a custom `entangle-mesh-https` WebSocket-rendezvous fallback. **drops that** in favor of Tailscale, which solves the same problem (NAT, identity, ACLs) without us shipping our own TURN. Reasoning: corporate-locked-down users overwhelmingly already deploy Tailscale; reinventing what Tailscale already ships is code we'd own forever for diminishing return. Entanglement exposes three transport plugins, all implementing the `mesh.peer` capability. **A node selects which transports it participates in via config** — modes are not mutually exclusive within a deployment (some nodes can be `mesh.iroh`-only, others `mesh.tailscale`-only, others both; the broker computes per-pair reachability from the union). | Mode | Plugin | Network reach | Default for | Phase |
+An earlier draft answered this with a custom `entangle-mesh-https` WebSocket-rendezvous fallback. This document **drops that** in favor of Tailscale, which solves the same problem (NAT, identity, ACLs) without us shipping our own TURN. Reasoning: corporate-locked-down users overwhelmingly already deploy Tailscale; reinventing what Tailscale already ships is code we'd own forever for diminishing return. Entanglement exposes three transport plugins, all implementing the `mesh.peer` capability. **A node selects which transports it participates in via config** — modes are not mutually exclusive within a deployment (some nodes can be `mesh.iroh`-only, others `mesh.tailscale`-only, others both; the broker computes per-pair reachability from the union). | Mode | Plugin | Network reach | Default for | Phase |
 |---|---|---|---|---|
 | **A — `mesh.local`** | `entangle-mesh-local` | LAN-only, no internet required. mDNS discovery + Iroh direct streams (no DERP). | Hobbyist single-LAN install (one home, one switch) | 1 |
 | **B — `mesh.iroh`** | `entangle-mesh-iroh` | WAN-capable. QUIC over direct UDP, hole-punched UDP, DERP-relayed TCP. Iroh ≥0.34 pinned to `iroh = "0.34.x"`. | Prosumer multi-site without a tailnet | 1 |
@@ -344,7 +374,9 @@ flowchart TB
 
 - Networks blocking UDP outbound AND not running Tailscale AND with no LAN peers: not supported. Tell the user to install Tailscale.
 
-- Fully air-gapped meshes without any tailnet or LAN: use `entangle pack` and sneakernet (§3.6). #### 6.1.1 Tailscale-mode specifics
+- Fully air-gapped meshes without any tailnet or LAN: use `entangle pack` and sneakernet (§3.6).
+
+#### 6.1.1 Tailscale-mode specifics
 
 **Detection.** At boot, `entangle-mesh-tailscale` shells out to `tailscale status --json` (or the Windows/macOS equivalent). If the call succeeds AND the user has set `[mesh.tailscale] enabled = true` in their config, the node advertises `mesh.tailscale`. Detection is opt-in — the daemon never surreptitiously joins a tailnet it found running. **Liveness polling — three states.** When `[mesh.tailscale] enabled = true`, `entangle-mesh-tailscale` runs a 5-second poll loop that re-invokes `tailscale status --json` and classifies the result into one of three terminal states (with a small hysteresis: a state change must persist for two consecutive polls before it fires, to avoid flap on transient `tailscaled` reloads):
 
@@ -366,15 +398,19 @@ Peers are enumerated via `tailscale status --json`; each peer advertising the `_
 
 - `[mesh.tailscale] acl-mode = "tailscale-only"`: defer reachability gating to Tailscale ACLs entirely; Entanglement only enforces biscuits on top.
 
-- `[mesh.tailscale] acl-mode = "entangle-on-top"` (default, recommended): Entanglement enforces its own peer allowlist + biscuits regardless of what the tailnet ACL allows. We strongly recommend `entangle-on-top` unless the user controls the tailnet end-to-end. Documented in the install wizard. ### 6.2 Discovery
+- `[mesh.tailscale] acl-mode = "entangle-on-top"` (default, recommended): Entanglement enforces its own peer allowlist + biscuits regardless of what the tailnet ACL allows. We strongly recommend `entangle-on-top` unless the user controls the tailnet end-to-end. Documented in the install wizard.
+
+### 6.2 Discovery
 
 - **LAN-fast-path (`mesh.local`):** mDNS via `mdns-sd` on `_entangle._udp.local`.
 
 - **WAN (`mesh.iroh`):** pkarr via `iroh-dns-server`. A node is reachable from `NodeId` alone.
 
-- **Tailnet (`mesh.tailscale`):** MagicDNS SRV/TXT records as in §6.1.1; no external DNS needed. ### 6.3 Pairing — the user-facing onboarding flow
+- **Tailnet (`mesh.tailscale`):** MagicDNS SRV/TXT records as in §6.1.1; no external DNS needed.
 
-. **`entangle pair`** on device A prints:
+### 6.3 Pairing — the user-facing onboarding flow
+
+Pairing is mutual TOFU with an out-of-band 6-digit code. **`entangle pair`** on device A prints:
 
 ```
 Pairing code:    734-291
@@ -398,7 +434,9 @@ On device B: `entangle pair 734-291`
 - *Code expired*: B says "code expired; ask A to run `entangle pair` again."
 - *Fingerprint mismatch*: hard error with a link to "what this means" docs (probable MITM on rendezvous).
 
-- *No reachability*: B reports which transports it tried; suggests `entangle diag pair`. QR via terminal (Unicode block renderer) is offered as a convenience but the 6-digit code is canonical. ### 6.4 Transport bridging — reachability across disjoint transports
+- *No reachability*: B reports which transports it tried; suggests `entangle diag pair`. QR via terminal (Unicode block renderer) is offered as a convenience but the 6-digit code is canonical.
+
+### 6.4 Transport bridging — reachability across disjoint transports
 
 A node `N1` participating only in `mesh.iroh` and a node `N2` participating only in `mesh.tailscale` share **zero common transport**. By default, the broker on either side reports the other as **unreachable** and fails any operation that requires direct contact. **Default — no bridging.** Disjoint-transport peers cannot communicate. The broker's reachability calculation is the *intersection* of the two nodes' transport sets, evaluated against actual connectivity (not just configuration). The user-facing surface:
 
@@ -463,13 +501,17 @@ allow if
 | `missing-total-bytes-cap.bsk` | reject (`ENTANGLE-E0122`) | (d) absent → 1 MiB/s × 1h = 3.6 GiB unbounded amplification surface. (vector.) |
 | `no-bridge-marker.bsk` | reject (`ENTANGLE-E0121`) | (e) `bridge_cap(true)` missing — receiver assumes a non-bridge cap is being abused as a bridge cap. |
 
-CI runs the verifier against every vector; a regression that accepts any rejection vector breaks the build. **Implementation invariant (one line, machine-checkable;  expanded set).** `Bridge biscuits MUST satisfy: |attenuation_facts ∩ {dest_pin, rate_limit, total_bytes_cap, ttl_le_3600s, bridge_marker}| == 5` — enforced in `entangle-signing::verify_bridge` with a property test in `crates/entangle-signing/tests/bridge_attenuation.rs`. The receiver also tracks cumulative relayed bytes per bridge-cap-id and rejects further frames once `total_bytes_cap` is reached, even if the per-second rate-limit and TTL are still satisfied. The default-off posture is a deliberate security choice: a malicious node that accidentally has both transports enabled cannot become a covert relay without the explicit biscuit chain. The `entangle mesh routes` view annotates bridged peers: `bob-desktop... iroh (via charlie-server bridge)`. Latency and bandwidth from the bridge are surfaced in `entangle diag mesh`. **Capability tokens are transport-agnostic.** A biscuit minted under `mesh.local` is valid when the same peers later talk over `mesh.iroh` — the biscuit is signed by the Entanglement Ed25519 key, not the transport's keypair. This is what enables seamless transport handoff during a Wi-Fi/Tailscale flap. ### 6.4.1 Membership: chitchat-on-iroh-gossip
+CI runs the verifier against every vector; a regression that accepts any rejection vector breaks the build. **Implementation invariant (one line, machine-checkable;  expanded set).** `Bridge biscuits MUST satisfy: |attenuation_facts ∩ {dest_pin, rate_limit, total_bytes_cap, ttl_le_3600s, bridge_marker}| == 5` — enforced in `entangle-signing::verify_bridge` with a property test in `crates/entangle-signing/tests/bridge_attenuation.rs`. The receiver also tracks cumulative relayed bytes per bridge-cap-id and rejects further frames once `total_bytes_cap` is reached, even if the per-second rate-limit and TTL are still satisfied. The default-off posture is a deliberate security choice: a malicious node that accidentally has both transports enabled cannot become a covert relay without the explicit biscuit chain. The `entangle mesh routes` view annotates bridged peers: `bob-desktop... iroh (via charlie-server bridge)`. Latency and bandwidth from the bridge are surfaced in `entangle diag mesh`. **Capability tokens are transport-agnostic.** A biscuit minted under `mesh.local` is valid when the same peers later talk over `mesh.iroh` — the biscuit is signed by the Entanglement Ed25519 key, not the transport's keypair. This is what enables seamless transport handoff during a Wi-Fi/Tailscale flap.
 
-. commits to **chitchat layered on iroh-gossip** rather than plain SWIM-on-UDP. Chitchat's failure detector is tunable and we ship two profiles:
+### 6.4.1 Membership: chitchat-on-iroh-gossip
+
+Entanglement commits to **chitchat layered on iroh-gossip** rather than plain SWIM-on-UDP. Chitchat's failure detector is tunable and we ship two profiles:
 
 - `home` (default): generous timeouts, accepts a roaming laptop's 8-second sleep.
 
-- `lan-stable` (advanced): tighter timeouts for desktop-only meshes. ### 6.5 Identity & key compromise recovery
+- `lan-stable` (advanced): tighter timeouts for desktop-only meshes.
+
+### 6.5 Identity & key compromise recovery
 
 `NodeId` = SHA-256(Ed25519 pubkey), stored at `$data_dir/identity.key`..:
 
@@ -479,13 +521,17 @@ CI runs the verifier against every vector; a regression that accepts any rejecti
 
 - **Identity rotation:** `entangle identity rotate` mints a new keypair. The old identity emits a signed "successor" record gossiped via chitchat for 7 days. Peers automatically migrate trust if they previously trusted the old identity (this is opt-in per peer with a prompt; default opt-in).
 
-- **Key compromise:** `entangle trust revoke <ed25519:...>` adds the key to a local revocation set. Revocations are gossiped on the membership channel as signed messages with monotonic counters (preventing replay-revocation-spam). Receiving peers add the revocation to their local set. Critical: a compromised *publisher* key leaks into a kill-list within seconds across the connected mesh — closing. ### 6.6 Capability tokens: biscuit-auth
+- **Key compromise:** `entangle trust revoke <ed25519:...>` adds the key to a local revocation set. Revocations are gossiped on the membership channel as signed messages with monotonic counters (preventing replay-revocation-spam). Receiving peers add the revocation to their local set. Critical: a compromised *publisher* key leaks into a kill-list within seconds across the connected mesh — closing.
+
+### 6.6 Capability tokens: biscuit-auth
 
 Biscuits unchanged in semantics. Two additions:
 
 - **Revocation gossip** as above (§6.5).
 
-- **Datalog complexity mitigation:** Entanglement ships a curated set of biscuit *templates* (`mesh.peer`, `compute.gpu-job`, `agent.session`) in the SDK. Plugin authors compose templates rather than writing Datalog from scratch. Power-users can drop to raw Datalog. Acknowledged: this caps expressiveness in exchange for debuggability —. ### 6.7 ALPN multiplexing
+- **Datalog complexity mitigation:** Entanglement ships a curated set of biscuit *templates* (`mesh.peer`, `compute.gpu-job`, `agent.session`) in the SDK. Plugin authors compose templates rather than writing Datalog from scratch. Power-users can drop to raw Datalog. Acknowledged: this caps expressiveness in exchange for debuggability —.
+
+### 6.7 ALPN multiplexing
 
 `entangle/control/1` membership; `entangle/scheduler/1` work; `entangle/agent/1` A2A; `entangle/blobs/1` blob transfer; `entangle/docs/1` shared-storage. Same as. ---
 
@@ -493,7 +539,9 @@ Biscuits unchanged in semantics. Two additions:
 
 ### 7.0 Reference workloads
 
-. pins three. The scheduler must satisfy each at MVP+1. **Workload A — LLM inference offload (north-star).**
+This document pins three reference workloads. The scheduler must satisfy each at MVP+1.
+
+**Workload A — LLM inference offload (north-star).**
 - Laptop running on battery launches a chat that needs 70B-parameter inference.
 
 - Scheduler routes inference to the user's desktop with an Apple M4 Max / RTX 4090.
@@ -514,7 +562,9 @@ Biscuits unchanged in semantics. Two additions:
 
 - Test crates packaged as Wasm components (where possible) or tier-5 subprocess units.
 
-- Acceptance: results aggregated; flakiness retained semantics. If any of these three cannot be satisfied by the scheduler design, the scheduler is over- or under-engineered and we revise. ### 7.1 Task model — one-shot AND streaming
+- Acceptance: results aggregated; flakiness retained semantics. If any of these three cannot be satisfied by the scheduler design, the scheduler is over- or under-engineered and we revise.
+
+### 7.1 Task model — one-shot AND streaming
 
 The task model has two variants. **One-shot** is the  design (submit-fetch-run-return). ```rust
 enum Task {
@@ -687,13 +737,21 @@ Submitter accumulates the signed chain locally. On stall, disconnect, or `Cancel
 
 - The partial transcript is cryptographically attributable to the named executor — useful for **billing** (federated mesh: pay-per-token), **audit** (which peer produced the half-completed answer), and **blame** (a peer that consistently stalls after 50% completion is reputation-downranked separately from peers that fail-fast).
 
-- The chunk-signature transcript is also the input to the §11 #19 **false-attribution attack** mitigation: a submitter cannot fabricate "this peer gave me bad output" without forging a chain of valid signatures (which the threat model treats as equivalent to key compromise, handled by §6.5 revocation gossip). The chunk-signing overhead is amortized: signing happens on the executor at chunk-emission time (~50µs per chunk on commodity hardware); verification on the submitter is async and does not gate UI rendering for `accept_partial: true` workloads. Streams with `accept_partial: false` block on signature-chain validity before marking the result complete. **False-attribution closure.** §11 gains threat-model entry #19: "Submitter fabricates partial-output blame against an executor." Closed by chunk signing: the executor's pubkey is the only entity that can produce a valid `SignedChunk`; absent key compromise, attribution is provable. ### 7.2 Resource advertising
+- The chunk-signature transcript is also the input to the §11 #19 **false-attribution attack** mitigation: a submitter cannot fabricate "this peer gave me bad output" without forging a chain of valid signatures (which the threat model treats as equivalent to key compromise, handled by §6.5 revocation gossip). The chunk-signing overhead is amortized: signing happens on the executor at chunk-emission time (~50µs per chunk on commodity hardware); verification on the submitter is async and does not gate UI rendering for `accept_partial: true` workloads. Streams with `accept_partial: false` block on signature-chain validity before marking the result complete. **False-attribution closure.** §11 gains threat-model entry #19: "Submitter fabricates partial-output blame against an executor." Closed by chunk signing: the executor's pubkey is the only entity that can produce a valid `SignedChunk`; absent key compromise, attribution is provable.
 
-Standard lifecycle §7.2 — gossiped capability surface records with cpu/gpu/npu/storage/links. ### 7.3 Placement
+### 7.2 Resource advertising
 
-Greedy bin-packing with multi-criteria score (resource fit + locality + link quality + load − cost). Tie-breaker: lower NodeId lex order wins. Network-bandwidth-aware placement remains a differentiator — placement reads link quality from the gossip record..iroh.computer` being marketing latency is honored: link quality is **measured locally** by `iroh-net-report` probes between this node and each peer; the public benchmark is referenced only as evidence the underlying transport is observable. ### 7.4 Work unit format
+Standard lifecycle §7.2 — gossiped capability surface records with cpu/gpu/npu/storage/links.
 
-Submitter `iroh-blobs put`s component → Cid; signs `(Cid, ResourceSpec, inputs_cid, deadline)` → biscuit; sends to scheduler peer; scheduler picks worker(s); worker fetches, verifies signature against publisher allowlist, instantiates, runs. ### 7.5 Byzantine result integrity — policy taxonomy
+### 7.3 Placement
+
+Greedy bin-packing with multi-criteria score (resource fit + locality + link quality + load − cost). Tie-breaker: lower NodeId lex order wins. Network-bandwidth-aware placement remains a differentiator — placement reads link quality from the gossip record..iroh.computer` being marketing latency is honored: link quality is **measured locally** by `iroh-net-report` probes between this node and each peer; the public benchmark is referenced only as evidence the underlying transport is observable.
+
+### 7.4 Work unit format
+
+Submitter `iroh-blobs put`s component → Cid; signs `(Cid, ResourceSpec, inputs_cid, deadline)` → biscuit; sends to scheduler peer; scheduler picks worker(s); worker fetches, verifies signature against publisher allowlist, instantiates, runs.
+
+### 7.5 Byzantine result integrity — policy taxonomy
 
  had one mechanism (replication + hash quorum). That works for deterministic Wasm; it does **not** work for the north-star workload (LLM inference is non-deterministic by sampling, by GPU-kernel precision, and by batch size). generalizes to a **policy taxonomy** chosen per-task by the submitter and validated at submit-time:
 
@@ -800,13 +858,19 @@ The metric CID flows in the envelope so workers know **which** metric the submit
 
 > **INV-INT-1:** ∀ replica r ∈ task.replicas. r.observed_policy_hash == task.envelope.policy_hash, and the policy is immutable for the lifetime of the task. Enforced in `entangle-plugin-scheduler::work_unit::verify_envelope` and tested by `tests::policy_immutability::cannot_mutate_after_dispatch`. **Verifier output-size short-circuit  — invariant.** The verifier-locality rule (metric on submitter) closes rubber-stamping but enables an output-size DoS: a malicious worker returns 1 GiB of garbage, the submitter loads the metric Wasm component and OOMs while feeding the comparison. makes the size guard a precondition for instantiation, not a post-hoc check inside the metric:
 
-> **INV-INT-2:** The verifier (metric runner on the submitter) MUST enforce `max_output_bytes` before instantiating the metric component. Oversized `ResultEnvelope` short-circuits to result rejection + reputation penalty without invoking `metric.compare(...)`. Equivalently: in the submitter's result-acceptance pipeline, `env.actual_bytes > task.max_output_bytes` is a terminal `Err(OutputSizeExceeded)` branch above the metric load site, and `OutputSizeExceededWarning { peer_id, declared, actual }` is emitted to telemetry on every trip. Enforced in `entangle-plugin-scheduler::integrity::semantic_equivalent::accept_result` and tested by `tests::integrity::oversized_output_short_circuits` (asserts via wasmtime trace that no metric component is instantiated when `actual_bytes > max_output_bytes`). ### 7.6 Failure handling
+> **INV-INT-2:** The verifier (metric runner on the submitter) MUST enforce `max_output_bytes` before instantiating the metric component. Oversized `ResultEnvelope` short-circuits to result rejection + reputation penalty without invoking `metric.compare(...)`. Equivalently: in the submitter's result-acceptance pipeline, `env.actual_bytes > task.max_output_bytes` is a terminal `Err(OutputSizeExceeded)` branch above the metric load site, and `OutputSizeExceededWarning { peer_id, declared, actual }` is emitted to telemetry on every trip. Enforced in `entangle-plugin-scheduler::integrity::semantic_equivalent::accept_result` and tested by `tests::integrity::oversized_output_short_circuits` (asserts via wasmtime trace that no metric component is instantiated when `actual_bytes > max_output_bytes`).
 
-Crash → retry per policy. Partition → SWIM marks `dead` after `home`-profile timeout, in-flight tasks reassigned. Deadline miss → cancel. Speculative execution + stragglers as. ---
+### 7.6 Failure handling
+
+Crash → retry per policy. Partition → SWIM marks `dead` after `home`-profile timeout, in-flight tasks reassigned. Deadline miss → cancel. Speculative execution + stragglers are documented in §7.5.
+
+---
 
 ## 8. Agent Integration — Subprocess Tier-5 (committed)
 
-. commits. ### 8.1 Decision
+This section commits to tier-5 subprocess for the agent host.
+
+### 8.1 Decision
 
 **Claude Code, Codex, OpenCode, Aider, Cline, and Continue run as tier-5 subprocess plugins.** Bundling a Node.js runtime as a Wasm-embedded JS engine is **rejected** — Claude Code and peers use Node's native `fs`, `child_process`, native modules, and pty; porting them is intractable. The user's first tier-5 install (typically Claude Code) sees a clear prompt:
 
@@ -900,7 +964,9 @@ User runs: entangle agent run claude-code
 
 4. **Wrapper opt-out is loud.** Disabling via `entangle wrapper disable` records the choice in `~/.entangle/config.toml`; subsequent installs respect the choice. There is no way to silently lose the wrapper.
 
-5. **Honest disclosure stays.** The original disclosure block above remains the spec contract — the wrapper is a **UX guardrail**, not a security boundary. A determined user who runs `command claude-code` or `\claude-code` bypasses the warning. That's intentional: a wrapper that cannot be bypassed by the user is malware, not a guardrail. If the user adds an MCP server to their `~/.claude/settings.json` while Entanglement is **not** running an active session, the next Entanglement-launched session re-reads the live config, snapshots the new entry, and routes it through the gateway like the others. There is no need for the user to "tell Entanglement about" new MCP servers. If the user adds an MCP server to a Entanglement session's *temp* config directly (by reaching into `$XDG_RUNTIME_DIR/entangle/sessions/...`), the next gateway request for that tool will fail at `before_tool` because the audit-policy plugin has no rule for it — the user gets an error pointing them at `~/.claude/settings.json` for the durable change. **Per-session sharding.** Each session gets its own gateway port and bearer token. Two concurrent Claude Code sessions cannot see each other's tool traffic. SPOF-closure preserved. **OS sandbox plus gateway = defense in depth.** The agent's network egress is restricted by the OS sandbox to `127.0.0.1:<gateway-port>` plus the explicit `net.wan` allowlist (e.g. `api.anthropic.com`). It cannot bypass the gateway by talking to a hardcoded address. If the OS sandbox fails (Landlock 0day + Node 0day), the gateway alone is not sufficient and the threat model (§11 #10) remains the residual risk we own. ### 8.3.1 Supported agent-host adapters (Phase 5)
+5. **Honest disclosure stays.** The original disclosure block above remains the spec contract — the wrapper is a **UX guardrail**, not a security boundary. A determined user who runs `command claude-code` or `\claude-code` bypasses the warning. That's intentional: a wrapper that cannot be bypassed by the user is malware, not a guardrail. If the user adds an MCP server to their `~/.claude/settings.json` while Entanglement is **not** running an active session, the next Entanglement-launched session re-reads the live config, snapshots the new entry, and routes it through the gateway like the others. There is no need for the user to "tell Entanglement about" new MCP servers. If the user adds an MCP server to a Entanglement session's *temp* config directly (by reaching into `$XDG_RUNTIME_DIR/entangle/sessions/...`), the next gateway request for that tool will fail at `before_tool` because the audit-policy plugin has no rule for it — the user gets an error pointing them at `~/.claude/settings.json` for the durable change. **Per-session sharding.** Each session gets its own gateway port and bearer token. Two concurrent Claude Code sessions cannot see each other's tool traffic. SPOF-closure preserved. **OS sandbox plus gateway = defense in depth.** The agent's network egress is restricted by the OS sandbox to `127.0.0.1:<gateway-port>` plus the explicit `net.wan` allowlist (e.g. `api.anthropic.com`). It cannot bypass the gateway by talking to a hardcoded address. If the OS sandbox fails (Landlock 0day + Node 0day), the gateway alone is not sufficient and the threat model (§11 #10) remains the residual risk we own.
+
+### 8.3.1 Supported agent-host adapters (Phase 5)
 
 | Agent | Adapter crate | Config rewrite path | Status |
 |---|---|---|---|
@@ -911,9 +977,13 @@ User runs: entangle agent run claude-code
 | Cline | `entangle-agent-host-cline` | VSCode workspace config | Phase 5 (stretch) |
 | Continue | `entangle-agent-host-continue` | `~/.continue/config.json` | Phase 5 (stretch) |
 
-Each adapter is its own crate and each ships its own snapshot/rewrite/cleanup logic. Adding a new agent host is a self-contained PR with a known shape. ### 8.4 Cross-device A2A
+Each adapter is its own crate and each ships its own snapshot/rewrite/cleanup logic. Adding a new agent host is a self-contained PR with a known shape.
 
-Same as: local agent → local MCP gateway → A2A over `entangle/agent/1` ALPN with biscuit attenuation → remote MCP gateway → remote capability. Audit log entries on both ends. ### 8.5 Threat-model entry
+### 8.4 Cross-device A2A
+
+Same as: local agent → local MCP gateway → A2A over `entangle/agent/1` ALPN with biscuit attenuation → remote MCP gateway → remote capability. Audit log entries on both ends.
+
+### 8.5 Threat-model entry
 
 §11 #10 explicitly: "Tier-5 agent escapes sandbox via Node.js native module exploit." Mitigations: pinned Node version, supply-chain-pinned plugin manifest, OS sandbox primitives, MCP gateway interposition. Acknowledged residual risk: a Node 0day + a Landlock bypass is fatal. Documented honestly. ---
 
@@ -962,7 +1032,9 @@ entangle init --transport tailscale
 # Detects the running tailscaled, registers Entanglement's MagicDNS SRV/TXT records,
 # enumerates other tailnet peers running entangled, and prompts to pair them. # No DERP, no pkarr, no firewall holes — Tailscale already solved that. ```
 
-This is the recommended path for users who already have a tailnet — including Headscale users. #### 9.1.1 `entangle init --transport tailscale` failure modes
+This is the recommended path for users who already have a tailnet — including Headscale users.
+
+#### 9.1.1 `entangle init --transport tailscale` failure modes
 
 The Tailscale path is one command on the happy path and a careful ladder of error messages otherwise. Each failure mode has a precise message, a clear remedy, and an exit code. Mirrors §6.3's pairing UX commitment. | Detected condition | Message | Exit code |
 |---|---|---|
@@ -974,7 +1046,9 @@ The Tailscale path is one command on the happy path and a careful ladder of erro
 | MagicDNS disabled on the tailnet | `error: MagicDNS is disabled on tailnet '<name>'. Entanglement uses MagicDNS SRV/TXT records for peer discovery.` `Enable MagicDNS in your tailnet admin panel, or rerun with --transport iroh.` | `65` |
 | Detection succeeds, init completes, **but the user is on a tailnet they don't fully control** | `note: tailnet 'corp.ts.net' may be shared with other Entanglement users.` `Default: [mesh.tailscale] acl-mode = "entangle-on-top" — Entanglement enforces its own peer allowlist regardless of tailnet ACLs.` `Run 'entangle peers list' to see currently trusted peers (initially: only this node).` | `0` |
 
-**Post-pairing tailnet logout.** If the user runs `tailscale logout` *after* successfully pairing peers via `mesh.tailscale`, Entanglement's liveness loop (§6.1.1) detects the transition `tailnet-active → tailnet-installed-but-stopped` within ≤30s and degrades. Biscuit caps remain valid until expiry — they were minted by Entanglement's Ed25519 key, not Tailscale's WireGuard key, so the cryptographic trust survives the tailnet logout. Peers reachable only via `mesh.tailscale` go silent until a `* → tailnet-active` transition. The operator runbook (§9.6) calls this out and includes the recovery (`tailscale up` → wait ≤30s → `entangle diag mesh` to confirm re-attachment). ### 9.2 `entangle init` wizard
+**Post-pairing tailnet logout.** If the user runs `tailscale logout` *after* successfully pairing peers via `mesh.tailscale`, Entanglement's liveness loop (§6.1.1) detects the transition `tailnet-active → tailnet-installed-but-stopped` within ≤30s and degrades. Biscuit caps remain valid until expiry — they were minted by Entanglement's Ed25519 key, not Tailscale's WireGuard key, so the cryptographic trust survives the tailnet logout. Peers reachable only via `mesh.tailscale` go silent until a `* → tailnet-active` transition. The operator runbook (§9.6) calls this out and includes the recovery (`tailscale up` → wait ≤30s → `entangle diag mesh` to confirm re-attachment).
+
+### 9.2 `entangle init` wizard
 
 Interactive. makes the single-node-vs-multi-node split explicit and resolves the  contradiction between §9.2 and §11 #16. **The invariant (also restated in §11 #16):**
 > The daemon refuses to start in any **multi-node** transport mode (`mesh.iroh` or `mesh.tailscale`) without a populated `[trust] entangle.peers` allowlist. **Single-node mode** (no transports configured, OR only `mesh.local` with no peers ever paired) is permitted with an empty allowlist. Steps:
@@ -1013,7 +1087,9 @@ The daemon's startup check (in `entangle-core`) re-validates the invariant: any 
 error: multi-node transport configured (mesh.tailscale) but no peers trusted. Run 'entangle pair --print-code' or 'entangle init' to pair a peer. Or disable the transport: entangle config set mesh.tailscale.enabled false
 ```
 
-This closes the §9.2 / §11 #16 contradiction — the invariant holds at every layer (init wizard, config validation, daemon start). A non-interactive `entangle init --headless --single-node --identity-label X` exists for Docker/CI; multi-node headless init requires `--peer <fingerprint>` to seed the allowlist. ### 9.3 Hello-world walkthrough
+This closes the §9.2 / §11 #16 contradiction — the invariant holds at every layer (init wizard, config validation, daemon start). A non-interactive `entangle init --headless --single-node --identity-label X` exists for Docker/CI; multi-node headless init requires `--peer <fingerprint>` to seed the allowlist.
+
+### 9.3 Hello-world walkthrough
 
 the walkthrough had four stuck points. The walkthrough is **CI-tested** end-to-end on every commit (macOS, Linux x86_64, Linux aarch64, WSL2) and a failing run blocks merge. **Step 1 — Install entangle** (per §9.1). Pick one (Linux example):
 
@@ -1164,7 +1240,9 @@ entangle logs hello-world
 # → "hello from hello-world"
 ```
 
-This walkthrough is end-to-end CI-tested on every commit. The CI invocation literally runs all of the above (Step 1 uses a pre-installed daemon) and asserts the final log line equals `hello from hello-world`. Any regression that breaks the walkthrough breaks CI. ### 9.4 Daemon mode, config, telemetry
+This walkthrough is end-to-end CI-tested on every commit. The CI invocation literally runs all of the above (Step 1 uses a pre-installed daemon) and asserts the final log line equals `hello from hello-world`. Any regression that breaks the walkthrough breaks CI.
+
+### 9.4 Daemon mode, config, telemetry
 
 Daemon: `entangled` runs as the `entangle` user, drops privileges. Systemd unit ships in the deb/rpm. Config (`config.toml`) per  §9.3, with rename and additions:
 
@@ -1210,7 +1288,9 @@ opt_in   = false
 endpoint = "https://telemetry.entanglement.dev"
 ```
 
-Telemetry: opt-in, anonymous, never plugin payloads or agent prompts. #### 9.4.1 `[security] max_tier_allowed`
+Telemetry: opt-in, anonymous, never plugin payloads or agent prompts.
+
+#### 9.4.1 `[security] max_tier_allowed`
 
 Operators frequently need to forbid entire tiers globally — not just per-plugin. the §4.1 mentioned "a kernel-side flag" but never showed it in `config.toml`. fixes this with an explicit field. `max_tier_allowed` is a hard ceiling on plugin tiers. Effects:
 
@@ -1259,7 +1339,9 @@ Operators frequently need to forbid entire tiers globally — not just per-plugi
 | Enterprise tier-2 deployment (corp-issued laptop) | `2` | Hobbyist mesh utilities are permitted; no networking-wide or agent-invoking plugins. |
 | Pure-Wasm research box | `1` | Compute-only, no I/O beyond plugin's own data dir. The strictest sandbox. |
 
-The cap is enforced by `entangle-broker` (the same crate that gates capability handles) and the cap is logged at every install/load decision. #### 9.4.2 i18n / a11y stance
+The cap is enforced by `entangle-broker` (the same crate that gates capability handles) and the cap is logged at every install/load decision.
+
+#### 9.4.2 i18n / a11y stance
 
 Human-readable strings in the Entanglement CLI fall into two categories that  treats differently:
 
@@ -1269,7 +1351,9 @@ Human-readable strings in the Entanglement CLI fall into two categories that  tr
 {"level":"error","code":"ENTANGLE-E0042","plugin":"scheduler","message":"plugin declares tier=2 but uses capability 'mesh.peer' which requires tier >= 3","at":"entangle-manifest::validate"}
 ```
 
-**Accessibility — screen-reader testing for the init wizard.** The `init` wizard is the user's first interaction. commits to **at least one** screen-reader pass per minor release (VoiceOver on macOS, Orca on Linux) by a contributor familiar with the tool. The wizard avoids ANSI cursor games (no curses-style overwriting); each prompt is a discrete line; option lists are linear; the QR code (§6.3) is presented with an accompanying SHA-256 hex line so it is fully usable without the visual code. The CI pipeline includes a "no-color, no-unicode" run of the init wizard to catch regressions. A11y for the powerbox prompt is the highest-stakes case (security-critical UI). The powerbox is prompt deliberately minimal: question, capability, scope, rationale, [Y]es/[n]o/[c]ustomize/[l]earn-more. No tables, no animations. A future `gettext` catalog will be added to the `entangle-i18n` crate (reserved on crates.io); the build system already loads catalogues if present so adding a translation is purely additive. ### 9.5 Maintenance plugin scope
+**Accessibility — screen-reader testing for the init wizard.** The `init` wizard is the user's first interaction. The project commits to **at least one** screen-reader pass per minor release (VoiceOver on macOS, Orca on Linux) by a contributor familiar with the tool. The wizard avoids ANSI cursor games (no curses-style overwriting); each prompt is a discrete line; option lists are linear; the QR code (§6.3) is presented with an accompanying SHA-256 hex line so it is fully usable without the visual code. The CI pipeline includes a "no-color, no-unicode" run of the init wizard to catch regressions. A11y for the powerbox prompt is the highest-stakes case (security-critical UI). The powerbox is prompt deliberately minimal: question, capability, scope, rationale, [Y]es/[n]o/[c]ustomize/[l]earn-more. No tables, no animations. A future `gettext` catalog will be added to the `entangle-i18n` crate (reserved on crates.io); the build system already loads catalogues if present so adding a translation is purely additive.
+
+### 9.5 Maintenance plugin scope
 
 . splits:
 
@@ -1284,11 +1368,15 @@ Human-readable strings in the Entanglement CLI fall into two categories that  tr
 
 - Garbage collection of old plugin data dirs.
 
-- Optional integrations: Tailscale status, Borg/Restic backup verification, smartctl reports. The split is explicit: kernel-maintenance is automatic and uninteresting; device-maintenance is a product surface, user-configurable, and downstream of MVP. ### 9.6 Operator DX — logs, metrics, tracing, upgrade, backup
+- Optional integrations: Tailscale status, Borg/Restic backup verification, smartctl reports. The split is explicit: kernel-maintenance is automatic and uninteresting; device-maintenance is a product surface, user-configurable, and downstream of MVP.
+
+### 9.6 Operator DX — logs, metrics, tracing, upgrade, backup
 
 .:
 
-**Logs:** structured JSON to stderr by default. systemd captures via journald; macOS via `os_log`; Docker via stdout. Per-plugin log streams visible via `entangle logs <plugin-id> [--follow]`. Rotation handled by the host's logger or by the maintenance plugin. **Metrics:** the `observability` plugin exposes a Prometheus `/metrics` endpoint (loopback only by default). Standard metrics: capability grants, plugin uptime, mesh peer count, scheduler queue depth, biscuit verification latency. **Tracing:** OpenTelemetry exporter (optional). Span propagation across mesh via `traceparent` header on `entangle/*` ALPN streams. `entangle trace task <id>` shows the full distributed trace. **Upgrade:** `entangle upgrade` updates the binary atomically (downloads to side path, swaps symlink, restarts via supervisor). Plugins re-instantiate. Mesh re-converges in <10s. Daemon downtime: typically 1–2s. **Backup:** `entangle backup --to <path>` packages identity + trust + paired peers + plugin data dirs (configurable include/exclude). Encrypted. `entangle restore --from` restores onto a fresh install. **Disaster recovery:** lost laptop → restore from backup on new device → mesh peers see the same NodeId via the restored identity; OR rotate identity (§6.5) and let peers migrate. `entangle diag mesh` checks reachability and prints a triage report. ### 9.7 License
+**Logs:** structured JSON to stderr by default. systemd captures via journald; macOS via `os_log`; Docker via stdout. Per-plugin log streams visible via `entangle logs <plugin-id> [--follow]`. Rotation handled by the host's logger or by the maintenance plugin. **Metrics:** the `observability` plugin exposes a Prometheus `/metrics` endpoint (loopback only by default). Standard metrics: capability grants, plugin uptime, mesh peer count, scheduler queue depth, biscuit verification latency. **Tracing:** OpenTelemetry exporter (optional). Span propagation across mesh via `traceparent` header on `entangle/*` ALPN streams. `entangle trace task <id>` shows the full distributed trace. **Upgrade:** `entangle upgrade` updates the binary atomically (downloads to side path, swaps symlink, restarts via supervisor). Plugins re-instantiate. Mesh re-converges in <10s. Daemon downtime: typically 1–2s. **Backup:** `entangle backup --to <path>` packages identity + trust + paired peers + plugin data dirs (configurable include/exclude). Encrypted. `entangle restore --from` restores onto a fresh install. **Disaster recovery:** lost laptop → restore from backup on new device → mesh peers see the same NodeId via the restored identity; OR rotate identity (§6.5) and let peers migrate. `entangle diag mesh` checks reachability and prints a triage report.
+
+### 9.7 License
 
 Apache-2.0 OR MIT (dual). Closes. ---
 
@@ -1336,7 +1424,9 @@ entanglement/                                    # the project (GitHub: thekozug
     └── legal/name-audit.md                 # rerun yearly (§0.1.1)
 ```
 
-The trust-footprint CI check enforces that `entangle-core` + `entangle-broker` + `entangle-manifest` + `entangle-signing` + `entangle-oci` + `entangle-https-fetch` + `entangle-host` + `entangle-ipc` total < 25k LOC excluding tests. Anything above that is reviewed. The `entangle-mesh-tailscale` plugin sits in the L3 plugin layer (not L2 trusted libraries) and shells out to the host `tailscale` binary; it does not increase the trust-footprint LOC. ### 10.1 Trust footprint with transitive dependencies
+The trust-footprint CI check enforces that `entangle-core` + `entangle-broker` + `entangle-manifest` + `entangle-signing` + `entangle-oci` + `entangle-https-fetch` + `entangle-host` + `entangle-ipc` total < 25k LOC excluding tests. Anything above that is reviewed. The `entangle-mesh-tailscale` plugin sits in the L3 plugin layer (not L2 trusted libraries) and shells out to the host `tailscale` binary; it does not increase the trust-footprint LOC.
+
+### 10.1 Trust footprint with transitive dependencies
 
 LOC count of first-party crates is half the story. The actual security-review surface includes every transitive dependency that runs unsandboxed in `entangled`. publishes the *full* trust footprint with each dep's posture:
 
@@ -1400,7 +1490,9 @@ LOC count of first-party crates is half the story. The actual security-review su
 
 - A backdoored daemon the user compiled themselves.
 
-- Physical device theft (mitigated only by passphrase-encrypted backup). ### Trust-domain split
+- Physical device theft (mitigated only by passphrase-encrypted backup).
+
+### Trust-domain split
 
 The threat model now distinguishes:
 
@@ -1458,7 +1550,9 @@ The threat model now distinguishes:
 
 - Two-month slip means Phase 1 will not finish by month 6; the spec is **honestly updated** with revised estimates and the 1.0 ship date is publicly moved.
 
-- The spec MUST NOT say "shipping in 4–6 months" in retrospective copy if the actual ship is at month 8. commits to that honesty. **Critical-path dependencies.** Wasmtime async maturity (M3), cargo-component stability (M4), and `cargo entangle` plumbing (M4) are the highest-risk items. Each has a documented fallback in `docs/risk/phase-1-fallbacks.md`: e.g. if Component-Model async is not stable enough, M3 falls back to a sync-only host with documented latency cost; the fallback is a tracked GitHub project, not an unknown unknown. ### 12.1 Bus-factor mitigations
+- The spec MUST NOT say "shipping in 4–6 months" in retrospective copy if the actual ship is at month 8. commits to that honesty. **Critical-path dependencies.** Wasmtime async maturity (M3), cargo-component stability (M4), and `cargo entangle` plumbing (M4) are the highest-risk items. Each has a documented fallback in `docs/risk/phase-1-fallbacks.md`: e.g. if Component-Model async is not stable enough, M3 falls back to a sync-only host with documented latency cost; the fallback is a tracked GitHub project, not an unknown unknown.
+
+### 12.1 Bus-factor mitigations
 
 A 3-person team is bus-factor-1 by default. commits to mitigations that survive any single departure. **All of the following are Phase-1 deliverables** (so they are in place from "1.0," not aspirational for "later"):
 
@@ -1513,7 +1607,9 @@ Active = at least one merge into a primary-role-owned crate in the trailing 60 d
 | Plugin cosign sig (Rekor entry) | Relays verbatim. | Verifier checks Rekor transparency-log presence; does not depend on which mirror served the artifact. |
 | Directory listing (`/v2/_catalog`, `/v2/<plugin>/tags/list`) | **Mirror signs the listing** with the mirror's own Ed25519 key (`ed25519:entangle-mirror-2026`). | Verifier confirms the listing came from the canonical mirror (so a network attacker cannot inject "this plugin doesn't exist"). The listing signature is for *enumeration integrity*, not artifact trust. |
 
-The invariant: **the mirror is a CDN, not a CA.** A compromised mirror can refuse-to-serve or serve stale-but-still-validly-signed bytes, but cannot forge a publisher signature. **Continuity guarantee.** If the primary registry vanishes, the mirror keeps publishing for **≥5 years** under the prepaid hosting agreement. The agreement receipt is committed to `docs/governance/mirror-receipt.md` (redacted PII). Renewal triggers at year 4; if no foundation has formed by then, the spec's continuity claim is honestly downgraded. **Implementation.** `entangle-signing::verify_mirror_listing` validates the listing signature; `entangle-signing::verify_artifact` is mirror-agnostic. The CI suite includes a `mirror-cdn-only.test` that asserts no path in the trust verifier consults the mirror's identity for artifact bytes. **Incident-response chain.** A security disclosure email (`security@entanglement.dev`) is monitored by all three leads with PGP keys published in `SECURITY.md`. Acknowledgment SLA: 72h. Coordinated disclosure window: 90 days default (negotiable case-by-case). The first disclosure rehearsal happens in Phase 1. These mitigations are not "the team is bigger than three." They are "the project survives any one of three people leaving without warning." That is the bus-factor question worth answering. ## 13. Open Questions / Known Weak Points
+The invariant: **the mirror is a CDN, not a CA.** A compromised mirror can refuse-to-serve or serve stale-but-still-validly-signed bytes, but cannot forge a publisher signature. **Continuity guarantee.** If the primary registry vanishes, the mirror keeps publishing for **≥5 years** under the prepaid hosting agreement. The agreement receipt is committed to `docs/governance/mirror-receipt.md` (redacted PII). Renewal triggers at year 4; if no foundation has formed by then, the spec's continuity claim is honestly downgraded. **Implementation.** `entangle-signing::verify_mirror_listing` validates the listing signature; `entangle-signing::verify_artifact` is mirror-agnostic. The CI suite includes a `mirror-cdn-only.test` that asserts no path in the trust verifier consults the mirror's identity for artifact bytes. **Incident-response chain.** A security disclosure email (`security@entanglement.dev`) is monitored by all three leads with PGP keys published in `SECURITY.md`. Acknowledgment SLA: 72h. Coordinated disclosure window: 90 days default (negotiable case-by-case). The first disclosure rehearsal happens in Phase 1. These mitigations are not "the team is bigger than three." They are "the project survives any one of three people leaving without warning." That is the bus-factor question worth answering.
+
+## 13. Open Questions / Known Weak Points
 
 1. **WASI-GFX timing.** Phase 4 still depends on it. Fallback: custom `compute.gpu` host function (works, less portable).
 
@@ -1585,7 +1681,9 @@ The invariant: **the mirror is a CDN, not a CA.** A compromised mirror can refus
 
 ## 15. Acceptance criteria (Phase-1 deliverables, written as testable contracts)
 
-This section converts the spec into a contract. Every Phase-1 deliverable below has 3–5 GIVEN/WHEN/THEN propositions, each written so it can be expressed as a `cargo test` (or `bats` for shell-driven flows). Critics can verify the contracts exist even if implementations don't. CI label: `phase-1-acceptance`. ### 16.1 Manifest + tier checks (M2 / M3)
+This section converts the spec into a contract. Every Phase-1 deliverable below has 3–5 GIVEN/WHEN/THEN propositions, each written so it can be expressed as a `cargo test` (or `bats` for shell-driven flows). Critics can verify the contracts exist even if implementations don't. CI label: `phase-1-acceptance`.
+
+### 16.1 Manifest + tier checks (M2 / M3)
 
 ```
 ATC-MAN-1

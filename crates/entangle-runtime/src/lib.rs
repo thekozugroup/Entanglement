@@ -25,6 +25,7 @@ pub mod integrity;
 pub mod kernel;
 pub mod lifecycle;
 pub mod loader;
+pub mod os_sandbox;
 
 #[cfg(test)]
 mod tests;
@@ -34,3 +35,4 @@ pub use integrity::{check_trusted_executor, verify_deterministic, IntegrityError
 pub use kernel::{Kernel, KernelConfig};
 pub use lifecycle::{LifecycleEvent, LifecyclePhase};
 pub use loader::PluginPackage;
+pub use os_sandbox::{probe as probe_os_sandbox, SandboxProbe};

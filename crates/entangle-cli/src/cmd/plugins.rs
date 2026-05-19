@@ -32,7 +32,11 @@ pub struct PluginsArgs {
 #[derive(Subcommand)]
 pub enum PluginsCmd {
     /// List currently loaded plugins.
-    List,
+    List {
+        /// Emit machine-readable JSON instead of a plain ID per line.
+        #[arg(long)]
+        json: bool,
+    },
     /// Load a plugin package from a directory.
     Load {
         /// Path to the plugin directory.
@@ -65,7 +69,7 @@ pub enum PluginsCmd {
 
 pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
     match args.cmd {
-        PluginsCmd::List => list().await,
+        PluginsCmd::List { json } => list(json).await,
         PluginsCmd::Load { dir } => load(dir).await,
         PluginsCmd::Unload { plugin_id } => unload(plugin_id).await,
         PluginsCmd::Invoke {
@@ -116,18 +120,25 @@ fn build_kernel() -> anyhow::Result<Kernel> {
 // list
 // ---------------------------------------------------------------------------
 
-async fn list() -> anyhow::Result<()> {
+async fn list(json: bool) -> anyhow::Result<()> {
     let client = rpc_client();
     match client.plugins_list().await {
         Ok(r) => {
-            for p in &r.plugins {
-                println!("{p}");
+            if json {
+                let body = serde_json::json!({ "plugins": r.plugins });
+                println!("{}", serde_json::to_string(&body)?);
+            } else if r.plugins.is_empty() {
+                eprintln!("no plugins loaded — load one with `entangle plugins load <dir>`");
+            } else {
+                for p in &r.plugins {
+                    println!("{p}");
+                }
             }
             Ok(())
         }
         Err(RpcError::DaemonNotRunning(_)) => {
             if allow_local() {
-                list_local().await
+                list_local(json).await
             } else {
                 Err(daemon_not_running_error())
             }
@@ -136,9 +147,15 @@ async fn list() -> anyhow::Result<()> {
     }
 }
 
-async fn list_local() -> anyhow::Result<()> {
+async fn list_local(json: bool) -> anyhow::Result<()> {
     let kernel = build_kernel()?;
     let ids = kernel.list_plugins();
+    let ids_str: Vec<String> = ids.iter().map(|i| i.to_string()).collect();
+    if json {
+        let body = serde_json::json!({ "plugins": ids_str });
+        println!("{}", serde_json::to_string(&body)?);
+        return Ok(());
+    }
     if ids.is_empty() {
         println!("no plugins loaded (local kernel — load via `entangle plugins load <dir>`)");
     } else {

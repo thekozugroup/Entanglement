@@ -134,6 +134,39 @@ mod tests {
         assert!(!deep.matches("broker.*"));
     }
 
+    /// Edge cases for the glob matcher (spec §9 IPC topic rules).
+    #[test]
+    fn topic_glob_edge_cases() {
+        // Single-segment topic + single-segment patterns.
+        let single = topic("broker");
+        assert!(single.matches("broker"));
+        assert!(single.matches("*"));
+        assert!(single.matches("**"));
+        assert!(!single.matches("broker.*"));
+
+        // Literal mismatch on a single segment.
+        let other = topic("policy");
+        assert!(!other.matches("broker"));
+
+        // `broker.**` matches the bare `broker` prefix (`**` is "zero or more
+        // additional segments" per the doc-comment: prefix is empty, len 0).
+        assert!(topic("broker").matches("broker.**"));
+
+        // Mixed wildcard and literal — `*` only ever stands for ONE segment.
+        let three = topic("a.b.c");
+        assert!(three.matches("*.b.*"));
+        assert!(three.matches("a.*.c"));
+        assert!(!three.matches("a.*"));
+        assert!(three.matches("a.**"));
+
+        // Topic with hyphen and underscore in segments — allowed by the
+        // validator — still matches a literal pattern with the same shape.
+        let with_dash = topic("ent_runtime.plugin-lifecycle");
+        assert!(with_dash.matches("ent_runtime.plugin-lifecycle"));
+        assert!(with_dash.matches("ent_runtime.*"));
+        assert!(with_dash.matches("**"));
+    }
+
     // 3. publish → single subscriber receives
     #[tokio::test(flavor = "multi_thread")]
     async fn bus_publish_one_subscriber_receives() {
@@ -206,5 +239,35 @@ mod tests {
         bus.publish(env).unwrap();
         let received = sub.recv().await.unwrap();
         assert_eq!(received.priority, Priority::High);
+    }
+
+    /// A subscriber that falls behind the bus's capacity gets a `Lagged(n)`
+    /// error reporting how many messages were dropped.
+    ///
+    /// Spec §9 ("backpressure") guarantees that the bus never blocks the
+    /// publisher: slow subscribers are skipped, and they are told so via
+    /// the typed error on `recv()`.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn slow_subscriber_gets_lagged_error() {
+        let bus: Bus<u32> = Bus::new(4);
+        let mut sub = bus.subscribe();
+
+        // Publish more than the channel capacity without ever calling recv.
+        for i in 0..16 {
+            bus.publish(Envelope::new(topic("count"), i)).unwrap();
+        }
+
+        // First recv on a far-behind subscriber must surface Lagged(n) with
+        // n > 0.
+        let err = sub
+            .recv()
+            .await
+            .expect_err("expected Lagged when subscriber fell behind");
+        match err {
+            IpcError::Lagged(n) => {
+                assert!(n > 0, "Lagged count must be > 0; got {n}");
+            }
+            other => panic!("expected IpcError::Lagged, got {other:?}"),
+        }
     }
 }
