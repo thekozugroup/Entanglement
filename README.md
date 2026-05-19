@@ -29,14 +29,34 @@ For a hands-on tour from `entangle init` through plugin invocation and peer pair
 
 ## Stack
 
-- Rust workspace: 18 lib crates, 2 binaries, 1 bench, 1 atc-matrix, 1 xtask (~23 crates total)
-- Wasmtime + WASI 0.2 component model
-- Iroh QUIC mesh, mDNS, Tailscale
-- Ed25519 + BLAKE3 publisher signing
-- biscuit-auth Datalog capability tokens
-- Tokio async runtime
-- JSON-RPC 2.0 over Unix domain sockets
+- Rust workspace: 18 lib crates, 2 binaries, 1 bench, 1 atc-matrix, 1 xtask (~23 crates total).
+- Wasmtime + WASI 0.2 component model.
+- mDNS-SD discovery on the LAN; Iroh QUIC and Tailscale transports scaffolded behind feature flags.
+- Ed25519 publisher signing + BLAKE3 artifact hashing.
+- biscuit-auth Datalog capability tokens with bridge attenuation.
+- Tokio async runtime.
+- JSON-RPC 2.0 over Unix domain sockets.
+
+## Install
+
+- macOS: `brew install thekozugroup/entanglement/entangle` (planned tap; Phase 1.5).
+- Linux: `curl -fsSL get.entanglement.dev | sh` (planned; Phase 1.5) — meanwhile, `cargo install --path crates/entangle-bin`.
+- Windows: WSL2 only; native AppContainer support is deferred to Phase 5.
 
 ## Status
 
-In progress
+Phase 1 capability is implemented end-to-end (see [`STATUS.md`](./STATUS.md)).
+Phase 2 scaffolds for cross-node dispatch, the MCP gateway, alt transports,
+and observability exporters return a structured `NotImplemented` error
+until they are filled in.
+
+## 5-minute demo
+
+```
+cargo install --path crates/entangle-bin
+entangle init --non-interactive
+cargo xtask hello-world build
+entangle keyring add "$(cat ~/.entangle/identity.pub)" --name self
+entangle plugins load examples/hello-world --allow-local
+entangle plugins invoke hello-world --input world
+```

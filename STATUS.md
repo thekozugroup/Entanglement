@@ -1,6 +1,8 @@
 # Phase 1 Status
 
-A snapshot of what's implemented vs. deferred for the Entanglement runtime as of the current `main` commit.
+A snapshot of what's implemented vs. deferred for the Entanglement runtime
+as of the current `main` commit. Reflects the post-80-iter sprint
+state — see `.iterations/LOG.md` for what each iteration changed.
 
 ## Workspace
 
