@@ -314,6 +314,32 @@ fn detect_hardware() -> HardwareAdvert {
         gpu_backend: None, // Phase 2: wgpu detection
         gpu_vram_bytes: 0,
         network_bandwidth_bps: 0,
+        npu_vendor: npu::detect(),
+    }
+}
+
+/// NPU vendor-detection helpers (spec §6.1).
+///
+/// Phase 1 returns `None` on every platform; the module exists so the wire
+/// format and tests can already round-trip the field.
+mod npu {
+    /// Detect the local NPU vendor, if any. Phase 1: always `None`.
+    pub fn detect() -> Option<String> {
+        // Linux Phase-2 will probe:
+        //   - `/sys/class/intel_npu/0/device/uevent`
+        //   - `lspci -nn` for Apple-/Qualcomm-attached accelerators (rare)
+        // macOS Phase-2 will probe `system_profiler SPiBridgeDataType`.
+        None
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn phase_1_detect_returns_none() {
+            assert!(detect().is_none(), "Phase 1 NPU detection must be no-op");
+        }
     }
 }
 

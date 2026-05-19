@@ -9,6 +9,12 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod metrics;
+pub mod otel;
+
+pub use metrics::Registry;
+pub use otel::{OtelConfig, OtelError};
+
 use is_terminal::IsTerminal;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 

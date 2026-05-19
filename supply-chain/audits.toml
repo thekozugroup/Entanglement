@@ -1,0 +1,15 @@
+# cargo-vet local audits.
+#
+# This file is populated as maintainers certify crates with
+# `cargo vet certify <crate>`. Phase 1 ships the empty skeleton so
+# `cargo vet` runs without errors.
+
+[criteria.crypto-safe]
+description = """
+The crate has been reviewed for cryptographic correctness by a maintainer
+holding the `security-lead` role (`docs/maintainers/security-lead.md`).
+Use for any crate that touches Ed25519, BLAKE3, or biscuit-auth.
+"""
+implies = "safe-to-deploy"
+
+[audits]

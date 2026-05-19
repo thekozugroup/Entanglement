@@ -20,3 +20,11 @@ Each row records one full dev↔grade cycle (capped at 100).
 | 14 | mesh.tailscale transport stub | 1 | 100 | New `entangle-mesh-tailscale` crate; `ENTANGLE-E0640`/`E0641`; 2 unit tests |
 | 15 | Integrity::SemanticEquivalent NotImpl | 1 | 100 | Asserted `ENTANGLE-E0304` in ATC-INT-5 test |
 | 16 | Integrity::Attested NotImpl | 1 | 100 | Asserted `ENTANGLE-E0304` in ATC-INT-6 test |
+| 17 | NPU detection scaffold | 2 | 100 | Added `HardwareAdvert::npu_vendor`; TXT round-trip path + `entangle_bin::npu::detect()` returning None; unit test |
+| 18 | Landlock probe (Linux) | 1 | 100 | New `entangle-runtime::os_sandbox` module; `LandlockAvailable`/`BubblewrapFallback`; 3 unit tests |
+| 19 | Seatbelt probe (macOS) | 1 | 100 | Same module as iter 18; `SeatbeltAvailable` variant for macOS |
+| 20 | Prometheus exposition helper | 1 | 100 | New `entangle-observability::metrics::Registry`; 5 unit tests cover counter/gauge/labels/escaping/determinism |
+| 21 | OTEL exporter scaffold | 1 | 100 | New `entangle-observability::otel`; `ENTANGLE-E0650`; 2 unit tests |
+| 22 | cargo-vet bootstrap | 1 | 100 | Seeded `supply-chain/config.toml` (imports + per-crate policy) and `audits.toml` (empty + `crypto-safe` criteria) |
+| 23 | Worker-advert wire roundtrip | 1 | 100 | `worker_info_json_roundtrip_preserves_all_fields` covers every field incl. GPU/NPU |
+| 24 | `entangle print-platform` subcommand | 1 | 100 | New CLI subcommand reports OS/arch + sandbox probe; wires `entangle-runtime::probe_os_sandbox` |

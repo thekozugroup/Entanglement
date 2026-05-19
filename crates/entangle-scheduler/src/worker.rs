@@ -143,4 +143,49 @@ mod tests {
         let live = pool.live(Duration::from_secs(3600));
         assert_eq!(live.len(), 1);
     }
+
+    /// Wire-format roundtrip: every `WorkerInfo` field survives JSON serde.
+    ///
+    /// `WorkerInfo` is the on-the-wire shape carried inside chitchat gossip
+    /// (spec §6.4.1 / §7.2); breaking serde compatibility would silently
+    /// drop fields on the receiver.
+    #[test]
+    fn worker_info_json_roundtrip_preserves_all_fields() {
+        use entangle_types::resource::{GpuBackend, GpuRequirement, NpuRequirement};
+
+        let original = WorkerInfo {
+            peer_id: make_peer(0xAA),
+            display_name: "gpu-node".into(),
+            cpu_cores: 12.5,
+            memory_bytes: 32 * 1024 * 1024 * 1024,
+            gpu: Some(GpuRequirement {
+                vram_min_bytes: 8 * 1024 * 1024 * 1024,
+                backend: GpuBackend::Cuda,
+            }),
+            npu: Some(NpuRequirement {
+                vendor: "apple".into(),
+            }),
+            network_bandwidth_bps: 10_000_000_000,
+            rtt_ms: 12,
+            load: 0.42,
+            cost: 1.5,
+        };
+        let json = serde_json::to_string(&original).expect("serialise");
+        let parsed: WorkerInfo = serde_json::from_str(&json).expect("deserialise");
+
+        assert_eq!(parsed.peer_id, original.peer_id);
+        assert_eq!(parsed.display_name, original.display_name);
+        assert_eq!(parsed.cpu_cores, original.cpu_cores);
+        assert_eq!(parsed.memory_bytes, original.memory_bytes);
+        assert!(parsed.gpu.is_some());
+        let gpu = parsed.gpu.unwrap();
+        assert_eq!(gpu.vram_min_bytes, 8 * 1024 * 1024 * 1024);
+        assert_eq!(gpu.backend, GpuBackend::Cuda);
+        let npu = parsed.npu.expect("npu round-trip");
+        assert_eq!(npu.vendor, "apple");
+        assert_eq!(parsed.network_bandwidth_bps, original.network_bandwidth_bps);
+        assert_eq!(parsed.rtt_ms, original.rtt_ms);
+        assert!((parsed.load - original.load).abs() < f32::EPSILON);
+        assert_eq!(parsed.cost, original.cost);
+    }
 }
