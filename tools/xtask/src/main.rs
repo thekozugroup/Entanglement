@@ -5,21 +5,33 @@
 //!
 //! Usage:
 //! ```text
-//! cargo xtask hello-world build [--key PATH]
-//! cargo xtask hash-it build [--key PATH]
+//! cargo xtask plugin build <DIR> [--key PATH]   # any plugin directory
+//! cargo xtask hello-world build [--key PATH]    # alias for examples/hello-world
+//! cargo xtask hash-it build [--key PATH]        # alias for examples/hash-it
 //! ```
+//!
+//! # Why this file no longer contains a build pipeline
+//!
+//! Building and signing a plugin used to live here, hardcoded to the two
+//! bundled example names, which meant a third party had no supported way to
+//! produce a signed package at all. That pipeline now lives in the shipped CLI
+//! (`entangle plugins build <DIR>`, see `crates/entangle-cli/src/cmd/package.rs`)
+//! because the audience for it is a plugin author who has the `entangle` binary
+//! but not this repository checked out.
+//!
+//! xtask keeps working for contributors by *delegating* to that one
+//! implementation rather than carrying a second copy of the signing and
+//! manifest-rendering logic — the two must never be able to drift, since a
+//! divergence in the rendered plugin id is exactly what produced the
+//! `ENTANGLE-E0201` load failures. Shelling out to `cargo run -p entangle-cli`
+//! is consistent with what xtask already does (it shells out to `cargo` and
+//! `rustup`) and keeps `cargo xtask` free of heavy runtime dependencies.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use entangle_signing::{sign_artifact, IdentityKeyPair};
-
-/// Semver rendered into every generated example manifest, and into the
-/// `@<version>` suffix of the plugin id. The two must agree: the kernel parses
-/// the id's version and the manifest's `version` field from the same manifest.
-const EXAMPLE_VERSION: &str = "0.1.0";
 
 #[derive(Parser)]
 #[command(name = "xtask", about = "Entanglement workspace tasks")]
@@ -30,24 +42,31 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Task {
-    /// Tasks for the hello-world example plugin.
+    /// Build and sign any plugin directory.
+    Plugin {
+        #[command(subcommand)]
+        action: PluginAction,
+    },
+    /// Alias for `plugin build examples/hello-world`.
     #[command(name = "hello-world")]
     HelloWorld {
         #[command(subcommand)]
-        action: HelloWorldAction,
+        action: ExampleAction,
     },
-    /// Tasks for the hash-it example plugin.
+    /// Alias for `plugin build examples/hash-it`.
     #[command(name = "hash-it")]
     HashIt {
         #[command(subcommand)]
-        action: HashItAction,
+        action: ExampleAction,
     },
 }
 
 #[derive(Subcommand)]
-enum HelloWorldAction {
-    /// Build the hello-world plugin and sign it into dist/.
+enum PluginAction {
+    /// Build the plugin at DIR and sign it into DIR/dist/.
     Build {
+        /// Plugin project directory (contains Cargo.toml + entangle.toml).
+        dir: PathBuf,
         /// Path to the identity key PEM file.
         /// Defaults to ~/.entangle/identity.key
         #[arg(long)]
@@ -56,8 +75,8 @@ enum HelloWorldAction {
 }
 
 #[derive(Subcommand)]
-enum HashItAction {
-    /// Build the hash-it plugin and sign it into dist/.
+enum ExampleAction {
+    /// Build the example plugin and sign it into dist/.
     Build {
         /// Path to the identity key PEM file.
         /// Defaults to ~/.entangle/identity.key
@@ -69,186 +88,103 @@ enum HashItAction {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Task::Plugin {
+            action: PluginAction::Build { dir, key },
+        } => build_plugin(&dir, key),
         Task::HelloWorld {
-            action: HelloWorldAction::Build { key },
-        } => build_example("hello-world", "entangle_hello_world", 1, key),
+            action: ExampleAction::Build { key },
+        } => build_plugin(&example_dir("hello-world"), key),
         Task::HashIt {
-            action: HashItAction::Build { key },
-        } => build_example("hash-it", "entangle_hash_it", 2, key),
+            action: ExampleAction::Build { key },
+        } => build_plugin(&example_dir("hash-it"), key),
     }
 }
 
-/// Shared build pipeline for example plugins.
-///
-/// - `example_name`: directory name under `examples/` (e.g. `"hello-world"`)
-/// - `artifact_stem`: Rust cdylib output stem with underscores (e.g. `"entangle_hello_world"`)
-/// - `tier`: plugin tier (1 or 2) — written into the dist `entangle.toml`
-/// - `key_path`: optional path to identity key PEM; defaults to `~/.entangle/identity.key`
-fn build_example(
-    example_name: &str,
-    artifact_stem: &str,
-    tier: u8,
-    key_path: Option<PathBuf>,
-) -> Result<()> {
-    // Resolve workspace root (two levels up from tools/xtask/).
+/// Workspace root, resolved from this crate's `tools/xtask/` manifest dir.
+fn workspace_root() -> PathBuf {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
-    let workspace_root = manifest_dir
+    manifest_dir
         .parent() // tools/
         .and_then(|p| p.parent()) // workspace root
         .map(|p| p.to_owned())
-        .context("could not determine workspace root from CARGO_MANIFEST_DIR")?;
+        .unwrap_or_else(|| PathBuf::from("."))
+}
 
-    let example_dir = workspace_root.join("examples").join(example_name);
-    let example_manifest = example_dir.join("Cargo.toml");
-    let dist_dir = example_dir.join("dist");
+/// Absolute path to a bundled example plugin directory.
+fn example_dir(name: &str) -> PathBuf {
+    workspace_root().join("examples").join(name)
+}
 
-    // Step 1: assert wasm32-wasip2 target is installed.
-    println!("[xtask] checking wasm32-wasip2 target...");
-    let rustup_out = Command::new("rustup")
-        .args(["target", "list", "--installed"])
-        .output()
-        .context("rustup not found — install rustup")?;
-    let installed = String::from_utf8_lossy(&rustup_out.stdout);
-    if !installed.contains("wasm32-wasip2") {
-        bail!(
-            "wasm32-wasip2 target not installed.\n\
-             Run: rustup target add wasm32-wasip2"
-        );
+/// Delegate to `entangle plugins build <dir>`, built from this workspace.
+fn build_plugin(dir: &Path, key: Option<PathBuf>) -> Result<()> {
+    if !dir.is_dir() {
+        bail!("{} is not a directory", dir.display());
+    }
+    let root = workspace_root();
+
+    println!("[xtask] delegating to `entangle plugins build` (crates/entangle-cli)");
+    let mut cmd = Command::new(std::env::var("CARGO").unwrap_or_else(|_| "cargo".into()));
+    cmd.arg("run")
+        .arg("--quiet")
+        .arg("--package")
+        .arg("entangle-cli")
+        .arg("--manifest-path")
+        .arg(root.join("Cargo.toml"))
+        .arg("--")
+        .arg("plugins")
+        .arg("build")
+        .arg(dir);
+    if let Some(k) = key {
+        cmd.arg("--key").arg(k);
     }
 
-    // Step 2: cargo build --release --target wasm32-wasip2.
-    println!("[xtask] building {example_name} plugin...");
-    let status = Command::new("cargo")
-        .args([
-            "build",
-            "--release",
-            "--target",
-            "wasm32-wasip2",
-            "--manifest-path",
-        ])
-        .arg(&example_manifest)
+    let status = cmd
         .status()
-        .context("cargo build failed")?;
+        .context("running `cargo run -p entangle-cli` — is cargo on PATH?")?;
     if !status.success() {
-        bail!("cargo build --release --target wasm32-wasip2 failed");
+        bail!("entangle plugins build failed for {}", dir.display());
     }
-
-    // Step 3: locate the built artifact.
-    // The wasm ends up under the example's own target/ dir since it has its own [workspace].
-    let wasm_src = example_dir
-        .join("target/wasm32-wasip2/release")
-        .join(format!("{artifact_stem}.wasm"));
-    if !wasm_src.exists() {
-        bail!(
-            "built artifact not found at {}\n\
-             Did the build succeed?",
-            wasm_src.display()
-        );
-    }
-
-    // Step 4: read the identity key.
-    let key_path = key_path.unwrap_or_else(|| dirs_home().join(".entangle/identity.key"));
-    println!("[xtask] reading identity key from {}", key_path.display());
-    if !key_path.exists() {
-        bail!(
-            "identity key not found at {}\n\
-             Run `entangle init` to generate one.",
-            key_path.display()
-        );
-    }
-    let pem = std::fs::read_to_string(&key_path)
-        .with_context(|| format!("reading {}", key_path.display()))?;
-    let keypair = IdentityKeyPair::from_pem(&pem)
-        .map_err(|e| anyhow::anyhow!("invalid identity key: {e}"))?;
-    let fingerprint = keypair.fingerprint_hex();
-    println!("[xtask] publisher fingerprint: {fingerprint}");
-
-    // Step 5: copy wasm to dist/.
-    std::fs::create_dir_all(&dist_dir).context("creating dist dir")?;
-    let wasm_dst = dist_dir.join("plugin.wasm");
-    std::fs::copy(&wasm_src, &wasm_dst)
-        .with_context(|| format!("copying wasm to {}", wasm_dst.display()))?;
-    println!("[xtask] wrote {}", wasm_dst.display());
-
-    // Step 6: render dist/entangle.toml with the real fingerprint.
-    // The manifest must exist BEFORE signing: the signature bundle covers
-    // both the wasm and the manifest bytes (tier + capabilities).
-    // `PluginId` requires the fully-qualified `<publisher>/<name>@<version>`
-    // form — an id without `@<version>` is rejected at manifest validation
-    // with ENTANGLE-E0201, which made every xtask-built example unloadable.
-    // Keep this in sync with the `version` field rendered below.
-    let plugin_id = format!("{fingerprint}/{example_name}@{EXAMPLE_VERSION}");
-    let tier_comment = if tier == 1 {
-        "# tier 1: no capabilities; pure compute (logging-only)"
-    } else {
-        "# Pure compute — no caps required. Logging is host-provided convenience."
-    };
-    let manifest_content = format!(
-        r#"[plugin]
-id = "{plugin_id}"
-version = "{EXAMPLE_VERSION}"
-tier = {tier}
-runtime = "wasm"
-description = "{desc}"
-
-[capabilities]
-{tier_comment}
-
-[build]
-wit_world = "entangle:plugin@0.1.0/plugin"
-target = "wasm32-wasip2"
-"#,
-        desc = example_description(example_name),
-    );
-    let manifest_dst = dist_dir.join("entangle.toml");
-    std::fs::write(&manifest_dst, &manifest_content)
-        .with_context(|| format!("writing {}", manifest_dst.display()))?;
-    println!("[xtask] wrote {}", manifest_dst.display());
-
-    // Step 7: sign the wasm + manifest.
-    let wasm_bytes = std::fs::read(&wasm_dst).context("reading wasm for signing")?;
-    let bundle = sign_artifact(&wasm_bytes, manifest_content.as_bytes(), &keypair);
-    let sig_toml = toml::to_string(&bundle).context("serializing signature bundle")?;
-    let sig_dst = dist_dir.join("plugin.wasm.sig");
-    std::fs::write(&sig_dst, &sig_toml)
-        .with_context(|| format!("writing {}", sig_dst.display()))?;
-    println!("[xtask] wrote {}", sig_dst.display());
-
-    // `entangle keyring add` takes the 32-byte PUBLIC KEY (64 hex chars),
-    // not the 16-byte fingerprint.
-    let public_key_hex = to_hex(keypair.public().as_bytes());
-
-    println!("[xtask] done. dist/:");
-    println!("  plugin.wasm");
-    println!("  plugin.wasm.sig");
-    println!("  entangle.toml  (plugin id: {plugin_id})");
-    println!();
-    println!("Next steps:");
-    println!("  entangle keyring add {public_key_hex} --name self");
-    println!("  entangle plugins load examples/{example_name}/dist/");
-
     Ok(())
 }
 
-/// Lowercase hex encoding (avoids pulling the `hex` crate into xtask).
-fn to_hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-fn example_description(name: &str) -> &'static str {
-    match name {
-        "hello-world" => "§9.3 walkthrough — hello-world plugin",
-        "hash-it" => "Pure-compute BLAKE3 hasher; demonstrates a zero-capability plugin",
-        _ => "Entanglement example plugin",
+    /// The example aliases must resolve to real, buildable plugin directories —
+    /// this is what used to be hardcoded string matching inside the pipeline.
+    #[test]
+    fn example_aliases_point_at_real_plugin_dirs() {
+        for name in ["hello-world", "hash-it"] {
+            let dir = example_dir(name);
+            assert!(dir.is_dir(), "{} missing", dir.display());
+            assert!(
+                dir.join("Cargo.toml").is_file(),
+                "{} has no Cargo.toml",
+                dir.display()
+            );
+            assert!(
+                dir.join("entangle.toml").is_file(),
+                "{} has no entangle.toml",
+                dir.display()
+            );
+        }
     }
-}
 
-/// Return the user's home directory.
-fn dirs_home() -> PathBuf {
-    std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("."))
+    /// The generic task accepts a directory that is not a bundled example — the
+    /// whole point of the generalisation. `build_plugin` rejects non-directories
+    /// before it ever shells out.
+    #[test]
+    fn generic_build_rejects_a_non_directory() {
+        let err = build_plugin(Path::new("definitely/not/here"), None)
+            .expect_err("missing dir must fail");
+        assert!(format!("{err:#}").contains("is not a directory"), "{err:#}");
+    }
+
+    #[test]
+    fn workspace_root_contains_the_workspace_manifest() {
+        assert!(workspace_root().join("Cargo.toml").is_file());
+    }
 }

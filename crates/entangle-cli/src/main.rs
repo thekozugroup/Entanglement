@@ -48,7 +48,7 @@ enum Cmd {
     /// Manage the trusted publisher keyring.
     #[command(subcommand_required = true)]
     Keyring(KeyringArgs),
-    /// Manage loaded plugins.
+    /// Author plugins (new, build) and manage loaded ones (list, load, unload, invoke).
     #[command(subcommand_required = true)]
     Plugins(PluginsArgs),
     /// Manage the local mesh: list peers, trust/untrust/revoke.

@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+# xtask is a thin façade over `entangle plugins build` (see src/main.rs) — the
+# signing/manifest pipeline deliberately lives in crates/entangle-cli so that
+# there is exactly one implementation. That is why entangle-signing and toml are
+# no longer dependencies here; re-adding them almost certainly means a second
+# copy of the pipeline is being written.
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
-toml = { workspace = true }
-entangle-signing = { path = "../../crates/entangle-signing" }

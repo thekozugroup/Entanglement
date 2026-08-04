@@ -7,6 +7,39 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 rust-version.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/entangle-sdk"
+keywords = ["entanglement", "plugin", "wasm", "wasi", "component-model"]
+categories = ["wasm", "development-tools::ffi", "api-bindings"]
+
+# ---------------------------------------------------------------------------
+# PUBLISHING STATUS — read before running `cargo publish` here.
+#
+# This crate is the ONE dependency a third-party plugin author needs, so
+# `entangle plugins new --sdk crates-io` renders `entangle-sdk = "0.1"`. That
+# only resolves once this crate is actually on crates.io. Two things stand in
+# the way today:
+#
+#   1. ORDERING: `entangle-types` must be published first (it is a path
+#      dependency below and carries an explicit `version` so the published
+#      manifest is well-formed). `cargo publish` refuses a path dependency that
+#      has no version, which is why this one is NOT written as
+#      `{ workspace = true }` — the workspace entry in the root Cargo.toml is a
+#      bare `{ path = ... }`.
+#
+#   2. BLOCKER: `src/lib.rs` calls `wit_bindgen::generate!` with
+#      `path: "../entangle-wit/wit"`. Cargo only packages files inside this
+#      crate's directory, so a published .crate would be missing those .wit
+#      files and would fail to compile for every consumer. Fixing it means
+#      either vendoring `crates/entangle-wit/wit/**` into `crates/entangle-sdk/wit/`
+#      (and pointing `generate!` at the local copy) or having `entangle-wit`
+#      export the WIT text for the SDK to consume. That is a change to how the
+#      SDK builds and is owned by the SDK/runtime maintainer.
+#
+# Until (2) is fixed, the supported dependency form for external authors is the
+# git source that `entangle plugins new` emits by default. See
+# docs/plugin-authoring.md.
+# ---------------------------------------------------------------------------
 
 [package.metadata.docs.rs]
 all-features = true
@@ -16,7 +49,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 # used by entangle-wit. The `pub_export_macro = true` option was introduced in
 # 0.30+, so 0.57.1 is safe. Pin to a minor version to avoid breakage.
 [dependencies]
-entangle-types = { workspace = true }
+# Written out rather than inherited so the published manifest carries a version
+# requirement — `cargo publish` rejects a path dependency without one. Keep the
+# version in step with `[workspace.package] version` in the root Cargo.toml.
+entangle-types = { path = "../entangle-types", version = "0.1.0" }
 wit-bindgen = { version = "0.57", default-features = false, features = ["macros"] }
 serde = { workspace = true, features = ["derive"] }
 

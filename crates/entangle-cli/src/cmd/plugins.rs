@@ -1,4 +1,12 @@
-//! `entangle plugins` subcommands — list, load, unload, invoke.
+//! `entangle plugins` subcommands.
+//!
+//! Two groups live under this noun:
+//!
+//! * **authoring** — `new` (scaffold a project) and `build` (compile + sign an
+//!   arbitrary plugin directory into `dist/`). These are pure local operations
+//!   and never touch the daemon; see [`crate::cmd::scaffold`] and
+//!   [`crate::cmd::package`].
+//! * **runtime** — `list`, `load`, `unload`, `invoke`.
 //!
 //! Iter 4: attempt RPC to the running `entangled` daemon first.
 //! Falls back to a local in-process kernel ONLY when:
@@ -14,7 +22,7 @@ use entangle_rpc::{Client as RpcClient, RpcError};
 use entangle_runtime::{Kernel, KernelConfig};
 use entangle_signing::Keyring;
 use entangle_types::plugin_id::PluginId;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use crate::config;
@@ -31,6 +39,47 @@ pub struct PluginsArgs {
 
 #[derive(Subcommand)]
 pub enum PluginsCmd {
+    /// Scaffold a new plugin project that builds and loads as-is.
+    New {
+        /// Plugin name — also the crate name (`^[a-z][a-z0-9-]{0,62}$`).
+        name: String,
+        /// Directory to create. Defaults to `./<name>`.
+        #[arg(long)]
+        path: Option<PathBuf>,
+        /// Declared tier ceiling, 1..=3 (wasm plugins; 4-5 require native).
+        #[arg(long, default_value_t = 1)]
+        tier: u8,
+        /// Manifest description.
+        #[arg(long)]
+        description: Option<String>,
+        /// Where to get `entangle-sdk` from:
+        /// `auto`, `crates-io[:<req>]`, `git[:<url>[#<rev>]]`, or `path:<DIR>`.
+        #[arg(long, default_value = "auto")]
+        sdk: String,
+        /// Overwrite files that already exist.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Build and sign a plugin project into `<dir>/dist/`.
+    ///
+    /// Works on any plugin directory, not just the bundled examples.
+    Build {
+        /// Plugin project directory (contains Cargo.toml + entangle.toml).
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+        /// Identity key PEM. Defaults to `~/.entangle/identity.key`.
+        #[arg(long)]
+        key: Option<PathBuf>,
+        /// Output directory. Defaults to `<dir>/dist`.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Package this pre-built `.wasm` instead of invoking cargo.
+        #[arg(long)]
+        wasm: Option<PathBuf>,
+        /// Target triple to compile for.
+        #[arg(long, default_value = crate::cmd::package::DEFAULT_TARGET)]
+        target: String,
+    },
     /// List currently loaded plugins.
     List {
         /// Emit machine-readable JSON instead of a plain ID per line.
@@ -69,6 +118,34 @@ pub enum PluginsCmd {
 
 pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
     match args.cmd {
+        PluginsCmd::New {
+            name,
+            path,
+            tier,
+            description,
+            sdk,
+            force,
+        } => crate::cmd::scaffold::run(crate::cmd::scaffold::NewOptions {
+            name,
+            path,
+            tier,
+            description,
+            sdk,
+            force,
+        }),
+        PluginsCmd::Build {
+            dir,
+            key,
+            out,
+            wasm,
+            target,
+        } => crate::cmd::package::run(crate::cmd::package::BuildOptions {
+            dir,
+            key,
+            out,
+            wasm,
+            target,
+        }),
         PluginsCmd::List { json } => list(json).await,
         PluginsCmd::Load { dir } => load(dir).await,
         PluginsCmd::Unload { plugin_id } => unload(plugin_id).await,
