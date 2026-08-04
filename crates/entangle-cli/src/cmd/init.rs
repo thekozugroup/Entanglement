@@ -10,7 +10,8 @@ use crate::{
 };
 use anyhow::Context;
 use clap::Args;
-use entangle_signing::Keyring;
+use entangle_signing::{IdentityKeyPair, Keyring};
+use std::path::{Path, PathBuf};
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -43,6 +44,86 @@ struct WizardAnswers {
     action: IdentityAction,
 }
 
+/// Empty peer store.  Trusted peers are persisted as a `[[peer]]`
+/// array-of-tables (see the `entangle-peers` crate); a brand-new store is just
+/// a header comment, which parses to zero peers.  The previous stub emitted a
+/// bogus `[peers]` table that does not match the real schema.
+const PEERS_STUB: &str = "# Entanglement peer store — managed by `entangle`.\n\
+# Trusted peers are recorded as [[peer]] array-of-tables; this file starts empty.\n";
+
+// ---------------------------------------------------------------------------
+// Import-overwrite decision (pure, unit-testable — no stdin, no I/O)
+// ---------------------------------------------------------------------------
+
+/// What the Import arm should do about an identity that may already be on disk.
+///
+/// Computed purely from the existing and incoming fingerprints so the
+/// data-loss-relevant logic can be unit-tested without a terminal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ImportDecision {
+    /// No identity.key on disk yet — write the imported key unconditionally.
+    Write,
+    /// An identity.key already exists whose fingerprint matches the imported
+    /// key, so writing would be a no-op.  Leave the file untouched.
+    Skip,
+    /// An identity.key already exists that *differs* from the imported key (or
+    /// could not be parsed).  Overwriting destroys the old Ed25519 key and
+    /// breaks every existing pairing (`peer_id` derives from the public key),
+    /// so this requires explicit confirmation and a backup first.
+    ConfirmReplace {
+        /// Fingerprint of the existing on-disk key, or `None` if it could not
+        /// be parsed.
+        existing_fp: Option<String>,
+        /// Fingerprint of the imported key.
+        new_fp: String,
+    },
+}
+
+/// Decide, purely from fingerprints, what the Import arm should do.
+///
+/// * `None`            → no key on disk                → [`ImportDecision::Write`]
+/// * `Some(Ok(fp))`    → parsed key, `fp == new_fp`    → [`ImportDecision::Skip`]
+/// * `Some(Ok(fp))`    → parsed key, `fp != new_fp`    → [`ImportDecision::ConfirmReplace`]
+/// * `Some(Err(()))`   → present but unparseable       → [`ImportDecision::ConfirmReplace`]
+fn decide_import(existing: Option<Result<String, ()>>, new_fp: &str) -> ImportDecision {
+    match existing {
+        None => ImportDecision::Write,
+        Some(Ok(fp)) if fp == new_fp => ImportDecision::Skip,
+        Some(Ok(fp)) => ImportDecision::ConfirmReplace {
+            existing_fp: Some(fp),
+            new_fp: new_fp.to_string(),
+        },
+        Some(Err(())) => ImportDecision::ConfirmReplace {
+            existing_fp: None,
+            new_fp: new_fp.to_string(),
+        },
+    }
+}
+
+/// Read the fingerprint of the identity currently at `id_path`, if any.
+///
+/// Returns `None` when no file exists, `Some(Ok(fp))` when it parses to
+/// fingerprint `fp`, and `Some(Err(()))` when a file is present but is not a
+/// valid PEM keypair — the latter is treated as "differs" so a corrupt key is
+/// never silently overwritten.
+fn read_existing_fingerprint(id_path: &Path) -> Option<Result<String, ()>> {
+    if !id_path.exists() {
+        return None;
+    }
+    match std::fs::read_to_string(id_path) {
+        Ok(pem) => match IdentityKeyPair::from_pem(&pem) {
+            Ok(kp) => Some(Ok(kp.fingerprint_hex())),
+            Err(_) => Some(Err(())),
+        },
+        Err(_) => Some(Err(())),
+    }
+}
+
+/// Convenience: read the on-disk key at `id_path` and [`decide_import`].
+fn decide_import_at(id_path: &Path, new_fp: &str) -> ImportDecision {
+    decide_import(read_existing_fingerprint(id_path), new_fp)
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -68,6 +149,93 @@ fn fmt_fingerprint(raw: &str) -> String {
         .join("-")
 }
 
+/// Create `~/.entangle` at mode 0700 on Unix — it holds the private identity
+/// key and must not be group/world accessible.
+fn create_entangle_dir(dir: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(dir)
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::create_dir_all(dir)
+    }
+}
+
+/// Write PEM to `id_path`, restricting it to mode 0600 on Unix.
+fn write_identity_pem(id_path: &Path, pem: &str) -> anyhow::Result<()> {
+    std::fs::write(id_path, pem).with_context(|| format!("write {}", id_path.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(id_path, std::fs::Permissions::from_mode(0o600));
+    }
+    Ok(())
+}
+
+/// Back up the existing identity to `identity.key.bak-<unix_ts>` (mode 0600)
+/// before it is overwritten, so a mistaken import is at least recoverable.
+/// The original file is copied, never moved.
+fn backup_identity(id_path: &Path) -> anyhow::Result<PathBuf> {
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or_default();
+    let mut name = id_path.as_os_str().to_owned();
+    name.push(format!(".bak-{ts}"));
+    let bak = PathBuf::from(name);
+    std::fs::copy(id_path, &bak)
+        .with_context(|| format!("back up {} to {}", id_path.display(), bak.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&bak, std::fs::Permissions::from_mode(0o600));
+    }
+    Ok(bak)
+}
+
+/// A changed identity invalidates every existing pairing (the peer relationship
+/// was authenticated against our *old* public key).  If the store actually
+/// holds peers, warn and offer to clear it.  Only reachable from the wizard's
+/// confirmed-overwrite branch, so prompting here is safe.
+fn warn_and_maybe_clear_stale_peers(peers_path: &Path) -> anyhow::Result<()> {
+    let has_peers = std::fs::read_to_string(peers_path)
+        .map(|s| s.contains("[[peer]]"))
+        .unwrap_or(false);
+    if !has_peers {
+        return Ok(());
+    }
+    println!();
+    println!(
+        "  WARNING: your identity changed, so the pairings in {} are now stale",
+        peers_path.display()
+    );
+    println!("           and will no longer authenticate.");
+    let clear = dialoguer::Confirm::new()
+        .with_prompt("  Clear peers.toml now (you will need to re-pair)?")
+        .default(false)
+        .interact()
+        .context("clear stale peers confirmation")?;
+    if clear {
+        std::fs::write(peers_path, PEERS_STUB)
+            .with_context(|| format!("clear {}", peers_path.display()))?;
+        println!(
+            "  Cleared {}. Re-pair your devices with `entangle pair`.",
+            peers_path.display()
+        );
+    } else {
+        println!(
+            "  Left {} in place — its entries should be re-paired before use.",
+            peers_path.display()
+        );
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Interactive wizard
 // ---------------------------------------------------------------------------
@@ -82,7 +250,7 @@ fn run_wizard() -> anyhow::Result<WizardAnswers> {
         "This will set up your local Entanglement directory at {}/",
         entangle_dir().display()
     );
-    println!("and generate a fresh Ed25519 device identity.\n");
+    println!("and set up your Ed25519 device identity (generate or import).\n");
 
     // [1/4] Display name
     println!("[1/4] Choose a display name for this device.");
@@ -180,7 +348,7 @@ pub async fn run(args: InitArgs) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    std::fs::create_dir_all(&dir)?;
+    create_entangle_dir(&dir)?;
 
     // Resolve wizard answers (interactive or default).
     let answers = if args.non_interactive {
@@ -195,30 +363,80 @@ pub async fn run(args: InitArgs) -> anyhow::Result<()> {
     };
 
     println!();
-    println!("Generating identity...");
+    match &answers.action {
+        IdentityAction::Generate => println!("Setting up identity..."),
+        IdentityAction::Import(_) => println!("Importing identity..."),
+    }
 
     // --- identity.key ---
     let kp = match &answers.action {
-        IdentityAction::Generate => ensure_identity(&id_path)?,
+        IdentityAction::Generate => {
+            let kp = ensure_identity(&id_path)?;
+            println!("  Identity ready at {} (mode 0600)", id_path.display());
+            kp
+        }
         IdentityAction::Import(pem_path) => {
             let pem = std::fs::read_to_string(pem_path)
                 .with_context(|| format!("read PEM from {pem_path}"))?;
-            use entangle_signing::IdentityKeyPair;
             let kp =
                 IdentityKeyPair::from_pem(&pem).map_err(|e| anyhow::anyhow!("invalid PEM: {e}"))?;
-            std::fs::write(&id_path, &pem)?;
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let _ = std::fs::set_permissions(&id_path, std::fs::Permissions::from_mode(0o600));
+            let new_fp = kp.fingerprint_hex();
+
+            match decide_import_at(&id_path, &new_fp) {
+                ImportDecision::Write => {
+                    write_identity_pem(&id_path, &pem)?;
+                    println!("  Wrote {} (mode 0600)", id_path.display());
+                }
+                ImportDecision::Skip => {
+                    println!(
+                        "  Imported key already matches {} — left in place.",
+                        id_path.display()
+                    );
+                }
+                ImportDecision::ConfirmReplace {
+                    existing_fp,
+                    new_fp,
+                } => {
+                    println!();
+                    println!("  An identity already exists at {}.", id_path.display());
+                    match &existing_fp {
+                        Some(fp) => println!("     existing fingerprint: {}", fmt_fingerprint(fp)),
+                        None => println!(
+                            "     existing key is present but could NOT be parsed (corrupt?)."
+                        ),
+                    }
+                    println!("     imported fingerprint: {}", fmt_fingerprint(&new_fp));
+                    println!();
+                    println!("  WARNING: overwriting REPLACES this device's Ed25519 identity.");
+                    println!("           Every existing pairing breaks (peer_id derives from the");
+                    println!("           public key) and the old private key is UNRECOVERABLE.");
+
+                    let proceed = dialoguer::Confirm::new()
+                        .with_prompt("  Overwrite the existing identity.key?")
+                        .default(false)
+                        .interact()
+                        .context("identity overwrite confirmation")?;
+                    if !proceed {
+                        anyhow::bail!(
+                            "aborted: kept existing identity.key at {}",
+                            id_path.display()
+                        );
+                    }
+
+                    let bak = backup_identity(&id_path)?;
+                    println!("  Backed up existing key to {} (mode 0600)", bak.display());
+                    write_identity_pem(&id_path, &pem)?;
+                    println!("  Wrote {} (mode 0600)", id_path.display());
+
+                    // Identity changed → any trusted peers are now stale.
+                    warn_and_maybe_clear_stale_peers(&peers_path)?;
+                }
             }
             kp
         }
     };
 
-    let raw_fp = kp.fingerprint_hex();
-    let fingerprint = fmt_fingerprint(&raw_fp);
-    println!("  Wrote {} (mode 0600)", id_path.display());
+    let fingerprint = fmt_fingerprint(&kp.fingerprint_hex());
     println!("  Fingerprint: {fingerprint}");
 
     // --- config.toml ---
@@ -240,10 +458,7 @@ pub async fn run(args: InitArgs) -> anyhow::Result<()> {
 
     // --- peers.toml ---
     if !peers_path.exists() {
-        std::fs::write(
-            &peers_path,
-            "# Entanglement peer store — managed by `entangle`.\n[peers]\n",
-        )?;
+        std::fs::write(&peers_path, PEERS_STUB)?;
         println!("  Wrote {} (empty)", peers_path.display());
     } else {
         println!("  Kept existing {}", peers_path.display());
@@ -260,9 +475,126 @@ pub async fn run(args: InitArgs) -> anyhow::Result<()> {
     println!();
     println!("Next steps:");
     println!("  - Pair another device:    entangle pair");
-    println!("  - Add a publisher key:     entangle keyring add <hex>");
+    println!("  - Add a publisher key:     entangle keyring add <PUBLIC_KEY_HEX> --name <NAME>");
     println!("  - Start the daemon:        entangled run");
     println!("  - Run diagnostics:         entangle doctor");
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use entangle_signing::IdentityKeyPair;
+
+    /// Deterministic keypair PEM + fingerprint for a given seed byte.
+    fn seed_pem(seed: u8) -> (String, String) {
+        let kp = IdentityKeyPair::from_seed(&[seed; 32]);
+        (kp.to_pem(), kp.fingerprint_hex())
+    }
+
+    #[test]
+    fn decide_import_no_existing_writes() {
+        let (_, fp) = seed_pem(1);
+        assert_eq!(decide_import(None, &fp), ImportDecision::Write);
+    }
+
+    #[test]
+    fn decide_import_identical_key_is_skip() {
+        let (_, fp) = seed_pem(7);
+        assert_eq!(
+            decide_import(Some(Ok(fp.clone())), &fp),
+            ImportDecision::Skip
+        );
+    }
+
+    #[test]
+    fn decide_import_differing_key_requires_confirmation() {
+        let (_, existing) = seed_pem(2);
+        let (_, incoming) = seed_pem(3);
+        assert_ne!(existing, incoming);
+        assert_eq!(
+            decide_import(Some(Ok(existing.clone())), &incoming),
+            ImportDecision::ConfirmReplace {
+                existing_fp: Some(existing),
+                new_fp: incoming,
+            }
+        );
+    }
+
+    #[test]
+    fn decide_import_unparseable_existing_requires_confirmation() {
+        let (_, incoming) = seed_pem(4);
+        assert_eq!(
+            decide_import(Some(Err(())), &incoming),
+            ImportDecision::ConfirmReplace {
+                existing_fp: None,
+                new_fp: incoming,
+            }
+        );
+    }
+
+    /// Pre-seed identity.key with a DIFFERENT key and assert the on-disk
+    /// decision does NOT clobber it silently: it must land on the
+    /// confirmation path, and taking a backup must preserve the old bytes
+    /// (leaving the original intact).
+    #[test]
+    fn preseeded_differing_identity_is_not_clobbered_without_confirmation() {
+        let dir = tempfile::tempdir().unwrap();
+        let id_path = dir.path().join("identity.key");
+
+        let (existing_pem, existing_fp) = seed_pem(10);
+        std::fs::write(&id_path, &existing_pem).unwrap();
+
+        let (_incoming_pem, incoming_fp) = seed_pem(11);
+        assert_ne!(existing_fp, incoming_fp);
+
+        // The pure decision must require confirmation — never a silent Write.
+        let decision = decide_import_at(&id_path, &incoming_fp);
+        assert_eq!(
+            decision,
+            ImportDecision::ConfirmReplace {
+                existing_fp: Some(existing_fp.clone()),
+                new_fp: incoming_fp,
+            }
+        );
+
+        // The write path must back up the old key before any overwrite, and the
+        // backup must preserve the original bytes byte-for-byte.
+        let bak = backup_identity(&id_path).unwrap();
+        assert!(bak.exists(), "backup not created");
+        assert_eq!(std::fs::read_to_string(&bak).unwrap(), existing_pem);
+        // The original is untouched — backup copies, never moves.
+        assert_eq!(std::fs::read_to_string(&id_path).unwrap(), existing_pem);
+    }
+
+    /// Importing a byte-identical key over an existing identity is a no-op.
+    #[test]
+    fn preseeded_identical_identity_is_skip() {
+        let dir = tempfile::tempdir().unwrap();
+        let id_path = dir.path().join("identity.key");
+
+        let (pem, fp) = seed_pem(21);
+        std::fs::write(&id_path, &pem).unwrap();
+
+        assert_eq!(decide_import_at(&id_path, &fp), ImportDecision::Skip);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn backup_is_mode_0600() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let id_path = dir.path().join("identity.key");
+        let (pem, _) = seed_pem(30);
+        std::fs::write(&id_path, &pem).unwrap();
+
+        let bak = backup_identity(&id_path).unwrap();
+        let mode = std::fs::metadata(&bak).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
 }
