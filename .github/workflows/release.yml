@@ -14,12 +14,16 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# All third-party actions are pinned to a full commit SHA (trailing version
+# comment). This job graph holds `id-token: write` for keyless cosign signing,
+# so a mutable-tag compromise could publish tampered *signed* tarballs — pinning
+# removes that vector. Dependabot (github-actions ecosystem) forwards the pins.
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   # Job 1: Build + package on each platform
   # ─────────────────────────────────────────────────────────────────────────────
   build:
-    name: Build (${{ matrix.os }})
+    name: Build (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -27,31 +31,61 @@ jobs:
         include:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            strip_flags: ""
+            strip_cmd: "strip"
+          - os: ubuntu-24.04
+            target: aarch64-unknown-linux-gnu
+            strip_cmd: "aarch64-linux-gnu-strip"
           - os: macos-14
             target: aarch64-apple-darwin
-            strip_flags: "-x"
+            strip_cmd: "strip -x"
+          - os: macos-14
+            target: x86_64-apple-darwin
+            strip_cmd: "strip -x"
 
     outputs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch (no version tags)
         with:
           toolchain: "1.91"
           targets: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           key: ${{ matrix.target }}
 
+      - name: Configure aarch64-linux cross toolchain
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+          {
+            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc"
+            echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc"
+            echo "AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar"
+          } >> "$GITHUB_ENV"
+
+      - name: Install b3sum (for the BLAKE3 sidecar)
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update && sudo apt-get install -y b3sum
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            brew install b3sum
+          fi
+
       - name: Determine version
         id: version
+        env:
+          # Move the workflow_dispatch input into an env var before use so it
+          # cannot break out of the shell (script-injection hardening).
+          INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          if [ -n "${{ github.event.inputs.tag }}" ]; then
-            VERSION="${{ github.event.inputs.tag }}"
+          if [ -n "${INPUT_TAG}" ]; then
+            VERSION="${INPUT_TAG}"
           elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
           else
@@ -60,33 +94,35 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build release binaries
-        run: cargo build --release --workspace --bins
+        run: cargo build --release --workspace --bins --locked --target ${{ matrix.target }}
 
       - name: Strip binaries
         run: |
-          strip ${{ matrix.strip_flags }} target/release/entangled || true
-          strip ${{ matrix.strip_flags }} target/release/entangle  || true
+          BINDIR="target/${{ matrix.target }}/release"
+          ${{ matrix.strip_cmd }} "${BINDIR}/entangled" || true
+          ${{ matrix.strip_cmd }} "${BINDIR}/entangle"  || true
 
       - name: Compute checksums and package tarball
         id: package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TARGET: ${{ matrix.target }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TARGET="${{ matrix.target }}"
-          TARBALL="entanglement-${VERSION}-${TARGET}.tar.gz"
+          BINDIR="target/${TARGET}/release"
+          NAME="entanglement-${VERSION}-${TARGET}"
+          TARBALL="${NAME}.tar.gz"
 
-          # Collect existing binaries
-          BINS=()
+          # Stage into a clean top-level directory so the tarball extracts nicely
+          # on both GNU tar (Linux) and BSD tar (macOS).
+          STAGE="pkg/${NAME}"
+          mkdir -p "${STAGE}"
           for bin in entangled entangle; do
-            [ -f "target/release/${bin}" ] && BINS+=("target/release/${bin}")
+            [ -f "${BINDIR}/${bin}" ] && cp "${BINDIR}/${bin}" "${STAGE}/"
           done
-
-          # Extra docs — include if present
-          EXTRAS=()
           for f in LICENSE README.md docs/architecture.md docs/tutorial.md; do
-            [ -f "$f" ] && EXTRAS+=("$f")
+            [ -f "$f" ] && cp "$f" "${STAGE}/"
           done
-
-          tar -czf "${TARBALL}" "${BINS[@]}" "${EXTRAS[@]}"
+          tar -czf "${TARBALL}" -C pkg "${NAME}"
 
           # SHA-256
           if command -v sha256sum >/dev/null 2>&1; then
@@ -95,7 +131,7 @@ jobs:
             shasum -a 256 "${TARBALL}" > "${TARBALL}.sha256"
           fi
 
-          # BLAKE3 (b3sum available on ubuntu-24.04 via apt; skip gracefully)
+          # BLAKE3 sidecar (b3sum is installed above; skip gracefully if absent)
           if command -v b3sum >/dev/null 2>&1; then
             b3sum "${TARBALL}" > "${TARBALL}.b3"
           else
@@ -105,7 +141,7 @@ jobs:
           echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-${{ matrix.target }}
           path: |
@@ -127,19 +163,19 @@ jobs:
       attestations: write   # required for SLSA provenance
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: release-*
           merge-multiple: true
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
 
       - name: SLSA provenance attestation (via actions/attest-build-provenance)
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1.4.4
         with:
           subject-path: "entanglement-*.tar.gz"
 
@@ -155,7 +191,7 @@ jobs:
           done
 
       - name: Upload sigstore bundles
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sigstore-bundles
           path: "entanglement-*.tar.gz.sigstore"
@@ -176,10 +212,10 @@ jobs:
       attestations: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           merge-multiple: true
 
@@ -195,23 +231,36 @@ jobs:
 
       - name: Extract release notes from CHANGELOG.md
         id: notes
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          # Try to extract the section for this version; fall back to Unreleased
-          NOTES=$(awk "/^## \[${TAG#v}\]/,/^## \[/" CHANGELOG.md 2>/dev/null \
-                  | head -n -1 \
-                  || awk '/^## \[Unreleased\]/,/^## \[/' CHANGELOG.md | head -n -1)
-          if [ -z "${NOTES}" ]; then
+          VER="${TAG#v}"
+          # Print the body of a `## [<heading>]` section, exclusive of the
+          # heading itself and stopping at the next `## ` heading of any kind.
+          # `index(... ) == 1` avoids regex-escaping the version's dots and does
+          # not collapse to the heading line the way a naive awk range does.
+          extract() {
+            awk -v h="$1" '
+              index($0, "## [" h "]") == 1 { flag = 1; next }
+              flag && /^## / { exit }
+              flag { print }
+            ' CHANGELOG.md
+          }
+          NOTES="$(extract "${VER}")"
+          if [ -z "$(printf '%s' "${NOTES}" | tr -d '[:space:]')" ]; then
+            NOTES="$(extract "Unreleased")"
+          fi
+          if [ -z "$(printf '%s' "${NOTES}" | tr -d '[:space:]')" ]; then
             NOTES="See CHANGELOG.md for details."
           fi
           {
-            echo "notes<<EOF"
-            echo "${NOTES}"
-            echo "EOF"
+            echo "notes<<CHANGELOG_EOF"
+            printf '%s\n' "${NOTES}"
+            echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.2
         with:
           tag_name: ${{ github.ref_name }}
           name: "Entanglement ${{ github.ref_name }}"
@@ -223,3 +272,54 @@ jobs:
             entanglement-*.tar.gz.b3
             entanglement-*.tar.gz.sigstore
           fail_on_unmatched_files: false
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 4: Publish multi-arch container image to GHCR (tag pushes only)
+  # ─────────────────────────────────────────────────────────────────────────────
+  docker-publish:
+    name: Publish image (ghcr, multi-arch)
+    needs: build
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      packages: write       # push to ghcr.io/<owner>/<repo>
+      id-token: write       # provenance attestation for the image
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up QEMU (arm64 emulation)
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags/labels
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push (linux/amd64,linux/arm64)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true

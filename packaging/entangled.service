@@ -1,0 +1,77 @@
+# systemd unit for the entangled daemon (Phase 1: foreground Unix-socket RPC).
+#
+# Install:
+#   sudo useradd --system --user-group --home /var/lib/entangle entangle
+#   sudo install -m0755 entangled /usr/local/bin/entangled
+#   sudo install -m0755 entangle  /usr/local/bin/entangle
+#   sudo install -m0644 packaging/entangled.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now entangled
+#
+# The `entangle` CLI is a per-user client; this unit runs only the daemon.
+
+[Unit]
+Description=Entanglement daemon (entangled)
+Documentation=https://github.com/thekozugroup/Entanglement
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=entangle
+Group=entangle
+
+# REQUIRED: the daemon has no config-dir flag — it resolves its config, keyring,
+# identity, and Unix socket from $HOME/.entangle (see
+# crates/entangle-bin/src/config.rs: default_config_dir/default_socket_path use
+# directories::BaseDirs, which reads $HOME). Without HOME set, a system service
+# has no usable home and startup fails.
+Environment=HOME=/var/lib/entangle
+WorkingDirectory=/var/lib/entangle
+
+# systemd creates/owns /var/lib/entangle (mode 0700) for us and keeps it
+# writable under ProtectSystem=strict below.
+StateDirectory=entangle
+StateDirectoryMode=0700
+
+ExecStart=/usr/local/bin/entangled run
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+# ── Hardening ────────────────────────────────────────────────────────────────
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+UMask=0077
+
+# Drop all capabilities — the daemon binds a Unix socket inside its own
+# StateDirectory and needs none.
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# AF_UNIX for the RPC socket; AF_INET/AF_INET6 + AF_NETLINK for mesh.local mDNS
+# discovery and interface enumeration (Phase 2 keeps these).
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+
+# NOTE: MemoryDenyWriteExecute is deliberately NOT set. The daemon embeds a
+# wasmtime JIT (Cranelift) that maps executable pages for compiled WebAssembly;
+# W^X enforcement would break plugin execution.
+
+[Install]
+WantedBy=multi-user.target

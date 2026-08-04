@@ -1,3 +1,7 @@
+# Dependabot config.
+# The github-actions ecosystem is what forwards the SHA pins in
+# .github/workflows/*.yml: Dependabot resolves each pinned commit to the next
+# release and opens a PR that updates both the SHA and its `# vX.Y.Z` comment.
 version: 2
 updates:
   - package-ecosystem: cargo
