@@ -29,7 +29,7 @@ const MAX_WASM_STACK_BYTES: usize = 512 * 1024;
 /// - A pre-built [`Linker`] (WASI p2 + `entangle:plugin` host imports), so
 ///   linker construction is paid once instead of on every invocation.
 /// - A background epoch-ticker thread that increments the engine epoch every
-///   [`EPOCH_TICK_MS`]. Each store sets its own absolute epoch deadline, so
+///   `EPOCH_TICK_MS`. Each store sets its own absolute epoch deadline, so
 ///   timeouts are per-invocation and never interfere with one another. The
 ///   thread holds only an [`Engine::weak`] handle and stops when the last
 ///   engine handle (or the last `HostEngine` clone) is dropped.
@@ -58,7 +58,7 @@ impl HostEngine {
     ///
     /// Epoch interruption is enabled so that per-plugin timeouts can be
     /// enforced: a dedicated ticker thread calls [`Engine::increment_epoch`]
-    /// every [`EPOCH_TICK_MS`] for the engine's lifetime, and each invocation
+    /// every `EPOCH_TICK_MS` for the engine's lifetime, and each invocation
     /// sets its own store deadline. Fuel consumption is disabled in favour of
     /// wall-clock timeouts (spec §2).
     pub fn new() -> anyhow::Result<Self> {

@@ -32,6 +32,20 @@ fn minimal_wasm() -> Vec<u8> {
     }
 }
 
+/// A real, instantiable plugin component (the committed hello-pong fixture).
+///
+/// Tests that expect a *successful* load must use this rather than
+/// [`minimal_wasm`]: the host now instantiates the component eagerly at load
+/// time (fail-fast), so an empty `(component)` with no `run` export is
+/// correctly rejected before the plugin is registered.
+fn loadable_wasm() -> Vec<u8> {
+    std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-host/tests/fixtures/hello-pong.wasm"
+    ))
+    .expect("hello-pong.wasm fixture not found — run fixtures-src/hello-pong/build.sh")
+}
+
 /// Build a trusted [`Keyring`] containing `keypair`'s public key.
 fn keyring_for(keypair: &IdentityKeyPair) -> Keyring {
     let pub_key = keypair.public();
@@ -105,7 +119,7 @@ description = "runtime integration test plugin"
 async fn load_plugin_end_to_end() {
     let keypair = IdentityKeyPair::generate();
     let keyring = keyring_for(&keypair);
-    let wasm = minimal_wasm();
+    let wasm = loadable_wasm();
 
     let dir = tempfile::tempdir().expect("tempdir");
     write_plugin_package(dir.path(), &keypair, &wasm, 1);
@@ -306,7 +320,7 @@ async fn invoke_plugin_emits_activated_and_idled() {
 async fn unload_plugin_emits_event_and_removes_from_list() {
     let keypair = IdentityKeyPair::generate();
     let keyring = keyring_for(&keypair);
-    let wasm = minimal_wasm();
+    let wasm = loadable_wasm();
 
     let dir = tempfile::tempdir().expect("tempdir");
     write_plugin_package(dir.path(), &keypair, &wasm, 1);
@@ -442,7 +456,7 @@ async fn cross_publisher_signature_blocks_load() {
 async fn double_load_leaves_broker_and_audit_state_unchanged() {
     let keypair = IdentityKeyPair::generate();
     let keyring = keyring_for(&keypair);
-    let wasm = minimal_wasm();
+    let wasm = loadable_wasm();
 
     let dir = tempfile::tempdir().expect("tempdir");
     write_plugin_package(dir.path(), &keypair, &wasm, 1);

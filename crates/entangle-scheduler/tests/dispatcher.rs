@@ -54,7 +54,7 @@ description = "scheduler integration test plugin"
     std::fs::write(dir.join("entangle.toml"), manifest_toml.as_bytes()).expect("write manifest");
     std::fs::write(dir.join("plugin.wasm"), wasm_bytes).expect("write wasm");
 
-    let bundle = sign_artifact(wasm_bytes, keypair);
+    let bundle = sign_artifact(wasm_bytes, manifest_toml.as_bytes(), keypair);
     let sig_toml = toml::to_string(&bundle).expect("serialize bundle");
     std::fs::write(dir.join("plugin.wasm.sig"), sig_toml.as_bytes()).expect("write sig");
 

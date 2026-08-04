@@ -103,7 +103,7 @@ impl LoadedPlugin {
     /// # Timeout
     /// Two complementary mechanisms are used:
     /// - **Epoch deadline** (primary): the engine's ticker thread advances the
-    ///   epoch every [`EPOCH_TICK_MS`]; this store gets its own absolute
+    ///   epoch every `EPOCH_TICK_MS`; this store gets its own absolute
     ///   deadline of `ceil(timeout_ms / EPOCH_TICK_MS)` ticks, so wasm
     ///   execution traps shortly after `timeout_ms` without affecting any
     ///   concurrent invocation.

@@ -13,14 +13,17 @@ fn bench_verify(c: &mut Criterion) {
         note: String::new(),
     });
 
+    // A representative manifest is signed alongside the artifact (the bundle
+    // now covers both, so verification re-hashes the manifest too).
+    let manifest = b"[plugin]\nid = \"bench/artifact@0.1.0\"\nversion = \"0.1.0\"\ntier = 1\nruntime = \"wasm\"\n";
     for size in [1024usize, 1024 * 1024, 16 * 1024 * 1024] {
         let bytes = vec![0u8; size];
-        let bundle = sign_artifact(&bytes, &kp);
+        let bundle = sign_artifact(&bytes, manifest, &kp);
         let mut group = c.benchmark_group("signing");
         group.throughput(Throughput::Bytes(size as u64));
         group.bench_function(format!("verify_{size}"), |b| {
             b.iter(|| {
-                verify_artifact(&bytes, &bundle, &keyring).unwrap();
+                verify_artifact(&bytes, manifest, &bundle, &keyring).unwrap();
             });
         });
         group.finish();
