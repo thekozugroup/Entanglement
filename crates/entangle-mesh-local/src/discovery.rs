@@ -2,7 +2,7 @@
 
 use crate::{
     errors::DiscoveryError,
-    peer::{HardwareAdvert, LocalPeer, PeerSeen},
+    peer::{HardwareAdvert, LocalPeer, PeerSeen, TransportAdvert},
 };
 use entangle_types::peer_id::PeerId;
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
@@ -17,7 +17,21 @@ use tokio::task::JoinHandle;
 use tracing::{debug, warn};
 
 /// mDNS-SD service type for Entanglement daemons.
-const SERVICE_TYPE: &str = "_entangle._udp.local.";
+pub const SERVICE_TYPE: &str = "_entangle._udp.local.";
+
+/// mDNS-SD service type for devices that are *currently waiting to pair*.
+///
+/// Deliberately separate from [`SERVICE_TYPE`]:
+///
+/// * A device is only listed here for the few minutes `entangle pair
+///   --responder` is running, so the chooser on the other device shows exactly
+///   the devices that are expecting a pairing attempt — not every daemon on
+///   the LAN.
+/// * The pairing listener runs inside the CLI process with the *same*
+///   identity as the daemon, and the mDNS instance name is the peer id hex.
+///   Announcing it under [`SERVICE_TYPE`] would collide with the daemon's own
+///   record for the same instance name.
+pub const PAIRING_SERVICE_TYPE: &str = "_entangle-pair._udp.local.";
 
 /// Upper bound on advertised CPU cores. Non-finite, negative, or larger values
 /// are treated as poisoned and coerced to `0.0`.
@@ -88,6 +102,11 @@ pub struct Discovery {
     peers: Arc<RwLock<HashMap<PeerId, PeerSeen>>>,
     local: LocalPeer,
     instance_name: String,
+    /// Service type this handle announces and browses. [`SERVICE_TYPE`] by
+    /// default; the pairing flow switches it to [`PAIRING_SERVICE_TYPE`].
+    service_type: String,
+    /// Dialable transport advertisement, when the caller attached one.
+    transport: Option<TransportAdvert>,
     /// Set once [`Discovery::start_announcing`] has registered the service, so
     /// a second call is rejected instead of double-registering.
     announcing: AtomicBool,
@@ -112,9 +131,54 @@ impl Discovery {
             peers,
             local: config.local,
             instance_name,
+            service_type: SERVICE_TYPE.to_string(),
+            transport: None,
             announcing: AtomicBool::new(false),
             browser: Mutex::new(None),
         })
+    }
+
+    /// Announce and browse `service_type` instead of [`SERVICE_TYPE`].
+    ///
+    /// Must be called before [`Discovery::start_announcing`] /
+    /// [`Discovery::spawn_browser`]; it is a consuming builder rather than a
+    /// [`DiscoveryConfig`] field so that adding it did not break existing
+    /// struct-literal construction of the config.
+    ///
+    /// # Errors
+    /// [`DiscoveryError::Mdns`] if `service_type` is not a well-formed mDNS-SD
+    /// type (`_name._udp.local.` / `_name._tcp.local.`).
+    pub fn with_service_type(
+        mut self,
+        service_type: impl Into<String>,
+    ) -> Result<Self, DiscoveryError> {
+        let service_type = service_type.into();
+        if !service_type.starts_with('_')
+            || !service_type.ends_with(".local.")
+            || !(service_type.contains("._udp.") || service_type.contains("._tcp."))
+        {
+            return Err(DiscoveryError::Mdns(format!(
+                "malformed mDNS service type: {service_type}"
+            )));
+        }
+        self.service_type = service_type;
+        Ok(self)
+    }
+
+    /// Attach the public key + transport port that make this node dialable.
+    ///
+    /// Without it the announcement carries only a `peer_id`, which no peer can
+    /// dial — see [`TransportAdvert`] for why. Must be called before
+    /// [`Discovery::start_announcing`].
+    #[must_use]
+    pub fn with_transport_advert(mut self, advert: TransportAdvert) -> Self {
+        self.transport = Some(advert);
+        self
+    }
+
+    /// The mDNS service type this handle uses.
+    pub fn service_type(&self) -> &str {
+        &self.service_type
     }
 
     /// Register this node as an mDNS service. Blocks until the registration
@@ -151,7 +215,7 @@ impl Discovery {
         let hostname = format!("{}.local.", hostname(&self.local.peer_id));
         let txt = self.txt_map();
         let info = ServiceInfo::new(
-            SERVICE_TYPE,
+            &self.service_type,
             &self.instance_name,
             &hostname,
             host_ip,
@@ -183,7 +247,7 @@ impl Discovery {
 
         let receiver = self
             .daemon
-            .browse(SERVICE_TYPE)
+            .browse(&self.service_type)
             .map_err(|e| DiscoveryError::Mdns(e.to_string()))?;
 
         let sender = self.sender.clone();
@@ -283,6 +347,13 @@ impl Discovery {
         m.insert("peer_id".into(), self.local.peer_id.to_hex());
         m.insert("display_name".into(), self.local.display_name.clone());
         m.insert("version".into(), self.local.version.clone());
+        // The two keys that make a sighting dialable (see `TransportAdvert`):
+        // the raw Ed25519 public key, which a `peer_id` cannot be inverted
+        // back into, and the QUIC port, which need not equal the service port.
+        if let Some(t) = &self.transport {
+            m.insert("public_key".into(), hex::encode(t.public_key));
+            m.insert("mesh_port".into(), t.mesh_port.to_string());
+        }
         if let Some(hw) = &self.local.hardware {
             m.insert("cpu_cores".into(), hw.cpu_cores.to_string());
             m.insert("memory_bytes".into(), hw.memory_bytes.to_string());
@@ -340,6 +411,10 @@ fn parse_service(info: &mdns_sd::ResolvedService) -> Option<PeerSeen> {
     // ── parse optional hardware advertisement ────────────────────────────
     let hardware = parse_hardware(txt);
 
+    // ── parse the dialable transport advertisement ───────────────────────
+    let public_key = parse_public_key(txt.get_property_val_str("public_key"), &peer_id);
+    let mesh_port = parse_port(txt.get_property_val_str("mesh_port"));
+
     Some(PeerSeen {
         peer_id,
         display_name,
@@ -347,8 +422,39 @@ fn parse_service(info: &mdns_sd::ResolvedService) -> Option<PeerSeen> {
         port: info.get_port(),
         version,
         hardware,
+        public_key,
+        mesh_port,
         last_seen: SystemTime::now(),
     })
+}
+
+/// Parse the `public_key` TXT value into raw key bytes.
+///
+/// Untrusted input, so three things must all hold before it is accepted:
+/// exactly 64 hex characters, a successful decode, and — critically —
+/// `BLAKE3(key)[..16] == peer_id`. Without that last check a hostile
+/// announcement could pair a well-known `peer_id` with an attacker's key and
+/// have the discovering side dial (and pin) the wrong identity.
+fn parse_public_key(raw: Option<&str>, peer_id: &PeerId) -> Option<[u8; 32]> {
+    let raw = raw?;
+    if raw.len() != 64 {
+        warn!("public_key in mDNS TXT is not 64 hex chars; ignoring");
+        return None;
+    }
+    let bytes = hex::decode(raw)
+        .map_err(|e| warn!("bad public_key in mDNS TXT: {e}"))
+        .ok()?;
+    let key: [u8; 32] = bytes.try_into().ok()?;
+    if PeerId::from_public_key_bytes(&key) != *peer_id {
+        warn!("public_key in mDNS TXT does not derive to the announced peer_id; ignoring");
+        return None;
+    }
+    Some(key)
+}
+
+/// Parse the `mesh_port` TXT value. `0` is rejected: it is not a dialable port.
+fn parse_port(raw: Option<&str>) -> Option<u16> {
+    raw.and_then(|s| s.parse::<u16>().ok()).filter(|p| *p != 0)
 }
 
 /// Parse hardware advertisement fields from a mDNS TXT property map.
@@ -591,6 +697,109 @@ mod tests {
         assert!(sanitize_hostname_label("!!!").is_empty());
         // Bounded to the DNS label limit.
         assert!(sanitize_hostname_label(&"a".repeat(200)).len() <= MAX_HOSTNAME_LEN);
+    }
+
+    /// A well-formed key that matches the announced peer id is accepted, and
+    /// is the exact 32 bytes the QUIC transport will dial.
+    #[test]
+    fn public_key_txt_round_trips_when_consistent() {
+        let key = [0x5Au8; 32];
+        let id = PeerId::from_public_key_bytes(&key);
+        assert_eq!(parse_public_key(Some(&hex::encode(key)), &id), Some(key));
+    }
+
+    /// The load-bearing rejection: an announcement that pairs someone else's
+    /// `peer_id` with the attacker's key must not be dialable. Otherwise a
+    /// LAN attacker could impersonate a known device in the pairing chooser.
+    #[test]
+    fn public_key_txt_rejected_when_it_does_not_derive_to_peer_id() {
+        let honest = [0x11u8; 32];
+        let attacker = [0x22u8; 32];
+        let honest_id = PeerId::from_public_key_bytes(&honest);
+        assert_eq!(
+            parse_public_key(Some(&hex::encode(attacker)), &honest_id),
+            None,
+            "key/id mismatch must not yield a dialable key"
+        );
+    }
+
+    #[test]
+    fn public_key_txt_rejects_malformed_input() {
+        let id = PeerId::from_public_key_bytes(&[0u8; 32]);
+        assert_eq!(parse_public_key(None, &id), None);
+        assert_eq!(parse_public_key(Some(""), &id), None);
+        assert_eq!(parse_public_key(Some("nope"), &id), None);
+        // Right length, not hex.
+        assert_eq!(parse_public_key(Some(&"z".repeat(64)), &id), None);
+        // Valid hex, wrong length (31 bytes).
+        assert_eq!(parse_public_key(Some(&"ab".repeat(31)), &id), None);
+    }
+
+    #[test]
+    fn mesh_port_txt_is_bounded_and_rejects_zero() {
+        assert_eq!(parse_port(Some("41641")), Some(41641));
+        assert_eq!(parse_port(Some("0")), None, "port 0 is not dialable");
+        assert_eq!(parse_port(Some("65536")), None, "out of u16 range");
+        assert_eq!(parse_port(Some("-1")), None);
+        assert_eq!(parse_port(Some("abc")), None);
+        assert_eq!(parse_port(None), None);
+    }
+
+    #[test]
+    fn service_type_builder_rejects_malformed_types() {
+        for bad in [
+            "entangle",
+            "_entangle._udp",
+            "_entangle.local.",
+            "",
+            "x.local.",
+        ] {
+            let d = match Discovery::new(DiscoveryConfig::default()) {
+                Ok(d) => d,
+                // Sandboxed CI may not allow the mDNS daemon to bind.
+                Err(_) => return,
+            };
+            assert!(
+                d.with_service_type(bad).is_err(),
+                "{bad:?} must be rejected as a service type"
+            );
+        }
+    }
+
+    #[test]
+    fn dial_targets_prefer_mesh_port_over_service_port() {
+        let key = [7u8; 32];
+        let seen = PeerSeen {
+            peer_id: PeerId::from_public_key_bytes(&key),
+            display_name: "d".into(),
+            addresses: vec![IpAddr::V4(std::net::Ipv4Addr::new(10, 0, 0, 5))],
+            port: 7001,
+            version: "0".into(),
+            hardware: None,
+            public_key: Some(key),
+            mesh_port: Some(41641),
+            last_seen: SystemTime::now(),
+        };
+        assert_eq!(
+            seen.dial_targets(),
+            vec!["10.0.0.5:41641".parse::<std::net::SocketAddr>().unwrap()]
+        );
+        assert!(seen.is_dialable());
+
+        let no_key = PeerSeen {
+            public_key: None,
+            mesh_port: None,
+            ..seen
+        };
+        assert_eq!(
+            no_key.dial_targets(),
+            vec!["10.0.0.5:7001".parse::<std::net::SocketAddr>().unwrap()],
+            "falls back to the service port"
+        );
+        assert!(
+            !no_key.is_dialable(),
+            "a sighting without a public key is not dialable"
+        );
     }
 
     #[test]
