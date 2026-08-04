@@ -20,6 +20,11 @@ pub struct Manifest {
     pub build: Option<BuildSection>,
 
     /// `[signature]` section (optional).
+    ///
+    /// When present, the runtime kernel cross-checks it against the verified
+    /// signature bundle at load time: `publisher` must equal the fingerprint
+    /// of the key that actually signed the artifact, and `algorithm` must
+    /// match the bundle's algorithm. A mismatch fails the load.
     pub signature: Option<SignatureSection>,
 }
 
@@ -64,9 +69,14 @@ pub struct BuildSection {
 }
 
 /// `[signature]` section of `entangle.toml`.
+///
+/// Optional declaration of the expected signer. The kernel enforces that the
+/// values here agree with the detached signature bundle that verified — this
+/// section can only narrow trust, never widen it (the manifest itself is
+/// covered by the signed digest, so it cannot be edited post-signing).
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SignatureSection {
-    /// Publisher public-key fingerprint (hex).
+    /// Publisher public-key fingerprint (hex, 16-byte BLAKE3 → 32 hex chars).
     pub publisher: String,
 
     /// Signature algorithm — defaults to `"ed25519"`.

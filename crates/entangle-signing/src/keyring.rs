@@ -103,6 +103,11 @@ impl Keyring {
     }
 
     /// Persist keyring to a TOML file, creating parent directories as needed.
+    ///
+    /// On Unix the file is written with mode `0600` (owner read/write only),
+    /// matching the `identity.key` handling — the trust roots decide which
+    /// plugins load, so other users must not be able to tamper with or
+    /// pre-seed them.
     pub fn save(&self, path: &Path) -> Result<(), KeyringError> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -111,9 +116,34 @@ impl Keyring {
             entries: self.entries.values().cloned().collect(),
         };
         let raw = toml::to_string_pretty(&file)?;
-        std::fs::write(path, raw)?;
+        write_owner_only(path, raw.as_bytes())?;
         Ok(())
     }
+}
+
+/// Write `contents` to `path` with owner-only (`0600`) permissions on Unix.
+#[cfg(unix)]
+fn write_owner_only(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
+    use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+
+    let mut f = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(path)?;
+    f.write_all(contents)?;
+    // `.mode()` only applies when the file is created; enforce 0600 for
+    // pre-existing files too.
+    f.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+    Ok(())
+}
+
+/// Non-Unix fallback: plain write (no POSIX permission bits to set).
+#[cfg(not(unix))]
+fn write_owner_only(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    std::fs::write(path, contents)
 }
 
 // ---------------------------------------------------------------------------
@@ -152,4 +182,77 @@ where
     let b = hex::decode(&txt).map_err(serde::de::Error::custom)?;
     b.try_into()
         .map_err(|_| serde::de::Error::custom("expected 32-byte public key hex"))
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(byte: u8) -> TrustEntry {
+        TrustEntry {
+            fingerprint: [byte; 16],
+            public_key: [byte; 32],
+            publisher_name: format!("publisher-{byte}"),
+            added_at: 0,
+            note: String::new(),
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_sets_owner_only_permissions() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keyring.toml");
+
+        let mut kr = Keyring::new();
+        kr.add(entry(1));
+        kr.save(&path).expect("save must succeed");
+
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "keyring file must be 0600, got {mode:04o}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_tightens_permissions_on_existing_file() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keyring.toml");
+
+        // Pre-create the file with loose permissions.
+        std::fs::write(&path, "entries = []\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        let mut kr = Keyring::new();
+        kr.add(entry(2));
+        kr.save(&path).expect("save must succeed");
+
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(
+            mode, 0o600,
+            "save over an existing file must tighten to 0600, got {mode:04o}"
+        );
+    }
+
+    #[test]
+    fn save_load_round_trip_preserves_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keyring.toml");
+
+        let mut kr = Keyring::new();
+        kr.add(entry(3));
+        kr.add(entry(4));
+        kr.save(&path).unwrap();
+
+        let loaded = Keyring::load(&path).unwrap();
+        assert!(loaded.lookup(&[3u8; 16]).is_some());
+        assert!(loaded.lookup(&[4u8; 16]).is_some());
+    }
 }

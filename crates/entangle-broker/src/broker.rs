@@ -18,6 +18,7 @@ use entangle_biscuits::verifier;
 use entangle_manifest::ValidatedManifest;
 use entangle_types::{capability::CapabilityKind, peer_id::PeerId, plugin_id::PluginId};
 use parking_lot::RwLock;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -85,6 +86,11 @@ impl Broker {
     /// (spec §9.4.1). The manifest validation layer (`entangle-manifest`)
     /// has already ensured `declared >= implied` (spec §4.4.1); the broker
     /// does not re-check that invariant.
+    ///
+    /// Registration is strictly insert-only: a second registration under the
+    /// same [`PluginId`] returns [`BrokerError::AlreadyRegistered`] instead of
+    /// overwriting the live record (which would silently drop its outstanding
+    /// grants with no `CapabilityReleased` audit trail).
     pub fn register_plugin(&self, manifest: ValidatedManifest) -> Result<(), BrokerError> {
         self.policy.check_plugin_load(manifest.effective_tier)?;
 
@@ -93,13 +99,17 @@ impl Broker {
         let implied_tier = manifest.implied_tier;
         let effective_tier = manifest.effective_tier;
 
-        self.plugins.write().insert(
-            plugin_id.clone(),
-            PluginRecord {
-                manifest,
-                grants: HashMap::new(),
-            },
-        );
+        match self.plugins.write().entry(plugin_id.clone()) {
+            Entry::Occupied(_) => {
+                return Err(BrokerError::AlreadyRegistered(plugin_id));
+            }
+            Entry::Vacant(slot) => {
+                slot.insert(PluginRecord {
+                    manifest,
+                    grants: HashMap::new(),
+                });
+            }
+        }
 
         self.audit.record(AuditEvent::PluginRegistered {
             plugin: plugin_id,
@@ -495,6 +505,45 @@ mod tests {
             "expected CapabilityReleased audit event on unregister"
         );
         assert!(unregistered, "expected PluginUnregistered audit event");
+    }
+
+    // Test 6b — duplicate registration is refused and leaves existing state intact.
+    #[test]
+    fn duplicate_registration_refused_and_grants_preserved() {
+        let broker = Broker::new(BrokerPolicy::default());
+        let manifest = make_manifest("dup-plugin", 2, Runtime::Wasm, &["compute.cpu"]);
+        let plugin_id = manifest.plugin_id.clone();
+        broker.register_plugin(manifest).unwrap();
+
+        let gc = broker
+            .grant(&plugin_id, &CapabilityKind::ComputeCpu)
+            .unwrap();
+
+        let audit_len_before = broker.audit_log().len();
+
+        // Second registration of the same id must fail without overwriting.
+        let manifest2 = make_manifest("dup-plugin", 2, Runtime::Wasm, &["compute.cpu"]);
+        let err = broker.register_plugin(manifest2).unwrap_err();
+        assert!(
+            matches!(err, BrokerError::AlreadyRegistered(ref id) if *id == plugin_id),
+            "expected AlreadyRegistered, got: {err}"
+        );
+        assert!(
+            err.to_string().contains("ENTANGLE-E0123"),
+            "AlreadyRegistered must carry its error code: {err}"
+        );
+
+        // The original registration's grants survive.
+        let grants = broker.snapshot_grants(&plugin_id);
+        assert_eq!(grants.len(), 1, "existing grant must be preserved");
+        assert_eq!(grants[0].grant_id, gc.grant_id);
+
+        // No audit events were emitted by the failed registration.
+        assert_eq!(
+            broker.audit_log().len(),
+            audit_len_before,
+            "failed duplicate registration must not add audit events"
+        );
     }
 
     // Test 7
