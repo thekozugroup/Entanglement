@@ -27,10 +27,10 @@ docker run --rm -v ~/.entangle:/root/.entangle ghcr.io/entanglement-dev/entangle
 ### Option C — Build from source (works today)
 
 ```bash
-git clone https://github.com/entanglement-dev/entanglement
-cd entanglement
-cargo install --path crates/entangle-cli
-cargo install --path crates/entangled        # daemon binary
+git clone https://github.com/thekozugroup/Entanglement
+cd Entanglement
+cargo install --path crates/entangle-cli      # `entangle` CLI binary
+cargo install --path crates/entangle-bin      # `entangled` daemon binary
 ```
 
 Verify:
@@ -166,8 +166,7 @@ entangle keyring add a3f9…c7d1 --name self
 Expected output:
 
 ```
-keyring: added a3f9…c7d1 (self)
-keyring: 1 entry
+added a3f9c7d1... "self"
 ```
 
 Run `entangle keyring list` at any time to see trusted publishers. See
@@ -279,11 +278,11 @@ multi-app plugin sharing — start the daemon:
 entangled run
 ```
 
-Expected output:
+Expected output (illustrative — the daemon's exact banner lives in `entangle-bin`):
 
 ```
 entangled 0.1.0
-listening on ~/.entangle/daemon.sock
+listening on ~/.entangle/sock
 broker: ready
 ```
 
@@ -299,9 +298,11 @@ entangle plugins invoke a3f9c7d1/hash-it@0.1.0 --input "world"
 # → <BLAKE3 hex of "world">
 ```
 
-The daemon persists the plugin registry across CLI invocations. Stopping it
-(`Ctrl-C`) is graceful — loaded plugins are reloaded on next `entangled run`
-from the registry state written to `~/.entangle/registry.toml`.
+The daemon keeps the plugin registry in memory for the life of its process.
+Persisting the registry across `entangled` restarts (so plugins reload
+automatically on the next `entangled run`) is not implemented yet — Phase 2.
+Stopping the daemon (`Ctrl-C`) is graceful, but you currently need to
+`entangle plugins load` again after a restart.
 
 ---
 
@@ -313,39 +314,44 @@ At any time, run:
 entangle doctor
 ```
 
-Expected output (healthy):
+`entangle doctor` runs 13 structured checks and prints one `[ok]`/`[warn]`/
+`[fail]`/`[skip]` line per check (see `crates/entangle-cli/src/cmd/doctor.rs`).
+Expected output (healthy, daemon not running):
 
 ```
-entangle doctor 0.1.0
+[ok]    identity                  Ed25519 keypair, fp a3f9…c7d1
+[ok]    identity-perms            mode 0600
+[ok]    config                    /home/alice/.entangle/config.toml
+[ok]    keyring                   1 trusted publisher(s)
+[ok]    peers                     0 trusted peer(s)
+[ok]    dir-perms                 mode 0700
+[ok]    rust-toolchain            rustc 1.91.0 (...)
+[ok]    wasm32-wasip2             installed
+[warn]  daemon-reachable          not running (start with `entangled run`) — socket /home/alice/.entangle/sock absent
+[skip]  daemon-version-match      skipped (daemon not reachable)
+[ok]    OS sandbox                Landlock available
+[ok]    disk-space                42.0 GiB free
+[skip]  clock-skew                skipped (daemon not reachable)
 
-[ok] identity key present         (~/.entangle/identity.key)
-[ok] config file valid            (~/.entangle/config.toml)
-[ok] keyring reachable            (1 entry)
-[ok] daemon socket                (~/.entangle/daemon.sock — reachable)
-[ok] wasm32-wasip2 toolchain      (rustup target installed)
-[ok] plugins registered           (1 plugin)
-
-All checks passed.
+Summary: 10 ok, 1 warn, 0 fail, 2 skip
 ```
 
-If the daemon is not running:
-
-```
-[warn] daemon socket              (~/.entangle/daemon.sock — not found)
-        Run `entangled run` in another terminal to start the daemon.
-        CLI commands fall back to in-process mode.
-```
-
-`entangle doctor` is the first thing to run when something feels wrong. Each
-`[ok]`/`[warn]`/`[error]` line links to the error code in the reference
-(e.g., `ENTANGLE-E0001` for a missing identity key).
+`warn` does not fail the command; `entangle doctor` only exits non-zero if any
+check reports `[fail]` (e.g. a corrupt `identity.key` or a `peers.toml` parse
+error). Run `entangled run` in another terminal to turn the two daemon-related
+checks green.
 
 ---
 
 ## 11. Pair a Second Device
 
-Pairing establishes a shared secret between two devices so they can exchange
-capabilities without re-running trust ceremonies.
+Pairing establishes mutual trust-on-first-use (TOFU) between two devices: each
+side records the other's Ed25519 public key and display name in
+`~/.entangle/peers.toml`, gated by a 6-digit code (read aloud / typed
+out-of-band) plus a fingerprint comparison. The exchange happens over a
+manual copy-paste channel in Phase 1. There is **no** `--respond`, `--accept`,
+or `--finalize` flag, and the blobs are not colon-separated — see
+`crates/entangle-cli/src/cmd/pair.rs` for the real implementation.
 
 ### 11.1 Initiator (device A)
 
@@ -356,74 +362,107 @@ entangle pair
 Output:
 
 ```
-Pairing: generating ephemeral keypair...
-Send this blob to the responder:
+Generating pairing material...
+Code:         123-456  (read aloud — expires in 5 minutes)
+Fingerprint:  a3f9…c7d1
+Display name: alice-laptop
 
-ENT-REQ:eyJlcGtfcHViIjoiQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQT0iLCJub25jZSI6IjEyMzQ1Njc4In0=
+Paste this REQUEST blob to the other device's `entangle pair --responder`:
 
-Waiting for ENT-ACC response...
+ENT-REQ-eyJpbml0aWF0b3JfcGVlcl9pZCI6Ii4uLiJ9
+
+Waiting for ACCEPT blob (paste below, then press Enter):
+>
 ```
+
+Read the 6-digit code aloud to whoever is on device B and send them the
+`ENT-REQ-...` blob over whatever out-of-band channel you trust (chat,
+AirDrop, a shared file).
 
 ### 11.2 Responder (device B)
 
 ```bash
-entangle pair --respond "ENT-REQ:eyJ..."
+entangle pair --responder
 ```
 
 Output:
 
 ```
-Pairing: received initiator public key
-Pairing: generating responder keypair and shared secret...
+Paste REQUEST blob (then press Enter):
+> ENT-REQ-eyJpbml0aWF0b3JfcGVlcl9pZCI6Ii4uLiJ9
 
-Send this blob back to the initiator:
+Initiator:             'alice-laptop'
+Initiator fingerprint: a3f9…c7d1
+Your fingerprint:      b71e…04aa
 
-ENT-ACC:eyJlcGtfcHViIjoiQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQT0iLCJzaWciOiIuLi4ifQ==
+Verify with the other device that BOTH fingerprints match what it shows.
+Then enter the 6-digit code displayed on the initiator: 123456
+✓ Code matches
 
-Pairing complete on this side. Waiting for ENT-FIN confirmation...
+Paste this ACCEPT blob to the initiator:
+
+ENT-ACC-eyJyZXNwb25kZXJfcGVlcl9pZCI6Ii4uLiJ9
+
+Waiting for FINALIZE blob:
+>
 ```
 
-### 11.3 Initiator receives ENT-ACC
+You can type the code with or without the dash — `entangle pair --code
+123456` also works non-interactively. Send the `ENT-ACC-...` blob back to
+the initiator.
 
-Paste the `ENT-ACC` blob into the waiting initiator terminal (or pass it via
-`--accept`):
+### 11.3 Initiator receives the ACCEPT blob
 
-```bash
-entangle pair --accept "ENT-ACC:eyJ..."
-```
-
-Output:
+Paste `ENT-ACC-...` at the initiator's "Waiting for ACCEPT blob" prompt. It
+verifies the responder's signature and prints:
 
 ```
-Pairing: verifying responder...  ok
-Pairing: deriving shared secret...  ok
-Pairing: writing peer to keyring
+✓ Paired with peer 'bob-desktop' (b71e…04aa)
 
-Send this confirmation to the responder:
+Paste this FINALIZE blob to the other device:
 
-ENT-FIN:eyJzaWciOiIuLi4ifQ==
+ENT-FIN-eyJzaWduYXR1cmVfaGV4IjoiLi4uIn0
 
-Pairing complete. Peer added: <responder-fingerprint>
+✓ added to /home/alice/.entangle/peers.toml
 ```
 
-### 11.4 Responder receives ENT-FIN
+Send the `ENT-FIN-...` blob back to the responder.
 
-```bash
-entangle pair --finalize "ENT-FIN:eyJ..."
-```
+### 11.4 Responder receives the FINALIZE blob
 
-Output:
+Paste it at the responder's "Waiting for FINALIZE blob" prompt:
 
 ```
-Pairing: verifying initiator confirmation...  ok
-Pairing complete. Peer added: <initiator-fingerprint>
+✓ Paired with peer 'alice-laptop' (a3f9…c7d1)
+✓ added to /home/bob/.entangle/peers.toml
 ```
 
-Both devices now have the other's fingerprint in their keyring. Plugins signed
-by either device are trusted by the other without further ceremony.
+Both devices now have the other's public key and display name in
+`peers.toml`. To trust plugins *published* by the other device's key, also
+run `entangle keyring add <their_pubkey_hex> --name <label>` on each side —
+pairing and publisher trust are separate keyrings.
 
-The blob exchange is intentionally manual (copy-paste or QR code). Phase 2 will
-add automatic pairing over the mesh transports. See [architecture.md §8](architecture.md#8-pairing).
+### 11.5 Non-interactive / scripted pairing
+
+Every prompt has a file-based flag so pairing can run in CI or across two
+terminals on the same machine without hand-copying blobs:
+
+| Flag | Side | Meaning |
+|------|------|---------|
+| `--responder` | either | act as the responder instead of the initiator |
+| `--display-name <NAME>` | either | override the display name (default: hostname) |
+| `--emit-request-file <PATH>` | initiator | write the REQUEST blob to a file instead of stdout |
+| `--consume-accept-file <PATH>` | initiator | read the ACCEPT blob from a file instead of stdin |
+| `--emit-finalize-file <PATH>` | initiator | write the FINALIZE blob to a file instead of stdout |
+| `--request-file <PATH>` | responder | read the REQUEST blob from a file instead of stdin |
+| `--code <CODE>` | responder | pass the 6-digit code non-interactively |
+| `--emit-accept-file <PATH>` | responder | write the ACCEPT blob to a file instead of stdout |
+| `--consume-finalize-file <PATH>` | responder | read the FINALIZE blob from a file instead of stdin |
+
+The blob exchange itself stays manual (copy-paste, a shared file, or a QR
+code you generate yourself) — automatic pairing over the mesh transports is
+Phase 2. See [architecture.md §8](architecture.md#8-pairing) for the
+protocol's threat model.
 
 ---
 
@@ -464,7 +503,7 @@ error reference in [architecture.md §appendix-errors](architecture.md#appendix-
 | `entangled run` | Start the background daemon |
 | `entangle doctor` | Health check |
 | `entangle pair` | Begin device pairing (initiator) |
-| `entangle pair --respond <blob>` | Respond to pairing request |
+| `entangle pair --responder` | Respond to a pairing request |
 
 ---
 

@@ -2,7 +2,7 @@
 //!
 //! See spec §4 (tier+capability model), §4.4.1 (implied vs declared),
 //! §9.4 (max_tier_allowed), §11 (no-ambient-authority invariant) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (ships in the initial kernel release).
 //!

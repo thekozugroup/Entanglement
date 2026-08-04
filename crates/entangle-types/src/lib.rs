@@ -4,7 +4,7 @@
 //! All other crates in the workspace may depend on this crate.
 //!
 //! See spec §4 (capability tiers), §7 (task model), §4.1 (plugin identifiers) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (foundational; extended in Phase 2 for mesh task scheduling).
 //!

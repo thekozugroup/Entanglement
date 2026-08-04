@@ -1,7 +1,7 @@
 //! Ed25519 publisher-key signing, verification, and per-user trust keyring.
 //!
 //! See spec §3.6 (artifact signing), §10.1 (trust footprint) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (required for all plugin loads; signing is mandatory).
 //!

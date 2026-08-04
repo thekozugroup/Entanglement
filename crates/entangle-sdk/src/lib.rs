@@ -1,7 +1,7 @@
 //! Guest-side plugin SDK — the only crate a plugin author needs to depend on.
 //!
 //! See spec §9.3 (hello-world walkthrough), §4.4 (plugin manifest) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (ships with the initial SDK; wasm32-wasip2 target only for WIT bindings).
 //!

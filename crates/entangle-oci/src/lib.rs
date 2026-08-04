@@ -1,7 +1,7 @@
 //! OCI registry distribution — fetch and verify plugins from OCI registries.
 //!
 //! See spec §3.6 (OCI/tarball distribution) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 2 scaffold (stub only in Phase 1; no public API beyond `version`).
 //!

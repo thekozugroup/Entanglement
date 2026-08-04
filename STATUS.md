@@ -11,7 +11,7 @@ clean on Rust 1.91.
 
 ## Workspace
 
-23 crates total (18 libraries, 2 binaries, 1 bench harness, 1 acceptance-test matrix runner, 1 build-tooling crate).
+26 crates total (21 libraries, 2 binaries, 1 bench harness, 1 acceptance-test matrix runner, 1 build-tooling crate) — see the `[workspace] members` list in `Cargo.toml`.
 
 | Crate | Purpose |
 |-------|---------|
@@ -23,9 +23,13 @@ clean on Rust 1.91.
 | `entangle-host` | Wasmtime + WASI 0.2 host wrapper, async plugin invocation |
 | `entangle-broker` | Capability broker, deny-by-default, audit log, `CrossNodePolicy` |
 | `entangle-ipc` | In-process pub/sub bus (broadcast channels, topic globs) |
+| `entangle-core` | Shared kernel utilities and foundational abstractions |
 | `entangle-runtime` | Kernel: manifest → signature → broker → host orchestration |
 | `entangle-rpc` | Typed JSON-RPC 2.0 client for the daemon UDS socket |
 | `entangle-mesh-local` | mDNS-SD discovery on `_entangle._udp.local`, hardware advert |
+| `entangle-mesh-iroh` | WAN Iroh-QUIC mesh transport (Phase 2 scaffold; `NotImplemented` until wired) |
+| `entangle-mesh-tailscale` | Tailscale-tailnet mesh transport (Phase 2 scaffold; `NotImplemented` until wired) |
+| `entangle-oci` | OCI registry distribution — fetch/verify plugins (Phase 2 stub) |
 | `entangle-peers` | Persistent allowlist (`~/.entangle/peers.toml`) |
 | `entangle-pairing` | 6-digit code + fingerprint mutual-TOFU state machine |
 | `entangle-biscuits` | biscuit-auth wrapper + bridge-attenuation enforcement |
@@ -40,7 +44,7 @@ clean on Rust 1.91.
 
 ## Tests
 
-- 249 unit / integration tests passing.
+- 321 unit / integration tests passing.
 - 28 ignored (Phase-2 enforcement, fixture-dependent, or single-threaded).
 - `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo doc --workspace --no-deps -- -D warnings` all clean.
 - `cargo deny` runs in CI on every PR (advisories / bans / licenses / sources).
@@ -105,6 +109,6 @@ clean on Rust 1.91.
 ## Read next
 
 - [`README.md`](README.md) — portfolio narrative.
-- [`docs/architecture.md`](docs/architecture.md) — full spec (~1900 lines, 16 sections + glossary + appendix).
+- [`docs/architecture.md`](docs/architecture.md) — full spec (~2100 lines, 16 sections + glossary + appendix).
 - [`docs/tutorial.md`](docs/tutorial.md) — hands-on walkthrough.
 - [`CHANGELOG.md`](CHANGELOG.md) — release notes.

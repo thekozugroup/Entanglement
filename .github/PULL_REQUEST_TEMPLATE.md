@@ -12,4 +12,4 @@
 - [ ] Spec §X updated if behavior changed
 
 ## Spec references
-<!-- Link to docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md sections -->
+<!-- Link to docs/architecture.md sections -->

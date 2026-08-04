@@ -1,7 +1,7 @@
 //! Library surface of the `entangled` daemon binary.
 //!
 //! See spec §9.1 (daemon install path) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (Unix-domain-socket JSON-RPC 2.0 server; foreground-only).
 //!

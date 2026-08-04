@@ -1,7 +1,7 @@
 //! Shared kernel utilities and foundational abstractions for the Entanglement workspace.
 //!
 //! See spec §10 (crate layout) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (utility functions used across all Phase-1 crates).
 //!

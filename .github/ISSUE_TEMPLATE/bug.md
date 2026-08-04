@@ -17,7 +17,7 @@ labels: bug
 ## Actual behavior
 
 ## Spec reference
-<!-- Which section of docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md defines the correct behavior? -->
+<!-- Which section of docs/architecture.md defines the correct behavior? -->
 
 ## Environment
 - OS:

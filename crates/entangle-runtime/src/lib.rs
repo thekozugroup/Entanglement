@@ -1,7 +1,7 @@
 //! Top-level runtime orchestration — wires all subsystems into the plugin lifecycle.
 //!
 //! See spec §3 (plugin load pipeline), §9 (runtime crate layout) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (kernel + lifecycle); Phase 2 adds mesh-aware scheduling.
 //!
