@@ -101,14 +101,27 @@ impl MeshIroh {
 
     /// The `<pubkey-hex>@<host>:<port>` strings this endpoint is reachable on.
     ///
-    /// One per bound socket. This is the operator-facing "long address" that
-    /// `entangle mesh trust` / the pairing flow consume, and it round-trips
-    /// through [`crate::parse_node_addr`].
+    /// This is the operator-facing "long address" that `entangle mesh trust`
+    /// and the pairing flow consume, and it round-trips through
+    /// [`crate::parse_node_addr`].
+    ///
+    /// A socket bound to the wildcard address (`0.0.0.0` / `::`, the default)
+    /// is **expanded** rather than reported verbatim: the wildcard is a *bind*
+    /// address, not a reachable one, so printing `0.0.0.0:41641` hands the
+    /// operator a string no other machine can dial. Each unspecified bind is
+    /// replaced by this host's routable interface address plus loopback, on
+    /// the same port. Concrete binds pass through untouched.
     pub fn node_addrs(&self) -> Vec<String> {
-        self.local_addrs()
-            .into_iter()
-            .map(|addr| crate::format_node_addr(&self.public_key, addr))
-            .collect()
+        let mut out = Vec::new();
+        for addr in self.local_addrs() {
+            for resolved in expand_unspecified(addr) {
+                let s = crate::format_node_addr(&self.public_key, resolved);
+                if !out.contains(&s) {
+                    out.push(s);
+                }
+            }
+        }
+        out
     }
 
     /// Escape hatch for callers that need iroh-specific behaviour (relay
@@ -390,5 +403,97 @@ where
                 }
             }
         });
+    }
+}
+
+/// Expand a wildcard bind address into addresses another host can actually dial.
+///
+/// `0.0.0.0` / `::` mean "listen on every interface" — they are never a
+/// destination. Reporting one to an operator (or writing it into a peer record)
+/// produces an address that silently fails to connect, which is why
+/// [`MeshIroh::node_addrs`] routes through here.
+///
+/// Returns the routable interface address first (that is the one a peer on
+/// another machine needs), then loopback so same-host pairing and local
+/// integration tests still work. A concrete bind is returned unchanged.
+fn expand_unspecified(addr: SocketAddr) -> Vec<SocketAddr> {
+    if !addr.ip().is_unspecified() {
+        return vec![addr];
+    }
+    let port = addr.port();
+    let mut out = Vec::new();
+    if let Some(ip) = routable_local_ip(addr.is_ipv6()) {
+        out.push(SocketAddr::new(ip, port));
+    }
+    let loopback = if addr.is_ipv6() {
+        std::net::IpAddr::V6(std::net::Ipv6Addr::LOCALHOST)
+    } else {
+        std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)
+    };
+    if !out.iter().any(|a| a.ip() == loopback) {
+        out.push(SocketAddr::new(loopback, port));
+    }
+    out
+}
+
+/// This host's routable interface address, or `None` if it has no route out.
+///
+/// Uses the standard UDP-connect trick: `connect` on a UDP socket sends no
+/// packets, it only asks the kernel to pick the source address it *would* use
+/// to reach the target. So this needs no network access and cannot block —
+/// it is a routing-table lookup, and the target is never contacted.
+fn routable_local_ip(want_v6: bool) -> Option<std::net::IpAddr> {
+    use std::net::UdpSocket;
+    let (bind, probe) = if want_v6 {
+        ("[::]:0", "[2001:4860:4860::8888]:80")
+    } else {
+        ("0.0.0.0:0", "8.8.8.8:80")
+    };
+    let sock = UdpSocket::bind(bind).ok()?;
+    sock.connect(probe).ok()?;
+    let ip = sock.local_addr().ok()?.ip();
+    (!ip.is_unspecified()).then_some(ip)
+}
+
+#[cfg(test)]
+mod addr_tests {
+    use super::*;
+
+    #[test]
+    fn concrete_bind_passes_through_unchanged() {
+        let a: SocketAddr = "192.168.1.5:41641".parse().unwrap();
+        assert_eq!(expand_unspecified(a), vec![a]);
+    }
+
+    #[test]
+    fn wildcard_v4_never_reports_the_wildcard() {
+        let out = expand_unspecified("0.0.0.0:41641".parse().unwrap());
+        assert!(
+            !out.is_empty(),
+            "wildcard must expand to something dialable"
+        );
+        for a in &out {
+            assert!(!a.ip().is_unspecified(), "0.0.0.0 is not dialable: {a}");
+            assert_eq!(a.port(), 41641, "port must be preserved");
+        }
+    }
+
+    #[test]
+    fn wildcard_v4_includes_loopback_so_same_host_pairing_works() {
+        let out = expand_unspecified("0.0.0.0:41641".parse().unwrap());
+        assert!(
+            out.iter().any(|a| a.ip().is_loopback()),
+            "expected a loopback fallback, got {out:?}"
+        );
+    }
+
+    #[test]
+    fn wildcard_v6_expands_to_v6_addresses() {
+        let out = expand_unspecified("[::]:41641".parse().unwrap());
+        assert!(!out.is_empty());
+        for a in &out {
+            assert!(a.is_ipv6(), "v6 wildcard must stay v6: {a}");
+            assert!(!a.ip().is_unspecified());
+        }
     }
 }

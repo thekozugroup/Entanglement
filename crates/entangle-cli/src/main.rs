@@ -80,7 +80,13 @@ enum Cmd {
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
-    entangle_observability::init_with_filter("warn,entangle=info");
+    // `iroh::net_report` probes public relay servers on startup and logs a WARN
+    // per unreachable probe. On a LAN-only or offline host that is a dozen
+    // alarming-looking lines dumped into the middle of `entangle pair`, none of
+    // which the user can act on — relays are a WAN fallback, and LAN pairing
+    // works without them. Silenced to `error` so genuine relay failures still
+    // surface; `RUST_LOG` overrides this whole string when debugging.
+    entangle_observability::init_with_filter("warn,entangle=info,iroh::net_report=error");
 
     match run().await {
         Ok(()) => std::process::ExitCode::SUCCESS,
