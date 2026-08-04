@@ -1,0 +1,31 @@
+# Docker build context excludes. The build context is the repository ROOT
+# (`docker build -f docker/Dockerfile .`, per docker/README.md), so this file
+# MUST live here — a docker/.dockerignore would be inert and the multi-GB
+# target/ tree would be uploaded to the daemon on every build.
+#
+# Do NOT exclude anything the Dockerfile COPYs: rust-toolchain.toml, Cargo.toml,
+# Cargo.lock, .cargo/, crates/, tools/ (tools/xtask is a workspace member).
+
+# Build artifacts (gigabytes — the whole point of this file)
+target/
+**/target/
+dist/
+
+# VCS + sprint/iteration logs
+.git/
+.gitignore
+.iterations/
+
+# Agent / editor / OS state
+.claude/
+.DS_Store
+*.swp
+*.swo
+
+# Not needed to build the daemon
+docs/
+examples/
+graphify-out/
+tools/graphify/
+SECURITY_SCAN.md
+*.original.md

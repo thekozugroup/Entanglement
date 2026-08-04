@@ -14,73 +14,78 @@ jobs:
     name: bus-factor
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Check role coverage
         id: check
+        env:
+          ROLES_FILE: docs/maintainers/roles.toml
         run: |
-          ROLES=(core-runtime-lead mesh-lead agent-lead security-lead release-lead)
-          VIOLATIONS=()
-          ROLES_FILE="docs/maintainers/roles.toml"
+          # Parse the roster with a real TOML parser (tomllib, stdlib on the
+          # Python 3.11+ that ships with ubuntu-24.04). The schema is:
+          #     [role.<name>]
+          #     holders = ["handle", ...]
+          # INV-BUS-1 (spec §12.1) requires >= 2 holders per role.
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os
+          import tomllib
 
-          if [ ! -f "$ROLES_FILE" ]; then
-            echo "roles_file_missing=true" >> "$GITHUB_OUTPUT"
-            for role in "${ROLES[@]}"; do
-              VIOLATIONS+=("$role: 0 holders (file missing)")
-            done
-          else
-            for role in "${ROLES[@]}"; do
-              # Count active holders: lines after [roles.<role>] where active = true
-              # Simple heuristic: count occurrences of active = true within the role block
-              COUNT=$(python3 - "$ROLES_FILE" "$role" <<'PYEOF'
-          import sys, re
+          roles = [
+              "core-runtime-lead",
+              "mesh-lead",
+              "agent-lead",
+              "security-lead",
+              "release-lead",
+          ]
 
-          path, role = sys.argv[1], sys.argv[2]
-          with open(path) as f:
-              content = f.read()
+          path = os.environ["ROLES_FILE"]
+          data = None
+          if os.path.exists(path):
+              with open(path, "rb") as fh:
+                  data = tomllib.load(fh)
 
-          # Find the role section and count active = true entries
-          pattern = rf'\[roles\.{re.escape(role)}\.holders\.[^\]]+\][^\[]*active\s*=\s*true'
-          matches = re.findall(pattern, content, re.DOTALL)
-          print(len(matches))
-          PYEOF
-          )
-              if [ "$COUNT" -lt 2 ]; then
-                VIOLATIONS+=("$role: $COUNT active holder(s) (need ≥ 2)")
-              fi
-            done
-          fi
+          violations = []
+          for role in roles:
+              if data is None:
+                  violations.append(f"{role}: 0 holders (file missing)")
+                  continue
+              holders = data.get("role", {}).get(role, {}).get("holders", []) or []
+              count = len(holders)
+              if count < 2:
+                  violations.append(f"{role}: {count} active holder(s) (need >= 2)")
 
-          if [ ${#VIOLATIONS[@]} -gt 0 ]; then
-            echo "violation=true" >> "$GITHUB_OUTPUT"
-            {
-              echo "violation_body<<EOF"
-              echo "## P0: Bus Factor Violation (INV-BUS-1)"
-              echo ""
-              echo "The following roles have fewer than 2 active holders:"
-              echo ""
-              for v in "${VIOLATIONS[@]}"; do
-                echo "- $v"
-              done
-              echo ""
-              echo "**Required action**: Add active holders to \`docs/maintainers/roles.toml\` and update \`.github/CODEOWNERS\`."
-              echo ""
-              echo "See spec §12.1 INV-BUS-1 for requirements."
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-          else
-            echo "violation=false" >> "$GITHUB_OUTPUT"
-          fi
+          if violations:
+              print("violation=true")
+              print("violation_body<<BODY")
+              print("## P0: Bus Factor Violation (INV-BUS-1)")
+              print("")
+              print("The following roles have fewer than 2 active holders:")
+              print("")
+              for item in violations:
+                  print(f"- {item}")
+              print("")
+              print(
+                  "**Required action**: Add active holders to "
+                  "`docs/maintainers/roles.toml` and update `.github/CODEOWNERS`."
+              )
+              print("")
+              print("See spec section 12.1 INV-BUS-1 for requirements.")
+              print("BODY")
+          else:
+              print("violation=false")
+          PY
 
       - name: Open P0 issue on violation
         if: steps.check.outputs.violation == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          VIOLATION_BODY: ${{ steps.check.outputs.violation_body }}
         run: |
+          printf '%s\n' "${VIOLATION_BODY}" > /tmp/bus-factor-body.md
           gh issue create \
             --title "P0: Bus Factor Violation — role coverage below minimum (INV-BUS-1)" \
             --label "P0" \
-            --body "${{ steps.check.outputs.violation_body }}" \
+            --body-file /tmp/bus-factor-body.md \
             || echo "Issue may already exist; check open issues."
 
       - name: Fail on violation

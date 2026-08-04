@@ -13,14 +13,36 @@ services:
     image: entangledev/entangle:dev
     container_name: entangled
     restart: unless-stopped
+
+    # ── Hardening ────────────────────────────────────────────────────────────
+    # Root filesystem is immutable; the daemon only needs to write under its
+    # $HOME (/var/lib/entangle) which is a persistent named volume, plus a
+    # scratch /tmp provided as tmpfs.
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=16m
+
     volumes:
+      # Persistence for identity, keyring, config, and the Unix socket
+      # ($HOME/.entangle). This volume stays writable under read_only: true.
       - entangle-data:/var/lib/entangle
     network_mode: host        # for mDNS to actually work (Linux hosts only)
+
+    # ── Health ───────────────────────────────────────────────────────────────
+    # `entangle doctor` only WARNs on daemon unreachability (exit 0), so a hung
+    # daemon would read as healthy. `entangled status` connects to the Unix
+    # socket and round-trips a `version` RPC, exiting non-zero when the daemon
+    # is down or wedged.
     healthcheck:
-      test: ["CMD", "/usr/local/bin/entangle", "doctor"]
+      test: ["CMD", "/usr/local/bin/entangled", "status"]
       interval: 60s
       timeout: 10s
       retries: 3
+      start_period: 10s
 
 volumes:
   entangle-data:

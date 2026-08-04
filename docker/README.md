@@ -44,9 +44,29 @@ Workaround options:
 - Use a Linux VM or bare-metal Linux for testing mDNS-dependent scenarios.
 - Or run `entangled` natively (outside Docker) on macOS for local development.
 
+## Health check
+
+The container ships a `HEALTHCHECK` (and `docker-compose.yml` a matching
+`healthcheck`) that runs `entangled status`. Unlike `entangle doctor` — which
+only *warns* on daemon unreachability and exits 0 — `entangled status` connects
+to the Unix socket and round-trips a `version` RPC, so a hung or dead daemon is
+reported as **unhealthy**.
+
+## Running as a systemd service (bare metal)
+
+For a non-Docker Linux install, use the hardened unit at
+[`packaging/entangled.service`](../packaging/entangled.service). It sets
+`User=entangle`, `Environment=HOME=/var/lib/entangle` (required — the daemon
+resolves `$HOME/.entangle`; there is no config-dir flag), `StateDirectory=entangle`,
+`Restart=on-failure`, and a full sandbox (`ProtectSystem=strict`, `ProtectHome`,
+`PrivateTmp`, dropped capabilities, …). Install steps are in the unit's header
+comment.
+
 ## Phase-1 caveats
 
-- No mesh ports are exposed. Phase 2 will add Iroh/mDNS transport ports.
+- No mesh ports are exposed, and the daemon listens **only** on a Unix-domain
+  socket (`$HOME/.entangle/sock`) — there is no TCP listener, so the image no
+  longer `EXPOSE`s a port. Phase 2 will add Iroh/mDNS transport ports.
 - Single-binary mode only: `entangle` CLI is baked in but must exec inside the container.
 - The daemon runs as a non-root `entangle` system user; the data directory is `chmod 700`.
 
