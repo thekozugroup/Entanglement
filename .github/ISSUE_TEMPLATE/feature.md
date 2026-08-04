@@ -14,7 +14,7 @@ labels: enhancement
 <!-- Sketch the API, config shape, or behavior change. Keep it brief. -->
 
 ## Spec reference
-<!-- Section of docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md this relates to, or "new — spec update required". -->
+<!-- Section of docs/architecture.md this relates to, or "new — spec update required". -->
 
 ## Acceptance criteria
 - [ ]

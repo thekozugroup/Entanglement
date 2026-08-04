@@ -1,7 +1,7 @@
 //! WIT contract definitions for the `entangle:plugin@0.1.0` component-model package.
 //!
 //! See spec §4.4 (`wit_world` field), §9.3 (hello-world uses these interfaces) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (all wasm plugins target these interfaces).
 //!

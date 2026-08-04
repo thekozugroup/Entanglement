@@ -1,9 +1,5 @@
 A Rust runtime that turns the devices you already own into one cooperative compute fabric — plugins declare exactly what they need, the runtime grants nothing else, and devices pair with a 6-digit code over an encrypted mesh.
 
-## Screenshots
-
-![Entanglement architecture overview](./docs/screenshot.png)
-
 ## How it works
 
 Every device runs the same single-binary daemon (`entangled`). On first run, `entangle init` generates an Ed25519 identity, writes a config file, and shows you a fingerprint. Pairing a second device uses a 6-digit short-code with mutual TOFU — no central server, no account, no telemetry.
@@ -29,7 +25,7 @@ For a hands-on tour from `entangle init` through plugin invocation and peer pair
 
 ## Stack
 
-- Rust workspace: 18 lib crates, 2 binaries, 1 bench, 1 atc-matrix, 1 xtask (~23 crates total).
+- Rust workspace: 21 lib crates, 2 binaries, 1 bench, 1 atc-matrix, 1 xtask (26 crates total).
 - Wasmtime + WASI 0.2 component model.
 - mDNS-SD discovery on the LAN; Iroh QUIC and Tailscale transports scaffolded behind feature flags.
 - Ed25519 publisher signing + BLAKE3 artifact hashing.
@@ -40,7 +36,7 @@ For a hands-on tour from `entangle init` through plugin invocation and peer pair
 ## Install
 
 - macOS: `brew install thekozugroup/entanglement/entangle` (planned tap; Phase 1.5).
-- Linux: `curl -fsSL get.entanglement.dev | sh` (planned; Phase 1.5) — meanwhile, `cargo install --path crates/entangle-bin`.
+- Linux: `curl -fsSL get.entanglement.dev | sh` (planned; Phase 1.5) — meanwhile, `cargo install --path crates/entangle-cli` (add `cargo install --path crates/entangle-bin` for the `entangled` daemon).
 - Windows: WSL2 only; native AppContainer support is deferred to Phase 5.
 
 ## Status
@@ -53,12 +49,13 @@ until they are filled in.
 ## 5-minute demo
 
 ```
-cargo install --path crates/entangle-bin
+cargo install --path crates/entangle-cli   # installs the `entangle` binary
 entangle init --non-interactive
-cargo xtask hello-world build
-entangle keyring add "$(cat ~/.entangle/identity.pub)" --name self
-entangle plugins load examples/hello-world --allow-local
-entangle plugins invoke hello-world --input world
+rustup target add wasm32-wasip2
+cargo xtask hello-world build              # prints your publisher fingerprint
+entangle keyring add <fingerprint_from_above> --name self
+entangle plugins load examples/hello-world/dist/ --allow-local
+entangle plugins invoke <fingerprint_from_above>/hello-world --input world
 ```
 
 ## Roadmap

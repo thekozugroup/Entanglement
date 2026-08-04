@@ -9,8 +9,8 @@ You also own the §16 ATC suite for these crates. If a spec change adds an accep
 ## Onboarding
 
 Read in order:
-1. [Architecture spec v6](../superpowers/specs/2026-04-29-entanglement-architecture-v6.md) — sections §0, §1, §2, §3, §4, §5, §7.1, §7.5, §10, §11, §16.
-2. [REPORT.md](../../REPORT.md) — the architectural decisions in plain English.
+1. [Architecture spec](../architecture.md) — sections §0, §1, §2, §3, §4, §5, §7.1, §7.5, §10, §11, §16.
+2. [STATUS.md](../../STATUS.md) — the current implementation state in plain English (what's shipped vs. deferred).
 3. The crates you own. Read every public item's docstring. Run `cargo doc --workspace --no-deps --open`.
 4. Pair with the existing core-runtime-lead on at least one PR before merging anything solo.
 

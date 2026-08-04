@@ -7,8 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Phase 1 architecture spec at `docs/architecture.md`.
-- 18 Rust library crates plus the `entangle` / `entangled` binaries
-  (~23 crates total) implementing the core runtime, RPC, mesh-local
+- 21 Rust library crates plus the `entangle` / `entangled` binaries
+  (26 crates total) implementing the core runtime, RPC, mesh-local
   discovery, peer pairing, capability tokens, scheduler, agent-host
   scaffold, maintenance loop, and observability.
 - Tutorial walkthrough at `docs/tutorial.md`.

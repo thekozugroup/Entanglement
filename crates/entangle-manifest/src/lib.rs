@@ -1,7 +1,7 @@
 //! TOML manifest schema, parsing, and semantic validation for Entanglement plugins.
 //!
 //! See spec §4.4 (manifest format) and §4.4.1 (implied vs declared capabilities) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (all plugin loads require a valid manifest).
 //!

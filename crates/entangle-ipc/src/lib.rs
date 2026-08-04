@@ -1,7 +1,7 @@
 //! Internal asynchronous message bus for in-process lifecycle events.
 //!
 //! See spec §2 (core runtime owns IPC bus), §10 (crate layout) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! This is the *in-process* bus — `tokio::broadcast` backed, not networked.
 //! Cross-device messaging is the mesh layer's concern (Phase 2+).

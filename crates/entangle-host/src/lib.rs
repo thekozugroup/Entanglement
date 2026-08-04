@@ -1,7 +1,7 @@
 //! Wasmtime + WASI 0.2 host for tier 1–3 WebAssembly plugins.
 //!
 //! See spec §10 (entangle-host crate responsibilities) in
-//! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
+//! `docs/architecture.md`.
 //!
 //! **Phase**: 1 (compile + instantiate); Phase 2 adds sandboxed filesystem/network.
 //!

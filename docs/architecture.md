@@ -1091,7 +1091,86 @@ This closes the §9.2 / §11 #16 contradiction — the invariant holds at every 
 
 ### 9.3 Hello-world walkthrough
 
-the walkthrough had four stuck points. The walkthrough is **CI-tested** end-to-end on every commit (macOS, Linux x86_64, Linux aarch64, WSL2) and a failing run blocks merge. **Step 1 — Install entangle** (per §9.1). Pick one (Linux example):
+**Phase-1 status.** The walkthrough immediately below is what actually ships
+today — `entangle-cli`, `tools/xtask`, and `examples/hello-world`. Everything
+from the horizontal rule onward (the `cargo-entangle` scaffolding/packaging
+tool, reproducible-packaging CI, and the `keys` / `trust` / `install` /
+`plugin start` / `logs` subcommands) is **Phase 2 / planned design** — it
+does not exist yet. Today's real subcommands are `init`, `version`, `doctor`,
+`keyring`, `plugins`, `mesh`, `pair`, `compute`, `print-platform`, and
+`metrics` (see `crates/entangle-cli/src/main.rs`); today's real build tool is
+`cargo xtask` (`tools/xtask`), which builds, copies, and signs an example
+plugin but does not scaffold new projects, produce `.tar.zst` packages, or
+verify reproducible rebuilds.
+
+**Step 1 — Install `entangle` and generate an identity.** The target install
+path from §9.1 (`brew install thekozugroup/entanglement/entangle`, or the
+`get.entanglement.dev` script) is Phase 1.5 / planned. Today, build from
+source:
+
+```
+cargo install --path crates/entangle-cli
+entangle init --non-interactive
+# writes ~/.entangle/identity.key, config.toml, peers.toml, keyring.toml
+```
+
+**Step 2 — Add the `wasm32-wasip2` target:**
+
+```
+rustup target add wasm32-wasip2
+```
+
+**Step 3 — Build and sign the example plugin** with `cargo xtask` (from the
+workspace root):
+
+```
+cargo xtask hello-world build
+# optionally: cargo xtask hello-world build --key /path/to/identity.key
+```
+
+This compiles `examples/hello-world` for `wasm32-wasip2`, copies the artifact
+to `examples/hello-world/dist/plugin.wasm`, signs it with your identity key
+into `dist/plugin.wasm.sig`, and writes `dist/entangle.toml` with your real
+publisher fingerprint substituted into `[plugin] id`.
+
+**Step 4 — Trust your own publisher key** (the fingerprint was printed by
+Step 3):
+
+```
+entangle keyring add <fingerprint_hex> --name self
+```
+
+**Step 5 — Load and invoke the plugin:**
+
+```
+entangle plugins load examples/hello-world/dist/ --allow-local
+entangle plugins invoke <fingerprint_hex>/hello-world --input world
+# → Hello, world!
+```
+
+`--allow-local` spins up a short-lived in-process kernel when no `entangled`
+daemon is running; once `entangled run` is up, drop the flag and the CLI
+talks to the daemon over its Unix socket instead. See
+`examples/hello-world/README.md` for the full walkthrough, including the
+`#[ignore]`d end-to-end integration test
+(`cargo test -p entangle-runtime --test hello_world_e2e -- --ignored`).
+
+**What CI actually enforces today.** `.github/workflows/ci.yml` runs `cargo
+fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test
+--workspace` on Linux and macOS, a `wasm32-wasip2` build check, `cargo doc`,
+and `cargo-deny`. It does **not** re-run this walkthrough as a dedicated
+end-to-end gate, and there is no `reproducibility.yml` job. Everything below
+this line is the **original Phase 2+ design intent** for a `cargo-entangle`
+scaffolding tool, byte-identical reproducible packaging, a third-party
+`cargo entangle verify --rebuild` path, and CI enforcement of the
+walkthrough — kept here for future implementers, not a description of
+current behavior.
+
+---
+
+*(Phase 2+ planned design below, not implemented in Phase 1)*
+
+**Step 1 — Install entangle** (per §9.1). Pick one (Linux example):
 
 ```
 brew install entanglement-dev/tap/entangle     # macOS or Linuxbrew
@@ -1240,7 +1319,7 @@ entangle logs hello-world
 # → "hello from hello-world"
 ```
 
-This walkthrough is end-to-end CI-tested on every commit. The CI invocation literally runs all of the above (Step 1 uses a pre-installed daemon) and asserts the final log line equals `hello from hello-world`. Any regression that breaks the walkthrough breaks CI.
+In this planned design, the walkthrough would be end-to-end CI-tested on every commit: the CI invocation would run all of the above (Step 1 using a pre-installed daemon) and assert the final log line equals `hello from hello-world`, so that any regression breaking the walkthrough breaks CI. None of this is implemented today — see the Phase-1 status note at the top of §9.3 for what actually runs.
 
 ### 9.4 Daemon mode, config, telemetry
 
@@ -1372,7 +1451,19 @@ Human-readable strings in the Entanglement CLI fall into two categories that  tr
 
 ### 9.6 Operator DX — logs, metrics, tracing, upgrade, backup
 
-.:
+**Phase-1 status.** What ships today: `entangle-observability`'s
+tracing-subscriber bootstrap (compact human-readable format on a TTY stderr,
+newline-delimited JSON off a TTY, level filter via `RUST_LOG`, default
+`info,tokio=warn,wasmtime=warn`); `entangle metrics`, which prints a
+Prometheus exposition-format string for the CLI process's own in-process
+counters (the daemon's own registry is not yet wired through RPC — Phase 2);
+and `entangle doctor`, which runs 13 structured health checks (identity,
+config, keyring, peers, daemon reachability, OS sandbox, disk space, clock
+skew, and more — see `crates/entangle-cli/src/cmd/doctor.rs`).
+
+Everything below is **Phase 2 / planned design**, not implemented in Phase 1:
+`entangle logs`, `entangle trace task`, `entangle upgrade`, `entangle
+backup`/`restore`, and `entangle diag mesh` do not exist yet.
 
 **Logs:** structured JSON to stderr by default. systemd captures via journald; macOS via `os_log`; Docker via stdout. Per-plugin log streams visible via `entangle logs <plugin-id> [--follow]`. Rotation handled by the host's logger or by the maintenance plugin. **Metrics:** the `observability` plugin exposes a Prometheus `/metrics` endpoint (loopback only by default). Standard metrics: capability grants, plugin uptime, mesh peer count, scheduler queue depth, biscuit verification latency. **Tracing:** OpenTelemetry exporter (optional). Span propagation across mesh via `traceparent` header on `entangle/*` ALPN streams. `entangle trace task <id>` shows the full distributed trace. **Upgrade:** `entangle upgrade` updates the binary atomically (downloads to side path, swaps symlink, restarts via supervisor). Plugins re-instantiate. Mesh re-converges in <10s. Daemon downtime: typically 1–2s. **Backup:** `entangle backup --to <path>` packages identity + trust + paired peers + plugin data dirs (configurable include/exclude). Encrypted. `entangle restore --from` restores onto a fresh install. **Disaster recovery:** lost laptop → restore from backup on new device → mesh peers see the same NodeId via the restored identity; OR rotate identity (§6.5) and let peers migrate. `entangle diag mesh` checks reachability and prints a triage report.
 
