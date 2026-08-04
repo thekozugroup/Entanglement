@@ -106,6 +106,12 @@ async fn mesh_peers_returns_trusted_from_store() {
             Some(true),
             "all PeerStore entries should be trusted=true"
         );
+        // Phase 1: addresses are never cryptographically verified.
+        assert_eq!(
+            peer["addresses_verified"].as_bool(),
+            Some(false),
+            "addresses_verified must be false in Phase 1"
+        );
     }
 }
 
@@ -194,4 +200,17 @@ async fn mesh_status_trusted_peer_count() {
         .as_u64()
         .expect("trusted_peer_count");
     assert_eq!(count, 2);
+
+    // With no discovery transport running, seen_peer_count must NOT be
+    // conflated with the trusted count, and the transport list is empty.
+    assert_eq!(
+        v["result"]["seen_peer_count"].as_u64(),
+        Some(0),
+        "seen_peer_count must reflect discovery sightings, not trusted peers"
+    );
+    assert_eq!(
+        v["result"]["transports_active"],
+        serde_json::json!([]),
+        "no transport configured → empty transport list"
+    );
 }
