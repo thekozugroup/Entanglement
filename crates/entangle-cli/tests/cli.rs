@@ -117,7 +117,7 @@ fn keyring_add_invalid_hex_errors() {
 }
 
 #[test]
-fn keyring_remove_unknown_returns_not_found_message() {
+fn keyring_remove_unknown_fails_with_not_found() {
     let tmp = TempDir::new().unwrap();
     entangle(&tmp)
         .args(["init", "--non-interactive"])
@@ -125,11 +125,75 @@ fn keyring_remove_unknown_returns_not_found_message() {
         .success();
 
     // A valid-length fingerprint hex (32 hex chars = 16 bytes) that doesn't exist.
+    // Removing a non-existent key must exit non-zero so scripts can detect it.
     entangle(&tmp)
         .args(["keyring", "remove", "deadbeefdeadbeefdeadbeefdeadbeef"])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("not found"));
+        .failure()
+        .stderr(predicate::str::contains("not found"));
+}
+
+/// A routine error (daemon not running) must print a clean `error:` line and
+/// must NOT dump a Rust backtrace even when `RUST_BACKTRACE=1` is set.
+#[test]
+fn routine_error_has_no_backtrace_even_with_rust_backtrace() {
+    let tmp = TempDir::new().unwrap();
+    let out = entangle(&tmp)
+        .env("RUST_BACKTRACE", "1")
+        .args(["plugins", "list"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "expected non-zero exit");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("error: "),
+        "expected a clean `error:` line, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("daemon not running"),
+        "expected daemon-not-running message, got: {stderr}"
+    );
+    // No backtrace should ever leak on a routine error.
+    assert!(
+        !stderr.to_lowercase().contains("stack backtrace"),
+        "unexpected backtrace on routine error: {stderr}"
+    );
+    // And the old doubled-prefix bug must not reappear.
+    assert!(
+        !stderr.contains("error: error:"),
+        "doubled error prefix: {stderr}"
+    );
+}
+
+/// `keyring list --json` must emit output that parses as JSON.
+#[test]
+fn keyring_list_json_parses() {
+    let tmp = TempDir::new().unwrap();
+    entangle(&tmp)
+        .args(["init", "--non-interactive"])
+        .assert()
+        .success();
+
+    let pk_hex = generate_test_pk_hex();
+    entangle(&tmp)
+        .args(["keyring", "add", &pk_hex, "--name", "json-pub"])
+        .assert()
+        .success();
+
+    let out = entangle(&tmp)
+        .args(["keyring", "list", "--json"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "keyring list --json should succeed");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let value: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("keyring list --json must emit valid JSON");
+    let entries = value
+        .get("entries")
+        .and_then(|e| e.as_array())
+        .expect("expected an `entries` array");
+    assert_eq!(entries.len(), 1, "expected exactly one entry: {stdout}");
+    assert_eq!(entries[0]["publisher_name"], "json-pub");
 }
 
 #[test]
@@ -152,14 +216,16 @@ fn doctor_on_uninitialized_warns_then_exits_zero() {
     // identity.key absent → [fail] → exit code 1.
     // We use failure() here to match the new semantics (missing identity is [fail]).
     let out = entangle(&tmp).arg("doctor").output().unwrap();
-    let stderr = String::from_utf8_lossy(&out.stderr);
+    // The doctor report is written to stdout (so `entangle doctor > report.txt`
+    // captures it); only fatal dispatch errors would use stderr.
+    let stdout = String::from_utf8_lossy(&out.stdout);
     // At least one check line must be present.
     assert!(
-        stderr.contains("[warn]") || stderr.contains("[fail]") || stderr.contains("[ok]"),
-        "expected doctor output on stderr, got: {stderr}"
+        stdout.contains("[warn]") || stdout.contains("[fail]") || stdout.contains("[ok]"),
+        "expected doctor output on stdout, got: {stdout}"
     );
     // identity is either [fail] (missing key) or [warn] — not [ok].
-    let identity_line = stderr
+    let identity_line = stdout
         .lines()
         .find(|l| {
             let cols: Vec<&str> = l.split_whitespace().collect();
@@ -181,9 +247,9 @@ fn doctor_on_initialized_succeeds() {
         .success();
 
     let out = entangle(&tmp).arg("doctor").output().unwrap();
-    let stderr = String::from_utf8_lossy(&out.stderr);
+    let stdout = String::from_utf8_lossy(&out.stdout);
     // identity must be ok after init.
-    let identity_line = stderr
+    let identity_line = stdout
         .lines()
         .find(|l| {
             let cols: Vec<&str> = l.split_whitespace().collect();
@@ -195,7 +261,7 @@ fn doctor_on_initialized_succeeds() {
         "expected [ok] for identity after init, got: {identity_line}"
     );
     // No [fail] lines.
-    for line in stderr.lines() {
+    for line in stdout.lines() {
         assert!(!line.contains("[fail]"), "unexpected [fail]: {line}");
     }
 }

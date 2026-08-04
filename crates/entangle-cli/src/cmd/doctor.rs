@@ -3,9 +3,8 @@
 //! Prints one line per check with `[ok] / [warn] / [fail] / [skip]`.
 //! Exit code 0 if no `fail`; exit code 1 if any `fail`.  `warn` does not fail.
 
+use std::io::IsTerminal as _;
 use std::path::Path;
-
-use is_terminal::IsTerminal as _;
 
 use crate::config::{self, entangle_dir};
 use entangle_peers::PeerStore;
@@ -518,7 +517,7 @@ fn print_check(c: &CheckResult, color: bool) {
     } else {
         format!("{msg} — {}", c.detail)
     };
-    eprintln!("{label}  {:<24}  {combined}", c.name);
+    println!("{label}  {:<24}  {combined}", c.name);
 }
 
 // ---------------------------------------------------------------------------
@@ -526,7 +525,7 @@ fn print_check(c: &CheckResult, color: bool) {
 // ---------------------------------------------------------------------------
 
 pub async fn run() -> anyhow::Result<()> {
-    let color = std::io::stderr().is_terminal();
+    let color = std::io::stdout().is_terminal();
     let mut results: Vec<CheckResult> = vec![
         check_identity(),
         check_identity_perms(),
@@ -569,13 +568,13 @@ pub async fn run() -> anyhow::Result<()> {
         }
     }
 
-    eprintln!();
+    println!();
     let skip_str = if n_skip > 0 {
         format!(", {n_skip} skip")
     } else {
         String::new()
     };
-    eprintln!("Summary: {n_ok} ok, {n_warn} warn, {n_fail} fail{skip_str}");
+    println!("Summary: {n_ok} ok, {n_warn} warn, {n_fail} fail{skip_str}");
 
     if any_fail {
         std::process::exit(1);

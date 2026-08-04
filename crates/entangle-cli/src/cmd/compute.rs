@@ -28,6 +28,7 @@ use entangle_types::{
 use std::str::FromStr;
 
 use crate::config;
+use crate::daemon_not_running_error;
 
 // ---------------------------------------------------------------------------
 // Clap types
@@ -140,14 +141,6 @@ fn allow_local() -> bool {
         .unwrap_or(false)
 }
 
-fn daemon_not_running_error() -> anyhow::Error {
-    anyhow::anyhow!(
-        "error: daemon not running at ~/.entangle/sock.\n\
-         Start it with 'entangled run' or pass --allow-local to use a \
-         local in-process kernel (no persistent state)."
-    )
-}
-
 fn build_kernel() -> anyhow::Result<Kernel> {
     let kr_path = config::keyring_path();
     let keyring = Keyring::load(&kr_path)?;
@@ -163,9 +156,17 @@ fn parse_integrity(
     match integrity {
         "none" => Ok(ComputeIntegrity::None),
         "deterministic" => Ok(ComputeIntegrity::Deterministic { replicas }),
-        "trusted-executor" => Ok(ComputeIntegrity::TrustedExecutor {
-            allowlist: allow.to_vec(),
-        }),
+        "trusted-executor" => {
+            // Reject any malformed allowlist entry up front rather than
+            // silently dropping it; the daemon receives only valid hex ids.
+            for h in allow {
+                PeerId::from_hex(h)
+                    .map_err(|e| anyhow::anyhow!("invalid --allow peer id '{h}': {e}"))?;
+            }
+            Ok(ComputeIntegrity::TrustedExecutor {
+                allowlist: allow.to_vec(),
+            })
+        }
         other => Err(anyhow::anyhow!(
             "unknown integrity mode '{other}'; expected one of: none, deterministic, trusted-executor"
         )),
@@ -296,10 +297,14 @@ async fn dispatch_local(
         "none" => IntegrityPolicy::None,
         "deterministic" => IntegrityPolicy::Deterministic { replicas },
         "trusted-executor" => {
+            // Hard-error on any malformed entry instead of silently dropping it.
             let peers: Vec<PeerId> = allow
                 .iter()
-                .filter_map(|h| PeerId::from_hex(h).ok())
-                .collect();
+                .map(|h| {
+                    PeerId::from_hex(h)
+                        .map_err(|e| anyhow::anyhow!("invalid --allow peer id '{h}': {e}"))
+                })
+                .collect::<anyhow::Result<_>>()?;
             IntegrityPolicy::TrustedExecutor { allowlist: peers }
         }
         other => return Err(anyhow::anyhow!("unknown integrity mode '{other}'")),
