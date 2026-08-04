@@ -1,5 +1,5 @@
 [plugin]
-id = "PUBLISHER_PLACEHOLDER/hello-world"   # replaced by `cargo xtask hello-world build` with real fingerprint
+id = "PUBLISHER_PLACEHOLDER/hello-world@0.1.0"   # replaced by `cargo xtask hello-world build` with real fingerprint
 version = "0.1.0"
 tier = 1
 runtime = "wasm"

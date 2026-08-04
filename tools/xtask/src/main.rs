@@ -16,6 +16,11 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use entangle_signing::{sign_artifact, IdentityKeyPair};
 
+/// Semver rendered into every generated example manifest, and into the
+/// `@<version>` suffix of the plugin id. The two must agree: the kernel parses
+/// the id's version and the manifest's `version` field from the same manifest.
+const EXAMPLE_VERSION: &str = "0.1.0";
+
 #[derive(Parser)]
 #[command(name = "xtask", about = "Entanglement workspace tasks")]
 struct Cli {
@@ -170,7 +175,11 @@ fn build_example(
     // Step 6: render dist/entangle.toml with the real fingerprint.
     // The manifest must exist BEFORE signing: the signature bundle covers
     // both the wasm and the manifest bytes (tier + capabilities).
-    let plugin_id = format!("{fingerprint}/{example_name}");
+    // `PluginId` requires the fully-qualified `<publisher>/<name>@<version>`
+    // form — an id without `@<version>` is rejected at manifest validation
+    // with ENTANGLE-E0201, which made every xtask-built example unloadable.
+    // Keep this in sync with the `version` field rendered below.
+    let plugin_id = format!("{fingerprint}/{example_name}@{EXAMPLE_VERSION}");
     let tier_comment = if tier == 1 {
         "# tier 1: no capabilities; pure compute (logging-only)"
     } else {
@@ -179,7 +188,7 @@ fn build_example(
     let manifest_content = format!(
         r#"[plugin]
 id = "{plugin_id}"
-version = "0.1.0"
+version = "{EXAMPLE_VERSION}"
 tier = {tier}
 runtime = "wasm"
 description = "{desc}"

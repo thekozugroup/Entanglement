@@ -51,6 +51,42 @@ struct WizardAnswers {
 const PEERS_STUB: &str = "# Entanglement peer store — managed by `entangle`.\n\
 # Trusted peers are recorded as [[peer]] array-of-tables; this file starts empty.\n";
 
+/// Write the empty peer-store stub at mode 0600.
+///
+/// `PeerStore::save` creates the file 0600, so a store written by the daemon or
+/// by `entangle mesh trust` is owner-only. Writing the stub with a plain
+/// `fs::write` would instead leave it at the process umask (0644 in a default
+/// container), so a freshly-`init`ed host had a world-readable trust file until
+/// its first mutation. This keeps the permission story consistent from the very
+/// first write.
+fn write_peers_stub(path: &std::path::Path) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut f = {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(path)?
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::File::create(path)?
+        }
+    };
+    f.write_all(PEERS_STUB.as_bytes())?;
+    // `mode` only applies at creation; tighten an existing file too.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Import-overwrite decision (pure, unit-testable — no stdin, no I/O)
 // ---------------------------------------------------------------------------
@@ -221,8 +257,7 @@ fn warn_and_maybe_clear_stale_peers(peers_path: &Path) -> anyhow::Result<()> {
         .interact()
         .context("clear stale peers confirmation")?;
     if clear {
-        std::fs::write(peers_path, PEERS_STUB)
-            .with_context(|| format!("clear {}", peers_path.display()))?;
+        write_peers_stub(peers_path).with_context(|| format!("clear {}", peers_path.display()))?;
         println!(
             "  Cleared {}. Re-pair your devices with `entangle pair`.",
             peers_path.display()
@@ -458,7 +493,7 @@ pub async fn run(args: InitArgs) -> anyhow::Result<()> {
 
     // --- peers.toml ---
     if !peers_path.exists() {
-        std::fs::write(&peers_path, PEERS_STUB)?;
+        write_peers_stub(&peers_path)?;
         println!("  Wrote {} (empty)", peers_path.display());
     } else {
         println!("  Kept existing {}", peers_path.display());

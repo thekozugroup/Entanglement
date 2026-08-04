@@ -55,7 +55,7 @@ rustup target add wasm32-wasip2
 cargo xtask hello-world build              # prints your publisher fingerprint
 entangle keyring add <fingerprint_from_above> --name self
 entangle plugins load examples/hello-world/dist/ --allow-local
-entangle plugins invoke <fingerprint_from_above>/hello-world --input world
+entangle plugins invoke <fingerprint_from_above>/hello-world@0.1.0 --input world
 ```
 
 ## Roadmap

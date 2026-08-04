@@ -33,7 +33,7 @@ This command:
 1. Compiles `examples/hello-world` for `wasm32-wasip2`.
 2. Copies the artifact to `examples/hello-world/dist/plugin.wasm`.
 3. Signs the artifact with your identity key → `dist/plugin.wasm.sig`.
-4. Writes `dist/entangle.toml` with `[plugin] id = "<fingerprint>/hello-world"`.
+4. Writes `dist/entangle.toml` with `[plugin] id = "<fingerprint>/hello-world@0.1.0"`.
 
 ## Trust your own key
 
@@ -61,7 +61,7 @@ and instantiates it — emitting four lifecycle events on the bus:
 
 ```sh
 entangle plugins list
-# should show: <fingerprint>/hello-world  v0.1.0  tier=1  wasm
+# should show: <fingerprint>/hello-world@0.1.0  tier=1  wasm
 ```
 
 ## Run the e2e integration test
