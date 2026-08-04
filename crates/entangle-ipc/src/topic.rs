@@ -40,29 +40,49 @@ impl Topic {
     /// - A trailing `"**"` segment matches any number of additional segments.
     /// - A `"*"` segment matches exactly one segment.
     /// - Any other segment must match literally.
+    ///
+    /// This runs once per filtered subscriber per published envelope, so it
+    /// allocates nothing: a wildcard-free pattern reduces to a byte
+    /// comparison, and anything else walks both sides as iterators rather
+    /// than collecting them into `Vec<&str>`.
     pub fn matches(&self, pattern: &str) -> bool {
         if pattern == "**" {
             return true;
         }
-        let pat_segs: Vec<&str> = pattern.split('.').collect();
-        let top_segs: Vec<&str> = self.0.split('.').collect();
 
-        if pat_segs.last() == Some(&"**") {
-            let prefix = &pat_segs[..pat_segs.len() - 1];
-            return top_segs.len() >= prefix.len()
-                && prefix
-                    .iter()
-                    .enumerate()
-                    .all(|(i, p)| *p == "*" || *p == top_segs[i]);
+        // A trailing `"**"` segment means "and any number of further
+        // segments". `pattern == "**"` was already handled above, so the only
+        // other way for the final segment to be `"**"` is a `".**"` suffix.
+        let (prefix, open_ended) = match pattern.strip_suffix(".**") {
+            Some(prefix) => (prefix, true),
+            None => (pattern, false),
+        };
+
+        // Fast path — a wildcard-free `prefix` needs no segment walk at all.
+        // Splitting on `'.'` is injective, so "same segment list" is exactly
+        // "same bytes"; the only extra rule is that an open-ended pattern may
+        // stop at a segment boundary.
+        if !prefix.as_bytes().contains(&b'*') {
+            return match self.0.strip_prefix(prefix) {
+                // Same segments, nothing left over.
+                Some("") => true,
+                // Leftover segments are only allowed by a trailing `**`, and
+                // only at a segment boundary — `a.**` matches `a.b`, not `ab`.
+                Some(rest) => open_ended && rest.starts_with('.'),
+                None => false,
+            };
         }
 
-        if pat_segs.len() != top_segs.len() {
-            return false;
+        let mut top = self.0.as_bytes().split(|&b| b == b'.');
+        for p in prefix.as_bytes().split(|&b| b == b'.') {
+            match top.next() {
+                Some(t) if p == b"*" || p == t => {}
+                // The topic ran out of segments, or this one did not match.
+                _ => return false,
+            }
         }
-        pat_segs
-            .iter()
-            .zip(top_segs.iter())
-            .all(|(p, t)| *p == "*" || p == t)
+        // Without a trailing `**` the topic must be fully consumed.
+        open_ended || top.next().is_none()
     }
 
     /// Validate a subscriber glob `pattern` (as passed to
@@ -138,6 +158,34 @@ mod tests {
         assert!(Topic::new("broker.audit").is_ok());
         assert!(Topic::new("a.b.c").is_ok());
         assert!(Topic::new("ent_runtime.plugin-lifecycle").is_ok());
+    }
+
+    /// `"**"` is only a multi-segment wildcard when it is a *whole* trailing
+    /// segment. A segment that merely ends in `**` is a literal that can never
+    /// match a real topic (topics cannot contain `*`).
+    #[test]
+    fn double_star_is_only_special_as_a_whole_trailing_segment() {
+        let t = Topic::new("a.b.c").unwrap();
+        assert!(t.matches("a.**"));
+        assert!(t.matches("a.b.**"));
+        assert!(t.matches("a.b.c.**"), "`**` may absorb zero segments");
+        assert!(!t.matches("a.b**"), "`b**` is a literal segment");
+        assert!(!t.matches("x**"));
+        // Non-trailing `**` is a literal segment too (validate_pattern rejects
+        // it up front, but `matches` must not silently reinterpret it).
+        assert!(!t.matches("a.**.c"));
+    }
+
+    /// A pattern longer than the topic must not match, and a topic longer than
+    /// a non-`**` pattern must not match either.
+    #[test]
+    fn arity_mismatch_never_matches_without_double_star() {
+        let t = Topic::new("a.b").unwrap();
+        assert!(!t.matches("a.b.c"), "pattern longer than topic");
+        assert!(!t.matches("a"), "pattern shorter than topic");
+        assert!(!t.matches("a.b.c.**"), "`**` prefix longer than topic");
+        assert!(t.matches("a.*"));
+        assert!(t.matches("*.*"));
     }
 
     #[test]

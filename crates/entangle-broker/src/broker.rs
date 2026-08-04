@@ -17,7 +17,8 @@ use crate::{
 use entangle_biscuits::verifier;
 use entangle_manifest::ValidatedManifest;
 use entangle_types::{capability::CapabilityKind, peer_id::PeerId, plugin_id::PluginId};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
+use std::borrow::Cow;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -41,17 +42,44 @@ pub struct GrantedCapability {
 // ── internal ────────────────────────────────────────────────────────────────
 
 struct PluginRecord {
+    /// Immutable for the lifetime of the registration — the deny-by-default
+    /// check reads it under a *shared* lock.
     manifest: ValidatedManifest,
-    grants: HashMap<GrantId, GrantedCapability>,
+    /// Outstanding grants, keyed by id.
+    ///
+    /// Guarded by its own mutex rather than by the `plugins` lock so that
+    /// issuing a grant does not need exclusive access to the whole registry
+    /// (see [`Broker::grant`]). Only the [`CapabilityKind`] is stored: the
+    /// holder is already the key of the enclosing `plugins` map, so keeping a
+    /// whole [`GrantedCapability`] here would clone the [`PluginId`] (two
+    /// `String`s) per grant for no added information;
+    /// [`Broker::snapshot_grants`] reassembles the public struct on demand.
+    grants: Mutex<HashMap<GrantId, CapabilityKind>>,
 }
 
 // ── Broker ──────────────────────────────────────────────────────────────────
 
 /// Capability broker — the only component that decides what a plugin can do.
 ///
-/// All public methods are synchronous and lock-free at the hot path level
-/// (they use `parking_lot` read-write locks internally). The broker is
-/// designed to be wrapped in an `Arc` and shared across threads.
+/// All public methods are synchronous; internally they use `parking_lot`
+/// locks. The broker is designed to be wrapped in an `Arc` and shared across
+/// threads.
+///
+/// # Locking
+/// Two levels, deliberately:
+/// - `plugins` (an `RwLock`) guards the *registry* — which plugins exist.
+///   Only [`Broker::register_plugin`] and [`Broker::unregister_plugin`] take
+///   it exclusively; [`Broker::grant`] and [`Broker::release`] take it shared,
+///   so grants for different plugins (and for the same plugin) never block one
+///   another on the registry.
+/// - Each plugin's record then guards its own grant table with a `Mutex`,
+///   held only for the map insert/remove itself.
+///
+/// The deny-by-default check reads the registered manifest, which is immutable
+/// for the lifetime of the registration, so performing it under the shared
+/// lock is exactly as authoritative as performing it under an exclusive one:
+/// a plugin cannot be unregistered or re-registered while any grant holds the
+/// read lock, and no other operation can change what the manifest declares.
 pub struct Broker {
     policy: BrokerPolicy,
     plugins: RwLock<HashMap<PluginId, PluginRecord>>,
@@ -106,7 +134,7 @@ impl Broker {
             Entry::Vacant(slot) => {
                 slot.insert(PluginRecord {
                     manifest,
-                    grants: HashMap::new(),
+                    grants: Mutex::new(HashMap::new()),
                 });
             }
         }
@@ -130,11 +158,13 @@ impl Broker {
             .remove(plugin)
             .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
 
-        // Release any outstanding grants.
-        for (gid, gc) in removed.grants {
+        // Release any outstanding grants. The record is ours now (it is out of
+        // the registry and nobody else holds a reference), so the grant table
+        // can be taken by value.
+        for (gid, kind) in removed.grants.into_inner() {
             self.audit.record(AuditEvent::CapabilityReleased {
                 plugin: plugin.clone(),
-                capability: format_cap(&gc.kind),
+                capability: format_cap(&kind),
                 grant_id: gid,
                 at: SystemTime::now(),
             });
@@ -158,59 +188,83 @@ impl Broker {
         plugin: &PluginId,
         requested: &CapabilityKind,
     ) -> Result<GrantedCapability, BrokerError> {
-        let mut plugins = self.plugins.write();
-        let record = plugins
-            .get_mut(plugin)
-            .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
+        // The decision — and *only* the decision — happens under the registry
+        // lock. Rendering the capability name, building the audit event and
+        // appending it to the audit log all happen afterwards, so no broker
+        // lock is ever held across the audit mutex or the `tracing` emit. The
+        // event timestamp is still taken inside the critical section, so
+        // `AuditEvent::at` continues to order decisions the way the locks
+        // serialised them even if two threads append to the log out of order.
+        let (granted, at) = {
+            let plugins = self.plugins.read();
+            let record = plugins
+                .get(plugin)
+                .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
 
-        // Deny-by-default: requested kind must be present in manifest capabilities.
-        let declared = record.manifest.capabilities.iter().any(|c| c == requested);
-        if !declared {
-            self.audit.record(AuditEvent::CapabilityDenied {
-                plugin: plugin.clone(),
-                capability: format_cap(requested),
-                reason: "not declared in manifest".to_string(),
-                at: SystemTime::now(),
-            });
-            return Err(BrokerError::CapabilityNotDeclared {
-                plugin: plugin.clone(),
-                capability: format_cap(requested),
-            });
-        }
-
-        let gid = self.next_grant_id.fetch_add(1, Ordering::Relaxed);
-        let gc = GrantedCapability {
-            grant_id: gid,
-            plugin: plugin.clone(),
-            kind: requested.clone(),
+            // Deny-by-default: requested kind must be present in manifest capabilities.
+            let declared = record.manifest.capabilities.iter().any(|c| c == requested);
+            if !declared {
+                (None, SystemTime::now())
+            } else {
+                let gid = self.next_grant_id.fetch_add(1, Ordering::Relaxed);
+                let mut grants = record.grants.lock();
+                grants.insert(gid, requested.clone());
+                let at = SystemTime::now();
+                drop(grants);
+                (Some(gid), at)
+            }
         };
-        record.grants.insert(gid, gc.clone());
 
-        self.audit.record(AuditEvent::CapabilityGranted {
-            plugin: plugin.clone(),
-            capability: format_cap(requested),
-            grant_id: gid,
-            at: SystemTime::now(),
-        });
-
-        Ok(gc)
+        let capability = format_cap(requested);
+        match granted {
+            None => {
+                self.audit.record(AuditEvent::CapabilityDenied {
+                    plugin: plugin.clone(),
+                    capability: capability.clone(),
+                    reason: Cow::Borrowed("not declared in manifest"),
+                    at,
+                });
+                Err(BrokerError::CapabilityNotDeclared {
+                    plugin: plugin.clone(),
+                    capability: capability.into_owned(),
+                })
+            }
+            Some(gid) => {
+                self.audit.record(AuditEvent::CapabilityGranted {
+                    plugin: plugin.clone(),
+                    capability,
+                    grant_id: gid,
+                    at,
+                });
+                Ok(GrantedCapability {
+                    grant_id: gid,
+                    plugin: plugin.clone(),
+                    kind: requested.clone(),
+                })
+            }
+        }
     }
 
     /// Release a specific capability grant.
     ///
     /// Silently succeeds if the grant ID is not found (idempotent release).
     pub fn release(&self, plugin: &PluginId, grant_id: GrantId) -> Result<(), BrokerError> {
-        let mut plugins = self.plugins.write();
-        let record = plugins
-            .get_mut(plugin)
-            .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
+        // As in `grant`: mutate under the locks, audit after releasing them.
+        let removed = {
+            let plugins = self.plugins.read();
+            let record = plugins
+                .get(plugin)
+                .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
+            let mut grants = record.grants.lock();
+            grants.remove(&grant_id).map(|k| (k, SystemTime::now()))
+        };
 
-        if let Some(gc) = record.grants.remove(&grant_id) {
+        if let Some((kind, at)) = removed {
             self.audit.record(AuditEvent::CapabilityReleased {
                 plugin: plugin.clone(),
-                capability: format_cap(&gc.kind),
+                capability: format_cap(&kind),
                 grant_id,
-                at: SystemTime::now(),
+                at,
             });
         }
 
@@ -277,7 +331,17 @@ impl Broker {
         self.plugins
             .read()
             .get(plugin)
-            .map(|r| r.grants.values().cloned().collect())
+            .map(|r| {
+                r.grants
+                    .lock()
+                    .iter()
+                    .map(|(grant_id, kind)| GrantedCapability {
+                        grant_id: *grant_id,
+                        plugin: plugin.clone(),
+                        kind: kind.clone(),
+                    })
+                    .collect()
+            })
             .unwrap_or_default()
     }
 }
@@ -291,20 +355,26 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-fn format_cap(c: &CapabilityKind) -> String {
+/// Render a capability as its canonical audit-log name.
+///
+/// Returns a [`Cow`] because the overwhelmingly common capabilities are the
+/// fieldless variants, whose names are compile-time constants — a grant of
+/// `compute.cpu` should not have to heap-allocate its own name. Only the
+/// parameterised variants actually build a string.
+fn format_cap(c: &CapabilityKind) -> Cow<'static, str> {
     use CapabilityKind::*;
     match c {
-        ComputeCpu => "compute.cpu".into(),
-        ComputeGpu => "compute.gpu".into(),
-        ComputeNpu => "compute.npu".into(),
-        StorageLocal { scope } => format!("storage.local[{scope:?}]"),
-        StorageShare { name, mode } => format!("storage.share.{name}[{mode:?}]"),
-        NetLan => "net.lan".into(),
-        NetWan => "net.wan".into(),
-        MeshPeer => "mesh.peer".into(),
-        AgentInvoke => "agent.invoke".into(),
-        HostDockerSocket => "host.docker-socket".into(),
-        Custom(s) => format!("custom.{s}"),
+        ComputeCpu => Cow::Borrowed("compute.cpu"),
+        ComputeGpu => Cow::Borrowed("compute.gpu"),
+        ComputeNpu => Cow::Borrowed("compute.npu"),
+        StorageLocal { scope } => Cow::Owned(format!("storage.local[{scope:?}]")),
+        StorageShare { name, mode } => Cow::Owned(format!("storage.share.{name}[{mode:?}]")),
+        NetLan => Cow::Borrowed("net.lan"),
+        NetWan => Cow::Borrowed("net.wan"),
+        MeshPeer => Cow::Borrowed("mesh.peer"),
+        AgentInvoke => Cow::Borrowed("agent.invoke"),
+        HostDockerSocket => Cow::Borrowed("host.docker-socket"),
+        Custom(s) => Cow::Owned(format!("custom.{s}")),
     }
 }
 
