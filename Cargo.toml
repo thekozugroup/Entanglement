@@ -39,7 +39,12 @@ edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/thekozugroup/Entanglement"
 authors = ["thekozugroup <thekozugroup@gmail.com>"]
-rust-version = "1.85"
+# Raised from 1.85 when the mesh transport landed: iroh 1.0 declares
+# `rust-version = "1.91"`, so entangle-mesh-iroh — and therefore anything
+# depending on it — cannot build on 1.85. rust-toolchain.toml already pins
+# 1.91 and every CI job uses it, so 1.85 was an unverified claim that would
+# only have failed for an outside consumer on an older toolchain.
+rust-version = "1.91"
 
 [workspace.dependencies]
 # Error handling
@@ -106,10 +111,9 @@ mdns-sd = "0.19"
 #     released 3.0.0.
 #   * 1.0 is the stable API; 0.95 is pre-1.0 churn.
 #
-# Caveat: iroh 1.0 declares `rust-version = "1.91"`, above this workspace's
-# `workspace.package.rust-version = "1.85"`. That is safe here because
-# `rust-toolchain.toml` pins the toolchain to 1.91, but it does mean
-# `entangle-mesh-iroh` (alone among the crates) cannot build on 1.85.
+# MSRV: iroh 1.0 declares `rust-version = "1.91"`. The workspace MSRV was
+# raised from 1.85 to 1.91 to match (see `workspace.package.rust-version`
+# above), so the declared floor is one this workspace actually builds on.
 #
 # `default-features = false` + `tls-ring` drops `metrics` and the aws-lc-rs
 # crypto backend (ring builds faster and has no C toolchain requirement);

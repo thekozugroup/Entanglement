@@ -27,7 +27,7 @@ clean on Rust 1.91.
 | `entangle-runtime` | Kernel: manifest → signature → broker → host orchestration |
 | `entangle-rpc` | Typed JSON-RPC 2.0 client for the daemon UDS socket |
 | `entangle-mesh-local` | mDNS-SD discovery on `_entangle._udp.local`, hardware advert |
-| `entangle-mesh-iroh` | WAN Iroh-QUIC mesh transport (Phase 2 scaffold; `NotImplemented` until wired) |
+| `entangle-mesh-iroh` | WAN Iroh-QUIC mesh transport — **implemented** (iroh 1.0): identity-bound QUIC, ALPN, length-framed request/response |
 | `entangle-mesh-tailscale` | Tailscale-tailnet mesh transport (Phase 2 scaffold; `NotImplemented` until wired) |
 | `entangle-oci` | OCI registry distribution — fetch/verify plugins (Phase 2 stub) |
 | `entangle-peers` | Persistent allowlist (`~/.entangle/peers.toml`) |
@@ -79,7 +79,7 @@ clean on Rust 1.91.
 |---|---|---|
 | Cross-node dispatch over Iroh streams | `entangle-scheduler::dispatcher` | `Dispatcher::with_strict_remote(true)` returns `DispatchError::RemoteNotImplemented { peer }`; otherwise silent local fallback |
 | MCP gateway HTTP server | `entangle-agent-host::gateway` | `Gateway::start()` returns `GatewayError::NotImplemented` (`ENTANGLE-E0620`) |
-| `mesh.iroh` transport | `entangle-mesh-iroh` (new crate) | `MeshIroh::start()` returns `MeshIrohError::NotImplemented` (`ENTANGLE-E0630`) |
+| ~~`mesh.iroh` transport~~ | — | **Done.** `MeshIroh::start()` binds a real QUIC endpoint keyed by the daemon's Ed25519 identity; loopback tests prove round-trip, identity binding, and oversize-frame rejection. Relay/NAT traversal is wired but unexercised offline. |
 | `mesh.tailscale` transport | `entangle-mesh-tailscale` (new crate) | `MeshTailscale::start()` returns `MeshTailscaleError::NotImplemented` (`ENTANGLE-E0640`) |
 | `Integrity::SemanticEquivalent` enforcement | `entangle-runtime::integrity` | `IntegrityError::NotImplemented("SemanticEquivalent")` with stable `ENTANGLE-E0304` |
 | `Integrity::Attested` enforcement | same | `IntegrityError::NotImplemented("Attested")` with stable `ENTANGLE-E0304` |

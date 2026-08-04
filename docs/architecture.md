@@ -347,7 +347,7 @@ interface compute-gpu {
 An earlier draft answered this with a custom `entangle-mesh-https` WebSocket-rendezvous fallback. This document **drops that** in favor of Tailscale, which solves the same problem (NAT, identity, ACLs) without us shipping our own TURN. Reasoning: corporate-locked-down users overwhelmingly already deploy Tailscale; reinventing what Tailscale already ships is code we'd own forever for diminishing return. Entanglement exposes three transport plugins, all implementing the `mesh.peer` capability. **A node selects which transports it participates in via config** — modes are not mutually exclusive within a deployment (some nodes can be `mesh.iroh`-only, others `mesh.tailscale`-only, others both; the broker computes per-pair reachability from the union). | Mode | Plugin | Network reach | Default for | Phase |
 |---|---|---|---|---|
 | **A — `mesh.local`** | `entangle-mesh-local` | LAN-only, no internet required. mDNS discovery + Iroh direct streams (no DERP). | Hobbyist single-LAN install (one home, one switch) | 1 |
-| **B — `mesh.iroh`** | `entangle-mesh-iroh` | WAN-capable. QUIC over direct UDP, hole-punched UDP, DERP-relayed TCP. Iroh ≥0.34 pinned to `iroh = "0.34.x"`. | Prosumer multi-site without a tailnet | 1 |
+| **B — `mesh.iroh`** | `entangle-mesh-iroh` | WAN-capable. QUIC over direct UDP, hole-punched UDP, DERP-relayed TCP. Implemented on `iroh = "1.0"` (the 0.34 pin predated iroh's 1.0 release; 0.95 is unbuildable — it hard-pins a prerelease `ed25519-dalek` that no longer compiles). | Prosumer multi-site without a tailnet | 1 |
 | **C — `mesh.tailscale`** | `entangle-mesh-tailscale` | WAN-capable via the user's existing tailnet. Plain TCP/QUIC between MagicDNS hostnames; NAT/firewall handled by Tailscale. | Users already on Tailscale (most common in our target audience); locked-down corporate networks where UDP is dead | 2 |
 
 **When a node uses which** (mermaid):
@@ -1539,7 +1539,7 @@ LOC count of first-party crates is half the story. The actual security-review su
 
 | Critical dep | Posture | Notes |
 |---|---|---|
-| `iroh ≥0.34` | pinned `~0.34.x`; iroh team is the upstream; cargo-vet partial | Iroh has its own active security review process; we track their advisories. Not in the L1/L2 trust layer because `entangle-mesh-iroh` is a plugin loaded under capability gates, but a malicious iroh release would be catastrophic. We pin the version and ship lockfiles. |
+| `iroh 1.0` | pinned `1.0`; iroh team is the upstream; cargo-vet partial | Iroh has its own active security review process; we track their advisories. Not in the L1/L2 trust layer because `entangle-mesh-iroh` is a plugin loaded under capability gates, but a malicious iroh release would be catastrophic. We pin the version and ship lockfiles. |
 | `mdns-sd` | pinned, cargo-vet ✓ | LAN discovery |
 | `chitchat` | pinned, internal review (small crate, simple gossip protocol) | We may fork if upstream stalls; tracked in §13 |
 
