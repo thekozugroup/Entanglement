@@ -6,7 +6,7 @@
 //! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
 //! Pairing goes directly to peers.toml (no daemon RPC).
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 
 mod cmd;
 mod config;
@@ -68,12 +68,40 @@ enum Cmd {
     /// (still empty in the CLI process — wired to the daemon's registry in
     /// Phase 2 when the scrape endpoint is exposed).
     Metrics,
+    /// Generate shell completion script for the given shell to stdout.
+    ///
+    /// Example: `entangle completions bash > /etc/bash_completion.d/entangle`.
+    Completions {
+        /// Shell to generate completions for (bash, zsh, fish, powershell, elvish).
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> std::process::ExitCode {
     entangle_observability::init_with_filter("warn,entangle=info");
 
+    match run().await {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(e) => {
+            // Print a clean, single-line error plus its cause chain. We
+            // deliberately format with `Display` (not `Debug`) so an ambient
+            // `RUST_BACKTRACE=1` never dumps a stack trace on routine errors.
+            eprintln!("error: {e}");
+            for cause in e.chain().skip(1) {
+                eprintln!("  caused by: {cause}");
+            }
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+/// Parse arguments and dispatch the selected subcommand.
+///
+/// Kept separate from `main` so the error-formatting boundary lives in exactly
+/// one place and never leaks a backtrace.
+async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     // Propagate --allow-local as an env var so subcommand modules can read it
@@ -93,7 +121,28 @@ async fn main() -> anyhow::Result<()> {
         Cmd::Compute(a) => cmd::compute::run(a).await,
         Cmd::PrintPlatform => print_platform(),
         Cmd::Metrics => print_metrics(),
+        Cmd::Completions { shell } => generate_completions(shell),
     }
+}
+
+/// Shared "daemon not running" error used by the RPC-backed subcommands
+/// (`plugins`, `mesh`, `compute`). Deduplicated here so the wording stays
+/// consistent. The leading `error: ` prefix is intentionally omitted — the
+/// error boundary in `main` adds it exactly once.
+pub(crate) fn daemon_not_running_error() -> anyhow::Error {
+    anyhow::anyhow!(
+        "daemon not running at ~/.entangle/sock.\n\
+         Start it with 'entangled run' or pass --allow-local to use a \
+         local in-process kernel (no persistent state)."
+    )
+}
+
+/// Write a shell completion script for `shell` to stdout.
+fn generate_completions(shell: clap_complete::Shell) -> anyhow::Result<()> {
+    let mut cmd = Cli::command();
+    let bin_name = cmd.get_name().to_string();
+    clap_complete::generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
+    Ok(())
 }
 
 fn print_metrics() -> anyhow::Result<()> {

@@ -256,7 +256,7 @@ fn run_initiator(args: PairArgs) -> anyhow::Result<()> {
         .map_err(|_| anyhow::anyhow!("signature mismatch: malformed hex in ACCEPT"))?;
     their_pubkey
         .verify(&payload, &sig)
-        .map_err(|_| anyhow::anyhow!("error: signature verification failed — pairing aborted"))?;
+        .map_err(|_| anyhow::anyhow!("signature verification failed — pairing aborted"))?;
 
     eprintln!(
         "\n✓ Paired with peer '{}' ({})",
@@ -314,7 +314,7 @@ fn run_responder(args: PairArgs) -> anyhow::Result<()> {
 
     // Check expiry.
     if now_secs().saturating_sub(request.created_at_secs) > EXPIRY_SECS {
-        bail!("error: request expired (>5 min) — restart the pair flow on both sides");
+        bail!("request expired (>5 min) — restart the pair flow on both sides");
     }
 
     // Show identities.
@@ -342,7 +342,7 @@ fn run_responder(args: PairArgs) -> anyhow::Result<()> {
 
     let code: PairingCode = code_str
         .parse()
-        .map_err(|_| anyhow::anyhow!("error: could not parse code '{}' as 6 digits", code_str))?;
+        .map_err(|_| anyhow::anyhow!("could not parse code '{}' as 6 digits", code_str))?;
 
     // Verify the code matches the commitment.
     let their_pubkey_bytes =
@@ -353,7 +353,7 @@ fn run_responder(args: PairArgs) -> anyhow::Result<()> {
     let their_pubkey_arr: [u8; 32] = their_pubkey_bytes.try_into().unwrap();
     let expected_commit = make_code_commit(code, &their_pubkey_arr);
     if expected_commit != request.code_commit {
-        bail!("error: code does not match — pairing aborted (no peer added)");
+        bail!("code does not match — pairing aborted (no peer added)");
     }
     eprintln!("✓ Code matches");
 
@@ -393,7 +393,7 @@ fn run_responder(args: PairArgs) -> anyhow::Result<()> {
         .map_err(|_| anyhow::anyhow!("signature mismatch: malformed FINALIZE signature"))?;
     their_pubkey
         .verify(&payload, &fin_sig)
-        .map_err(|_| anyhow::anyhow!("error: signature verification failed — pairing aborted"))?;
+        .map_err(|_| anyhow::anyhow!("signature verification failed — pairing aborted"))?;
 
     eprintln!(
         "\n✓ Paired with peer '{}' ({})",

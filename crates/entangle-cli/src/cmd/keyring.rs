@@ -19,7 +19,11 @@ pub struct KeyringArgs {
 #[derive(Subcommand)]
 pub enum KeyringCmd {
     /// List all trusted publisher keys in the keyring.
-    List,
+    List {
+        /// Emit machine-readable JSON instead of the plain-text table.
+        #[arg(long)]
+        json: bool,
+    },
     /// Add a trusted publisher key.
     Add {
         /// 32-byte public key in hex (64 hex chars).
@@ -44,7 +48,7 @@ pub enum KeyringCmd {
 
 pub async fn run(args: KeyringArgs) -> anyhow::Result<()> {
     match args.cmd {
-        KeyringCmd::List => list().await,
+        KeyringCmd::List { json } => list(json).await,
         KeyringCmd::Add {
             public_key_hex,
             name,
@@ -58,10 +62,15 @@ pub async fn run(args: KeyringArgs) -> anyhow::Result<()> {
 // list
 // ---------------------------------------------------------------------------
 
-async fn list() -> anyhow::Result<()> {
+async fn list(json: bool) -> anyhow::Result<()> {
     let path = config::keyring_path();
     let kr = Keyring::load(&path)?;
     let entries: Vec<_> = kr.entries().collect();
+    if json {
+        let body = serde_json::json!({ "entries": entries });
+        println!("{}", serde_json::to_string(&body)?);
+        return Ok(());
+    }
     if entries.is_empty() {
         println!("keyring is empty — add a key with `entangle keyring add <PUBLIC_KEY_HEX> --name <NAME>`");
         return Ok(());
@@ -145,10 +154,9 @@ async fn remove(fingerprint_hex: String) -> anyhow::Result<()> {
         Some(e) => {
             kr.save(&path)?;
             println!("removed {} \"{}\"", fingerprint_hex, e.publisher_name);
+            Ok(())
         }
-        None => {
-            println!("not found: {}", fingerprint_hex);
-        }
+        // Non-zero exit so scripts can detect a no-op removal.
+        None => anyhow::bail!("not found: {}", fingerprint_hex),
     }
-    Ok(())
 }

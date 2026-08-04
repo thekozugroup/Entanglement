@@ -96,14 +96,7 @@ fn allow_local() -> bool {
         .unwrap_or(false)
 }
 
-/// Emit the "daemon not running" error message and return an Err.
-fn daemon_not_running_error() -> anyhow::Error {
-    anyhow::anyhow!(
-        "error: daemon not running at ~/.entangle/sock.\n\
-         Start it with 'entangled run' or pass --allow-local to use a \
-         local in-process kernel (no persistent state)."
-    )
-}
+use crate::daemon_not_running_error;
 
 // ---------------------------------------------------------------------------
 // Local-kernel helpers (fallback path)

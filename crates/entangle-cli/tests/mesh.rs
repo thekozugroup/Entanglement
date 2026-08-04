@@ -132,6 +132,68 @@ fn mesh_untrust_removes_peer() {
     );
 }
 
+/// `mesh trust` must reject a peer_id/public_key pair that does not correspond:
+/// the id derived from the key must equal the supplied peer_id.
+#[test]
+fn mesh_trust_rejects_mismatched_id_and_key() {
+    let tmp = TempDir::new().unwrap();
+    entangle(&tmp)
+        .args(["init", "--non-interactive"])
+        .assert()
+        .success();
+
+    // Two independent peers; cross the id of one with the pubkey of the other.
+    let (peer_id_a, _pub_a) = make_test_peer();
+    let (_peer_id_b, pub_b) = make_test_peer();
+
+    entangle(&tmp)
+        .args([
+            "mesh",
+            "trust",
+            &peer_id_a,
+            "--public-key-hex",
+            &pub_b,
+            "--display-name",
+            "forged",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("mismatch"));
+
+    // Nothing should have been persisted.
+    let peers_toml = tmp.path().join(".entangle").join("peers.toml");
+    if peers_toml.exists() {
+        let contents = std::fs::read_to_string(&peers_toml).unwrap();
+        assert!(
+            !contents.contains("forged"),
+            "forged peer must not be written: {contents}"
+        );
+    }
+}
+
+/// `mesh peers --json` must emit output that parses as JSON.
+#[test]
+fn mesh_peers_json_parses_with_allow_local() {
+    let tmp = TempDir::new().unwrap();
+    entangle(&tmp)
+        .args(["init", "--non-interactive"])
+        .assert()
+        .success();
+
+    let out = entangle(&tmp)
+        .args(["--allow-local", "mesh", "peers", "--json"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "mesh peers --json should succeed");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let value: serde_json::Value =
+        serde_json::from_str(stdout.trim()).expect("mesh peers --json must emit valid JSON");
+    assert!(
+        value.get("peers").and_then(|p| p.as_array()).is_some(),
+        "expected a `peers` array: {stdout}"
+    );
+}
+
 /// `--allow-local` flag causes `mesh peers` to succeed even with no daemon.
 #[test]
 fn mesh_peers_with_allow_local_falls_back() {

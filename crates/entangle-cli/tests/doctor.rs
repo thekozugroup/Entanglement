@@ -27,28 +27,28 @@ fn doctor_on_uninitialized_succeeds_with_warns_only() {
     // Neither ~/.entangle/ nor its files exist.
     // identity.key missing → [fail] → exit code 1 (that is the expected outcome).
     let output = doctor_cmd(dir.path()).output().unwrap();
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
     // At least some check lines must appear.
     assert!(
-        stderr.contains("[warn]") || stderr.contains("[fail]") || stderr.contains("[skip]"),
-        "expected non-ok output, got:\n{stderr}"
+        stdout.contains("[warn]") || stdout.contains("[fail]") || stdout.contains("[skip]"),
+        "expected non-ok output, got:\n{stdout}"
     );
 
     // identity check must be present.
     assert!(
-        stderr.contains("identity"),
-        "expected identity check:\n{stderr}"
+        stdout.contains("identity"),
+        "expected identity check:\n{stdout}"
     );
 
     // config absent → [warn].
     assert!(
-        stderr.contains("config"),
-        "expected config check:\n{stderr}"
+        stdout.contains("config"),
+        "expected config check:\n{stdout}"
     );
 
     // The only [fail] line may be "identity" (missing key).
-    for line in stderr.lines().filter(|l| l.contains("[fail]")) {
+    for line in stdout.lines().filter(|l| l.contains("[fail]")) {
         assert!(
             line.contains("identity"),
             "unexpected [fail] line (expected only identity): {line}"
@@ -83,10 +83,10 @@ fn doctor_after_init_no_core_fails() {
     fs::write(entangle_dir.join("config.toml"), "[mesh]\n").unwrap();
 
     let output = doctor_cmd(dir.path()).output().unwrap();
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
     // identity must be ok.
-    let identity_line = stderr
+    let identity_line = stdout
         .lines()
         .find(|l| l.contains("identity") && !l.contains("identity-perms"))
         .expect("identity check line missing");
@@ -96,7 +96,7 @@ fn doctor_after_init_no_core_fails() {
     );
 
     // config must be ok.
-    let config_line = stderr
+    let config_line = stdout
         .lines()
         .find(|l| {
             l.contains("  config ")
@@ -104,7 +104,7 @@ fn doctor_after_init_no_core_fails() {
                 || l.split_whitespace().nth(1) == Some("config")
         })
         .unwrap_or_else(|| {
-            stderr
+            stdout
                 .lines()
                 .find(|l| {
                     let parts: Vec<&str> = l.split_whitespace().collect();
@@ -120,7 +120,7 @@ fn doctor_after_init_no_core_fails() {
     }
 
     // No [fail] lines at all.
-    for line in stderr.lines() {
+    for line in stdout.lines() {
         assert!(
             !line.contains("[fail]"),
             "unexpected [fail] line after init: {line}"
@@ -147,9 +147,9 @@ fn doctor_when_identity_perms_too_loose_warns() {
     fs::set_permissions(&id_path, fs::Permissions::from_mode(0o644)).unwrap();
 
     let output = doctor_cmd(dir.path()).output().unwrap();
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
-    let perm_line = stderr
+    let perm_line = stdout
         .lines()
         .find(|l| l.contains("identity-perms"))
         .expect("identity-perms check missing");
@@ -192,9 +192,9 @@ fn doctor_when_peers_empty_in_multi_node_warns() {
     fs::write(entangle_dir.join("peers.toml"), "").unwrap();
 
     let output = doctor_cmd(dir.path()).output().unwrap();
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
-    let peers_line = stderr
+    let peers_line = stdout
         .lines()
         .find(|l| l.contains("peers"))
         .expect("peers check line missing");

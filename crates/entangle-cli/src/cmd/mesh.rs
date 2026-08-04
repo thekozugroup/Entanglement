@@ -6,12 +6,14 @@
 //! The daemon picks up `~/.entangle/peers.toml` changes on next start (or,
 //! future iter, via file-watch reload).
 
+use anyhow::bail;
 use clap::{Args, Subcommand};
 use entangle_peers::{PeerStore, TrustedPeer};
-use entangle_rpc::{Client as RpcClient, RpcError};
+use entangle_rpc::{methods::MeshStatusResult, Client as RpcClient, RpcError};
 use entangle_types::peer_id::PeerId;
 
 use crate::config;
+use crate::daemon_not_running_error;
 
 // ── Clap types ───────────────────────────────────────────────────────────────
 
@@ -26,9 +28,17 @@ pub struct MeshArgs {
 #[derive(Subcommand)]
 pub enum MeshCmd {
     /// List peers seen on the mesh, indicating which are trusted.
-    Peers,
+    Peers {
+        /// Emit machine-readable JSON instead of the plain-text table.
+        #[arg(long)]
+        json: bool,
+    },
     /// Show local mesh state: own peer id, active transports, peer counts.
-    Status,
+    Status {
+        /// Emit machine-readable JSON instead of the plain-text summary.
+        #[arg(long)]
+        json: bool,
+    },
     /// Add a peer to the persistent allowlist by pasting their public key hex.
     Trust {
         /// Peer id (hex) to trust.
@@ -59,8 +69,8 @@ pub enum MeshCmd {
 
 pub async fn run(args: MeshArgs) -> anyhow::Result<()> {
     match args.cmd {
-        MeshCmd::Peers => peers().await,
-        MeshCmd::Status => status().await,
+        MeshCmd::Peers { json } => peers(json).await,
+        MeshCmd::Status { json } => status(json).await,
         MeshCmd::Trust {
             peer_id,
             public_key_hex,
@@ -74,23 +84,28 @@ pub async fn run(args: MeshArgs) -> anyhow::Result<()> {
 
 // ── `peers` ──────────────────────────────────────────────────────────────────
 
-async fn peers() -> anyhow::Result<()> {
+async fn peers(json: bool) -> anyhow::Result<()> {
     let client = rpc_client();
 
-    let result = match client.mesh_peers().await {
-        Ok(r) => r,
+    let peers = match client.mesh_peers().await {
+        Ok(r) => r.peers,
         Err(RpcError::DaemonNotRunning(_)) => {
             if allow_local() {
                 // Stub: no mDNS in-process — return empty list.
-                print_peers_table(&[]);
-                return Ok(());
+                Vec::new()
+            } else {
+                return Err(daemon_not_running_error());
             }
-            return Err(daemon_not_running_error());
         }
         Err(e) => return Err(e.into()),
     };
 
-    print_peers_table(&result.peers);
+    if json {
+        let body = serde_json::json!({ "peers": peers });
+        println!("{}", serde_json::to_string(&body)?);
+    } else {
+        print_peers_table(&peers);
+    }
     Ok(())
 }
 
@@ -121,25 +136,32 @@ fn print_peers_table(peers: &[entangle_rpc::MeshPeer]) {
 
 // ── `status` ─────────────────────────────────────────────────────────────────
 
-async fn status() -> anyhow::Result<()> {
+async fn status(json: bool) -> anyhow::Result<()> {
     let client = rpc_client();
 
     let result = match client.mesh_status().await {
         Ok(r) => r,
         Err(RpcError::DaemonNotRunning(_)) => {
             if allow_local() {
-                // Stub local status.
-                println!("local_peer_id:       (none — daemon not running)");
-                println!("local_display_name:  (none)");
-                println!("transports_active:   []");
-                println!("seen_peer_count:     0");
-                println!("trusted_peer_count:  0");
-                return Ok(());
+                // Stub local status — no daemon means no live mesh state.
+                MeshStatusResult {
+                    local_peer_id: "(none — daemon not running)".to_owned(),
+                    local_display_name: "(none)".to_owned(),
+                    transports_active: Vec::new(),
+                    seen_peer_count: 0,
+                    trusted_peer_count: 0,
+                }
+            } else {
+                return Err(daemon_not_running_error());
             }
-            return Err(daemon_not_running_error());
         }
         Err(e) => return Err(e.into()),
     };
+
+    if json {
+        println!("{}", serde_json::to_string(&result)?);
+        return Ok(());
+    }
 
     let transports = if result.transports_active.is_empty() {
         "[]".to_owned()
@@ -167,7 +189,10 @@ fn trust(
     let peer_id = parse_peer_id(&peer_id_hex)?;
     let store = open_peer_store()?;
 
-    let mut peer = TrustedPeer::new(peer_id, public_key_hex, display_name.clone());
+    // Validate up front: decode + 32-byte length check + derive-and-compare so
+    // a forged peer_id/public_key pair is rejected before it hits the store.
+    let mut peer = TrustedPeer::new_validated(peer_id, public_key_hex, display_name.clone())
+        .map_err(|e| anyhow::anyhow!("cannot trust peer: {e}"))?;
     if !note.is_empty() {
         peer.note = note;
     }
@@ -184,10 +209,13 @@ fn untrust(peer_id_hex: String) -> anyhow::Result<()> {
     let store = open_peer_store()?;
 
     match store.remove(&peer_id)? {
-        Some(_) => println!("removed: {}", peer_id_hex),
-        None => println!("peer not found: {}", peer_id_hex),
+        Some(_) => {
+            println!("removed: {}", peer_id_hex);
+            Ok(())
+        }
+        // Non-zero exit so scripts can detect a no-op removal.
+        None => bail!("peer not found: {}", peer_id_hex),
     }
-    Ok(())
 }
 
 // ── `revoke` ─────────────────────────────────────────────────────────────────
@@ -221,12 +249,4 @@ fn allow_local() -> bool {
     std::env::var("ENTANGLE_ALLOW_LOCAL")
         .map(|v| v != "0" && !v.is_empty())
         .unwrap_or(false)
-}
-
-fn daemon_not_running_error() -> anyhow::Error {
-    anyhow::anyhow!(
-        "error: daemon not running at ~/.entangle/sock.\n\
-         Start it with 'entangled run' or pass --allow-local to use a \
-         local in-process kernel (no persistent state)."
-    )
 }
