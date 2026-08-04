@@ -87,6 +87,24 @@ jobs:
           else
             VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
           fi
+
+          # VERSION becomes part of every published asset name
+          # (entanglement-${VERSION}-${target}.tar.gz), and scripts/install.sh
+          # reconstructs those names from a release tag. A version that is not a
+          # clean `vX.Y.Z[-suffix]` tag — e.g. the `git describe` fallback's
+          # `v0.1.0-3-gabc123-dirty` — yields assets no installer can address.
+          # Publishing runs are gated on refs/tags/v*, so this only guards a
+          # mistyped workflow_dispatch input or a future non-tag publish path.
+          # The prerelease suffix deliberately excludes `-`, so a legitimate
+          # `v1.2.3-rc1` passes while git-describe's `v0.1.0-3-gabc123-dirty`
+          # (multiple dash-separated segments) is rejected.
+          if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
+              echo "::error::Version '${VERSION}' is not a vX.Y.Z release tag; assets built from it would not be installable." >&2
+              exit 1
+            fi
+            echo "::warning::Version '${VERSION}' is a dev build; its assets are not installable via scripts/install.sh."
+          fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       # Binaries come out already stripped: the root Cargo.toml sets
@@ -268,7 +286,12 @@ jobs:
             entanglement-*.tar.gz.sha256
             entanglement-*.tar.gz.b3
             entanglement-*.tar.gz.sigstore
-          fail_on_unmatched_files: false
+          # Fail loudly if a pattern matched nothing. With `false`, a release
+          # could publish while one platform's tarball was silently missing —
+          # and scripts/install.sh resolves its download URL from the tag, so
+          # users on that platform would get a bare 404 from an otherwise
+          # "successful" release. A failed release job is far cheaper to fix.
+          fail_on_unmatched_files: true
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Job 4: Publish multi-arch container image to GHCR (tag pushes only)
