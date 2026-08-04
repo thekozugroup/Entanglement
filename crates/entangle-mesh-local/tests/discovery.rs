@@ -9,7 +9,7 @@
 //! cargo test -p entangle-mesh-local -- --ignored manual_
 //! ```
 
-use entangle_mesh_local::{Discovery, DiscoveryConfig, HardwareAdvert, LocalPeer};
+use entangle_mesh_local::{Discovery, DiscoveryConfig, DiscoveryError, HardwareAdvert, LocalPeer};
 use entangle_types::peer_id::PeerId;
 
 /// Fixed 32-byte seed for a deterministic peer id in tests.
@@ -141,6 +141,41 @@ fn default_config_has_no_hardware() {
     assert!(cfg.local.hardware.is_none());
 }
 
+// ── lifecycle guard ───────────────────────────────────────────────────────────
+
+/// A second `start_announcing` on the same `Discovery` must be rejected with
+/// [`DiscoveryError::AlreadyRunning`] rather than double-registering the service
+/// and racing the shared peer map.
+///
+/// Tolerant of sandboxes where the mDNS daemon cannot bind: if the first
+/// announce cannot even start, there is nothing to guard and the test passes
+/// trivially (mirroring `smoke_announce_and_shutdown`).
+#[test]
+fn double_start_announcing_is_already_running() {
+    let discovery = match Discovery::new(make_config(&KEY_A, 17720, "double-node")) {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("Discovery::new failed (expected in sandbox): {e}");
+            return;
+        }
+    };
+
+    if let Err(e) = discovery.start_announcing() {
+        eprintln!("first start_announcing failed (expected in sandbox): {e}");
+        return;
+    }
+
+    let err = discovery
+        .start_announcing()
+        .expect_err("second start_announcing must be rejected");
+    assert!(
+        matches!(err, DiscoveryError::AlreadyRunning),
+        "expected AlreadyRunning, got {err:?}"
+    );
+
+    let _ = discovery.shutdown();
+}
+
 // ── ignored manual integration tests ─────────────────────────────────────────
 
 /// Starts two `Discovery` instances on different peer_ids, browses for 5 s,
@@ -167,8 +202,8 @@ async fn manual_two_instances_see_each_other() {
     let mut rx_a = disc_a.subscribe();
     let mut rx_b = disc_b.subscribe();
 
-    let _h_a = disc_a.spawn_browser().expect("browser A");
-    let _h_b = disc_b.spawn_browser().expect("browser B");
+    disc_a.spawn_browser().expect("browser A");
+    disc_b.spawn_browser().expect("browser B");
 
     // Wait up to 5 s for each side to see the other.
     let saw_b_from_a = timeout(Duration::from_secs(5), async {
