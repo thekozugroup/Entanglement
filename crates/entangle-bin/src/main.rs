@@ -6,13 +6,20 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use entangle_bin::{config, maintenance::MaintenanceLoop, server, state::DaemonState};
-use entangle_mesh_local::{Discovery, DiscoveryConfig, HardwareAdvert, LocalPeer};
-use entangle_peers::PeerStore;
+use entangle_broker::BrokerPolicy;
+use entangle_mesh_local::{
+    Discovery, DiscoveryConfig, DiscoveryEvent, HardwareAdvert, LocalPeer, PeerSeen,
+};
+use entangle_peers::{PeerStore, TrustLevel};
 use entangle_runtime::{Kernel, KernelConfig};
-use entangle_scheduler::{Dispatcher, WorkerPool};
+use entangle_scheduler::{Dispatcher, WorkerInfo, WorkerPool};
 use entangle_signing::{IdentityKeyPair, Keyring};
+use entangle_types::peer_id::PeerId;
+use entangle_types::resource::GpuRequirement;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 // ── CLI definition ────────────────────────────────────────────────────────────
 
@@ -74,8 +81,11 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     // ── 1. Tracing setup ──────────────────────────────────────────────────────
     entangle_observability::init_default();
 
-    let socket_path = args.socket.unwrap_or_else(config::default_socket_path);
-    let config_dir = config::default_config_dir();
+    let socket_path = match args.socket {
+        Some(path) => path,
+        None => config::default_socket_path().context("resolving default socket path")?,
+    };
+    let config_dir = config::default_config_dir().context("resolving config directory")?;
     let config_path = config_dir.join("config.toml");
     let keyring_path = config_dir.join("keyring.toml");
 
@@ -103,15 +113,26 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let identity = ensure_identity(&identity_path)
         .with_context(|| format!("loading/creating identity from {}", identity_path.display()))?;
 
-    // ── 2c. Peer store ────────────────────────────────────────────────────────
+    // ── 2c. Peer store + startup policy ──────────────────────────────────────
     let peer_store =
         PeerStore::open(config_dir.join("peers.toml")).context("opening peer store")?;
 
+    // Refuse to start in multi-node mode with an empty peer allowlist
+    // (ENTANGLE-E0050, spec §11 #16) — before any mesh transport activates.
+    let startup_policy = BrokerPolicy::new(
+        cfg.security.max_tier_allowed,
+        cfg.mesh.multi_node,
+        &peer_store,
+    );
+    startup_policy
+        .check_startup()
+        .context("startup policy check failed (spec §11 #16)")?;
+
     // ── 3. Build kernel ───────────────────────────────────────────────────────
     let kernel_cfg = KernelConfig {
-        multi_node: cfg.runtime.multi_node,
+        max_tier_allowed: cfg.security.max_tier_allowed,
+        multi_node: cfg.mesh.multi_node,
         bus_capacity: cfg.runtime.bus_capacity,
-        ..KernelConfig::default()
     };
     let kernel = Arc::new(Kernel::new(kernel_cfg, keyring).context("initializing runtime kernel")?);
 
@@ -140,8 +161,9 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
 
     // ── 3d. Spawn mDNS discovery (when `mesh.local` transport is configured) ─
     // The discovery handle is stored in DaemonState so RPC handlers can call
-    // `snapshot_peers()` directly.
-    let _discovery_browser_handle = if cfg.mesh.transports.iter().any(|t| t == "local") {
+    // `snapshot_peers()` directly; the browser task handle lives inside
+    // `Discovery` and is stopped by `Discovery::shutdown` on daemon exit.
+    if cfg.mesh.transports.iter().any(|t| t == "local") {
         let local = LocalPeer {
             peer_id: daemon_state.local_peer_id,
             display_name: daemon_state.local_display_name.clone(),
@@ -158,63 +180,25 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
             Ok(d) => {
                 if let Err(e) = d.start_announcing() {
                     tracing::warn!(error = %e, "mDNS announce failed — discovery disabled");
-                    None
                 } else {
-                    let browser_handle = d.spawn_browser().ok();
+                    if let Err(e) = d.spawn_browser() {
+                        tracing::warn!(error = %e, "mDNS browse failed — peer discovery degraded");
+                    }
                     let d = Arc::new(d);
                     daemon_state.set_discovery(d.clone());
-
-                    // Worker-pool feeder: forward DiscoveryEvents into WorkerPool.
-                    let pool = daemon_state.worker_pool.clone();
-                    let mut sub = d.subscribe();
-                    let local_peer = daemon_state.local_peer_id;
-                    tokio::spawn(async move {
-                        use entangle_mesh_local::DiscoveryEvent;
-                        use entangle_scheduler::WorkerInfo;
-                        use entangle_types::resource::GpuRequirement;
-
-                        while let Ok(evt) = sub.recv().await {
-                            match evt {
-                                DiscoveryEvent::PeerAppeared(p)
-                                | DiscoveryEvent::PeerUpdated(p) => {
-                                    if p.peer_id == local_peer {
-                                        continue;
-                                    }
-                                    if let Some(hw) = &p.hardware {
-                                        pool.upsert(WorkerInfo {
-                                            peer_id: p.peer_id,
-                                            display_name: p.display_name.clone(),
-                                            cpu_cores: hw.cpu_cores,
-                                            memory_bytes: hw.memory_bytes,
-                                            gpu: hw.gpu_backend.map(|backend| GpuRequirement {
-                                                vram_min_bytes: hw.gpu_vram_bytes,
-                                                backend,
-                                            }),
-                                            npu: None, // Phase 2: NPU advertisement
-                                            network_bandwidth_bps: hw.network_bandwidth_bps,
-                                            rtt_ms: 5, // Phase 1 estimate; real RTT in Phase 2
-                                            load: 0.0,
-                                            cost: 1.0,
-                                        });
-                                    }
-                                }
-                                DiscoveryEvent::PeerDisappeared { peer_id, .. } => {
-                                    pool.remove(&peer_id);
-                                }
-                            }
-                        }
-                    });
-                    browser_handle
+                    spawn_discovery_feeder(
+                        d,
+                        daemon_state.worker_pool.clone(),
+                        daemon_state.peer_store.clone(),
+                        daemon_state.local_peer_id,
+                    );
                 }
             }
             Err(e) => {
                 tracing::warn!(error = %e, "Discovery::new failed — discovery disabled");
-                None
             }
         }
-    } else {
-        None
-    };
+    }
 
     let state = Arc::new(daemon_state);
 
@@ -227,7 +211,8 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
     // ── 5. Spawn maintenance loop ─────────────────────────────────────────────
-    let maint = MaintenanceLoop::new(Default::default());
+    let maint =
+        MaintenanceLoop::new(Default::default()).with_worker_pool(state.worker_pool.clone());
     let maint_task = tokio::spawn(maint.run(shutdown_rx.clone()));
 
     // ── 6. Bind socket and spawn RPC accept loop ──────────────────────────────
@@ -251,6 +236,14 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     rpc_task.abort();
     let _ = rpc_task.await;
     let _ = maint_task.await;
+
+    // Unregister from mDNS (sends a goodbye) and stop the browse task so
+    // peers drop us promptly instead of waiting for their TTL to expire.
+    if let Some(d) = &state.discovery {
+        if let Err(e) = d.shutdown() {
+            tracing::warn!(error = %e, "mDNS discovery shutdown failed");
+        }
+    }
 
     // Remove the socket file on clean shutdown.
     let _ = std::fs::remove_file(&socket_path);
@@ -282,7 +275,10 @@ async fn status(args: StatusArgs) -> anyhow::Result<()> {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tokio::net::UnixStream;
 
-    let socket_path = args.socket.unwrap_or_else(config::default_socket_path);
+    let socket_path = match args.socket {
+        Some(path) => path,
+        None => config::default_socket_path().context("resolving default socket path")?,
+    };
 
     let mut stream = UnixStream::connect(&socket_path)
         .await
@@ -298,6 +294,128 @@ async fn status(args: StatusArgs) -> anyhow::Result<()> {
     reader.read_line(&mut line).await?;
     println!("{line}");
     Ok(())
+}
+
+// ── Discovery → worker-pool feeder ────────────────────────────────────────────
+
+/// Forward mDNS [`DiscoveryEvent`]s into the scheduler's [`WorkerPool`].
+///
+/// **Trust gate:** mDNS sightings are unauthenticated, so only peers present
+/// in the trusted peer store with trust ≠ [`TrustLevel::Revoked`] are admitted
+/// to the pool. The full unauthenticated sighting list stays available for
+/// display/status via [`Discovery::snapshot_peers`] — it never feeds placement.
+///
+/// **Resilience:** a `Lagged` receive error (event backlog overflow under
+/// bursty mDNS traffic) is recoverable — the pool is resynced authoritatively
+/// from [`Discovery::snapshot_peers`] and the loop continues. Only `Closed`
+/// (discovery handle dropped) terminates the feeder.
+fn spawn_discovery_feeder(
+    discovery: Arc<Discovery>,
+    pool: WorkerPool,
+    peer_store: PeerStore,
+    local_peer: PeerId,
+) {
+    let mut sub = discovery.subscribe();
+    tokio::spawn(async move {
+        use tokio::sync::broadcast::error::RecvError;
+
+        loop {
+            match sub.recv().await {
+                Ok(evt) => apply_discovery_event(evt, &pool, &peer_store, local_peer),
+                Err(RecvError::Lagged(skipped)) => {
+                    tracing::warn!(
+                        skipped,
+                        "discovery feeder lagged — resyncing worker pool from snapshot"
+                    );
+                    let snapshot = discovery.snapshot_peers().await;
+                    resync_pool_from_snapshot(&snapshot, &pool, &peer_store, local_peer);
+                }
+                Err(RecvError::Closed) => break,
+            }
+        }
+        tracing::debug!("discovery feeder stopped (event channel closed)");
+    });
+}
+
+/// Apply a single discovery event to the worker pool (trust-gated).
+fn apply_discovery_event(
+    evt: DiscoveryEvent,
+    pool: &WorkerPool,
+    peer_store: &PeerStore,
+    local_peer: PeerId,
+) {
+    match evt {
+        DiscoveryEvent::PeerAppeared(p) | DiscoveryEvent::PeerUpdated(p) => {
+            if p.peer_id == local_peer {
+                return;
+            }
+            if !is_trusted(peer_store, &p.peer_id) {
+                tracing::debug!(
+                    peer_id = %p.peer_id,
+                    "ignoring untrusted mDNS sighting for worker pool"
+                );
+                return;
+            }
+            if let Some(info) = worker_info_from_sighting(&p) {
+                pool.upsert(info);
+            }
+        }
+        DiscoveryEvent::PeerDisappeared { peer_id, .. } => {
+            pool.remove(&peer_id);
+        }
+    }
+}
+
+/// `true` when `peer_id` is in the allowlist and not revoked.
+fn is_trusted(peer_store: &PeerStore, peer_id: &PeerId) -> bool {
+    matches!(peer_store.get(peer_id), Some(p) if p.trust != TrustLevel::Revoked)
+}
+
+/// Convert an mDNS sighting into a [`WorkerInfo`], or `None` when the peer
+/// advertises no hardware (nothing to schedule onto).
+fn worker_info_from_sighting(p: &PeerSeen) -> Option<WorkerInfo> {
+    let hw = p.hardware.as_ref()?;
+    Some(WorkerInfo {
+        peer_id: p.peer_id,
+        display_name: p.display_name.clone(),
+        cpu_cores: hw.cpu_cores,
+        memory_bytes: hw.memory_bytes,
+        gpu: hw.gpu_backend.map(|backend| GpuRequirement {
+            vram_min_bytes: hw.gpu_vram_bytes,
+            backend,
+        }),
+        npu: None, // Phase 2: NPU advertisement
+        network_bandwidth_bps: hw.network_bandwidth_bps,
+        rtt_ms: 5, // Phase 1 estimate; real RTT in Phase 2
+        load: 0.0,
+        cost: 1.0,
+    })
+}
+
+/// Authoritatively rebuild the worker pool from a discovery snapshot after
+/// the event stream lagged: entries absent from (or no longer trusted in) the
+/// snapshot are removed, and every trusted sighting is (re-)upserted.
+fn resync_pool_from_snapshot(
+    snapshot: &[PeerSeen],
+    pool: &WorkerPool,
+    peer_store: &PeerStore,
+    local_peer: PeerId,
+) {
+    let desired: HashMap<PeerId, WorkerInfo> = snapshot
+        .iter()
+        .filter(|p| p.peer_id != local_peer && is_trusted(peer_store, &p.peer_id))
+        .filter_map(|p| worker_info_from_sighting(p).map(|w| (p.peer_id, w)))
+        .collect();
+
+    // `Duration::MAX` TTL = every entry currently in the pool, expired or not.
+    for existing in pool.live(Duration::MAX) {
+        if !desired.contains_key(&existing.peer_id) {
+            pool.remove(&existing.peer_id);
+        }
+    }
+    for info in desired.into_values() {
+        pool.upsert(info);
+    }
 }
 
 // ── Identity helper ───────────────────────────────────────────────────────────
@@ -367,27 +485,87 @@ mod npu {
 
 /// Load the identity keypair from `path`, or generate and persist a new one.
 ///
-/// The file is written with mode `0600` on Unix so only the owning user can
-/// read the private key material.
+/// The file is created with `O_CREAT | O_EXCL` and mode `0600` in a single
+/// `open(2)` call, so the private key is never world-readable — not even for
+/// the instant between `write` and a follow-up `chmod` — and a concurrent
+/// daemon racing us fails loudly instead of clobbering the key. All I/O
+/// errors propagate; nothing about key persistence is best-effort.
 fn ensure_identity(path: &Path) -> anyhow::Result<IdentityKeyPair> {
     if path.exists() {
         let pem = std::fs::read_to_string(path).context("read identity.key")?;
-        IdentityKeyPair::from_pem(&pem)
-            .context("parse identity.key")
-            .map_err(|e| anyhow::anyhow!(e.to_string()))
-    } else {
-        let kp = IdentityKeyPair::generate();
-        let pem = kp.to_pem();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(path, &pem)?;
+        return IdentityKeyPair::from_pem(&pem)
+            .map_err(|e| anyhow::anyhow!("parse identity.key: {e}"));
+    }
+
+    let kp = IdentityKeyPair::generate();
+    let pem = kp.to_pem();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating directory {}", parent.display()))?;
+    }
+
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut file = opts
+        .open(path)
+        .with_context(|| format!("creating {} (mode 0600, exclusive)", path.display()))?;
+
+    use std::io::Write as _;
+    file.write_all(pem.as_bytes())
+        .context("write identity.key")?;
+    file.sync_all().context("sync identity.key")?;
+    Ok(kp)
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+
+    #[test]
+    fn ensure_identity_creates_with_mode_0600_and_reloads() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sub").join("identity.key");
+
+        let kp1 = ensure_identity(&path).expect("generate identity");
+        assert!(path.exists(), "identity.key must be persisted");
+
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let perms = std::fs::Permissions::from_mode(0o600);
-            let _ = std::fs::set_permissions(path, perms);
+            let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "identity.key must be owner-only from creation");
         }
-        Ok(kp)
+
+        // Second call loads the same key instead of regenerating.
+        let kp2 = ensure_identity(&path).expect("reload identity");
+        assert_eq!(
+            kp1.public().as_bytes(),
+            kp2.public().as_bytes(),
+            "reload must yield the same keypair"
+        );
+    }
+
+    #[test]
+    fn ensure_identity_propagates_unwritable_parent_error() {
+        // A parent that is a *file* makes create_dir_all fail — the error must
+        // propagate instead of being swallowed.
+        let dir = tempfile::tempdir().unwrap();
+        let blocker = dir.path().join("blocker");
+        std::fs::write(&blocker, b"not a dir").unwrap();
+        let path = blocker.join("identity.key");
+        assert!(ensure_identity(&path).is_err());
+    }
+
+    #[test]
+    fn ensure_identity_corrupt_file_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("identity.key");
+        std::fs::write(&path, b"not a pem").unwrap();
+        assert!(ensure_identity(&path).is_err());
     }
 }
