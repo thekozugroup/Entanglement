@@ -6,6 +6,7 @@
 //! All tasks are small async fns driven from a single [`MaintenanceLoop`] that
 //! runs on a tokio interval and is spawned by the daemon's main loop.
 
+use entangle_scheduler::WorkerPool;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 use tokio::time::{interval, MissedTickBehavior};
@@ -34,6 +35,11 @@ pub struct MaintenanceConfig {
     pub backup_nag_days: u64,
     /// How often the loop ticks in seconds (default 3600 = 1 h).
     pub tick_interval_secs: u64,
+    /// Evict workers whose last advert is older than this many seconds
+    /// (default 60, matching the dispatcher's placement TTL).
+    pub worker_ttl_secs: u64,
+    /// How often stale-worker eviction runs, in seconds (default 60).
+    pub worker_evict_interval_secs: u64,
 }
 
 impl Default for MaintenanceConfig {
@@ -49,6 +55,8 @@ impl Default for MaintenanceConfig {
             key_rotation_warn_days: 365,
             backup_nag_days: 7,
             tick_interval_secs: 3600,
+            worker_ttl_secs: 60,
+            worker_evict_interval_secs: 60,
         }
     }
 }
@@ -58,12 +66,27 @@ impl Default for MaintenanceConfig {
 /// Tier-2 task scheduler that runs inside the daemon process.
 pub struct MaintenanceLoop {
     config: MaintenanceConfig,
+    /// Scheduler worker pool to prune; `None` when no pool is attached
+    /// (e.g. unit tests exercising only the filesystem tasks).
+    worker_pool: Option<WorkerPool>,
 }
 
 impl MaintenanceLoop {
     /// Create a new loop with the given configuration.
     pub fn new(config: MaintenanceConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            worker_pool: None,
+        }
+    }
+
+    /// Attach the scheduler's [`WorkerPool`] so [`MaintenanceLoop::run`]
+    /// evicts stale workers via [`WorkerPool::remove_stale`] every
+    /// `worker_evict_interval_secs`.
+    #[must_use]
+    pub fn with_worker_pool(mut self, pool: WorkerPool) -> Self {
+        self.worker_pool = Some(pool);
+        self
     }
 
     /// Run the maintenance loop until the shutdown watch fires `true`.
@@ -75,8 +98,16 @@ impl MaintenanceLoop {
     /// // …on signal: shutdown_tx.send(true).ok();
     /// ```
     pub async fn run(self, mut shutdown: tokio::sync::watch::Receiver<bool>) {
-        let mut tick = interval(Duration::from_secs(self.config.tick_interval_secs));
+        let mut tick = interval(Duration::from_secs(self.config.tick_interval_secs.max(1)));
         tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+        // Stale-worker eviction runs on its own, much shorter cadence (~60 s)
+        // so the pool tracks mDNS liveness far more tightly than the hourly
+        // filesystem tasks.
+        let mut evict_tick = interval(Duration::from_secs(
+            self.config.worker_evict_interval_secs.max(1),
+        ));
+        evict_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         // Run a startup pass immediately for cache GC — do this before the
         // first interval tick so stale blobs are purged on restart.
@@ -100,6 +131,9 @@ impl MaintenanceLoop {
                         error!(error = %e, "maintenance: stale cache GC failed on tick");
                     }
                 }
+                _ = evict_tick.tick() => {
+                    self.evict_stale_workers();
+                }
                 _ = shutdown.changed() => {
                     if *shutdown.borrow() {
                         break;
@@ -112,6 +146,19 @@ impl MaintenanceLoop {
     }
 
     // ── Individual tasks ──────────────────────────────────────────────────────
+
+    /// Drop workers whose last advert is older than `worker_ttl_secs` from
+    /// the attached pool. Returns how many were evicted (0 without a pool).
+    pub fn evict_stale_workers(&self) -> usize {
+        let Some(pool) = &self.worker_pool else {
+            return 0;
+        };
+        let removed = pool.remove_stale(Duration::from_secs(self.config.worker_ttl_secs));
+        if removed > 0 {
+            info!(removed, "maintenance: evicted stale workers from pool");
+        }
+        removed
+    }
 
     /// Rotate `entangled.log` when it exceeds the configured threshold.
     ///
@@ -275,6 +322,8 @@ mod tests {
             key_rotation_warn_days: 365,
             backup_nag_days: 7,
             tick_interval_secs: 3600,
+            worker_ttl_secs: 60,
+            worker_evict_interval_secs: 60,
         }
     }
 
@@ -410,5 +459,95 @@ mod tests {
         let cfg = cfg_for(&tmp);
         let loop_ = MaintenanceLoop::new(cfg);
         loop_.warn_key_rotation().await.unwrap();
+    }
+
+    // -- evict_stale_workers ---------------------------------------------------
+
+    fn make_worker(byte: u8) -> entangle_scheduler::WorkerInfo {
+        entangle_scheduler::WorkerInfo {
+            peer_id: entangle_types::peer_id::PeerId::from_public_key_bytes(&[byte; 32]),
+            display_name: "test-node".into(),
+            cpu_cores: 4.0,
+            memory_bytes: 8 * 1024 * 1024 * 1024,
+            gpu: None,
+            npu: None,
+            network_bandwidth_bps: 1_000_000_000,
+            rtt_ms: 1,
+            load: 0.1,
+            cost: 1.0,
+        }
+    }
+
+    #[test]
+    fn evict_without_pool_is_a_noop() {
+        let tmp = TempDir::new().unwrap();
+        let loop_ = MaintenanceLoop::new(cfg_for(&tmp));
+        assert_eq!(loop_.evict_stale_workers(), 0);
+    }
+
+    #[test]
+    fn evict_removes_workers_older_than_ttl() {
+        let tmp = TempDir::new().unwrap();
+        let mut cfg = cfg_for(&tmp);
+        // TTL 0: every entry's age is >= 0 s, so all are stale.
+        cfg.worker_ttl_secs = 0;
+
+        let pool = WorkerPool::new();
+        assert!(pool.upsert(make_worker(1)));
+        assert!(pool.upsert(make_worker(2)));
+        assert_eq!(pool.len(), 2);
+
+        let loop_ = MaintenanceLoop::new(cfg).with_worker_pool(pool.clone());
+        assert_eq!(loop_.evict_stale_workers(), 2);
+        assert!(pool.is_empty());
+    }
+
+    #[test]
+    fn evict_keeps_fresh_workers() {
+        let tmp = TempDir::new().unwrap();
+        let cfg = cfg_for(&tmp); // worker_ttl_secs = 60 from Default-mirroring cfg
+
+        let pool = WorkerPool::new();
+        assert!(pool.upsert(make_worker(1)));
+
+        let loop_ = MaintenanceLoop::new(cfg).with_worker_pool(pool.clone());
+        assert_eq!(loop_.evict_stale_workers(), 0);
+        assert_eq!(pool.len(), 1);
+    }
+
+    /// End-to-end through `run`: the evict interval fires (first tick is
+    /// immediate), prunes a stale entry, and the loop shuts down cleanly.
+    #[tokio::test]
+    async fn run_loop_evicts_stale_workers_and_shuts_down() {
+        let tmp = TempDir::new().unwrap();
+        let mut cfg = cfg_for(&tmp);
+        cfg.worker_ttl_secs = 0; // everything is instantly stale
+        cfg.worker_evict_interval_secs = 1;
+        cfg.tick_interval_secs = 3600;
+
+        let pool = WorkerPool::new();
+        assert!(pool.upsert(make_worker(7)));
+
+        let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+        let handle = tokio::spawn(
+            MaintenanceLoop::new(cfg)
+                .with_worker_pool(pool.clone())
+                .run(shutdown_rx),
+        );
+
+        // The first evict tick fires immediately; poll briefly for it.
+        for _ in 0..50 {
+            if pool.is_empty() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(pool.is_empty(), "stale worker should have been evicted");
+
+        shutdown_tx.send(true).unwrap();
+        tokio::time::timeout(Duration::from_secs(5), handle)
+            .await
+            .expect("loop should shut down promptly")
+            .expect("loop task should not panic");
     }
 }
