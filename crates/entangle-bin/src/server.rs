@@ -63,7 +63,7 @@ const ACCEPT_BACKOFF_CAP: Duration = Duration::from_secs(1);
 ///
 /// Returns an error if the socket cannot be bound, if its permissions cannot
 /// be restricted to owner-only, or if `accept()` fails
-/// [`MAX_CONSECUTIVE_ACCEPT_ERRORS`] times in a row.
+/// `MAX_CONSECUTIVE_ACCEPT_ERRORS` times in a row.
 pub async fn serve(socket_path: PathBuf, state: Arc<DaemonState>) -> anyhow::Result<()> {
     // Ensure the parent directory exists and is private to the owner.
     if let Some(parent) = socket_path.parent() {
