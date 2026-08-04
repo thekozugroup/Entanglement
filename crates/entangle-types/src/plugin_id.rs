@@ -51,12 +51,16 @@ pub fn is_valid_name(s: &str) -> bool {
 
 impl PluginId {
     /// Construct a `PluginId`, validating all components.
+    ///
+    /// The publisher is normalized to lowercase so the documented invariant
+    /// ("32 lowercase hex chars") holds regardless of input casing — hex
+    /// fingerprints compare byte-for-byte throughout the trust chain.
     pub fn new(
         publisher: impl Into<String>,
         name: impl Into<String>,
         version: semver::Version,
     ) -> Result<Self, EntangleError> {
-        let publisher = publisher.into();
+        let publisher = publisher.into().to_ascii_lowercase();
         let name = name.into();
         // publisher must be 32 lowercase hex chars (BLAKE3-16 = 16 bytes = 32 hex)
         if publisher.len() != 32 || !publisher.chars().all(|c| c.is_ascii_hexdigit()) {
@@ -142,6 +146,23 @@ mod tests {
     fn invalid_publisher_short() {
         let result: Result<PluginId, _> = "abc/foo@1.0.0".parse();
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn publisher_normalized_to_lowercase() {
+        let upper = publisher().to_ascii_uppercase();
+        let id = PluginId::new(upper, "foo", "1.0.0".parse().unwrap()).unwrap();
+        assert_eq!(
+            id.publisher,
+            publisher(),
+            "publisher must be normalized to lowercase"
+        );
+
+        // Same via FromStr.
+        let raw = format!("{}/foo@1.0.0", publisher().to_ascii_uppercase());
+        let parsed: PluginId = raw.parse().unwrap();
+        assert_eq!(parsed.publisher, publisher());
+        assert_eq!(parsed.to_string(), format!("{}/foo@1.0.0", publisher()));
     }
 
     #[test]

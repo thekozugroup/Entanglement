@@ -52,7 +52,7 @@ description = "e2e test — hello-world"
 
     std::fs::write(dir.join("plugin.wasm"), wasm_bytes).expect("write wasm");
 
-    let bundle = sign_artifact(wasm_bytes, keypair);
+    let bundle = sign_artifact(wasm_bytes, manifest.as_bytes(), keypair);
     let sig_toml = toml::to_string(&bundle).expect("serialize sig bundle");
     std::fs::write(dir.join("plugin.wasm.sig"), sig_toml.as_bytes()).expect("write sig");
 

@@ -8,8 +8,8 @@ use crate::{
 use entangle_broker::{Broker, BrokerPolicy};
 use entangle_host::{HostEngine, LoadedPlugin};
 use entangle_ipc::{Bus, Envelope, Topic};
-use entangle_manifest::loader::load_manifest;
-use entangle_signing::{verify_artifact, Keyring, SignatureBundle};
+use entangle_manifest::{loader::LoadError, validate::validate, ValidatedManifest};
+use entangle_signing::{verify_artifact, Keyring, SignatureBundle, VerificationError};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 use parking_lot::RwLock;
 use std::collections::HashMap;
@@ -100,20 +100,38 @@ impl Kernel {
     /// Run the full five-step plugin load pipeline (spec §3).
     ///
     /// Steps:
-    /// 1. Load and validate the manifest (`entangle.toml`).
-    /// 2. Verify the artifact signature against the trusted keyring.
+    /// 1. Parse and validate the manifest (`entangle.toml`) from the exact
+    ///    bytes covered by the signature, and refuse duplicate plugin ids
+    ///    up front.
+    /// 2. Verify the signature bundle over the artifact **and** manifest
+    ///    bytes against the trusted keyring, then bind the verified signer
+    ///    to the publisher named in the manifest.
     /// 3. Register the plugin with the capability broker.
-    /// 4. Compile the artifact with the host engine.
+    /// 4. Compile the artifact with the host engine (rolling back the broker
+    ///    registration on failure — no partial state remains).
     /// 5. Emit lifecycle events on the IPC bus after each step.
     ///
     /// Returns the [`PluginId`] on success, or the first error encountered.
+    ///
+    /// The manifest's tier and capability declarations are only trusted after
+    /// step 2: the signature covers `BLAKE3(manifest)`, so editing
+    /// `entangle.toml` post-signing (e.g. raising the tier) fails verification
+    /// with [`VerificationError::ManifestHashMismatch`].
     pub async fn load_plugin_from_dir(&self, dir: &Path) -> Result<PluginId, RuntimeError> {
         let pkg = PluginPackage::from_directory(dir)?;
 
         // ── Step 1: Manifest ─────────────────────────────────────────────────
-        let manifest = load_manifest(&pkg.manifest_path)?;
+        // Parse from the in-memory bytes (the same bytes step 2 hashes), not
+        // from a second disk read that could observe a different file.
+        let manifest = parse_manifest(&pkg.manifest_bytes)?;
         let plugin_id = manifest.plugin_id.clone();
         let effective_tier = manifest.effective_tier;
+
+        // Duplicate check FIRST — before any broker or host state exists, so
+        // a rejected re-load leaves the running plugin fully intact.
+        if self.plugins.read().contains_key(&plugin_id) {
+            return Err(RuntimeError::AlreadyLoaded(plugin_id));
+        }
 
         self.emit(
             plugin_id.clone(),
@@ -121,7 +139,7 @@ impl Kernel {
             LifecyclePhase::ManifestValidated,
         );
 
-        // ── Step 2: Signature ────────────────────────────────────────────────
+        // ── Step 2: Signature (artifact + manifest) ──────────────────────────
         let sig_bytes = std::fs::read(&pkg.signature_path)?;
         let sig_text = std::str::from_utf8(&sig_bytes).map_err(|_| {
             RuntimeError::Io(std::io::Error::new(
@@ -136,9 +154,40 @@ impl Kernel {
             ))
         })?;
 
-        {
+        let signer_fingerprint = {
             let kr = self.keyring.read();
-            verify_artifact(&pkg.bytes, &bundle, &kr)?;
+            let entry = verify_artifact(&pkg.bytes, &pkg.manifest_bytes, &bundle, &kr)?;
+            hex::encode(entry.fingerprint)
+        };
+
+        // ── Step 2b: Publisher binding ───────────────────────────────────────
+        // The key that verified must be the publisher the manifest names —
+        // otherwise any trusted publisher could sign packages impersonating
+        // another publisher's plugin id.
+        if !signer_fingerprint.eq_ignore_ascii_case(&plugin_id.publisher) {
+            return Err(RuntimeError::Signing(
+                VerificationError::PublisherMismatch {
+                    manifest_publisher: plugin_id.publisher.clone(),
+                    signer_fingerprint,
+                },
+            ));
+        }
+        // Optional `[signature]` manifest section: when present it must agree
+        // with the bundle that actually verified (narrowing only).
+        if let Some(section) = &manifest.raw.signature {
+            if !section.publisher.eq_ignore_ascii_case(&signer_fingerprint) {
+                return Err(RuntimeError::Signing(
+                    VerificationError::PublisherMismatch {
+                        manifest_publisher: section.publisher.clone(),
+                        signer_fingerprint,
+                    },
+                ));
+            }
+            if section.algorithm != bundle.algorithm {
+                return Err(RuntimeError::Signing(
+                    VerificationError::UnsupportedAlgorithm(section.algorithm.clone()),
+                ));
+            }
         }
         self.emit(
             plugin_id.clone(),
@@ -156,20 +205,36 @@ impl Kernel {
         );
 
         // ── Step 4: Host ─────────────────────────────────────────────────────
-        let plugin =
-            LoadedPlugin::from_bytes(&self.engine, &pkg.bytes, plugin_id.clone(), effective_tier)?;
+        // On failure, roll back the broker registration so no partial state
+        // remains from this load attempt.
+        let plugin = match LoadedPlugin::from_bytes(
+            &self.engine,
+            &pkg.bytes,
+            plugin_id.clone(),
+            effective_tier,
+        ) {
+            Ok(p) => p,
+            Err(e) => {
+                let _ = self.broker.unregister_plugin(&plugin_id);
+                return Err(e.into());
+            }
+        };
         self.emit(plugin_id.clone(), effective_tier, LifecyclePhase::Loaded);
 
         // ── Bookkeeping ───────────────────────────────────────────────────────
-        let prev = self.plugins.write().insert(
-            plugin_id.clone(),
-            LoadedRecord {
-                effective_tier,
-                plugin,
-            },
-        );
-        if prev.is_some() {
-            return Err(RuntimeError::AlreadyLoaded(plugin_id));
+        // A concurrent load of the same id would have failed at broker
+        // registration (insert-only), so the slot is expected to be vacant;
+        // never overwrite an existing record.
+        match self.plugins.write().entry(plugin_id.clone()) {
+            std::collections::hash_map::Entry::Occupied(_) => {
+                return Err(RuntimeError::AlreadyLoaded(plugin_id));
+            }
+            std::collections::hash_map::Entry::Vacant(slot) => {
+                slot.insert(LoadedRecord {
+                    effective_tier,
+                    plugin,
+                });
+            }
         }
 
         Ok(plugin_id)
@@ -313,4 +378,22 @@ impl Kernel {
         // consumer has subscribed yet.
         let _ = self.bus.publish(env);
     }
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+/// Parse and validate an `entangle.toml` manifest from raw bytes.
+///
+/// The kernel deliberately parses the same in-memory bytes whose hash is
+/// checked against the signature bundle, instead of re-reading the file.
+fn parse_manifest(bytes: &[u8]) -> Result<ValidatedManifest, RuntimeError> {
+    let text = std::str::from_utf8(bytes).map_err(|_| {
+        RuntimeError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "manifest is not valid UTF-8",
+        ))
+    })?;
+    let raw: entangle_manifest::schema::Manifest =
+        toml::from_str(text).map_err(|e| RuntimeError::Manifest(LoadError::Parse(e)))?;
+    Ok(validate(raw)?)
 }

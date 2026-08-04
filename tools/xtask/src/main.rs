@@ -167,16 +167,9 @@ fn build_example(
         .with_context(|| format!("copying wasm to {}", wasm_dst.display()))?;
     println!("[xtask] wrote {}", wasm_dst.display());
 
-    // Step 6: sign the wasm.
-    let wasm_bytes = std::fs::read(&wasm_dst).context("reading wasm for signing")?;
-    let bundle = sign_artifact(&wasm_bytes, &keypair);
-    let sig_toml = toml::to_string(&bundle).context("serializing signature bundle")?;
-    let sig_dst = dist_dir.join("plugin.wasm.sig");
-    std::fs::write(&sig_dst, &sig_toml)
-        .with_context(|| format!("writing {}", sig_dst.display()))?;
-    println!("[xtask] wrote {}", sig_dst.display());
-
-    // Step 7: rewrite dist/entangle.toml with real fingerprint.
+    // Step 6: render dist/entangle.toml with the real fingerprint.
+    // The manifest must exist BEFORE signing: the signature bundle covers
+    // both the wasm and the manifest bytes (tier + capabilities).
     let plugin_id = format!("{fingerprint}/{example_name}");
     let tier_comment = if tier == 1 {
         "# tier 1: no capabilities; pure compute (logging-only)"
@@ -205,16 +198,34 @@ target = "wasm32-wasip2"
         .with_context(|| format!("writing {}", manifest_dst.display()))?;
     println!("[xtask] wrote {}", manifest_dst.display());
 
+    // Step 7: sign the wasm + manifest.
+    let wasm_bytes = std::fs::read(&wasm_dst).context("reading wasm for signing")?;
+    let bundle = sign_artifact(&wasm_bytes, manifest_content.as_bytes(), &keypair);
+    let sig_toml = toml::to_string(&bundle).context("serializing signature bundle")?;
+    let sig_dst = dist_dir.join("plugin.wasm.sig");
+    std::fs::write(&sig_dst, &sig_toml)
+        .with_context(|| format!("writing {}", sig_dst.display()))?;
+    println!("[xtask] wrote {}", sig_dst.display());
+
+    // `entangle keyring add` takes the 32-byte PUBLIC KEY (64 hex chars),
+    // not the 16-byte fingerprint.
+    let public_key_hex = to_hex(keypair.public().as_bytes());
+
     println!("[xtask] done. dist/:");
     println!("  plugin.wasm");
     println!("  plugin.wasm.sig");
     println!("  entangle.toml  (plugin id: {plugin_id})");
     println!();
     println!("Next steps:");
-    println!("  entangle keyring add {fingerprint} --name self");
+    println!("  entangle keyring add {public_key_hex} --name self");
     println!("  entangle plugins load examples/{example_name}/dist/");
 
     Ok(())
+}
+
+/// Lowercase hex encoding (avoids pulling the `hex` crate into xtask).
+fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn example_description(name: &str) -> &'static str {

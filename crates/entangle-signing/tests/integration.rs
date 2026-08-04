@@ -22,14 +22,18 @@ fn keyring_with(kp: &IdentityKeyPair) -> Keyring {
     kr
 }
 
+/// Fixed manifest bytes used across the signing tests.
+const MANIFEST: &[u8] = b"[plugin]\nid = \"aa/bb@0.1.0\"\ntier = 1\n";
+
 // Test 1: sign and verify happy path.
 #[test]
 fn test_sign_and_verify_ok() {
     let kp = IdentityKeyPair::generate();
     let artifact = b"hello, entangle!";
-    let bundle = sign_artifact(artifact, &kp);
+    let bundle = sign_artifact(artifact, MANIFEST, &kp);
     let kr = keyring_with(&kp);
-    let entry = verify_artifact(artifact, &bundle, &kr).expect("verification must succeed");
+    let entry =
+        verify_artifact(artifact, MANIFEST, &bundle, &kr).expect("verification must succeed");
     assert_eq!(entry.publisher_name, "test-publisher");
 }
 
@@ -39,10 +43,10 @@ fn test_wrong_key_unknown_publisher() {
     let signer = IdentityKeyPair::generate();
     let other = IdentityKeyPair::generate();
     let artifact = b"some bytes";
-    let bundle = sign_artifact(artifact, &signer);
+    let bundle = sign_artifact(artifact, MANIFEST, &signer);
     // Only other's key is in the keyring.
     let kr = keyring_with(&other);
-    let err = verify_artifact(artifact, &bundle, &kr).unwrap_err();
+    let err = verify_artifact(artifact, MANIFEST, &bundle, &kr).unwrap_err();
     assert!(
         matches!(err, VerificationError::UnknownPublisher),
         "expected UnknownPublisher, got {err}"
@@ -55,9 +59,9 @@ fn test_tampered_artifact_hash_mismatch() {
     let kp = IdentityKeyPair::generate();
     let original = b"original content";
     let tampered = b"tampered content";
-    let bundle = sign_artifact(original, &kp);
+    let bundle = sign_artifact(original, MANIFEST, &kp);
     let kr = keyring_with(&kp);
-    let err = verify_artifact(tampered, &bundle, &kr).unwrap_err();
+    let err = verify_artifact(tampered, MANIFEST, &bundle, &kr).unwrap_err();
     assert!(
         matches!(err, VerificationError::ArtifactHashMismatch { .. }),
         "expected ArtifactHashMismatch, got {err}"
@@ -69,11 +73,11 @@ fn test_tampered_artifact_hash_mismatch() {
 fn test_corrupted_signature_bad_signature() {
     let kp = IdentityKeyPair::generate();
     let artifact = b"correct bytes";
-    let mut bundle = sign_artifact(artifact, &kp);
+    let mut bundle = sign_artifact(artifact, MANIFEST, &kp);
     // Flip a byte in the signature.
     bundle.signature[0] ^= 0xff;
     let kr = keyring_with(&kp);
-    let err = verify_artifact(artifact, &bundle, &kr).unwrap_err();
+    let err = verify_artifact(artifact, MANIFEST, &bundle, &kr).unwrap_err();
     assert!(
         matches!(err, VerificationError::BadSignature),
         "expected BadSignature, got {err}"
@@ -125,10 +129,10 @@ fn test_pem_round_trip_fingerprint_stable() {
 fn test_unsupported_algorithm() {
     let kp = IdentityKeyPair::generate();
     let artifact = b"data";
-    let mut bundle = sign_artifact(artifact, &kp);
+    let mut bundle = sign_artifact(artifact, MANIFEST, &kp);
     bundle.algorithm = "rsa-pss".to_owned();
     let kr = keyring_with(&kp);
-    let err = verify_artifact(artifact, &bundle, &kr).unwrap_err();
+    let err = verify_artifact(artifact, MANIFEST, &bundle, &kr).unwrap_err();
     assert!(
         matches!(err, VerificationError::UnsupportedAlgorithm(ref s) if s == "rsa-pss"),
         "expected UnsupportedAlgorithm(rsa-pss), got {err}"
@@ -156,4 +160,53 @@ fn test_deterministic_fingerprint_from_seed() {
     // Also assert the same keypair produces the same fingerprint every time.
     let kp2 = IdentityKeyPair::from_seed(&seed);
     assert_eq!(fp, kp2.fingerprint_hex());
+}
+
+// Test 9: tampered manifest bytes → ManifestHashMismatch (artifact untouched).
+#[test]
+fn test_tampered_manifest_hash_mismatch() {
+    let kp = IdentityKeyPair::generate();
+    let artifact = b"artifact bytes";
+    let bundle = sign_artifact(artifact, MANIFEST, &kp);
+    let kr = keyring_with(&kp);
+    // Same artifact, edited manifest (e.g. tier raised post-signing).
+    let tampered_manifest = b"[plugin]\ntier = 5\n";
+    let err = verify_artifact(artifact, tampered_manifest, &bundle, &kr).unwrap_err();
+    assert!(
+        matches!(err, VerificationError::ManifestHashMismatch { .. }),
+        "expected ManifestHashMismatch, got {err}"
+    );
+}
+
+// Test 10: unsupported bundle version → UnsupportedBundleVersion.
+#[test]
+fn test_unsupported_bundle_version() {
+    let kp = IdentityKeyPair::generate();
+    let artifact = b"artifact bytes";
+    let mut bundle = sign_artifact(artifact, MANIFEST, &kp);
+    bundle.version = 1;
+    let kr = keyring_with(&kp);
+    let err = verify_artifact(artifact, MANIFEST, &bundle, &kr).unwrap_err();
+    assert!(
+        matches!(err, VerificationError::UnsupportedBundleVersion(1)),
+        "expected UnsupportedBundleVersion(1), got {err}"
+    );
+}
+
+// Test 11: a signature over (artifact, manifest_a) does not verify when the
+// bundle's manifest hash is swapped for manifest_b's — the digest is bound.
+#[test]
+fn test_swapped_manifest_hash_bad_signature() {
+    let kp = IdentityKeyPair::generate();
+    let artifact = b"artifact bytes";
+    let manifest_b = b"[plugin]\ntier = 5\n";
+    let mut bundle = sign_artifact(artifact, MANIFEST, &kp);
+    // Attacker rewrites the recorded manifest hash to match manifest_b.
+    bundle.manifest_blake3 = *blake3::hash(manifest_b).as_bytes();
+    let kr = keyring_with(&kp);
+    let err = verify_artifact(artifact, manifest_b, &bundle, &kr).unwrap_err();
+    assert!(
+        matches!(err, VerificationError::BadSignature),
+        "expected BadSignature, got {err}"
+    );
 }

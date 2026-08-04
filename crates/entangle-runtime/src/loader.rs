@@ -19,23 +19,31 @@ pub struct PluginPackage {
     pub signature_path: PathBuf,
     /// Raw bytes of the artifact.
     pub bytes: Vec<u8>,
+    /// Raw bytes of the manifest (`entangle.toml`).
+    ///
+    /// Read once so that the exact bytes covered by the signature bundle's
+    /// manifest hash are the same bytes the kernel parses — no window for the
+    /// file to change between hashing and parsing.
+    pub manifest_bytes: Vec<u8>,
 }
 
 impl PluginPackage {
     /// Load a package from a directory using the conventional file layout.
     ///
-    /// Reads `plugin.wasm` into memory. The manifest and signature paths are
-    /// stored for later loading by the kernel.
+    /// Reads `plugin.wasm` and `entangle.toml` into memory. The signature
+    /// path is stored for later loading by the kernel.
     pub fn from_directory(dir: &Path) -> Result<Self, std::io::Error> {
         let manifest_path = dir.join("entangle.toml");
         let artifact_path = dir.join("plugin.wasm");
         let signature_path = dir.join("plugin.wasm.sig");
         let bytes = std::fs::read(&artifact_path)?;
+        let manifest_bytes = std::fs::read(&manifest_path)?;
         Ok(Self {
             manifest_path,
             artifact_path,
             signature_path,
             bytes,
+            manifest_bytes,
         })
     }
 }

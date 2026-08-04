@@ -59,6 +59,14 @@ pub enum BrokerError {
     #[error("plugin not registered: {0}")]
     PluginNotRegistered(PluginId),
 
+    /// ENTANGLE-E0123: a plugin with this id is already registered.
+    ///
+    /// Registration never overwrites: silently replacing a live record would
+    /// drop its outstanding grants without `CapabilityReleased` audit events.
+    /// Unregister the existing plugin first.
+    #[error("ENTANGLE-E0123: plugin already registered: {0}")]
+    AlreadyRegistered(PluginId),
+
     /// ENTANGLE-E0411: biscuit verification failed.
     ///
     /// Returned by [`crate::Broker::grant_with_biscuit`] when no trust root

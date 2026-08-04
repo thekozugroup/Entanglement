@@ -49,6 +49,9 @@ fn keyring_with(kp: &IdentityKeyPair) -> Keyring {
     kr
 }
 
+/// Fixed manifest bytes used across the ATC signing tests.
+const MANIFEST: &[u8] = b"[plugin]\nid = \"aa/bb@0.1.0\"\ntier = 1\n";
+
 // ---------------------------------------------------------------------------
 // ATC-SIG-1
 // ---------------------------------------------------------------------------
@@ -63,10 +66,10 @@ fn atc_sig_1_sign_verify_happy_path() {
     let kp = IdentityKeyPair::generate();
     // Signing target is BLAKE3(bytes) per §3.6 — sign_artifact handles this internally.
     let artifact = b"atc-sig-1 test artifact bytes";
-    let bundle = sign_artifact(artifact, &kp);
+    let bundle = sign_artifact(artifact, MANIFEST, &kp);
 
     let kr = keyring_with(&kp);
-    let entry = verify_artifact(artifact, &bundle, &kr)
+    let entry = verify_artifact(artifact, MANIFEST, &bundle, &kr)
         .expect("ATC-SIG-1: verification must succeed with correct keypair");
 
     assert_eq!(
@@ -93,10 +96,10 @@ fn atc_sig_1_sign_verify_happy_path() {
 fn atc_sig_2_empty_keyring_unknown_publisher() {
     let kp = IdentityKeyPair::generate();
     let artifact = b"atc-sig-2 payload";
-    let bundle = sign_artifact(artifact, &kp);
+    let bundle = sign_artifact(artifact, MANIFEST, &kp);
 
     let empty_kr = Keyring::new();
-    let err = verify_artifact(artifact, &bundle, &empty_kr)
+    let err = verify_artifact(artifact, MANIFEST, &bundle, &empty_kr)
         .expect_err("ATC-SIG-2: verification against empty keyring must fail");
 
     assert!(
@@ -121,10 +124,10 @@ fn atc_sig_3_mutated_artifact_hash_mismatch() {
     let kp = IdentityKeyPair::generate();
     let original = b"atc-sig-3 original artifact";
     let mutated = b"atc-sig-3 mutated artifact";
-    let bundle = sign_artifact(original, &kp);
+    let bundle = sign_artifact(original, MANIFEST, &kp);
 
     let kr = keyring_with(&kp);
-    let err = verify_artifact(mutated, &bundle, &kr)
+    let err = verify_artifact(mutated, MANIFEST, &bundle, &kr)
         .expect_err("ATC-SIG-3: verification of mutated bytes must fail");
 
     assert!(
@@ -146,13 +149,13 @@ fn atc_sig_3_mutated_artifact_hash_mismatch() {
 fn atc_sig_4_mutated_signature_bad_signature() {
     let kp = IdentityKeyPair::generate();
     let artifact = b"atc-sig-4 correct artifact bytes";
-    let mut bundle = sign_artifact(artifact, &kp);
+    let mut bundle = sign_artifact(artifact, MANIFEST, &kp);
 
     // Flip first byte of the 64-byte Ed25519 signature.
     bundle.signature[0] ^= 0xff;
 
     let kr = keyring_with(&kp);
-    let err = verify_artifact(artifact, &bundle, &kr)
+    let err = verify_artifact(artifact, MANIFEST, &bundle, &kr)
         .expect_err("ATC-SIG-4: verification with corrupted signature must fail");
 
     assert!(
@@ -174,14 +177,14 @@ fn atc_sig_4_mutated_signature_bad_signature() {
 fn atc_sig_5_unsupported_algorithm_rejected() {
     let kp = IdentityKeyPair::generate();
     let artifact = b"atc-sig-5 artifact";
-    let mut bundle = sign_artifact(artifact, &kp);
+    let mut bundle = sign_artifact(artifact, MANIFEST, &kp);
 
     // Tamper: advertise a different algorithm so the algorithm-check branch fires
     // before the publisher-lookup branch.
     bundle.algorithm = "rsa-pkcs1v15".to_owned();
 
     let kr = keyring_with(&kp);
-    let err = verify_artifact(artifact, &bundle, &kr)
+    let err = verify_artifact(artifact, MANIFEST, &bundle, &kr)
         .expect_err("ATC-SIG-5: unsupported algorithm must be rejected");
 
     assert!(
@@ -212,8 +215,8 @@ fn atc_rep_1_signatures_are_deterministic() {
     let kp = IdentityKeyPair::generate();
     let artifact = b"atc-rep-1 determinism probe";
 
-    let bundle_a = sign_artifact(artifact, &kp);
-    let bundle_b = sign_artifact(artifact, &kp);
+    let bundle_a = sign_artifact(artifact, MANIFEST, &kp);
+    let bundle_b = sign_artifact(artifact, MANIFEST, &kp);
 
     assert_eq!(
         bundle_a.signature, bundle_b.signature,

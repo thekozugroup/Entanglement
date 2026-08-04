@@ -58,7 +58,7 @@ description = "integrity acceptance-test plugin"
     );
     std::fs::write(dir.join("entangle.toml"), manifest.as_bytes()).unwrap();
     std::fs::write(dir.join("plugin.wasm"), wasm_bytes).unwrap();
-    let bundle = sign_artifact(wasm_bytes, keypair);
+    let bundle = sign_artifact(wasm_bytes, manifest.as_bytes(), keypair);
     let sig_toml = toml::to_string(&bundle).unwrap();
     std::fs::write(dir.join("plugin.wasm.sig"), sig_toml.as_bytes()).unwrap();
 

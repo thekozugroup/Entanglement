@@ -57,6 +57,19 @@ fn write_plugin_package(
     tier: u8,
 ) -> String {
     let publisher = keypair.fingerprint_hex();
+    write_plugin_package_as(dir, keypair, &publisher, wasm_bytes, tier)
+}
+
+/// Like [`write_plugin_package`], but the manifest names `publisher` while the
+/// signature bundle is produced by `signer` — the two need not match, which
+/// lets tests exercise the publisher-binding check.
+fn write_plugin_package_as(
+    dir: &std::path::Path,
+    signer: &IdentityKeyPair,
+    publisher: &str,
+    wasm_bytes: &[u8],
+    tier: u8,
+) -> String {
     let plugin_id_str = format!("{publisher}/test-plugin@0.1.0");
 
     // Per spec §4.4.1 case 3: tier 1-3 require runtime=wasm, tier 4-5 require runtime=native.
@@ -77,8 +90,8 @@ description = "runtime integration test plugin"
     // Write wasm artifact
     std::fs::write(dir.join("plugin.wasm"), wasm_bytes).expect("write wasm");
 
-    // Sign and write signature bundle
-    let bundle = sign_artifact(wasm_bytes, keypair);
+    // Sign (artifact + manifest bytes) and write signature bundle
+    let bundle = sign_artifact(wasm_bytes, manifest_toml.as_bytes(), signer);
     let sig_toml = toml::to_string(&bundle).expect("serialize bundle");
     std::fs::write(dir.join("plugin.wasm.sig"), sig_toml.as_bytes()).expect("write sig");
 
@@ -331,4 +344,178 @@ async fn unload_plugin_emits_event_and_removes_from_list() {
         .expect("recv ok");
     assert_eq!(env.payload.phase, LifecyclePhase::Unloaded);
     assert_eq!(env.payload.plugin, plugin_id);
+}
+
+/// 7. WP3: raising the tier in `entangle.toml` after signing (wasm and .sig
+///    untouched) must fail the load with `ManifestHashMismatch` — the
+///    manifest's tier/capability declarations are covered by the signature.
+#[tokio::test(flavor = "multi_thread")]
+async fn tampered_manifest_blocks_load() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    let wasm = minimal_wasm();
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let plugin_id_str = write_plugin_package(dir.path(), &keypair, &wasm, 1);
+
+    // Attacker raises the tier post-signing; wasm and .sig stay untouched.
+    let tampered_manifest = format!(
+        r#"[plugin]
+id = "{plugin_id_str}"
+version = "0.1.0"
+tier = 2
+runtime = "wasm"
+description = "runtime integration test plugin"
+"#
+    );
+    std::fs::write(
+        dir.path().join("entangle.toml"),
+        tampered_manifest.as_bytes(),
+    )
+    .expect("overwrite manifest");
+
+    let kernel = Kernel::new(KernelConfig::default(), keyring).expect("kernel");
+    let err = kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect_err("tampered manifest must fail load");
+
+    assert!(
+        matches!(
+            err,
+            crate::RuntimeError::Signing(
+                entangle_signing::VerificationError::ManifestHashMismatch { .. }
+            )
+        ),
+        "expected ManifestHashMismatch, got: {err}"
+    );
+    assert!(
+        kernel.list_plugins().is_empty(),
+        "no plugin may be loaded from a tampered package"
+    );
+}
+
+/// 8. WP3: trusted key B signing a package whose manifest names publisher A
+///    must fail with `PublisherMismatch` — trust in a publisher does not let
+///    them impersonate another publisher's plugin id.
+#[tokio::test(flavor = "multi_thread")]
+async fn cross_publisher_signature_blocks_load() {
+    let publisher_a = IdentityKeyPair::generate();
+    let signer_b = IdentityKeyPair::generate();
+    // Only B is trusted; the manifest names A as the publisher.
+    let keyring = keyring_for(&signer_b);
+    let wasm = minimal_wasm();
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_plugin_package_as(
+        dir.path(),
+        &signer_b,
+        &publisher_a.fingerprint_hex(),
+        &wasm,
+        1,
+    );
+
+    let kernel = Kernel::new(KernelConfig::default(), keyring).expect("kernel");
+    let err = kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect_err("cross-publisher signature must fail load");
+
+    assert!(
+        matches!(
+            err,
+            crate::RuntimeError::Signing(
+                entangle_signing::VerificationError::PublisherMismatch { .. }
+            )
+        ),
+        "expected PublisherMismatch, got: {err}"
+    );
+    assert!(
+        kernel.list_plugins().is_empty(),
+        "no plugin may be loaded on publisher mismatch"
+    );
+}
+
+/// 9. WP3: a second load of the same plugin id fails with `AlreadyLoaded`
+///    before touching the broker — broker and audit state are unchanged.
+#[tokio::test(flavor = "multi_thread")]
+async fn double_load_leaves_broker_and_audit_state_unchanged() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    let wasm = minimal_wasm();
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_plugin_package(dir.path(), &keypair, &wasm, 1);
+
+    let kernel = Kernel::new(KernelConfig::default(), keyring).expect("kernel");
+    let plugin_id = kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect("first load ok");
+
+    let audit = kernel.broker().audit_log();
+    let audit_len_before = audit.len();
+    let dropped_before = audit.dropped();
+
+    let err = kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect_err("second load of same id must fail");
+    assert!(
+        matches!(err, crate::RuntimeError::AlreadyLoaded(ref id) if *id == plugin_id),
+        "expected AlreadyLoaded, got: {err}"
+    );
+
+    // Broker/audit state untouched by the rejected load.
+    assert_eq!(
+        audit.len(),
+        audit_len_before,
+        "rejected duplicate load must not add audit events"
+    );
+    assert_eq!(audit.dropped(), dropped_before);
+    assert_eq!(
+        kernel.list_plugins(),
+        vec![plugin_id.clone()],
+        "original plugin must remain loaded"
+    );
+
+    // The original registration is still live: unloading succeeds.
+    kernel.unload(&plugin_id).await.expect("unload ok");
+}
+
+/// 10. WP3: a compile failure after broker registration rolls the
+///     registration back — no partial state remains.
+#[tokio::test(flavor = "multi_thread")]
+async fn compile_failure_rolls_back_broker_registration() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    // Correctly signed package whose artifact is not valid wasm.
+    let garbage = b"definitely not a wasm component".to_vec();
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let plugin_id_str = write_plugin_package(dir.path(), &keypair, &garbage, 1);
+    let plugin_id: entangle_types::plugin_id::PluginId =
+        plugin_id_str.parse().expect("valid plugin id");
+
+    let kernel = Kernel::new(KernelConfig::default(), keyring).expect("kernel");
+    let err = kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect_err("garbage wasm must fail compilation");
+    assert!(
+        matches!(err, crate::RuntimeError::Host(_)),
+        "expected Host error, got: {err}"
+    );
+
+    // The broker registration was rolled back...
+    let unreg = kernel.broker().unregister_plugin(&plugin_id);
+    assert!(
+        matches!(
+            unreg,
+            Err(entangle_broker::BrokerError::PluginNotRegistered(_))
+        ),
+        "broker must not retain the plugin after rollback, got: {unreg:?}"
+    );
+    // ...and the kernel holds no record either.
+    assert!(kernel.list_plugins().is_empty());
 }
