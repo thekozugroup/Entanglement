@@ -1674,6 +1674,7 @@ name = "entangle-mesh-local"
 version = "0.1.0"
 dependencies = [
  "entangle-types",
+ "hex",
  "mdns-sd",
  "parking_lot",
  "thiserror 2.0.18",
@@ -1717,14 +1718,20 @@ name = "entangle-pairing"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "entangle-mesh-iroh",
+ "entangle-mesh-local",
+ "entangle-peers",
  "entangle-signing",
  "entangle-types",
  "hex",
  "rand_core 0.6.4",
  "regex",
  "serde",
+ "serde_json",
  "thiserror 2.0.18",
+ "tokio",
  "toml 0.8.23",
+ "tracing",
 ]
 
 [[package]]

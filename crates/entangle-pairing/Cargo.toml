@@ -15,12 +15,22 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 entangle-types   = { workspace = true }
 entangle-signing = { workspace = true }
+# The pairing exchange runs over the real mesh transport (see `mesh.rs`), and
+# finds the far device over mDNS. Both live behind this crate so the CLI needs
+# no transport dependency of its own.
+entangle-mesh-iroh  = { workspace = true }
+entangle-mesh-local = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 toml = { workspace = true }
 thiserror = { workspace = true }
 hex = { workspace = true }
 blake3 = { workspace = true }
 rand_core = { workspace = true, features = ["getrandom"] }
+tokio = { workspace = true, features = ["rt", "time", "macros"] }
+tracing = { workspace = true }
 
 [dev-dependencies]
 regex = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+entangle-peers = { workspace = true }
