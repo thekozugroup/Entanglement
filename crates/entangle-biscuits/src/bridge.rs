@@ -98,7 +98,10 @@ pub struct BridgeVerifyContext {
 /// Typed facts extracted from a verified bridge cap.
 #[derive(Clone, Debug)]
 pub struct BridgeFacts {
-    /// All capability surface names present in the token.
+    /// Capability surface names granted by the token's **authority block**.
+    ///
+    /// Appended attenuation blocks cannot add capabilities (the verifier
+    /// rejects tokens that try), so this is the complete grant set.
     pub capabilities: Vec<String>,
     /// The pinned destination peer.
     pub dest_pin: PeerId,
@@ -184,7 +187,7 @@ pub fn verify_bridge_cap(
     }
 
     Ok(BridgeFacts {
-        capabilities: plain.capabilities,
+        capabilities: plain.authority_capabilities,
         dest_pin,
         rate_limit_bps: rate_limit,
         total_bytes_cap: total_bytes,

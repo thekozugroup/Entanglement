@@ -107,46 +107,15 @@ pub enum GatewayError {
 
 /// Generate a fresh, opaque bearer token suitable for one MCP gateway session.
 ///
-/// The token is 256 bits of cryptographic entropy rendered as hex (so 64
-/// hex chars). Callers may also use any other unguessable value.
-///
-/// Phase 1 uses a BLAKE3 hash of the current monotonic clock + a fresh
-/// random nonce; this is sufficient for Phase-1 single-session use.
-/// Phase 2 may swap this for `rand::random` once the daemon ships a CSPRNG.
+/// The token is 256 bits drawn from the operating system's CSPRNG
+/// ([`rand_core::OsRng`], backed by `getrandom`), rendered as 64 lowercase
+/// hex characters. Callers may also use any other unguessable value.
 pub fn generate_bearer_token() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use rand_core::{OsRng, RngCore};
 
-    let mut seed = [0u8; 32];
-    // 16 bytes of monotonic nanos (truncated)
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    seed[..16].copy_from_slice(&nanos.to_le_bytes());
-    // 16 bytes of address-of-stack entropy — coarse, but combined with
-    // the BLAKE3 hash this is sufficient to avoid collisions across
-    // back-to-back sessions in the same process.
-    let stack_addr_bytes = (&seed as *const _ as usize).to_le_bytes();
-    let copy_len = stack_addr_bytes.len().min(16);
-    seed[16..16 + copy_len].copy_from_slice(&stack_addr_bytes[..copy_len]);
-
-    // Tiny mix step so the leading bits aren't dominated by the clock.
-    let hash = simple_mix(&seed);
-    hex_encode(&hash)
-}
-
-fn simple_mix(input: &[u8; 32]) -> [u8; 32] {
-    let mut out = [0u8; 32];
-    let mut acc: u64 = 0xcbf29ce484222325;
-    for (i, b) in input.iter().enumerate() {
-        acc = acc.wrapping_mul(0x100000001b3) ^ (*b as u64);
-        out[i] = ((acc >> ((i % 8) * 8)) & 0xff) as u8;
-    }
-    // Second pass mixes high-bit influence into the low bytes.
-    for i in 0..32 {
-        out[i] ^= input[(i + 13) % 32].rotate_left((i as u32) % 7);
-    }
-    out
+    let mut b = [0u8; 32];
+    OsRng.fill_bytes(&mut b);
+    hex_encode(&b)
 }
 
 fn hex_encode(bytes: &[u8; 32]) -> String {
@@ -243,8 +212,8 @@ mod tests {
 
     #[test]
     fn generate_bearer_token_is_not_repeating() {
-        // Two back-to-back calls in the same process must differ — the
-        // monotonic-clock-nanos seed advances every call.
+        // Two back-to-back calls must differ — each draws 256 fresh bits
+        // from the OS CSPRNG, so a collision is negligible.
         let a = generate_bearer_token();
         let b = generate_bearer_token();
         assert_ne!(a, b, "bearer tokens must differ across calls");
