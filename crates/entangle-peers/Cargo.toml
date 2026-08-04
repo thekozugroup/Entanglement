@@ -19,6 +19,10 @@ toml = { workspace = true }
 thiserror = { workspace = true }
 hex = { workspace = true }
 parking_lot = { workspace = true }
+# Advisory `flock` for multi-writer safety. Already present in the workspace
+# lockfile (transitive), so this adds a direct edge + the `fs` feature rather
+# than a new crate to the build graph.
+rustix = { version = "1", features = ["fs"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
