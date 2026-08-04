@@ -17,6 +17,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+/// The topic every [`LifecycleEvent`] is published on.
+const LIFECYCLE_TOPIC: &str = "runtime.plugin.lifecycle";
+
 /// Daemon-wide configuration for the [`Kernel`].
 #[derive(Clone, Debug)]
 pub struct KernelConfig {
@@ -61,6 +64,9 @@ pub struct Kernel {
     keyring: Arc<RwLock<Keyring>>,
     plugins: RwLock<HashMap<PluginId, LoadedRecord>>,
     bus: Bus<LifecycleEvent>,
+    /// The single topic every lifecycle event is published on. Built once so
+    /// `emit` does not re-parse and re-validate the same literal each time.
+    lifecycle_topic: Topic,
 }
 
 impl Kernel {
@@ -74,6 +80,7 @@ impl Kernel {
         let engine = HostEngine::new().map_err(entangle_host::HostError::LinkerSetup)?;
         Ok(Self {
             bus: Bus::new(config.bus_capacity),
+            lifecycle_topic: Topic::new(LIFECYCLE_TOPIC).expect("static topic is valid"),
             broker: Broker::new(policy),
             engine,
             keyring: Arc::new(RwLock::new(keyring)),
@@ -134,7 +141,7 @@ impl Kernel {
         }
 
         self.emit(
-            plugin_id.clone(),
+            &plugin_id,
             effective_tier,
             LifecyclePhase::ManifestValidated,
         );
@@ -190,7 +197,7 @@ impl Kernel {
             }
         }
         self.emit(
-            plugin_id.clone(),
+            &plugin_id,
             effective_tier,
             LifecyclePhase::SignatureVerified,
         );
@@ -198,11 +205,7 @@ impl Kernel {
         // ── Step 3: Broker ───────────────────────────────────────────────────
         // register_plugin takes ownership of ValidatedManifest (not Clone).
         self.broker.register_plugin(manifest)?;
-        self.emit(
-            plugin_id.clone(),
-            effective_tier,
-            LifecyclePhase::Registered,
-        );
+        self.emit(&plugin_id, effective_tier, LifecyclePhase::Registered);
 
         // ── Step 4: Host ─────────────────────────────────────────────────────
         // On failure, roll back the broker registration so no partial state
@@ -219,7 +222,7 @@ impl Kernel {
                 return Err(e.into());
             }
         };
-        self.emit(plugin_id.clone(), effective_tier, LifecyclePhase::Loaded);
+        self.emit(&plugin_id, effective_tier, LifecyclePhase::Loaded);
 
         // ── Bookkeeping ───────────────────────────────────────────────────────
         // A concurrent load of the same id would have failed at broker
@@ -261,9 +264,9 @@ impl Kernel {
             (record.plugin.clone(), record.effective_tier)
         };
 
-        self.emit(plugin_id.clone(), effective_tier, LifecyclePhase::Activated);
+        self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
         let result = plugin.run_one_shot(&self.engine, input, timeout_ms).await;
-        self.emit(plugin_id.clone(), effective_tier, LifecyclePhase::Idled);
+        self.emit(plugin_id, effective_tier, LifecyclePhase::Idled);
 
         Ok(result?.output)
     }
@@ -343,11 +346,7 @@ impl Kernel {
             .remove(plugin)
             .ok_or_else(|| RuntimeError::NotLoaded(plugin.clone()))?;
         self.broker.unregister_plugin(plugin)?;
-        self.emit(
-            plugin.clone(),
-            record.effective_tier,
-            LifecyclePhase::Unloaded,
-        );
+        self.emit(plugin, record.effective_tier, LifecyclePhase::Unloaded);
         Ok(())
     }
 
@@ -365,17 +364,27 @@ impl Kernel {
 
     // ── private ──────────────────────────────────────────────────────────────
 
-    fn emit(&self, plugin: PluginId, effective_tier: Tier, phase: LifecyclePhase) {
+    fn emit(&self, plugin: &PluginId, effective_tier: Tier, phase: LifecyclePhase) {
+        // Lifecycle events are best-effort: with nobody subscribed, `publish`
+        // can only fail with `NoSubscribers` and drop the envelope — after
+        // having cloned the `PluginId`, read the clock and minted a UUID.
+        // `invoke` emits twice per call, so that is pure waste on the hottest
+        // path in the kernel. Checking first is safe precisely because the
+        // event is best-effort *and* because a subscriber that attaches after
+        // this check would not have received the envelope anyway:
+        // `Bus::subscribe` only yields envelopes published after it returns.
+        if self.bus.subscriber_count() == 0 {
+            return;
+        }
         let evt = LifecycleEvent {
-            plugin,
+            plugin: plugin.clone(),
             phase,
             effective_tier,
             at: SystemTime::now(),
         };
-        let topic = Topic::new("runtime.plugin.lifecycle").expect("static topic is valid");
-        let env = Envelope::new(topic, evt);
-        // Ignore "no subscribers" — lifecycle events are best-effort when no
-        // consumer has subscribed yet.
+        // `lifecycle_topic` is built once in `Kernel::new`; re-parsing and
+        // re-validating the same static string on every event is not free.
+        let env = Envelope::new(self.lifecycle_topic.clone(), evt);
         let _ = self.bus.publish(env);
     }
 }

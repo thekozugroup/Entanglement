@@ -11,6 +11,7 @@
 //! persistent subscriber keeps the full history.
 
 use entangle_types::{plugin_id::PluginId, tier::Tier};
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
@@ -43,7 +44,11 @@ pub enum AuditEvent {
         /// The plugin that received the grant.
         plugin: PluginId,
         /// Human-readable capability name (e.g. `"compute.cpu"`).
-        capability: String,
+        ///
+        /// A [`Cow`] so the fieldless capability kinds — which are the ones a
+        /// busy daemon grants over and over — can carry their `&'static str`
+        /// name without a per-event allocation.
+        capability: Cow<'static, str>,
         /// Monotonic grant identifier.
         grant_id: u64,
         /// Wall-clock time of the grant.
@@ -54,9 +59,9 @@ pub enum AuditEvent {
         /// The plugin whose request was denied.
         plugin: PluginId,
         /// Human-readable capability name.
-        capability: String,
+        capability: Cow<'static, str>,
         /// Human-readable denial reason.
-        reason: String,
+        reason: Cow<'static, str>,
         /// Wall-clock time of the denial.
         at: SystemTime,
     },
@@ -65,7 +70,7 @@ pub enum AuditEvent {
         /// The plugin whose grant was released.
         plugin: PluginId,
         /// Human-readable capability name.
-        capability: String,
+        capability: Cow<'static, str>,
         /// The grant identifier that was released.
         grant_id: u64,
         /// Wall-clock time of the release.

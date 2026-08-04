@@ -1495,6 +1495,7 @@ dependencies = [
  "criterion",
  "entangle-broker",
  "entangle-host",
+ "entangle-ipc",
  "entangle-manifest",
  "entangle-pairing",
  "entangle-runtime",
@@ -1502,6 +1503,7 @@ dependencies = [
  "entangle-types",
  "hex",
  "semver",
+ "tempfile",
  "tokio",
  "toml 0.8.23",
 ]

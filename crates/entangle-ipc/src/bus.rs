@@ -74,6 +74,24 @@ impl<T: Clone + Send + Sync + 'static> Bus<T> {
     pub fn publish(&self, env: Envelope<T>) -> Result<usize, IpcError> {
         self.sender.send(env).map_err(|_| IpcError::NoSubscribers)
     }
+
+    /// Number of [`Subscriber`]s currently attached to this bus.
+    ///
+    /// Intended for publishers of best-effort messages: building an
+    /// [`Envelope`] is not free (it mints a UUID and reads the clock), and
+    /// with no subscribers [`Bus::publish`] can only fail with
+    /// [`IpcError::NoSubscribers`] and drop it. Checking first lets such a
+    /// publisher skip the work entirely.
+    ///
+    /// This is a point-in-time observation and is *only* safe to use that way:
+    /// a subscriber may attach the instant after the call returns, but it
+    /// would not have received the skipped envelope regardless, since
+    /// [`Bus::subscribe`] only yields envelopes published after it returns.
+    /// Do **not** use it to decide whether a message that must not be lost can
+    /// be dropped.
+    pub fn subscriber_count(&self) -> usize {
+        self.sender.receiver_count()
+    }
 }
 
 /// A cheaply-cloneable handle to a [`Bus`] that can publish envelopes.
@@ -86,6 +104,13 @@ impl<T: Clone + Send + Sync + 'static> BusHandle<T> {
     /// Publish an envelope through this handle.
     pub fn publish(&self, env: Envelope<T>) -> Result<usize, IpcError> {
         self.sender.send(env).map_err(|_| IpcError::NoSubscribers)
+    }
+
+    /// Number of [`Subscriber`]s currently attached to the underlying bus.
+    ///
+    /// See [`Bus::subscriber_count`] for the (important) caveats.
+    pub fn subscriber_count(&self) -> usize {
+        self.sender.receiver_count()
     }
 }
 
@@ -245,6 +270,33 @@ mod tests {
         assert!(
             matches!(result, Err(IpcError::NoSubscribers)),
             "expected NoSubscribers, got {result:?}"
+        );
+    }
+
+    /// `subscriber_count` must agree with what `publish` will do: zero exactly
+    /// when `publish` would fail with `NoSubscribers`.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn subscriber_count_tracks_live_subscribers() {
+        let bus: Bus<u32> = Bus::new(16);
+        let handle = bus.handle();
+        assert_eq!(bus.subscriber_count(), 0);
+        assert_eq!(handle.subscriber_count(), 0);
+        assert!(bus.publish(Envelope::new(topic("a.b"), 1u32)).is_err());
+
+        let s1 = bus.subscribe();
+        assert_eq!(bus.subscriber_count(), 1);
+        let s2 = bus.subscribe_topic("a.*");
+        assert_eq!(bus.subscriber_count(), 2, "filtered subscribers count too");
+        assert_eq!(handle.subscriber_count(), 2);
+        assert!(bus.publish(Envelope::new(topic("a.b"), 1u32)).is_ok());
+
+        drop(s1);
+        assert_eq!(bus.subscriber_count(), 1);
+        drop(s2);
+        assert_eq!(bus.subscriber_count(), 0);
+        assert!(
+            bus.publish(Envelope::new(topic("a.b"), 1u32)).is_err(),
+            "back to zero → publish fails again"
         );
     }
 
