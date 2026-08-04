@@ -40,7 +40,8 @@ impl entangle::plugin::logging::Host for HostState {
             entangle::plugin::logging::Level::Warn => "warn",
             entangle::plugin::logging::Level::Error => "error",
         };
-        self.log_buffer.push((level_str.to_string(), message));
+        // Enforced cap: see HostState::push_log (MAX_LOG_LINES / MAX_LOG_BYTES).
+        self.push_log(level_str, message);
     }
 }
 

@@ -30,4 +30,13 @@ pub enum HostError {
     /// ENTANGLE-E0505: the plugin's `run` export returned an application-level error.
     #[error("ENTANGLE-E0505: plugin returned error: {0}")]
     PluginReturnedError(String),
+
+    /// ENTANGLE-E0506: the store's resource limiter denied an allocation.
+    ///
+    /// Raised when a plugin exceeds the per-invocation caps configured via
+    /// [`ResourceLimits`](crate::state::ResourceLimits) — linear-memory growth,
+    /// table growth, or the instance/table/memory count limits — either during
+    /// instantiation or mid-execution.
+    #[error("ENTANGLE-E0506: resource limit exceeded: {0}")]
+    ResourceExhausted(anyhow::Error),
 }
