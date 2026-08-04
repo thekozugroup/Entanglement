@@ -94,6 +94,31 @@ wit-parser = "0.245"
 
 # Networking
 mdns-sd = "0.19"
+# Iroh QUIC P2P transport (mesh.iroh, architecture.md §6.1).
+#
+# The 1.0 line, not the 0.95 line the scaffold's docs guessed at, for two
+# reasons:
+#   * 0.95.1 hard-pins `ed25519-dalek = "=3.0.0-pre.1"`, which no longer
+#     compiles against the released `ed25519 3.0.0` support crate it floats
+#     onto (`pkcs8::Error::KeyMalformed` changed from a unit to a tuple
+#     variant). Fixing that needs an `=` pin on a transitive pre-release.
+#     iroh 1.0 depends on `ed25519-dalek >=3.0.0-rc.0` and resolves onto the
+#     released 3.0.0.
+#   * 1.0 is the stable API; 0.95 is pre-1.0 churn.
+#
+# Caveat: iroh 1.0 declares `rust-version = "1.91"`, above this workspace's
+# `workspace.package.rust-version = "1.85"`. That is safe here because
+# `rust-toolchain.toml` pins the toolchain to 1.91, but it does mean
+# `entangle-mesh-iroh` (alone among the crates) cannot build on 1.85.
+#
+# `default-features = false` + `tls-ring` drops `metrics` and the aws-lc-rs
+# crypto backend (ring builds faster and has no C toolchain requirement);
+# `portmapper` is kept because NAT-PMP/PCP/UPnP port mapping is load-bearing
+# for the WAN hole-punching this transport exists to do.
+iroh = { version = "1.0", default-features = false, features = [
+    "tls-ring",
+    "portmapper",
+] }
 
 # CLI extras
 directories = "5"
@@ -118,6 +143,7 @@ entangle-core = { path = "crates/entangle-core" }
 entangle-runtime = { path = "crates/entangle-runtime" }
 entangle-sdk = { path = "crates/entangle-sdk" }
 entangle-mesh-local = { path = "crates/entangle-mesh-local" }
+entangle-mesh-iroh = { path = "crates/entangle-mesh-iroh" }
 entangle-oci = { path = "crates/entangle-oci" }
 entangle-rpc = { path = "crates/entangle-rpc" }
 entangle-peers = { path = "crates/entangle-peers" }

@@ -1,6 +1,6 @@
 [package]
 name = "entangle-mesh-iroh"
-description = "WAN Iroh-QUIC mesh transport for Entanglement (scaffold; real wiring is Phase 2)"
+description = "WAN Iroh-QUIC mesh transport for Entanglement: identity-bound, length-framed request/response over QUIC"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,8 +14,14 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 entangle-types = { workspace = true }
+entangle-signing = { workspace = true }
+iroh = { workspace = true }
+async-trait = { workspace = true }
+ed25519-dalek = { workspace = true }
+hex = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "rt", "time", "macros"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["full"] }
