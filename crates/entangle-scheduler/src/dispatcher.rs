@@ -20,6 +20,28 @@ pub enum DispatchError {
     /// The local kernel returned an error during invocation.
     #[error("local kernel error: {0}")]
     Runtime(#[from] entangle_runtime::RuntimeError),
+    /// The task's `input` payload exceeded its declared `max_input_bytes`.
+    ///
+    /// Rejected before placement or invocation so an oversized request never
+    /// reaches the kernel — the ingress-side mirror of the `ENTANGLE-E0300`
+    /// output-size guard.
+    #[error(
+        "ENTANGLE-E0401: input exceeds max_input_bytes \
+         (declared {declared}, actual {actual})"
+    )]
+    InputSizeExceeded {
+        /// The `max_input_bytes` limit declared in the task.
+        declared: u64,
+        /// The actual size of the supplied input, in bytes.
+        actual: u64,
+    },
+    /// The produced output exceeded the task's declared `max_output_bytes`.
+    ///
+    /// Reuses the canonical `ENTANGLE-E0300`
+    /// [`EntangleError::OutputSizeExceeded`](entangle_types::errors::EntangleError::OutputSizeExceeded)
+    /// semantics.
+    #[error("{0}")]
+    OutputSizeExceeded(entangle_types::errors::EntangleError),
     /// Cross-node dispatch is not yet implemented (Phase 2).
     ///
     /// Carries the chosen peer + human-readable placement reason so callers
@@ -96,6 +118,16 @@ impl Dispatcher {
         &self,
         task: OneShotTask,
     ) -> Result<DispatchResult, DispatchError> {
+        // Reject an oversized input before doing any placement or execution
+        // work — an oversized request must never reach the kernel.
+        let input_len = task.input.len() as u64;
+        if input_len > task.max_input_bytes {
+            return Err(DispatchError::InputSizeExceeded {
+                declared: task.max_input_bytes,
+                actual: input_len,
+            });
+        }
+
         let live = self.workers.live(self.worker_ttl);
 
         let chosen = choose(&live, &task.resources).or_else(|e| {
@@ -127,10 +159,25 @@ impl Dispatcher {
             );
         }
 
+        // Enforce the task's integrity policy (spec §7.5): Deterministic
+        // replicas, TrustedExecutor allowlists, and the NotImplemented
+        // policies are all honoured here instead of being silently dropped.
         let output = self
             .kernel
-            .invoke(&task.plugin, &task.input, task.timeout_ms)
+            .invoke_with_integrity(&task, self.local_peer_id)
             .await?;
+
+        // Reject an oversized output (ENTANGLE-E0300) before returning it.
+        let output_len = output.len() as u64;
+        if output_len > task.max_output_bytes {
+            return Err(DispatchError::OutputSizeExceeded(
+                entangle_types::errors::EntangleError::OutputSizeExceeded {
+                    declared: task.max_output_bytes,
+                    actual: output_len,
+                    peer: self.local_peer_id.to_hex(),
+                },
+            ));
+        }
 
         Ok(DispatchResult { chosen, output })
     }
