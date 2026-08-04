@@ -3,6 +3,9 @@ target/
 dist/
 node_modules/
 
+# Claude Code agent worktrees (ephemeral, per-session isolation)
+.claude/worktrees/
+
 # Runtime data (Entanglement)
 .entangle/
 *.key
