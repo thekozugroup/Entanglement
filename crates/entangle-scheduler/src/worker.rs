@@ -35,23 +35,100 @@ pub struct WorkerInfo {
     pub cost: f32,
 }
 
+/// Reasons a [`WorkerInfo`] advertisement fails validation.
+///
+/// Advertisements arrive from untrusted sources (e.g. unauthenticated mDNS),
+/// so numeric fields parsed off the wire may be `NaN`, infinite, or negative.
+/// [`WorkerInfo::validate`] rejects such adverts before they can reach the
+/// placement scorer.
+#[derive(Clone, Debug, PartialEq, thiserror::Error)]
+pub enum WorkerValidationError {
+    /// `cpu_cores` was not a finite, non-negative number.
+    #[error("cpu_cores must be finite and non-negative, got {0}")]
+    CpuCores(f32),
+    /// `cost` was not a finite, non-negative number.
+    #[error("cost must be finite and non-negative, got {0}")]
+    Cost(f32),
+    /// `load` was not a finite number.
+    #[error("load must be finite, got {0}")]
+    Load(f32),
+}
+
+impl WorkerInfo {
+    /// Validate that the advertised numeric fields are well-formed.
+    ///
+    /// `cpu_cores` and `cost` must be finite and non-negative; `load` must be
+    /// finite. This is the gate that keeps poisoned adverts (`NaN`/`inf`,
+    /// parsed from an unauthenticated mDNS packet) out of the pool and away
+    /// from [`choose`](crate::placement::choose).
+    pub fn validate(&self) -> Result<(), WorkerValidationError> {
+        if !self.cpu_cores.is_finite() || self.cpu_cores < 0.0 {
+            return Err(WorkerValidationError::CpuCores(self.cpu_cores));
+        }
+        if !self.cost.is_finite() || self.cost < 0.0 {
+            return Err(WorkerValidationError::Cost(self.cost));
+        }
+        if !self.load.is_finite() {
+            return Err(WorkerValidationError::Load(self.load));
+        }
+        Ok(())
+    }
+}
+
 /// Worker pool with TTL-based liveness.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct WorkerPool {
     inner: Arc<RwLock<HashMap<PeerId, (WorkerInfo, Instant)>>>,
+    /// Hard cap on the number of distinct workers retained. Prevents an
+    /// unauthenticated peer from flooding the pool with fresh identities.
+    max_workers: usize,
+}
+
+impl Default for WorkerPool {
+    fn default() -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(HashMap::new())),
+            max_workers: Self::DEFAULT_MAX_WORKERS,
+        }
+    }
 }
 
 impl WorkerPool {
-    /// Create a new empty pool.
+    /// Default cap on the number of distinct workers retained.
+    pub const DEFAULT_MAX_WORKERS: usize = 4096;
+
+    /// Create a new empty pool with the default [`Self::DEFAULT_MAX_WORKERS`] cap.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Insert/refresh a worker. The TTL clock resets on every call.
-    pub fn upsert(&self, info: WorkerInfo) {
-        self.inner
-            .write()
-            .insert(info.peer_id, (info, Instant::now()));
+    /// Create an empty pool with a custom `max_workers` cap.
+    pub fn with_max_workers(max_workers: usize) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(HashMap::new())),
+            max_workers,
+        }
+    }
+
+    /// Insert or refresh a worker, returning whether the pool was updated.
+    ///
+    /// Returns `false` (making no change) when either:
+    /// - `info` fails [`WorkerInfo::validate`] (poisoned `NaN`/`inf`/negative
+    ///   fields), or
+    /// - inserting a **new** peer would exceed the pool's `max_workers` cap.
+    ///
+    /// Refreshing an already-known peer is always permitted, even at the cap.
+    /// The TTL clock resets on every successful call.
+    pub fn upsert(&self, info: WorkerInfo) -> bool {
+        if info.validate().is_err() {
+            return false;
+        }
+        let mut guard = self.inner.write();
+        if !guard.contains_key(&info.peer_id) && guard.len() >= self.max_workers {
+            return false;
+        }
+        guard.insert(info.peer_id, (info, Instant::now()));
+        true
     }
 
     /// Remove a worker (peer revoked, network gone, etc.).
@@ -60,6 +137,10 @@ impl WorkerPool {
     }
 
     /// Return all workers whose last update was within `ttl`.
+    ///
+    /// This is the **placement view**: [`choose`](crate::placement::choose)
+    /// runs against this TTL-filtered slice, not the full set counted by
+    /// [`WorkerPool::len`].
     pub fn live(&self, ttl: Duration) -> Vec<WorkerInfo> {
         let now = Instant::now();
         self.inner
@@ -70,12 +151,17 @@ impl WorkerPool {
             .collect()
     }
 
-    /// Number of workers in the pool (including expired).
+    /// Number of workers currently retained, **including entries that have
+    /// expired but not yet been pruned** by [`WorkerPool::remove_stale`].
+    ///
+    /// For the set eligible for placement, use [`WorkerPool::live`].
     pub fn len(&self) -> usize {
         self.inner.read().len()
     }
 
-    /// Whether the pool is empty.
+    /// Whether the pool holds no workers at all (expired or not).
+    ///
+    /// See [`WorkerPool::len`]; the placement view is [`WorkerPool::live`].
     pub fn is_empty(&self) -> bool {
         self.inner.read().is_empty()
     }
@@ -176,6 +262,70 @@ mod tests {
         // Long TTL — should appear.
         let live = pool.live(Duration::from_secs(3600));
         assert_eq!(live.len(), 1);
+    }
+
+    #[test]
+    fn validate_flags_poisoned_numeric_fields() {
+        assert!(make_worker(make_peer(1)).validate().is_ok());
+
+        let mut nan_cpu = make_worker(make_peer(1));
+        nan_cpu.cpu_cores = f32::NAN;
+        assert!(matches!(
+            nan_cpu.validate(),
+            Err(WorkerValidationError::CpuCores(_))
+        ));
+
+        let mut neg_cpu = make_worker(make_peer(1));
+        neg_cpu.cpu_cores = -1.0;
+        assert!(matches!(
+            neg_cpu.validate(),
+            Err(WorkerValidationError::CpuCores(_))
+        ));
+
+        let mut inf_cost = make_worker(make_peer(1));
+        inf_cost.cost = f32::INFINITY;
+        assert!(matches!(
+            inf_cost.validate(),
+            Err(WorkerValidationError::Cost(_))
+        ));
+
+        let mut nan_load = make_worker(make_peer(1));
+        nan_load.load = f32::NAN;
+        assert!(matches!(
+            nan_load.validate(),
+            Err(WorkerValidationError::Load(_))
+        ));
+    }
+
+    #[test]
+    fn upsert_rejects_poisoned_worker() {
+        let pool = WorkerPool::new();
+        let mut poisoned = make_worker(make_peer(1));
+        poisoned.cpu_cores = f32::NAN;
+        assert!(
+            !pool.upsert(poisoned),
+            "NaN-cpu advert must be rejected by upsert"
+        );
+        assert!(pool.is_empty(), "rejected advert must not enter the pool");
+    }
+
+    #[test]
+    fn upsert_enforces_max_workers_cap() {
+        let pool = WorkerPool::with_max_workers(2);
+        assert!(pool.upsert(make_worker(make_peer(1))));
+        assert!(pool.upsert(make_worker(make_peer(2))));
+        // A third *distinct* peer exceeds the cap and is refused.
+        assert!(
+            !pool.upsert(make_worker(make_peer(3))),
+            "new peer beyond the cap must be rejected"
+        );
+        assert_eq!(pool.len(), 2);
+        // Refreshing an already-known peer is still allowed at the cap.
+        assert!(
+            pool.upsert(make_worker(make_peer(1))),
+            "refresh of a known peer must succeed even at the cap"
+        );
+        assert_eq!(pool.len(), 2);
     }
 
     /// Wire-format roundtrip: every `WorkerInfo` field survives JSON serde.

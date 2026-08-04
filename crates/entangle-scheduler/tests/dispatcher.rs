@@ -3,7 +3,11 @@
 use entangle_runtime::{Kernel, KernelConfig};
 use entangle_scheduler::{DispatchError, Dispatcher, WorkerInfo, WorkerPool};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
-use entangle_types::{peer_id::PeerId, resource::ResourceSpec, task::OneShotTask};
+use entangle_types::{
+    peer_id::PeerId,
+    resource::ResourceSpec,
+    task::{IntegrityPolicy, OneShotTask},
+};
 use std::sync::Arc;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -170,4 +174,138 @@ async fn strict_remote_returns_not_implemented_when_placement_picks_remote_peer(
         }
         other => panic!("expected RemoteNotImplemented, got: {other:?}"),
     }
+}
+
+// ── integrity + size-limit enforcement ────────────────────────────────────────
+
+/// Build a dispatcher over an empty pool and a plugin-less kernel. Suitable for
+/// tests whose integrity/size checks fire *before* any plugin invocation
+/// (empty pool + zero-resource task ⇒ local fallback ⇒ `invoke_with_integrity`).
+fn empty_dispatcher(keypair: &IdentityKeyPair) -> Dispatcher {
+    let keyring = build_keyring(keypair);
+    let kernel = Arc::new(Kernel::new(KernelConfig::default(), keyring).expect("kernel"));
+    Dispatcher::new(WorkerPool::new(), kernel, local_peer())
+}
+
+fn nothing_plugin_id(keypair: &IdentityKeyPair) -> entangle_types::plugin_id::PluginId {
+    format!("{}/nothing@0.1.0", keypair.fingerprint_hex())
+        .parse()
+        .expect("parse plugin id")
+}
+
+/// A `TrustedExecutor` policy whose allowlist omits the local peer must refuse
+/// execution with the stable `ENTANGLE-E0303` code — the integrity gate the
+/// dispatcher previously dropped entirely.
+#[tokio::test]
+async fn trusted_executor_empty_allowlist_refused_e0303() {
+    let keypair = IdentityKeyPair::generate();
+    let dispatcher = empty_dispatcher(&keypair);
+
+    let mut task = OneShotTask::with_defaults(nothing_plugin_id(&keypair), b"x".to_vec());
+    task.integrity = IntegrityPolicy::TrustedExecutor { allowlist: vec![] };
+
+    let err = dispatcher
+        .dispatch_one_shot(task)
+        .await
+        .expect_err("empty allowlist must refuse the local peer");
+    assert!(
+        matches!(err, DispatchError::Runtime(_)),
+        "expected Runtime(integrity), got: {err:?}"
+    );
+    assert!(
+        err.to_string().contains("ENTANGLE-E0303"),
+        "error must carry stable ENTANGLE-E0303 code; got: {err}"
+    );
+}
+
+/// `Attested` integrity is not implemented in Phase 1; the dispatcher must
+/// surface the stable `ENTANGLE-E0304` NotImplemented error rather than execute.
+#[tokio::test]
+async fn attested_policy_returns_e0304_not_implemented() {
+    let keypair = IdentityKeyPair::generate();
+    let dispatcher = empty_dispatcher(&keypair);
+
+    let mut task = OneShotTask::with_defaults(nothing_plugin_id(&keypair), b"x".to_vec());
+    task.integrity = IntegrityPolicy::Attested { tee: "sgx".into() };
+
+    let err = dispatcher
+        .dispatch_one_shot(task)
+        .await
+        .expect_err("Attested must not execute in Phase 1");
+    assert!(
+        err.to_string().contains("ENTANGLE-E0304"),
+        "error must carry stable ENTANGLE-E0304 code; got: {err}"
+    );
+}
+
+/// An input larger than `max_input_bytes` is rejected up front, before any
+/// placement or kernel invocation.
+#[tokio::test]
+async fn oversized_input_is_rejected() {
+    let keypair = IdentityKeyPair::generate();
+    let dispatcher = empty_dispatcher(&keypair);
+
+    let mut task =
+        OneShotTask::with_defaults(nothing_plugin_id(&keypair), b"way too long".to_vec());
+    task.max_input_bytes = 3;
+
+    let err = dispatcher
+        .dispatch_one_shot(task)
+        .await
+        .expect_err("oversized input must be rejected");
+    match err {
+        DispatchError::InputSizeExceeded { declared, actual } => {
+            assert_eq!(declared, 3);
+            assert_eq!(actual, "way too long".len() as u64);
+        }
+        other => panic!("expected InputSizeExceeded, got: {other:?}"),
+    }
+}
+
+/// An output larger than `max_output_bytes` is rejected with the canonical
+/// `ENTANGLE-E0300` semantics. Uses the hello-pong fixture, which echoes
+/// "Hello, <input>!".
+#[tokio::test]
+async fn oversized_output_is_rejected_e0300() {
+    let wasm = match std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../crates/entangle-host/tests/fixtures/hello-pong.wasm"
+    )) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("hello-pong.wasm not found ({e}); skipping test");
+            return;
+        }
+    };
+
+    let keypair = IdentityKeyPair::generate();
+    let keyring = build_keyring(&keypair);
+    let dir = tempfile::tempdir().expect("tempdir");
+    let plugin_id_str = write_plugin_package(dir.path(), &keypair, &wasm);
+    let plugin_id: entangle_types::plugin_id::PluginId =
+        plugin_id_str.parse().expect("parse plugin id");
+
+    let kernel = Arc::new(Kernel::new(KernelConfig::default(), keyring).expect("kernel"));
+    kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect("load ok");
+
+    let dispatcher = Dispatcher::new(WorkerPool::new(), kernel, local_peer());
+
+    let mut task = OneShotTask::with_defaults(plugin_id, b"world".to_vec());
+    task.max_output_bytes = 4; // "Hello, world!" (13 bytes) exceeds this.
+
+    let err = dispatcher
+        .dispatch_one_shot(task)
+        .await
+        .expect_err("oversized output must be rejected");
+    assert!(
+        matches!(err, DispatchError::OutputSizeExceeded(_)),
+        "expected OutputSizeExceeded, got: {err:?}"
+    );
+    assert!(
+        err.to_string().contains("ENTANGLE-E0300"),
+        "error must carry stable ENTANGLE-E0300 code; got: {err}"
+    );
 }

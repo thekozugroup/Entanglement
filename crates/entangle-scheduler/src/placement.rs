@@ -13,6 +13,8 @@
 //! - `load` = current load reported by worker.
 //! - `cost` = relative cost factor.
 
+use std::cmp::Ordering;
+
 use crate::worker::WorkerInfo;
 use entangle_types::peer_id::PeerId;
 use entangle_types::resource::{GpuBackend, ResourceSpec};
@@ -75,18 +77,47 @@ pub fn choose(
             } else {
                 (w.network_bandwidth_bps as f32 / spec.network_bandwidth_bps as f32).min(1.0)
             };
-            let load_term = (1.0 - w.load).max(0.0);
+            // A poisoned advert can carry a non-finite `load` (e.g. "NaN"/"inf"
+            // parsed from an unauthenticated mDNS packet). `f32::clamp` returns
+            // NaN for a NaN input, so guard on `is_finite` first and treat a
+            // non-finite load as fully-saturated (worst) rather than trusting it.
+            let load_term = if w.load.is_finite() {
+                (1.0 - w.load).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            // Clamp `cost` at 0 so a negative (or NaN) cost cannot turn the
+            // `- w_cost * cost` penalty into an unbounded score *bonus*.
+            let cost = w.cost.max(0.0);
             let score =
-                w_fit * fit + w_local * locality + w_bw * bw + w_load * load_term - w_cost * w.cost;
+                w_fit * fit + w_local * locality + w_bw * bw + w_load * load_term - w_cost * cost;
             (score, w)
         })
         .collect();
 
-    let (top_score, top_worker) = scored
+    // Select the highest score using `total_cmp` (a total order over f32 that
+    // never collapses to `Equal` the way `partial_cmp().unwrap_or(Equal)` does),
+    // with a deterministic tie-break on `peer_id` so identical workers always
+    // yield the same, lowest-`peer_id` winner regardless of pool iteration
+    // order. Non-finite scores are filtered out first; if that leaves nothing,
+    // placement fails *closed* with `NoMatch`.
+    let best = scored
         .iter()
-        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
-        .copied()
-        .expect("candidates is non-empty");
+        .filter(|(score, _)| score.is_finite())
+        .max_by(|a, b| {
+            a.0.total_cmp(&b.0)
+                .then_with(|| b.1.peer_id.cmp(&a.1.peer_id))
+        })
+        .copied();
+
+    let (top_score, top_worker) = match best {
+        Some(pair) => pair,
+        None => {
+            return Err(PlacementError::NoMatch(format!(
+                "all candidate scores non-finite: {spec:?}"
+            )))
+        }
+    };
 
     Ok(PlacementChoice {
         peer_id: top_worker.peer_id,
@@ -100,7 +131,14 @@ pub fn choose(
 
 /// Returns `true` if `w` meets all hard resource constraints in `spec`.
 fn satisfies(w: &WorkerInfo, spec: &ResourceSpec) -> bool {
-    if w.cpu_cores < spec.cpu_cores {
+    // Reject the worker unless `cpu_cores` is strictly comparable AND at least
+    // `spec.cpu_cores`. `partial_cmp` returns `None` for a NaN `cpu_cores`, which
+    // fails the `matches!` and rejects the worker — the incomparable case is made
+    // explicit rather than hidden inside a negated float comparison.
+    if !matches!(
+        w.cpu_cores.partial_cmp(&spec.cpu_cores),
+        Some(Ordering::Greater | Ordering::Equal)
+    ) {
         return false;
     }
     if w.memory_bytes < spec.memory_bytes {
@@ -452,5 +490,95 @@ mod tests {
     fn choose_no_workers_returns_no_workers_error() {
         let err = choose(&[], &basic_spec()).expect_err("empty pool must NoWorkers");
         assert!(matches!(err, PlacementError::NoWorkers));
+    }
+
+    #[test]
+    fn choose_filters_nan_cpu_worker() {
+        // A worker advertising `cpu_cores = NaN` (reachable via an
+        // unauthenticated mDNS parse of "NaN") must be filtered out, not slip
+        // through the CPU constraint because every comparison against NaN is
+        // false.
+        let p_nan = peer(1);
+        let p_ok = peer(2);
+        let workers = vec![
+            worker(
+                p_nan,
+                1,
+                0.0,
+                f32::NAN,
+                8 * 1024 * 1024 * 1024,
+                None,
+                None,
+                1.0,
+            ),
+            worker(p_ok, 1, 0.0, 4.0, 8 * 1024 * 1024 * 1024, None, None, 1.0),
+        ];
+        let pick = choose(&workers, &basic_spec()).unwrap();
+        assert_eq!(pick.peer_id, p_ok, "NaN-cpu worker must be filtered out");
+
+        // When the NaN worker is the *only* candidate, placement fails closed.
+        let only_nan = vec![worker(
+            p_nan,
+            1,
+            0.0,
+            f32::NAN,
+            8 * 1024 * 1024 * 1024,
+            None,
+            None,
+            1.0,
+        )];
+        assert!(matches!(
+            choose(&only_nan, &basic_spec()),
+            Err(PlacementError::NoMatch(_))
+        ));
+    }
+
+    #[test]
+    fn choose_poisoned_worker_cannot_outrank_honest() {
+        // Poisoned advert: non-finite `load` and hugely-negative `cost` — the
+        // values an unauthenticated mDNS packet can inject. Give the poisoned
+        // worker the *lower* peer_id so a broken tie-break would hand it the
+        // win; correct guards must still pick the honest worker on score.
+        let honest = peer(1);
+        let poison = peer(2);
+        let workers = vec![
+            worker(honest, 1, 0.1, 4.0, 8 * 1024 * 1024 * 1024, None, None, 1.0),
+            // NaN load ⇒ load_term 0 (worst); negative cost ⇒ clamped to 0
+            // (no bonus). It cannot beat an honest, lightly-loaded node.
+            worker(
+                poison,
+                1,
+                f32::NAN,
+                4.0,
+                8 * 1024 * 1024 * 1024,
+                None,
+                None,
+                -1000.0,
+            ),
+        ];
+        let pick = choose(&workers, &basic_spec()).unwrap();
+        assert_eq!(
+            pick.peer_id, honest,
+            "poisoned load/cost advert must not outrank an honest worker"
+        );
+    }
+
+    #[test]
+    fn choose_is_stable_lowest_peer_id_on_tie() {
+        // Two byte-for-byte identical workers must yield the *same* winner —
+        // the lowest peer_id — no matter what order the pool hands them over.
+        let p1 = peer(1);
+        let p2 = peer(2);
+        let lowest = p1.min(p2);
+        let w1 = worker(p1, 1, 0.1, 4.0, 8 * 1024 * 1024 * 1024, None, None, 1.0);
+        let w2 = worker(p2, 1, 0.1, 4.0, 8 * 1024 * 1024 * 1024, None, None, 1.0);
+
+        let forward = choose(&[w1.clone(), w2.clone()], &basic_spec()).unwrap();
+        let reversed = choose(&[w2, w1], &basic_spec()).unwrap();
+        assert_eq!(forward.peer_id, lowest);
+        assert_eq!(
+            reversed.peer_id, lowest,
+            "tie-break must be order-independent (lowest peer_id wins)"
+        );
     }
 }

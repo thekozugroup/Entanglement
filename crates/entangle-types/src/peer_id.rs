@@ -9,7 +9,9 @@ use std::fmt;
 /// # Construction
 /// Use [`PeerId::from_public_key_bytes`] to derive from a raw key, or
 /// [`PeerId::from_hex`] to parse a 32-char lowercase hex string.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct PeerId([u8; 16]);
 
 /// Error returned when parsing a [`PeerId`] from a hex string fails.
