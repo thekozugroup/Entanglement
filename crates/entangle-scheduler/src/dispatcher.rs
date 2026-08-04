@@ -1,9 +1,14 @@
-//! Local dispatcher (Phase 1: in-process only).
+//! Task dispatcher: place a task, then run it — here or on another machine.
 //!
-//! Phase 2 will add cross-node dispatch via Iroh streams with biscuit token verification.
+//! Local execution goes straight to the in-process [`Kernel`]. Remote
+//! execution is delegated to [`RemoteDispatch`], which is **optional**: a
+//! dispatcher without one behaves exactly as it did before cross-node
+//! dispatch existed, governed by [`Dispatcher::strict_remote`].
 
 use crate::{
     placement::{choose, PlacementChoice, PlacementError},
+    remote::RemoteDispatch,
+    wire::RemoteErrorCode,
     worker::WorkerPool,
 };
 use entangle_runtime::Kernel;
@@ -42,19 +47,49 @@ pub enum DispatchError {
     /// semantics.
     #[error("{0}")]
     OutputSizeExceeded(entangle_types::errors::EntangleError),
-    /// Cross-node dispatch is not yet implemented (Phase 2).
+    /// Placement chose a remote peer but this dispatcher has no transport
+    /// configured, and `strict_remote` forbids the silent local fallback.
     ///
     /// Carries the chosen peer + human-readable placement reason so callers
     /// can surface a useful message without re-running placement.
     #[error(
-        "ENTANGLE-E0400: remote dispatch not implemented yet (Phase 2); \
+        "ENTANGLE-E0400: remote dispatch not available (no mesh transport configured); \
          placement chose peer {peer} ({reason})"
     )]
     RemoteNotImplemented {
-        /// The peer placement chose; left unreached in Phase 1.
+        /// The peer placement chose but could not be reached.
         peer: PeerId,
         /// Human-readable placement reason (from `PlacementChoice::reason`).
         reason: String,
+    },
+    /// The task never reached the chosen peer, or its answer never came back
+    /// intelligibly: unknown address, dial failure, deadline exceeded, or a
+    /// malformed / wrong-version response frame.
+    ///
+    /// Distinct from [`DispatchError::RemoteRejected`] on purpose: this means
+    /// *we could not talk to them*, which is a retry-elsewhere condition,
+    /// whereas a rejection means the peer answered and declined.
+    #[error("ENTANGLE-E0402: remote dispatch to peer {peer} failed: {reason}")]
+    RemoteTransport {
+        /// The peer that could not be reached or understood.
+        peer: PeerId,
+        /// Underlying transport or wire failure, rendered as text.
+        reason: String,
+    },
+    /// The chosen peer answered, and declined to produce output.
+    ///
+    /// `code` is the peer's own machine-readable reason — notably
+    /// [`RemoteErrorCode::NotAuthorized`] when this node is not in that
+    /// peer's trusted allowlist. `message` is untrusted diagnostic text:
+    /// display it, never parse it.
+    #[error("ENTANGLE-E0403: peer {peer} rejected the task ({code}): {message}")]
+    RemoteRejected {
+        /// The peer that rejected the task.
+        peer: PeerId,
+        /// The peer's machine-readable reason.
+        code: RemoteErrorCode,
+        /// The peer's human-readable detail.
+        message: String,
     },
 }
 
@@ -67,32 +102,40 @@ pub struct DispatchResult {
     pub output: Vec<u8>,
 }
 
-/// In-process task dispatcher backed by the local [`Kernel`].
+/// Task dispatcher backed by the local [`Kernel`] and, optionally, a mesh
+/// transport for tasks that placement sends to another machine.
 #[derive(Clone)]
 pub struct Dispatcher {
     workers: WorkerPool,
     kernel: Arc<Kernel>,
     /// Local peer id — if placement chooses this peer, run in-process.
     local_peer_id: PeerId,
+    /// Cross-node dispatch client. `None` — the default — means this node has
+    /// no mesh transport configured and behaves exactly as a local-only node.
+    remote: Option<Arc<RemoteDispatch>>,
     /// TTL for considering a worker live.
     pub worker_ttl: Duration,
     /// When true, refuse to silently fall back to local execution when
-    /// placement chooses a remote peer; instead, return
-    /// [`DispatchError::RemoteNotImplemented`].
+    /// placement chooses a remote peer that cannot be reached; instead,
+    /// return [`DispatchError::RemoteNotImplemented`].
     ///
-    /// Phase 1 default is `false` for backwards compatibility with the
-    /// single-host demo; Phase 2 will flip this to `true` once cross-node
-    /// dispatch is wired.
+    /// Only consulted when no transport is configured: with a transport, a
+    /// remote placement really does go remote and its failures are reported
+    /// as themselves rather than being masked by a local re-run.
     pub strict_remote: bool,
 }
 
 impl Dispatcher {
-    /// Create a new dispatcher.
+    /// Create a new local-only dispatcher.
+    ///
+    /// Attach [`Dispatcher::with_remote`] to let remote placements actually
+    /// execute on the chosen peer.
     pub fn new(workers: WorkerPool, kernel: Arc<Kernel>, local_peer_id: PeerId) -> Self {
         Self {
             workers,
             kernel,
             local_peer_id,
+            remote: None,
             worker_ttl: Duration::from_secs(60),
             strict_remote: false,
         }
@@ -100,20 +143,44 @@ impl Dispatcher {
 
     /// Enable strict remote enforcement.
     ///
-    /// In strict mode the dispatcher returns
-    /// [`DispatchError::RemoteNotImplemented`] when placement chooses a
-    /// non-local peer, instead of silently re-running on the local kernel.
+    /// In strict mode a remote placement that cannot be shipped anywhere
+    /// (no transport configured) returns
+    /// [`DispatchError::RemoteNotImplemented`] instead of silently re-running
+    /// on the local kernel.
     pub fn with_strict_remote(mut self, strict: bool) -> Self {
         self.strict_remote = strict;
         self
     }
 
+    /// Attach a cross-node dispatch client.
+    ///
+    /// With one attached, a placement that names a peer other than
+    /// `local_peer_id` is shipped to that peer over the mesh and its output
+    /// returned. Without one, nothing changes for this node.
+    #[must_use]
+    pub fn with_remote(mut self, remote: Arc<RemoteDispatch>) -> Self {
+        self.remote = Some(remote);
+        self
+    }
+
+    /// Whether this dispatcher can execute work on another machine.
+    pub fn has_remote(&self) -> bool {
+        self.remote.is_some()
+    }
+
     /// Dispatch a [`OneShotTask`]: place → run → return output.
     ///
-    /// Phase 1: only LOCAL dispatch is wired. If placement chooses a remote
-    /// peer and `strict_remote` is `false`, execution falls back to the
-    /// local kernel with a warning logged; otherwise [`DispatchError::RemoteNotImplemented`]
-    /// is returned.
+    /// When placement chooses this node, the task runs on the local kernel.
+    /// When it chooses another peer:
+    ///
+    /// * with a transport configured, the task is shipped there and that
+    ///   node's output is returned — failures surface as
+    ///   [`DispatchError::RemoteTransport`] or
+    ///   [`DispatchError::RemoteRejected`];
+    /// * with no transport and `strict_remote` set, the call fails with
+    ///   [`DispatchError::RemoteNotImplemented`];
+    /// * with no transport and `strict_remote` clear, execution falls back to
+    ///   the local kernel with a warning — the historical behaviour.
     pub async fn dispatch_one_shot(
         &self,
         task: OneShotTask,
@@ -147,16 +214,44 @@ impl Dispatcher {
         })?;
 
         if chosen.peer_id != self.local_peer_id {
-            if self.strict_remote {
-                return Err(DispatchError::RemoteNotImplemented {
-                    peer: chosen.peer_id,
-                    reason: chosen.reason.clone(),
-                });
+            match &self.remote {
+                // The real thing: ship the task to the machine placement
+                // picked and return what *it* produced.
+                Some(remote) => {
+                    tracing::debug!(
+                        peer = %chosen.peer_id,
+                        plugin = %task.plugin,
+                        "dispatching task to remote peer"
+                    );
+                    let output = remote.dispatch(&task, chosen.peer_id).await?;
+
+                    // The peer is untrusted: re-check the size limit against
+                    // the task we asked for, naming the peer that broke it.
+                    let output_len = output.len() as u64;
+                    if output_len > task.max_output_bytes {
+                        return Err(DispatchError::OutputSizeExceeded(
+                            entangle_types::errors::EntangleError::OutputSizeExceeded {
+                                declared: task.max_output_bytes,
+                                actual: output_len,
+                                peer: chosen.peer_id.to_hex(),
+                            },
+                        ));
+                    }
+                    return Ok(DispatchResult { chosen, output });
+                }
+                None if self.strict_remote => {
+                    return Err(DispatchError::RemoteNotImplemented {
+                        peer: chosen.peer_id,
+                        reason: chosen.reason.clone(),
+                    });
+                }
+                None => {
+                    tracing::warn!(
+                        ?chosen,
+                        "no mesh transport configured; falling back to local execution"
+                    );
+                }
             }
-            tracing::warn!(
-                ?chosen,
-                "Phase 1 stub: remote dispatch not implemented; falling back to local"
-            );
         }
 
         // Enforce the task's integrity policy (spec §7.5): Deterministic

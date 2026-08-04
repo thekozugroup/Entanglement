@@ -23,6 +23,54 @@ pub struct Config {
     pub mesh: MeshConfig,
     /// Security policy (shared with the CLI schema).
     pub security: SecurityConfig,
+    /// Cross-node scheduler settings (daemon-only section).
+    ///
+    /// Inert unless `[mesh] transports` contains `"iroh"`, so a config
+    /// written by an older CLI — which omits this section entirely — leaves
+    /// the daemon single-machine, exactly as before.
+    pub scheduler: SchedulerConfig,
+}
+
+/// Cross-node scheduler settings (daemon-only).
+///
+/// This section only matters when `"iroh"` appears in `[mesh] transports`.
+/// Turning that on does two things, and both are gated on the peer store:
+/// this node begins **serving** work to peers in its allowlist, and it may
+/// **send** work to the peers listed here.
+///
+/// ```toml
+/// [mesh]
+/// transports = ["local", "iroh"]
+///
+/// [scheduler]
+/// bind = "0.0.0.0:0"
+/// peers = ["<pubkey-hex>@192.0.2.7:41641"]
+/// ```
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SchedulerConfig {
+    /// UDP socket for the scheduler QUIC endpoint. `:0` picks an ephemeral
+    /// port.
+    pub bind: String,
+    /// Long addresses (`<pubkey-hex>@host:port`) of peers this node may
+    /// dispatch work to.
+    ///
+    /// An entry is used only if that peer is *also* trusted in the peer
+    /// store, so listing an address here does not by itself grant anything.
+    pub peers: Vec<String>,
+    /// Whether to allow relay fallback when hole-punching fails. Disable for
+    /// a LAN-only deployment that must never touch third-party relays.
+    pub relay: bool,
+}
+
+impl Default for SchedulerConfig {
+    fn default() -> Self {
+        Self {
+            bind: "0.0.0.0:0".to_owned(),
+            peers: Vec::new(),
+            relay: true,
+        }
+    }
 }
 
 /// Mesh-layer configuration.

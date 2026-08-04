@@ -1517,6 +1517,7 @@ dependencies = [
  "directories",
  "entangle-broker",
  "entangle-manifest",
+ "entangle-mesh-iroh",
  "entangle-mesh-local",
  "entangle-observability",
  "entangle-peers",
@@ -1784,10 +1785,12 @@ name = "entangle-scheduler"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "entangle-mesh-iroh",
  "entangle-runtime",
  "entangle-signing",
  "entangle-types",
  "parking_lot",
+ "postcard",
  "serde",
  "serde_json",
  "tempfile",
