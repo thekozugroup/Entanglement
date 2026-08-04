@@ -45,8 +45,10 @@ fn mint_then_verify_happy_path() {
     let facts = verify(&biscuit, &ctx, "compute.cpu").expect("verify ok");
 
     assert!(
-        facts.capabilities.contains(&"compute.cpu".to_string()),
-        "expected compute.cpu in capabilities"
+        facts
+            .authority_capabilities
+            .contains(&"compute.cpu".to_string()),
+        "expected compute.cpu in authority capabilities"
     );
 }
 
