@@ -16,4 +16,7 @@ pub enum PeerStoreError {
     /// A hex string was malformed.
     #[error("invalid hex: {0}")]
     Hex(String),
+    /// The stored public key does not derive to the recorded peer id.
+    #[error("peer id/key mismatch for {0}")]
+    IdKeyMismatch(String),
 }

@@ -1,3 +1,4 @@
+use crate::errors::PeerStoreError;
 use entangle_types::peer_id::PeerId;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
@@ -46,6 +47,44 @@ impl TrustedPeer {
             last_seen_at: None,
             note: String::new(),
         }
+    }
+
+    /// Create a trusted peer after validating the id/key relationship.
+    ///
+    /// `public_key_hex` must decode to exactly 32 bytes, and the [`PeerId`]
+    /// derived from those bytes must equal `peer_id`. This is the constructor
+    /// the CLI `mesh trust` path should use so an operator cannot record a
+    /// `peer_id`/`public_key` pair that does not actually correspond.
+    ///
+    /// # Errors
+    /// - [`PeerStoreError::Hex`] if the key is not valid hex or is not exactly
+    ///   32 bytes.
+    /// - [`PeerStoreError::IdKeyMismatch`] if the key does not derive to
+    ///   `peer_id`.
+    pub fn new_validated(
+        peer_id: PeerId,
+        public_key_hex: String,
+        display_name: String,
+    ) -> Result<Self, PeerStoreError> {
+        let peer = Self::new(peer_id, public_key_hex, display_name);
+        peer.validate()?;
+        Ok(peer)
+    }
+
+    /// Validate that `public_key_hex` decodes to exactly 32 bytes and that the
+    /// derived [`PeerId`] matches `peer_id`.
+    ///
+    /// Shared by [`Self::new_validated`] and by the store's load path.
+    pub(crate) fn validate(&self) -> Result<(), PeerStoreError> {
+        let bytes = hex::decode(&self.public_key_hex)
+            .map_err(|e| PeerStoreError::Hex(format!("public_key_hex: {e}")))?;
+        let key: [u8; 32] = bytes.as_slice().try_into().map_err(|_| {
+            PeerStoreError::Hex(format!("expected 32-byte key, got {} bytes", bytes.len()))
+        })?;
+        if PeerId::from_public_key_bytes(&key) != self.peer_id {
+            return Err(PeerStoreError::IdKeyMismatch(self.peer_id.to_hex()));
+        }
+        Ok(())
     }
 }
 
@@ -96,5 +135,39 @@ mod tests {
         assert_eq!(p.trust, TrustLevel::Trusted);
         assert!(p.last_seen_at.is_none());
         assert!(p.note.is_empty());
+    }
+
+    #[test]
+    fn new_validated_accepts_matching_pair() {
+        let key = [3u8; 32];
+        let id = PeerId::from_public_key_bytes(&key);
+        let p = TrustedPeer::new_validated(id, hex::encode(key), "ok".into())
+            .expect("matching pair should validate");
+        assert_eq!(p.peer_id, id);
+        assert_eq!(p.trust, TrustLevel::Trusted);
+    }
+
+    #[test]
+    fn new_validated_rejects_mismatched_id_and_key() {
+        let key = [1u8; 32];
+        // Derive an id from a *different* key so it cannot match.
+        let wrong_id = PeerId::from_public_key_bytes(&[2u8; 32]);
+        let res = TrustedPeer::new_validated(wrong_id, hex::encode(key), "bad".into());
+        assert!(matches!(res, Err(PeerStoreError::IdKeyMismatch(_))));
+    }
+
+    #[test]
+    fn new_validated_rejects_wrong_length_key() {
+        let id = PeerId::from_public_key_bytes(&[4u8; 32]);
+        // 16-byte key -> not 32 bytes.
+        let res = TrustedPeer::new_validated(id, hex::encode([4u8; 16]), "short".into());
+        assert!(matches!(res, Err(PeerStoreError::Hex(_))));
+    }
+
+    #[test]
+    fn new_validated_rejects_non_hex_key() {
+        let id = PeerId::from_public_key_bytes(&[5u8; 32]);
+        let res = TrustedPeer::new_validated(id, "nothex!!".into(), "bad".into());
+        assert!(matches!(res, Err(PeerStoreError::Hex(_))));
     }
 }
