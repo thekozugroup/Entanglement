@@ -4,7 +4,7 @@ A snapshot of what's implemented vs. deferred for the Entanglement runtime
 as of the current `main` commit. Reflects the post-80-iter sprint
 state — see `.iterations/LOG.md` for what each iteration changed.
 
-**Build health (post-sprint-2):** 321 tests pass · 0 fail · 28 ignored ·
+**Build health (post-sprint-2):** 414 tests pass · 0 fail · 27 ignored ·
 `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
 and `RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps` are all
 clean on Rust 1.91.
@@ -44,8 +44,8 @@ clean on Rust 1.91.
 
 ## Tests
 
-- 321 unit / integration tests passing.
-- 28 ignored (Phase-2 enforcement, fixture-dependent, or single-threaded).
+- 414 unit / integration tests passing.
+- 27 ignored (Phase-2 enforcement, fixture-dependent, or single-threaded).
 - `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo doc --workspace --no-deps -- -D warnings` all clean.
 - `cargo deny` runs in CI on every PR (advisories / bans / licenses / sources).
 - `cargo audit` clean as of the latest `cargo update`.
@@ -111,4 +111,5 @@ clean on Rust 1.91.
 - [`README.md`](README.md) — portfolio narrative.
 - [`docs/architecture.md`](docs/architecture.md) — full spec (~2100 lines, 16 sections + glossary + appendix).
 - [`docs/tutorial.md`](docs/tutorial.md) — hands-on walkthrough.
+- [`docs/operations.md`](docs/operations.md) — operator runbook: install (systemd/Docker), config schema, file layout and permissions, health checks, error codes, backup/restore, logging, troubleshooting.
 - [`CHANGELOG.md`](CHANGELOG.md) — release notes.

@@ -9,12 +9,38 @@
 //! | E0100–E0122 | Authentication / authorisation |
 //! | E0200–E0201 | Manifest / plugin id           |
 //! | E0300–E0301 | Task execution                 |
-//! | E0500       | I/O                            |
+//! | E0302–E0305 | Integrity policy (see `entangle-runtime`) |
+//! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0600–E0699 | Agent-host adapter (see `entangle-agent-host`) |
+//! | E0900       | I/O                            |
 //! | E9999       | Internal / unexpected          |
+//!
+//! Other crates layer their own codes into the gaps between these ranges —
+//! `entangle-broker` owns E0050 and E0123, and E0400–E0424 belong to the
+//! broker / biscuits cross-node paths. The table above is therefore *this
+//! crate's* view, not a workspace-wide registry.
+//!
+//! **Uniqueness.** Within the three enums covered by `tests/error_codes.rs`
+//! ([`EntangleError`], `entangle_runtime::IntegrityError`, and
+//! `entangle_host::HostError`) a code identifies exactly one variant, and the
+//! test enforces that mechanically. Workspace-wide uniqueness is the *intent*
+//! but is not yet mechanically enforced: a handful of codes outside those
+//! three enums are still claimed by more than one variant. Widening the test
+//! to every crate is tracked as follow-up work.
 //!
 //! Codes are stable across patch releases and only ever appended in the
 //! workspace; renaming or recycling a code is a breaking change.
+//!
+//! ## Reassigned codes
+//! | Code  | Was                   | Now                                     |
+//! |-------|-----------------------|-----------------------------------------|
+//! | E0301 | `IntegrityError::ReplicaHashMismatch` | [`EntangleError::TaskTimeout`] only; the replica mismatch moved to E0305 |
+//! | E0500 | [`EntangleError::Io`] | `entangle_host::HostError::Compile` — **still live**; I/O moved to E0900 |
+//!
+//! A reassigned code stays in service under its new owner: grepping logs for
+//! E0500 still surfaces Wasm compile failures. Codes are never retired to
+//! nothing, and a code is never pointed at a second variant without a row
+//! here recording the move.
 
 use crate::tier::Tier;
 
@@ -88,8 +114,11 @@ pub enum EntangleError {
     #[error("ENTANGLE-E0301: task timeout after {0}ms")]
     TaskTimeout(u64),
 
-    /// `ENTANGLE-E0500` — an I/O error propagated from the standard library.
-    #[error("ENTANGLE-E0500: io error: {0}")]
+    /// `ENTANGLE-E0900` — an I/O error propagated from the standard library.
+    ///
+    /// Previously `E0500`; that code is reserved for the Wasm host's
+    /// `HostError::Compile` (see the retired-codes table above).
+    #[error("ENTANGLE-E0900: io error: {0}")]
     Io(#[from] std::io::Error),
 
     /// `ENTANGLE-E9999` — an unexpected internal error.
@@ -179,7 +208,7 @@ mod tests {
             (EntangleError::TaskTimeout(1234), "ENTANGLE-E0301"),
             (
                 EntangleError::Io(std::io::Error::other("x")),
-                "ENTANGLE-E0500",
+                "ENTANGLE-E0900",
             ),
             (EntangleError::Internal("x".into()), "ENTANGLE-E9999"),
         ];

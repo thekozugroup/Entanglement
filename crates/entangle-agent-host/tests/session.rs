@@ -5,9 +5,24 @@
 //! process working directory, each test creates a tempdir, changes into it,
 //! runs the assertions, then restores the original working directory.
 //!
-//! Tests are tagged `#[serial]` via the `serial_test` crate so that
-//! parallel execution cannot corrupt each other's CWD changes.
-//! (Cargo.toml dev-dep: serial_test = "3".)
+//! ## Why these are `#[ignore]`d
+//!
+//! The working directory is *process*-global, so two of these tests running on
+//! different threads of the same test binary would clobber each other's CWD and
+//! resolve `.mcp.json` against the wrong tempdir. They therefore require
+//! `--test-threads=1`, which is not how the default `cargo test` run is
+//! configured — hence `#[ignore]`, per the `CONTRIBUTING.md` convention for
+//! tests that mutate `current_dir`.
+//!
+//! (An earlier version of this comment claimed the tests were serialised with
+//! `#[serial]` from the `serial_test` crate. They are not: there is no such
+//! dev-dependency in `Cargo.toml` and no `#[serial]` attribute below. Making
+//! them hermetic properly means threading an explicit config path into
+//! `AgentSession`, i.e. an API change in `src/`, rather than a test-only fix.)
+//!
+//! Run them with:
+//!
+//!   cargo test -p entangle-agent-host --test session -- --ignored --test-threads=1
 
 use entangle_agent_host::AgentSession;
 use std::fs;

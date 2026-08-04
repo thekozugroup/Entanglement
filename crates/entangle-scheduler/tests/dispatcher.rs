@@ -30,6 +30,20 @@ fn local_peer() -> PeerId {
     PeerId::from_public_key_bytes(&[0xab; 32])
 }
 
+/// Path to the committed hello-pong fixture — a real WASM component whose
+/// `run` export echoes `Hello, <input>!`.
+const HELLO_PONG_WASM: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../entangle-host/tests/fixtures/hello-pong.wasm"
+);
+
+/// Read the hello-pong fixture. The fixture is checked into the repository, so
+/// a missing file is a hard failure rather than a silent skip.
+fn hello_pong_wasm() -> Vec<u8> {
+    std::fs::read(HELLO_PONG_WASM)
+        .expect("hello-pong.wasm fixture not found — run fixtures-src/hello-pong/build.sh")
+}
+
 /// Write a signed plugin package (manifest + wasm + sig) into `dir`.
 ///
 /// Returns the plugin id string.
@@ -68,18 +82,8 @@ description = "scheduler integration test plugin"
 ///
 /// Uses the hello-pong fixture which echos "Hello, <input>!".
 #[tokio::test]
-#[ignore = "TODO: requires hello-pong fixture to have a run export wired to resources-zero path"]
 async fn dispatch_with_empty_pool_falls_back_to_local_when_no_resources_required() {
-    let wasm = match std::fs::read(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../crates/entangle-host/tests/fixtures/hello-pong.wasm"
-    )) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("hello-pong.wasm not found ({e}); skipping test");
-            return;
-        }
-    };
+    let wasm = hello_pong_wasm();
 
     let keypair = IdentityKeyPair::generate();
     let keyring = build_keyring(&keypair);
@@ -267,16 +271,7 @@ async fn oversized_input_is_rejected() {
 /// "Hello, <input>!".
 #[tokio::test]
 async fn oversized_output_is_rejected_e0300() {
-    let wasm = match std::fs::read(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../crates/entangle-host/tests/fixtures/hello-pong.wasm"
-    )) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("hello-pong.wasm not found ({e}); skipping test");
-            return;
-        }
-    };
+    let wasm = hello_pong_wasm();
 
     let keypair = IdentityKeyPair::generate();
     let keyring = build_keyring(&keypair);

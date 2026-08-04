@@ -8,12 +8,18 @@ use entangle_types::task::IntegrityPolicy;
 
 /// Integrity enforcement errors.
 ///
-/// Each variant maps to a stable error code in the ENTANGLE-E03xx range.
+/// Each variant maps to a stable error code in the ENTANGLE-E0302–E0305 block,
+/// which this enum owns. E0300–E0301 belong to
+/// [`EntangleError`](entangle_types::errors::EntangleError) (task execution) —
+/// see the range table in `entangle-types::errors` for the workspace-wide map.
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum IntegrityError {
     /// Two or more replicas returned different output hashes.
+    ///
+    /// Carries `ENTANGLE-E0305`; it used `E0301` until that code was reserved
+    /// for `EntangleError::TaskTimeout`.
     #[error(
-        "ENTANGLE-E0301: replicas mismatched (replica {replica} hash {got}, expected {expected})"
+        "ENTANGLE-E0305: replicas mismatched (replica {replica} hash {got}, expected {expected})"
     )]
     ReplicaHashMismatch {
         /// Zero-based index of the diverging replica.

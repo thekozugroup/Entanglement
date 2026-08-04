@@ -2,14 +2,13 @@
 //!
 //! ATC-INT-1 through ATC-INT-6, per §16 of the Entanglement Architecture spec.
 //!
-//! Tests that require the hello-pong fixture (a real WASM plugin with a `run`
-//! export) are gated behind `#[ignore]` if the fixture may be absent in CI.
-//! Run them with:
-//!
-//!   cargo test -p entangle-runtime --test integrity -- --ignored
+//! Tests that need a real WASM plugin with a `run` export use the committed
+//! `hello-pong.wasm` fixture (`crates/entangle-host/tests/fixtures/`). The
+//! fixture is checked into the repository, so these tests run by default —
+//! nothing here is gated behind `#[ignore]`.
 //!
 //! Tests exercising pure policy logic (TrustedExecutor, NotImplemented) do NOT
-//! require any plugin and always run.
+//! require any plugin.
 
 use entangle_runtime::{IntegrityError, Kernel, KernelConfig, RuntimeError};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
@@ -75,10 +74,8 @@ fn peer_from_seed(seed: u8) -> PeerId {
 /// §16 ATC-INT-1 — `Deterministic { replicas: 2 }` with a real plugin: both
 /// replicas must agree; the canonical output is returned.
 ///
-/// Requires hello-pong.wasm fixture. Marked `#[ignore]` so CI doesn't fail
-/// when the fixture hasn't been built; run manually with `--ignored`.
+/// Uses the committed hello-pong.wasm fixture.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires hello-pong.wasm — run: cargo test -p entangle-runtime --test integrity -- --ignored"]
 async fn atc_int_1_deterministic_n2_hash_match_succeeds() {
     let wasm = std::fs::read(HELLO_PONG_WASM)
         .expect("hello-pong.wasm fixture not found — run fixtures-src/hello-pong/build.sh");
@@ -112,10 +109,9 @@ async fn atc_int_1_deterministic_n2_hash_match_succeeds() {
 /// §16 ATC-INT-2 — `Deterministic { replicas: 0 }` and `{ replicas: 1 }` are
 /// no-ops; they fall through to a single invocation without replica logic.
 ///
-/// This test validates the no-op path using a real plugin.
-/// Marked `#[ignore]` because it needs the fixture.
+/// This test validates the no-op path using a real plugin (the committed
+/// hello-pong.wasm fixture).
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires hello-pong.wasm — run: cargo test -p entangle-runtime --test integrity -- --ignored"]
 async fn atc_int_2_deterministic_insufficient_replicas_errors() {
     // ATC-INT-2 proposition: N=0 and N=1 are no-ops; single invoke, ok.
     let wasm = std::fs::read(HELLO_PONG_WASM)

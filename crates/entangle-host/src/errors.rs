@@ -5,6 +5,9 @@
 /// Wasmtime 43 returns `wasmtime::Error` (an alias for `anyhow::Error`) from
 /// its APIs. We store that directly so callers can inspect the root cause via
 /// standard `anyhow` chaining.
+///
+/// The stable code block `ENTANGLE-E0500`–`ENTANGLE-E0506` is reserved for this
+/// enum; see the range table in `entangle-types::errors` for the workspace map.
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
     /// ENTANGLE-E0500: failed to compile a WebAssembly component from bytes.

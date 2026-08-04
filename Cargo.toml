@@ -127,9 +127,43 @@ entangle-scheduler = { path = "crates/entangle-scheduler" }
 entangle-observability = { path = "crates/entangle-observability" }
 
 [profile.release]
+opt-level = 3
 lto = "thin"
 codegen-units = 1
-opt-level = 3
+# Drop the symbol table and debug info from shipped binaries — the single
+# biggest size win available here, since `lto`/`codegen-units` above were
+# already in place. Tests are unaffected: `cargo test` builds under the
+# `test`/`dev` profiles, not this one.
+#
+# Note that `[profile.bench]` inherits from this profile, so `cargo bench`
+# binaries are stripped too. If you need symbol names for `perf`/flamegraph
+# work on crates/entangle-bench, add `[profile.bench] strip = false` rather
+# than weakening the setting here.
+strip = "symbols"
+
+# ---------------------------------------------------------------------------
+# DO NOT change this to `panic = "abort"`.
+#
+# docs/architecture.md §2.1 ("Broker fault isolation") commits the core to
+# running the capability broker on a dedicated tokio task with `catch_unwind`
+# plus an outer supervisor, so that a broker panic becomes a *clean* non-zero
+# exit that the service manager restarts, rather than an abrupt process kill.
+# `catch_unwind` can only intercept a panic that unwinds; under `panic = "abort"`
+# the process is terminated at the panic site and that entire fault-isolation
+# design becomes unimplementable.
+#
+# The failure mode is silent, which is why this is spelled out here:
+#   * `panic = "abort"` produces no compile error and no clippy warning;
+#   * `cargo test` would still pass, because the `test` profile does not
+#     inherit `profile.release` and always unwinds — so the test suite cannot
+#     detect the regression;
+#   * the breakage would only appear in a release daemon in production, as a
+#     hard crash where a supervised restart was specified.
+#
+# `unwind` is already the compiler default; it is written out explicitly so the
+# constraint is visible at exactly the line someone would otherwise "optimize".
+# ---------------------------------------------------------------------------
+panic = "unwind"
 
 [profile.dev]
 split-debuginfo = "unpacked"

@@ -36,11 +36,37 @@ impl<T: Clone + Send + Sync + 'static> Bus<T> {
     }
 
     /// Subscribe and filter by a glob pattern (see [`crate::Topic::matches`]).
+    ///
+    /// **Unchecked**: `pattern` is not validated against
+    /// [`crate::Topic::validate_pattern`]. A malformed pattern (a typo, an
+    /// empty segment, a non-trailing `"**"`, …) is accepted silently and
+    /// simply never matches any envelope — the subscriber will wait
+    /// forever. Prefer [`Bus::try_subscribe_topic`] unless `pattern` is a
+    /// compile-time literal already known to be well-formed.
     pub fn subscribe_topic(&self, pattern: impl Into<String>) -> Subscriber<T> {
         Subscriber {
             receiver: self.sender.subscribe(),
             filter: Some(pattern.into()),
         }
+    }
+
+    /// Subscribe and filter by a glob pattern, validating it first via
+    /// [`crate::Topic::validate_pattern`].
+    ///
+    /// Returns [`IpcError::InvalidTopic`] for an empty pattern, an empty
+    /// segment, a character outside `[a-z0-9._-*]`, or a non-trailing
+    /// `"**"` — surfacing the mistake immediately instead of producing a
+    /// subscriber that silently never matches anything.
+    pub fn try_subscribe_topic(
+        &self,
+        pattern: impl Into<String>,
+    ) -> Result<Subscriber<T>, IpcError> {
+        let pattern = pattern.into();
+        crate::Topic::validate_pattern(&pattern)?;
+        Ok(Subscriber {
+            receiver: self.sender.subscribe(),
+            filter: Some(pattern),
+        })
     }
 
     /// Publish an envelope.  Returns the number of active receivers or
@@ -65,7 +91,8 @@ impl<T: Clone + Send + Sync + 'static> BusHandle<T> {
 
 /// A subscriber that receives envelopes from a [`Bus`].
 ///
-/// Constructed via [`Bus::subscribe`] or [`Bus::subscribe_topic`].
+/// Constructed via [`Bus::subscribe`], [`Bus::subscribe_topic`], or
+/// [`Bus::try_subscribe_topic`].
 pub struct Subscriber<T: Clone + Send + Sync + 'static> {
     receiver: tokio::sync::broadcast::Receiver<Envelope<T>>,
     filter: Option<String>,
@@ -115,8 +142,13 @@ mod tests {
             Topic::new("broker.audit").is_ok(),
             "valid topic must succeed"
         );
-        // consecutive dots are allowed by the validator (documented in spec notes)
-        // assert!(Topic::new("broker..audit").is_err());
+        // Consecutive dots produce an empty segment, which used to alias
+        // with `*` under glob matching (`"broker.*.audit"` would match
+        // `"broker..audit"`); empty segments are now rejected outright.
+        assert!(
+            Topic::new("broker..audit").is_err(),
+            "empty segment must error"
+        );
     }
 
     // 2. topic glob matching
@@ -269,5 +301,78 @@ mod tests {
             }
             other => panic!("expected IpcError::Lagged, got {other:?}"),
         }
+    }
+
+    // 10. try_subscribe_topic rejects malformed patterns up front instead of
+    // silently building a subscriber that never matches anything.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn try_subscribe_topic_rejects_invalid_patterns() {
+        let bus: Bus<u32> = Bus::new(16);
+
+        assert!(
+            matches!(bus.try_subscribe_topic(""), Err(IpcError::InvalidTopic(_))),
+            "empty pattern must error"
+        );
+        assert!(
+            matches!(
+                bus.try_subscribe_topic("broker..audit"),
+                Err(IpcError::InvalidTopic(_))
+            ),
+            "empty segment must error"
+        );
+        assert!(
+            matches!(
+                bus.try_subscribe_topic("a.**.c"),
+                Err(IpcError::InvalidTopic(_))
+            ),
+            "non-trailing ** must error"
+        );
+        assert!(
+            matches!(
+                bus.try_subscribe_topic("Broker.*"),
+                Err(IpcError::InvalidTopic(_))
+            ),
+            "disallowed character (uppercase) must error"
+        );
+    }
+
+    // 11. try_subscribe_topic accepts a well-formed pattern and filters
+    // exactly like subscribe_topic.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn try_subscribe_topic_accepts_valid_pattern_and_filters() {
+        let bus: Bus<&'static str> = Bus::new(16);
+        let mut sub = bus
+            .try_subscribe_topic("policy.*")
+            .expect("well-formed pattern must be accepted");
+
+        bus.publish(Envelope::new(topic("broker.audit"), "should-be-filtered"))
+            .unwrap();
+        bus.publish(Envelope::new(topic("policy.changed"), "should-arrive"))
+            .unwrap();
+
+        let env = sub.recv().await.unwrap();
+        assert_eq!(env.payload, "should-arrive");
+    }
+
+    // 12. The unchecked `subscribe_topic` accepts a malformed pattern
+    // without error, but — as documented — it then never matches anything,
+    // which is exactly the debugging trap `try_subscribe_topic` exists to
+    // avoid.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn subscribe_topic_unchecked_silently_never_matches_malformed_pattern() {
+        let bus: Bus<&'static str> = Bus::new(16);
+        // "a.**.c" is malformed (non-trailing "**"); the unchecked
+        // constructor happily builds a subscriber for it anyway.
+        let mut sub = bus.subscribe_topic("a.**.c");
+
+        bus.publish(Envelope::new(topic("a.b.c"), "never-arrives"))
+            .unwrap();
+
+        let result = tokio::time::timeout(std::time::Duration::from_millis(50), sub.recv()).await;
+        assert!(
+            result.is_err(),
+            "malformed pattern must never match anything, even though \
+             subscribe_topic accepted it without error"
+        );
     }
 }

@@ -31,16 +31,12 @@ jobs:
         include:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            strip_cmd: "strip"
           - os: ubuntu-24.04
             target: aarch64-unknown-linux-gnu
-            strip_cmd: "aarch64-linux-gnu-strip"
           - os: macos-14
             target: aarch64-apple-darwin
-            strip_cmd: "strip -x"
           - os: macos-14
             target: x86_64-apple-darwin
-            strip_cmd: "strip -x"
 
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -93,14 +89,15 @@ jobs:
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
+      # Binaries come out already stripped: the root Cargo.toml sets
+      # `strip = "symbols"` on [profile.release], which rustc applies per target
+      # (`--strip-all` via the linker for ELF, `strip -x` on Apple platforms).
+      # The previous explicit per-target "Strip binaries" step was therefore
+      # doing the work twice, and its `aarch64-linux-gnu-strip` invocation is no
+      # longer needed for the cross build. (binutils-aarch64-linux-gnu is still
+      # installed above — it also provides the `ar` used by AR_aarch64_*.)
       - name: Build release binaries
         run: cargo build --release --workspace --bins --locked --target ${{ matrix.target }}
-
-      - name: Strip binaries
-        run: |
-          BINDIR="target/${{ matrix.target }}/release"
-          ${{ matrix.strip_cmd }} "${BINDIR}/entangled" || true
-          ${{ matrix.strip_cmd }} "${BINDIR}/entangle"  || true
 
       - name: Compute checksums and package tarball
         id: package
