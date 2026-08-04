@@ -2,3 +2,4 @@
 
 pub use crate::dispatcher::DispatchError;
 pub use crate::placement::PlacementError;
+pub use crate::wire::{RemoteErrorCode, WireError};

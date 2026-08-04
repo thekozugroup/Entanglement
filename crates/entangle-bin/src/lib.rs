@@ -11,6 +11,8 @@
 //! - [`config`] — daemon config schema and `~/.entangle/config.toml` loader.
 //! - [`maintenance`] — built-in tier-2 maintenance loop (log rotation, GC, nags).
 //! - [`methods`] — JSON-RPC 2.0 method dispatch (`version`, `plugins/*`).
+//! - [`remote`] — cross-node scheduler transport: serving work to trusted
+//!   peers and dispatching work to them. Off unless configured.
 //! - [`server`] — Unix-domain-socket listener that drives `methods::dispatch`.
 //! - [`state`] — shared `DaemonState` constructed once at startup.
 
@@ -20,5 +22,6 @@
 pub mod config;
 pub mod maintenance;
 pub mod methods;
+pub mod remote;
 pub mod server;
 pub mod state;

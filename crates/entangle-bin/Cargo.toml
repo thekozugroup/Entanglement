@@ -26,6 +26,7 @@ entangle-broker     = { workspace = true }
 entangle-scheduler      = { path = "../entangle-scheduler" }
 entangle-peers          = { path = "../entangle-peers" }
 entangle-mesh-local     = { workspace = true }
+entangle-mesh-iroh      = { workspace = true }
 entangle-observability  = { workspace = true }
 num_cpus = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
@@ -44,5 +45,6 @@ tokio = { workspace = true, features = ["full"] }
 tempfile = { workspace = true }
 entangle-signing = { workspace = true }
 entangle-peers   = { path = "../entangle-peers" }
+entangle-mesh-iroh = { workspace = true }
 serde_json       = { workspace = true }
 hex              = { workspace = true }

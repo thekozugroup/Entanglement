@@ -13,19 +13,24 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-entangle-types   = { workspace = true }
-entangle-runtime = { workspace = true }
-parking_lot      = { workspace = true }
-tokio            = { workspace = true, features = ["sync", "time", "rt", "macros"] }
-async-trait      = { workspace = true }
-thiserror        = { workspace = true }
-tracing          = { workspace = true }
-serde            = { workspace = true, features = ["derive"] }
+entangle-types     = { workspace = true }
+entangle-runtime   = { workspace = true }
+entangle-mesh-iroh = { workspace = true }
+parking_lot        = { workspace = true }
+tokio              = { workspace = true, features = ["sync", "time", "rt", "macros"] }
+async-trait        = { workspace = true }
+thiserror          = { workspace = true }
+tracing            = { workspace = true }
+serde              = { workspace = true, features = ["derive"] }
+uuid               = { workspace = true }
+# Compact binary serde codec for the cross-node task envelope. Already in the
+# workspace dependency graph (iroh pulls it in), so this adds no new build
+# cost — `default-features = false` + `use-std` keeps it to the std codec.
+postcard           = { version = "1", default-features = false, features = ["use-std"] }
 
 [dev-dependencies]
 tokio            = { workspace = true, features = ["full"] }
 tempfile         = { workspace = true }
 toml             = { workspace = true }
-uuid             = { workspace = true }
 serde_json       = { workspace = true }
 entangle-signing = { workspace = true }

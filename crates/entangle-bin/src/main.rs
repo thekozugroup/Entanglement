@@ -5,14 +5,15 @@
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use entangle_bin::{config, maintenance::MaintenanceLoop, server, state::DaemonState};
+use entangle_bin::{config, maintenance::MaintenanceLoop, remote, server, state::DaemonState};
 use entangle_broker::BrokerPolicy;
+use entangle_mesh_iroh::MeshTransport;
 use entangle_mesh_local::{
     Discovery, DiscoveryConfig, DiscoveryEvent, HardwareAdvert, LocalPeer, PeerSeen,
 };
 use entangle_peers::{PeerStore, TrustLevel};
 use entangle_runtime::{Kernel, KernelConfig};
-use entangle_scheduler::{Dispatcher, WorkerInfo, WorkerPool};
+use entangle_scheduler::{Dispatcher, RemoteDispatch, WorkerInfo, WorkerPool};
 use entangle_signing::{IdentityKeyPair, Keyring};
 use entangle_types::peer_id::PeerId;
 use entangle_types::resource::GpuRequirement;
@@ -140,11 +141,43 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let worker_pool = WorkerPool::new();
     let local_peer_id =
         entangle_types::peer_id::PeerId::from_public_key_bytes(identity.public().as_bytes());
-    let dispatcher = Arc::new(Dispatcher::new(
-        worker_pool.clone(),
-        kernel.clone(),
-        local_peer_id,
-    ));
+
+    // Optional `mesh.iroh` scheduler transport. Absent it, the dispatcher is
+    // local-only and this daemon behaves exactly as a single-machine node.
+    let scheduler_mesh = if remote::scheduler_transport_enabled(&cfg.mesh.transports) {
+        match remote::start_scheduler_transport(&cfg.scheduler, &identity).await {
+            Ok(t) => Some(t),
+            Err(e) => {
+                // A transport that will not bind is a degraded node, not a
+                // dead one: keep serving local work rather than refusing to
+                // start.
+                tracing::error!(error = %e, "mesh.iroh scheduler transport failed to start — remote dispatch disabled");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id);
+    if let Some(transport) = &scheduler_mesh {
+        // Client half: this node may send work to configured, trusted peers.
+        let directory = remote::directory_from_config(&cfg.scheduler, &peer_store, local_peer_id);
+        dispatcher = dispatcher.with_remote(Arc::new(RemoteDispatch::new(
+            Arc::clone(transport) as Arc<dyn MeshTransport>,
+            Arc::new(directory),
+        )));
+
+        // Server half: trusted peers may run work here. The peer store is the
+        // authorization gate — see `remote::PeerStoreAllowlist`.
+        remote::spawn_task_server(
+            Arc::clone(transport),
+            kernel.clone(),
+            peer_store.clone(),
+            local_peer_id,
+        );
+    }
+    let dispatcher = Arc::new(dispatcher);
 
     // ── 3c. Assemble shared DaemonState ──────────────────────────────────────
     let display_name = std::env::var("HOSTNAME")
@@ -236,6 +269,13 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     rpc_task.abort();
     let _ = rpc_task.await;
     let _ = maint_task.await;
+
+    // Close the scheduler endpoint, flushing connection-close frames so peers
+    // see a deliberate shutdown rather than a timeout. This also terminates
+    // the accept loop (`accept` yields `Ok(None)` once closed).
+    if let Some(transport) = &scheduler_mesh {
+        transport.shutdown().await;
+    }
 
     // Unregister from mDNS (sends a goodbye) and stop the browse task so
     // peers drop us promptly instead of waiting for their TTL to expire.
