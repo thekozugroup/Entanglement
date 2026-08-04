@@ -4,10 +4,27 @@ A snapshot of what's implemented vs. deferred for the Entanglement runtime
 as of the current `main` commit. Reflects the post-80-iter sprint
 state — see `.iterations/LOG.md` for what each iteration changed.
 
-**Build health (post-sprint-2):** 414 tests pass · 0 fail · 27 ignored ·
-`cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`,
-and `RUSTDOCFLAGS=-D warnings cargo doc --workspace --no-deps` are all
-clean on Rust 1.91.
+**Build health:** 503 tests pass · 0 fail · 26 ignored · `cargo check
+--workspace --all-targets` clean on Rust 1.91 (MSRV raised to 1.91 with
+the mesh transport; iroh 1.0 requires it).
+
+**Recently landed**
+
+- **Real P2P transport.** `entangle-mesh-iroh` is no longer a scaffold: it
+  binds a QUIC endpoint keyed by the daemon's own Ed25519 identity, so a
+  peer's transport-authenticated identity *is* its `PeerId`
+  (`PeerId::from_public_key_bytes(endpoint_id)`) — no second namespace of
+  network identifiers to reconcile. Length-prefixed framing enforces its
+  cap against the header *before* allocating, so a lying length prefix
+  cannot make the daemon allocate.
+- **One-command install.** `scripts/install.sh` verifies the SHA-256 before
+  extracting and never invokes sudo; Homebrew formula and `docs/install.md`
+  alongside it. Note: no releases are published yet, so the installer
+  currently reports that and points at Docker/source.
+- **Plugin authoring without a checkout.** `entangle plugins new` scaffolds
+  a project and `entangle plugins build <DIR>` builds+signs *any* plugin
+  directory — previously only the two bundled examples could be built.
+  See `docs/plugin-authoring.md`.
 
 ## Workspace
 
