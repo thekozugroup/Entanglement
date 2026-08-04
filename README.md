@@ -35,9 +35,30 @@ For a hands-on tour from `entangle init` through plugin invocation and peer pair
 
 ## Install
 
-- macOS: `brew install thekozugroup/entanglement/entangle` (planned tap; Phase 1.5).
-- Linux: `curl -fsSL get.entanglement.dev | sh` (planned; Phase 1.5) — meanwhile, `cargo install --path crates/entangle-cli` (add `cargo install --path crates/entangle-bin` for the `entangled` daemon).
-- Windows: WSL2 only; native AppContainer support is deferred to Phase 5.
+```bash
+curl -fsSL https://raw.githubusercontent.com/thekozugroup/Entanglement/main/scripts/install.sh | sh
+```
+
+[`scripts/install.sh`](./scripts/install.sh) detects your platform, downloads the
+matching signed release tarball, **verifies its SHA-256 before extracting**, and
+installs `entangle` + `entangled` into `~/.local/bin`. It never calls `sudo` and
+refuses to run as root. Use `--dry-run` to see exactly what it would do,
+`--version X.Y.Z` to pin, `--prefix DIR` to relocate.
+
+Other paths:
+
+- **macOS / Linuxbrew**: `brew install thekozugroup/entanglement/entangle`, then
+  `brew services start entangle`. Formula source:
+  [`packaging/homebrew/entangle.rb`](./packaging/homebrew/entangle.rb).
+- **Docker** (recommended for Linux servers):
+  `docker compose -f docker/docker-compose.yml up --build` — see [`docker/README.md`](./docker/README.md).
+- **systemd**: hardened unit at [`packaging/entangled.service`](./packaging/entangled.service).
+- **From source**: `cargo install --path crates/entangle-cli --locked` (add
+  `cargo install --path crates/entangle-bin --locked` for the `entangled` daemon).
+- **Windows**: WSL2 only; native AppContainer support is deferred to Phase 5.
+
+Full guide, signature verification (`scripts/verify-release.sh`), and uninstall
+steps: [`docs/install.md`](./docs/install.md).
 
 ## Status
 
