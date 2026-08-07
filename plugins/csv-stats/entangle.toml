@@ -1,0 +1,13 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/csv-stats@0.1.0"   # PUBLISHER_PLACEHOLDER is replaced with the real publisher fingerprint at build time
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "Profile a CSV: per-column count/nulls plus min/max/mean/sum for numeric columns and distinct counts for text columns, as JSON"
+
+[capabilities]
+# tier 1: pure compute. No filesystem, no network, no capability handles.
+
+[build]
+wit_world = "entangle:plugin@0.1.0/plugin"
+target = "wasm32-wasip2"

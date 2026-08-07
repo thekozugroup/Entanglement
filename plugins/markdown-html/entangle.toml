@@ -1,0 +1,13 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/markdown-html@0.1.0"   # PUBLISHER_PLACEHOLDER is replaced with the real publisher fingerprint at build time
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "Render CommonMark (plus tables, footnotes, strikethrough, task lists) to HTML, escaping embedded HTML so untrusted Markdown is safe to display"
+
+[capabilities]
+# tier 1: pure compute. No filesystem, no network, no capability handles.
+
+[build]
+wit_world = "entangle:plugin@0.1.0/plugin"
+target = "wasm32-wasip2"
