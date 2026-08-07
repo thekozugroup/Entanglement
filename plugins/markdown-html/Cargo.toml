@@ -1,0 +1,24 @@
+[workspace]
+# stand-alone — not a member of the Entanglement workspace.
+
+[package]
+name = "entangle-markdown-html"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+entangle-sdk = { path = "../../crates/entangle-sdk" }
+# `html` gives us pulldown_cmark::html; `getopts` (the default binary support) is
+# not needed and pulls in extra code, so default features are off.
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"
