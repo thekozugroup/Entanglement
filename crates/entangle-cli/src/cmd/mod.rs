@@ -1,5 +1,6 @@
 //! Command handlers for the `entangle` CLI.
 
+pub mod catalog;
 pub mod compute;
 pub mod doctor;
 pub mod init;
@@ -8,5 +9,6 @@ pub mod mesh;
 pub mod package;
 pub mod pair;
 pub mod plugins;
+pub mod quickstart;
 pub mod scaffold;
 pub mod version;

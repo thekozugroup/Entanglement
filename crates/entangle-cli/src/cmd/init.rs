@@ -371,6 +371,22 @@ fn run_wizard() -> anyhow::Result<WizardAnswers> {
 // ---------------------------------------------------------------------------
 
 pub async fn run(args: InitArgs) -> anyhow::Result<()> {
+    ensure_initialised(args, true).await
+}
+
+/// The body of `entangle init`, reusable by other commands.
+///
+/// `entangle quickstart` needs exactly this — create-or-keep the identity,
+/// config, peer store, and keyring — but prints its own closing banner, so
+/// `print_next_steps` suppresses `init`'s. Nothing about the identity-writing
+/// logic is duplicated there: it all lives here.
+///
+/// Idempotent: with all four files present this returns early without touching
+/// anything.
+pub(crate) async fn ensure_initialised(
+    args: InitArgs,
+    print_next_steps: bool,
+) -> anyhow::Result<()> {
     let dir = entangle_dir();
     let id_path = config::identity_path();
     let cfg_path = config::config_path();
@@ -507,12 +523,15 @@ pub async fn run(args: InitArgs) -> anyhow::Result<()> {
         println!("  Kept existing {}", kr_path.display());
     }
 
-    println!();
-    println!("Next steps:");
-    println!("  - Pair another device:    entangle pair");
-    println!("  - Add a publisher key:     entangle keyring add <PUBLIC_KEY_HEX> --name <NAME>");
-    println!("  - Start the daemon:        entangled run");
-    println!("  - Run diagnostics:         entangle doctor");
+    if print_next_steps {
+        println!();
+        println!("Next steps:");
+        println!("  - Install a plugin:        entangle plugins install <NAME>");
+        println!("  - See what is available:   entangle plugins available");
+        println!("  - Pair another device:     entangle pair");
+        println!("  - Start the daemon:        entangled run");
+        println!("  - Run diagnostics:         entangle doctor");
+    }
 
     Ok(())
 }
