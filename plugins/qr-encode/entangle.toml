@@ -1,0 +1,13 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/qr-encode@0.1.0"
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "Encode UTF-8 text as a QR code and render it as SVG, Unicode block art, or a JSON module matrix"
+
+[capabilities]
+# tier 1: pure compute. No filesystem, no network, no capability handles.
+
+[build]
+wit_world = "entangle:plugin@0.1.0/plugin"
+target = "wasm32-wasip2"
