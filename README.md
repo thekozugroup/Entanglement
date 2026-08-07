@@ -27,7 +27,7 @@ For a hands-on tour from `entangle init` through plugin invocation and peer pair
 
 - Rust workspace: 21 lib crates, 2 binaries, 1 bench, 1 atc-matrix, 1 xtask (26 crates total).
 - Wasmtime + WASI 0.2 component model.
-- mDNS-SD discovery on the LAN; Iroh QUIC and Tailscale transports scaffolded behind feature flags.
+- mDNS-SD discovery on the LAN; **working Iroh-QUIC transport** (identity-bound, used for pairing and cross-node dispatch); Tailscale transport still a scaffold.
 - Ed25519 publisher signing + BLAKE3 artifact hashing.
 - biscuit-auth Datalog capability tokens with bridge attenuation.
 - Tokio async runtime.
@@ -52,21 +52,27 @@ No Rust toolchain? Use Docker:
 `docker compose -f docker/docker-compose.yml up --build`
 (see [`docker/README.md`](./docker/README.md)).
 
+Prefer no clone? `cargo install --git https://github.com/thekozugroup/Entanglement entangle-cli`
+builds the CLI straight from the default branch (`entangle-bin` for the daemon).
+
 > **No release is published yet**, so the `curl … | sh` one-liner
 > ([`scripts/install.sh`](./scripts/install.sh)) and Homebrew cannot work — both
-> only install prebuilt release tarballs. They are documented and ready, and
-> start working the moment a `v0.1.0` tag is cut. `cargo install --git` is also
-> broken right now, for an unrelated reason.
+> install prebuilt release tarballs. They are documented and ready, and start
+> working the moment a `v0.1.0` tag is cut.
 
 Full guide — every install path with its current status, systemd, uninstall, and
 troubleshooting: [`docs/install.md`](./docs/install.md).
 
 ## Status
 
-Phase 1 capability is implemented end-to-end (see [`STATUS.md`](./STATUS.md)).
-Phase 2 scaffolds for cross-node dispatch, the MCP gateway, alt transports,
-and observability exporters return a structured `NotImplemented` error
-until they are filled in.
+Phase 1 is implemented end-to-end, and the core Phase-2 capability now works:
+devices **pair over the network** with a 6-digit code (no blob copy-paste), and
+a task placed on a remote peer **actually executes there** over an
+identity-bound QUIC transport, gated on the peer allowlist.
+
+Still scaffolded and returning a structured `NotImplemented`: the MCP gateway
+HTTP server, the `mesh.tailscale` transport, OS-sandbox engagement, and the
+Prometheus/OpenTelemetry exporters. See [`STATUS.md`](./STATUS.md).
 
 ## 5-minute demo
 
@@ -86,7 +92,8 @@ entangle plugins invoke <fingerprint_from_above>/hello-world@0.1.0 --input world
 |-------|-------|--------|
 | 1     | Core runtime + WASM host + signing + manifest + UDS RPC + mDNS LAN + pairing + biscuit tokens + local scheduler + agent-host config adapter | **Shipped** |
 | 1.5   | Distribution: Homebrew tap, Linux install script, signed release artifacts (SLSA L3 + cosign) | In progress |
-| 2     | Real cross-node dispatch over Iroh streams; MCP gateway HTTP server; `mesh.iroh`/`mesh.tailscale` transports; OS-sandbox engagement; Prometheus + OpenTelemetry exporters | Scaffolded (returns `NotImplemented`) |
+| 2     | Cross-node dispatch over Iroh QUIC + `mesh.iroh` transport + automatic pairing | **Shipped** |
+| 2b    | MCP gateway HTTP server; `mesh.tailscale`; OS-sandbox engagement; Prometheus + OpenTelemetry exporters | Scaffolded (returns `NotImplemented`) |
 | 3     | Integrity policies: `Deterministic` cross-node replication, `SemanticEquivalent` with operator-supplied metric components, `Attested` for TEEs | Designed |
 | 4     | Streaming task model with chunk signing; speculative execution + straggler mitigation; reputation gossip | Designed |
 | 5     | Native Windows AppContainer support; second-class agent-host adapters (Aider, Cursor); plugin marketplace | Deferred |

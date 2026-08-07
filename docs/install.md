@@ -39,7 +39,7 @@ Ordered by what actually works right now.
 |---|--------|--------------|-------------|----------|
 | 1 | [`scripts/bootstrap.sh`](#1-from-source-recommended-today) (from source) | **Yes** | yes (1.91+) | everyone, right now |
 | 2 | [Docker](#2-docker) | **Yes**\* | no (builds in the image) | Linux servers; strongest isolation |
-| 3 | [`cargo install --git`](#3-cargo-install---git-currently-broken) | **No** — see below | yes | *blocked by a repo defect, not by the missing release* |
+| 3 | [`cargo install --git`](#3-cargo-install---git) | **Yes** | yes (1.91+) | no clone wanted; installs from the default branch |
 | 4 | [systemd](#4-systemd-bare-metal-linux) | **Yes**, once you have binaries | either | bare-metal Linux servers |
 | 5 | [Install script (`curl \| sh`)](#5-install-script-requires-a-published-release) | **No** — needs a release | no | workstations, once v0.1.0 is cut |
 | 6 | [Homebrew](#6-homebrew-requires-a-published-release) | **No** — needs a release | no | macOS / Linuxbrew, once v0.1.0 is cut |
@@ -244,48 +244,29 @@ docker pull ghcr.io/thekozugroup/entanglement:<version>
 
 ---
 
-## 3. `cargo install --git` (currently broken)
+## 3. `cargo install --git`
 
-The obvious no-clone one-liner is:
-
-```bash
-cargo install --git https://github.com/thekozugroup/Entanglement entangle-cli
-cargo install --git https://github.com/thekozugroup/Entanglement entangle-bin
-```
-
-The crate and binary names above are correct. **The command still fails today**,
-and not because of the missing release — `cargo install --git` builds from the
-default branch and never looks at releases. It fails on a repository defect:
-
-```
-    Updating git repository `https://github.com/thekozugroup/Entanglement`
-error: failed to update submodule `tools/graphify`
-
-Caused by:
-  no URL configured for submodule 'tools/graphify'; class=Submodule (17)
-```
-
-`tools/graphify` is committed as a gitlink (mode `160000`) but the repository has
-no `.gitmodules`, so the submodule has no URL. Plain `git clone` tolerates this
-and just leaves an empty directory — which is why building from a clone works
-fine — but `cargo install --git` always runs a submodule update and hard-fails.
-`git submodule status` in a fresh clone reports the same root cause:
-
-```
-fatal: no submodule mapping found in .gitmodules for path 'tools/graphify'
-```
-
-Until that gitlink is removed (or given a real `.gitmodules` entry), **use
-[method 1](#1-from-source-recommended-today)**, which is unaffected:
+No clone required — cargo fetches the default branch and builds it:
 
 ```bash
-git clone https://github.com/thekozugroup/Entanglement
-cd Entanglement
-cargo install --path crates/entangle-cli --locked
-cargo install --path crates/entangle-bin --locked
+cargo install --git https://github.com/thekozugroup/Entanglement entangle-cli   # the `entangle` CLI
+cargo install --git https://github.com/thekozugroup/Entanglement entangle-bin   # the `entangled` daemon
 ```
 
-Nothing about this is fixed by cutting a release; it needs a one-line repo fix.
+Package names are `entangle-cli` / `entangle-bin`; the binaries they install are
+`entangle` and `entangled`. Add `--locked` to build against the committed
+`Cargo.lock`.
+
+This installs whatever is on the default branch, not a released version, so it
+moves as the branch moves. For a pinned build use `--tag` or `--rev` once tags
+exist, or [method 1](#1-from-source-recommended-today).
+
+> **Previously broken, now fixed.** Until recently this failed with
+> `failed to update submodule 'tools/graphify' — no URL configured`: the repo
+> carried a gitlink with no `.gitmodules` entry, and `cargo install --git`
+> always runs a submodule update. Plain `git clone` tolerated it, which is why
+> building from a clone kept working. The stale gitlink has been removed. If you
+> hit this error, you are on an older commit — update and retry.
 
 ---
 
