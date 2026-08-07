@@ -1,0 +1,26 @@
+[workspace]
+# stand-alone — not a member of the Entanglement workspace.
+
+[package]
+name = "entangle-qr-encode"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+entangle-sdk = { path = "../../crates/entangle-sdk" }
+# `default-features = false` drops qrcode's `image` and `svg` features. The
+# `image` feature would pull the whole `image` crate into the component, and we
+# render SVG / text / JSON ourselves so we can control the quiet zone, colours
+# and run-length packing. With no features, qrcode has zero dependencies.
+qrcode = { version = "0.14", default-features = false }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"

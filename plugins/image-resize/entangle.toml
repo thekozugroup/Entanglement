@@ -1,0 +1,14 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/image-resize@0.1.0"
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "Resample a PNG or JPEG to new dimensions with a choice of filter and fit mode, re-encoding as PNG or JPEG; the compute-heavy flagship for distributed invocation"
+
+[capabilities]
+# tier 1: pure compute. No filesystem, no network, no capability handles —
+# the image travels in as bytes and out as bytes.
+
+[build]
+wit_world = "entangle:plugin@0.1.0/plugin"
+target = "wasm32-wasip2"

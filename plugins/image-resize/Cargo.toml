@@ -1,0 +1,28 @@
+[workspace]
+# stand-alone — not a member of the Entanglement workspace.
+
+[package]
+name = "entangle-image-resize"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+entangle-sdk = { path = "../../crates/entangle-sdk" }
+# `default-features = false` is mandatory: the default feature set enables
+# `rayon` (no threads in wasip2) and codecs whose C dependencies do not build
+# for wasm32-wasip2. `png` (the `png` crate) and `jpeg` (`zune-jpeg` /
+# `jpeg-encoder`) are pure Rust and are the only codecs we need.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"
