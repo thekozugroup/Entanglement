@@ -14,7 +14,7 @@ mod identity;
 
 use cmd::{
     compute::ComputeArgs, init::InitArgs, keyring::KeyringArgs, mesh::MeshArgs, pair::PairArgs,
-    plugins::PluginsArgs,
+    plugins::PluginsArgs, quickstart::QuickstartArgs,
 };
 
 #[derive(Parser)]
@@ -39,6 +39,21 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Zero to a working plugin in one command: identity, install, load, invoke.
+    #[command(long_about = "\
+Zero to a working plugin in one command.
+
+  1. identity  create ~/.entangle/ and an Ed25519 identity key if absent
+  2. trust     add your own publisher key to your keyring
+  3. catalog   find a plugin catalog and pick a starter plugin
+  4. build     compile it to wasm and sign it with your key
+  5. load      into the running daemon, or a temporary in-process kernel
+  6. invoke    run it on a sample input and print the output
+
+Safe to run repeatedly: every step is a no-op when it is already done. Nothing
+is downloaded — the starter plugin is built from source in a local catalog (see
+`entangle plugins install --help` for how that catalog is resolved).")]
+    Quickstart(QuickstartArgs),
     /// Generate identity, write ~/.entangle/identity.key and config.toml.
     Init(InitArgs),
     /// Print detailed version information (CLI, runtime, toolchain, daemon).
@@ -117,6 +132,7 @@ async fn run() -> anyhow::Result<()> {
     }
 
     match cli.cmd {
+        Cmd::Quickstart(a) => cmd::quickstart::run(a).await,
         Cmd::Init(a) => cmd::init::run(a).await,
         Cmd::Version => cmd::version::run().await,
         Cmd::Doctor => cmd::doctor::run().await,

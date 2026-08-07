@@ -92,12 +92,31 @@ async fn list(json: bool) -> anyhow::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
-// add
+// add / ensure_trusted
 // ---------------------------------------------------------------------------
 
-async fn add(public_key_hex: String, name: String, note: Option<String>) -> anyhow::Result<()> {
-    // Decode hex → 32 bytes.
-    let bytes = hex::decode(&public_key_hex).context("public_key_hex must be valid hex")?;
+/// What [`ensure_trusted`] did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TrustOutcome {
+    /// The key was not in the keyring and has been added.
+    Added {
+        /// Fingerprint (32 hex chars) of the newly trusted key.
+        fp_hex: String,
+    },
+    /// The key was already trusted; the keyring was left untouched.
+    AlreadyTrusted {
+        /// Fingerprint (32 hex chars) of the already-trusted key.
+        fp_hex: String,
+        /// Name it is already recorded under.
+        name: String,
+    },
+}
+
+/// Decode a 32-byte Ed25519 public key from hex, with actionable errors.
+fn parse_public_key(public_key_hex: &str) -> anyhow::Result<([u8; 32], IdentityPublicKey)> {
+    let bytes = hex::decode(public_key_hex).context(
+        "public_key_hex must be valid hex — `entangle plugins build` prints the exact value",
+    )?;
     if bytes.len() != 32 {
         anyhow::bail!(
             "public key must be 32 bytes (64 hex chars), got {} bytes ({} hex chars)",
@@ -106,31 +125,66 @@ async fn add(public_key_hex: String, name: String, note: Option<String>) -> anyh
         );
     }
     let key_bytes: [u8; 32] = bytes.try_into().expect("length checked above");
-
     let pk = IdentityPublicKey::from_bytes(&key_bytes)
         .map_err(|e| anyhow::anyhow!("invalid public key: {e}"))?;
+    Ok((key_bytes, pk))
+}
+
+/// Trust `public_key_hex`, doing nothing if it is already trusted.
+///
+/// This is the shared, **idempotent** trust primitive: `keyring add`,
+/// `plugins install`, and `quickstart` all go through it, so trusting a key
+/// twice can never error, and can never overwrite the name or note a user
+/// already chose for that key.
+pub fn ensure_trusted(
+    public_key_hex: &str,
+    name: &str,
+    note: &str,
+) -> anyhow::Result<TrustOutcome> {
+    let (key_bytes, pk) = parse_public_key(public_key_hex)?;
     let fingerprint = pk.fingerprint();
     let fp_hex = pk.fingerprint_hex();
+
+    let path = config::keyring_path();
+    let mut kr =
+        Keyring::load(&path).with_context(|| format!("reading keyring at {}", path.display()))?;
+
+    if let Some(existing) = kr.lookup(&fingerprint) {
+        return Ok(TrustOutcome::AlreadyTrusted {
+            fp_hex,
+            name: existing.publisher_name.clone(),
+        });
+    }
 
     let added_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
 
-    let entry = TrustEntry {
+    kr.add(TrustEntry {
         fingerprint,
         public_key: key_bytes,
-        publisher_name: name.clone(),
+        publisher_name: name.to_owned(),
         added_at,
-        note: note.unwrap_or_default(),
-    };
+        note: note.to_owned(),
+    });
+    kr.save(&path)
+        .with_context(|| format!("writing keyring at {}", path.display()))?;
 
-    let path = config::keyring_path();
-    let mut kr = Keyring::load(&path)?;
-    kr.add(entry);
-    kr.save(&path)?;
+    Ok(TrustOutcome::Added { fp_hex })
+}
 
-    println!("added {} \"{}\"", fp_hex, name);
+async fn add(public_key_hex: String, name: String, note: Option<String>) -> anyhow::Result<()> {
+    match ensure_trusted(&public_key_hex, &name, note.as_deref().unwrap_or(""))? {
+        TrustOutcome::Added { fp_hex } => println!("added {} \"{}\"", fp_hex, name),
+        TrustOutcome::AlreadyTrusted {
+            fp_hex,
+            name: existing,
+        } => println!(
+            "already trusted: {} \"{}\" (keyring unchanged)",
+            fp_hex, existing
+        ),
+    }
     Ok(())
 }
 

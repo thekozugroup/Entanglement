@@ -73,6 +73,26 @@ pub struct RenderedManifest {
     pub effective_tier: u8,
 }
 
+/// What [`build`] produced — everything a caller needs to trust, load, and
+/// invoke the package without re-deriving it from disk.
+///
+/// `entangle plugins install` and `entangle quickstart` consume this instead of
+/// re-implementing the signing pipeline; [`run`] is just `build` plus the
+/// "next steps" banner that `plugins build` prints.
+#[derive(Debug, Clone)]
+pub struct BuildOutcome {
+    /// Fully-qualified `<publisher>/<name>@<version>` id of the signed package.
+    pub plugin_id: String,
+    /// Directory holding `plugin.wasm`, `entangle.toml`, and `plugin.wasm.sig`.
+    pub dist: PathBuf,
+    /// Signing key fingerprint (32 hex chars) — the `<publisher>` segment.
+    pub fingerprint: String,
+    /// Signing key's public key (64 hex chars) — what `keyring add` takes.
+    pub public_key_hex: String,
+    /// Effective tier of the signed manifest.
+    pub effective_tier: u8,
+}
+
 /// Split an `entangle.toml` `plugin.id` into its bare `<name>` segment.
 ///
 /// Accepts every shape an author might plausibly write:
@@ -80,7 +100,7 @@ pub struct RenderedManifest {
 /// bare `my-plugin`. Only the name survives — the publisher always comes from
 /// the signing key and the version always comes from `plugin.version`, so a
 /// stale or hand-edited id can never leak into the signed artifact.
-fn plugin_name_from_id(id: &str) -> &str {
+pub fn plugin_name_from_id(id: &str) -> &str {
     let after_slash = match id.rfind('/') {
         Some(i) => &id[i + 1..],
         None => id,
@@ -264,7 +284,7 @@ fn cargo_bin() -> String {
 // ---------------------------------------------------------------------------
 
 /// Fail early with an actionable message when the wasm target is missing.
-fn ensure_target_installed(target: &str) -> Result<()> {
+pub fn ensure_target_installed(target: &str) -> Result<()> {
     let out = match Command::new("rustup")
         .args(["target", "list", "--installed"])
         .output()
@@ -280,8 +300,35 @@ fn ensure_target_installed(target: &str) -> Result<()> {
     Ok(())
 }
 
-/// Build + sign the plugin project described by `opts`.
+/// `entangle plugins build` — [`build`] plus the "next steps" banner.
+///
+/// The banner is deliberately *not* part of [`build`]: `plugins install` and
+/// `quickstart` perform those next steps themselves, and printing a list of
+/// commands the user does not need to run is how onboarding output becomes
+/// noise.
 pub fn run(opts: BuildOptions) -> Result<()> {
+    let outcome = build(opts)?;
+
+    println!();
+    println!("Next steps:");
+    println!(
+        "  entangle keyring add {} --name self",
+        outcome.public_key_hex
+    );
+    println!("  entangle plugins load {}", outcome.dist.display());
+    println!(
+        "  entangle plugins invoke {} --input 'world'",
+        outcome.plugin_id
+    );
+    Ok(())
+}
+
+/// Build + sign the plugin project described by `opts`.
+///
+/// This is the single implementation of the signing pipeline: render the
+/// manifest, compile (or accept) the wasm, and write a signed `dist/`. Every
+/// other command that needs a signed package calls this.
+pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
     let dir = opts.dir.clone();
     if !dir.is_dir() {
         bail!("{} is not a directory", dir.display());
@@ -302,7 +349,9 @@ pub fn run(opts: BuildOptions) -> Result<()> {
     let key_path = opts.key.clone().unwrap_or_else(config::identity_path);
     if !key_path.exists() {
         bail!(
-            "identity key not found at {}\nRun `entangle init` to generate one.",
+            "identity key not found at {}\n\
+             Run `entangle init --non-interactive` to generate one \
+             (or `entangle quickstart` to do everything at once).",
             key_path.display()
         );
     }
@@ -349,16 +398,13 @@ pub fn run(opts: BuildOptions) -> Result<()> {
     let dist = opts.out.clone().unwrap_or_else(|| dir.join("dist"));
     write_dist(&dist, &wasm_src, &rendered, &keypair)?;
 
-    let public_key_hex = hex::encode(keypair.public().as_bytes());
-    println!();
-    println!("Next steps:");
-    println!("  entangle keyring add {public_key_hex} --name self");
-    println!("  entangle plugins load {}", dist.display());
-    println!(
-        "  entangle plugins invoke {} --input 'world'",
-        rendered.plugin_id
-    );
-    Ok(())
+    Ok(BuildOutcome {
+        plugin_id: rendered.plugin_id,
+        dist,
+        fingerprint,
+        public_key_hex: hex::encode(keypair.public().as_bytes()),
+        effective_tier: rendered.effective_tier,
+    })
 }
 
 /// Compile the plugin to wasm and return the path to the produced artifact.
@@ -374,7 +420,15 @@ fn build_wasm(cargo_manifest: &Path, target: &str) -> Result<PathBuf> {
         );
     }
 
-    println!("[entangle] building {} for {target}...", info.name);
+    // A release wasm build takes tens of seconds to minutes (and longer on the
+    // first run, when the SDK and wit-bindgen have to be fetched and compiled).
+    // Say so *before* handing the terminal to cargo, so a long silence reads as
+    // "working" rather than "hung".
+    println!("[entangle] compiling {} for {target}...", info.name);
+    println!(
+        "[entangle] this is a cargo release build: expect 30s-2min, and longer the first\n\
+         [entangle] time while dependencies are fetched and compiled."
+    );
     let status = Command::new(cargo_bin())
         .args(["build", "--release", "--target", target, "--manifest-path"])
         .arg(cargo_manifest)
