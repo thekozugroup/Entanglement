@@ -35,30 +35,31 @@ For a hands-on tour from `entangle init` through plugin invocation and peer pair
 
 ## Install
 
+Build from source — this is the path that works today:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/thekozugroup/Entanglement/main/scripts/install.sh | sh
+git clone https://github.com/thekozugroup/Entanglement
+cd Entanglement
+./scripts/bootstrap.sh          # add --dry-run to see what it would do first
 ```
 
-[`scripts/install.sh`](./scripts/install.sh) detects your platform, downloads the
-matching signed release tarball, **verifies its SHA-256 before extracting**, and
-installs `entangle` + `entangled` into `~/.local/bin`. It never calls `sudo` and
-refuses to run as root. Use `--dry-run` to see exactly what it would do,
-`--version X.Y.Z` to pin, `--prefix DIR` to relocate.
+[`scripts/bootstrap.sh`](./scripts/bootstrap.sh) checks your toolchain (Rust
+1.91+, plus the `wasm32-wasip2` target plugins need), installs `entangle` and
+`entangled`, and runs `entangle init` only if you have no identity yet. It never
+calls `sudo` and never overwrites an existing identity.
 
-Other paths:
+No Rust toolchain? Use Docker:
+`docker compose -f docker/docker-compose.yml up --build`
+(see [`docker/README.md`](./docker/README.md)).
 
-- **macOS / Linuxbrew**: `brew install thekozugroup/entanglement/entangle`, then
-  `brew services start entangle`. Formula source:
-  [`packaging/homebrew/entangle.rb`](./packaging/homebrew/entangle.rb).
-- **Docker** (recommended for Linux servers):
-  `docker compose -f docker/docker-compose.yml up --build` — see [`docker/README.md`](./docker/README.md).
-- **systemd**: hardened unit at [`packaging/entangled.service`](./packaging/entangled.service).
-- **From source**: `cargo install --path crates/entangle-cli --locked` (add
-  `cargo install --path crates/entangle-bin --locked` for the `entangled` daemon).
-- **Windows**: WSL2 only; native AppContainer support is deferred to Phase 5.
+> **No release is published yet**, so the `curl … | sh` one-liner
+> ([`scripts/install.sh`](./scripts/install.sh)) and Homebrew cannot work — both
+> only install prebuilt release tarballs. They are documented and ready, and
+> start working the moment a `v0.1.0` tag is cut. `cargo install --git` is also
+> broken right now, for an unrelated reason.
 
-Full guide, signature verification (`scripts/verify-release.sh`), and uninstall
-steps: [`docs/install.md`](./docs/install.md).
+Full guide — every install path with its current status, systemd, uninstall, and
+troubleshooting: [`docs/install.md`](./docs/install.md).
 
 ## Status
 
