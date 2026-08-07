@@ -16,6 +16,7 @@
 //! If the daemon is not running and `--allow-local` is absent, the command
 //! prints a friendly error and exits non-zero.
 
+use anyhow::Context as _;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use clap::{Args, Subcommand};
 use entangle_rpc::{Client as RpcClient, RpcError};
@@ -180,6 +181,15 @@ The catalog is resolved exactly as `plugins install` resolves it:
         /// Timeout for the invocation in milliseconds (default: 30 000).
         #[arg(long, default_value_t = 30_000)]
         timeout_ms: u64,
+        /// Write the raw output bytes to this file instead of printing them.
+        ///
+        /// Required for plugins that return binary (compressed data, images):
+        /// stdout rendering is lossy for non-UTF-8 output.
+        #[arg(long, conflicts_with = "raw")]
+        output_file: Option<String>,
+        /// Write the raw output bytes to stdout with no prefix, for piping.
+        #[arg(long, conflicts_with = "output_file")]
+        raw: bool,
     },
 }
 
@@ -246,7 +256,18 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             input,
             input_file,
             timeout_ms,
-        } => invoke(plugin_id, input, input_file, timeout_ms).await,
+            output_file,
+            raw,
+        } => {
+            invoke(
+                plugin_id,
+                input,
+                input_file,
+                timeout_ms,
+                OutputSink::from_flags(output_file, raw),
+            )
+            .await
+        }
     }
 }
 
@@ -533,6 +554,7 @@ async fn invoke(
     input: Option<String>,
     input_file: Option<String>,
     timeout_ms: u64,
+    sink: OutputSink,
 ) -> anyhow::Result<()> {
     let input_bytes: Vec<u8> = match (input.as_deref(), input_file.as_deref()) {
         (Some(s), _) => s.as_bytes().to_vec(),
@@ -547,10 +569,10 @@ async fn invoke(
         .plugins_invoke(&plugin_id, input_bytes.clone(), timeout_ms)
         .await
     {
-        Ok(r) => print_output(&r.output),
+        Ok(r) => sink.write(&r.output),
         Err(RpcError::DaemonNotRunning(_)) => {
             if allow_local() {
-                invoke_local(plugin_id, input_bytes, timeout_ms).await
+                invoke_local(plugin_id, input_bytes, timeout_ms, sink).await
             } else {
                 Err(daemon_not_running_error())
             }
@@ -563,19 +585,74 @@ async fn invoke_local(
     plugin_id: String,
     input_bytes: Vec<u8>,
     timeout_ms: u64,
+    sink: OutputSink,
 ) -> anyhow::Result<()> {
     let id =
         PluginId::from_str(&plugin_id).map_err(|e| anyhow::anyhow!("invalid plugin id: {e}"))?;
     let kernel = build_kernel()?;
     let output = kernel.invoke(&id, &input_bytes, timeout_ms).await?;
-    print_output(&output)
+    sink.write(&output)
 }
 
-fn print_output(output: &[u8]) -> anyhow::Result<()> {
-    match std::str::from_utf8(output) {
-        Ok(text) if !text.is_empty() => println!("output: {text}"),
-        Ok(_) => println!("output: (empty)"),
-        Err(_) => println!("output (base64): {}", BASE64.encode(output)),
+/// Where an invocation's output bytes should go.
+///
+/// A plugin returns arbitrary bytes, and the default human rendering is lossy
+/// for anything that is not UTF-8 (it falls back to base64). Plugins that
+/// return binary — compressed data, an encoded image — are unusable without a
+/// byte-faithful path, so `--output-file` and `--raw` provide one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum OutputSink {
+    /// Human-readable summary on stdout (UTF-8 text, or base64 as a fallback).
+    Pretty,
+    /// Raw bytes to stdout, no prefix and no trailing newline — for pipelines.
+    RawStdout,
+    /// Raw bytes to this path.
+    File(String),
+}
+
+impl OutputSink {
+    /// Resolve the mutually-exclusive `--output-file` / `--raw` flags.
+    pub(crate) fn from_flags(output_file: Option<String>, raw: bool) -> Self {
+        match (output_file, raw) {
+            (Some(path), _) => Self::File(path),
+            (None, true) => Self::RawStdout,
+            (None, false) => Self::Pretty,
+        }
     }
-    Ok(())
+
+    /// Deliver `output`, reporting where it went when that is not obvious.
+    fn write(&self, output: &[u8]) -> anyhow::Result<()> {
+        match self {
+            Self::Pretty => {
+                match std::str::from_utf8(output) {
+                    Ok(text) if !text.is_empty() => println!("output: {text}"),
+                    Ok(_) => println!("output: (empty)"),
+                    // Non-UTF-8: base64 keeps it copy-pasteable, but point at
+                    // the lossless flags rather than leaving that as the answer.
+                    Err(_) => {
+                        println!("output (base64): {}", BASE64.encode(output));
+                        eprintln!(
+                            "note: {} bytes of binary output; use --output-file <PATH> or --raw \
+                             to get the exact bytes",
+                            output.len()
+                        );
+                    }
+                }
+                Ok(())
+            }
+            Self::RawStdout => {
+                use std::io::Write as _;
+                let mut out = std::io::stdout().lock();
+                out.write_all(output).context("writing output to stdout")?;
+                out.flush().context("flushing stdout")?;
+                Ok(())
+            }
+            Self::File(path) => {
+                std::fs::write(path, output)
+                    .with_context(|| format!("writing {} output bytes to {path}", output.len()))?;
+                eprintln!("wrote {} bytes to {path}", output.len());
+                Ok(())
+            }
+        }
+    }
 }
