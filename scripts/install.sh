@@ -309,8 +309,27 @@ main() {
             TAG="vX.Y.Z"
             warn "could not resolve the latest tag (offline?) — using a placeholder for the dry run"
         else
-            die "could not determine the latest release tag.
-  Check your network, or pass an explicit version: install.sh --version X.Y.Z
+            die "could not resolve a release to download.
+
+  ${REPO} has no published releases yet, so this script — which only
+  ever installs prebuilt release tarballs — has nothing to fetch. That is
+  expected right now, not a bug in the script or your network.
+
+  Two install paths DO work today (full details in docs/install.md):
+
+    1. From source — needs a Rust toolchain (1.91+), no release required:
+         git clone https://github.com/${REPO}
+         cd Entanglement
+         ./scripts/bootstrap.sh
+
+    2. Docker — needs no Rust toolchain, builds in the image:
+         git clone https://github.com/${REPO}
+         cd Entanglement
+         docker compose -f docker/docker-compose.yml up --build
+
+  If a release has since been cut and you are merely offline or behind a proxy
+  that blocks the redirect, pass the version explicitly:
+         install.sh --version X.Y.Z
   Published releases: ${RELEASES_URL}"
         fi
     fi
@@ -372,7 +391,9 @@ main() {
     step "Downloading ${TARBALL}"
     fetch "$TARBALL_URL" "${TMPDIR_INSTALL}/${TARBALL}" ||
         die "download failed: ${TARBALL_URL}
-  Is ${TAG} published for ${TARGET}? See ${RELEASES_URL}"
+  Is ${TAG} published for ${TARGET}? See ${RELEASES_URL}
+  If that page is empty, no release exists yet — build from source with
+  ./scripts/bootstrap.sh, or use Docker. See docs/install.md."
 
     step "Downloading ${TARBALL}.sha256"
     fetch "$SHA_URL" "${TMPDIR_INSTALL}/${TARBALL}.sha256" ||
