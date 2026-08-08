@@ -93,7 +93,7 @@ parking_lot = "0.12"
 num_cpus = "1"
 
 # WebAssembly
-wasmtime = { version = "43.0.2", features = ["component-model"] }
+wasmtime = { version = "46.0.2", features = ["component-model"] }
 wasmtime-wasi = "43.0.2"
 wit-parser = "0.245"
 
