@@ -98,7 +98,7 @@ wasmtime-wasi = "43.0.2"
 wit-parser = "0.245"
 
 # Networking
-mdns-sd = "0.19"
+mdns-sd = "0.20"
 # Iroh QUIC P2P transport (mesh.iroh, architecture.md §6.1).
 #
 # The 1.0 line, not the 0.95 line the scaffold's docs guessed at, for two
