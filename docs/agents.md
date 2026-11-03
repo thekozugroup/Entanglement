@@ -76,8 +76,13 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
   request, and so is one that writes a single message over 64 MiB (its
   in-flight calls fail with E0663).
 * Policy: `--deny` wins over `--allow`; patterns are `server/tool`,
-  `server/*`, `*`. Denied calls return JSON-RPC error `ENTANGLE-E0661` and
-  never reach the downstream server.
+  `server/*`, `*`, compared with the whole `server/tool` text (so a server
+  named `gh/admin` is covered by `gh/admin/*`). There are no other
+  wildcards: a pattern such as `*/delete_file` or `fs` is refused at start
+  (`ENTANGLE-E0625`) instead of silently matching nothing, and a pattern
+  that names no configured server is logged as a warning. Denied calls
+  return JSON-RPC error `ENTANGLE-E0661` and never reach the downstream
+  server.
 * A request that has been accepted is processed to the end even if the
   agent closes the connection: the downstream call still completes, counts
   against the in-flight limit until it does, and is audited.
@@ -92,7 +97,8 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
 
 `E0620` (former "not implemented" gateway stub) is retired and no longer
 emitted. In use: E0621 bind, E0622 non-loopback refused, E0623 empty token,
-E0624 zero `max_in_flight`, E0660 original config modified, E0661-E0668
+E0624 zero `max_in_flight`, E0625 invalid policy pattern, E0660 original
+config modified, E0661-E0668
 JSON-RPC/HTTP failures listed above, E0669 session not activated, E0670 auth.
 
 Running the agent directly (without `entangle agent run`) bypasses all of this

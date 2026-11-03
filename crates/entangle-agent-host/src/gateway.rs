@@ -199,6 +199,14 @@ pub enum GatewayError {
     /// `max_in_flight` is zero, so no request could ever be served.
     #[error("ENTANGLE-E0624: max_in_flight must be at least 1")]
     ZeroMaxInFlight,
+    /// A policy pattern has a shape that can never match a call.
+    #[error("ENTANGLE-E0625: invalid policy pattern {pattern:?}: {reason}")]
+    InvalidPolicyPattern {
+        /// The pattern as given.
+        pattern: String,
+        /// What is wrong with it.
+        reason: &'static str,
+    },
 }
 
 /// Generate a fresh, opaque bearer token suitable for one MCP gateway session.
@@ -322,9 +330,13 @@ pub trait GatewayHooks: Send + Sync + std::fmt::Debug {
 /// Simple per-session allow/deny policy over `server/tool` names.
 ///
 /// Patterns: `server/tool` (exact), `server/*` (any tool of a server), `*`
-/// (everything). A call is denied if any `deny` pattern matches; otherwise,
-/// if `allow` is non-empty it must match one of them; an empty `allow` list
-/// allows everything not denied.
+/// (everything). A pattern is compared with the whole `server/tool` text, so
+/// server or tool names that themselves contain `/` work (`gh/admin/*`
+/// covers every tool of server `gh/admin`). No other wildcards exist;
+/// [`Policy::validate`] (run by [`Gateway::start`]) refuses patterns that
+/// could never match. A call is denied if any `deny` pattern matches;
+/// otherwise, if `allow` is non-empty it must match one of them; an empty
+/// `allow` list allows everything not denied.
 #[derive(Clone, Debug, Default)]
 pub struct Policy {
     /// Allow patterns (empty = allow all).
@@ -335,14 +347,48 @@ pub struct Policy {
 
 impl Policy {
     fn matches(pat: &str, server: &str, tool: &str) -> bool {
-        if pat == "*" {
+        if pat == "*" || pat.strip_suffix("/*") == Some(server) {
             return true;
         }
-        match pat.split_once('/') {
-            Some((s, "*")) => s == server,
-            Some((s, t)) => s == server && t == tool,
-            None => false,
+        // Exact `server/tool`, without splitting the pattern (either name
+        // may contain '/').
+        pat.strip_prefix(server)
+            .and_then(|rest| rest.strip_prefix('/'))
+            == Some(tool)
+    }
+
+    /// Why `pat` can never be a useful pattern, if it cannot.
+    fn pattern_problem(pat: &str) -> Option<&'static str> {
+        if pat == "*" {
+            return None;
         }
+        let Some((server, tool)) = pat.rsplit_once('/') else {
+            return Some("expected `server/tool`, `server/*` or `*`");
+        };
+        if server.is_empty() || tool.is_empty() {
+            return Some("the server and tool parts must not be empty");
+        }
+        if server.contains('*') || (tool != "*" && tool.contains('*')) {
+            return Some(
+                "`*` is only supported as the whole pattern or as the tool part (`server/*`)",
+            );
+        }
+        None
+    }
+
+    /// Check that every pattern has a supported shape. A pattern such as
+    /// `*/delete_file` or `fs` would otherwise silently match nothing, so a
+    /// deny rule the operator relies on would never fire.
+    pub fn validate(&self) -> Result<(), GatewayError> {
+        for pat in self.allow.iter().chain(&self.deny) {
+            if let Some(reason) = Self::pattern_problem(pat) {
+                return Err(GatewayError::InvalidPolicyPattern {
+                    pattern: pat.clone(),
+                    reason,
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Evaluate the policy for `server/tool`.
@@ -1528,6 +1574,8 @@ pub struct Gateway {
     config: GatewayConfig,
     servers: BTreeMap<String, McpServerSpec>,
     hooks: Arc<dyn GatewayHooks>,
+    /// The policy given to [`Gateway::with_policy`], validated at start.
+    policy: Option<Policy>,
     request_timeout: Duration,
     max_body_bytes: usize,
     max_downstream_message: usize,
@@ -1541,6 +1589,7 @@ impl Gateway {
             config,
             servers: BTreeMap::new(),
             hooks: Arc::new(Policy::default()),
+            policy: None,
             request_timeout: Duration::from_secs(60),
             max_body_bytes: 4 * 1024 * 1024,
             max_downstream_message: 64 * 1024 * 1024,
@@ -1554,10 +1603,12 @@ impl Gateway {
         self
     }
 
-    /// Use a [`Policy`] for `before_tool`.
+    /// Use a [`Policy`] for `before_tool`. [`Gateway::start`] refuses it
+    /// if a pattern is invalid (see [`Policy::validate`]).
     #[must_use]
     pub fn with_policy(mut self, policy: Policy) -> Self {
-        self.hooks = Arc::new(policy);
+        self.hooks = Arc::new(policy.clone());
+        self.policy = Some(policy);
         self
     }
 
@@ -1565,6 +1616,7 @@ impl Gateway {
     #[must_use]
     pub fn with_hooks(mut self, hooks: Arc<dyn GatewayHooks>) -> Self {
         self.hooks = hooks;
+        self.policy = None;
         self
     }
 
@@ -1607,6 +1659,19 @@ impl Gateway {
         }
         if self.config.max_in_flight == 0 {
             return Err(GatewayError::ZeroMaxInFlight);
+        }
+        if let Some(policy) = &self.policy {
+            policy.validate()?;
+            for pat in policy.allow.iter().chain(&policy.deny) {
+                let known = pat == "*"
+                    || self.servers.keys().any(|n| {
+                        pat.strip_prefix(n.as_str())
+                            .is_some_and(|r| r.starts_with('/'))
+                    });
+                if !known {
+                    tracing::warn!(pattern = %pat, "policy pattern names no configured MCP server");
+                }
+            }
         }
         // Bounded so the permit count fits the semaphore and `acquire_many`.
         let max_in_flight = u32::try_from(self.config.max_in_flight)
@@ -1840,6 +1905,80 @@ mod tests {
         assert!(c.starts_with("éé"), "{c}");
         assert!(!c.starts_with("ééé"), "{c}");
         assert!(c.ends_with("[truncated, 20 bytes]"), "{c}");
+    }
+
+    #[test]
+    fn policy_matches_server_names_that_contain_slashes() {
+        let p = Policy {
+            allow: vec![],
+            deny: vec!["gh/admin/*".into(), "gh/admin/x/exact".into()],
+        };
+        assert!(matches!(
+            p.evaluate("gh/admin", "delete_repo"),
+            Decision::Deny { .. }
+        ));
+        assert!(matches!(
+            p.evaluate("gh/admin/x", "exact"),
+            Decision::Deny { .. }
+        ));
+        assert_eq!(p.evaluate("gh", "delete_repo"), Decision::Allow);
+        // Tool names containing '/' still match exactly.
+        let p = Policy {
+            allow: vec!["fs/dir/read".into()],
+            deny: vec![],
+        };
+        assert_eq!(p.evaluate("fs", "dir/read"), Decision::Allow);
+        assert!(matches!(p.evaluate("fs", "read"), Decision::Deny { .. }));
+    }
+
+    #[test]
+    fn policy_validate_rejects_patterns_that_can_never_match() {
+        for bad in [
+            "*/delete_file",
+            "fs",
+            "fs/",
+            "/read",
+            "fs/*x",
+            "f*/read",
+            "",
+            "**",
+        ] {
+            let p = Policy {
+                allow: vec![],
+                deny: vec![bad.into()],
+            };
+            let err = p.validate().expect_err(bad);
+            assert!(err.to_string().contains("ENTANGLE-E0625"), "{bad}: {err}");
+            let p = Policy {
+                allow: vec![bad.into()],
+                deny: vec![],
+            };
+            assert!(p.validate().is_err(), "allow {bad}");
+        }
+        for good in ["*", "fs/*", "fs/read", "gh/admin/*", "fs/dir/read"] {
+            Policy {
+                allow: vec![good.into()],
+                deny: vec![good.into()],
+            }
+            .validate()
+            .expect(good);
+        }
+    }
+
+    #[tokio::test]
+    async fn start_refuses_an_invalid_policy_pattern() {
+        let err = Gateway::new(GatewayConfig {
+            bearer_token: "t".into(),
+            ..GatewayConfig::default()
+        })
+        .with_policy(Policy {
+            allow: vec![],
+            deny: vec!["*/delete_file".into()],
+        })
+        .start()
+        .await
+        .expect_err("a deny rule that can never match must be refused");
+        assert!(matches!(err, GatewayError::InvalidPolicyPattern { .. }));
     }
 
     #[test]
