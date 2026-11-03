@@ -153,8 +153,9 @@ const STAGING_LOCK: &str = "lock";
 struct StagingDir {
     dir: PathBuf,
     /// Held for the directory's lifetime; closed only after it is removed
-    /// (fields drop after [`Drop::drop`]).
-    _lock: std::fs::File,
+    /// (fields drop after [`Drop::drop`]). `None` where the filesystem
+    /// cannot lock: the copy is then never swept, only removed on drop.
+    _lock: Option<std::fs::File>,
 }
 
 impl Drop for StagingDir {
@@ -169,15 +170,27 @@ impl Drop for StagingDir {
 /// a temporary name, then renamed into place, so `lock` never exists
 /// unlocked while its owner is alive — a sweep can never mistake a
 /// directory still being staged for an abandoned one.
-fn lock_staging_dir(dir: &Path) -> std::io::Result<std::fs::File> {
+///
+/// Where the filesystem refuses the lock, `None`: no `lock` appears, so the
+/// directory is never swept (staging itself must not fail over this).
+fn lock_staging_dir(dir: &Path) -> Option<std::fs::File> {
     let tmp = dir.join(".lock.tmp");
-    let f = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&tmp)?;
-    f.lock()?;
-    std::fs::rename(&tmp, dir.join(STAGING_LOCK))?;
-    Ok(f)
+    let attempt = || -> std::io::Result<std::fs::File> {
+        let f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)?;
+        f.lock()?;
+        std::fs::rename(&tmp, dir.join(STAGING_LOCK))?;
+        Ok(f)
+    };
+    match attempt() {
+        Ok(f) => Some(f),
+        Err(e) => {
+            tracing::debug!(dir = %dir.display(), error = %e, "cannot lock a staging copy; it will not be swept if this process dies");
+            None
+        }
+    }
 }
 
 /// Remove the staging directories under `root` that their process left
@@ -262,16 +275,9 @@ fn stage(root: &Path, name: &str, bytes: &[u8]) -> std::io::Result<(StagingDir, 
         }
         match builder.create(&dir) {
             Ok(()) => {
-                let lock = match lock_staging_dir(&dir) {
-                    Ok(lock) => lock,
-                    Err(e) => {
-                        let _ = std::fs::remove_dir_all(&dir);
-                        return Err(e);
-                    }
-                };
                 let guard = StagingDir {
                     dir: dir.clone(),
-                    _lock: lock,
+                    _lock: lock_staging_dir(&dir),
                 };
                 let bin = dir.join("plugin");
                 let mut opts = std::fs::OpenOptions::new();
@@ -896,7 +902,11 @@ mod tests {
         let (_live, live_bin) = stage(root.path(), "live", b"live").unwrap();
         let (dead, dead_bin) = stage(root.path(), "dead", b"dead").unwrap();
         // The owner dies: the OS releases its lock, nothing removes the copy.
-        dead._lock.unlock().unwrap();
+        dead._lock
+            .as_ref()
+            .expect("the temp filesystem supports locks")
+            .unlock()
+            .unwrap();
         std::mem::forget(dead);
         // Mid-creation (no lock yet), unrelated, and a link out of the root.
         let creating = root.path().join(format!("{STAGING_PREFIX}creating-0"));
