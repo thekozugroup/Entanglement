@@ -80,6 +80,35 @@ jobs:
             echo "Wasm file is empty" && exit 1
           fi
 
+  metric-plugins:
+    name: metric-plugins
+    # plugins/metric-* are stand-alone crates (own [workspace]), so
+    # `cargo test --workspace` never runs their math tests, and the committed
+    # scheduler fixtures are prebuilt blobs. Run the native tests and prove the
+    # committed .wasm files are exactly what the sources build to.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch (no version tags)
+        with:
+          toolchain: "1.91"
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: |
+            plugins/metric-bleu-4
+            plugins/metric-numerical-l2-relative
+      - name: Native math tests
+        run: |
+          for d in metric-bleu-4 metric-numerical-l2-relative; do
+            (cd plugins/$d && cargo test --locked)
+          done
+      - name: Rebuild fixtures and compare with the committed blobs
+        run: |
+          crates/entangle-scheduler/tests/fixtures/build.sh
+          git diff --exit-code --stat -- crates/entangle-scheduler/tests/fixtures \
+            || { echo "committed metric fixtures differ from a rebuild: run tests/fixtures/build.sh and commit"; exit 1; }
+
   deny:
     name: cargo-deny
     runs-on: ubuntu-24.04

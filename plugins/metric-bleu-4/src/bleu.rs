@@ -176,4 +176,52 @@ mod tests {
         assert_eq!(distance(b"\xff ok", b"\xff ok"), 0.0);
         assert_eq!(tokens(b"\xff ok"), vec!["\u{fffd}", "ok"]);
     }
+
+    #[test]
+    fn splits_on_unicode_whitespace_and_keeps_multibyte_tokens() {
+        // NBSP (U+00A0) and IDEOGRAPHIC SPACE (U+3000) are Unicode whitespace.
+        assert_eq!(tokens("a\u{a0}b\u{3000}c".as_bytes()), vec!["a", "b", "c"]);
+        assert_eq!(tokens("héllo wörld 日本".as_bytes()), vec!["héllo", "wörld", "日本"]);
+        assert_eq!(
+            distance("a\u{a0}b\u{3000}c d".as_bytes(), b"a b c d"),
+            0.0
+        );
+    }
+
+    #[test]
+    fn cjk_without_spaces_is_one_token() {
+        let t = tokens("日本語のテキスト".as_bytes());
+        assert_eq!(t.len(), 1);
+        assert_eq!(distance("日本語のテキスト".as_bytes(), "日本語のテキスト".as_bytes()), 0.0);
+        assert_eq!(distance("日本語のテキスト".as_bytes(), "日本語のテキスヒ".as_bytes()), 1.0);
+    }
+
+    #[test]
+    fn case_and_punctuation_are_significant() {
+        assert_eq!(distance(b"Hello", b"hello"), 1.0);
+        assert_eq!(distance(b"Hello,", b"Hello"), 1.0);
+        assert_eq!(tokens(b"Hello, World"), vec!["Hello,", "World"]);
+    }
+
+    #[test]
+    fn length_asymmetry_is_directional() {
+        let long = b"the cat sat on the mat today";
+        let short = b"the cat sat";
+        assert!(distance(short, long) > distance(long, short));
+    }
+
+    /// 1 MiB of distinct tokens must stay fast (linear n-gram counting) and
+    /// score exactly 0 against itself.
+    #[test]
+    fn a_large_input_is_linear_and_exact() {
+        let mut text = String::with_capacity(1 << 20);
+        let mut i = 0u32;
+        while text.len() < (1 << 20) {
+            text.push_str(&format!("w{i} "));
+            i += 1;
+        }
+        let start = std::time::Instant::now();
+        assert_eq!(distance(text.as_bytes(), text.as_bytes()), 0.0);
+        assert!(start.elapsed().as_secs() < 30, "n-gram counting is not linear");
+    }
 }

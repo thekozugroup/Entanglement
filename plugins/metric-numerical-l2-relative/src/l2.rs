@@ -188,4 +188,43 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn negative_zero_equals_zero() {
+        assert_eq!(distance(b"[-0, 0]", b"[0, -0]"), 0.0);
+        assert_eq!(distance(b"[-0.0]", b"[0.0]"), 0.0);
+    }
+
+    #[test]
+    fn subnormals_are_handled_exactly_by_scaling() {
+        let d = distance(b"[5e-324, 0]", b"[0, 5e-324]");
+        assert!(close(d, 2.0_f64.sqrt()), "{d}");
+        assert_eq!(distance(b"[5e-324]", b"[5e-324]"), 0.0);
+    }
+
+    #[test]
+    fn overflowing_sums_stay_finite() {
+        // Squares of 1e200 overflow without pre-scaling; with it the answer
+        // is exact and finite.
+        let a = format!("[{}]", vec!["1e200"; 1000].join(","));
+        let b = format!("[{}]", vec!["-1e200"; 1000].join(","));
+        let d = distance(a.as_bytes(), b.as_bytes());
+        assert!(close(d, 2.0), "{d}");
+    }
+
+    #[test]
+    fn a_large_vector_is_exact() {
+        let n = 200_000;
+        let a: Vec<String> = (0..n).map(|i| (i % 97 + 1).to_string()).collect();
+        let text = a.join(",");
+        assert_eq!(distance(text.as_bytes(), text.as_bytes()), 0.0);
+        let shifted: Vec<String> = (0..n).map(|i| (-((i % 97 + 1) as i64)).to_string()).collect();
+        assert!(close(distance(text.as_bytes(), shifted.join(",").as_bytes()), 2.0));
+    }
+
+    #[test]
+    fn different_lengths_are_incomparable_in_either_order() {
+        assert_eq!(distance(b"[1, 2, 3]", b"[1, 2]"), f64::INFINITY);
+        assert_eq!(distance(b"[]", b"[0]"), f64::INFINITY);
+    }
 }
