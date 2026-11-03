@@ -301,6 +301,71 @@ keyring, and daemon reachability.
 
 ---
 
+## 7. Publish to an OCI registry
+
+Any OCI Distribution v1.1 registry (GHCR, Harbor, a self-hosted `registry:2`,
+a mirror) can host your plugin. The registry is only a place to keep bytes:
+consumers trust **your publisher key**, never the registry (spec §3.6, ATC-MIR-1).
+
+```sh
+entangle plugins build .                       # produces dist/ (section 4)
+entangle plugins publish dist oci://ghcr.io/you/hello:0.1.0
+```
+
+`publish` accepts the build directory (or an already packed package file),
+packs it, uploads the blobs (monolithic upload; chunked for packages larger
+than 4 MiB) and pushes the manifest. Credentials come from
+`ENTANGLE_OCI_TOKEN`, or `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD`, or
+`~/.entangle/oci-auth.toml` (see `docs/operations.md` section 12). Consumers run:
+
+```sh
+entangle keyring add <YOUR_PUBLIC_KEY_HEX> --name you   # once
+entangle plugins install oci://ghcr.io/you/hello:0.1.0
+```
+
+Pin by digest (`oci://ghcr.io/you/hello@sha256:<hex>`) for reproducible installs;
+tags are mutable.
+
+### Artifact format
+
+| Item | Value |
+|------|-------|
+| Manifest media type | `application/vnd.oci.image.manifest.v1+json` |
+| `artifactType` | `application/vnd.entangle.plugin.v1` |
+| Config | the OCI empty descriptor (`application/vnd.oci.empty.v1+json`, `{}`) |
+| Layer (exactly one) | `application/vnd.entangle.plugin.layer.v1.tar+zstd` |
+
+The layer is a zstd-compressed ustar archive of exactly three regular files,
+the same ones the loader reads from `dist/`: `entangle.toml`, `plugin.wasm`,
+`plugin.wasm.sig` (links, directories, extra or duplicate entries are
+rejected). The archive is deterministic (fixed order, zero timestamps).
+Registries that predate `artifactType` are handled via the config media type
+as OCI 1.1 prescribes. An image index is accepted if it has exactly one child
+manifest with this `artifactType`. Manifest annotations are informational and
+never influence trust.
+
+Pulled bytes are verified exactly like a local `dist/`: the signature must be
+by a key in **your** keyring, bound to the publisher in the manifest id. The
+installer then applies `security.max_tier_allowed`, manifest validation and the
+kernel's own load-time checks.
+
+### Mirror listings
+
+A mirror operator can publish a signed listing of a repository's tags at the
+well-known tag `_entangle-listing` (artifact type
+`application/vnd.entangle.mirror-listing.v1`: a JSON layer
+`...mirror-listing.v1+json` with `repository`, `tags` -> digests,
+`generated_at`, `expires_at` in unix seconds, and a detached Ed25519 signature
+layer `...mirror-listing.sig.v1+json` over the exact listing bytes). Listings
+are signed with a dedicated **mirror key**, which is never a publisher key:
+
+```sh
+entangle plugins mirror-sign oci://mirror.example/you/hello --key mirror.pem --ttl-days 7
+entangle plugins tags oci://mirror.example/you/hello
+```
+
+A listing says which tags existed; it cannot make an artifact trusted.
+
 ## Troubleshooting
 
 | Symptom | Cause |
@@ -313,6 +378,7 @@ keyring, and daemon reachability.
 | `the wasm32-wasip2 target is not installed` | `rustup target add wasm32-wasip2` |
 | `… does not declare crate-type = ["cdylib"]` | restore the `[lib]` block in `Cargo.toml` |
 | `identity key not found at ~/.entangle/identity.key` | `entangle init` |
+| `ENTANGLE-E0814: package verification failed` on `install oci://` | the signer is not in your keyring (`ENTANGLE-E0101`) or the package was altered; the registry is irrelevant |
 
 ## Reference
 

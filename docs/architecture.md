@@ -178,7 +178,7 @@ Entanglement supports two paths against the **same Ed25519 publisher key**:
 
 **Path A — OCI artifact (production)**
 - `oci://ghcr.io/thekozugroup/entangle-scheduler:1.4.2`
-- Three layers: `application/vnd.entangle.manifest.+toml`, `application/wasm`, `application/vnd.entangle.signature.+ed25519`
+- One layer `application/vnd.entangle.plugin.layer.v1.tar+zstd` (artifactType `application/vnd.entangle.plugin.v1`) holding `entangle.toml`, `plugin.wasm` and `plugin.wasm.sig`; the signature is verified from those bytes, never from registry metadata. See `docs/plugin-authoring.md` section 7.
 - Cosign provenance optional but recommended. **Path B — Plain HTTPS tarball (hobbyist)**
 - `https://github.com/alice/my-plugin/releases/download/v0.1/my-plugin.tar.zst`
 - Detached signature at the same URL with `.sig` suffix.
@@ -1991,13 +1991,13 @@ ATC-MIR-1
   GIVEN  a plugin.tar.zst served by mirror.entanglement.dev
   WHEN   entangle install verifies it
   THEN   the verifier code path NEVER consults the mirror's identity for artifact bytes
-  TEST   crates/entangle-signing/tests/mirror_cdn_only.rs::no_mirror_in_artifact_trust
+  TEST   crates/entangle-oci/tests/mirror_cdn_only.rs::atc_mir_1_no_mirror_in_artifact_trust
 
 ATC-MIR-2
   GIVEN  a directory listing served by mirror with a valid mirror-listing signature
   WHEN   entangle-oci::list_tags() is called
   THEN   it returns the listing AND records the listing-signature verification result
-  TEST   crates/entangle-oci/tests/listing.rs::mirror_listing_verified
+  TEST   crates/entangle-oci/tests/listing.rs::atc_mir_2_mirror_listing_verified
 ```
 
 ### 16.9 Reproducible 1.0 release (M6)

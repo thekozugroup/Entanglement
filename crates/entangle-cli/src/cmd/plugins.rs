@@ -110,7 +110,12 @@ kernel and the command says so — the signed package still persists on disk, so
 `entangled run` followed by `entangle plugins load <DIR>` picks it up. Use
 --no-load to skip loading entirely.")]
     Install {
-        /// Plugin name as shown by `entangle plugins available`.
+        /// Plugin name as shown by `entangle plugins available`, or an
+        /// `oci://registry/repo:tag` reference to pull, verify and install.
+        ///
+        /// For `oci://` the package is installed only if its signature verifies
+        /// against YOUR keyring and its tier is within `max_tier_allowed`; the
+        /// build/catalog options below are ignored.
         name: String,
         /// Catalog directory to install from (highest-priority source).
         #[arg(long)]
@@ -130,6 +135,53 @@ kernel and the command says so — the signed package still persists on disk, so
         /// Build, sign and trust, but do not load the result.
         #[arg(long)]
         no_load: bool,
+        /// For `oci://` references only: allow plain HTTP to a registry that is not on
+        /// loopback. Trust is unaffected: the publisher signature is still required.
+        #[arg(long)]
+        insecure_registry: bool,
+    },
+    /// Publish a signed plugin package (a build `dist/` directory or packed
+    /// `.tar.zst`) to an OCI registry: `publish <PACKAGE> oci://host/repo:tag`.
+    Publish {
+        /// Build output directory (`plugin.wasm`, `entangle.toml`, `plugin.wasm.sig`)
+        /// or a packed package file.
+        package: PathBuf,
+        /// Destination, `oci://registry[:port]/repo:tag`.
+        reference: String,
+        /// Allow plain HTTP to a registry that is not on loopback.
+        #[arg(long)]
+        insecure_registry: bool,
+    },
+    /// Show a repository's tags and whether its signed mirror listing verifies.
+    Tags {
+        /// `oci://registry[:port]/repo`.
+        reference: String,
+        /// Allow plain HTTP to a registry that is not on loopback.
+        #[arg(long)]
+        insecure_registry: bool,
+        /// Mirror keys file (default `~/.entangle/mirror-keys.toml`).
+        #[arg(long)]
+        mirror_keys: Option<PathBuf>,
+        /// Emit machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+        /// Exit non-zero unless the listing signature verified.
+        #[arg(long)]
+        require_verified: bool,
+    },
+    /// Sign and publish a mirror listing for a repository (mirror operators).
+    MirrorSign {
+        /// `oci://registry[:port]/repo`.
+        reference: String,
+        /// Mirror signing key PEM. Must not be a trusted publisher key.
+        #[arg(long)]
+        key: PathBuf,
+        /// Listing lifetime in days.
+        #[arg(long, default_value_t = 7)]
+        ttl_days: u64,
+        /// Allow plain HTTP to a registry that is not on loopback.
+        #[arg(long)]
+        insecure_registry: bool,
     },
     /// List the plugins in the resolved catalog (name, tier, description).
     #[command(
@@ -235,7 +287,17 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             target,
             wasm,
             no_load,
+            insecure_registry,
         } => {
+            if name.starts_with("oci://") {
+                return crate::cmd::oci::install(crate::cmd::oci::InstallOptions {
+                    reference: name,
+                    insecure_registry,
+                    out,
+                    no_load,
+                })
+                .await;
+            }
             crate::cmd::catalog::install(crate::cmd::catalog::InstallOptions {
                 name,
                 catalog,
@@ -247,6 +309,33 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             })
             .await
         }
+        PluginsCmd::Publish {
+            package,
+            reference,
+            insecure_registry,
+        } => crate::cmd::oci::publish(&package, &reference, insecure_registry).await,
+        PluginsCmd::Tags {
+            reference,
+            insecure_registry,
+            mirror_keys,
+            json,
+            require_verified,
+        } => {
+            crate::cmd::oci::tags(
+                &reference,
+                insecure_registry,
+                mirror_keys,
+                json,
+                require_verified,
+            )
+            .await
+        }
+        PluginsCmd::MirrorSign {
+            reference,
+            key,
+            ttl_days,
+            insecure_registry,
+        } => crate::cmd::oci::mirror_sign(&reference, &key, ttl_days, insecure_registry).await,
         PluginsCmd::Available { catalog, json } => crate::cmd::catalog::available(catalog, json),
         PluginsCmd::List { json } => list(json).await,
         PluginsCmd::Load { dir } => load(dir).await,

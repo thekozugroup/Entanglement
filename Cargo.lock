@@ -1593,6 +1593,7 @@ dependencies = [
  "entangle-manifest",
  "entangle-mesh-tailscale",
  "entangle-observability",
+ "entangle-oci",
  "entangle-pairing",
  "entangle-peers",
  "entangle-rpc",

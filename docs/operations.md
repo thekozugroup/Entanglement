@@ -522,3 +522,96 @@ accepted tasks under deterministic replay, spec §7.5). `Deterministic` and
 
 Scheduler wire version: v2 (task frames carry the policy and its hash). A
 node running an older build answers `unsupported-version`; upgrade both ends.
+
+---
+
+## 12. OCI registries and mirrors
+
+`entangle plugins install oci://registry[:port]/repo[:tag|@sha256:<hex>]`,
+`entangle plugins publish`, `entangle plugins tags` and
+`entangle plugins mirror-sign` use the `entangle-oci` client (OCI Distribution
+v1.1). Error codes are `ENTANGLE-E0800`..`E0829`.
+
+**Trust model.** Only your publisher keyring (`~/.entangle/keyring.toml`)
+decides whether a pulled package installs. The registry's name, TLS identity,
+your credentials for it, and any mirror listing are not inputs to that
+decision (ATC-MIR-1): a package signed by an unknown key is rejected
+(`ENTANGLE-E0814` wrapping `E0101`) even from a registry you operate. After
+verification the install also enforces `security.max_tier_allowed`
+(`ENTANGLE-E0043`) and the kernel's load-time checks.
+
+### Authentication
+
+Resolved per registry (`host[:port]`), first match wins; credentials are never
+logged or printed:
+
+1. `ENTANGLE_OCI_TOKEN` - a bearer token sent directly.
+2. `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD` - Basic credentials, also
+   used against the registry's token endpoint (the standard Bearer flow:
+   `WWW-Authenticate` realm/service/scope).
+3. `~/.entangle/oci-auth.toml`, which must be mode `0600` on Unix:
+
+   ```toml
+   [registries."ghcr.io"]
+   username = "you"
+   password = "<personal access token>"
+
+   [registries."registry.internal:5000"]
+   token = "<bearer token>"
+   ```
+
+With none of these the client is anonymous and still follows the token flow
+for public repositories. `Authorization` is only ever sent to the registry's
+own `host:port`: blob redirects to a CDN on another host are followed without
+it. Redirects are capped at 5; only HTTP 429 and 5xx are retried (4 attempts,
+exponential backoff, `Retry-After` honoured up to 8 s).
+
+### HTTPS and insecure registries
+
+HTTPS is mandatory, using the bundled web roots plus the system trust store
+(`SSL_CERT_FILE` is honoured, so a private CA works). Plain HTTP is allowed
+only for loopback registries (`localhost`, `127.0.0.0/8`, `::1`; the resolved
+peer must really be loopback) or when you pass `--insecure-registry`, which
+makes the client speak plain HTTP to that registry (and to token endpoints and
+redirect targets it names). Use it on trusted networks only; it does not
+weaken artifact verification, but it exposes your registry credentials.
+
+### Size limits
+
+Blobs are capped at 512 MiB (checked from the descriptor before any bytes are
+requested and enforced while streaming; a registry that sends more than the
+descriptor says is cut off), manifests at 4 MiB, a decompressed package at
+256 MiB. A blob whose SHA-256 differs from its descriptor is rejected
+(`ENTANGLE-E0807`).
+
+### Mirror keys and signed listings
+
+A mirror can publish a signed listing of a repository's tags (see
+`docs/plugin-authoring.md` section 7). Configure the keys you accept for
+listings in `~/.entangle/mirror-keys.toml`, same schema as `keyring.toml`:
+
+```toml
+[[entries]]
+fingerprint = "<32 hex>"
+public_key = "<64 hex>"
+publisher_name = "example mirror"
+added_at = 0
+note = "listing key"
+```
+
+(`entangle plugins tags --mirror-keys <FILE>` uses another file.) Mirror keys
+are a separate trust root: a mirror key can sign listings but never artifacts,
+and publisher keys are not accepted for listings. `entangle plugins tags`
+warns if one key is in both files. `plugins tags` prints the listing's recorded
+verification status:
+
+| Status | Meaning |
+|--------|---------|
+| `verified (mirror key <fp>)` | signed by a configured mirror key, for this repository, not expired; tag digests shown come from the signed listing |
+| `unsigned` | no listing, or a listing without a signature; tags shown are the registry's own and carry no digests |
+| `INVALID: <reason>` | unknown signer, bad signature (tampered), wrong repository, malformed |
+| `EXPIRED` | correctly signed but past `expires_at`; treat as stale |
+
+`--require-verified` makes `tags` exit non-zero unless `verified`. Mirror
+operators publish with `entangle plugins mirror-sign` (refuses a key that is
+trusted as a publisher on that machine).
