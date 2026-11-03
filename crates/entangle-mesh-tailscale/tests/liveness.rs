@@ -6,7 +6,6 @@
 //! feature; enabling it would force a workspace-wide rebuild of tokio and all
 //! its dependents, so the clock is injected instead.)
 
-use std::io::Write as _;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -368,6 +367,7 @@ async fn poll_loop_uses_five_minute_cadence_when_uninstalled() {
 #[cfg(unix)]
 mod fake_cli {
     use super::*;
+    use std::io::Write as _;
     use std::os::unix::fs::PermissionsExt as _;
 
     /// Serialises "write executable then spawn it" across tests: a concurrent
