@@ -1,9 +1,13 @@
 //! Adapter for OpenCode — reads/writes `~/.config/opencode/config.json`.
 
-use super::{Adapter, ConfigFormat, Snapshot};
+use super::{
+    gateway_route_url, parse_server_entry, Adapter, ConfigFormat, LaunchPlan, McpServerSpec,
+    Snapshot,
+};
 use crate::errors::AdapterError;
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 
 /// Adapter for the OpenCode AI coding agent.
 ///
@@ -72,5 +76,80 @@ impl Adapter for OpenCodeAdapter {
         } else {
             std::fs::write(path, &snap.original_bytes).map_err(|e| AdapterError::Io(e.to_string()))
         }
+    }
+
+    fn binary(&self) -> &'static str {
+        "opencode"
+    }
+
+    fn servers(&self, snap: &Snapshot) -> Result<BTreeMap<String, McpServerSpec>, AdapterError> {
+        if snap.original_bytes.is_empty() {
+            return Ok(BTreeMap::new());
+        }
+        let v: Value = serde_json::from_slice(&snap.original_bytes)
+            .map_err(|e| AdapterError::Parse(e.to_string()))?;
+        Ok(v.pointer("/mcp/servers")
+            .and_then(Value::as_object)
+            .map(|m| {
+                m.iter()
+                    .filter_map(|(k, e)| parse_server_entry(e).map(|s| (k.clone(), s)))
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
+
+    fn rewrite_for_gateway(
+        &self,
+        original: &Snapshot,
+        gateway_base_url: &str,
+        token_env: &str,
+    ) -> Result<String, AdapterError> {
+        let mut root: Value = if original.original_bytes.is_empty() {
+            json!({})
+        } else {
+            serde_json::from_slice(&original.original_bytes)
+                .map_err(|e| AdapterError::Parse(e.to_string()))?
+        };
+        let names: Vec<String> = root
+            .pointer("/mcp/servers")
+            .and_then(Value::as_object)
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default();
+        let mut servers = serde_json::Map::new();
+        for name in names {
+            servers.insert(
+                name.clone(),
+                json!({
+                    "type": "http",
+                    "url": gateway_route_url(gateway_base_url, &name),
+                    // OpenCode substitutes {env:VAR}: the token never hits disk.
+                    "headers": {"Authorization": format!("Bearer {{env:{token_env}}}")}
+                }),
+            );
+        }
+        let obj = root
+            .as_object_mut()
+            .ok_or_else(|| AdapterError::Parse("root not an object".into()))?;
+        let mcp = obj.entry("mcp").or_insert_with(|| json!({}));
+        let mcp = mcp
+            .as_object_mut()
+            .ok_or_else(|| AdapterError::Parse("mcp not an object".into()))?;
+        mcp.insert("servers".into(), Value::Object(servers));
+        serde_json::to_string_pretty(&root).map_err(|e| AdapterError::Parse(e.to_string()))
+    }
+
+    fn launch_plan(
+        &self,
+        session_dir: &Utf8Path,
+        config_text: &str,
+    ) -> Result<LaunchPlan, AdapterError> {
+        let path = session_dir.join("opencode.json");
+        std::fs::write(&path, config_text).map_err(|e| AdapterError::Io(e.to_string()))?;
+        Ok(LaunchPlan {
+            // OPENCODE_CONFIG names an extra config file merged over the user's.
+            env: vec![("OPENCODE_CONFIG".into(), path.to_string())],
+            config_path: path,
+            args: Vec::new(),
+        })
     }
 }

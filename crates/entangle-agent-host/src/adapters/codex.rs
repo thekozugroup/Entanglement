@@ -1,8 +1,12 @@
 //! Adapter for OpenAI Codex CLI — reads/writes `~/.codex/config.toml`.
 
-use super::{Adapter, ConfigFormat, Snapshot};
+use super::{
+    gateway_route_url, parse_server_entry, Adapter, ConfigFormat, LaunchPlan, McpServerSpec,
+    Snapshot,
+};
 use crate::errors::AdapterError;
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
+use std::collections::BTreeMap;
 
 /// Adapter for the OpenAI Codex CLI agent.
 ///
@@ -69,5 +73,98 @@ impl Adapter for CodexAdapter {
         } else {
             std::fs::write(path, &snap.original_bytes).map_err(|e| AdapterError::Io(e.to_string()))
         }
+    }
+
+    fn binary(&self) -> &'static str {
+        "codex"
+    }
+
+    fn servers(&self, snap: &Snapshot) -> Result<BTreeMap<String, McpServerSpec>, AdapterError> {
+        if snap.original_bytes.is_empty() {
+            return Ok(BTreeMap::new());
+        }
+        let s = std::str::from_utf8(&snap.original_bytes)
+            .map_err(|e| AdapterError::Parse(e.to_string()))?;
+        let doc: toml::Value = toml::from_str(s).map_err(|e| AdapterError::Parse(e.to_string()))?;
+        let Some(table) = doc.get("mcp_servers").and_then(toml::Value::as_table) else {
+            return Ok(BTreeMap::new());
+        };
+        Ok(table
+            .iter()
+            .filter_map(|(k, e)| {
+                let json = serde_json::to_value(e).ok()?;
+                parse_server_entry(&json).map(|s| (k.clone(), s))
+            })
+            .collect())
+    }
+
+    fn rewrite_for_gateway(
+        &self,
+        original: &Snapshot,
+        gateway_base_url: &str,
+        token_env: &str,
+    ) -> Result<String, AdapterError> {
+        let mut doc: toml::Value = if original.original_bytes.is_empty() {
+            toml::Value::Table(toml::map::Map::new())
+        } else {
+            let s = std::str::from_utf8(&original.original_bytes)
+                .map_err(|e| AdapterError::Parse(e.to_string()))?;
+            toml::from_str(s).map_err(|e| AdapterError::Parse(e.to_string()))?
+        };
+        let table = doc
+            .as_table_mut()
+            .ok_or_else(|| AdapterError::Parse("not a table".into()))?;
+        let names: Vec<String> = table
+            .get("mcp_servers")
+            .and_then(toml::Value::as_table)
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default();
+        let mut servers = toml::map::Map::new();
+        for name in names {
+            let mut entry = toml::map::Map::new();
+            entry.insert(
+                "url".into(),
+                toml::Value::String(gateway_route_url(gateway_base_url, &name)),
+            );
+            // Codex reads the bearer token from this env var at connect time.
+            entry.insert(
+                "bearer_token_env_var".into(),
+                toml::Value::String(token_env.into()),
+            );
+            servers.insert(name, toml::Value::Table(entry));
+        }
+        table.insert("mcp_servers".into(), toml::Value::Table(servers));
+        toml::to_string_pretty(&doc).map_err(|e| AdapterError::Parse(e.to_string()))
+    }
+
+    fn launch_plan(
+        &self,
+        session_dir: &Utf8Path,
+        config_text: &str,
+    ) -> Result<LaunchPlan, AdapterError> {
+        // Codex reads `$CODEX_HOME/config.toml`. Point CODEX_HOME at a session
+        // directory and symlink the user's other files (auth.json, ...) into
+        // it so login state survives. The user's config.toml is not linked.
+        let home = session_dir.join("codex-home");
+        std::fs::create_dir_all(&home).map_err(|e| AdapterError::Io(e.to_string()))?;
+        #[cfg(unix)]
+        if let Some(orig_dir) = self.config_path()?.parent().map(Utf8Path::to_path_buf) {
+            if let Ok(rd) = std::fs::read_dir(&orig_dir) {
+                for ent in rd.flatten() {
+                    let name = ent.file_name();
+                    if name == "config.toml" {
+                        continue;
+                    }
+                    let _ = std::os::unix::fs::symlink(ent.path(), home.as_std_path().join(name));
+                }
+            }
+        }
+        let path = home.join("config.toml");
+        std::fs::write(&path, config_text).map_err(|e| AdapterError::Io(e.to_string()))?;
+        Ok(LaunchPlan {
+            env: vec![("CODEX_HOME".into(), home.to_string())],
+            config_path: path,
+            args: Vec::new(),
+        })
     }
 }

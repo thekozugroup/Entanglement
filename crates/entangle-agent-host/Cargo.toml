@@ -22,6 +22,11 @@ tracing = { workspace = true }
 parking_lot = { workspace = true }
 camino = { workspace = true }
 rand_core = { workspace = true, features = ["getrandom"] }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "process", "io-util", "sync", "time", "macros"] }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+http-body-util = { workspace = true }
+bytes = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
