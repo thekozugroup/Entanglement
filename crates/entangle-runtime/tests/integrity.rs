@@ -1,6 +1,9 @@
-//! Acceptance tests for integrity-policy enforcement (spec §7.5).
+//! Kernel-level integrity-policy enforcement (spec §7.5).
 //!
-//! ATC-INT-1 through ATC-INT-6, per §16 of the Entanglement Architecture spec.
+//! These cover what a bare kernel invocation enforces. The §16 ATC-INT
+//! acceptance criteria for the submitter-side pipeline (verifier locality,
+//! keyring check, policy immutability, output-size short-circuit) live in
+//! `crates/entangle-scheduler/tests/integrity_atc.rs`.
 //!
 //! Tests that need a real WASM plugin with a `run` export use the committed
 //! `hello-pong.wasm` fixture (`crates/entangle-host/tests/fixtures/`). The
@@ -69,14 +72,14 @@ fn peer_from_seed(seed: u8) -> PeerId {
     PeerId::from_public_key_bytes(&[seed; 32])
 }
 
-// ── §16 ATC-INT-1 ─────────────────────────────────────────────────────────────
+// ── Deterministic, N = 2 ─────────────────────────────────────────────────────
 
-/// §16 ATC-INT-1 — `Deterministic { replicas: 2 }` with a real plugin: both
-/// replicas must agree; the canonical output is returned.
+/// `Deterministic { replicas: 2 }` with a real plugin: both replicas must
+/// agree; the canonical output is returned.
 ///
 /// Uses the committed hello-pong.wasm fixture.
 #[tokio::test(flavor = "multi_thread")]
-async fn atc_int_1_deterministic_n2_hash_match_succeeds() {
+async fn deterministic_n2_hash_match_succeeds() {
     let wasm = std::fs::read(HELLO_PONG_WASM)
         .expect("hello-pong.wasm fixture not found — run fixtures-src/hello-pong/build.sh");
 
@@ -99,21 +102,21 @@ async fn atc_int_1_deterministic_n2_hash_match_succeeds() {
 
     assert_eq!(
         output, b"Hello, world!",
-        "ATC-INT-1: plugin output must be b\"Hello, world!\""
+        "plugin output must be b\"Hello, world!\""
     );
     let _ = plugin_id_str; // keep id in scope for diagnostics
 }
 
-// ── §16 ATC-INT-2 ─────────────────────────────────────────────────────────────
+// ── Deterministic, N = 0 / 1 ─────────────────────────────────────────────────
 
-/// §16 ATC-INT-2 — `Deterministic { replicas: 0 }` and `{ replicas: 1 }` are
-/// no-ops; they fall through to a single invocation without replica logic.
+/// `Deterministic { replicas: 0 }` and `{ replicas: 1 }` are no-ops; they fall
+/// through to a single invocation without replica logic.
 ///
 /// This test validates the no-op path using a real plugin (the committed
 /// hello-pong.wasm fixture).
 #[tokio::test(flavor = "multi_thread")]
-async fn atc_int_2_deterministic_insufficient_replicas_errors() {
-    // ATC-INT-2 proposition: N=0 and N=1 are no-ops; single invoke, ok.
+async fn deterministic_zero_and_one_replicas_are_single_invocations() {
+    // N=0 and N=1 are no-ops; single invoke, ok.
     let wasm = std::fs::read(HELLO_PONG_WASM)
         .expect("hello-pong.wasm fixture not found — run fixtures-src/hello-pong/build.sh");
 
@@ -132,7 +135,7 @@ async fn atc_int_2_deterministic_insufficient_replicas_errors() {
     kernel
         .invoke_with_integrity(&task0, local_peer)
         .await
-        .expect("ATC-INT-2: replicas=0 should be a no-op (single invoke, ok)");
+        .expect("replicas=0 should be a no-op (single invoke, ok)");
 
     // N=1 is a no-op → succeeds.
     let mut task1 = OneShotTask::with_defaults(plugin_id.clone(), b"x".to_vec());
@@ -140,14 +143,14 @@ async fn atc_int_2_deterministic_insufficient_replicas_errors() {
     kernel
         .invoke_with_integrity(&task1, local_peer)
         .await
-        .expect("ATC-INT-2: replicas=1 should be a no-op (single invoke, ok)");
+        .expect("replicas=1 should be a no-op (single invoke, ok)");
 
     let _ = plugin_id_str;
 }
 
-// ── §16 ATC-INT-3 ─────────────────────────────────────────────────────────────
+// ── TrustedExecutor ──────────────────────────────────────────────────────────
 
-/// §16 ATC-INT-3 — `TrustedExecutor` allowlist passes when `local_peer` is listed.
+/// `TrustedExecutor` allowlist passes when `local_peer` is listed.
 ///
 /// Does NOT require a real plugin: `TrustedExecutor` checks are enforced before
 /// the plugin invocation and the test operates against a no-op kernel that
@@ -157,13 +160,13 @@ async fn atc_int_2_deterministic_insufficient_replicas_errors() {
 /// exercise `check_trusted_executor` directly (the public re-export) to keep
 /// the test self-contained and CI-safe.
 #[test]
-fn atc_int_3_trusted_executor_allowlist_passes_when_local_peer_in_list() {
+fn trusted_executor_allowlist_passes_when_local_peer_in_list() {
     let local_peer = peer_from_seed(0x03);
     let policy = IntegrityPolicy::TrustedExecutor {
         allowlist: vec![local_peer],
     };
     entangle_runtime::check_trusted_executor(&policy, &local_peer)
-        .expect("ATC-INT-3: local peer in allowlist should pass");
+        .expect("local peer in allowlist should pass");
 }
 
 // ── §16 ATC-INT-4 ─────────────────────────────────────────────────────────────
@@ -185,20 +188,20 @@ fn atc_int_4_trusted_executor_rejects_when_local_peer_not_in_list() {
     );
 }
 
-// ── §16 ATC-INT-5 ─────────────────────────────────────────────────────────────
+// ── SemanticEquivalent through a bare kernel ─────────────────────────────────
 
-/// §16 ATC-INT-5 — `SemanticEquivalent` returns `NotImplemented` in Phase 1.
-///
-/// Uses a no-op task against an empty kernel (invoke would fail with NotLoaded
-/// anyway, but the integrity gate fires first and returns NotImplemented).
+/// A bare kernel cannot verify `SemanticEquivalent`: replicas belong on
+/// several peers and the metric runs in the submitter's scheduler pipeline
+/// (§7.5 verifier-locality). The kernel refuses with the stable
+/// `ENTANGLE-E0306` instead of running anything.
 #[tokio::test(flavor = "multi_thread")]
-async fn atc_int_5_semantic_equivalent_returns_not_implemented() {
+async fn semantic_equivalent_through_a_bare_kernel_requires_the_scheduler_verifier() {
     let keyring = Keyring::new();
     let kernel = Kernel::new(KernelConfig::default(), keyring).unwrap();
     let local_peer = peer_from_seed(0x05);
 
-    // Use a syntactically valid but unloaded plugin id — the integrity gate
-    // fires before the plugin lookup.
+    // A syntactically valid but unloaded plugin id — the integrity gate fires
+    // before the plugin lookup.
     let fake_id = entangle_types::plugin_id::PluginId::new(
         "a".repeat(32),
         "semantic-test",
@@ -206,31 +209,58 @@ async fn atc_int_5_semantic_equivalent_returns_not_implemented() {
     )
     .unwrap();
 
-    let mut task = OneShotTask::with_defaults(fake_id, b"".to_vec());
+    let mut task = OneShotTask::with_defaults(fake_id.clone(), b"".to_vec());
     task.integrity = IntegrityPolicy::SemanticEquivalent {
-        metric: "cosine".to_string(),
-        threshold: 0.9,
+        replicas: 3,
+        quorum: 2,
+        metric: entangle_types::task::MetricRef {
+            plugin: fake_id,
+            publisher_key: [1u8; 32],
+            artifact_blake3: [2u8; 32],
+        },
+        threshold: 0.2,
     };
 
     let err = kernel
         .invoke_with_integrity(&task, local_peer)
         .await
-        .expect_err("ATC-INT-5: SemanticEquivalent must return NotImplemented");
+        .expect_err("a bare kernel must refuse SemanticEquivalent");
 
     assert!(
         matches!(
             err,
-            RuntimeError::Integrity(IntegrityError::NotImplemented("SemanticEquivalent"))
+            RuntimeError::Integrity(IntegrityError::VerifierRequired("SemanticEquivalent"))
         ),
-        "ATC-INT-5: expected Integrity(NotImplemented(\"SemanticEquivalent\")), got: {err}"
+        "expected Integrity(VerifierRequired(\"SemanticEquivalent\")), got: {err}"
     );
-
-    // Stable error code: ENTANGLE-E0304 is the contract surface for callers
-    // matching on the wire format rather than the typed variant.
     assert!(
-        err.to_string().contains("ENTANGLE-E0304"),
-        "ATC-INT-5: error message must include stable ENTANGLE-E0304 code; got: {err}"
+        err.to_string().contains("ENTANGLE-E0306"),
+        "error message must include the stable ENTANGLE-E0306 code; got: {err}"
     );
+}
+
+/// `Attested` stays refused, with a message that says *why*: it needs TEE
+/// attestation, not that the code is merely missing.
+#[tokio::test(flavor = "multi_thread")]
+async fn attested_message_names_tee_attestation() {
+    let kernel = Kernel::new(KernelConfig::default(), Keyring::new()).unwrap();
+    let fake_id = entangle_types::plugin_id::PluginId::new(
+        "c".repeat(32),
+        "attested-msg",
+        "0.1.0".parse().unwrap(),
+    )
+    .unwrap();
+    let mut task = OneShotTask::with_defaults(fake_id, b"".to_vec());
+    task.integrity = IntegrityPolicy::Attested { tee: "sev".into() };
+    let msg = kernel
+        .invoke_with_integrity(&task, peer_from_seed(0x07))
+        .await
+        .expect_err("Attested must be refused")
+        .to_string();
+    assert!(msg.contains("ENTANGLE-E0304"), "{msg}");
+    assert!(msg.contains("unsupported"), "{msg}");
+    assert!(msg.contains("TEE attestation"), "{msg}");
+    assert!(!msg.contains("Phase 1"), "stale scaffold wording: {msg}");
 }
 
 // ── §16 ATC-INT-6 ─────────────────────────────────────────────────────────────

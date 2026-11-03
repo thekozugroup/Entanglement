@@ -755,13 +755,20 @@ enum IntegrityPolicy {
   /// Hash-quorum. For pure CPU/GPU compute with fixed seeds and bit-stable kernels. /// Byzantine fault tolerance up to floor((N-1)/2). Rejected at submit if the
   /// task's component manifest declares `pure: false` or uses non-deterministic
   /// host functions (system.entropy, system.clock with sub-second resolution, GPU
-  /// floating-point kernels not flagged `bit-stable`). Deterministic { replication: u8, quorum: u8 },
+  /// floating-point kernels not flagged `bit-stable`).
+  /// [Implementation: `Deterministic { replicas }` — the quorum is not a field;
+  /// it is always a strict majority, replicas / 2 + 1, which gives the stated
+  /// tolerance and the `{ 3, 2 }` default.] Deterministic { replication: u8, quorum: u8 },
 
   /// Replicate and compare via a plugin-supplied similarity metric. For LLM /
   /// vision / any non-deterministic-but-semantically-equivalent workload. The
   /// metric is itself a Wasm component (interface `entangle:integrity/metric@0.1.0`)
   /// whose `compare(a, b) -> f64` returns a pairwise distance; the policy accepts
   /// if pairwise distance < threshold for at least `quorum` pairs. ///
+  /// [Implementation: the `quorum` pairs are counted within the agreement
+  /// cluster of the returned output — it plus the replicas within threshold of
+  /// it — so agreeing pairs in an unrelated cluster never count toward it;
+  /// equally-supported outputs that contradict each other are refused.]
   /// The metric plugin is supplied by the submitter and signed by a publisher in
   /// the user's trust root. Common choices:
   ///   - `entangle-metric-bleu`              (BLEU score for token-stream output)

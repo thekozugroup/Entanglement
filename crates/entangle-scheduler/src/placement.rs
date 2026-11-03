@@ -49,6 +49,24 @@ pub fn choose(
     workers: &[WorkerInfo],
     spec: &ResourceSpec,
 ) -> Result<PlacementChoice, PlacementError> {
+    let mut ranked = rank(workers, spec)?;
+    // `rank` never returns an empty list: it fails with `NoMatch` instead.
+    Ok(ranked.swap_remove(0))
+}
+
+/// Every worker that satisfies `spec`, best first.
+///
+/// Same score as [`choose`] (whose result is always `rank(..)[0]`): higher
+/// score first, ties broken by the lower `peer_id`. Workers whose score is
+/// not finite are dropped. Replicated integrity policies use this to put
+/// replicas on *distinct* machines, best-placed first.
+///
+/// Fails like [`choose`]: [`PlacementError::NoWorkers`] for an empty slice,
+/// [`PlacementError::NoMatch`] when no worker qualifies.
+pub fn rank(
+    workers: &[WorkerInfo],
+    spec: &ResourceSpec,
+) -> Result<Vec<PlacementChoice>, PlacementError> {
     if workers.is_empty() {
         return Err(PlacementError::NoWorkers);
     }
@@ -61,7 +79,7 @@ pub fn choose(
 
     let (w_fit, w_local, w_bw, w_load, w_cost) = (1.0_f32, 0.6, 0.4, 0.5, 0.3);
 
-    let scored: Vec<(f32, &&WorkerInfo)> = candidates
+    let mut scored: Vec<(f32, &WorkerInfo)> = candidates
         .iter()
         .map(|w| {
             let fit = 1.0_f32; // already filtered by satisfies()
@@ -91,42 +109,40 @@ pub fn choose(
             let cost = w.cost.max(0.0);
             let score =
                 w_fit * fit + w_local * locality + w_bw * bw + w_load * load_term - w_cost * cost;
-            (score, w)
+            (score, *w)
         })
+        // Non-finite scores are filtered out; if that leaves nothing,
+        // placement fails *closed* with `NoMatch`.
+        .filter(|(score, _)| score.is_finite())
         .collect();
 
-    // Select the highest score using `total_cmp` (a total order over f32 that
-    // never collapses to `Equal` the way `partial_cmp().unwrap_or(Equal)` does),
+    // Highest score first using `total_cmp` (a total order over f32 that never
+    // collapses to `Equal` the way `partial_cmp().unwrap_or(Equal)` does),
     // with a deterministic tie-break on `peer_id` so identical workers always
-    // yield the same, lowest-`peer_id` winner regardless of pool iteration
-    // order. Non-finite scores are filtered out first; if that leaves nothing,
-    // placement fails *closed* with `NoMatch`.
-    let best = scored
-        .iter()
-        .filter(|(score, _)| score.is_finite())
-        .max_by(|a, b| {
-            a.0.total_cmp(&b.0)
-                .then_with(|| b.1.peer_id.cmp(&a.1.peer_id))
+    // rank the same, lowest-`peer_id` first, regardless of pool iteration
+    // order.
+    scored.sort_by(|a, b| {
+        b.0.total_cmp(&a.0)
+            .then_with(|| a.1.peer_id.cmp(&b.1.peer_id))
+    });
+
+    if scored.is_empty() {
+        return Err(PlacementError::NoMatch(format!(
+            "all candidate scores non-finite: {spec:?}"
+        )));
+    }
+
+    Ok(scored
+        .into_iter()
+        .map(|(score, w)| PlacementChoice {
+            peer_id: w.peer_id,
+            score,
+            reason: format!(
+                "fit ok, rtt={}ms, bw={} bps, load={:.2}, cost={:.2}",
+                w.rtt_ms, w.network_bandwidth_bps, w.load, w.cost,
+            ),
         })
-        .copied();
-
-    let (top_score, top_worker) = match best {
-        Some(pair) => pair,
-        None => {
-            return Err(PlacementError::NoMatch(format!(
-                "all candidate scores non-finite: {spec:?}"
-            )))
-        }
-    };
-
-    Ok(PlacementChoice {
-        peer_id: top_worker.peer_id,
-        score: top_score,
-        reason: format!(
-            "fit ok, rtt={}ms, bw={} bps, load={:.2}, cost={:.2}",
-            top_worker.rtt_ms, top_worker.network_bandwidth_bps, top_worker.load, top_worker.cost,
-        ),
-    })
+        .collect())
 }
 
 /// Returns `true` if `w` meets all hard resource constraints in `spec`.
@@ -580,5 +596,21 @@ mod tests {
             reversed.peer_id, lowest,
             "tie-break must be order-independent (lowest peer_id wins)"
         );
+    }
+
+    #[test]
+    fn rank_orders_best_first_and_agrees_with_choose() {
+        let spec = ResourceSpec::default();
+        let workers = vec![
+            worker(peer(3), 150, 0.0, 4.0, 0, None, None, 0.0),
+            worker(peer(1), 1, 0.9, 4.0, 0, None, None, 0.0),
+            worker(peer(2), 1, 0.0, 4.0, 0, None, None, 0.0),
+        ];
+        let ranked = rank(&workers, &spec).expect("rank");
+        assert_eq!(ranked.len(), 3);
+        assert!(ranked.windows(2).all(|w| w[0].score >= w[1].score));
+        assert_eq!(ranked[0].peer_id, peer(2), "idle LAN worker is best");
+        assert_eq!(choose(&workers, &spec).unwrap().peer_id, ranked[0].peer_id);
+        assert!(matches!(rank(&[], &spec), Err(PlacementError::NoWorkers)));
     }
 }

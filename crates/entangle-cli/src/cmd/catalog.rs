@@ -243,6 +243,24 @@ pub struct CatalogEntry {
     pub runtime: String,
     /// `plugin.description` (empty when omitted).
     pub description: String,
+    /// `build.wit_world`, when declared.
+    pub wit_world: Option<String>,
+}
+
+/// WIT package prefix of `SemanticEquivalent` metric components
+/// (`entangle:integrity@0.1.0/metric-plugin`).
+pub const METRIC_WIT_PREFIX: &str = "entangle:integrity@";
+
+impl CatalogEntry {
+    /// Whether this project is a `SemanticEquivalent` metric component rather
+    /// than a `run` plugin. Metrics are never loaded into the kernel: the
+    /// submitter's scheduler loads them for `compute dispatch --integrity
+    /// semantic-equivalent`.
+    pub fn is_metric(&self) -> bool {
+        self.wit_world
+            .as_deref()
+            .is_some_and(|w| w.starts_with(METRIC_WIT_PREFIX))
+    }
 }
 
 /// Subdirectories that are never plugin projects.
@@ -277,6 +295,7 @@ pub fn read_entry(dir: &Path) -> Result<CatalogEntry> {
             entangle_manifest::Runtime::Native => "native".to_owned(),
         },
         description: manifest.plugin.description,
+        wit_world: manifest.build.and_then(|b| b.wit_world),
     })
 }
 
@@ -391,6 +410,7 @@ pub fn available(catalog_flag: Option<PathBuf>, json: bool) -> Result<()> {
                     "tier": e.tier,
                     "version": e.version,
                     "runtime": e.runtime,
+                    "kind": if e.is_metric() { "metric" } else { "plugin" },
                     "description": e.description,
                     "dir": e.dir.to_string_lossy(),
                 })
@@ -627,6 +647,30 @@ pub async fn install(opts: InstallOptions) -> Result<()> {
 
     println!("[3/4] trusting the signing key");
     print_trust(&prepared.trust);
+
+    if entry.is_metric() {
+        // A metric component has no `run` export, so the kernel would refuse
+        // it. It is used by the submitter's verifier instead.
+        println!(
+            "[4/4] not loaded: {} is a SemanticEquivalent metric component, used by the \
+             submitter's verifier rather than run as a plugin",
+            entry.name
+        );
+        println!(
+            "      note: a running entangled reads keyring.toml only at startup; restart it \
+             if it was running before this key was trusted"
+        );
+        println!();
+        println!("Ready. Verify replicated tasks with it:");
+        println!(
+            "  entangle compute dispatch <plugin-id> --input '<input>' \\\n    \
+             --integrity semantic-equivalent --metric {} --metric-dir {} \\\n    \
+             --replicas 3 --threshold <distance>",
+            prepared.outcome.plugin_id,
+            prepared.outcome.dist.display()
+        );
+        return Ok(());
+    }
 
     if opts.no_load {
         println!("[4/4] skipped loading (--no-load)");

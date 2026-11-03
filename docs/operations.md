@@ -267,6 +267,7 @@ canonical range table, maintained in
 | E0200–E0201 | Manifest / plugin id validation |
 | E0300–E0301 | Task execution (output-size limit, timeout) |
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
+| E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum (`entangle-runtime::IntegrityError`; see §11) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
 | E0600–E0699 | Agent-host adapter (`entangle-agent-host`) |
 | E0900 | I/O |
@@ -447,3 +448,77 @@ tailscale-cli = ""             # empty = `tailscale` on $PATH
   `entangle::mesh::tailscale`.
 * `entangle doctor` reports the current state in its `tailscale` row.
 * Errors: `ENTANGLE-E0640`..`E0649`. Handshake failures are logged at debug.
+
+---
+
+## 11. Replicated integrity: `Deterministic` and `SemanticEquivalent`
+
+Spec §7.5. The node that **submits** a task verifies it; the workers only run
+it. Both policies place their replicas on **distinct** trusted peers (best
+placement score first, skipping peers whose reputation for that policy is
+below 0.80); replicas without a remote target run on the submitter's own
+kernel.
+
+* `--integrity deterministic --replicas N` — a hash quorum: a strict
+  majority of the `N` outputs (`N/2 + 1`, e.g. 2 of 3) must be byte-identical
+  (BLAKE3), so up to `(N-1)/2` faulty or unreachable workers are tolerated.
+  Workers outside the majority lose reputation.
+* `--integrity semantic-equivalent` — outputs are compared pairwise by a
+  signed **metric component**; a pair agrees when its distance is
+  `< --threshold`. The returned output is the replica that agrees with the
+  most others (ties: most agreeing pairs among it and the replicas that agree
+  with it, then smallest total distance, then smallest output BLAKE3), and the
+  task is accepted when at least `--quorum` agreeing pairs back **that**
+  output — agreeing pairs in an unrelated group of replicas do not count.
+
+### Setting up a metric
+
+Metrics are wasm components implementing `entangle:integrity/metric@0.1.0`.
+Two ship in the catalog: `metric-bleu-4` (text) and
+`metric-numerical-l2-relative` (number lists). Install one on the submitter:
+
+```bash
+entangle plugins install metric-bleu-4      # builds, signs with your key, trusts it — never loaded
+entangle compute dispatch <plugin-id> --input 'translate: bonjour' \
+  --integrity semantic-equivalent --metric <your-fingerprint>/metric-bleu-4@0.1.0 \
+  --replicas 3 --quorum 2 --threshold 0.15 --json
+```
+
+`--metric-dir` defaults to `~/.entangle/plugins/<metric name>`. The metric's
+publisher key must be in the **submitter's** keyring (`entangle keyring list`);
+anything else is refused with `ENTANGLE-E0307` before a single replica is
+sent. The daemon reads `keyring.toml` once, at startup: if `entangled` was
+already running when `plugins install` (or `keyring add`) trusted the key,
+**restart the daemon** before dispatching, or it answers `ENTANGLE-E0307`
+even though `entangle keyring list` shows the key. The metric runs only on the submitter, at tier 2 (no filesystem, no
+network, 256 MiB memory, 10 s per comparison) — workers never load it.
+
+### What the verifier refuses
+
+| Code | Meaning | What to do |
+|---|---|---|
+| `ENTANGLE-E0300` | A replica returned more than `max_output_bytes`. Checked before any metric is loaded; logged as an `OutputSizeExceededWarning` event (target `entangle::telemetry`) and the peer's reputation drops. | Investigate the named peer; raise `max_output_bytes` only if the output really is that large. |
+| `ENTANGLE-E0302` | Too few replicas produced output (unreachable peers). | Check `entangle mesh peers`; the first underlying failure is reported instead when there is one. |
+| `ENTANGLE-E0304` | `Attested` policy — TEE attestation is not supported yet. | Use `trusted-executor` for your own hardware. |
+| `ENTANGLE-E0305` | No strict majority of the `deterministic` replicas returned identical output. Nobody loses reputation (there is no majority to disagree with). | The workload is not deterministic, or several peers are faulty. |
+| `ENTANGLE-E0306` | `SemanticEquivalent` sent straight to a kernel. | Submit through the daemon / `compute dispatch`. |
+| `ENTANGLE-E0307` | Metric publisher not in your keyring (as the running daemon loaded it). | `entangle keyring add` the publisher you actually trust, or use your own build; then restart the daemon, which reads the keyring only at startup. |
+| `ENTANGLE-E0308`–`E0310` | Metric reference inconsistent, not loaded, or package rejected (bad signature, tier > 2, capabilities, not a metric component). | Rebuild/reinstall the metric; check `--metric-dir`. |
+| `ENTANGLE-E0311`–`E0312` | The metric trapped / timed out / ran out of memory, or returned `NaN` or a negative distance, on **every** pair. When only some pairs fail, each failed pair counts as incomparable (a `MetricComparisonFailed` event at `entangle::telemetry`) and the task is still decided by the rest; a replica none of whose comparisons succeeded is reported `failed` with this error and loses reputation. | Fix the metric (a metric may return `+inf` for "incomparable"), or investigate the peer whose replica is reported `failed`. |
+| `ENTANGLE-E0313` | Unusable policy: `replicas` outside 2..=16, `quorum` outside 1..=pairs, threshold not a finite number > 0. | Fix the flags. |
+| `ENTANGLE-E0314` | Not enough agreeing replica pairs back any one output. When a strict majority of the replicas did agree, the remote replicas that agreed with none of them lose reputation. | The outputs genuinely differ, or the threshold is too strict for the metric. |
+| `ENTANGLE-E0315` | A worker reported running under a different policy hash (INV-INT-1). The peer loses reputation. | Investigate the peer. |
+| `ENTANGLE-E0316` | A control frame tried to change the policy of an in-flight task; the worker refused (the policy is immutable for a task's lifetime). | Submit a new task instead. |
+| `ENTANGLE-E0318` | Two groups of replicas agree internally, equally well, but contradict each other, so there is no single answer to return. Nobody loses reputation. | Re-run with more replicas or a higher `--quorum`; if it recurs with the same peers, investigate them. |
+
+Every successful dispatch reports the task's `policy_hash` (SHA-256 of the
+canonical policy encoding) and, with `--json`, one record per replica: peer,
+local/remote, status (`canonical`, `agreed`, `disagreed`, `failed`) and the
+policy hash that replica observed.
+
+Not implemented yet: the Layer 2 spot-check (re-running about 1% of
+accepted tasks under deterministic replay, spec §7.5). `Deterministic` and
+`SemanticEquivalent` verify only the replicas of each task as it runs.
+
+Scheduler wire version: v2 (task frames carry the policy and its hash). A
+node running an older build answers `unsupported-version`; upgrade both ends.

@@ -32,7 +32,7 @@ use entangle_mesh_iroh::{
 };
 use entangle_runtime::{Kernel, KernelConfig, LifecyclePhase};
 use entangle_scheduler::wire::{
-    decode_response, encode_request, RemoteErrorCode, RemoteOutcome, RemoteTaskRequest,
+    decode_response, encode_request, RemoteErrorCode, RemoteOutcome, RemoteRequest, RequestFrame,
     WIRE_VERSION,
 };
 use entangle_scheduler::{
@@ -465,7 +465,7 @@ async fn authorization_follows_the_authenticated_identity_not_the_payload() {
     node_b.serve(StaticAllowlist::new().allow(node_c.peer_id));
 
     // A sends a perfectly well-formed request anyway.
-    let request = RemoteTaskRequest::for_task(&task_for(plugin_id, b"world"));
+    let request = RemoteRequest::for_task(&task_for(plugin_id, b"world")).expect("seal");
     let frame = encode_request(&request).expect("encode");
     let raw = deadline(
         "raw request from an unauthorized peer",
@@ -481,7 +481,7 @@ async fn authorization_follows_the_authenticated_identity_not_the_payload() {
             RemoteErrorCode::NotAuthorized,
             "identity, not payload, decides authorization"
         ),
-        RemoteOutcome::Ok { .. } => {
+        RemoteOutcome::Ok { .. } | RemoteOutcome::Ack { .. } => {
             panic!("node B executed work for a peer outside its allowlist")
         }
     }
@@ -620,9 +620,12 @@ async fn a_self_inconsistent_frame_is_rejected_by_the_executor() {
     let plugin_id = node_b.load_hello_pong(&publisher).await;
     node_b.serve(StaticAllowlist::new().allow(node_a.peer_id));
 
-    let mut request = RemoteTaskRequest::for_task(&task_for(plugin_id, b"world"));
-    request.input = vec![0u8; 4096];
-    request.max_input_bytes = 8; // a lie the decoder catches
+    let mut request = RemoteRequest::for_task(&task_for(plugin_id, b"world")).expect("seal");
+    let RequestFrame::Task(body) = &mut request.frame else {
+        unreachable!("for_task builds a task frame")
+    };
+    body.input = vec![0u8; 4096];
+    body.max_input_bytes = 8; // a lie the decoder catches
 
     let frame = encode_request(&request).expect("encode");
     let raw = deadline(
@@ -637,7 +640,9 @@ async fn a_self_inconsistent_frame_is_rejected_by_the_executor() {
         RemoteOutcome::Err { code, .. } => {
             assert_eq!(code, RemoteErrorCode::InputTooLarge)
         }
-        RemoteOutcome::Ok { .. } => panic!("executor accepted a self-inconsistent frame"),
+        RemoteOutcome::Ok { .. } | RemoteOutcome::Ack { .. } => {
+            panic!("executor accepted a self-inconsistent frame")
+        }
     }
 }
 
@@ -651,7 +656,7 @@ fn the_wire_refuses_to_encode_a_frame_over_the_transport_cap() {
     let mut task = OneShotTask::with_defaults(plugin, vec![0u8; MAX_FRAME_BYTES + 1]);
     task.max_input_bytes = u64::MAX;
 
-    let err = encode_request(&RemoteTaskRequest::for_task(&task))
+    let err = encode_request(&RemoteRequest::for_task(&task).expect("seal"))
         .expect_err("a frame over the transport cap must not encode");
     assert!(err.to_string().contains("exceeds"), "{err}");
 }
@@ -799,7 +804,7 @@ async fn a_future_wire_version_is_refused_not_misparsed() {
     let plugin_id = node_b.load_hello_pong(&publisher).await;
     node_b.serve(StaticAllowlist::new().allow(node_a.peer_id));
 
-    let mut request = RemoteTaskRequest::for_task(&task_for(plugin_id, b"world"));
+    let mut request = RemoteRequest::for_task(&task_for(plugin_id, b"world")).expect("seal");
     request.v = WIRE_VERSION + 1;
     let frame = encode_request(&request).expect("encode");
 
@@ -815,7 +820,9 @@ async fn a_future_wire_version_is_refused_not_misparsed() {
         RemoteOutcome::Err { code, .. } => {
             assert_eq!(code, RemoteErrorCode::UnsupportedVersion)
         }
-        RemoteOutcome::Ok { .. } => panic!("executor ran a task from an unknown envelope version"),
+        RemoteOutcome::Ok { .. } | RemoteOutcome::Ack { .. } => {
+            panic!("executor ran a task from an unknown envelope version")
+        }
     }
 }
 

@@ -8,6 +8,12 @@
 //! * [`remote`] — cross-node dispatch over a mesh transport: the
 //!   [`RemoteDispatch`] client and the [`RemoteTaskServer`] executor.
 //! * [`wire`] — the versioned binary envelope the two exchange.
+//! * [`work_unit`] — the integrity-policy envelope: canonical encoding and
+//!   `policy_hash` (INV-INT-1).
+//! * [`integrity`] — the submitter-side acceptance pipeline: submit-time
+//!   validation, the output-size short-circuit (INV-INT-2), hash quorum and
+//!   `SemanticEquivalent` metric verification (spec §7.5).
+//! * [`reputation`] — per-peer, per-policy-variant correctness reputation.
 //!
 //! # Remote execution is opt-in
 //!
@@ -24,16 +30,27 @@
 
 pub mod dispatcher;
 pub mod errors;
+pub mod integrity;
 pub mod placement;
 pub mod remote;
+pub mod reputation;
 pub mod wire;
+pub mod work_unit;
 pub mod worker;
 
 pub use dispatcher::{DispatchError, DispatchResult, Dispatcher};
-pub use placement::{choose, PlacementChoice, PlacementError};
-pub use remote::{
-    serve_tasks, PeerAddressBook, PeerAllowlist, PeerDirectory, RemoteDispatch, RemoteTaskServer,
-    StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
+pub use integrity::{
+    IntegrityVerifier, OutputSizeExceededWarning, ReplicaReport, ReplicaStatus, TELEMETRY_TARGET,
 };
-pub use wire::{RemoteErrorCode, RemoteOutcome, RemoteTaskRequest, RemoteTaskResponse, WireError};
+pub use placement::{choose, rank, PlacementChoice, PlacementError};
+pub use remote::{
+    serve_tasks, PeerAddressBook, PeerAllowlist, PeerDirectory, RemoteDispatch, RemoteReplica,
+    RemoteTaskServer, StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
+};
+pub use reputation::{ReputationReason, ReputationStore, ReputationTier};
+pub use wire::{
+    ControlAction, ControlFrame, RemoteErrorCode, RemoteOutcome, RemoteRequest, RemoteTaskRequest,
+    RemoteTaskResponse, RequestFrame, WireError,
+};
+pub use work_unit::{PolicyEnvelope, PolicyHash};
 pub use worker::{WorkerInfo, WorkerPool};

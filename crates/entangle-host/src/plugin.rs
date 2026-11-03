@@ -203,7 +203,7 @@ fn is_resource_limit_error(err: &anyhow::Error) -> bool {
 }
 
 /// Classify an error from `instantiate_async`.
-fn classify_instantiate_error(err: anyhow::Error, timeout_ms: u64) -> HostError {
+pub(crate) fn classify_instantiate_error(err: anyhow::Error, timeout_ms: u64) -> HostError {
     if matches!(err.downcast_ref::<Trap>(), Some(Trap::Interrupt)) {
         HostError::Timeout(timeout_ms)
     } else if is_resource_limit_error(&err) {
@@ -213,8 +213,8 @@ fn classify_instantiate_error(err: anyhow::Error, timeout_ms: u64) -> HostError 
     }
 }
 
-/// Classify an error from `call_run`.
-fn classify_call_error(err: anyhow::Error, timeout_ms: u64) -> HostError {
+/// Classify an error from a guest export call (`call_run`, metric `compare`).
+pub(crate) fn classify_call_error(err: anyhow::Error, timeout_ms: u64) -> HostError {
     if matches!(err.downcast_ref::<Trap>(), Some(Trap::Interrupt)) {
         // Epoch deadline reached — the engine ticker advanced the epoch past
         // this store's per-invocation deadline.

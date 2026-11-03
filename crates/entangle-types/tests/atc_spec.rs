@@ -12,7 +12,7 @@ use entangle_types::{
     errors::EntangleError,
     peer_id::PeerId,
     plugin_id::PluginId,
-    task::{ChannelSpec, IntegrityPolicy, OneShotTask, PartialResultPolicy},
+    task::{ChannelSpec, IntegrityPolicy, MetricRef, OneShotTask, PartialResultPolicy},
 };
 
 // ---------------------------------------------------------------------------
@@ -25,17 +25,31 @@ fn test_plugin() -> PluginId {
         .expect("valid plugin id")
 }
 
+/// A `SemanticEquivalent` policy with an arbitrary (unchecked) threshold.
+fn semantic_equivalent(threshold: f64) -> IntegrityPolicy {
+    IntegrityPolicy::SemanticEquivalent {
+        replicas: 3,
+        quorum: 2,
+        metric: MetricRef {
+            plugin: test_plugin(),
+            publisher_key: [1u8; 32],
+            artifact_blake3: [2u8; 32],
+        },
+        threshold,
+    }
+}
+
 // ---------------------------------------------------------------------------
-// ATC-INT-5 — OneShotTask default max_output_bytes is 16 MiB (§7.1 / INV-INT-2)
+// OneShotTask default max_output_bytes is 16 MiB (§7.1 / INV-INT-2)
 // ---------------------------------------------------------------------------
 
-/// §16 ATC-INT-5 — OneShotTask default max_output_bytes is 16 MiB.
+/// §7.1 / INV-INT-2 — OneShotTask default max_output_bytes is 16 MiB.
 ///
 /// The spec (§7.1 size-limit table) mandates `max_output_bytes` defaults to
 /// 16 MiB = 16 * 1024 * 1024 bytes. This test verifies the constant and
 /// the `with_defaults` constructor honour that value.
 #[test]
-fn atc_int_5_max_output_default_16mib() {
+fn max_output_default_16mib() {
     const MIB_16: u64 = 16 * 1024 * 1024;
 
     // Constant on the type
@@ -56,34 +70,35 @@ fn atc_int_5_max_output_default_16mib() {
 }
 
 // ---------------------------------------------------------------------------
-// ATC-INT-5 companion — explicit field override is preserved
+// max_output_bytes — explicit field override is preserved
 // ---------------------------------------------------------------------------
 
-/// §16 ATC-INT-2 (types-tier) — GIVEN OneShotTask with max_output_bytes = 1024,
-/// WHEN constructed, THEN the field is carried on the type unchanged.
+/// GIVEN OneShotTask with max_output_bytes = 1024, WHEN constructed, THEN the
+/// field is carried on the type unchanged.
 ///
-/// Full enforcement (Err(OutputSizeExceeded) before metric instantiation) is
-/// ATC-INT-5 proper and lives in entangle-plugin-scheduler (Phase 3).
+/// Enforcement (Err(OutputSizeExceeded) before metric instantiation) is
+/// ATC-INT-5: `crates/entangle-scheduler/tests/integrity_atc.rs`.
 #[test]
-fn atc_int_2_max_output_bytes_field_carried() {
+fn max_output_bytes_field_carried() {
     let mut task = OneShotTask::with_defaults(test_plugin(), vec![]);
     task.max_output_bytes = 1024;
     assert_eq!(task.max_output_bytes, 1024);
 }
 
 // ---------------------------------------------------------------------------
-// ATC-INT-3 (types-tier) — IntegrityPolicy serde round-trip (INV-INT-1 proxy)
+// IntegrityPolicy serde round-trips
 // ---------------------------------------------------------------------------
 
-/// §16 ATC-INT-3 (types-tier) — GIVEN IntegrityPolicy::TrustedExecutor with
-/// an allowlist, WHEN serialized to JSON and back, THEN the value is identical.
+/// GIVEN IntegrityPolicy::TrustedExecutor with an allowlist, WHEN serialized
+/// to JSON and back, THEN the value is identical.
 ///
-/// INV-INT-1 (policy immutability) is enforced by the scheduler via
-/// `policy_hash` binding (ATC-INT-3 proper: entangle-plugin-scheduler Phase 3).
+/// INV-INT-1 (policy immutability) is enforced by the scheduler via the
+/// `policy_hash` envelope; ATC-INT-3 is
+/// `crates/entangle-scheduler/tests/integrity_atc.rs`.
 /// Here we verify the type satisfies `Serialize + Deserialize + PartialEq` and
 /// that round-trip produces the same value.
 #[test]
-fn atc_int_3_integrity_policy_trusted_executor_json_round_trip() {
+fn integrity_policy_trusted_executor_json_round_trip() {
     let allowlist: Vec<PeerId> = vec![];
     let policy = IntegrityPolicy::TrustedExecutor { allowlist };
     let json = serde_json::to_string(&policy).expect("serialize");
@@ -91,12 +106,12 @@ fn atc_int_3_integrity_policy_trusted_executor_json_round_trip() {
     assert_eq!(policy, back);
 }
 
-/// §16 ATC-INT-3 (types-tier) — TOML round-trip for IntegrityPolicy::None.
+/// TOML round-trip for IntegrityPolicy::None.
 ///
 /// TOML serialization is used in work-unit envelopes; verifies the type is
 /// TOML-compatible without scheduler machinery.
 #[test]
-fn atc_int_3_integrity_policy_none_toml_round_trip() {
+fn integrity_policy_none_toml_round_trip() {
     #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
     struct Wrapper {
         policy: IntegrityPolicy,
@@ -117,14 +132,8 @@ fn atc_int_3_integrity_policy_none_toml_round_trip() {
 /// [0.0, 1.0]; validation is the scheduler's responsibility, not the type's.
 #[test]
 fn atc_int_4_semantic_equivalent_threshold_not_clamped_at_type_level() {
-    let over = IntegrityPolicy::SemanticEquivalent {
-        metric: "cosine".into(),
-        threshold: 1.5,
-    };
-    let under = IntegrityPolicy::SemanticEquivalent {
-        metric: "cosine".into(),
-        threshold: -0.1,
-    };
+    let over = semantic_equivalent(1.5);
+    let under = semantic_equivalent(-0.1);
     // The type accepts these values — enforcement is the scheduler's job.
     match over {
         IntegrityPolicy::SemanticEquivalent { threshold, .. } => {
@@ -226,39 +235,6 @@ fn atc_out_1_output_size_exceeded_display_format() {
 // Placeholder / deferred ATC IDs — require Phase 3+ runtime code
 // ---------------------------------------------------------------------------
 
-/// §16 ATC-INT-1 — verifier-locality: no worker instantiates the Wasm metric.
-///
-/// Requires wasmtime component-model tracing and entangle-plugin-scheduler.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/integrity/no_worker_metric_execution.rs
-/// Future iteration: Phase 3 (scheduler integration).
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler + wasmtime trace assertion"]
-fn atc_int_1_verifier_locality_no_worker_wasm_instantiation() {
-    unimplemented!("§16 ATC-INT-1 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-INT-2 (scheduler-tier) — custom metric NOT on submitter keyring rejected.
-///
-/// Requires MetricNotInKeyring error and keyring check in entangle-plugin-scheduler.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/integrity/keyring_check.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler keyring infrastructure"]
-fn atc_int_2_custom_metric_not_in_keyring_rejected() {
-    unimplemented!("§16 ATC-INT-2 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-INT-3 (scheduler-tier) — policy immutability mid-flight (INV-INT-1).
-///
-/// Requires control-frame mutation path and PolicyMutation error in scheduler.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/policy_immutability.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler control-frame policy-hash binding"]
-fn atc_int_3_policy_mutation_mid_flight_rejected() {
-    unimplemented!("§16 ATC-INT-3 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
 /// §16 ATC-INT-4 (scheduler-tier) — StreamingTask + Deterministic rejected at submit-time.
 ///
 /// Requires InvalidIntegrityForStreaming error in entangle-plugin-scheduler.
@@ -268,18 +244,6 @@ fn atc_int_3_policy_mutation_mid_flight_rejected() {
 #[ignore = "Phase 3: requires entangle-plugin-scheduler submit-time validation"]
 fn atc_int_4_streaming_deterministic_rejected_at_submit() {
     unimplemented!("§16 ATC-INT-4 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-INT-5 (scheduler-tier) — OutputSizeExceeded before Wasm metric instantiation.
-///
-/// Requires scheduler result-acceptance pipeline + wasmtime instantiate-counter.
-/// Type-level portion covered by `atc_int_2_max_output_bytes_field_carried` above.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/integrity/oversized_output_short_circuits.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler result pipeline + wasmtime trace"]
-fn atc_int_5_oversized_output_short_circuits_before_metric() {
-    unimplemented!("§16 ATC-INT-5 (scheduler-tier) — see crates/entangle-plugin-scheduler Phase 3")
 }
 
 /// §16 ATC-INT-6 — StreamingTask total-byte cap enforced at runtime.

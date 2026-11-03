@@ -105,10 +105,14 @@ pub fn pick_starter(entries: &[CatalogEntry]) -> Result<&CatalogEntry> {
             return Ok(e);
         }
     }
-    if let Some(e) = entries.iter().find(|e| e.runtime == "wasm") {
+    // A metric component has no `run` export, so it cannot be the demo.
+    if let Some(e) = entries
+        .iter()
+        .find(|e| e.runtime == "wasm" && !e.is_metric())
+    {
         return Ok(e);
     }
-    entries.first().ok_or_else(|| {
+    entries.iter().find(|e| !e.is_metric()).ok_or_else(|| {
         anyhow::anyhow!(
             "the catalog contains no plugin projects, so there is nothing to demo.\n\n\
              A catalog is a directory whose subdirectories each hold an entangle.toml.\n\
@@ -326,7 +330,21 @@ mod tests {
             tier: 1,
             runtime: runtime.to_owned(),
             description: String::new(),
+            wit_world: None,
         }
+    }
+
+    #[test]
+    fn a_metric_component_is_never_the_starter() {
+        let mut metric = entry("metric-bleu-4", "wasm");
+        metric.wit_world = Some("entangle:integrity@0.1.0/metric-plugin".into());
+        assert!(metric.is_metric());
+        let entries = vec![metric.clone(), entry("some-plugin", "wasm")];
+        assert_eq!(pick_starter(&entries).unwrap().name, "some-plugin");
+        assert!(
+            pick_starter(&[metric]).is_err(),
+            "only metrics: nothing to demo"
+        );
     }
 
     #[test]

@@ -30,7 +30,7 @@ A PGP key will be linked here once published; until then, plaintext email is acc
 - Mesh transports (`mesh.local`, `mesh.iroh`, `mesh.tailscale`) — not implemented yet.
 - Distributed compute scheduler — not implemented yet.
 - Agent host plugin (Claude Code/Codex MCP gateway) — not implemented yet.
-- Integrity policies (`Deterministic`, `SemanticEquivalent`, `TrustedExecutor`, `Attested`) — types only at present.
+- Integrity policies: `Deterministic` and `SemanticEquivalent` replication, and `TrustedExecutor`, are enforced by the submitting node (see `docs/operations.md` §10). `Attested` (TEE) is not supported, and the Layer 2 deterministic-replay spot-check is not implemented yet.
 
 Reports against unimplemented features are welcome but will be tracked as design issues, not security advisories.
 

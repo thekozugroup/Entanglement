@@ -299,6 +299,21 @@ async fn handle_compute_dispatch(
             }
             IntegrityPolicy::TrustedExecutor { allowlist: peers }
         }
+        ComputeIntegrity::SemanticEquivalent {
+            replicas,
+            quorum,
+            ref metric,
+            ref metric_dir,
+            threshold,
+        } => match resolve_metric(state, metric, metric_dir.as_deref()).await {
+            Ok(metric) => IntegrityPolicy::SemanticEquivalent {
+                replicas,
+                quorum,
+                metric,
+                threshold,
+            },
+            Err((code, msg)) => return error_resp(id, code, msg),
+        },
     };
 
     // Build the OneShotTask using the identity-derived local_peer_id.
@@ -312,16 +327,74 @@ async fn handle_compute_dispatch(
     let dispatcher = state.dispatcher.clone();
 
     match dispatcher.dispatch_one_shot(task).await {
-        Ok(result) => {
-            let out = ComputeDispatchResult {
-                chosen_peer: result.chosen.peer_id.to_hex(),
-                score: result.chosen.score,
-                reason: result.chosen.reason,
-                output: result.output,
-            };
-            ok_resp(id, out)
-        }
+        Ok(result) => ok_resp(id, compute_result(result)),
         Err(e) => error_resp(id, -32000, format!("dispatch error: {e}")),
+    }
+}
+
+/// Resolve a `semantic-equivalent` metric to a pinned, verified reference on
+/// this daemon (the submitter). Loads the signed package from `metric_dir`
+/// when given (idempotent), otherwise requires it to be loaded already.
+async fn resolve_metric(
+    state: &Arc<DaemonState>,
+    metric: &str,
+    metric_dir: Option<&str>,
+) -> Result<entangle_types::task::MetricRef, (i32, String)> {
+    let wanted: entangle_types::plugin_id::PluginId = metric
+        .parse()
+        .map_err(|e| (-32602, format!("invalid metric plugin id: {e}")))?;
+    let registry = Arc::clone(state.dispatcher.verifier().metrics());
+    let reference = match metric_dir {
+        Some(dir) => {
+            let dir = std::path::PathBuf::from(dir);
+            tokio::task::spawn_blocking(move || registry.load_from_dir(&dir))
+                .await
+                .map_err(|e| (-32000, format!("loading metric: {e}")))?
+                .map_err(|e| (-32000, format!("dispatch error: {e}")))?
+        }
+        None => registry.find_by_plugin(&wanted).ok_or_else(|| {
+            (
+                -32000,
+                format!(
+                    "metric {wanted} is not loaded on the daemon; pass its signed package \
+                     directory (--metric-dir)"
+                ),
+            )
+        })?,
+    };
+    if reference.plugin != wanted {
+        return Err((
+            -32602,
+            format!(
+                "the metric package holds {}, not the requested {wanted}",
+                reference.plugin
+            ),
+        ));
+    }
+    Ok(reference)
+}
+
+/// Render a dispatch result for the wire, including the integrity audit.
+pub(crate) fn compute_result(result: entangle_scheduler::DispatchResult) -> ComputeDispatchResult {
+    ComputeDispatchResult {
+        chosen_peer: result.chosen.peer_id.to_hex(),
+        score: result.chosen.score,
+        reason: result.chosen.reason,
+        output: result.output,
+        policy_hash: Some(result.policy_hash.to_hex()),
+        replicas: result
+            .replicas
+            .iter()
+            .map(|r| entangle_rpc::methods::ComputeReplica {
+                peer: r.peer.to_hex(),
+                remote: r.remote,
+                status: r.status.label().to_owned(),
+                error: r.status.error().map(str::to_owned),
+                observed_policy_hash: r.observed_policy_hash.map(|h| h.to_hex()),
+                output_bytes: r.output_bytes,
+            })
+            .collect(),
+        pair_agreement: result.pair_agreement,
     }
 }
 

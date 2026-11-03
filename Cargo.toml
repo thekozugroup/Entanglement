@@ -72,6 +72,8 @@ is-terminal = "0.4"
 # Cryptography
 ed25519-dalek = { version = "2", features = ["serde", "pkcs8", "pem", "rand_core"] }
 blake3 = "1"
+# SHA-256 for the integrity-policy envelope hash (spec §7.5 INV-INT-1).
+sha2 = "0.10"
 biscuit-auth = "6"
 biscuit-quote = "0.3"
 rand_core = "0.6"

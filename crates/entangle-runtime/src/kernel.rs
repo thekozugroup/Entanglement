@@ -282,10 +282,15 @@ impl Kernel {
     ///   plugin locally `N` times and BLAKE3-compares all outputs. Returns the
     ///   canonical (first) output on agreement, [`RuntimeError::Integrity`] on mismatch.
     ///   `N == 0` or `N == 1` are treated as no-ops (single invocation).
-    /// - `IntegrityPolicy::SemanticEquivalent` / `IntegrityPolicy::Attested` —
-    ///   immediately returns [`IntegrityError::NotImplemented`] (Phase 2/3).
+    /// - `IntegrityPolicy::SemanticEquivalent` — returns
+    ///   [`IntegrityError::VerifierRequired`]: it is verified by the
+    ///   submitter's scheduler pipeline (`entangle_scheduler::Dispatcher`),
+    ///   which replicates across peers and runs the signed metric.
+    /// - `IntegrityPolicy::Attested` — returns [`IntegrityError::NotImplemented`]
+    ///   (TEE attestation is unsupported until Phase 4+).
     ///
     /// [`IntegrityError::NotImplemented`]: crate::integrity::IntegrityError::NotImplemented
+    /// [`IntegrityError::VerifierRequired`]: crate::integrity::IntegrityError::VerifierRequired
     pub async fn invoke_with_integrity(
         &self,
         task: &entangle_types::task::OneShotTask,
@@ -328,7 +333,7 @@ impl Kernel {
                 Ok(chosen.bytes.clone())
             }
             IntegrityPolicy::SemanticEquivalent { .. } => Err(RuntimeError::Integrity(
-                IntegrityError::NotImplemented("SemanticEquivalent"),
+                IntegrityError::VerifierRequired("SemanticEquivalent"),
             )),
             IntegrityPolicy::Attested { .. } => Err(RuntimeError::Integrity(
                 IntegrityError::NotImplemented("Attested"),
