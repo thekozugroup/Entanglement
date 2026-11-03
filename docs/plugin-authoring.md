@@ -136,8 +136,9 @@ target = "wasm32-wasip2"
 | 5 | native | full host access, incl. the Docker socket | `native` |
 
 `runtime = "wasm"` is only valid for tiers 1–3, and `runtime = "native"` only
-for tiers 4–5. `entangle plugins new` generates wasm plugins, so `--tier` is
-limited to 1–3.
+for tiers 4–5. `entangle plugins new` generates wasm plugins (`--tier` 1–3)
+unless you pass `--native` (`--tier` 4–5) — see
+[Native plugins](#native-tier-45-plugins) below.
 
 ### The tier ↔ capability rule
 
@@ -301,6 +302,46 @@ keyring, and daemon reachability.
 
 ---
 
+## Native (tier 4–5) plugins
+
+Some workloads cannot be wasm (a Node.js agent, a GPU driver). A native
+plugin is an ordinary **executable** that the daemon runs inside the host's
+OS sandbox — Landlock + seccomp + namespaces on Linux, Seatbelt on macOS —
+derived from the capabilities it declares.
+
+```sh
+entangle plugins new my-native --native     # tier 5 by default; --tier 4 also valid
+entangle plugins build my-native            # cargo build --release for THIS host + sign
+```
+
+`dist/` then holds `plugin.bin`, `entangle.toml` and `plugin.bin.sig`; trust,
+load and invoke exactly as above. A pre-built executable can be packaged with
+`--bin <FILE>`. `examples/native-echo/` is a complete example.
+
+**Protocol.** The generated `src/main.rs` implements it; there is no SDK
+dependency. Each invocation starts a fresh process, writes one request to its
+stdin and closes it, and reads one response from its stdout:
+
+```text
+request  (stdin):  u32 big-endian length | input bytes
+response (stdout): u32 big-endian length | tag | body
+                   tag 0 = ok (body = output), tag 1 = err (body = UTF-8 message)
+```
+
+The response length includes the tag byte. stderr goes to the daemon log. The
+process is killed (with everything it forked) at the invocation deadline, and
+a response larger than the configured cap is refused from its header.
+
+**What the plugin can touch** is exactly what its granted capabilities map
+to (`docs/operations.md` §10): with no capabilities, only its own binary and
+the system libraries, no network, no Unix sockets, an empty environment apart
+from `ENTANGLE_PLUGIN_ID`. `storage.local { scope = "plugin" }` adds a private
+read-write directory at `$ENTANGLE_DATA_DIR`.
+
+Native plugins are refused on hosts with no sandbox primitive, and operators
+can disable them entirely with `[security] max_tier_allowed = 3` (or tier 5
+alone with `= 4`).
+
 ## Troubleshooting
 
 | Symptom | Cause |
@@ -313,6 +354,8 @@ keyring, and daemon reachability.
 | `the wasm32-wasip2 target is not installed` | `rustup target add wasm32-wasip2` |
 | `… does not declare crate-type = ["cdylib"]` | restore the `[lib]` block in `Cargo.toml` |
 | `identity key not found at ~/.entangle/identity.key` | `entangle init` |
+| `ENTANGLE-E0507: runtime kind mismatch` | the artifact is not what `runtime` says (an executable shipped as wasm, or the reverse); rebuild with `entangle plugins build` |
+| `ENTANGLE-E0700` / `E0701` when loading a native plugin | the host has no OS sandbox (or cannot take the network away); see `entangle doctor` and `docs/operations.md` §10 |
 
 ## Reference
 
@@ -321,3 +364,4 @@ keyring, and daemon reachability.
   §4.4 (manifest), §3.6 (artifact signing).
 - `docs/tutorial.md` — a narrated walkthrough using the bundled examples.
 - `examples/hello-world/`, `examples/hash-it/` — working plugins in-tree.
+- `examples/native-echo/` — a working native (tier 5) plugin.

@@ -160,6 +160,8 @@ Standard lifecycle — install → load → validate → verify → pre-compile 
 
 For plugins needing raw access (CUDA, Node.js, exotic devices), Entanglement launches a native binary in a sandboxed subprocess. IPC is **Cap'n Proto** over a Unix Domain Socket (or named pipe on Windows). The OS sandbox is per §0.2: Seatbelt on macOS, Landlock+seccomp on Linux, deferred on native Windows. The agent-host commits to using this path for Claude Code, Codex, and OpenCode (§8).
 
+**Implementation deviation (Phase 1).** IPC is not Cap'n Proto: the host writes one length-prefixed request frame (`u32` big-endian length + input bytes) to the plugin's **stdin** and reads one response frame (`u32` length + tag byte `0` ok / `1` err + body) from its **stdout**; stderr goes to the daemon log. A single request/response shape needs no schema compiler, and a pipe pair needs no socket path the sandbox would have to expose. Each invocation runs a fresh sandboxed process (deadline → the process group is killed; an oversized response is refused from its header). See `crates/entangle-sandbox` (`frame`, `supervisor`).
+
 ### 3.5 Subprocess sandbox honesty
 
 This section documents the realities:
@@ -891,7 +893,7 @@ Why this is tier-5:            Claude Code is a Node.js application that
 
 | OS | Isolation |
 |---|---|
-| Linux | `unshare` + Landlock (filesystem allowlist matches `storage.local` scope) + seccomp-bpf (network syscalls allowed only to `net.wan` allowlist via socket filter; raw sockets blocked); user namespace; cgroup memory + CPU limits |
+| Linux | `unshare` + Landlock (filesystem allowlist matches `storage.local` scope) + seccomp-bpf (network syscalls allowed only to `net.wan` allowlist via socket filter; raw sockets blocked); user namespace; cgroup memory + CPU limits. *Phase 1 implements the socket filter per address family (no network capability → no IP sockets; `net.lan`/`net.wan` → IP allowed, no per-host allowlist yet) and rlimits instead of cgroups.* |
 | macOS | `sandbox-exec` profile generated from declared caps (network, fs scopes); Endpoint Security agent observes child processes |
 | Windows | WSL2 (uses Linux profile inside) |
 
@@ -1793,14 +1795,15 @@ ATC-MAN-3
   GIVEN  a entangle.toml with `runtime.kind = "wasm-component"` and a binary that is actually ELF
   WHEN   entangle-host instantiates the plugin
   THEN   instantiation fails with Err(Error::RuntimeKindMismatch { declared, observed })
-  TEST   crates/entangle-host/tests/runtime_kind.rs::lie_at_instantiation_rejected
+  TEST   crates/entangle-host/tests/runtime_kind.rs::atc_man_3_lie_at_instantiation_rejected
 
 ATC-MAN-4 4.1)
   GIVEN  a entangle.toml with `tier = 3` AND a config with `[security] max_tier_allowed = 2`
   WHEN   entangle install <manifest> is invoked
   THEN   it returns Err(Error::TierExceeded { plugin_tier: 3, ceiling: 2 })
+         (implemented as PolicyError::TierAboveCeiling { plugin, ceiling }, ENTANGLE-E0043)
   AND    no plugin state is mutated
-  TEST   crates/entangle-bin/tests/install_max_tier.rs::install_rejects_above_ceiling
+  TEST   crates/entangle-bin/tests/install_max_tier.rs::atc_man_4_install_rejects_above_ceiling
 ```
 
 ### 16.2 Reproducible packaging (M4)
