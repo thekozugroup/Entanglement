@@ -1296,6 +1296,38 @@ mod tests {
         assert_eq!(v.reputation().record(&peer(2), k).total, 0);
     }
 
+    /// Two replicas that agree with each other are exactly tied on agreement
+    /// count and distance sum, so the canonical output is decided by the
+    /// smallest output BLAKE3. The answer must not depend on the order in
+    /// which the replicas arrived.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn canonical_output_tie_break_ignores_arrival_order() {
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 2, 1, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        let (a, b) = ([10u8], [11u8]);
+        let want = if blake3::hash(&a).as_bytes() < blake3::hash(&b).as_bytes() {
+            a
+        } else {
+            b
+        };
+        let mut seen = Vec::new();
+        for order in [[(1, a), (2, b)], [(2, b), (1, a)]] {
+            let reps = order.iter().map(|(p, o)| ok(*p, o, h)).collect();
+            let acc = v
+                .accept(&task(policy.clone(), 1024), &env, reps)
+                .await
+                .unwrap();
+            seen.push(acc.output.clone());
+        }
+        assert_eq!(seen[0], want);
+        assert_eq!(
+            seen[1], want,
+            "arrival order must not pick the canonical output"
+        );
+    }
+
     #[test]
     fn canonical_choice_prefers_degree_then_support_then_closeness_then_position() {
         let inf = f64::INFINITY;

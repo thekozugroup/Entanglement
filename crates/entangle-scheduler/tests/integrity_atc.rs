@@ -367,12 +367,26 @@ fn task(plugin: PluginId, input: &[u8], integrity: IntegrityPolicy) -> OneShotTa
 async fn drain(
     sub: &mut entangle_ipc::bus::Subscriber<entangle_runtime::LifecycleEvent>,
 ) -> Vec<LifecyclePhase> {
+    drain_for(sub, Duration::from_millis(300)).await
+}
+
+/// Like [`drain`] with an explicit quiet window. Negative ("nothing ran")
+/// assertions use a long window (`QUIET_NEGATIVE`) so a slow, wrongly started
+/// execution under CI load is still caught; they are additionally backed by a
+/// positive sentinel where the test can provide one.
+async fn drain_for(
+    sub: &mut entangle_ipc::bus::Subscriber<entangle_runtime::LifecycleEvent>,
+    quiet: Duration,
+) -> Vec<LifecyclePhase> {
     let mut phases = Vec::new();
-    while let Ok(Ok(env)) = tokio::time::timeout(Duration::from_millis(300), sub.recv()).await {
+    while let Ok(Ok(env)) = tokio::time::timeout(quiet, sub.recv()).await {
         phases.push(env.payload.phase);
     }
     phases
 }
+
+/// Quiet window for assertions that nothing executed.
+const QUIET_NEGATIVE: Duration = Duration::from_millis(1500);
 
 fn activations(phases: &[LifecyclePhase]) -> usize {
     phases
@@ -534,7 +548,7 @@ async fn atc_int_2_metric_signed_outside_the_submitter_keyring_is_refused() {
     // Nothing was dispatched: the worker never saw a task, and nothing ran.
     assert_eq!(server.in_flight_len(), 0);
     assert!(
-        drain(&mut bus).await.is_empty(),
+        drain_for(&mut bus, QUIET_NEGATIVE).await.is_empty(),
         "the worker must not have run anything"
     );
     assert_eq!(dispatcher.verifier().metrics().total_instantiations(), 0);
@@ -848,6 +862,65 @@ async fn replicas_without_a_remote_target_run_locally() {
     );
 }
 
+/// A peer whose reputation fell below the exclusion tier (0.80) is not given a
+/// replica; its slot falls back to the submitter's own kernel.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_excluded_peer_is_not_picked_as_a_replica_target() {
+    let publisher = IdentityKeyPair::generate();
+    let mut submitter = Node::start(&publisher).await;
+    submitter.load(&publisher, "hello", &hello_pong()).await;
+    let mut good = Node::start(&publisher).await;
+    let plugin = good.load(&publisher, "hello", &hello_pong()).await;
+    good.serve_for(submitter.peer_id);
+    let mut bad = Node::start(&publisher).await;
+    bad.load(&publisher, "hello", &hello_pong()).await;
+    bad.serve_for(submitter.peer_id);
+    let mut bad_bus = bad.kernel.bus().subscribe();
+    let (dispatcher, _) = submitter_dispatcher(&submitter, &[&good, &bad]);
+
+    let kind = PolicyKind::Deterministic;
+    let rep = dispatcher.verifier().reputation();
+    assert!(rep.is_eligible(&bad.peer_id, kind));
+    for _ in 0..20 {
+        rep.penalize(
+            &bad.peer_id,
+            kind,
+            entangle_scheduler::ReputationReason::DisagreedWithQuorum,
+        );
+    }
+    assert!(
+        !rep.is_eligible(&bad.peer_id, kind),
+        "setup: bad is excluded"
+    );
+    assert!(rep.is_eligible(&good.peer_id, kind));
+
+    let result = deadline(
+        "deterministic x2 with one excluded worker",
+        dispatcher.dispatch_one_shot(task(
+            plugin,
+            b"world",
+            IntegrityPolicy::Deterministic { replicas: 2 },
+        )),
+    )
+    .await
+    .expect("good remote + one local replica are accepted");
+    assert_eq!(result.output, b"Hello, world!");
+    assert!(
+        result.replicas.iter().all(|r| r.peer != bad.peer_id),
+        "the excluded peer must not be a replica target: {:?}",
+        result.replicas
+    );
+    let remote: Vec<_> = result.replicas.iter().filter(|r| r.remote).collect();
+    assert_eq!(remote.len(), 1);
+    assert_eq!(remote[0].peer, good.peer_id);
+    assert_eq!(
+        result.replicas.iter().filter(|r| !r.remote).count(),
+        1,
+        "the shortfall runs locally"
+    );
+    assert_eq!(activations(&drain(&mut bad_bus).await), 0);
+}
+
 /// A worker whose output disagrees with the accepted quorum is outvoted and
 /// loses reputation; the agreeing workers gain standing.
 #[tokio::test(flavor = "multi_thread")]
@@ -1017,7 +1090,8 @@ async fn a_frame_with_a_forged_policy_hash_runs_nothing() {
     worker.serve_for(caller.peer_id);
     let mut bus = worker.kernel.bus().subscribe();
 
-    let mut req = RemoteRequest::for_task(&task(plugin, b"world", IntegrityPolicy::None)).unwrap();
+    let mut req =
+        RemoteRequest::for_task(&task(plugin.clone(), b"world", IntegrityPolicy::None)).unwrap();
     let RequestFrame::Task(body) = &mut req.frame else {
         unreachable!()
     };
@@ -1034,7 +1108,28 @@ async fn a_frame_with_a_forged_policy_hash_runs_nothing() {
         RemoteOutcome::Err { code, .. } => assert_eq!(code, RemoteErrorCode::PolicyHashMismatch),
         other => panic!("a forged envelope must be refused, got {other:?}"),
     }
-    assert!(drain(&mut bus).await.is_empty(), "nothing may run");
+    assert!(
+        drain_for(&mut bus, QUIET_NEGATIVE).await.is_empty(),
+        "nothing may run"
+    );
+
+    // Positive sentinel: the bus is live and the worker still serves, so the
+    // silence above means the forged frame did not run (not a dead
+    // subscription). The honest frame runs exactly once.
+    let ok = RemoteRequest::for_task(&task(plugin, b"world", IntegrityPolicy::None)).unwrap();
+    let raw = deadline(
+        "honest frame",
+        caller
+            .transport
+            .request(&worker.address(), &encode_request(&ok).unwrap()),
+    )
+    .await
+    .expect("round trip");
+    assert!(matches!(
+        decode_response(&raw, u64::MAX).unwrap().outcome,
+        RemoteOutcome::Ok { .. }
+    ));
+    assert_eq!(activations(&drain(&mut bus).await), 1);
 }
 
 /// The committed stdlib metric components compute what their native sources
