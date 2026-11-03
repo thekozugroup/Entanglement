@@ -834,3 +834,32 @@ async fn by_default_only_tailnet_source_addresses_reach_the_handshake() {
     assert!(a.connect(&peer_of(&b)).await.is_err());
     assert_no_conn(&b).await;
 }
+
+#[tokio::test]
+async fn by_default_discovery_and_connect_never_dial_non_tailnet_addresses() {
+    // A control plane (e.g. a hostile or misconfigured Headscale) lists a
+    // "tailnet" peer at a LAN/loopback address where an Entanglement node
+    // really does answer.
+    let a = MeshTailscale::start(
+        &IdentityKeyPair::generate(),
+        MeshTailscaleConfig {
+            bind_ip: LO,
+            port: 0,
+            ..MeshTailscaleConfig::default()
+        },
+    )
+    .await
+    .unwrap();
+    let (b, _) = node(AclMode::TrustTailnet, None).await;
+    let port = b.local_addr().port();
+    let json = r#"{"BackendState":"Running","Self":{"Online":true},
+      "Peer":{"x":{"Online":true,"DNSName":"x.tail.ts.net.","TailscaleIPs":["127.0.0.1"]}}}"#;
+    let st = TailscaleStatus::parse(json).unwrap();
+    let found = a.discover_on_port(&st, port).await;
+    assert!(found.is_empty(), "{found:?}");
+    let err = a.connect(&peer_of(&b)).await.unwrap_err();
+    assert_eq!(err.code(), "ENTANGLE-E0643");
+    assert!(err.to_string().contains("not a tailnet address"), "{err}");
+    assert!(a.probe(b.local_addr()).await.is_err());
+    assert_no_conn(&b).await;
+}

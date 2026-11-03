@@ -419,6 +419,8 @@ tailscale-cli = ""             # empty = `tailscale` on $PATH
 * Only tailnet source addresses (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) are
   served: a connection from any other address (LAN, Docker bridge, the
   internet) is closed before a byte is read or sent, whatever `bind-ip` is.
+  Discovery and outbound connections likewise never dial a non-tailnet
+  address, even if `tailscale status` lists one.
 
 * Traffic is TCP over WireGuard. A mutual Ed25519-signed X25519 handshake
   authenticates the remote `PeerId` and agrees session keys; every frame after

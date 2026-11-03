@@ -153,11 +153,14 @@ impl MeshTailscale {
 
     /// Dial `peer` and complete the handshake.
     ///
+    /// Under [`crate::AddressPolicy::TailnetOnly`] (the default) an address
+    /// outside the tailnet ranges is refused without dialling.
+    ///
     /// Fails unless the server proves possession of `peer.public_key`, and
     /// fails with a handshake error if the server's ACL rejected us.
     pub async fn connect(&self, peer: &TailscalePeer) -> Result<MeshConn, MeshTailscaleError> {
         let cfg = &self.inner.config;
-        let mut stream = dial(peer.addr, cfg.connect_timeout).await?;
+        let mut stream = dial(peer.addr, cfg).await?;
         let (remote, admitted, session) = client_handshake(
             &mut stream,
             &self.inner.identity,
@@ -242,7 +245,7 @@ impl MeshTailscale {
     pub async fn probe(&self, addr: SocketAddr) -> Result<TailscalePeer, MeshTailscaleError> {
         let cfg = &self.inner.config;
         let ephemeral = IdentityKeyPair::generate();
-        let mut stream = dial(addr, cfg.connect_timeout).await?;
+        let mut stream = dial(addr, cfg).await?;
         let (remote, _admitted, _session) =
             client_handshake(&mut stream, &ephemeral, None, cfg.handshake_timeout).await?;
         Ok(TailscalePeer {
@@ -278,9 +281,20 @@ impl MeshTailscale {
         port: u16,
     ) -> Vec<TailscalePeer> {
         let mut set = JoinSet::new();
+        let policy = self.inner.config.address_policy;
         for node in status.online_peers() {
             let me = self.clone();
-            let ips = node.ips.clone();
+            // Never dial outside the tailnet, whatever the status JSON says:
+            // WireGuard is what keeps the probe off the LAN.
+            let ips: Vec<_> = node
+                .ips
+                .iter()
+                .copied()
+                .filter(|ip| policy.permits(*ip))
+                .collect();
+            if ips.is_empty() {
+                continue;
+            }
             let dns = node.dns_name.clone();
             set.spawn(async move {
                 for ip in ips {
@@ -337,7 +351,17 @@ impl MeshTailscale {
     }
 }
 
-async fn dial(addr: SocketAddr, limit: Duration) -> Result<TcpStream, MeshTailscaleError> {
+async fn dial(
+    addr: SocketAddr,
+    cfg: &MeshTailscaleConfig,
+) -> Result<TcpStream, MeshTailscaleError> {
+    if !cfg.address_policy.permits(addr.ip()) {
+        return Err(MeshTailscaleError::Connect {
+            addr,
+            reason: "not a tailnet address (refused by the address policy)".into(),
+        });
+    }
+    let limit = cfg.connect_timeout;
     match timeout(limit, TcpStream::connect(addr)).await {
         Ok(Ok(s)) => {
             let _ = s.set_nodelay(true);
