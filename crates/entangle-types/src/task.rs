@@ -45,6 +45,7 @@ pub enum IntegrityPolicy {
         /// returned output.
         quorum: u8,
         /// The exact metric component used to compare replica outputs.
+        #[serde(deserialize_with = "metric_ref_or_hint")]
         metric: MetricRef,
         /// Pairwise distance strictly below which two outputs agree.
         threshold: f64,
@@ -177,6 +178,39 @@ impl std::fmt::Display for MetricRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} (blake3 {})", self.plugin, self.artifact_hex())
     }
+}
+
+/// Deserialize `SemanticEquivalent::metric`: a [`MetricRef`] map, or — for
+/// the earlier policy shape, where `metric` was a bare name such as
+/// `"cosine"` and there were no `replicas` / `quorum` — an error that says
+/// what the shape is now instead of a bare type mismatch.
+fn metric_ref_or_hint<'de, D: serde::Deserializer<'de>>(d: D) -> Result<MetricRef, D::Error> {
+    struct MetricRefVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for MetricRefVisitor {
+        type Value = MetricRef;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a pinned metric reference { plugin, publisher_key, artifact_blake3 }")
+        }
+
+        fn visit_str<E: serde::de::Error>(self, name: &str) -> Result<MetricRef, E> {
+            Err(E::custom(format!(
+                "semantic-equivalent `metric` must be a pinned metric reference \
+                 {{ plugin = \"<publisher>/<name>@<version>\", publisher_key = \"<64 hex>\", \
+                 artifact_blake3 = \"<64 hex>\" }}, not the name {name:?}: this policy changed \
+                 shape and now also needs `replicas` and `quorum` (agreeing pairs); load the \
+                 signed metric package on the submitter and reference it exactly \
+                 (docs/operations.md section 10)"
+            )))
+        }
+
+        fn visit_map<A: serde::de::MapAccess<'de>>(self, map: A) -> Result<MetricRef, A::Error> {
+            serde::Deserialize::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+        }
+    }
+
+    d.deserialize_any(MetricRefVisitor)
 }
 
 /// Serde helper: a `[u8; 32]` as a 64-character lowercase hex string.
@@ -364,6 +398,39 @@ mod tests {
         let text = toml::to_string(&w).unwrap();
         let back: Wrapper = toml::from_str(&text).unwrap();
         assert_eq!(back, w);
+    }
+
+    /// A policy in the pre-replication shape (`metric` was a bare name and
+    /// there were no `replicas` / `quorum`) is refused with an error that
+    /// says what the shape is now, not a bare serde type mismatch.
+    #[test]
+    fn old_shape_semantic_equivalent_explains_the_new_shape() {
+        let old = r#"{"kind":"semantic-equivalent","metric":"cosine","threshold":0.9}"#;
+        let err = serde_json::from_str::<IntegrityPolicy>(old)
+            .unwrap_err()
+            .to_string();
+        for needle in ["pinned metric reference", "replicas", "quorum", "cosine"] {
+            assert!(err.contains(needle), "missing {needle:?} in: {err}");
+        }
+
+        #[derive(serde::Deserialize, Debug)]
+        struct Wrapper {
+            #[allow(dead_code)]
+            policy: IntegrityPolicy,
+        }
+        let toml_old =
+            "[policy]\nkind = \"semantic-equivalent\"\nmetric = \"bleu\"\nthreshold = 0.85\n";
+        let err = toml::from_str::<Wrapper>(toml_old).unwrap_err().to_string();
+        assert!(err.contains("pinned metric reference"), "{err}");
+
+        // The current shape is unaffected, including MetricRef's own errors.
+        let mut json = serde_json::to_value(semantic()).unwrap();
+        assert!(serde_json::from_value::<IntegrityPolicy>(json.clone()).is_ok());
+        json["metric"]["artifact_blake3"] = serde_json::Value::String("abcd".into());
+        let err = serde_json::from_value::<IntegrityPolicy>(json)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("expected 32 bytes"), "{err}");
     }
 
     #[test]
