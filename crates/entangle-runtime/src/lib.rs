@@ -16,6 +16,8 @@
 //! - [`Kernel`] — top-level orchestrator; call `load_plugin_from_dir` to run the pipeline.
 //! - [`KernelConfig`] — daemon-wide tuning (max tier, bus capacity).
 //! - [`LifecycleEvent`] — bus payload emitted at each pipeline phase.
+//! - [`MetricRegistry`] — verified `SemanticEquivalent` metric components
+//!   (spec §7.5), used by the scheduler's submitter-side verifier.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -25,6 +27,7 @@ pub mod integrity;
 pub mod kernel;
 pub mod lifecycle;
 pub mod loader;
+pub mod metric;
 pub mod os_sandbox;
 
 #[cfg(test)]
@@ -35,4 +38,5 @@ pub use integrity::{check_trusted_executor, verify_deterministic, IntegrityError
 pub use kernel::{Kernel, KernelConfig};
 pub use lifecycle::{LifecycleEvent, LifecyclePhase};
 pub use loader::PluginPackage;
+pub use metric::{MetricEntry, MetricRegistry};
 pub use os_sandbox::{probe as probe_os_sandbox, SandboxProbe};
