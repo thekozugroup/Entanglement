@@ -125,13 +125,21 @@ fn diag_mesh_renders_the_text_report_and_sends_the_probe_request() {
         .args(["diag", "mesh", "--probe", "--timeout-ms", "750"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Mesh diagnostics for laptop (aa11)"))
-        .stdout(predicate::str::contains("! tailscale is configured but not running"))
+        .stdout(predicate::str::contains(
+            "Mesh diagnostics for laptop (aa11)",
+        ))
+        .stdout(predicate::str::contains(
+            "! tailscale is configured but not running",
+        ))
         .stdout(predicate::str::contains("state: stopped (NeedsLogin)"))
         .stdout(predicate::str::contains("desk  bb22  [trusted]"))
         .stdout(predicate::str::contains("rtt 2.5 ms"))
-        .stdout(predicate::str::contains("no path: no transport currently knows"))
-        .stdout(predicate::str::contains("Probe: 1 of 2 trusted peer(s) answered"));
+        .stdout(predicate::str::contains(
+            "no path: no transport currently knows",
+        ))
+        .stdout(predicate::str::contains(
+            "Probe: 1 of 2 trusted peer(s) answered",
+        ));
     let request: serde_json::Value =
         serde_json::from_str(seen.lock().unwrap().as_ref().unwrap()).unwrap();
     assert_eq!(request["method"], "diag/mesh");

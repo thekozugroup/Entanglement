@@ -512,7 +512,10 @@ mod tests {
         let series = out.lines().filter(|l| l.starts_with("c_total{")).count();
         assert_eq!(series, MAX_SERIES_PER_FAMILY);
         assert_eq!(r.dropped_series(), 10);
-        assert!(out.contains("entangle_metrics_dropped_series_total 10"), "{out}");
+        assert!(
+            out.contains("entangle_metrics_dropped_series_total 10"),
+            "{out}"
+        );
         // Existing series keep updating once the cap is reached.
         r.inc_counter("c_total", "c", &[("k", "0")], 4.0);
         assert_eq!(r.value("c_total", &[("k", "0")]), Some(5.0));

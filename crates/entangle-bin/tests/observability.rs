@@ -14,9 +14,7 @@ use entangle_bin::metrics_server::{
 };
 use entangle_bin::state::{DaemonState, MeshDiagSources, TailscaleDiag};
 use entangle_bin::{diag, server};
-use entangle_mesh_iroh::{
-    IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER,
-};
+use entangle_mesh_iroh::{IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER};
 use entangle_mesh_tailscale::{
     AclMode, AddressPolicy, LivenessSnapshot, MeshTailscale, MeshTailscaleConfig, TailnetState,
 };
@@ -322,7 +320,10 @@ async fn scrape_after_real_activity_has_the_expected_families() {
         resp.headers.get("content-type").map(String::as_str),
         Some(CONTENT_TYPE_PROMETHEUS)
     );
-    assert_eq!(CONTENT_TYPE_PROMETHEUS, "text/plain; version=0.0.4; charset=utf-8");
+    assert_eq!(
+        CONTENT_TYPE_PROMETHEUS,
+        "text/plain; version=0.0.4; charset=utf-8"
+    );
 
     let (types, samples) = parse_exposition(&resp.body);
     for (family, kind) in [
@@ -356,7 +357,10 @@ async fn scrape_after_real_activity_has_the_expected_families() {
         find(&samples, name, &labels).map(|s| s.value)
     };
     // plugins/invoke + compute/dispatch each ran the plugin once.
-    assert_eq!(ok("entangle_plugin_invocations_total", &[("outcome", "ok")]), Some(2.0));
+    assert_eq!(
+        ok("entangle_plugin_invocations_total", &[("outcome", "ok")]),
+        Some(2.0)
+    );
     assert_eq!(
         find(
             &samples,
@@ -367,17 +371,21 @@ async fn scrape_after_real_activity_has_the_expected_families() {
         Some(1.0),
         "a call for an unloaded plugin must not mint a plugin label"
     );
-    assert_eq!(ok("entangle_plugin_invocation_duration_seconds_count", &[]), Some(2.0));
-    assert!(ok("entangle_plugin_invocation_duration_seconds_sum", &[]).unwrap() > 0.0);
-    assert!(
-        find(
-            &samples,
-            "entangle_plugin_invocation_duration_seconds_bucket",
-            &[("plugin", &plugin), ("le", "+Inf")]
-        )
-        .is_some()
+    assert_eq!(
+        ok("entangle_plugin_invocation_duration_seconds_count", &[]),
+        Some(2.0)
     );
-    assert_eq!(find(&samples, "entangle_plugins_loaded", &[]).map(|s| s.value), Some(1.0));
+    assert!(ok("entangle_plugin_invocation_duration_seconds_sum", &[]).unwrap() > 0.0);
+    assert!(find(
+        &samples,
+        "entangle_plugin_invocation_duration_seconds_bucket",
+        &[("plugin", &plugin), ("le", "+Inf")]
+    )
+    .is_some());
+    assert_eq!(
+        find(&samples, "entangle_plugins_loaded", &[]).map(|s| s.value),
+        Some(1.0)
+    );
     assert!(ok("entangle_plugin_uptime_seconds", &[]).unwrap() >= 0.0);
     assert_eq!(
         find(
@@ -468,11 +476,7 @@ async fn a_non_loopback_address_is_refused_unless_opted_in() {
         .expect("opted in")
         .expect("enabled");
     let port = server.local_addr().port();
-    let resp = http(
-        SocketAddr::from(([127, 0, 0, 1], port)),
-        &get("/metrics"),
-    )
-    .await;
+    let resp = http(SocketAddr::from(([127, 0, 0, 1], port)), &get("/metrics")).await;
     assert_eq!(resp.status, 200);
     server.shutdown().await;
 
@@ -487,7 +491,10 @@ async fn a_non_loopback_address_is_refused_unless_opted_in() {
         listen: "garbage".into(),
         allow_non_loopback: false,
     };
-    assert!(MetricsServer::start(&off, registry).await.unwrap().is_none());
+    assert!(MetricsServer::start(&off, registry)
+        .await
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -511,7 +518,11 @@ async fn routes_and_methods() {
     assert!(r.body.contains("probe_total 3"));
 
     // HEAD: same headers (with the body's length), no body.
-    let head = http(addr, "HEAD /metrics HTTP/1.1\r\nHost: t\r\nConnection: close\r\n\r\n").await;
+    let head = http(
+        addr,
+        "HEAD /metrics HTTP/1.1\r\nHost: t\r\nConnection: close\r\n\r\n",
+    )
+    .await;
     assert_eq!(head.status, 200);
     assert!(head.body.is_empty());
     assert!(head.headers["content-length"].parse::<usize>().unwrap() > 0);
@@ -524,7 +535,10 @@ async fn routes_and_methods() {
         )
         .await;
         assert_eq!(r.status, 405, "{method}");
-        assert_eq!(r.headers.get("allow").map(String::as_str), Some("GET, HEAD"));
+        assert_eq!(
+            r.headers.get("allow").map(String::as_str),
+            Some("GET, HEAD")
+        );
     }
     server.shutdown().await;
 }
@@ -563,7 +577,10 @@ async fn connections_are_capped_and_stalled_clients_are_reaped() {
     for mut s in idle {
         let mut b = Vec::new();
         let r = tokio::time::timeout(Duration::from_secs(1), s.read_to_end(&mut b)).await;
-        assert!(r.is_ok(), "an idle connection must have been closed by the server");
+        assert!(
+            r.is_ok(),
+            "an idle connection must have been closed by the server"
+        );
     }
     server.shutdown().await;
 }
@@ -610,7 +627,8 @@ async fn the_tailscale_gauge_follows_the_liveness_watch_channel() {
     ))
     .unwrap();
     assert!(eventually(|| state("stopped") == Some(1.0)).await);
-    tx.send(snapshot(Some(TailnetState::Uninstalled), 3)).unwrap();
+    tx.send(snapshot(Some(TailnetState::Uninstalled), 3))
+        .unwrap();
     assert!(eventually(|| state("uninstalled") == Some(1.0)).await);
 
     // One-hot: exactly one state is 1 at any time.
@@ -663,9 +681,21 @@ async fn diag_mesh_reports_paths_and_probes_round_trips() {
         IdentityKeyPair::generate(),
         IdentityKeyPair::generate(),
     );
-    let a = Arc::new(MeshIroh::start(loopback_scheduler_config(), &id_a).await.unwrap());
-    let b = Arc::new(MeshIroh::start(loopback_scheduler_config(), &id_b).await.unwrap());
-    let c = Arc::new(MeshIroh::start(loopback_scheduler_config(), &id_c).await.unwrap());
+    let a = Arc::new(
+        MeshIroh::start(loopback_scheduler_config(), &id_a)
+            .await
+            .unwrap(),
+    );
+    let b = Arc::new(
+        MeshIroh::start(loopback_scheduler_config(), &id_b)
+            .await
+            .unwrap(),
+    );
+    let c = Arc::new(
+        MeshIroh::start(loopback_scheduler_config(), &id_c)
+            .await
+            .unwrap(),
+    );
     let kernel = || Arc::new(Kernel::new(KernelConfig::default(), Keyring::new()).unwrap());
     for (node, allow) in [
         (&b, StaticAllowlist::new().allow(a.local_peer_id())),
@@ -719,11 +749,12 @@ async fn diag_mesh_reports_paths_and_probes_round_trips() {
     );
     let pool = WorkerPool::new();
     let dispatcher = Arc::new(
-        Dispatcher::new(pool.clone(), kernel_a.clone(), a.local_peer_id())
-            .with_remote(Arc::new(RemoteDispatch::new(
+        Dispatcher::new(pool.clone(), kernel_a.clone(), a.local_peer_id()).with_remote(Arc::new(
+            RemoteDispatch::new(
                 Arc::clone(&a) as Arc<dyn MeshTransport>,
                 Arc::new(directory.clone()),
-            ))),
+            ),
+        )),
     );
     // A tailscale transport on loopback, "stopped" per the liveness channel.
     let ts = MeshTailscale::start(
@@ -771,20 +802,34 @@ async fn diag_mesh_reports_paths_and_probes_round_trips() {
     assert!(!plain.probed);
     assert_eq!(plain.local_display_name, "node-a");
     assert_eq!(plain.transports_configured, ["iroh", "tailscale", "local"]);
-    assert_eq!(plain.transports_active, ["iroh", "tailscale"], "local has no discovery handle");
-    let transports: Vec<_> = plain.endpoints.iter().map(|e| e.transport.as_str()).collect();
+    assert_eq!(
+        plain.transports_active,
+        ["iroh", "tailscale"],
+        "local has no discovery handle"
+    );
+    let transports: Vec<_> = plain
+        .endpoints
+        .iter()
+        .map(|e| e.transport.as_str())
+        .collect();
     assert!(transports.contains(&"iroh") && transports.contains(&"tailscale"));
     assert!(plain
         .endpoints
         .iter()
         .any(|e| e.transport == "metrics" && e.address == "127.0.0.1:9464"));
     let tail = plain.tailscale.as_ref().expect("tailscale section");
-    assert_eq!((tail.state.as_str(), tail.reason.as_deref()), ("stopped", Some("NeedsLogin")));
+    assert_eq!(
+        (tail.state.as_str(), tail.reason.as_deref()),
+        ("stopped", Some("NeedsLogin"))
+    );
     assert_eq!(plain.peers.len(), 4);
     let by_name = |name: &str| plain.peers.iter().find(|p| p.display_name == name).unwrap();
     assert!(by_name("node-b").paths.iter().any(|p| p.transport == "iroh"
         && p.address.as_deref() == Some(&loopback_peer(&b).addr.to_string())));
-    assert!(by_name("lost").paths.is_empty(), "no transport knows this peer");
+    assert!(
+        by_name("lost").paths.is_empty(),
+        "no transport knows this peer"
+    );
     assert!(plain
         .peers
         .iter()
@@ -805,9 +850,15 @@ async fn diag_mesh_reports_paths_and_probes_round_trips() {
     };
     let b_path = iroh_path("node-b");
     assert!(b_path.rtt_ms.is_some_and(|ms| ms > 0.0), "{b_path:?}");
-    assert_eq!(b_path.probe_error, None, "an authorized peer answers cleanly");
+    assert_eq!(
+        b_path.probe_error, None,
+        "an authorized peer answers cleanly"
+    );
     let c_path = iroh_path("node-c");
-    assert!(c_path.rtt_ms.is_some(), "the refusing peer was still reached: {c_path:?}");
+    assert!(
+        c_path.rtt_ms.is_some(),
+        "the refusing peer was still reached: {c_path:?}"
+    );
     assert!(
         c_path
             .probe_error

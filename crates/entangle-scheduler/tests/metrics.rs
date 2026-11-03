@@ -45,9 +45,7 @@ async fn dispatch_verdicts_are_counted_by_policy_kind_and_outcome() {
         .unwrap_err();
     // A refused policy (Attested is unsupported) is "rejected".
     let err = d
-        .dispatch_one_shot(task(IntegrityPolicy::Attested {
-            tee: "sgx".into(),
-        }))
+        .dispatch_one_shot(task(IntegrityPolicy::Attested { tee: "sgx".into() }))
         .await
         .unwrap_err();
     assert!(matches!(err, DispatchError::Integrity(_)), "{err}");
