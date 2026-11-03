@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::net::IpAddr;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde::Deserialize;
@@ -177,11 +178,29 @@ pub trait StatusSource: Send + Sync {
     async fn observe(&self) -> Observation;
 }
 
+/// Where `tailscaled` puts its local API socket by default on this platform.
+pub fn default_daemon_sockets() -> Vec<PathBuf> {
+    let paths: &[&str] = if cfg!(target_os = "linux") {
+        &[
+            "/var/run/tailscale/tailscaled.sock",
+            "/run/tailscale/tailscaled.sock",
+        ]
+    } else if cfg!(target_os = "macos") {
+        &["/var/run/tailscaled.socket"]
+    } else if cfg!(windows) {
+        &[r"\\.\pipe\ProtectedPrefix\Administrators\Tailscale\tailscaled"]
+    } else {
+        &["/var/run/tailscale/tailscaled.sock"]
+    };
+    paths.iter().map(PathBuf::from).collect()
+}
+
 /// [`StatusSource`] that shells out to the `tailscale` CLI.
 #[derive(Clone, Debug)]
 pub struct CliStatusSource {
     cli: String,
     timeout: Duration,
+    daemon_sockets: Vec<PathBuf>,
 }
 
 impl CliStatusSource {
@@ -190,7 +209,16 @@ impl CliStatusSource {
         Self {
             cli: cli.into(),
             timeout: Duration::from_secs(10),
+            daemon_sockets: default_daemon_sockets(),
         }
+    }
+
+    /// Look for `tailscaled`'s socket at `path` instead of the platform
+    /// default (see [`default_daemon_sockets`]).
+    #[must_use]
+    pub fn with_daemon_socket(mut self, path: impl AsRef<Path>) -> Self {
+        self.daemon_sockets = vec![path.as_ref().to_path_buf()];
+        self
     }
 
     /// Override the per-command timeout (default 10 s).
@@ -245,6 +273,31 @@ impl CliStatusSource {
     }
 }
 
+impl CliStatusSource {
+    /// The CLI could not be spawned because it does not exist. Spec §6.1.1:
+    /// that is `uninstalled` only if `tailscaled`'s socket is absent too;
+    /// with the socket present the daemon is installed (and maybe running)
+    /// and only the CLI is out of reach, e.g. not on the service's `$PATH`.
+    fn cli_not_found(&self) -> Observation {
+        let socket = self.daemon_sockets.iter().find(|p| p.exists());
+        let state = match socket {
+            Some(p) => TailnetState::Stopped {
+                reason: format!(
+                    "tailscale CLI `{}` not found (set [mesh.tailscale] tailscale-cli), \
+                     but tailscaled's socket exists at {}",
+                    self.cli,
+                    p.display()
+                ),
+            },
+            None => TailnetState::Uninstalled,
+        };
+        Observation {
+            state,
+            status: None,
+        }
+    }
+}
+
 #[async_trait::async_trait]
 impl StatusSource for CliStatusSource {
     async fn observe(&self) -> Observation {
@@ -253,10 +306,7 @@ impl StatusSource for CliStatusSource {
                 state: status.classify(),
                 status: Some(status),
             },
-            Err(MeshTailscaleError::NotInstalled) => Observation {
-                state: TailnetState::Uninstalled,
-                status: None,
-            },
+            Err(MeshTailscaleError::NotInstalled) => self.cli_not_found(),
             Err(err) => {
                 // Status failed although the binary spawned: distinguish
                 // "installed but daemon down" from other failures via `version`.
@@ -264,10 +314,7 @@ impl StatusSource for CliStatusSource {
                     Ok(o) if o.status.success() => format!("daemon unreachable: {err}"),
                     Ok(_) => format!("cli unhealthy: {err}"),
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                        return Observation {
-                            state: TailnetState::Uninstalled,
-                            status: None,
-                        }
+                        return self.cli_not_found();
                     }
                     Err(e) => format!("cannot run cli: {e}"),
                 };

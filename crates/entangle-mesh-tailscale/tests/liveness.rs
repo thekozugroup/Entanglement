@@ -452,8 +452,9 @@ esac
             .unwrap()
             .contains("unhealthy"));
 
-        // Binary gone entirely -> uninstalled.
-        let gone = CliStatusSource::new("/nonexistent/dir/tailscale");
+        // Binary gone entirely (and no tailscaled socket) -> uninstalled.
+        let gone = CliStatusSource::new("/nonexistent/dir/tailscale")
+            .with_daemon_socket(fake.dir.path().join("no-such.sock"));
         assert_eq!(gone.observe().await.state, TailnetState::Uninstalled);
     }
 
@@ -502,4 +503,27 @@ esac
         assert_eq!(last.transitions, 3);
         handle.shutdown();
     }
+}
+
+// ------------------------------------------------------- uninstalled rule --
+
+#[tokio::test]
+async fn a_missing_cli_with_a_daemon_socket_is_stopped_not_uninstalled() {
+    // Spec §6.1.1: uninstalled = binary not on $PATH AND no socket at the
+    // platform default path. tailscaled running from a tarball whose CLI is
+    // not on the service's PATH is therefore *not* uninstalled.
+    let dir = tempfile::tempdir().unwrap();
+    let sock = dir.path().join("tailscaled.sock");
+    std::fs::write(&sock, b"").unwrap();
+    let src = CliStatusSource::new("/nonexistent/dir/tailscale").with_daemon_socket(&sock);
+    let o = src.observe().await;
+    assert_eq!(o.state.label(), "stopped", "{:?}", o.state);
+    let reason = o.state.reason().unwrap();
+    assert!(reason.contains("not found"), "{reason}");
+    assert!(reason.contains("tailscaled.sock"), "{reason}");
+
+    // Neither binary nor socket: uninstalled.
+    let gone = CliStatusSource::new("/nonexistent/dir/tailscale")
+        .with_daemon_socket(dir.path().join("absent.sock"));
+    assert_eq!(gone.observe().await.state, TailnetState::Uninstalled);
 }
