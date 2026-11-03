@@ -44,6 +44,19 @@ pub trait Adapter: Send + Sync {
     /// Extract every MCP server the user's config declares.
     fn servers(&self, snap: &Snapshot) -> Result<BTreeMap<String, McpServerSpec>, AdapterError>;
 
+    /// MCP servers the agent would also load from config files other than
+    /// `original` (it merges several), mapped to the file declaring each.
+    /// The session config overrides them so they cannot run outside the
+    /// gateway, but the gateway does not run them: they are unavailable in
+    /// the session. Default: none (the agent reads only one config).
+    fn unmediated_servers(
+        &self,
+        original: &Snapshot,
+    ) -> Result<BTreeMap<String, Utf8PathBuf>, AdapterError> {
+        let _ = original;
+        Ok(BTreeMap::new())
+    }
+
     /// Produce the session config: the user's config with **every** MCP
     /// server entry replaced by one pointing at
     /// `<gateway_base_url>/<server-name>`. The bearer token is never written
@@ -193,7 +206,7 @@ pub enum ConfigFormat {
     Json,
     /// TOML.
     Toml,
-    /// JSON with comments (not yet fully parsed — treated as JSON for now).
+    /// JSON with comments and trailing commas (OpenCode's `.jsonc`).
     Jsonc,
 }
 
@@ -202,7 +215,7 @@ pub fn registry() -> Vec<Box<dyn Adapter>> {
     vec![
         Box::new(claude_code::ClaudeCodeAdapter),
         Box::new(codex::CodexAdapter),
-        Box::new(opencode::OpenCodeAdapter),
+        Box::new(opencode::OpenCodeAdapter::default()),
     ]
 }
 

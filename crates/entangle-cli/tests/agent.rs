@@ -152,6 +152,53 @@ fn agent_run_codex_with_config_does_not_need_home() {
     assert_eq!(fs::read_dir(&sessions).map(|d| d.count()).unwrap_or(0), 0);
 }
 
+const FAKE_OPENCODE: &str = r#"#!/bin/sh
+cfg="$OPENCODE_CONFIG"
+[ -f "$cfg" ] || exit 11
+grep -q '127.0.0.1:[0-9]*/mcp/g"' "$cfg" || exit 12
+grep -q '127.0.0.1:[0-9]*/mcp/p"' "$cfg" || exit 13
+grep -q 'Bearer {env:ENTANGLE_SESSION_TOKEN}' "$cfg" || exit 14
+if grep -q 'g-server' "$cfg" || grep -q 'p-server' "$cfg"; then exit 15; fi
+case "$OPENCODE_CONFIG_CONTENT" in *'/mcp/p"'*) ;; *) exit 16 ;; esac
+exit 9
+"#;
+
+#[test]
+fn agent_run_opencode_overrides_global_and_project_servers() {
+    let dir = TempDir::new().unwrap();
+    let home = dir.path().join("home");
+    let global = home.join(".config/opencode");
+    fs::create_dir_all(&global).unwrap();
+    fs::write(
+        global.join("opencode.json"),
+        r#"{"mcp":{"g":{"type":"local","command":["g-server","--flag"],"enabled":true}}}"#,
+    )
+    .unwrap();
+    let project = dir.path().join("proj");
+    fs::create_dir_all(project.join(".git")).unwrap();
+    fs::write(
+        project.join("opencode.json"),
+        r#"{"mcp":{"p":{"type":"local","command":["p-server"]}}}"#,
+    )
+    .unwrap();
+    let agent = dir.path().join("fake-opencode.sh");
+    fs::write(&agent, FAKE_OPENCODE).unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    let sessions = dir.path().join("sessions");
+    entangle()
+        .current_dir(&project)
+        .env("HOME", &home)
+        .env_remove("XDG_CONFIG_HOME")
+        .env("ENTANGLE_SESSIONS_DIR", &sessions)
+        .args(["agent", "run", "opencode", "--bin"])
+        .arg(&agent)
+        .assert()
+        .code(9)
+        .stderr(predicate::str::contains("MCP server 'p' is declared in"))
+        .stderr(predicate::str::contains("proj/opencode.json"));
+    assert_eq!(fs::read_dir(&sessions).map(|d| d.count()).unwrap_or(0), 0);
+}
+
 #[test]
 fn agent_list_shows_adapters() {
     entangle()

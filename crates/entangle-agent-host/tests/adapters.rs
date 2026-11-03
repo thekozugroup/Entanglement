@@ -138,8 +138,10 @@ fn opencode_rewrite_empty_creates_minimal_config_with_gateway_url() {
     };
     let out = adapter.rewrite(&snap, GW, SRV).unwrap();
     let v: serde_json::Value = serde_json::from_str(&out).unwrap();
-    assert_eq!(v["mcp"]["servers"][SRV]["url"], GW);
-    assert_eq!(v["mcp"]["servers"][SRV]["type"], "http");
+    // OpenCode's schema: `mcp.<name>`, `type: "remote"` for a URL server.
+    assert_eq!(v["mcp"][SRV]["url"], GW);
+    assert_eq!(v["mcp"][SRV]["type"], "remote");
+    assert_eq!(v["mcp"][SRV]["enabled"], true);
 }
 
 #[test]
@@ -147,9 +149,7 @@ fn opencode_rewrite_preserves_existing_servers() {
     let _dir = opencode_home();
     let existing = serde_json::json!({
         "mcp": {
-            "servers": {
-                "existing-tool": { "type": "http", "url": "http://localhost:6060" }
-            }
+            "existing-tool": { "type": "remote", "url": "http://localhost:6060" }
         }
     });
     let snap = entangle_agent_host::adapters::Snapshot {
@@ -159,8 +159,9 @@ fn opencode_rewrite_preserves_existing_servers() {
     let adapter = find_adapter("opencode").unwrap();
     let out = adapter.rewrite(&snap, GW, SRV).unwrap();
     let v: serde_json::Value = serde_json::from_str(&out).unwrap();
-    assert!(v["mcp"]["servers"]["existing-tool"].is_object());
-    assert_eq!(v["mcp"]["servers"][SRV]["url"], GW);
+    assert_eq!(v["mcp"]["existing-tool"]["url"], "http://localhost:6060");
+    assert_eq!(v["mcp"][SRV]["url"], GW);
+    assert!(v["mcp"].get("servers").is_none());
 }
 
 #[test]

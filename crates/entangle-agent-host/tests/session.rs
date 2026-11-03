@@ -2,8 +2,8 @@
 
 use camino::{Utf8Path, Utf8PathBuf};
 use entangle_agent_host::{
-    adapters::claude_code::ClaudeCodeAdapter, Adapter, AdapterError, AgentSession, LaunchPlan,
-    McpServerSpec, SessionError, Snapshot,
+    adapters::{claude_code::ClaudeCodeAdapter, opencode::OpenCodeAdapter},
+    Adapter, AdapterError, AgentSession, LaunchPlan, McpServerSpec, SessionError, Snapshot,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -187,16 +187,25 @@ fn codex_session_links_the_files_next_to_the_chosen_config() {
     );
 }
 
+/// An OpenCode adapter whose global config dir and project dir are empty
+/// directories under `root`, so the user's real OpenCode configs are not read.
+fn isolated_opencode(root: &std::path::Path) -> Box<OpenCodeAdapter> {
+    let global = root.join("oc-global");
+    let project = root.join("oc-project");
+    fs::create_dir_all(&global).unwrap();
+    fs::create_dir_all(project.join(".git")).unwrap();
+    Box::new(OpenCodeAdapter::with_dirs(utf8(&global), utf8(&project)))
+}
+
 #[test]
 fn opencode_session_sets_opencode_config_env() {
     let dir = TempDir::new().unwrap();
-    let src = dir.path().join("config.json");
-    fs::write(
-        &src,
-        r#"{"mcp":{"servers":{"a":{"command":["node","a.js"],"environment":{"K":"v"}}}}}"#,
-    )
-    .unwrap();
-    let mut s = AgentSession::prepare("opencode", Some(&utf8(&src))).unwrap();
+    let src = dir.path().join("opencode.json");
+    let original =
+        r#"{"mcp":{"a":{"type":"local","command":["node","a.js"],"environment":{"K":"v"}}}}"#;
+    fs::write(&src, original).unwrap();
+    let mut s =
+        AgentSession::with_adapter(isolated_opencode(dir.path()), Some(&utf8(&src))).unwrap();
     assert!(matches!(
         s.servers().get("a"),
         Some(McpServerSpec::Stdio { command, args, env }) if command == "node" && args == &["a.js"] && env.len() == 1
@@ -208,7 +217,9 @@ fn opencode_session_sets_opencode_config_env() {
     assert!(plan.env.iter().any(|(k, _)| k == "OPENCODE_CONFIG"));
     let text = fs::read_to_string(&plan.config_path).unwrap();
     assert!(text.contains("{env:TOK}") && text.contains(&format!("{BASE}/a")));
+    assert!(!text.contains("a.js"), "original command must not leak");
     s.cleanup().unwrap();
+    assert_eq!(fs::read_to_string(&src).unwrap(), original);
 }
 
 /// Claude Code adapter whose `launch_plan` writes part of the session and
@@ -328,6 +339,234 @@ fn activate_refuses_an_existing_session_dir() {
         fs::read_to_string(sess_dir.join("keep.txt")).unwrap(),
         "not the session's",
         "a directory the session did not create is never deleted"
+    );
+}
+
+/// OpenCode's documented MCP schema: `mcp.<name>` with `type` local/remote.
+const OPENCODE_SOURCE: &str = r#"{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-sonnet-4",
+  "mcp": {
+    "fs": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "{env:PATH}"],
+      "environment": {"FS_TOKEN": "secret-{env:ENTANGLE_TEST_SURELY_UNSET}value"},
+      "enabled": true
+    },
+    "search": {
+      "type": "remote",
+      "url": "https://search.example/mcp",
+      "headers": {"Authorization": "Bearer user-secret"}
+    },
+    "off": {"type": "local", "command": ["off-server"], "enabled": false}
+  }
+}"#;
+
+#[test]
+fn opencode_servers_read_the_documented_mcp_schema() {
+    let dir = TempDir::new().unwrap();
+    let src = dir.path().join("opencode.json");
+    fs::write(&src, OPENCODE_SOURCE).unwrap();
+    let s = AgentSession::with_adapter(isolated_opencode(dir.path()), Some(&utf8(&src))).unwrap();
+    let path = std::env::var("PATH").unwrap();
+    assert_eq!(
+        s.servers().get("fs"),
+        Some(&McpServerSpec::Stdio {
+            command: "npx".into(),
+            args: vec![
+                "-y".into(),
+                "@modelcontextprotocol/server-filesystem".into(),
+                path
+            ],
+            env: [("FS_TOKEN".to_string(), "secret-value".to_string())].into(),
+        }),
+        "{:?}",
+        s.servers()
+    );
+    assert_eq!(
+        s.servers().get("search"),
+        Some(&McpServerSpec::Http {
+            url: "https://search.example/mcp".into()
+        })
+    );
+    assert!(
+        !s.servers().contains_key("off"),
+        "a disabled server is not started"
+    );
+    assert_eq!(s.servers().len(), 2);
+}
+
+#[test]
+fn opencode_session_overrides_the_users_servers_by_name() {
+    let dir = TempDir::new().unwrap();
+    let src = dir.path().join("opencode.json");
+    fs::write(&src, OPENCODE_SOURCE).unwrap();
+    let mut s =
+        AgentSession::with_adapter(isolated_opencode(dir.path()), Some(&utf8(&src))).unwrap();
+    assert!(s.unmediated_servers().is_empty());
+    let plan = s
+        .activate(&utf8(&dir.path().join("sess")), BASE, "TOK")
+        .unwrap()
+        .clone();
+    let cfg = plan
+        .env
+        .iter()
+        .find(|(k, _)| k == "OPENCODE_CONFIG")
+        .map(|(_, v)| v.clone());
+    assert_eq!(cfg.as_deref(), Some(plan.config_path.as_str()));
+    let text = fs::read_to_string(&plan.config_path).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        v["model"], "anthropic/claude-sonnet-4",
+        "other settings kept"
+    );
+    let mcp = v["mcp"].as_object().unwrap();
+    let names: Vec<&str> = mcp.keys().map(String::as_str).collect();
+    assert_eq!(names, ["fs", "off", "search"], "same keys as the user's");
+    for (name, enabled) in [("fs", true), ("search", true), ("off", false)] {
+        assert_eq!(
+            mcp[name],
+            serde_json::json!({
+                "type": "remote",
+                "url": format!("{BASE}/{name}"),
+                "headers": {"Authorization": "Bearer {env:TOK}"},
+                "enabled": enabled,
+            }),
+            "{name}"
+        );
+    }
+    for leaked in [
+        "npx",
+        "secret",
+        "user-secret",
+        "search.example",
+        "off-server",
+    ] {
+        assert!(!text.contains(leaked), "{leaked} leaked into {text}");
+    }
+    s.cleanup().unwrap();
+    assert_eq!(fs::read_to_string(&src).unwrap(), OPENCODE_SOURCE);
+}
+
+#[test]
+fn opencode_session_overrides_servers_from_every_config_opencode_merges() {
+    let dir = TempDir::new().unwrap();
+    let global = dir.path().join("global");
+    let outside = dir.path().join("work");
+    let repo = outside.join("repo");
+    let sub = repo.join("sub");
+    fs::create_dir_all(&global).unwrap();
+    fs::create_dir_all(sub.join(".opencode")).unwrap();
+    fs::create_dir_all(repo.join(".git")).unwrap();
+    let local = |cmd: &str| format!(r#"{{"type":"local","command":["{cmd}"]}}"#);
+    fs::write(
+        global.join("opencode.json"),
+        format!(
+            r#"{{"mcp":{{"g":{},"fs":{}}}}}"#,
+            local("g-bin"),
+            local("fs-global")
+        ),
+    )
+    .unwrap();
+    fs::write(
+        global.join("opencode.jsonc"),
+        "// global jsonc\n{\"mcp\": {\"gj\": {\"type\": \"remote\", \"url\": \"http://gj\",},},}\n",
+    )
+    .unwrap();
+    fs::write(
+        global.join("config.json"),
+        format!(r#"{{"mcp":{{"c":{}}}}}"#, local("c-bin")),
+    )
+    .unwrap();
+    fs::write(
+        repo.join("opencode.json"),
+        format!(r#"{{"mcp":{{"p":{}}}}}"#, local("p-bin")),
+    )
+    .unwrap();
+    fs::write(
+        sub.join(".opencode/opencode.jsonc"),
+        format!("/* dot dir */ {{\"mcp\":{{\"q\":{}}}}}", local("q-bin")),
+    )
+    .unwrap();
+    // Above the repository root: not part of this project.
+    fs::write(
+        outside.join("opencode.json"),
+        format!(r#"{{"mcp":{{"x":{}}}}}"#, local("x-bin")),
+    )
+    .unwrap();
+
+    let src = dir.path().join("session-source.json");
+    fs::write(&src, format!(r#"{{"mcp":{{"fs":{}}}}}"#, local("fs-bin"))).unwrap();
+    let adapter = OpenCodeAdapter::with_dirs(utf8(&global), utf8(&sub));
+    let mut s = AgentSession::with_adapter(Box::new(adapter), Some(&utf8(&src))).unwrap();
+    assert_eq!(s.servers().keys().collect::<Vec<_>>(), ["fs"]);
+    let unmediated: Vec<(&str, &str)> = s
+        .unmediated_servers()
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.file_name().unwrap()))
+        .collect();
+    assert_eq!(
+        unmediated,
+        [
+            ("c", "config.json"),
+            ("g", "opencode.json"),
+            ("gj", "opencode.jsonc"),
+            ("p", "opencode.json"),
+            ("q", "opencode.jsonc"),
+        ]
+    );
+
+    let plan = s
+        .activate(&utf8(&dir.path().join("sess")), BASE, "TOK")
+        .unwrap()
+        .clone();
+    let text = fs::read_to_string(&plan.config_path).unwrap();
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let mcp = v["mcp"].as_object().unwrap();
+    assert_eq!(
+        mcp.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["c", "fs", "g", "gj", "p", "q"],
+        "every name OpenCode merges is overridden; none from above the repo"
+    );
+    for (name, entry) in mcp {
+        assert_eq!(entry["type"], "remote", "{name}");
+        assert_eq!(entry["url"], format!("{BASE}/{name}"), "{name}");
+        assert_eq!(entry["headers"]["Authorization"], "Bearer {env:TOK}");
+        assert_eq!(
+            entry["enabled"],
+            name == "fs",
+            "only served names are enabled: {name}"
+        );
+        assert!(entry.get("command").is_none(), "{name}");
+    }
+    let inline = plan
+        .env
+        .iter()
+        .find(|(k, _)| k == "OPENCODE_CONFIG_CONTENT")
+        .map(|(_, v)| serde_json::from_str::<serde_json::Value>(v).unwrap())
+        .expect("inline overrides");
+    assert_eq!(inline, serde_json::json!({"mcp": v["mcp"]}));
+    s.cleanup().unwrap();
+}
+
+#[test]
+fn opencode_unparseable_merged_config_fails_closed() {
+    let dir = TempDir::new().unwrap();
+    let global = dir.path().join("global");
+    let project = dir.path().join("proj");
+    fs::create_dir_all(&global).unwrap();
+    fs::create_dir_all(project.join(".git")).unwrap();
+    fs::write(project.join("opencode.json"), r#"{"mcp": {"p": "#).unwrap();
+    let src = dir.path().join("src.json");
+    fs::write(&src, "{}").unwrap();
+    let adapter = OpenCodeAdapter::with_dirs(utf8(&global), utf8(&project));
+    let err = AgentSession::with_adapter(Box::new(adapter), Some(&utf8(&src)))
+        .err()
+        .expect("a config whose servers cannot be read must stop the session");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("ENTANGLE-E0600") && msg.contains("proj/opencode.json"),
+        "{msg}"
     );
 }
 

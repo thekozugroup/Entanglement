@@ -24,6 +24,7 @@ pub struct AgentSession {
     source_path: Utf8PathBuf,
     snapshot: Snapshot,
     servers: BTreeMap<String, McpServerSpec>,
+    unmediated: BTreeMap<String, Utf8PathBuf>,
     /// The session directory handed to [`activate`](Self::activate). Recorded
     /// before any filesystem work so that a failed activation, a second
     /// activation, [`cleanup`](Self::cleanup) and [`Drop`] all remove it.
@@ -54,11 +55,13 @@ impl AgentSession {
         };
         let snapshot = adapter.snapshot(&source_path)?;
         let servers = adapter.servers(&snapshot)?;
+        let unmediated = adapter.unmediated_servers(&snapshot)?;
         Ok(Self {
             adapter,
             source_path,
             snapshot,
             servers,
+            unmediated,
             session_dir: None,
             active: None,
             finished: false,
@@ -129,6 +132,14 @@ impl AgentSession {
     /// The MCP servers declared in the user's config.
     pub fn servers(&self) -> &BTreeMap<String, McpServerSpec> {
         &self.servers
+    }
+
+    /// Servers the agent would also load from configs other than
+    /// [`source_path`](Self::source_path), mapped to the declaring file. The
+    /// session config overrides them so they cannot bypass the gateway, and
+    /// the gateway does not run them, so they are unavailable in the session.
+    pub fn unmediated_servers(&self) -> &BTreeMap<String, Utf8PathBuf> {
+        &self.unmediated
     }
 
     /// How to launch the agent. Errors before [`activate`](Self::activate).

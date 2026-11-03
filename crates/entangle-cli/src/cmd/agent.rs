@@ -144,6 +144,14 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
     let mut session = AgentSession::prepare(&args.agent, source.as_deref())
         .with_context(|| format!("reading {} MCP config", args.agent))?;
 
+    for (name, file) in session.unmediated_servers() {
+        eprintln!(
+            "warning: MCP server '{name}' is declared in {file}, not in {source}; it is \
+             disabled in this session because the gateway only runs the servers of {source} \
+             (use --config {file} to run that file's servers through the gateway)",
+            source = session.source_path(),
+        );
+    }
     let servers = session.servers().clone();
     for (name, spec) in &servers {
         if let McpServerSpec::Http { url } = spec {

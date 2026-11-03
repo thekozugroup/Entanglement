@@ -35,7 +35,7 @@ is the exit code of `entangle agent run`.
 |---|---|---|
 | `claude-code` | `claude` | `--mcp-config <file> --strict-mcp-config`; header `Authorization: Bearer ${ENTANGLE_SESSION_TOKEN}` |
 | `codex` | `codex` | `CODEX_HOME=<session>/codex-home` (the other files next to the config that was read, `~/.codex` by default or the directory of `--config`, are symlinked in, e.g. `auth.json`; a failed link is an error); `bearer_token_env_var` |
-| `opencode` | `opencode` | `OPENCODE_CONFIG=<file>`; header `Bearer {env:ENTANGLE_SESSION_TOKEN}` |
+| `opencode` | `opencode` | `OPENCODE_CONFIG=<file>`, and its `mcp` section again in `OPENCODE_CONFIG_CONTENT`; header `Bearer {env:ENTANGLE_SESSION_TOKEN}` (see below) |
 
 Use `--config <path>` to read the MCP config from a non-default file and
 `--bin <path>` to launch a specific executable.
@@ -43,6 +43,53 @@ Use `--config <path>` to read the MCP config from a non-default file and
 Note: the spec's example uses `CLAUDE_CONFIG_DIR`; the Claude Code adapter
 reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
 `CLAUDE_CONFIG_DIR` would also hide the user's login).
+
+### OpenCode
+
+OpenCode's MCP servers are `mcp.<name>` entries: `{"type": "local",
+"command": ["bin", "arg"], "environment": {...}}` or `{"type": "remote",
+"url": "...", "headers": {...}}`, each with an optional `"enabled"`;
+`{env:VAR}` in a value is replaced by the variable. JSONC (comments,
+trailing commas) is accepted. The gateway runs the enabled servers of one
+file: `--config <path>`, else the global config in
+`$XDG_CONFIG_HOME/opencode` (default `~/.config/opencode`): `opencode.json`,
+else `opencode.jsonc`, else `config.json`.
+
+OpenCode **deep-merges** every config file it finds instead of using one of
+them, so the session config cannot simply leave the user's servers out.
+Instead, for every server name declared in any file OpenCode merges (the
+global files above; `opencode.json`, `opencode.jsonc` and
+`.opencode/opencode.json(c)` in the current directory and each parent up to
+the repository root; and the `--config` file) it carries an entry with the
+**same name**, which overrides the user's entry:
+
+```json
+"<name>": {"type": "remote", "url": "http://127.0.0.1:<port>/mcp/<name>",
+           "headers": {"Authorization": "Bearer {env:ENTANGLE_SESSION_TOKEN}"},
+           "enabled": true}
+```
+
+With `type: "remote"` OpenCode connects to `url`. Fields the override does
+not set survive the merge (a local entry's `command` and `environment`, a
+remote entry's other `headers`); OpenCode does not use `command` or
+`environment` for a remote server, and extra headers only reach the
+gateway. `enabled` is `true` only for servers the gateway runs: a server
+the user disabled, or one declared only in another file (for example a
+project's `opencode.json`), gets `"enabled": false` and stays off (were it
+`true`, an OpenCode that merges a project's `local` entry after the
+override would end up with that entry's `command` enabled), and
+`entangle agent run` prints a warning naming the file (pass
+`--config <file>` to run that file's servers through the gateway). A config
+file that exists but cannot be parsed stops the session (`ENTANGLE-E0600`),
+so no server can stay outside the gateway unnoticed.
+
+Assumption, not verified against a live OpenCode: newer versions merge
+`OPENCODE_CONFIG` *before* the project's `opencode.json` and merge
+`OPENCODE_CONFIG_CONTENT` last, so the overrides are passed in both (the
+inline copy holds only the `mcp` section, so the rest of the user's config
+is not put in the environment). An OpenCode that merges the project file
+last and ignores `OPENCODE_CONFIG_CONTENT` would let a project entry that
+itself sets `type`, `command` and `"enabled": true` win over the override.
 
 ## Gateway behaviour
 
