@@ -23,6 +23,8 @@ entangle-mesh-tailscale = { workspace = true }
 entangle-pairing   = { path = "../entangle-pairing" }
 entangle-scheduler     = { path = "../entangle-scheduler" }
 entangle-observability = { workspace = true }
+entangle-agent-host    = { path = "../entangle-agent-host" }
+camino            = { workspace = true }
 clap              = { workspace = true, features = ["derive"] }
 clap_complete     = "4"
 anyhow            = { workspace = true }
@@ -37,6 +39,9 @@ base64            = { workspace = true }
 serde_json        = { workspace = true }
 rand_core         = { workspace = true, features = ["getrandom"] }
 dialoguer         = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+rustix            = { workspace = true }
 
 [dev-dependencies]
 assert_cmd        = "2"

@@ -1,9 +1,9 @@
-//! Agent-host plugin scaffold (spec §8).
+//! Agent-host layer (spec §8.3): per-agent config adapters, session-scoped
+//! config rewriting, and the MCP gateway HTTP server.
 //!
-//! Phase 1 ships the **configuration adapter** layer: snapshot / rewrite /
-//! restore the agent's MCP config so all the agent's tool calls route through
-//! a Strata-managed gateway. The gateway itself (forwarding tool calls into
-//! the kernel + biscuit verification) is in a follow-up iteration.
+//! Adapters snapshot (read-only) and rewrite an agent's MCP config into a
+//! session-scoped copy so all the agent's tool calls route through
+//! the [`gateway`]; the user's own config is never modified.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -13,7 +13,13 @@ pub mod errors;
 pub mod gateway;
 pub mod session;
 
-pub use adapters::{find_adapter, known_adapter_names, registry, Adapter, ConfigFormat, Snapshot};
+pub use adapters::{
+    find_adapter, known_adapter_names, registry, Adapter, ConfigFormat, LaunchPlan, McpServerSpec,
+    Snapshot,
+};
 pub use errors::{AdapterError, SessionError};
-pub use gateway::{Gateway, GatewayConfig, GatewayError, GatewayHandle};
+pub use gateway::{
+    generate_bearer_token, AuditDecision, AuditOutcome, AuditRecord, Decision, Gateway,
+    GatewayConfig, GatewayError, GatewayHandle, GatewayHooks, Policy, ToolCall,
+};
 pub use session::AgentSession;

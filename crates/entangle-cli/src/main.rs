@@ -13,8 +13,8 @@ mod config;
 mod identity;
 
 use cmd::{
-    compute::ComputeArgs, init::InitArgs, keyring::KeyringArgs, mesh::MeshArgs, pair::PairArgs,
-    plugins::PluginsArgs, quickstart::QuickstartArgs,
+    agent::AgentArgs, compute::ComputeArgs, init::InitArgs, keyring::KeyringArgs, mesh::MeshArgs,
+    pair::PairArgs, plugins::PluginsArgs, quickstart::QuickstartArgs,
 };
 
 #[derive(Parser)]
@@ -74,6 +74,9 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Dispatch compute tasks via the scheduler.
     #[command(subcommand_required = true)]
     Compute(ComputeArgs),
+    /// Run an AI coding agent with its MCP tool calls mediated by the local gateway.
+    #[command(subcommand_required = true)]
+    Agent(AgentArgs),
     /// Print the detected platform and the sandbox primitive that would be used
     /// for tier-5 plugins on this host (spec §0.2).
     PrintPlatform,
@@ -141,6 +144,15 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Mesh(a) => cmd::mesh::run(a).await,
         Cmd::Pair(a) => cmd::pair::run(a).await,
         Cmd::Compute(a) => cmd::compute::run(a).await,
+        Cmd::Agent(a) => {
+            let code = cmd::agent::run(a).await?;
+            if code != 0 {
+                // Everything (gateway, session dir) is cleaned up inside
+                // `agent::run` before it returns, so exiting here is safe.
+                std::process::exit(code);
+            }
+            Ok(())
+        }
         Cmd::PrintPlatform => print_platform(),
         Cmd::Metrics => print_metrics(),
         Cmd::Completions { shell } => generate_completions(shell),

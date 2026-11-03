@@ -1,9 +1,13 @@
 //! Adapter for Claude Code — reads/writes `.mcp.json` in the project root.
 
-use super::{Adapter, ConfigFormat, Snapshot};
+use super::{
+    gateway_route_url, parse_server_entry, Adapter, ConfigFormat, LaunchPlan, McpServerSpec,
+    Snapshot,
+};
 use crate::errors::AdapterError;
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 
 /// Adapter for the Claude Code AI coding agent.
 ///
@@ -18,6 +22,10 @@ impl Adapter for ClaudeCodeAdapter {
 
     fn config_path(&self) -> Result<Utf8PathBuf, AdapterError> {
         Ok(Utf8PathBuf::from(".mcp.json"))
+    }
+
+    fn default_config_is_project_scoped(&self) -> bool {
+        true
     }
 
     fn snapshot(&self, path: &Utf8PathBuf) -> Result<Snapshot, AdapterError> {
@@ -70,5 +78,81 @@ impl Adapter for ClaudeCodeAdapter {
         } else {
             std::fs::write(path, &snap.original_bytes).map_err(|e| AdapterError::Io(e.to_string()))
         }
+    }
+
+    fn binary(&self) -> &'static str {
+        "claude"
+    }
+
+    fn servers(&self, snap: &Snapshot) -> Result<BTreeMap<String, McpServerSpec>, AdapterError> {
+        if snap.original_bytes.is_empty() {
+            return Ok(BTreeMap::new());
+        }
+        let v: Value = serde_json::from_slice(&snap.original_bytes)
+            .map_err(|e| AdapterError::Parse(e.to_string()))?;
+        Ok(v.get("mcpServers")
+            .and_then(Value::as_object)
+            .map(|m| {
+                m.iter()
+                    .filter_map(|(k, e)| parse_server_entry(e).map(|s| (k.clone(), s)))
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
+
+    fn rewrite_for_gateway(
+        &self,
+        original: &Snapshot,
+        gateway_base_url: &str,
+        token_env: &str,
+    ) -> Result<String, AdapterError> {
+        let mut root: Value = if original.original_bytes.is_empty() {
+            json!({})
+        } else {
+            serde_json::from_slice(&original.original_bytes)
+                .map_err(|e| AdapterError::Parse(e.to_string()))?
+        };
+        let obj = root
+            .as_object_mut()
+            .ok_or_else(|| AdapterError::Parse("root not an object".into()))?;
+        let names: Vec<String> = obj
+            .get("mcpServers")
+            .and_then(Value::as_object)
+            .map(|m| m.keys().cloned().collect())
+            .unwrap_or_default();
+        let mut servers = serde_json::Map::new();
+        for name in names {
+            servers.insert(
+                name.clone(),
+                json!({
+                    "type": "http",
+                    "url": gateway_route_url(gateway_base_url, &name),
+                    // Claude Code expands ${VAR} in headers: the token never hits disk.
+                    "headers": {"Authorization": format!("Bearer ${{{token_env}}}")}
+                }),
+            );
+        }
+        obj.insert("mcpServers".into(), Value::Object(servers));
+        serde_json::to_string_pretty(&root).map_err(|e| AdapterError::Parse(e.to_string()))
+    }
+
+    fn launch_plan(
+        &self,
+        session_dir: &Utf8Path,
+        _source: &Utf8Path,
+        config_text: &str,
+    ) -> Result<LaunchPlan, AdapterError> {
+        let path = session_dir.join("claude-mcp.json");
+        std::fs::write(&path, config_text).map_err(|e| AdapterError::Io(e.to_string()))?;
+        Ok(LaunchPlan {
+            args: vec![
+                "--mcp-config".into(),
+                path.to_string(),
+                // Ignore the user's own MCP config so nothing bypasses the gateway.
+                "--strict-mcp-config".into(),
+            ],
+            config_path: path,
+            env: Vec::new(),
+        })
     }
 }

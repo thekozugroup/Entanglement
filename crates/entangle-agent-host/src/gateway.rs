@@ -1,24 +1,138 @@
-//! MCP gateway HTTP server (scaffold).
+//! MCP gateway HTTP server (spec §8.3).
 //!
-//! Spec §8 commits to a local HTTP server that the agent's MCP client points
-//! at. The gateway intercepts every tool call, looks up the routing rule in
-//! the audit-policy plugin, and forwards the call into the Entanglement
-//! kernel (or to a peer via `entangle/agent/1` ALPN for cross-device A2A).
+//! A per-session HTTP/1.1 server on loopback. The agent's MCP client is
+//! pointed (by the rewritten session config, see [`crate::adapters`]) at
+//! `http://127.0.0.1:<port>/mcp/<server>`. Each `POST` carries one MCP
+//! JSON-RPC 2.0 message or a batch (MCP "Streamable HTTP" transport, JSON
+//! response mode). The gateway authenticates the bearer token, applies the
+//! `before_tool` / `after_tool` hooks to `tools/call`, records an audit entry,
+//! and forwards to the real downstream MCP server.
 //!
-//! Phase 1 ships only the **configuration adapter** layer (see [`crate::adapters`]).
-//! The HTTP server itself is Phase 2 work: this module pins the contract and
-//! returns a structured `NotImplemented` error so callers cannot mistake the
-//! scaffold for a finished implementation.
+//! # Behaviour contract
 //!
-//! Reasoning for keeping the scaffold even with no implementation:
+//! * **Auth**: `Authorization: Bearer <token>` on every request, compared in
+//!   constant time; otherwise `401`.
+//! * **Routing**: `POST /mcp/<server>`; unknown server `404`; other methods
+//!   `405` (no SSE stream is offered, so `GET` is `405` as the spec allows).
+//! * **Replies**: a request gets `200 application/json`; notifications and
+//!   client responses get `202` with an empty body; a batch gets a JSON array
+//!   of the replies (sequentially processed), or `202` if it had none.
+//! * **Notifications**: only `notifications/*` methods are forwarded. Any
+//!   other id-less message is dropped; a `tools/call` without an id is shown
+//!   to `before_tool` and audited as denied ("tools/call sent as
+//!   notification") before it is dropped, so it can never bypass policy.
+//!   Messages that are not valid JSON-RPC 2.0 get `-32600` (`ENTANGLE-E0666`)
+//!   with the message's id when it is usable, else `null`.
+//! * **Downstream**: stdio servers (newline-delimited JSON-RPC) launched
+//!   lazily, one process per server per gateway. Request ids are remapped to
+//!   gateway-unique ids so concurrent clients can never collide, and restored
+//!   on the reply. A client `notifications/cancelled` is translated to the
+//!   downstream id of the request it names (dropped if no single in-flight
+//!   request matches), and a request that times out after it was written is
+//!   cancelled downstream by the gateway. `initialize` is passed through on first use and cached;
+//!   later `initialize` calls get the cached result; if the first message is
+//!   not `initialize` the gateway performs the handshake itself, offering
+//!   the `protocolVersion` of the latest client `initialize` (so a respawned
+//!   process negotiates what the client negotiated). One process serves
+//!   every client of a route, so a cached reply carries the version that
+//!   process negotiated even if a later client asked for another. The whole
+//!   handshake (including `notifications/initialized`, which the gateway
+//!   sends itself) completes before any other message reaches a new
+//!   process. A dead process is respawned on the next request.
+//! * **Process tree**: on unix each downstream runs in its own process
+//!   group, and killing it (shutdown, a cut-short write, an oversized
+//!   message) sends SIGKILL to the whole group, so servers launched through
+//!   wrappers such as `npx` or `uvx` do not outlive the session.
+//! * **Server-initiated traffic** cannot be relayed to the client over this
+//!   JSON-only transport. Server requests are answered by the gateway itself
+//!   (`ping` with an empty result, anything else with `-32601`) so the server
+//!   fails fast; server notifications are dropped (logged at debug). The
+//!   client's `roots`, `sampling` and `elicitation` capabilities are removed
+//!   from the `initialize` forwarded downstream, since the server could not
+//!   use them through the gateway.
+//! * **HTTP downstream servers** (`url` entries) are *not* proxied: requests
+//!   to them fail with JSON-RPC error `ENTANGLE-E0664`.
+//! * **Connections**: at most 128 open client connections (further ones
+//!   wait unaccepted); a connection that does not send a complete request
+//!   head within 30 s, or sits idle that long between keep-alive requests,
+//!   is closed. Both apply before authentication, so unauthenticated local
+//!   processes cannot exhaust the gateway's file descriptors. See
+//!   [`Gateway::with_max_connections`] and
+//!   [`Gateway::with_header_read_timeout`].
+//! * **Limits**: `max_in_flight` concurrent HTTP requests; the next one is
+//!   answered `503` (`ENTANGLE-E0665`). Bodies over the cap get `413`
+//!   (`ENTANGLE-E0667`). Each downstream request has a timeout
+//!   (`ENTANGLE-E0663`) that covers writing it to the server's stdin as well
+//!   as waiting for the reply. A write that is cut short (timeout or error)
+//!   kills that process, so a partial line is never followed by another
+//!   message; the next request starts a fresh one. A downstream message
+//!   (stdout line) over 64 MiB (see
+//!   [`Gateway::with_max_downstream_message_bytes`]) is not buffered: that
+//!   process is killed and its in-flight requests fail with `ENTANGLE-E0663`.
+//! * **Client disconnects**: once a request is accepted it is processed in
+//!   its own task that holds the in-flight permit, so a client that closes
+//!   the connection mid-call does not cancel it: the call still finishes,
+//!   `after_tool` runs and the audit record is written.
+//! * **Policy/audit**: see [`Policy`], [`GatewayHooks`], [`AuditRecord`].
 //!
-//! 1. The type signatures are reviewable now — Phase 2 fills in the body.
-//! 2. CLI code can wire `entangle agent gateway start` to this module and
-//!    surface a clear error instead of a confusing crash.
-//! 3. The tests below pin the public surface so renames or signature
-//!    changes are deliberate.
+//! Stable codes used in HTTP/JSON-RPC bodies: E0661 policy denial, E0662
+//! downstream failed to start, E0663 downstream closed/timed out, E0664 HTTP
+//! downstream unsupported, E0665 too many requests in flight, E0666 malformed
+//! JSON-RPC, E0667 body too large, E0668 unknown server/route, E0670 missing
+//! or invalid bearer token. (E0669 is `SessionError::NotActivated`.)
 
-use std::net::SocketAddr;
+use crate::adapters::McpServerSpec;
+use bytes::Bytes;
+use http_body_util::{BodyExt, Full, LengthLimitError, Limited};
+use hyper::{
+    body::Incoming,
+    header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
+    server::conn::http1,
+    service::service_fn,
+    Method, Request, Response, StatusCode,
+};
+use hyper_util::rt::{TokioIo, TokioTimer};
+use parking_lot::Mutex;
+use serde::Serialize;
+use serde_json::{json, Value};
+use std::{
+    collections::{BTreeMap, HashMap, VecDeque},
+    convert::Infallible,
+    net::SocketAddr,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    net::TcpListener,
+    process::{ChildStdin, Command},
+    sync::{oneshot, watch, Semaphore},
+    task::{JoinHandle, JoinSet},
+};
+
+/// Maximum audit records kept in memory (oldest dropped first).
+const AUDIT_CAPACITY: usize = 10_000;
+/// Longest tool name stored in an audit record (the name is agent-chosen).
+const AUDIT_TOOL_CAP: usize = 256;
+/// Longest outcome text (deny reason, error message) stored in a record.
+const AUDIT_TEXT_CAP: usize = 1024;
+
+/// `s` cut to at most `max` bytes (on a char boundary), with a marker that
+/// gives the original length, so records stay bounded whatever the agent or
+/// downstream sends.
+fn clip(s: String, max: usize) -> String {
+    if s.len() <= max {
+        return s;
+    }
+    let mut cut = max;
+    while !s.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    format!("{}…[truncated, {} bytes]", &s[..cut], s.len())
+}
 
 /// Configuration for the MCP gateway HTTP server.
 #[derive(Clone, Debug)]
@@ -27,9 +141,9 @@ pub struct GatewayConfig {
     pub bind: SocketAddr,
     /// Opaque bearer token the agent's MCP client must present.
     ///
-    /// Each session generates a fresh token (spec §8.3).
+    /// Each session generates a fresh token (spec §8.3). Must be non-empty.
     pub bearer_token: String,
-    /// Hard cap on concurrent in-flight tool calls per session.
+    /// Hard cap on concurrent in-flight requests per session.
     pub max_in_flight: usize,
     /// Permit binding to a non-loopback address.
     ///
@@ -43,7 +157,7 @@ pub struct GatewayConfig {
 impl Default for GatewayConfig {
     fn default() -> Self {
         Self {
-            bind: "127.0.0.1:0".parse().expect("loopback addr parses"),
+            bind: SocketAddr::from(([127, 0, 0, 1], 0)),
             bearer_token: String::new(),
             max_in_flight: 16,
             allow_non_loopback: false,
@@ -64,25 +178,12 @@ impl GatewayConfig {
     }
 }
 
-/// Handle returned from [`Gateway::start`].
-///
-/// Carries the bound socket address so the caller can splice it into the
-/// agent's MCP config. The handle drops when the gateway is stopped.
-#[derive(Debug)]
-pub struct GatewayHandle {
-    /// The address the gateway is bound to (resolved after `0`-port binding).
-    pub addr: SocketAddr,
-}
-
 /// Errors emitted by the gateway.
+///
+/// `ENTANGLE-E0620` (the former `NotImplemented` scaffold error) is retired
+/// and reserved; it is no longer emitted.
 #[derive(Debug, thiserror::Error)]
 pub enum GatewayError {
-    /// The gateway has not been implemented yet (Phase 2).
-    ///
-    /// The static reason string is suitable for logging; callers should
-    /// surface it to the user verbatim.
-    #[error("ENTANGLE-E0620: MCP gateway not implemented yet (Phase 2): {0}")]
-    NotImplemented(&'static str),
     /// Bind / listen failure.
     #[error("ENTANGLE-E0621: bind {addr}: {source}")]
     Bind {
@@ -102,6 +203,20 @@ pub enum GatewayError {
     NonLoopbackBindRefused {
         /// The address the gateway was asked to bind to.
         addr: SocketAddr,
+    },
+    /// The bearer token is empty, which would authenticate anyone.
+    #[error("ENTANGLE-E0623: bearer_token must not be empty (use generate_bearer_token())")]
+    EmptyBearerToken,
+    /// `max_in_flight` is zero, so no request could ever be served.
+    #[error("ENTANGLE-E0624: max_in_flight must be at least 1")]
+    ZeroMaxInFlight,
+    /// A policy pattern has a shape that can never match a call.
+    #[error("ENTANGLE-E0625: invalid policy pattern {pattern:?}: {reason}")]
+    InvalidPolicyPattern {
+        /// The pattern as given.
+        pattern: String,
+        /// What is wrong with it.
+        reason: &'static str,
     },
 }
 
@@ -128,20 +243,1461 @@ fn hex_encode(bytes: &[u8; 32]) -> String {
     s
 }
 
-/// Local MCP gateway.
+// ---------------------------------------------------------------------------
+// Policy, hooks, audit
+// ---------------------------------------------------------------------------
+
+/// A `tools/call` about to be (or just) forwarded.
+#[derive(Clone, Debug)]
+pub struct ToolCall {
+    /// Gateway route (downstream server) name.
+    pub server: String,
+    /// Tool name from `params.name`.
+    pub tool: String,
+    /// `params.arguments`, or `null`.
+    pub arguments: Value,
+}
+
+/// Outcome of a policy check.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Decision {
+    /// Forward the call.
+    Allow,
+    /// Refuse the call; it never reaches the downstream server.
+    Deny {
+        /// Human-readable reason, returned to the agent.
+        reason: String,
+    },
+}
+
+/// How a `tools/call` ended, as recorded in the audit log.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AuditOutcome {
+    /// The downstream returned a normal result.
+    Ok,
+    /// The downstream returned `result.isError == true`.
+    ToolError,
+    /// The downstream returned a JSON-RPC error.
+    RpcError {
+        /// JSON-RPC error code.
+        code: i64,
+        /// JSON-RPC error message.
+        message: String,
+    },
+    /// Refused by the policy hook.
+    Denied {
+        /// Policy reason.
+        reason: String,
+    },
+    /// The gateway could not complete the call (spawn failure, closed, timeout).
+    TransportError {
+        /// Description (starts with a stable `ENTANGLE-E…` code).
+        message: String,
+    },
+}
+
+/// Policy decision recorded in the audit log.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditDecision {
+    /// Allowed by `before_tool`.
+    Allow,
+    /// Denied by `before_tool`.
+    Deny,
+}
+
+/// One structured audit entry per `tools/call`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct AuditRecord {
+    /// Monotonic sequence number within the gateway.
+    pub seq: u64,
+    /// Wall-clock time (ms since the Unix epoch) at which the call finished.
+    pub timestamp_ms: u64,
+    /// Downstream server name.
+    pub server: String,
+    /// Tool name. Names over 256 bytes are cut, with a
+    /// `…[truncated, N bytes]` marker giving the original length.
+    pub tool: String,
+    /// Policy decision.
+    pub decision: AuditDecision,
+    /// Time from receipt to reply, in milliseconds.
+    pub duration_ms: u64,
+    /// What happened. Reason and message texts over 1 KiB are cut the same
+    /// way as `tool`.
+    pub outcome: AuditOutcome,
+}
+
+/// Extension point run around every `tools/call` (spec §8.3
+/// `before_tool` / `after_tool`).
+pub trait GatewayHooks: Send + Sync + std::fmt::Debug {
+    /// Decide whether the call may proceed. Runs before the downstream is
+    /// contacted (or even started).
+    fn before_tool(&self, call: &ToolCall) -> Decision;
+    /// Observe the finished call. Not run for denied calls.
+    fn after_tool(&self, _call: &ToolCall, _outcome: &AuditOutcome) {}
+}
+
+/// Simple per-session allow/deny policy over `server/tool` names.
 ///
-/// Phase 2 will own a `tokio` HTTP/1.1 server, the audit-policy lookup, the
-/// in-flight semaphore, and the kernel client. Phase 1 only exposes the
-/// constructor and the start-rejection contract.
+/// Patterns: `server/tool` (exact), `server/*` (any tool of a server), `*`
+/// (everything). A pattern is compared with the whole `server/tool` text, so
+/// server or tool names that themselves contain `/` work (`gh/admin/*`
+/// covers every tool of server `gh/admin`). No other wildcards exist;
+/// [`Policy::validate`] (run by [`Gateway::start`]) refuses patterns that
+/// could never match. A call is denied if any `deny` pattern matches;
+/// otherwise, if `allow` is non-empty it must match one of them; an empty
+/// `allow` list allows everything not denied.
+#[derive(Clone, Debug, Default)]
+pub struct Policy {
+    /// Allow patterns (empty = allow all).
+    pub allow: Vec<String>,
+    /// Deny patterns; take precedence over `allow`.
+    pub deny: Vec<String>,
+}
+
+impl Policy {
+    fn matches(pat: &str, server: &str, tool: &str) -> bool {
+        if pat == "*" || pat.strip_suffix("/*") == Some(server) {
+            return true;
+        }
+        // Exact `server/tool`, without splitting the pattern (either name
+        // may contain '/').
+        pat.strip_prefix(server)
+            .and_then(|rest| rest.strip_prefix('/'))
+            == Some(tool)
+    }
+
+    /// Why `pat` can never be a useful pattern, if it cannot.
+    fn pattern_problem(pat: &str) -> Option<&'static str> {
+        if pat == "*" {
+            return None;
+        }
+        let Some((server, tool)) = pat.rsplit_once('/') else {
+            return Some("expected `server/tool`, `server/*` or `*`");
+        };
+        if server.is_empty() || tool.is_empty() {
+            return Some("the server and tool parts must not be empty");
+        }
+        if server.contains('*') || (tool != "*" && tool.contains('*')) {
+            return Some(
+                "`*` is only supported as the whole pattern or as the tool part (`server/*`)",
+            );
+        }
+        None
+    }
+
+    /// Check that every pattern has a supported shape. A pattern such as
+    /// `*/delete_file` or `fs` would otherwise silently match nothing, so a
+    /// deny rule the operator relies on would never fire.
+    pub fn validate(&self) -> Result<(), GatewayError> {
+        for pat in self.allow.iter().chain(&self.deny) {
+            if let Some(reason) = Self::pattern_problem(pat) {
+                return Err(GatewayError::InvalidPolicyPattern {
+                    pattern: pat.clone(),
+                    reason,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Evaluate the policy for `server/tool`.
+    pub fn evaluate(&self, server: &str, tool: &str) -> Decision {
+        if self.deny.iter().any(|p| Self::matches(p, server, tool)) {
+            return Decision::Deny {
+                reason: format!("{server}/{tool} matches a deny rule"),
+            };
+        }
+        if !self.allow.is_empty() && !self.allow.iter().any(|p| Self::matches(p, server, tool)) {
+            return Decision::Deny {
+                reason: format!("{server}/{tool} is not in the allow list"),
+            };
+        }
+        Decision::Allow
+    }
+}
+
+impl GatewayHooks for Policy {
+    fn before_tool(&self, call: &ToolCall) -> Decision {
+        self.evaluate(&call.server, &call.tool)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Downstream stdio servers
+// ---------------------------------------------------------------------------
+
+#[derive(Debug)]
+enum DsError {
+    Unsupported(String),
+    Spawn(String),
+    Closed,
+    Timeout,
+}
+
+impl DsError {
+    /// `(jsonrpc code, message)`.
+    fn rpc(&self, server: &str) -> (i64, String) {
+        match self {
+            Self::Unsupported(url) => (
+                -32004,
+                format!(
+                    "ENTANGLE-E0664: downstream '{server}' is an HTTP MCP server ({url}); \
+                     the gateway only proxies stdio servers"
+                ),
+            ),
+            Self::Spawn(e) => (
+                -32002,
+                format!("ENTANGLE-E0662: failed to start downstream '{server}': {e}"),
+            ),
+            Self::Closed => (
+                -32003,
+                format!("ENTANGLE-E0663: downstream '{server}' closed the connection"),
+            ),
+            Self::Timeout => (
+                -32005,
+                format!("ENTANGLE-E0663: downstream '{server}' timed out"),
+            ),
+        }
+    }
+}
+
+type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>>;
+
+struct StdioProc {
+    name: String,
+    /// Bound for writes the gateway makes on its own (replies to
+    /// server-initiated requests).
+    timeout: Duration,
+    /// `None` once a write was cut short: nothing may follow a partial line.
+    stdin: tokio::sync::Mutex<Option<ChildStdin>>,
+    pending: Pending,
+    /// In-flight requests by the client's id (as JSON text) -> gateway ids,
+    /// to translate `notifications/cancelled`.
+    inflight: Mutex<HashMap<String, Vec<u64>>>,
+    next_id: AtomicU64,
+    alive: Arc<AtomicBool>,
+    init_result: Mutex<Option<Value>>,
+    initialized_sent: AtomicBool,
+    /// Tells the reaper task to kill the child (also fires when dropped).
+    kill_tx: watch::Sender<bool>,
+    /// Reaper task: owns the [`tokio::process::Child`], waits for it or
+    /// kills it.
+    reaper: Mutex<Option<JoinHandle<()>>>,
+}
+
+/// Registers an in-flight request (pending waiter and client-id mapping)
+/// and removes both when dropped, however the request ends.
+struct InFlight<'a> {
+    proc: &'a StdioProc,
+    id: u64,
+    client_key: String,
+}
+
+impl<'a> InFlight<'a> {
+    fn new(proc: &'a StdioProc, id: u64, client_id: &Value, tx: oneshot::Sender<Value>) -> Self {
+        let client_key = client_id.to_string();
+        proc.pending.lock().insert(id, tx);
+        proc.inflight
+            .lock()
+            .entry(client_key.clone())
+            .or_default()
+            .push(id);
+        Self {
+            proc,
+            id,
+            client_key,
+        }
+    }
+}
+
+impl Drop for InFlight<'_> {
+    fn drop(&mut self) {
+        self.proc.pending.lock().remove(&self.id);
+        let mut inflight = self.proc.inflight.lock();
+        if let Some(ids) = inflight.get_mut(&self.client_key) {
+            ids.retain(|i| *i != self.id);
+            if ids.is_empty() {
+                inflight.remove(&self.client_key);
+            }
+        }
+    }
+}
+
+/// Holds the stdin lock for one line. If part of the line was written but
+/// not all of it (the write future was dropped by a timeout), or the write
+/// failed, dropping it poisons the process: stdin is closed and the child
+/// killed, so a partial line can never be followed by another message. A
+/// write dropped before any byte went out leaves nothing behind and does
+/// not poison.
+struct WriteSlot<'a> {
+    proc: &'a StdioProc,
+    stdin: tokio::sync::MutexGuard<'a, Option<ChildStdin>>,
+    started: bool,
+    failed: bool,
+    done: bool,
+}
+
+impl Drop for WriteSlot<'_> {
+    fn drop(&mut self) {
+        if self.failed || (self.started && !self.done) {
+            *self.stdin = None;
+            tracing::warn!(server = %self.proc.name, "write to downstream cut short; killing it");
+            self.proc.start_kill();
+        }
+    }
+}
+
+/// Longest downstream stderr line kept for logging; the rest is discarded.
+const STDERR_LINE_CAP: usize = 16 * 1024;
+
+/// What [`read_line_capped`] does once a line passes its cap.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Overflow {
+    /// Return at once (the caller abandons the stream).
+    Stop,
+    /// Keep reading and discard the rest of the line.
+    Discard,
+}
+
+/// Read one `\n`-terminated line into `buf` (newline excluded), keeping at
+/// most `max` bytes of it. Past the cap, the rest of the line is discarded
+/// or reading stops, per `on_overflow`. Returns `Ok(None)` at end of input
+/// with nothing read, otherwise `Ok(Some(overflowed))`.
+async fn read_line_capped<R>(
+    r: &mut R,
+    buf: &mut Vec<u8>,
+    max: usize,
+    on_overflow: Overflow,
+) -> std::io::Result<Option<bool>>
+where
+    R: tokio::io::AsyncBufRead + Unpin,
+{
+    buf.clear();
+    let mut overflowed = false;
+    let mut read_any = false;
+    loop {
+        let avail = r.fill_buf().await?;
+        if avail.is_empty() {
+            return Ok(read_any.then_some(overflowed));
+        }
+        read_any = true;
+        let newline = avail.iter().position(|b| *b == b'\n');
+        let chunk = newline.map_or(avail, |i| &avail[..i]);
+        let room = max.saturating_sub(buf.len());
+        if chunk.len() > room {
+            overflowed = true;
+        }
+        buf.extend_from_slice(&chunk[..chunk.len().min(room)]);
+        let used = newline.map_or(avail.len(), |i| i + 1);
+        r.consume(used);
+        if newline.is_some() || (overflowed && on_overflow == Overflow::Stop) {
+            return Ok(Some(overflowed));
+        }
+    }
+}
+
+/// Upper bound for writing a `notifications/cancelled` after a timeout.
+const CANCEL_WRITE_TIMEOUT: Duration = Duration::from_secs(1);
+
+impl StdioProc {
+    fn spawn(
+        name: &str,
+        command: &str,
+        args: &[String],
+        env: &BTreeMap<String, String>,
+        timeout: Duration,
+        max_message: usize,
+    ) -> Result<Arc<Self>, DsError> {
+        let mut cmd = Command::new(command);
+        cmd.args(args)
+            .envs(env)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true);
+        // Own process group, so the whole tree can be killed: servers are
+        // often launched through wrappers (`npx`, `uvx`, shell scripts)
+        // whose real server is a grandchild. (This also keeps a terminal's
+        // Ctrl-C from reaching them; the gateway stops them itself.)
+        #[cfg(unix)]
+        cmd.process_group(0);
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| DsError::Spawn(format!("{command}: {e}")))?;
+        let (Some(stdin), Some(stdout), Some(stderr)) =
+            (child.stdin.take(), child.stdout.take(), child.stderr.take())
+        else {
+            return Err(DsError::Spawn("child stdio unavailable".into()));
+        };
+        let pending: Pending = Arc::default();
+        let alive = Arc::new(AtomicBool::new(true));
+
+        // Reaper: reaps the child when it exits, or kills it on request (or
+        // when the StdioProc, and with it `kill_tx`, is dropped).
+        let (kill_tx, mut kill_rx) = watch::channel(false);
+        let reaper = {
+            let alive = alive.clone();
+            tokio::spawn(async move {
+                tokio::select! {
+                    _ = child.wait() => {}
+                    // (The `Ref` returned by `wait_for` is not `Send`, so
+                    // drop it inside the inner future.)
+                    () = async { let _ = kill_rx.wait_for(|k| *k).await; } => {
+                        // The leader is not reaped yet, so its pid still
+                        // names our process group.
+                        #[cfg(unix)]
+                        kill_process_group(child.id());
+                        let _ = child.kill().await;
+                    }
+                }
+                alive.store(false, Ordering::Release);
+            })
+        };
+
+        // stderr reader: surface as debug logs. Reads bytes, not UTF-8
+        // lines: servers log whatever their libraries emit, and if this
+        // reader stopped, the closed pipe would break the server's next log
+        // write (EPIPE / SIGPIPE).
+        {
+            let name = name.to_string();
+            tokio::spawn(async move {
+                let mut r = BufReader::new(stderr);
+                let mut buf = Vec::new();
+                while let Ok(Some(_)) =
+                    read_line_capped(&mut r, &mut buf, STDERR_LINE_CAP, Overflow::Discard).await
+                {
+                    let line = String::from_utf8_lossy(&buf);
+                    tracing::debug!(server = %name, "downstream stderr: {line}");
+                }
+            });
+        }
+
+        let proc = Arc::new(Self {
+            name: name.to_string(),
+            timeout,
+            stdin: tokio::sync::Mutex::new(Some(stdin)),
+            pending,
+            inflight: Mutex::default(),
+            next_id: AtomicU64::new(1),
+            alive,
+            init_result: Mutex::new(None),
+            initialized_sent: AtomicBool::new(false),
+            kill_tx,
+            reaper: Mutex::new(Some(reaper)),
+        });
+        // Weak: the reader must not keep the process (and its kill switch)
+        // alive.
+        tokio::spawn(Self::read_stdout(
+            stdout,
+            Arc::downgrade(&proc),
+            max_message,
+        ));
+        Ok(proc)
+    }
+
+    /// Route responses to their waiters. Server-initiated requests cannot be
+    /// relayed to the client over the JSON-only transport, but JSON-RPC
+    /// requires every request to be answered: `ping` gets an empty result,
+    /// anything else `-32601`, so the server fails fast instead of waiting.
+    /// Server notifications are dropped.
+    ///
+    /// A line longer than `max_message` is not buffered: the process is
+    /// killed (its waiters fail with "closed") as soon as the cap is passed.
+    async fn read_stdout(
+        stdout: tokio::process::ChildStdout,
+        proc: std::sync::Weak<Self>,
+        max_message: usize,
+    ) {
+        let mut r = BufReader::new(stdout);
+        let mut line = Vec::new();
+        // Bytes, not UTF-8 lines: one undecodable line is skipped instead of
+        // ending the reader (which would mark the process dead).
+        while let Ok(Some(overflowed)) =
+            read_line_capped(&mut r, &mut line, max_message, Overflow::Stop).await
+        {
+            let Some(p) = proc.upgrade() else { return };
+            if overflowed {
+                tracing::warn!(
+                    server = %p.name,
+                    limit = max_message,
+                    "downstream wrote a message over the size limit; killing it"
+                );
+                p.start_kill();
+                break;
+            }
+            let Ok(v) = serde_json::from_slice::<Value>(&line) else {
+                tracing::debug!(server = %p.name, "non-JSON line on downstream stdout ignored");
+                continue;
+            };
+            match (v.get("method").and_then(Value::as_str), v.get("id")) {
+                (None, Some(id)) if v.get("result").is_some() || v.get("error").is_some() => {
+                    let tx = id.as_u64().and_then(|id| p.pending.lock().remove(&id));
+                    if let Some(tx) = tx {
+                        let _ = tx.send(v);
+                    }
+                }
+                (Some(method), Some(id)) => {
+                    let reply = if method == "ping" {
+                        json!({"jsonrpc": "2.0", "id": id, "result": {}})
+                    } else {
+                        tracing::debug!(server = %p.name, method, "server-initiated request refused");
+                        rpc_error(
+                            id.clone(),
+                            -32601,
+                            format!(
+                                "Method not found: the Entanglement MCP gateway cannot relay \
+                                 server-initiated '{method}' requests to the client"
+                            ),
+                        )
+                    };
+                    // Never block the reader on stdin: the server may be
+                    // waiting for its stdout to drain before it reads.
+                    tokio::spawn(async move {
+                        let _ = p.write_line_within(&reply, p.timeout).await;
+                    });
+                }
+                _ => tracing::debug!(
+                    server = %p.name,
+                    "server notification dropped (not relayable over JSON-only transport)"
+                ),
+            }
+        }
+        if let Some(p) = proc.upgrade() {
+            p.alive.store(false, Ordering::Release);
+            // Dropping the senders wakes every waiter with "closed".
+            p.pending.lock().clear();
+        }
+    }
+
+    /// Write one newline-terminated message. Not cancel-safe on its own:
+    /// see [`WriteSlot`] for what happens when it is interrupted.
+    async fn write_line(&self, msg: &Value) -> Result<(), DsError> {
+        let mut line = serde_json::to_vec(msg).map_err(|_| DsError::Closed)?;
+        line.push(b'\n');
+        let mut slot = WriteSlot {
+            proc: self,
+            stdin: self.stdin.lock().await,
+            started: false,
+            failed: false,
+            done: false,
+        };
+        if !self.alive.load(Ordering::Acquire) {
+            return Err(DsError::Closed);
+        }
+        let Some(w) = slot.stdin.as_mut() else {
+            return Err(DsError::Closed);
+        };
+        let mut off = 0;
+        while off < line.len() {
+            match w.write(&line[off..]).await {
+                Ok(n) if n > 0 => {
+                    off += n;
+                    slot.started = true;
+                }
+                _ => {
+                    slot.failed = true;
+                    return Err(DsError::Closed);
+                }
+            }
+        }
+        if w.flush().await.is_err() {
+            slot.failed = true;
+            return Err(DsError::Closed);
+        }
+        slot.done = true;
+        Ok(())
+    }
+
+    /// [`Self::write_line`] bounded by `timeout`.
+    async fn write_line_within(&self, msg: &Value, timeout: Duration) -> Result<(), DsError> {
+        tokio::time::timeout(timeout, self.write_line(msg))
+            .await
+            .unwrap_or(Err(DsError::Timeout))
+    }
+
+    /// Send a request and wait for its response. Writing it (including
+    /// waiting for the stdin lock) and waiting for the reply share one
+    /// `timeout`.
+    ///
+    /// When the timeout expires after the request was written, the server is
+    /// sent `notifications/cancelled` for it (best effort).
+    async fn request(&self, mut msg: Value, timeout: Duration) -> Result<Value, DsError> {
+        let orig_id = msg.get("id").cloned().unwrap_or(Value::Null);
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        msg["id"] = json!(id);
+        let (tx, rx) = oneshot::channel();
+        // Unregistered however this future ends (reply, error, timeout, or
+        // being dropped from outside).
+        let _entry = InFlight::new(self, id, &orig_id, tx);
+        if !self.alive.load(Ordering::Acquire) {
+            return Err(DsError::Closed);
+        }
+        let written = AtomicBool::new(false);
+        let exchange = async {
+            self.write_line(&msg).await?;
+            written.store(true, Ordering::Relaxed);
+            rx.await.map_err(|_| DsError::Closed)
+        };
+        match tokio::time::timeout(timeout, exchange).await {
+            Ok(Ok(mut resp)) => {
+                resp["id"] = orig_id;
+                Ok(resp)
+            }
+            Ok(Err(e)) => Err(e),
+            Err(_) => {
+                if written.load(Ordering::Relaxed) {
+                    let cancel = json!({
+                        "jsonrpc": "2.0",
+                        "method": "notifications/cancelled",
+                        "params": {"requestId": id, "reason": "timed out in the Entanglement gateway"}
+                    });
+                    let _ = self
+                        .write_line_within(&cancel, CANCEL_WRITE_TIMEOUT.min(timeout))
+                        .await;
+                }
+                Err(DsError::Timeout)
+            }
+        }
+    }
+
+    /// Translate a client `notifications/cancelled` into this process's id
+    /// space. `None` when its `requestId` matches no single in-flight
+    /// request here (finished, unknown, or ambiguous between clients).
+    fn remap_cancellation(&self, msg: &Value) -> Option<Value> {
+        let key = msg.pointer("/params/requestId")?.to_string();
+        let id = match self.inflight.lock().get(&key).map(Vec::as_slice) {
+            Some([one]) => *one,
+            _ => return None,
+        };
+        let mut msg = msg.clone();
+        msg["params"]["requestId"] = json!(id);
+        Some(msg)
+    }
+
+    /// Mark the process dead and tell the reaper to kill it (non-blocking).
+    fn start_kill(&self) {
+        self.alive.store(false, Ordering::Release);
+        let _ = self.kill_tx.send(true);
+    }
+
+    /// Kill the process and wait until it has exited.
+    async fn kill(&self) {
+        self.start_kill();
+        let reaper = self.reaper.lock().take();
+        if let Some(r) = reaper {
+            let _ = r.await;
+        }
+    }
+}
+
+/// SIGKILL the process group led by `leader` (best effort).
+#[cfg(unix)]
+fn kill_process_group(leader: Option<u32>) {
+    let pid = leader
+        .and_then(|p| i32::try_from(p).ok())
+        .and_then(rustix::process::Pid::from_raw);
+    if let Some(pid) = pid {
+        let _ = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL);
+    }
+}
+
+/// The client's `initialize` with the capabilities removed that would make
+/// the server send requests the gateway cannot relay (`roots`, `sampling`,
+/// `elicitation`).
+fn without_unrelayable_capabilities(init: &Value) -> Value {
+    let mut init = init.clone();
+    if let Some(caps) = init
+        .pointer_mut("/params/capabilities")
+        .and_then(Value::as_object_mut)
+    {
+        for k in ["roots", "sampling", "elicitation"] {
+            caps.remove(k);
+        }
+    }
+    init
+}
+
+/// Protocol version the gateway offers when it handshakes on its own and no
+/// client has said which version it speaks yet.
+const DEFAULT_PROTOCOL_VERSION: &str = "2025-03-26";
+
+struct Downstream {
+    name: String,
+    spec: McpServerSpec,
+    timeout: Duration,
+    proc: tokio::sync::Mutex<Option<Arc<StdioProc>>>,
+    /// `protocolVersion` from the latest client `initialize`. A respawned
+    /// process is handshaken with it, so its cached result carries the
+    /// version the client negotiated rather than a gateway default.
+    client_version: Mutex<Option<String>>,
+    /// See [`Gateway::with_max_downstream_message_bytes`].
+    max_message: usize,
+}
+
+impl Downstream {
+    /// Return the running process, or start one and complete the MCP
+    /// handshake (`initialize`, reply, `notifications/initialized`) while
+    /// holding the process lock, so no other request can reach a process
+    /// that is not initialized yet and a second `initialize` cannot slip
+    /// through to it.
+    ///
+    /// `client_init` is the client's own `initialize` when that is what
+    /// triggers the start: it is used for the handshake and its reply is
+    /// returned as the second element. Otherwise the gateway handshakes
+    /// itself.
+    async fn ensure(
+        &self,
+        client_init: Option<&Value>,
+    ) -> Result<(Arc<StdioProc>, Option<Value>), DsError> {
+        let McpServerSpec::Stdio { command, args, env } = &self.spec else {
+            let McpServerSpec::Http { url } = &self.spec else {
+                return Err(DsError::Closed);
+            };
+            return Err(DsError::Unsupported(url.clone()));
+        };
+        let mut guard = self.proc.lock().await;
+        if let Some(p) = &*guard {
+            if p.alive.load(Ordering::Acquire) {
+                return Ok((p.clone(), None));
+            }
+        }
+        tracing::info!(server = %self.name, command = %command, "starting downstream MCP server");
+        let p = StdioProc::spawn(
+            &self.name,
+            command,
+            args,
+            env,
+            self.timeout,
+            self.max_message,
+        )?;
+        let version = self
+            .client_version
+            .lock()
+            .clone()
+            .unwrap_or_else(|| DEFAULT_PROTOCOL_VERSION.to_string());
+        let init = client_init.map(without_unrelayable_capabilities).unwrap_or_else(|| {
+            // The client skipped (or already completed, against a previous
+            // process) the handshake: do it ourselves.
+            json!({
+                "jsonrpc": "2.0", "id": 0, "method": "initialize",
+                "params": {
+                    "protocolVersion": version,
+                    "capabilities": {},
+                    "clientInfo": {"name": "entangle-gateway", "version": env!("CARGO_PKG_VERSION")}
+                }
+            })
+        });
+        let resp = match p.request(init, self.timeout).await {
+            Ok(r) => r,
+            Err(e) => {
+                p.kill().await;
+                return Err(e);
+            }
+        };
+        let Some(result) = resp.get("result").cloned() else {
+            // Handshake refused (e.g. unsupported protocol version): do not
+            // keep a process that was never initialized.
+            p.kill().await;
+            if client_init.is_some() {
+                return Ok((p, Some(resp)));
+            }
+            let why = resp
+                .pointer("/error/message")
+                .and_then(Value::as_str)
+                .unwrap_or("no result");
+            return Err(DsError::Spawn(format!("initialize was refused: {why}")));
+        };
+        *p.init_result.lock() = Some(result);
+        let note = json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
+        if let Err(e) = p.write_line_within(&note, self.timeout).await {
+            p.kill().await;
+            return Err(e);
+        }
+        // The client's own notifications/initialized is dropped as a duplicate.
+        p.initialized_sent.store(true, Ordering::Release);
+        *guard = Some(p.clone());
+        Ok((p, client_init.map(|_| resp)))
+    }
+
+    async fn call(&self, msg: Value) -> Result<Value, DsError> {
+        let is_init = msg.get("method").and_then(Value::as_str) == Some("initialize");
+        if is_init {
+            if let Some(v) = msg
+                .pointer("/params/protocolVersion")
+                .and_then(Value::as_str)
+            {
+                *self.client_version.lock() = Some(v.to_string());
+            }
+        }
+        let (p, init_reply) = self.ensure(is_init.then_some(&msg)).await?;
+        if let Some(reply) = init_reply {
+            return Ok(reply);
+        }
+        if is_init {
+            // `ensure` only keeps a process whose handshake succeeded, so
+            // the result is always cached.
+            if let Some(cached) = p.init_result.lock().clone() {
+                return Ok(json!({"jsonrpc": "2.0", "id": msg.get("id"), "result": cached}));
+            }
+        }
+        p.request(msg, self.timeout).await
+    }
+
+    async fn notify(&self, msg: &Value) {
+        let p = {
+            let guard = self.proc.lock().await;
+            match &*guard {
+                Some(p) if p.alive.load(Ordering::Acquire) => p.clone(),
+                _ => {
+                    tracing::debug!(server = %self.name, "notification dropped: downstream not running");
+                    return;
+                }
+            }
+        };
+        let method = msg.get("method").and_then(Value::as_str);
+        if method == Some("notifications/initialized")
+            && p.initialized_sent.swap(true, Ordering::AcqRel)
+        {
+            return;
+        }
+        // Request ids are remapped, so a cancellation must name the
+        // downstream id; forwarding the client's id could cancel an
+        // unrelated request.
+        let remapped;
+        let msg = if method == Some("notifications/cancelled") {
+            let Some(m) = p.remap_cancellation(msg) else {
+                tracing::debug!(server = %self.name, "cancellation for no single in-flight request dropped");
+                return;
+            };
+            remapped = m;
+            &remapped
+        } else {
+            msg
+        };
+        if let Err(e) = p.write_line_within(msg, self.timeout).await {
+            tracing::debug!(server = %self.name, error = ?e, "notification write failed");
+        }
+    }
+
+    async fn shutdown(&self) {
+        if let Some(p) = self.proc.lock().await.take() {
+            p.kill().await;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared state + request handling
+// ---------------------------------------------------------------------------
+
+struct Shared {
+    token: Vec<u8>,
+    servers: BTreeMap<String, Arc<Downstream>>,
+    hooks: Arc<dyn GatewayHooks>,
+    audit: Mutex<VecDeque<AuditRecord>>,
+    seq: AtomicU64,
+    permits: Arc<Semaphore>,
+    /// Total number of permits in `permits`.
+    max_in_flight: u32,
+    max_body: usize,
+}
+
+impl Shared {
+    fn record(&self, mut rec: AuditRecord) {
+        // Bounded: AUDIT_CAPACITY records of bounded size.
+        rec.tool = clip(rec.tool, AUDIT_TOOL_CAP);
+        rec.outcome = match rec.outcome {
+            AuditOutcome::RpcError { code, message } => AuditOutcome::RpcError {
+                code,
+                message: clip(message, AUDIT_TEXT_CAP),
+            },
+            AuditOutcome::Denied { reason } => AuditOutcome::Denied {
+                reason: clip(reason, AUDIT_TEXT_CAP),
+            },
+            AuditOutcome::TransportError { message } => AuditOutcome::TransportError {
+                message: clip(message, AUDIT_TEXT_CAP),
+            },
+            o @ (AuditOutcome::Ok | AuditOutcome::ToolError) => o,
+        };
+        rec.seq = self.seq.fetch_add(1, Ordering::Relaxed);
+        rec.timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX));
+        tracing::info!(
+            target: "entangle::audit",
+            seq = rec.seq,
+            server = %rec.server,
+            tool = %rec.tool,
+            decision = ?rec.decision,
+            duration_ms = rec.duration_ms,
+            outcome = ?rec.outcome,
+            "tools/call"
+        );
+        let mut log = self.audit.lock();
+        if log.len() >= AUDIT_CAPACITY {
+            log.pop_front();
+        }
+        log.push_back(rec);
+    }
+}
+
+/// Constant-time byte comparison (length is folded into the result rather
+/// than short-circuiting).
+fn ct_eq(a: &[u8], b: &[u8]) -> bool {
+    let mut diff = a.len() ^ b.len();
+    for i in 0..a.len().max(b.len()) {
+        let x = a.get(i).copied().unwrap_or(0);
+        let y = b.get(i).copied().unwrap_or(0);
+        diff |= usize::from(x ^ y);
+    }
+    std::hint::black_box(diff) == 0
+}
+
+fn json_response(status: StatusCode, body: &Value) -> Response<Full<Bytes>> {
+    let bytes = serde_json::to_vec(body).unwrap_or_default();
+    let mut r = Response::new(Full::new(Bytes::from(bytes)));
+    *r.status_mut() = status;
+    r.headers_mut()
+        .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    r
+}
+
+fn rpc_error(id: Value, code: i64, message: impl Into<String>) -> Value {
+    json!({"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": message.into()}})
+}
+
+fn http_error(status: StatusCode, code: &str, msg: &str) -> Response<Full<Bytes>> {
+    json_response(
+        status,
+        &rpc_error(Value::Null, -32000, format!("{code}: {msg}")),
+    )
+}
+
+fn accepted() -> Response<Full<Bytes>> {
+    let mut r = Response::new(Full::new(Bytes::new()));
+    *r.status_mut() = StatusCode::ACCEPTED;
+    r
+}
+
+fn authorized(sh: &Shared, req: &Request<Incoming>) -> bool {
+    let Some(h) = req
+        .headers()
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+    else {
+        return false;
+    };
+    let Some((scheme, tok)) = h.split_once(' ') else {
+        return false;
+    };
+    scheme.eq_ignore_ascii_case("bearer") && ct_eq(tok.trim().as_bytes(), &sh.token)
+}
+
+async fn handle(
+    sh: Arc<Shared>,
+    req: Request<Incoming>,
+) -> Result<Response<Full<Bytes>>, Infallible> {
+    Ok(handle_inner(sh, req).await)
+}
+
+async fn handle_inner(sh: Arc<Shared>, req: Request<Incoming>) -> Response<Full<Bytes>> {
+    if !authorized(&sh, &req) {
+        let mut r = http_error(
+            StatusCode::UNAUTHORIZED,
+            "ENTANGLE-E0670",
+            "missing or invalid bearer token",
+        );
+        r.headers_mut()
+            .insert("www-authenticate", HeaderValue::from_static("Bearer"));
+        return r;
+    }
+    let Some(seg) = req.uri().path().strip_prefix("/mcp/") else {
+        return http_error(StatusCode::NOT_FOUND, "ENTANGLE-E0668", "no such route");
+    };
+    let ds = crate::adapters::decode_server_name(seg.trim_end_matches('/'))
+        .and_then(|n| sh.servers.get(&n).cloned().map(|d| (n, d)));
+    let Some((name, ds)) = ds else {
+        return http_error(
+            StatusCode::NOT_FOUND,
+            "ENTANGLE-E0668",
+            "unknown MCP server",
+        );
+    };
+    if req.method() != Method::POST {
+        let mut r = http_error(
+            StatusCode::METHOD_NOT_ALLOWED,
+            "ENTANGLE-E0666",
+            "only POST is supported",
+        );
+        r.headers_mut()
+            .insert("allow", HeaderValue::from_static("POST"));
+        return r;
+    }
+    let Ok(permit) = sh.permits.clone().try_acquire_owned() else {
+        let mut r = http_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "ENTANGLE-E0665",
+            "too many requests in flight",
+        );
+        r.headers_mut()
+            .insert("retry-after", HeaderValue::from_static("1"));
+        return r;
+    };
+
+    let body = match Limited::new(req.into_body(), sh.max_body).collect().await {
+        Ok(c) => c.to_bytes(),
+        Err(e) if e.downcast_ref::<LengthLimitError>().is_some() => {
+            return http_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "ENTANGLE-E0667",
+                "request body too large",
+            )
+        }
+        Err(_) => return http_error(StatusCode::BAD_REQUEST, "ENTANGLE-E0666", "unreadable body"),
+    };
+    let parsed: Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            return json_response(
+                StatusCode::BAD_REQUEST,
+                &rpc_error(
+                    Value::Null,
+                    -32700,
+                    format!("ENTANGLE-E0666: parse error: {e}"),
+                ),
+            )
+        }
+    };
+
+    // From here on the request is accepted: process it in its own task,
+    // which owns the in-flight permit. If the client disconnects, hyper drops
+    // this future, but the task still runs to completion, so a call that
+    // reached the downstream always gets after_tool and its audit record,
+    // and keeps counting against max_in_flight until it is really done.
+    let work = tokio::spawn(async move {
+        let _permit = permit;
+        process(&sh, &name, &ds, parsed).await
+    });
+    match work.await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!(error = %e, "gateway request task failed");
+            json_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &rpc_error(Value::Null, -32603, "internal gateway error"),
+            )
+        }
+    }
+}
+
+/// Handle one parsed body (single message or batch).
+async fn process(sh: &Shared, name: &str, ds: &Downstream, parsed: Value) -> Response<Full<Bytes>> {
+    match parsed {
+        Value::Array(items) => {
+            if items.is_empty() {
+                return json_response(
+                    StatusCode::BAD_REQUEST,
+                    &rpc_error(Value::Null, -32600, "ENTANGLE-E0666: empty batch"),
+                );
+            }
+            let mut replies = Vec::new();
+            for m in items {
+                if let Some(r) = handle_message(sh, name, ds, m).await {
+                    replies.push(r);
+                }
+            }
+            if replies.is_empty() {
+                accepted()
+            } else {
+                json_response(StatusCode::OK, &Value::Array(replies))
+            }
+        }
+        other => match handle_message(sh, name, ds, other).await {
+            Some(r) => json_response(StatusCode::OK, &r),
+            None => accepted(),
+        },
+    }
+}
+
+fn classify(resp: &Value) -> AuditOutcome {
+    if let Some(err) = resp.get("error") {
+        return AuditOutcome::RpcError {
+            code: err.get("code").and_then(Value::as_i64).unwrap_or(0),
+            message: err
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+        };
+    }
+    if resp.pointer("/result/isError").and_then(Value::as_bool) == Some(true) {
+        return AuditOutcome::ToolError;
+    }
+    AuditOutcome::Ok
+}
+
+/// Shape of one valid JSON-RPC 2.0 message from the client.
+enum MessageKind {
+    /// `method` + `id`.
+    Request { method: String, id: Value },
+    /// `method`, no `id`.
+    Notification { method: String },
+    /// `id` + exactly one of `result` / `error`.
+    Response,
+}
+
+/// Validate a message object against JSON-RPC 2.0. On failure returns the id
+/// to put in the `-32600 Invalid Request` reply (the message's id when it is
+/// usable, else `null`) and the reason.
+fn message_kind(
+    obj: &serde_json::Map<String, Value>,
+) -> Result<MessageKind, (Value, &'static str)> {
+    let id = match obj.get("id") {
+        None => None,
+        Some(v @ (Value::String(_) | Value::Number(_) | Value::Null)) => Some(v.clone()),
+        Some(_) => return Err((Value::Null, "id must be a string, number or null")),
+    };
+    let reply_id = id.clone().unwrap_or(Value::Null);
+    if obj.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
+        return Err((reply_id, "jsonrpc must be \"2.0\""));
+    }
+    match obj.get("method") {
+        Some(Value::String(method)) => {
+            if obj
+                .get("params")
+                .is_some_and(|p| !p.is_object() && !p.is_array())
+            {
+                return Err((reply_id, "params must be an object or an array"));
+            }
+            let method = method.clone();
+            Ok(match id {
+                Some(id) => MessageKind::Request { method, id },
+                None => MessageKind::Notification { method },
+            })
+        }
+        Some(_) => Err((reply_id, "method must be a string")),
+        None if id.is_some() && (obj.contains_key("result") != obj.contains_key("error")) => {
+            Ok(MessageKind::Response)
+        }
+        None => Err((
+            reply_id,
+            "not a request, notification or response (a response needs an id and exactly one of result/error)",
+        )),
+    }
+}
+
+/// Audit reason for a `tools/call` that arrived without an `id`.
+const NOTIFICATION_CALL_REASON: &str = "tools/call sent as notification";
+
+/// An id-less message with a `method`. Only `notifications/*` methods are
+/// forwarded: anything else would be a request the downstream might act on
+/// (JSON-RPC servers process notifications, they just do not reply) without
+/// passing policy or audit. A `tools/call` is still shown to `before_tool`
+/// and recorded as denied, so the attempt is visible in the audit log.
+async fn handle_notification(
+    sh: &Shared,
+    server: &str,
+    ds: &Downstream,
+    method: &str,
+    msg: &Value,
+) {
+    if method.starts_with("notifications/") {
+        ds.notify(msg).await;
+        return;
+    }
+    if method == "tools/call" {
+        let call = ToolCall {
+            server: server.to_string(),
+            tool: msg
+                .pointer("/params/name")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            arguments: msg
+                .pointer("/params/arguments")
+                .cloned()
+                .unwrap_or(Value::Null),
+        };
+        // The policy still sees the attempt (hooks may count or alert on
+        // it), but the message is dropped whatever it decides.
+        let policy = sh.hooks.before_tool(&call);
+        tracing::warn!(
+            server = %call.server,
+            tool = %clip(call.tool.clone(), AUDIT_TOOL_CAP),
+            policy = ?policy,
+            "tools/call without an id dropped"
+        );
+        sh.record(AuditRecord {
+            seq: 0,
+            timestamp_ms: 0,
+            server: call.server,
+            tool: call.tool,
+            decision: AuditDecision::Deny,
+            duration_ms: 0,
+            outcome: AuditOutcome::Denied {
+                reason: NOTIFICATION_CALL_REASON.to_string(),
+            },
+        });
+        return;
+    }
+    tracing::debug!(server = %server, method = %method, "id-less non-notification dropped");
+}
+
+/// Process one JSON-RPC message. `None` means "no reply" (HTTP 202).
+async fn handle_message(sh: &Shared, server: &str, ds: &Downstream, msg: Value) -> Option<Value> {
+    let Some(obj) = msg.as_object() else {
+        return Some(rpc_error(
+            Value::Null,
+            -32600,
+            "ENTANGLE-E0666: message is not a JSON object",
+        ));
+    };
+    let (method, id) = match message_kind(obj) {
+        Ok(MessageKind::Request { method, id }) => (method, id),
+        Ok(MessageKind::Notification { method }) => {
+            handle_notification(sh, server, ds, &method, &msg).await;
+            return None;
+        }
+        // The gateway answers server-initiated requests itself, so a client
+        // response has nothing to go to.
+        Ok(MessageKind::Response) => return None,
+        Err((id, why)) => {
+            return Some(rpc_error(
+                id,
+                -32600,
+                format!("ENTANGLE-E0666: invalid request: {why}"),
+            ))
+        }
+    };
+
+    if method != "tools/call" {
+        return Some(match ds.call(msg).await {
+            Ok(r) => r,
+            Err(e) => {
+                let (code, text) = e.rpc(server);
+                rpc_error(id, code, text)
+            }
+        });
+    }
+
+    let Some(tool) = msg.pointer("/params/name").and_then(Value::as_str) else {
+        return Some(rpc_error(
+            id,
+            -32602,
+            "ENTANGLE-E0666: tools/call requires params.name",
+        ));
+    };
+    let call = ToolCall {
+        server: server.to_string(),
+        tool: tool.to_string(),
+        arguments: msg
+            .pointer("/params/arguments")
+            .cloned()
+            .unwrap_or(Value::Null),
+    };
+    let started = Instant::now();
+    let elapsed = || u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    let mk = |decision, outcome| AuditRecord {
+        seq: 0,
+        timestamp_ms: 0,
+        server: call.server.clone(),
+        tool: call.tool.clone(),
+        decision,
+        duration_ms: elapsed(),
+        outcome,
+    };
+
+    if let Decision::Deny { reason } = sh.hooks.before_tool(&call) {
+        let text = format!(
+            "ENTANGLE-E0661: tool call {}/{} denied by policy: {reason}",
+            call.server, call.tool
+        );
+        sh.record(mk(AuditDecision::Deny, AuditOutcome::Denied { reason }));
+        return Some(rpc_error(id, -32001, text));
+    }
+
+    let (reply, outcome) = match ds.call(msg).await {
+        Ok(resp) => {
+            let outcome = classify(&resp);
+            (resp, outcome)
+        }
+        Err(e) => {
+            let (code, text) = e.rpc(server);
+            (
+                rpc_error(id, code, text.clone()),
+                AuditOutcome::TransportError { message: text },
+            )
+        }
+    };
+    sh.hooks.after_tool(&call, &outcome);
+    sh.record(mk(AuditDecision::Allow, outcome));
+    Some(reply)
+}
+
+// ---------------------------------------------------------------------------
+// Public gateway API
+// ---------------------------------------------------------------------------
+
+/// Handle returned from [`Gateway::start`].
+///
+/// Carries the bound socket address so the caller can splice it into the
+/// agent's MCP config. Dropping the handle signals the server to stop;
+/// call [`GatewayHandle::shutdown`] to also wait and terminate downstream
+/// processes deterministically.
+pub struct GatewayHandle {
+    /// The address the gateway is bound to (resolved after `0`-port binding).
+    pub addr: SocketAddr,
+    shared: Arc<Shared>,
+    stop: watch::Sender<bool>,
+    task: Option<JoinHandle<()>>,
+}
+
+impl std::fmt::Debug for GatewayHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GatewayHandle")
+            .field("addr", &self.addr)
+            .finish_non_exhaustive()
+    }
+}
+
+impl GatewayHandle {
+    /// Base URL for gateway routes: `http://<addr>/mcp`.
+    pub fn base_url(&self) -> String {
+        format!("http://{}/mcp", self.addr)
+    }
+
+    /// Snapshot of the in-memory audit log (oldest first, capped at 10 000).
+    pub fn audit_log(&self) -> Vec<AuditRecord> {
+        self.shared.audit.lock().iter().cloned().collect()
+    }
+
+    /// Stop accepting, drop open connections, kill every downstream
+    /// process (waiting for it to exit), then wait (up to 5 s) for requests
+    /// still being processed to write their audit records.
+    pub async fn shutdown(mut self) {
+        let _ = self.stop.send(true);
+        if let Some(t) = self.task.take() {
+            let _ = t.await;
+        }
+        for ds in self.shared.servers.values() {
+            ds.shutdown().await;
+        }
+        // Each in-flight request task holds a permit until it has recorded
+        // its outcome; with the downstreams gone they finish promptly.
+        let _ = tokio::time::timeout(
+            Duration::from_secs(5),
+            self.shared.permits.acquire_many(self.shared.max_in_flight),
+        )
+        .await;
+    }
+}
+
+impl Drop for GatewayHandle {
+    fn drop(&mut self) {
+        // Best effort when `shutdown()` was not awaited: the accept loop
+        // exits and downstream children are `kill_on_drop`.
+        let _ = self.stop.send(true);
+    }
+}
+
+/// Local MCP gateway.
 #[derive(Debug)]
 pub struct Gateway {
     config: GatewayConfig,
+    servers: BTreeMap<String, McpServerSpec>,
+    hooks: Arc<dyn GatewayHooks>,
+    /// The policy given to [`Gateway::with_policy`], validated at start.
+    policy: Option<Policy>,
+    request_timeout: Duration,
+    max_body_bytes: usize,
+    max_downstream_message: usize,
+    header_read_timeout: Duration,
+    max_connections: usize,
 }
 
 impl Gateway {
-    /// Construct a new gateway with the given config.
-    pub const fn new(config: GatewayConfig) -> Self {
-        Self { config }
+    /// Construct a new gateway with the given config, no downstream servers,
+    /// an allow-all policy, a 60 s downstream timeout and a 4 MiB body cap.
+    pub fn new(config: GatewayConfig) -> Self {
+        Self {
+            config,
+            servers: BTreeMap::new(),
+            hooks: Arc::new(Policy::default()),
+            policy: None,
+            request_timeout: Duration::from_secs(60),
+            max_body_bytes: 4 * 1024 * 1024,
+            max_downstream_message: 64 * 1024 * 1024,
+            header_read_timeout: Duration::from_secs(30),
+            max_connections: 128,
+        }
+    }
+
+    /// Set the downstream servers, keyed by route name.
+    #[must_use]
+    pub fn with_servers(mut self, servers: BTreeMap<String, McpServerSpec>) -> Self {
+        self.servers = servers;
+        self
+    }
+
+    /// Use a [`Policy`] for `before_tool`. [`Gateway::start`] refuses it
+    /// if a pattern is invalid (see [`Policy::validate`]).
+    #[must_use]
+    pub fn with_policy(mut self, policy: Policy) -> Self {
+        self.hooks = Arc::new(policy.clone());
+        self.policy = Some(policy);
+        self
+    }
+
+    /// Use custom hooks.
+    #[must_use]
+    pub fn with_hooks(mut self, hooks: Arc<dyn GatewayHooks>) -> Self {
+        self.hooks = hooks;
+        self.policy = None;
+        self
+    }
+
+    /// Per-request timeout towards downstream servers.
+    #[must_use]
+    pub const fn with_request_timeout(mut self, d: Duration) -> Self {
+        self.request_timeout = d;
+        self
+    }
+
+    /// Maximum accepted request body size in bytes.
+    #[must_use]
+    pub const fn with_max_body_bytes(mut self, n: usize) -> Self {
+        self.max_body_bytes = n;
+        self
+    }
+
+    /// Largest single message (stdout line) accepted from a downstream
+    /// server. A server that writes a longer one is killed (its in-flight
+    /// requests fail with `ENTANGLE-E0663`) and restarted on the next
+    /// request, so a runaway server cannot grow the gateway's memory.
+    /// Default 64 MiB.
+    #[must_use]
+    pub const fn with_max_downstream_message_bytes(mut self, n: usize) -> Self {
+        self.max_downstream_message = n;
+        self
+    }
+
+    /// How long a connection may take to send a complete request head, and
+    /// how long a keep-alive connection may sit idle between requests,
+    /// before the gateway closes it. Default 30 s.
+    #[must_use]
+    pub const fn with_header_read_timeout(mut self, d: Duration) -> Self {
+        self.header_read_timeout = d;
+        self
+    }
+
+    /// Maximum concurrently open client connections (at least 1). Further
+    /// connections wait, unaccepted, until one closes. Default 128.
+    #[must_use]
+    pub const fn with_max_connections(mut self, n: usize) -> Self {
+        self.max_connections = n;
+        self
     }
 
     /// Borrow the active config.
@@ -149,17 +1705,125 @@ impl Gateway {
         &self.config
     }
 
-    /// Start the gateway.
-    ///
-    /// Phase 1: validates the config first (so misconfiguration is reported
-    /// immediately), then returns [`GatewayError::NotImplemented`]. The
-    /// signature is stable: Phase 2 will return `Ok(GatewayHandle { addr })`
-    /// once the underlying server is wired.
+    /// Bind and start serving. Downstream servers are launched lazily on
+    /// their first request.
     pub async fn start(&self) -> Result<GatewayHandle, GatewayError> {
         self.config.validate()?;
-        Err(GatewayError::NotImplemented(
-            "see https://github.com/thekozugroup/Entanglement Phase-2 milestone",
-        ))
+        if self.config.bearer_token.is_empty() {
+            return Err(GatewayError::EmptyBearerToken);
+        }
+        if self.config.max_in_flight == 0 {
+            return Err(GatewayError::ZeroMaxInFlight);
+        }
+        if let Some(policy) = &self.policy {
+            policy.validate()?;
+            for pat in policy.allow.iter().chain(&policy.deny) {
+                let known = pat == "*"
+                    || self.servers.keys().any(|n| {
+                        pat.strip_prefix(n.as_str())
+                            .is_some_and(|r| r.starts_with('/'))
+                    });
+                if !known {
+                    tracing::warn!(pattern = %pat, "policy pattern names no configured MCP server");
+                }
+            }
+        }
+        // Bounded so the permit count fits the semaphore and `acquire_many`.
+        let max_in_flight = u32::try_from(self.config.max_in_flight)
+            .unwrap_or(u32::MAX)
+            .min(u32::try_from(Semaphore::MAX_PERMITS).unwrap_or(u32::MAX));
+        let bind = self.config.bind;
+        let listener = TcpListener::bind(bind)
+            .await
+            .map_err(|source| GatewayError::Bind { addr: bind, source })?;
+        let addr = listener
+            .local_addr()
+            .map_err(|source| GatewayError::Bind { addr: bind, source })?;
+
+        let servers = self
+            .servers
+            .iter()
+            .map(|(name, spec)| {
+                (
+                    name.clone(),
+                    Arc::new(Downstream {
+                        name: name.clone(),
+                        spec: spec.clone(),
+                        timeout: self.request_timeout,
+                        proc: tokio::sync::Mutex::new(None),
+                        client_version: Mutex::new(None),
+                        max_message: self.max_downstream_message,
+                    }),
+                )
+            })
+            .collect();
+        let shared = Arc::new(Shared {
+            token: self.config.bearer_token.clone().into_bytes(),
+            servers,
+            hooks: self.hooks.clone(),
+            audit: Mutex::new(VecDeque::new()),
+            seq: AtomicU64::new(0),
+            permits: Arc::new(Semaphore::new(max_in_flight as usize)),
+            max_in_flight,
+            max_body: self.max_body_bytes,
+        });
+
+        let (stop, mut stop_rx) = watch::channel(false);
+        let sh = shared.clone();
+        let header_timeout = self.header_read_timeout;
+        // Connections are accepted only while a slot is free; the rest wait
+        // in the kernel's backlog, so no number of (unauthenticated) local
+        // connections can exhaust the process's file descriptors.
+        let slots = Arc::new(Semaphore::new(self.max_connections.max(1)));
+        let task = tokio::spawn(async move {
+            let mut conns: JoinSet<()> = JoinSet::new();
+            loop {
+                let slot = tokio::select! {
+                    _ = stop_rx.changed() => break,
+                    slot = slots.clone().acquire_owned() => match slot {
+                        Ok(s) => s,
+                        Err(_) => break,
+                    },
+                    Some(_) = conns.join_next(), if !conns.is_empty() => continue,
+                };
+                tokio::select! {
+                    _ = stop_rx.changed() => break,
+                    acc = listener.accept() => match acc {
+                        Ok((stream, _)) => {
+                            let sh = sh.clone();
+                            conns.spawn(async move {
+                                let _slot = slot;
+                                let svc = service_fn(move |req| handle(sh.clone(), req));
+                                // The header-read timeout closes connections
+                                // that never send a complete request head,
+                                // and idle keep-alive connections (hyper
+                                // starts it whenever it waits for a head).
+                                let _ = http1::Builder::new()
+                                    .timer(TokioTimer::new())
+                                    .header_read_timeout(header_timeout)
+                                    .serve_connection(TokioIo::new(stream), svc)
+                                    .await;
+                            });
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, "gateway accept failed");
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                        }
+                    },
+                    Some(_) = conns.join_next(), if !conns.is_empty() => {}
+                }
+            }
+            // Dropping the JoinSet aborts every open connection.
+            drop(conns);
+        });
+
+        tracing::info!(%addr, servers = shared.servers.len(), "MCP gateway listening");
+        Ok(GatewayHandle {
+            addr,
+            shared,
+            stop,
+            task: Some(task),
+        })
     }
 }
 
@@ -176,13 +1840,34 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn start_returns_not_implemented_in_phase_1() {
-        let gw = Gateway::new(GatewayConfig::default());
-        let err = gw.start().await.expect_err("Phase 1 must reject start");
-        assert!(matches!(err, GatewayError::NotImplemented(_)));
-        let msg = err.to_string();
-        assert!(msg.contains("ENTANGLE-E0620"));
-        assert!(msg.contains("Phase 2"));
+    async fn start_binds_ephemeral_loopback_and_shuts_down() {
+        let gw = Gateway::new(GatewayConfig {
+            bearer_token: generate_bearer_token(),
+            ..GatewayConfig::default()
+        });
+        let h = gw.start().await.expect("start");
+        assert!(h.addr.ip().is_loopback());
+        assert_ne!(h.addr.port(), 0);
+        h.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn start_rejects_empty_token_and_zero_cap() {
+        let err = Gateway::new(GatewayConfig::default())
+            .start()
+            .await
+            .expect_err("empty token must be refused");
+        assert!(matches!(err, GatewayError::EmptyBearerToken));
+        assert!(err.to_string().contains("ENTANGLE-E0623"));
+        let err = Gateway::new(GatewayConfig {
+            bearer_token: "t".into(),
+            max_in_flight: 0,
+            ..GatewayConfig::default()
+        })
+        .start()
+        .await
+        .expect_err("zero cap must be refused");
+        assert!(matches!(err, GatewayError::ZeroMaxInFlight));
     }
 
     #[test]
@@ -212,8 +1897,6 @@ mod tests {
 
     #[test]
     fn generate_bearer_token_is_not_repeating() {
-        // Two back-to-back calls must differ — each draws 256 fresh bits
-        // from the OS CSPRNG, so a collision is negligible.
         let a = generate_bearer_token();
         let b = generate_bearer_token();
         assert_ne!(a, b, "bearer tokens must differ across calls");
@@ -249,13 +1932,153 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn start_returns_non_loopback_error_before_not_implemented() {
+    async fn start_refuses_non_loopback_bind() {
         let cfg = GatewayConfig {
-            bind: "0.0.0.0:8080".parse().unwrap(),
+            bind: "0.0.0.0:0".parse().unwrap(),
+            bearer_token: "t".into(),
             ..GatewayConfig::default()
         };
-        let gw = Gateway::new(cfg);
-        let err = gw.start().await.expect_err("non-loopback must error");
+        let err = Gateway::new(cfg)
+            .start()
+            .await
+            .expect_err("non-loopback must error");
         assert!(matches!(err, GatewayError::NonLoopbackBindRefused { .. }));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn dropped_request_removes_its_pending_entry() {
+        // A downstream that reads everything and never answers.
+        let p = StdioProc::spawn(
+            "t",
+            "sh",
+            &["-c".into(), "cat >/dev/null".into()],
+            &BTreeMap::new(),
+            Duration::from_secs(5),
+            1024,
+        )
+        .expect("spawn sh");
+        let msg = json!({"jsonrpc": "2.0", "id": 1, "method": "ping"});
+        let r = tokio::time::timeout(
+            Duration::from_millis(200),
+            p.request(msg, Duration::from_secs(30)),
+        )
+        .await;
+        assert!(r.is_err(), "the outer timeout must drop the request first");
+        assert!(
+            p.pending.lock().is_empty(),
+            "a dropped request left its pending entry behind"
+        );
+        p.kill().await;
+    }
+
+    #[test]
+    fn clip_respects_char_boundaries_and_notes_the_length() {
+        assert_eq!(clip("short".into(), 10), "short");
+        let s = "é".repeat(10); // 20 bytes, 2 per char
+        let c = clip(s, 5);
+        assert!(c.starts_with("éé"), "{c}");
+        assert!(!c.starts_with("ééé"), "{c}");
+        assert!(c.ends_with("[truncated, 20 bytes]"), "{c}");
+    }
+
+    #[test]
+    fn policy_matches_server_names_that_contain_slashes() {
+        let p = Policy {
+            allow: vec![],
+            deny: vec!["gh/admin/*".into(), "gh/admin/x/exact".into()],
+        };
+        assert!(matches!(
+            p.evaluate("gh/admin", "delete_repo"),
+            Decision::Deny { .. }
+        ));
+        assert!(matches!(
+            p.evaluate("gh/admin/x", "exact"),
+            Decision::Deny { .. }
+        ));
+        assert_eq!(p.evaluate("gh", "delete_repo"), Decision::Allow);
+        // Tool names containing '/' still match exactly.
+        let p = Policy {
+            allow: vec!["fs/dir/read".into()],
+            deny: vec![],
+        };
+        assert_eq!(p.evaluate("fs", "dir/read"), Decision::Allow);
+        assert!(matches!(p.evaluate("fs", "read"), Decision::Deny { .. }));
+    }
+
+    #[test]
+    fn policy_validate_rejects_patterns_that_can_never_match() {
+        for bad in [
+            "*/delete_file",
+            "fs",
+            "fs/",
+            "/read",
+            "fs/*x",
+            "f*/read",
+            "",
+            "**",
+        ] {
+            let p = Policy {
+                allow: vec![],
+                deny: vec![bad.into()],
+            };
+            let err = p.validate().expect_err(bad);
+            assert!(err.to_string().contains("ENTANGLE-E0625"), "{bad}: {err}");
+            let p = Policy {
+                allow: vec![bad.into()],
+                deny: vec![],
+            };
+            assert!(p.validate().is_err(), "allow {bad}");
+        }
+        for good in ["*", "fs/*", "fs/read", "gh/admin/*", "fs/dir/read"] {
+            Policy {
+                allow: vec![good.into()],
+                deny: vec![good.into()],
+            }
+            .validate()
+            .expect(good);
+        }
+    }
+
+    #[tokio::test]
+    async fn start_refuses_an_invalid_policy_pattern() {
+        let err = Gateway::new(GatewayConfig {
+            bearer_token: "t".into(),
+            ..GatewayConfig::default()
+        })
+        .with_policy(Policy {
+            allow: vec![],
+            deny: vec!["*/delete_file".into()],
+        })
+        .start()
+        .await
+        .expect_err("a deny rule that can never match must be refused");
+        assert!(matches!(err, GatewayError::InvalidPolicyPattern { .. }));
+    }
+
+    #[test]
+    fn ct_eq_behaves() {
+        assert!(ct_eq(b"abc", b"abc"));
+        assert!(!ct_eq(b"abc", b"abd"));
+        assert!(!ct_eq(b"abc", b"abcd"));
+        assert!(!ct_eq(b"", b"a"));
+    }
+
+    #[test]
+    fn policy_matching() {
+        let p = Policy {
+            allow: vec!["fs/*".into(), "git/status".into()],
+            deny: vec!["fs/rm".into()],
+        };
+        assert_eq!(p.evaluate("fs", "read"), Decision::Allow);
+        assert_eq!(p.evaluate("git", "status"), Decision::Allow);
+        assert!(matches!(p.evaluate("fs", "rm"), Decision::Deny { .. }));
+        assert!(matches!(p.evaluate("git", "push"), Decision::Deny { .. }));
+        assert_eq!(Policy::default().evaluate("x", "y"), Decision::Allow);
+        let deny_all = Policy {
+            allow: vec![],
+            deny: vec!["*".into()],
+        };
+        assert!(matches!(deny_all.evaluate("x", "y"), Decision::Deny { .. }));
     }
 }

@@ -3,7 +3,9 @@
 //! Strata-managed entry without disturbing the user's existing config.
 
 use crate::errors::AdapterError;
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
+use serde_json::Value;
+use std::collections::BTreeMap;
 
 pub mod claude_code;
 pub mod codex;
@@ -30,7 +32,174 @@ pub trait Adapter: Send + Sync {
     ) -> Result<String, AdapterError>;
 
     /// Restore from a [`Snapshot`] (writes the original bytes back).
+    ///
+    /// Legacy in-place model. [`crate::AgentSession`] no longer uses
+    /// `rewrite` + `restore` (spec §8.3 forbids modifying the user's config);
+    /// it uses [`Adapter::rewrite_for_gateway`] and [`Adapter::launch_plan`].
     fn restore(&self, path: &Utf8PathBuf, snap: &Snapshot) -> Result<(), AdapterError>;
+
+    /// Name of the agent's executable (looked up on `PATH`).
+    fn binary(&self) -> &'static str;
+
+    /// Extract every MCP server the user's config declares.
+    fn servers(&self, snap: &Snapshot) -> Result<BTreeMap<String, McpServerSpec>, AdapterError>;
+
+    /// Whether the default config ([`config_path`](Self::config_path)) is a
+    /// project-scoped file read from the current directory, i.e. one that
+    /// ships with whatever repository the agent is started in. Its stdio
+    /// servers are commands from that repository: the agent itself asks
+    /// before starting them (Claude Code does for a project `.mcp.json`),
+    /// but in a session the gateway starts them instead, so the caller must
+    /// get the user's consent (see [`crate::AgentSession::project_stdio_servers`]).
+    /// Default: false.
+    fn default_config_is_project_scoped(&self) -> bool {
+        false
+    }
+
+    /// MCP servers the agent would also load from config files other than
+    /// `original` (it merges several), mapped to the file declaring each.
+    /// The session config overrides them so they cannot run outside the
+    /// gateway, but the gateway does not run them: they are unavailable in
+    /// the session. Default: none (the agent reads only one config).
+    fn unmediated_servers(
+        &self,
+        original: &Snapshot,
+    ) -> Result<BTreeMap<String, Utf8PathBuf>, AdapterError> {
+        let _ = original;
+        Ok(BTreeMap::new())
+    }
+
+    /// Produce the session config: the user's config with **every** MCP
+    /// server entry replaced by one pointing at
+    /// `<gateway_base_url>/<server-name>`. The bearer token is never written
+    /// out; the entry references the environment variable `token_env`
+    /// through the agent's own mechanism.
+    fn rewrite_for_gateway(
+        &self,
+        original: &Snapshot,
+        gateway_base_url: &str,
+        token_env: &str,
+    ) -> Result<String, AdapterError>;
+
+    /// Write `config_text` under `session_dir` and describe how to launch
+    /// the agent so that it reads it (CLI args and environment variables).
+    /// `source` is the user's config the session was prepared from (the
+    /// adapter's default location or an explicit path). Must not touch the
+    /// user's own config.
+    fn launch_plan(
+        &self,
+        session_dir: &Utf8Path,
+        source: &Utf8Path,
+        config_text: &str,
+    ) -> Result<LaunchPlan, AdapterError>;
+}
+
+/// A downstream MCP server declared in an agent config.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum McpServerSpec {
+    /// A stdio server the gateway launches itself.
+    Stdio {
+        /// Executable.
+        command: String,
+        /// Arguments.
+        args: Vec<String>,
+        /// Extra environment variables.
+        env: BTreeMap<String, String>,
+    },
+    /// A remote HTTP server (`url`). The gateway reports these as
+    /// unsupported (error `ENTANGLE-E0664`).
+    Http {
+        /// The server URL.
+        url: String,
+    },
+}
+
+/// How to start an agent against a session-scoped config.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaunchPlan {
+    /// The session-scoped config file that was written.
+    pub config_path: Utf8PathBuf,
+    /// Arguments to put before the user's own agent arguments.
+    pub args: Vec<String>,
+    /// Environment variables to set for the agent process.
+    pub env: Vec<(String, String)>,
+}
+
+/// URL of one gateway route: `<base>/<percent-encoded name>`.
+pub fn gateway_route_url(base: &str, name: &str) -> String {
+    format!(
+        "{}/{}",
+        base.trim_end_matches('/'),
+        encode_server_name(name)
+    )
+}
+
+/// Percent-encode a server name for use as a URL path segment.
+pub fn encode_server_name(name: &str) -> String {
+    let mut out = String::new();
+    for b in name.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
+/// Inverse of [`encode_server_name`]. Returns `None` for malformed escapes
+/// or non-UTF-8 results.
+pub fn decode_server_name(seg: &str) -> Option<String> {
+    let bytes = seg.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            let hex = seg.get(i + 1..i + 3)?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
+/// Parse one server entry (as JSON) into a [`McpServerSpec`].
+///
+/// Understands `command` as a string (+ `args`) or as an array (OpenCode
+/// style), `env` / `environment` maps, and `url`. Returns `None` for entries
+/// with neither a command nor a url.
+pub(crate) fn parse_server_entry(v: &Value) -> Option<McpServerSpec> {
+    let obj = v.as_object()?;
+    if let Some(cmd) = obj.get("command") {
+        let (command, mut args) = match cmd {
+            Value::String(s) => (s.clone(), Vec::new()),
+            Value::Array(a) => {
+                let mut it = a.iter().filter_map(|x| x.as_str().map(str::to_string));
+                (it.next()?, it.collect())
+            }
+            _ => return None,
+        };
+        if let Some(Value::Array(extra)) = obj.get("args") {
+            args.extend(extra.iter().filter_map(|x| x.as_str().map(str::to_string)));
+        }
+        let mut env = BTreeMap::new();
+        for key in ["env", "environment"] {
+            if let Some(Value::Object(m)) = obj.get(key) {
+                for (k, val) in m {
+                    if let Some(s) = val.as_str() {
+                        env.insert(k.clone(), s.to_string());
+                    }
+                }
+            }
+        }
+        return Some(McpServerSpec::Stdio { command, args, env });
+    }
+    obj.get("url")
+        .and_then(Value::as_str)
+        .map(|u| McpServerSpec::Http { url: u.to_string() })
 }
 
 /// In-memory snapshot of an agent's original config file.
@@ -49,7 +218,7 @@ pub enum ConfigFormat {
     Json,
     /// TOML.
     Toml,
-    /// JSON with comments (not yet fully parsed — treated as JSON for now).
+    /// JSON with comments and trailing commas (OpenCode's `.jsonc`).
     Jsonc,
 }
 
@@ -58,7 +227,7 @@ pub fn registry() -> Vec<Box<dyn Adapter>> {
     vec![
         Box::new(claude_code::ClaudeCodeAdapter),
         Box::new(codex::CodexAdapter),
-        Box::new(opencode::OpenCodeAdapter),
+        Box::new(opencode::OpenCodeAdapter::default()),
     ]
 }
 
