@@ -61,6 +61,9 @@ pub(crate) struct Arch {
 }
 
 /// x86_64.
+// Only the running architecture's table feeds NATIVE; the others are
+// kept (and unit-tested) so every supported table is exercised everywhere.
+#[allow(dead_code)]
 pub(crate) const X86_64: Arch = Arch {
     audit_arch: 0xC000_003E, // AUDIT_ARCH_X86_64
     has_x32: true,
@@ -86,6 +89,9 @@ pub(crate) const X86_64: Arch = Arch {
 };
 
 /// The asm-generic syscall table shared by aarch64 and riscv64.
+// Only the running architecture's table feeds NATIVE; the others are
+// kept (and unit-tested) so every supported table is exercised everywhere.
+#[allow(dead_code)]
 const GENERIC_NR: Nr = Nr {
     socket: 198,
     socketpair: 199,
@@ -107,6 +113,9 @@ const GENERIC_NR: Nr = Nr {
 };
 
 /// aarch64.
+// Only the running architecture's table feeds NATIVE; the others are
+// kept (and unit-tested) so every supported table is exercised everywhere.
+#[allow(dead_code)]
 pub(crate) const AARCH64: Arch = Arch {
     audit_arch: 0xC000_00B7, // AUDIT_ARCH_AARCH64
     has_x32: false,
@@ -114,6 +123,9 @@ pub(crate) const AARCH64: Arch = Arch {
 };
 
 /// riscv64.
+// Only the running architecture's table feeds NATIVE; the others are
+// kept (and unit-tested) so every supported table is exercised everywhere.
+#[allow(dead_code)]
 pub(crate) const RISCV64: Arch = Arch {
     audit_arch: 0xC000_00F3, // AUDIT_ARCH_RISCV64
     has_x32: false,
@@ -698,7 +710,7 @@ mod tests {
             (n.request_key, libc::SYS_request_key),
         ];
         for (ours, theirs) in pairs {
-            assert_eq!(i64::from(*ours), i64::from(*theirs));
+            assert_eq!(*ours as libc::c_long, *theirs);
         }
         assert_eq!(RISCV64.nr.socketpair, AARCH64.nr.socketpair);
     }
