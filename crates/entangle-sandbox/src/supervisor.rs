@@ -4,7 +4,8 @@
 //! response frame (refusing oversized ones from the header alone) → give the
 //! child a short grace period to exit → kill its process group. The whole
 //! exchange is bounded by a deadline; on expiry the process group is killed
-//! with `SIGKILL`. stderr is read concurrently and forwarded line by line to
+//! with `SIGKILL`, as it is when the invocation future is dropped before it
+//! completes. stderr is read concurrently and forwarded line by line to
 //! `tracing` (target `entangle::native`), bounded in volume, with the last
 //! few lines kept for error messages.
 
@@ -103,6 +104,9 @@ impl Supervisor {
         let deadline = tokio::time::Instant::now() + self.limits.timeout;
         let mut child = cmd.spawn().map_err(SupervisorError::Spawn)?;
         let pid = child.id();
+        // Declared after `child`, so on cancellation it drops first, while
+        // the leader is still unreaped and its group id cannot be reused.
+        let mut group = GroupKill { pid, armed: true };
 
         let tail: Arc<Mutex<VecDeque<String>>> = Arc::default();
         let stderr_task = child
@@ -165,6 +169,7 @@ impl Supervisor {
             }
             Ok(Ok(Exchange::NoResponse)) => {
                 let status = self.reap(&mut child, pid, deadline).await;
+                group.armed = false;
                 if let Some(task) = stderr_task {
                     let _ = tokio::time::timeout(Duration::from_millis(500), task).await;
                 }
@@ -182,6 +187,9 @@ impl Supervisor {
                 });
             }
         };
+        // Every branch above has reaped the leader after killing its group;
+        // from here its pid (and group id) may be reused.
+        group.armed = false;
         result
     }
 
@@ -320,6 +328,24 @@ async fn forward_stderr<R: AsyncRead + Unpin>(
     }
 }
 
+/// Kills the child's process group when dropped — i.e. when the invocation
+/// future is cancelled (an outer timeout, task abort, shutdown) — unless
+/// disarmed once the leader has been reaped. `kill_on_drop` alone only
+/// signals the leader, and the deadline dies with the future, so without
+/// this anything the plugin forked would outlive the invocation.
+struct GroupKill {
+    pid: Option<u32>,
+    armed: bool,
+}
+
+impl Drop for GroupKill {
+    fn drop(&mut self) {
+        if self.armed {
+            kill_group(self.pid);
+        }
+    }
+}
+
 /// `SIGKILL` the process group led by `pid` (no-op without a pid).
 fn kill_group(pid: Option<u32>) {
     #[cfg(unix)]
@@ -337,6 +363,59 @@ fn kill_group(pid: Option<u32>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Whether `pid` is still a live (non-zombie) process.
+    #[cfg(unix)]
+    fn alive(pid: libc::pid_t) -> bool {
+        // SAFETY: signal 0 only checks for existence.
+        if unsafe { libc::kill(pid, 0) } != 0 {
+            return false;
+        }
+        #[cfg(target_os = "linux")]
+        if let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) {
+            let state = stat[stat.rfind(')').map_or(0, |i| i + 2)..].chars().next();
+            return state != Some('Z');
+        }
+        true
+    }
+
+    /// Dropping the invocation future (an outer timeout, task abort, daemon
+    /// shutdown) must kill the plugin's whole process group, not only the
+    /// leader: nothing the plugin forked may outlive the invocation.
+    #[cfg(unix)]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cancelling_an_invocation_kills_the_process_group() {
+        let dir = tempfile::tempdir().unwrap();
+        let pidfile = dir.path().join("pid");
+        let mut cmd = std::process::Command::new("/bin/sh");
+        cmd.arg("-c")
+            .arg("sleep 300 & echo $! > \"$1\"; wait")
+            .arg("sh")
+            .arg(&pidfile);
+        let sup = Supervisor::new(
+            "test",
+            InvokeLimits {
+                timeout: Duration::from_secs(60),
+                ..InvokeLimits::default()
+            },
+        );
+        let r = tokio::time::timeout(Duration::from_millis(700), sup.invoke(cmd, b"x")).await;
+        assert!(r.is_err(), "the invocation should still be running: {r:?}");
+
+        let pid: libc::pid_t = std::fs::read_to_string(&pidfile)
+            .expect("the plugin wrote its descendant's pid")
+            .trim()
+            .parse()
+            .unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(3);
+        while alive(pid) && std::time::Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        let survived = alive(pid);
+        // SAFETY: cleanup of the test's own descendant, if it survived.
+        unsafe { libc::kill(pid, libc::SIGKILL) };
+        assert!(!survived, "a descendant outlived the cancelled invocation");
+    }
 
     #[tokio::test]
     async fn oversized_header_is_rejected_before_reading_the_body() {
