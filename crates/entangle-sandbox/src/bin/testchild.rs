@@ -130,21 +130,7 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
         }
         "keyring" => keyring_read(arg),
         "caps" => caps(),
-        "ioctl" => {
-            use std::os::fd::AsRawFd;
-            let f = std::fs::OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(arg)
-                .map_err(|e| errno_msg(&e))?;
-            // SAFETY: an all-zero termios is a valid out-buffer.
-            let mut t: libc::termios = unsafe { std::mem::zeroed() };
-            // SAFETY: valid descriptor and out-pointer for TCGETS.
-            if unsafe { libc::ioctl(f.as_raw_fd(), libc::TCGETS, &mut t) } != 0 {
-                return Err(errno_msg(&io::Error::last_os_error()));
-            }
-            Ok(b"tty".to_vec())
-        }
+        "ioctl" => ioctl_tcgets(arg),
         "setsid" => {
             // SAFETY: this helper is single-threaded, so the child may run
             // arbitrary code; it only calls setsid and _exit.
@@ -351,6 +337,29 @@ fn caps() -> Result<Vec<u8>, String> {
 
 #[cfg(not(target_os = "linux"))]
 fn caps() -> Result<Vec<u8>, String> {
+    Err("unsupported".into())
+}
+
+/// Open `path` read-write and issue `TCGETS` on it.
+#[cfg(target_os = "linux")]
+fn ioctl_tcgets(path: &str) -> Result<Vec<u8>, String> {
+    use std::os::fd::AsRawFd;
+    let f = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(|e| errno_msg(&e))?;
+    // SAFETY: an all-zero termios is a valid out-buffer.
+    let mut t: libc::termios = unsafe { std::mem::zeroed() };
+    // SAFETY: valid descriptor and out-pointer for TCGETS.
+    if unsafe { libc::ioctl(f.as_raw_fd(), libc::TCGETS, &mut t) } != 0 {
+        return Err(errno_msg(&io::Error::last_os_error()));
+    }
+    Ok(b"tty".to_vec())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn ioctl_tcgets(_path: &str) -> Result<Vec<u8>, String> {
     Err("unsupported".into())
 }
 
