@@ -806,6 +806,70 @@ async fn client_disconnect_mid_write_does_not_corrupt_the_next_message() {
 }
 
 #[tokio::test]
+async fn request_timeout_covers_a_blocked_stdin_write() {
+    let f = fixture_opts(Arc::new(Policy::default()), 8, Duration::from_millis(1500)).await;
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":0,"method":"tools/list"}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    let old_pid = std::fs::read_to_string(&f.pid).unwrap();
+    // A keeps the downstream from reading stdin for 4 s.
+    let addr = f.gw.addr;
+    let bearer = format!("Bearer {}", f.token);
+    let b2 = bearer.clone();
+    let slow = tokio::spawn(async move {
+        let body = json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":4000}}}).to_string();
+        http(addr, "POST", "/mcp/fake", Some(&b2), &body).await
+    });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    // B cannot be written (pipe full): it must time out like any request.
+    let big = "x".repeat(1024 * 1024);
+    let started = Instant::now();
+    let (st, body) = http(
+        addr,
+        "POST",
+        "/mcp/fake",
+        Some(&bearer),
+        &json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"echo","arguments":{"text":big}}}).to_string(),
+    )
+    .await;
+    let took = started.elapsed();
+    assert_eq!(st, 200);
+    assert!(
+        body.contains("ENTANGLE-E0663") && body.contains("timed out"),
+        "{}",
+        &body[..body.len().min(300)]
+    );
+    assert!(
+        took < Duration::from_millis(3000),
+        "blocked write was not bounded by the 1.5 s timeout: {took:?}"
+    );
+    let _ = slow.await;
+    // The half-written process was killed; the next request gets a fresh one.
+    #[cfg(target_os = "linux")]
+    {
+        let proc_dir = PathBuf::from(format!("/proc/{}", old_pid.trim()));
+        assert!(
+            wait_until(Duration::from_secs(5), || !proc_dir.exists()).await,
+            "downstream with a half-written line still alive"
+        );
+    }
+    let (st, v) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":3,"method":"tools/list"}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    assert!(v["result"]["tools"].is_array(), "{v}");
+    assert_ne!(std::fs::read_to_string(&f.pid).unwrap(), old_pid);
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
 async fn downstream_timeout_is_reported_and_audited() {
     let dir = TempDir::new().unwrap();
     let (s, _, _) = spec(&dir);

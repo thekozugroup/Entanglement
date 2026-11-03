@@ -62,8 +62,11 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
 * Downstream **HTTP** (`url`) servers are not proxied; calls fail with
   `ENTANGLE-E0664` and `entangle agent run` prints a warning at start.
 * Limits: 16 requests in flight (excess get `503`, `ENTANGLE-E0665`), 4 MiB
-  body (`413`, E0667), 120 s downstream timeout (E0663), unknown server `404`,
-  bad token `401` (E0670).
+  body (`413`, E0667), 120 s downstream timeout (E0663, covering both
+  writing the request to the server's stdin and waiting for its reply),
+  unknown server `404`, bad token `401` (E0670). A server whose stdin write
+  is cut short (it stopped reading) is killed and restarted on the next
+  request.
 * Policy: `--deny` wins over `--allow`; patterns are `server/tool`,
   `server/*`, `*`. Denied calls return JSON-RPC error `ENTANGLE-E0661` and
   never reach the downstream server.

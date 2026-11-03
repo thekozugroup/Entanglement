@@ -37,7 +37,10 @@
 //! * **Limits**: `max_in_flight` concurrent HTTP requests; the next one is
 //!   answered `503` (`ENTANGLE-E0665`). Bodies over the cap get `413`
 //!   (`ENTANGLE-E0667`). Each downstream request has a timeout
-//!   (`ENTANGLE-E0663`).
+//!   (`ENTANGLE-E0663`) that covers writing it to the server's stdin as well
+//!   as waiting for the reply. A write that is cut short (timeout or error)
+//!   kills that process, so a partial line is never followed by another
+//!   message; the next request starts a fresh one.
 //! * **Client disconnects**: once a request is accepted it is processed in
 //!   its own task that holds the in-flight permit, so a client that closes
 //!   the connection mid-call does not cancel it: the call still finishes,
@@ -77,7 +80,7 @@ use std::{
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
-    process::{Child, ChildStdin, Command},
+    process::{ChildStdin, Command},
     sync::{oneshot, watch, Semaphore},
     task::{JoinHandle, JoinSet},
 };
@@ -369,13 +372,38 @@ impl DsError {
 type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>>;
 
 struct StdioProc {
-    stdin: tokio::sync::Mutex<ChildStdin>,
-    child: tokio::sync::Mutex<Child>,
+    name: String,
+    /// `None` once a write was cut short: nothing may follow a partial line.
+    stdin: tokio::sync::Mutex<Option<ChildStdin>>,
     pending: Pending,
     next_id: AtomicU64,
     alive: Arc<AtomicBool>,
     init_result: Mutex<Option<Value>>,
     initialized_sent: AtomicBool,
+    /// Tells the reaper task to kill the child (also fires when dropped).
+    kill_tx: watch::Sender<bool>,
+    /// Reaper task: owns the [`Child`], waits for it or kills it.
+    reaper: Mutex<Option<JoinHandle<()>>>,
+}
+
+/// Holds the stdin lock for one line. Unless the whole line was written and
+/// flushed (`done`), dropping it (write error, or the write future dropped
+/// by a timeout) poisons the process: stdin is closed and the child killed,
+/// so a partial line can never be followed by another message.
+struct WriteSlot<'a> {
+    proc: &'a StdioProc,
+    stdin: tokio::sync::MutexGuard<'a, Option<ChildStdin>>,
+    done: bool,
+}
+
+impl Drop for WriteSlot<'_> {
+    fn drop(&mut self) {
+        if !self.done {
+            *self.stdin = None;
+            tracing::warn!(server = %self.proc.name, "write to downstream interrupted; killing it");
+            self.proc.start_kill();
+        }
+    }
 }
 
 impl StdioProc {
@@ -401,6 +429,24 @@ impl StdioProc {
         };
         let pending: Pending = Arc::default();
         let alive = Arc::new(AtomicBool::new(true));
+
+        // Reaper: reaps the child when it exits, or kills it on request (or
+        // when the StdioProc, and with it `kill_tx`, is dropped).
+        let (kill_tx, mut kill_rx) = watch::channel(false);
+        let reaper = {
+            let alive = alive.clone();
+            tokio::spawn(async move {
+                tokio::select! {
+                    _ = child.wait() => {}
+                    // (The `Ref` returned by `wait_for` is not `Send`, so
+                    // drop it inside the inner future.)
+                    () = async { let _ = kill_rx.wait_for(|k| *k).await; } => {
+                        let _ = child.kill().await;
+                    }
+                }
+                alive.store(false, Ordering::Release);
+            })
+        };
 
         // stdout reader: route responses to waiters.
         {
@@ -445,24 +491,57 @@ impl StdioProc {
         }
 
         Ok(Arc::new(Self {
-            stdin: tokio::sync::Mutex::new(stdin),
-            child: tokio::sync::Mutex::new(child),
+            name: name.to_string(),
+            stdin: tokio::sync::Mutex::new(Some(stdin)),
             pending,
             next_id: AtomicU64::new(1),
             alive,
             init_result: Mutex::new(None),
             initialized_sent: AtomicBool::new(false),
+            kill_tx,
+            reaper: Mutex::new(Some(reaper)),
         }))
     }
 
+    /// Write one newline-terminated message. Not cancel-safe on its own:
+    /// see [`WriteSlot`] for what happens when it is interrupted.
     async fn write_line(&self, msg: &Value) -> Result<(), DsError> {
         let mut line = serde_json::to_vec(msg).map_err(|_| DsError::Closed)?;
         line.push(b'\n');
-        let mut stdin = self.stdin.lock().await;
-        stdin.write_all(&line).await.map_err(|_| DsError::Closed)?;
-        stdin.flush().await.map_err(|_| DsError::Closed)
+        let mut slot = WriteSlot {
+            proc: self,
+            stdin: self.stdin.lock().await,
+            done: false,
+        };
+        if !self.alive.load(Ordering::Acquire) {
+            slot.done = true;
+            return Err(DsError::Closed);
+        }
+        let Some(w) = slot.stdin.as_mut() else {
+            slot.done = true;
+            return Err(DsError::Closed);
+        };
+        let res = async {
+            w.write_all(&line).await?;
+            w.flush().await
+        }
+        .await;
+        // On error `done` stays false and dropping the slot poisons the
+        // process: a failed write may have left part of the line behind.
+        slot.done = res.is_ok();
+        res.map_err(|_| DsError::Closed)
     }
 
+    /// [`Self::write_line`] bounded by `timeout`.
+    async fn write_line_within(&self, msg: &Value, timeout: Duration) -> Result<(), DsError> {
+        tokio::time::timeout(timeout, self.write_line(msg))
+            .await
+            .unwrap_or(Err(DsError::Timeout))
+    }
+
+    /// Send a request and wait for its response. Writing it (including
+    /// waiting for the stdin lock) and waiting for the reply share one
+    /// `timeout`.
     async fn request(&self, mut msg: Value, timeout: Duration) -> Result<Value, DsError> {
         let orig_id = msg.get("id").cloned().unwrap_or(Value::Null);
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
@@ -473,26 +552,37 @@ impl StdioProc {
             self.pending.lock().remove(&id);
             return Err(DsError::Closed);
         }
-        if let Err(e) = self.write_line(&msg).await {
-            self.pending.lock().remove(&id);
-            return Err(e);
-        }
-        match tokio::time::timeout(timeout, rx).await {
+        let exchange = async {
+            self.write_line(&msg).await?;
+            rx.await.map_err(|_| DsError::Closed)
+        };
+        let res = match tokio::time::timeout(timeout, exchange).await {
             Ok(Ok(mut resp)) => {
                 resp["id"] = orig_id;
                 Ok(resp)
             }
-            Ok(Err(_)) => Err(DsError::Closed),
-            Err(_) => {
-                self.pending.lock().remove(&id);
-                Err(DsError::Timeout)
-            }
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(DsError::Timeout),
+        };
+        if res.is_err() {
+            self.pending.lock().remove(&id);
         }
+        res
     }
 
+    /// Mark the process dead and tell the reaper to kill it (non-blocking).
+    fn start_kill(&self) {
+        self.alive.store(false, Ordering::Release);
+        let _ = self.kill_tx.send(true);
+    }
+
+    /// Kill the process and wait until it has exited.
     async fn kill(&self) {
-        let mut child = self.child.lock().await;
-        let _ = child.kill().await;
+        self.start_kill();
+        let reaper = self.reaper.lock().take();
+        if let Some(r) = reaper {
+            let _ = r.await;
+        }
     }
 }
 
@@ -541,7 +631,7 @@ impl Downstream {
                 *p.init_result.lock() = Some(r.clone());
             }
             let note = json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
-            if let Err(e) = p.write_line(&note).await {
+            if let Err(e) = p.write_line_within(&note, self.timeout).await {
                 p.kill().await;
                 return Err(e);
             }
@@ -584,7 +674,7 @@ impl Downstream {
         {
             return;
         }
-        if let Err(e) = p.write_line(msg).await {
+        if let Err(e) = p.write_line_within(msg, self.timeout).await {
             tracing::debug!(server = %self.name, error = ?e, "notification write failed");
         }
     }
