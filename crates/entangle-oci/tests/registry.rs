@@ -544,3 +544,47 @@ async fn env_credentials_for_another_registry_are_never_sent_and_do_not_break_an
         "token for another registry was sent: {leaked:?}"
     );
 }
+
+#[tokio::test]
+async fn every_post_put_and_patch_carries_content_length_even_when_empty() {
+    // Front ends such as Google's answer 411 to a POST/PUT without
+    // Content-Length; the upload-session POST and the chunked-finalize PUT
+    // have empty bodies, which hyper would otherwise send with no length.
+    for chunk in [64 * 1024 * 1024, 1000] {
+        let mock = plain().await;
+        let pkg = signed_package(&keypair(3), "lengths", &wasm_bytes(5000));
+        let cfg = ClientConfig {
+            chunk_size: chunk,
+            ..ClientConfig::default()
+        };
+        push_artifact(
+            &client_with(&mock, cfg),
+            &reference(&mock, "acme/lengths:1"),
+            &pkg,
+        )
+        .await
+        .unwrap();
+        let writes: Vec<_> = mock
+            .requests()
+            .into_iter()
+            .filter(|r| matches!(r.method.as_str(), "POST" | "PUT" | "PATCH"))
+            .collect();
+        assert!(
+            writes.iter().any(|r| r.method == "POST"),
+            "chunk={chunk}: {writes:?}"
+        );
+        let missing: Vec<_> = writes
+            .iter()
+            .filter(|r| r.content_length.is_none())
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "chunk={chunk}: requests without Content-Length: {missing:?}"
+        );
+        let empty_post = writes
+            .iter()
+            .find(|r| r.method == "POST")
+            .and_then(|r| r.content_length.as_deref());
+        assert_eq!(empty_post, Some("0"), "chunk={chunk}");
+    }
+}

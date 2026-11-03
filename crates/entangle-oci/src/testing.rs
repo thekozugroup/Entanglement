@@ -78,6 +78,8 @@ pub struct LoggedRequest {
     pub path: String,
     /// The `Authorization` header value, if any.
     pub authorization: Option<String>,
+    /// The `Content-Length` header value, if any.
+    pub content_length: Option<String>,
 }
 
 /// `(content-type, bytes)`
@@ -321,6 +323,11 @@ async fn handle(
         method: parts.method.to_string(),
         path: path_q.clone(),
         authorization: authz.clone(),
+        content_length: parts
+            .headers
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned),
     });
     let body = match body.collect().await {
         Ok(b) => b.to_bytes(),

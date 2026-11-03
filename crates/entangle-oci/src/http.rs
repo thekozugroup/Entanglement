@@ -144,6 +144,20 @@ impl Transport {
         for (k, v) in headers {
             req = req.header(k.as_str(), v.as_str());
         }
+        // hyper sends an empty body with neither Content-Length nor
+        // Transfer-Encoding. Front ends such as Google's answer 411 to a
+        // POST/PUT without a length (the upload-session POST and the chunked
+        // finalize PUT are empty), so state the zero explicitly, as Go's
+        // net/http (Docker, containerd, ORAS) does; hyper keeps a length the
+        // caller set.
+        if body.is_empty()
+            && matches!(*method, Method::POST | Method::PUT | Method::PATCH)
+            && !headers
+                .iter()
+                .any(|(k, _)| k.eq_ignore_ascii_case("content-length"))
+        {
+            req = req.header("content-length", "0");
+        }
         let req = req
             .body(Full::new(body))
             .map_err(|e| transport_err(format!("building request: {e}")))?;
