@@ -51,7 +51,10 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
   Replies are `application/json`; notifications get `202`. Only
   `notifications/*` methods are forwarded without an id; a `tools/call`
   without an id is audited as denied (`tools/call sent as notification`) and
-  dropped, and any other id-less method is dropped.
+  dropped, and any other id-less method is dropped. A message that is not
+  valid JSON-RPC 2.0 (`jsonrpc` not `"2.0"`, non-string `method`, an `id`
+  that is not a string/number/null, scalar `params`, a "response" without
+  exactly one of `result`/`error`) gets error `-32600` (`ENTANGLE-E0666`).
 * Downstream **stdio** servers are started lazily from the original
   command/args/env, one process per server per session. `initialize` is passed
   through and cached; request ids are remapped internally. Server-initiated

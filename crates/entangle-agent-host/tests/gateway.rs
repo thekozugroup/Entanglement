@@ -437,6 +437,71 @@ async fn tools_call_without_id_is_audited_as_denied_and_never_forwarded() {
 }
 
 #[tokio::test]
+async fn invalid_jsonrpc_objects_get_invalid_request_errors() {
+    let f = fixture().await;
+    // (message, id expected in the error reply)
+    let cases = [
+        (json!({"jsonrpc":"2.0","id":14,"method":5}), json!(14)),
+        (json!({"jsonrpc":"2.0","id":13}), json!(13)),
+        (json!({"jsonrpc":"2.0","method":7}), Value::Null),
+        (
+            json!({"jsonrpc":"2.0","id":{"a":1},"method":"tools/list"}),
+            Value::Null,
+        ),
+        (
+            json!({"jsonrpc":"2.0","id":[1],"method":"tools/list"}),
+            Value::Null,
+        ),
+        (json!({"id":3,"method":"tools/list"}), json!(3)),
+        (
+            json!({"jsonrpc":"1.0","id":4,"method":"tools/list"}),
+            json!(4),
+        ),
+        (
+            json!({"jsonrpc":"2.0","id":6,"method":"tools/list","params":5}),
+            json!(6),
+        ),
+        (
+            json!({"jsonrpc":"2.0","id":8,"result":{},"error":{"code":1,"message":"x"}}),
+            json!(8),
+        ),
+    ];
+    for (msg, want_id) in cases {
+        let (st, v) = rpc(&f, "fake", msg.clone()).await;
+        assert_eq!(st, 200, "{msg} -> {v}");
+        assert_eq!(v["error"]["code"], -32600, "{msg} -> {v}");
+        assert!(
+            v["error"]["message"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("ENTANGLE-E0666"),
+            "{msg} -> {v}"
+        );
+        assert_eq!(v["id"], want_id, "{msg} -> {v}");
+        assert!(v.get("result").is_none());
+    }
+    // An invalid element inside a batch gets its own error in the array.
+    let (st, v) = rpc(
+        &f,
+        "fake",
+        json!([{"jsonrpc":"2.0","id":1,"method":"ping"}, {"jsonrpc":"2.0","id":2,"method":true}]),
+    )
+    .await;
+    assert_eq!(st, 200);
+    assert_eq!(v[0]["id"], 1);
+    assert!(v[0].get("result").is_some(), "{v}");
+    assert_eq!(v[1]["id"], 2);
+    assert_eq!(v[1]["error"]["code"], -32600, "{v}");
+    // A well-formed client response is still accepted (202) and dropped.
+    let (st, _) = rpc(&f, "fake", json!({"jsonrpc":"2.0","id":"s1","result":{}})).await;
+    assert_eq!(st, 202);
+    // None of the invalid messages reached the downstream.
+    let c = calls(&f);
+    assert!(!c.iter().any(|l| l.starts_with("tools/list")), "{c:?}");
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
 async fn allow_list_blocks_unlisted_tools() {
     let f = fixture_with(
         Policy {

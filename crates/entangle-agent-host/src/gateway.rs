@@ -21,6 +21,8 @@
 //!   other id-less message is dropped; a `tools/call` without an id is shown
 //!   to `before_tool` and audited as denied ("tools/call sent as
 //!   notification") before it is dropped, so it can never bypass policy.
+//!   Messages that are not valid JSON-RPC 2.0 get `-32600` (`ENTANGLE-E0666`)
+//!   with the message's id when it is usable, else `null`.
 //! * **Downstream**: stdio servers (newline-delimited JSON-RPC) launched
 //!   lazily, one process per server per gateway. Request ids are remapped to
 //!   gateway-unique ids so concurrent clients can never collide, and restored
@@ -800,6 +802,56 @@ fn classify(resp: &Value) -> AuditOutcome {
     AuditOutcome::Ok
 }
 
+/// Shape of one valid JSON-RPC 2.0 message from the client.
+enum MessageKind {
+    /// `method` + `id`.
+    Request { method: String, id: Value },
+    /// `method`, no `id`.
+    Notification { method: String },
+    /// `id` + exactly one of `result` / `error`.
+    Response,
+}
+
+/// Validate a message object against JSON-RPC 2.0. On failure returns the id
+/// to put in the `-32600 Invalid Request` reply (the message's id when it is
+/// usable, else `null`) and the reason.
+fn message_kind(
+    obj: &serde_json::Map<String, Value>,
+) -> Result<MessageKind, (Value, &'static str)> {
+    let id = match obj.get("id") {
+        None => None,
+        Some(v @ (Value::String(_) | Value::Number(_) | Value::Null)) => Some(v.clone()),
+        Some(_) => return Err((Value::Null, "id must be a string, number or null")),
+    };
+    let reply_id = id.clone().unwrap_or(Value::Null);
+    if obj.get("jsonrpc").and_then(Value::as_str) != Some("2.0") {
+        return Err((reply_id, "jsonrpc must be \"2.0\""));
+    }
+    match obj.get("method") {
+        Some(Value::String(method)) => {
+            if obj
+                .get("params")
+                .is_some_and(|p| !p.is_object() && !p.is_array())
+            {
+                return Err((reply_id, "params must be an object or an array"));
+            }
+            let method = method.clone();
+            Ok(match id {
+                Some(id) => MessageKind::Request { method, id },
+                None => MessageKind::Notification { method },
+            })
+        }
+        Some(_) => Err((reply_id, "method must be a string")),
+        None if id.is_some() && (obj.contains_key("result") != obj.contains_key("error")) => {
+            Ok(MessageKind::Response)
+        }
+        None => Err((
+            reply_id,
+            "not a request, notification or response (a response needs an id and exactly one of result/error)",
+        )),
+    }
+}
+
 /// Audit reason for a `tools/call` that arrived without an `id`.
 const NOTIFICATION_CALL_REASON: &str = "tools/call sent as notification";
 
@@ -866,14 +918,22 @@ async fn handle_message(sh: &Shared, server: &str, ds: &Downstream, msg: Value) 
             "ENTANGLE-E0666: message is not a JSON object",
         ));
     };
-    let method = obj.get("method").and_then(Value::as_str).map(str::to_owned);
-    let id = obj.get("id").cloned();
-    let (Some(method), Some(id)) = (method.clone(), id) else {
-        // Notification (method, no id) or a client response (no method).
-        if let Some(method) = method {
+    let (method, id) = match message_kind(obj) {
+        Ok(MessageKind::Request { method, id }) => (method, id),
+        Ok(MessageKind::Notification { method }) => {
             handle_notification(sh, server, ds, &method, &msg).await;
+            return None;
         }
-        return None;
+        // The gateway answers server-initiated requests itself, so a client
+        // response has nothing to go to.
+        Ok(MessageKind::Response) => return None,
+        Err((id, why)) => {
+            return Some(rpc_error(
+                id,
+                -32600,
+                format!("ENTANGLE-E0666: invalid request: {why}"),
+            ))
+        }
     };
 
     if method != "tools/call" {
