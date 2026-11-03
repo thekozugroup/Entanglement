@@ -1,0 +1,14 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/metric-numerical-l2-relative@0.1.0"   # PUBLISHER_PLACEHOLDER is replaced with the real publisher fingerprint at build time
+version = "0.1.0"
+tier = 2
+runtime = "wasm"
+description = "SemanticEquivalent metric: relative L2 distance between two numeric vectors (runs on the submitter only)"
+
+[capabilities]
+# tier 2 per spec §7.5 Rule 1. No filesystem, no network, no capability
+# handles: a metric only ever sees the two replica outputs it compares.
+
+[build]
+wit_world = "entangle:integrity@0.1.0/metric-plugin"
+target = "wasm32-wasip2"
