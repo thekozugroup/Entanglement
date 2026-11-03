@@ -681,3 +681,67 @@ fn quickstart_against_the_repository_catalog() {
         .success()
         .stdout(predicate::str::contains("already trusted"));
 }
+
+/// A metric component (`entangle:integrity` world) is built, signed and
+/// trusted like any plugin, but never loaded: it has no `run` export. The
+/// install says how to use it instead, and `available --json` marks it.
+#[test]
+fn installing_a_metric_component_skips_the_load_and_explains_its_use() {
+    let tmp = TempDir::new().unwrap();
+    init(&tmp);
+    let catalog = tmp.path().join("catalog");
+    let dir = catalog_plugin(&catalog, "metric-demo", 2, "a metric");
+    let manifest = std::fs::read_to_string(dir.join("entangle.toml"))
+        .unwrap()
+        .replace(
+            "[build]\n",
+            "[build]\nwit_world = \"entangle:integrity@0.1.0/metric-plugin\"\n",
+        );
+    std::fs::write(dir.join("entangle.toml"), manifest).unwrap();
+    catalog_plugin(&catalog, "json-query", 1, "query JSON");
+
+    let out = entangle(&tmp)
+        .args(["plugins", "available", "--json", "--catalog"])
+        .arg(&catalog)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    let kinds: Vec<(String, String)> = v["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| {
+            (
+                p["name"].as_str().unwrap().to_owned(),
+                p["kind"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert!(
+        kinds.contains(&("metric-demo".into(), "metric".into())),
+        "{kinds:?}"
+    );
+    assert!(
+        kinds.contains(&("json-query".into(), "plugin".into())),
+        "{kinds:?}"
+    );
+
+    // No `--no-load`, and no daemon: a plugin would be loaded into a
+    // temporary kernel here. A metric must not be.
+    entangle(&tmp)
+        .args(["plugins", "install", "metric-demo", "--catalog"])
+        .arg(&catalog)
+        .arg("--wasm")
+        .arg(dir.join("prebuilt.wasm"))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("not loaded"))
+        .stdout(predicate::str::contains("--integrity semantic-equivalent"))
+        .stdout(predicate::str::contains("--metric"));
+    assert!(entangle_dir(&tmp)
+        .join("plugins/metric-demo/plugin.wasm.sig")
+        .exists());
+}
