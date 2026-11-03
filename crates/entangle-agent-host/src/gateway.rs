@@ -48,6 +48,13 @@
 //!   use them through the gateway.
 //! * **HTTP downstream servers** (`url` entries) are *not* proxied: requests
 //!   to them fail with JSON-RPC error `ENTANGLE-E0664`.
+//! * **Connections**: at most 128 open client connections (further ones
+//!   wait unaccepted); a connection that does not send a complete request
+//!   head within 30 s, or sits idle that long between keep-alive requests,
+//!   is closed. Both apply before authentication, so unauthenticated local
+//!   processes cannot exhaust the gateway's file descriptors. See
+//!   [`Gateway::with_max_connections`] and
+//!   [`Gateway::with_header_read_timeout`].
 //! * **Limits**: `max_in_flight` concurrent HTTP requests; the next one is
 //!   answered `503` (`ENTANGLE-E0665`). Bodies over the cap get `413`
 //!   (`ENTANGLE-E0667`). Each downstream request has a timeout
@@ -80,7 +87,7 @@ use hyper::{
     service::service_fn,
     Method, Request, Response, StatusCode,
 };
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioIo, TokioTimer};
 use parking_lot::Mutex;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -1579,6 +1586,8 @@ pub struct Gateway {
     request_timeout: Duration,
     max_body_bytes: usize,
     max_downstream_message: usize,
+    header_read_timeout: Duration,
+    max_connections: usize,
 }
 
 impl Gateway {
@@ -1593,6 +1602,8 @@ impl Gateway {
             request_timeout: Duration::from_secs(60),
             max_body_bytes: 4 * 1024 * 1024,
             max_downstream_message: 64 * 1024 * 1024,
+            header_read_timeout: Duration::from_secs(30),
+            max_connections: 128,
         }
     }
 
@@ -1642,6 +1653,23 @@ impl Gateway {
     #[must_use]
     pub const fn with_max_downstream_message_bytes(mut self, n: usize) -> Self {
         self.max_downstream_message = n;
+        self
+    }
+
+    /// How long a connection may take to send a complete request head, and
+    /// how long a keep-alive connection may sit idle between requests,
+    /// before the gateway closes it. Default 30 s.
+    #[must_use]
+    pub const fn with_header_read_timeout(mut self, d: Duration) -> Self {
+        self.header_read_timeout = d;
+        self
+    }
+
+    /// Maximum concurrently open client connections (at least 1). Further
+    /// connections wait, unaccepted, until one closes. Default 128.
+    #[must_use]
+    pub const fn with_max_connections(mut self, n: usize) -> Self {
+        self.max_connections = n;
         self
     }
 
@@ -1715,17 +1743,37 @@ impl Gateway {
 
         let (stop, mut stop_rx) = watch::channel(false);
         let sh = shared.clone();
+        let header_timeout = self.header_read_timeout;
+        // Connections are accepted only while a slot is free; the rest wait
+        // in the kernel's backlog, so no number of (unauthenticated) local
+        // connections can exhaust the process's file descriptors.
+        let slots = Arc::new(Semaphore::new(self.max_connections.max(1)));
         let task = tokio::spawn(async move {
             let mut conns: JoinSet<()> = JoinSet::new();
             loop {
+                let slot = tokio::select! {
+                    _ = stop_rx.changed() => break,
+                    slot = slots.clone().acquire_owned() => match slot {
+                        Ok(s) => s,
+                        Err(_) => break,
+                    },
+                    Some(_) = conns.join_next(), if !conns.is_empty() => continue,
+                };
                 tokio::select! {
                     _ = stop_rx.changed() => break,
                     acc = listener.accept() => match acc {
                         Ok((stream, _)) => {
                             let sh = sh.clone();
                             conns.spawn(async move {
+                                let _slot = slot;
                                 let svc = service_fn(move |req| handle(sh.clone(), req));
+                                // The header-read timeout closes connections
+                                // that never send a complete request head,
+                                // and idle keep-alive connections (hyper
+                                // starts it whenever it waits for a head).
                                 let _ = http1::Builder::new()
+                                    .timer(TokioTimer::new())
+                                    .header_read_timeout(header_timeout)
                                     .serve_connection(TokioIo::new(stream), svc)
                                     .await;
                             });

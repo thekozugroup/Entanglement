@@ -68,6 +68,9 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
   `initialize` sent downstream for the same reason.
 * Downstream **HTTP** (`url`) servers are not proxied; calls fail with
   `ENTANGLE-E0664` and `entangle agent run` prints a warning at start.
+* Connections: at most 128 open at once (further ones wait unaccepted);
+  a connection that has not sent a complete request head after 30 s, or
+  has been idle that long between keep-alive requests, is closed.
 * Limits: 16 requests in flight (excess get `503`, `ENTANGLE-E0665`), 4 MiB
   body (`413`, E0667), 120 s downstream timeout (E0663, covering both
   writing the request to the server's stdin and waiting for its reply),
