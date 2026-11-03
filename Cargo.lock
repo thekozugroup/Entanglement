@@ -1567,6 +1567,7 @@ dependencies = [
  "biscuit-auth",
  "entangle-biscuits",
  "entangle-manifest",
+ "entangle-observability",
  "entangle-peers",
  "entangle-signing",
  "entangle-types",
@@ -1716,11 +1717,18 @@ dependencies = [
 name = "entangle-observability"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "is-terminal",
  "parking_lot",
+ "serde_json",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1794,6 +1802,7 @@ dependencies = [
  "entangle-host",
  "entangle-ipc",
  "entangle-manifest",
+ "entangle-observability",
  "entangle-signing",
  "entangle-types",
  "hex",
@@ -1816,6 +1825,7 @@ dependencies = [
  "entangle-host",
  "entangle-ipc",
  "entangle-mesh-iroh",
+ "entangle-observability",
  "entangle-runtime",
  "entangle-signing",
  "entangle-types",

@@ -22,7 +22,7 @@ entangle-peers     = { path = "../entangle-peers" }
 entangle-mesh-tailscale = { workspace = true }
 entangle-pairing   = { path = "../entangle-pairing" }
 entangle-scheduler     = { path = "../entangle-scheduler" }
-entangle-observability = { workspace = true }
+entangle-observability = { workspace = true, features = ["otlp"] }
 entangle-agent-host    = { path = "../entangle-agent-host" }
 camino            = { workspace = true }
 clap              = { workspace = true, features = ["derive"] }

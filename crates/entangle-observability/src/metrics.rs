@@ -1,19 +1,39 @@
-//! Prometheus metrics exposition format helpers (spec §9.6 deferred).
+//! Prometheus metrics registry and text exposition (spec §9.6).
 //!
-//! Phase 1 ships a **string-builder** that emits valid Prometheus text-format
-//! `# HELP` / `# TYPE` / sample lines from typed counters and gauges. The
-//! HTTP scrape endpoint itself is Phase 2 work; once it lands, it can simply
-//! call [`Registry::render`] inside the response handler.
+//! A small, dependency-free registry that emits valid Prometheus text-format
+//! 0.0.4 `# HELP` / `# TYPE` / sample lines from counters, gauges and
+//! histograms. The daemon owns one [`Registry`], hands clones to the
+//! subsystems that record into it (clones share state) and serves
+//! [`Registry::render`] on its scrape endpoint and over RPC.
 //!
-//! Reasoning for shipping the builder ahead of the endpoint:
-//! - Plugin authors and operators have a stable, testable contract today.
-//! - The actual `MetricFamilies → bytes` path is independently verifiable.
-//! - We avoid pulling in `prometheus-client` (and its dependency footprint)
-//!   until the daemon actually serves the endpoint.
+//! # Cardinality
+//!
+//! Every metric family holds at most [`MAX_SERIES_PER_FAMILY`] label sets.
+//! A sample for a *new* label set beyond that is dropped and counted in
+//! `entangle_metrics_dropped_series_total`, so a bug (or hostile input) that
+//! leaks an unbounded value into a label degrades to a visible counter
+//! instead of unbounded memory growth. Callers still pick bounded label
+//! values; this is the backstop.
+//!
+//! # Collectors
+//!
+//! State that is cheaper to *read at scrape time* than to push on every
+//! change (loaded plugins, peer counts, ...) is exposed through
+//! [`Registry::register_collector`]: each collector runs just before
+//! [`Registry::render`] and sets its gauges.
 
 use parking_lot::Mutex;
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+
+/// Maximum number of distinct label sets kept per metric family.
+pub const MAX_SERIES_PER_FAMILY: usize = 512;
+
+/// Name of the self-metric counting samples dropped by the series cap.
+pub const DROPPED_SERIES_METRIC: &str = "entangle_metrics_dropped_series_total";
+
+type Collector = Arc<dyn Fn(&Registry) + Send + Sync>;
 
 /// Internal record kept for each metric family.
 #[derive(Clone, Debug)]
@@ -53,10 +73,21 @@ struct Sample {
     hist_sum: f64,
 }
 
-/// Process-wide Prometheus registry.
-#[derive(Clone, Debug, Default)]
+/// Prometheus registry. Cloning is cheap and clones share all state.
+#[derive(Clone, Default)]
 pub struct Registry {
     families: Arc<Mutex<BTreeMap<String, Family>>>,
+    collectors: Arc<Mutex<Vec<Collector>>>,
+    dropped_series: Arc<AtomicU64>,
+}
+
+impl std::fmt::Debug for Registry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Registry")
+            .field("families", &self.families.lock().len())
+            .field("collectors", &self.collectors.lock().len())
+            .finish()
+    }
 }
 
 impl Registry {
@@ -76,6 +107,54 @@ impl Registry {
     /// Set (or initialise) a gauge sample to `value`.
     pub fn set_gauge(&self, name: &str, help: &str, labels: &[(&str, &str)], value: f64) {
         self.upsert(name, help, Kind::Gauge, labels, |v| *v = value);
+    }
+
+    /// Set a counter sample to an absolute `value`.
+    ///
+    /// For counters whose authoritative total is kept elsewhere (a collector
+    /// mirroring an atomic). The value must never decrease between scrapes.
+    pub fn set_counter(&self, name: &str, help: &str, labels: &[(&str, &str)], value: f64) {
+        self.upsert(name, help, Kind::Counter, labels, |v| *v = value);
+    }
+
+    /// Remove every sample of `name`, keeping nothing of the family.
+    ///
+    /// Collectors that mirror a changing set (loaded plugins) call this
+    /// before re-setting their gauges so series for vanished members do not
+    /// linger.
+    pub fn clear_family(&self, name: &str) {
+        self.families.lock().remove(name);
+    }
+
+    /// Run `collector` just before every [`Registry::render`].
+    ///
+    /// The collector sets gauges (or absolute counters) from live state. It
+    /// must be quick and must not call [`Registry::render`].
+    pub fn register_collector(&self, collector: impl Fn(&Registry) + Send + Sync + 'static) {
+        self.collectors.lock().push(Arc::new(collector));
+    }
+
+    /// The current value of a counter or gauge sample, for tests and
+    /// diagnostics. `None` when the family or label set does not exist.
+    pub fn value(&self, name: &str, labels: &[(&str, &str)]) -> Option<f64> {
+        let want: BTreeMap<String, String> = labels
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect();
+        let guard = self.families.lock();
+        let family = guard.get(name)?;
+        family.samples.iter().find(|s| s.labels == want).map(|s| {
+            if family.kind == Kind::Histogram {
+                s.hist_count as f64
+            } else {
+                s.value
+            }
+        })
+    }
+
+    /// Number of samples dropped by the per-family series cap so far.
+    pub fn dropped_series(&self) -> u64 {
+        self.dropped_series.load(Ordering::Relaxed)
     }
 
     /// Observe a sample for a histogram metric.
@@ -113,6 +192,11 @@ impl Registry {
             labels_map.insert((*k).to_string(), (*v).to_string());
         }
 
+        let known = family.samples.iter().any(|s| s.labels == labels_map);
+        if !known && family.samples.len() >= MAX_SERIES_PER_FAMILY {
+            self.dropped_series.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
         let sample = family.samples.iter_mut().find(|s| s.labels == labels_map);
         let sample = match sample {
             Some(s) => s,
@@ -165,20 +249,23 @@ impl Registry {
         for (k, v) in labels {
             labels_map.insert((*k).to_string(), (*v).to_string());
         }
-        match family.samples.iter_mut().find(|s| s.labels == labels_map) {
-            Some(s) => mutate(&mut s.value),
-            None => {
-                let mut s = Sample {
-                    labels: labels_map,
-                    value: 0.0,
-                    histogram: Vec::new(),
-                    hist_count: 0,
-                    hist_sum: 0.0,
-                };
-                mutate(&mut s.value);
-                family.samples.push(s);
-            }
+        if let Some(s) = family.samples.iter_mut().find(|s| s.labels == labels_map) {
+            mutate(&mut s.value);
+            return;
         }
+        if family.samples.len() >= MAX_SERIES_PER_FAMILY {
+            self.dropped_series.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+        let mut s = Sample {
+            labels: labels_map,
+            value: 0.0,
+            histogram: Vec::new(),
+            hist_count: 0,
+            hist_sum: 0.0,
+        };
+        mutate(&mut s.value);
+        family.samples.push(s);
     }
 
     /// Render the registry into Prometheus text-format bytes.
@@ -186,6 +273,12 @@ impl Registry {
     /// The output is deterministic for a given state: families are sorted by
     /// name and samples by labels.
     pub fn render(&self) -> String {
+        // Collectors set gauges through the normal API, so run them before
+        // taking the family lock (they re-enter `set_gauge`).
+        let collectors: Vec<Collector> = self.collectors.lock().clone();
+        for c in &collectors {
+            c(self);
+        }
         let guard = self.families.lock();
         let mut out = String::new();
         for (name, family) in guard.iter() {
@@ -227,6 +320,13 @@ impl Registry {
                 out.push_str(&format_value(s.value));
                 out.push('\n');
             }
+        }
+        let dropped = self.dropped_series();
+        if dropped > 0 {
+            out.push_str(&format!(
+                "# HELP {DROPPED_SERIES_METRIC} Samples dropped because a metric family reached its label-set cap\n\
+                 # TYPE {DROPPED_SERIES_METRIC} counter\n{DROPPED_SERIES_METRIC} {dropped}\n"
+            ));
         }
         out
     }

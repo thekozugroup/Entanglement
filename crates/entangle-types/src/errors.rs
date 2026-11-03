@@ -14,6 +14,7 @@
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0600–E0699 | Agent-host adapter (see `entangle-agent-host`) |
 //! | E0640–E0649 | `mesh.tailscale` transport (see `entangle-mesh-tailscale`) |
+//! | E0650–E0659 | Observability: OTLP exporter, metrics endpoint, diag (see `entangle-observability`, `entangle-bin`); E0650 retired |
 //! | E0900       | I/O                            |
 //! | E9999       | Internal / unexpected          |
 //!

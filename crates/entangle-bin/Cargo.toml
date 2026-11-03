@@ -29,7 +29,7 @@ entangle-mesh-local     = { workspace = true }
 entangle-mesh-iroh      = { workspace = true }
 entangle-mesh-tailscale = { workspace = true }
 async-trait = { workspace = true }
-entangle-observability  = { workspace = true }
+entangle-observability  = { workspace = true, features = ["otlp"] }
 clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
