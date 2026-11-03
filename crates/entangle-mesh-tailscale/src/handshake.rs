@@ -37,6 +37,9 @@
 //!   the server's own key).
 //! * Fresh nonces and ephemeral shares on both sides, so nothing recorded can
 //!   be replayed into a new session.
+//! * Identity keys that are small-order points are refused and signatures are
+//!   checked with strict Ed25519 verification, so no `PeerId` can be claimed
+//!   without its secret key.
 //! * Every field is fixed-size, so there is nothing to allocate or parse
 //!   unboundedly; the whole exchange runs under a timeout.
 //! * The admission answer exists so that a client rejected by the server's
@@ -45,7 +48,8 @@
 
 use std::time::Duration;
 
-use entangle_signing::{IdentityKeyPair, IdentityPublicKey, Signature};
+use ed25519_dalek::VerifyingKey;
+use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
 use rand_core::{OsRng, RngCore};
 use ring::agreement::{self, EphemeralPrivateKey, UnparsedPublicKey, X25519};
@@ -229,8 +233,28 @@ fn fresh_nonce() -> [u8; 32] {
     n
 }
 
-fn parse_key(bytes: &[u8; 32]) -> Result<IdentityPublicKey, MeshTailscaleError> {
-    IdentityPublicKey::from_bytes(bytes).map_err(|_| hs_err("peer presented an invalid public key"))
+/// Parse a peer's identity key, refusing small-order ("weak") points: under
+/// such a key a constant signature verifies for any message, so the
+/// resulting `PeerId` would not be bound to any secret.
+fn parse_key(bytes: &[u8; 32]) -> Result<VerifyingKey, MeshTailscaleError> {
+    let key = VerifyingKey::from_bytes(bytes)
+        .map_err(|_| hs_err("peer presented an invalid public key"))?;
+    if key.is_weak() {
+        return Err(hs_err("peer presented a weak (small-order) public key"));
+    }
+    Ok(key)
+}
+
+/// Strict Ed25519 verification (rejects non-canonical and small-order `R`).
+fn verify(key: &VerifyingKey, msg: &[u8], sig: &[u8; 64]) -> bool {
+    key.verify_strict(msg, &ed25519_dalek::Signature::from_bytes(sig))
+        .is_ok()
+}
+
+fn split64(b: &[u8]) -> [u8; 64] {
+    let mut out = [0u8; 64];
+    out.copy_from_slice(&b[..64]);
+    out
 }
 
 fn split32(b: &[u8]) -> [u8; 32] {
@@ -287,7 +311,7 @@ where
     let server_pk = split32(&resp[..32]);
     let server_nonce = split32(&resp[32..64]);
     let server_eph = split32(&resp[64..96]);
-    let sig_s = Signature::from_bytes(&resp[96..]).map_err(|_| hs_err("malformed signature"))?;
+    let sig_s = split64(&resp[96..]);
 
     if let Some(exp) = expected {
         if *exp != server_pk {
@@ -303,8 +327,9 @@ where
         server_nonce,
         server_eph,
     };
-    spk.verify(&t.signed(LABEL_SERVER), &sig_s)
-        .map_err(|_| hs_err("server signature does not verify"))?;
+    if !verify(&spk, &t.signed(LABEL_SERVER), &sig_s) {
+        return Err(hs_err("server signature does not verify"));
+    }
     let mut session = eph.agree(&server_eph, &t, Role::Client)?;
 
     let sig_c = identity.sign(&t.signed(LABEL_CLIENT));
@@ -393,9 +418,9 @@ where
 
     let mut sig = [0u8; 64];
     read_exact(s, &mut sig, "client signature").await?;
-    let sig_c = Signature::from_bytes(&sig).map_err(|_| hs_err("malformed signature"))?;
-    cpk.verify(&t.signed(LABEL_CLIENT), &sig_c)
-        .map_err(|_| hs_err("client signature does not verify"))?;
+    if !verify(&cpk, &t.signed(LABEL_CLIENT), &sig) {
+        return Err(hs_err("client signature does not verify"));
+    }
     let mut session = eph.agree(&client_eph, &t, Role::Server)?;
 
     let peer_id = PeerId::from_public_key_bytes(&client_pk);

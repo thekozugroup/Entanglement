@@ -1690,6 +1690,7 @@ name = "entangle-mesh-tailscale"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "ed25519-dalek 2.2.0",
  "entangle-signing",
  "entangle-types",
  "rand_core 0.6.4",

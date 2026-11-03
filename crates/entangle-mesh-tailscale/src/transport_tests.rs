@@ -721,3 +721,69 @@ async fn discovery_does_not_let_a_relay_take_over_a_peer() {
     assert!(found.is_empty(), "{found:?}");
     assert!(a.candidates().is_empty());
 }
+
+// ------------------------------------------------------- small-order keys --
+
+/// The Ed25519 identity point: a valid encoding of a small-order key.
+const WEAK_PK: [u8; 32] = {
+    let mut k = [0u8; 32];
+    k[0] = 1;
+    k
+};
+
+/// R = identity, s = 0. Under cofactorless, non-strict verification this
+/// "verifies" for *any* message under `WEAK_PK`, without any secret.
+const WEAK_SIG: [u8; 64] = {
+    let mut s = [0u8; 64];
+    s[0] = 1;
+    s
+};
+
+#[tokio::test]
+async fn a_small_order_client_key_cannot_authenticate() {
+    let (b, _) = node(AclMode::TrustTailnet, None).await;
+    let mut s = TcpStream::connect(b.local_addr()).await.unwrap();
+    let eph = Ephemeral::generate().unwrap();
+    let hello = [&MAGIC[..], &[VERSION], &WEAK_PK, &[7u8; 32], &eph.public()].concat();
+    s.write_all(&hello).await.unwrap();
+    // The server may refuse at once; if it answers, the forged signature
+    // must still not get the weak identity admitted.
+    let mut r = [0u8; SERVER_HELLO_LEN];
+    if s.read_exact(&mut r).await.is_ok() {
+        let _ = s.write_all(&WEAK_SIG).await;
+    }
+    expect_closed_without_admission(&mut s).await;
+    assert_no_conn(&b).await;
+}
+
+#[tokio::test]
+async fn a_small_order_server_key_cannot_authenticate() {
+    let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = l.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut s, _) = l.accept().await.unwrap();
+        let mut h = [0u8; CLIENT_HELLO_LEN];
+        s.read_exact(&mut h).await.unwrap();
+        let eph = Ephemeral::generate().unwrap();
+        let t = Transcript {
+            client_pk: arr32(&h[5..]),
+            client_nonce: arr32(&h[37..]),
+            client_eph: arr32(&h[69..]),
+            server_pk: WEAK_PK,
+            server_nonce: [9; 32],
+            server_eph: eph.public(),
+        };
+        let reply = [&t.server_pk[..], &t.server_nonce, &t.server_eph, &WEAK_SIG].concat();
+        s.write_all(&reply).await.unwrap();
+        let mut sig_c = [0u8; 64];
+        if s.read_exact(&mut sig_c).await.is_err() {
+            return;
+        }
+        let mut session = eph.agree(&t.client_eph, &t, Role::Server).unwrap();
+        let _ = write_sealed(&mut s, &mut session.sealer, &[ADMIT_OK], 1).await;
+    });
+    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    let err = a.probe(addr).await.unwrap_err();
+    assert_eq!(err.code(), "ENTANGLE-E0644");
+    assert!(err.to_string().contains("weak"), "{err}");
+}

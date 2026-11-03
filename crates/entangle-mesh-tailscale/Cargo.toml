@@ -16,6 +16,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 entangle-types = { workspace = true }
 entangle-signing = { workspace = true }
 async-trait = { workspace = true }
+ed25519-dalek = { workspace = true }
 rand_core = { workspace = true, features = ["getrandom"] }
 ring = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
