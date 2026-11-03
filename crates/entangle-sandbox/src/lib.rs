@@ -43,6 +43,9 @@
 //!   daemon's limits — `RLIMIT_CPU = 1` is a kill — or renice it).
 //! - **A fresh, empty session keyring** (and, with seccomp, `keyctl`/`add_key`/
 //!   `request_key` refused): the parent's keyrings are not reachable.
+//! - **No capabilities**: the ambient, bounding, effective, permitted and
+//!   inheritable sets are emptied, so a plugin of a daemon run as root holds
+//!   none (no raw sockets, no module loading, no netlink administration).
 //! - `PR_SET_NO_NEW_PRIVS`, `RLIMIT_CORE = 0`, address-space / CPU / fd
 //!   rlimits, every inherited descriptor above stderr marked close-on-exec,
 //!   an empty environment plus what the profile sets, and its own process

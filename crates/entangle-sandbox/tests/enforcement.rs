@@ -400,6 +400,34 @@ async fn child_cannot_read_the_parents_session_keyring() {
     }
 }
 
+/// A plugin never holds a capability, not even when the daemon runs as root
+/// (unsupported, but nothing stopped it): `no_new_privs` does not remove
+/// capabilities already held, and with the network granted there is no user
+/// namespace in between. Raw IP sockets (§8.2: "raw sockets blocked") follow.
+#[tokio::test(flavor = "multi_thread")]
+async fn child_holds_no_capabilities() {
+    let root = unsafe { libc::geteuid() } == 0;
+    for p in [profile(), profile().allow_network(true)] {
+        let plan = host_plan(&p);
+        let out = call(&p, "caps").await.unwrap();
+        let out = String::from_utf8(out).unwrap();
+        assert!(
+            out.starts_with("eff=0 prm=0 inh=0 ") && out.ends_with(" amb=0"),
+            "{}: {out}",
+            plan.describe()
+        );
+        // The bounding set can only be emptied with CAP_SETPCAP: as root, or
+        // inside the plugin's own user namespace.
+        if root || plan.net_namespace {
+            assert!(out.contains(" bnd=0 "), "{}: {out}", plan.describe());
+        }
+        if p.allow_network {
+            let errno = denied_errno(call(&p, "raw").await);
+            assert_eq!(errno, libc::EPERM, "{}", plan.describe());
+        }
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn environment_is_exactly_what_the_profile_sets() {
     std::env::set_var("ENTANGLE_SANDBOX_TEST_LEAK", "parent-secret");

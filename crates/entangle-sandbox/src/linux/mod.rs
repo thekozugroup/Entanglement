@@ -3,6 +3,7 @@
 //! Every function here that runs in the forked child is `unsafe`, documented
 //! as async-signal-safe, and operates only on data prepared in the parent.
 
+pub(crate) mod caps;
 pub(crate) mod keyring;
 pub(crate) mod landlock;
 pub(crate) mod seccomp;

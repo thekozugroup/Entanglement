@@ -15,6 +15,8 @@
 //! | `prlimit:<pid>`      | set `pid`'s RLIMIT_NOFILE soft limit to 123            |
 //! | `renice:<pid>`       | `setpriority(PRIO_PROCESS, pid, 5)`                    |
 //! | `keyring:<desc>`     | search the session keyring for user key `desc`, read it |
+//! | `caps`               | ok("eff=.. prm=.. inh=.. bnd=N amb=N") (sets in hex, counts) |
+//! | `raw`                | `socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)`              |
 //! | `thread`             | spawn and join a thread; ok("joined")                  |
 //! | `sleep:<ms>`         | sleep, then ok("slept")                                |
 //! | `big:<n>`            | announce an ok frame of n bytes, then stream zeros     |
@@ -125,6 +127,17 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
             Ok(b"reniced".to_vec())
         }
         "keyring" => keyring_read(arg),
+        "caps" => caps(),
+        "raw" => {
+            // SAFETY: integer-only libc call.
+            let fd = unsafe { libc::socket(libc::AF_INET, libc::SOCK_RAW, libc::IPPROTO_ICMP) };
+            if fd < 0 {
+                return Err(errno_msg(&io::Error::last_os_error()));
+            }
+            // SAFETY: closing the descriptor just created.
+            unsafe { libc::close(fd) };
+            Ok(b"raw".to_vec())
+        }
         "thread" => std::thread::Builder::new()
             .spawn(|| 42)
             .map_err(|e| errno_msg(&e))?
@@ -234,6 +247,67 @@ fn keyring_read(desc: &str) -> Result<Vec<u8>, String> {
 
 #[cfg(not(target_os = "linux"))]
 fn keyring_read(_desc: &str) -> Result<Vec<u8>, String> {
+    Err("unsupported".into())
+}
+
+/// The capability sets of this process: effective/permitted/inheritable (hex
+/// bitmasks from `capget`), and how many capabilities remain in the bounding
+/// and ambient sets.
+#[cfg(target_os = "linux")]
+fn caps() -> Result<Vec<u8>, String> {
+    #[repr(C)]
+    struct Header {
+        version: u32,
+        pid: libc::c_int,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy, Default)]
+    struct Data {
+        effective: u32,
+        permitted: u32,
+        inheritable: u32,
+    }
+    let mut hdr = Header {
+        version: 0x2008_0522, // _LINUX_CAPABILITY_VERSION_3
+        pid: 0,
+    };
+    let mut data = [Data::default(); 2];
+    // SAFETY: valid header and a two-element data array (version 3).
+    if unsafe { libc::syscall(libc::SYS_capget, &mut hdr, data.as_mut_ptr()) } != 0 {
+        return Err(errno_msg(&io::Error::last_os_error()));
+    }
+    let wide = |f: fn(&Data) -> u32| (u64::from(f(&data[1])) << 32) | u64::from(f(&data[0]));
+    let count = |op: libc::c_int, sub: libc::c_ulong| {
+        (0..64u64)
+            .filter(|c| {
+                // SAFETY: integer-only prctl.
+                let r = unsafe {
+                    if op == libc::PR_CAPBSET_READ {
+                        libc::prctl(op, *c as libc::c_ulong, 0, 0, 0)
+                    } else {
+                        libc::prctl(op, sub, *c as libc::c_ulong, 0, 0)
+                    }
+                };
+                r == 1
+            })
+            .count()
+    };
+    Ok(format!(
+        "eff={:x} prm={:x} inh={:x} bnd={} amb={}",
+        wide(|d| d.effective),
+        wide(|d| d.permitted),
+        wide(|d| d.inheritable),
+        count(libc::PR_CAPBSET_READ, 0),
+        count(
+            libc::PR_CAP_AMBIENT,
+            libc::PR_CAP_AMBIENT_IS_SET as libc::c_ulong
+        ),
+    )
+    .into_bytes())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn caps() -> Result<Vec<u8>, String> {
     Err("unsupported".into())
 }
 

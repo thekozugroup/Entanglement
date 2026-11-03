@@ -20,6 +20,10 @@ struct ChildSetup {
     limits: ResourceLimits,
     #[cfg(target_os = "linux")]
     no_new_privs: bool,
+    /// Drop every capability (not for bubblewrap, which may be setuid root
+    /// and drops them itself with `--cap-drop ALL`).
+    #[cfg(target_os = "linux")]
+    drop_caps: bool,
     #[cfg(target_os = "linux")]
     userns: Option<crate::linux::userns::IdMaps>,
     #[cfg(target_os = "linux")]
@@ -144,6 +148,11 @@ impl ChildSetup {
             if let Some(maps) = &self.userns {
                 // SAFETY: we are the single-threaded forked child.
                 unsafe { crate::linux::userns::enter(maps)? };
+            }
+            if self.drop_caps {
+                // SAFETY: forked child, before exec; after the namespace
+                // entry, whose map writes need no capability.
+                unsafe { crate::linux::caps::drop_all()? };
             }
             if self.no_new_privs {
                 // SAFETY: integer-only prctl.
@@ -271,6 +280,10 @@ fn build_setup(profile: &SandboxProfile, plan: &Plan) -> Result<ChildSetup, Sand
     Ok(ChildSetup {
         limits: profile.limits.clone(),
         no_new_privs: plan.no_new_privs,
+        drop_caps: matches!(
+            plan.mechanism,
+            Mechanism::Landlock { .. } | Mechanism::Unsandboxed
+        ),
         userns: plan.net_namespace.then(userns::IdMaps::identity),
         landlock,
         seccomp,
