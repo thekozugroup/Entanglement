@@ -20,7 +20,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -95,6 +95,48 @@ impl FromStr for AclMode {
     }
 }
 
+/// Which remote addresses the transport talks to.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+pub enum AddressPolicy {
+    /// Only Tailscale addresses ([`is_tailnet_ip`]): inbound connections from
+    /// anywhere else are closed before a byte is read or written, and
+    /// discovery never dials anything else. This keeps the listener a
+    /// tailnet-only service even when it is bound to all interfaces, so
+    /// Tailscale ACLs (and WireGuard) really are on the path, which is what
+    /// `acl-mode = "trust-tailnet"` relies on.
+    #[default]
+    TailnetOnly,
+    /// Any address. For tests on loopback and for deployments that put
+    /// their own gate in front of the port.
+    Any,
+}
+
+impl AddressPolicy {
+    /// Whether `ip` may be talked to under this policy.
+    pub fn permits(self, ip: IpAddr) -> bool {
+        match self {
+            Self::TailnetOnly => is_tailnet_ip(ip),
+            Self::Any => true,
+        }
+    }
+}
+
+/// `true` for addresses Tailscale assigns to tailnet nodes:
+/// `100.64.0.0/10` (CGNAT range) and `fd7a:115c:a1e0::/48`. IPv4-mapped IPv6
+/// forms of the former count too.
+pub fn is_tailnet_ip(ip: IpAddr) -> bool {
+    match ip.to_canonical() {
+        IpAddr::V4(v4) => {
+            let o = v4.octets();
+            o[0] == 100 && (o[1] & 0xC0) == 64
+        }
+        IpAddr::V6(v6) => {
+            const PREFIX: Ipv6Addr = Ipv6Addr::new(0xfd7a, 0x115c, 0xa1e0, 0, 0, 0, 0, 0);
+            v6.segments()[..3] == PREFIX.segments()[..3]
+        }
+    }
+}
+
 /// Configuration for the `mesh.tailscale` transport.
 #[derive(Clone, Debug)]
 pub struct MeshTailscaleConfig {
@@ -106,10 +148,13 @@ pub struct MeshTailscaleConfig {
     pub allowlist: Option<Arc<dyn PeerAllowlist>>,
     /// TCP port to listen on (and to probe on peers). `0` = ephemeral.
     pub port: u16,
-    /// Local address to bind. Defaults to all interfaces; the handshake and
-    /// allowlist protect the port either way, but binding the node's tailnet
-    /// IP narrows exposure.
+    /// Local address to bind. Defaults to all interfaces (the tailnet IP may
+    /// not exist yet when the daemon starts); [`AddressPolicy::TailnetOnly`]
+    /// still turns away every non-tailnet source. Binding the node's tailnet
+    /// IP narrows exposure further.
     pub bind_ip: IpAddr,
+    /// Which remote addresses are accepted inbound and dialled by discovery.
+    pub address_policy: AddressPolicy,
     /// Largest frame accepted or sent (clamped to [`MAX_FRAME_BYTES`]).
     pub max_frame_bytes: usize,
     /// TCP connect timeout.
@@ -132,6 +177,7 @@ impl Default for MeshTailscaleConfig {
             allowlist: None,
             port: DEFAULT_PORT,
             bind_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            address_policy: AddressPolicy::default(),
             max_frame_bytes: 16 * 1024 * 1024,
             connect_timeout: Duration::from_secs(5),
             handshake_timeout: Duration::from_secs(5),
@@ -232,6 +278,35 @@ mod tests {
             ..MeshTailscaleConfig::default()
         };
         assert_eq!(c.resolve_cli(), "/opt/tailscale/bin/tailscale");
+    }
+
+    #[test]
+    fn tailnet_ranges() {
+        for ip in [
+            "100.64.0.1",
+            "100.100.100.100",
+            "100.127.255.254",
+            "fd7a:115c:a1e0::1",
+            "fd7a:115c:a1e0:ab12::42",
+            "::ffff:100.101.102.103",
+        ] {
+            assert!(is_tailnet_ip(ip.parse().unwrap()), "{ip}");
+        }
+        for ip in [
+            "127.0.0.1",
+            "100.63.255.255",
+            "100.128.0.0",
+            "192.168.1.20",
+            "10.0.0.1",
+            "0.0.0.0",
+            "::1",
+            "fd7a:115c:a1e1::1",
+            "::ffff:192.168.1.20",
+        ] {
+            assert!(!is_tailnet_ip(ip.parse().unwrap()), "{ip}");
+        }
+        assert!(!AddressPolicy::default().permits("127.0.0.1".parse().unwrap()));
+        assert!(AddressPolicy::Any.permits("127.0.0.1".parse().unwrap()));
     }
 
     #[test]

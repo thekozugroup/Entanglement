@@ -89,7 +89,8 @@ impl MeshTailscale {
     /// The listener binds `config.bind_ip:config.port` (port `0` = ephemeral).
     /// It is *not* gated on the tailnet being up: liveness is reported
     /// separately (see [`crate::spawn_liveness`]) and the broker decides
-    /// whether to route over this transport.
+    /// whether to route over this transport. Connections from sources that
+    /// `config.address_policy` does not permit are closed unread.
     pub async fn start(
         identity: &IdentityKeyPair,
         config: MeshTailscaleConfig,
@@ -369,6 +370,10 @@ async fn accept_loop(
                 continue;
             }
         };
+        if !config.address_policy.permits(from.ip()) {
+            debug!(%from, "mesh.tailscale: source is not a tailnet address, closing");
+            continue;
+        }
         let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else {
             debug!(%from, "mesh.tailscale: too many pending handshakes, dropping");
             continue;

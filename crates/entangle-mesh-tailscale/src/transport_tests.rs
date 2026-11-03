@@ -29,6 +29,8 @@ fn cfg(mode: AclMode, allow: Option<Arc<dyn PeerAllowlist>>) -> MeshTailscaleCon
         allowlist: allow,
         port: 0,
         bind_ip: LO,
+        // Loopback is not a tailnet address.
+        address_policy: AddressPolicy::Any,
         handshake_timeout: Duration::from_millis(400),
         connect_timeout: Duration::from_secs(2),
         request_timeout: Duration::from_secs(5),
@@ -786,4 +788,49 @@ async fn a_small_order_server_key_cannot_authenticate() {
     let err = a.probe(addr).await.unwrap_err();
     assert_eq!(err.code(), "ENTANGLE-E0644");
     assert!(err.to_string().contains("weak"), "{err}");
+}
+
+// ------------------------------------------------------- source addresses --
+
+#[tokio::test]
+async fn by_default_only_tailnet_source_addresses_reach_the_handshake() {
+    // Default policy, bound on loopback: 127.0.0.1 is not a tailnet address.
+    let b = MeshTailscale::start(
+        &IdentityKeyPair::generate(),
+        MeshTailscaleConfig {
+            acl_mode: AclMode::TrustTailnet,
+            bind_ip: LO,
+            port: 0,
+            ..MeshTailscaleConfig::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    // The server hangs up before saying anything (no server hello, so it
+    // does not even reveal its PeerId to a non-tailnet host) ...
+    let mut s = TcpStream::connect(b.local_addr()).await.unwrap();
+    let eph = Ephemeral::generate().unwrap();
+    let kp = IdentityKeyPair::generate();
+    let hello = [
+        &MAGIC[..],
+        &[VERSION],
+        kp.public().as_bytes(),
+        &[7u8; 32],
+        &eph.public(),
+    ]
+    .concat();
+    let _ = s.write_all(&hello).await;
+    let mut buf = [0u8; 1];
+    let r = timeout(Duration::from_secs(2), s.read(&mut buf)).await;
+    assert!(
+        matches!(r, Ok(Ok(0)) | Ok(Err(_))),
+        "a non-tailnet source must get no server hello: {r:?}"
+    );
+
+    // ... and an honest client from a non-tailnet address is not admitted,
+    // even though trust-tailnet would admit any authenticated key.
+    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    assert!(a.connect(&peer_of(&b)).await.is_err());
+    assert_no_conn(&b).await;
 }

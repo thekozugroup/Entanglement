@@ -102,6 +102,7 @@ pub struct MeshConfig {
 /// port = 41643
 /// acl-mode = "entangle-on-top"   # or "trust-tailnet"
 /// tailscale-cli = ""             # empty = look up `tailscale` on $PATH
+/// # bind-ip = "100.101.102.103"  # omitted = all interfaces
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
@@ -114,6 +115,11 @@ pub struct TailscaleSection {
     pub acl_mode: String,
     /// Path to the `tailscale` CLI; empty = `$PATH`.
     pub tailscale_cli: String,
+    /// Local address for the listener (e.g. this node's tailnet IP). Omitted
+    /// = all interfaces. Either way only tailnet source addresses
+    /// (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) are served.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bind_ip: Option<std::net::IpAddr>,
 }
 
 impl Default for TailscaleSection {
@@ -123,6 +129,7 @@ impl Default for TailscaleSection {
             port: entangle_mesh_tailscale::DEFAULT_PORT,
             acl_mode: "entangle-on-top".to_owned(),
             tailscale_cli: String::new(),
+            bind_ip: None,
         }
     }
 }
@@ -292,6 +299,25 @@ max_tier_allowed = 2
         assert_eq!(cfg.mesh.tailscale.port, 9);
         assert_eq!(cfg.mesh.tailscale.tailscale_cli, "/x/ts");
         assert!(toml::from_str::<Config>("[mesh.tailscale]\nbogus=1\n").is_err());
+    }
+
+    #[test]
+    fn tailscale_bind_ip_is_configurable_and_validated() {
+        let cfg: Config =
+            toml::from_str("[mesh.tailscale]\nbind-ip = \"100.101.102.103\"\n").unwrap();
+        let built =
+            crate::tailscale::build_config(&cfg.mesh, entangle_peers::PeerStore::new()).unwrap();
+        assert_eq!(
+            built.bind_ip,
+            "100.101.102.103".parse::<std::net::IpAddr>().unwrap()
+        );
+        // Not an address: refused when the file is loaded, not at runtime.
+        assert!(toml::from_str::<Config>("[mesh.tailscale]\nbind-ip = \"tailnet\"\n").is_err());
+        // Omitted: all interfaces (inbound sources are still filtered).
+        let cfg: Config = toml::from_str("").unwrap();
+        let built =
+            crate::tailscale::build_config(&cfg.mesh, entangle_peers::PeerStore::new()).unwrap();
+        assert!(built.bind_ip.is_unspecified());
     }
 
     #[test]

@@ -79,12 +79,14 @@ pub fn build_config(mesh: &MeshConfig, store: PeerStore) -> anyhow::Result<MeshT
         .acl_mode
         .parse()
         .map_err(|e: String| anyhow::anyhow!("[mesh.tailscale] {e}"))?;
+    let defaults = MeshTailscaleConfig::default();
     Ok(MeshTailscaleConfig {
         tailscale_cli: mesh.tailscale.tailscale_cli.clone(),
         acl_mode,
         allowlist: Some(Arc::new(StoreAllowlist(store))),
         port: mesh.tailscale.port,
-        ..MeshTailscaleConfig::default()
+        bind_ip: mesh.tailscale.bind_ip.unwrap_or(defaults.bind_ip),
+        ..defaults
     })
 }
 
