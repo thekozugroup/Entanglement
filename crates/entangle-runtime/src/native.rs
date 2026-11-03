@@ -395,6 +395,9 @@ impl NativePlugin {
             },
             grants,
         )?;
+        // A profile the sandbox would refuse at spawn (a relative path, a NUL)
+        // refuses the load instead of every later invocation.
+        probe_profile.validate()?;
         let plan = entangle_sandbox::plan(
             &probe_profile,
             entangle_sandbox::probe(),
@@ -403,10 +406,14 @@ impl NativePlugin {
             },
         )?;
 
-        let root = config
-            .staging_dir
-            .clone()
-            .unwrap_or_else(std::env::temp_dir);
+        // Absolute, so the staged binary's path is too (a relative staging
+        // root would make every spawn fail with ENTANGLE-E0704).
+        let root = resolve_trusted(
+            &config
+                .staging_dir
+                .clone()
+                .unwrap_or_else(std::env::temp_dir),
+        );
         let (staging, binary) =
             stage(&root, &plugin_id.name, bytes).map_err(NativeError::Staging)?;
 
@@ -420,6 +427,7 @@ impl NativePlugin {
             },
             grants,
         )?;
+        profile.validate()?;
         for d in dirs {
             create_private_dir(&d).map_err(|source| NativeError::StorageScope {
                 path: d.clone(),
@@ -488,10 +496,15 @@ impl NativePlugin {
 /// rest appended, so a data directory that does not exist yet still loses
 /// the OS symlinks above it (`/home` → `var/home`).
 ///
+/// A relative `p` is first made absolute against the working directory, so
+/// the result is always absolute (the sandbox refuses relative paths).
+///
 /// Scopes derived from these roots are then granted without following any
 /// link (`entangle-sandbox` refuses one), so a link a plugin plants *below*
 /// a root can never redirect another plugin's grant.
 fn resolve_trusted(p: &Path) -> PathBuf {
+    let absolute = std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
+    let p = absolute.as_path();
     let mut existing = p;
     let mut rest: Vec<&std::ffi::OsStr> = Vec::new();
     loop {
@@ -744,6 +757,10 @@ mod tests {
             resolve_trusted(&link_home.join("pkg")),
             canonical.join("pkg")
         );
+        // A relative root comes back absolute even when none of it exists.
+        let rel = resolve_trusted(Path::new("no-such-entangle-dir/data"));
+        assert!(rel.is_absolute(), "{}", rel.display());
+        assert!(rel.ends_with("no-such-entangle-dir/data"));
 
         let id = pid();
         let config = NativeConfig {

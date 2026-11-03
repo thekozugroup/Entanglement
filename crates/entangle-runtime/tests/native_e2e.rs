@@ -334,3 +334,61 @@ async fn a_share_name_outside_the_shares_directory_is_refused_at_load() {
         assert!(!e.data.exists(), "{label}: no storage scope created");
     }
 }
+
+/// `p` (absolute) spelled relative to the current working directory, e.g.
+/// `../../../../tmp/.tmpXYZ/pkg`, without changing the process-wide cwd.
+fn relative_to_cwd(p: &Path) -> PathBuf {
+    let cwd = std::fs::canonicalize(std::env::current_dir().unwrap()).unwrap();
+    let mut rel = PathBuf::new();
+    for _ in cwd.components().skip(1) {
+        rel.push("..");
+    }
+    rel.join(p.strip_prefix("/").unwrap())
+}
+
+/// A package directory, data directory or staging root given relative to
+/// the daemon's working directory (`entangle plugins load h/.entangle/...`,
+/// a relative `$HOME`) must yield a plugin that runs — not one that loads,
+/// is listed and holds its grants, then fails every invocation with
+/// `ENTANGLE-E0704: path ... is not absolute`.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plugin_loaded_through_relative_paths_invokes() {
+    let kp = IdentityKeyPair::generate();
+    let e = env();
+    let bin = std::fs::read(native_echo_binary()).unwrap();
+    write_package(&e.pkg, &kp, &bin, "plugin.bin", 5, "native", STORAGE);
+    let root = std::fs::canonicalize(e._tmp.path()).unwrap();
+    let k = Kernel::new(
+        KernelConfig {
+            native: NativeConfig {
+                data_dir: Some(relative_to_cwd(&root.join("data"))),
+                staging_dir: Some(relative_to_cwd(&root.join("staging"))),
+                ..NativeConfig::default()
+            },
+            ..KernelConfig::default()
+        },
+        keyring_for(&kp),
+    )
+    .unwrap();
+    let rel_pkg = relative_to_cwd(&root.join("pkg"));
+    assert!(
+        rel_pkg.is_relative() && rel_pkg.is_dir(),
+        "{}",
+        rel_pkg.display()
+    );
+
+    let id = k.load_plugin_from_dir(&rel_pkg).await.expect("load");
+    let out = k
+        .invoke(&id, b"relative", 10_000)
+        .await
+        .expect("a plugin that loaded must also run");
+    assert_eq!(out, b"relative");
+    // Its scope landed where the absolute configuration would put it.
+    let own = e
+        .data
+        .join("plugins")
+        .join(kp.fingerprint_hex())
+        .join("native-echo");
+    assert_eq!(std::fs::read_to_string(own.join("requests")).unwrap(), "1");
+    k.unload(&id).await.unwrap();
+}
