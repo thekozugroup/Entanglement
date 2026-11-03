@@ -12,6 +12,7 @@ use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::task::JoinSet;
 use tokio::time::timeout;
 
 use crate::framing::{read_frame, write_frame, write_sealed};
@@ -1112,4 +1113,171 @@ async fn discovery_bounds_concurrent_probes() {
         peak <= 16,
         "a discovery round must not open a socket to every node at once (peak {peak})"
     );
+}
+
+// ------------------------------------------------------- coverage (review) --
+
+#[tokio::test]
+async fn frames_larger_than_one_read_chunk_and_exactly_at_the_cap_round_trip() {
+    use crate::framing::READ_CHUNK_BYTES;
+    // Raw framing: a body spanning several chunks plus a partial one.
+    let body: Vec<u8> = (0..3 * READ_CHUNK_BYTES + 5)
+        .map(|i| (i % 251) as u8)
+        .collect();
+    let (mut tx, mut rx) = tokio::io::duplex(1 << 20);
+    let (w, r) = tokio::join!(
+        write_frame(&mut tx, &body, body.len()),
+        read_frame(&mut rx, body.len())
+    );
+    w.unwrap();
+    assert_eq!(r.unwrap(), body);
+
+    // Over a sealed connection, at exactly the cap and one byte over it.
+    let cap = 2 * READ_CHUNK_BYTES + 7;
+    let mut c = cfg(AclMode::TrustTailnet, None);
+    c.max_frame_bytes = cap;
+    let b = MeshTailscale::start(&IdentityKeyPair::generate(), c.clone())
+        .await
+        .unwrap();
+    let b2 = b.clone();
+    tokio::spawn(async move { b2.serve(Arc::new(Echo(AtomicUsize::new(0)))).await });
+    let a = MeshTailscale::start(&IdentityKeyPair::generate(), c)
+        .await
+        .unwrap();
+    let mut conn = a.connect(&peer_of(&b)).await.unwrap();
+    let at_cap: Vec<u8> = (0..cap).map(|i| (i % 253) as u8).collect();
+    let mut expected = at_cap.clone();
+    expected.reverse();
+    assert_eq!(conn.request(&at_cap).await.unwrap(), expected);
+    let mut conn = a.connect(&peer_of(&b)).await.unwrap();
+    let err = conn.request(&vec![0u8; cap + 1]).await.unwrap_err();
+    assert!(
+        matches!(err, MeshTailscaleError::FrameTooLarge { declared, max } if declared == cap as u64 + 1 && max == cap),
+        "{err}"
+    );
+}
+
+#[tokio::test]
+async fn the_client_enforces_its_cap_on_responses_too() {
+    // Server allows 1 MiB, client only 1 KiB; the server answers 2000 bytes.
+    let mut sc = cfg(AclMode::TrustTailnet, None);
+    sc.max_frame_bytes = 1 << 20;
+    let b = MeshTailscale::start(&IdentityKeyPair::generate(), sc)
+        .await
+        .unwrap();
+    struct Big;
+    #[async_trait::async_trait]
+    impl RequestHandler for Big {
+        async fn handle(&self, _: PeerId, _: Vec<u8>) -> Vec<u8> {
+            vec![7u8; 2000]
+        }
+    }
+    let b2 = b.clone();
+    tokio::spawn(async move { b2.serve(Arc::new(Big)).await });
+    let mut ac = cfg(AclMode::TrustTailnet, None);
+    ac.max_frame_bytes = 1024;
+    let a = MeshTailscale::start(&IdentityKeyPair::generate(), ac)
+        .await
+        .unwrap();
+    let err = a.request(&peer_of(&b), b"hi").await.unwrap_err();
+    assert!(
+        matches!(
+            err,
+            MeshTailscaleError::FrameTooLarge {
+                declared: 2000,
+                max: 1024
+            }
+        ),
+        "{err}"
+    );
+}
+
+#[tokio::test]
+async fn an_idle_inbound_connection_ends_after_idle_timeout() {
+    let mut sc = cfg(AclMode::TrustTailnet, None);
+    sc.idle_timeout = Duration::from_millis(300);
+    let b = MeshTailscale::start(&IdentityKeyPair::generate(), sc)
+        .await
+        .unwrap();
+    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    let target = peer_of(&b);
+    let (client, server) = tokio::join!(a.connect(&target), b.accept());
+    let _client = client.unwrap(); // stays open, sends nothing
+    let mut server = server.unwrap();
+    let started = std::time::Instant::now();
+    let r = timeout(Duration::from_secs(5), server.accept_request())
+        .await
+        .expect("accept_request must give up after idle_timeout");
+    assert!(r.unwrap().is_none());
+    assert!(started.elapsed() >= Duration::from_millis(250));
+}
+
+#[tokio::test]
+async fn a_server_that_stalls_after_part_of_its_hello_times_out_client_side() {
+    let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = l.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut s, _) = l.accept().await.unwrap();
+        let mut h = [0u8; CLIENT_HELLO_LEN];
+        s.read_exact(&mut h).await.unwrap();
+        s.write_all(&[0u8; SERVER_HELLO_LEN / 2]).await.unwrap();
+        tokio::time::sleep(Duration::from_secs(10)).await;
+    });
+    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    let started = std::time::Instant::now();
+    let err = a.probe(addr).await.unwrap_err();
+    assert!(err.to_string().contains("timed out"), "{err}");
+    assert!(started.elapsed() < Duration::from_secs(3));
+}
+
+#[tokio::test]
+async fn a_client_that_stalls_after_a_valid_hello_times_out_server_side() {
+    let (b, _) = node(AclMode::TrustTailnet, None).await;
+    let kp = IdentityKeyPair::generate();
+    let mut s = TcpStream::connect(b.local_addr()).await.unwrap();
+    raw_hello(&mut s, kp.public().as_bytes()).await;
+    // No client signature: the server must give up after its 400 ms.
+    expect_closed_without_admission(&mut s).await;
+    assert_no_conn(&b).await;
+}
+
+#[tokio::test]
+async fn binding_a_port_in_use_is_a_bind_error() {
+    let (b, _) = node(AclMode::TrustTailnet, None).await;
+    let mut c = cfg(AclMode::TrustTailnet, None);
+    c.port = b.local_addr().port();
+    let err = MeshTailscale::start(&IdentityKeyPair::generate(), c)
+        .await
+        .unwrap_err();
+    assert_eq!(err.code(), "ENTANGLE-E0642");
+}
+
+#[tokio::test]
+async fn concurrent_inbound_connections_are_served_independently() {
+    let (b, _) = node(AclMode::TrustTailnet, None).await;
+    let handler = Arc::new(Echo(AtomicUsize::new(0)));
+    let (b2, h2) = (b.clone(), Arc::clone(&handler));
+    tokio::spawn(async move { b2.serve(h2).await });
+    let target = peer_of(&b);
+    // One connection that stays open and idle must not hold up the others.
+    let (idle_client, _) = node(AclMode::TrustTailnet, None).await;
+    let _idle = idle_client.connect(&target).await.unwrap();
+    let mut tasks = JoinSet::new();
+    for i in 0u8..8 {
+        let target = target.clone();
+        tasks.spawn(async move {
+            let (a, _) = node(AclMode::TrustTailnet, None).await;
+            let mut conn = a.connect(&target).await.unwrap();
+            let msg = [i, 1, 2];
+            assert_eq!(conn.request(&msg).await.unwrap(), [2, 1, i]);
+        });
+    }
+    timeout(Duration::from_secs(5), async {
+        while let Some(r) = tasks.join_next().await {
+            r.unwrap();
+        }
+    })
+    .await
+    .expect("all eight served while another connection idles");
+    assert_eq!(handler.0.load(Ordering::SeqCst), 8);
 }

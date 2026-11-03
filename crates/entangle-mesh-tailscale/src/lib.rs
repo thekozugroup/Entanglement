@@ -268,6 +268,14 @@ mod tests {
     }
 
     #[test]
+    fn default_listener_binds_all_interfaces_but_serves_only_tailnet_sources() {
+        let c = MeshTailscaleConfig::default();
+        assert!(c.bind_ip.is_unspecified());
+        assert_eq!(c.port, DEFAULT_PORT);
+        assert_eq!(c.address_policy, AddressPolicy::TailnetOnly);
+    }
+
+    #[test]
     fn acl_mode_parses_both_spellings() {
         assert_eq!("entangle-on-top".parse(), Ok(AclMode::EntangleOnTop));
         assert_eq!("trust-tailnet".parse(), Ok(AclMode::TrustTailnet));

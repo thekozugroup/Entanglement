@@ -503,6 +503,52 @@ esac
         assert_eq!(last.transitions, 3);
         handle.shutdown();
     }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn a_hanging_cli_is_timed_out_and_killed() {
+        let _g = SPAWN.lock().await;
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("tailscale");
+        let pidfile = dir.path().join("pid");
+        let body = format!(
+            "#!/bin/sh\ncase \"$1\" in\n  status) echo $$ > {}; exec sleep 30 ;;\n  version) echo 1.76.0 ;;\nesac\n",
+            pidfile.display()
+        );
+        {
+            // Written and closed before the first spawn (ETXTBSY otherwise).
+            let mut f = std::fs::File::create(&script).unwrap();
+            f.write_all(body.as_bytes()).unwrap();
+            f.sync_all().unwrap();
+        }
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let src = CliStatusSource::new(script.display().to_string())
+            .with_timeout(Duration::from_millis(300));
+        let started = std::time::Instant::now();
+        let o = src.observe().await;
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "{:?}",
+            started.elapsed()
+        );
+        let reason = o.state.reason().expect("stopped").to_owned();
+        assert!(reason.contains("timed out"), "{reason}");
+        // kill_on_drop: the hung `status` child does not outlive the poll.
+        let pid = std::fs::read_to_string(&pidfile).unwrap();
+        let proc_dir = std::path::PathBuf::from(format!("/proc/{}", pid.trim()));
+        let mut gone = false;
+        for _ in 0..40 {
+            let zombie_or_gone = std::fs::read_to_string(proc_dir.join("stat"))
+                .map(|s| s.split_whitespace().nth(2) == Some("Z"))
+                .unwrap_or(true);
+            if zombie_or_gone {
+                gone = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        assert!(gone, "the timed-out CLI process {pid} is still running");
+    }
 }
 
 // ------------------------------------------------------- uninstalled rule --
