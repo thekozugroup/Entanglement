@@ -79,9 +79,6 @@ async fn run(_args: RunArgs) -> anyhow::Result<()> {
 
 #[cfg(unix)]
 async fn run(args: RunArgs) -> anyhow::Result<()> {
-    // ── 1. Tracing setup ──────────────────────────────────────────────────────
-    entangle_observability::init_default();
-
     let socket_path = match args.socket {
         Some(path) => path,
         None => config::default_socket_path().context("resolving default socket path")?,
@@ -90,6 +87,27 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let config_path = config_dir.join("config.toml");
     let keyring_path = config_dir.join("keyring.toml");
 
+    // ── 1. Config, then tracing ──────────────────────────────────────────────
+    // The config is read first because `[telemetry.otlp]` decides which
+    // layers the global subscriber gets.
+    let cfg = config::load_config(&config_path)
+        .with_context(|| format!("loading config from {}", config_path.display()))?;
+    let otel_cfg = cfg
+        .telemetry
+        .otel_config()
+        .context("[telemetry.otlp] is invalid")?;
+    let otel_exporter =
+        entangle_observability::init_with_otel("info,tokio=warn,wasmtime=warn", otel_cfg.as_ref())
+            .context("starting the OTLP trace exporter")?;
+    let registry = entangle_observability::Registry::new();
+    if let Some(exporter) = &otel_exporter {
+        exporter.attach_metrics(&registry);
+        tracing::info!(
+            endpoint = %cfg.telemetry.otlp.endpoint,
+            "exporting traces over OTLP/HTTP"
+        );
+    }
+
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),
         socket = %socket_path.display(),
@@ -97,10 +115,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         "entangled starting",
     );
 
-    // ── 2. Load config + keyring ──────────────────────────────────────────────
-    let cfg = config::load_config(&config_path)
-        .with_context(|| format!("loading config from {}", config_path.display()))?;
-
+    // ── 2. Load keyring ───────────────────────────────────────────────────────
     let keyring = if keyring_path.exists() {
         Keyring::load(&keyring_path)
             .with_context(|| format!("loading keyring from {}", keyring_path.display()))?
@@ -135,7 +150,11 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         multi_node: cfg.mesh.multi_node,
         bus_capacity: cfg.runtime.bus_capacity,
     };
-    let kernel = Arc::new(Kernel::new(kernel_cfg, keyring).context("initializing runtime kernel")?);
+    let kernel = Arc::new(
+        Kernel::new(kernel_cfg, keyring)
+            .context("initializing runtime kernel")?
+            .with_metrics(registry.clone()),
+    );
 
     // ── 3b. Worker pool + Dispatcher ─────────────────────────────────────────
     let worker_pool = WorkerPool::new();
@@ -159,10 +178,13 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         None
     };
 
-    let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id);
+    let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id)
+        .with_metrics(registry.clone());
+    let mut iroh_directory = None;
     if let Some(transport) = &scheduler_mesh {
         // Client half: this node may send work to configured, trusted peers.
         let directory = remote::directory_from_config(&cfg.scheduler, &peer_store, local_peer_id);
+        iroh_directory = Some(directory.clone());
         dispatcher = dispatcher.with_remote(Arc::new(RemoteDispatch::new(
             Arc::clone(transport) as Arc<dyn MeshTransport>,
             Arc::new(directory),
@@ -170,14 +192,33 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
 
         // Server half: trusted peers may run work here. The peer store is the
         // authorization gate — see `remote::PeerStoreAllowlist`.
-        remote::spawn_task_server(
+        remote::spawn_task_server_with_metrics(
             Arc::clone(transport),
             kernel.clone(),
             peer_store.clone(),
             local_peer_id,
+            Some(registry.clone()),
         );
     }
     let dispatcher = Arc::new(dispatcher);
+
+    // ── 3b'. Optional `mesh.tailscale` transport + liveness poller ────────────
+    // Started before the shared state so `diag/mesh` can see it.
+    let tailscale_rt = if entangle_bin::tailscale::enabled(&cfg.mesh) {
+        match entangle_bin::tailscale::start(&cfg.mesh, &identity, peer_store.clone()).await {
+            Ok(rt) => {
+                // The state gauge exists only while the transport does.
+                entangle_bin::tailscale::spawn_state_metrics(registry.clone(), rt.liveness.state());
+                Some(rt)
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "mesh.tailscale failed to start — transport disabled");
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     // ── 3c. Assemble shared DaemonState ──────────────────────────────────────
     let display_name = std::env::var("HOSTNAME")
@@ -190,7 +231,9 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         peer_store,
         identity,
         display_name,
-    );
+    )
+    .with_metrics(registry.clone());
+    daemon_state.register_collectors();
 
     // ── 3d. Spawn mDNS discovery (when `mesh.local` transport is configured) ─
     // The discovery handle is stored in DaemonState so RPC handlers can call
@@ -224,6 +267,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
                         daemon_state.worker_pool.clone(),
                         daemon_state.peer_store.clone(),
                         daemon_state.local_peer_id,
+                        registry.clone(),
                     );
                 }
             }
@@ -232,6 +276,25 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
             }
         }
     }
+
+    // ── 3e. Metrics endpoint (fails the start on a bad `[metrics]` section) ──
+    let metrics_server =
+        entangle_bin::metrics_server::MetricsServer::start(&cfg.metrics, registry.clone())
+            .await
+            .context("starting the metrics endpoint")?;
+
+    daemon_state = daemon_state.with_diag(entangle_bin::state::MeshDiagSources {
+        configured_transports: cfg.mesh.transports.clone(),
+        iroh: scheduler_mesh.clone(),
+        iroh_directory,
+        tailscale: tailscale_rt
+            .as_ref()
+            .map(|rt| entangle_bin::state::TailscaleDiag {
+                transport: rt.transport.clone(),
+                liveness: rt.liveness.state(),
+            }),
+        metrics_listen: metrics_server.as_ref().map(|m| m.local_addr()),
+    });
 
     let state = Arc::new(daemon_state);
 
@@ -257,21 +320,6 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         }
     });
 
-    // ── 6b. Optional `mesh.tailscale` transport + liveness poller ─────────────
-    let tailscale_rt = if entangle_bin::tailscale::enabled(&cfg.mesh) {
-        match entangle_bin::tailscale::start(&cfg.mesh, &state.identity, state.peer_store.clone())
-            .await
-        {
-            Ok(rt) => Some(rt),
-            Err(e) => {
-                tracing::error!(error = %e, "mesh.tailscale failed to start — transport disabled");
-                None
-            }
-        }
-    } else {
-        None
-    };
-
     // ── 7. Block on shutdown signal ───────────────────────────────────────────
     wait_for_shutdown().await;
 
@@ -295,6 +343,9 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     if let Some(rt) = &tailscale_rt {
         rt.shutdown().await;
     }
+    if let Some(server) = metrics_server {
+        server.shutdown().await;
+    }
 
     // Unregister from mDNS (sends a goodbye) and stop the browse task so
     // peers drop us promptly instead of waiting for their TTL to expire.
@@ -308,6 +359,10 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let _ = std::fs::remove_file(&socket_path);
 
     tracing::info!("entangled stopped");
+    // Last: deliver the final span batch (bounded by the exporter's timeouts).
+    if let Some(exporter) = otel_exporter {
+        exporter.shutdown();
+    }
     Ok(())
 }
 
@@ -373,6 +428,7 @@ fn spawn_discovery_feeder(
     pool: WorkerPool,
     peer_store: PeerStore,
     local_peer: PeerId,
+    registry: entangle_observability::Registry,
 ) {
     let mut sub = discovery.subscribe();
     tokio::spawn(async move {
@@ -380,7 +436,10 @@ fn spawn_discovery_feeder(
 
         loop {
             match sub.recv().await {
-                Ok(evt) => apply_discovery_event(evt, &pool, &peer_store, local_peer),
+                Ok(evt) => {
+                    apply_discovery_event(evt, &pool, &peer_store, local_peer);
+                    record_sightings(&discovery, &registry).await;
+                }
                 Err(RecvError::Lagged(skipped)) => {
                     tracing::warn!(
                         skipped,
@@ -388,12 +447,23 @@ fn spawn_discovery_feeder(
                     );
                     let snapshot = discovery.snapshot_peers().await;
                     resync_pool_from_snapshot(&snapshot, &pool, &peer_store, local_peer);
+                    record_sightings(&discovery, &registry).await;
                 }
                 Err(RecvError::Closed) => break,
             }
         }
         tracing::debug!("discovery feeder stopped (event channel closed)");
     });
+}
+
+/// Publish the current number of mDNS sightings (trusted or not).
+async fn record_sightings(discovery: &Discovery, registry: &entangle_observability::Registry) {
+    registry.set_gauge(
+        entangle_observability::catalog::names::MESH_PEERS,
+        "Mesh peers by state (trusted and revoked come from the peer store, sighted from mDNS)",
+        &[("state", "sighted")],
+        discovery.snapshot_peers().await.len() as f64,
+    );
 }
 
 /// Apply a single discovery event to the worker pool (trust-gated).

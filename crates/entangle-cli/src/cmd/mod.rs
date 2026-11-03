@@ -3,6 +3,7 @@
 pub mod agent;
 pub mod catalog;
 pub mod compute;
+pub mod diag;
 pub mod doctor;
 pub mod init;
 pub mod keyring;

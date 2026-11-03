@@ -124,12 +124,28 @@ pub fn spawn_task_server(
     store: PeerStore,
     local_peer_id: PeerId,
 ) -> tokio::task::JoinHandle<()> {
+    spawn_task_server_with_metrics(transport, kernel, store, local_peer_id, None)
+}
+
+/// [`spawn_task_server`] that also counts every answered frame into
+/// `metrics` (`entangle_remote_serve_total`).
+pub fn spawn_task_server_with_metrics(
+    transport: Arc<MeshIroh>,
+    kernel: Arc<Kernel>,
+    store: PeerStore,
+    local_peer_id: PeerId,
+    metrics: Option<entangle_observability::Registry>,
+) -> tokio::task::JoinHandle<()> {
     let allowlist = Arc::new(PeerStoreAllowlist::new(store));
     tracing::info!(
         trusted_peers = ?allowlist,
         "serving scheduler tasks for trusted peers",
     );
-    let server = Arc::new(RemoteTaskServer::new(kernel, allowlist, local_peer_id));
+    let mut server = RemoteTaskServer::new(kernel, allowlist, local_peer_id);
+    if let Some(registry) = metrics {
+        server = server.with_metrics(registry);
+    }
+    let server = Arc::new(server);
     tokio::spawn(entangle_scheduler::serve_tasks(transport, server))
 }
 

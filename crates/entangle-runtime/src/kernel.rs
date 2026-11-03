@@ -9,13 +9,16 @@ use entangle_broker::{Broker, BrokerPolicy};
 use entangle_host::{HostEngine, LoadedPlugin};
 use entangle_ipc::{Bus, Envelope, Topic};
 use entangle_manifest::{loader::LoadError, validate::validate, ValidatedManifest};
+use entangle_observability::catalog::{self, names, PluginLabels};
+use entangle_observability::Registry;
 use entangle_signing::{verify_artifact, Keyring, SignatureBundle, VerificationError};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
+use tracing::Instrument as _;
 
 /// The topic every [`LifecycleEvent`] is published on.
 const LIFECYCLE_TOPIC: &str = "runtime.plugin.lifecycle";
@@ -49,6 +52,15 @@ struct LoadedRecord {
     plugin: LoadedPlugin,
 }
 
+/// The kernel's metric state (see [`Kernel::with_metrics`]).
+struct KernelMetrics {
+    registry: Registry,
+    /// Bounds the `plugin` label (see [`PluginLabels`]).
+    labels: PluginLabels,
+    /// Load time of every loaded plugin, read by the scrape-time collector.
+    loaded_at: Arc<Mutex<HashMap<String, Instant>>>,
+}
+
 // ── Kernel ───────────────────────────────────────────────────────────────────
 
 /// Top-level runtime kernel.
@@ -67,6 +79,8 @@ pub struct Kernel {
     /// The single topic every lifecycle event is published on. Built once so
     /// `emit` does not re-parse and re-validate the same literal each time.
     lifecycle_topic: Topic,
+    /// Metrics sink; `None` until [`Kernel::with_metrics`].
+    metrics: Option<KernelMetrics>,
 }
 
 impl Kernel {
@@ -86,7 +100,56 @@ impl Kernel {
             keyring: Arc::new(RwLock::new(keyring)),
             plugins: RwLock::new(HashMap::new()),
             config,
+            metrics: None,
         })
+    }
+
+    /// Record this kernel's activity into `registry`.
+    ///
+    /// Records plugin invocations (count, duration, errors by code class),
+    /// capability grants and denials (through the broker), the loaded-plugin
+    /// count and per-plugin uptime. The `plugin` label is bounded: the first
+    /// [`catalog::PLUGIN_LABEL_LIMIT`] distinct plugin ids get their own
+    /// series, later ones fold into `other`.
+    #[must_use]
+    pub fn with_metrics(self, registry: Registry) -> Self {
+        let labels = PluginLabels::new();
+        let loaded_at: Arc<Mutex<HashMap<String, Instant>>> = Arc::default();
+        {
+            let (labels, loaded_at) = (labels.clone(), Arc::clone(&loaded_at));
+            registry.register_collector(move |r| {
+                let loaded = loaded_at.lock();
+                r.set_gauge(
+                    names::PLUGINS_LOADED,
+                    "Plugins currently loaded",
+                    &[],
+                    loaded.len() as f64,
+                );
+                // Rebuild so series for unloaded plugins disappear.
+                r.clear_family(names::PLUGIN_UPTIME);
+                for (id, since) in loaded.iter() {
+                    let label = labels.label(id);
+                    if label == catalog::OTHER_PLUGIN {
+                        continue;
+                    }
+                    r.set_gauge(
+                        names::PLUGIN_UPTIME,
+                        "Seconds since the plugin was loaded",
+                        &[("plugin", &label)],
+                        since.elapsed().as_secs_f64(),
+                    );
+                }
+            });
+        }
+        Self {
+            broker: self.broker.with_metrics(registry.clone()),
+            metrics: Some(KernelMetrics {
+                registry,
+                labels,
+                loaded_at,
+            }),
+            ..self
+        }
     }
 
     /// Access the capability broker.
@@ -237,6 +300,11 @@ impl Kernel {
                     effective_tier,
                     plugin,
                 });
+                if let Some(m) = &self.metrics {
+                    m.loaded_at
+                        .lock()
+                        .insert(plugin_id.to_string(), Instant::now());
+                }
             }
         }
 
@@ -249,6 +317,40 @@ impl Kernel {
     /// Emits [`LifecyclePhase::Activated`] before calling into the plugin and
     /// [`LifecyclePhase::Idled`] after it returns (whether or not it errors).
     pub async fn invoke(
+        &self,
+        plugin_id: &PluginId,
+        input: &[u8],
+        timeout_ms: u64,
+    ) -> Result<Vec<u8>, RuntimeError> {
+        let started = Instant::now();
+        let span = tracing::info_span!(
+            "plugin.invoke",
+            plugin = %plugin_id,
+            input_bytes = input.len() as u64,
+        );
+        let result = self
+            .invoke_inner(plugin_id, input, timeout_ms)
+            .instrument(span)
+            .await;
+        if let Some(m) = &self.metrics {
+            // A call for an id that is not loaded must not mint a label
+            // value: it is filed under `unknown`.
+            let label = match &result {
+                Err(RuntimeError::NotLoaded(_)) => "unknown".to_owned(),
+                _ => m.labels.label(&plugin_id.to_string()),
+            };
+            let error = result.as_ref().err().map(ToString::to_string);
+            catalog::plugin_invocation(
+                &m.registry,
+                &label,
+                error.as_deref(),
+                started.elapsed().as_secs_f64(),
+            );
+        }
+        result
+    }
+
+    async fn invoke_inner(
         &self,
         plugin_id: &PluginId,
         input: &[u8],
@@ -350,6 +452,9 @@ impl Kernel {
             .write()
             .remove(plugin)
             .ok_or_else(|| RuntimeError::NotLoaded(plugin.clone()))?;
+        if let Some(m) = &self.metrics {
+            m.loaded_at.lock().remove(&plugin.to_string());
+        }
         self.broker.unregister_plugin(plugin)?;
         self.emit(plugin, record.effective_tier, LifecyclePhase::Unloaded);
         Ok(())

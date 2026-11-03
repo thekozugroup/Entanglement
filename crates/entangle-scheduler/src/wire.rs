@@ -54,6 +54,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::work_unit::{PolicyEnvelope, PolicyHash, MAX_POLICY_BYTES};
 
+/// First byte of the optional trailing extension block of a task frame; the
+/// block is `TRACE_EXTENSION_TAG` followed by the postcard encoding of the
+/// `traceparent` string.
+///
+/// Compatibility: a frame without the block is identical to a pre-extension
+/// v2 frame, and this decoder accepts both. A pre-extension peer rejects a
+/// frame *with* the block as malformed (it forbids trailing bytes), which is
+/// why the dispatcher only attaches it while a trace is being recorded and
+/// retries once without it when the peer answers `MalformedRequest` (see
+/// `RemoteDispatch`).
+pub const TRACE_EXTENSION_TAG: u8 = 0xE1;
+
 /// Current envelope version. Bump on any change to the field layout of
 /// [`RemoteRequest`] or [`RemoteTaskResponse`].
 pub const WIRE_VERSION: u16 = 2;
@@ -180,6 +192,16 @@ pub struct RemoteTaskRequest {
     pub policy: Vec<u8>,
     /// `SHA-256(policy)` as sealed by the caller.
     pub policy_hash: PolicyHash,
+    /// W3C `traceparent` of the submitter's span, so the worker's execution
+    /// span joins the submitter's trace (spec §9.6).
+    ///
+    /// **Not part of the postcard envelope** (`serde(skip)`): it travels as a
+    /// trailing extension block only when present (see [`TRACE_EXTENSION_TAG`]),
+    /// so a frame without it is byte-for-byte a plain v2 frame. It is
+    /// untrusted diagnostics: the executor uses it only to pick the trace its
+    /// span belongs to, never for authorization or any other decision.
+    #[serde(skip)]
+    pub traceparent: Option<String>,
 }
 
 impl RemoteTaskRequest {
@@ -194,7 +216,15 @@ impl RemoteTaskRequest {
             max_output_bytes: task.max_output_bytes,
             policy: envelope.canonical().to_vec(),
             policy_hash: envelope.hash(),
+            traceparent: None,
         }
+    }
+
+    /// Attach the submitter's W3C `traceparent`.
+    #[must_use]
+    pub fn with_traceparent(mut self, traceparent: Option<String>) -> Self {
+        self.traceparent = traceparent;
+        self
     }
 }
 
@@ -387,7 +417,27 @@ pub enum WireError {
 
 /// Encode a request, refusing anything that could not be sent as one frame.
 pub fn encode_request(req: &RemoteRequest) -> Result<Vec<u8>, WireError> {
-    encode(req)
+    let mut bytes = encode(req)?;
+    if let RequestFrame::Task(RemoteTaskRequest {
+        traceparent: Some(tp),
+        ..
+    }) = &req.frame
+    {
+        if tp.len() <= entangle_observability::context::MAX_TRACEPARENT_LEN {
+            bytes.push(TRACE_EXTENSION_TAG);
+            bytes.extend(
+                postcard::to_allocvec(tp)
+                    .map_err(|e| WireError::Malformed(format!("encode: {e}")))?,
+            );
+            if bytes.len() > MAX_FRAME_BYTES {
+                return Err(WireError::FrameTooLarge {
+                    actual: bytes.len(),
+                    max: MAX_FRAME_BYTES,
+                });
+            }
+        }
+    }
+    Ok(bytes)
 }
 
 /// Encode a response, refusing anything that could not be sent as one frame.
@@ -416,7 +466,22 @@ fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, WireError> {
 /// ([`crate::work_unit::verify_envelope`]), so it can answer with a typed
 /// code.
 pub fn decode_request(bytes: &[u8]) -> Result<RemoteRequest, WireError> {
-    let req: RemoteRequest = decode(bytes)?;
+    let (mut req, rest) = decode_prefix::<RemoteRequest>(bytes)?;
+    match (&mut req.frame, rest) {
+        (_, []) => {}
+        // The one permitted extension: a task frame's `traceparent`. Anything
+        // else after the envelope is still a smuggling channel.
+        (RequestFrame::Task(task), [TRACE_EXTENSION_TAG, ext @ ..]) => {
+            let (tp, after) = postcard::take_from_bytes::<String>(ext)
+                .map_err(|e| WireError::Malformed(format!("trace extension: {e}")))?;
+            reject_trailing(after)?;
+            if tp.len() > entangle_observability::context::MAX_TRACEPARENT_LEN {
+                return Err(WireError::Malformed("trace extension too long".into()));
+            }
+            task.traceparent = Some(tp);
+        }
+        (_, rest) => reject_trailing(rest)?,
+    }
     if let RequestFrame::Task(task) = &req.frame {
         let actual = task.input.len() as u64;
         if actual > task.max_input_bytes {
@@ -476,6 +541,10 @@ pub fn decode_response(
 }
 
 /// Shared decode path: cap → version → structure → no trailing bytes.
+///
+/// Frames with an extension block (`decode_request`) use `decode_prefix`
+/// directly; this stays for envelopes that allow none.
+#[allow(dead_code)]
 fn decode<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<T, WireError> {
     let (value, rest) = decode_prefix(bytes)?;
     reject_trailing(rest)?;

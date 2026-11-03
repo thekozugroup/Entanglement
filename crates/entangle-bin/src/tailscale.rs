@@ -141,6 +141,29 @@ pub async fn run_discovery(
     }
 }
 
+/// Keep `entangle_mesh_tailscale_state{state}` equal to the liveness poller's
+/// confirmed state: a one-hot gauge over `active` / `stopped` /
+/// `uninstalled` / `unknown` (`unknown` until the first poll completes).
+///
+/// Call it only when the transport runs, so the gauge exists exactly when the
+/// transport does. Returns when the poller (the channel's sender) goes away.
+pub fn spawn_state_metrics(
+    registry: entangle_observability::Registry,
+    mut state: watch::Receiver<LivenessSnapshot>,
+) -> tokio::task::JoinHandle<()> {
+    let publish = move |snap: &LivenessSnapshot, registry: &entangle_observability::Registry| {
+        let label = snap.state.as_ref().map_or("unknown", |s| s.label());
+        entangle_observability::catalog::tailscale_state(registry, label);
+    };
+    publish(&state.borrow(), &registry);
+    tokio::spawn(async move {
+        while state.changed().await.is_ok() {
+            let snap = state.borrow_and_update().clone();
+            publish(&snap, &registry);
+        }
+    })
+}
+
 /// Start the transport, serving loop, liveness poller and discovery task.
 pub async fn start(
     mesh: &MeshConfig,

@@ -9,6 +9,8 @@
 //!
 //! # Key modules
 //! - [`config`] — daemon config schema and `~/.entangle/config.toml` loader.
+//! - [`diag`] — the `diag/mesh` triage report.
+//! - [`metrics_server`] — the Prometheus `/metrics` scrape endpoint.
 //! - [`maintenance`] — built-in tier-2 maintenance loop (log rotation, GC, nags).
 //! - [`methods`] — JSON-RPC 2.0 method dispatch (`version`, `plugins/*`).
 //! - [`remote`] — cross-node scheduler transport: serving work to trusted
@@ -20,8 +22,10 @@
 #![warn(missing_docs)]
 
 pub mod config;
+pub mod diag;
 pub mod maintenance;
 pub mod methods;
+pub mod metrics_server;
 pub mod remote;
 pub mod server;
 pub mod state;
