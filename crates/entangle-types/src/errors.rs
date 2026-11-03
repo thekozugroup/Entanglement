@@ -11,6 +11,7 @@
 //! | E0300–E0301 | Task execution                 |
 //! | E0302–E0305 | Integrity policy (see `entangle-runtime`) |
 //! | E0306–E0349 | Integrity verification: metrics, policy envelope, quorum (`entangle_runtime::IntegrityError`; E0306–E0318 in use) |
+//! | E0350–E0399 | Streaming tasks: submit-time validation, credit, heartbeat, chunk signing, size caps (`entangle_scheduler::stream::StreamError`; E0350–E0370 in use) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0600–E0699 | Agent-host adapter (see `entangle-agent-host`) |
 //! | E0640–E0649 | `mesh.tailscale` transport (see `entangle-mesh-tailscale`) |
