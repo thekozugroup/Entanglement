@@ -44,6 +44,18 @@ pub trait Adapter: Send + Sync {
     /// Extract every MCP server the user's config declares.
     fn servers(&self, snap: &Snapshot) -> Result<BTreeMap<String, McpServerSpec>, AdapterError>;
 
+    /// Whether the default config ([`config_path`](Self::config_path)) is a
+    /// project-scoped file read from the current directory, i.e. one that
+    /// ships with whatever repository the agent is started in. Its stdio
+    /// servers are commands from that repository: the agent itself asks
+    /// before starting them (Claude Code does for a project `.mcp.json`),
+    /// but in a session the gateway starts them instead, so the caller must
+    /// get the user's consent (see [`crate::AgentSession::project_stdio_servers`]).
+    /// Default: false.
+    fn default_config_is_project_scoped(&self) -> bool {
+        false
+    }
+
     /// MCP servers the agent would also load from config files other than
     /// `original` (it merges several), mapped to the file declaring each.
     /// The session config overrides them so they cannot run outside the

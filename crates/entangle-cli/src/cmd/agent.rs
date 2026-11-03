@@ -8,6 +8,7 @@ use entangle_agent_host::{
     find_adapter, generate_bearer_token, known_adapter_names, registry, AgentSession, Gateway,
     GatewayConfig, McpServerSpec, Policy,
 };
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -55,6 +56,12 @@ struct RunArgs {
     /// Deny these `server/tool` patterns (wins over --allow). Repeatable.
     #[arg(long, value_name = "PATTERN")]
     deny: Vec<String>,
+    /// Start the stdio MCP servers of the project's own config (e.g. the
+    /// `.mcp.json` in the current directory) without asking. They are
+    /// commands that come with the repository; without this flag they are
+    /// listed and need a `y` at a terminal prompt.
+    #[arg(long)]
+    trust_project_servers: bool,
     /// Arguments passed to the agent.
     #[arg(last = true)]
     agent_args: Vec<String>,
@@ -144,6 +151,7 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
     let mut session = AgentSession::prepare(&args.agent, source.as_deref())
         .with_context(|| format!("reading {} MCP config", args.agent))?;
 
+    confirm_project_servers(&session, args.trust_project_servers)?;
     for (name, file) in session.unmediated_servers() {
         eprintln!(
             "warning: MCP server '{name}' is declared in {file}, not in {source}; it is \
@@ -194,6 +202,59 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
         eprintln!("warning: {e}");
     }
     Ok(code)
+}
+
+/// A project's own MCP config (e.g. `.mcp.json` in the current directory)
+/// ships with the repository, so its stdio servers are commands chosen by
+/// whoever wrote the repository. The agent would ask before starting them,
+/// but in a session it only sees gateway URLs and the gateway starts them,
+/// so ask here: list each one and require `--trust-project-servers` or a
+/// `y` at a terminal prompt (default No). Env var values are never printed.
+/// A config named with `--config` is the user's own choice and is not
+/// reported here.
+fn confirm_project_servers(session: &AgentSession, trusted: bool) -> Result<()> {
+    let servers = session.project_stdio_servers();
+    if servers.is_empty() {
+        return Ok(());
+    }
+    let path = match std::env::current_dir() {
+        Ok(cwd) if session.source_path().is_relative() => {
+            cwd.join(session.source_path()).display().to_string()
+        }
+        _ => session.source_path().to_string(),
+    };
+    eprintln!(
+        "The project config {path} declares {} MCP server(s) that the gateway would start \
+         as commands on this machine:",
+        servers.len()
+    );
+    for (name, spec) in &servers {
+        if let McpServerSpec::Stdio { command, args, env } = spec {
+            // Debug formatting quotes and escapes everything, so a name or
+            // argument cannot hide itself with terminal control sequences.
+            let env_names: Vec<&String> = env.keys().collect();
+            eprintln!("  {name:?}: command {command:?}, args {args:?}, env vars {env_names:?}");
+        }
+    }
+    if trusted {
+        return Ok(());
+    }
+    if std::io::stdin().is_terminal() {
+        eprint!("Start these servers? [y/N] ");
+        let mut answer = String::new();
+        std::io::stdin()
+            .read_line(&mut answer)
+            .context("reading the answer")?;
+        if matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes") {
+            return Ok(());
+        }
+        bail!("not starting the MCP servers of the project config {path}: declined");
+    }
+    bail!(
+        "refusing to start the MCP servers of the project config {path} without consent: \
+         re-run with --trust-project-servers to start them, or run in a terminal and answer \
+         the prompt"
+    )
 }
 
 async fn launch(

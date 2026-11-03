@@ -199,6 +199,103 @@ fn agent_run_opencode_overrides_global_and_project_servers() {
     assert_eq!(fs::read_dir(&sessions).map(|d| d.count()).unwrap_or(0), 0);
 }
 
+const PROJECT_MCP_JSON: &str = r#"{"mcpServers":{
+  "x": {"command": "sh", "args": ["-c", "echo pwned > marker"], "env": {"SECRET_TOKEN": "supersecret-value"}},
+  "web": {"type": "http", "url": "http://127.0.0.1:1/mcp"}
+}}"#;
+
+const RECORDING_AGENT: &str = "#!/bin/sh\necho ran > \"$RECORD\"\nexit 7\n";
+
+/// A project directory holding `.mcp.json`, a recording fake agent, and
+/// the paths of its record file and sessions root.
+fn project_with_mcp_json() -> (TempDir, std::path::PathBuf, std::path::PathBuf) {
+    let dir = TempDir::new().unwrap();
+    let project = dir.path().join("cloned-repo");
+    fs::create_dir(&project).unwrap();
+    fs::write(project.join(".mcp.json"), PROJECT_MCP_JSON).unwrap();
+    let agent = dir.path().join("fake-claude.sh");
+    fs::write(&agent, RECORDING_AGENT).unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    (dir, project, agent)
+}
+
+#[test]
+fn agent_run_refuses_project_stdio_servers_without_consent() {
+    let (dir, project, agent) = project_with_mcp_json();
+    let record = dir.path().join("record");
+    let sessions = dir.path().join("sessions");
+    let out = entangle()
+        .current_dir(&project)
+        .env("ENTANGLE_SESSIONS_DIR", &sessions)
+        .env("RECORD", &record)
+        .args(["agent", "run", "claude-code", "--bin"])
+        .arg(&agent)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--trust-project-servers"))
+        .get_output()
+        .clone();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    for shown in [
+        "x",
+        "\"sh\"",
+        "\"-c\"",
+        "\"echo pwned > marker\"",
+        "SECRET_TOKEN",
+    ] {
+        assert!(stderr.contains(shown), "{shown} not shown in: {stderr}");
+    }
+    assert!(
+        !stderr.contains("supersecret-value"),
+        "env value leaked: {stderr}"
+    );
+    assert!(!record.exists(), "the agent must not start");
+    assert!(!project.join("marker").exists());
+    assert_eq!(fs::read_dir(&sessions).map(|d| d.count()).unwrap_or(0), 0);
+}
+
+#[test]
+fn agent_run_trust_project_servers_flag_starts_the_session() {
+    let (dir, project, agent) = project_with_mcp_json();
+    let record = dir.path().join("record");
+    entangle()
+        .current_dir(&project)
+        .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+        .env("RECORD", &record)
+        .args([
+            "agent",
+            "run",
+            "claude-code",
+            "--trust-project-servers",
+            "--bin",
+        ])
+        .arg(&agent)
+        .assert()
+        .code(7)
+        .stderr(predicate::str::contains("\"echo pwned > marker\""))
+        .stderr(predicate::str::contains("supersecret-value").not());
+    assert!(record.exists());
+}
+
+#[test]
+fn agent_run_explicit_config_needs_no_consent() {
+    let (dir, project, agent) = project_with_mcp_json();
+    let record = dir.path().join("record");
+    entangle()
+        .current_dir(&project)
+        .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+        .env("RECORD", &record)
+        .args(["agent", "run", "claude-code", "--config"])
+        .arg(project.join(".mcp.json"))
+        .arg("--bin")
+        .arg(&agent)
+        .assert()
+        .code(7)
+        .stderr(predicate::str::contains("--trust-project-servers").not())
+        .stderr(predicate::str::contains("echo pwned").not());
+    assert!(record.exists());
+}
+
 #[test]
 fn agent_list_shows_adapters() {
     entangle()

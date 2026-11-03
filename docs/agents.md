@@ -9,6 +9,7 @@ entangle agent list
 entangle agent run claude-code -- --model opus
 entangle agent run codex --deny 'shell/*'
 entangle agent run claude-code --allow 'fs/*' --allow 'git/status'
+entangle agent run claude-code --trust-project-servers   # see "Project MCP servers"
 ```
 
 Arguments after `--` go to the agent unchanged. The exit code of the agent
@@ -39,6 +40,24 @@ is the exit code of `entangle agent run`.
 
 Use `--config <path>` to read the MCP config from a non-default file and
 `--bin <path>` to launch a specific executable.
+
+### Project MCP servers need consent
+
+Claude Code's default config is the `.mcp.json` in the current directory,
+which ships with whatever repository you are in. Claude Code itself asks
+before starting a project's servers, but in a session it only sees gateway
+URLs, and it is the gateway that starts the servers' commands. So when the
+config comes from the current directory (not from `--config`),
+`entangle agent run` first lists every stdio server it declares (name,
+command, arguments, and the *names* of its environment variables, never
+their values) and then:
+
+* starts the session if `--trust-project-servers` was given;
+* otherwise, when stdin is a terminal, asks `Start these servers? [y/N]`
+  (default No);
+* otherwise refuses with an error naming `--trust-project-servers`.
+
+A file named with `--config` is your own choice and is not prompted for.
 
 Note: the spec's example uses `CLAUDE_CONFIG_DIR`; the Claude Code adapter
 reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting

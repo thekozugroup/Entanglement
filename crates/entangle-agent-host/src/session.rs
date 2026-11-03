@@ -25,6 +25,8 @@ pub struct AgentSession {
     snapshot: Snapshot,
     servers: BTreeMap<String, McpServerSpec>,
     unmediated: BTreeMap<String, Utf8PathBuf>,
+    /// The config is the adapter's project-scoped default (no explicit source).
+    project_scoped: bool,
     /// The session directory handed to [`activate`](Self::activate). Recorded
     /// before any filesystem work so that a failed activation, a second
     /// activation, [`cleanup`](Self::cleanup) and [`Drop`] all remove it.
@@ -56,12 +58,14 @@ impl AgentSession {
         let snapshot = adapter.snapshot(&source_path)?;
         let servers = adapter.servers(&snapshot)?;
         let unmediated = adapter.unmediated_servers(&snapshot)?;
+        let project_scoped = source.is_none() && adapter.default_config_is_project_scoped();
         Ok(Self {
             adapter,
             source_path,
             snapshot,
             servers,
             unmediated,
+            project_scoped,
             session_dir: None,
             active: None,
             finished: false,
@@ -132,6 +136,24 @@ impl AgentSession {
     /// The MCP servers declared in the user's config.
     pub fn servers(&self) -> &BTreeMap<String, McpServerSpec> {
         &self.servers
+    }
+
+    /// The stdio servers declared in a project-scoped config that was picked
+    /// up from the current directory (the adapter's default, e.g. Claude
+    /// Code's `.mcp.json`), as opposed to a file the caller named. These are
+    /// commands that came with the repository; the gateway runs them when
+    /// the agent first connects, so the caller must get the user's consent
+    /// before starting the gateway with them (spec §11). Empty when the
+    /// config was named explicitly.
+    pub fn project_stdio_servers(&self) -> BTreeMap<&str, &McpServerSpec> {
+        if !self.project_scoped {
+            return BTreeMap::new();
+        }
+        self.servers
+            .iter()
+            .filter(|(_, s)| matches!(s, McpServerSpec::Stdio { .. }))
+            .map(|(n, s)| (n.as_str(), s))
+            .collect()
     }
 
     /// Servers the agent would also load from configs other than

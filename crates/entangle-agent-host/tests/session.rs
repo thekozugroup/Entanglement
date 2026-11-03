@@ -35,6 +35,10 @@ fn claude_session_rewrites_every_server_into_session_dir_and_leaves_original_alo
         Some(McpServerSpec::Http { .. })
     ));
     assert!(matches!(s.launch_plan(), Err(SessionError::NotActivated)));
+    assert!(
+        s.project_stdio_servers().is_empty(),
+        "an explicitly named config needs no project-server consent"
+    );
 
     let plan = s
         .activate(&sess_dir, BASE, "ENTANGLE_SESSION_TOKEN")

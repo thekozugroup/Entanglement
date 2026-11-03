@@ -24,6 +24,10 @@ impl Adapter for ClaudeCodeAdapter {
         Ok(Utf8PathBuf::from(".mcp.json"))
     }
 
+    fn default_config_is_project_scoped(&self) -> bool {
+        true
+    }
+
     fn snapshot(&self, path: &Utf8PathBuf) -> Result<Snapshot, AdapterError> {
         let bytes = std::fs::read(path).unwrap_or_default();
         Ok(Snapshot {
