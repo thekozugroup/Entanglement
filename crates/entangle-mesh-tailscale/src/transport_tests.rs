@@ -24,6 +24,12 @@ use crate::*;
 
 const LO: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
+/// Handshake timeout for tests whose subject *is* the timeout. Everything
+/// else uses the generous default from `cfg()`, so a loaded machine (other
+/// builds, many test binaries at once) cannot turn a success path into a
+/// spurious "timed out".
+const SHORT: Duration = Duration::from_millis(400);
+
 fn cfg(mode: AclMode, allow: Option<Arc<dyn PeerAllowlist>>) -> MeshTailscaleConfig {
     MeshTailscaleConfig {
         acl_mode: mode,
@@ -32,8 +38,8 @@ fn cfg(mode: AclMode, allow: Option<Arc<dyn PeerAllowlist>>) -> MeshTailscaleCon
         bind_ip: LO,
         // Loopback is not a tailnet address.
         address_policy: AddressPolicy::Any,
-        handshake_timeout: Duration::from_millis(400),
-        connect_timeout: Duration::from_secs(2),
+        handshake_timeout: Duration::from_secs(10),
+        connect_timeout: Duration::from_secs(5),
         request_timeout: Duration::from_secs(5),
         ..MeshTailscaleConfig::default()
     }
@@ -50,6 +56,23 @@ async fn node(
     let kp = IdentityKeyPair::generate();
     let t = MeshTailscale::start(&kp, cfg(mode, allow)).await.unwrap();
     (t, kp)
+}
+
+/// A node whose handshake timeout is [`SHORT`].
+async fn short_node(mode: AclMode) -> MeshTailscale {
+    let mut c = cfg(mode, None);
+    c.handshake_timeout = SHORT;
+    MeshTailscale::start(&IdentityKeyPair::generate(), c)
+        .await
+        .unwrap()
+}
+
+/// `accept()` that fails the test instead of hanging it when no connection
+/// arrives (e.g. because the dialling side failed).
+async fn accept_soon(t: &MeshTailscale) -> Option<MeshConn> {
+    timeout(Duration::from_secs(20), t.accept())
+        .await
+        .expect("no inbound connection arrived")
 }
 
 fn peer_of(t: &MeshTailscale) -> TailscalePeer {
@@ -126,7 +149,7 @@ async fn handshake_succeeds_both_directions_with_correct_peer_ids() {
     let (b, kb) = node(AclMode::TrustTailnet, None).await;
 
     let target = peer_of(&b);
-    let (client, server) = tokio::join!(a.connect(&target), b.accept());
+    let (client, server) = tokio::join!(a.connect(&target), accept_soon(&b));
     let client = client.unwrap();
     let server = server.unwrap();
     assert_eq!(client.remote_peer_id(), id_of(&kb));
@@ -332,7 +355,7 @@ async fn bad_magic_and_version_are_rejected() {
 
 #[tokio::test]
 async fn silent_peer_times_out_server_side() {
-    let (b, _) = node(AclMode::TrustTailnet, None).await;
+    let b = short_node(AclMode::TrustTailnet).await;
     let mut s = TcpStream::connect(b.local_addr()).await.unwrap();
     // Send nothing; the 400 ms handshake timeout must close the socket.
     let mut buf = [0u8; 1];
@@ -352,7 +375,7 @@ async fn silent_server_times_out_client_side() {
         let (_s, _) = l.accept().await.unwrap();
         tokio::time::sleep(Duration::from_secs(10)).await;
     });
-    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    let a = short_node(AclMode::TrustTailnet).await;
     let peer = TailscalePeer::new([5; 32], addr);
     let started = std::time::Instant::now();
     let err = a.connect(&peer).await.unwrap_err();
@@ -372,7 +395,7 @@ async fn oversize_request_is_rejected_by_the_server() {
     let mut conn = a.connect(&peer_of(&b)).await.unwrap();
     // Our own cap is 16 MiB, so the client happily sends 2000 bytes.
     let client = tokio::spawn(async move { conn.request(&[1u8; 2000]).await });
-    let mut server_conn = b.accept().await.unwrap();
+    let mut server_conn = accept_soon(&b).await.unwrap();
     let err = server_conn.accept_request().await.unwrap_err();
     assert!(
         matches!(
@@ -467,7 +490,7 @@ async fn trust_tailnet_accepts_unlisted_but_authenticated_peer() {
     // Allowlist exists and does not contain A; TrustTailnet ignores it.
     let (b, _) = node(AclMode::TrustTailnet, allow(&[])).await;
     let target = peer_of(&b);
-    let (conn, server) = tokio::join!(a.connect(&target), b.accept());
+    let (conn, server) = tokio::join!(a.connect(&target), accept_soon(&b));
     conn.unwrap();
     assert_eq!(server.unwrap().remote_peer_id(), id_of(&ka));
 }
@@ -510,7 +533,7 @@ async fn probe_does_not_disclose_the_real_identity() {
     // sees an authenticated peer that is not us.
     let (a, ka) = node(AclMode::TrustTailnet, None).await;
     let (b, _) = node(AclMode::TrustTailnet, None).await;
-    let (probe, server) = tokio::join!(a.probe(b.local_addr()), b.accept());
+    let (probe, server) = tokio::join!(a.probe(b.local_addr()), accept_soon(&b));
     probe.unwrap();
     assert_ne!(server.unwrap().remote_peer_id(), id_of(&ka));
 }
@@ -709,11 +732,7 @@ async fn a_relay_cannot_turn_a_rejection_into_an_admission() {
 #[tokio::test]
 async fn discovery_does_not_let_a_relay_take_over_a_peer() {
     // S listens on 127.0.0.1:P; M relays 127.0.0.2:P -> S and answers last.
-    let mut long = cfg(AclMode::TrustTailnet, None);
-    long.handshake_timeout = Duration::from_secs(3);
-    let a = MeshTailscale::start(&IdentityKeyPair::generate(), long)
-        .await
-        .unwrap();
+    let (a, _) = node(AclMode::TrustTailnet, None).await;
     let (s, ks) = node(AclMode::TrustTailnet, None).await;
     let port = s.local_addr().port();
     let m_ip: IpAddr = "127.0.0.2".parse().unwrap();
@@ -902,11 +921,7 @@ async fn connect_from(from_ip: &str, to: SocketAddr) -> TcpStream {
 async fn silent_connections_from_one_source_cannot_starve_other_peers() {
     // Long server-side handshake timeout so the silent sockets keep their
     // pre-auth slots for the whole test.
-    let mut sc = cfg(AclMode::TrustTailnet, None);
-    sc.handshake_timeout = Duration::from_secs(5);
-    let b = MeshTailscale::start(&IdentityKeyPair::generate(), sc)
-        .await
-        .unwrap();
+    let (b, _) = node(AclMode::TrustTailnet, None).await;
     let mut hold = Vec::new();
     for _ in 0..64 {
         hold.push(connect_from("127.0.0.2", b.local_addr()).await);
@@ -1105,7 +1120,8 @@ async fn discovery_bounds_concurrent_probes() {
     );
     let st = TailscaleStatus::parse(&json).unwrap();
     assert_eq!(st.online_peers().count(), 40);
-    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    // The probes must give up on the silent nodes for the round to end.
+    let a = short_node(AclMode::TrustTailnet).await;
     let found = a.discover_on_port(&st, port).await;
     assert!(found.is_empty());
     let peak = peak.load(Ordering::SeqCst);
@@ -1201,7 +1217,7 @@ async fn an_idle_inbound_connection_ends_after_idle_timeout() {
         .unwrap();
     let (a, _) = node(AclMode::TrustTailnet, None).await;
     let target = peer_of(&b);
-    let (client, server) = tokio::join!(a.connect(&target), b.accept());
+    let (client, server) = tokio::join!(a.connect(&target), accept_soon(&b));
     let _client = client.unwrap(); // stays open, sends nothing
     let mut server = server.unwrap();
     let started = std::time::Instant::now();
@@ -1223,7 +1239,7 @@ async fn a_server_that_stalls_after_part_of_its_hello_times_out_client_side() {
         s.write_all(&[0u8; SERVER_HELLO_LEN / 2]).await.unwrap();
         tokio::time::sleep(Duration::from_secs(10)).await;
     });
-    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    let a = short_node(AclMode::TrustTailnet).await;
     let started = std::time::Instant::now();
     let err = a.probe(addr).await.unwrap_err();
     assert!(err.to_string().contains("timed out"), "{err}");
@@ -1232,7 +1248,7 @@ async fn a_server_that_stalls_after_part_of_its_hello_times_out_client_side() {
 
 #[tokio::test]
 async fn a_client_that_stalls_after_a_valid_hello_times_out_server_side() {
-    let (b, _) = node(AclMode::TrustTailnet, None).await;
+    let b = short_node(AclMode::TrustTailnet).await;
     let kp = IdentityKeyPair::generate();
     let mut s = TcpStream::connect(b.local_addr()).await.unwrap();
     raw_hello(&mut s, kp.public().as_bytes()).await;
