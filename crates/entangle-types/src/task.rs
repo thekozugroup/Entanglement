@@ -30,9 +30,10 @@ pub enum IntegrityPolicy {
     /// Replicate and compare the replica outputs pairwise with a signed metric
     /// component (`entangle:integrity/metric@0.1.0`).
     ///
-    /// The task is accepted iff at least `quorum` of the `replicas * (replicas
-    /// - 1) / 2` replica pairs have `metric.compare(a, b) < threshold`. The
-    /// metric runs only on the submitter (§7.5 verifier-locality, Rule 3).
+    /// The task is accepted iff at least `quorum` of the
+    /// `replicas * (replicas - 1) / 2` replica pairs have
+    /// `metric.compare(a, b) < threshold`. The metric runs only on the
+    /// submitter (§7.5 verifier-locality, Rule 3).
     SemanticEquivalent {
         /// Number of independent execution replicas (at least 2: one pair).
         replicas: u8,

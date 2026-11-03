@@ -110,7 +110,7 @@ pub struct DispatchArgs {
     pub metric: Option<String>,
 
     /// semantic-equivalent: the metric's signed package directory.
-    /// Defaults to ~/.entangle/plugins/<metric name> when that exists.
+    /// Defaults to `~/.entangle/plugins/<metric-name>` when that exists.
     #[arg(long)]
     pub metric_dir: Option<PathBuf>,
 

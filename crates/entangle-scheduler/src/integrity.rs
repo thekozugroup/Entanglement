@@ -595,13 +595,14 @@ pub fn pair_count(n: usize) -> usize {
 /// are in canonical order): most agreements, then smallest sum of agreeing
 /// distances, then lowest position.
 pub fn choose_canonical(dist: &[Vec<f64>], threshold: f64) -> usize {
-    let n = dist.len();
     let mut best = 0usize;
     let mut best_key: Option<(usize, f64)> = None;
-    for i in 0..n {
-        let agreeing: Vec<f64> = (0..n)
-            .filter(|&j| j != i && dist[i][j] < threshold)
-            .map(|j| dist[i][j])
+    for (i, row) in dist.iter().enumerate() {
+        let agreeing: Vec<f64> = row
+            .iter()
+            .enumerate()
+            .filter(|&(j, d)| j != i && *d < threshold)
+            .map(|(_, d)| *d)
             .collect();
         let degree = agreeing.len();
         let sum: f64 = agreeing.iter().sum();
