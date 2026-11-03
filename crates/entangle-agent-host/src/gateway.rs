@@ -17,6 +17,10 @@
 //! * **Replies**: a request gets `200 application/json`; notifications and
 //!   client responses get `202` with an empty body; a batch gets a JSON array
 //!   of the replies (sequentially processed), or `202` if it had none.
+//! * **Notifications**: only `notifications/*` methods are forwarded. Any
+//!   other id-less message is dropped; a `tools/call` without an id is shown
+//!   to `before_tool` and audited as denied ("tools/call sent as
+//!   notification") before it is dropped, so it can never bypass policy.
 //! * **Downstream**: stdio servers (newline-delimited JSON-RPC) launched
 //!   lazily, one process per server per gateway. Request ids are remapped to
 //!   gateway-unique ids so concurrent clients can never collide, and restored
@@ -796,6 +800,63 @@ fn classify(resp: &Value) -> AuditOutcome {
     AuditOutcome::Ok
 }
 
+/// Audit reason for a `tools/call` that arrived without an `id`.
+const NOTIFICATION_CALL_REASON: &str = "tools/call sent as notification";
+
+/// An id-less message with a `method`. Only `notifications/*` methods are
+/// forwarded: anything else would be a request the downstream might act on
+/// (JSON-RPC servers process notifications, they just do not reply) without
+/// passing policy or audit. A `tools/call` is still shown to `before_tool`
+/// and recorded as denied, so the attempt is visible in the audit log.
+async fn handle_notification(
+    sh: &Shared,
+    server: &str,
+    ds: &Downstream,
+    method: &str,
+    msg: &Value,
+) {
+    if method.starts_with("notifications/") {
+        ds.notify(msg).await;
+        return;
+    }
+    if method == "tools/call" {
+        let call = ToolCall {
+            server: server.to_string(),
+            tool: msg
+                .pointer("/params/name")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            arguments: msg
+                .pointer("/params/arguments")
+                .cloned()
+                .unwrap_or(Value::Null),
+        };
+        // The policy still sees the attempt (hooks may count or alert on
+        // it), but the message is dropped whatever it decides.
+        let policy = sh.hooks.before_tool(&call);
+        tracing::warn!(
+            server = %call.server,
+            tool = %call.tool,
+            policy = ?policy,
+            "tools/call without an id dropped"
+        );
+        sh.record(AuditRecord {
+            seq: 0,
+            timestamp_ms: 0,
+            server: call.server,
+            tool: call.tool,
+            decision: AuditDecision::Deny,
+            duration_ms: 0,
+            outcome: AuditOutcome::Denied {
+                reason: NOTIFICATION_CALL_REASON.to_string(),
+            },
+        });
+        return;
+    }
+    tracing::debug!(server = %server, method = %method, "id-less non-notification dropped");
+}
+
 /// Process one JSON-RPC message. `None` means "no reply" (HTTP 202).
 async fn handle_message(sh: &Shared, server: &str, ds: &Downstream, msg: Value) -> Option<Value> {
     let Some(obj) = msg.as_object() else {
@@ -809,8 +870,8 @@ async fn handle_message(sh: &Shared, server: &str, ds: &Downstream, msg: Value) 
     let id = obj.get("id").cloned();
     let (Some(method), Some(id)) = (method.clone(), id) else {
         // Notification (method, no id) or a client response (no method).
-        if method.is_some() {
-            ds.notify(&msg).await;
+        if let Some(method) = method {
+            handle_notification(sh, server, ds, &method, &msg).await;
         }
         return None;
     };

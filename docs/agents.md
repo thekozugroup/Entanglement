@@ -48,7 +48,10 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
 
 * `POST /mcp/<server>` with MCP JSON-RPC 2.0 (single message or batch),
   `Authorization: Bearer <token>` required (compared in constant time).
-  Replies are `application/json`; notifications get `202`.
+  Replies are `application/json`; notifications get `202`. Only
+  `notifications/*` methods are forwarded without an id; a `tools/call`
+  without an id is audited as denied (`tools/call sent as notification`) and
+  dropped, and any other id-less method is dropped.
 * Downstream **stdio** servers are started lazily from the original
   command/args/env, one process per server per session. `initialize` is passed
   through and cached; request ids are remapped internally. Server-initiated

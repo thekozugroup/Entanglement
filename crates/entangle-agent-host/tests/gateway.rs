@@ -365,6 +365,78 @@ async fn denied_tool_never_reaches_downstream_and_is_audited() {
 }
 
 #[tokio::test]
+async fn tools_call_without_id_is_audited_as_denied_and_never_forwarded() {
+    let f = fixture_with(
+        Policy {
+            allow: vec![],
+            deny: vec!["fake/secret".into()],
+        },
+        8,
+    )
+    .await;
+    // Start the downstream so notifications would be deliverable.
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    // tools/call sent as a notification: plain, inside a batch, with an
+    // `ID` key (not `id`), and for a tool the policy would allow.
+    for msg in [
+        json!({"jsonrpc":"2.0","method":"tools/call","params":{"name":"secret","arguments":{}}}),
+        json!([{"jsonrpc":"2.0","method":"tools/call","params":{"name":"secret","arguments":{}}}]),
+        json!({"jsonrpc":"2.0","ID":5,"method":"tools/call","params":{"name":"secret"}}),
+        json!({"jsonrpc":"2.0","method":"tools/call","params":{"name":"echo","arguments":{"text":"x"}}}),
+    ] {
+        let (st, _) = rpc(&f, "fake", msg.clone()).await;
+        assert_eq!(st, 202, "{msg}");
+    }
+    // Any other id-less method that is not `notifications/*` is dropped too;
+    // real notifications are still forwarded.
+    rpc(&f, "fake", json!({"jsonrpc":"2.0","method":"tools/list"})).await;
+    rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","method":"notifications/roots/list_changed"}),
+    )
+    .await;
+    // A request afterwards: everything before it has reached the downstream.
+    let (st, _) = rpc(&f, "fake", json!({"jsonrpc":"2.0","id":2,"method":"ping"})).await;
+    assert_eq!(st, 200);
+    let c = calls(&f);
+    assert!(
+        !c.iter().any(|l| l.starts_with("tools/call")),
+        "a tools/call notification reached the downstream: {c:?}"
+    );
+    assert_eq!(
+        c.iter().filter(|l| l.starts_with("tools/list")).count(),
+        1,
+        "id-less tools/list must be dropped: {c:?}"
+    );
+    assert!(
+        c.iter().any(|l| l == "notifications/roots/list_changed:"),
+        "{c:?}"
+    );
+
+    let log = f.gw.audit_log();
+    let tools: Vec<&str> = log.iter().map(|r| r.tool.as_str()).collect();
+    assert_eq!(tools, ["secret", "secret", "secret", "echo"], "{log:?}");
+    for r in &log {
+        assert_eq!(r.server, "fake");
+        assert_eq!(r.decision, AuditDecision::Deny, "{r:?}");
+        assert_eq!(
+            r.outcome,
+            AuditOutcome::Denied {
+                reason: "tools/call sent as notification".into()
+            }
+        );
+    }
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
 async fn allow_list_blocks_unlisted_tools() {
     let f = fixture_with(
         Policy {
