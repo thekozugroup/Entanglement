@@ -122,22 +122,96 @@ fn exit_code(status: std::process::ExitStatus) -> i32 {
     status.code().unwrap_or(1)
 }
 
-/// Resolve when the user asks us to stop (Ctrl-C / SIGTERM). Returns whether
-/// the child already received the signal from the terminal (SIGINT).
-async fn stop_requested() -> bool {
+/// How long the agent gets to exit by itself after a stop signal before it
+/// is killed.
+const STOP_GRACE: Duration = Duration::from_secs(5);
+
+/// A signal asking the session to stop.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Stop {
+    /// SIGINT (Ctrl-C).
+    Interrupt,
+    /// SIGTERM.
+    Terminate,
+    /// SIGHUP (the terminal was closed).
+    Hangup,
+}
+
+impl Stop {
+    /// Conventional exit status for death by this signal (128 + number).
+    fn exit_code(self) -> i32 {
+        match self {
+            Stop::Interrupt => 130,
+            Stop::Terminate => 143,
+            Stop::Hangup => 129,
+        }
+    }
+}
+
+/// Take over SIGINT, SIGTERM and SIGHUP (Ctrl-C only, off unix) and report
+/// the first one received. Once installed, these signals no longer kill
+/// the CLI outright, so the gateway shutdown and the session cleanup always
+/// run.
+fn watch_stop_signals() -> Result<tokio::sync::watch::Receiver<Option<Stop>>> {
+    let (tx, rx) = tokio::sync::watch::channel(None);
     #[cfg(unix)]
     {
         use tokio::signal::unix::{signal, SignalKind};
-        if let Ok(mut term) = signal(SignalKind::terminate()) {
-            tokio::select! {
-                _ = tokio::signal::ctrl_c() => return true,
-                _ = term.recv() => return false,
-            }
+        let mut int = signal(SignalKind::interrupt()).context("installing a SIGINT handler")?;
+        let mut term = signal(SignalKind::terminate()).context("installing a SIGTERM handler")?;
+        let mut hup = signal(SignalKind::hangup()).context("installing a SIGHUP handler")?;
+        tokio::spawn(async move {
+            let stop = tokio::select! {
+                _ = int.recv() => Stop::Interrupt,
+                _ = term.recv() => Stop::Terminate,
+                _ = hup.recv() => Stop::Hangup,
+            };
+            let _ = tx.send(Some(stop));
+        });
+    }
+    #[cfg(not(unix))]
+    tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            let _ = tx.send(Some(Stop::Interrupt));
+        }
+    });
+    Ok(rx)
+}
+
+/// Resolve with the first stop signal.
+async fn stop_requested(rx: &mut tokio::sync::watch::Receiver<Option<Stop>>) -> Stop {
+    loop {
+        if let Some(stop) = *rx.borrow_and_update() {
+            return stop;
+        }
+        if rx.changed().await.is_err() {
+            std::future::pending::<()>().await;
         }
     }
-    let _ = tokio::signal::ctrl_c().await;
-    true
 }
+
+/// Send the agent the signal the CLI received (best effort).
+#[cfg(unix)]
+fn forward_signal(child: &tokio::process::Child, stop: Stop) {
+    use rustix::process::{kill_process, Pid, Signal};
+    let sig = match stop {
+        Stop::Interrupt => Signal::INT,
+        Stop::Terminate => Signal::TERM,
+        Stop::Hangup => Signal::HUP,
+    };
+    // `id()` is `None` once the child has been reaped, so the pid cannot
+    // have been reused by another process here.
+    if let Some(pid) = child
+        .id()
+        .and_then(|id| i32::try_from(id).ok())
+        .and_then(Pid::from_raw)
+    {
+        let _ = kill_process(pid, sig);
+    }
+}
+
+#[cfg(not(unix))]
+fn forward_signal(_child: &tokio::process::Child, _stop: Stop) {}
 
 async fn run_agent(args: RunArgs) -> Result<i32> {
     if find_adapter(&args.agent).is_none() {
@@ -170,6 +244,11 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
         }
     }
 
+    // From here on, SIGINT/SIGTERM/SIGHUP stop the session through the
+    // cleanup below instead of killing the CLI (after the consent prompt,
+    // so Ctrl-C at the prompt still simply exits).
+    let mut stop = watch_stop_signals()?;
+
     let token = generate_bearer_token();
     let gateway = Gateway::new(GatewayConfig {
         bearer_token: token.clone(),
@@ -184,7 +263,15 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
     let handle = gateway.start().await.context("starting MCP gateway")?;
 
     let session_id = new_session_id();
-    let outcome = launch(&mut session, &args, &session_id, &token, &handle.base_url()).await;
+    let outcome = launch(
+        &mut session,
+        &args,
+        &session_id,
+        &token,
+        &handle.base_url(),
+        &mut stop,
+    )
+    .await;
 
     let audit = handle.audit_log();
     handle.shutdown().await;
@@ -263,6 +350,7 @@ async fn launch(
     session_id: &str,
     token: &str,
     base_url: &str,
+    stop: &mut tokio::sync::watch::Receiver<Option<Stop>>,
 ) -> Result<i32> {
     // `activate` creates the directory (mode 0700, missing parents too) and
     // owns it: it is removed if activation fails and by `cleanup` otherwise.
@@ -272,6 +360,10 @@ async fn launch(
         .context("writing session config")?
         .clone();
 
+    if let Some(stop) = *stop.borrow() {
+        // Asked to stop before the agent started: do not start it.
+        return Ok(stop.exit_code());
+    }
     let bin = args
         .bin
         .clone()
@@ -294,16 +386,20 @@ async fn launch(
 
     tokio::select! {
         status = child.wait() => Ok(exit_code(status.context("waiting for agent")?)),
-        child_got_it = stop_requested() => {
-            if child_got_it {
-                // The terminal delivered SIGINT to the agent as well; give it
-                // a grace period to exit on its own.
-                if let Ok(status) = tokio::time::timeout(Duration::from_secs(5), child.wait()).await {
-                    return Ok(exit_code(status.context("waiting for agent")?));
-                }
+        stop = stop_requested(stop) => {
+            // The terminal delivers Ctrl-C to its whole foreground process
+            // group, the agent included, so SIGINT is not sent again (many
+            // agents treat a second Ctrl-C as "quit now"). SIGTERM and SIGHUP
+            // were sent to the CLI alone: pass them on so the agent can shut
+            // down cleanly.
+            if stop != Stop::Interrupt {
+                forward_signal(&child, stop);
+            }
+            if let Ok(status) = tokio::time::timeout(STOP_GRACE, child.wait()).await {
+                return Ok(exit_code(status.context("waiting for agent")?));
             }
             let _ = child.kill().await;
-            Ok(130)
+            Ok(stop.exit_code())
         }
     }
 }

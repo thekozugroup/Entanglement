@@ -28,9 +28,22 @@ is the exit code of `entangle agent run`.
    the config references the `ENTANGLE_SESSION_TOKEN` environment variable.
 4. The agent is started with `ENTANGLE_SESSION_ID` and `ENTANGLE_SESSION_TOKEN`
    set, pointed at the session config.
-5. On exit (including Ctrl-C and SIGTERM) the gateway stops, downstream MCP
-   server processes are killed, and the session directory is deleted. If the
-   original config changed meanwhile, a warning (`ENTANGLE-E0660`) is printed.
+5. On exit the gateway stops, downstream MCP server processes are killed,
+   and the session directory is deleted. If the original config changed
+   meanwhile, a warning (`ENTANGLE-E0660`) is printed, also when the agent
+   could not be launched.
+
+Ctrl-C, SIGTERM and SIGHUP (terminal closed) stop the session through the
+same cleanup; the handlers are installed before the gateway starts. Ctrl-C
+already reaches the agent through the terminal and is not sent again;
+SIGTERM and SIGHUP are passed on to the agent. The agent then has 5 s to
+exit, and `entangle agent run` exits with the agent's status; an agent
+still running after that is killed and the exit status is 130 (SIGINT),
+143 (SIGTERM) or 129 (SIGHUP). A signal that arrives before the agent was
+started stops the session without starting it. Only the agent process
+itself is signalled or killed, not processes it started: it stays in the
+terminal's foreground process group so that it can read the terminal, and
+signalling that group would signal the CLI too.
 
 | Agent | Binary | Session config is passed via |
 |---|---|---|

@@ -384,6 +384,114 @@ fn agent_run_launch_failure_still_reports_a_modified_original() {
     );
 }
 
+/// Fake agent that publishes its PID, then waits until `$SIG` arrives,
+/// records it in `$MARK` and exits with `$CODE`.
+const TRAPPING_AGENT: &str = r#"#!/bin/sh
+trap 'kill "$child" 2>/dev/null; echo got > "$MARK"; exit "$CODE"' "$SIG"
+sleep 60 >/dev/null 2>&1 &
+child=$!
+echo $$ > "$READY.tmp" && mv "$READY.tmp" "$READY"
+wait "$child"
+exit 0
+"#;
+
+/// Fake agent that ignores SIGTERM.
+const STUBBORN_AGENT: &str = r#"#!/bin/sh
+trap '' TERM
+echo $$ > "$READY.tmp" && mv "$READY.tmp" "$READY"
+exec sleep 60
+"#;
+
+/// Run `entangle agent run` with `script` as the agent, send `sig` to the
+/// CLI once the agent is up, and return the CLI's exit status and the
+/// directory holding `mark` and `sessions`.
+fn signal_cli(
+    script: &str,
+    sig: &str,
+    envs: &[(&str, &str)],
+) -> (std::process::ExitStatus, TempDir) {
+    use std::time::{Duration, Instant};
+    let dir = TempDir::new().unwrap();
+    let agent = dir.path().join("agent.sh");
+    fs::write(&agent, script).unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    let ready = dir.path().join("ready");
+    let mut cli = std::process::Command::new(assert_cmd::cargo::cargo_bin("entangle"))
+        .args(["agent", "run", "claude-code", "--config"])
+        .arg(dir.path().join("none.json"))
+        .arg("--bin")
+        .arg(&agent)
+        .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+        .env("READY", &ready)
+        .env("MARK", dir.path().join("mark"))
+        .envs(envs.iter().copied())
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !ready.exists() {
+        assert!(Instant::now() < deadline, "agent never started");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let agent_pid = fs::read_to_string(&ready).unwrap().trim().to_string();
+    let sent = std::process::Command::new("kill")
+        .args([format!("-{sig}"), cli.id().to_string()])
+        .status()
+        .unwrap();
+    assert!(sent.success());
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let status = loop {
+        if let Some(st) = cli.try_wait().unwrap() {
+            break st;
+        }
+        if Instant::now() > deadline {
+            let _ = cli.kill();
+            panic!("entangle did not exit after SIG{sig}");
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    // Never leave the fake agent behind, whatever the CLI did.
+    let _ = std::process::Command::new("kill")
+        .args(["-KILL", &agent_pid])
+        .stderr(std::process::Stdio::null())
+        .status();
+    (status, dir)
+}
+
+fn sessions_left(dir: &TempDir) -> usize {
+    fs::read_dir(dir.path().join("sessions"))
+        .map(|d| d.count())
+        .unwrap_or(0)
+}
+
+#[test]
+fn agent_run_sigterm_is_passed_on_to_the_agent() {
+    let (status, dir) = signal_cli(TRAPPING_AGENT, "TERM", &[("SIG", "TERM"), ("CODE", "3")]);
+    assert!(
+        dir.path().join("mark").exists(),
+        "the agent gets SIGTERM and can shut down cleanly"
+    );
+    assert_eq!(status.code(), Some(3), "the agent's own exit status");
+    assert_eq!(sessions_left(&dir), 0, "session dir removed");
+}
+
+#[test]
+fn agent_run_sighup_cleans_up_and_is_passed_on() {
+    let (status, dir) = signal_cli(TRAPPING_AGENT, "HUP", &[("SIG", "HUP"), ("CODE", "4")]);
+    assert!(dir.path().join("mark").exists(), "the agent gets SIGHUP");
+    assert_eq!(status.code(), Some(4), "{status:?}");
+    assert_eq!(sessions_left(&dir), 0, "session dir removed");
+}
+
+#[test]
+fn agent_run_sigterm_kills_an_agent_that_ignores_it_and_exits_143() {
+    let (status, dir) = signal_cli(STUBBORN_AGENT, "TERM", &[]);
+    assert_eq!(status.code(), Some(143), "{status:?}");
+    assert_eq!(sessions_left(&dir), 0, "session dir removed");
+}
+
 #[test]
 fn agent_list_shows_adapters() {
     entangle()
