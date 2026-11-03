@@ -41,8 +41,9 @@
 //!    caller and the task id (a second frame with the same id while the first
 //!    runs is [`RemoteErrorCode::DuplicateTask`] — still one execution per
 //!    frame, never two per id);
-//! 3. logs the policy, including a `SemanticEquivalent` metric reference,
-//!    for audit only — it never loads or runs a metric (§7.5 Rule 3);
+//! 3. refuses a `SemanticEquivalent` metric reference whose publisher key
+//!    does not hash to its plugin id, then logs the policy (metric included)
+//!    for audit only — it never loads or runs a metric (§7.5 Rules 2–3);
 //! 4. re-verifies the hash before answering and echoes the hash it observed
 //!    in [`RemoteOutcome::Ok`], which the caller checks.
 //!
@@ -617,6 +618,22 @@ impl RemoteTaskServer {
                 return RemoteTaskResponse::err(RemoteErrorCode::PolicyHashMismatch, e.to_string());
             }
         };
+
+        // §7.5 Rule 2, the part a worker can check: a metric reference must
+        // carry the key its plugin id names. (Whether that key is trusted is
+        // the submitter's call; the worker never runs the metric.)
+        if let IntegrityPolicy::SemanticEquivalent { metric, .. } = envelope.policy() {
+            if !metric.is_self_consistent() {
+                return RemoteTaskResponse::err(
+                    RemoteErrorCode::MalformedRequest,
+                    format!(
+                        "metric reference {} carries a publisher key that does not match \
+                         its plugin id",
+                        metric.plugin
+                    ),
+                );
+            }
+        }
 
         let plugin: PluginId = match request.plugin.parse() {
             Ok(id) => id,

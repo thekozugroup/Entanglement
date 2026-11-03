@@ -1101,3 +1101,82 @@ async fn stdlib_metric_components_match_their_documented_math() {
     assert_eq!(registry.instantiations(&bleu), 3);
     assert_eq!(registry.instantiations(&l2), 3);
 }
+
+/// A worker refuses a work unit whose metric reference names one publisher
+/// and carries another's key (§7.5 Rule 2), before running anything.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_worker_refuses_an_inconsistent_metric_reference() {
+    let publisher = IdentityKeyPair::generate();
+    let other = IdentityKeyPair::generate();
+    let caller = Node::start(&publisher).await;
+    let mut worker = Node::start(&publisher).await;
+    let plugin = worker.load(&publisher, "hello", &hello_pong()).await;
+    worker.serve_for(caller.peer_id);
+    let mut bus = worker.kernel.bus().subscribe();
+
+    let forged = MetricRef {
+        plugin: format!("{}/metric-bleu-4@0.1.0", publisher.fingerprint_hex())
+            .parse()
+            .unwrap(),
+        publisher_key: *other.public().as_bytes(),
+        artifact_blake3: [7; 32],
+    };
+    let t = task(plugin, b"world", semantic(&forged, 0.25));
+    let frame = encode_request(&RemoteRequest::for_task(&t).unwrap()).unwrap();
+    let raw = deadline(
+        "inconsistent metric frame",
+        caller.transport.request(&worker.address(), &frame),
+    )
+    .await
+    .expect("round trip");
+    match decode_response(&raw, u64::MAX).unwrap().outcome {
+        RemoteOutcome::Err { code, message } => {
+            assert_eq!(code, RemoteErrorCode::MalformedRequest);
+            assert!(message.contains("publisher key"), "{message}");
+        }
+        other => panic!("an inconsistent metric reference must be refused, got {other:?}"),
+    }
+    assert!(drain(&mut bus).await.is_empty(), "nothing may run");
+}
+
+/// `TrustedExecutor` only ever places onto an allow-listed peer, even when a
+/// better-ranked worker is available.
+#[tokio::test(flavor = "multi_thread")]
+async fn trusted_executor_places_only_on_allow_listed_peers() {
+    let publisher = IdentityKeyPair::generate();
+    let submitter = Node::start(&publisher).await;
+    let mut a = Node::start(&publisher).await;
+    let mut b = Node::start(&publisher).await;
+    let plugin = a.load(&publisher, "hello", &hello_pong()).await;
+    b.load(&publisher, "hello", &hello_pong()).await;
+    a.serve_for(submitter.peer_id);
+    b.serve_for(submitter.peer_id);
+    // Identical adverts rank by lower peer id; allow only the other one.
+    let (first, second) = if a.peer_id < b.peer_id {
+        (&a, &b)
+    } else {
+        (&b, &a)
+    };
+    let (dispatcher, _) = submitter_dispatcher(&submitter, &[first, second]);
+    assert_eq!(
+        entangle_scheduler::rank(
+            &[worker_info(first.peer_id), worker_info(second.peer_id)],
+            &ResourceSpec::default()
+        )
+        .unwrap()[0]
+            .peer_id,
+        first.peer_id
+    );
+
+    let policy = IntegrityPolicy::TrustedExecutor {
+        allowlist: vec![second.peer_id],
+    };
+    let result = deadline(
+        "trusted executor",
+        dispatcher.dispatch_one_shot(task(plugin, b"world", policy)),
+    )
+    .await
+    .expect("the allow-listed peer runs it");
+    assert_eq!(result.output, b"Hello, world!");
+    assert_eq!(result.chosen.peer_id, second.peer_id);
+}

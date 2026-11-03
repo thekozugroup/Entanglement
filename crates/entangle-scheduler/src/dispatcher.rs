@@ -469,15 +469,25 @@ impl Dispatcher {
         while let Some(joined) = set.join_next().await {
             match joined {
                 Ok((idx, replica)) => slots[idx] = Some(replica),
-                Err(e) => {
-                    return Err(DispatchError::Integrity(IntegrityError::MetricFailed {
-                        metric: "-".into(),
-                        reason: format!("replica task panicked or was cancelled: {e}"),
-                    }))
-                }
+                Err(e) => tracing::error!(error = %e, "replica task did not complete"),
             }
         }
-        let replicas: Vec<ReplicaResult> = slots.into_iter().flatten().collect();
+        // A replica whose task panicked is a failed replica, not a reason to
+        // abandon the others.
+        let replicas: Vec<ReplicaResult> = slots
+            .into_iter()
+            .zip(&targets)
+            .map(|(slot, target)| {
+                slot.unwrap_or_else(|| ReplicaResult {
+                    peer: target.peer_id,
+                    remote: target.peer_id != self.local_peer_id,
+                    outcome: Err(DispatchError::RemoteTransport {
+                        peer: target.peer_id,
+                        reason: "replica task did not complete (panicked or cancelled)".into(),
+                    }),
+                })
+            })
+            .collect();
 
         let acceptance = self.verifier.accept(&task, &envelope, replicas).await?;
         Ok(DispatchResult {
