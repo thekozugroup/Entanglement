@@ -458,28 +458,108 @@ async fn check_clock_skew(daemon_reachable: bool) -> CheckResult {
 // Check 14 — tailscale liveness (only when `[mesh.tailscale] enabled`)
 // ---------------------------------------------------------------------------
 
+/// What the daemon will do with `[mesh.tailscale]`, as far as doctor can tell.
+enum TailscaleSettings {
+    /// Not enabled: nothing to check.
+    Off,
+    /// `enabled = true` but `[mesh] transports` does not list `"tailscale"`,
+    /// so the daemon does not run the transport.
+    Inert,
+    /// `config.toml` could not be read or parsed (the config row says why).
+    Unreadable(String),
+    /// A value the daemon rejects at load time.
+    Invalid(String),
+    /// The daemon runs the transport with this CLI path.
+    On { cli: String },
+}
+
 /// Read `[mesh.tailscale]` straight from the TOML: the CLI's typed `Config`
-/// intentionally does not carry daemon-only sections.
-fn tailscale_settings() -> Option<(bool, String)> {
-    let raw = std::fs::read_to_string(config::config_path()).ok()?;
-    let v: toml::Value = toml::from_str(&raw).ok()?;
-    let ts = v.get("mesh")?.get("tailscale")?;
-    let enabled = ts
-        .get("enabled")
-        .and_then(toml::Value::as_bool)
-        .unwrap_or(false);
+/// intentionally does not carry daemon-only sections. Mirrors the daemon's
+/// activation rule (`entangle_bin::tailscale::enabled`: `enabled = true`
+/// **and** `"tailscale"` in `[mesh] transports`) and its load-time checks.
+fn tailscale_settings(raw: Option<&str>) -> TailscaleSettings {
+    let Some(raw) = raw else {
+        return TailscaleSettings::Off;
+    };
+    let v: toml::Value = match toml::from_str(raw) {
+        Ok(v) => v,
+        Err(e) => return TailscaleSettings::Unreadable(format!("config.toml does not parse: {e}")),
+    };
+    let mesh = v.get("mesh");
+    let Some(ts) = mesh.and_then(|m| m.get("tailscale")) else {
+        return TailscaleSettings::Off;
+    };
+    if ts.get("enabled").and_then(toml::Value::as_bool) != Some(true) {
+        return TailscaleSettings::Off;
+    }
+    if let Some(mode) = ts.get("acl-mode") {
+        let ok = mode
+            .as_str()
+            .is_some_and(|m| m.parse::<entangle_mesh_tailscale::AclMode>().is_ok());
+        if !ok {
+            return TailscaleSettings::Invalid(format!(
+                "invalid [mesh.tailscale] acl-mode {mode} (expected \"entangle-on-top\" or \"trust-tailnet\")"
+            ));
+        }
+    }
+    if let Some(ip) = ts.get("bind-ip") {
+        if ip
+            .as_str()
+            .and_then(|s| s.parse::<std::net::IpAddr>().ok())
+            .is_none()
+        {
+            return TailscaleSettings::Invalid(format!(
+                "invalid [mesh.tailscale] bind-ip {ip} (expected an IP address)"
+            ));
+        }
+    }
+    let listed = mesh
+        .and_then(|m| m.get("transports"))
+        .and_then(toml::Value::as_array)
+        .is_some_and(|a| a.iter().any(|t| t.as_str() == Some("tailscale")));
+    if !listed {
+        return TailscaleSettings::Inert;
+    }
     let cli = ts
         .get("tailscale-cli")
         .and_then(toml::Value::as_str)
         .unwrap_or("")
         .to_owned();
-    Some((enabled, cli))
+    TailscaleSettings::On { cli }
 }
 
 async fn check_tailscale() -> CheckResult {
     use entangle_mesh_tailscale::{MeshTailscaleConfig, StatusSource as _, TailnetState};
-    let Some((true, cli)) = tailscale_settings() else {
-        return CheckResult::skip("tailscale", "mesh.tailscale not enabled");
+    let path = config::config_path();
+    let raw = match std::fs::read_to_string(&path) {
+        Ok(raw) => Some(raw),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => {
+            return CheckResult::skip("tailscale", format!("cannot read {}: {e}", path.display()))
+        }
+    };
+    let cli = match tailscale_settings(raw.as_deref()) {
+        TailscaleSettings::Off => {
+            return CheckResult::skip("tailscale", "mesh.tailscale not enabled")
+        }
+        TailscaleSettings::Unreadable(why) => {
+            return CheckResult::skip("tailscale", format!("{why} (see the config row)"))
+        }
+        TailscaleSettings::Inert => {
+            return CheckResult::warn(
+                "tailscale",
+                "enabled, but [mesh] transports does not list \"tailscale\"",
+                "the daemon does not run the transport; add \"tailscale\" to [mesh] transports or set [mesh.tailscale] enabled = false",
+            )
+        }
+        TailscaleSettings::Invalid(why) => {
+            return CheckResult::fail(
+                "tailscale",
+                why,
+                "`entangled` refuses to start with this config.toml",
+            )
+        }
+        TailscaleSettings::On { cli } => cli,
     };
     let cfg = MeshTailscaleConfig {
         tailscale_cli: cli,
