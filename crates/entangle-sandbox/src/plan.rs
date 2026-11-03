@@ -162,7 +162,9 @@ impl Plan {
 ///    [`NetworkIsolation::TcpOnly`] and is reported as degraded.
 /// 2. **bubblewrap** when Landlock is missing, or present but unable to
 ///    isolate the network.
-/// 3. **Unsandboxed** only with [`Policy::allow_unsandboxed`]; otherwise
+/// 3. With [`Policy::allow_unsandboxed`]: Landlock with the network
+///    [`NetworkIsolation::NotIsolated`] when Landlock works but cannot take
+///    the network away, else **Unsandboxed**. Otherwise
 ///    `ENTANGLE-E0700` (no primitive) or `ENTANGLE-E0701` (a primitive, but no
 ///    way to take the network away).
 ///
@@ -217,6 +219,8 @@ fn plan_linux(
     policy: Policy,
 ) -> Result<Plan, SandboxError> {
     let mut network_blocker: Option<String> = None;
+    // Landlock that works but cannot take the network away.
+    let mut landlock_without_network: Option<u32> = None;
 
     if let Some(abi) = host.landlock_abi.filter(|a| *a >= 1) {
         let landlock_scopes = abi >= 6;
@@ -254,6 +258,7 @@ fn plan_linux(
                 network,
             });
         }
+        landlock_without_network = Some(abi);
         network_blocker = Some(format!(
             "Landlock ABI {abi} has no network rules (needs ABI 4), unprivileged user \
              namespaces are unavailable, and seccomp filters are unavailable"
@@ -275,6 +280,19 @@ fn plan_linux(
     }
 
     if policy.allow_unsandboxed {
+        // The opt-out waives only what the host cannot do: Landlock without
+        // a network layer still confines the filesystem.
+        if let Some(abi) = landlock_without_network {
+            return Ok(Plan {
+                mechanism: Mechanism::Landlock { abi },
+                net_namespace: false,
+                seccomp: false,
+                landlock_net: false,
+                landlock_scopes: abi >= 6,
+                no_new_privs: true,
+                network: NetworkIsolation::NotIsolated,
+            });
+        }
         // No filesystem confinement, but keep whatever network layers exist.
         let (net_namespace, seccomp) = if profile.allow_network {
             (false, host.seccomp)
@@ -477,6 +495,24 @@ mod tests {
         let strict = plan(&no_net(), &linux(Some(7), true, true, false), STRICT).unwrap();
         let opted = plan(&no_net(), &linux(Some(7), true, true, false), OPT_OUT).unwrap();
         assert_eq!(strict, opted);
+    }
+
+    /// The opt-out only waives what the host cannot do: Landlock that cannot
+    /// take the network away (ABI < 4, no user namespaces, no seccomp, no
+    /// bwrap) still confines the filesystem, with the network reported as not
+    /// isolated — never "no sandbox at all".
+    #[test]
+    fn opt_out_keeps_landlock_when_only_network_isolation_is_missing() {
+        let host = linux(Some(3), false, false, false);
+        let p = plan(&no_net(), &host, OPT_OUT).unwrap();
+        assert_eq!(p.mechanism, Mechanism::Landlock { abi: 3 });
+        assert_eq!(p.network, NetworkIsolation::NotIsolated);
+        assert!(p.no_new_privs);
+        assert!(p.is_degraded());
+        assert!(p.describe().contains("NOT isolated"), "{}", p.describe());
+        // bubblewrap, when present, still wins: it isolates the network too.
+        let p = plan(&no_net(), &linux(Some(3), false, false, true), OPT_OUT).unwrap();
+        assert!(matches!(p.mechanism, Mechanism::Bubblewrap { .. }));
     }
 
     #[test]
