@@ -148,10 +148,10 @@ impl Stop {
     }
 }
 
-/// Take over SIGINT, SIGTERM and SIGHUP (Ctrl-C only, off unix) and report
-/// the first one received. Once installed, these signals no longer kill
-/// the CLI outright, so the gateway shutdown and the session cleanup always
-/// run.
+/// Take over SIGINT, SIGTERM and SIGHUP (Ctrl-C only, off unix) and publish
+/// every one received (the channel holds the most recent). Once installed,
+/// these signals no longer kill the CLI outright, so the gateway shutdown and
+/// the session cleanup always run.
 fn watch_stop_signals() -> Result<tokio::sync::watch::Receiver<Option<Stop>>> {
     let (tx, rx) = tokio::sync::watch::channel(None);
     #[cfg(unix)]
@@ -161,31 +161,43 @@ fn watch_stop_signals() -> Result<tokio::sync::watch::Receiver<Option<Stop>>> {
         let mut term = signal(SignalKind::terminate()).context("installing a SIGTERM handler")?;
         let mut hup = signal(SignalKind::hangup()).context("installing a SIGHUP handler")?;
         tokio::spawn(async move {
-            let stop = tokio::select! {
-                _ = int.recv() => Stop::Interrupt,
-                _ = term.recv() => Stop::Terminate,
-                _ = hup.recv() => Stop::Hangup,
-            };
-            let _ = tx.send(Some(stop));
+            loop {
+                let stop = tokio::select! {
+                    _ = int.recv() => Stop::Interrupt,
+                    _ = term.recv() => Stop::Terminate,
+                    _ = hup.recv() => Stop::Hangup,
+                };
+                if tx.send(Some(stop)).is_err() {
+                    break;
+                }
+            }
         });
     }
     #[cfg(not(unix))]
     tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() {
-            let _ = tx.send(Some(Stop::Interrupt));
+        while tokio::signal::ctrl_c().await.is_ok() {
+            if tx.send(Some(Stop::Interrupt)).is_err() {
+                break;
+            }
         }
     });
     Ok(rx)
 }
 
-/// Resolve with the first stop signal.
-async fn stop_requested(rx: &mut tokio::sync::watch::Receiver<Option<Stop>>) -> Stop {
+/// Resolve with the next signal received after this call starts waiting.
+///
+/// Values already seen are not returned again, so a SIGINT that was handled
+/// once cannot make a caller that loops on this function spin. A signal
+/// that arrived before the caller first waits (e.g. while the agent was
+/// being spawned) is unseen and is returned at once.
+async fn next_signal(rx: &mut tokio::sync::watch::Receiver<Option<Stop>>) -> Stop {
     loop {
+        if rx.changed().await.is_err() {
+            // The signal task is gone; no further signal can arrive.
+            std::future::pending::<()>().await;
+        }
         if let Some(stop) = *rx.borrow_and_update() {
             return stop;
-        }
-        if rx.changed().await.is_err() {
-            std::future::pending::<()>().await;
         }
     }
 }
@@ -384,22 +396,32 @@ async fn launch(
         )
     })?;
 
-    tokio::select! {
-        status = child.wait() => Ok(exit_code(status.context("waiting for agent")?)),
-        stop = stop_requested(stop) => {
-            // The terminal delivers Ctrl-C to its whole foreground process
-            // group, the agent included, so SIGINT is not sent again (many
-            // agents treat a second Ctrl-C as "quit now"). SIGTERM and SIGHUP
-            // were sent to the CLI alone: pass them on so the agent can shut
-            // down cleanly.
-            if stop != Stop::Interrupt {
+    // Interactive agents use Ctrl-C to interrupt the current turn, not to
+    // quit, so SIGINT never ends the session: the agent decides what it means
+    // and the session lasts until the agent exits. At a terminal the agent
+    // already got the SIGINT (the terminal signals the whole foreground
+    // process group), so it is not sent again — many agents treat a second
+    // Ctrl-C as "quit now". Without a terminal the signal reached the CLI
+    // alone, so it is passed on. SIGTERM and SIGHUP are always passed on,
+    // and an agent that ignores them is killed after STOP_GRACE.
+    let interactive = std::io::stdin().is_terminal();
+    loop {
+        tokio::select! {
+            status = child.wait() => return Ok(exit_code(status.context("waiting for agent")?)),
+            stop = next_signal(stop) => {
+                if stop == Stop::Interrupt {
+                    if !interactive {
+                        forward_signal(&child, stop);
+                    }
+                    continue;
+                }
                 forward_signal(&child, stop);
+                if let Ok(status) = tokio::time::timeout(STOP_GRACE, child.wait()).await {
+                    return Ok(exit_code(status.context("waiting for agent")?));
+                }
+                let _ = child.kill().await;
+                return Ok(stop.exit_code());
             }
-            if let Ok(status) = tokio::time::timeout(STOP_GRACE, child.wait()).await {
-                return Ok(exit_code(status.context("waiting for agent")?));
-            }
-            let _ = child.kill().await;
-            Ok(stop.exit_code())
         }
     }
 }

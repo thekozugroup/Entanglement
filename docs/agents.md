@@ -33,14 +33,18 @@ is the exit code of `entangle agent run`.
    meanwhile, a warning (`ENTANGLE-E0660`) is printed, also when the agent
    could not be launched.
 
-Ctrl-C, SIGTERM and SIGHUP (terminal closed) stop the session through the
-same cleanup; the handlers are installed before the gateway starts. Ctrl-C
-already reaches the agent through the terminal and is not sent again;
-SIGTERM and SIGHUP are passed on to the agent. The agent then has 5 s to
-exit, and `entangle agent run` exits with the agent's status; an agent
-still running after that is killed and the exit status is 130 (SIGINT),
-143 (SIGTERM) or 129 (SIGHUP). A signal that arrives before the agent was
-started stops the session without starting it. Only the agent process
+Ctrl-C does not end the session. Interactive agents use it to interrupt
+the current turn, so the agent decides what it means and the session lasts
+until the agent exits. At a terminal the agent already receives Ctrl-C (the
+terminal signals its whole foreground process group), so it is not sent
+again; without a terminal the SIGINT reached `entangle agent run` alone and
+is passed on. SIGTERM and SIGHUP (terminal closed) are passed on to the
+agent, which then has 5 s to exit; `entangle agent run` exits with the
+agent's status, and an agent still running after that is killed and the
+exit status is 143 (SIGTERM) or 129 (SIGHUP). All three handlers are
+installed before the gateway starts, and a signal that arrives before the
+agent was started (Ctrl-C included) stops the session without starting it
+(exit status 130 for SIGINT). Only the agent process
 itself is signalled or killed, not processes it started: it stays in the
 terminal's foreground process group so that it can read the terminal, and
 signalling that group would signal the CLI too.

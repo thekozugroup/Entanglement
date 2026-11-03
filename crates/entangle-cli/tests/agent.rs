@@ -485,6 +485,37 @@ fn agent_run_sighup_cleans_up_and_is_passed_on() {
     assert_eq!(sessions_left(&dir), 0, "session dir removed");
 }
 
+/// Fake agent that treats SIGINT the way interactive agents do — "interrupt
+/// the current turn" — and keeps running for longer than the CLI's stop
+/// grace period before it exits on its own with status 5.
+const INTERRUPTIBLE_AGENT: &str = r#"#!/bin/sh
+trap 'echo got > "$MARK"' INT
+echo $$ > "$READY.tmp" && mv "$READY.tmp" "$READY"
+i=0
+while [ ! -f "$MARK" ] && [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done
+sleep 6
+exit 5
+"#;
+
+#[test]
+fn agent_run_sigint_is_passed_on_and_does_not_end_the_session() {
+    // stdin is not a terminal here, so the SIGINT reached the CLI alone: it
+    // must be passed on, and the agent decides what it means. The session
+    // lasts until the agent exits by itself — even past the stop grace
+    // period that applies to SIGTERM/SIGHUP.
+    let (status, dir) = signal_cli(INTERRUPTIBLE_AGENT, "INT", &[]);
+    assert!(
+        dir.path().join("mark").exists(),
+        "the agent gets the SIGINT"
+    );
+    assert_eq!(
+        status.code(),
+        Some(5),
+        "the agent's own exit status, not a kill: {status:?}"
+    );
+    assert_eq!(sessions_left(&dir), 0, "session dir removed");
+}
+
 #[test]
 fn agent_run_sigterm_kills_an_agent_that_ignores_it_and_exits_143() {
     let (status, dir) = signal_cli(STUBBORN_AGENT, "TERM", &[]);
