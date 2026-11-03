@@ -452,11 +452,16 @@ pub fn decode_request(bytes: &[u8]) -> Result<RemoteRequest, WireError> {
 /// `max_output_bytes` is the **caller's** limit, taken from the task it
 /// dispatched — not from anything the peer said. A peer that answers with more
 /// than the caller agreed to accept is refused here.
+///
+/// The output size is checked **before** the no-trailing-bytes rule: an
+/// oversized output with junk appended is still [`WireError::OutputTooLarge`]
+/// (INV-INT-2), so appending a byte cannot turn a size violation into a plain
+/// malformed frame that skips the size guard.
 pub fn decode_response(
     bytes: &[u8],
     max_output_bytes: u64,
 ) -> Result<RemoteTaskResponse, WireError> {
-    let resp: RemoteTaskResponse = decode(bytes)?;
+    let (resp, rest) = decode_prefix::<RemoteTaskResponse>(bytes)?;
     if let RemoteOutcome::Ok { output, .. } = &resp.outcome {
         let actual = output.len() as u64;
         if actual > max_output_bytes {
@@ -466,11 +471,31 @@ pub fn decode_response(
             });
         }
     }
+    reject_trailing(rest)?;
     Ok(resp)
 }
 
 /// Shared decode path: cap → version → structure → no trailing bytes.
 fn decode<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<T, WireError> {
+    let (value, rest) = decode_prefix(bytes)?;
+    reject_trailing(rest)?;
+    Ok(value)
+}
+
+/// A frame must end where its envelope ends.
+fn reject_trailing(rest: &[u8]) -> Result<(), WireError> {
+    if rest.is_empty() {
+        Ok(())
+    } else {
+        Err(WireError::Malformed(format!(
+            "{} trailing bytes after the envelope",
+            rest.len()
+        )))
+    }
+}
+
+/// Cap → version → structure; returns the value and any bytes after it.
+fn decode_prefix<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<(T, &[u8]), WireError> {
     if bytes.len() > MAX_FRAME_BYTES {
         return Err(WireError::FrameTooLarge {
             actual: bytes.len(),
@@ -490,15 +515,7 @@ fn decode<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<T, WireError> {
         });
     }
 
-    let (value, rest) = postcard::take_from_bytes::<T>(bytes)
-        .map_err(|e| WireError::Malformed(format!("decode: {e}")))?;
-    if !rest.is_empty() {
-        return Err(WireError::Malformed(format!(
-            "{} trailing bytes after the envelope",
-            rest.len()
-        )));
-    }
-    Ok(value)
+    postcard::take_from_bytes::<T>(bytes).map_err(|e| WireError::Malformed(format!("decode: {e}")))
 }
 
 #[cfg(test)]
@@ -659,6 +676,31 @@ mod tests {
             }
             other => panic!("expected OutputTooLarge, got {other:?}"),
         }
+    }
+
+    /// An oversized output followed by a trailing byte is still an oversized
+    /// output (INV-INT-2): the size is checked before the trailing-bytes
+    /// rule, so appending one byte cannot turn the size violation into a
+    /// plain "malformed frame" that skips the size guard's warning and
+    /// penalty. A well-sized response with trailing bytes stays malformed.
+    #[test]
+    fn oversize_output_with_trailing_bytes_is_still_oversize() {
+        let h = policy_hash(&IntegrityPolicy::None);
+        let mut bytes =
+            encode_response(&RemoteTaskResponse::ok(vec![b'A'; 2048], h)).expect("encode");
+        bytes.push(0);
+        match decode_response(&bytes, 1024) {
+            Err(WireError::OutputTooLarge { declared, actual }) => {
+                assert_eq!((declared, actual), (1024, 2048));
+            }
+            other => panic!("expected OutputTooLarge, got {other:?}"),
+        }
+        let mut small = encode_response(&RemoteTaskResponse::ok(vec![b'A'; 8], h)).expect("enc");
+        small.push(0);
+        assert!(matches!(
+            decode_response(&small, 1024),
+            Err(WireError::Malformed(msg)) if msg.contains("trailing")
+        ));
     }
 
     /// An error response is not subject to the output cap — there is no

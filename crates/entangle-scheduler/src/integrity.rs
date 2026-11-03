@@ -26,8 +26,9 @@
 //! The acceptance pipeline, in this order:
 //!
 //! 1. **Size guard (INV-INT-2).** Any replica whose actual output exceeds the
-//!    task's `max_output_bytes` — whether the wire decoder already refused it
-//!    or the bytes are in hand — emits an [`OutputSizeExceededWarning`] to
+//!    task's `max_output_bytes` — whether the transport refused its frame, the
+//!    wire decoder refused it, or the bytes are in hand — emits an
+//!    [`OutputSizeExceededWarning`] to
 //!    telemetry, lowers that peer's reputation, and makes the task fail with
 //!    `ENTANGLE-E0300 OutputSizeExceeded`. This branch is terminal and sits
 //!    above the only metric load site, so an oversized result can never cause

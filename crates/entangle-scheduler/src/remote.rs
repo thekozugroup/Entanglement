@@ -61,7 +61,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
-use entangle_mesh_iroh::{DynMeshTransport, IrohPeer, MeshIroh};
+use entangle_mesh_iroh::{DynMeshTransport, IrohPeer, MeshIroh, MeshIrohError};
 use entangle_runtime::{IntegrityError, Kernel, RuntimeError};
 use entangle_types::peer_id::PeerId;
 use entangle_types::plugin_id::PluginId;
@@ -214,7 +214,10 @@ impl RemoteDispatch {
     /// comparing that echo with `envelope.hash()` is the caller's job (the
     /// acceptance pipeline does it for every replica). An answer larger than
     /// `task.max_output_bytes` is refused while decoding, before its bytes
-    /// are handed to anyone, as [`DispatchError::OutputSizeExceeded`].
+    /// are handed to anyone, as [`DispatchError::OutputSizeExceeded`] — also
+    /// when trailing bytes follow it, and when the transport already refused
+    /// its frame as over the transport cap (then `actual` is the declared
+    /// frame length).
     pub async fn dispatch_sealed(
         &self,
         task: &OneShotTask,
@@ -311,13 +314,36 @@ impl RemoteDispatch {
             reason: format!("encoding request: {e}"),
         })?;
 
+        // INV-INT-2: a task answer bigger than the task's `max_output_bytes`
+        // is an oversized output wherever it is caught — by the decoder, or
+        // by the transport refusing its frame — so the acceptance pipeline
+        // always warns and penalises. `actual` is then the frame length the
+        // peer declared, an upper bound on its output.
+        let is_task = matches!(request.frame, RequestFrame::Task(_));
+        let oversized = |actual: u64| {
+            DispatchError::OutputSizeExceeded(
+                entangle_types::errors::EntangleError::OutputSizeExceeded {
+                    declared: max_output_bytes,
+                    actual,
+                    peer: peer.to_hex(),
+                },
+            )
+        };
+
         let raw = match tokio::time::timeout(budget, self.transport.request(&addr, &frame)).await {
             Ok(Ok(bytes)) => bytes,
             Ok(Err(e)) => {
+                // A frame-cap refusal is about the answer only when our own
+                // request fit under that cap.
+                if let MeshIrohError::FrameTooLarge { declared, max } = &e {
+                    if is_task && frame.len() <= *max && *declared > max_output_bytes {
+                        return Err(oversized(*declared));
+                    }
+                }
                 return Err(DispatchError::RemoteTransport {
                     peer,
                     reason: e.to_string(),
-                })
+                });
             }
             Err(_elapsed) => {
                 return Err(DispatchError::RemoteTransport {
@@ -334,13 +360,14 @@ impl RemoteDispatch {
         // The peer's answer is untrusted input: size-check it against *our*
         // limit, not anything it told us.
         decode_response(&raw, max_output_bytes).map_err(|e| match e {
-            WireError::OutputTooLarge { declared, actual } => DispatchError::OutputSizeExceeded(
-                entangle_types::errors::EntangleError::OutputSizeExceeded {
-                    declared,
-                    actual,
-                    peer: peer.to_hex(),
-                },
-            ),
+            WireError::OutputTooLarge { actual, .. } => oversized(actual),
+            // Over the wire cap (reachable only with a transport whose own
+            // cap is larger) and over the task's limit: oversized too.
+            WireError::FrameTooLarge { actual, .. }
+                if is_task && actual as u64 > max_output_bytes =>
+            {
+                oversized(actual as u64)
+            }
             other => DispatchError::RemoteTransport {
                 peer,
                 reason: other.to_string(),
@@ -807,9 +834,146 @@ pub async fn serve_tasks(transport: Arc<MeshIroh>, server: Arc<RemoteTaskServer>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use entangle_mesh_iroh::{MeshConn, MeshTransport, MAX_FRAME_BYTES};
+    use entangle_types::errors::EntangleError;
 
     fn peer(byte: u8) -> PeerId {
         PeerId::from_public_key_bytes(&[byte; 32])
+    }
+
+    type Answer = dyn Fn(&[u8]) -> Result<Vec<u8>, MeshIrohError> + Send + Sync;
+
+    /// A transport whose every request gets `answer(request frame)`.
+    struct Canned(Box<Answer>);
+
+    impl std::fmt::Debug for Canned {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("Canned")
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl MeshTransport for Canned {
+        fn local_peer_id(&self) -> PeerId {
+            peer(0)
+        }
+        fn local_public_key(&self) -> [u8; 32] {
+            [0; 32]
+        }
+        fn local_addrs(&self) -> Vec<std::net::SocketAddr> {
+            Vec::new()
+        }
+        async fn connect(&self, _peer: &IrohPeer) -> Result<MeshConn, MeshIrohError> {
+            Err(MeshIrohError::Stream(
+                "canned transport does not dial".into(),
+            ))
+        }
+        async fn request(
+            &self,
+            _peer: &IrohPeer,
+            payload: &[u8],
+        ) -> Result<Vec<u8>, MeshIrohError> {
+            (self.0)(payload)
+        }
+        async fn accept(&self) -> Result<Option<MeshConn>, MeshIrohError> {
+            Ok(None)
+        }
+        async fn shutdown(&self) {}
+    }
+
+    /// A client whose only peer answers with `answer`; returns that peer.
+    fn canned_client(
+        answer: impl Fn(&[u8]) -> Result<Vec<u8>, MeshIrohError> + Send + Sync + 'static,
+    ) -> (RemoteDispatch, PeerId) {
+        let target = IrohPeer::new([7u8; 32], "127.0.0.1:9".parse().expect("addr"));
+        let directory = PeerDirectory::new();
+        directory.insert(target.clone());
+        let client = RemoteDispatch::new(Arc::new(Canned(Box::new(answer))), Arc::new(directory));
+        (client, target.peer_id)
+    }
+
+    fn small_task() -> (OneShotTask, PolicyEnvelope) {
+        let mut task = OneShotTask::with_defaults(
+            "0123456789abcdef0123456789abcdef/demo@1.0.0"
+                .parse()
+                .expect("plugin id"),
+            b"in".to_vec(),
+        );
+        task.max_output_bytes = 1024;
+        let envelope = PolicyEnvelope::seal(&task.integrity).expect("seal");
+        (task, envelope)
+    }
+
+    /// INV-INT-2 / ATC-INT-5: an answer whose frame header declares more
+    /// than the transport cap is refused by the transport before its body is
+    /// read — and is still an *oversized output* (E0300), so the acceptance
+    /// pipeline warns and penalises, rather than an ordinary transport
+    /// failure that would let the peer dodge both.
+    #[tokio::test]
+    async fn a_response_frame_over_the_transport_cap_is_an_oversized_output() {
+        let declared = 20 * 1024 * 1024;
+        let (client, target) = canned_client(move |_| {
+            Err(MeshIrohError::FrameTooLarge {
+                declared,
+                max: MAX_FRAME_BYTES,
+            })
+        });
+        let (task, env) = small_task();
+        match client.dispatch_sealed(&task, target, &env).await {
+            Err(DispatchError::OutputSizeExceeded(EntangleError::OutputSizeExceeded {
+                declared: d,
+                actual,
+                peer: p,
+            })) => {
+                assert_eq!((d, actual), (1024, declared));
+                assert_eq!(p, target.to_hex());
+            }
+            other => panic!("expected OutputSizeExceeded, got {other:?}"),
+        }
+    }
+
+    /// An oversized `Ok` answer with one trailing byte appended is still an
+    /// oversized output, not a malformed frame.
+    #[tokio::test]
+    async fn an_oversized_answer_with_a_trailing_byte_is_an_oversized_output() {
+        let (client, target) = canned_client(|_| {
+            let h = crate::work_unit::policy_hash(&IntegrityPolicy::None);
+            let mut bytes =
+                encode_response(&RemoteTaskResponse::ok(vec![b'A'; 2048], h)).expect("encode");
+            bytes.push(0);
+            Ok(bytes)
+        });
+        let (task, env) = small_task();
+        match client.dispatch_sealed(&task, target, &env).await {
+            Err(DispatchError::OutputSizeExceeded(EntangleError::OutputSizeExceeded {
+                declared,
+                actual,
+                ..
+            })) => assert_eq!((declared, actual), (1024, 2048)),
+            other => panic!("expected OutputSizeExceeded, got {other:?}"),
+        }
+    }
+
+    /// A frame-cap refusal of *our own request* (the request frame is over
+    /// the cap the error reports) says nothing about the peer's output and
+    /// stays a transport failure.
+    #[tokio::test]
+    async fn our_own_oversized_request_is_not_blamed_on_the_peer() {
+        let (client, target) = canned_client(|payload| {
+            Err(MeshIrohError::FrameTooLarge {
+                declared: payload.len() as u64,
+                max: 1,
+            })
+        });
+        let (task, env) = small_task();
+        let err = client
+            .dispatch_sealed(&task, target, &env)
+            .await
+            .expect_err("the transport refused the request");
+        assert!(
+            matches!(err, DispatchError::RemoteTransport { .. }),
+            "{err:?}"
+        );
     }
 
     #[test]
