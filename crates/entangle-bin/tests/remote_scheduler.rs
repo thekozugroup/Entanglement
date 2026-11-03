@@ -18,7 +18,7 @@ use entangle_mesh_iroh::{
 };
 use entangle_peers::{PeerStore, TrustLevel, TrustedPeer};
 use entangle_runtime::{Kernel, KernelConfig};
-use entangle_scheduler::wire::{decode_response, encode_request, RemoteTaskRequest};
+use entangle_scheduler::wire::{decode_response, encode_request, RemoteRequest};
 use entangle_scheduler::{PeerAllowlist, RemoteErrorCode, RemoteOutcome};
 use entangle_signing::{IdentityKeyPair, Keyring};
 use entangle_types::peer_id::PeerId;
@@ -69,7 +69,7 @@ fn demo_plugin() -> PluginId {
 /// Ask `server` to run something, over the wire, and return its answer.
 async fn ask(client: &MeshIroh, server: &MeshIroh) -> RemoteOutcome {
     let task = OneShotTask::with_defaults(demo_plugin(), b"world".to_vec());
-    let frame = encode_request(&RemoteTaskRequest::for_task(&task)).expect("encode");
+    let frame = encode_request(&RemoteRequest::for_task(&task).expect("seal")).expect("encode");
     let raw = deadline("request", client.request(&address_of(server), &frame))
         .await
         .expect("transport round trip");
@@ -107,7 +107,9 @@ async fn an_unpaired_peer_is_refused_by_the_daemon() {
             RemoteErrorCode::NotAuthorized,
             "an unpaired peer must be refused as unauthorized"
         ),
-        RemoteOutcome::Ok { .. } => panic!("the daemon executed work for an unpaired peer"),
+        RemoteOutcome::Ok { .. } | RemoteOutcome::Ack { .. } => {
+            panic!("the daemon executed work for an unpaired peer")
+        }
     }
 }
 
@@ -144,7 +146,7 @@ async fn a_paired_peer_gets_past_the_gate() {
             RemoteErrorCode::PluginNotLoaded,
             "a paired peer must pass authorization and fail on the missing plugin instead"
         ),
-        RemoteOutcome::Ok { .. } => {
+        RemoteOutcome::Ok { .. } | RemoteOutcome::Ack { .. } => {
             panic!("a plugin that is not loaded cannot have produced output")
         }
     }
@@ -199,7 +201,9 @@ async fn revoking_a_peer_stops_it_mid_session() {
             RemoteErrorCode::NotAuthorized,
             "a revoked peer must lose the right to submit work immediately"
         ),
-        RemoteOutcome::Ok { .. } => panic!("a revoked peer got work executed"),
+        RemoteOutcome::Ok { .. } | RemoteOutcome::Ack { .. } => {
+            panic!("a revoked peer got work executed")
+        }
     }
 }
 

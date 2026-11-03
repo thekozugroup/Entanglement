@@ -1,7 +1,8 @@
 //! Wire format for cross-node one-shot task dispatch.
 //!
 //! One request/response pair travels over a single [`ALPN_SCHEDULER`] frame
-//! (see `entangle-mesh-iroh`). The encoding is [postcard] — a compact,
+//! (see `entangle-mesh-iroh`). A request frame is either a **task** (run this
+//! plugin once) or a **control** frame about a task already in flight. The encoding is [postcard] — a compact,
 //! non-self-describing binary serde format that is already in this
 //! workspace's dependency tree, so nothing heavy is pulled in for it.
 //!
@@ -17,6 +18,16 @@
 //! Postcard is not self-describing, which is exactly why this matters: without
 //! the leading version a v2 message would deserialize into a v1 struct
 //! whenever the field types happened to line up.
+//!
+//! ## Version history
+//!
+//! * **v1** — task frames only; no integrity policy on the wire.
+//! * **v2** — every request is a [`RemoteRequest`] (`v`, then a
+//!   [`RequestFrame`]: `Task` or `Control`). A task frame carries the task's
+//!   integrity policy as canonical bytes plus `policy_hash` (INV-INT-1, see
+//!   [`crate::work_unit`]); a successful response echoes the hash the
+//!   executor observed. v1 peers are refused with
+//!   [`WireError::UnsupportedVersion`] / [`RemoteErrorCode::UnsupportedVersion`].
 //!
 //! # Untrusted input
 //!
@@ -37,25 +48,119 @@
 //! [`ALPN_SCHEDULER`]: entangle_mesh_iroh::ALPN_SCHEDULER
 
 use entangle_mesh_iroh::MAX_FRAME_BYTES;
-use entangle_types::task::OneShotTask;
+use entangle_runtime::IntegrityError;
+use entangle_types::task::{OneShotTask, TaskId};
 use serde::{Deserialize, Serialize};
 
+use crate::work_unit::{PolicyEnvelope, PolicyHash, MAX_POLICY_BYTES};
+
 /// Current envelope version. Bump on any change to the field layout of
-/// [`RemoteTaskRequest`] or [`RemoteTaskResponse`].
-pub const WIRE_VERSION: u16 = 1;
+/// [`RemoteRequest`] or [`RemoteTaskResponse`].
+pub const WIRE_VERSION: u16 = 2;
+
+/// Every frame a caller sends an executor.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RemoteRequest {
+    /// Envelope version. Always the first field on the wire.
+    pub v: u16,
+    /// What is being asked.
+    pub frame: RequestFrame,
+}
+
+impl RemoteRequest {
+    /// A task frame for `task`, its policy sealed into an envelope.
+    ///
+    /// Fails if the task's policy has no canonical encoding (see
+    /// [`PolicyEnvelope::seal`]).
+    pub fn for_task(task: &OneShotTask) -> Result<Self, IntegrityError> {
+        let envelope = PolicyEnvelope::seal(&task.integrity)?;
+        Ok(Self::task(RemoteTaskRequest::sealed(task, &envelope)))
+    }
+
+    /// Wrap a task body at the current [`WIRE_VERSION`].
+    pub fn task(body: RemoteTaskRequest) -> Self {
+        Self {
+            v: WIRE_VERSION,
+            frame: RequestFrame::Task(body),
+        }
+    }
+
+    /// Wrap a control frame at the current [`WIRE_VERSION`].
+    pub fn control(frame: ControlFrame) -> Self {
+        Self {
+            v: WIRE_VERSION,
+            frame: RequestFrame::Control(frame),
+        }
+    }
+}
+
+/// The two kinds of request frame.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RequestFrame {
+    /// Execute a task once.
+    Task(RemoteTaskRequest),
+    /// A control message about a task this caller has in flight here.
+    Control(ControlFrame),
+}
+
+/// A control message about an in-flight task.
+///
+/// Addressed by `task_id` **within the sending peer's own tasks**: the
+/// executor keys its in-flight table by the transport-authenticated caller,
+/// so one peer can never address another's task.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ControlFrame {
+    /// The task this frame is about, as raw UUID bytes.
+    pub task_id: [u8; 16],
+    /// The requested action.
+    pub action: ControlAction,
+}
+
+/// What a [`ControlFrame`] asks for.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ControlAction {
+    /// Replace the task's integrity policy.
+    ///
+    /// INV-INT-1 makes the policy immutable for a task's lifetime, so this is
+    /// answered with [`RemoteOutcome::Ack`] only when the policy is
+    /// *identical* (same hash — nothing changes), and with
+    /// [`RemoteErrorCode::PolicyMutation`] otherwise. It exists so that a
+    /// mutation attempt has one well-defined, typed refusal rather than being
+    /// undefined behaviour.
+    SetPolicy {
+        /// Canonical bytes of the proposed policy.
+        policy: Vec<u8>,
+        /// `SHA-256(policy)`.
+        policy_hash: PolicyHash,
+    },
+}
+
+impl ControlFrame {
+    /// A `SetPolicy` frame for `task_id` proposing `envelope`'s policy.
+    pub fn set_policy(task_id: TaskId, envelope: &PolicyEnvelope) -> Self {
+        Self {
+            task_id: *task_id.as_bytes(),
+            action: ControlAction::SetPolicy {
+                policy: envelope.canonical().to_vec(),
+                policy_hash: envelope.hash(),
+            },
+        }
+    }
+}
 
 /// A request to execute one [`OneShotTask`] on the receiving node.
 ///
-/// Deliberately **does not** carry the task's `IntegrityPolicy` or
-/// `ResourceSpec`. Integrity is the *caller's* verification concern — it is
-/// applied to the answers it collects — and letting a remote caller name a
-/// policy would hand it an amplification primitive (`Deterministic { replicas:
-/// 255 }` would be 255 executions for one frame). The executor therefore
-/// always runs the task exactly once. See [`crate::remote::RemoteTaskServer`].
+/// Carries the task's integrity policy — as canonical bytes plus
+/// `policy_hash` — so the executor can verify the envelope (INV-INT-1) and
+/// log the policy (including a `SemanticEquivalent` metric reference) for
+/// audit. It does **not** make the executor *apply* the policy: integrity is
+/// the caller's verification concern, applied to the answers it collects, and
+/// honouring a peer-named policy would hand it an amplification primitive
+/// (`Deterministic { replicas: 255 }` would be 255 executions for one frame).
+/// The executor therefore always runs the task exactly once and never loads a
+/// metric. See [`crate::remote::RemoteTaskServer`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteTaskRequest {
-    /// Envelope version. Always the first field on the wire.
-    pub v: u16,
     /// The task's UUID, as raw bytes (uuid's own serde form is not stable
     /// across encodings; 16 fixed bytes are).
     pub task_id: [u8; 16],
@@ -70,24 +175,30 @@ pub struct RemoteTaskRequest {
     pub max_input_bytes: u64,
     /// Caller's declared ceiling on the output it will accept.
     pub max_output_bytes: u64,
+    /// Canonical bytes of the task's integrity policy
+    /// ([`crate::work_unit::canonical_policy_bytes`]).
+    pub policy: Vec<u8>,
+    /// `SHA-256(policy)` as sealed by the caller.
+    pub policy_hash: PolicyHash,
 }
 
 impl RemoteTaskRequest {
-    /// Build a request for `task` at the current [`WIRE_VERSION`].
-    pub fn for_task(task: &OneShotTask) -> Self {
+    /// Build the task body for `task` with an already-sealed `envelope`.
+    pub fn sealed(task: &OneShotTask, envelope: &PolicyEnvelope) -> Self {
         Self {
-            v: WIRE_VERSION,
             task_id: *task.id.as_bytes(),
             plugin: task.plugin.to_string(),
             input: task.input.clone(),
             timeout_ms: task.timeout_ms,
             max_input_bytes: task.max_input_bytes,
             max_output_bytes: task.max_output_bytes,
+            policy: envelope.canonical().to_vec(),
+            policy_hash: envelope.hash(),
         }
     }
 }
 
-/// The executor's answer to a [`RemoteTaskRequest`].
+/// The executor's answer to a [`RemoteRequest`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteTaskResponse {
     /// Envelope version. Always the first field on the wire.
@@ -97,11 +208,26 @@ pub struct RemoteTaskResponse {
 }
 
 impl RemoteTaskResponse {
-    /// A successful response at the current [`WIRE_VERSION`].
-    pub fn ok(output: Vec<u8>) -> Self {
+    /// A successful task response at the current [`WIRE_VERSION`], echoing
+    /// the policy hash the executor observed.
+    pub fn ok(output: Vec<u8>, observed_policy_hash: PolicyHash) -> Self {
         Self {
             v: WIRE_VERSION,
-            outcome: RemoteOutcome::Ok { output },
+            outcome: RemoteOutcome::Ok {
+                output,
+                observed_policy_hash,
+            },
+        }
+    }
+
+    /// A control-frame acknowledgement at the current [`WIRE_VERSION`].
+    pub fn ack(task_id: [u8; 16], observed_policy_hash: PolicyHash) -> Self {
+        Self {
+            v: WIRE_VERSION,
+            outcome: RemoteOutcome::Ack {
+                task_id,
+                observed_policy_hash,
+            },
         }
     }
 
@@ -124,6 +250,17 @@ pub enum RemoteOutcome {
     Ok {
         /// Raw output bytes from the plugin.
         output: Vec<u8>,
+        /// `SHA-256` of the policy bytes the executor held when it returned
+        /// this result (INV-INT-1). The caller refuses the result unless it
+        /// equals the hash it dispatched.
+        observed_policy_hash: PolicyHash,
+    },
+    /// A control frame was accepted without changing anything.
+    Ack {
+        /// The task the frame addressed.
+        task_id: [u8; 16],
+        /// The (unchanged) policy hash of that in-flight task.
+        observed_policy_hash: PolicyHash,
     },
     /// The task did not produce output. `message` is diagnostic text from the
     /// executor and is **untrusted** — render it, never parse it.
@@ -159,6 +296,18 @@ pub enum RemoteErrorCode {
     Execution,
     /// The executor hit an unexpected internal condition.
     Internal,
+    /// The task frame's `policy_hash` is not `SHA-256` of its policy bytes,
+    /// or the bytes are not a canonical policy. **No work was done.**
+    PolicyHashMismatch,
+    /// A control frame tried to change the policy of an in-flight task
+    /// (INV-INT-1).
+    PolicyMutation,
+    /// A control frame named a task this caller has no execution of in flight
+    /// on this node.
+    UnknownTask,
+    /// The caller already has a task with this id in flight on this node.
+    /// **No work was done.**
+    DuplicateTask,
 }
 
 impl RemoteErrorCode {
@@ -173,6 +322,10 @@ impl RemoteErrorCode {
             Self::OutputTooLarge => "output-too-large",
             Self::Execution => "execution",
             Self::Internal => "internal",
+            Self::PolicyHashMismatch => "policy-hash-mismatch",
+            Self::PolicyMutation => "policy-mutation",
+            Self::UnknownTask => "unknown-task",
+            Self::DuplicateTask => "duplicate-task",
         }
     }
 }
@@ -222,10 +375,18 @@ pub enum WireError {
         /// The actual output size.
         actual: u64,
     },
+    /// A task frame's policy bytes exceed [`MAX_POLICY_BYTES`].
+    #[error("policy of {actual} bytes exceeds the {max}-byte cap")]
+    PolicyTooLarge {
+        /// Actual policy size.
+        actual: usize,
+        /// The cap in force.
+        max: usize,
+    },
 }
 
 /// Encode a request, refusing anything that could not be sent as one frame.
-pub fn encode_request(req: &RemoteTaskRequest) -> Result<Vec<u8>, WireError> {
+pub fn encode_request(req: &RemoteRequest) -> Result<Vec<u8>, WireError> {
     encode(req)
 }
 
@@ -249,16 +410,39 @@ fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, WireError> {
 /// Decode a request from untrusted bytes.
 ///
 /// Enforces, in order: the frame cap, the envelope version, structural
-/// well-formedness with no trailing bytes, and the request's own
-/// `max_input_bytes`.
-pub fn decode_request(bytes: &[u8]) -> Result<RemoteTaskRequest, WireError> {
-    let req: RemoteTaskRequest = decode(bytes)?;
-    let actual = req.input.len() as u64;
-    if actual > req.max_input_bytes {
-        return Err(WireError::InputTooLarge {
-            declared: req.max_input_bytes,
-            actual,
-        });
+/// well-formedness with no trailing bytes, and — for a task frame — the
+/// request's own `max_input_bytes` and the [`MAX_POLICY_BYTES`] cap. The
+/// policy hash itself is checked by the executor
+/// ([`crate::work_unit::verify_envelope`]), so it can answer with a typed
+/// code.
+pub fn decode_request(bytes: &[u8]) -> Result<RemoteRequest, WireError> {
+    let req: RemoteRequest = decode(bytes)?;
+    if let RequestFrame::Task(task) = &req.frame {
+        let actual = task.input.len() as u64;
+        if actual > task.max_input_bytes {
+            return Err(WireError::InputTooLarge {
+                declared: task.max_input_bytes,
+                actual,
+            });
+        }
+        if task.policy.len() > MAX_POLICY_BYTES {
+            return Err(WireError::PolicyTooLarge {
+                actual: task.policy.len(),
+                max: MAX_POLICY_BYTES,
+            });
+        }
+    }
+    if let RequestFrame::Control(ControlFrame {
+        action: ControlAction::SetPolicy { policy, .. },
+        ..
+    }) = &req.frame
+    {
+        if policy.len() > MAX_POLICY_BYTES {
+            return Err(WireError::PolicyTooLarge {
+                actual: policy.len(),
+                max: MAX_POLICY_BYTES,
+            });
+        }
     }
     Ok(req)
 }
@@ -273,7 +457,7 @@ pub fn decode_response(
     max_output_bytes: u64,
 ) -> Result<RemoteTaskResponse, WireError> {
     let resp: RemoteTaskResponse = decode(bytes)?;
-    if let RemoteOutcome::Ok { output } = &resp.outcome {
+    if let RemoteOutcome::Ok { output, .. } = &resp.outcome {
         let actual = output.len() as u64;
         if actual > max_output_bytes {
             return Err(WireError::OutputTooLarge {
@@ -320,7 +504,9 @@ fn decode<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<T, WireError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::work_unit::policy_hash;
     use entangle_types::plugin_id::PluginId;
+    use entangle_types::task::IntegrityPolicy;
 
     fn plugin_id() -> PluginId {
         "0123456789abcdef0123456789abcdef/demo@1.0.0"
@@ -332,30 +518,72 @@ mod tests {
         OneShotTask::with_defaults(plugin_id(), b"world".to_vec())
     }
 
+    fn sample_request() -> RemoteRequest {
+        RemoteRequest::for_task(&sample_task()).expect("seal")
+    }
+
+    fn task_body(req: &RemoteRequest) -> &RemoteTaskRequest {
+        match &req.frame {
+            RequestFrame::Task(t) => t,
+            other => panic!("expected a task frame, got {other:?}"),
+        }
+    }
+
     #[test]
     fn request_round_trips() {
-        let task = sample_task();
-        let req = RemoteTaskRequest::for_task(&task);
+        let mut task = sample_task();
+        task.integrity = IntegrityPolicy::Deterministic { replicas: 3 };
+        let req = RemoteRequest::for_task(&task).expect("seal");
         let decoded = decode_request(&encode_request(&req).expect("encode")).expect("decode");
         assert_eq!(decoded, req);
-        assert_eq!(decoded.plugin, task.plugin.to_string());
-        assert_eq!(decoded.task_id, *task.id.as_bytes());
+        let body = task_body(&decoded);
+        assert_eq!(body.plugin, task.plugin.to_string());
+        assert_eq!(body.task_id, *task.id.as_bytes());
+        // The policy travels, hashed (INV-INT-1).
+        assert_eq!(body.policy_hash, policy_hash(&task.integrity));
+        assert_eq!(
+            crate::work_unit::verify_envelope(&body.policy, &body.policy_hash).unwrap(),
+            task.integrity
+        );
     }
 
     #[test]
-    fn ok_response_round_trips() {
-        let resp = RemoteTaskResponse::ok(b"Hello, world!".to_vec());
-        let decoded =
-            decode_response(&encode_response(&resp).expect("encode"), 1024).expect("decode");
-        assert_eq!(decoded, resp);
+    fn control_frame_round_trips() {
+        let task = sample_task();
+        let env = PolicyEnvelope::seal(&IntegrityPolicy::Deterministic { replicas: 2 }).unwrap();
+        let req = RemoteRequest::control(ControlFrame::set_policy(task.id, &env));
+        let decoded = decode_request(&encode_request(&req).expect("encode")).expect("decode");
+        assert_eq!(decoded, req);
     }
 
     #[test]
-    fn err_response_round_trips() {
-        let resp = RemoteTaskResponse::err(RemoteErrorCode::NotAuthorized, "go away");
+    fn ok_response_round_trips_with_the_echoed_hash() {
+        let h = policy_hash(&IntegrityPolicy::None);
+        let resp = RemoteTaskResponse::ok(b"Hello, world!".to_vec(), h);
         let decoded =
             decode_response(&encode_response(&resp).expect("encode"), 1024).expect("decode");
         assert_eq!(decoded, resp);
+        match decoded.outcome {
+            RemoteOutcome::Ok {
+                observed_policy_hash,
+                ..
+            } => assert_eq!(observed_policy_hash, h),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn ack_and_err_responses_round_trip() {
+        let h = policy_hash(&IntegrityPolicy::None);
+        for resp in [
+            RemoteTaskResponse::ack([7; 16], h),
+            RemoteTaskResponse::err(RemoteErrorCode::NotAuthorized, "go away"),
+            RemoteTaskResponse::err(RemoteErrorCode::PolicyMutation, "immutable"),
+        ] {
+            let decoded =
+                decode_response(&encode_response(&resp).expect("encode"), 1024).expect("decode");
+            assert_eq!(decoded, resp);
+        }
     }
 
     /// The version is the first field, so a bumped envelope is *detected*
@@ -363,7 +591,7 @@ mod tests {
     /// point of carrying `v`.
     #[test]
     fn future_version_is_detected_not_misparsed() {
-        let mut req = RemoteTaskRequest::for_task(&sample_task());
+        let mut req = sample_request();
         req.v = WIRE_VERSION + 1;
         let bytes = encode_request(&req).expect("encode");
 
@@ -376,9 +604,39 @@ mod tests {
         }
     }
 
+    /// A v1 frame (no policy envelope) is refused as a version mismatch, not
+    /// parsed into a v2 task with a garbage policy.
+    #[test]
+    fn a_v1_frame_is_refused_by_version() {
+        #[derive(Serialize)]
+        struct V1 {
+            v: u16,
+            task_id: [u8; 16],
+            plugin: String,
+            input: Vec<u8>,
+            timeout_ms: u64,
+            max_input_bytes: u64,
+            max_output_bytes: u64,
+        }
+        let bytes = postcard::to_allocvec(&V1 {
+            v: 1,
+            task_id: [0; 16],
+            plugin: plugin_id().to_string(),
+            input: b"x".to_vec(),
+            timeout_ms: 1,
+            max_input_bytes: 16,
+            max_output_bytes: 16,
+        })
+        .unwrap();
+        assert!(matches!(
+            decode_request(&bytes),
+            Err(WireError::UnsupportedVersion { got: 1, .. })
+        ));
+    }
+
     #[test]
     fn future_response_version_is_detected() {
-        let mut resp = RemoteTaskResponse::ok(b"x".to_vec());
+        let mut resp = RemoteTaskResponse::ok(b"x".to_vec(), policy_hash(&IntegrityPolicy::None));
         resp.v = 999;
         let bytes = encode_response(&resp).expect("encode");
         assert!(matches!(
@@ -392,7 +650,7 @@ mod tests {
     /// limits are irrelevant.
     #[test]
     fn oversize_output_is_refused_by_the_caller() {
-        let resp = RemoteTaskResponse::ok(vec![0u8; 4096]);
+        let resp = RemoteTaskResponse::ok(vec![0u8; 4096], policy_hash(&IntegrityPolicy::None));
         let bytes = encode_response(&resp).expect("encode");
         match decode_response(&bytes, 16) {
             Err(WireError::OutputTooLarge { declared, actual }) => {
@@ -416,9 +674,11 @@ mod tests {
     /// decode time, before the executor ever sees it.
     #[test]
     fn oversize_input_is_refused_at_decode() {
-        let mut req = RemoteTaskRequest::for_task(&sample_task());
-        req.input = vec![7u8; 512];
-        req.max_input_bytes = 16;
+        let mut req = sample_request();
+        if let RequestFrame::Task(t) = &mut req.frame {
+            t.input = vec![7u8; 512];
+            t.max_input_bytes = 16;
+        }
         let bytes = encode_request(&req).expect("encode");
         match decode_request(&bytes) {
             Err(WireError::InputTooLarge { declared, actual }) => {
@@ -427,6 +687,19 @@ mod tests {
             }
             other => panic!("expected InputTooLarge, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn oversize_policy_is_refused_at_decode() {
+        let mut req = sample_request();
+        if let RequestFrame::Task(t) = &mut req.frame {
+            t.policy = vec![0u8; MAX_POLICY_BYTES + 1];
+        }
+        let bytes = encode_request(&req).expect("encode");
+        assert!(matches!(
+            decode_request(&bytes),
+            Err(WireError::PolicyTooLarge { .. })
+        ));
     }
 
     #[test]
@@ -446,7 +719,7 @@ mod tests {
     /// what a frame said. Reject rather than ignore.
     #[test]
     fn trailing_bytes_are_rejected() {
-        let mut bytes = encode_request(&RemoteTaskRequest::for_task(&sample_task())).expect("enc");
+        let mut bytes = encode_request(&sample_request()).expect("enc");
         bytes.push(0xff);
         match decode_request(&bytes) {
             Err(WireError::Malformed(msg)) => assert!(msg.contains("trailing"), "{msg}"),
@@ -456,7 +729,7 @@ mod tests {
 
     #[test]
     fn truncated_frame_is_malformed_not_a_panic() {
-        let bytes = encode_request(&RemoteTaskRequest::for_task(&sample_task())).expect("enc");
+        let bytes = encode_request(&sample_request()).expect("enc");
         for cut in [0usize, 1, 2, bytes.len() / 2, bytes.len() - 1] {
             assert!(
                 decode_request(&bytes[..cut]).is_err(),
@@ -488,6 +761,10 @@ mod tests {
             RemoteErrorCode::OutputTooLarge,
             RemoteErrorCode::Execution,
             RemoteErrorCode::Internal,
+            RemoteErrorCode::PolicyHashMismatch,
+            RemoteErrorCode::PolicyMutation,
+            RemoteErrorCode::UnknownTask,
+            RemoteErrorCode::DuplicateTask,
         ];
         let mut labels: Vec<&str> = all.iter().map(|c| c.as_str()).collect();
         labels.sort_unstable();

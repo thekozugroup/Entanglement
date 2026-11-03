@@ -30,6 +30,28 @@
 //! always runs with [`IntegrityPolicy::None`] — exactly once — so a caller
 //! cannot request N replicas and amplify one frame into N executions.
 //!
+//! # Integrity envelope (wire v2, INV-INT-1)
+//!
+//! A task frame carries the task's integrity policy as canonical bytes plus
+//! `policy_hash` ([`crate::work_unit`]). The executor:
+//!
+//! 1. verifies `SHA-256(policy) == policy_hash` **before executing** — a
+//!    mismatch is [`RemoteErrorCode::PolicyHashMismatch`] and nothing runs;
+//! 2. records the task as in flight, keyed by the transport-authenticated
+//!    caller and the task id (a second frame with the same id while the first
+//!    runs is [`RemoteErrorCode::DuplicateTask`] — still one execution per
+//!    frame, never two per id);
+//! 3. logs the policy, including a `SemanticEquivalent` metric reference,
+//!    for audit only — it never loads or runs a metric (§7.5 Rule 3);
+//! 4. re-verifies the hash before answering and echoes the hash it observed
+//!    in [`RemoteOutcome::Ok`], which the caller checks.
+//!
+//! A [`ControlFrame`] that would change the policy of an in-flight task is
+//! refused with [`RemoteErrorCode::PolicyMutation`]; the running task keeps
+//! its original policy. Control frames pass the same allowlist gate as task
+//! frames, can only address the sending peer's own tasks, and never execute
+//! anything.
+//!
 //! [`ALPN_SCHEDULER`]: entangle_mesh_iroh::ALPN_SCHEDULER
 //! [`MeshTransport`]: entangle_mesh_iroh::MeshTransport
 //! [`IntegrityPolicy::None`]: entangle_types::task::IntegrityPolicy::None
@@ -39,18 +61,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use entangle_mesh_iroh::{DynMeshTransport, IrohPeer, MeshIroh};
-use entangle_runtime::{Kernel, RuntimeError};
+use entangle_runtime::{IntegrityError, Kernel, RuntimeError};
 use entangle_types::peer_id::PeerId;
 use entangle_types::plugin_id::PluginId;
 use entangle_types::resource::ResourceSpec;
-use entangle_types::task::{IntegrityPolicy, OneShotTask};
-use parking_lot::RwLock;
+use entangle_types::task::{IntegrityPolicy, OneShotTask, TaskId};
+use parking_lot::{Mutex, RwLock};
 
 use crate::dispatcher::DispatchError;
 use crate::wire::{
-    decode_request, decode_response, encode_request, encode_response, RemoteErrorCode,
-    RemoteOutcome, RemoteTaskRequest, RemoteTaskResponse, WireError,
+    decode_request, decode_response, encode_request, encode_response, ControlAction, ControlFrame,
+    RemoteErrorCode, RemoteOutcome, RemoteRequest, RemoteTaskRequest, RemoteTaskResponse,
+    RequestFrame, WireError,
 };
+use crate::work_unit::{hash_canonical, PolicyEnvelope, PolicyHash};
 
 // ─── client half ─────────────────────────────────────────────────────────────
 
@@ -160,7 +184,9 @@ impl RemoteDispatch {
 
     /// Ship `task` to `peer` and return the output bytes it produced.
     ///
-    /// The whole exchange is bounded by `task.timeout_ms` plus the configured
+    /// Seals the task's policy, dispatches it, and refuses an answer whose
+    /// echoed policy hash differs from the one sent (`ENTANGLE-E0315`). The
+    /// whole exchange is bounded by `task.timeout_ms` plus the configured
     /// overhead, so an unreachable or silent peer yields
     /// [`DispatchError::RemoteTransport`] rather than a hang.
     pub async fn dispatch(
@@ -168,6 +194,107 @@ impl RemoteDispatch {
         task: &OneShotTask,
         peer: PeerId,
     ) -> Result<Vec<u8>, DispatchError> {
+        let envelope = PolicyEnvelope::seal(&task.integrity)?;
+        let replica = self.dispatch_sealed(task, peer, &envelope).await?;
+        if replica.observed_policy_hash != envelope.hash() {
+            return Err(IntegrityError::PolicyHashMismatch {
+                peer: peer.to_hex(),
+                expected: envelope.hash().to_hex(),
+                observed: replica.observed_policy_hash.to_hex(),
+            }
+            .into());
+        }
+        Ok(replica.output)
+    }
+
+    /// Ship `task`, with its already-sealed policy `envelope`, to `peer`.
+    ///
+    /// Returns the output together with the policy hash the executor echoed;
+    /// comparing that echo with `envelope.hash()` is the caller's job (the
+    /// acceptance pipeline does it for every replica). An answer larger than
+    /// `task.max_output_bytes` is refused while decoding, before its bytes
+    /// are handed to anyone, as [`DispatchError::OutputSizeExceeded`].
+    pub async fn dispatch_sealed(
+        &self,
+        task: &OneShotTask,
+        peer: PeerId,
+        envelope: &PolicyEnvelope,
+    ) -> Result<RemoteReplica, DispatchError> {
+        let request = RemoteRequest::task(RemoteTaskRequest::sealed(task, envelope));
+        let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
+        let response = self
+            .round_trip(peer, &request, budget, task.max_output_bytes)
+            .await?;
+        match response.outcome {
+            RemoteOutcome::Ok {
+                output,
+                observed_policy_hash,
+            } => Ok(RemoteReplica {
+                output,
+                observed_policy_hash,
+            }),
+            RemoteOutcome::Ack { .. } => Err(DispatchError::RemoteTransport {
+                peer,
+                reason: "peer answered a task frame with a control acknowledgement".into(),
+            }),
+            RemoteOutcome::Err { code, message } => Err(DispatchError::RemoteRejected {
+                peer,
+                code,
+                message,
+            }),
+        }
+    }
+
+    /// Send a control frame about one of this node's in-flight tasks on
+    /// `peer`, bounded by `timeout`.
+    ///
+    /// Returns the task's (unchanged) policy hash when the peer acknowledges.
+    /// A policy-mutation attempt is refused by the peer and surfaces as
+    /// [`IntegrityError::PolicyMutation`] (`ENTANGLE-E0316`); any other
+    /// refusal as [`DispatchError::RemoteRejected`].
+    pub async fn send_control(
+        &self,
+        peer: PeerId,
+        frame: ControlFrame,
+        timeout: Duration,
+    ) -> Result<PolicyHash, DispatchError> {
+        let task_id = TaskId::from_bytes(frame.task_id);
+        let response = self
+            .round_trip(peer, &RemoteRequest::control(frame), timeout, 0)
+            .await?;
+        match response.outcome {
+            RemoteOutcome::Ack {
+                observed_policy_hash,
+                ..
+            } => Ok(observed_policy_hash),
+            RemoteOutcome::Err {
+                code: RemoteErrorCode::PolicyMutation,
+                ..
+            } => Err(IntegrityError::PolicyMutation {
+                peer: peer.to_hex(),
+                task_id: task_id.to_string(),
+            }
+            .into()),
+            RemoteOutcome::Err { code, message } => Err(DispatchError::RemoteRejected {
+                peer,
+                code,
+                message,
+            }),
+            RemoteOutcome::Ok { .. } => Err(DispatchError::RemoteTransport {
+                peer,
+                reason: "peer answered a control frame with task output".into(),
+            }),
+        }
+    }
+
+    /// Encode, send, and decode one request under `budget`.
+    async fn round_trip(
+        &self,
+        peer: PeerId,
+        request: &RemoteRequest,
+        budget: Duration,
+        max_output_bytes: u64,
+    ) -> Result<RemoteTaskResponse, DispatchError> {
         let addr = self
             .addresses
             .lookup(&peer)
@@ -178,13 +305,11 @@ impl RemoteDispatch {
                     .to_owned(),
             })?;
 
-        let request = RemoteTaskRequest::for_task(task);
-        let frame = encode_request(&request).map_err(|e| DispatchError::RemoteTransport {
+        let frame = encode_request(request).map_err(|e| DispatchError::RemoteTransport {
             peer,
             reason: format!("encoding request: {e}"),
         })?;
 
-        let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
         let raw = match tokio::time::timeout(budget, self.transport.request(&addr, &frame)).await {
             Ok(Ok(bytes)) => bytes,
             Ok(Err(e)) => {
@@ -197,9 +322,8 @@ impl RemoteDispatch {
                 return Err(DispatchError::RemoteTransport {
                     peer,
                     reason: format!(
-                        "no answer within {}ms (task timeout {}ms + {}ms overhead)",
+                        "no answer within {}ms (request budget including {}ms overhead)",
                         budget.as_millis(),
-                        task.timeout_ms,
                         self.overhead.as_millis()
                     ),
                 })
@@ -208,7 +332,7 @@ impl RemoteDispatch {
 
         // The peer's answer is untrusted input: size-check it against *our*
         // limit, not anything it told us.
-        let response = decode_response(&raw, task.max_output_bytes).map_err(|e| match e {
+        decode_response(&raw, max_output_bytes).map_err(|e| match e {
             WireError::OutputTooLarge { declared, actual } => DispatchError::OutputSizeExceeded(
                 entangle_types::errors::EntangleError::OutputSizeExceeded {
                     declared,
@@ -220,17 +344,18 @@ impl RemoteDispatch {
                 peer,
                 reason: other.to_string(),
             },
-        })?;
-
-        match response.outcome {
-            RemoteOutcome::Ok { output } => Ok(output),
-            RemoteOutcome::Err { code, message } => Err(DispatchError::RemoteRejected {
-                peer,
-                code,
-                message,
-            }),
-        }
+        })
     }
+}
+
+/// One remote replica's answer: output plus the policy hash the executor
+/// echoed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RemoteReplica {
+    /// Raw output bytes.
+    pub output: Vec<u8>,
+    /// The policy hash the executor reported observing.
+    pub observed_policy_hash: PolicyHash,
 }
 
 // ─── server half ─────────────────────────────────────────────────────────────
@@ -287,9 +412,26 @@ impl PeerAllowlist for StaticAllowlist {
 /// A remote caller must not be able to pin a worker indefinitely.
 pub const MAX_REMOTE_TASK_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
 
+/// In-flight tasks on an executor: `(authenticated caller, task id)` → the
+/// policy hash the task was accepted with.
+type InFlight = Arc<Mutex<HashMap<(PeerId, [u8; 16]), PolicyHash>>>;
+
+/// Removes an in-flight entry when the execution finishes, however it ends.
+struct InFlightGuard {
+    table: InFlight,
+    key: (PeerId, [u8; 16]),
+}
+
+impl Drop for InFlightGuard {
+    fn drop(&mut self) {
+        self.table.lock().remove(&self.key);
+    }
+}
+
 /// The server half: executes tasks on the local kernel for authorized peers.
 ///
-/// Clone is cheap; one instance serves every inbound connection.
+/// Clone is cheap; one instance serves every inbound connection, and clones
+/// share the in-flight table.
 #[derive(Clone)]
 pub struct RemoteTaskServer {
     kernel: Arc<Kernel>,
@@ -298,6 +440,7 @@ pub struct RemoteTaskServer {
     max_timeout_ms: u64,
     max_input_bytes: u64,
     max_output_bytes: u64,
+    in_flight: InFlight,
 }
 
 impl std::fmt::Debug for RemoteTaskServer {
@@ -308,6 +451,7 @@ impl std::fmt::Debug for RemoteTaskServer {
             .field("max_timeout_ms", &self.max_timeout_ms)
             .field("max_input_bytes", &self.max_input_bytes)
             .field("max_output_bytes", &self.max_output_bytes)
+            .field("in_flight", &self.in_flight.lock().len())
             .finish()
     }
 }
@@ -326,7 +470,22 @@ impl RemoteTaskServer {
             max_timeout_ms: MAX_REMOTE_TASK_TIMEOUT_MS,
             max_input_bytes: OneShotTask::DEFAULT_MAX_INPUT_BYTES,
             max_output_bytes: OneShotTask::DEFAULT_MAX_OUTPUT_BYTES,
+            in_flight: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// The policy hash of `caller`'s task `task_id`, if it is executing here
+    /// right now.
+    pub fn in_flight_policy(&self, caller: &PeerId, task_id: &TaskId) -> Option<PolicyHash> {
+        self.in_flight
+            .lock()
+            .get(&(*caller, *task_id.as_bytes()))
+            .copied()
+    }
+
+    /// Number of tasks executing here right now, across all callers.
+    pub fn in_flight_len(&self) -> usize {
+        self.in_flight.lock().len()
     }
 
     /// Lower the timeout ceiling. Values above [`MAX_REMOTE_TASK_TIMEOUT_MS`]
@@ -419,15 +578,23 @@ impl RemoteTaskServer {
                     WireError::UnsupportedVersion { .. } => RemoteErrorCode::UnsupportedVersion,
                     WireError::InputTooLarge { .. } => RemoteErrorCode::InputTooLarge,
                     WireError::FrameTooLarge { .. } => RemoteErrorCode::InputTooLarge,
-                    WireError::Malformed(_) | WireError::OutputTooLarge { .. } => {
-                        RemoteErrorCode::MalformedRequest
-                    }
+                    WireError::Malformed(_)
+                    | WireError::OutputTooLarge { .. }
+                    | WireError::PolicyTooLarge { .. } => RemoteErrorCode::MalformedRequest,
                 };
                 tracing::debug!(peer = %from, error = %e, "scheduler: rejected request envelope");
                 return RemoteTaskResponse::err(code, e.to_string());
             }
         };
 
+        match request.frame {
+            RequestFrame::Task(task) => self.run_task(from, task).await,
+            RequestFrame::Control(control) => self.control(from, control),
+        }
+    }
+
+    /// Execute one task frame — exactly once — for `from`.
+    async fn run_task(&self, from: PeerId, request: RemoteTaskRequest) -> RemoteTaskResponse {
         // The caller's own declared ceiling was already enforced by
         // `decode_request`; this is *this node's* ceiling, which the caller
         // cannot raise.
@@ -442,6 +609,15 @@ impl RemoteTaskServer {
             );
         }
 
+        // INV-INT-1: verify the policy envelope before any work happens.
+        let envelope = match PolicyEnvelope::open(request.policy, request.policy_hash) {
+            Ok(env) => env,
+            Err(e) => {
+                tracing::warn!(peer = %from, error = %e, "scheduler: refused task with a bad policy envelope");
+                return RemoteTaskResponse::err(RemoteErrorCode::PolicyHashMismatch, e.to_string());
+            }
+        };
+
         let plugin: PluginId = match request.plugin.parse() {
             Ok(id) => id,
             Err(e) => {
@@ -450,6 +626,24 @@ impl RemoteTaskServer {
                     format!("plugin id {:?}: {e}", request.plugin),
                 )
             }
+        };
+
+        // Register as in flight. One frame, one execution: a second frame
+        // with the same id while this one runs is refused, not run twice.
+        let key = (from, request.task_id);
+        {
+            let mut table = self.in_flight.lock();
+            if table.contains_key(&key) {
+                return RemoteTaskResponse::err(
+                    RemoteErrorCode::DuplicateTask,
+                    "a task with this id from this peer is already executing here",
+                );
+            }
+            table.insert(key, envelope.hash());
+        }
+        let _in_flight = InFlightGuard {
+            table: Arc::clone(&self.in_flight),
+            key,
         };
 
         // Clamp the peer-supplied timeout. Untrusted input: without this a
@@ -466,24 +660,48 @@ impl RemoteTaskServer {
             resources: ResourceSpec::default(),
             // Always exactly one execution. The caller's integrity policy is
             // *its* verification concern; honouring a peer-named policy here
-            // would let one frame request N executions.
+            // would let one frame request N executions. The policy travelled
+            // only to be verified (INV-INT-1) and audited.
             integrity: IntegrityPolicy::None,
             timeout_ms,
         };
 
+        // Audit: which policy (and, for SemanticEquivalent, which metric) the
+        // caller says it will verify this replica with. The metric is never
+        // loaded here (§7.5 Rule 3).
+        let metric = match envelope.policy() {
+            IntegrityPolicy::SemanticEquivalent { metric, .. } => Some(metric.to_string()),
+            _ => None,
+        };
         tracing::info!(
             peer = %from,
             plugin = %task.plugin,
             input_bytes = input_len,
             timeout_ms,
+            policy = %envelope.policy().kind(),
+            policy_hash = %envelope.hash(),
+            metric = metric.as_deref().unwrap_or("-"),
             "scheduler: executing task for remote peer"
         );
 
-        match self
+        let result = self
             .kernel
             .invoke_with_integrity(&task, self.local_peer_id)
-            .await
-        {
+            .await;
+
+        // INV-INT-1, second check: re-hash the bytes we hold and compare
+        // with what we registered before echoing it back.
+        let observed = envelope.recompute_hash();
+        let registered = self.in_flight.lock().get(&key).copied();
+        if registered != Some(observed) || observed != envelope.hash() {
+            tracing::error!(peer = %from, "scheduler: policy envelope changed during execution");
+            return RemoteTaskResponse::err(
+                RemoteErrorCode::Internal,
+                "policy envelope changed during execution",
+            );
+        }
+
+        match result {
             Ok(output) => {
                 let actual = output.len() as u64;
                 if actual > output_cap {
@@ -492,7 +710,7 @@ impl RemoteTaskServer {
                         format!("output of {actual} bytes exceeds the {output_cap} byte limit"),
                     );
                 }
-                RemoteTaskResponse::ok(output)
+                RemoteTaskResponse::ok(output, observed)
             }
             Err(RuntimeError::NotLoaded(id)) => RemoteTaskResponse::err(
                 RemoteErrorCode::PluginNotLoaded,
@@ -501,6 +719,44 @@ impl RemoteTaskServer {
             Err(e) => {
                 tracing::warn!(peer = %from, error = %e, "scheduler: remote task failed");
                 RemoteTaskResponse::err(RemoteErrorCode::Execution, e.to_string())
+            }
+        }
+    }
+
+    /// Answer a control frame from `from`. Never executes anything.
+    fn control(&self, from: PeerId, frame: ControlFrame) -> RemoteTaskResponse {
+        let ControlAction::SetPolicy {
+            policy,
+            policy_hash,
+        } = frame.action;
+        if hash_canonical(&policy) != policy_hash {
+            return RemoteTaskResponse::err(
+                RemoteErrorCode::MalformedRequest,
+                "control frame's policy_hash is not SHA-256 of its policy bytes",
+            );
+        }
+        let current = self.in_flight.lock().get(&(from, frame.task_id)).copied();
+        match current {
+            None => RemoteTaskResponse::err(
+                RemoteErrorCode::UnknownTask,
+                "no task with this id from this peer is executing here",
+            ),
+            Some(h) if h == policy_hash => RemoteTaskResponse::ack(frame.task_id, h),
+            Some(h) => {
+                tracing::warn!(
+                    peer = %from,
+                    task = %TaskId::from_bytes(frame.task_id),
+                    in_flight_policy = %h,
+                    proposed_policy = %policy_hash,
+                    "scheduler: refused a mid-flight integrity-policy mutation (INV-INT-1)"
+                );
+                RemoteTaskResponse::err(
+                    RemoteErrorCode::PolicyMutation,
+                    format!(
+                        "the integrity policy of an in-flight task is immutable \
+                         (task runs under {h})"
+                    ),
+                )
             }
         }
     }

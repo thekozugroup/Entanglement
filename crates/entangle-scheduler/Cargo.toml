@@ -16,7 +16,11 @@ rustdoc-args = ["--cfg", "docsrs"]
 entangle-types     = { workspace = true }
 entangle-runtime   = { workspace = true }
 entangle-mesh-iroh = { workspace = true }
+entangle-signing   = { workspace = true }
 parking_lot        = { workspace = true }
+blake3             = { workspace = true }
+hex                = { workspace = true }
+sha2               = { workspace = true }
 tokio              = { workspace = true, features = ["sync", "time", "rt", "macros"] }
 async-trait        = { workspace = true }
 thiserror          = { workspace = true }
@@ -33,4 +37,7 @@ tokio            = { workspace = true, features = ["full"] }
 tempfile         = { workspace = true }
 toml             = { workspace = true }
 serde_json       = { workspace = true }
-entangle-signing = { workspace = true }
+tracing-subscriber = { workspace = true }
+entangle-host    = { workspace = true }
+entangle-ipc     = { workspace = true }
+wat              = "1"
