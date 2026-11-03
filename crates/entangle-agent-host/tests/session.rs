@@ -1,7 +1,11 @@
 //! `AgentSession`: session-scoped config, original never modified, cleanup.
 
-use camino::Utf8PathBuf;
-use entangle_agent_host::{AgentSession, McpServerSpec, SessionError};
+use camino::{Utf8Path, Utf8PathBuf};
+use entangle_agent_host::{
+    adapters::claude_code::ClaudeCodeAdapter, Adapter, AdapterError, AgentSession, LaunchPlan,
+    McpServerSpec, SessionError, Snapshot,
+};
+use std::collections::BTreeMap;
 use std::fs;
 use tempfile::TempDir;
 
@@ -159,6 +163,82 @@ fn opencode_session_sets_opencode_config_env() {
     let text = fs::read_to_string(&plan.config_path).unwrap();
     assert!(text.contains("{env:TOK}") && text.contains(&format!("{BASE}/a")));
     s.cleanup().unwrap();
+}
+
+/// Claude Code adapter whose `launch_plan` writes part of the session and
+/// then fails, like a full disk would.
+struct FailingLaunch;
+
+impl Adapter for FailingLaunch {
+    fn name(&self) -> &'static str {
+        "failing-launch"
+    }
+    fn config_path(&self) -> Result<Utf8PathBuf, AdapterError> {
+        ClaudeCodeAdapter.config_path()
+    }
+    fn snapshot(&self, path: &Utf8PathBuf) -> Result<Snapshot, AdapterError> {
+        ClaudeCodeAdapter.snapshot(path)
+    }
+    fn rewrite(&self, o: &Snapshot, url: &str, name: &str) -> Result<String, AdapterError> {
+        ClaudeCodeAdapter.rewrite(o, url, name)
+    }
+    fn restore(&self, path: &Utf8PathBuf, snap: &Snapshot) -> Result<(), AdapterError> {
+        ClaudeCodeAdapter.restore(path, snap)
+    }
+    fn binary(&self) -> &'static str {
+        "claude"
+    }
+    fn servers(&self, snap: &Snapshot) -> Result<BTreeMap<String, McpServerSpec>, AdapterError> {
+        ClaudeCodeAdapter.servers(snap)
+    }
+    fn rewrite_for_gateway(
+        &self,
+        o: &Snapshot,
+        base: &str,
+        token_env: &str,
+    ) -> Result<String, AdapterError> {
+        ClaudeCodeAdapter.rewrite_for_gateway(o, base, token_env)
+    }
+    fn launch_plan(&self, session_dir: &Utf8Path, text: &str) -> Result<LaunchPlan, AdapterError> {
+        fs::create_dir_all(session_dir.join("partial")).unwrap();
+        fs::write(session_dir.join("partial/credentials-link"), text).unwrap();
+        Err(AdapterError::Io("No space left on device".into()))
+    }
+}
+
+#[test]
+fn failed_activate_removes_the_session_dir() {
+    let dir = TempDir::new().unwrap();
+    let src = utf8(&dir.path().join("none.json"));
+    let sess_dir = utf8(&dir.path().join("sess"));
+    let mut s = AgentSession::with_adapter(Box::new(FailingLaunch), Some(&src)).unwrap();
+    let err = s
+        .activate(&sess_dir, BASE, "T")
+        .expect_err("launch_plan failure must surface");
+    assert!(err.to_string().contains("No space left"), "{err}");
+    assert!(
+        !sess_dir.exists(),
+        "a failed activate must not leave the session dir behind"
+    );
+    assert!(matches!(s.launch_plan(), Err(SessionError::NotActivated)));
+    s.cleanup().unwrap();
+    assert!(!sess_dir.exists());
+}
+
+#[test]
+fn second_activate_removes_the_first_session_dir() {
+    let dir = TempDir::new().unwrap();
+    let src = utf8(&dir.path().join("none.json"));
+    let first = utf8(&dir.path().join("sess-1"));
+    let second = utf8(&dir.path().join("sess-2"));
+    let mut s = AgentSession::prepare("claude-code", Some(&src)).unwrap();
+    s.activate(&first, BASE, "T").unwrap();
+    assert!(first.exists());
+    let plan = s.activate(&second, BASE, "T").unwrap().clone();
+    assert!(plan.config_path.starts_with(&second));
+    assert!(!first.exists(), "the replaced activation's dir is removed");
+    s.cleanup().unwrap();
+    assert!(!second.exists());
 }
 
 #[test]

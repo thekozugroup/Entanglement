@@ -24,13 +24,12 @@ pub struct AgentSession {
     source_path: Utf8PathBuf,
     snapshot: Snapshot,
     servers: BTreeMap<String, McpServerSpec>,
-    active: Option<Active>,
+    /// The session directory handed to [`activate`](Self::activate). Recorded
+    /// before any filesystem work so that a failed activation, a second
+    /// activation, [`cleanup`](Self::cleanup) and [`Drop`] all remove it.
+    session_dir: Option<Utf8PathBuf>,
+    active: Option<LaunchPlan>,
     finished: bool,
-}
-
-struct Active {
-    session_dir: Utf8PathBuf,
-    plan: LaunchPlan,
 }
 
 impl AgentSession {
@@ -40,6 +39,15 @@ impl AgentSession {
     pub fn prepare(agent_name: &str, source: Option<&Utf8Path>) -> Result<Self, SessionError> {
         let adapter = find_adapter(agent_name)
             .ok_or_else(|| SessionError::UnknownAgent(agent_name.into()))?;
+        Self::with_adapter(adapter, source)
+    }
+
+    /// Like [`prepare`](Self::prepare), with an explicit adapter instead of
+    /// one looked up by name in the [registry](crate::registry).
+    pub fn with_adapter(
+        adapter: Box<dyn Adapter>,
+        source: Option<&Utf8Path>,
+    ) -> Result<Self, SessionError> {
         let source_path = match source {
             Some(p) => p.to_path_buf(),
             None => adapter.config_path()?,
@@ -51,6 +59,7 @@ impl AgentSession {
             source_path,
             snapshot,
             servers,
+            session_dir: None,
             active: None,
             finished: false,
         })
@@ -60,28 +69,47 @@ impl AgentSession {
     /// missing) pointing every server at `<gateway_base_url>/<name>`.
     ///
     /// `token_env` is the environment variable that carries the bearer token.
+    ///
+    /// The session owns `session_dir` from this call on: if activation
+    /// fails it is removed before the error is returned, and otherwise
+    /// [`cleanup`](Self::cleanup) or [`Drop`] removes it. Activating again
+    /// replaces the previous activation and removes its directory first.
     pub fn activate(
         &mut self,
         session_dir: &Utf8Path,
         gateway_base_url: &str,
         token_env: &str,
     ) -> Result<&LaunchPlan, SessionError> {
-        let text = self
-            .adapter
-            .rewrite_for_gateway(&self.snapshot, gateway_base_url, token_env)?;
-        std::fs::create_dir_all(session_dir).map_err(|e| AdapterError::Io(e.to_string()))?;
-        let plan = self.adapter.launch_plan(session_dir, &text)?;
+        self.active = None;
+        self.remove_session_dir();
+        self.session_dir = Some(session_dir.to_path_buf());
+        let plan = match self.write_session_config(session_dir, gateway_base_url, token_env) {
+            Ok(plan) => plan,
+            Err(e) => {
+                self.remove_session_dir();
+                return Err(e);
+            }
+        };
         tracing::debug!(
             agent = self.adapter.name(),
             config = %plan.config_path,
             servers = self.servers.len(),
             "agent-host session activated"
         );
-        let active = self.active.insert(Active {
-            session_dir: session_dir.to_path_buf(),
-            plan,
-        });
-        Ok(&active.plan)
+        Ok(self.active.insert(plan))
+    }
+
+    fn write_session_config(
+        &self,
+        session_dir: &Utf8Path,
+        gateway_base_url: &str,
+        token_env: &str,
+    ) -> Result<LaunchPlan, SessionError> {
+        let text = self
+            .adapter
+            .rewrite_for_gateway(&self.snapshot, gateway_base_url, token_env)?;
+        std::fs::create_dir_all(session_dir).map_err(|e| AdapterError::Io(e.to_string()))?;
+        Ok(self.adapter.launch_plan(session_dir, &text)?)
     }
 
     /// The name of the agent this session manages.
@@ -106,15 +134,12 @@ impl AgentSession {
 
     /// How to launch the agent. Errors before [`activate`](Self::activate).
     pub fn launch_plan(&self) -> Result<&LaunchPlan, SessionError> {
-        self.active
-            .as_ref()
-            .map(|a| &a.plan)
-            .ok_or(SessionError::NotActivated)
+        self.active.as_ref().ok_or(SessionError::NotActivated)
     }
 
     /// Path to the session-scoped config file, once activated.
     pub fn config_path(&self) -> Option<&Utf8Path> {
-        self.active.as_ref().map(|a| a.plan.config_path.as_path())
+        self.active.as_ref().map(|p| p.config_path.as_path())
     }
 
     fn original_unchanged(&self) -> bool {
@@ -122,10 +147,10 @@ impl AgentSession {
         now == self.snapshot.original_bytes
     }
 
-    fn remove_session_dir(&self) {
-        if let Some(a) = &self.active {
+    fn remove_session_dir(&mut self) {
+        if let Some(dir) = self.session_dir.take() {
             // remove_dir_all does not follow symlinks (codex home links).
-            let _ = std::fs::remove_dir_all(&a.session_dir);
+            let _ = std::fs::remove_dir_all(&dir);
         }
     }
 

@@ -100,6 +100,29 @@ fn agent_run_missing_binary_is_actionable_and_cleans_up() {
 }
 
 #[test]
+fn agent_run_failed_session_setup_leaves_no_session_dir() {
+    // A config whose root is not an object reads as "no servers" but cannot
+    // be rewritten, so activating the session fails after the gateway is up.
+    let dir = TempDir::new().unwrap();
+    let cfg = dir.path().join("mcp.json");
+    fs::write(&cfg, "[]").unwrap();
+    let sessions = dir.path().join("sessions");
+    entangle()
+        .env("ENTANGLE_SESSIONS_DIR", &sessions)
+        .args(["agent", "run", "claude-code", "--config"])
+        .arg(&cfg)
+        .arg("--bin")
+        .arg(dir.path().join("never-launched"))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("writing session config"));
+    let left: Vec<_> = fs::read_dir(&sessions)
+        .map(|d| d.flatten().map(|e| e.path()).collect())
+        .unwrap_or_default();
+    assert!(left.is_empty(), "session dirs left behind: {left:?}");
+}
+
+#[test]
 fn agent_list_shows_adapters() {
     entangle()
         .args(["agent", "list"])

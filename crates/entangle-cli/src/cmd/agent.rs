@@ -207,10 +207,12 @@ async fn launch(
     token: &str,
     base_url: &str,
 ) -> Result<i32> {
-    let dir = sessions_root().join(session_id);
-    create_private_dir(&dir)?;
+    let dir = utf8(sessions_root().join(session_id))?;
+    create_private_dir(dir.as_std_path())?;
+    // From here on the session owns `dir`: it is removed if activation fails
+    // and by `cleanup` otherwise.
     let plan = session
-        .activate(&utf8(dir)?, base_url, TOKEN_ENV)
+        .activate(&dir, base_url, TOKEN_ENV)
         .context("writing session config")?
         .clone();
 
