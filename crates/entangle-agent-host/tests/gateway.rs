@@ -91,6 +91,22 @@ fn fake_mcp_server() {
                 "fail" => json!({"isError": true, "content": [{"type": "text", "text": "nope"}]}),
                 // Die without answering.
                 "exit" => std::process::exit(0),
+                // Latin-1 (invalid UTF-8) log line on stderr.
+                "latin1_stderr" => {
+                    std::io::stderr().write_all(b"caf\xe9 log line\n").unwrap();
+                    json!({"content": []})
+                }
+                // Whether stderr can still be written to.
+                "stderr_check" => {
+                    let r = std::io::stderr().write_all(b"still logging\n");
+                    let text = r.map_or_else(|e| format!("err: {e}"), |()| "ok".to_string());
+                    json!({"content": [{"type": "text", "text": text}]})
+                }
+                // A non-UTF-8 line on stdout before the real reply.
+                "bad_stdout" => {
+                    out.write_all(b"\xff\xfe not utf8\n").unwrap();
+                    json!({"content": [{"type": "text", "text": "after garbage"}]})
+                }
                 // Ask the client something and return whatever comes back.
                 "elicit" | "server_ping" => {
                     let (sid, req) = if tool == "elicit" {
@@ -625,6 +641,29 @@ async fn respawned_server_is_handshaken_with_the_clients_protocol_version() {
     // A client that re-initializes gets the version it asked for.
     let (_, v) = rpc(&f, "fake", init).await;
     assert_eq!(v["result"]["protocolVersion"], "2025-06-18", "{v}");
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
+async fn non_utf8_output_does_not_break_the_downstream() {
+    let f = fixture().await;
+    let call = |id: u64, name: &str| json!({"jsonrpc":"2.0","id":id,"method":"tools/call","params":{"name":name}});
+    // Garbage on stdout is skipped; the reply after it still arrives.
+    let (st, v) = rpc(&f, "fake", call(1, "bad_stdout")).await;
+    assert_eq!(st, 200);
+    assert_eq!(v["result"]["content"][0]["text"], "after garbage", "{v}");
+    let pid = std::fs::read_to_string(&f.pid).unwrap();
+    // A Latin-1 log line on stderr must not close the stderr pipe.
+    let (_, v) = rpc(&f, "fake", call(2, "latin1_stderr")).await;
+    assert!(v.get("result").is_some(), "{v}");
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let (_, v) = rpc(&f, "fake", call(3, "stderr_check")).await;
+    assert_eq!(v["result"]["content"][0]["text"], "ok", "{v}");
+    assert_eq!(
+        std::fs::read_to_string(&f.pid).unwrap(),
+        pid,
+        "the downstream was restarted"
+    );
     f.gw.shutdown().await;
 }
 

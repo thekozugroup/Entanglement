@@ -468,6 +468,45 @@ impl Drop for WriteSlot<'_> {
     }
 }
 
+/// Longest downstream stderr line kept for logging; the rest is discarded.
+const STDERR_LINE_CAP: usize = 16 * 1024;
+
+/// Read one `\n`-terminated line into `buf` (newline excluded), keeping at
+/// most `max` bytes of it; the rest of a longer line is read and discarded.
+/// Returns `Ok(None)` at end of input with nothing read, otherwise
+/// `Ok(Some(overflowed))`.
+async fn read_line_capped<R>(
+    r: &mut R,
+    buf: &mut Vec<u8>,
+    max: usize,
+) -> std::io::Result<Option<bool>>
+where
+    R: tokio::io::AsyncBufRead + Unpin,
+{
+    buf.clear();
+    let mut overflowed = false;
+    let mut read_any = false;
+    loop {
+        let avail = r.fill_buf().await?;
+        if avail.is_empty() {
+            return Ok(read_any.then_some(overflowed));
+        }
+        read_any = true;
+        let newline = avail.iter().position(|b| *b == b'\n');
+        let chunk = newline.map_or(avail, |i| &avail[..i]);
+        let room = max.saturating_sub(buf.len());
+        if chunk.len() > room {
+            overflowed = true;
+        }
+        buf.extend_from_slice(&chunk[..chunk.len().min(room)]);
+        let used = newline.map_or(avail.len(), |i| i + 1);
+        r.consume(used);
+        if newline.is_some() {
+            return Ok(Some(overflowed));
+        }
+    }
+}
+
 /// Upper bound for writing a `notifications/cancelled` after a timeout.
 const CANCEL_WRITE_TIMEOUT: Duration = Duration::from_secs(1);
 
@@ -514,12 +553,17 @@ impl StdioProc {
             })
         };
 
-        // stderr reader: surface as debug logs.
+        // stderr reader: surface as debug logs. Reads bytes, not UTF-8
+        // lines: servers log whatever their libraries emit, and if this
+        // reader stopped, the closed pipe would break the server's next log
+        // write (EPIPE / SIGPIPE).
         {
             let name = name.to_string();
             tokio::spawn(async move {
-                let mut lines = BufReader::new(stderr).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
+                let mut r = BufReader::new(stderr);
+                let mut buf = Vec::new();
+                while let Ok(Some(_)) = read_line_capped(&mut r, &mut buf, STDERR_LINE_CAP).await {
+                    let line = String::from_utf8_lossy(&buf);
                     tracing::debug!(server = %name, "downstream stderr: {line}");
                 }
             });
@@ -550,10 +594,13 @@ impl StdioProc {
     /// anything else `-32601`, so the server fails fast instead of waiting.
     /// Server notifications are dropped.
     async fn read_stdout(stdout: tokio::process::ChildStdout, proc: std::sync::Weak<Self>) {
-        let mut lines = BufReader::new(stdout).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
+        let mut r = BufReader::new(stdout);
+        let mut line = Vec::new();
+        // Bytes, not UTF-8 lines: one undecodable line is skipped instead of
+        // ending the reader (which would mark the process dead).
+        while let Ok(Some(_)) = read_line_capped(&mut r, &mut line, usize::MAX).await {
             let Some(p) = proc.upgrade() else { return };
-            let Ok(v) = serde_json::from_str::<Value>(&line) else {
+            let Ok(v) = serde_json::from_slice::<Value>(&line) else {
                 tracing::debug!(server = %p.name, "non-JSON line on downstream stdout ignored");
                 continue;
             };
