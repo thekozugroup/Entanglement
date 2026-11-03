@@ -195,13 +195,13 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
         .count();
     tracing::info!(session = %session_id, tool_calls = audit.len(), denied, "agent session ended");
 
-    let code = outcome?;
     if let Err(e) = cleanup {
-        // The agent ran and its exit status is still the primary result, but
-        // a modified original config is something the operator must see.
+        // The agent's exit status (or launch error) is still the primary
+        // result, but a modified original config is something the operator
+        // must see either way.
         eprintln!("warning: {e}");
     }
-    Ok(code)
+    outcome
 }
 
 /// A project's own MCP config (e.g. `.mcp.json` in the current directory)

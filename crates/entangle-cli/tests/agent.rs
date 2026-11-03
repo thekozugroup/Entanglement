@@ -332,6 +332,58 @@ fn agent_run_explicit_config_needs_no_consent() {
     assert!(record.exists());
 }
 
+/// The original config changes while the session runs and the agent fails
+/// to launch: both must be reported. The config is a FIFO whose first
+/// reader (the session's snapshot) gets `{}`; before that read ends, a
+/// regular file with other content is renamed over the FIFO, so the
+/// end-of-session check reads different bytes.
+#[test]
+fn agent_run_launch_failure_still_reports_a_modified_original() {
+    use std::io::Write;
+    let dir = TempDir::new().unwrap();
+    let cfg = dir.path().join("mcp.json");
+    let status = std::process::Command::new("mkfifo")
+        .arg(&cfg)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let replacement = dir.path().join("replacement.json");
+    fs::write(&replacement, r#"{"mcpServers":{}}"#).unwrap();
+    let writer = {
+        let (cfg, replacement) = (cfg.clone(), replacement.clone());
+        std::thread::spawn(move || {
+            // Blocks until the snapshot opens the FIFO for reading.
+            let mut w = fs::OpenOptions::new().write(true).open(&cfg).unwrap();
+            w.write_all(b"{}").unwrap();
+            // The reader is still waiting for EOF while this end is open.
+            fs::rename(&replacement, &cfg).unwrap();
+        })
+    };
+    let sessions = dir.path().join("sessions");
+    let out = entangle()
+        .env("ENTANGLE_SESSIONS_DIR", &sessions)
+        .args(["agent", "run", "claude-code", "--config"])
+        .arg(&cfg)
+        .arg("--bin")
+        .arg(dir.path().join("does-not-exist"))
+        .timeout(std::time::Duration::from_secs(60))
+        .assert()
+        .failure()
+        .get_output()
+        .clone();
+    if !writer.is_finished() {
+        // The CLI never opened the FIFO: unblock the writer.
+        let _ = fs::read(&cfg);
+    }
+    writer.join().unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("launching"), "{stderr}");
+    assert!(
+        stderr.contains("ENTANGLE-E0660"),
+        "the modified original must be reported even when launch fails: {stderr}"
+    );
+}
+
 #[test]
 fn agent_list_shows_adapters() {
     entangle()
