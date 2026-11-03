@@ -277,6 +277,42 @@ fn agent_run_trust_project_servers_flag_starts_the_session() {
     assert!(record.exists());
 }
 
+/// The prompt needs a terminal: util-linux `script` gives the CLI a pty
+/// whose input is the answer written to `script`'s stdin.
+#[cfg(target_os = "linux")]
+#[test]
+fn agent_run_prompts_at_a_terminal_and_defaults_to_no() {
+    for (answer, starts) in [("y\n", true), ("\n", false), ("n\n", false)] {
+        let (dir, project, agent) = project_with_mcp_json();
+        let record = dir.path().join("record");
+        let cmdline = format!(
+            "'{}' agent run claude-code --bin '{}'",
+            assert_cmd::cargo::cargo_bin("entangle").display(),
+            agent.display()
+        );
+        let out = Command::new("script")
+            .args(["-qec", &cmdline, "/dev/null"])
+            .current_dir(&project)
+            .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+            .env("RECORD", &record)
+            .write_stdin(answer)
+            .timeout(std::time::Duration::from_secs(60))
+            .output()
+            .unwrap();
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            text.contains("Start these servers? [y/N]"),
+            "{answer:?}: {text}"
+        );
+        assert_eq!(record.exists(), starts, "{answer:?}: {text}");
+        assert_eq!(
+            out.status.code(),
+            Some(if starts { 7 } else { 1 }),
+            "{text}"
+        );
+    }
+}
+
 #[test]
 fn agent_run_explicit_config_needs_no_consent() {
     let (dir, project, agent) = project_with_mcp_json();
