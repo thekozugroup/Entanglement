@@ -119,7 +119,8 @@ pub struct MeshStatusResult {
 pub enum ComputeIntegrity {
     /// No integrity checking; accept the first response.
     None,
-    /// Run N identical replicas; require byte-for-byte identical outputs.
+    /// Run N identical replicas; a strict majority must return byte-for-byte
+    /// identical output.
     Deterministic {
         /// Number of independent execution replicas.
         replicas: u8,

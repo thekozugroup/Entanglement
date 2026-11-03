@@ -22,7 +22,9 @@ pub type TaskId = uuid::Uuid;
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum IntegrityPolicy {
-    /// Run `replicas` identical copies; require identical byte-for-byte outputs.
+    /// Run `replicas` identical copies; a strict majority of them
+    /// (`replicas / 2 + 1`) must return byte-for-byte identical output — a
+    /// hash quorum tolerating up to `(replicas - 1) / 2` faulty replicas.
     Deterministic {
         /// Number of independent execution replicas.
         replicas: u8,

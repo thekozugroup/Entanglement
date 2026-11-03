@@ -411,8 +411,10 @@ placement score first, skipping peers whose reputation for that policy is
 below 0.80); replicas without a remote target run on the submitter's own
 kernel.
 
-* `--integrity deterministic --replicas N` — all `N` outputs must be
-  byte-identical (BLAKE3).
+* `--integrity deterministic --replicas N` — a hash quorum: a strict
+  majority of the `N` outputs (`N/2 + 1`, e.g. 2 of 3) must be byte-identical
+  (BLAKE3), so up to `(N-1)/2` faulty or unreachable workers are tolerated.
+  Workers outside the majority lose reputation.
 * `--integrity semantic-equivalent` — outputs are compared pairwise by a
   signed **metric component**; a pair agrees when its distance is
   `< --threshold`. The returned output is the replica that agrees with the
@@ -447,7 +449,7 @@ network, 256 MiB memory, 10 s per comparison) — workers never load it.
 | `ENTANGLE-E0300` | A replica returned more than `max_output_bytes`. Checked before any metric is loaded; logged as an `OutputSizeExceededWarning` event (target `entangle::telemetry`) and the peer's reputation drops. | Investigate the named peer; raise `max_output_bytes` only if the output really is that large. |
 | `ENTANGLE-E0302` | Too few replicas produced output (unreachable peers). | Check `entangle mesh peers`; the first underlying failure is reported instead when there is one. |
 | `ENTANGLE-E0304` | `Attested` policy — TEE attestation is not supported yet. | Use `trusted-executor` for your own hardware. |
-| `ENTANGLE-E0305` | `deterministic` replicas disagreed. A strict-majority minority loses reputation. | The workload is not deterministic, or a peer is faulty. |
+| `ENTANGLE-E0305` | No strict majority of the `deterministic` replicas returned identical output. Nobody loses reputation (there is no majority to disagree with). | The workload is not deterministic, or several peers are faulty. |
 | `ENTANGLE-E0306` | `SemanticEquivalent` sent straight to a kernel. | Submit through the daemon / `compute dispatch`. |
 | `ENTANGLE-E0307` | Metric publisher not in your keyring. | `entangle keyring add` the publisher you actually trust, or use your own build. |
 | `ENTANGLE-E0308`–`E0310` | Metric reference inconsistent, not loaded, or package rejected (bad signature, tier > 2, capabilities, not a metric component). | Rebuild/reinstall the metric; check `--metric-dir`. |

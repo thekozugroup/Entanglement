@@ -39,9 +39,13 @@
 //! 3. **Policy acceptance.**
 //!    * `None` / `TrustedExecutor` / `Deterministic { 0 | 1 }` — the single
 //!      replica's output.
-//!    * `Deterministic { N }` — all `N` replicas must be present and
-//!      byte-identical (BLAKE3). On a mismatch with a strict majority, the
-//!      peers outside the majority are penalised.
+//!    * `Deterministic { N }` — a hash quorum: a strict majority of the `N`
+//!      requested replicas ([`deterministic_quorum`], `N / 2 + 1`) must be
+//!      byte-identical (BLAKE3), tolerating up to `floor((N-1)/2)` faulty or
+//!      missing replicas (spec §7.5). The first majority replica is returned;
+//!      remote peers in the majority are credited, remote peers outside it
+//!      penalised. Without such a majority the task fails (`E0305`, or the
+//!      first replica failure when too few answered) and nobody is blamed.
 //!    * `SemanticEquivalent` — see below.
 //!
 //! # `SemanticEquivalent` acceptance and the canonical output
@@ -104,11 +108,11 @@
 
 use std::sync::Arc;
 
-use entangle_runtime::{verify_deterministic, IntegrityError, MetricRegistry, ReplicaOutput};
+use entangle_runtime::{IntegrityError, MetricRegistry};
 use entangle_signing::Keyring;
 use entangle_types::errors::EntangleError;
 use entangle_types::peer_id::PeerId;
-use entangle_types::task::{IntegrityPolicy, OneShotTask, PolicyKind};
+use entangle_types::task::{IntegrityPolicy, OneShotTask};
 use parking_lot::RwLock;
 
 use crate::dispatcher::DispatchError;
@@ -627,8 +631,11 @@ impl IntegrityVerifier {
                 })
             }
             IntegrityPolicy::Deterministic { replicas: n } if *n >= 2 => {
-                let required = *n as usize;
-                if ok.len() < required {
+                // A hash quorum of a strict majority of the requested
+                // replicas: Byzantine tolerance up to floor((N-1)/2), the
+                // spec's `Deterministic { 3, 2 }` default (§7.5).
+                let quorum = deterministic_quorum(*n);
+                if ok.len() < quorum {
                     return Err(first_failure(replicas).unwrap_or(
                         IntegrityError::InsufficientReplicas {
                             actual: ok.len(),
@@ -637,28 +644,64 @@ impl IntegrityVerifier {
                         .into(),
                     ));
                 }
-                let outs: Vec<ReplicaOutput> = ok
+                let hashes: Vec<[u8; 32]> = reports
                     .iter()
-                    .map(|&i| ReplicaOutput {
-                        bytes: Vec::new(),
-                        blake3: reports[i].output_blake3.unwrap_or_default(),
-                    })
+                    .map(|r| r.output_blake3.unwrap_or_default())
                     .collect();
-                if let Err(e) = verify_deterministic(&outs, *n) {
-                    self.penalize_hash_minority(&replicas, &ok, &reports, kind);
-                    return Err(e.into());
+                let hash_of = |i: usize| hashes[i];
+                let mut groups: std::collections::BTreeMap<[u8; 32], usize> = Default::default();
+                for &i in &ok {
+                    *groups.entry(hash_of(i)).or_default() += 1;
                 }
-                for (pos, &i) in ok.iter().enumerate() {
-                    reports[i].status = if pos == 0 {
+                // At most one group can hold a strict majority.
+                let Some(majority) = groups
+                    .iter()
+                    .find(|(_, count)| **count >= quorum)
+                    .map(|(hash, _)| *hash)
+                else {
+                    // No strict majority: nothing to accept, and no side to
+                    // blame. Report the first replica that diverges from the
+                    // first answer.
+                    let first = hash_of(ok[0]);
+                    let diverging = ok
+                        .iter()
+                        .copied()
+                        .find(|&i| hash_of(i) != first)
+                        .unwrap_or(ok[0]);
+                    return Err(IntegrityError::ReplicaHashMismatch {
+                        replica: diverging,
+                        got: hex::encode(hash_of(diverging)),
+                        expected: hex::encode(first),
+                    }
+                    .into());
+                };
+                // The first replica (dispatch order) of the majority is
+                // canonical; the majority is credited, the minority penalised.
+                let mut chosen: Option<usize> = None;
+                for &i in &ok {
+                    let agrees = hash_of(i) == majority;
+                    reports[i].status = if agrees && chosen.is_none() {
+                        chosen = Some(i);
                         ReplicaStatus::Canonical
-                    } else {
+                    } else if agrees {
                         ReplicaStatus::Agreed
+                    } else {
+                        ReplicaStatus::Disagreed
                     };
                     if replicas[i].remote {
-                        self.reputation.record_correct(&replicas[i].peer, kind);
+                        if agrees {
+                            self.reputation.record_correct(&replicas[i].peer, kind);
+                        } else {
+                            self.reputation.penalize(
+                                &replicas[i].peer,
+                                kind,
+                                ReputationReason::DisagreedWithQuorum,
+                            );
+                        }
                     }
                 }
-                let chosen = ok[0];
+                // `majority` was found among `ok`, so a member exists.
+                let chosen = chosen.unwrap_or(ok[0]);
                 Ok(Acceptance {
                     output: take_output(replicas, chosen),
                     chosen,
@@ -687,38 +730,6 @@ impl IntegrityVerifier {
             }
         }
     }
-
-    /// On a `Deterministic` mismatch, penalise the remote peers outside a
-    /// strict-majority hash group, if one exists.
-    fn penalize_hash_minority(
-        &self,
-        replicas: &[ReplicaResult],
-        ok: &[usize],
-        reports: &[ReplicaReport],
-        kind: PolicyKind,
-    ) {
-        let mut groups: std::collections::BTreeMap<[u8; 32], usize> = Default::default();
-        for &i in ok {
-            *groups
-                .entry(reports[i].output_blake3.unwrap_or_default())
-                .or_default() += 1;
-        }
-        let Some((majority, count)) = groups.iter().max_by_key(|(_, c)| **c) else {
-            return;
-        };
-        if *count * 2 <= ok.len() {
-            return; // no strict majority: nothing to attribute
-        }
-        for &i in ok {
-            if replicas[i].remote && reports[i].output_blake3.as_ref() != Some(majority) {
-                self.reputation.penalize(
-                    &replicas[i].peer,
-                    kind,
-                    ReputationReason::DisagreedWithQuorum,
-                );
-            }
-        }
-    }
 }
 
 /// How many replicas `policy` asks for (at least 1).
@@ -733,6 +744,13 @@ pub fn replica_count(policy: &IntegrityPolicy) -> usize {
 /// `n·(n-1)/2`.
 pub fn pair_count(n: usize) -> usize {
     n.saturating_mul(n.saturating_sub(1)) / 2
+}
+
+/// Identical replicas a `Deterministic { replicas: n }` task needs: a strict
+/// majority of `n` (`n / 2 + 1`), so up to `floor((n - 1) / 2)` faulty or
+/// missing replicas are tolerated (spec §7.5). `n <= 1` needs 1.
+pub fn deterministic_quorum(n: u8) -> usize {
+    usize::from(n) / 2 + 1
 }
 
 /// Pick the canonical position from a symmetric distance matrix (positions
@@ -845,7 +863,7 @@ mod tests {
     use crate::reputation::INITIAL_SCORE;
     use crate::work_unit::policy_hash;
     use entangle_signing::IdentityKeyPair;
-    use entangle_types::task::MetricRef;
+    use entangle_types::task::{MetricRef, PolicyKind};
 
     fn peer(b: u8) -> PeerId {
         PeerId::from_public_key_bytes(&[b; 32])
@@ -1355,6 +1373,13 @@ mod tests {
             replica_count(&IntegrityPolicy::Deterministic { replicas: 4 }),
             4
         );
+        // Strict majority: tolerates floor((n-1)/2) faults.
+        assert_eq!(deterministic_quorum(1), 1);
+        assert_eq!(deterministic_quorum(2), 2);
+        assert_eq!(deterministic_quorum(3), 2);
+        assert_eq!(deterministic_quorum(4), 3);
+        assert_eq!(deterministic_quorum(5), 3);
+        assert_eq!(deterministic_quorum(16), 9);
     }
 
     fn metric_ref(kp: &IdentityKeyPair) -> MetricRef {
@@ -1496,14 +1521,78 @@ mod tests {
         assert!(v.reputation().get(&peer(2), PolicyKind::Deterministic) > before);
     }
 
+    /// `Deterministic { 3 }` is a hash quorum tolerating floor((3-1)/2) = 1
+    /// faulty replica (spec §7.5): 42 / 41 / 42 returns 42, penalises only
+    /// the minority and credits the majority.
     #[tokio::test]
-    async fn deterministic_mismatch_penalises_only_the_minority() {
+    async fn deterministic_accepts_a_strict_majority_and_penalises_only_the_minority() {
         let v = verifier();
         let policy = IntegrityPolicy::Deterministic { replicas: 3 };
         let env = PolicyEnvelope::seal(&policy).unwrap();
         let h = env.hash();
         let reps = vec![ok(1, b"42", h), ok(2, b"41", h), ok(3, b"42", h)];
-        let err = v.accept(&task(policy, 1024), &env, reps).await.unwrap_err();
+        let acc = v
+            .accept(&task(policy, 1024), &env, reps)
+            .await
+            .expect("2 of 3 identical replicas are a strict majority");
+        assert_eq!(acc.output, b"42");
+        assert_eq!(acc.chosen, 0);
+        assert_eq!(acc.reports[0].status, ReplicaStatus::Canonical);
+        assert_eq!(acc.reports[1].status, ReplicaStatus::Disagreed);
+        assert_eq!(acc.reports[2].status, ReplicaStatus::Agreed);
+        let k = PolicyKind::Deterministic;
+        assert!(v.reputation().get(&peer(2), k) < INITIAL_SCORE);
+        assert_eq!(v.reputation().get(&peer(1), k), INITIAL_SCORE);
+        assert_eq!(v.reputation().get(&peer(3), k), INITIAL_SCORE);
+        assert_eq!(v.reputation().record(&peer(1), k).correct, 1);
+        assert_eq!(v.reputation().record(&peer(3), k).correct, 1);
+    }
+
+    /// A replica that fails outright is tolerated the same way: one
+    /// unreachable worker does not fail a `Deterministic { 3 }` task.
+    #[tokio::test]
+    async fn deterministic_tolerates_a_failed_replica_when_a_majority_agrees() {
+        let v = verifier();
+        let policy = IntegrityPolicy::Deterministic { replicas: 3 };
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        let reps = vec![unreachable(1), ok(2, b"42", h), ok(3, b"42", h)];
+        let acc = v
+            .accept(&task(policy, 1024), &env, reps)
+            .await
+            .expect("2 of 3 identical replicas are a strict majority");
+        assert_eq!(acc.output, b"42");
+        assert_eq!(acc.chosen, 1);
+        assert_eq!(acc.reports[0].status.label(), "failed");
+    }
+
+    /// Without a strict majority of the requested replicas nothing is
+    /// accepted and nobody is blamed: three different hashes is a mismatch;
+    /// one answer out of three surfaces the failure behind the others.
+    #[tokio::test]
+    async fn deterministic_without_a_majority_is_refused_without_blame() {
+        let v = verifier();
+        let policy = IntegrityPolicy::Deterministic { replicas: 3 };
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        let reps = vec![ok(1, b"42", h), ok(2, b"41", h), ok(3, b"40", h)];
+        let err = v
+            .accept(&task(policy.clone(), 1024), &env, reps)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                DispatchError::Integrity(IntegrityError::ReplicaHashMismatch { .. })
+            ),
+            "{err:?}"
+        );
+        // Two answers that differ, one failure: still no majority hash.
+        let reps = vec![ok(1, b"42", h), ok(2, b"41", h), unreachable(3)];
+        let err = v
+            .accept(&task(policy.clone(), 1024), &env, reps)
+            .await
+            .unwrap_err();
         assert!(
             matches!(
                 err,
@@ -1512,9 +1601,15 @@ mod tests {
             "{err:?}"
         );
         let k = PolicyKind::Deterministic;
-        assert!(v.reputation().get(&peer(2), k) < INITIAL_SCORE);
-        assert_eq!(v.reputation().get(&peer(1), k), INITIAL_SCORE);
-        assert_eq!(v.reputation().get(&peer(3), k), INITIAL_SCORE);
+        for p in 1..=3 {
+            assert_eq!(v.reputation().record(&peer(p), k).total, 0, "peer {p}");
+        }
+        let reps = vec![ok(1, b"42", h), unreachable(2), unreachable(3)];
+        let err = v.accept(&task(policy, 1024), &env, reps).await.unwrap_err();
+        assert!(
+            matches!(err, DispatchError::RemoteTransport { .. }),
+            "{err:?}"
+        );
     }
 
     #[tokio::test]

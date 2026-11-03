@@ -760,7 +760,10 @@ enum IntegrityPolicy {
   /// Hash-quorum. For pure CPU/GPU compute with fixed seeds and bit-stable kernels. /// Byzantine fault tolerance up to floor((N-1)/2). Rejected at submit if the
   /// task's component manifest declares `pure: false` or uses non-deterministic
   /// host functions (system.entropy, system.clock with sub-second resolution, GPU
-  /// floating-point kernels not flagged `bit-stable`). Deterministic { replication: u8, quorum: u8 },
+  /// floating-point kernels not flagged `bit-stable`).
+  /// [Implementation: `Deterministic { replicas }` — the quorum is not a field;
+  /// it is always a strict majority, replicas / 2 + 1, which gives the stated
+  /// tolerance and the `{ 3, 2 }` default.] Deterministic { replication: u8, quorum: u8 },
 
   /// Replicate and compare via a plugin-supplied similarity metric. For LLM /
   /// vision / any non-deterministic-but-semantically-equivalent workload. The
