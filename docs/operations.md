@@ -449,7 +449,7 @@ network, 256 MiB memory, 10 s per comparison) — workers never load it.
 | `ENTANGLE-E0306` | `SemanticEquivalent` sent straight to a kernel. | Submit through the daemon / `compute dispatch`. |
 | `ENTANGLE-E0307` | Metric publisher not in your keyring. | `entangle keyring add` the publisher you actually trust, or use your own build. |
 | `ENTANGLE-E0308`–`E0310` | Metric reference inconsistent, not loaded, or package rejected (bad signature, tier > 2, capabilities, not a metric component). | Rebuild/reinstall the metric; check `--metric-dir`. |
-| `ENTANGLE-E0311`–`E0312` | The metric trapped / timed out / ran out of memory, or returned `NaN` or a negative distance. | Fix the metric; a metric may return `+inf` for "incomparable". |
+| `ENTANGLE-E0311`–`E0312` | The metric trapped / timed out / ran out of memory, or returned `NaN` or a negative distance, on **every** pair. When only some pairs fail, each failed pair counts as incomparable (a `MetricComparisonFailed` event at `entangle::telemetry`) and the task is still decided by the rest; a replica none of whose comparisons succeeded is reported `failed` with this error and loses reputation. | Fix the metric (a metric may return `+inf` for "incomparable"), or investigate the peer whose replica is reported `failed`. |
 | `ENTANGLE-E0313` | Unusable policy: `replicas` outside 2..=16, `quorum` outside 1..=pairs, threshold not a finite number > 0. | Fix the flags. |
 | `ENTANGLE-E0314` | Not enough replica pairs agreed. | The outputs genuinely differ, or the threshold is too strict for the metric. |
 | `ENTANGLE-E0315` | A worker reported running under a different policy hash (INV-INT-1). The peer loses reputation. | Investigate the peer. |

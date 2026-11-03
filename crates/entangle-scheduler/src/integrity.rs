@@ -53,6 +53,15 @@
 //! once — exactly one component instantiation per pair (ATC-INT-1). The task
 //! is accepted iff at least `quorum` pairs have distance `< threshold`.
 //!
+//! A comparison the metric cannot finish (trap, timeout, memory limit —
+//! `E0311`; `NaN` or a negative distance — `E0312`) counts as incomparable
+//! (`+inf`) for that pair and is logged as a `MetricComparisonFailed` event
+//! at [`TELEMETRY_TARGET`]; evaluation continues. A replica *all* of whose
+//! comparisons failed while other outputs compared fine is marked `failed`
+//! (with the metric error) and penalised
+//! ([`ReputationReason::IncomparableOutput`]) whatever the verdict. Only when
+//! no comparison succeeds at all is the metric error itself returned.
+//!
 //! The returned (canonical) output is the replica that
 //!
 //! 1. agrees (`distance < threshold`) with the most other replicas;
@@ -427,22 +436,90 @@ impl IntegrityVerifier {
 
                 // One metric instantiation per pair — the only metric load
                 // site, reachable only past guards 1 and 2.
+                //
+                // A comparison the metric cannot finish (trap, timeout, memory
+                // limit: E0311; NaN or negative: E0312) makes that pair
+                // incomparable (+inf, which the metric contract already
+                // defines as "incomparable") instead of aborting the task: one
+                // replica whose output breaks the metric must not be able to
+                // veto an answer the others agree on.
                 let n = order.len();
                 let mut dist = vec![vec![f64::INFINITY; n]; n];
                 let mut agreeing = 0usize;
                 let mut pairs = 0usize;
+                let mut compared = vec![0usize; n];
+                let mut pair_error: Vec<Option<IntegrityError>> = vec![None; n];
+                let mut first_error: Option<IntegrityError> = None;
                 for a in 0..n {
                     for b in (a + 1)..n {
-                        let d = self
+                        pairs += 1;
+                        let d = match self
                             .metrics
                             .compare(metric, outputs[order[a]], outputs[order[b]])
-                            .await?;
+                            .await
+                        {
+                            Ok(d) => {
+                                compared[a] += 1;
+                                compared[b] += 1;
+                                d
+                            }
+                            Err(
+                                e @ (IntegrityError::MetricFailed { .. }
+                                | IntegrityError::MetricContractViolation { .. }),
+                            ) => {
+                                tracing::warn!(
+                                    target: TELEMETRY_TARGET,
+                                    event = "MetricComparisonFailed",
+                                    peer_a = %replicas[order[a]].peer,
+                                    peer_b = %replicas[order[b]].peer,
+                                    error = %e,
+                                    "metric could not compare two replica outputs; \
+                                     the pair counts as incomparable"
+                                );
+                                for p in [a, b] {
+                                    if pair_error[p].is_none() {
+                                        pair_error[p] = Some(e.clone());
+                                    }
+                                }
+                                first_error.get_or_insert(e);
+                                f64::INFINITY
+                            }
+                            // Trust or availability of the metric itself:
+                            // nothing any replica did, so stop here.
+                            Err(other) => return Err(other.into()),
+                        };
                         dist[a][b] = d;
                         dist[b][a] = d;
-                        pairs += 1;
                         if d < *threshold {
                             agreeing += 1;
                         }
+                    }
+                }
+                // Not a single comparison succeeded: the metric (or every
+                // output) is the problem, and no replica can be singled out.
+                if compared.iter().all(|&c| c == 0) {
+                    if let Some(e) = first_error {
+                        return Err(e.into());
+                    }
+                }
+                // A replica every one of whose comparisons failed, while
+                // other outputs compared fine, is the one whose output broke
+                // the metric: its audit carries the metric error and it loses
+                // standing whatever the verdict.
+                let incomparable: Vec<bool> = compared.iter().map(|&c| c == 0).collect();
+                for (pos, &idx) in order.iter().enumerate() {
+                    if !incomparable[pos] {
+                        continue;
+                    }
+                    if let Some(e) = &pair_error[pos] {
+                        reports[idx].status = ReplicaStatus::Failed(e.to_string());
+                    }
+                    if replicas[idx].remote {
+                        self.reputation.penalize(
+                            &replicas[idx].peer,
+                            kind,
+                            ReputationReason::IncomparableOutput,
+                        );
                     }
                 }
                 if agreeing < *quorum as usize {
@@ -457,6 +534,9 @@ impl IntegrityVerifier {
                 let canonical_pos = choose_canonical(&dist, *threshold);
                 let chosen = order[canonical_pos];
                 for (pos, &idx) in order.iter().enumerate() {
+                    if incomparable[pos] {
+                        continue; // already recorded and penalised above
+                    }
                     let agrees = pos == canonical_pos || dist[canonical_pos][pos] < *threshold;
                     reports[idx].status = if pos == canonical_pos {
                         ReplicaStatus::Canonical
@@ -810,6 +890,104 @@ mod tests {
             "{err:?}"
         );
         assert_eq!(v.metrics().instantiations(&metric), 0);
+    }
+
+    fn report_of(acc: &Acceptance, p: u8) -> &ReplicaReport {
+        acc.reports
+            .iter()
+            .find(|r| r.peer == peer(p))
+            .expect("every replica is reported")
+    }
+
+    /// A replica whose output makes the metric fail — a trap (E0311) or a
+    /// `NaN` (E0312) — cannot veto a task the other replicas agree on: its
+    /// pairs count as incomparable, the honest pair still reaches quorum, the
+    /// failure is recorded in its audit record, and it loses reputation.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_replica_that_breaks_the_metric_is_outvoted_and_penalised() {
+        for (poison, code) in [(0xFF_u8, "ENTANGLE-E0311"), (0xFE, "ENTANGLE-E0312")] {
+            let (v, metric) = verifier_with_metric();
+            let policy = sem_policy(&metric, 3, 1, 0.25);
+            let env = PolicyEnvelope::seal(&policy).unwrap();
+            let h = env.hash();
+            let reps = vec![ok(1, &[10], h), ok(2, &[11], h), ok(3, &[poison], h)];
+            let acc = v
+                .accept(&task(policy, 1024), &env, reps)
+                .await
+                .expect("the honest pair reaches quorum 1");
+            assert!(acc.output == [10] || acc.output == [11], "{:?}", acc.output);
+            assert_eq!(acc.pair_agreement, Some((1, 3)));
+            assert_eq!(v.metrics().instantiations(&metric), 3, "every pair ran");
+            let bad = report_of(&acc, 3);
+            assert_eq!(bad.status.label(), "failed");
+            assert!(
+                bad.status.error().is_some_and(|e| e.contains(code)),
+                "{:?}",
+                bad.status
+            );
+            let k = PolicyKind::SemanticEquivalent;
+            assert!(v.reputation().get(&peer(3), k) < INITIAL_SCORE);
+            for p in [1, 2] {
+                assert_eq!(v.reputation().record(&peer(p), k).correct, 1);
+                assert_eq!(v.reputation().get(&peer(p), k), INITIAL_SCORE);
+            }
+        }
+    }
+
+    /// The replica every one of whose comparisons failed is penalised even
+    /// when the others do not reach quorum; the others are not.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn an_incomparable_replica_is_penalised_even_without_quorum() {
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 3, 1, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        // 10 vs 20: distance 1.0 — compared fine, but no agreement.
+        let reps = vec![ok(1, &[10], h), ok(2, &[20], h), ok(3, &[0xFF], h)];
+        let err = v.accept(&task(policy, 1024), &env, reps).await.unwrap_err();
+        assert!(
+            matches!(
+                err,
+                DispatchError::Integrity(IntegrityError::QuorumNotReached {
+                    agreeing: 0,
+                    pairs: 3,
+                    required: 1
+                })
+            ),
+            "{err:?}"
+        );
+        let k = PolicyKind::SemanticEquivalent;
+        assert!(v.reputation().get(&peer(3), k) < INITIAL_SCORE);
+        assert_eq!(v.reputation().record(&peer(1), k).total, 0);
+        assert_eq!(v.reputation().record(&peer(2), k).total, 0);
+    }
+
+    /// When no comparison succeeds at all, the metric itself (or every
+    /// output) is the problem: its error is reported and nobody is blamed.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn when_every_comparison_fails_the_metric_error_is_reported() {
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 2, 1, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        let err = v
+            .accept(
+                &task(policy, 1024),
+                &env,
+                vec![ok(1, &[10], h), ok(2, &[0xFF], h)],
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                DispatchError::Integrity(IntegrityError::MetricFailed { .. })
+            ),
+            "{err:?}"
+        );
+        let k = PolicyKind::SemanticEquivalent;
+        assert_eq!(v.reputation().record(&peer(1), k).total, 0);
+        assert_eq!(v.reputation().record(&peer(2), k).total, 0);
     }
 
     #[test]

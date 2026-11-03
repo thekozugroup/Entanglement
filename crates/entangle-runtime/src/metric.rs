@@ -39,8 +39,12 @@ use std::sync::Arc;
 /// Default memory ceiling for one metric instantiation (256 MiB).
 ///
 /// Two replica outputs are copied into guest memory, each at most the task's
-/// `max_output_bytes` (16 MiB by default), so this leaves ample room while
-/// still bounding the verifier.
+/// `max_output_bytes` (16 MiB by default). What the metric allocates on top
+/// depends on the metric: a tokenising metric fed a hostile 16 MiB output can
+/// need more than this ceiling. Hitting it fails that one comparison
+/// ([`IntegrityError::MetricFailed`]), which the scheduler's acceptance
+/// pipeline treats as "incomparable" for that pair rather than as a verdict
+/// on the whole task.
 pub const DEFAULT_METRIC_MEMORY_BYTES: usize = 256 * 1024 * 1024;
 
 /// A verified, compiled metric component.

@@ -22,8 +22,9 @@
 //! a replica target for that policy variant.
 //!
 //! What lowers a score, and why, is a [`ReputationReason`]: an oversized
-//! output (INV-INT-2), a policy-hash echo that does not match (INV-INT-1), or
-//! a replica that disagreed with the accepted quorum.
+//! output (INV-INT-2), a policy-hash echo that does not match (INV-INT-1), a
+//! replica that disagreed with the accepted quorum, or an output the metric
+//! could not compare with any other replica's.
 //!
 //! The store is in-memory and per-node: it records this submitter's own
 //! observations and is never gossiped.
@@ -83,6 +84,10 @@ pub enum ReputationReason {
     PolicyHashMismatch,
     /// Its replica disagreed with the accepted quorum / majority.
     DisagreedWithQuorum,
+    /// Every metric comparison involving its output failed (the metric
+    /// trapped, timed out, ran out of memory or broke its contract) while
+    /// other replicas' outputs compared fine.
+    IncomparableOutput,
 }
 
 impl ReputationReason {
@@ -92,6 +97,7 @@ impl ReputationReason {
             Self::OversizedOutput => "oversized-output",
             Self::PolicyHashMismatch => "policy-hash-mismatch",
             Self::DisagreedWithQuorum => "disagreed-with-quorum",
+            Self::IncomparableOutput => "incomparable-output",
         }
     }
 }
