@@ -15,8 +15,8 @@ pub mod mint;
 pub mod verifier;
 
 pub use bridge::{
-    make_bridge_attenuation, verify_bridge_cap, BridgeError, BridgeFacts, BridgeVerifyContext,
-    BRIDGE_RATE_LIMIT_MAX_BPS, BRIDGE_TOTAL_BYTES_MAX, BRIDGE_TTL_MAX_SECS,
+    make_bridge_attenuation, verify_bridge_cap, BridgeBudget, BridgeError, BridgeFacts,
+    BridgeVerifyContext, BRIDGE_RATE_LIMIT_MAX_BPS, BRIDGE_TOTAL_BYTES_MAX, BRIDGE_TTL_MAX_SECS,
 };
 pub use claims::{Claim, ClaimSet};
 pub use errors::BiscuitError;

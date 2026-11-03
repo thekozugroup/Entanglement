@@ -16,7 +16,7 @@
 //! | E9999       | Internal / unexpected          |
 //!
 //! Other crates layer their own codes into the gaps between these ranges —
-//! `entangle-broker` owns E0050 and E0123, and E0400–E0424 belong to the
+//! `entangle-broker` owns E0050 and E0123, and E0400–E0425 belong to the
 //! broker / biscuits cross-node paths. The table above is therefore *this
 //! crate's* view, not a workspace-wide registry.
 //!

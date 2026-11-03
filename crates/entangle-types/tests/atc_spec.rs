@@ -323,21 +323,6 @@ fn atc_str_3_forged_chunk_rejected() {
     unimplemented!("§16 ATC-STR-3 — see crates/entangle-plugin-scheduler Phase 3")
 }
 
-/// §16 ATC-BRG-1 through ATC-BRG-6 — bridge biscuit attenuation tests.
-///
-/// These are broker-tier tests that require the biscuit attenuation set
-/// (5 mandatory facts including relay_total_bytes_max) and
-/// entangle-broker / entangle-signing infrastructure.
-/// Deferred to: crates/entangle-signing/tests/bridge_attenuation.rs
-/// Future iteration: Phase 3 (broker / signing).
-#[test]
-#[ignore = "Phase 3: requires entangle-broker + biscuit attenuation machinery (ATC-BRG-1 through ATC-BRG-6)"]
-fn atc_brg_bridge_attenuation_suite() {
-    unimplemented!(
-        "§16 ATC-BRG-1..6 — see crates/entangle-signing/tests/bridge_attenuation.rs Phase 3"
-    )
-}
-
 /// §16 ATC-BUS-1, ATC-BUS-2 — bus / rotation governance invariants.
 ///
 /// These are operational / process invariants verified by release CI workflow

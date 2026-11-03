@@ -284,7 +284,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0400` | Cross-node dispatch attempted but the remote transport is not implemented (Phase 2 scaffold). |
 | `ENTANGLE-E0401` | Task input exceeds the dispatcher's configured `max_input_bytes`. |
 | `ENTANGLE-E0410`–`E0413` | Biscuit-auth parse / mint / verify / malformed-claim failures. |
-| `ENTANGLE-E0420`–`E0424` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch. |
+| `ENTANGLE-E0420`–`E0425` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch (E0420–E0424); E0425 is a relay whose cumulative `total_bytes_cap` budget is exhausted. |
 | `ENTANGLE-E0620`, `E0630`, `E0640`, `E0650` | `NotImplemented` stubs for the MCP gateway, `mesh.iroh`, `mesh.tailscale`, and OpenTelemetry export respectively — all Phase 2+. |
 
 If you hit a code not listed above, the fastest way to find its exact meaning
