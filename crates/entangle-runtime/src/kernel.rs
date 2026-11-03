@@ -92,6 +92,14 @@ impl Kernel {
             peer_allowlist_populated: false,
         };
         let engine = HostEngine::new().map_err(entangle_host::HostError::LinkerSetup)?;
+        // Staged native binaries left behind by a process that died without
+        // unloading (SIGKILL, OOM kill) would otherwise accumulate across
+        // restarts. Only copies no live process holds are removed, so a
+        // running daemon sharing this root keeps its own. The system temp
+        // dir (no root configured) is left to the OS's tmp cleaning.
+        if let Some(root) = &config.native.staging_dir {
+            crate::native::sweep_stale_staging(root);
+        }
         Ok(Self {
             bus: Bus::new(config.bus_capacity),
             lifecycle_topic: Topic::new(LIFECYCLE_TOPIC).expect("static topic is valid"),

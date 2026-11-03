@@ -392,3 +392,103 @@ async fn a_plugin_loaded_through_relative_paths_invokes() {
     assert_eq!(std::fs::read_to_string(own.join("requests")).unwrap(), "1");
     k.unload(&id).await.unwrap();
 }
+
+/// Set (to a scratch root) only when
+/// `stale_staging_copies_are_swept_when_a_kernel_starts` re-runs this test
+/// binary as a child process.
+const STAGE_AND_EXIT: &str = "ENTANGLE_E2E_STAGE_AND_EXIT";
+
+/// Child-process half of `stale_staging_copies_are_swept_when_a_kernel_starts`.
+/// With [`STAGE_AND_EXIT`] set it loads a native plugin, staging it under
+/// `<root>/staging`, and exits without unloading — as a SIGKILLed or
+/// OOM-killed daemon would: no destructor runs, and the OS releases whatever
+/// the process held. Without the variable (every ordinary run) it does
+/// nothing.
+#[tokio::test(flavor = "multi_thread")]
+async fn child_loads_a_native_plugin_then_exits_without_unloading() {
+    let Some(root) = std::env::var_os(STAGE_AND_EXIT).map(PathBuf::from) else {
+        return;
+    };
+    let kp = IdentityKeyPair::generate();
+    let pkg = root.join("child-pkg");
+    std::fs::create_dir_all(&pkg).unwrap();
+    // Loading stages the bytes; they are never executed here.
+    write_package(
+        &pkg,
+        &kp,
+        b"\x7fELF\x02\x01\x01",
+        "plugin.bin",
+        5,
+        "native",
+        "",
+    );
+    let k = Kernel::new(
+        KernelConfig {
+            native: NativeConfig {
+                data_dir: Some(root.join("data")),
+                staging_dir: Some(root.join("staging")),
+                ..NativeConfig::default()
+            },
+            ..KernelConfig::default()
+        },
+        keyring_for(&kp),
+    )
+    .unwrap();
+    k.load_plugin_from_dir(&pkg).await.expect("child load");
+    std::process::exit(0);
+}
+
+/// A daemon killed with plugins loaded leaves each staged binary behind.
+/// The next kernel to start on that staging root — the daemon restarting,
+/// or the CLI's local kernel, which shares `~/.entangle/native` with a
+/// running daemon — removes those copies, and only those: a copy a live
+/// kernel is using stays and keeps running.
+#[tokio::test(flavor = "multi_thread")]
+async fn stale_staging_copies_are_swept_when_a_kernel_starts() {
+    let kp = IdentityKeyPair::generate();
+    let e = env();
+    let bin = std::fs::read(native_echo_binary()).unwrap();
+    write_package(&e.pkg, &kp, &bin, "plugin.bin", 5, "native", "");
+
+    // A kernel that stays up with a plugin loaded …
+    let live = kernel(&e, &kp, Tier::Native);
+    let id = live.load_plugin_from_dir(&e.pkg).await.expect("load");
+    assert_eq!(entries(&e.staging), 1);
+
+    // … and a process that staged into the same root and was killed.
+    let child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "child_loads_a_native_plugin_then_exits_without_unloading",
+            "--nocapture",
+        ])
+        .env(STAGE_AND_EXIT, e._tmp.path())
+        .output()
+        .unwrap();
+    assert!(
+        child.status.success(),
+        "child failed: {}\n{}",
+        String::from_utf8_lossy(&child.stdout),
+        String::from_utf8_lossy(&child.stderr)
+    );
+    assert_eq!(
+        entries(&e.staging),
+        2,
+        "the killed process left its staged copy behind"
+    );
+
+    // The next kernel to start on that root sweeps the dead copy only.
+    let _next = kernel(&e, &kp, Tier::Native);
+    assert_eq!(
+        entries(&e.staging),
+        1,
+        "the copy of the process that died is removed; the live one stays"
+    );
+    let out = live
+        .invoke(&id, b"still staged", 10_000)
+        .await
+        .expect("the live kernel's staged copy was kept");
+    assert_eq!(out, b"still staged");
+    live.unload(&id).await.unwrap();
+    assert_eq!(entries(&e.staging), 0);
+}

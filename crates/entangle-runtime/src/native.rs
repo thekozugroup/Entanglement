@@ -136,10 +136,25 @@ pub enum NativeError {
     Supervisor(#[from] SupervisorError),
 }
 
+/// Name prefix of every staging directory (see [`stage`]).
+const STAGING_PREFIX: &str = "entangle-native-";
+
+/// Lock file inside a staging directory, held by the process using it.
+const STAGING_LOCK: &str = "lock";
+
 /// A private directory holding one staged binary; removed on drop.
+///
+/// While it exists, the process that staged it holds an exclusive lock on
+/// `<dir>/lock`. The OS releases that lock however the process ends, so
+/// [`sweep_stale_staging`] can tell a copy left behind by a killed daemon
+/// from one a live kernel is running — the daemon and the CLI's local
+/// kernel share `~/.entangle/native`.
 #[derive(Debug)]
 struct StagingDir {
     dir: PathBuf,
+    /// Held for the directory's lifetime; closed only after it is removed
+    /// (fields drop after [`Drop::drop`]).
+    _lock: std::fs::File,
 }
 
 impl Drop for StagingDir {
@@ -148,6 +163,71 @@ impl Drop for StagingDir {
             tracing::debug!(dir = %self.dir.display(), error = %e, "staging dir cleanup failed");
         }
     }
+}
+
+/// Create `<dir>/lock` already locked: the file is created and locked under
+/// a temporary name, then renamed into place, so `lock` never exists
+/// unlocked while its owner is alive — a sweep can never mistake a
+/// directory still being staged for an abandoned one.
+fn lock_staging_dir(dir: &Path) -> std::io::Result<std::fs::File> {
+    let tmp = dir.join(".lock.tmp");
+    let f = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&tmp)?;
+    f.lock()?;
+    std::fs::rename(&tmp, dir.join(STAGING_LOCK))?;
+    Ok(f)
+}
+
+/// Remove the staging directories under `root` that their process left
+/// behind — killed, OOM-killed or powered off before it could unload — and
+/// return how many were removed.
+///
+/// A directory is removed only when its `lock` can be taken, i.e. no live
+/// process holds it: copies this or another running kernel is using stay.
+/// A directory with no `lock` yet is mid-creation (or its owner died within
+/// the instant between `mkdir` and taking the lock) and is left alone. Best
+/// effort: failures are logged, never fatal.
+pub fn sweep_stale_staging(root: &Path) -> usize {
+    use std::fs::TryLockError;
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return 0;
+    };
+    let mut removed = 0;
+    for entry in entries.flatten() {
+        if !entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with(STAGING_PREFIX)
+        {
+            continue;
+        }
+        // Real directories only; never follow a link out of the root.
+        if !entry.file_type().is_ok_and(|t| t.is_dir()) {
+            continue;
+        }
+        let dir = entry.path();
+        let Ok(lock) = std::fs::File::open(dir.join(STAGING_LOCK)) else {
+            continue;
+        };
+        match lock.try_lock() {
+            Ok(()) => match std::fs::remove_dir_all(&dir) {
+                Ok(()) => {
+                    tracing::info!(dir = %dir.display(), "removed a stale native-plugin staging copy");
+                    removed += 1;
+                }
+                Err(e) => {
+                    tracing::warn!(dir = %dir.display(), error = %e, "cannot remove a stale staging copy")
+                }
+            },
+            Err(TryLockError::WouldBlock) => {} // a live kernel's copy
+            Err(TryLockError::Error(e)) => {
+                tracing::debug!(dir = %dir.display(), error = %e, "cannot check a staging copy's lock")
+            }
+        }
+    }
+    removed
 }
 
 static STAGE_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -171,7 +251,7 @@ fn stage(root: &Path, name: &str, bytes: &[u8]) -> std::io::Result<(StagingDir, 
             .as_bytes(),
         );
         let dir = root.join(format!(
-            "entangle-native-{name}-{}",
+            "{STAGING_PREFIX}{name}-{}",
             &nonce.to_hex().as_str()[..16]
         ));
         let mut builder = std::fs::DirBuilder::new();
@@ -182,7 +262,17 @@ fn stage(root: &Path, name: &str, bytes: &[u8]) -> std::io::Result<(StagingDir, 
         }
         match builder.create(&dir) {
             Ok(()) => {
-                let guard = StagingDir { dir: dir.clone() };
+                let lock = match lock_staging_dir(&dir) {
+                    Ok(lock) => lock,
+                    Err(e) => {
+                        let _ = std::fs::remove_dir_all(&dir);
+                        return Err(e);
+                    }
+                };
+                let guard = StagingDir {
+                    dir: dir.clone(),
+                    _lock: lock,
+                };
                 let bin = dir.join("plugin");
                 let mut opts = std::fs::OpenOptions::new();
                 opts.write(true).create_new(true);
@@ -795,6 +885,41 @@ mod tests {
                 .join(&id.publisher)
                 .join(&id.name)]
         );
+    }
+
+    /// Only copies whose owner is gone are swept: a live owner's lock (in
+    /// this process or another) keeps its copy, and anything that is not a
+    /// locked staging directory is left alone.
+    #[test]
+    fn sweeping_removes_only_copies_no_live_process_holds() {
+        let root = tempfile::tempdir().unwrap();
+        let (_live, live_bin) = stage(root.path(), "live", b"live").unwrap();
+        let (dead, dead_bin) = stage(root.path(), "dead", b"dead").unwrap();
+        // The owner dies: the OS releases its lock, nothing removes the copy.
+        dead._lock.unlock().unwrap();
+        std::mem::forget(dead);
+        // Mid-creation (no lock yet), unrelated, and a link out of the root.
+        let creating = root.path().join(format!("{STAGING_PREFIX}creating-0"));
+        std::fs::create_dir(&creating).unwrap();
+        let other = root.path().join("unrelated");
+        std::fs::create_dir(&other).unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join(STAGING_LOCK), b"").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            outside.path(),
+            root.path().join(format!("{STAGING_PREFIX}link-0")),
+        )
+        .unwrap();
+
+        assert_eq!(sweep_stale_staging(root.path()), 1);
+        assert!(!dead_bin.parent().unwrap().exists(), "dead copy removed");
+        assert_eq!(std::fs::read(&live_bin).unwrap(), b"live", "live copy kept");
+        assert!(creating.exists() && other.exists());
+        assert!(outside.path().join(STAGING_LOCK).exists());
+        // Nothing left to remove; a missing root is not an error.
+        assert_eq!(sweep_stale_staging(root.path()), 0);
+        assert_eq!(sweep_stale_staging(&root.path().join("absent")), 0);
     }
 
     #[test]

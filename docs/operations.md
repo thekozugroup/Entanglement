@@ -452,7 +452,10 @@ reported as *reduced* (UDP not isolated) rather than silently accepted.
 
 **Where things live.** Verified binaries are staged (never run from the
 package directory) under `~/.entangle/native/entangle-native-<name>-<random>/`
-(`0700`, binary `0500`), removed on unload. Plugin stderr is logged under the
+(`0700`, binary `0500`), removed on unload. The process using a copy holds a
+lock on it; copies left behind by a daemon that was killed (SIGKILL, OOM) are
+removed when the next daemon or local (`--allow-local`) kernel starts, while
+copies a running daemon still uses are kept. Plugin stderr is logged under the
 `entangle::native` tracing target, bounded per invocation.
 
 **No primitive at all.** Native plugins are refused with `ENTANGLE-E0700`
