@@ -14,8 +14,11 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 
-use crate::framing::{read_frame, write_frame};
-use crate::handshake::{transcript, LABEL_CLIENT, LABEL_SERVER, MAGIC, VERSION};
+use crate::framing::{read_frame, write_frame, write_sealed};
+use crate::handshake::{
+    Ephemeral, Role, Transcript, ADMIT_OK, CLIENT_HELLO_LEN, LABEL_CLIENT, LABEL_SERVER, MAGIC,
+    SERVER_HELLO_LEN, VERSION,
+};
 use crate::*;
 
 const LO: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
@@ -54,27 +57,34 @@ fn allow(ids: &[PeerId]) -> Option<Arc<dyn PeerAllowlist>> {
     Some(Arc::new(StaticAllowlist::new(ids.iter().copied())))
 }
 
-/// Client hello; returns (client_nonce, server_pk, server_nonce, sig_s).
-async fn raw_hello(
-    s: &mut TcpStream,
-    client_pk: &[u8; 32],
-) -> ([u8; 32], [u8; 32], [u8; 32], [u8; 64]) {
+fn arr32(b: &[u8]) -> [u8; 32] {
+    b[..32].try_into().unwrap()
+}
+
+/// Client hello claiming `client_pk`, with a fresh ephemeral share. Returns
+/// the transcript as the server built it and the server's signature.
+async fn raw_hello(s: &mut TcpStream, client_pk: &[u8; 32]) -> (Transcript, [u8; 64]) {
+    let eph = Ephemeral::generate().unwrap();
     let nonce = [7u8; 32];
     let mut hello = Vec::new();
     hello.extend_from_slice(MAGIC);
     hello.push(VERSION);
     hello.extend_from_slice(client_pk);
     hello.extend_from_slice(&nonce);
+    hello.extend_from_slice(&eph.public());
+    assert_eq!(hello.len(), CLIENT_HELLO_LEN);
     s.write_all(&hello).await.unwrap();
-    let mut r = [0u8; 128];
+    let mut r = [0u8; SERVER_HELLO_LEN];
     s.read_exact(&mut r).await.unwrap();
-    let mut spk = [0u8; 32];
-    let mut sn = [0u8; 32];
-    let mut sig = [0u8; 64];
-    spk.copy_from_slice(&r[..32]);
-    sn.copy_from_slice(&r[32..64]);
-    sig.copy_from_slice(&r[64..]);
-    (nonce, spk, sn, sig)
+    let t = Transcript {
+        client_pk: *client_pk,
+        client_nonce: nonce,
+        client_eph: eph.public(),
+        server_pk: arr32(&r[..32]),
+        server_nonce: arr32(&r[32..64]),
+        server_eph: arr32(&r[64..96]),
+    };
+    (t, r[96..].try_into().unwrap())
 }
 
 /// After a failed handshake the server must close without admitting.
@@ -174,9 +184,10 @@ async fn claiming_anothers_pubkey_without_its_key_is_rejected() {
     let (b, _) = node(AclMode::EntangleOnTop, allow(&[id_of(&victim)])).await;
 
     let mut s = TcpStream::connect(b.local_addr()).await.unwrap();
-    let (cn, spk, sn, _) = raw_hello(&mut s, victim.public().as_bytes()).await;
-    let t = transcript(LABEL_CLIENT, victim.public().as_bytes(), &cn, &spk, &sn);
-    s.write_all(attacker.sign(&t).as_bytes()).await.unwrap();
+    let (t, _) = raw_hello(&mut s, victim.public().as_bytes()).await;
+    s.write_all(attacker.sign(&t.signed(LABEL_CLIENT)).as_bytes())
+        .await
+        .unwrap();
     expect_closed_without_admission(&mut s).await;
     assert_no_conn(&b).await;
 }
@@ -186,7 +197,7 @@ async fn reflecting_the_server_signature_as_client_signature_is_rejected() {
     let kp = IdentityKeyPair::generate();
     let (b, _) = node(AclMode::TrustTailnet, None).await;
     let mut s = TcpStream::connect(b.local_addr()).await.unwrap();
-    let (_, _, _, sig_s) = raw_hello(&mut s, kp.public().as_bytes()).await;
+    let (_, sig_s) = raw_hello(&mut s, kp.public().as_bytes()).await;
     // Replay the server's own signature in the client slot.
     s.write_all(&sig_s).await.unwrap();
     expect_closed_without_admission(&mut s).await;
@@ -196,58 +207,61 @@ async fn reflecting_the_server_signature_as_client_signature_is_rejected() {
 #[tokio::test]
 async fn role_labels_differ() {
     assert_ne!(LABEL_SERVER, LABEL_CLIENT);
-    let k = [1u8; 32];
-    let n = [2u8; 32];
-    assert_ne!(
-        transcript(LABEL_SERVER, &k, &n, &k, &n),
-        transcript(LABEL_CLIENT, &k, &n, &k, &n)
-    );
+    let t = Transcript {
+        client_pk: [1; 32],
+        client_nonce: [2; 32],
+        client_eph: [3; 32],
+        server_pk: [1; 32],
+        server_nonce: [2; 32],
+        server_eph: [3; 32],
+    };
+    assert_ne!(t.signed(LABEL_SERVER), t.signed(LABEL_CLIENT));
 }
 
-/// A fake server on loopback whose reply is produced by `f(client_pk,
-/// client_nonce)`; it then swallows the client signature and sends admit.
-async fn fake_server<F>(f: F) -> SocketAddr
-where
-    F: FnOnce([u8; 32], [u8; 32]) -> Vec<u8> + Send + 'static,
-{
+/// A fake server on loopback that runs the server side by hand as `kp`,
+/// signing with `label` and (optionally) over a different client nonce than
+/// the one it received; it then swallows the client signature and admits.
+async fn fake_server(
+    kp: IdentityKeyPair,
+    label: &'static [u8],
+    signed_client_nonce: Option<[u8; 32]>,
+) -> SocketAddr {
     let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = l.local_addr().unwrap();
     tokio::spawn(async move {
         let (mut s, _) = l.accept().await.unwrap();
-        let mut h = [0u8; 69];
+        let mut h = [0u8; CLIENT_HELLO_LEN];
         s.read_exact(&mut h).await.unwrap();
-        let mut cpk = [0u8; 32];
-        let mut cn = [0u8; 32];
-        cpk.copy_from_slice(&h[5..37]);
-        cn.copy_from_slice(&h[37..]);
-        s.write_all(&f(cpk, cn)).await.unwrap();
-        let mut sig = [0u8; 64];
-        let _ = s.read_exact(&mut sig).await;
-        let _ = s.write_all(&[1]).await;
+        let eph = Ephemeral::generate().unwrap();
+        let t = Transcript {
+            client_pk: arr32(&h[5..]),
+            client_nonce: arr32(&h[37..]),
+            client_eph: arr32(&h[69..]),
+            server_pk: *kp.public().as_bytes(),
+            server_nonce: [9; 32],
+            server_eph: eph.public(),
+        };
+        let signed = Transcript {
+            client_nonce: signed_client_nonce.unwrap_or(t.client_nonce),
+            ..t
+        };
+        let sig = kp.sign(&signed.signed(label));
+        let reply = [&t.server_pk[..], &t.server_nonce, &t.server_eph, &sig.0].concat();
+        s.write_all(&reply).await.unwrap();
+        let mut sig_c = [0u8; 64];
+        if s.read_exact(&mut sig_c).await.is_err() {
+            return;
+        }
+        let mut session = eph.agree(&t.client_eph, &t, Role::Server).unwrap();
+        let _ = write_sealed(&mut s, &mut session.sealer, &[ADMIT_OK], 1).await;
     });
     addr
-}
-
-fn server_reply(
-    kp: &IdentityKeyPair,
-    label: &[u8],
-    cpk: [u8; 32],
-    cn: [u8; 32],
-    sn: [u8; 32],
-) -> Vec<u8> {
-    let spk = *kp.public().as_bytes();
-    let sig = kp.sign(&transcript(label, &cpk, &cn, &spk, &sn));
-    [&spk[..], &sn[..], &sig.0[..]].concat()
 }
 
 #[tokio::test]
 async fn client_rejects_a_server_that_signs_with_the_client_role_label() {
     let skp = IdentityKeyPair::generate();
-    let addr = fake_server({
-        let skp = skp.clone();
-        move |cpk, cn| server_reply(&skp, LABEL_CLIENT, cpk, cn, [9; 32])
-    })
-    .await;
+    let addr = fake_server(skp.clone(), LABEL_CLIENT, None).await;
     let (a, _) = node(AclMode::TrustTailnet, None).await;
     let peer = TailscalePeer::new(*skp.public().as_bytes(), addr);
     let err = a.connect(&peer).await.unwrap_err();
@@ -257,12 +271,8 @@ async fn client_rejects_a_server_that_signs_with_the_client_role_label() {
 #[tokio::test]
 async fn client_rejects_a_replayed_server_signature_over_a_stale_nonce() {
     let skp = IdentityKeyPair::generate();
-    let addr = fake_server({
-        let skp = skp.clone();
-        // Signature computed for a different (old) client nonce.
-        move |cpk, _cn| server_reply(&skp, LABEL_SERVER, cpk, [0xEE; 32], [9; 32])
-    })
-    .await;
+    // Signature computed for a different (old) client nonce.
+    let addr = fake_server(skp.clone(), LABEL_SERVER, Some([0xEE; 32])).await;
     let (a, _) = node(AclMode::TrustTailnet, None).await;
     let peer = TailscalePeer::new(*skp.public().as_bytes(), addr);
     assert_eq!(a.connect(&peer).await.unwrap_err().code(), "ENTANGLE-E0644");
@@ -273,11 +283,7 @@ async fn client_accepts_a_well_formed_fake_server_control() {
     // Control for the two tests above: the same fake server with a correct
     // signature is accepted, so the rejections are about the signature.
     let skp = IdentityKeyPair::generate();
-    let addr = fake_server({
-        let skp = skp.clone();
-        move |cpk, cn| server_reply(&skp, LABEL_SERVER, cpk, cn, [9; 32])
-    })
-    .await;
+    let addr = fake_server(skp.clone(), LABEL_SERVER, None).await;
     let (a, _) = node(AclMode::TrustTailnet, None).await;
     let peer = TailscalePeer::new(*skp.public().as_bytes(), addr);
     let conn = a.connect(&peer).await.unwrap();
@@ -287,12 +293,18 @@ async fn client_accepts_a_well_formed_fake_server_control() {
 #[tokio::test]
 async fn bad_magic_and_version_are_rejected() {
     let (b, _) = node(AclMode::TrustTailnet, None).await;
-    for (magic, version) in [(*b"HTTP", VERSION), (*MAGIC, VERSION + 1)] {
+    // Everything but the magic/version is a well-formed hello (a real key and
+    // ephemeral share), so only those two fields can cause the rejection.
+    let kp = IdentityKeyPair::generate();
+    let eph = Ephemeral::generate().unwrap();
+    for (magic, version) in [(*b"HTTP", VERSION), (*MAGIC, VERSION + 1), (*MAGIC, 1)] {
         let mut s = TcpStream::connect(b.local_addr()).await.unwrap();
         let mut hello = Vec::new();
         hello.extend_from_slice(&magic);
         hello.push(version);
-        hello.extend_from_slice(&[0u8; 64]);
+        hello.extend_from_slice(kp.public().as_bytes());
+        hello.extend_from_slice(&[7u8; 32]);
+        hello.extend_from_slice(&eph.public());
         s.write_all(&hello).await.unwrap();
         expect_closed_without_admission(&mut s).await;
     }
@@ -482,4 +494,230 @@ async fn probe_does_not_disclose_the_real_identity() {
     let (probe, server) = tokio::join!(a.probe(b.local_addr()), b.accept());
     probe.unwrap();
     assert_ne!(server.unwrap().remote_peer_id(), id_of(&ka));
+}
+
+// ------------------------------------------------------------ relay (MITM) --
+
+type SharedWriter = Arc<tokio::sync::Mutex<tokio::net::tcp::OwnedWriteHalf>>;
+
+/// A tailnet node that relays TCP byte-for-byte to `upstream`: the position a
+/// malicious tailnet peer gets by answering discovery for somebody else.
+struct Relay {
+    addr: SocketAddr,
+    /// Every byte the client sent towards the server.
+    c2s_seen: Arc<std::sync::Mutex<Vec<u8>>>,
+    /// Write half of the most recent upstream (server-side) leg.
+    upstream: Arc<std::sync::Mutex<Option<SharedWriter>>>,
+}
+
+impl Relay {
+    /// `tamper_s2c`: XOR `mask` into the server->client byte at `offset`.
+    /// `delay_s2c`: hold the server's first reply bytes this long.
+    async fn start(
+        upstream: SocketAddr,
+        listen: SocketAddr,
+        tamper_s2c: Option<(usize, u8)>,
+        delay_s2c: Duration,
+    ) -> Self {
+        let l = TcpListener::bind(listen).await.unwrap();
+        let addr = l.local_addr().unwrap();
+        let c2s_seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let slot: Arc<std::sync::Mutex<Option<SharedWriter>>> = Arc::default();
+        let (seen, slot2) = (Arc::clone(&c2s_seen), Arc::clone(&slot));
+        tokio::spawn(async move {
+            loop {
+                let Ok((client, _)) = l.accept().await else {
+                    return;
+                };
+                let Ok(server) = TcpStream::connect(upstream).await else {
+                    continue;
+                };
+                let (mut cr, mut cw) = client.into_split();
+                let (mut sr, sw) = server.into_split();
+                let sw: SharedWriter = Arc::new(tokio::sync::Mutex::new(sw));
+                *slot2.lock().unwrap() = Some(Arc::clone(&sw));
+                let seen = Arc::clone(&seen);
+                tokio::spawn(async move {
+                    let mut buf = [0u8; 4096];
+                    while let Ok(n) = cr.read(&mut buf).await {
+                        if n == 0 {
+                            break;
+                        }
+                        seen.lock().unwrap().extend_from_slice(&buf[..n]);
+                        if sw.lock().await.write_all(&buf[..n]).await.is_err() {
+                            break;
+                        }
+                    }
+                });
+                tokio::spawn(async move {
+                    let mut buf = [0u8; 4096];
+                    let mut off = 0usize;
+                    let mut first = true;
+                    while let Ok(n) = sr.read(&mut buf).await {
+                        if n == 0 {
+                            break;
+                        }
+                        if std::mem::take(&mut first) {
+                            tokio::time::sleep(delay_s2c).await;
+                        }
+                        if let Some((at, mask)) = tamper_s2c {
+                            if (off..off + n).contains(&at) {
+                                buf[at - off] ^= mask;
+                            }
+                        }
+                        off += n;
+                        if cw.write_all(&buf[..n]).await.is_err() {
+                            break;
+                        }
+                    }
+                });
+            }
+        });
+        Self {
+            addr,
+            c2s_seen,
+            upstream: slot,
+        }
+    }
+
+    /// Write raw bytes into the server-side leg, as if the client sent them.
+    async fn inject_to_server(&self, bytes: &[u8]) {
+        let w = self
+            .upstream
+            .lock()
+            .unwrap()
+            .clone()
+            .expect("a relayed leg");
+        w.lock().await.write_all(bytes).await.unwrap();
+    }
+
+    fn client_bytes(&self) -> Vec<u8> {
+        self.c2s_seen.lock().unwrap().clone()
+    }
+}
+
+/// Records every payload the server dispatches.
+#[derive(Default)]
+struct Recorder(std::sync::Mutex<Vec<(PeerId, Vec<u8>)>>);
+
+#[async_trait::async_trait]
+impl RequestHandler for Recorder {
+    async fn handle(&self, peer: PeerId, payload: Vec<u8>) -> Vec<u8> {
+        self.0.lock().unwrap().push((peer, payload.clone()));
+        payload
+    }
+}
+
+fn contains(hay: &[u8], needle: &[u8]) -> bool {
+    hay.windows(needle.len()).any(|w| w == needle)
+}
+
+#[tokio::test]
+async fn a_relaying_tailnet_node_can_neither_read_nor_inject_traffic() {
+    // C is allowlisted at S. M relays C's connection to S unchanged, which is
+    // the position discovery can hand a malicious tailnet node.
+    let kc = IdentityKeyPair::generate();
+    let c = MeshTailscale::start(&kc, cfg(AclMode::TrustTailnet, None))
+        .await
+        .unwrap();
+    let (s, _) = node(AclMode::EntangleOnTop, allow(&[id_of(&kc)])).await;
+    let rec = Arc::new(Recorder::default());
+    let (s2, r2) = (s.clone(), Arc::clone(&rec));
+    tokio::spawn(async move { s2.serve(r2).await });
+    let m = Relay::start(
+        s.local_addr(),
+        "127.0.0.1:0".parse().unwrap(),
+        None,
+        Duration::ZERO,
+    )
+    .await;
+
+    let via_m = TailscalePeer::new(s.local_public_key(), m.addr);
+    let mut conn = c.connect(&via_m).await.unwrap();
+    assert_eq!(
+        conn.request(b"secret-biscuit").await.unwrap(),
+        b"secret-biscuit"
+    );
+    assert!(
+        !contains(&m.client_bytes(), b"secret-biscuit"),
+        "the relay must not see request plaintext"
+    );
+
+    // M now forges a request "from C" on the server leg.
+    let forged = b"INJECTED-BY-M";
+    let mut frame = (forged.len() as u32).to_be_bytes().to_vec();
+    frame.extend_from_slice(forged);
+    m.inject_to_server(&frame).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    let seen = rec.0.lock().unwrap().clone();
+    assert!(
+        seen.iter().all(|(_, p)| p.as_slice() != forged),
+        "a frame forged by the relay was dispatched as if C sent it: {seen:?}"
+    );
+}
+
+/// First ciphertext byte of the sealed admission record in the
+/// server->client stream (after the server hello and the record header).
+/// ChaCha20 is a stream cipher, so XOR-ing 0x01 here flips the admission
+/// plaintext from "denied" (0) to "admitted" (1); only the tag stops it.
+const ADMIT_AT: usize = SERVER_HELLO_LEN + 4;
+
+#[tokio::test]
+async fn a_relay_cannot_turn_a_rejection_into_an_admission() {
+    // C is NOT allowlisted at S; M flips the admission reply in transit.
+    let (c, _) = node(AclMode::TrustTailnet, None).await;
+    let other = IdentityKeyPair::generate();
+    let (s, _) = node(AclMode::EntangleOnTop, allow(&[id_of(&other)])).await;
+    let m = Relay::start(
+        s.local_addr(),
+        "127.0.0.1:0".parse().unwrap(),
+        Some((ADMIT_AT, 0x01)),
+        Duration::ZERO,
+    )
+    .await;
+    let via_m = TailscalePeer::new(s.local_public_key(), m.addr);
+    let r = c.connect(&via_m).await;
+    assert!(
+        r.is_err(),
+        "a tampered rejection must not read as admission"
+    );
+}
+
+#[tokio::test]
+async fn discovery_does_not_let_a_relay_take_over_a_peer() {
+    // S listens on 127.0.0.1:P; M relays 127.0.0.2:P -> S and answers last.
+    let mut long = cfg(AclMode::TrustTailnet, None);
+    long.handshake_timeout = Duration::from_secs(3);
+    let a = MeshTailscale::start(&IdentityKeyPair::generate(), long)
+        .await
+        .unwrap();
+    let (s, ks) = node(AclMode::TrustTailnet, None).await;
+    let port = s.local_addr().port();
+    let m_ip: IpAddr = "127.0.0.2".parse().unwrap();
+    let m = Relay::start(
+        s.local_addr(),
+        SocketAddr::new(m_ip, port),
+        None,
+        Duration::from_millis(200),
+    )
+    .await;
+    assert_eq!(m.addr.port(), port);
+    let json = r#"{"BackendState":"Running","Self":{"Online":true},
+      "Peer":{
+        "s":{"Online":true,"DNSName":"s.tail.ts.net.","TailscaleIPs":["127.0.0.1"]},
+        "m":{"Online":true,"DNSName":"m.tail.ts.net.","TailscaleIPs":["127.0.0.2"]}
+      }}"#;
+    let st = TailscaleStatus::parse(json).unwrap();
+    let found = a.discover_on_port(&st, port).await;
+    assert!(
+        !found
+            .iter()
+            .any(|p| p.peer_id == id_of(&ks) && p.addr.ip() == m_ip),
+        "the relay's address must not become S's candidate: {found:?}"
+    );
+    // Neither address can be preferred on evidence, so S is left out of
+    // this round altogether (and a warning is logged).
+    assert!(found.is_empty(), "{found:?}");
+    assert!(a.candidates().is_empty());
 }

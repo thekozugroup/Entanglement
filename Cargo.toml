@@ -75,6 +75,9 @@ blake3 = "1"
 biscuit-auth = "6"
 biscuit-quote = "0.3"
 rand_core = "0.6"
+# X25519 / HKDF / ChaCha20-Poly1305 for the mesh.tailscale session layer;
+# already in the tree via rustls, same (default) features.
+ring = "0.17"
 
 # CLI
 clap = { version = "4", features = ["derive"] }

@@ -1,6 +1,6 @@
 //! The TCP-over-tailnet transport: listener, dialer, connections, serving.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{btree_map, BTreeMap, BTreeSet, HashSet};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -14,8 +14,8 @@ use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::error::MeshTailscaleError;
-use crate::framing::{read_frame, read_frame_opt, write_frame};
-use crate::handshake::{client_handshake, server_handshake, Remote};
+use crate::framing::{read_sealed, read_sealed_opt, write_sealed, Opener, Sealer};
+use crate::handshake::{client_handshake, server_handshake, Remote, Session};
 use crate::status::TailscaleStatus;
 use crate::{AclMode, MeshTailscaleConfig, TailscalePeer};
 
@@ -157,7 +157,7 @@ impl MeshTailscale {
     pub async fn connect(&self, peer: &TailscalePeer) -> Result<MeshConn, MeshTailscaleError> {
         let cfg = &self.inner.config;
         let mut stream = dial(peer.addr, cfg.connect_timeout).await?;
-        let (remote, admitted) = client_handshake(
+        let (remote, admitted, session) = client_handshake(
             &mut stream,
             &self.inner.identity,
             Some(&peer.public_key),
@@ -170,7 +170,7 @@ impl MeshTailscale {
                 remote.peer_id
             )));
         }
-        Ok(MeshConn::new(stream, remote, cfg))
+        Ok(MeshConn::new(stream, remote, session, cfg))
     }
 
     /// Connect, send one request, return the response, close.
@@ -242,7 +242,7 @@ impl MeshTailscale {
         let cfg = &self.inner.config;
         let ephemeral = IdentityKeyPair::generate();
         let mut stream = dial(addr, cfg.connect_timeout).await?;
-        let (remote, _admitted) =
+        let (remote, _admitted, _session) =
             client_handshake(&mut stream, &ephemeral, None, cfg.handshake_timeout).await?;
         Ok(TailscalePeer {
             peer_id: remote.peer_id,
@@ -256,6 +256,12 @@ impl MeshTailscale {
     /// configured port (spec §6.1.1 as amended: Tailscale cannot host our
     /// SRV/TXT records). Peers that answer the handshake become candidates;
     /// the candidate set is replaced by this round's result.
+    ///
+    /// A `PeerId` that answers from more than one tailnet node in the same
+    /// round is left out (and logged): either a node is relaying another's
+    /// handshake or a key was copied, and neither address can be preferred
+    /// on evidence. The session layer already stops a relay from reading or
+    /// injecting; this keeps one from silently becoming the chosen route.
     pub async fn discover(&self, status: &TailscaleStatus) -> Vec<TailscalePeer> {
         let port = match self.inner.config.port {
             0 => self.inner.local_addr.port(),
@@ -285,11 +291,31 @@ impl MeshTailscale {
                 None
             });
         }
-        let mut found = BTreeMap::new();
+        let mut found: BTreeMap<PeerId, TailscalePeer> = BTreeMap::new();
+        let mut ambiguous: BTreeSet<PeerId> = BTreeSet::new();
         while let Some(res) = set.join_next().await {
-            if let Ok(Some(p)) = res {
-                if p.peer_id != self.inner.peer_id {
-                    found.insert(p.peer_id, p);
+            let Ok(Some(p)) = res else { continue };
+            if p.peer_id == self.inner.peer_id {
+                continue;
+            }
+            if ambiguous.contains(&p.peer_id) {
+                warn!(peer = %p.peer_id, addr = %p.addr, "mesh.tailscale discovery: PeerId answered from yet another tailnet node");
+                continue;
+            }
+            match found.entry(p.peer_id) {
+                btree_map::Entry::Vacant(e) => {
+                    e.insert(p);
+                }
+                btree_map::Entry::Occupied(e) => {
+                    let first = e.remove();
+                    warn!(
+                        peer = %p.peer_id,
+                        first = %first.addr,
+                        second = %p.addr,
+                        "mesh.tailscale discovery: one PeerId answered from two tailnet nodes \
+                         (a relaying node or a copied key); not using it this round"
+                    );
+                    ambiguous.insert(p.peer_id);
                 }
             }
         }
@@ -360,8 +386,8 @@ async fn accept_loop(
                 AclMode::EntangleOnTop => allow.as_ref().is_some_and(|a| a.is_allowed(p)),
             };
             match server_handshake(&mut stream, &identity, config.handshake_timeout, admit).await {
-                Ok(remote) => {
-                    let conn = MeshConn::new(stream, remote, &config);
+                Ok((remote, session)) => {
+                    let conn = MeshConn::new(stream, remote, session, &config);
                     // A full queue means nobody is accepting; drop.
                     if tx.try_send(conn).is_err() {
                         debug!(%from, "mesh.tailscale: accept queue full, dropping connection");
@@ -377,20 +403,27 @@ async fn accept_loop(
 }
 
 /// An established, identity-verified connection.
+///
+/// Every frame on it is a sealed record under the session keys agreed in the
+/// handshake, so only the authenticated remote can produce or read them.
 #[derive(Debug)]
 pub struct MeshConn {
     stream: TcpStream,
     remote: Remote,
+    sealer: Sealer,
+    opener: Opener,
     max_frame_bytes: usize,
     request_timeout: Duration,
     idle_timeout: Duration,
 }
 
 impl MeshConn {
-    fn new(stream: TcpStream, remote: Remote, cfg: &MeshTailscaleConfig) -> Self {
+    fn new(stream: TcpStream, remote: Remote, session: Session, cfg: &MeshTailscaleConfig) -> Self {
         Self {
             stream,
             remote,
+            sealer: session.sealer,
+            opener: session.opener,
             max_frame_bytes: cfg.max_frame_bytes,
             request_timeout: cfg.request_timeout,
             idle_timeout: cfg.idle_timeout,
@@ -411,10 +444,10 @@ impl MeshConn {
     pub async fn request(&mut self, payload: &[u8]) -> Result<Vec<u8>, MeshTailscaleError> {
         let max = self.max_frame_bytes;
         let limit = self.request_timeout;
-        let stream = &mut self.stream;
+        let (stream, sealer, opener) = (&mut self.stream, &mut self.sealer, &mut self.opener);
         let fut = async {
-            write_frame(stream, payload, max).await?;
-            read_frame(stream, max).await
+            write_sealed(stream, sealer, payload, max).await?;
+            read_sealed(stream, opener, max).await
         };
         match timeout(limit, fut).await {
             Ok(r) => r,
@@ -427,7 +460,11 @@ impl MeshConn {
     pub async fn accept_request(&mut self) -> Result<Option<MeshRequest<'_>>, MeshTailscaleError> {
         let max = self.max_frame_bytes;
         let idle = self.idle_timeout;
-        let read = timeout(idle, read_frame_opt(&mut self.stream, max)).await;
+        let read = timeout(
+            idle,
+            read_sealed_opt(&mut self.stream, &mut self.opener, max),
+        )
+        .await;
         match read {
             Err(_) => Ok(None),
             Ok(Err(e)) => Err(e),
@@ -462,7 +499,13 @@ impl MeshRequest<'_> {
     pub async fn respond(self, payload: &[u8]) -> Result<(), MeshTailscaleError> {
         let max = self.conn.max_frame_bytes;
         let limit = self.conn.request_timeout;
-        match timeout(limit, write_frame(&mut self.conn.stream, payload, max)).await {
+        let conn = &mut *self.conn;
+        match timeout(
+            limit,
+            write_sealed(&mut conn.stream, &mut conn.sealer, payload, max),
+        )
+        .await
+        {
             Ok(r) => r,
             Err(_) => Err(MeshTailscaleError::request_timeout(limit)),
         }

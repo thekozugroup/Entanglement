@@ -415,8 +415,12 @@ acl-mode = "entangle-on-top"   # or "trust-tailnet" (alias "tailscale-only")
 tailscale-cli = ""             # empty = `tailscale` on $PATH
 ```
 
-* Traffic is plain TCP over WireGuard, plus a mutual Ed25519 handshake so the
-  remote `PeerId` is authenticated. `entangle-on-top` drops any authenticated
+* Traffic is TCP over WireGuard. A mutual Ed25519-signed X25519 handshake
+  authenticates the remote `PeerId` and agrees session keys; every frame after
+  it is sealed (ChaCha20-Poly1305), so a tailnet node that relays the
+  connection can neither read nor inject. A `PeerId` that answers discovery
+  from two tailnet nodes at once is skipped for that round (logged at warn).
+  `entangle-on-top` drops any authenticated
   peer that is not in `peers.toml` before reading a request; `trust-tailnet`
   skips the allowlist but still authenticates identity.
 * Liveness (`active` / `stopped(reason)` / `uninstalled`) is polled every 5 s

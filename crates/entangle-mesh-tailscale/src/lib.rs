@@ -8,10 +8,12 @@
 //!   period and a 5-minute slow mode, publishing state on a `watch` channel
 //!   and logging one event per transition;
 //! * [`MeshTailscale`] carries identity-bound request/response traffic over
-//!   plain TCP between tailnet IPs. WireGuard authenticates the *host*; a
-//!   mutual Ed25519 handshake ([`handshake`](crate) module docs) authenticates
-//!   the *Entanglement `PeerId`*, so trust decisions never rest on tailnet
-//!   membership alone;
+//!   TCP between tailnet IPs. WireGuard authenticates the *host*; a mutual
+//!   Ed25519-signed X25519 key exchange authenticates the *Entanglement
+//!   `PeerId`* and agrees per-session keys, and every frame after it is a
+//!   ChaCha20-Poly1305 record. Trust decisions never rest on tailnet
+//!   membership alone, and a tailnet node that relays a connection can
+//!   neither read nor inject;
 //! * discovery enumerates online tailnet peers and probes them with the
 //!   handshake (see `MeshTailscale::discover`).
 

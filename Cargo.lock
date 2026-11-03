@@ -1693,6 +1693,7 @@ dependencies = [
  "entangle-signing",
  "entangle-types",
  "rand_core 0.6.4",
+ "ring",
  "serde",
  "serde_json",
  "tempfile",

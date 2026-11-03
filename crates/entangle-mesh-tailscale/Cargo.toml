@@ -17,6 +17,7 @@ entangle-types = { workspace = true }
 entangle-signing = { workspace = true }
 async-trait = { workspace = true }
 rand_core = { workspace = true, features = ["getrandom"] }
+ring = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

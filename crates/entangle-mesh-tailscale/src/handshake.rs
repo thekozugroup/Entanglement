@@ -1,49 +1,76 @@
-//! Mutual Ed25519 identity handshake, run over plain TCP inside the tailnet.
+//! Authenticated key exchange, run over plain TCP inside the tailnet.
 //!
-//! WireGuard authenticates *hosts*; this handshake authenticates the
-//! *Entanglement identity* (the Ed25519 key behind a `PeerId`) of the process
-//! on the other end, which is what trust decisions are made on.
+//! WireGuard authenticates *hosts*. That is not enough on its own: a tailnet
+//! node can sit between two Entanglement nodes (discovery can hand it that
+//! position) and relay their bytes, and WireGuard then ends at the relay on
+//! both legs. This handshake therefore does two things:
+//!
+//! * authenticates the *Entanglement identity* (the Ed25519 key behind a
+//!   `PeerId`) of each end, which is what trust decisions are made on; and
+//! * agrees a fresh session key that only the two authenticated ends know.
+//!   Every byte after the handshake, starting with the admission answer, is a
+//!   sealed record (see `framing`), so a relay can forward traffic but can
+//!   neither read it nor inject, alter, replay or drop-and-replace a record.
 //!
 //! ```text
-//! C -> S : "ETSH" ‖ version(1) ‖ client_pk(32) ‖ client_nonce(32)           (69 B)
-//! S -> C : server_pk(32) ‖ server_nonce(32) ‖ sig_S(64)                     (128 B)
-//! C -> S : sig_C(64)                                                        (64 B)
-//! S -> C : admit(1)   0x01 admitted, 0x00 rejected by the server's ACL      (1 B)
+//! C -> S : "ETSH" ‖ 0x02 ‖ client_pk(32) ‖ client_nonce(32) ‖ client_eph(32)   (101 B)
+//! S -> C : server_pk(32) ‖ server_nonce(32) ‖ server_eph(32) ‖ sig_S(64)        (160 B)
+//! C -> S : sig_C(64)                                                            (64 B)
+//! S -> C : sealed record [admission(1)]                                         (21 B)
 //!
-//! T      = client_pk ‖ client_nonce ‖ server_pk ‖ server_nonce
-//! sig_S  = Sign_S("entangle/ts-hs/v1/server" ‖ T)
-//! sig_C  = Sign_C("entangle/ts-hs/v1/client" ‖ T)
+//! T      = "ETSH" ‖ 0x02 ‖ client_pk ‖ client_nonce ‖ client_eph
+//!                        ‖ server_pk ‖ server_nonce ‖ server_eph
+//! sig_S  = Sign_S("entangle/ts-hs/v2/server" ‖ T)
+//! sig_C  = Sign_C("entangle/ts-hs/v2/client" ‖ T)
+//! ikm    = X25519(client_eph, server_eph)
+//! prk    = HKDF-SHA256-Extract(salt = SHA-256(T), ikm)
+//! k_c2s  = HKDF-Expand(prk, "entangle/ts-hs/v2/c2s")   ChaCha20-Poly1305
+//! k_s2c  = HKDF-Expand(prk, "entangle/ts-hs/v2/s2c")   ChaCha20-Poly1305
 //! ```
 //!
+//! * Each signature covers both identities and both ephemeral shares. A relay
+//!   cannot swap in a share of its own without a signature it cannot make, and
+//!   neither side can be led to bind the session to a third identity.
 //! * Distinct role labels: a signature made for one role never verifies for
 //!   the other, so a peer cannot be tricked into signing something that is
-//!   then replayed back at it (reflection).
-//! * Each side's signature covers both fresh nonces, so a recorded handshake
-//!   cannot be replayed against a new session.
+//!   then replayed back at it (reflection, including a "client" that claims
+//!   the server's own key).
+//! * Fresh nonces and ephemeral shares on both sides, so nothing recorded can
+//!   be replayed into a new session.
 //! * Every field is fixed-size, so there is nothing to allocate or parse
 //!   unboundedly; the whole exchange runs under a timeout.
-//!
-//! The one addition over the minimal protocol in the design brief is the
-//! trailing `admit` byte: without it a client rejected by the server's
-//! allowlist could not tell that apart from a network failure. The byte is
-//! unauthenticated, but forging it gains an attacker nothing (the server has
-//! already closed the connection when it is `0x00`), it can only turn a
-//! success into a spurious failure, which an on-path attacker can do anyway
-//! by dropping packets.
+//! * The admission answer exists so that a client rejected by the server's
+//!   allowlist can tell that apart from a network failure. It is sealed, so
+//!   it cannot be flipped in transit.
 
 use std::time::Duration;
 
 use entangle_signing::{IdentityKeyPair, IdentityPublicKey, Signature};
 use entangle_types::peer_id::PeerId;
 use rand_core::{OsRng, RngCore};
+use ring::agreement::{self, EphemeralPrivateKey, UnparsedPublicKey, X25519};
+use ring::{aead, digest, hkdf};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::error::MeshTailscaleError;
+use crate::framing::{read_sealed, write_sealed, Opener, Sealer};
 
 pub(crate) const MAGIC: &[u8; 4] = b"ETSH";
-pub(crate) const VERSION: u8 = 1;
-pub(crate) const LABEL_SERVER: &[u8] = b"entangle/ts-hs/v1/server";
-pub(crate) const LABEL_CLIENT: &[u8] = b"entangle/ts-hs/v1/client";
+pub(crate) const VERSION: u8 = 2;
+pub(crate) const LABEL_SERVER: &[u8] = b"entangle/ts-hs/v2/server";
+pub(crate) const LABEL_CLIENT: &[u8] = b"entangle/ts-hs/v2/client";
+const INFO_C2S: &[u8] = b"entangle/ts-hs/v2/c2s";
+const INFO_S2C: &[u8] = b"entangle/ts-hs/v2/s2c";
+
+/// `MAGIC ‖ VERSION ‖ client_pk ‖ client_nonce ‖ client_eph`.
+pub(crate) const CLIENT_HELLO_LEN: usize = 4 + 1 + 32 * 3;
+/// `server_pk ‖ server_nonce ‖ server_eph ‖ sig_S`.
+pub(crate) const SERVER_HELLO_LEN: usize = 32 * 3 + 64;
+
+/// Admission answer: admitted.
+pub(crate) const ADMIT_OK: u8 = 1;
+/// Admission answer: authenticated, but not allowed by the server's ACL.
+pub(crate) const ADMIT_DENIED: u8 = 0;
 
 /// The authenticated remote identity.
 #[derive(Clone, Copy, Debug)]
@@ -52,20 +79,117 @@ pub(crate) struct Remote {
     pub peer_id: PeerId,
 }
 
-pub(crate) fn transcript(
-    label: &[u8],
-    client_pk: &[u8; 32],
-    client_nonce: &[u8; 32],
-    server_pk: &[u8; 32],
-    server_nonce: &[u8; 32],
-) -> Vec<u8> {
-    let mut t = Vec::with_capacity(label.len() + 128);
-    t.extend_from_slice(label);
-    t.extend_from_slice(client_pk);
-    t.extend_from_slice(client_nonce);
-    t.extend_from_slice(server_pk);
-    t.extend_from_slice(server_nonce);
-    t
+/// Everything both signatures and the key schedule cover.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Transcript {
+    pub client_pk: [u8; 32],
+    pub client_nonce: [u8; 32],
+    pub client_eph: [u8; 32],
+    pub server_pk: [u8; 32],
+    pub server_nonce: [u8; 32],
+    pub server_eph: [u8; 32],
+}
+
+impl Transcript {
+    /// `T` from the module docs.
+    pub(crate) fn bytes(&self) -> Vec<u8> {
+        let mut t = Vec::with_capacity(5 + 32 * 6);
+        t.extend_from_slice(MAGIC);
+        t.push(VERSION);
+        for part in [
+            &self.client_pk,
+            &self.client_nonce,
+            &self.client_eph,
+            &self.server_pk,
+            &self.server_nonce,
+            &self.server_eph,
+        ] {
+            t.extend_from_slice(part);
+        }
+        t
+    }
+
+    /// The message a party signs for `label`'s role.
+    pub(crate) fn signed(&self, label: &[u8]) -> Vec<u8> {
+        let body = self.bytes();
+        let mut m = Vec::with_capacity(label.len() + body.len());
+        m.extend_from_slice(label);
+        m.extend_from_slice(&body);
+        m
+    }
+}
+
+/// Which end of the session we are (decides which key seals and which opens).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Role {
+    Client,
+    Server,
+}
+
+/// The per-direction keys of one established session.
+#[derive(Debug)]
+pub(crate) struct Session {
+    pub sealer: Sealer,
+    pub opener: Opener,
+}
+
+/// One side's ephemeral X25519 share.
+pub(crate) struct Ephemeral {
+    secret: EphemeralPrivateKey,
+    public: [u8; 32],
+}
+
+impl Ephemeral {
+    pub(crate) fn generate() -> Result<Self, MeshTailscaleError> {
+        let rng = ring::rand::SystemRandom::new();
+        let secret = EphemeralPrivateKey::generate(&X25519, &rng)
+            .map_err(|_| hs_err("cannot generate an ephemeral key"))?;
+        let pk = secret
+            .compute_public_key()
+            .map_err(|_| hs_err("cannot compute an ephemeral public key"))?;
+        let public: [u8; 32] = pk
+            .as_ref()
+            .try_into()
+            .map_err(|_| hs_err("unexpected X25519 public key length"))?;
+        Ok(Self { secret, public })
+    }
+
+    pub(crate) fn public(&self) -> [u8; 32] {
+        self.public
+    }
+
+    /// Agree with the peer's share and derive this side's session keys.
+    pub(crate) fn agree(
+        self,
+        peer_eph: &[u8; 32],
+        t: &Transcript,
+        role: Role,
+    ) -> Result<Session, MeshTailscaleError> {
+        let th = digest::digest(&digest::SHA256, &t.bytes());
+        let peer = UnparsedPublicKey::new(&X25519, peer_eph);
+        // ring rejects shares that yield the all-zero secret (low-order points).
+        let (c2s, s2c) = agreement::agree_ephemeral(self.secret, &peer, |ikm| {
+            let prk = hkdf::Salt::new(hkdf::HKDF_SHA256, th.as_ref()).extract(ikm);
+            let key = |info: &[u8]| {
+                prk.expand(&[info], &aead::CHACHA20_POLY1305)
+                    .map(aead::UnboundKey::from)
+            };
+            (key(INFO_C2S), key(INFO_S2C))
+        })
+        .map_err(|_| hs_err("key agreement failed (invalid ephemeral share)"))?;
+        let derive_err = |_| hs_err("session key derivation failed");
+        let (c2s, s2c) = (c2s.map_err(derive_err)?, s2c.map_err(derive_err)?);
+        Ok(match role {
+            Role::Client => Session {
+                sealer: Sealer::new(c2s),
+                opener: Opener::new(s2c),
+            },
+            Role::Server => Session {
+                sealer: Sealer::new(s2c),
+                opener: Opener::new(c2s),
+            },
+        })
+    }
 }
 
 fn hs_err(msg: impl Into<String>) -> MeshTailscaleError {
@@ -109,12 +233,18 @@ fn parse_key(bytes: &[u8; 32]) -> Result<IdentityPublicKey, MeshTailscaleError> 
     IdentityPublicKey::from_bytes(bytes).map_err(|_| hs_err("peer presented an invalid public key"))
 }
 
+fn split32(b: &[u8]) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&b[..32]);
+    out
+}
+
 fn with_timeout_err(after: Duration) -> MeshTailscaleError {
     hs_err(format!("timed out after {}ms", after.as_millis()))
 }
 
-/// Run the client side. Returns the authenticated server identity and whether
-/// the server admitted us.
+/// Run the client side. Returns the authenticated server identity, whether
+/// the server admitted us, and the session keys.
 ///
 /// `expected` pins the server key: a different key aborts *before* the client
 /// signs anything.
@@ -123,7 +253,7 @@ pub(crate) async fn client_handshake<S>(
     identity: &IdentityKeyPair,
     expected: Option<&[u8; 32]>,
     timeout: Duration,
-) -> Result<(Remote, bool), MeshTailscaleError>
+) -> Result<(Remote, bool, Session), MeshTailscaleError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -136,26 +266,28 @@ async fn client_inner<S>(
     s: &mut S,
     identity: &IdentityKeyPair,
     expected: Option<&[u8; 32]>,
-) -> Result<(Remote, bool), MeshTailscaleError>
+) -> Result<(Remote, bool, Session), MeshTailscaleError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    let eph = Ephemeral::generate()?;
     let client_pk = *identity.public().as_bytes();
     let client_nonce = fresh_nonce();
-    let mut hello = Vec::with_capacity(69);
+    let client_eph = eph.public();
+    let mut hello = Vec::with_capacity(CLIENT_HELLO_LEN);
     hello.extend_from_slice(MAGIC);
     hello.push(VERSION);
     hello.extend_from_slice(&client_pk);
     hello.extend_from_slice(&client_nonce);
+    hello.extend_from_slice(&client_eph);
     write_all(s, &hello, "client hello").await?;
 
-    let mut resp = [0u8; 128];
+    let mut resp = [0u8; SERVER_HELLO_LEN];
     read_exact(s, &mut resp, "server hello").await?;
-    let mut server_pk = [0u8; 32];
-    let mut server_nonce = [0u8; 32];
-    server_pk.copy_from_slice(&resp[..32]);
-    server_nonce.copy_from_slice(&resp[32..64]);
-    let sig_s = Signature::from_bytes(&resp[64..]).map_err(|_| hs_err("malformed signature"))?;
+    let server_pk = split32(&resp[..32]);
+    let server_nonce = split32(&resp[32..64]);
+    let server_eph = split32(&resp[64..96]);
+    let sig_s = Signature::from_bytes(&resp[96..]).map_err(|_| hs_err("malformed signature"))?;
 
     if let Some(exp) = expected {
         if *exp != server_pk {
@@ -163,32 +295,28 @@ where
         }
     }
     let spk = parse_key(&server_pk)?;
-    let t_server = transcript(
-        LABEL_SERVER,
-        &client_pk,
-        &client_nonce,
-        &server_pk,
-        &server_nonce,
-    );
-    spk.verify(&t_server, &sig_s)
+    let t = Transcript {
+        client_pk,
+        client_nonce,
+        client_eph,
+        server_pk,
+        server_nonce,
+        server_eph,
+    };
+    spk.verify(&t.signed(LABEL_SERVER), &sig_s)
         .map_err(|_| hs_err("server signature does not verify"))?;
+    let mut session = eph.agree(&server_eph, &t, Role::Client)?;
 
-    let t_client = transcript(
-        LABEL_CLIENT,
-        &client_pk,
-        &client_nonce,
-        &server_pk,
-        &server_nonce,
-    );
-    let sig_c = identity.sign(&t_client);
+    let sig_c = identity.sign(&t.signed(LABEL_CLIENT));
     write_all(s, sig_c.as_bytes(), "client signature").await?;
 
-    let mut admit = [0u8; 1];
-    read_exact(s, &mut admit, "admission byte").await?;
-    let admitted = match admit[0] {
-        1 => true,
-        0 => false,
-        other => return Err(hs_err(format!("invalid admission byte {other:#x}"))),
+    let admission = read_sealed(s, &mut session.opener, 1)
+        .await
+        .map_err(|e| hs_err(format!("reading the admission answer: {e}")))?;
+    let admitted = match admission.as_slice() {
+        [ADMIT_OK] => true,
+        [ADMIT_DENIED] => false,
+        other => return Err(hs_err(format!("invalid admission answer {other:02x?}"))),
     };
     Ok((
         Remote {
@@ -196,19 +324,20 @@ where
             peer_id: PeerId::from_public_key_bytes(&server_pk),
         },
         admitted,
+        session,
     ))
 }
 
 /// Run the server side. `admit` is consulted only after the client has proven
 /// possession of its key; when it returns `false` the client is told (one
-/// byte) and `PeerNotAllowed` is returned so the caller drops the connection
-/// without ever reading a request.
+/// sealed byte) and `PeerNotAllowed` is returned so the caller drops the
+/// connection without ever reading a request.
 pub(crate) async fn server_handshake<S, F>(
     stream: &mut S,
     identity: &IdentityKeyPair,
     timeout: Duration,
     admit: F,
-) -> Result<Remote, MeshTailscaleError>
+) -> Result<(Remote, Session), MeshTailscaleError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
     F: FnOnce(&PeerId) -> bool,
@@ -222,12 +351,12 @@ async fn server_inner<S, F>(
     s: &mut S,
     identity: &IdentityKeyPair,
     admit: F,
-) -> Result<Remote, MeshTailscaleError>
+) -> Result<(Remote, Session), MeshTailscaleError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
     F: FnOnce(&PeerId) -> bool,
 {
-    let mut hello = [0u8; 69];
+    let mut hello = [0u8; CLIENT_HELLO_LEN];
     read_exact(s, &mut hello, "client hello").await?;
     if &hello[..4] != MAGIC {
         return Err(hs_err(
@@ -240,50 +369,49 @@ where
             hello[4]
         )));
     }
-    let mut client_pk = [0u8; 32];
-    let mut client_nonce = [0u8; 32];
-    client_pk.copy_from_slice(&hello[5..37]);
-    client_nonce.copy_from_slice(&hello[37..69]);
+    let client_pk = split32(&hello[5..37]);
+    let client_nonce = split32(&hello[37..69]);
+    let client_eph = split32(&hello[69..101]);
     let cpk = parse_key(&client_pk)?;
 
-    let server_pk = *identity.public().as_bytes();
-    let server_nonce = fresh_nonce();
-    let t_server = transcript(
-        LABEL_SERVER,
-        &client_pk,
-        &client_nonce,
-        &server_pk,
-        &server_nonce,
-    );
-    let sig_s = identity.sign(&t_server);
-    let mut resp = Vec::with_capacity(128);
-    resp.extend_from_slice(&server_pk);
-    resp.extend_from_slice(&server_nonce);
+    let eph = Ephemeral::generate()?;
+    let t = Transcript {
+        client_pk,
+        client_nonce,
+        client_eph,
+        server_pk: *identity.public().as_bytes(),
+        server_nonce: fresh_nonce(),
+        server_eph: eph.public(),
+    };
+    let sig_s = identity.sign(&t.signed(LABEL_SERVER));
+    let mut resp = Vec::with_capacity(SERVER_HELLO_LEN);
+    resp.extend_from_slice(&t.server_pk);
+    resp.extend_from_slice(&t.server_nonce);
+    resp.extend_from_slice(&t.server_eph);
     resp.extend_from_slice(sig_s.as_bytes());
     write_all(s, &resp, "server hello").await?;
 
     let mut sig = [0u8; 64];
     read_exact(s, &mut sig, "client signature").await?;
     let sig_c = Signature::from_bytes(&sig).map_err(|_| hs_err("malformed signature"))?;
-    let t_client = transcript(
-        LABEL_CLIENT,
-        &client_pk,
-        &client_nonce,
-        &server_pk,
-        &server_nonce,
-    );
-    cpk.verify(&t_client, &sig_c)
+    cpk.verify(&t.signed(LABEL_CLIENT), &sig_c)
         .map_err(|_| hs_err("client signature does not verify"))?;
+    let mut session = eph.agree(&client_eph, &t, Role::Server)?;
 
     let peer_id = PeerId::from_public_key_bytes(&client_pk);
     if !admit(&peer_id) {
         // Best effort: tell the client why, then the caller drops the socket.
-        let _ = write_all(s, &[0u8], "admission byte").await;
+        let _ = write_sealed(s, &mut session.sealer, &[ADMIT_DENIED], 1).await;
         return Err(MeshTailscaleError::PeerNotAllowed(peer_id));
     }
-    write_all(s, &[1u8], "admission byte").await?;
-    Ok(Remote {
-        public_key: client_pk,
-        peer_id,
-    })
+    write_sealed(s, &mut session.sealer, &[ADMIT_OK], 1)
+        .await
+        .map_err(|e| hs_err(format!("writing the admission answer: {e}")))?;
+    Ok((
+        Remote {
+            public_key: client_pk,
+            peer_id,
+        },
+        session,
+    ))
 }
