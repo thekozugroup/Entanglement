@@ -3,7 +3,7 @@
 //! Two halves, both **off unless `[mesh] transports` contains `"iroh"`**:
 //!
 //! * **server** — [`spawn_task_server`] serves
-//!   [`ALPN_SCHEDULER`](entangle_mesh_iroh::ALPN_SCHEDULER) so trusted peers
+//!   [`ALPN_SCHEDULER`] so trusted peers
 //!   can run work on this node's kernel;
 //! * **client** — [`directory_from_config`] turns configured peer addresses
 //!   into an address book so this node can send work out.
