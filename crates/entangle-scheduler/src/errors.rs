@@ -2,5 +2,6 @@
 
 pub use crate::dispatcher::DispatchError;
 pub use crate::placement::PlacementError;
+pub use crate::stream::StreamError;
 pub use crate::wire::{RemoteErrorCode, WireError};
 pub use entangle_runtime::IntegrityError;

@@ -15,6 +15,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 entangle-types     = { workspace = true }
 entangle-runtime   = { workspace = true }
+# Stream plugins: the `StreamPort` a streaming task's chunks flow through.
+# Already in the graph via entangle-runtime, so no new build cost.
+entangle-host      = { workspace = true }
 entangle-mesh-iroh = { workspace = true }
 entangle-signing   = { workspace = true }
 parking_lot        = { workspace = true }
@@ -38,6 +41,5 @@ tempfile         = { workspace = true }
 toml             = { workspace = true }
 serde_json       = { workspace = true }
 tracing-subscriber = { workspace = true }
-entangle-host    = { workspace = true }
 entangle-ipc     = { workspace = true }
 wat              = "1"
