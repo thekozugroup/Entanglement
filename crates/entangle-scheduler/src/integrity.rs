@@ -91,8 +91,12 @@
 //! The accepted cluster is the canonical replica plus every replica that
 //! agrees with it: remote peers in the cluster are recorded as correct, remote
 //! peers outside it are penalised for disagreeing with the accepted quorum.
-//! When the quorum is not reached nothing is attributed (there is no accepted
-//! answer to disagree with).
+//! When the quorum is not reached nobody is credited, but if the candidate's
+//! cluster is unambiguous and holds a strict majority of the replicas the task
+//! asked for, remote replicas that agree with none of its members are
+//! penalised — the dissent that blocked the quorum (with the default
+//! `{3 replicas, quorum 2}` a single dissenter fails the task), mirroring the
+//! `Deterministic` hash minority.
 //!
 //! Replicas run on the submitter's own kernel (the local fallback for
 //! replicas that have no remote target) are verified identically but never
@@ -543,7 +547,31 @@ impl IntegrityVerifier {
                 // never lend their votes to it.
                 let canonical_pos = choose_canonical(&dist, *threshold);
                 let agreeing = cluster_support(&dist, *threshold, canonical_pos);
+                let ambiguous = ambiguous_top(&dist, *threshold, canonical_pos);
                 if agreeing < *quorum as usize {
+                    // Nothing is accepted, but when an unambiguous agreement
+                    // cluster holds a strict majority of the replicas the
+                    // task asked for, a replica that agrees with none of its
+                    // members is the dissent that blocked the quorum (with
+                    // the default {3, 2} one such replica fails every task):
+                    // it loses standing, as the Deterministic hash minority
+                    // does. Nobody is credited.
+                    let cluster: Vec<usize> = (0..n)
+                        .filter(|&j| j == canonical_pos || dist[canonical_pos][j] < *threshold)
+                        .collect();
+                    if ambiguous.is_none() && cluster.len() * 2 > replicas.len() {
+                        for (pos, &idx) in order.iter().enumerate() {
+                            let dissents = !incomparable[pos]
+                                && cluster.iter().all(|&m| dist[m][pos] >= *threshold);
+                            if dissents && replicas[idx].remote {
+                                self.reputation.penalize(
+                                    &replicas[idx].peer,
+                                    kind,
+                                    ReputationReason::DisagreedWithQuorum,
+                                );
+                            }
+                        }
+                    }
                     return Err(IntegrityError::QuorumNotReached {
                         agreeing,
                         pairs,
@@ -557,9 +585,7 @@ impl IntegrityVerifier {
                 // (closeness favours colluders returning identical bytes;
                 // BLAKE3 order can be ground) would be a guess, so refuse and
                 // blame nobody.
-                if let Some((candidates, agreements)) =
-                    ambiguous_top(&dist, *threshold, canonical_pos)
-                {
+                if let Some((candidates, agreements)) = ambiguous {
                     return Err(IntegrityError::AmbiguousAgreement {
                         candidates,
                         agreements,
@@ -1162,6 +1188,65 @@ mod tests {
         let acc = v.accept(&task(policy, 1024), &env, reps).await.unwrap();
         assert_eq!(acc.output, [11], "the middle output is closest to both");
         assert_eq!(acc.pair_agreement, Some((3, 3)));
+    }
+
+    /// With the default `{3 replicas, quorum 2}`, one dissenter fails the
+    /// task (2 honest replicas give 1 agreeing pair). It must not do so for
+    /// free: the honest pair is a strict majority of the replicas, so the
+    /// dissenter — which agrees with none of them — loses standing. The
+    /// honest peers are neither credited nor blamed (nothing was accepted).
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_dissenter_that_blocks_the_quorum_is_penalised() {
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 3, 2, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        let reps = vec![ok(1, &[10], h), ok(2, &[11], h), ok(3, &[50], h)];
+        let err = v.accept(&task(policy, 1024), &env, reps).await.unwrap_err();
+        assert!(
+            matches!(
+                err,
+                DispatchError::Integrity(IntegrityError::QuorumNotReached {
+                    agreeing: 1,
+                    pairs: 3,
+                    required: 2
+                })
+            ),
+            "{err:?}"
+        );
+        let k = PolicyKind::SemanticEquivalent;
+        assert!(v.reputation().get(&peer(3), k) < INITIAL_SCORE);
+        for p in [1, 2] {
+            assert_eq!(v.reputation().record(&peer(p), k).total, 0, "peer {p}");
+        }
+    }
+
+    /// Without a strict majority behind any output, a failed quorum blames
+    /// nobody: 4 replicas, one agreeing pair (2 of 4 is not a majority).
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_failed_quorum_without_a_majority_blames_nobody() {
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 4, 2, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        let reps = vec![
+            ok(1, &[10], h),
+            ok(2, &[11], h),
+            ok(3, &[50], h),
+            ok(4, &[90], h),
+        ];
+        let err = v.accept(&task(policy, 1024), &env, reps).await.unwrap_err();
+        assert!(
+            matches!(
+                err,
+                DispatchError::Integrity(IntegrityError::QuorumNotReached { agreeing: 1, .. })
+            ),
+            "{err:?}"
+        );
+        let k = PolicyKind::SemanticEquivalent;
+        for p in 1..=4 {
+            assert_eq!(v.reputation().record(&peer(p), k).total, 0, "peer {p}");
+        }
     }
 
     /// When no comparison succeeds at all, the metric itself (or every
