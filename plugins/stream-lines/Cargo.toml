@@ -1,0 +1,25 @@
+[workspace]
+# stand-alone — not a member of the Entanglement workspace.
+
+[package]
+name = "entangle-stream-lines"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# A stream plugin targets the `entangle:plugin@0.1.0` `stream-plugin` world,
+# which the SDK does not bind (it binds `plugin`), so it uses wit-bindgen
+# directly. The bindings only exist for the wasm build; the line splitting in
+# `src/lines.rs` is plain Rust and is tested natively with `cargo test`.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wit-bindgen = { version = "0.57", default-features = false, features = ["macros"] }
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"
