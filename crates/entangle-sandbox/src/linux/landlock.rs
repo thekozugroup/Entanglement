@@ -117,8 +117,11 @@ pub(crate) enum Access {
     Rx,
     /// Read only.
     Ro,
-    /// Read and write (no execute, no device nodes).
+    /// Read and write (no execute, no device nodes, no device ioctls).
     Rw,
+    /// Device nodes: read, write and ioctl (`IOCTL_DEV`, ABI ≥ 5) — nothing
+    /// that creates, removes or renames entries.
+    Dev,
 }
 
 impl Access {
@@ -143,6 +146,7 @@ impl Access {
                     | fs::REFER
                     | fs::TRUNCATE
             }
+            Access::Dev => fs::READ_FILE | fs::WRITE_FILE | fs::READ_DIR | fs::IOCTL_DEV,
         };
         r & handled
     }
@@ -153,6 +157,7 @@ impl Access {
             Access::Rx => fs::EXECUTE | fs::READ_FILE,
             Access::Ro => fs::READ_FILE,
             Access::Rw => fs::READ_FILE | fs::WRITE_FILE | fs::TRUNCATE,
+            Access::Dev => fs::READ_FILE | fs::WRITE_FILE | fs::IOCTL_DEV,
         };
         r & handled & fs::FILE_ONLY
     }
@@ -180,6 +185,12 @@ pub(crate) fn rules_for(profile: &SandboxProfile) -> Vec<(PathBuf, Access, bool)
             .read_write
             .iter()
             .map(|p| (p.clone(), Access::Rw, true)),
+    );
+    rules.extend(
+        profile
+            .devices
+            .iter()
+            .map(|p| (p.clone(), Access::Dev, true)),
     );
     if profile.system_paths {
         let sys = |list: &[&str], a: Access| {
@@ -332,11 +343,40 @@ mod tests {
             assert_eq!(Access::Rw.file_rights(h) & fs::EXECUTE, 0);
             assert_eq!(Access::Ro.dir_rights(h) & fs::WRITE_FILE, 0);
             // Every granted right is one the kernel handles.
-            for a in [Access::Rx, Access::Ro, Access::Rw] {
+            for a in [Access::Rx, Access::Ro, Access::Rw, Access::Dev] {
                 assert_eq!(a.dir_rights(h) & !h, 0);
                 assert_eq!(a.file_rights(h) & !fs::FILE_ONLY, 0);
             }
         }
+    }
+
+    /// Device ioctls (ABI ≥ 5) only on device grants: without `IOCTL_DEV` a
+    /// granted GPU node opens but every driver ioctl fails with EACCES.
+    #[test]
+    fn only_device_grants_carry_ioctl_rights() {
+        for abi in 1..=7 {
+            let h = fs_handled(abi);
+            let has_ioctl = abi >= 5;
+            assert_eq!(Access::Dev.file_rights(h) & fs::IOCTL_DEV != 0, has_ioctl);
+            assert_eq!(Access::Dev.dir_rights(h) & fs::IOCTL_DEV != 0, has_ioctl);
+            for a in [Access::Rx, Access::Ro, Access::Rw] {
+                assert_eq!(a.file_rights(h) & fs::IOCTL_DEV, 0, "{a:?}");
+                assert_eq!(a.dir_rights(h) & fs::IOCTL_DEV, 0, "{a:?}");
+            }
+            // A device grant creates, removes and executes nothing.
+            let d = Access::Dev.dir_rights(h);
+            for r in [
+                fs::EXECUTE,
+                fs::MAKE_REG,
+                fs::MAKE_CHAR,
+                fs::REMOVE_FILE,
+                fs::REFER,
+            ] {
+                assert_eq!(d & r, 0);
+            }
+        }
+        let rules = rules_for(&SandboxProfile::new("/p").device("/dev/dri"));
+        assert!(rules.contains(&(PathBuf::from("/dev/dri"), Access::Dev, true)));
     }
 
     #[test]

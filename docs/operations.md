@@ -447,7 +447,7 @@ reported as *reduced* (UDP not isolated) rather than silently accepted.
 | `storage.local { scope = "shared" }` | rw `~/.entangle/data/shared` = `$ENTANGLE_SHARED_DIR` |
 | `storage.share.<n>` | `~/.entangle/data/shares/<n>` (ro / rw / rw-scoped per mode) = `$ENTANGLE_SHARE_<N>` |
 | `net.lan`, `net.wan` | IP networking (no per-host allowlist yet) |
-| `compute.gpu` | rw on `/dev/dri`, `/dev/kfd`, `/dev/nvidia*` when present |
+| `compute.gpu` | read, write and ioctl on `/dev/dri`, `/dev/kfd`, `/dev/nvidia*` when present (ordinary scopes never get device ioctls) |
 | `host.docker-socket` | rw `/var/run/docker.sock` + `AF_UNIX` sockets |
 
 **Where things live.** Verified binaries are staged (never run from the

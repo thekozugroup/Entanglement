@@ -480,6 +480,26 @@ fn child_dies_with_its_spawner() {
     );
 }
 
+/// A device grant (`compute.gpu` → the GPU nodes) must allow ioctls: GPU
+/// drivers work almost entirely through them, and Landlock ABI ≥ 5 denies
+/// device ioctls unless a rule grants `IOCTL_DEV`. Ordinary scopes (here the
+/// always-present `/dev/null` rule) do not get them. `TCGETS` on `/dev/null`
+/// answers ENOTTY when the ioctl reaches the driver, EACCES when Landlock
+/// stops it.
+#[tokio::test(flavor = "multi_thread")]
+async fn device_grants_allow_ioctls_and_nothing_else_does() {
+    let granted = profile().device("/dev/null");
+    let errno = denied_errno(call(&granted, "ioctl:/dev/null").await);
+    assert_eq!(errno, libc::ENOTTY, "{}", host_plan(&granted).describe());
+
+    let plain = profile();
+    let plan = host_plan(&plain);
+    if matches!(plan.mechanism, Mechanism::Landlock { abi } if abi >= 5) {
+        let errno = denied_errno(call(&plain, "ioctl:/dev/null").await);
+        assert_eq!(errno, libc::EACCES, "{}", plan.describe());
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn environment_is_exactly_what_the_profile_sets() {
     std::env::set_var("ENTANGLE_SANDBOX_TEST_LEAK", "parent-secret");

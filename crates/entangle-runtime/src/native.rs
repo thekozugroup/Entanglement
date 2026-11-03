@@ -29,7 +29,7 @@
 //! | `storage.share.<n> { mode = "rw-scoped" }` | rw `<data>/shares/<n>/<publisher>/<name>` |
 //! | `net.lan`, `net.wan` | IP networking allowed (no finer host allowlist yet) |
 //! | `host.docker-socket` | rw `/var/run/docker.sock` + `AF_UNIX` sockets |
-//! | `compute.gpu` | rw on the GPU device nodes present (`/dev/dri`, `/dev/nvidia*`, `/dev/kfd`) |
+//! | `compute.gpu` | read, write and ioctl on the GPU device nodes present (`/dev/dri`, `/dev/nvidia*`, `/dev/kfd`) |
 //! | `compute.cpu`, `compute.npu`, `mesh.peer`, `agent.invoke`, `custom.*` | none at the OS level |
 //!
 //! Always: the staged binary (read+exec), the package directory (read-only,
@@ -286,8 +286,10 @@ pub fn profile_for(
                     .allow_unix_sockets(true);
             }
             CapabilityKind::ComputeGpu => {
+                // Device grants carry ioctl rights; GPU drivers work through
+                // ioctls, so a plain read_write grant would be useless.
                 for dev in gpu_device_nodes() {
-                    p = p.read_write(dev);
+                    p = p.device(dev);
                 }
             }
             CapabilityKind::ComputeCpu

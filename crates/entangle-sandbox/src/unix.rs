@@ -252,6 +252,7 @@ pub fn sandboxed_command(profile: &SandboxProfile, plan: &Plan) -> Result<Comman
                 &mut resolved.read_exec,
                 &mut resolved.read_only,
                 &mut resolved.read_write,
+                &mut resolved.devices,
             ] {
                 for p in list.iter_mut() {
                     *p = canonical(p);

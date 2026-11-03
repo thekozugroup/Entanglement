@@ -77,6 +77,10 @@ pub fn bwrap_args(profile: &SandboxProfile, exists: &dyn Fn(&Path) -> bool) -> V
     for p in &profile.read_write {
         bind("--bind", p);
     }
+    // `--bind` mounts are nodev; device grants need `--dev-bind`.
+    for p in &profile.devices {
+        bind("--dev-bind", p);
+    }
     bind("--ro-bind", &profile.program);
 
     a.push("--chdir".into());
@@ -152,6 +156,17 @@ mod tests {
         let s = strs(&s);
         assert!(s.contains(&"--share-net"));
         assert!(bound(&s, "--ro-bind", "/etc/resolv.conf"));
+    }
+
+    #[test]
+    fn device_grants_are_dev_binds() {
+        let p = SandboxProfile::new("/opt/p/plugin")
+            .read_write("/data")
+            .device("/dev/dri");
+        let s = bwrap_args(&p, &|_| false);
+        let s = strs(&s);
+        assert!(bound(&s, "--dev-bind", "/dev/dri"));
+        assert!(!bound(&s, "--dev-bind", "/data"));
     }
 
     #[test]

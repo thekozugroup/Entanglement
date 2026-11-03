@@ -110,6 +110,12 @@ pub fn seatbelt_profile(profile: &SandboxProfile) -> Result<String, SandboxError
         let q = quote(p)?;
         let _ = writeln!(s, "(allow file-read* file-write* (subpath {q}))");
     }
+    // Assumption (not run here): SBPL's `file-ioctl` operation gates ioctls on
+    // a vnode, as in Apple's own profiles.
+    for p in &profile.devices {
+        let q = quote(p)?;
+        let _ = writeln!(s, "(allow file-read* file-write* file-ioctl (subpath {q}))");
+    }
 
     if profile.allow_network {
         let _ = writeln!(s, "(allow network-outbound (remote ip))");
@@ -159,6 +165,14 @@ mod tests {
         assert!(sb.contains("(subpath \"/p/assets\")"));
         assert!(sb.contains("(allow file-read* file-write* (subpath \"/data/p\"))"));
         assert!(sb.contains("(allow file-read* process-exec (subpath \"/p/lib\"))"));
+    }
+
+    #[test]
+    fn only_device_grants_allow_ioctl() {
+        let sb = seatbelt_profile(&SandboxProfile::new("/p/bin").read_write("/data")).unwrap();
+        assert!(!sb.contains("file-ioctl"), "{sb}");
+        let sb = seatbelt_profile(&SandboxProfile::new("/p/bin").device("/dev/gpu")).unwrap();
+        assert!(sb.contains("(allow file-read* file-write* file-ioctl (subpath \"/dev/gpu\"))"));
     }
 
     #[test]

@@ -18,6 +18,7 @@
 //! | `caps`               | ok("eff=.. prm=.. inh=.. bnd=N amb=N") (sets in hex, counts) |
 //! | `raw`                | `socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)`              |
 //! | `setsid`             | fork; the grandchild calls `setsid()`; ok("escaped") or err(errno) |
+//! | `ioctl:<path>`        | open read-write, `ioctl(TCGETS)`; err(errno) (ENOTTY = allowed, not a tty) |
 //! | `thread`             | spawn and join a thread; ok("joined")                  |
 //! | `sleep:<ms>`         | sleep, then ok("slept")                                |
 //! | `big:<n>`            | announce an ok frame of n bytes, then stream zeros     |
@@ -129,6 +130,21 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
         }
         "keyring" => keyring_read(arg),
         "caps" => caps(),
+        "ioctl" => {
+            use std::os::fd::AsRawFd;
+            let f = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(arg)
+                .map_err(|e| errno_msg(&e))?;
+            // SAFETY: an all-zero termios is a valid out-buffer.
+            let mut t: libc::termios = unsafe { std::mem::zeroed() };
+            // SAFETY: valid descriptor and out-pointer for TCGETS.
+            if unsafe { libc::ioctl(f.as_raw_fd(), libc::TCGETS, &mut t) } != 0 {
+                return Err(errno_msg(&io::Error::last_os_error()));
+            }
+            Ok(b"tty".to_vec())
+        }
         "setsid" => {
             // SAFETY: this helper is single-threaded, so the child may run
             // arbitrary code; it only calls setsid and _exit.

@@ -60,6 +60,10 @@ pub struct SandboxProfile {
     pub read_only: Vec<PathBuf>,
     /// Trees or files the child may read and write (its storage scopes).
     pub read_write: Vec<PathBuf>,
+    /// Device nodes (or directories of them, e.g. `/dev/dri`) the child may
+    /// open read-write *and issue ioctls on* — GPU drivers work almost
+    /// entirely through ioctls. Ordinary scopes never get device ioctls.
+    pub devices: Vec<PathBuf>,
     /// Whether outbound/inbound IP networking is allowed.
     pub allow_network: bool,
     /// Whether the child may create `AF_UNIX` sockets (e.g. to reach a
@@ -86,6 +90,7 @@ impl SandboxProfile {
             read_exec: Vec::new(),
             read_only: Vec::new(),
             read_write: Vec::new(),
+            devices: Vec::new(),
             allow_network: false,
             allow_unix_sockets: false,
             system_paths: true,
@@ -129,6 +134,12 @@ impl SandboxProfile {
         self
     }
 
+    /// Grant read+write+ioctl on a device node or a directory of them.
+    pub fn device(mut self, p: impl Into<PathBuf>) -> Self {
+        self.devices.push(p.into());
+        self
+    }
+
     /// Allow or deny IP networking.
     pub fn allow_network(mut self, yes: bool) -> Self {
         self.allow_network = yes;
@@ -153,7 +164,8 @@ impl SandboxProfile {
             .chain(self.cwd.iter())
             .chain(self.read_exec.iter())
             .chain(self.read_only.iter())
-            .chain(self.read_write.iter());
+            .chain(self.read_write.iter())
+            .chain(self.devices.iter());
         for p in all {
             check_path(p)?;
         }
