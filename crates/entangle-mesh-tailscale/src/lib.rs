@@ -1,41 +1,147 @@
-//! Tailscale-tailnet mesh transport for Entanglement (scaffold).
+//! Tailscale-tailnet mesh transport for Entanglement (spec §6.1.1).
 //!
-//! Spec §6.1.1 names `mesh.tailscale` as the WAN-capable transport that
-//! piggybacks on the operator's existing Tailscale tailnet. This crate is
-//! the scaffold: it pins the public surface and returns
-//! [`MeshTailscaleError::NotImplemented`] until Phase 2 wires
-//! `tailscale status --json` plus MagicDNS SRV/TXT discovery.
+//! `mesh.tailscale` reuses the Tailscale daemon already on the host:
+//!
+//! * [`status`] shells out to `tailscale status --json` and classifies the
+//!   tailnet as `active` / `stopped(reason)` / `uninstalled`;
+//! * [`liveness`] polls that on a 5 s cadence with hysteresis, a 30 s grace
+//!   period and a 5-minute slow mode, publishing state on a `watch` channel
+//!   and logging one event per transition;
+//! * [`MeshTailscale`] carries identity-bound request/response traffic over
+//!   plain TCP between tailnet IPs. WireGuard authenticates the *host*; a
+//!   mutual Ed25519 handshake ([`handshake`](crate) module docs) authenticates
+//!   the *Entanglement `PeerId`*, so trust decisions never rest on tailnet
+//!   membership alone;
+//! * discovery enumerates online tailnet peers and probes them with the
+//!   handshake (see `MeshTailscale::discover`).
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+use std::net::{IpAddr, Ipv4Addr};
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
+
 use entangle_types::peer_id::PeerId;
 
+mod error;
+mod framing;
+mod handshake;
+pub mod liveness;
+pub mod status;
+mod transport;
+
+#[cfg(test)]
+mod transport_tests;
+
+pub use error::MeshTailscaleError;
+pub use liveness::{
+    spawn_liveness, Clock, LivenessConfig, LivenessHandle, LivenessMachine, LivenessSnapshot,
+    TokioClock, Transition,
+};
+pub use status::{
+    CliStatusSource, Observation, StatusSource, TailnetNode, TailnetState, TailscaleStatus,
+};
+pub use transport::{
+    MeshConn, MeshRequest, MeshTailscale, PeerAllowlist, RequestHandler, StaticAllowlist,
+};
+
+/// Default TCP port for Entanglement over the tailnet.
+pub const DEFAULT_PORT: u16 = 41643;
+
+/// Hard ceiling on the configurable frame cap (64 MiB).
+pub const MAX_FRAME_BYTES: usize = 64 * 1024 * 1024;
+
 /// Operator policy for layering Entanglement's own ACLs on top of the tailnet.
-///
-/// `entangle-on-top` (the recommended default) re-checks every peer against
-/// the local allowlist + biscuits regardless of what the tailnet ACL allows.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum AclMode {
-    /// Entanglement enforces its own peer allowlist on top of Tailscale ACLs.
+    /// Entanglement enforces its own peer allowlist on top of Tailscale ACLs:
+    /// an authenticated peer that is not allowlisted is dropped after the
+    /// handshake, before any request is read. With no allowlist configured,
+    /// every peer is rejected (fail closed).
     #[default]
     EntangleOnTop,
-    /// Trust the tailnet ACL entirely (only safe when the operator controls
-    /// the tailnet end-to-end).
+    /// Trust the tailnet ACL for reachability (only safe when the operator
+    /// controls the tailnet end-to-end). Identity is still authenticated.
     TrustTailnet,
 }
 
+impl AclMode {
+    /// Canonical config spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::EntangleOnTop => "entangle-on-top",
+            Self::TrustTailnet => "trust-tailnet",
+        }
+    }
+}
+
+impl FromStr for AclMode {
+    type Err = String;
+
+    /// Accepts `entangle-on-top`, `trust-tailnet` and the spec's older
+    /// spelling `tailscale-only`.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "entangle-on-top" => Ok(Self::EntangleOnTop),
+            "trust-tailnet" | "tailscale-only" => Ok(Self::TrustTailnet),
+            other => Err(format!(
+                "unknown acl-mode {other:?} (expected \"entangle-on-top\" or \"trust-tailnet\")"
+            )),
+        }
+    }
+}
+
 /// Configuration for the `mesh.tailscale` transport.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct MeshTailscaleConfig {
     /// Path to the `tailscale` CLI. Empty = use `$PATH`.
     pub tailscale_cli: String,
     /// ACL layering policy.
     pub acl_mode: AclMode,
+    /// Peer allowlist consulted in [`AclMode::EntangleOnTop`].
+    pub allowlist: Option<Arc<dyn PeerAllowlist>>,
+    /// TCP port to listen on (and to probe on peers). `0` = ephemeral.
+    pub port: u16,
+    /// Local address to bind. Defaults to all interfaces; the handshake and
+    /// allowlist protect the port either way, but binding the node's tailnet
+    /// IP narrows exposure.
+    pub bind_ip: IpAddr,
+    /// Largest frame accepted or sent (clamped to [`MAX_FRAME_BYTES`]).
+    pub max_frame_bytes: usize,
+    /// TCP connect timeout.
+    pub connect_timeout: Duration,
+    /// Whole-handshake timeout.
+    pub handshake_timeout: Duration,
+    /// Per-request round-trip timeout.
+    pub request_timeout: Duration,
+    /// Server-side idle limit between requests on one connection.
+    pub idle_timeout: Duration,
+    /// Liveness poll timing.
+    pub liveness: LivenessConfig,
+}
+
+impl Default for MeshTailscaleConfig {
+    fn default() -> Self {
+        Self {
+            tailscale_cli: String::new(),
+            acl_mode: AclMode::default(),
+            allowlist: None,
+            port: DEFAULT_PORT,
+            bind_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            max_frame_bytes: 16 * 1024 * 1024,
+            connect_timeout: Duration::from_secs(5),
+            handshake_timeout: Duration::from_secs(5),
+            request_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(300),
+            liveness: LivenessConfig::default(),
+        }
+    }
 }
 
 impl MeshTailscaleConfig {
-    /// Resolve the configured CLI path to an actual command name for
+    /// Resolve the configured CLI path to a command name for
     /// `std::process::Command::new()`.
     ///
     /// If `tailscale_cli` is set, returns it verbatim. Otherwise returns
@@ -47,51 +153,49 @@ impl MeshTailscaleConfig {
             self.tailscale_cli.as_str()
         }
     }
+
+    /// A [`CliStatusSource`] for the configured CLI.
+    pub fn status_source(&self) -> CliStatusSource {
+        CliStatusSource::new(self.resolve_cli())
+    }
+
+    /// Start the liveness poller against the real CLI and clock.
+    pub fn spawn_liveness(&self) -> LivenessHandle {
+        spawn_liveness(
+            Arc::new(self.status_source()),
+            Arc::new(TokioClock::default()),
+            self.liveness,
+        )
+    }
+
+    pub(crate) fn normalized(mut self) -> Self {
+        self.max_frame_bytes = self.max_frame_bytes.min(MAX_FRAME_BYTES);
+        self
+    }
 }
 
-/// Errors emitted by the scaffold.
-#[derive(Debug, thiserror::Error)]
-pub enum MeshTailscaleError {
-    /// The transport is not yet implemented (Phase 2).
-    #[error("ENTANGLE-E0640: mesh.tailscale transport not implemented yet (Phase 2)")]
-    NotImplemented,
-    /// `tailscaled` was not detected on this host.
-    #[error("ENTANGLE-E0641: tailscale CLI not found in PATH")]
-    NotInstalled,
-}
-
-/// Lightweight tailnet peer descriptor.
+/// A tailnet peer that speaks Entanglement.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TailscalePeer {
-    /// Entanglement peer id (Ed25519 public-key bytes).
+    /// Entanglement peer id, derived from `public_key`.
     pub peer_id: PeerId,
-    /// MagicDNS hostname (e.g. `bob-desktop.tail-scale.ts.net`).
+    /// The peer's Ed25519 public key (pinned when dialling).
+    pub public_key: [u8; 32],
+    /// Where to dial: tailnet IP and port.
+    pub addr: std::net::SocketAddr,
+    /// MagicDNS hostname (e.g. `bob-desktop.tail-scale.ts.net`), if known.
     pub magic_dns: String,
 }
 
-/// Scaffolded transport handle.
-#[derive(Debug, Default)]
-pub struct MeshTailscale {
-    config: MeshTailscaleConfig,
-}
-
-impl MeshTailscale {
-    /// Construct a new transport with the given config.
-    pub const fn new(config: MeshTailscaleConfig) -> Self {
-        Self { config }
-    }
-
-    /// Borrow the active config.
-    pub const fn config(&self) -> &MeshTailscaleConfig {
-        &self.config
-    }
-
-    /// Start the transport.
-    ///
-    /// Phase 1: returns [`MeshTailscaleError::NotImplemented`].
-    pub async fn start(&self) -> Result<(), MeshTailscaleError> {
-        let _ = &self.config;
-        Err(MeshTailscaleError::NotImplemented)
+impl TailscalePeer {
+    /// Build a descriptor; `peer_id` is derived from the key.
+    pub fn new(public_key: [u8; 32], addr: std::net::SocketAddr) -> Self {
+        Self {
+            peer_id: PeerId::from_public_key_bytes(&public_key),
+            public_key,
+            addr,
+            magic_dns: String::new(),
+        }
     }
 }
 
@@ -105,12 +209,12 @@ mod tests {
         assert_eq!(c.acl_mode, AclMode::EntangleOnTop);
     }
 
-    #[tokio::test]
-    async fn start_returns_not_implemented_in_phase_1() {
-        let t = MeshTailscale::new(MeshTailscaleConfig::default());
-        let err = t.start().await.expect_err("Phase 1 must reject start");
-        assert!(matches!(err, MeshTailscaleError::NotImplemented));
-        assert!(err.to_string().contains("ENTANGLE-E0640"));
+    #[test]
+    fn acl_mode_parses_both_spellings() {
+        assert_eq!("entangle-on-top".parse(), Ok(AclMode::EntangleOnTop));
+        assert_eq!("trust-tailnet".parse(), Ok(AclMode::TrustTailnet));
+        assert_eq!("tailscale-only".parse(), Ok(AclMode::TrustTailnet));
+        assert!("open".parse::<AclMode>().is_err());
     }
 
     #[test]
@@ -126,5 +230,15 @@ mod tests {
             ..MeshTailscaleConfig::default()
         };
         assert_eq!(c.resolve_cli(), "/opt/tailscale/bin/tailscale");
+    }
+
+    #[test]
+    fn frame_cap_is_clamped() {
+        let c = MeshTailscaleConfig {
+            max_frame_bytes: usize::MAX,
+            ..MeshTailscaleConfig::default()
+        }
+        .normalized();
+        assert_eq!(c.max_frame_bytes, MAX_FRAME_BYTES);
     }
 }

@@ -399,3 +399,29 @@ Docker, `docker logs -f entangled` shows the same JSON stream; pass
 | Cross-node capability grant refused with `ENTANGLE-E0100`/`E0101` | Biscuit signature doesn't verify, or the publisher/peer key isn't in the trust roots | Re-check the peer is actually paired (`entangle mesh peers`) and its key matches what's in `peers.toml`/`keyring.toml`. |
 | `clock-skew` check in `entangle doctor` reports `fail` | Local and daemon-host clocks have drifted >30s | Sync via NTP/chrony. Biscuit-auth tokens only tolerate ±60s, so severe drift breaks pairing TOFU and cross-node auth outright. |
 | mDNS peer discovery doesn't work under Docker on macOS | Docker Desktop's `network_mode: host` is scoped to its internal Linux VM, not the Mac's real network | Use a Linux host/VM for mDNS-dependent testing, or run `entangled` natively on macOS for local dev. See [`../docker/README.md`](../docker/README.md). |
+
+## 10. `mesh.tailscale` (tailnet transport)
+
+Opt-in; the daemon never uses a tailnet it merely found running.
+
+```toml
+[mesh]
+transports = ["tailscale"]
+
+[mesh.tailscale]
+enabled = true
+port = 41643                   # TCP, between tailnet IPs
+acl-mode = "entangle-on-top"   # or "trust-tailnet" (alias "tailscale-only")
+tailscale-cli = ""             # empty = `tailscale` on $PATH
+```
+
+* Traffic is plain TCP over WireGuard, plus a mutual Ed25519 handshake so the
+  remote `PeerId` is authenticated. `entangle-on-top` drops any authenticated
+  peer that is not in `peers.toml` before reading a request; `trust-tailnet`
+  skips the allowlist but still authenticates identity.
+* Liveness (`active` / `stopped(reason)` / `uninstalled`) is polled every 5 s
+  (5 min once uninstalled); a change must persist for two polls and leaving
+  `active` needs 30 s of grace. One log line per transition, target
+  `entangle::mesh::tailscale`.
+* `entangle doctor` reports the current state in its `tailscale` row.
+* Errors: `ENTANGLE-E0640`..`E0649`. Handshake failures are logged at debug.

@@ -85,6 +85,46 @@ pub struct MeshConfig {
     /// When `true` the daemon requires at least one trusted peer before
     /// starting (spec §11 #16, enforced via ENTANGLE-E0050 at startup).
     pub multi_node: bool,
+    /// `[mesh.tailscale]` — daemon-side settings for the `mesh.tailscale`
+    /// transport (spec §6.1.1). Inert unless `enabled = true` **and**
+    /// `transports` contains `"tailscale"`.
+    pub tailscale: TailscaleSection,
+}
+
+/// `[mesh.tailscale]` section.
+///
+/// ```toml
+/// [mesh]
+/// transports = ["tailscale"]
+///
+/// [mesh.tailscale]
+/// enabled = true
+/// port = 41643
+/// acl-mode = "entangle-on-top"   # or "trust-tailnet"
+/// tailscale-cli = ""             # empty = look up `tailscale` on $PATH
+/// ```
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct TailscaleSection {
+    /// Opt-in switch: the daemon never joins or uses a tailnet unasked.
+    pub enabled: bool,
+    /// TCP port for Entanglement traffic over the tailnet.
+    pub port: u16,
+    /// `"entangle-on-top"` (default) or `"trust-tailnet"`.
+    pub acl_mode: String,
+    /// Path to the `tailscale` CLI; empty = `$PATH`.
+    pub tailscale_cli: String,
+}
+
+impl Default for TailscaleSection {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            port: entangle_mesh_tailscale::DEFAULT_PORT,
+            acl_mode: "entangle-on-top".to_owned(),
+            tailscale_cli: String::new(),
+        }
+    }
 }
 
 /// Security policy configuration.
@@ -237,6 +277,21 @@ max_tier_allowed = 2
         // The old (pre-WP5) daemon-only knob locations also fail loudly.
         assert!(toml::from_str::<Config>("[runtime]\nmulti_node = true\n").is_err());
         assert!(toml::from_str::<Config>("[runtime]\nmax_tier = \"native\"\n").is_err());
+    }
+
+    #[test]
+    fn tailscale_section_parses_with_kebab_keys_and_defaults_off() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert!(!cfg.mesh.tailscale.enabled);
+        assert_eq!(cfg.mesh.tailscale.acl_mode, "entangle-on-top");
+        let cfg: Config = toml::from_str(
+            "[mesh]\ntransports=[\"tailscale\"]\n[mesh.tailscale]\nenabled=true\nport=9\nacl-mode=\"trust-tailnet\"\ntailscale-cli=\"/x/ts\"\n",
+        )
+        .unwrap();
+        assert!(cfg.mesh.tailscale.enabled);
+        assert_eq!(cfg.mesh.tailscale.port, 9);
+        assert_eq!(cfg.mesh.tailscale.tailscale_cli, "/x/ts");
+        assert!(toml::from_str::<Config>("[mesh.tailscale]\nbogus=1\n").is_err());
     }
 
     #[test]

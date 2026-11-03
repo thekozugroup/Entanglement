@@ -455,6 +455,64 @@ async fn check_clock_skew(daemon_reachable: bool) -> CheckResult {
 }
 
 // ---------------------------------------------------------------------------
+// Check 14 — tailscale liveness (only when `[mesh.tailscale] enabled`)
+// ---------------------------------------------------------------------------
+
+/// Read `[mesh.tailscale]` straight from the TOML: the CLI's typed `Config`
+/// intentionally does not carry daemon-only sections.
+fn tailscale_settings() -> Option<(bool, String)> {
+    let raw = std::fs::read_to_string(config::config_path()).ok()?;
+    let v: toml::Value = toml::from_str(&raw).ok()?;
+    let ts = v.get("mesh")?.get("tailscale")?;
+    let enabled = ts
+        .get("enabled")
+        .and_then(toml::Value::as_bool)
+        .unwrap_or(false);
+    let cli = ts
+        .get("tailscale-cli")
+        .and_then(toml::Value::as_str)
+        .unwrap_or("")
+        .to_owned();
+    Some((enabled, cli))
+}
+
+async fn check_tailscale() -> CheckResult {
+    use entangle_mesh_tailscale::{MeshTailscaleConfig, StatusSource as _, TailnetState};
+    let Some((true, cli)) = tailscale_settings() else {
+        return CheckResult::skip("tailscale", "mesh.tailscale not enabled");
+    };
+    let cfg = MeshTailscaleConfig {
+        tailscale_cli: cli,
+        ..MeshTailscaleConfig::default()
+    };
+    let obs = cfg.status_source().observe().await;
+    let peers = obs
+        .status
+        .as_ref()
+        .map(|s| s.online_peers().count())
+        .unwrap_or(0);
+    match obs.state {
+        TailnetState::Active => CheckResult::ok(
+            "tailscale",
+            format!("active, {peers} online tailnet peer(s) (single poll; the daemon applies hysteresis)"),
+        ),
+        TailnetState::Stopped { reason } => CheckResult::warn(
+            "tailscale",
+            format!("stopped ({reason})"),
+            "run `tailscale up`; peers reachable only via mesh.tailscale are unreachable meanwhile",
+        ),
+        TailnetState::Uninstalled => CheckResult::warn(
+            "tailscale",
+            "uninstalled",
+            format!(
+                "`{}` not found; install Tailscale or set [mesh.tailscale] enabled = false",
+                cfg.resolve_cli()
+            ),
+        ),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
@@ -545,6 +603,7 @@ pub async fn run() -> anyhow::Result<()> {
     results.push(check_os_sandbox());
     results.push(check_disk_space());
     results.push(check_clock_skew(daemon_reachable).await);
+    results.push(check_tailscale().await);
 
     for r in &results {
         print_check(r, color);

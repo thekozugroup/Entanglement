@@ -1513,12 +1513,14 @@ name = "entangle-bin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "clap",
  "directories",
  "entangle-broker",
  "entangle-manifest",
  "entangle-mesh-iroh",
  "entangle-mesh-local",
+ "entangle-mesh-tailscale",
  "entangle-observability",
  "entangle-peers",
  "entangle-rpc",
@@ -1583,6 +1585,7 @@ dependencies = [
  "dialoguer",
  "directories",
  "entangle-manifest",
+ "entangle-mesh-tailscale",
  "entangle-observability",
  "entangle-pairing",
  "entangle-peers",
@@ -1686,10 +1689,17 @@ dependencies = [
 name = "entangle-mesh-tailscale"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "entangle-signing",
  "entangle-types",
+ "rand_core 0.6.4",
+ "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

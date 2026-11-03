@@ -12,6 +12,7 @@
 //! | E0302–E0305 | Integrity policy (see `entangle-runtime`) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0600–E0699 | Agent-host adapter (see `entangle-agent-host`) |
+//! | E0640–E0649 | `mesh.tailscale` transport (see `entangle-mesh-tailscale`) |
 //! | E0900       | I/O                            |
 //! | E9999       | Internal / unexpected          |
 //!
