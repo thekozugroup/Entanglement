@@ -271,7 +271,7 @@ impl MeshTailscale {
         )
         .await?;
         match admission {
-            Admission::Admitted => Ok(MeshConn::new(stream, remote, session, None, cfg)),
+            Admission::Admitted => Ok(MeshConn::new(stream, remote, session, None, None, cfg)),
             Admission::Denied => Err(MeshTailscaleError::Handshake(format!(
                 "peer {} authenticated us but rejected us (we are not in its allowlist)",
                 remote.peer_id
@@ -539,7 +539,14 @@ async fn accept_loop(
             };
             match server_handshake(&mut stream, &identity, config.handshake_timeout, admit).await {
                 Ok((remote, session, slot)) => {
-                    let conn = MeshConn::new(stream, remote, session, Some(slot), &config);
+                    // entangle-on-top keeps consulting the allowlist for
+                    // every request, so a revocation also ends service on
+                    // connections the peer already has.
+                    let recheck = match config.acl_mode {
+                        AclMode::EntangleOnTop => config.allowlist.clone(),
+                        AclMode::TrustTailnet => None,
+                    };
+                    let conn = MeshConn::new(stream, remote, session, Some(slot), recheck, &config);
                     // A full queue means nobody is accepting; drop.
                     if tx.try_send(conn).is_err() {
                         debug!(%from, "mesh.tailscale: accept queue full, dropping connection");
@@ -579,6 +586,9 @@ pub struct MeshConn {
     /// Set while an operation is in flight and left set if it does not
     /// complete; see the type docs.
     poisoned: bool,
+    /// Server side, entangle-on-top: re-checked before each request is
+    /// handed out.
+    allowlist: Option<Arc<dyn PeerAllowlist>>,
     max_frame_bytes: usize,
     request_timeout: Duration,
     idle_timeout: Duration,
@@ -590,6 +600,7 @@ impl MeshConn {
         remote: Remote,
         session: Session,
         slot: Option<ConnSlot>,
+        allowlist: Option<Arc<dyn PeerAllowlist>>,
         cfg: &MeshTailscaleConfig,
     ) -> Self {
         Self {
@@ -599,6 +610,7 @@ impl MeshConn {
             opener: session.opener,
             _slot: slot,
             poisoned: false,
+            allowlist,
             max_frame_bytes: cfg.max_frame_bytes,
             request_timeout: cfg.request_timeout,
             idle_timeout: cfg.idle_timeout,
@@ -653,6 +665,11 @@ impl MeshConn {
     ///
     /// The connection stays poisoned until the returned request is answered
     /// with [`MeshRequest::respond`].
+    ///
+    /// On a server-side connection in [`AclMode::EntangleOnTop`] the peer
+    /// allowlist is consulted again for every request: once the peer is no
+    /// longer allowed, its request is not returned and this fails with
+    /// `ENTANGLE-E0648` (the connection stays poisoned, so it ends).
     pub async fn accept_request(&mut self) -> Result<Option<MeshRequest<'_>>, MeshTailscaleError> {
         self.begin()?;
         let max = self.max_frame_bytes;
@@ -666,10 +683,17 @@ impl MeshConn {
             Err(_) => Ok(None),
             Ok(Err(e)) => Err(e),
             Ok(Ok(None)) => Ok(None),
-            Ok(Ok(Some(payload))) => Ok(Some(MeshRequest {
-                payload,
-                conn: self,
-            })),
+            Ok(Ok(Some(payload))) => {
+                if let Some(list) = &self.allowlist {
+                    if !list.is_allowed(&self.remote.peer_id) {
+                        return Err(MeshTailscaleError::PeerNotAllowed(self.remote.peer_id));
+                    }
+                }
+                Ok(Some(MeshRequest {
+                    payload,
+                    conn: self,
+                }))
+            }
         }
     }
 }

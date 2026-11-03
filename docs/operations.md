@@ -432,8 +432,10 @@ tailscale-cli = ""             # empty = `tailscale` on $PATH
   connection can neither read nor inject. A `PeerId` that answers discovery
   from two tailnet nodes at once is skipped for that round (logged at warn).
   `entangle-on-top` drops any authenticated
-  peer that is not in `peers.toml` before reading a request; `trust-tailnet`
-  skips the allowlist but still authenticates identity.
+  peer that is not in `peers.toml` before reading a request, and re-checks
+  the allowlist for every request, so `entangle peers remove` also ends
+  service on that peer's open connections; `trust-tailnet` skips the
+  allowlist but still authenticates identity.
 * Liveness (`active` / `stopped(reason)` / `uninstalled`) is polled every 5 s
   (5 min once uninstalled); a change must persist for two polls and leaving
   `active` needs 30 s of grace. One log line per transition, target

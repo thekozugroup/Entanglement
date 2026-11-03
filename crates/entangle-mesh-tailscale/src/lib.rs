@@ -60,8 +60,10 @@ pub const MAX_FRAME_BYTES: usize = 64 * 1024 * 1024;
 pub enum AclMode {
     /// Entanglement enforces its own peer allowlist on top of Tailscale ACLs:
     /// an authenticated peer that is not allowlisted is dropped after the
-    /// handshake, before any request is read. With no allowlist configured,
-    /// every peer is rejected (fail closed).
+    /// handshake, before any request is read, and the allowlist is checked
+    /// again for every later request on an open connection, so a revocation
+    /// takes effect immediately. With no allowlist configured, every peer is
+    /// rejected (fail closed).
     #[default]
     EntangleOnTop,
     /// Trust the tailnet ACL for reachability (only safe when the operator

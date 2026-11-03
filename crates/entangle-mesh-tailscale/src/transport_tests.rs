@@ -1007,3 +1007,46 @@ async fn a_connection_is_not_reused_after_a_timed_out_or_cancelled_request() {
         }
     }
 }
+
+// ------------------------------------------------------------- revocation --
+
+/// An allowlist that can change while connections are open (as the daemon's
+/// peer store does on `entangle peers remove`).
+#[derive(Debug, Default)]
+struct LiveAllowlist(std::sync::Mutex<std::collections::HashSet<PeerId>>);
+
+impl PeerAllowlist for LiveAllowlist {
+    fn is_allowed(&self, peer: &PeerId) -> bool {
+        self.0.lock().unwrap().contains(peer)
+    }
+}
+
+#[tokio::test]
+async fn a_revoked_peer_is_not_served_on_its_open_connection() {
+    let ka = IdentityKeyPair::generate();
+    let a = MeshTailscale::start(&ka, cfg(AclMode::TrustTailnet, None))
+        .await
+        .unwrap();
+    let list = Arc::new(LiveAllowlist::default());
+    list.0.lock().unwrap().insert(id_of(&ka));
+    let as_dyn: Arc<dyn PeerAllowlist> = list.clone();
+    let (b, _) = node(AclMode::EntangleOnTop, Some(as_dyn)).await;
+    let handler = Arc::new(Echo(AtomicUsize::new(0)));
+    let (b2, h2) = (b.clone(), Arc::clone(&handler));
+    tokio::spawn(async move { b2.serve(h2).await });
+
+    let mut conn = a.connect(&peer_of(&b)).await.unwrap();
+    assert_eq!(conn.request(b"before").await.unwrap(), b"erofeb");
+
+    // `entangle peers remove A` on B.
+    list.0.lock().unwrap().clear();
+    assert!(
+        conn.request(b"after").await.is_err(),
+        "a revoked peer must not be served, even on a connection it already has"
+    );
+    assert_eq!(
+        handler.0.load(Ordering::SeqCst),
+        1,
+        "handler ran after revocation"
+    );
+}
