@@ -18,7 +18,7 @@ cfg="$2"
 [ -f "$cfg" ] || exit 14
 grep -q '127.0.0.1:[0-9]*/mcp/fs' "$cfg" || exit 15
 grep -q 'ENTANGLE_SESSION_TOKEN' "$cfg" || exit 16
-if grep -q "$ENTANGLE_SESSION_TOKEN" "$cfg"; then exit 17; fi
+if grep -rqF "$ENTANGLE_SESSION_TOKEN" "$(dirname "$cfg")"; then exit 17; fi
 if grep -q 'npx' "$cfg"; then exit 18; fi
 [ "$3" = "--strict-mcp-config" ] || exit 19
 [ "$4" = "--model" ] && [ "$5" = "x" ] || exit 20
@@ -490,6 +490,149 @@ fn agent_run_sigterm_kills_an_agent_that_ignores_it_and_exits_143() {
     let (status, dir) = signal_cli(STUBBORN_AGENT, "TERM", &[]);
     assert_eq!(status.code(), Some(143), "{status:?}");
     assert_eq!(sessions_left(&dir), 0, "session dir removed");
+}
+
+/// Fake stdio MCP server: answers `initialize` and `tools/call`, and logs
+/// every `tools/call` line it receives to `$CALLS`.
+const FAKE_SERVER: &str = r#"#!/bin/sh
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  [ -n "$id" ] || continue
+  case "$line" in
+    *'"initialize"'*) printf '{"jsonrpc":"2.0","id":%s,"result":{"protocolVersion":"2025-03-26","capabilities":{},"serverInfo":{"name":"f","version":"1"}}}\n' "$id" ;;
+    *'"tools/call"'*) echo "$line" >> "$CALLS"; printf '{"jsonrpc":"2.0","id":%s,"result":{"content":[]}}\n' "$id" ;;
+  esac
+done
+"#;
+
+/// Fake agent that calls two tools through the gateway with its session
+/// token, and records the replies and the session directory's mode.
+const GATEWAY_AGENT: &str = r#"#!/bin/sh
+cfg="$2"
+url=$(sed -n 's/.*"url": *"\([^"]*\)".*/\1/p' "$cfg" | head -n 1)
+call() {
+  curl -s -m 20 -H "Authorization: Bearer $ENTANGLE_SESSION_TOKEN" \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":$1,\"method\":\"tools/call\",\"params\":{\"name\":\"$2\",\"arguments\":{}}}" "$url"
+}
+{ call 1 secret; echo; call 2 fine; echo; } > "$OUT"
+stat -c %a "$(dirname "$cfg")" > "$MODE"
+exit 0
+"#;
+
+#[test]
+fn agent_run_policy_flags_reach_the_gateway_end_to_end() {
+    if std::process::Command::new("curl")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
+        eprintln!("curl not available; skipping");
+        return;
+    }
+    let dir = TempDir::new().unwrap();
+    let server = dir.path().join("server.sh");
+    fs::write(&server, FAKE_SERVER).unwrap();
+    fs::set_permissions(&server, fs::Permissions::from_mode(0o755)).unwrap();
+    let agent = dir.path().join("agent.sh");
+    fs::write(&agent, GATEWAY_AGENT).unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    let calls = dir.path().join("calls");
+    let cfg = dir.path().join("mcp.json");
+    fs::write(
+        &cfg,
+        serde_json::json!({"mcpServers":{"fs":{
+            "command": server, "env": {"CALLS": calls}
+        }}})
+        .to_string(),
+    )
+    .unwrap();
+    let out = dir.path().join("out");
+    let mode = dir.path().join("mode");
+    entangle()
+        .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+        .env("OUT", &out)
+        .env("MODE", &mode)
+        .args([
+            "agent",
+            "run",
+            "claude-code",
+            "--deny",
+            "fs/secret",
+            "--config",
+        ])
+        .arg(&cfg)
+        .arg("--bin")
+        .arg(&agent)
+        .timeout(std::time::Duration::from_secs(60))
+        .assert()
+        .success();
+    let replies = fs::read_to_string(&out).unwrap();
+    let mut lines = replies.lines();
+    let denied = lines.next().unwrap_or_default();
+    let allowed = lines.next().unwrap_or_default();
+    assert!(
+        denied.contains("ENTANGLE-E0661") && denied.contains("denied"),
+        "--deny must reach the gateway: {replies}"
+    );
+    assert!(
+        allowed.contains("\"result\"") && !allowed.contains("ENTANGLE-"),
+        "an allowed call must reach the downstream: {replies}"
+    );
+    let seen = fs::read_to_string(&calls).unwrap();
+    assert!(
+        seen.contains("\"fine\"") && !seen.contains("secret"),
+        "the denied call must never reach the server: {seen}"
+    );
+    assert_eq!(
+        fs::read_to_string(&mode).unwrap().trim(),
+        "700",
+        "session dir is private"
+    );
+}
+
+#[test]
+fn agent_run_warns_about_remote_http_servers() {
+    let dir = TempDir::new().unwrap();
+    let cfg = dir.path().join("mcp.json");
+    fs::write(
+        &cfg,
+        r#"{"mcpServers":{"remote":{"type":"http","url":"https://mcp.example.com/x"}}}"#,
+    )
+    .unwrap();
+    let agent = dir.path().join("agent.sh");
+    fs::write(&agent, "#!/bin/sh\nexit 0\n").unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    entangle()
+        .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+        .args(["agent", "run", "claude-code", "--config"])
+        .arg(&cfg)
+        .arg("--bin")
+        .arg(&agent)
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("remote").and(predicate::str::contains("mcp.example.com/x")),
+        );
+}
+
+#[test]
+fn agent_run_reports_an_original_modified_during_a_normal_run() {
+    let dir = TempDir::new().unwrap();
+    let cfg = dir.path().join("mcp.json");
+    fs::write(&cfg, r#"{"mcpServers":{}}"#).unwrap();
+    let agent = dir.path().join("agent.sh");
+    fs::write(&agent, "#!/bin/sh\necho '{}' > \"$ORIG\"\nexit 3\n").unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    entangle()
+        .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+        .env("ORIG", &cfg)
+        .args(["agent", "run", "claude-code", "--config"])
+        .arg(&cfg)
+        .arg("--bin")
+        .arg(&agent)
+        .assert()
+        .code(3)
+        .stderr(predicate::str::contains("ENTANGLE-E0660"));
 }
 
 #[test]

@@ -1372,8 +1372,10 @@ async fn downstream_timeout_is_reported_and_audited() {
     .await
     .unwrap();
     let bearer = format!("Bearer {token}");
-    // Handshake (not slow), then a slow call that exceeds the timeout.
-    http(
+    // Handshake (not slow), then a slow call that exceeds the timeout. The
+    // warm-up must itself succeed: otherwise the later timeout could come
+    // from process start-up and prove nothing about slow tool calls.
+    let (st, body) = http(
         gw.addr,
         "POST",
         "/mcp/fake",
@@ -1381,14 +1383,33 @@ async fn downstream_timeout_is_reported_and_audited() {
         &json!({"jsonrpc":"2.0","id":0,"method":"tools/list"}).to_string(),
     )
     .await;
+    assert_eq!(st, 200, "warm-up failed: {body}");
+    let warm: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert!(
+        warm["result"]["tools"].is_array() && warm.get("error").is_none(),
+        "warm-up must return a tools list, not a timeout: {body}"
+    );
+    assert!(
+        gw.audit_log().is_empty(),
+        "tools/list is not an audited tool call"
+    );
+    let started = std::time::Instant::now();
     let (st, body) = http(gw.addr, "POST", "/mcp/fake", Some(&bearer), &json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":1500}}}).to_string()).await;
+    let elapsed = started.elapsed();
     assert_eq!(st, 200);
     assert!(
         body.contains("ENTANGLE-E0663") && body.contains("timed out"),
         "{body}"
     );
+    assert!(
+        elapsed >= Duration::from_millis(500) && elapsed < Duration::from_millis(1500),
+        "cut off by the 500 ms timeout, not by the 1500 ms sleep finishing: {elapsed:?}"
+    );
+    let log = gw.audit_log();
+    assert_eq!(log.len(), 1, "{log:?}");
+    assert_eq!(log[0].tool, "sleep");
     assert!(matches!(
-        gw.audit_log()[0].outcome,
+        log[0].outcome,
         AuditOutcome::TransportError { .. }
     ));
     gw.shutdown().await;

@@ -113,11 +113,9 @@ fn drop_removes_session_dir() {
 fn codex_session_uses_codex_home_and_env_var_token() {
     let dir = TempDir::new().unwrap();
     let src = dir.path().join("config.toml");
-    fs::write(
-        &src,
-        "model = \"o3\"\n[mcp_servers.git]\ncommand = \"uvx\"\nargs = [\"mcp-server-git\"]\n",
-    )
-    .unwrap();
+    let original =
+        "model = \"o3\"\n[mcp_servers.git]\ncommand = \"uvx\"\nargs = [\"mcp-server-git\"]\n";
+    fs::write(&src, original).unwrap();
     fs::write(dir.path().join("auth.json"), "{}").unwrap();
     let mut s = AgentSession::prepare("codex", Some(&utf8(&src))).unwrap();
     assert!(matches!(
@@ -142,7 +140,17 @@ fn codex_session_uses_codex_home_and_env_var_token() {
         doc["mcp_servers"]["git"]["bearer_token_env_var"].as_str(),
         Some("TOK")
     );
+    let session_text = fs::read_to_string(&plan.config_path).unwrap();
+    assert!(
+        !session_text.contains("uvx") && !session_text.contains("mcp-server-git"),
+        "original command must not leak into the session config: {session_text}"
+    );
     s.cleanup().unwrap();
+    assert_eq!(
+        fs::read_to_string(&src).unwrap(),
+        original,
+        "original config untouched"
+    );
 }
 
 #[cfg(unix)]
@@ -220,8 +228,15 @@ fn opencode_session_sets_opencode_config_env() {
         .clone();
     assert!(plan.env.iter().any(|(k, _)| k == "OPENCODE_CONFIG"));
     let text = fs::read_to_string(&plan.config_path).unwrap();
-    assert!(text.contains("{env:TOK}") && text.contains(&format!("{BASE}/a")));
+    let doc: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(doc["mcp"]["a"]["type"], "remote", "{text}");
+    assert_eq!(doc["mcp"]["a"]["url"], format!("{BASE}/a"), "{text}");
+    assert_eq!(
+        doc["mcp"]["a"]["headers"]["Authorization"], "Bearer {env:TOK}",
+        "{text}"
+    );
     assert!(!text.contains("a.js"), "original command must not leak");
+    assert!(!text.contains("\"v\""), "original env must not leak");
     s.cleanup().unwrap();
     assert_eq!(fs::read_to_string(&src).unwrap(), original);
 }
@@ -580,4 +595,46 @@ fn unknown_agent_is_an_error() {
         AgentSession::prepare("nope", None),
         Err(SessionError::UnknownAgent(_))
     ));
+}
+
+#[test]
+fn cleanup_detects_a_deleted_original() {
+    let dir = TempDir::new().unwrap();
+    let src = dir.path().join(".mcp.json");
+    fs::write(&src, r#"{"mcpServers":{"x":{"command":"y"}}}"#).unwrap();
+    let mut s = AgentSession::prepare("claude-code", Some(&utf8(&src))).unwrap();
+    s.activate(&utf8(&dir.path().join("sess")), BASE, "T")
+        .unwrap();
+    fs::remove_file(&src).unwrap();
+    let err = s
+        .cleanup()
+        .expect_err("a deleted original must be reported");
+    assert!(matches!(err, SessionError::OriginalModified(_)));
+}
+
+#[test]
+fn unparseable_server_entry_is_not_run_but_stays_behind_the_gateway() {
+    // An entry the adapter cannot interpret is dropped from the servers the
+    // gateway runs, but the session config must still point it at the
+    // gateway (where it is a 404) and never keep the original entry, which
+    // the agent could start itself.
+    let dir = TempDir::new().unwrap();
+    let src = dir.path().join(".mcp.json");
+    fs::write(
+        &src,
+        r#"{"mcpServers":{"good":{"command":"g"},"odd":{"transport":"carrier-pigeon","command":42}}}"#,
+    )
+    .unwrap();
+    let mut s = AgentSession::prepare("claude-code", Some(&utf8(&src))).unwrap();
+    assert!(s.servers().contains_key("good"));
+    assert!(!s.servers().contains_key("odd"));
+    let plan = s
+        .activate(&utf8(&dir.path().join("sess")), BASE, "T")
+        .unwrap()
+        .clone();
+    let text = fs::read_to_string(&plan.config_path).unwrap();
+    let doc: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(doc["mcpServers"]["odd"]["url"], format!("{BASE}/odd"));
+    assert!(!text.contains("carrier-pigeon"), "{text}");
+    s.cleanup().unwrap();
 }
