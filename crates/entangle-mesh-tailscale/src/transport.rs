@@ -1,7 +1,7 @@
 //! The TCP-over-tailnet transport: listener, dialer, connections, serving.
 
-use std::collections::{btree_map, BTreeMap, BTreeSet, HashSet};
-use std::net::SocketAddr;
+use std::collections::{btree_map, BTreeMap, BTreeSet, HashMap, HashSet};
+use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -22,6 +22,48 @@ use crate::{AclMode, MeshTailscaleConfig, TailscalePeer};
 /// Maximum simultaneous in-flight inbound handshakes. Excess connections are
 /// dropped immediately so a flood cannot exhaust tasks or descriptors.
 const MAX_PENDING_HANDSHAKES: usize = 64;
+
+/// Maximum in-flight inbound handshakes from one source IP, so that one host
+/// holding silent connections cannot take every slot of
+/// [`MAX_PENDING_HANDSHAKES`] and lock all other peers out.
+const MAX_PENDING_PER_SOURCE: usize = 8;
+
+/// Per-source pending-handshake counts; [`SourceSlot`] releases on drop.
+#[derive(Default)]
+struct PendingBySource(Mutex<HashMap<IpAddr, usize>>);
+
+struct SourceSlot {
+    table: Arc<PendingBySource>,
+    ip: IpAddr,
+}
+
+impl PendingBySource {
+    fn try_take(self: &Arc<Self>, ip: IpAddr) -> Option<SourceSlot> {
+        let mut t = self.0.lock().ok()?;
+        let n = t.entry(ip).or_insert(0);
+        if *n >= MAX_PENDING_PER_SOURCE {
+            return None;
+        }
+        *n += 1;
+        Some(SourceSlot {
+            table: Arc::clone(self),
+            ip,
+        })
+    }
+}
+
+impl Drop for SourceSlot {
+    fn drop(&mut self) {
+        if let Ok(mut t) = self.table.0.lock() {
+            if let Some(n) = t.get_mut(&self.ip) {
+                *n -= 1;
+                if *n == 0 {
+                    t.remove(&self.ip);
+                }
+            }
+        }
+    }
+}
 
 /// Authorization source for [`AclMode::EntangleOnTop`].
 ///
@@ -385,6 +427,7 @@ async fn accept_loop(
     tx: mpsc::Sender<MeshConn>,
 ) {
     let permits = Arc::new(Semaphore::new(MAX_PENDING_HANDSHAKES));
+    let per_source = Arc::new(PendingBySource::default());
     loop {
         let (mut stream, from) = match listener.accept().await {
             Ok(x) => x,
@@ -398,6 +441,10 @@ async fn accept_loop(
             debug!(%from, "mesh.tailscale: source is not a tailnet address, closing");
             continue;
         }
+        let Some(source_slot) = per_source.try_take(from.ip()) else {
+            debug!(%from, "mesh.tailscale: too many pending handshakes from this source, dropping");
+            continue;
+        };
         let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else {
             debug!(%from, "mesh.tailscale: too many pending handshakes, dropping");
             continue;
@@ -407,7 +454,7 @@ async fn accept_loop(
         let config = config.clone();
         let tx = tx.clone();
         tokio::spawn(async move {
-            let _permit = permit;
+            let _permit = (permit, source_slot);
             let acl = config.acl_mode;
             let allow = config.allowlist.clone();
             let admit = move |p: &PeerId| match acl {

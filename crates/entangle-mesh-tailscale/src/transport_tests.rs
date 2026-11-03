@@ -863,3 +863,40 @@ async fn by_default_discovery_and_connect_never_dial_non_tailnet_addresses() {
     assert!(a.probe(b.local_addr()).await.is_err());
     assert_no_conn(&b).await;
 }
+
+// ------------------------------------------------------- resource limits --
+
+/// Open a TCP connection to `to` from the local address `from_ip`.
+async fn connect_from(from_ip: &str, to: SocketAddr) -> TcpStream {
+    let sock = tokio::net::TcpSocket::new_v4().unwrap();
+    sock.bind(SocketAddr::new(from_ip.parse().unwrap(), 0))
+        .unwrap();
+    sock.connect(to).await.unwrap()
+}
+
+#[tokio::test]
+async fn silent_connections_from_one_source_cannot_starve_other_peers() {
+    // Long server-side handshake timeout so the silent sockets keep their
+    // pre-auth slots for the whole test.
+    let mut sc = cfg(AclMode::TrustTailnet, None);
+    sc.handshake_timeout = Duration::from_secs(5);
+    let b = MeshTailscale::start(&IdentityKeyPair::generate(), sc)
+        .await
+        .unwrap();
+    let mut hold = Vec::new();
+    for _ in 0..64 {
+        hold.push(connect_from("127.0.0.2", b.local_addr()).await);
+    }
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let (a, ka) = node(AclMode::TrustTailnet, None).await;
+    let target = peer_of(&b);
+    let (conn, server) = tokio::join!(
+        a.connect(&target),
+        timeout(Duration::from_secs(3), b.accept())
+    );
+    conn.expect("a peer on another address must still get a handshake slot");
+    let server = server.expect("accepted in time").unwrap();
+    assert_eq!(server.remote_peer_id(), id_of(&ka));
+    drop(hold);
+}
