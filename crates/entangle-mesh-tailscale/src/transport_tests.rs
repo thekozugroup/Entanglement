@@ -949,3 +949,61 @@ async fn the_global_connection_cap_applies_across_peers() {
     let err = third.connect(&target).await.unwrap_err();
     assert!(err.to_string().contains("connection limit"), "{err}");
 }
+
+// ------------------------------------------------- connection reuse safety --
+
+/// Echo (reversed) that takes 600 ms for the payload `slow`.
+struct SlowOnce;
+
+#[async_trait::async_trait]
+impl RequestHandler for SlowOnce {
+    async fn handle(&self, _peer: PeerId, mut payload: Vec<u8>) -> Vec<u8> {
+        if payload == b"slow" {
+            tokio::time::sleep(Duration::from_millis(600)).await;
+        }
+        payload.reverse();
+        payload
+    }
+}
+
+#[tokio::test]
+async fn a_connection_is_not_reused_after_a_timed_out_or_cancelled_request() {
+    let (b, _) = node(AclMode::TrustTailnet, None).await;
+    let b2 = b.clone();
+    tokio::spawn(async move { b2.serve(Arc::new(SlowOnce)).await });
+    let mut ac = cfg(AclMode::TrustTailnet, None);
+    ac.request_timeout = Duration::from_millis(200);
+    let a = MeshTailscale::start(&IdentityKeyPair::generate(), ac)
+        .await
+        .unwrap();
+    let target = peer_of(&b);
+
+    // Timeout: the late answer to "slow" must never be handed out as the
+    // answer to a later request on the same connection.
+    let mut conn = a.connect(&target).await.unwrap();
+    let err = conn.request(b"slow").await.unwrap_err();
+    assert!(err.to_string().contains("timed out"), "{err}");
+    tokio::time::sleep(Duration::from_millis(700)).await; // "wols" is now in flight
+    match conn.request(b"fast").await {
+        Ok(resp) => panic!("poisoned connection was reused; got {resp:?}"),
+        Err(e) => {
+            assert_eq!(e.code(), "ENTANGLE-E0647", "{e}");
+            assert!(e.to_string().contains("unusable"), "{e}");
+        }
+    }
+
+    // Cancellation (the caller's select! dropped the future) likewise.
+    let mut conn = a.connect(&target).await.unwrap();
+    tokio::select! {
+        _ = conn.request(b"slow") => panic!("should not finish within 50 ms"),
+        _ = tokio::time::sleep(Duration::from_millis(50)) => {}
+    }
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    match conn.request(b"fast").await {
+        Ok(resp) => panic!("poisoned connection was reused; got {resp:?}"),
+        Err(e) => {
+            assert_eq!(e.code(), "ENTANGLE-E0647", "{e}");
+            assert!(e.to_string().contains("unusable"), "{e}");
+        }
+    }
+}

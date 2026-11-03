@@ -558,6 +558,15 @@ async fn accept_loop(
 ///
 /// Every frame on it is a sealed record under the session keys agreed in the
 /// handshake, so only the authenticated remote can produce or read them.
+///
+/// Frames carry no request id, so a connection is only usable while both
+/// ends agree on where they are in the request/response sequence. Any call
+/// that fails, times out or is cancelled (its future dropped) part-way
+/// leaves the connection *poisoned*: every later call fails with
+/// `ENTANGLE-E0647` instead of pairing a late response with the wrong
+/// request. On the serving side, dropping a [`MeshRequest`] without
+/// responding poisons the connection the same way. Open a new connection
+/// after a failure.
 #[derive(Debug)]
 pub struct MeshConn {
     stream: TcpStream,
@@ -567,6 +576,9 @@ pub struct MeshConn {
     /// Held by server-side connections: counts against the connection caps
     /// until this connection is dropped.
     _slot: Option<ConnSlot>,
+    /// Set while an operation is in flight and left set if it does not
+    /// complete; see the type docs.
+    poisoned: bool,
     max_frame_bytes: usize,
     request_timeout: Duration,
     idle_timeout: Duration,
@@ -586,6 +598,7 @@ impl MeshConn {
             sealer: session.sealer,
             opener: session.opener,
             _slot: slot,
+            poisoned: false,
             max_frame_bytes: cfg.max_frame_bytes,
             request_timeout: cfg.request_timeout,
             idle_timeout: cfg.idle_timeout,
@@ -602,8 +615,24 @@ impl MeshConn {
         self.remote.public_key
     }
 
+    fn begin(&mut self) -> Result<(), MeshTailscaleError> {
+        if self.poisoned {
+            return Err(MeshTailscaleError::Stream(
+                "connection is unusable after an earlier failed, timed-out or cancelled \
+                 exchange; open a new one"
+                    .into(),
+            ));
+        }
+        self.poisoned = true;
+        Ok(())
+    }
+
     /// Send one request frame and wait for the response frame.
+    ///
+    /// On any error, timeout or cancellation the connection is poisoned (see
+    /// the type docs).
     pub async fn request(&mut self, payload: &[u8]) -> Result<Vec<u8>, MeshTailscaleError> {
+        self.begin()?;
         let max = self.max_frame_bytes;
         let limit = self.request_timeout;
         let (stream, sealer, opener) = (&mut self.stream, &mut self.sealer, &mut self.opener);
@@ -611,15 +640,21 @@ impl MeshConn {
             write_sealed(stream, sealer, payload, max).await?;
             read_sealed(stream, opener, max).await
         };
-        match timeout(limit, fut).await {
-            Ok(r) => r,
-            Err(_) => Err(MeshTailscaleError::request_timeout(limit)),
-        }
+        let resp = match timeout(limit, fut).await {
+            Ok(r) => r?,
+            Err(_) => return Err(MeshTailscaleError::request_timeout(limit)),
+        };
+        self.poisoned = false;
+        Ok(resp)
     }
 
     /// Wait for the next inbound request. `Ok(None)` when the peer closed the
     /// connection or it sat idle past `idle_timeout`.
+    ///
+    /// The connection stays poisoned until the returned request is answered
+    /// with [`MeshRequest::respond`].
     pub async fn accept_request(&mut self) -> Result<Option<MeshRequest<'_>>, MeshTailscaleError> {
+        self.begin()?;
         let max = self.max_frame_bytes;
         let idle = self.idle_timeout;
         let read = timeout(
@@ -668,8 +703,10 @@ impl MeshRequest<'_> {
         )
         .await
         {
-            Ok(r) => r,
-            Err(_) => Err(MeshTailscaleError::request_timeout(limit)),
+            Ok(r) => r?,
+            Err(_) => return Err(MeshTailscaleError::request_timeout(limit)),
         }
+        conn.poisoned = false;
+        Ok(())
     }
 }
