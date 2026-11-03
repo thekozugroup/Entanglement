@@ -398,7 +398,10 @@ impl IntegrityVerifier {
                 metric,
                 threshold,
             } => {
-                if ok.len() < 2 {
+                // Too few answers for `quorum` agreeing pairs to exist at all:
+                // the cause is the replicas that failed, so report that (an
+                // unreachable peer reads as "unreachable"), and run no metric.
+                if ok.len() < 2 || pair_count(ok.len()) < *quorum as usize {
                     return Err(first_failure(replicas).unwrap_or(
                         IntegrityError::InsufficientReplicas {
                             actual: ok.len(),
@@ -688,6 +691,125 @@ mod tests {
                 observed_policy_hash: h,
             }),
         }
+    }
+
+    fn unreachable(p: u8) -> ReplicaResult {
+        ReplicaResult {
+            peer: peer(p),
+            remote: true,
+            outcome: Err(DispatchError::RemoteTransport {
+                peer: peer(p),
+                reason: "unreachable".into(),
+            }),
+        }
+    }
+
+    /// A hand-written `entangle:integrity/metric@0.1.0` component whose
+    /// distance is `|a[0] - b[0]| / 10` — so a test picks any distance matrix
+    /// by choosing first bytes. An output starting with `0xFF` makes the guest
+    /// trap (`MetricFailed`); one starting with `0xFE` makes it return `NaN`
+    /// (`MetricContractViolation`). Outputs must be non-empty.
+    fn first_byte_metric() -> Vec<u8> {
+        wat::parse_str(
+            r#"(component
+  (core module $m
+    (memory (export "memory") 1)
+    (global $bump (mut i32) (i32.const 1024))
+    (func (export "cabi_realloc") (param i32 i32 i32 i32) (result i32)
+      (local $p i32) (local $end i32)
+      (local.set $p
+        (i32.and
+          (i32.add (global.get $bump) (i32.sub (local.get 2) (i32.const 1)))
+          (i32.sub (i32.const 0) (local.get 2))))
+      (local.set $end (i32.add (local.get $p) (local.get 3)))
+      (if (i32.gt_u (local.get $end) (i32.mul (memory.size) (i32.const 65536)))
+        (then
+          (if (i32.lt_s
+                (memory.grow
+                  (i32.add
+                    (i32.div_u
+                      (i32.sub (local.get $end) (i32.mul (memory.size) (i32.const 65536)))
+                      (i32.const 65536))
+                    (i32.const 1)))
+                (i32.const 0))
+            (then unreachable))))
+      (global.set $bump (local.get $end))
+      (local.get $p))
+    (func (export "compare") (param $pa i32) (param $la i32) (param $pb i32) (param $lb i32) (result f64)
+      (local $x i32) (local $y i32)
+      (local.set $x (i32.load8_u (local.get $pa)))
+      (local.set $y (i32.load8_u (local.get $pb)))
+      (if (i32.or (i32.eq (local.get $x) (i32.const 255)) (i32.eq (local.get $y) (i32.const 255)))
+        (then unreachable))
+      (if (i32.or (i32.eq (local.get $x) (i32.const 254)) (i32.eq (local.get $y) (i32.const 254)))
+        (then (return (f64.const nan))))
+      (f64.div
+        (f64.abs (f64.sub (f64.convert_i32_u (local.get $x)) (f64.convert_i32_u (local.get $y))))
+        (f64.const 10))))
+  (core instance $i (instantiate $m))
+  (func $compare (param "a" (list u8)) (param "b" (list u8)) (result f64)
+    (canon lift (core func $i "compare") (memory $i "memory") (realloc (func $i "cabi_realloc"))))
+  (instance $metric (export "compare" (func $compare)))
+  (export "entangle:integrity/metric@0.1.0" (instance $metric)))"#,
+        )
+        .expect("metric WAT must assemble")
+    }
+
+    /// A verifier whose keyring trusts one publisher, with
+    /// [`first_byte_metric`] signed by it and loaded.
+    fn verifier_with_metric() -> (IntegrityVerifier, MetricRef) {
+        let kp = IdentityKeyPair::generate();
+        let mut kr = Keyring::new();
+        kr.add(entangle_signing::TrustEntry {
+            fingerprint: kp.fingerprint(),
+            public_key: *kp.public().as_bytes(),
+            publisher_name: "metric-publisher".into(),
+            added_at: 0,
+            note: String::new(),
+        });
+        let v = IntegrityVerifier::new(Arc::new(RwLock::new(kr)), peer(0));
+        let wasm = first_byte_metric();
+        let manifest = format!(
+            "[plugin]\nid = \"{}/first-byte@0.1.0\"\nversion = \"0.1.0\"\ntier = 2\n\
+             runtime = \"wasm\"\n",
+            kp.fingerprint_hex()
+        );
+        let bundle = entangle_signing::sign_artifact(&wasm, manifest.as_bytes(), &kp);
+        let metric = v
+            .metrics()
+            .load_package("first-byte", &wasm, manifest.as_bytes(), &bundle)
+            .expect("a signed metric loads");
+        (v, metric)
+    }
+
+    fn sem_policy(metric: &MetricRef, replicas: u8, quorum: u8, threshold: f64) -> IntegrityPolicy {
+        IntegrityPolicy::SemanticEquivalent {
+            replicas,
+            quorum,
+            metric: metric.clone(),
+            threshold,
+        }
+    }
+
+    /// When the replicas that failed make the quorum impossible to reach, the
+    /// first failure is reported as itself (here: an unreachable peer), not
+    /// as an integrity verdict against the replicas that did answer — and no
+    /// metric runs.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn an_unreachable_quorum_reports_the_failure_not_a_verdict() {
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 3, 3, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        // Two answers that agree (1 pair), one unreachable peer: 1 < quorum 3
+        // whatever the metric says.
+        let reps = vec![ok(1, &[10], h), ok(2, &[10], h), unreachable(3)];
+        let err = v.accept(&task(policy, 1024), &env, reps).await.unwrap_err();
+        assert!(
+            matches!(err, DispatchError::RemoteTransport { .. }),
+            "{err:?}"
+        );
+        assert_eq!(v.metrics().instantiations(&metric), 0);
     }
 
     #[test]
