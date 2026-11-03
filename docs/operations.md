@@ -428,9 +428,9 @@ the profile; everything else is denied.
 
 | Layer (Linux) | What it does |
 |---|---|
-| Landlock (ABI ≥ 1) | Filesystem allowlist: the staged binary (read+exec), system libraries and loader cache (read+exec), the package directory (read), the plugin's storage scopes (read+write, never exec), `/dev/null`. ABI ≥ 4: TCP bind/connect denied unless networking is granted. ABI ≥ 6: signals and abstract Unix sockets scoped to the sandbox (the plugin cannot signal the daemon). |
+| Landlock (ABI ≥ 1) | Filesystem allowlist: the staged binary (read+exec), system libraries and loader cache (read+exec), the package directory (read), the plugin's storage scopes (read+write, never exec), `/dev/null`. ABI ≥ 4: TCP bind/connect denied unless networking is granted. ABI ≥ 6: signals and abstract Unix sockets scoped to the sandbox (the plugin cannot signal the daemon). Below ABI 6 the plan is reported as *reduced*: the plugin runs under the daemon's uid with no PID namespace and can signal it. |
 | user + network namespace | When unprivileged user namespaces work: the plugin sees only a downed loopback. |
-| seccomp-bpf | `socket()` refused for every address family not granted (`AF_UNIX` only with `host.docker-socket` — this is what keeps the daemon's RPC socket out of reach); `io_uring_setup`, x32 and foreign-arch syscalls refused. |
+| seccomp-bpf | `socket()` and `socketpair()` refused for every address family not granted (`AF_UNIX` only with `host.docker-socket` — this is what keeps the daemon's RPC socket out of reach); creating or joining namespaces refused (`clone3` reports `ENOSYS`, libc falls back to `clone`); `prlimit`/`setpriority`/`sched_set*`/`ioprio_set` refused on any process but the plugin itself (it shares the daemon's uid); `io_uring_setup`, x32 and foreign-arch syscalls refused. |
 | process | `no_new_privs`, `RLIMIT_CORE=0`, address-space / CPU-time / fd rlimits, inherited fds closed at exec, empty environment, own process group (killed on timeout). |
 
 Fallbacks: **bubblewrap** when Landlock is absent; **Seatbelt** (`sandbox-exec

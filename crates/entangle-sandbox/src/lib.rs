@@ -22,7 +22,8 @@
 //!   system paths to exec a dynamically linked binary, its storage scopes,
 //!   nothing else. On ABI ≥ 4 TCP `bind`/`connect` are handled (denied); on
 //!   ABI ≥ 6 signals and abstract Unix sockets are scoped to the sandbox, so
-//!   the plugin cannot signal the daemon.
+//!   the plugin cannot signal the daemon. Below ABI 6 it can (same uid, no
+//!   PID namespace), and the plan reports itself as degraded.
 //! - **A fresh user + network namespace** (when unprivileged user namespaces
 //!   work): the child sees only a downed loopback interface. Its uid/gid are
 //!   mapped to themselves so files it creates in its storage scope keep the
@@ -36,7 +37,10 @@
 //!   (`unshare`/`clone` with a `CLONE_NEW*` flag, `setns`; `clone3` reports
 //!   `ENOSYS` so libc falls back to `clone`) is refused, so the plugin cannot
 //!   give itself capabilities in a namespace of its own; foreign-architecture
-//!   and x32 syscalls are refused.
+//!   and x32 syscalls are refused; `prlimit64`, `setpriority`, `ioprio_set`
+//!   and `sched_set*` are refused on any process but the plugin itself (it
+//!   shares the daemon's uid, so the kernel would otherwise let it lower the
+//!   daemon's limits — `RLIMIT_CPU = 1` is a kill — or renice it).
 //! - `PR_SET_NO_NEW_PRIVS`, `RLIMIT_CORE = 0`, address-space / CPU / fd
 //!   rlimits, every inherited descriptor above stderr marked close-on-exec,
 //!   an empty environment plus what the profile sets, and its own process

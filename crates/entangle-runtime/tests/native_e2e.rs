@@ -143,7 +143,13 @@ async fn native_plugin_loads_and_invokes_through_the_kernel() {
     let plan = k
         .native_sandbox(&id)
         .expect("native plugin has a sandbox plan");
-    assert!(!plan.is_degraded(), "{}", plan.describe());
+    // Not degraded wherever the host offers the full set of layers. Below
+    // Landlock ABI 6 (CI's ubuntu-24.04 kernel) signals are not scoped, and a
+    // host without seccomp leaves Unix sockets unfiltered: the plan must then
+    // say "reduced", and it does.
+    let host = entangle_sandbox::probe();
+    let full_host = host.landlock_abi.is_some_and(|abi| abi >= 6) && host.seccomp;
+    assert_eq!(plan.is_degraded(), !full_host, "{}", plan.describe());
     assert_eq!(
         plan.network,
         entangle_sandbox::NetworkIsolation::Denied,

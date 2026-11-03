@@ -81,12 +81,24 @@ pub struct Plan {
 
 impl Plan {
     /// `true` when this plan isolates less than the profile asked for.
+    ///
+    /// Besides a missing filesystem or network layer this includes Landlock
+    /// below ABI 6: without signal scoping (and with no PID namespace) the
+    /// plugin, which runs under the daemon's uid, can signal the daemon and
+    /// every other process of that user.
     pub fn is_degraded(&self) -> bool {
         matches!(self.mechanism, Mechanism::Unsandboxed)
             || matches!(
                 self.network,
                 NetworkIsolation::TcpOnly | NetworkIsolation::NotIsolated
             )
+            || self.signals_unscoped()
+    }
+
+    /// Landlock without `LANDLOCK_SCOPE_SIGNAL` (ABI < 6): nothing stops the
+    /// plugin from signalling processes outside its sandbox.
+    fn signals_unscoped(&self) -> bool {
+        matches!(self.mechanism, Mechanism::Landlock { .. }) && !self.landlock_scopes
     }
 
     /// Operator-facing summary, e.g. `Landlock ABI 7 + seccomp + user/net
@@ -114,7 +126,13 @@ impl Plan {
             NetworkIsolation::TcpOnly => "network: TCP denied, UDP NOT isolated (reduced)",
             NetworkIsolation::NotIsolated => "network NOT isolated (operator opt-out)",
         };
-        format!("{}; {net}", layers.join(" + "))
+        let mut out = format!("{}; {net}", layers.join(" + "));
+        if self.signals_unscoped() {
+            out.push_str(
+                "; signals NOT scoped (Landlock ABI < 6: the plugin can signal the daemon)",
+            );
+        }
+        out
     }
 }
 
@@ -336,6 +354,28 @@ mod tests {
             "{}",
             p.describe()
         );
+    }
+
+    /// Below Landlock ABI 6 signals are not scoped: with no PID namespace the
+    /// plugin shares the daemon's uid and can `kill(getppid(), SIGKILL)` or
+    /// `kill(-1, SIGKILL)`. That is reduced isolation and must say so.
+    #[test]
+    fn unscoped_signals_are_reported_as_reduced() {
+        for profile in [no_net(), net()] {
+            for abi in [1, 4, 5] {
+                let p = plan(&profile, &linux(Some(abi), true, true, false), STRICT).unwrap();
+                assert!(!p.landlock_scopes);
+                assert!(p.is_degraded(), "ABI {abi}: {}", p.describe());
+                assert!(
+                    p.describe().contains("signals NOT scoped"),
+                    "{}",
+                    p.describe()
+                );
+            }
+            let p = plan(&profile, &linux(Some(6), true, true, false), STRICT).unwrap();
+            assert!(!p.is_degraded(), "{}", p.describe());
+            assert!(!p.describe().contains("NOT scoped"), "{}", p.describe());
+        }
     }
 
     /// Landlock without any way to take the network: fall back to bwrap ...

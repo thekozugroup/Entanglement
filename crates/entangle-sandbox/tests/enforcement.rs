@@ -275,6 +275,61 @@ async fn child_cannot_create_namespaces() {
     }
 }
 
+/// Soft "Max open files" limit and nice value of `pid`, from `/proc`.
+fn nofile_and_nice(pid: u32) -> (String, String) {
+    let limits = std::fs::read_to_string(format!("/proc/{pid}/limits")).unwrap();
+    let nofile = limits
+        .lines()
+        .find(|l| l.starts_with("Max open files"))
+        .and_then(|l| l.split_whitespace().nth(3))
+        .unwrap()
+        .to_owned();
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap();
+    // Field 19 (nice); fields after the parenthesised comm start at 3.
+    let after_comm = &stat[stat.rfind(')').unwrap() + 2..];
+    let nice = after_comm.split_whitespace().nth(16).unwrap().to_owned();
+    (nofile, nice)
+}
+
+/// Without a PID namespace the plugin shares the daemon's uid, and neither
+/// Landlock nor the namespaces stop `prlimit`/`setpriority` on another
+/// process: a plugin could set the daemon's RLIMIT_CPU to 1 (the kernel then
+/// kills it) or RLIMIT_NOFILE to 0. Calls on the plugin itself still work.
+#[tokio::test(flavor = "multi_thread")]
+async fn child_cannot_change_another_processs_limits_or_priority() {
+    let mut victim = std::process::Command::new("sleep")
+        .arg("60")
+        .spawn()
+        .expect("spawn victim");
+    let pid = victim.id();
+    let before = nofile_and_nice(pid);
+    assert_ne!(before.0, "123");
+
+    for p in [profile(), profile().allow_network(true)] {
+        let plan = host_plan(&p);
+        if !plan.seccomp {
+            eprintln!("skipping: no seccomp on this host ({})", plan.describe());
+            break;
+        }
+        let r = call(&p, &format!("prlimit:{pid}")).await;
+        let r2 = call(&p, &format!("renice:{pid}")).await;
+        let after = nofile_and_nice(pid);
+        assert_eq!(
+            after,
+            before,
+            "victim changed by {}: {r:?} {r2:?}",
+            plan.describe()
+        );
+        assert_eq!(denied_errno(r), libc::EPERM);
+        assert_eq!(denied_errno(r2), libc::EPERM);
+        // On itself the same calls are fine.
+        assert_eq!(call(&p, "prlimit:0").await.unwrap(), b"set");
+        assert_eq!(call(&p, "renice:0").await.unwrap(), b"reniced");
+    }
+    let _ = victim.kill();
+    let _ = victim.wait();
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn environment_is_exactly_what_the_profile_sets() {
     std::env::set_var("ENTANGLE_SANDBOX_TEST_LEAK", "parent-secret");

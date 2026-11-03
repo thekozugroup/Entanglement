@@ -12,6 +12,9 @@
 //!   nr == clone3              -> ERRNO(ENOSYS)  (libc falls back to clone)
 //!   nr == setns               -> ERRNO(EPERM)
 //!   nr == unshare|clone with a CLONE_NEW* flag -> ERRNO(EPERM)
+//!   nr == prlimit64|sched_set{param,scheduler,affinity,attr} on pid != 0
+//!                             -> ERRNO(EPERM)   (not on the daemon)
+//!   nr == setpriority|ioprio_set unless (PROCESS, 0) -> ERRNO(EPERM)
 //!   nr == socket|socketpair:
 //!     domain in allowed set   -> ALLOW
 //!     otherwise               -> ERRNO(EACCES)
@@ -35,6 +38,13 @@ pub(crate) struct Nr {
     pub(crate) clone: u32,
     pub(crate) clone3: u32,
     pub(crate) setns: u32,
+    pub(crate) prlimit64: u32,
+    pub(crate) setpriority: u32,
+    pub(crate) sched_setparam: u32,
+    pub(crate) sched_setscheduler: u32,
+    pub(crate) sched_setaffinity: u32,
+    pub(crate) sched_setattr: u32,
+    pub(crate) ioprio_set: u32,
 }
 
 /// Per-architecture constants. Only architectures listed here get a filter;
@@ -58,6 +68,13 @@ pub(crate) const X86_64: Arch = Arch {
         clone: 56,
         clone3: 435,
         setns: 308,
+        prlimit64: 302,
+        setpriority: 141,
+        sched_setparam: 142,
+        sched_setscheduler: 144,
+        sched_setaffinity: 203,
+        sched_setattr: 314,
+        ioprio_set: 251,
     },
 };
 
@@ -70,6 +87,13 @@ const GENERIC_NR: Nr = Nr {
     clone: 220,
     clone3: 435,
     setns: 268,
+    prlimit64: 261,
+    setpriority: 140,
+    sched_setparam: 118,
+    sched_setscheduler: 119,
+    sched_setaffinity: 122,
+    sched_setattr: 274,
+    ioprio_set: 30,
 };
 
 /// aarch64.
@@ -110,6 +134,7 @@ const X32_SYSCALL_BIT: u32 = 0x4000_0000;
 const OFF_NR: u32 = 0;
 const OFF_ARCH: u32 = 4;
 const OFF_ARG0_LO: u32 = 16;
+const OFF_ARG1_LO: u32 = 24;
 
 const LD_W_ABS: u16 = (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16;
 const JEQ_K: u16 = (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16;
@@ -221,6 +246,36 @@ fn flags_block(flags: u32) -> [libc::sock_filter; 4] {
     ]
 }
 
+/// Block: allow only when the low word of `args[0]` (a `pid_t`) is 0, i.e.
+/// the calling process itself; `EPERM` otherwise.
+fn self_only_block() -> [libc::sock_filter; 4] {
+    [
+        stmt(LD_W_ABS, OFF_ARG0_LO),
+        jump(JEQ_K, 0, 0, 1),
+        stmt(RET_K, RET_ALLOW),
+        stmt(RET_K, RET_EPERM),
+    ]
+}
+
+/// Block for `(which, who, ...)` calls: allow only `which == which_process`
+/// with `who == 0` (the calling process); `EPERM` for any other process,
+/// process group or user.
+fn which_who_block(which_process: u32) -> [libc::sock_filter; 6] {
+    [
+        stmt(LD_W_ABS, OFF_ARG0_LO),
+        jump(JEQ_K, which_process, 0, 3),
+        stmt(LD_W_ABS, OFF_ARG1_LO),
+        jump(JEQ_K, 0, 0, 1),
+        stmt(RET_K, RET_ALLOW),
+        stmt(RET_K, RET_EPERM),
+    ]
+}
+
+/// `PRIO_PROCESS` (`setpriority`'s `which`).
+const PRIO_PROCESS: u32 = 0;
+/// `IOPRIO_WHO_PROCESS` (`ioprio_set`'s `which`).
+const IOPRIO_WHO_PROCESS: u32 = 1;
+
 /// Assemble the program for `arch` (exposed separately for unit tests).
 pub(crate) fn assemble(arch: Arch, policy: SocketPolicy) -> Vec<libc::sock_filter> {
     let nr = arch.nr;
@@ -243,6 +298,21 @@ pub(crate) fn assemble(arch: Arch, policy: SocketPolicy) -> Vec<libc::sock_filte
     deny(&mut p, nr.setns, RET_EPERM);
     guarded(&mut p, nr.unshare, &flags_block(NAMESPACE_FLAGS));
     guarded(&mut p, nr.clone, &flags_block(NAMESPACE_FLAGS & !CSIGNAL));
+    // Resource and scheduling calls on *other* processes. There is no PID
+    // namespace and the uid is the daemon's, so the kernel would let the
+    // plugin set the daemon's RLIMIT_CPU to 1 (a kill) or renice it; Landlock
+    // hooks none of these. The plugin may still adjust itself.
+    for call in [
+        nr.prlimit64,
+        nr.sched_setparam,
+        nr.sched_setscheduler,
+        nr.sched_setaffinity,
+        nr.sched_setattr,
+    ] {
+        guarded(&mut p, call, &self_only_block());
+    }
+    guarded(&mut p, nr.setpriority, &which_who_block(PRIO_PROCESS));
+    guarded(&mut p, nr.ioprio_set, &which_who_block(IOPRIO_WHO_PROCESS));
     // `socketpair` creates sockets just like `socket`: an `AF_UNIX`
     // `SOCK_DGRAM` pair can `sendto` any path-named socket.
     let families = family_block(&policy.families());
@@ -327,6 +397,10 @@ mod tests {
     /// A classic-BPF interpreter for the instructions the assembler emits,
     /// so the program's *behaviour* is tested, not its bytes.
     fn run(prog: &[libc::sock_filter], arch: u32, nr: u32, arg0: u32) -> u32 {
+        run2(prog, arch, nr, arg0, 0)
+    }
+
+    fn run2(prog: &[libc::sock_filter], arch: u32, nr: u32, arg0: u32, arg1: u32) -> u32 {
         let mut a = 0u32;
         let mut pc = 0usize;
         loop {
@@ -337,6 +411,7 @@ mod tests {
                         OFF_NR => nr,
                         OFF_ARCH => arch,
                         OFF_ARG0_LO => arg0,
+                        OFF_ARG1_LO => arg1,
                         other => panic!("unexpected load offset {other}"),
                     };
                     pc += 1;
@@ -492,6 +567,57 @@ mod tests {
         }
     }
 
+    /// Without a PID namespace the plugin shares the daemon's kuid, so the
+    /// kernel lets it change the daemon's rlimits (RLIMIT_CPU = 1 kills it)
+    /// and priorities. Only calls on the plugin itself (`pid` / `who` 0)
+    /// pass; Landlock hooks none of these.
+    #[test]
+    fn resource_calls_on_other_processes_are_refused() {
+        const PRIO_PROCESS: u32 = 0;
+        const PRIO_PGRP: u32 = 1;
+        const PRIO_USER: u32 = 2;
+        const IOPRIO_WHO_PROCESS: u32 = 1;
+        const IOPRIO_WHO_USER: u32 = 3;
+        for arch in [X86, ARM, RISCV64] {
+            let p = assemble(
+                arch,
+                SocketPolicy {
+                    inet: true,
+                    unix: true,
+                },
+            );
+            let nr = arch.nr;
+            let aa = arch.audit_arch;
+            for call in [
+                nr.prlimit64,
+                nr.sched_setparam,
+                nr.sched_setscheduler,
+                nr.sched_setaffinity,
+                nr.sched_setattr,
+            ] {
+                assert_eq!(run(&p, aa, call, 0), RET_ALLOW, "nr {call} on self");
+                assert_eq!(
+                    run(&p, aa, call, 4242),
+                    RET_EPERM,
+                    "nr {call} on another pid"
+                );
+            }
+            assert_eq!(run2(&p, aa, nr.setpriority, PRIO_PROCESS, 0), RET_ALLOW);
+            assert_eq!(run2(&p, aa, nr.setpriority, PRIO_PROCESS, 4242), RET_EPERM);
+            assert_eq!(run2(&p, aa, nr.setpriority, PRIO_PGRP, 0), RET_EPERM);
+            assert_eq!(run2(&p, aa, nr.setpriority, PRIO_USER, 0), RET_EPERM);
+            assert_eq!(
+                run2(&p, aa, nr.ioprio_set, IOPRIO_WHO_PROCESS, 0),
+                RET_ALLOW
+            );
+            assert_eq!(
+                run2(&p, aa, nr.ioprio_set, IOPRIO_WHO_PROCESS, 4242),
+                RET_EPERM
+            );
+            assert_eq!(run2(&p, aa, nr.ioprio_set, IOPRIO_WHO_USER, 0), RET_EPERM);
+        }
+    }
+
     #[test]
     fn io_uring_foreign_arch_and_x32_are_closed() {
         let pol = SocketPolicy {
@@ -526,6 +652,13 @@ mod tests {
             (n.clone, libc::SYS_clone),
             (n.clone3, libc::SYS_clone3),
             (n.setns, libc::SYS_setns),
+            (n.prlimit64, libc::SYS_prlimit64),
+            (n.setpriority, libc::SYS_setpriority),
+            (n.sched_setparam, libc::SYS_sched_setparam),
+            (n.sched_setscheduler, libc::SYS_sched_setscheduler),
+            (n.sched_setaffinity, libc::SYS_sched_setaffinity),
+            (n.sched_setattr, libc::SYS_sched_setattr),
+            (n.ioprio_set, libc::SYS_ioprio_set),
         ];
         for (ours, theirs) in pairs {
             assert_eq!(i64::from(*ours), i64::from(*theirs));

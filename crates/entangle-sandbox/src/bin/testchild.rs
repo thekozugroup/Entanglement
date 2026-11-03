@@ -12,6 +12,8 @@
 //! | `unix:<path>`        | Unix-socket connect; ok("connected") or err(errno)     |
 //! | `unix-dgram:<path>`  | `socketpair(AF_UNIX, SOCK_DGRAM)` + `sendto(path)`     |
 //! | `unshare`            | `unshare(CLONE_NEWUSER\|CLONE_NEWNET)`; ok or err(errno) |
+//! | `prlimit:<pid>`      | set `pid`'s RLIMIT_NOFILE soft limit to 123            |
+//! | `renice:<pid>`       | `setpriority(PRIO_PROCESS, pid, 5)`                    |
 //! | `thread`             | spawn and join a thread; ok("joined")                  |
 //! | `sleep:<ms>`         | sleep, then ok("slept")                                |
 //! | `big:<n>`            | announce an ok frame of n bytes, then stream zeros     |
@@ -81,6 +83,45 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
             {
                 Err("unsupported".into())
             }
+        }
+        "prlimit" => {
+            #[cfg(target_os = "linux")]
+            {
+                let pid: libc::pid_t = arg.parse().map_err(|e| format!("bad pid: {e}"))?;
+                let mut old = libc::rlimit {
+                    rlim_cur: 0,
+                    rlim_max: 0,
+                };
+                // SAFETY: NULL new limit; `old` is a valid out-pointer.
+                if unsafe { libc::prlimit(pid, libc::RLIMIT_NOFILE, std::ptr::null(), &mut old) }
+                    != 0
+                {
+                    return Err(errno_msg(&io::Error::last_os_error()));
+                }
+                let new = libc::rlimit {
+                    rlim_cur: 123.min(old.rlim_max),
+                    rlim_max: old.rlim_max,
+                };
+                // SAFETY: valid in-pointer; NULL old limit.
+                if unsafe { libc::prlimit(pid, libc::RLIMIT_NOFILE, &new, std::ptr::null_mut()) }
+                    != 0
+                {
+                    return Err(errno_msg(&io::Error::last_os_error()));
+                }
+                Ok(b"set".to_vec())
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                Err("unsupported".into())
+            }
+        }
+        "renice" => {
+            let pid: libc::id_t = arg.parse().map_err(|e| format!("bad pid: {e}"))?;
+            // SAFETY: integer-only libc call.
+            if unsafe { libc::setpriority(libc::PRIO_PROCESS, pid, 5) } != 0 {
+                return Err(errno_msg(&io::Error::last_os_error()));
+            }
+            Ok(b"reniced".to_vec())
         }
         "thread" => std::thread::Builder::new()
             .spawn(|| 42)
