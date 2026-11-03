@@ -12,7 +12,7 @@ use entangle_types::{
     errors::EntangleError,
     peer_id::PeerId,
     plugin_id::PluginId,
-    task::{ChannelSpec, IntegrityPolicy, OneShotTask, PartialResultPolicy},
+    task::{ChannelSpec, IntegrityPolicy, MetricRef, OneShotTask, PartialResultPolicy},
 };
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,20 @@ fn test_plugin() -> PluginId {
     "aabbccddeeff00112233445566778899/test-plugin@1.0.0"
         .parse()
         .expect("valid plugin id")
+}
+
+/// A `SemanticEquivalent` policy with an arbitrary (unchecked) threshold.
+fn semantic_equivalent(threshold: f64) -> IntegrityPolicy {
+    IntegrityPolicy::SemanticEquivalent {
+        replicas: 3,
+        quorum: 2,
+        metric: MetricRef {
+            plugin: test_plugin(),
+            publisher_key: [1u8; 32],
+            artifact_blake3: [2u8; 32],
+        },
+        threshold,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -117,14 +131,8 @@ fn atc_int_3_integrity_policy_none_toml_round_trip() {
 /// [0.0, 1.0]; validation is the scheduler's responsibility, not the type's.
 #[test]
 fn atc_int_4_semantic_equivalent_threshold_not_clamped_at_type_level() {
-    let over = IntegrityPolicy::SemanticEquivalent {
-        metric: "cosine".into(),
-        threshold: 1.5,
-    };
-    let under = IntegrityPolicy::SemanticEquivalent {
-        metric: "cosine".into(),
-        threshold: -0.1,
-    };
+    let over = semantic_equivalent(1.5);
+    let under = semantic_equivalent(-0.1);
     // The type accepts these values — enforcement is the scheduler's job.
     match over {
         IntegrityPolicy::SemanticEquivalent { threshold, .. } => {
