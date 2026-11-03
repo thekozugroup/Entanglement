@@ -111,7 +111,9 @@ pub struct TailscaleSection {
     pub enabled: bool,
     /// TCP port for Entanglement traffic over the tailnet.
     pub port: u16,
-    /// `"entangle-on-top"` (default) or `"trust-tailnet"`.
+    /// `"entangle-on-top"` (default) or `"trust-tailnet"` (alias
+    /// `"tailscale-only"`). Validated when the file is loaded.
+    #[serde(deserialize_with = "de_acl_mode")]
     pub acl_mode: String,
     /// Path to the `tailscale` CLI; empty = `$PATH`.
     pub tailscale_cli: String,
@@ -120,6 +122,16 @@ pub struct TailscaleSection {
     /// (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) are served.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bind_ip: Option<std::net::IpAddr>,
+}
+
+/// Accept only spellings `entangle_mesh_tailscale::AclMode` understands, so a
+/// typo fails the load (as an unknown key does) instead of surfacing later as
+/// a transport that silently never started.
+fn de_acl_mode<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+    let s = String::deserialize(d)?;
+    s.parse::<entangle_mesh_tailscale::AclMode>()
+        .map_err(|e| serde::de::Error::custom(format!("acl-mode: {e}")))?;
+    Ok(s)
 }
 
 impl Default for TailscaleSection {
@@ -299,6 +311,21 @@ max_tier_allowed = 2
         assert_eq!(cfg.mesh.tailscale.port, 9);
         assert_eq!(cfg.mesh.tailscale.tailscale_cli, "/x/ts");
         assert!(toml::from_str::<Config>("[mesh.tailscale]\nbogus=1\n").is_err());
+    }
+
+    #[test]
+    fn tailscale_acl_mode_is_validated_when_the_file_is_loaded() {
+        // A typo must stop the daemon at load time (like every other key),
+        // not leave it running without the transport the operator enabled.
+        for bad in ["entangle_on_top", "trust-tailnet ", "open", ""] {
+            let raw = format!("[mesh.tailscale]\nenabled = true\nacl-mode = {bad:?}\n");
+            let err = toml::from_str::<Config>(&raw).expect_err(bad);
+            assert!(err.to_string().contains("acl-mode"), "{bad:?}: {err}");
+        }
+        for good in ["entangle-on-top", "trust-tailnet", "tailscale-only"] {
+            let raw = format!("[mesh.tailscale]\nacl-mode = {good:?}\n");
+            assert!(toml::from_str::<Config>(&raw).is_ok(), "{good}");
+        }
     }
 
     #[test]
