@@ -102,18 +102,6 @@ fn utf8(p: PathBuf) -> Result<Utf8PathBuf> {
     Utf8PathBuf::from_path_buf(p).map_err(|p| anyhow!("path is not valid UTF-8: {}", p.display()))
 }
 
-fn create_private_dir(p: &std::path::Path) -> Result<()> {
-    let mut b = std::fs::DirBuilder::new();
-    b.recursive(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        b.mode(0o700);
-    }
-    b.create(p)
-        .with_context(|| format!("creating session directory {}", p.display()))
-}
-
 #[cfg(unix)]
 fn exit_code(status: std::process::ExitStatus) -> i32 {
     use std::os::unix::process::ExitStatusExt;
@@ -207,10 +195,9 @@ async fn launch(
     token: &str,
     base_url: &str,
 ) -> Result<i32> {
+    // `activate` creates the directory (mode 0700, missing parents too) and
+    // owns it: it is removed if activation fails and by `cleanup` otherwise.
     let dir = utf8(sessions_root().join(session_id))?;
-    create_private_dir(dir.as_std_path())?;
-    // From here on the session owns `dir`: it is removed if activation fails
-    // and by `cleanup` otherwise.
     let plan = session
         .activate(&dir, base_url, TOKEN_ENV)
         .context("writing session config")?

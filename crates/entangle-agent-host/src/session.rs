@@ -65,13 +65,18 @@ impl AgentSession {
         })
     }
 
-    /// Write the session-scoped config under `session_dir` (created if
-    /// missing) pointing every server at `<gateway_base_url>/<name>`.
+    /// Write the session-scoped config under `session_dir` pointing every
+    /// server at `<gateway_base_url>/<name>`.
     ///
     /// `token_env` is the environment variable that carries the bearer token.
     ///
-    /// The session owns `session_dir` from this call on: if activation
-    /// fails it is removed before the error is returned, and otherwise
+    /// `session_dir` must not exist yet: it is created with mode `0700`
+    /// (missing parents too) so other users cannot list or read the session
+    /// config. An existing directory is refused, so the session never takes
+    /// over (and later deletes) a directory it did not create.
+    ///
+    /// The session owns the directory it created: if activation fails it is
+    /// removed before the error is returned, and otherwise
     /// [`cleanup`](Self::cleanup) or [`Drop`] removes it. Activating again
     /// replaces the previous activation and removes its directory first.
     pub fn activate(
@@ -82,12 +87,16 @@ impl AgentSession {
     ) -> Result<&LaunchPlan, SessionError> {
         self.active = None;
         self.remove_session_dir();
+        let text = self
+            .adapter
+            .rewrite_for_gateway(&self.snapshot, gateway_base_url, token_env)?;
+        create_private_dir(session_dir)?;
         self.session_dir = Some(session_dir.to_path_buf());
-        let plan = match self.write_session_config(session_dir, gateway_base_url, token_env) {
+        let plan = match self.adapter.launch_plan(session_dir, &text) {
             Ok(plan) => plan,
             Err(e) => {
                 self.remove_session_dir();
-                return Err(e);
+                return Err(e.into());
             }
         };
         tracing::debug!(
@@ -97,19 +106,6 @@ impl AgentSession {
             "agent-host session activated"
         );
         Ok(self.active.insert(plan))
-    }
-
-    fn write_session_config(
-        &self,
-        session_dir: &Utf8Path,
-        gateway_base_url: &str,
-        token_env: &str,
-    ) -> Result<LaunchPlan, SessionError> {
-        let text = self
-            .adapter
-            .rewrite_for_gateway(&self.snapshot, gateway_base_url, token_env)?;
-        std::fs::create_dir_all(session_dir).map_err(|e| AdapterError::Io(e.to_string()))?;
-        Ok(self.adapter.launch_plan(session_dir, &text)?)
     }
 
     /// The name of the agent this session manages.
@@ -166,6 +162,33 @@ impl AgentSession {
             Err(SessionError::OriginalModified(self.source_path.to_string()))
         }
     }
+}
+
+/// Create `dir` with mode `0700` (unix), and any missing parents likewise.
+/// Fails if `dir` itself already exists.
+fn create_private_dir(dir: &Utf8Path) -> Result<(), AdapterError> {
+    fn builder(recursive: bool) -> std::fs::DirBuilder {
+        let mut b = std::fs::DirBuilder::new();
+        b.recursive(recursive);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            b.mode(0o700);
+        }
+        b
+    }
+    if let Some(parent) = dir.parent().filter(|p| !p.as_str().is_empty()) {
+        builder(true)
+            .create(parent)
+            .map_err(|e| AdapterError::Io(format!("creating {parent}: {e}")))?;
+    }
+    builder(false).create(dir).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::AlreadyExists {
+            AdapterError::Io(format!("session directory {dir} already exists"))
+        } else {
+            AdapterError::Io(format!("creating session directory {dir}: {e}"))
+        }
+    })
 }
 
 impl Drop for AgentSession {

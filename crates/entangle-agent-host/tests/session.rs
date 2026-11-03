@@ -241,6 +241,45 @@ fn second_activate_removes_the_first_session_dir() {
     assert!(!second.exists());
 }
 
+#[cfg(unix)]
+#[test]
+fn activate_creates_a_private_session_dir() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = TempDir::new().unwrap();
+    let src = utf8(&dir.path().join("none.json"));
+    let root = utf8(&dir.path().join("root"));
+    let sess_dir = root.join("sess");
+    let mut s = AgentSession::prepare("claude-code", Some(&src)).unwrap();
+    s.activate(&sess_dir, BASE, "T").unwrap();
+    for d in [&root, &sess_dir] {
+        let mode = fs::metadata(d).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o700, "{d} has mode {mode:o}");
+    }
+    s.cleanup().unwrap();
+}
+
+#[test]
+fn activate_refuses_an_existing_session_dir() {
+    let dir = TempDir::new().unwrap();
+    let src = utf8(&dir.path().join("none.json"));
+    let sess_dir = utf8(&dir.path().join("sess"));
+    fs::create_dir(&sess_dir).unwrap();
+    fs::write(sess_dir.join("keep.txt"), "not the session's").unwrap();
+    {
+        let mut s = AgentSession::prepare("claude-code", Some(&src)).unwrap();
+        let err = s
+            .activate(&sess_dir, BASE, "T")
+            .expect_err("an existing directory must not be taken over");
+        assert!(err.to_string().contains("already exists"), "{err}");
+        s.cleanup().unwrap();
+    }
+    assert_eq!(
+        fs::read_to_string(sess_dir.join("keep.txt")).unwrap(),
+        "not the session's",
+        "a directory the session did not create is never deleted"
+    );
+}
+
 #[test]
 fn unknown_agent_is_an_error() {
     assert!(matches!(
