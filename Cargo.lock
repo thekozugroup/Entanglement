@@ -1788,6 +1788,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "entangle-sandbox"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "entangle-scheduler"
 version = "0.1.0"
 dependencies = [

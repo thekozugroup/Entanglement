@@ -11,7 +11,11 @@
 //! | E0300–E0301 | Task execution                 |
 //! | E0302–E0305 | Integrity policy (see `entangle-runtime`) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
+//! | E0507–E0519 | Host artifact checks, e.g. runtime-kind sniffing (see `entangle-host`) |
 //! | E0600–E0699 | Agent-host adapter (see `entangle-agent-host`) |
+//! | E0700–E0719 | OS-sandbox engagement (see `entangle-sandbox`) |
+//! | E0720–E0739 | Native-plugin supervisor (see `entangle-sandbox`) |
+//! | E0740–E0749 | Native-plugin runtime glue (see `entangle-runtime::native`) |
 //! | E0900       | I/O                            |
 //! | E9999       | Internal / unexpected          |
 //!
@@ -20,10 +24,11 @@
 //! broker / biscuits cross-node paths. The table above is therefore *this
 //! crate's* view, not a workspace-wide registry.
 //!
-//! **Uniqueness.** Within the three enums covered by `tests/error_codes.rs`
-//! ([`EntangleError`], `entangle_runtime::IntegrityError`, and
-//! `entangle_host::HostError`) a code identifies exactly one variant, and the
-//! test enforces that mechanically. Workspace-wide uniqueness is the *intent*
+//! **Uniqueness.** Within the enums covered by `tests/error_codes.rs`
+//! ([`EntangleError`], `entangle_runtime::IntegrityError`,
+//! `entangle_host::HostError`, `entangle_sandbox::{SandboxError,
+//! SupervisorError}` and `entangle_runtime::native::NativeError`) a code
+//! identifies exactly one variant, and the test enforces that mechanically. Workspace-wide uniqueness is the *intent*
 //! but is not yet mechanically enforced: a handful of codes outside those
 //! three enums are still claimed by more than one variant. Widening the test
 //! to every crate is tracked as follow-up work.

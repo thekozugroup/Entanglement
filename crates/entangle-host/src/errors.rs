@@ -6,8 +6,10 @@
 /// its APIs. We store that directly so callers can inspect the root cause via
 /// standard `anyhow` chaining.
 ///
-/// The stable code block `ENTANGLE-E0500`–`ENTANGLE-E0506` is reserved for this
-/// enum; see the range table in `entangle-types::errors` for the workspace map.
+/// The stable code blocks `ENTANGLE-E0500`–`ENTANGLE-E0506` (Wasm execution)
+/// and `ENTANGLE-E0507`–`ENTANGLE-E0519` (artifact checks) are reserved for
+/// this enum; see the range table in `entangle-types::errors` for the
+/// workspace map.
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
     /// ENTANGLE-E0500: failed to compile a WebAssembly component from bytes.
@@ -42,4 +44,19 @@ pub enum HostError {
     /// instantiation or mid-execution.
     #[error("ENTANGLE-E0506: resource limit exceeded: {0}")]
     ResourceExhausted(anyhow::Error),
+
+    /// ENTANGLE-E0507: the artifact is not the runtime kind its manifest
+    /// declares — e.g. `runtime = "wasm"` shipping an ELF executable, or
+    /// `runtime = "native"` shipping a wasm component (spec §4.4.1 case C,
+    /// ATC-MAN-3).
+    #[error(
+        "ENTANGLE-E0507: runtime kind mismatch: manifest declares runtime \"{declared}\" \
+         but the artifact is {observed}"
+    )]
+    RuntimeKindMismatch {
+        /// What `[plugin] runtime` declares.
+        declared: crate::runtime_kind::DeclaredRuntime,
+        /// What the artifact's magic bytes say.
+        observed: crate::runtime_kind::ArtifactKind,
+    },
 }

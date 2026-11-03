@@ -9,6 +9,8 @@
 //! - [`HostEngine`] — shared Wasmtime engine (cheaply cloneable; one per daemon).
 //! - [`LoadedPlugin`] — compiled wasm component ready for one-shot invocation.
 //! - [`HostState`] — per-invocation WASI context and log buffer.
+//! - [`check_runtime_kind`] — magic-byte check that an artifact is the runtime
+//!   kind its manifest declares (ATC-MAN-3).
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -17,9 +19,11 @@ pub mod bindings;
 pub mod engine;
 pub mod errors;
 pub mod plugin;
+pub mod runtime_kind;
 pub mod state;
 
 pub use engine::HostEngine;
 pub use errors::HostError;
 pub use plugin::{LoadedPlugin, PluginRunResult};
+pub use runtime_kind::{check_runtime_kind, ArtifactKind, DeclaredRuntime};
 pub use state::HostState;

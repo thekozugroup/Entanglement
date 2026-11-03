@@ -27,6 +27,7 @@ members = [
     "crates/entangle-observability",
     "crates/entangle-agent-host",
     "crates/entangle-bench",
+    "crates/entangle-sandbox",
 ]
 exclude = [
     "examples/*",
@@ -65,6 +66,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"]
 
 # Compression
 flate2 = "1"
+
+# Raw OS interfaces (Landlock/seccomp syscalls, rlimits) for entangle-sandbox.
+libc = "0.2"
 
 # Terminal detection
 is-terminal = "0.4"
@@ -155,6 +159,7 @@ entangle-pairing = { path = "crates/entangle-pairing" }
 entangle-biscuits = { path = "crates/entangle-biscuits" }
 entangle-scheduler = { path = "crates/entangle-scheduler" }
 entangle-observability = { path = "crates/entangle-observability" }
+entangle-sandbox = { path = "crates/entangle-sandbox" }
 
 [profile.release]
 opt-level = 3
