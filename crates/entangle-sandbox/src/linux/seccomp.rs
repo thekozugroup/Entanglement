@@ -1,5 +1,7 @@
-//! A small seccomp-bpf program that filters `socket()` and `socketpair()` by
-//! address family.
+//! The seccomp-bpf program installed in the sandboxed child: socket families,
+//! namespace creation, cross-process resource calls, keyrings and process
+//! group escapes. Everything else is allowed (Landlock confines the
+//! filesystem; this filter covers what Landlock does not hook).
 //!
 //! Built in the parent (allocation is fine there), installed in the forked
 //! child with one `prctl` (async-signal-safe).

@@ -23,9 +23,10 @@
 //!   nothing else. Scopes (read-only, read-write, devices) are opened
 //!   component by component without following symbolic links — a link
 //!   planted by another plugin with write access to a share cannot redirect
-//!   a grant — so callers pass them under canonical roots. On ABI ≥ 4 TCP `bind`/`connect` are handled (denied); on
-//!   ABI ≥ 6 signals and abstract Unix sockets are scoped to the sandbox, so
-//!   the plugin cannot signal the daemon. Below ABI 6 it can (same uid, no
+//!   a grant — so callers pass them under canonical roots. On ABI ≥ 4 TCP
+//!   `bind`/`connect` are handled (denied); on ABI ≥ 6 signals and abstract
+//!   Unix sockets are scoped to the sandbox, so the plugin cannot signal the
+//!   daemon. Below ABI 6 it can (same uid, no
 //!   PID namespace), and the plan reports itself as degraded.
 //! - **A fresh user + network namespace** (when unprivileged user namespaces
 //!   work): the child sees only a downed loopback interface. Its uid/gid are
@@ -34,8 +35,7 @@
 //! - **A seccomp-bpf filter**: `socket()` and `socketpair()` are refused for
 //!   every address family the profile does not grant (`AF_INET`/`AF_INET6`/
 //!   `AF_NETLINK` without the network, `AF_UNIX` unless explicitly granted,
-//!   `AF_PACKET` never);
-//!   `io_uring_setup` is refused because io_uring can create sockets without
+//!   `AF_PACKET` never); `io_uring_setup` is refused because io_uring can create sockets without
 //!   passing through the `socket` syscall; creating or joining namespaces
 //!   (`unshare`/`clone` with a `CLONE_NEW*` flag, `setns`; `clone3` reports
 //!   `ENOSYS` so libc falls back to `clone`) is refused, so the plugin cannot
@@ -105,7 +105,10 @@
 //!   it (`PR_SET_PDEATHSIG`), but its own descendants are only reached
 //!   through the group kill. PID namespaces or cgroups would close this;
 //!   neither is used yet.
-//! - No cgroup memory/CPU accounting: limits are per-process rlimits.
+//! - No cgroup memory/CPU accounting: limits are per-process rlimits, and
+//!   there is no process-count (`RLIMIT_NPROC`) or file-size
+//!   (`RLIMIT_FSIZE`) limit yet — a plugin can fork, or fill its writable
+//!   scopes, until its deadline.
 
 #![warn(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
