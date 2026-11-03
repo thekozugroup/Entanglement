@@ -220,6 +220,43 @@ async fn child_cannot_reach_a_unix_socket_unless_granted() {
     assert_eq!(out, b"connected");
 }
 
+/// `socketpair()` is the other way to obtain a Unix socket: a datagram pair
+/// can `sendto` any path-named socket the uid can reach, bypassing the
+/// `socket(AF_UNIX)` denial (and relaying data out of a network-denied
+/// plugin). It must be filtered by family exactly like `socket()`.
+#[tokio::test(flavor = "multi_thread")]
+async fn child_cannot_reach_a_unix_socket_through_socketpair_unless_granted() {
+    let outside = tempfile::tempdir().unwrap();
+    let sock = outside.path().join("listener.sock");
+    let listener = std::os::unix::net::UnixDatagram::bind(&sock).unwrap();
+    listener.set_nonblocking(true).unwrap();
+
+    let p = profile();
+    let plan = host_plan(&p);
+    if !plan.seccomp {
+        eprintln!("skipping: no seccomp on this host ({})", plan.describe());
+        return;
+    }
+    let errno = denied_errno(call(&p, &format!("unix-dgram:{}", sock.display())).await);
+    assert_eq!(errno, libc::EACCES, "{}", plan.describe());
+    let mut buf = [0u8; 64];
+    assert!(
+        listener.recv(&mut buf).is_err(),
+        "a datagram from the sandbox reached the outside listener"
+    );
+
+    // Control: with Unix sockets granted the same request is delivered, so
+    // the denial above is the filter's doing.
+    let granted = profile().allow_unix_sockets(true);
+    let out = call(&granted, &format!("unix-dgram:{}", sock.display()))
+        .await
+        .unwrap();
+    assert_eq!(out, b"sent");
+    listener.set_nonblocking(false).unwrap();
+    let n = listener.recv(&mut buf).unwrap();
+    assert_eq!(&buf[..n], b"escaped");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn environment_is_exactly_what_the_profile_sets() {
     std::env::set_var("ENTANGLE_SANDBOX_TEST_LEAK", "parent-secret");

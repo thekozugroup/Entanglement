@@ -27,9 +27,10 @@
 //!   work): the child sees only a downed loopback interface. Its uid/gid are
 //!   mapped to themselves so files it creates in its storage scope keep the
 //!   daemon's ownership.
-//! - **A seccomp-bpf filter**: `socket()` is refused for every address family
-//!   the profile does not grant (`AF_INET`/`AF_INET6`/`AF_NETLINK` without the
-//!   network, `AF_UNIX` unless explicitly granted, `AF_PACKET` never);
+//! - **A seccomp-bpf filter**: `socket()` and `socketpair()` are refused for
+//!   every address family the profile does not grant (`AF_INET`/`AF_INET6`/
+//!   `AF_NETLINK` without the network, `AF_UNIX` unless explicitly granted,
+//!   `AF_PACKET` never);
 //!   `io_uring_setup` is refused because io_uring can create sockets without
 //!   passing through the `socket` syscall; foreign-architecture and x32
 //!   syscalls are refused.

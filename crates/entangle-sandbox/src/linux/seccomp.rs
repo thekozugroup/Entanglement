@@ -1,4 +1,5 @@
-//! A small seccomp-bpf program that filters `socket()` by address family.
+//! A small seccomp-bpf program that filters `socket()` and `socketpair()` by
+//! address family.
 //!
 //! Built in the parent (allocation is fine there), installed in the forked
 //! child with one `prctl` (async-signal-safe).
@@ -8,48 +9,83 @@
 //!   arch != native            -> KILL_PROCESS   (no i386/x32 bypass)
 //!   nr has the x32 bit        -> ERRNO(EPERM)   (x86_64 only)
 //!   nr == io_uring_setup      -> ERRNO(EPERM)   (io_uring can create sockets)
-//!   nr != socket              -> ALLOW
-//!   domain in allowed set     -> ALLOW
-//!   otherwise                 -> ERRNO(EACCES)
+//!   nr == socket|socketpair:
+//!     domain in allowed set   -> ALLOW
+//!     otherwise               -> ERRNO(EACCES)
+//!   otherwise                 -> ALLOW
 //! ```
 
 use std::io;
+
+/// Syscall numbers the filter refers to, for one architecture.
+///
+/// Values are from the kernel's syscall tables (x86_64:
+/// `arch/x86/entry/syscalls/syscall_64.tbl`; aarch64 and riscv64 share the
+/// generic table `include/uapi/asm-generic/unistd.h`). A unit test checks the
+/// running architecture's entry against `libc::SYS_*`.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Nr {
+    pub(crate) socket: u32,
+    pub(crate) socketpair: u32,
+    pub(crate) io_uring_setup: u32,
+}
 
 /// Per-architecture constants. Only architectures listed here get a filter;
 /// elsewhere [`supported`] is `false` and the plan does not count on seccomp.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Arch {
     pub(crate) audit_arch: u32,
-    pub(crate) nr_socket: u32,
-    pub(crate) nr_io_uring_setup: u32,
     pub(crate) has_x32: bool,
+    pub(crate) nr: Nr,
 }
 
-#[cfg(target_arch = "x86_64")]
-pub(crate) const NATIVE: Option<Arch> = Some(Arch {
+/// x86_64.
+pub(crate) const X86_64: Arch = Arch {
     audit_arch: 0xC000_003E, // AUDIT_ARCH_X86_64
-    nr_socket: 41,
-    nr_io_uring_setup: 425,
     has_x32: true,
-});
-#[cfg(target_arch = "aarch64")]
-pub(crate) const NATIVE: Option<Arch> = Some(Arch {
+    nr: Nr {
+        socket: 41,
+        socketpair: 53,
+        io_uring_setup: 425,
+    },
+};
+
+/// The asm-generic syscall table shared by aarch64 and riscv64.
+const GENERIC_NR: Nr = Nr {
+    socket: 198,
+    socketpair: 199,
+    io_uring_setup: 425,
+};
+
+/// aarch64.
+pub(crate) const AARCH64: Arch = Arch {
     audit_arch: 0xC000_00B7, // AUDIT_ARCH_AARCH64
-    nr_socket: 198,
-    nr_io_uring_setup: 425,
     has_x32: false,
-});
-#[cfg(target_arch = "riscv64")]
-pub(crate) const NATIVE: Option<Arch> = Some(Arch {
+    nr: GENERIC_NR,
+};
+
+/// riscv64.
+pub(crate) const RISCV64: Arch = Arch {
     audit_arch: 0xC000_00F3, // AUDIT_ARCH_RISCV64
-    nr_socket: 198,
-    nr_io_uring_setup: 425,
     has_x32: false,
-});
-#[cfg(not(any(
-    target_arch = "x86_64",
-    target_arch = "aarch64",
-    target_arch = "riscv64"
+    nr: GENERIC_NR,
+};
+
+#[cfg(all(target_arch = "x86_64", target_endian = "little"))]
+pub(crate) const NATIVE: Option<Arch> = Some(X86_64);
+#[cfg(all(target_arch = "aarch64", target_endian = "little"))]
+pub(crate) const NATIVE: Option<Arch> = Some(AARCH64);
+#[cfg(all(target_arch = "riscv64", target_endian = "little"))]
+pub(crate) const NATIVE: Option<Arch> = Some(RISCV64);
+// Big-endian variants would need the high-word argument offsets; they are
+// not supported rather than filtered wrongly.
+#[cfg(not(all(
+    any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "riscv64"
+    ),
+    target_endian = "little"
 )))]
 pub(crate) const NATIVE: Option<Arch> = None;
 
@@ -112,8 +148,39 @@ fn jump(code: u16, k: u32, jt: u8, jf: u8) -> libc::sock_filter {
     libc::sock_filter { code, jt, jf, k }
 }
 
+/// `if nr == syscall { <block> }`: the block runs (and must end in a
+/// return) when the syscall matches; otherwise it is skipped with the
+/// syscall number still in the accumulator.
+fn guarded(p: &mut Vec<libc::sock_filter>, syscall: u32, block: &[libc::sock_filter]) {
+    let skip = u8::try_from(block.len()).unwrap_or(u8::MAX);
+    debug_assert!(block.len() <= usize::from(u8::MAX), "BPF block too long");
+    p.push(jump(JEQ_K, syscall, 0, skip));
+    p.extend_from_slice(block);
+}
+
+/// `if nr == syscall { return ret }`.
+fn deny(p: &mut Vec<libc::sock_filter>, syscall: u32, ret: u32) {
+    guarded(p, syscall, &[stmt(RET_K, ret)]);
+}
+
+/// Block: allow when the low word of `args[0]` is one of `families`, else
+/// `EACCES`.
+fn family_block(families: &[u32]) -> Vec<libc::sock_filter> {
+    let mut b = vec![stmt(LD_W_ABS, OFF_ARG0_LO)];
+    let k = families.len();
+    for (i, fam) in families.iter().enumerate() {
+        // Jump over the remaining comparisons and the deny to the final ALLOW.
+        let to_allow = u8::try_from(k - i).unwrap_or(u8::MAX);
+        b.push(jump(JEQ_K, *fam, to_allow, 0));
+    }
+    b.push(stmt(RET_K, RET_EACCES));
+    b.push(stmt(RET_K, RET_ALLOW));
+    b
+}
+
 /// Assemble the program for `arch` (exposed separately for unit tests).
 pub(crate) fn assemble(arch: Arch, policy: SocketPolicy) -> Vec<libc::sock_filter> {
+    let nr = arch.nr;
     let mut p = vec![
         stmt(LD_W_ABS, OFF_ARCH),
         jump(JEQ_K, arch.audit_arch, 1, 0),
@@ -124,19 +191,12 @@ pub(crate) fn assemble(arch: Arch, policy: SocketPolicy) -> Vec<libc::sock_filte
         p.push(jump(JGE_K, X32_SYSCALL_BIT, 0, 1));
         p.push(stmt(RET_K, RET_EPERM));
     }
-    p.push(jump(JEQ_K, arch.nr_io_uring_setup, 0, 1));
-    p.push(stmt(RET_K, RET_EPERM));
-    p.push(jump(JEQ_K, arch.nr_socket, 1, 0));
-    p.push(stmt(RET_K, RET_ALLOW));
-    p.push(stmt(LD_W_ABS, OFF_ARG0_LO));
-    let fams = policy.families();
-    let k = fams.len();
-    for (i, fam) in fams.iter().enumerate() {
-        // Jump over the remaining comparisons and the deny to the final ALLOW.
-        let to_allow = u8::try_from(k - i).unwrap_or(u8::MAX);
-        p.push(jump(JEQ_K, *fam, to_allow, 0));
-    }
-    p.push(stmt(RET_K, RET_EACCES));
+    deny(&mut p, nr.io_uring_setup, RET_EPERM);
+    // `socketpair` creates sockets just like `socket`: an `AF_UNIX`
+    // `SOCK_DGRAM` pair can `sendto` any path-named socket.
+    let families = family_block(&policy.families());
+    guarded(&mut p, nr.socket, &families);
+    guarded(&mut p, nr.socketpair, &families);
     p.push(stmt(RET_K, RET_ALLOW));
     p
 }
@@ -210,18 +270,8 @@ pub(crate) fn supported() -> bool {
 mod tests {
     use super::*;
 
-    const X86: Arch = Arch {
-        audit_arch: 0xC000_003E,
-        nr_socket: 41,
-        nr_io_uring_setup: 425,
-        has_x32: true,
-    };
-    const ARM: Arch = Arch {
-        audit_arch: 0xC000_00B7,
-        nr_socket: 198,
-        nr_io_uring_setup: 425,
-        has_x32: false,
-    };
+    const X86: Arch = X86_64;
+    const ARM: Arch = AARCH64;
 
     /// A classic-BPF interpreter for the instructions the assembler emits,
     /// so the program's *behaviour* is tested, not its bytes.
@@ -270,7 +320,7 @@ mod tests {
                 },
             );
             for fam in [AF_UNIX, AF_INET, AF_INET6, AF_PACKET] {
-                assert_eq!(run(&p, arch.audit_arch, arch.nr_socket, fam), RET_EACCES);
+                assert_eq!(run(&p, arch.audit_arch, arch.nr.socket, fam), RET_EACCES);
             }
             // Unrelated syscalls pass through untouched.
             assert_eq!(run(&p, arch.audit_arch, 0, AF_INET), RET_ALLOW);
@@ -303,6 +353,37 @@ mod tests {
         assert_eq!(run(&p, X86.audit_arch, 41, AF_INET), RET_EACCES);
     }
 
+    /// `socketpair` creates sockets too: a `SOCK_DGRAM` pair can `sendto`
+    /// any path-named socket, so it is filtered by family exactly like
+    /// `socket`.
+    #[test]
+    fn socketpair_is_filtered_like_socket() {
+        for arch in [X86, ARM, RISCV64] {
+            let p = assemble(
+                arch,
+                SocketPolicy {
+                    inet: false,
+                    unix: false,
+                },
+            );
+            assert_eq!(
+                run(&p, arch.audit_arch, arch.nr.socketpair, AF_UNIX),
+                RET_EACCES
+            );
+            let p = assemble(
+                arch,
+                SocketPolicy {
+                    inet: false,
+                    unix: true,
+                },
+            );
+            assert_eq!(
+                run(&p, arch.audit_arch, arch.nr.socketpair, AF_UNIX),
+                RET_ALLOW
+            );
+        }
+    }
+
     #[test]
     fn io_uring_foreign_arch_and_x32_are_closed() {
         let pol = SocketPolicy {
@@ -321,6 +402,23 @@ mod tests {
         let p = assemble(ARM, pol);
         assert_eq!(run(&p, ARM.audit_arch, 425, 0), RET_EPERM);
         assert_eq!(run(&p, X86.audit_arch, 198, AF_INET), RET_KILL_PROCESS);
+    }
+
+    /// The hand-written tables match the `libc` crate's numbers for the
+    /// architecture this test runs on.
+    #[test]
+    fn native_table_matches_libc() {
+        let Some(arch) = NATIVE else { return };
+        let n = arch.nr;
+        let pairs: &[(u32, libc::c_long)] = &[
+            (n.socket, libc::SYS_socket),
+            (n.socketpair, libc::SYS_socketpair),
+            (n.io_uring_setup, libc::SYS_io_uring_setup),
+        ];
+        for (ours, theirs) in pairs {
+            assert_eq!(i64::from(*ours), i64::from(*theirs));
+        }
+        assert_eq!(RISCV64.nr.socketpair, AARCH64.nr.socketpair);
     }
 
     #[test]

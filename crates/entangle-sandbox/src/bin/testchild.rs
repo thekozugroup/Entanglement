@@ -10,6 +10,7 @@
 //! | `connect:<addr>`     | TCP connect; ok("connected") or err(errno)             |
 //! | `udp:<addr>`         | UDP socket + send_to; ok("sent") or err(errno)         |
 //! | `unix:<path>`        | Unix-socket connect; ok("connected") or err(errno)     |
+//! | `unix-dgram:<path>`  | `socketpair(AF_UNIX, SOCK_DGRAM)` + `sendto(path)`     |
 //! | `sleep:<ms>`         | sleep, then ok("slept")                                |
 //! | `big:<n>`            | announce an ok frame of n bytes, then stream zeros     |
 //! | `fail:<msg>`         | err(msg)                                               |
@@ -63,6 +64,7 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
                 Err("unsupported".into())
             }
         }
+        "unix-dgram" => unix_dgram(arg),
         "sleep" => {
             let ms: u64 = arg.parse().map_err(|e| format!("bad ms: {e}"))?;
             std::thread::sleep(Duration::from_millis(ms));
@@ -78,6 +80,49 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
             .map_err(|_| "unset".to_owned()),
         other => Err(format!("unknown command {other:?}")),
     }
+}
+
+/// `socketpair(AF_UNIX, SOCK_DGRAM)`, then send "escaped" from one end to the
+/// path-named datagram socket at `path`.
+#[cfg(target_os = "linux")]
+fn unix_dgram(path: &str) -> Result<Vec<u8>, String> {
+    use std::os::unix::ffi::OsStrExt;
+    let mut fds = [0 as libc::c_int; 2];
+    // SAFETY: `fds` is a valid out-array of two descriptors.
+    if unsafe { libc::socketpair(libc::AF_UNIX, libc::SOCK_DGRAM, 0, fds.as_mut_ptr()) } != 0 {
+        return Err(errno_msg(&io::Error::last_os_error()));
+    }
+    // SAFETY: an all-zero sockaddr_un is valid.
+    let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
+    let bytes = std::ffi::OsStr::new(path).as_bytes();
+    if bytes.len() >= addr.sun_path.len() {
+        return Err("path too long".into());
+    }
+    for (d, s) in addr.sun_path.iter_mut().zip(bytes) {
+        *d = *s as libc::c_char;
+    }
+    let msg = b"escaped";
+    // SAFETY: valid descriptor, buffer and address of the stated length.
+    let n = unsafe {
+        libc::sendto(
+            fds[0],
+            msg.as_ptr().cast(),
+            msg.len(),
+            0,
+            (&addr as *const libc::sockaddr_un).cast(),
+            std::mem::size_of::<libc::sockaddr_un>() as libc::socklen_t,
+        )
+    };
+    if n < 0 {
+        return Err(errno_msg(&io::Error::last_os_error()));
+    }
+    Ok(b"sent".to_vec())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn unix_dgram(_path: &str) -> Result<Vec<u8>, String> {
+    Err("unsupported".into())
 }
 
 fn main() {
