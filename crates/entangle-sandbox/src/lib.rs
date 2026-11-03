@@ -32,8 +32,11 @@
 //!   `AF_NETLINK` without the network, `AF_UNIX` unless explicitly granted,
 //!   `AF_PACKET` never);
 //!   `io_uring_setup` is refused because io_uring can create sockets without
-//!   passing through the `socket` syscall; foreign-architecture and x32
-//!   syscalls are refused.
+//!   passing through the `socket` syscall; creating or joining namespaces
+//!   (`unshare`/`clone` with a `CLONE_NEW*` flag, `setns`; `clone3` reports
+//!   `ENOSYS` so libc falls back to `clone`) is refused, so the plugin cannot
+//!   give itself capabilities in a namespace of its own; foreign-architecture
+//!   and x32 syscalls are refused.
 //! - `PR_SET_NO_NEW_PRIVS`, `RLIMIT_CORE = 0`, address-space / CPU / fd
 //!   rlimits, every inherited descriptor above stderr marked close-on-exec,
 //!   an empty environment plus what the profile sets, and its own process

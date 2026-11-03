@@ -257,6 +257,24 @@ async fn child_cannot_reach_a_unix_socket_through_socketpair_unless_granted() {
     assert_eq!(&buf[..n], b"escaped");
 }
 
+/// A plugin must not create namespaces of its own (a fresh user namespace
+/// gives it every capability there, reaching CAP_NET_ADMIN-gated kernel
+/// code), whether or not it was granted the network. Threads (`clone3` is
+/// answered with ENOSYS, libc falls back to `clone`) keep working.
+#[tokio::test(flavor = "multi_thread")]
+async fn child_cannot_create_namespaces() {
+    for p in [profile(), profile().allow_network(true)] {
+        let plan = host_plan(&p);
+        if !plan.seccomp {
+            eprintln!("skipping: no seccomp on this host ({})", plan.describe());
+            return;
+        }
+        assert_eq!(call(&p, "thread").await.unwrap(), b"joined");
+        let errno = denied_errno(call(&p, "unshare").await);
+        assert_eq!(errno, libc::EPERM, "{}", plan.describe());
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn environment_is_exactly_what_the_profile_sets() {
     std::env::set_var("ENTANGLE_SANDBOX_TEST_LEAK", "parent-secret");

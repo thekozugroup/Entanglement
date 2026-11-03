@@ -9,6 +9,9 @@
 //!   arch != native            -> KILL_PROCESS   (no i386/x32 bypass)
 //!   nr has the x32 bit        -> ERRNO(EPERM)   (x86_64 only)
 //!   nr == io_uring_setup      -> ERRNO(EPERM)   (io_uring can create sockets)
+//!   nr == clone3              -> ERRNO(ENOSYS)  (libc falls back to clone)
+//!   nr == setns               -> ERRNO(EPERM)
+//!   nr == unshare|clone with a CLONE_NEW* flag -> ERRNO(EPERM)
 //!   nr == socket|socketpair:
 //!     domain in allowed set   -> ALLOW
 //!     otherwise               -> ERRNO(EACCES)
@@ -28,6 +31,10 @@ pub(crate) struct Nr {
     pub(crate) socket: u32,
     pub(crate) socketpair: u32,
     pub(crate) io_uring_setup: u32,
+    pub(crate) unshare: u32,
+    pub(crate) clone: u32,
+    pub(crate) clone3: u32,
+    pub(crate) setns: u32,
 }
 
 /// Per-architecture constants. Only architectures listed here get a filter;
@@ -47,6 +54,10 @@ pub(crate) const X86_64: Arch = Arch {
         socket: 41,
         socketpair: 53,
         io_uring_setup: 425,
+        unshare: 272,
+        clone: 56,
+        clone3: 435,
+        setns: 308,
     },
 };
 
@@ -55,6 +66,10 @@ const GENERIC_NR: Nr = Nr {
     socket: 198,
     socketpair: 199,
     io_uring_setup: 425,
+    unshare: 97,
+    clone: 220,
+    clone3: 435,
+    setns: 268,
 };
 
 /// aarch64.
@@ -99,12 +114,14 @@ const OFF_ARG0_LO: u32 = 16;
 const LD_W_ABS: u16 = (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16;
 const JEQ_K: u16 = (libc::BPF_JMP | libc::BPF_JEQ | libc::BPF_K) as u16;
 const JGE_K: u16 = (libc::BPF_JMP | libc::BPF_JGE | libc::BPF_K) as u16;
+const JSET_K: u16 = (libc::BPF_JMP | libc::BPF_JSET | libc::BPF_K) as u16;
 const RET_K: u16 = (libc::BPF_RET | libc::BPF_K) as u16;
 
 pub(crate) const RET_ALLOW: u32 = libc::SECCOMP_RET_ALLOW;
 pub(crate) const RET_KILL_PROCESS: u32 = libc::SECCOMP_RET_KILL_PROCESS;
 pub(crate) const RET_EPERM: u32 = libc::SECCOMP_RET_ERRNO | (libc::EPERM as u32);
 pub(crate) const RET_EACCES: u32 = libc::SECCOMP_RET_ERRNO | (libc::EACCES as u32);
+pub(crate) const RET_ENOSYS: u32 = libc::SECCOMP_RET_ERRNO | (libc::ENOSYS as u32);
 
 /// Which address families `socket()` may create.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -178,6 +195,32 @@ fn family_block(families: &[u32]) -> Vec<libc::sock_filter> {
     b
 }
 
+/// Every `CLONE_NEW*` flag (`unshare` and `clone` share the bit values).
+const NAMESPACE_FLAGS: u32 = (libc::CLONE_NEWNS
+    | libc::CLONE_NEWCGROUP
+    | libc::CLONE_NEWUTS
+    | libc::CLONE_NEWIPC
+    | libc::CLONE_NEWUSER
+    | libc::CLONE_NEWPID
+    | libc::CLONE_NEWNET
+    | libc::CLONE_NEWTIME) as u32;
+
+/// `clone()` keeps the exit signal in its low byte (`CSIGNAL`), where
+/// `CLONE_NEWTIME` would sit; `clone()` cannot create a time namespace.
+const CSIGNAL: u32 = 0xff;
+
+/// Block: `EPERM` when the low word of `args[0]` has any of `flags` set.
+/// Namespace flags all live in the low word (the kernel takes `clone`'s
+/// flags from the lower 32 bits and rejects unknown `unshare` flags).
+fn flags_block(flags: u32) -> [libc::sock_filter; 4] {
+    [
+        stmt(LD_W_ABS, OFF_ARG0_LO),
+        jump(JSET_K, flags, 0, 1),
+        stmt(RET_K, RET_EPERM),
+        stmt(RET_K, RET_ALLOW),
+    ]
+}
+
 /// Assemble the program for `arch` (exposed separately for unit tests).
 pub(crate) fn assemble(arch: Arch, policy: SocketPolicy) -> Vec<libc::sock_filter> {
     let nr = arch.nr;
@@ -192,6 +235,14 @@ pub(crate) fn assemble(arch: Arch, policy: SocketPolicy) -> Vec<libc::sock_filte
         p.push(stmt(RET_K, RET_EPERM));
     }
     deny(&mut p, nr.io_uring_setup, RET_EPERM);
+    // No namespaces of the plugin's own: a fresh user namespace grants every
+    // capability inside it (CAP_NET_ADMIN reaches nf_tables and friends).
+    // clone3 passes its flags behind a pointer the filter cannot read, so it
+    // reports ENOSYS and libc falls back to clone, whose flags are checked.
+    deny(&mut p, nr.clone3, RET_ENOSYS);
+    deny(&mut p, nr.setns, RET_EPERM);
+    guarded(&mut p, nr.unshare, &flags_block(NAMESPACE_FLAGS));
+    guarded(&mut p, nr.clone, &flags_block(NAMESPACE_FLAGS & !CSIGNAL));
     // `socketpair` creates sockets just like `socket`: an `AF_UNIX`
     // `SOCK_DGRAM` pair can `sendto` any path-named socket.
     let families = family_block(&policy.families());
@@ -290,11 +341,11 @@ mod tests {
                     };
                     pc += 1;
                 }
-                JEQ_K | JGE_K => {
-                    let taken = if ins.code == JEQ_K {
-                        a == ins.k
-                    } else {
-                        a >= ins.k
+                JEQ_K | JGE_K | JSET_K => {
+                    let taken = match ins.code {
+                        JEQ_K => a == ins.k,
+                        JGE_K => a >= ins.k,
+                        _ => a & ins.k != 0,
                     };
                     pc += 1 + usize::from(if taken { ins.jt } else { ins.jf });
                 }
@@ -384,6 +435,63 @@ mod tests {
         }
     }
 
+    /// A plugin must not create (or join) namespaces of its own: a fresh
+    /// user namespace hands it every capability inside it, which makes
+    /// `CAP_NET_ADMIN`-gated kernel code (nf_tables, ...) reachable.
+    /// `clone3` hides its flags behind a pointer, so it answers `ENOSYS` and
+    /// libc falls back to `clone`, whose flags are checked.
+    #[test]
+    fn namespace_creation_is_refused_but_threads_and_fork_are_not() {
+        const SIGCHLD: u32 = libc::SIGCHLD as u32;
+        let thread_flags = (libc::CLONE_VM
+            | libc::CLONE_FS
+            | libc::CLONE_FILES
+            | libc::CLONE_SIGHAND
+            | libc::CLONE_THREAD
+            | libc::CLONE_SYSVSEM
+            | libc::CLONE_SETTLS
+            | libc::CLONE_PARENT_SETTID
+            | libc::CLONE_CHILD_CLEARTID) as u32;
+        for arch in [X86, ARM, RISCV64] {
+            for pol in [
+                SocketPolicy {
+                    inet: false,
+                    unix: false,
+                },
+                SocketPolicy {
+                    inet: true,
+                    unix: true,
+                },
+            ] {
+                let p = assemble(arch, pol);
+                let nr = arch.nr;
+                let aa = arch.audit_arch;
+                for ns in [
+                    libc::CLONE_NEWUSER,
+                    libc::CLONE_NEWNET,
+                    libc::CLONE_NEWNS,
+                    libc::CLONE_NEWPID,
+                    libc::CLONE_NEWIPC,
+                    libc::CLONE_NEWUTS,
+                    libc::CLONE_NEWCGROUP,
+                    libc::CLONE_NEWTIME,
+                ] {
+                    let ns = ns as u32;
+                    assert_eq!(run(&p, aa, nr.unshare, ns), RET_EPERM, "unshare {ns:#x}");
+                    if ns != libc::CLONE_NEWTIME as u32 {
+                        assert_eq!(run(&p, aa, nr.clone, ns | SIGCHLD), RET_EPERM, "{ns:#x}");
+                    }
+                }
+                assert_eq!(run(&p, aa, nr.setns, 3), RET_EPERM);
+                assert_eq!(run(&p, aa, nr.clone3, 0), RET_ENOSYS);
+                // fork() and pthread_create() stay possible.
+                assert_eq!(run(&p, aa, nr.clone, SIGCHLD), RET_ALLOW);
+                assert_eq!(run(&p, aa, nr.clone, thread_flags), RET_ALLOW);
+                assert_eq!(run(&p, aa, nr.unshare, libc::CLONE_FS as u32), RET_ALLOW);
+            }
+        }
+    }
+
     #[test]
     fn io_uring_foreign_arch_and_x32_are_closed() {
         let pol = SocketPolicy {
@@ -414,6 +522,10 @@ mod tests {
             (n.socket, libc::SYS_socket),
             (n.socketpair, libc::SYS_socketpair),
             (n.io_uring_setup, libc::SYS_io_uring_setup),
+            (n.unshare, libc::SYS_unshare),
+            (n.clone, libc::SYS_clone),
+            (n.clone3, libc::SYS_clone3),
+            (n.setns, libc::SYS_setns),
         ];
         for (ours, theirs) in pairs {
             assert_eq!(i64::from(*ours), i64::from(*theirs));

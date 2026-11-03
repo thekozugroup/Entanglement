@@ -11,6 +11,8 @@
 //! | `udp:<addr>`         | UDP socket + send_to; ok("sent") or err(errno)         |
 //! | `unix:<path>`        | Unix-socket connect; ok("connected") or err(errno)     |
 //! | `unix-dgram:<path>`  | `socketpair(AF_UNIX, SOCK_DGRAM)` + `sendto(path)`     |
+//! | `unshare`            | `unshare(CLONE_NEWUSER\|CLONE_NEWNET)`; ok or err(errno) |
+//! | `thread`             | spawn and join a thread; ok("joined")                  |
 //! | `sleep:<ms>`         | sleep, then ok("slept")                                |
 //! | `big:<n>`            | announce an ok frame of n bytes, then stream zeros     |
 //! | `fail:<msg>`         | err(msg)                                               |
@@ -65,6 +67,27 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
             }
         }
         "unix-dgram" => unix_dgram(arg),
+        "unshare" => {
+            #[cfg(target_os = "linux")]
+            {
+                // SAFETY: integer-only syscall; this helper is single-threaded.
+                if unsafe { libc::unshare(libc::CLONE_NEWUSER | libc::CLONE_NEWNET) } == 0 {
+                    Ok(b"unshared".to_vec())
+                } else {
+                    Err(errno_msg(&io::Error::last_os_error()))
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                Err("unsupported".into())
+            }
+        }
+        "thread" => std::thread::Builder::new()
+            .spawn(|| 42)
+            .map_err(|e| errno_msg(&e))?
+            .join()
+            .map(|_| b"joined".to_vec())
+            .map_err(|_| "thread panicked".to_owned()),
         "sleep" => {
             let ms: u64 = arg.parse().map_err(|e| format!("bad ms: {e}"))?;
             std::thread::sleep(Duration::from_millis(ms));
