@@ -89,6 +89,8 @@ fn fake_mcp_server() {
                     json!({"content": []})
                 }
                 "fail" => json!({"isError": true, "content": [{"type": "text", "text": "nope"}]}),
+                // Die without answering.
+                "exit" => std::process::exit(0),
                 // Ask the client something and return whatever comes back.
                 "elicit" | "server_ping" => {
                     let (sid, req) = if tool == "elicit" {
@@ -586,6 +588,43 @@ async fn timed_out_request_is_cancelled_downstream() {
         "no notifications/cancelled for the timed-out request: {:?}",
         cancellations(&f)
     );
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
+async fn respawned_server_is_handshaken_with_the_clients_protocol_version() {
+    let f = fixture().await;
+    let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}});
+    let (_, v) = rpc(&f, "fake", init.clone()).await;
+    assert_eq!(v["result"]["protocolVersion"], "2025-06-18");
+    // The server dies; the next request starts a new one, and the gateway
+    // has to do the handshake on the client's behalf.
+    let (_, v) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"exit"}}),
+    )
+    .await;
+    assert!(v.get("error").is_some(), "{v}");
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":3,"method":"tools/list"}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    let inits: Vec<Value> = received(&f)
+        .into_iter()
+        .filter(|m| m["method"] == "initialize")
+        .collect();
+    assert_eq!(inits.len(), 2, "{inits:?}");
+    assert_eq!(
+        inits[1]["params"]["protocolVersion"], "2025-06-18",
+        "respawn handshake ignored the version the client negotiated"
+    );
+    // A client that re-initializes gets the version it asked for.
+    let (_, v) = rpc(&f, "fake", init).await;
+    assert_eq!(v["result"]["protocolVersion"], "2025-06-18", "{v}");
     f.gw.shutdown().await;
 }
 

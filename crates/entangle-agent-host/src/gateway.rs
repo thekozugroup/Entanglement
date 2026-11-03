@@ -31,7 +31,11 @@
 //!   request matches), and a request that times out after it was written is
 //!   cancelled downstream by the gateway. `initialize` is passed through on first use and cached;
 //!   later `initialize` calls get the cached result; if the first message is
-//!   not `initialize` the gateway performs the handshake itself. The whole
+//!   not `initialize` the gateway performs the handshake itself, offering
+//!   the `protocolVersion` of the latest client `initialize` (so a respawned
+//!   process negotiates what the client negotiated). One process serves
+//!   every client of a route, so a cached reply carries the version that
+//!   process negotiated even if a later client asked for another. The whole
 //!   handshake (including `notifications/initialized`, which the gateway
 //!   sends itself) completes before any other message reaches a new
 //!   process. A dead process is respawned on the next request.
@@ -730,11 +734,19 @@ fn without_unrelayable_capabilities(init: &Value) -> Value {
     init
 }
 
+/// Protocol version the gateway offers when it handshakes on its own and no
+/// client has said which version it speaks yet.
+const DEFAULT_PROTOCOL_VERSION: &str = "2025-03-26";
+
 struct Downstream {
     name: String,
     spec: McpServerSpec,
     timeout: Duration,
     proc: tokio::sync::Mutex<Option<Arc<StdioProc>>>,
+    /// `protocolVersion` from the latest client `initialize`. A respawned
+    /// process is handshaken with it, so its cached result carries the
+    /// version the client negotiated rather than a gateway default.
+    client_version: Mutex<Option<String>>,
 }
 
 impl Downstream {
@@ -766,13 +778,18 @@ impl Downstream {
         }
         tracing::info!(server = %self.name, command = %command, "starting downstream MCP server");
         let p = StdioProc::spawn(&self.name, command, args, env, self.timeout)?;
+        let version = self
+            .client_version
+            .lock()
+            .clone()
+            .unwrap_or_else(|| DEFAULT_PROTOCOL_VERSION.to_string());
         let init = client_init.map(without_unrelayable_capabilities).unwrap_or_else(|| {
             // The client skipped (or already completed, against a previous
             // process) the handshake: do it ourselves.
             json!({
                 "jsonrpc": "2.0", "id": 0, "method": "initialize",
                 "params": {
-                    "protocolVersion": "2025-03-26",
+                    "protocolVersion": version,
                     "capabilities": {},
                     "clientInfo": {"name": "entangle-gateway", "version": env!("CARGO_PKG_VERSION")}
                 }
@@ -812,6 +829,14 @@ impl Downstream {
 
     async fn call(&self, msg: Value) -> Result<Value, DsError> {
         let is_init = msg.get("method").and_then(Value::as_str) == Some("initialize");
+        if is_init {
+            if let Some(v) = msg
+                .pointer("/params/protocolVersion")
+                .and_then(Value::as_str)
+            {
+                *self.client_version.lock() = Some(v.to_string());
+            }
+        }
         let (p, init_reply) = self.ensure(is_init.then_some(&msg)).await?;
         if let Some(reply) = init_reply {
             return Ok(reply);
@@ -1464,6 +1489,7 @@ impl Gateway {
                         spec: spec.clone(),
                         timeout: self.request_timeout,
                         proc: tokio::sync::Mutex::new(None),
+                        client_version: Mutex::new(None),
                     }),
                 )
             })
