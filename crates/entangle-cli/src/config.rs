@@ -98,6 +98,39 @@ pub fn load(path: &Path) -> anyhow::Result<Config> {
     Ok(cfg)
 }
 
+/// The `[security] max_tier_allowed` ceiling from `~/.entangle/config.toml`.
+pub fn max_tier_allowed() -> anyhow::Result<entangle_types::tier::Tier> {
+    let cfg = load(&config_path())?;
+    entangle_types::tier::Tier::try_from(cfg.security.max_tier_allowed).map_err(|e| {
+        anyhow::anyhow!(
+            "invalid [security] max_tier_allowed in {}: {e}",
+            config_path().display()
+        )
+    })
+}
+
+/// Kernel settings for the CLI's in-process (`--allow-local`) kernel.
+///
+/// Honours the same `[security]` keys as the daemon — the tier ceiling
+/// (`max_tier_allowed = 4` disables tier-5 plugins) and the native-plugin
+/// sandbox opt-out — so a local load is never more permissive than the
+/// daemon would be. Native plugin storage lives in `~/.entangle/data`, staged
+/// binaries in `~/.entangle/native`.
+pub fn kernel_config() -> anyhow::Result<entangle_runtime::KernelConfig> {
+    let cfg = load(&config_path())?;
+    let dir = entangle_dir();
+    Ok(entangle_runtime::KernelConfig {
+        max_tier_allowed: max_tier_allowed()?,
+        native: entangle_runtime::NativeConfig {
+            allow_unsandboxed: cfg.security.allow_unsandboxed_native,
+            data_dir: Some(dir.join("data")),
+            staging_dir: Some(dir.join("native")),
+            ..entangle_runtime::NativeConfig::default()
+        },
+        ..entangle_runtime::KernelConfig::default()
+    })
+}
+
 /// Serialize `c` to `path`, creating parent directories as needed.
 pub fn save(path: &Path, c: &Config) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
