@@ -447,6 +447,17 @@ impl MeshTailscale {
         out
     }
 
+    /// Forget every discovered candidate (spec §6.1.1: when the tailnet is
+    /// not active, peers reachable only via `mesh.tailscale` are
+    /// unreachable). Returns how many were dropped.
+    pub fn clear_candidates(&self) -> usize {
+        self.inner
+            .candidates
+            .lock()
+            .map(|mut c| std::mem::take(&mut *c).len())
+            .unwrap_or(0)
+    }
+
     /// Candidates found by the last [`MeshTailscale::discover`] round.
     pub fn candidates(&self) -> Vec<TailscalePeer> {
         self.inner

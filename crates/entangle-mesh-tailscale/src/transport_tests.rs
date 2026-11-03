@@ -686,6 +686,9 @@ async fn a_relay_cannot_turn_a_rejection_into_an_admission() {
     );
 }
 
+// Needs a second loopback address (127.0.0.x): Linux routes all of 127/8 to
+// `lo`; other systems configure only 127.0.0.1 by default.
+#[cfg(target_os = "linux")]
 #[tokio::test]
 async fn discovery_does_not_let_a_relay_take_over_a_peer() {
     // S listens on 127.0.0.1:P; M relays 127.0.0.2:P -> S and answers last.
@@ -867,6 +870,7 @@ async fn by_default_discovery_and_connect_never_dial_non_tailnet_addresses() {
 // ------------------------------------------------------- resource limits --
 
 /// Open a TCP connection to `to` from the local address `from_ip`.
+#[cfg(target_os = "linux")]
 async fn connect_from(from_ip: &str, to: SocketAddr) -> TcpStream {
     let sock = tokio::net::TcpSocket::new_v4().unwrap();
     sock.bind(SocketAddr::new(from_ip.parse().unwrap(), 0))
@@ -874,6 +878,9 @@ async fn connect_from(from_ip: &str, to: SocketAddr) -> TcpStream {
     sock.connect(to).await.unwrap()
 }
 
+// Needs a second loopback address (127.0.0.x): Linux routes all of 127/8 to
+// `lo`; other systems configure only 127.0.0.1 by default.
+#[cfg(target_os = "linux")]
 #[tokio::test]
 async fn silent_connections_from_one_source_cannot_starve_other_peers() {
     // Long server-side handshake timeout so the silent sockets keep their
