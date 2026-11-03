@@ -18,7 +18,8 @@ use crate::error::SandboxError;
 /// secrets handed to it and would land outside its storage scope.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResourceLimits {
-    /// `RLIMIT_AS`: maximum virtual address space, in bytes.
+    /// `RLIMIT_AS`: maximum virtual address space, in bytes (Linux only;
+    /// macOS does not enforce it).
     ///
     /// Address-space limits are coarse (they count reservations, not resident
     /// memory); runtimes that reserve large virtual regions up front (V8's

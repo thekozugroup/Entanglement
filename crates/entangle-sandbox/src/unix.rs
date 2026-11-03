@@ -114,6 +114,9 @@ impl ChildSetup {
     /// spawn error), so no child ever execs half-sandboxed.
     fn run(&self) -> io::Result<()> {
         set_rlimit(libc::RLIMIT_CORE, 0, 0)?;
+        // Address-space limits are Linux-only: macOS accepts RLIMIT_AS
+        // inconsistently and does not enforce it.
+        #[cfg(target_os = "linux")]
         if let Some(bytes) = self.limits.address_space_bytes {
             set_rlimit(libc::RLIMIT_AS, bytes, bytes)?;
         }
