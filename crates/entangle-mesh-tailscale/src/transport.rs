@@ -23,6 +23,11 @@ use crate::{AclMode, MeshTailscaleConfig, TailscalePeer};
 /// dropped immediately so a flood cannot exhaust tasks or descriptors.
 const MAX_PENDING_HANDSHAKES: usize = 64;
 
+/// Maximum probes one discovery round runs at once. Each holds a socket for
+/// up to connect + handshake timeout, and a shared tailnet can list
+/// thousands of online nodes.
+const MAX_CONCURRENT_PROBES: usize = 16;
+
 /// Maximum in-flight inbound handshakes from one source IP, so that one host
 /// holding silent connections cannot take every slot of
 /// [`MAX_PENDING_HANDSHAKES`] and lock all other peers out.
@@ -380,7 +385,8 @@ impl MeshTailscale {
         self.discover_on_port(status, port).await
     }
 
-    /// [`MeshTailscale::discover`] with an explicit remote port.
+    /// [`MeshTailscale::discover`] with an explicit remote port. At most 16
+    /// probes run at once.
     pub async fn discover_on_port(
         &self,
         status: &TailscaleStatus,
@@ -388,6 +394,7 @@ impl MeshTailscale {
     ) -> Vec<TailscalePeer> {
         let mut set = JoinSet::new();
         let policy = self.inner.config.address_policy;
+        let probes = Arc::new(Semaphore::new(MAX_CONCURRENT_PROBES));
         for node in status.online_peers() {
             let me = self.clone();
             // Never dial outside the tailnet, whatever the status JSON says:
@@ -402,7 +409,11 @@ impl MeshTailscale {
                 continue;
             }
             let dns = node.dns_name.clone();
+            let probes = Arc::clone(&probes);
             set.spawn(async move {
+                // Closed only if the semaphore is dropped, which it is not
+                // while this round runs.
+                let _permit = probes.acquire_owned().await.ok()?;
                 for ip in ips {
                     if let Ok(mut p) = me.probe(SocketAddr::new(ip, port)).await {
                         p.magic_dns = dns;

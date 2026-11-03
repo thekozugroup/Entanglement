@@ -1057,3 +1057,43 @@ async fn a_revoked_peer_is_not_served_on_its_open_connection() {
         "handler ran after revocation"
     );
 }
+
+#[tokio::test]
+async fn discovery_bounds_concurrent_probes() {
+    // 40 online "tailnet nodes" whose port accepts and then says nothing (as
+    // a node that is not running Entanglement behind a proxy might).
+    let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = l.local_addr().unwrap().port();
+    let open = Arc::new(AtomicUsize::new(0));
+    let peak = Arc::new(AtomicUsize::new(0));
+    let (o, pk) = (Arc::clone(&open), Arc::clone(&peak));
+    tokio::spawn(async move {
+        while let Ok((mut s, _)) = l.accept().await {
+            let now = o.fetch_add(1, Ordering::SeqCst) + 1;
+            pk.fetch_max(now, Ordering::SeqCst);
+            let o = Arc::clone(&o);
+            tokio::spawn(async move {
+                let mut buf = [0u8; 256];
+                while matches!(s.read(&mut buf).await, Ok(n) if n > 0) {}
+                o.fetch_sub(1, Ordering::SeqCst);
+            });
+        }
+    });
+    let peers: Vec<String> = (0..40)
+        .map(|i| format!(r#""n{i}":{{"Online":true,"DNSName":"n{i}.t.ts.net.","TailscaleIPs":["127.0.0.1"]}}"#))
+        .collect();
+    let json = format!(
+        r#"{{"BackendState":"Running","Self":{{"Online":true}},"Peer":{{{}}}}}"#,
+        peers.join(",")
+    );
+    let st = TailscaleStatus::parse(&json).unwrap();
+    assert_eq!(st.online_peers().count(), 40);
+    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    let found = a.discover_on_port(&st, port).await;
+    assert!(found.is_empty());
+    let peak = peak.load(Ordering::SeqCst);
+    assert!(
+        peak <= 16,
+        "a discovery round must not open a socket to every node at once (peak {peak})"
+    );
+}
