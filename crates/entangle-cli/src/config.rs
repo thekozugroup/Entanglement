@@ -33,15 +33,21 @@ pub struct MeshConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SecurityConfig {
-    /// Maximum plugin tier accepted at runtime (1..=5).
+    /// Maximum plugin tier accepted at runtime (1..=5). `4` disables tier-5
+    /// native plugins globally; `3` disables every native plugin.
     #[serde(default = "default_max_tier")]
     pub max_tier_allowed: u8,
+    /// Run native plugins without an OS sandbox on a host that has none.
+    /// Default `false` (refused with ENTANGLE-E0700).
+    #[serde(default)]
+    pub allow_unsandboxed_native: bool,
 }
 
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
             max_tier_allowed: default_max_tier(),
+            allow_unsandboxed_native: false,
         }
     }
 }

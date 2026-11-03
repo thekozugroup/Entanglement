@@ -1774,6 +1774,7 @@ dependencies = [
  "entangle-host",
  "entangle-ipc",
  "entangle-manifest",
+ "entangle-sandbox",
  "entangle-signing",
  "entangle-types",
  "hex",

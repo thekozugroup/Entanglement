@@ -12,7 +12,7 @@ use entangle_mesh_local::{
     Discovery, DiscoveryConfig, DiscoveryEvent, HardwareAdvert, LocalPeer, PeerSeen,
 };
 use entangle_peers::{PeerStore, TrustLevel};
-use entangle_runtime::{Kernel, KernelConfig};
+use entangle_runtime::Kernel;
 use entangle_scheduler::{Dispatcher, RemoteDispatch, WorkerInfo, WorkerPool};
 use entangle_signing::{IdentityKeyPair, Keyring};
 use entangle_types::peer_id::PeerId;
@@ -130,11 +130,13 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         .context("startup policy check failed (spec §11 #16)")?;
 
     // ── 3. Build kernel ───────────────────────────────────────────────────────
-    let kernel_cfg = KernelConfig {
-        max_tier_allowed: cfg.security.max_tier_allowed,
-        multi_node: cfg.mesh.multi_node,
-        bus_capacity: cfg.runtime.bus_capacity,
-    };
+    let kernel_cfg = config::kernel_config(&cfg, &config_dir);
+    if cfg.security.allow_unsandboxed_native {
+        tracing::warn!(
+            "[security] allow_unsandboxed_native = true: native plugins will run WITHOUT an \
+             OS sandbox on hosts that have none"
+        );
+    }
     let kernel = Arc::new(Kernel::new(kernel_cfg, keyring).context("initializing runtime kernel")?);
 
     // ── 3b. Worker pool + Dispatcher ─────────────────────────────────────────

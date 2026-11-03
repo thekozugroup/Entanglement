@@ -344,25 +344,73 @@ async fn check_daemon() -> (CheckResult, CheckResult) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 11 — OS sandbox availability
+// Check 11 — OS sandbox: which primitive would be engaged, and does it work
 // ---------------------------------------------------------------------------
 
-fn check_os_sandbox() -> CheckResult {
-    use entangle_runtime::SandboxProbe;
-    match entangle_runtime::probe_os_sandbox() {
-        p @ (SandboxProbe::SeatbeltAvailable
-        | SandboxProbe::LandlockAvailable
-        | SandboxProbe::BubblewrapFallback) => CheckResult::ok("OS sandbox", p.description()),
-        SandboxProbe::NoneAvailable { reason } => CheckResult::warn(
+/// The operator's `[security] allow_unsandboxed_native` setting (default off).
+fn sandbox_policy() -> entangle_runtime::os_sandbox::Policy {
+    let allow_unsandboxed = config::load(&config::config_path())
+        .map(|c| c.security.allow_unsandboxed_native)
+        .unwrap_or(false);
+    entangle_runtime::os_sandbox::Policy { allow_unsandboxed }
+}
+
+/// What a tier-5 plugin without network access would run under here.
+fn check_os_sandbox(policy: entangle_runtime::os_sandbox::Policy) -> CheckResult {
+    use entangle_runtime::os_sandbox;
+    let host = os_sandbox::host_support().describe();
+    match os_sandbox::plan_for(false, policy) {
+        Ok(plan) if plan.is_degraded() => CheckResult::warn(
             "OS sandbox",
-            reason,
-            "tier-5 plugin isolation will be reduced; install bubblewrap or upgrade kernel for Landlock",
+            format!("reduced isolation: {}", plan.describe()),
+            format!("host: {host}"),
         ),
-        SandboxProbe::Unsupported { reason } => CheckResult::warn(
+        Ok(plan) => CheckResult::ok(
             "OS sandbox",
-            reason,
-            "Windows plugin sandboxing is not yet implemented",
+            format!("would engage {} (host: {host})", plan.describe()),
         ),
+        Err(e) => CheckResult::warn(
+            "OS sandbox",
+            "native (tier 4-5) plugins will be refused on this host",
+            format!("{e} (host: {host})"),
+        ),
+    }
+}
+
+/// Engage the sandbox for real on two trivial children.
+fn check_sandbox_trial(policy: entangle_runtime::os_sandbox::Policy) -> CheckResult {
+    use entangle_runtime::os_sandbox::{self, TrialOutcome};
+    const NAME: &str = "sandbox trial";
+    match os_sandbox::trial(policy) {
+        TrialOutcome::Enforced { plan } => CheckResult::ok(
+            NAME,
+            format!(
+                "child ran under {}; a read outside its scope was denied",
+                plan.describe()
+            ),
+        ),
+        TrialOutcome::Engaged { plan, note } => CheckResult::warn(
+            NAME,
+            "engaged, but denial not verified",
+            format!("{}: {note}", plan.describe()),
+        ),
+        TrialOutcome::NotEnforcing { plan } => CheckResult::fail(
+            NAME,
+            "the sandboxed child read a file outside its scope",
+            format!("{} is NOT enforcing on this host", plan.describe()),
+        ),
+        TrialOutcome::Failed {
+            plan: Some(plan),
+            error,
+        } => CheckResult::fail(
+            NAME,
+            "sandbox engagement failed — native plugins will not start",
+            format!("{}: {error}", plan.describe()),
+        ),
+        TrialOutcome::Failed { plan: None, error } => {
+            CheckResult::warn(NAME, "no sandbox can be engaged here", error)
+        }
+        TrialOutcome::Skipped { reason } => CheckResult::skip(NAME, reason),
     }
 }
 
@@ -542,7 +590,9 @@ pub async fn run() -> anyhow::Result<()> {
     results.push(daemon_reach);
     results.push(daemon_ver);
 
-    results.push(check_os_sandbox());
+    let policy = sandbox_policy();
+    results.push(check_os_sandbox(policy));
+    results.push(check_sandbox_trial(policy));
     results.push(check_disk_space());
     results.push(check_clock_skew(daemon_reachable).await);
 
