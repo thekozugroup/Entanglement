@@ -31,9 +31,14 @@
 //!   not `initialize` the gateway performs the handshake itself. The whole
 //!   handshake (including `notifications/initialized`, which the gateway
 //!   sends itself) completes before any other message reaches a new
-//!   process. A dead process is respawned on the next request. Server-initiated requests
-//!   and notifications cannot be relayed over this JSON-only transport and
-//!   are dropped (logged at debug).
+//!   process. A dead process is respawned on the next request.
+//! * **Server-initiated traffic** cannot be relayed to the client over this
+//!   JSON-only transport. Server requests are answered by the gateway itself
+//!   (`ping` with an empty result, anything else with `-32601`) so the server
+//!   fails fast; server notifications are dropped (logged at debug). The
+//!   client's `roots`, `sampling` and `elicitation` capabilities are removed
+//!   from the `initialize` forwarded downstream, since the server could not
+//!   use them through the gateway.
 //! * **HTTP downstream servers** (`url` entries) are *not* proxied: requests
 //!   to them fail with JSON-RPC error `ENTANGLE-E0664`.
 //! * **Limits**: `max_in_flight` concurrent HTTP requests; the next one is
@@ -375,6 +380,9 @@ type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>>;
 
 struct StdioProc {
     name: String,
+    /// Bound for writes the gateway makes on its own (replies to
+    /// server-initiated requests).
+    timeout: Duration,
     /// `None` once a write was cut short: nothing may follow a partial line.
     stdin: tokio::sync::Mutex<Option<ChildStdin>>,
     pending: Pending,
@@ -426,6 +434,7 @@ impl StdioProc {
         command: &str,
         args: &[String],
         env: &BTreeMap<String, String>,
+        timeout: Duration,
     ) -> Result<Arc<Self>, DsError> {
         let mut child = Command::new(command)
             .args(args)
@@ -462,37 +471,6 @@ impl StdioProc {
             })
         };
 
-        // stdout reader: route responses to waiters.
-        {
-            let pending = pending.clone();
-            let alive = alive.clone();
-            let name = name.to_string();
-            tokio::spawn(async move {
-                let mut lines = BufReader::new(stdout).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    let Ok(v) = serde_json::from_str::<Value>(&line) else {
-                        tracing::debug!(server = %name, "non-JSON line on downstream stdout ignored");
-                        continue;
-                    };
-                    let is_response = v.get("method").is_none()
-                        && (v.get("result").is_some() || v.get("error").is_some());
-                    match (is_response, v.get("id").and_then(Value::as_u64)) {
-                        (true, Some(id)) => {
-                            if let Some(tx) = pending.lock().remove(&id) {
-                                let _ = tx.send(v);
-                            }
-                        }
-                        _ => tracing::debug!(
-                            server = %name,
-                            "server-initiated message dropped (not relayable over JSON-only transport)"
-                        ),
-                    }
-                }
-                alive.store(false, Ordering::Release);
-                // Dropping the senders wakes every waiter with "closed".
-                pending.lock().clear();
-            });
-        }
         // stderr reader: surface as debug logs.
         {
             let name = name.to_string();
@@ -504,8 +482,9 @@ impl StdioProc {
             });
         }
 
-        Ok(Arc::new(Self {
+        let proc = Arc::new(Self {
             name: name.to_string(),
+            timeout,
             stdin: tokio::sync::Mutex::new(Some(stdin)),
             pending,
             next_id: AtomicU64::new(1),
@@ -514,7 +493,64 @@ impl StdioProc {
             initialized_sent: AtomicBool::new(false),
             kill_tx,
             reaper: Mutex::new(Some(reaper)),
-        }))
+        });
+        // Weak: the reader must not keep the process (and its kill switch)
+        // alive.
+        tokio::spawn(Self::read_stdout(stdout, Arc::downgrade(&proc)));
+        Ok(proc)
+    }
+
+    /// Route responses to their waiters. Server-initiated requests cannot be
+    /// relayed to the client over the JSON-only transport, but JSON-RPC
+    /// requires every request to be answered: `ping` gets an empty result,
+    /// anything else `-32601`, so the server fails fast instead of waiting.
+    /// Server notifications are dropped.
+    async fn read_stdout(stdout: tokio::process::ChildStdout, proc: std::sync::Weak<Self>) {
+        let mut lines = BufReader::new(stdout).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            let Some(p) = proc.upgrade() else { return };
+            let Ok(v) = serde_json::from_str::<Value>(&line) else {
+                tracing::debug!(server = %p.name, "non-JSON line on downstream stdout ignored");
+                continue;
+            };
+            match (v.get("method").and_then(Value::as_str), v.get("id")) {
+                (None, Some(id)) if v.get("result").is_some() || v.get("error").is_some() => {
+                    let tx = id.as_u64().and_then(|id| p.pending.lock().remove(&id));
+                    if let Some(tx) = tx {
+                        let _ = tx.send(v);
+                    }
+                }
+                (Some(method), Some(id)) => {
+                    let reply = if method == "ping" {
+                        json!({"jsonrpc": "2.0", "id": id, "result": {}})
+                    } else {
+                        tracing::debug!(server = %p.name, method, "server-initiated request refused");
+                        rpc_error(
+                            id.clone(),
+                            -32601,
+                            format!(
+                                "Method not found: the Entanglement MCP gateway cannot relay \
+                                 server-initiated '{method}' requests to the client"
+                            ),
+                        )
+                    };
+                    // Never block the reader on stdin: the server may be
+                    // waiting for its stdout to drain before it reads.
+                    tokio::spawn(async move {
+                        let _ = p.write_line_within(&reply, p.timeout).await;
+                    });
+                }
+                _ => tracing::debug!(
+                    server = %p.name,
+                    "server notification dropped (not relayable over JSON-only transport)"
+                ),
+            }
+        }
+        if let Some(p) = proc.upgrade() {
+            p.alive.store(false, Ordering::Release);
+            // Dropping the senders wakes every waiter with "closed".
+            p.pending.lock().clear();
+        }
     }
 
     /// Write one newline-terminated message. Not cancel-safe on its own:
@@ -601,6 +637,22 @@ impl StdioProc {
     }
 }
 
+/// The client's `initialize` with the capabilities removed that would make
+/// the server send requests the gateway cannot relay (`roots`, `sampling`,
+/// `elicitation`).
+fn without_unrelayable_capabilities(init: &Value) -> Value {
+    let mut init = init.clone();
+    if let Some(caps) = init
+        .pointer_mut("/params/capabilities")
+        .and_then(Value::as_object_mut)
+    {
+        for k in ["roots", "sampling", "elicitation"] {
+            caps.remove(k);
+        }
+    }
+    init
+}
+
 struct Downstream {
     name: String,
     spec: McpServerSpec,
@@ -636,8 +688,8 @@ impl Downstream {
             }
         }
         tracing::info!(server = %self.name, command = %command, "starting downstream MCP server");
-        let p = StdioProc::spawn(&self.name, command, args, env)?;
-        let init = client_init.cloned().unwrap_or_else(|| {
+        let p = StdioProc::spawn(&self.name, command, args, env, self.timeout)?;
+        let init = client_init.map(without_unrelayable_capabilities).unwrap_or_else(|| {
             // The client skipped (or already completed, against a previous
             // process) the handshake: do it ourselves.
             json!({
@@ -1501,6 +1553,7 @@ mod tests {
             "sh",
             &["-c".into(), "cat >/dev/null".into()],
             &BTreeMap::new(),
+            Duration::from_secs(5),
         )
         .expect("spawn sh");
         let msg = json!({"jsonrpc": "2.0", "id": 1, "method": "ping"});

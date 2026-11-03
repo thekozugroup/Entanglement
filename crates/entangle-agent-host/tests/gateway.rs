@@ -58,8 +58,8 @@ fn fake_mcp_server() {
     };
     let stdin = std::io::stdin();
     let mut out = std::io::stdout();
-    for line in stdin.lock().lines() {
-        let Ok(line) = line else { break };
+    let mut lines = stdin.lock().lines();
+    while let Some(Ok(line)) = lines.next() {
         let Ok(msg) = serde_json::from_str::<Value>(&line) else {
             continue;
         };
@@ -89,6 +89,34 @@ fn fake_mcp_server() {
                     json!({"content": []})
                 }
                 "fail" => json!({"isError": true, "content": [{"type": "text", "text": "nope"}]}),
+                // Ask the client something and return whatever comes back.
+                "elicit" | "server_ping" => {
+                    let (sid, req) = if tool == "elicit" {
+                        (
+                            "srv-1",
+                            json!({"jsonrpc":"2.0","id":"srv-1","method":"elicitation/create","params":{"message":"ok?","requestedSchema":{"type":"object","properties":{}}}}),
+                        )
+                    } else {
+                        (
+                            "srv-2",
+                            json!({"jsonrpc":"2.0","id":"srv-2","method":"ping"}),
+                        )
+                    };
+                    writeln!(out, "{req}").unwrap();
+                    out.flush().unwrap();
+                    let mut answer = Value::Null;
+                    while let Some(Ok(l)) = lines.next() {
+                        let Ok(m) = serde_json::from_str::<Value>(&l) else {
+                            continue;
+                        };
+                        writeln!(msgs, "{m}").unwrap();
+                        if m["id"] == sid && m.get("method").is_none() {
+                            answer = m;
+                            break;
+                        }
+                    }
+                    json!({"content": [{"type": "text", "text": answer.to_string()}]})
+                }
                 _ => json!({"content": [{"type": "text", "text": "SECRET"}]}),
             },
             _ => json!({}),
@@ -418,6 +446,50 @@ async fn requests_racing_a_fresh_handshake_wait_for_it() {
             .count(),
         1
     );
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
+async fn server_initiated_requests_are_answered_not_left_hanging() {
+    let f = fixture_opts(Arc::new(Policy::default()), 8, Duration::from_secs(3)).await;
+    let (st, _) = rpc(&f, "fake", json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+        "protocolVersion":"2025-03-26",
+        "capabilities":{"roots":{"listChanged":true},"sampling":{},"elicitation":{},"experimental":{"x":{}}},
+        "clientInfo":{"name":"t","version":"0"}}})).await;
+    assert_eq!(st, 200);
+    // The downstream is not offered client features the gateway cannot relay.
+    let caps = &received(&f)[0]["params"]["capabilities"];
+    for k in ["roots", "sampling", "elicitation"] {
+        assert!(caps.get(k).is_none(), "{k} forwarded: {caps}");
+    }
+    assert_eq!(caps["experimental"], json!({"x":{}}));
+
+    // A server request gets a JSON-RPC error instead of no answer at all.
+    let (st, v) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"elicit"}}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    let text = v["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("tool did not complete: {v}"));
+    let answer: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(answer["id"], "srv-1", "{answer}");
+    assert_eq!(answer["error"]["code"], -32601, "{answer}");
+    // ...and ping is answered with an empty result.
+    let (_, v) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"server_ping"}}),
+    )
+    .await;
+    let text = v["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("tool did not complete: {v}"));
+    let answer: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(answer, json!({"jsonrpc":"2.0","id":"srv-2","result":{}}));
     f.gw.shutdown().await;
 }
 
