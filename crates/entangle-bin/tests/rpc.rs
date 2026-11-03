@@ -351,3 +351,95 @@ async fn plugins_invoke_negative_cases_via_typed_client() {
         other => panic!("expected -32602 Rpc error, got: {other:?}"),
     }
 }
+
+/// Write the stdlib BLEU-4 metric component as a signed tier-2 package.
+fn write_metric_package(dir: &Path, keypair: &IdentityKeyPair) -> String {
+    let wasm = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-scheduler/tests/fixtures/metric-bleu-4.wasm"
+    ))
+    .expect("metric-bleu-4.wasm fixture (crates/entangle-scheduler/tests/fixtures/build.sh)");
+    let id = format!("{}/metric-bleu-4@0.1.0", keypair.fingerprint_hex());
+    let manifest =
+        format!("[plugin]\nid = \"{id}\"\nversion = \"0.1.0\"\ntier = 2\nruntime = \"wasm\"\n");
+    std::fs::write(dir.join("entangle.toml"), &manifest).unwrap();
+    std::fs::write(dir.join("plugin.wasm"), &wasm).unwrap();
+    let bundle = sign_artifact(&wasm, manifest.as_bytes(), keypair);
+    std::fs::write(
+        dir.join("plugin.wasm.sig"),
+        toml::to_string(&bundle).unwrap(),
+    )
+    .unwrap();
+    id
+}
+
+/// `compute/dispatch` with `semantic-equivalent`: the daemon (the submitter)
+/// loads the signed metric from `metric_dir`, runs the replicas (locally —
+/// this daemon has no workers), compares every pair with the metric, and
+/// reports the policy hash and per-replica audit. A metric signed outside the
+/// daemon's keyring is refused with ENTANGLE-E0307.
+#[tokio::test(flavor = "multi_thread")]
+async fn compute_dispatch_semantic_equivalent_via_typed_client() {
+    use entangle_rpc::methods::{ComputeDispatchParams, ComputeIntegrity};
+
+    let keypair = IdentityKeyPair::generate();
+    let client = spawn_and_connect(
+        tmp_sock("semantic"),
+        make_state_with_keyring(keyring_for(&keypair)),
+    )
+    .await;
+    let plugin_dir = tempfile::tempdir().unwrap();
+    write_plugin_package(plugin_dir.path(), &keypair, &hello_pong_wasm());
+    let loaded = client.plugins_load(plugin_dir.path()).await.expect("load");
+
+    let metric_dir = tempfile::tempdir().unwrap();
+    let metric = write_metric_package(metric_dir.path(), &keypair);
+    let params = |metric: String, dir: &Path| ComputeDispatchParams {
+        plugin_id: loaded.plugin_id.clone(),
+        input: b"world".to_vec(),
+        timeout_ms: 30_000,
+        cpu_cores: 0.0,
+        memory_bytes: 0,
+        gpu_required: false,
+        gpu_vram_min_bytes: 0,
+        integrity: ComputeIntegrity::SemanticEquivalent {
+            replicas: 3,
+            quorum: 2,
+            metric,
+            metric_dir: Some(dir.to_string_lossy().into_owned()),
+            threshold: 0.2,
+        },
+    };
+
+    let r = client
+        .compute_dispatch(params(metric, metric_dir.path()))
+        .await
+        .expect("semantic-equivalent dispatch through the daemon");
+    assert_eq!(r.output, b"Hello, world!");
+    assert_eq!(r.pair_agreement, Some((3, 3)));
+    assert_eq!(r.replicas.len(), 3);
+    assert!(r.replicas.iter().all(|rep| !rep.remote));
+    assert_eq!(
+        r.replicas
+            .iter()
+            .filter(|rep| rep.status == "canonical")
+            .count(),
+        1
+    );
+    let h = r.policy_hash.expect("policy hash reported");
+    assert_eq!(h.len(), 64);
+    assert!(r
+        .replicas
+        .iter()
+        .all(|rep| rep.observed_policy_hash.as_deref() == Some(h.as_str())));
+
+    // A metric signed by a key this daemon does not trust is refused.
+    let stranger = IdentityKeyPair::generate();
+    let foreign_dir = tempfile::tempdir().unwrap();
+    let foreign = write_metric_package(foreign_dir.path(), &stranger);
+    let err = client
+        .compute_dispatch(params(foreign, foreign_dir.path()))
+        .await
+        .expect_err("a metric outside the daemon's keyring must be refused");
+    assert!(err.to_string().contains("ENTANGLE-E0307"), "{err}");
+}

@@ -156,6 +156,26 @@ pub enum ReplicaStatus {
     Failed(String),
 }
 
+impl ReplicaStatus {
+    /// Stable lowercase label: `canonical`, `agreed`, `disagreed`, `failed`.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Canonical => "canonical",
+            Self::Agreed => "agreed",
+            Self::Disagreed => "disagreed",
+            Self::Failed(_) => "failed",
+        }
+    }
+
+    /// The failure reason, for [`ReplicaStatus::Failed`].
+    pub fn error(&self) -> Option<&str> {
+        match self {
+            Self::Failed(reason) => Some(reason),
+            _ => None,
+        }
+    }
+}
+
 /// Per-replica audit record.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReplicaReport {

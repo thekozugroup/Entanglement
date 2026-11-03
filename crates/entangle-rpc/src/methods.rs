@@ -129,6 +129,24 @@ pub enum ComputeIntegrity {
         /// Hex-encoded peer ids whose outputs are trusted without further verification.
         allowlist: Vec<String>,
     },
+    /// Replicate on distinct peers and compare the outputs pairwise with a
+    /// signed metric component that runs on the daemon (the submitter,
+    /// spec §7.5).
+    SemanticEquivalent {
+        /// Number of replicas (at least 2).
+        replicas: u8,
+        /// Minimum number of agreeing replica pairs.
+        quorum: u8,
+        /// Metric plugin id, `<publisher>/<name>@<version>`.
+        metric: String,
+        /// Absolute path of the metric's signed package directory. The daemon
+        /// loads and verifies it against its own keyring when given; when
+        /// absent the metric must already be loaded on the daemon.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        metric_dir: Option<String>,
+        /// Pairwise distance strictly below which two outputs agree.
+        threshold: f64,
+    },
 }
 
 /// Parameters for the `compute/dispatch` RPC method.
@@ -163,6 +181,37 @@ pub struct ComputeDispatchResult {
     pub reason: String,
     /// Raw output bytes returned by the plugin.
     pub output: Vec<u8>,
+    /// Hex SHA-256 of the canonical integrity policy the task was dispatched
+    /// under (INV-INT-1). Absent from daemons that predate it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_hash: Option<String>,
+    /// One audit record per replica, in dispatch order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replicas: Vec<ComputeReplica>,
+    /// For semantic-equivalent: `[agreeing pairs, pairs compared]`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pair_agreement: Option<(usize, usize)>,
+}
+
+/// One replica of a `compute/dispatch` task, as audited by the submitter.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ComputeReplica {
+    /// Hex peer id of the executor.
+    pub peer: String,
+    /// `false` when it ran on the daemon's own kernel.
+    pub remote: bool,
+    /// `canonical` (its output was returned), `agreed`, `disagreed` or
+    /// `failed`.
+    pub status: String,
+    /// Why it failed, for `status = "failed"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// Hex policy hash the executor reported observing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_policy_hash: Option<String>,
+    /// Size of its output in bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_bytes: Option<u64>,
 }
 
 /// Method name constants — kept in sync between client and server.
