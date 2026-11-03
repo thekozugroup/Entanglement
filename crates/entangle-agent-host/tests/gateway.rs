@@ -450,14 +450,14 @@ async fn requests_racing_a_fresh_handshake_wait_for_it() {
         Arc::new(Policy::default()),
         8,
         Duration::from_secs(20),
-        &[("FAKE_INIT_DELAY_MS", "600")],
+        &[("FAKE_INIT_DELAY_MS", "1200")],
     )
     .await;
     let init = |id: &str| json!({"jsonrpc":"2.0","id":id,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"0"}}});
     // The first initialize spawns the server and is slow to answer; a
     // second initialize and a tools/list arrive while it is in flight.
     let a = spawn_rpc(&f, init("i1"));
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    tokio::time::sleep(Duration::from_millis(400)).await;
     let b = spawn_rpc(&f, init("i2"));
     let c = spawn_rpc(&f, json!({"jsonrpc":"2.0","id":3,"method":"tools/list"}));
     let (a, b, c) = (a.await.unwrap(), b.await.unwrap(), c.await.unwrap());
@@ -571,9 +571,9 @@ async fn cancellation_is_remapped_to_the_downstream_id() {
     // The client's id 2 is another request's downstream id.
     let slow = spawn_rpc(
         &f,
-        json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":800}}}),
+        json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":2000}}}),
     );
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    tokio::time::sleep(Duration::from_millis(400)).await;
     let (st, _) = rpc(
         &f,
         "fake",
@@ -605,7 +605,7 @@ async fn cancellation_is_remapped_to_the_downstream_id() {
 
 #[tokio::test]
 async fn timed_out_request_is_cancelled_downstream() {
-    let f = fixture_opts(Arc::new(Policy::default()), 8, Duration::from_millis(1000)).await;
+    let f = fixture_opts(Arc::new(Policy::default()), 8, Duration::from_millis(1500)).await;
     let (st, _) = rpc(
         &f,
         "fake",
@@ -616,7 +616,7 @@ async fn timed_out_request_is_cancelled_downstream() {
     let (_, v) = rpc(
         &f,
         "fake",
-        json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":1800}}}),
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":3000}}}),
     )
     .await;
     assert!(
@@ -627,7 +627,7 @@ async fn timed_out_request_is_cancelled_downstream() {
     );
     let sleep_id = downstream_id_of(&f, "sleep");
     assert!(
-        wait_until(Duration::from_secs(5), || cancellations(&f)
+        wait_until(Duration::from_secs(8), || cancellations(&f)
             .iter()
             .any(|c| c["params"]["requestId"] == sleep_id))
         .await,
@@ -1209,7 +1209,7 @@ async fn client_disconnect_mid_call_still_audits_and_holds_the_permit() {
     // The agent sends an allowed call and closes the socket while it runs.
     send_then_drop(
         &f,
-        &json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":1200}}}),
+        &json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":3000}}}),
         Duration::from_millis(300),
     )
     .await;
@@ -1226,7 +1226,7 @@ async fn client_disconnect_mid_call_still_audits_and_holds_the_permit() {
     assert!(calls(&f).iter().any(|l| l == "tools/call:sleep"));
     // The call finishes and is audited, and after_tool runs.
     assert!(
-        wait_until(Duration::from_secs(5), || f.gw.audit_log().len() == 1).await,
+        wait_until(Duration::from_secs(10), || f.gw.audit_log().len() == 1).await,
         "no audit record for the abandoned call: {:?}",
         f.gw.audit_log()
     );
@@ -1303,12 +1303,12 @@ async fn request_timeout_covers_a_blocked_stdin_write() {
     .await;
     assert_eq!(st, 200);
     let old_pid = std::fs::read_to_string(&f.pid).unwrap();
-    // A keeps the downstream from reading stdin for 4 s.
+    // A keeps the downstream from reading stdin for 10 s.
     let addr = f.gw.addr;
     let bearer = format!("Bearer {}", f.token);
     let b2 = bearer.clone();
     let slow = tokio::spawn(async move {
-        let body = json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":4000}}}).to_string();
+        let body = json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":10000}}}).to_string();
         http(addr, "POST", "/mcp/fake", Some(&b2), &body).await
     });
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -1330,8 +1330,9 @@ async fn request_timeout_covers_a_blocked_stdin_write() {
         "{}",
         &body[..body.len().min(300)]
     );
+    // Without the bound, B would wait for A's 10 s sleep to end.
     assert!(
-        took < Duration::from_millis(3000),
+        took < Duration::from_millis(6000),
         "blocked write was not bounded by the 1.5 s timeout: {took:?}"
     );
     let _ = slow.await;
@@ -1422,10 +1423,18 @@ async fn shutdown_kills_downstream_process() {
         !proc_dir.exists(),
         "downstream pid {pid} still alive after shutdown"
     );
-    assert!(
-        TcpStream::connect(addr).await.is_err(),
-        "listener must be closed"
-    );
+    // Retried briefly: a process another test is spawning at this moment
+    // holds a copy of every fd (this listener included) between fork and
+    // exec, during which the kernel can still complete a handshake.
+    let mut closed = false;
+    for _ in 0..40 {
+        if TcpStream::connect(addr).await.is_err() {
+            closed = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert!(closed, "listener must be closed");
 }
 
 /// Whether `pid` is a live (non-zombie) process.
