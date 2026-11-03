@@ -8,7 +8,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 use entangle_types::{
-    capability::{CapabilityKind, ShareMode, StorageScope},
+    capability::{is_valid_share_name, CapabilityKind, ShareMode, StorageScope},
     plugin_id::PluginId,
     tier::Tier,
 };
@@ -196,7 +196,7 @@ pub fn validate(m: Manifest) -> Result<ValidatedManifest, ValidationError> {
 /// | `compute.gpu` | [`CapabilityKind::ComputeGpu`] |
 /// | `compute.npu` | [`CapabilityKind::ComputeNpu`] |
 /// | `storage.local` | [`CapabilityKind::StorageLocal`] |
-/// | `storage.share.<name>` | [`CapabilityKind::StorageShare`] |
+/// | `storage.share.<name>` | [`CapabilityKind::StorageShare`] (`<name>` per [`is_valid_share_name`]) |
 /// | `net.lan` | [`CapabilityKind::NetLan`] |
 /// | `net.wan` | [`CapabilityKind::NetWan`] |
 /// | `mesh.peer` | [`CapabilityKind::MeshPeer`] |
@@ -243,6 +243,17 @@ pub fn parse_capability(key: &str, args: &toml::Value) -> Result<CapabilityKind,
                 .strip_prefix("storage.share.")
                 .expect("checked by starts_with")
                 .to_owned();
+            // The name becomes one directory under `<data>/shares`: refuse
+            // anything that could address a path outside it (`/`, `..`, …).
+            if !is_valid_share_name(&name) {
+                return Err(ValidationError::CapabilityArgs {
+                    key: key.to_owned(),
+                    message: format!(
+                        "invalid share name `{name}`; expected `[a-z0-9][a-z0-9_-]*` \
+                         (one path component, at most 63 characters)"
+                    ),
+                });
+            }
             let mode_str = str_field("mode", "ro")?;
             let mode = match mode_str.as_str() {
                 "ro" => ShareMode::Ro,
@@ -413,6 +424,47 @@ mod tests {
             matches!(cap, CapabilityKind::StorageShare { ref name, mode } if name == "photos" && mode == ShareMode::Ro),
             "got: {cap:?}"
         );
+    }
+
+    /// A share name becomes one directory under `<data>/shares`; anything
+    /// that is not a single plain component (an absolute path, `..`, `.`,
+    /// an empty name, a separator) would let a manifest name a scope outside
+    /// that tree — `"storage.share./" = { mode = "rw" }` would grant `/`.
+    #[test]
+    fn storage_share_rejects_names_that_are_not_one_plain_component() {
+        for mode in ["ro", "rw", "rw-scoped"] {
+            let mut args = toml::map::Map::new();
+            args.insert("mode".into(), toml::Value::String(mode.into()));
+            let args = toml::Value::Table(args);
+            for bad in [
+                "/", "/etc", "..", "../..", "../x", "x/../..", ".", "", "a/b", "a\\b", "C:", "a b",
+                "-a", "Photos",
+            ] {
+                let key = format!("storage.share.{bad}");
+                let err = parse_capability(&key, &args).expect_err(&key);
+                assert!(
+                    matches!(err, ValidationError::CapabilityArgs { .. }),
+                    "{key}: got {err}"
+                );
+                assert!(err.to_string().contains("share name"), "{key}: {err}");
+            }
+            for good in ["photos", "inbox", "a", "0", "my-share", "my_share", "s3"] {
+                let key = format!("storage.share.{good}");
+                let cap = parse_capability(&key, &args).expect(&key);
+                assert!(
+                    matches!(cap, CapabilityKind::StorageShare { ref name, .. } if name == good),
+                    "{key}: {cap:?}"
+                );
+            }
+        }
+        // Through the whole validator, too.
+        let mut m = minimal_manifest("escape", 5, Runtime::Native);
+        let mut args = toml::map::Map::new();
+        args.insert("mode".into(), toml::Value::String("rw".into()));
+        m.capabilities
+            .insert("storage.share./".into(), toml::Value::Table(args));
+        let err = validate(m).expect_err("a share named `/` must be refused");
+        assert!(err.to_string().contains("share name"), "{err}");
     }
 
     #[test]

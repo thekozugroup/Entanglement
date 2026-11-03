@@ -292,3 +292,45 @@ async fn a_native_binary_altered_after_signing_is_rejected() {
         .iter()
         .any(|ev| ev.kind() == AuditKind::PluginRegistered));
 }
+
+/// A share name is one directory under `<data>/shares`. A signed manifest
+/// naming `/` or `../..` (the daemon's config directory, holding its identity
+/// key and keyring) must be refused at load — before any grant, staging copy
+/// or directory exists — not turned into a Landlock rule on that path.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_share_name_outside_the_shares_directory_is_refused_at_load() {
+    for (caps, label) in [
+        ("\"storage.share./\" = { mode = \"rw\" }", "/"),
+        ("\"storage.share.../..\" = { mode = \"ro\" }", "../.."),
+        ("\"storage.share..\" = { mode = \"rw\" }", "."),
+    ] {
+        let kp = IdentityKeyPair::generate();
+        let e = env();
+        // The manifest is refused before the artifact is examined.
+        write_package(
+            &e.pkg,
+            &kp,
+            b"\x7fELF\x02\x01\x01",
+            "plugin.bin",
+            5,
+            "native",
+            caps,
+        );
+        let k = kernel(&e, &kp, Tier::Native);
+        match k.load_plugin_from_dir(&e.pkg).await {
+            Ok(id) => panic!(
+                "share {label:?} loaded; grants {:?}, sandbox profile {:?}",
+                k.broker().snapshot_grants(&id),
+                k.native_sandbox(&id).map(|p| p.describe())
+            ),
+            Err(err) => assert!(err.to_string().contains("share name"), "{label}: {err}"),
+        }
+        assert!(k.list_plugins().is_empty());
+        assert!(
+            k.broker().audit_log().is_empty(),
+            "{label}: no broker events"
+        );
+        assert!(!e.staging.exists(), "{label}: nothing staged");
+        assert!(!e.data.exists(), "{label}: no storage scope created");
+    }
+}

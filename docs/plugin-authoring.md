@@ -159,6 +159,10 @@ Every capability carries a **minimum tier**:
 | `"mesh.peer" = {}` | 4 |
 | `"host.docker-socket" = {}` | 5 |
 
+`<name>` in `storage.share.<name>` is one path component matching
+`[a-z0-9][a-z0-9_-]*` (at most 63 characters); anything else, such as `/`,
+`..` or `a/b`, fails validation.
+
 The *implied tier* is the maximum minimum-tier across everything you declare.
 The rule is:
 

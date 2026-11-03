@@ -32,6 +32,9 @@
 //! | `compute.gpu` | read, write and ioctl on the GPU device nodes present (`/dev/dri`, `/dev/nvidia*`, `/dev/kfd`) |
 //! | `compute.cpu`, `compute.npu`, `mesh.peer`, `agent.invoke`, `custom.*` | none at the OS level |
 //!
+//! `<n>` is always one plain path component
+//! ([`is_valid_share_name`]; anything else is `ENTANGLE-E0743`).
+//!
 //! Always: the staged binary (read+exec), the package directory (read-only,
 //! for bundled assets), `ENTANGLE_PLUGIN_ID`, `ENTANGLE_PROTOCOL=frame-v1`.
 
@@ -44,7 +47,7 @@ use entangle_sandbox::{
     InvokeLimits, Plan, Policy, ResourceLimits, SandboxError, SandboxProfile, Supervisor,
     SupervisorError,
 };
-use entangle_types::capability::{CapabilityKind, ShareMode, StorageScope};
+use entangle_types::capability::{is_valid_share_name, CapabilityKind, ShareMode, StorageScope};
 use entangle_types::plugin_id::PluginId;
 
 /// Daemon-wide settings for native plugins (part of `KernelConfig`).
@@ -107,6 +110,21 @@ pub enum NativeError {
         path: PathBuf,
         /// Underlying error.
         source: std::io::Error,
+    },
+
+    /// ENTANGLE-E0743: a `storage.share.<name>` grant whose name is not one
+    /// plain path component (see
+    /// [`entangle_types::capability::is_valid_share_name`]); such a name
+    /// could address a scope outside `<data>/shares`.
+    #[error(
+        "ENTANGLE-E0743: plugin {plugin} was granted share {name:?}, which is not a valid \
+         share name (expected [a-z0-9][a-z0-9_-]*)"
+    )]
+    InvalidShareName {
+        /// The plugin.
+        plugin: String,
+        /// The offending share name.
+        name: String,
     },
 
     /// Planning or engaging the OS sandbox failed (`ENTANGLE-E07xx`).
@@ -263,6 +281,16 @@ pub fn profile_for(
                 dirs.push(dir);
             }
             CapabilityKind::StorageShare { name, mode } => {
+                // Manifest validation already refuses such names; re-check
+                // here, where the name becomes a path, whatever produced the
+                // grant. `Path::join` replaces the base for an absolute name
+                // and keeps `..`, so `/` or `../..` would escape `shares`.
+                if !is_valid_share_name(name) {
+                    return Err(NativeError::InvalidShareName {
+                        plugin: id.to_string(),
+                        name: name.clone(),
+                    });
+                }
                 let root = data(&g.kind)?;
                 let share = root.join("shares").join(name);
                 let var = format!("ENTANGLE_SHARE_{}", env_suffix(name));
@@ -639,6 +667,33 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("ENTANGLE-E0741"), "{err}");
+    }
+
+    /// Defence in depth behind manifest validation: whatever produced the
+    /// grant, a share name that is not one plain component never yields a
+    /// scope outside `<data>/shares` (`/` would grant the whole filesystem,
+    /// `../..` the daemon's config directory, `.` or `` every share).
+    #[test]
+    fn share_names_cannot_leave_the_shares_directory() {
+        let id = pid();
+        for mode in [ShareMode::Ro, ShareMode::Rw, ShareMode::RwScoped] {
+            for bad in ["/", "/etc", "..", "../..", "x/../..", ".", "", "a/b"] {
+                let res = profile_for(
+                    &inputs(&id, Some(Path::new("/data"))),
+                    &[grant(CapabilityKind::StorageShare {
+                        name: bad.into(),
+                        mode,
+                    })],
+                );
+                match res {
+                    Err(e) => assert!(e.to_string().contains("ENTANGLE-E0743"), "{bad:?}: {e}"),
+                    Ok((p, dirs)) => panic!(
+                        "share {bad:?} ({mode:?}) was granted: ro {:?} rw {:?} dirs {dirs:?}",
+                        p.read_only, p.read_write
+                    ),
+                }
+            }
+        }
     }
 
     /// A plugin with `rw` on a share can plant links beneath it; creating
