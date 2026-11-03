@@ -141,6 +141,7 @@ impl Adapter for OpenCodeAdapter {
     fn launch_plan(
         &self,
         session_dir: &Utf8Path,
+        _source: &Utf8Path,
         config_text: &str,
     ) -> Result<LaunchPlan, AdapterError> {
         let path = session_dir.join("opencode.json");

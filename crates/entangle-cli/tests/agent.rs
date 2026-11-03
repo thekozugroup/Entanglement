@@ -122,6 +122,36 @@ fn agent_run_failed_session_setup_leaves_no_session_dir() {
     assert!(left.is_empty(), "session dirs left behind: {left:?}");
 }
 
+const FAKE_CODEX: &str = r#"#!/bin/sh
+[ -n "$CODEX_HOME" ] || exit 11
+grep -q '127.0.0.1:[0-9]*/mcp/git' "$CODEX_HOME/config.toml" || exit 12
+grep -q 'bearer_token_env_var = "ENTANGLE_SESSION_TOKEN"' "$CODEX_HOME/config.toml" || exit 13
+[ -L "$CODEX_HOME/auth.json" ] || exit 14
+exit 5
+"#;
+
+#[test]
+fn agent_run_codex_with_config_does_not_need_home() {
+    let dir = TempDir::new().unwrap();
+    let cfg = dir.path().join("codex.toml");
+    fs::write(&cfg, "[mcp_servers.git]\ncommand = \"uvx\"\n").unwrap();
+    fs::write(dir.path().join("auth.json"), "{}").unwrap();
+    let agent = dir.path().join("fake-codex.sh");
+    fs::write(&agent, FAKE_CODEX).unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    let sessions = dir.path().join("sessions");
+    entangle()
+        .env_remove("HOME")
+        .env("ENTANGLE_SESSIONS_DIR", &sessions)
+        .args(["agent", "run", "codex", "--config"])
+        .arg(&cfg)
+        .arg("--bin")
+        .arg(&agent)
+        .assert()
+        .code(5);
+    assert_eq!(fs::read_dir(&sessions).map(|d| d.count()).unwrap_or(0), 0);
+}
+
 #[test]
 fn agent_list_shows_adapters() {
     entangle()

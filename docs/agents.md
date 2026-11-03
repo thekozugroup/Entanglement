@@ -34,7 +34,7 @@ is the exit code of `entangle agent run`.
 | Agent | Binary | Session config is passed via |
 |---|---|---|
 | `claude-code` | `claude` | `--mcp-config <file> --strict-mcp-config`; header `Authorization: Bearer ${ENTANGLE_SESSION_TOKEN}` |
-| `codex` | `codex` | `CODEX_HOME=<session>/codex-home` (other files in `~/.codex` are symlinked in); `bearer_token_env_var` |
+| `codex` | `codex` | `CODEX_HOME=<session>/codex-home` (the other files next to the config that was read, `~/.codex` by default or the directory of `--config`, are symlinked in, e.g. `auth.json`; a failed link is an error); `bearer_token_env_var` |
 | `opencode` | `opencode` | `OPENCODE_CONFIG=<file>`; header `Bearer {env:ENTANGLE_SESSION_TOKEN}` |
 
 Use `--config <path>` to read the MCP config from a non-default file and

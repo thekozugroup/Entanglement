@@ -135,6 +135,7 @@ impl Adapter for ClaudeCodeAdapter {
     fn launch_plan(
         &self,
         session_dir: &Utf8Path,
+        _source: &Utf8Path,
         config_text: &str,
     ) -> Result<LaunchPlan, AdapterError> {
         let path = session_dir.join("claude-mcp.json");

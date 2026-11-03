@@ -140,25 +140,20 @@ impl Adapter for CodexAdapter {
     fn launch_plan(
         &self,
         session_dir: &Utf8Path,
+        source: &Utf8Path,
         config_text: &str,
     ) -> Result<LaunchPlan, AdapterError> {
         // Codex reads `$CODEX_HOME/config.toml`. Point CODEX_HOME at a session
-        // directory and symlink the user's other files (auth.json, ...) into
-        // it so login state survives. The user's config.toml is not linked.
+        // directory and symlink the other files next to the config the
+        // session was read from (auth.json, ...) into it so login state
+        // survives. Neither the source config nor a `config.toml` next to it
+        // is linked: the session's own config.toml replaces them.
         let home = session_dir.join("codex-home");
         std::fs::create_dir_all(&home).map_err(|e| AdapterError::Io(e.to_string()))?;
         #[cfg(unix)]
-        if let Some(orig_dir) = self.config_path()?.parent().map(Utf8Path::to_path_buf) {
-            if let Ok(rd) = std::fs::read_dir(&orig_dir) {
-                for ent in rd.flatten() {
-                    let name = ent.file_name();
-                    if name == "config.toml" {
-                        continue;
-                    }
-                    let _ = std::os::unix::fs::symlink(ent.path(), home.as_std_path().join(name));
-                }
-            }
-        }
+        link_siblings(source, &home)?;
+        #[cfg(not(unix))]
+        let _ = source;
         let path = home.join("config.toml");
         std::fs::write(&path, config_text).map_err(|e| AdapterError::Io(e.to_string()))?;
         Ok(LaunchPlan {
@@ -167,4 +162,36 @@ impl Adapter for CodexAdapter {
             args: Vec::new(),
         })
     }
+}
+
+/// Symlink every entry of `source`'s directory except `source` itself and
+/// any `config.toml` into `home`. A missing directory links nothing; any
+/// other failure is an error (an agent started without its login state
+/// would fail confusingly later).
+#[cfg(unix)]
+fn link_siblings(source: &Utf8Path, home: &Utf8Path) -> Result<(), AdapterError> {
+    let parent = source
+        .parent()
+        .filter(|p| !p.as_str().is_empty())
+        .unwrap_or(Utf8Path::new("."));
+    // Absolute targets: a relative one would resolve against `home`.
+    let dir = match std::fs::canonicalize(parent) {
+        Ok(d) => d,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(AdapterError::Io(format!("resolving {parent}: {e}"))),
+    };
+    let entries = std::fs::read_dir(&dir)
+        .map_err(|e| AdapterError::Io(format!("reading {}: {e}", dir.display())))?;
+    for ent in entries {
+        let ent = ent.map_err(|e| AdapterError::Io(format!("reading {}: {e}", dir.display())))?;
+        let name = ent.file_name();
+        if name == "config.toml" || source.file_name().is_some_and(|f| name == f) {
+            continue;
+        }
+        let target = ent.path();
+        std::os::unix::fs::symlink(&target, home.as_std_path().join(&name)).map_err(|e| {
+            AdapterError::Io(format!("linking {} into {home}: {e}", target.display()))
+        })?;
+    }
+    Ok(())
 }

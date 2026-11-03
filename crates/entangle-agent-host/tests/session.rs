@@ -141,6 +141,52 @@ fn codex_session_uses_codex_home_and_env_var_token() {
     s.cleanup().unwrap();
 }
 
+#[cfg(unix)]
+#[test]
+fn codex_session_links_the_files_next_to_the_chosen_config() {
+    let dir = TempDir::new().unwrap();
+    let src_dir = dir.path().join("work-codex");
+    fs::create_dir(&src_dir).unwrap();
+    let src = src_dir.join("codex.toml");
+    let original = "[mcp_servers.git]\ncommand = \"uvx\"\nargs = [\"mcp-server-git\"]\n";
+    fs::write(&src, original).unwrap();
+    fs::write(src_dir.join("auth.json"), r#"{"who":"work"}"#).unwrap();
+    fs::write(src_dir.join("config.toml"), "# another config\n").unwrap();
+    let mut s = AgentSession::prepare("codex", Some(&utf8(&src))).unwrap();
+    let plan = s
+        .activate(&utf8(&dir.path().join("sess")), BASE, "TOK")
+        .unwrap()
+        .clone();
+    let home = plan.config_path.parent().unwrap();
+    let auth = home.join("auth.json");
+    assert!(
+        fs::symlink_metadata(&auth).is_ok_and(|m| m.file_type().is_symlink()),
+        "auth.json next to the chosen config is linked into CODEX_HOME"
+    );
+    assert_eq!(
+        fs::canonicalize(fs::read_link(&auth).unwrap()).unwrap(),
+        fs::canonicalize(src_dir.join("auth.json")).unwrap()
+    );
+    let cfg_meta = fs::symlink_metadata(&plan.config_path).unwrap();
+    assert!(
+        cfg_meta.is_file(),
+        "config.toml is the session config, not a link"
+    );
+    let text = fs::read_to_string(&plan.config_path).unwrap();
+    assert!(text.contains(&format!("{BASE}/git")) && !text.contains("uvx"));
+    assert!(
+        !home.join("codex.toml").exists(),
+        "the user's original config is not linked in"
+    );
+    s.cleanup().unwrap();
+    assert_eq!(fs::read_to_string(&src).unwrap(), original);
+    assert_eq!(
+        fs::read_to_string(src_dir.join("auth.json")).unwrap(),
+        r#"{"who":"work"}"#,
+        "cleanup does not follow the links"
+    );
+}
+
 #[test]
 fn opencode_session_sets_opencode_config_env() {
     let dir = TempDir::new().unwrap();
@@ -199,7 +245,12 @@ impl Adapter for FailingLaunch {
     ) -> Result<String, AdapterError> {
         ClaudeCodeAdapter.rewrite_for_gateway(o, base, token_env)
     }
-    fn launch_plan(&self, session_dir: &Utf8Path, text: &str) -> Result<LaunchPlan, AdapterError> {
+    fn launch_plan(
+        &self,
+        session_dir: &Utf8Path,
+        _source: &Utf8Path,
+        text: &str,
+    ) -> Result<LaunchPlan, AdapterError> {
         fs::create_dir_all(session_dir.join("partial")).unwrap();
         fs::write(session_dir.join("partial/credentials-link"), text).unwrap();
         Err(AdapterError::Io("No space left on device".into()))

@@ -58,10 +58,13 @@ pub trait Adapter: Send + Sync {
 
     /// Write `config_text` under `session_dir` and describe how to launch
     /// the agent so that it reads it (CLI args and environment variables).
-    /// Must not touch the user's own config.
+    /// `source` is the user's config the session was prepared from (the
+    /// adapter's default location or an explicit path). Must not touch the
+    /// user's own config.
     fn launch_plan(
         &self,
         session_dir: &Utf8Path,
+        source: &Utf8Path,
         config_text: &str,
     ) -> Result<LaunchPlan, AdapterError>;
 }

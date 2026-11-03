@@ -92,7 +92,10 @@ impl AgentSession {
             .rewrite_for_gateway(&self.snapshot, gateway_base_url, token_env)?;
         create_private_dir(session_dir)?;
         self.session_dir = Some(session_dir.to_path_buf());
-        let plan = match self.adapter.launch_plan(session_dir, &text) {
+        let plan = match self
+            .adapter
+            .launch_plan(session_dir, &self.source_path, &text)
+        {
             Ok(plan) => plan,
             Err(e) => {
                 self.remove_session_dir();
