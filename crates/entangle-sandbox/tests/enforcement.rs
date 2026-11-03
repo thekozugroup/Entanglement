@@ -428,6 +428,58 @@ async fn child_holds_no_capabilities() {
     }
 }
 
+/// Everything the plugin forks stays in the process group the supervisor
+/// kills on timeout: a descendant may not `setsid()` its way out.
+#[tokio::test(flavor = "multi_thread")]
+async fn descendants_cannot_leave_the_process_group() {
+    let p = profile();
+    let plan = host_plan(&p);
+    if !plan.seccomp {
+        eprintln!("skipping: no seccomp on this host ({})", plan.describe());
+        return;
+    }
+    let errno = denied_errno(call(&p, "setsid").await);
+    assert_eq!(errno, libc::EPERM, "{}", plan.describe());
+}
+
+/// The child dies with the thread that spawned it (`PR_SET_PDEATHSIG`), so a
+/// supervisor that is killed outright (the CLI on Ctrl-C, the daemon on
+/// SIGKILL) does not leave its plugins running with their grants.
+#[test]
+fn child_dies_with_its_spawner() {
+    use std::process::Stdio;
+    let p = profile();
+    let plan = host_plan(&p);
+    let mut child = std::thread::spawn(move || {
+        let mut cmd = sandboxed_command(&p, &plan).unwrap();
+        // The child blocks reading a request from stdin, which we keep open.
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        cmd.spawn().unwrap()
+    })
+    .join()
+    .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break Some(status);
+        }
+        if Instant::now() > deadline {
+            break None;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let _ = child.kill();
+    let _ = child.wait();
+    use std::os::unix::process::ExitStatusExt;
+    assert_eq!(
+        status.and_then(|s| s.signal()),
+        Some(libc::SIGKILL),
+        "the child outlived the thread that spawned it"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn environment_is_exactly_what_the_profile_sets() {
     std::env::set_var("ENTANGLE_SANDBOX_TEST_LEAK", "parent-secret");

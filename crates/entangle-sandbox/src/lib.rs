@@ -48,8 +48,10 @@
 //!   none (no raw sockets, no module loading, no netlink administration).
 //! - `PR_SET_NO_NEW_PRIVS`, `RLIMIT_CORE = 0`, address-space / CPU / fd
 //!   rlimits, every inherited descriptor above stderr marked close-on-exec,
-//!   an empty environment plus what the profile sets, and its own process
-//!   group so a timeout can kill everything it forked.
+//!   an empty environment plus what the profile sets, its own process group
+//!   so a timeout (or a dropped invocation) can kill everything it forked,
+//!   and `PR_SET_PDEATHSIG(SIGKILL)` so it dies with the thread that
+//!   spawned it.
 //!
 //! Network denial therefore does not depend on user namespaces alone: on
 //! hosts that restrict them (Ubuntu ≥ 23.10 with
@@ -92,9 +94,13 @@
 //! - Path-based Unix sockets are not covered by Landlock (through ABI 7); the
 //!   seccomp `AF_UNIX` rule is what keeps the daemon's RPC socket out of
 //!   reach. Without seccomp support that protection is absent.
-//! - A plugin's descendants that call `setsid()` leave its process group and
-//!   survive the timeout kill (they stay sandboxed). PID namespaces or
-//!   cgroups would close this; neither is used yet.
+//! - Without seccomp (bubblewrap aside, which uses a PID namespace) a
+//!   plugin's descendants can `setsid()` out of its process group and
+//!   survive the timeout kill (they stay sandboxed). With seccomp `setsid`
+//!   and `setpgid` are refused. The child dies with the thread that spawned
+//!   it (`PR_SET_PDEATHSIG`), but its own descendants are only reached
+//!   through the group kill. PID namespaces or cgroups would close this;
+//!   neither is used yet.
 //! - No cgroup memory/CPU accounting: limits are per-process rlimits.
 
 #![warn(missing_docs)]

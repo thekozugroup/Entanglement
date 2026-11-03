@@ -12,6 +12,7 @@
 //!   nr == clone3              -> ERRNO(ENOSYS)  (libc falls back to clone)
 //!   nr == setns               -> ERRNO(EPERM)
 //!   nr == keyctl|add_key|request_key -> ERRNO(EPERM)
+//!   nr == setsid|setpgid      -> ERRNO(EPERM)   (stay in the killed group)
 //!   nr == unshare|clone with a CLONE_NEW* flag -> ERRNO(EPERM)
 //!   nr == prlimit64|sched_set{param,scheduler,affinity,attr} on pid != 0
 //!                             -> ERRNO(EPERM)   (not on the daemon)
@@ -49,6 +50,8 @@ pub(crate) struct Nr {
     pub(crate) keyctl: u32,
     pub(crate) add_key: u32,
     pub(crate) request_key: u32,
+    pub(crate) setsid: u32,
+    pub(crate) setpgid: u32,
 }
 
 /// Per-architecture constants. Only architectures listed here get a filter;
@@ -85,6 +88,8 @@ pub(crate) const X86_64: Arch = Arch {
         keyctl: 250,
         add_key: 248,
         request_key: 249,
+        setsid: 112,
+        setpgid: 109,
     },
 };
 
@@ -110,6 +115,8 @@ const GENERIC_NR: Nr = Nr {
     keyctl: 219,
     add_key: 217,
     request_key: 218,
+    setsid: 157,
+    setpgid: 154,
 };
 
 /// aarch64.
@@ -323,6 +330,9 @@ pub(crate) fn assemble(arch: Arch, policy: SocketPolicy) -> Vec<libc::sock_filte
     deny(&mut p, nr.keyctl, RET_EPERM);
     deny(&mut p, nr.add_key, RET_EPERM);
     deny(&mut p, nr.request_key, RET_EPERM);
+    // Stay in the process group the supervisor kills on timeout.
+    deny(&mut p, nr.setsid, RET_EPERM);
+    deny(&mut p, nr.setpgid, RET_EPERM);
     guarded(&mut p, nr.unshare, &flags_block(NAMESPACE_FLAGS));
     guarded(&mut p, nr.clone, &flags_block(NAMESPACE_FLAGS & !CSIGNAL));
     // Resource and scheduling calls on *other* processes. There is no PID
@@ -664,6 +674,23 @@ mod tests {
         }
     }
 
+    /// The plugin and everything it forks stay in the process group the
+    /// supervisor kills: leaving it (`setsid`, `setpgid`) is refused.
+    #[test]
+    fn leaving_the_process_group_is_refused() {
+        for arch in [X86, ARM, RISCV64] {
+            let p = assemble(
+                arch,
+                SocketPolicy {
+                    inet: true,
+                    unix: true,
+                },
+            );
+            assert_eq!(run(&p, arch.audit_arch, arch.nr.setsid, 0), RET_EPERM);
+            assert_eq!(run(&p, arch.audit_arch, arch.nr.setpgid, 0), RET_EPERM);
+        }
+    }
+
     #[test]
     fn io_uring_foreign_arch_and_x32_are_closed() {
         let pol = SocketPolicy {
@@ -708,6 +735,8 @@ mod tests {
             (n.keyctl, libc::SYS_keyctl),
             (n.add_key, libc::SYS_add_key),
             (n.request_key, libc::SYS_request_key),
+            (n.setsid, libc::SYS_setsid),
+            (n.setpgid, libc::SYS_setpgid),
         ];
         for (ours, theirs) in pairs {
             assert_eq!(*ours as libc::c_long, *theirs);

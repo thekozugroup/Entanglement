@@ -430,8 +430,8 @@ the profile; everything else is denied.
 |---|---|
 | Landlock (ABI ≥ 1) | Filesystem allowlist: the staged binary (read+exec), system libraries and loader cache (read+exec), the package directory (read), the plugin's storage scopes (read+write, never exec), `/dev/null`. ABI ≥ 4: TCP bind/connect denied unless networking is granted. ABI ≥ 6: signals and abstract Unix sockets scoped to the sandbox (the plugin cannot signal the daemon). Below ABI 6 the plan is reported as *reduced*: the plugin runs under the daemon's uid with no PID namespace and can signal it. |
 | user + network namespace | When unprivileged user namespaces work: the plugin sees only a downed loopback. |
-| seccomp-bpf | `socket()` and `socketpair()` refused for every address family not granted (`AF_UNIX` only with `host.docker-socket` — this is what keeps the daemon's RPC socket out of reach); creating or joining namespaces refused (`clone3` reports `ENOSYS`, libc falls back to `clone`); `prlimit`/`setpriority`/`sched_set*`/`ioprio_set` refused on any process but the plugin itself (it shares the daemon's uid); `keyctl`/`add_key`/`request_key` refused; `io_uring_setup`, x32 and foreign-arch syscalls refused. |
-| process | no capabilities (ambient, bounding, effective, permitted and inheritable sets emptied — a daemon run as root does not hand root to its plugins), a fresh, empty session keyring (the daemon's or login session's keys are not reachable; with seccomp the key syscalls are refused outright), `no_new_privs`, `RLIMIT_CORE=0`, address-space / CPU-time / fd rlimits, inherited fds closed at exec, empty environment, own process group (killed on timeout). |
+| seccomp-bpf | `socket()` and `socketpair()` refused for every address family not granted (`AF_UNIX` only with `host.docker-socket` — this is what keeps the daemon's RPC socket out of reach); creating or joining namespaces refused (`clone3` reports `ENOSYS`, libc falls back to `clone`); `prlimit`/`setpriority`/`sched_set*`/`ioprio_set` refused on any process but the plugin itself (it shares the daemon's uid); `keyctl`/`add_key`/`request_key` refused; `setsid`/`setpgid` refused (descendants stay in the group that is killed); `io_uring_setup`, x32 and foreign-arch syscalls refused. |
+| process | no capabilities (ambient, bounding, effective, permitted and inheritable sets emptied — a daemon run as root does not hand root to its plugins), a fresh, empty session keyring (the daemon's or login session's keys are not reachable; with seccomp the key syscalls are refused outright), `no_new_privs`, `RLIMIT_CORE=0`, address-space / CPU-time / fd rlimits, inherited fds closed at exec, empty environment, own process group (killed on timeout or when the invocation is dropped), killed if the spawning daemon/CLI dies (`PR_SET_PDEATHSIG`). |
 
 Fallbacks: **bubblewrap** when Landlock is absent; **Seatbelt** (`sandbox-exec
 -p <generated profile>`) on macOS. On hosts that restrict unprivileged user
@@ -463,7 +463,7 @@ they run with only the process layer (and seccomp/namespaces if available) —
 **Check a host.** `entangle doctor` (checks 11–12) and `entangle
 print-platform` show the exact layers and run a real trial engagement.
 
-Known limits: descendants that call `setsid()` escape the timeout kill (they
-stay sandboxed); no cgroup accounting; Landlock (through ABI 7) does not cover
+Known limits: on a host without seccomp, descendants that call `setsid()`
+escape the timeout kill (they stay sandboxed); no cgroup accounting; Landlock (through ABI 7) does not cover
 path-based Unix sockets, which is why the seccomp `AF_UNIX` rule matters — on a
 host without seccomp that protection is absent.

@@ -17,6 +17,7 @@
 //! | `keyring:<desc>`     | search the session keyring for user key `desc`, read it |
 //! | `caps`               | ok("eff=.. prm=.. inh=.. bnd=N amb=N") (sets in hex, counts) |
 //! | `raw`                | `socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)`              |
+//! | `setsid`             | fork; the grandchild calls `setsid()`; ok("escaped") or err(errno) |
 //! | `thread`             | spawn and join a thread; ok("joined")                  |
 //! | `sleep:<ms>`         | sleep, then ok("slept")                                |
 //! | `big:<n>`            | announce an ok frame of n bytes, then stream zeros     |
@@ -128,6 +129,32 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
         }
         "keyring" => keyring_read(arg),
         "caps" => caps(),
+        "setsid" => {
+            // SAFETY: this helper is single-threaded, so the child may run
+            // arbitrary code; it only calls setsid and _exit.
+            let pid = unsafe { libc::fork() };
+            if pid < 0 {
+                return Err(errno_msg(&io::Error::last_os_error()));
+            }
+            if pid == 0 {
+                // SAFETY: plain syscalls in the forked child.
+                unsafe {
+                    let code = if libc::setsid() < 0 {
+                        io::Error::last_os_error().raw_os_error().unwrap_or(1)
+                    } else {
+                        0
+                    };
+                    libc::_exit(code);
+                }
+            }
+            let mut status = 0;
+            // SAFETY: waiting for the child forked above.
+            unsafe { libc::waitpid(pid, &mut status, 0) };
+            match libc::WEXITSTATUS(status) {
+                0 => Ok(b"escaped".to_vec()),
+                e => Err(format!("errno={e} setsid failed")),
+            }
+        }
         "raw" => {
             // SAFETY: integer-only libc call.
             let fd = unsafe { libc::socket(libc::AF_INET, libc::SOCK_RAW, libc::IPPROTO_ICMP) };

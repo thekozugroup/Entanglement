@@ -24,6 +24,10 @@ struct ChildSetup {
     /// and drops them itself with `--cap-drop ALL`).
     #[cfg(target_os = "linux")]
     drop_caps: bool,
+    /// The spawning process: the child checks it is still its parent after
+    /// arming `PR_SET_PDEATHSIG`.
+    #[cfg(target_os = "linux")]
+    parent: libc::pid_t,
     #[cfg(target_os = "linux")]
     userns: Option<crate::linux::userns::IdMaps>,
     #[cfg(target_os = "linux")]
@@ -154,6 +158,27 @@ impl ChildSetup {
                 // entry, whose map writes need no capability.
                 unsafe { crate::linux::caps::drop_all()? };
             }
+            // Die with the spawning thread. Armed after every credential
+            // change above (a change of uid/gid or a capability gain would
+            // clear it). If the parent died before this point, getppid()
+            // already names a reaper: fail rather than run unsupervised.
+            // SAFETY: integer-only prctl.
+            let r = unsafe {
+                libc::prctl(
+                    libc::PR_SET_PDEATHSIG,
+                    libc::SIGKILL as libc::c_ulong,
+                    0 as libc::c_ulong,
+                    0 as libc::c_ulong,
+                    0 as libc::c_ulong,
+                )
+            };
+            if r != 0 {
+                return Err(io::Error::last_os_error());
+            }
+            // SAFETY: getppid cannot fail.
+            if unsafe { libc::getppid() } != self.parent {
+                return Err(io::Error::from_raw_os_error(libc::ESRCH));
+            }
             if self.no_new_privs {
                 // SAFETY: integer-only prctl.
                 let r = unsafe {
@@ -194,6 +219,12 @@ fn canonical(p: &Path) -> PathBuf {
 /// The returned command has an empty environment plus the profile's entries,
 /// its own process group (so a supervisor can kill everything it forks), and
 /// a `pre_exec` hook that engages the sandbox. Stdio is left to the caller.
+///
+/// On Linux the child is killed (`PR_SET_PDEATHSIG`) when the *thread* that
+/// spawns it exits, so a supervisor killed outright does not leave plugins
+/// running. Spawn from a thread that outlives the child — the thread that
+/// waits for it, or a runtime worker thread — not from a short-lived
+/// helper thread.
 ///
 /// Errors are raised here for anything that can be checked in the parent
 /// (invalid profile, ruleset construction, a required path missing);
@@ -284,6 +315,8 @@ fn build_setup(profile: &SandboxProfile, plan: &Plan) -> Result<ChildSetup, Sand
             plan.mechanism,
             Mechanism::Landlock { .. } | Mechanism::Unsandboxed
         ),
+        // SAFETY: getpid cannot fail.
+        parent: unsafe { libc::getpid() },
         userns: plan.net_namespace.then(userns::IdMaps::identity),
         landlock,
         seccomp,
