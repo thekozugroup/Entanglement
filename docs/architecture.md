@@ -767,6 +767,9 @@ enum IntegrityPolicy {
   /// metric is itself a Wasm component (interface `entangle:integrity/metric@0.1.0`)
   /// whose `compare(a, b) -> f64` returns a pairwise distance; the policy accepts
   /// if pairwise distance < threshold for at least `quorum` pairs. ///
+  /// [Implementation: the `quorum` pairs are counted within the agreement
+  /// cluster of the returned output — it plus the replicas within threshold of
+  /// it — so agreeing pairs in an unrelated cluster never count toward it.]
   /// The metric plugin is supplied by the submitter and signed by a publisher in
   /// the user's trust root. Common choices:
   ///   - `entangle-metric-bleu`              (BLEU score for token-stream output)

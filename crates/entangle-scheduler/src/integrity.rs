@@ -50,8 +50,8 @@
 //! the output bytes, then peer id, then dispatch index — so the order depends
 //! only on what came back, not on arrival timing. For every pair `(i, j)`,
 //! `i < j` in that order, the submitter runs `metric.compare(out_i, out_j)`
-//! once — exactly one component instantiation per pair (ATC-INT-1). The task
-//! is accepted iff at least `quorum` pairs have distance `< threshold`.
+//! once — exactly one component instantiation per pair (ATC-INT-1). A pair
+//! *agrees* when its distance is `< threshold`.
 //!
 //! A comparison the metric cannot finish (trap, timeout, memory limit —
 //! `E0311`; `NaN` or a negative distance — `E0312`) counts as incomparable
@@ -62,13 +62,23 @@
 //! ([`ReputationReason::IncomparableOutput`]) whatever the verdict. Only when
 //! no comparison succeeds at all is the metric error itself returned.
 //!
-//! The returned (canonical) output is the replica that
+//! The candidate (canonical) output is the replica that
 //!
-//! 1. agrees (`distance < threshold`) with the most other replicas;
-//! 2. on a tie, has the smallest sum of distances to the replicas it agrees
-//!    with;
-//! 3. on a further tie, comes first in canonical order (smallest output
+//! 1. agrees with the most other replicas;
+//! 2. on a tie, has the most agreeing pairs in its agreement cluster (itself
+//!    plus every replica that agrees with it — see [`cluster_support`]);
+//! 3. on a further tie, has the smallest sum of distances to the replicas it
+//!    agrees with;
+//! 4. on a further tie, comes first in canonical order (smallest output
 //!    BLAKE3).
+//!
+//! The task is accepted iff the candidate's agreement cluster contains at
+//! least `quorum` agreeing pairs. The spec's rule ("accept iff distance <
+//! threshold for >= quorum pairs") is applied to the pairs that back the
+//! returned output: agreeing pairs in an unrelated cluster — for instance
+//! colluders returning identical bytes — never count toward another output's
+//! quorum. The reported `pair_agreement` / `QuorumNotReached::agreeing` is
+//! that cluster count.
 //!
 //! The accepted cluster is the canonical replica plus every replica that
 //! agrees with it: remote peers in the cluster are recorded as correct, remote
@@ -212,7 +222,8 @@ pub struct Acceptance {
     pub chosen: usize,
     /// One report per replica, in the order they were passed in.
     pub reports: Vec<ReplicaReport>,
-    /// For `SemanticEquivalent`: `(agreeing pairs, pairs compared)`.
+    /// For `SemanticEquivalent`: `(agreeing pairs backing the returned
+    /// output, pairs compared)`.
     pub pair_agreement: Option<(usize, usize)>,
 }
 
@@ -445,7 +456,6 @@ impl IntegrityVerifier {
                 // veto an answer the others agree on.
                 let n = order.len();
                 let mut dist = vec![vec![f64::INFINITY; n]; n];
-                let mut agreeing = 0usize;
                 let mut pairs = 0usize;
                 let mut compared = vec![0usize; n];
                 let mut pair_error: Vec<Option<IntegrityError>> = vec![None; n];
@@ -490,9 +500,6 @@ impl IntegrityVerifier {
                         };
                         dist[a][b] = d;
                         dist[b][a] = d;
-                        if d < *threshold {
-                            agreeing += 1;
-                        }
                     }
                 }
                 // Not a single comparison succeeded: the metric (or every
@@ -522,6 +529,12 @@ impl IntegrityVerifier {
                         );
                     }
                 }
+                // The quorum is counted among the pairs that back the output
+                // we would return — its agreement cluster — so agreeing pairs
+                // elsewhere (an unrelated cluster, possibly colluders) can
+                // never lend their votes to it.
+                let canonical_pos = choose_canonical(&dist, *threshold);
+                let agreeing = cluster_support(&dist, *threshold, canonical_pos);
                 if agreeing < *quorum as usize {
                     return Err(IntegrityError::QuorumNotReached {
                         agreeing,
@@ -531,7 +544,6 @@ impl IntegrityVerifier {
                     .into());
                 }
 
-                let canonical_pos = choose_canonical(&dist, *threshold);
                 let chosen = order[canonical_pos];
                 for (pos, &idx) in order.iter().enumerate() {
                     if incomparable[pos] {
@@ -675,11 +687,12 @@ pub fn pair_count(n: usize) -> usize {
 }
 
 /// Pick the canonical position from a symmetric distance matrix (positions
-/// are in canonical order): most agreements, then smallest sum of agreeing
+/// are in canonical order): most agreements, then the most agreeing pairs in
+/// its agreement cluster ([`cluster_support`]), then smallest sum of agreeing
 /// distances, then lowest position.
 pub fn choose_canonical(dist: &[Vec<f64>], threshold: f64) -> usize {
     let mut best = 0usize;
-    let mut best_key: Option<(usize, f64)> = None;
+    let mut best_key: Option<(usize, usize, f64)> = None;
     for (i, row) in dist.iter().enumerate() {
         let agreeing: Vec<f64> = row
             .iter()
@@ -688,17 +701,42 @@ pub fn choose_canonical(dist: &[Vec<f64>], threshold: f64) -> usize {
             .map(|(_, d)| *d)
             .collect();
         let degree = agreeing.len();
+        let support = cluster_support(dist, threshold, i);
         let sum: f64 = agreeing.iter().sum();
         let better = match best_key {
             None => true,
-            Some((bd, bs)) => degree > bd || (degree == bd && sum < bs),
+            Some((bd, bp, bs)) => {
+                degree > bd
+                    || (degree == bd && support > bp)
+                    || (degree == bd && support == bp && sum < bs)
+            }
         };
         if better {
             best = i;
-            best_key = Some((degree, sum));
+            best_key = Some((degree, support, sum));
         }
     }
     best
+}
+
+/// The number of agreeing pairs (`distance < threshold`) among position `c`
+/// and the positions that agree with it — the pairs that back `c`'s output.
+pub fn cluster_support(dist: &[Vec<f64>], threshold: f64, c: usize) -> usize {
+    let Some(row) = dist.get(c) else {
+        return 0;
+    };
+    let members: Vec<usize> = (0..row.len())
+        .filter(|&j| j == c || row[j] < threshold)
+        .collect();
+    let mut support = 0;
+    for (k, &i) in members.iter().enumerate() {
+        for &j in &members[k + 1..] {
+            if dist[i][j] < threshold {
+                support += 1;
+            }
+        }
+    }
+    support
 }
 
 fn report_for(r: &ReplicaResult) -> ReplicaReport {
@@ -962,6 +1000,82 @@ mod tests {
         assert_eq!(v.reputation().record(&peer(2), k).total, 0);
     }
 
+    /// Quorum is counted among the pairs that back the *returned* output (its
+    /// agreement cluster), not across unrelated clusters. Here A agrees with
+    /// B and C (B and C do not agree), and an unrelated pair D–E agrees:
+    /// 3 agreeing pairs overall, but only 2 behind A — quorum 3 is not met.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn quorum_counts_only_pairs_that_back_the_returned_output() {
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 5, 3, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        // d(A,B) = d(A,C) = 0.2, d(B,C) = 0.4, d(D,E) = 0, D/E far from A–C.
+        let reps = vec![
+            ok(1, &[20], h),
+            ok(2, &[18], h),
+            ok(3, &[22], h),
+            ok(4, &[60], h),
+            ok(5, &[60], h),
+        ];
+        let err = v.accept(&task(policy, 1024), &env, reps).await.unwrap_err();
+        assert!(
+            matches!(
+                err,
+                DispatchError::Integrity(IntegrityError::QuorumNotReached {
+                    agreeing: 2,
+                    pairs: 10,
+                    required: 3
+                })
+            ),
+            "{err:?}"
+        );
+        // Nothing was accepted, so nobody is credited.
+        let k = PolicyKind::SemanticEquivalent;
+        for p in 1..=5 {
+            assert_eq!(v.reputation().record(&peer(p), k).correct, 0, "peer {p}");
+        }
+    }
+
+    /// The finding's scenario: honest H1–H2 agree (0.2), honest H3 is a
+    /// paraphrase too far from both, and two colluders return byte-identical
+    /// poison (distance 0). Two agreeing pairs meet quorum 2 overall, but the
+    /// colluders' output is backed by one pair only: it must not be returned,
+    /// and no honest peer may lose standing over it.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn colluders_with_identical_bytes_cannot_borrow_an_honest_pair_for_quorum() {
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 5, 2, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        let reps = vec![
+            ok(1, &[10], h),
+            ok(2, &[12], h),
+            ok(3, &[15], h),
+            ok(4, &[50], h),
+            ok(5, &[50], h),
+        ];
+        let err = v.accept(&task(policy, 1024), &env, reps).await.unwrap_err();
+        assert!(
+            matches!(
+                err,
+                DispatchError::Integrity(IntegrityError::QuorumNotReached {
+                    agreeing: 1,
+                    pairs: 10,
+                    required: 2
+                })
+            ),
+            "{err:?}"
+        );
+        let k = PolicyKind::SemanticEquivalent;
+        for p in 1..=3 {
+            assert_eq!(v.reputation().get(&peer(p), k), INITIAL_SCORE, "peer {p}");
+        }
+        for p in 4..=5 {
+            assert_eq!(v.reputation().record(&peer(p), k).correct, 0, "peer {p}");
+        }
+    }
+
     /// When no comparison succeeds at all, the metric itself (or every
     /// output) is the problem: its error is reported and nobody is blamed.
     #[tokio::test(flavor = "multi_thread")]
@@ -991,7 +1105,7 @@ mod tests {
     }
 
     #[test]
-    fn canonical_choice_prefers_degree_then_closeness_then_position() {
+    fn canonical_choice_prefers_degree_then_support_then_closeness_then_position() {
         let inf = f64::INFINITY;
         // 0 agrees with 1; 2 agrees with 0 and 1 → 2 has the highest degree.
         let d = vec![
@@ -1026,6 +1140,23 @@ mod tests {
             vec![inf, inf, 0.0],
         ];
         assert_eq!(choose_canonical(&pairish, 0.5), 0);
+        assert_eq!(cluster_support(&pairish, 0.5, 0), 1);
+        assert_eq!(cluster_support(&pairish, 0.5, 2), 0);
+
+        // Equal degree (2): position 0 is a hub over two outputs that do not
+        // agree with each other (support 2, sum 0.2); positions 3–5 form a
+        // triangle (support 3, sum 0.4). Support beats closeness.
+        let six = vec![
+            vec![0.0, 0.1, 0.1, inf, inf, inf],
+            vec![0.1, 0.0, inf, inf, inf, inf],
+            vec![0.1, inf, 0.0, inf, inf, inf],
+            vec![inf, inf, inf, 0.0, 0.2, 0.2],
+            vec![inf, inf, inf, 0.2, 0.0, 0.2],
+            vec![inf, inf, inf, 0.2, 0.2, 0.0],
+        ];
+        assert_eq!(cluster_support(&six, 0.5, 0), 2);
+        assert_eq!(cluster_support(&six, 0.5, 3), 3);
+        assert_eq!(choose_canonical(&six, 0.5), 3);
     }
 
     #[test]

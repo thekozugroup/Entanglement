@@ -32,12 +32,15 @@ pub enum IntegrityPolicy {
     ///
     /// The task is accepted iff at least `quorum` of the
     /// `replicas * (replicas - 1) / 2` replica pairs have
-    /// `metric.compare(a, b) < threshold`. The metric runs only on the
-    /// submitter (§7.5 verifier-locality, Rule 3).
+    /// `metric.compare(a, b) < threshold` — counted among the pairs that back
+    /// the returned output (its agreement cluster), so agreeing pairs in an
+    /// unrelated group of replicas never count toward it. The metric runs
+    /// only on the submitter (§7.5 verifier-locality, Rule 3).
     SemanticEquivalent {
         /// Number of independent execution replicas (at least 2: one pair).
         replicas: u8,
-        /// Minimum number of replica *pairs* that must agree.
+        /// Minimum number of agreeing replica *pairs* that must back the
+        /// returned output.
         quorum: u8,
         /// The exact metric component used to compare replica outputs.
         metric: MetricRef,

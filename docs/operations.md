@@ -414,10 +414,12 @@ kernel.
 * `--integrity deterministic --replicas N` — all `N` outputs must be
   byte-identical (BLAKE3).
 * `--integrity semantic-equivalent` — outputs are compared pairwise by a
-  signed **metric component**; the task is accepted when at least `--quorum`
-  pairs have distance `< --threshold`. The returned output is the replica that
-  agrees with the most others (ties: smallest total distance, then smallest
-  output BLAKE3).
+  signed **metric component**; a pair agrees when its distance is
+  `< --threshold`. The returned output is the replica that agrees with the
+  most others (ties: most agreeing pairs among it and the replicas that agree
+  with it, then smallest total distance, then smallest output BLAKE3), and the
+  task is accepted when at least `--quorum` agreeing pairs back **that**
+  output — agreeing pairs in an unrelated group of replicas do not count.
 
 ### Setting up a metric
 

@@ -142,7 +142,9 @@ pub enum IntegrityError {
          agreed (policy requires {required})"
     )]
     QuorumNotReached {
-        /// Pairs whose distance was below the threshold.
+        /// Pairs whose distance was below the threshold, counted within the
+        /// best-supported agreement cluster (the pairs that would back the
+        /// returned output).
         agreeing: usize,
         /// Pairs compared.
         pairs: usize,
