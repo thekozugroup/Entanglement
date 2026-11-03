@@ -102,6 +102,14 @@ fn fake_mcp_server() {
                     let text = r.map_or_else(|e| format!("err: {e}"), |()| "ok".to_string());
                     json!({"content": [{"type": "text", "text": text}]})
                 }
+                // An unterminated 3 MiB "reply", then silence.
+                "flood" => {
+                    write!(out, "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"result\":\"").unwrap();
+                    out.write_all(&vec![b'a'; 3 * 1024 * 1024]).unwrap();
+                    out.flush().unwrap();
+                    std::thread::sleep(Duration::from_secs(30));
+                    std::process::exit(0)
+                }
                 // A non-UTF-8 line on stdout before the real reply.
                 "bad_stdout" => {
                     out.write_all(b"\xff\xfe not utf8\n").unwrap();
@@ -1011,6 +1019,51 @@ async fn oversized_body_is_413() {
     .await;
     assert_eq!(st, 413);
     assert!(body.contains("ENTANGLE-E0667"));
+    gw.shutdown().await;
+}
+
+#[tokio::test]
+async fn oversized_downstream_message_fails_fast_instead_of_buffering() {
+    let dir = TempDir::new().unwrap();
+    let (s, _, pid_file) = spec(&dir);
+    let token = generate_bearer_token();
+    let gw = Gateway::new(GatewayConfig {
+        bearer_token: token.clone(),
+        ..GatewayConfig::default()
+    })
+    .with_servers(BTreeMap::from([("fake".to_string(), s)]))
+    .with_request_timeout(Duration::from_secs(20))
+    .with_max_downstream_message_bytes(1024 * 1024)
+    .start()
+    .await
+    .unwrap();
+    let bearer = format!("Bearer {token}");
+    let post = |body: Value| {
+        let bearer = bearer.clone();
+        let addr = gw.addr;
+        async move {
+            tokio::time::timeout(
+                Duration::from_secs(8),
+                http(addr, "POST", "/mcp/fake", Some(&bearer), &body.to_string()),
+            )
+            .await
+            .expect("request hung")
+        }
+    };
+    let (st, _) = post(json!({"jsonrpc":"2.0","id":0,"method":"tools/list"})).await;
+    assert_eq!(st, 200);
+    let old_pid = std::fs::read_to_string(&pid_file).unwrap();
+    // 3 MiB without a newline: the gateway gives up at 1 MiB.
+    let (st, body) =
+        post(json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"flood"}})).await;
+    assert_eq!(st, 200);
+    assert!(body.contains("ENTANGLE-E0663"), "{body}");
+    assert!(!body.contains("timed out"), "{body}");
+    // The offending process was dropped; the next request gets a new one.
+    let (st, body) = post(json!({"jsonrpc":"2.0","id":2,"method":"tools/list"})).await;
+    assert_eq!(st, 200);
+    assert!(body.contains("\"tools\""), "{body}");
+    assert_ne!(std::fs::read_to_string(&pid_file).unwrap(), old_pid);
     gw.shutdown().await;
 }
 

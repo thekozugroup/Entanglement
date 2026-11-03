@@ -54,7 +54,10 @@
 //!   (`ENTANGLE-E0663`) that covers writing it to the server's stdin as well
 //!   as waiting for the reply. A write that is cut short (timeout or error)
 //!   kills that process, so a partial line is never followed by another
-//!   message; the next request starts a fresh one.
+//!   message; the next request starts a fresh one. A downstream message
+//!   (stdout line) over 64 MiB (see
+//!   [`Gateway::with_max_downstream_message_bytes`]) is not buffered: that
+//!   process is killed and its in-flight requests fail with `ENTANGLE-E0663`.
 //! * **Client disconnects**: once a request is accepted it is processed in
 //!   its own task that holds the in-flight permit, so a client that closes
 //!   the connection mid-call does not cancel it: the call still finishes,
@@ -471,14 +474,24 @@ impl Drop for WriteSlot<'_> {
 /// Longest downstream stderr line kept for logging; the rest is discarded.
 const STDERR_LINE_CAP: usize = 16 * 1024;
 
+/// What [`read_line_capped`] does once a line passes its cap.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Overflow {
+    /// Return at once (the caller abandons the stream).
+    Stop,
+    /// Keep reading and discard the rest of the line.
+    Discard,
+}
+
 /// Read one `\n`-terminated line into `buf` (newline excluded), keeping at
-/// most `max` bytes of it; the rest of a longer line is read and discarded.
-/// Returns `Ok(None)` at end of input with nothing read, otherwise
-/// `Ok(Some(overflowed))`.
+/// most `max` bytes of it. Past the cap, the rest of the line is discarded
+/// or reading stops, per `on_overflow`. Returns `Ok(None)` at end of input
+/// with nothing read, otherwise `Ok(Some(overflowed))`.
 async fn read_line_capped<R>(
     r: &mut R,
     buf: &mut Vec<u8>,
     max: usize,
+    on_overflow: Overflow,
 ) -> std::io::Result<Option<bool>>
 where
     R: tokio::io::AsyncBufRead + Unpin,
@@ -501,7 +514,7 @@ where
         buf.extend_from_slice(&chunk[..chunk.len().min(room)]);
         let used = newline.map_or(avail.len(), |i| i + 1);
         r.consume(used);
-        if newline.is_some() {
+        if newline.is_some() || (overflowed && on_overflow == Overflow::Stop) {
             return Ok(Some(overflowed));
         }
     }
@@ -517,6 +530,7 @@ impl StdioProc {
         args: &[String],
         env: &BTreeMap<String, String>,
         timeout: Duration,
+        max_message: usize,
     ) -> Result<Arc<Self>, DsError> {
         let mut child = Command::new(command)
             .args(args)
@@ -562,7 +576,9 @@ impl StdioProc {
             tokio::spawn(async move {
                 let mut r = BufReader::new(stderr);
                 let mut buf = Vec::new();
-                while let Ok(Some(_)) = read_line_capped(&mut r, &mut buf, STDERR_LINE_CAP).await {
+                while let Ok(Some(_)) =
+                    read_line_capped(&mut r, &mut buf, STDERR_LINE_CAP, Overflow::Discard).await
+                {
                     let line = String::from_utf8_lossy(&buf);
                     tracing::debug!(server = %name, "downstream stderr: {line}");
                 }
@@ -584,7 +600,11 @@ impl StdioProc {
         });
         // Weak: the reader must not keep the process (and its kill switch)
         // alive.
-        tokio::spawn(Self::read_stdout(stdout, Arc::downgrade(&proc)));
+        tokio::spawn(Self::read_stdout(
+            stdout,
+            Arc::downgrade(&proc),
+            max_message,
+        ));
         Ok(proc)
     }
 
@@ -593,13 +613,31 @@ impl StdioProc {
     /// requires every request to be answered: `ping` gets an empty result,
     /// anything else `-32601`, so the server fails fast instead of waiting.
     /// Server notifications are dropped.
-    async fn read_stdout(stdout: tokio::process::ChildStdout, proc: std::sync::Weak<Self>) {
+    ///
+    /// A line longer than `max_message` is not buffered: the process is
+    /// killed (its waiters fail with "closed") as soon as the cap is passed.
+    async fn read_stdout(
+        stdout: tokio::process::ChildStdout,
+        proc: std::sync::Weak<Self>,
+        max_message: usize,
+    ) {
         let mut r = BufReader::new(stdout);
         let mut line = Vec::new();
         // Bytes, not UTF-8 lines: one undecodable line is skipped instead of
         // ending the reader (which would mark the process dead).
-        while let Ok(Some(_)) = read_line_capped(&mut r, &mut line, usize::MAX).await {
+        while let Ok(Some(overflowed)) =
+            read_line_capped(&mut r, &mut line, max_message, Overflow::Stop).await
+        {
             let Some(p) = proc.upgrade() else { return };
+            if overflowed {
+                tracing::warn!(
+                    server = %p.name,
+                    limit = max_message,
+                    "downstream wrote a message over the size limit; killing it"
+                );
+                p.start_kill();
+                break;
+            }
             let Ok(v) = serde_json::from_slice::<Value>(&line) else {
                 tracing::debug!(server = %p.name, "non-JSON line on downstream stdout ignored");
                 continue;
@@ -794,6 +832,8 @@ struct Downstream {
     /// process is handshaken with it, so its cached result carries the
     /// version the client negotiated rather than a gateway default.
     client_version: Mutex<Option<String>>,
+    /// See [`Gateway::with_max_downstream_message_bytes`].
+    max_message: usize,
 }
 
 impl Downstream {
@@ -824,7 +864,14 @@ impl Downstream {
             }
         }
         tracing::info!(server = %self.name, command = %command, "starting downstream MCP server");
-        let p = StdioProc::spawn(&self.name, command, args, env, self.timeout)?;
+        let p = StdioProc::spawn(
+            &self.name,
+            command,
+            args,
+            env,
+            self.timeout,
+            self.max_message,
+        )?;
         let version = self
             .client_version
             .lock()
@@ -1448,6 +1495,7 @@ pub struct Gateway {
     hooks: Arc<dyn GatewayHooks>,
     request_timeout: Duration,
     max_body_bytes: usize,
+    max_downstream_message: usize,
 }
 
 impl Gateway {
@@ -1460,6 +1508,7 @@ impl Gateway {
             hooks: Arc::new(Policy::default()),
             request_timeout: Duration::from_secs(60),
             max_body_bytes: 4 * 1024 * 1024,
+            max_downstream_message: 64 * 1024 * 1024,
         }
     }
 
@@ -1495,6 +1544,17 @@ impl Gateway {
     #[must_use]
     pub const fn with_max_body_bytes(mut self, n: usize) -> Self {
         self.max_body_bytes = n;
+        self
+    }
+
+    /// Largest single message (stdout line) accepted from a downstream
+    /// server. A server that writes a longer one is killed (its in-flight
+    /// requests fail with `ENTANGLE-E0663`) and restarted on the next
+    /// request, so a runaway server cannot grow the gateway's memory.
+    /// Default 64 MiB.
+    #[must_use]
+    pub const fn with_max_downstream_message_bytes(mut self, n: usize) -> Self {
+        self.max_downstream_message = n;
         self
     }
 
@@ -1537,6 +1597,7 @@ impl Gateway {
                         timeout: self.request_timeout,
                         proc: tokio::sync::Mutex::new(None),
                         client_version: Mutex::new(None),
+                        max_message: self.max_downstream_message,
                     }),
                 )
             })
@@ -1719,6 +1780,7 @@ mod tests {
             &["-c".into(), "cat >/dev/null".into()],
             &BTreeMap::new(),
             Duration::from_secs(5),
+            1024,
         )
         .expect("spawn sh");
         let msg = json!({"jsonrpc": "2.0", "id": 1, "method": "ping"});

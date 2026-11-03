@@ -73,7 +73,8 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
   writing the request to the server's stdin and waiting for its reply),
   unknown server `404`, bad token `401` (E0670). A server whose stdin write
   is cut short (it stopped reading) is killed and restarted on the next
-  request.
+  request, and so is one that writes a single message over 64 MiB (its
+  in-flight calls fail with E0663).
 * Policy: `--deny` wins over `--allow`; patterns are `server/tool`,
   `server/*`, `*`. Denied calls return JSON-RPC error `ENTANGLE-E0661` and
   never reach the downstream server.
