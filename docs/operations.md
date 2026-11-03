@@ -421,6 +421,10 @@ tailscale-cli = ""             # empty = `tailscale` on $PATH
   internet) is closed before a byte is read or sent, whatever `bind-ip` is.
   Discovery and outbound connections likewise never dial a non-tailnet
   address, even if `tailscale status` lists one.
+* Inbound limits: at most 8 handshakes in flight per source address (64 in
+  all), and at most 16 established connections per peer (256 in all). A peer
+  over a limit is told so after the handshake (`connection limit`) and can
+  retry once one of its connections closes.
 
 * Traffic is TCP over WireGuard. A mutual Ed25519-signed X25519 handshake
   authenticates the remote `PeerId` and agrees session keys; every frame after

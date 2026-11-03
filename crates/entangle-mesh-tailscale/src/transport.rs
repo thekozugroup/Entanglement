@@ -15,7 +15,7 @@ use tracing::{debug, warn};
 
 use crate::error::MeshTailscaleError;
 use crate::framing::{read_sealed, read_sealed_opt, write_sealed, Opener, Sealer};
-use crate::handshake::{client_handshake, server_handshake, Remote, Session};
+use crate::handshake::{client_handshake, server_handshake, Admission, Refusal, Remote, Session};
 use crate::status::TailscaleStatus;
 use crate::{AclMode, MeshTailscaleConfig, TailscalePeer};
 
@@ -49,6 +49,65 @@ impl PendingBySource {
             table: Arc::clone(self),
             ip,
         })
+    }
+}
+
+/// Established inbound connections, in total and per peer; [`ConnSlot`]
+/// releases on drop (i.e. when the server-side [`MeshConn`] goes away).
+#[derive(Default)]
+struct ConnTable(Mutex<ConnCounts>);
+
+#[derive(Default)]
+struct ConnCounts {
+    total: usize,
+    per_peer: HashMap<PeerId, usize>,
+}
+
+struct ConnSlot {
+    table: Arc<ConnTable>,
+    peer: PeerId,
+}
+
+impl std::fmt::Debug for ConnSlot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConnSlot")
+            .field("peer", &self.peer)
+            .finish()
+    }
+}
+
+impl ConnTable {
+    fn try_take(
+        self: &Arc<Self>,
+        peer: PeerId,
+        max_total: usize,
+        max_per_peer: usize,
+    ) -> Option<ConnSlot> {
+        let mut c = self.0.lock().ok()?;
+        let mine = c.per_peer.get(&peer).copied().unwrap_or(0);
+        if c.total >= max_total || mine >= max_per_peer {
+            return None;
+        }
+        c.total += 1;
+        c.per_peer.insert(peer, mine + 1);
+        Some(ConnSlot {
+            table: Arc::clone(self),
+            peer,
+        })
+    }
+}
+
+impl Drop for ConnSlot {
+    fn drop(&mut self) {
+        if let Ok(mut c) = self.table.0.lock() {
+            c.total = c.total.saturating_sub(1);
+            if let Some(n) = c.per_peer.get_mut(&self.peer) {
+                *n -= 1;
+                if *n == 0 {
+                    c.per_peer.remove(&self.peer);
+                }
+            }
+        }
     }
 }
 
@@ -199,24 +258,29 @@ impl MeshTailscale {
     /// outside the tailnet ranges is refused without dialling.
     ///
     /// Fails unless the server proves possession of `peer.public_key`, and
-    /// fails with a handshake error if the server's ACL rejected us.
+    /// fails with a handshake error if the server's ACL rejected us or it is
+    /// at its connection limit.
     pub async fn connect(&self, peer: &TailscalePeer) -> Result<MeshConn, MeshTailscaleError> {
         let cfg = &self.inner.config;
         let mut stream = dial(peer.addr, cfg).await?;
-        let (remote, admitted, session) = client_handshake(
+        let (remote, admission, session) = client_handshake(
             &mut stream,
             &self.inner.identity,
             Some(&peer.public_key),
             cfg.handshake_timeout,
         )
         .await?;
-        if !admitted {
-            return Err(MeshTailscaleError::Handshake(format!(
+        match admission {
+            Admission::Admitted => Ok(MeshConn::new(stream, remote, session, None, cfg)),
+            Admission::Denied => Err(MeshTailscaleError::Handshake(format!(
                 "peer {} authenticated us but rejected us (we are not in its allowlist)",
                 remote.peer_id
-            )));
+            ))),
+            Admission::Busy => Err(MeshTailscaleError::Handshake(format!(
+                "peer {} is at its connection limit; try again later",
+                remote.peer_id
+            ))),
         }
-        Ok(MeshConn::new(stream, remote, session, cfg))
     }
 
     /// Connect, send one request, return the response, close.
@@ -428,6 +492,7 @@ async fn accept_loop(
 ) {
     let permits = Arc::new(Semaphore::new(MAX_PENDING_HANDSHAKES));
     let per_source = Arc::new(PendingBySource::default());
+    let established = Arc::new(ConnTable::default());
     loop {
         let (mut stream, from) = match listener.accept().await {
             Ok(x) => x,
@@ -453,17 +518,28 @@ async fn accept_loop(
         let identity = identity.clone();
         let config = config.clone();
         let tx = tx.clone();
+        let established = Arc::clone(&established);
         tokio::spawn(async move {
             let _permit = (permit, source_slot);
             let acl = config.acl_mode;
             let allow = config.allowlist.clone();
-            let admit = move |p: &PeerId| match acl {
-                AclMode::TrustTailnet => true,
-                AclMode::EntangleOnTop => allow.as_ref().is_some_and(|a| a.is_allowed(p)),
+            let (max_total, max_per_peer) =
+                (config.max_connections, config.max_connections_per_peer);
+            let admit = move |p: &PeerId| {
+                let allowed = match acl {
+                    AclMode::TrustTailnet => true,
+                    AclMode::EntangleOnTop => allow.as_ref().is_some_and(|a| a.is_allowed(p)),
+                };
+                if !allowed {
+                    return Err(Refusal::NotAllowed);
+                }
+                established
+                    .try_take(*p, max_total, max_per_peer)
+                    .ok_or(Refusal::Busy)
             };
             match server_handshake(&mut stream, &identity, config.handshake_timeout, admit).await {
-                Ok((remote, session)) => {
-                    let conn = MeshConn::new(stream, remote, session, &config);
+                Ok((remote, session, slot)) => {
+                    let conn = MeshConn::new(stream, remote, session, Some(slot), &config);
                     // A full queue means nobody is accepting; drop.
                     if tx.try_send(conn).is_err() {
                         debug!(%from, "mesh.tailscale: accept queue full, dropping connection");
@@ -488,18 +564,28 @@ pub struct MeshConn {
     remote: Remote,
     sealer: Sealer,
     opener: Opener,
+    /// Held by server-side connections: counts against the connection caps
+    /// until this connection is dropped.
+    _slot: Option<ConnSlot>,
     max_frame_bytes: usize,
     request_timeout: Duration,
     idle_timeout: Duration,
 }
 
 impl MeshConn {
-    fn new(stream: TcpStream, remote: Remote, session: Session, cfg: &MeshTailscaleConfig) -> Self {
+    fn new(
+        stream: TcpStream,
+        remote: Remote,
+        session: Session,
+        slot: Option<ConnSlot>,
+        cfg: &MeshTailscaleConfig,
+    ) -> Self {
         Self {
             stream,
             remote,
             sealer: session.sealer,
             opener: session.opener,
+            _slot: slot,
             max_frame_bytes: cfg.max_frame_bytes,
             request_timeout: cfg.request_timeout,
             idle_timeout: cfg.idle_timeout,

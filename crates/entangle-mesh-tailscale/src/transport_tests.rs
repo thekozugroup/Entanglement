@@ -900,3 +900,52 @@ async fn silent_connections_from_one_source_cannot_starve_other_peers() {
     assert_eq!(server.remote_peer_id(), id_of(&ka));
     drop(hold);
 }
+
+#[tokio::test]
+async fn one_peer_cannot_hold_unbounded_established_connections() {
+    let per_peer = MeshTailscaleConfig::default().max_connections_per_peer;
+    let (b, _) = node(AclMode::TrustTailnet, None).await;
+    let b2 = b.clone();
+    tokio::spawn(async move { b2.serve(Arc::new(Echo(AtomicUsize::new(0)))).await });
+    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    let target = peer_of(&b);
+    let mut conns = Vec::new();
+    for _ in 0..per_peer {
+        let mut c = a.connect(&target).await.unwrap();
+        assert_eq!(c.request(b"x").await.unwrap(), b"x");
+        conns.push(c);
+    }
+    let err = a.connect(&target).await.unwrap_err();
+    assert_eq!(err.code(), "ENTANGLE-E0644");
+    assert!(err.to_string().contains("connection limit"), "{err}");
+
+    // Closing one frees its slot once the server notices.
+    drop(conns.pop());
+    let mut ok = false;
+    for _ in 0..20 {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        if a.connect(&target).await.is_ok() {
+            ok = true;
+            break;
+        }
+    }
+    assert!(ok, "a slot must be released when a connection closes");
+}
+
+#[tokio::test]
+async fn the_global_connection_cap_applies_across_peers() {
+    let mut sc = cfg(AclMode::TrustTailnet, None);
+    sc.max_connections = 2;
+    let b = MeshTailscale::start(&IdentityKeyPair::generate(), sc)
+        .await
+        .unwrap();
+    let target = peer_of(&b);
+    let mut held = Vec::new();
+    for _ in 0..2 {
+        let (a, _) = node(AclMode::TrustTailnet, None).await;
+        held.push(a.connect(&target).await.unwrap());
+    }
+    let (third, _) = node(AclMode::TrustTailnet, None).await;
+    let err = third.connect(&target).await.unwrap_err();
+    assert!(err.to_string().contains("connection limit"), "{err}");
+}

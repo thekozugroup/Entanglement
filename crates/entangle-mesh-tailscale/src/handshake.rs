@@ -17,6 +17,8 @@
 //! S -> C : server_pk(32) ‖ server_nonce(32) ‖ server_eph(32) ‖ sig_S(64)        (160 B)
 //! C -> S : sig_C(64)                                                            (64 B)
 //! S -> C : sealed record [admission(1)]                                         (21 B)
+//!          admission: 0x01 admitted, 0x00 not allowed by the ACL,
+//!                     0x02 allowed but over a connection limit
 //!
 //! T      = "ETSH" ‖ 0x02 ‖ client_pk ‖ client_nonce ‖ client_eph
 //!                        ‖ server_pk ‖ server_nonce ‖ server_eph
@@ -75,6 +77,25 @@ pub(crate) const SERVER_HELLO_LEN: usize = 32 * 3 + 64;
 pub(crate) const ADMIT_OK: u8 = 1;
 /// Admission answer: authenticated, but not allowed by the server's ACL.
 pub(crate) const ADMIT_DENIED: u8 = 0;
+/// Admission answer: allowed, but the server is at its connection limit.
+pub(crate) const ADMIT_BUSY: u8 = 2;
+
+/// The server's answer, as the client sees it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Admission {
+    Admitted,
+    Denied,
+    Busy,
+}
+
+/// Why the server's admission check refused an authenticated peer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Refusal {
+    /// Not allowed by the ACL.
+    NotAllowed,
+    /// Over a connection limit.
+    Busy,
+}
 
 /// The authenticated remote identity.
 #[derive(Clone, Copy, Debug)]
@@ -267,8 +288,8 @@ fn with_timeout_err(after: Duration) -> MeshTailscaleError {
     hs_err(format!("timed out after {}ms", after.as_millis()))
 }
 
-/// Run the client side. Returns the authenticated server identity, whether
-/// the server admitted us, and the session keys.
+/// Run the client side. Returns the authenticated server identity, the
+/// server's admission answer, and the session keys.
 ///
 /// `expected` pins the server key: a different key aborts *before* the client
 /// signs anything.
@@ -277,7 +298,7 @@ pub(crate) async fn client_handshake<S>(
     identity: &IdentityKeyPair,
     expected: Option<&[u8; 32]>,
     timeout: Duration,
-) -> Result<(Remote, bool, Session), MeshTailscaleError>
+) -> Result<(Remote, Admission, Session), MeshTailscaleError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -290,7 +311,7 @@ async fn client_inner<S>(
     s: &mut S,
     identity: &IdentityKeyPair,
     expected: Option<&[u8; 32]>,
-) -> Result<(Remote, bool, Session), MeshTailscaleError>
+) -> Result<(Remote, Admission, Session), MeshTailscaleError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -339,8 +360,9 @@ where
         .await
         .map_err(|e| hs_err(format!("reading the admission answer: {e}")))?;
     let admitted = match admission.as_slice() {
-        [ADMIT_OK] => true,
-        [ADMIT_DENIED] => false,
+        [ADMIT_OK] => Admission::Admitted,
+        [ADMIT_DENIED] => Admission::Denied,
+        [ADMIT_BUSY] => Admission::Busy,
         other => return Err(hs_err(format!("invalid admission answer {other:02x?}"))),
     };
     Ok((
@@ -354,32 +376,34 @@ where
 }
 
 /// Run the server side. `admit` is consulted only after the client has proven
-/// possession of its key; when it returns `false` the client is told (one
-/// sealed byte) and `PeerNotAllowed` is returned so the caller drops the
-/// connection without ever reading a request.
-pub(crate) async fn server_handshake<S, F>(
+/// possession of its key; whatever it returns on success (e.g. a connection
+/// slot) is handed back with the session. When it refuses, the client is
+/// told why (one sealed byte) and an error is returned so the caller drops
+/// the connection without ever reading a request: `PeerNotAllowed` for an
+/// ACL refusal, a handshake error for a connection limit.
+pub(crate) async fn server_handshake<S, F, T>(
     stream: &mut S,
     identity: &IdentityKeyPair,
     timeout: Duration,
     admit: F,
-) -> Result<(Remote, Session), MeshTailscaleError>
+) -> Result<(Remote, Session, T), MeshTailscaleError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
-    F: FnOnce(&PeerId) -> bool,
+    F: FnOnce(&PeerId) -> Result<T, Refusal>,
 {
     tokio::time::timeout(timeout, server_inner(stream, identity, admit))
         .await
         .map_err(|_| with_timeout_err(timeout))?
 }
 
-async fn server_inner<S, F>(
+async fn server_inner<S, F, T>(
     s: &mut S,
     identity: &IdentityKeyPair,
     admit: F,
-) -> Result<(Remote, Session), MeshTailscaleError>
+) -> Result<(Remote, Session, T), MeshTailscaleError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
-    F: FnOnce(&PeerId) -> bool,
+    F: FnOnce(&PeerId) -> Result<T, Refusal>,
 {
     let mut hello = [0u8; CLIENT_HELLO_LEN];
     read_exact(s, &mut hello, "client hello").await?;
@@ -424,11 +448,22 @@ where
     let mut session = eph.agree(&client_eph, &t, Role::Server)?;
 
     let peer_id = PeerId::from_public_key_bytes(&client_pk);
-    if !admit(&peer_id) {
-        // Best effort: tell the client why, then the caller drops the socket.
-        let _ = write_sealed(s, &mut session.sealer, &[ADMIT_DENIED], 1).await;
-        return Err(MeshTailscaleError::PeerNotAllowed(peer_id));
-    }
+    let granted = match admit(&peer_id) {
+        Ok(granted) => granted,
+        Err(refusal) => {
+            // Best effort: tell the client why, then the caller drops the
+            // socket.
+            let (code, err) = match refusal {
+                Refusal::NotAllowed => (ADMIT_DENIED, MeshTailscaleError::PeerNotAllowed(peer_id)),
+                Refusal::Busy => (
+                    ADMIT_BUSY,
+                    hs_err(format!("connection limit reached; refusing peer {peer_id}")),
+                ),
+            };
+            let _ = write_sealed(s, &mut session.sealer, &[code], 1).await;
+            return Err(err);
+        }
+    };
     write_sealed(s, &mut session.sealer, &[ADMIT_OK], 1)
         .await
         .map_err(|e| hs_err(format!("writing the admission answer: {e}")))?;
@@ -438,5 +473,6 @@ where
             peer_id,
         },
         session,
+        granted,
     ))
 }

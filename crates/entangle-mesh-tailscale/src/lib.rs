@@ -165,6 +165,12 @@ pub struct MeshTailscaleConfig {
     pub request_timeout: Duration,
     /// Server-side idle limit between requests on one connection.
     pub idle_timeout: Duration,
+    /// Most established inbound connections at once (all peers together).
+    /// Further peers are refused after the handshake with a "connection
+    /// limit" answer until one closes.
+    pub max_connections: usize,
+    /// Most established inbound connections from one `PeerId`.
+    pub max_connections_per_peer: usize,
     /// Liveness poll timing.
     pub liveness: LivenessConfig,
 }
@@ -183,6 +189,8 @@ impl Default for MeshTailscaleConfig {
             handshake_timeout: Duration::from_secs(5),
             request_timeout: Duration::from_secs(30),
             idle_timeout: Duration::from_secs(300),
+            max_connections: 256,
+            max_connections_per_peer: 16,
             liveness: LivenessConfig::default(),
         }
     }
