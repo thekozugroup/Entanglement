@@ -1,0 +1,33 @@
+package entangle:integrity@0.1.0;
+
+/// Pairwise output-distance metric for `IntegrityPolicy::SemanticEquivalent`
+/// (spec §7.5).
+///
+/// A metric component is loaded and run **only on the submitter**
+/// (verifier-locality, §7.5 Rule 3), at tier 2: no filesystem, no network,
+/// bounded memory and wall-clock time. Workers never instantiate it.
+///
+/// The submitter instantiates the component once per replica pair and calls
+/// `compare` with the two raw replica outputs. Two outputs *agree* when the
+/// returned distance is strictly below the policy's threshold.
+interface metric {
+  /// Distance between two replica outputs.
+  ///
+  /// Contract:
+  /// - `0.0` means "equivalent"; larger means "further apart".
+  /// - The result must be `>= 0.0`. `+infinity` is allowed and means
+  ///   "incomparable" (for example, input this metric cannot parse); it never
+  ///   agrees with anything.
+  /// - `NaN` or a negative value is a contract violation: the submitter
+  ///   rejects the whole verification rather than guessing.
+  /// - It must be a pure function of `a` and `b`.
+  compare: func(a: list<u8>, b: list<u8>) -> f64;
+}
+
+/// The world a metric component targets: it exports `metric` and imports
+/// nothing from Entanglement. (A Rust guest still imports the WASI 0.2
+/// interfaces its standard library needs; the host grants them with no
+/// preopened directories and no network access.)
+world metric-plugin {
+  export metric;
+}
