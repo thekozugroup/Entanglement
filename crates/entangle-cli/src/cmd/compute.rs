@@ -5,6 +5,9 @@
 //!   - The daemon is not running (`RpcError::DaemonNotRunning`), AND
 //!   - The user passed `--allow-local` (or `ENTANGLE_ALLOW_LOCAL=1`).
 //!
+//! The local kernel starts empty, so the task plugin is loaded first from its
+//! signed package (`--plugin-dir`, default `~/.entangle/plugins/<name>`).
+//!
 //! Phase 1 note: the daemon's WorkerPool is empty — dispatches with zero
 //! resource requirements fall back to local kernel execution. Tasks that
 //! specify non-zero resources will fail until the pool is populated via
@@ -124,6 +127,12 @@ pub struct DispatchArgs {
     #[arg(long)]
     pub quorum: Option<u8>,
 
+    /// `--allow-local` only: the task plugin's signed package directory.
+    /// Defaults to `~/.entangle/plugins/<plugin-name>` when that exists. The
+    /// daemon path ignores it (the daemon has its own loaded plugins).
+    #[arg(long)]
+    pub plugin_dir: Option<PathBuf>,
+
     /// Print the result as one JSON object.
     #[arg(long)]
     pub json: bool,
@@ -186,7 +195,34 @@ fn resolve_metric_dir(flag: Option<&Path>, name: &str) -> anyhow::Result<Option<
     Ok(Some(abs.to_string_lossy().into_owned()))
 }
 
+/// The semantic-equivalent-only flags that were passed, by name.
+fn stray_semantic_flags(a: &DispatchArgs) -> Vec<&'static str> {
+    [
+        (a.metric.is_some(), "--metric"),
+        (a.metric_dir.is_some(), "--metric-dir"),
+        (a.threshold.is_some(), "--threshold"),
+        (a.quorum.is_some(), "--quorum"),
+    ]
+    .into_iter()
+    .filter_map(|(set, name)| set.then_some(name))
+    .collect()
+}
+
 fn parse_integrity(a: &DispatchArgs) -> anyhow::Result<ComputeIntegrity> {
+    // These flags configure verification only under semantic-equivalent.
+    // Dropping them silently would run the task once, unverified, while the
+    // operator believes it was checked.
+    if a.integrity != "semantic-equivalent" {
+        let stray = stray_semantic_flags(a);
+        if !stray.is_empty() {
+            anyhow::bail!(
+                "{} only apply with --integrity semantic-equivalent (got --integrity {}); \
+                 add --integrity semantic-equivalent or drop the flag",
+                stray.join(", "),
+                a.integrity
+            );
+        }
+    }
     match a.integrity.as_str() {
         "none" => Ok(ComputeIntegrity::None),
         "deterministic" => Ok(ComputeIntegrity::Deterministic {
@@ -227,9 +263,18 @@ fn parse_integrity(a: &DispatchArgs) -> anyhow::Result<ComputeIntegrity> {
                      (it compares replica pairs)"
                 );
             }
+            let pairs = usize::from(a.replicas) * (usize::from(a.replicas) - 1) / 2;
+            let quorum = a.quorum.unwrap_or_else(|| default_quorum(a.replicas));
+            if quorum == 0 || usize::from(quorum) > pairs {
+                anyhow::bail!(
+                    "--quorum must be between 1 and {pairs} (the replica pair count for \
+                     --replicas {}), got {quorum}",
+                    a.replicas
+                );
+            }
             Ok(ComputeIntegrity::SemanticEquivalent {
                 replicas: a.replicas,
-                quorum: a.quorum.unwrap_or_else(|| default_quorum(a.replicas)),
+                quorum,
                 metric,
                 metric_dir: resolve_metric_dir(a.metric_dir.as_deref(), &id.name)?,
                 threshold,
@@ -364,6 +409,33 @@ async fn dispatch_local(
     // Parse plugin id.
     let pid =
         PluginId::from_str(&a.plugin_id).map_err(|e| anyhow::anyhow!("invalid plugin id: {e}"))?;
+
+    // A fresh kernel has nothing loaded: load the task plugin from its signed
+    // package first, or every invoke fails "not loaded".
+    let plugin_dir = match &a.plugin_dir {
+        Some(d) => d.clone(),
+        None => {
+            let d = config::entangle_dir().join("plugins").join(&pid.name);
+            if !d.is_dir() {
+                anyhow::bail!(
+                    "--allow-local needs the signed package of {pid}: pass --plugin-dir <DIR> \
+                     (looked in {})",
+                    d.display()
+                );
+            }
+            d
+        }
+    };
+    let loaded = kernel
+        .load_plugin_from_dir(&plugin_dir)
+        .await
+        .map_err(|e| anyhow::anyhow!("loading plugin from {}: {e}", plugin_dir.display()))?;
+    if loaded != pid {
+        anyhow::bail!(
+            "the plugin package in {} holds {loaded}, not {pid}",
+            plugin_dir.display()
+        );
+    }
 
     // Build ResourceSpec.
     let gpu_req = if a.gpu || gpu_vram_min_bytes > 0 {
