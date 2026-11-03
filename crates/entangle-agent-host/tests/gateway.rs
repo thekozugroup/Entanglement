@@ -41,9 +41,21 @@ fn fake_mcp_server() {
         .append(true)
         .open(&log_path)
         .unwrap();
+    // Every message received, verbatim, one JSON value per line.
+    let mut msgs = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(format!("{log_path}.msgs"))
+        .unwrap();
     if let Ok(p) = std::env::var("FAKE_PID") {
         std::fs::write(p, std::process::id().to_string()).unwrap();
     }
+    let env_ms = |k: &str| {
+        std::env::var(k)
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0)
+    };
     let stdin = std::io::stdin();
     let mut out = std::io::stdout();
     for line in stdin.lock().lines() {
@@ -54,11 +66,13 @@ fn fake_mcp_server() {
         let method = msg["method"].as_str().unwrap_or("").to_string();
         let tool = msg["params"]["name"].as_str().unwrap_or("").to_string();
         writeln!(log, "{method}:{tool}").unwrap();
+        writeln!(msgs, "{msg}").unwrap();
         let Some(id) = msg.get("id").cloned() else {
             continue;
         };
         let result = match method.as_str() {
             "initialize" => {
+                std::thread::sleep(Duration::from_millis(env_ms("FAKE_INIT_DELAY_MS")));
                 json!({"protocolVersion": msg["params"]["protocolVersion"], "capabilities": {"tools": {}}, "serverInfo": {"name": "fake", "version": "1"}})
             }
             "tools/list" => {
@@ -100,9 +114,16 @@ struct Fixture {
 }
 
 fn spec(dir: &TempDir) -> (McpServerSpec, PathBuf, PathBuf) {
+    spec_env(dir, &[])
+}
+
+fn spec_env(dir: &TempDir, extra: &[(&str, &str)]) -> (McpServerSpec, PathBuf, PathBuf) {
     let log = dir.path().join("calls.log");
     let pid = dir.path().join("pid");
-    let mut env = BTreeMap::new();
+    let mut env: BTreeMap<String, String> = extra
+        .iter()
+        .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+        .collect();
     env.insert("ENTANGLE_FAKE_MCP".into(), "1".into());
     env.insert("FAKE_LOG".into(), log.display().to_string());
     env.insert("FAKE_PID".into(), pid.display().to_string());
@@ -127,8 +148,18 @@ async fn fixture_opts(
     max_in_flight: usize,
     timeout: Duration,
 ) -> Fixture {
+    fixture_full(hooks, max_in_flight, timeout, &[]).await
+}
+
+/// Like [`fixture_opts`], with extra environment for the fake server.
+async fn fixture_full(
+    hooks: Arc<dyn GatewayHooks>,
+    max_in_flight: usize,
+    timeout: Duration,
+    extra_env: &[(&str, &str)],
+) -> Fixture {
     let dir = TempDir::new().unwrap();
-    let (s, log, pid) = spec(&dir);
+    let (s, log, pid) = spec_env(&dir, extra_env);
     let token = generate_bearer_token();
     let mut servers = BTreeMap::new();
     servers.insert("fake".to_string(), s);
@@ -245,6 +276,25 @@ async fn rpc(f: &Fixture, server: &str, msg: Value) -> (u16, Value) {
     (st, serde_json::from_str(&body).unwrap_or(Value::Null))
 }
 
+/// [`rpc`] on its own task, for concurrent requests.
+fn spawn_rpc(f: &Fixture, msg: Value) -> tokio::task::JoinHandle<(u16, Value)> {
+    let addr = f.gw.addr;
+    let bearer = format!("Bearer {}", f.token);
+    tokio::spawn(async move {
+        let (st, body) = http(addr, "POST", "/mcp/fake", Some(&bearer), &msg.to_string()).await;
+        (st, serde_json::from_str(&body).unwrap_or(Value::Null))
+    })
+}
+
+/// Every message the fake server received, in order.
+fn received(f: &Fixture) -> Vec<Value> {
+    std::fs::read_to_string(format!("{}.msgs", f.log.display()))
+        .unwrap_or_default()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect()
+}
+
 fn calls(f: &Fixture) -> Vec<String> {
     std::fs::read_to_string(&f.log)
         .unwrap_or_default()
@@ -315,6 +365,59 @@ async fn initialize_list_and_call_round_trip() {
     );
     assert_eq!(log[0].decision, AuditDecision::Allow);
     assert_eq!(log[0].outcome, AuditOutcome::Ok);
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
+async fn requests_racing_a_fresh_handshake_wait_for_it() {
+    let f = fixture_full(
+        Arc::new(Policy::default()),
+        8,
+        Duration::from_secs(20),
+        &[("FAKE_INIT_DELAY_MS", "600")],
+    )
+    .await;
+    let init = |id: &str| json!({"jsonrpc":"2.0","id":id,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"t","version":"0"}}});
+    // The first initialize spawns the server and is slow to answer; a
+    // second initialize and a tools/list arrive while it is in flight.
+    let a = spawn_rpc(&f, init("i1"));
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let b = spawn_rpc(&f, init("i2"));
+    let c = spawn_rpc(&f, json!({"jsonrpc":"2.0","id":3,"method":"tools/list"}));
+    let (a, b, c) = (a.await.unwrap(), b.await.unwrap(), c.await.unwrap());
+    assert_eq!(a.0, 200);
+    assert_eq!(a.1["id"], "i1");
+    assert_eq!(a.1["result"]["serverInfo"]["name"], "fake", "{a:?}");
+    assert_eq!(b.0, 200);
+    assert_eq!(b.1["id"], "i2");
+    assert_eq!(b.1["result"]["serverInfo"]["name"], "fake", "{b:?}");
+    assert_eq!(c.0, 200);
+    assert!(c.1["result"]["tools"].is_array(), "{c:?}");
+    // One handshake, completed before anything else reached the server.
+    let log = calls(&f);
+    assert_eq!(
+        log,
+        ["initialize:", "notifications/initialized:", "tools/list:"],
+        "requests overtook the handshake"
+    );
+    // The handshake used the first client's own initialize.
+    assert_eq!(received(&f)[0]["params"]["clientInfo"]["name"], "t");
+    // The client's own notifications/initialized is not sent twice.
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
+    )
+    .await;
+    assert_eq!(st, 202);
+    rpc(&f, "fake", json!({"jsonrpc":"2.0","id":4,"method":"ping"})).await;
+    assert_eq!(
+        calls(&f)
+            .iter()
+            .filter(|l| l.starts_with("notifications/initialized"))
+            .count(),
+        1
+    );
     f.gw.shutdown().await;
 }
 

@@ -28,8 +28,10 @@
 //!   gateway-unique ids so concurrent clients can never collide, and restored
 //!   on the reply. `initialize` is passed through on first use and cached;
 //!   later `initialize` calls get the cached result; if the first message is
-//!   not `initialize` the gateway performs the handshake itself. A dead
-//!   process is respawned on the next request. Server-initiated requests
+//!   not `initialize` the gateway performs the handshake itself. The whole
+//!   handshake (including `notifications/initialized`, which the gateway
+//!   sends itself) completes before any other message reaches a new
+//!   process. A dead process is respawned on the next request. Server-initiated requests
 //!   and notifications cannot be relayed over this JSON-only transport and
 //!   are dropped (logged at debug).
 //! * **HTTP downstream servers** (`url` entries) are *not* proxied: requests
@@ -607,7 +609,20 @@ struct Downstream {
 }
 
 impl Downstream {
-    async fn ensure(&self, first_is_initialize: bool) -> Result<Arc<StdioProc>, DsError> {
+    /// Return the running process, or start one and complete the MCP
+    /// handshake (`initialize`, reply, `notifications/initialized`) while
+    /// holding the process lock, so no other request can reach a process
+    /// that is not initialized yet and a second `initialize` cannot slip
+    /// through to it.
+    ///
+    /// `client_init` is the client's own `initialize` when that is what
+    /// triggers the start: it is used for the handshake and its reply is
+    /// returned as the second element. Otherwise the gateway handshakes
+    /// itself.
+    async fn ensure(
+        &self,
+        client_init: Option<&Value>,
+    ) -> Result<(Arc<StdioProc>, Option<Value>), DsError> {
         let McpServerSpec::Stdio { command, args, env } = &self.spec else {
             let McpServerSpec::Http { url } = &self.spec else {
                 return Err(DsError::Closed);
@@ -617,58 +632,69 @@ impl Downstream {
         let mut guard = self.proc.lock().await;
         if let Some(p) = &*guard {
             if p.alive.load(Ordering::Acquire) {
-                return Ok(p.clone());
+                return Ok((p.clone(), None));
             }
         }
         tracing::info!(server = %self.name, command = %command, "starting downstream MCP server");
         let p = StdioProc::spawn(&self.name, command, args, env)?;
-        if !first_is_initialize {
+        let init = client_init.cloned().unwrap_or_else(|| {
             // The client skipped (or already completed, against a previous
             // process) the handshake: do it ourselves.
-            let init = json!({
+            json!({
                 "jsonrpc": "2.0", "id": 0, "method": "initialize",
                 "params": {
                     "protocolVersion": "2025-03-26",
                     "capabilities": {},
                     "clientInfo": {"name": "entangle-gateway", "version": env!("CARGO_PKG_VERSION")}
                 }
-            });
-            let resp = match p.request(init, self.timeout).await {
-                Ok(r) => r,
-                Err(e) => {
-                    p.kill().await;
-                    return Err(e);
-                }
-            };
-            if let Some(r) = resp.get("result") {
-                *p.init_result.lock() = Some(r.clone());
-            }
-            let note = json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
-            if let Err(e) = p.write_line_within(&note, self.timeout).await {
+            })
+        });
+        let resp = match p.request(init, self.timeout).await {
+            Ok(r) => r,
+            Err(e) => {
                 p.kill().await;
                 return Err(e);
             }
-            p.initialized_sent.store(true, Ordering::Release);
+        };
+        let Some(result) = resp.get("result").cloned() else {
+            // Handshake refused (e.g. unsupported protocol version): do not
+            // keep a process that was never initialized.
+            p.kill().await;
+            if client_init.is_some() {
+                return Ok((p, Some(resp)));
+            }
+            let why = resp
+                .pointer("/error/message")
+                .and_then(Value::as_str)
+                .unwrap_or("no result");
+            return Err(DsError::Spawn(format!("initialize was refused: {why}")));
+        };
+        *p.init_result.lock() = Some(result);
+        let note = json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
+        if let Err(e) = p.write_line_within(&note, self.timeout).await {
+            p.kill().await;
+            return Err(e);
         }
+        // The client's own notifications/initialized is dropped as a duplicate.
+        p.initialized_sent.store(true, Ordering::Release);
         *guard = Some(p.clone());
-        Ok(p)
+        Ok((p, client_init.map(|_| resp)))
     }
 
     async fn call(&self, msg: Value) -> Result<Value, DsError> {
         let is_init = msg.get("method").and_then(Value::as_str) == Some("initialize");
-        let p = self.ensure(is_init).await?;
+        let (p, init_reply) = self.ensure(is_init.then_some(&msg)).await?;
+        if let Some(reply) = init_reply {
+            return Ok(reply);
+        }
         if is_init {
+            // `ensure` only keeps a process whose handshake succeeded, so
+            // the result is always cached.
             if let Some(cached) = p.init_result.lock().clone() {
                 return Ok(json!({"jsonrpc": "2.0", "id": msg.get("id"), "result": cached}));
             }
         }
-        let resp = p.request(msg, self.timeout).await?;
-        if is_init {
-            if let Some(r) = resp.get("result") {
-                *p.init_result.lock() = Some(r.clone());
-            }
-        }
-        Ok(resp)
+        p.request(msg, self.timeout).await
     }
 
     async fn notify(&self, msg: &Value) {
