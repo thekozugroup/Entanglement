@@ -195,6 +195,22 @@ async fn claiming_anothers_pubkey_without_its_key_is_rejected() {
 }
 
 #[tokio::test]
+async fn a_client_reflecting_the_servers_own_signature_is_rejected() {
+    // Real reflection: claim the *server's own* key, then echo sig_S back as
+    // sig_C. Both signatures cover the same transcript, so only the role
+    // label stops this "client" from authenticating as the server itself.
+    let (b, kb) = node(AclMode::TrustTailnet, None).await;
+    let mut s = TcpStream::connect(b.local_addr()).await.unwrap();
+    let (t, sig_s) = raw_hello(&mut s, kb.public().as_bytes()).await;
+    assert_eq!(t.client_pk, t.server_pk, "a genuine self-claim");
+    s.write_all(&sig_s).await.unwrap();
+    expect_closed_without_admission(&mut s).await;
+    assert_no_conn(&b).await;
+}
+
+/// Replaying sig_S under an unrelated client key fails on the key alone (the
+/// role label is exercised by the test above).
+#[tokio::test]
 async fn reflecting_the_server_signature_as_client_signature_is_rejected() {
     let kp = IdentityKeyPair::generate();
     let (b, _) = node(AclMode::TrustTailnet, None).await;
