@@ -96,7 +96,8 @@
 //! # Known limits (stated, not hidden)
 //! - Path-based Unix sockets are not covered by Landlock (through ABI 7); the
 //!   seccomp `AF_UNIX` rule is what keeps the daemon's RPC socket out of
-//!   reach. Without seccomp support that protection is absent.
+//!   reach. Without seccomp support that protection is absent, and the plan
+//!   reports itself as degraded.
 //! - Without seccomp (bubblewrap aside, which uses a PID namespace) a
 //!   plugin's descendants can `setsid()` out of its process group and
 //!   survive the timeout kill (they stay sandboxed). With seccomp `setsid`

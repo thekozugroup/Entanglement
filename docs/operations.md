@@ -466,4 +466,4 @@ print-platform` show the exact layers and run a real trial engagement.
 Known limits: on a host without seccomp, descendants that call `setsid()`
 escape the timeout kill (they stay sandboxed); no cgroup accounting; Landlock (through ABI 7) does not cover
 path-based Unix sockets, which is why the seccomp `AF_UNIX` rule matters — on a
-host without seccomp that protection is absent.
+host without seccomp that protection is absent, and the plan is reported as *reduced*.

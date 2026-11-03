@@ -83,6 +83,7 @@ impl Plan {
     /// `true` when this plan isolates less than the profile asked for.
     ///
     /// Besides a missing filesystem or network layer this includes Landlock
+    /// without the seccomp filter (Unix sockets unfiltered), and Landlock
     /// below ABI 6: without signal scoping (and with no PID namespace) the
     /// plugin, which runs under the daemon's uid, can signal the daemon and
     /// every other process of that user.
@@ -93,6 +94,16 @@ impl Plan {
                 NetworkIsolation::TcpOnly | NetworkIsolation::NotIsolated
             )
             || self.signals_unscoped()
+            || self.unfiltered()
+    }
+
+    /// Landlock without the seccomp filter: path-named Unix sockets (the
+    /// daemon's RPC socket included) are reachable — Landlock does not cover
+    /// `connect()` on them and a network namespace does not isolate them —
+    /// and the process-control calls (`prlimit`, `setsid`, keyrings, nested
+    /// namespaces) are not filtered.
+    fn unfiltered(&self) -> bool {
+        matches!(self.mechanism, Mechanism::Landlock { .. }) && !self.seccomp
     }
 
     /// Landlock without `LANDLOCK_SCOPE_SIGNAL` (ABI < 6): nothing stops the
@@ -127,6 +138,12 @@ impl Plan {
             NetworkIsolation::NotIsolated => "network NOT isolated (operator opt-out)",
         };
         let mut out = format!("{}; {net}", layers.join(" + "));
+        if self.unfiltered() {
+            out.push_str(
+                "; NO seccomp: Unix sockets (the daemon's RPC socket included) and \
+                 process-control calls are NOT filtered",
+            );
+        }
         if self.signals_unscoped() {
             out.push_str(
                 "; signals NOT scoped (Landlock ABI < 6: the plugin can signal the daemon)",
@@ -375,6 +392,22 @@ mod tests {
             let p = plan(&profile, &linux(Some(6), true, true, false), STRICT).unwrap();
             assert!(!p.is_degraded(), "{}", p.describe());
             assert!(!p.describe().contains("NOT scoped"), "{}", p.describe());
+        }
+    }
+
+    /// Without seccomp (an architecture this crate has no syscall table for,
+    /// or a kernel without filters) Landlock does not cover `connect()` on a
+    /// path-named socket and a network namespace does not isolate those, so
+    /// the daemon's RPC socket is reachable; nor are the process-control
+    /// calls filtered. Isolation is reduced and the plan must say so.
+    #[test]
+    fn landlock_without_seccomp_is_reported_as_reduced() {
+        for profile in [no_net(), net()] {
+            let p = plan(&profile, &linux(Some(7), true, false, false), STRICT).unwrap();
+            assert!(matches!(p.mechanism, Mechanism::Landlock { .. }));
+            assert!(!p.seccomp);
+            assert!(p.is_degraded(), "{}", p.describe());
+            assert!(p.describe().contains("Unix sockets"), "{}", p.describe());
         }
     }
 
