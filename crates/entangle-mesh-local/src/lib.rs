@@ -9,10 +9,12 @@
 
 pub mod discovery;
 pub mod errors;
+pub mod hardware;
 pub mod peer;
 
 pub use discovery::{
     Discovery, DiscoveryConfig, DiscoveryEvent, PAIRING_SERVICE_TYPE, SERVICE_TYPE,
 };
 pub use errors::DiscoveryError;
+pub use hardware::{detect as detect_hardware, Probe};
 pub use peer::{HardwareAdvert, LocalPeer, PeerSeen, TransportAdvert};

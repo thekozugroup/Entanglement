@@ -24,7 +24,9 @@ pub struct HardwareAdvert {
     pub network_bandwidth_bps: u64,
     /// NPU vendor string if a neural accelerator is detected; `None` = no NPU.
     ///
-    /// Phase 1: always `None` — see `entangle_bin::npu::detect()`.
+    /// Set by [`crate::hardware::detect`] from `/sys/class/accel` (`intel`,
+    /// `amd`, `qualcomm`), `/dev/apex_0` (`google-coral`), or Apple silicon
+    /// (`apple`). `None` when no NPU is found or the probe fails.
     pub npu_vendor: Option<String>,
 }
 
