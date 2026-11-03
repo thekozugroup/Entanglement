@@ -4,7 +4,7 @@
 //! latency-critical here and this keeps redirect/auth reasoning trivial. The
 //! scheme policy lives here so no code path can reach the network around it.
 
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -97,14 +97,22 @@ impl Transport {
             return Err(OciError::InsecureTransport { host: auth });
         }
         let host = url
-            .host_str()
-            .ok_or_else(|| transport_err("URL has no host".into()))?
-            .to_owned();
+            .host()
+            .ok_or_else(|| transport_err("URL has no host".into()))?;
         let port = url
             .port_or_known_default()
             .ok_or_else(|| transport_err("URL has no port".into()))?;
 
-        let tcp = tokio::time::timeout(self.timeout, TcpStream::connect((host.as_str(), port)))
+        // IP literals are dialled as addresses: `host_str()` keeps an IPv6
+        // literal's brackets ("[::1]"), which no resolver accepts.
+        let connect = async {
+            match &host {
+                Host::Ipv4(a) => TcpStream::connect(SocketAddr::new(IpAddr::V4(*a), port)).await,
+                Host::Ipv6(a) => TcpStream::connect(SocketAddr::new(IpAddr::V6(*a), port)).await,
+                Host::Domain(d) => TcpStream::connect((*d, port)).await,
+            }
+        };
+        let tcp = tokio::time::timeout(self.timeout, connect)
             .await
             .map_err(|_| OciError::Timeout(format!("connecting to {auth}")))?
             .map_err(|e| transport_err(format!("connect: {e}")))?;
@@ -127,9 +135,9 @@ impl Transport {
             });
         let default_port = if plain { 80 } else { 443 };
         let host_hdr = if port == default_port {
-            match url.host() {
-                Some(Host::Ipv6(a)) => format!("[{a}]"),
-                _ => host.clone(),
+            match &host {
+                Host::Ipv6(a) => format!("[{a}]"),
+                h => h.to_string(),
             }
         } else {
             auth.clone()
@@ -165,7 +173,7 @@ impl Transport {
         if plain {
             self.roundtrip(TokioIo::new(tcp), req, &auth).await
         } else {
-            let name = rustls::pki_types::ServerName::try_from(host.clone())
+            let name = tls_server_name(url)
                 .map_err(|e| transport_err(format!("bad TLS server name: {e}")))?;
             let cfg = self
                 .tls
@@ -208,6 +216,19 @@ impl Transport {
     }
 }
 
+/// The name the server's certificate is verified against: the address for
+/// an IP literal (an IP SAN), else the DNS name.
+fn tls_server_name(
+    url: &Url,
+) -> std::result::Result<rustls::pki_types::ServerName<'static>, String> {
+    use rustls::pki_types::ServerName;
+    match url.host().ok_or("URL has no host")? {
+        Host::Ipv4(a) => Ok(ServerName::IpAddress(IpAddr::V4(a).into())),
+        Host::Ipv6(a) => Ok(ServerName::IpAddress(IpAddr::V6(a).into())),
+        Host::Domain(d) => ServerName::try_from(d.to_owned()).map_err(|e| e.to_string()),
+    }
+}
+
 fn tls_config() -> std::result::Result<rustls::ClientConfig, String> {
     let mut roots = rustls::RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
@@ -239,6 +260,62 @@ mod tests {
             .unwrap_err();
         assert!(matches!(e, OciError::InsecureTransport { .. }), "{e}");
         assert!(e.to_string().starts_with("ENTANGLE-E0801"));
+    }
+
+    #[test]
+    fn tls_server_name_of_an_ip_literal_is_the_address() {
+        use rustls::pki_types::ServerName;
+        for (url, ip) in [
+            ("https://[::1]:5000/v2/", "::1"),
+            ("https://[2001:db8::10]/v2/", "2001:db8::10"),
+            ("https://192.0.2.7:5000/v2/", "192.0.2.7"),
+        ] {
+            let name =
+                tls_server_name(&Url::parse(url).unwrap()).unwrap_or_else(|e| panic!("{url}: {e}"));
+            let want: IpAddr = ip.parse().unwrap();
+            assert_eq!(name, ServerName::IpAddress(want.into()), "{url}");
+        }
+        assert_eq!(
+            tls_server_name(&Url::parse("https://ghcr.io/v2/").unwrap()).unwrap(),
+            ServerName::try_from("ghcr.io").unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn ipv6_literal_is_dialled_as_an_address_not_looked_up_as_a_name() {
+        use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+        let t = Transport::new(false, Duration::from_secs(5));
+        match tokio::net::TcpListener::bind("[::1]:0").await {
+            Ok(listener) => {
+                // IPv6 loopback exists here: a full round trip must work.
+                let port = listener.local_addr().unwrap().port();
+                tokio::spawn(async move {
+                    let (mut s, _) = listener.accept().await.unwrap();
+                    let mut buf = vec![0u8; 4096];
+                    let _ = s.read(&mut buf).await;
+                    s.write_all(
+                        b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\nconnection: close\r\n\r\n",
+                    )
+                    .await
+                    .unwrap();
+                });
+                let url = Url::parse(&format!("http://[::1]:{port}/v2/")).unwrap();
+                let resp = t.send(&Method::GET, &url, &[], Bytes::new()).await.unwrap();
+                assert_eq!(resp.status(), 200);
+            }
+            Err(_) => {
+                // No IPv6 in this sandbox (EAFNOSUPPORT): the dial must still be
+                // an IPv6 connect that fails at the socket, never a DNS lookup
+                // of the bracketed text "[::1]".
+                let url = Url::parse("http://[::1]:9/v2/").unwrap();
+                let e = t
+                    .send(&Method::GET, &url, &[], Bytes::new())
+                    .await
+                    .unwrap_err();
+                assert!(matches!(e, OciError::Transport { .. }), "{e}");
+                assert!(!e.to_string().contains("lookup"), "{e}");
+            }
+        }
     }
 
     #[test]
