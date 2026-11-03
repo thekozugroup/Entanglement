@@ -139,10 +139,22 @@ impl Supervisor {
                 }
             };
             let read = read_response(&mut stdout, max_out);
-            let (w, r) = tokio::join!(write, read);
-            let exchange = r?;
-            w.map_err(SupervisorError::Io)?;
-            Ok::<_, SupervisorError>(exchange)
+            tokio::pin!(write);
+            tokio::pin!(read);
+            let mut written = false;
+            loop {
+                tokio::select! {
+                    w = &mut write, if !written => {
+                        w.map_err(SupervisorError::Io)?;
+                        written = true;
+                    }
+                    // The answer — or an oversized header, a protocol
+                    // violation, EOF — is acted on at once, even while the
+                    // request is still being written to a child that stopped
+                    // reading; returning drops the write and closes stdin.
+                    r = &mut read => return r,
+                }
+            }
         };
 
         let outcome = tokio::time::timeout_at(deadline, exchange).await;
@@ -377,6 +389,55 @@ mod tests {
             return state != Some('Z');
         }
         true
+    }
+
+    /// A child that never drains stdin (so writing a large request blocks).
+    #[cfg(unix)]
+    fn answers_without_reading(script: &str) -> std::process::Command {
+        let mut cmd = std::process::Command::new("/bin/sh");
+        cmd.arg("-c").arg(format!("{script}; exec sleep 30"));
+        cmd
+    }
+
+    /// The response (or a protocol violation) is acted on as soon as it is
+    /// read, even while the request is still being written: a child that
+    /// answers without draining a request larger than the pipe buffer must
+    /// not turn into a timeout, and an over-cap child is killed at once.
+    #[cfg(unix)]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn an_early_answer_is_not_held_up_by_a_blocked_request_write() {
+        let limits = InvokeLimits {
+            timeout: Duration::from_secs(4),
+            max_output_bytes: 1024,
+            exit_grace: Duration::from_millis(100),
+            ..InvokeLimits::default()
+        };
+        let input = vec![7u8; 1024 * 1024];
+        let sup = Supervisor::new("test", limits);
+
+        let started = std::time::Instant::now();
+        // length 3 = tag 0x00 + "ok"
+        let cmd = answers_without_reading(r"printf '\000\000\000\003\000ok'");
+        let r = sup.invoke(cmd, &input).await;
+        assert_eq!(r.ok().as_deref(), Some(&b"ok"[..]));
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            started.elapsed()
+        );
+
+        let started = std::time::Instant::now();
+        let cmd = answers_without_reading(r"printf '\177\377\377\377'");
+        let r = sup.invoke(cmd, &input).await;
+        assert!(
+            matches!(r, Err(SupervisorError::OutputTooLarge { limit: 1024, .. })),
+            "{r:?}"
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            started.elapsed()
+        );
     }
 
     /// Dropping the invocation future (an outer timeout, task abort, daemon
