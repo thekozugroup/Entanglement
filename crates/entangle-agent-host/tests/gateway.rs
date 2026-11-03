@@ -97,6 +97,18 @@ fn fake_mcp_server() {
                 "fail" => json!({"isError": true, "content": [{"type": "text", "text": "nope"}]}),
                 // Die without answering.
                 "exit" => std::process::exit(0),
+                // Start a grandchild (like `npx`/`uvx` wrappers do).
+                "spawn_child" => {
+                    let c = std::process::Command::new("sleep")
+                        .arg("30")
+                        .stdin(std::process::Stdio::null())
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .spawn()
+                        .unwrap();
+                    std::fs::write(format!("{log_path}.child"), c.id().to_string()).unwrap();
+                    json!({"content": []})
+                }
                 // Latin-1 (invalid UTF-8) log line on stderr.
                 "latin1_stderr" => {
                     std::io::stderr().write_all(b"caf\xe9 log line\n").unwrap();
@@ -1409,6 +1421,37 @@ async fn shutdown_kills_downstream_process() {
     assert!(
         TcpStream::connect(addr).await.is_err(),
         "listener must be closed"
+    );
+}
+
+/// Whether `pid` is a live (non-zombie) process.
+#[cfg(target_os = "linux")]
+fn running(pid: &str) -> bool {
+    std::fs::read_to_string(format!("/proc/{}/stat", pid.trim())).is_ok_and(|stat| {
+        // Field 3, after the parenthesised command name.
+        stat.rsplit_once(") ")
+            .and_then(|(_, rest)| rest.chars().next())
+            .is_some_and(|state| state != 'Z' && state != 'X')
+    })
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn shutdown_kills_the_downstreams_whole_process_tree() {
+    let f = fixture().await;
+    let (st, v) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"spawn_child"}}),
+    )
+    .await;
+    assert_eq!(st, 200, "{v}");
+    let grandchild = std::fs::read_to_string(format!("{}.child", f.log.display())).unwrap();
+    assert!(running(&grandchild), "grandchild should be running");
+    f.gw.shutdown().await;
+    assert!(
+        wait_until(Duration::from_secs(5), || !running(&grandchild)).await,
+        "grandchild {grandchild} of the downstream survived shutdown"
     );
 }
 

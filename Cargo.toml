@@ -104,6 +104,9 @@ hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 bytes = "1"
+# Process-group kill for MCP gateway downstreams (unix). Already in
+# Cargo.lock; the workspace build already enables its `process` feature.
+rustix = { version = "1", features = ["process"] }
 # Iroh QUIC P2P transport (mesh.iroh, architecture.md §6.1).
 #
 # The 1.0 line, not the 0.95 line the scaffold's docs guessed at, for two

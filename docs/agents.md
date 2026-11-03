@@ -66,6 +66,9 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
   server does not hang, and drops server notifications. The agent's `roots`,
   `sampling` and `elicitation` capabilities are removed from the
   `initialize` sent downstream for the same reason.
+* Each stdio server runs in its own process group (unix); stopping it kills
+  the whole group, so the real server behind a wrapper such as `npx` or
+  `uvx` is stopped too.
 * Downstream **HTTP** (`url`) servers are not proxied; calls fail with
   `ENTANGLE-E0664` and `entangle agent run` prints a warning at start.
 * Connections: at most 128 open at once (further ones wait unaccepted);

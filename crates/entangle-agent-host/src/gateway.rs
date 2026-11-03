@@ -39,6 +39,10 @@
 //!   handshake (including `notifications/initialized`, which the gateway
 //!   sends itself) completes before any other message reaches a new
 //!   process. A dead process is respawned on the next request.
+//! * **Process tree**: on unix each downstream runs in its own process
+//!   group, and killing it (shutdown, a cut-short write, an oversized
+//!   message) sends SIGKILL to the whole group, so servers launched through
+//!   wrappers such as `npx` or `uvx` do not outlive the session.
 //! * **Server-initiated traffic** cannot be relayed to the client over this
 //!   JSON-only transport. Server requests are answered by the gateway itself
 //!   (`ping` with an empty result, anything else with `-32601`) so the server
@@ -605,13 +609,20 @@ impl StdioProc {
         timeout: Duration,
         max_message: usize,
     ) -> Result<Arc<Self>, DsError> {
-        let mut child = Command::new(command)
-            .args(args)
+        let mut cmd = Command::new(command);
+        cmd.args(args)
             .envs(env)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
-            .kill_on_drop(true)
+            .kill_on_drop(true);
+        // Own process group, so the whole tree can be killed: servers are
+        // often launched through wrappers (`npx`, `uvx`, shell scripts)
+        // whose real server is a grandchild. (This also keeps a terminal's
+        // Ctrl-C from reaching them; the gateway stops them itself.)
+        #[cfg(unix)]
+        cmd.process_group(0);
+        let mut child = cmd
             .spawn()
             .map_err(|e| DsError::Spawn(format!("{command}: {e}")))?;
         let (Some(stdin), Some(stdout), Some(stderr)) =
@@ -633,6 +644,10 @@ impl StdioProc {
                     // (The `Ref` returned by `wait_for` is not `Send`, so
                     // drop it inside the inner future.)
                     () = async { let _ = kill_rx.wait_for(|k| *k).await; } => {
+                        // The leader is not reaped yet, so its pid still
+                        // names our process group.
+                        #[cfg(unix)]
+                        kill_process_group(child.id());
                         let _ = child.kill().await;
                     }
                 }
@@ -873,6 +888,17 @@ impl StdioProc {
         if let Some(r) = reaper {
             let _ = r.await;
         }
+    }
+}
+
+/// SIGKILL the process group led by `leader` (best effort).
+#[cfg(unix)]
+fn kill_process_group(leader: Option<u32>) {
+    let pid = leader
+        .and_then(|p| i32::try_from(p).ok())
+        .and_then(rustix::process::Pid::from_raw);
+    if let Some(pid) = pid {
+        let _ = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL);
     }
 }
 

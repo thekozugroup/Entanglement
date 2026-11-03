@@ -1475,6 +1475,7 @@ dependencies = [
  "hyper-util",
  "parking_lot",
  "rand_core 0.6.4",
+ "rustix 1.1.4",
  "serde",
  "serde_json",
  "tempfile",
