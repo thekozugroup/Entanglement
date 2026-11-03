@@ -80,11 +80,14 @@ pub struct LoggedRequest {
     pub authorization: Option<String>,
 }
 
+/// `(content-type, bytes)`
+type StoredManifest = (String, Vec<u8>);
+
 #[derive(Default)]
 struct State {
     blobs: Mutex<HashMap<String, Vec<u8>>>,
     /// `(repo, digest)` -> `(content-type, bytes)`
-    manifests: Mutex<HashMap<(String, String), (String, Vec<u8>)>>,
+    manifests: Mutex<HashMap<(String, String), StoredManifest>>,
     /// `(repo, tag)` -> digest
     tags: Mutex<BTreeMap<(String, String), String>>,
     uploads: Mutex<HashMap<String, Vec<u8>>>,

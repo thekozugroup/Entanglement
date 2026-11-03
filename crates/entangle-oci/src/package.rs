@@ -276,7 +276,7 @@ mod tests {
     fn sample() -> PackageFiles {
         PackageFiles {
             manifest: b"[plugin]\nid = \"x\"\n".to_vec(),
-            wasm: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9].repeat(200),
+            wasm: [0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9].repeat(200),
             signature: b"sig".to_vec(),
         }
     }

@@ -436,7 +436,7 @@ impl OciClient {
             .get_manifest_raw(&reference.repository, &reference.selector)
             .await?;
         match first {
-            Raw::Manifest(m) => Ok(m),
+            Raw::Manifest(m) => Ok(*m),
             Raw::Index(idx, index_digest) => {
                 let mut hits = idx.manifests.iter().filter(|d| {
                     d.media_type == MEDIA_TYPE_MANIFEST
@@ -455,7 +455,7 @@ impl OciClient {
                     )
                     .await?
                 {
-                    Raw::Manifest(m) => Ok(m),
+                    Raw::Manifest(m) => Ok(*m),
                     Raw::Index(..) => Err(OciError::Unsupported("nested image index".into())),
                 }
             }
@@ -561,11 +561,11 @@ impl OciClient {
                         manifest.schema_version
                     )));
                 }
-                Ok(Raw::Manifest(FetchedManifest {
+                Ok(Raw::Manifest(Box::new(FetchedManifest {
                     digest,
                     manifest,
                     raw: Bytes::from(raw),
-                }))
+                })))
             }
             MEDIA_TYPE_INDEX => {
                 let idx: ImageIndex = serde_json::from_slice(&raw)
@@ -827,7 +827,7 @@ impl OciClient {
 }
 
 enum Raw {
-    Manifest(FetchedManifest),
+    Manifest(Box<FetchedManifest>),
     Index(ImageIndex, Digest),
 }
 
