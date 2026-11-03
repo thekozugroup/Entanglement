@@ -11,6 +11,7 @@
 //!   nr == io_uring_setup      -> ERRNO(EPERM)   (io_uring can create sockets)
 //!   nr == clone3              -> ERRNO(ENOSYS)  (libc falls back to clone)
 //!   nr == setns               -> ERRNO(EPERM)
+//!   nr == keyctl|add_key|request_key -> ERRNO(EPERM)
 //!   nr == unshare|clone with a CLONE_NEW* flag -> ERRNO(EPERM)
 //!   nr == prlimit64|sched_set{param,scheduler,affinity,attr} on pid != 0
 //!                             -> ERRNO(EPERM)   (not on the daemon)
@@ -45,6 +46,9 @@ pub(crate) struct Nr {
     pub(crate) sched_setaffinity: u32,
     pub(crate) sched_setattr: u32,
     pub(crate) ioprio_set: u32,
+    pub(crate) keyctl: u32,
+    pub(crate) add_key: u32,
+    pub(crate) request_key: u32,
 }
 
 /// Per-architecture constants. Only architectures listed here get a filter;
@@ -75,6 +79,9 @@ pub(crate) const X86_64: Arch = Arch {
         sched_setaffinity: 203,
         sched_setattr: 314,
         ioprio_set: 251,
+        keyctl: 250,
+        add_key: 248,
+        request_key: 249,
     },
 };
 
@@ -94,6 +101,9 @@ const GENERIC_NR: Nr = Nr {
     sched_setaffinity: 122,
     sched_setattr: 274,
     ioprio_set: 30,
+    keyctl: 219,
+    add_key: 217,
+    request_key: 218,
 };
 
 /// aarch64.
@@ -296,6 +306,11 @@ pub(crate) fn assemble(arch: Arch, policy: SocketPolicy) -> Vec<libc::sock_filte
     // reports ENOSYS and libc falls back to clone, whose flags are checked.
     deny(&mut p, nr.clone3, RET_ENOSYS);
     deny(&mut p, nr.setns, RET_EPERM);
+    // Keyrings: the user and user-session keyrings are reachable by special
+    // id from any process of the uid, and nothing else mediates them.
+    deny(&mut p, nr.keyctl, RET_EPERM);
+    deny(&mut p, nr.add_key, RET_EPERM);
+    deny(&mut p, nr.request_key, RET_EPERM);
     guarded(&mut p, nr.unshare, &flags_block(NAMESPACE_FLAGS));
     guarded(&mut p, nr.clone, &flags_block(NAMESPACE_FLAGS & !CSIGNAL));
     // Resource and scheduling calls on *other* processes. There is no PID
@@ -618,6 +633,25 @@ mod tests {
         }
     }
 
+    /// Keyrings are not covered by Landlock or namespaces; the user and
+    /// user-session keyrings stay reachable by special id even after the
+    /// child joins a fresh session keyring, so the key syscalls are refused.
+    #[test]
+    fn keyring_syscalls_are_refused() {
+        for arch in [X86, ARM, RISCV64] {
+            let p = assemble(
+                arch,
+                SocketPolicy {
+                    inet: true,
+                    unix: true,
+                },
+            );
+            for call in [arch.nr.keyctl, arch.nr.add_key, arch.nr.request_key] {
+                assert_eq!(run(&p, arch.audit_arch, call, 0), RET_EPERM, "nr {call}");
+            }
+        }
+    }
+
     #[test]
     fn io_uring_foreign_arch_and_x32_are_closed() {
         let pol = SocketPolicy {
@@ -659,6 +693,9 @@ mod tests {
             (n.sched_setaffinity, libc::SYS_sched_setaffinity),
             (n.sched_setattr, libc::SYS_sched_setattr),
             (n.ioprio_set, libc::SYS_ioprio_set),
+            (n.keyctl, libc::SYS_keyctl),
+            (n.add_key, libc::SYS_add_key),
+            (n.request_key, libc::SYS_request_key),
         ];
         for (ours, theirs) in pairs {
             assert_eq!(i64::from(*ours), i64::from(*theirs));

@@ -330,6 +330,76 @@ async fn child_cannot_change_another_processs_limits_or_priority() {
     let _ = victim.wait();
 }
 
+/// The session keyring is inherited across fork and exec, and Landlock,
+/// namespaces and the socket filter do not cover keyrings: a plugin must not
+/// be able to read secrets the daemon (or the user's login session, under
+/// the CLI's local kernel) keeps there.
+///
+/// Single-threaded runtime: the keyring is per thread's credentials, so the
+/// key is added and the child spawned from the same thread.
+#[tokio::test(flavor = "current_thread")]
+async fn child_cannot_read_the_parents_session_keyring() {
+    const KEYCTL_JOIN_SESSION_KEYRING: libc::c_long = 1;
+    const KEY_SPEC_SESSION_KEYRING: libc::c_long = -3;
+    // A private anonymous session keyring for this test thread, so nothing
+    // outlives the test.
+    let r = unsafe {
+        libc::syscall(
+            libc::SYS_keyctl,
+            KEYCTL_JOIN_SESSION_KEYRING,
+            std::ptr::null::<libc::c_char>(),
+        )
+    };
+    if r < 0 {
+        eprintln!(
+            "skipping: no keyrings here ({})",
+            std::io::Error::last_os_error()
+        );
+        return;
+    }
+    let secret = b"s3cr3t-daemon-key";
+    let id = unsafe {
+        libc::syscall(
+            libc::SYS_add_key,
+            c"user".as_ptr(),
+            c"entangle-test-secret".as_ptr(),
+            secret.as_ptr(),
+            secret.len(),
+            KEY_SPEC_SESSION_KEYRING,
+        )
+    };
+    assert!(id > 0, "add_key: {}", std::io::Error::last_os_error());
+
+    // The host's plans, plus one without seccomp: the fresh session keyring
+    // must hold on its own where the key syscalls cannot be filtered.
+    let no_seccomp = entangle_sandbox::HostSupport {
+        seccomp: false,
+        ..probe().clone()
+    };
+    let p = profile();
+    let mut plans = vec![
+        (p.clone(), host_plan(&p)),
+        (
+            profile().allow_network(true),
+            host_plan(&profile().allow_network(true)),
+        ),
+    ];
+    if let Ok(plan) = plan(&p, &no_seccomp, Policy::default()) {
+        plans.push((p, plan));
+    }
+    for (p, plan) in plans {
+        let cmd = sandboxed_command(&p, &plan).unwrap();
+        let r = Supervisor::new("testchild", InvokeLimits::default())
+            .invoke(cmd, b"keyring:entangle-test-secret")
+            .await;
+        assert!(
+            matches!(&r, Err(SupervisorError::PluginError(m)) if m.starts_with("errno=")),
+            "{}: the child read the parent's keyring: {r:?}",
+            plan.describe()
+        );
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn environment_is_exactly_what_the_profile_sets() {
     std::env::set_var("ENTANGLE_SANDBOX_TEST_LEAK", "parent-secret");

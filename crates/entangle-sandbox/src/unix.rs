@@ -131,6 +131,16 @@ impl ChildSetup {
         #[cfg(target_os = "linux")]
         {
             use std::os::fd::AsRawFd;
+            // Before anything changes credentials or installs the filter
+            // (which refuses keyctl): drop possession of the parent's session
+            // keyring. Where the seccomp filter will refuse the key syscalls
+            // anyway, a failure here (e.g. EDQUOT) does not fail the spawn.
+            // SAFETY: forked child, before exec.
+            match unsafe { crate::linux::keyring::join_fresh_session() } {
+                Ok(()) => {}
+                Err(_) if self.seccomp.is_some() => {}
+                Err(e) => return Err(e),
+            }
             if let Some(maps) = &self.userns {
                 // SAFETY: we are the single-threaded forked child.
                 unsafe { crate::linux::userns::enter(maps)? };

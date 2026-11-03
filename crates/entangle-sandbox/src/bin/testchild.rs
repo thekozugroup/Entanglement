@@ -14,6 +14,7 @@
 //! | `unshare`            | `unshare(CLONE_NEWUSER\|CLONE_NEWNET)`; ok or err(errno) |
 //! | `prlimit:<pid>`      | set `pid`'s RLIMIT_NOFILE soft limit to 123            |
 //! | `renice:<pid>`       | `setpriority(PRIO_PROCESS, pid, 5)`                    |
+//! | `keyring:<desc>`     | search the session keyring for user key `desc`, read it |
 //! | `thread`             | spawn and join a thread; ok("joined")                  |
 //! | `sleep:<ms>`         | sleep, then ok("slept")                                |
 //! | `big:<n>`            | announce an ok frame of n bytes, then stream zeros     |
@@ -123,6 +124,7 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
             }
             Ok(b"reniced".to_vec())
         }
+        "keyring" => keyring_read(arg),
         "thread" => std::thread::Builder::new()
             .spawn(|| 42)
             .map_err(|e| errno_msg(&e))?
@@ -186,6 +188,52 @@ fn unix_dgram(path: &str) -> Result<Vec<u8>, String> {
 
 #[cfg(not(target_os = "linux"))]
 fn unix_dgram(_path: &str) -> Result<Vec<u8>, String> {
+    Err("unsupported".into())
+}
+
+/// `keyctl(KEYCTL_SEARCH, KEY_SPEC_SESSION_KEYRING, "user", desc)` then
+/// `KEYCTL_READ`: what a plugin would do to lift a secret from the
+/// keyring it inherited.
+#[cfg(target_os = "linux")]
+fn keyring_read(desc: &str) -> Result<Vec<u8>, String> {
+    const KEYCTL_SEARCH: libc::c_long = 10;
+    const KEYCTL_READ: libc::c_long = 11;
+    const KEY_SPEC_SESSION_KEYRING: libc::c_long = -3;
+    let desc = std::ffi::CString::new(desc).map_err(|e| e.to_string())?;
+    // SAFETY: NUL-terminated strings that outlive the call.
+    let id = unsafe {
+        libc::syscall(
+            libc::SYS_keyctl,
+            KEYCTL_SEARCH,
+            KEY_SPEC_SESSION_KEYRING,
+            c"user".as_ptr(),
+            desc.as_ptr(),
+            0 as libc::c_long,
+        )
+    };
+    if id < 0 {
+        return Err(errno_msg(&io::Error::last_os_error()));
+    }
+    let mut buf = vec![0u8; 256];
+    // SAFETY: `buf` is a live buffer of the stated length.
+    let n = unsafe {
+        libc::syscall(
+            libc::SYS_keyctl,
+            KEYCTL_READ,
+            id,
+            buf.as_mut_ptr(),
+            buf.len(),
+        )
+    };
+    if n < 0 {
+        return Err(errno_msg(&io::Error::last_os_error()));
+    }
+    buf.truncate((n as usize).min(256));
+    Ok(buf)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn keyring_read(_desc: &str) -> Result<Vec<u8>, String> {
     Err("unsupported".into())
 }
 
