@@ -57,7 +57,10 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
   exactly one of `result`/`error`) gets error `-32600` (`ENTANGLE-E0666`).
 * Downstream **stdio** servers are started lazily from the original
   command/args/env, one process per server per session. `initialize` is passed
-  through and cached; request ids are remapped internally. Server-initiated
+  through and cached; request ids are remapped internally, and an agent's
+  `notifications/cancelled` is translated to the downstream id of the
+  request it names (dropped when nothing in flight matches). A request that
+  times out is cancelled downstream with `notifications/cancelled`. Server-initiated
   requests cannot be relayed to the agent: the gateway answers them itself
   (`ping` with an empty result, anything else with JSON-RPC `-32601`) so the
   server does not hang, and drops server notifications. The agent's `roots`,

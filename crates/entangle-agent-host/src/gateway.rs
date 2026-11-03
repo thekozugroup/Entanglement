@@ -26,7 +26,10 @@
 //! * **Downstream**: stdio servers (newline-delimited JSON-RPC) launched
 //!   lazily, one process per server per gateway. Request ids are remapped to
 //!   gateway-unique ids so concurrent clients can never collide, and restored
-//!   on the reply. `initialize` is passed through on first use and cached;
+//!   on the reply. A client `notifications/cancelled` is translated to the
+//!   downstream id of the request it names (dropped if no single in-flight
+//!   request matches), and a request that times out after it was written is
+//!   cancelled downstream by the gateway. `initialize` is passed through on first use and cached;
 //!   later `initialize` calls get the cached result; if the first message is
 //!   not `initialize` the gateway performs the handshake itself. The whole
 //!   handshake (including `notifications/initialized`, which the gateway
@@ -386,6 +389,9 @@ struct StdioProc {
     /// `None` once a write was cut short: nothing may follow a partial line.
     stdin: tokio::sync::Mutex<Option<ChildStdin>>,
     pending: Pending,
+    /// In-flight requests by the client's id (as JSON text) -> gateway ids,
+    /// to translate `notifications/cancelled`.
+    inflight: Mutex<HashMap<String, Vec<u64>>>,
     next_id: AtomicU64,
     alive: Arc<AtomicBool>,
     init_result: Mutex<Option<Value>>,
@@ -396,37 +402,70 @@ struct StdioProc {
     reaper: Mutex<Option<JoinHandle<()>>>,
 }
 
-/// Removes a request's waiter from the pending map when dropped.
-struct PendingEntry<'a> {
-    pending: &'a Pending,
+/// Registers an in-flight request (pending waiter and client-id mapping)
+/// and removes both when dropped, however the request ends.
+struct InFlight<'a> {
+    proc: &'a StdioProc,
     id: u64,
+    client_key: String,
 }
 
-impl Drop for PendingEntry<'_> {
-    fn drop(&mut self) {
-        self.pending.lock().remove(&self.id);
+impl<'a> InFlight<'a> {
+    fn new(proc: &'a StdioProc, id: u64, client_id: &Value, tx: oneshot::Sender<Value>) -> Self {
+        let client_key = client_id.to_string();
+        proc.pending.lock().insert(id, tx);
+        proc.inflight
+            .lock()
+            .entry(client_key.clone())
+            .or_default()
+            .push(id);
+        Self {
+            proc,
+            id,
+            client_key,
+        }
     }
 }
 
-/// Holds the stdin lock for one line. Unless the whole line was written and
-/// flushed (`done`), dropping it (write error, or the write future dropped
-/// by a timeout) poisons the process: stdin is closed and the child killed,
-/// so a partial line can never be followed by another message.
+impl Drop for InFlight<'_> {
+    fn drop(&mut self) {
+        self.proc.pending.lock().remove(&self.id);
+        let mut inflight = self.proc.inflight.lock();
+        if let Some(ids) = inflight.get_mut(&self.client_key) {
+            ids.retain(|i| *i != self.id);
+            if ids.is_empty() {
+                inflight.remove(&self.client_key);
+            }
+        }
+    }
+}
+
+/// Holds the stdin lock for one line. If part of the line was written but
+/// not all of it (the write future was dropped by a timeout), or the write
+/// failed, dropping it poisons the process: stdin is closed and the child
+/// killed, so a partial line can never be followed by another message. A
+/// write dropped before any byte went out leaves nothing behind and does
+/// not poison.
 struct WriteSlot<'a> {
     proc: &'a StdioProc,
     stdin: tokio::sync::MutexGuard<'a, Option<ChildStdin>>,
+    started: bool,
+    failed: bool,
     done: bool,
 }
 
 impl Drop for WriteSlot<'_> {
     fn drop(&mut self) {
-        if !self.done {
+        if self.failed || (self.started && !self.done) {
             *self.stdin = None;
-            tracing::warn!(server = %self.proc.name, "write to downstream interrupted; killing it");
+            tracing::warn!(server = %self.proc.name, "write to downstream cut short; killing it");
             self.proc.start_kill();
         }
     }
 }
+
+/// Upper bound for writing a `notifications/cancelled` after a timeout.
+const CANCEL_WRITE_TIMEOUT: Duration = Duration::from_secs(1);
 
 impl StdioProc {
     fn spawn(
@@ -487,6 +526,7 @@ impl StdioProc {
             timeout,
             stdin: tokio::sync::Mutex::new(Some(stdin)),
             pending,
+            inflight: Mutex::default(),
             next_id: AtomicU64::new(1),
             alive,
             init_result: Mutex::new(None),
@@ -561,25 +601,35 @@ impl StdioProc {
         let mut slot = WriteSlot {
             proc: self,
             stdin: self.stdin.lock().await,
+            started: false,
+            failed: false,
             done: false,
         };
         if !self.alive.load(Ordering::Acquire) {
-            slot.done = true;
             return Err(DsError::Closed);
         }
         let Some(w) = slot.stdin.as_mut() else {
-            slot.done = true;
             return Err(DsError::Closed);
         };
-        let res = async {
-            w.write_all(&line).await?;
-            w.flush().await
+        let mut off = 0;
+        while off < line.len() {
+            match w.write(&line[off..]).await {
+                Ok(n) if n > 0 => {
+                    off += n;
+                    slot.started = true;
+                }
+                _ => {
+                    slot.failed = true;
+                    return Err(DsError::Closed);
+                }
+            }
         }
-        .await;
-        // On error `done` stays false and dropping the slot poisons the
-        // process: a failed write may have left part of the line behind.
-        slot.done = res.is_ok();
-        res.map_err(|_| DsError::Closed)
+        if w.flush().await.is_err() {
+            slot.failed = true;
+            return Err(DsError::Closed);
+        }
+        slot.done = true;
+        Ok(())
     }
 
     /// [`Self::write_line`] bounded by `timeout`.
@@ -592,23 +642,24 @@ impl StdioProc {
     /// Send a request and wait for its response. Writing it (including
     /// waiting for the stdin lock) and waiting for the reply share one
     /// `timeout`.
+    ///
+    /// When the timeout expires after the request was written, the server is
+    /// sent `notifications/cancelled` for it (best effort).
     async fn request(&self, mut msg: Value, timeout: Duration) -> Result<Value, DsError> {
         let orig_id = msg.get("id").cloned().unwrap_or(Value::Null);
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         msg["id"] = json!(id);
         let (tx, rx) = oneshot::channel();
-        self.pending.lock().insert(id, tx);
-        // Removes the entry however this future ends (reply, error,
-        // timeout, or being dropped from outside).
-        let _entry = PendingEntry {
-            pending: &self.pending,
-            id,
-        };
+        // Unregistered however this future ends (reply, error, timeout, or
+        // being dropped from outside).
+        let _entry = InFlight::new(self, id, &orig_id, tx);
         if !self.alive.load(Ordering::Acquire) {
             return Err(DsError::Closed);
         }
+        let written = AtomicBool::new(false);
         let exchange = async {
             self.write_line(&msg).await?;
+            written.store(true, Ordering::Relaxed);
             rx.await.map_err(|_| DsError::Closed)
         };
         match tokio::time::timeout(timeout, exchange).await {
@@ -617,8 +668,34 @@ impl StdioProc {
                 Ok(resp)
             }
             Ok(Err(e)) => Err(e),
-            Err(_) => Err(DsError::Timeout),
+            Err(_) => {
+                if written.load(Ordering::Relaxed) {
+                    let cancel = json!({
+                        "jsonrpc": "2.0",
+                        "method": "notifications/cancelled",
+                        "params": {"requestId": id, "reason": "timed out in the Entanglement gateway"}
+                    });
+                    let _ = self
+                        .write_line_within(&cancel, CANCEL_WRITE_TIMEOUT.min(timeout))
+                        .await;
+                }
+                Err(DsError::Timeout)
+            }
         }
+    }
+
+    /// Translate a client `notifications/cancelled` into this process's id
+    /// space. `None` when its `requestId` matches no single in-flight
+    /// request here (finished, unknown, or ambiguous between clients).
+    fn remap_cancellation(&self, msg: &Value) -> Option<Value> {
+        let key = msg.pointer("/params/requestId")?.to_string();
+        let id = match self.inflight.lock().get(&key).map(Vec::as_slice) {
+            Some([one]) => *one,
+            _ => return None,
+        };
+        let mut msg = msg.clone();
+        msg["params"]["requestId"] = json!(id);
+        Some(msg)
     }
 
     /// Mark the process dead and tell the reaper to kill it (non-blocking).
@@ -760,11 +837,26 @@ impl Downstream {
                 }
             }
         };
-        if msg.get("method").and_then(Value::as_str) == Some("notifications/initialized")
+        let method = msg.get("method").and_then(Value::as_str);
+        if method == Some("notifications/initialized")
             && p.initialized_sent.swap(true, Ordering::AcqRel)
         {
             return;
         }
+        // Request ids are remapped, so a cancellation must name the
+        // downstream id; forwarding the client's id could cancel an
+        // unrelated request.
+        let remapped;
+        let msg = if method == Some("notifications/cancelled") {
+            let Some(m) = p.remap_cancellation(msg) else {
+                tracing::debug!(server = %self.name, "cancellation for no single in-flight request dropped");
+                return;
+            };
+            remapped = m;
+            &remapped
+        } else {
+            msg
+        };
         if let Err(e) = p.write_line_within(msg, self.timeout).await {
             tracing::debug!(server = %self.name, error = ?e, "notification write failed");
         }

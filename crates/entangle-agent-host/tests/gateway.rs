@@ -493,6 +493,102 @@ async fn server_initiated_requests_are_answered_not_left_hanging() {
     f.gw.shutdown().await;
 }
 
+/// Downstream id the fake server saw for the `tools/call` of `tool`.
+fn downstream_id_of(f: &Fixture, tool: &str) -> Value {
+    received(f)
+        .into_iter()
+        .find(|m| m["method"] == "tools/call" && m["params"]["name"] == tool)
+        .map(|m| m["id"].clone())
+        .unwrap_or_else(|| panic!("no tools/call {tool} reached the server"))
+}
+
+fn cancellations(f: &Fixture) -> Vec<Value> {
+    received(f)
+        .into_iter()
+        .filter(|m| m["method"] == "notifications/cancelled")
+        .collect()
+}
+
+#[tokio::test]
+async fn cancellation_is_remapped_to_the_downstream_id() {
+    let f = fixture().await;
+    // Handshake and tools/list take downstream ids 1 and 2.
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":0,"method":"tools/list"}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    // The client's id 2 is another request's downstream id.
+    let slow = spawn_rpc(
+        &f,
+        json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":800}}}),
+    );
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":2,"reason":"user"}}),
+    )
+    .await;
+    assert_eq!(st, 202);
+    assert_eq!(slow.await.unwrap().0, 200);
+    // A cancellation for nothing in flight is dropped, not forwarded as-is.
+    rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":99}}),
+    )
+    .await;
+    rpc(&f, "fake", json!({"jsonrpc":"2.0","id":5,"method":"ping"})).await;
+
+    let sleep_id = downstream_id_of(&f, "sleep");
+    assert_ne!(sleep_id, json!(2));
+    let c = cancellations(&f);
+    assert_eq!(c.len(), 1, "{c:?}");
+    assert_eq!(
+        c[0]["params"]["requestId"], sleep_id,
+        "cancellation hit the wrong downstream request: {c:?}"
+    );
+    assert_eq!(c[0]["params"]["reason"], "user");
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
+async fn timed_out_request_is_cancelled_downstream() {
+    let f = fixture_opts(Arc::new(Policy::default()), 8, Duration::from_millis(1000)).await;
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":0,"method":"tools/list"}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    let (_, v) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":1800}}}),
+    )
+    .await;
+    assert!(
+        v["error"]["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("timed out")),
+        "{v}"
+    );
+    let sleep_id = downstream_id_of(&f, "sleep");
+    assert!(
+        wait_until(Duration::from_secs(5), || cancellations(&f)
+            .iter()
+            .any(|c| c["params"]["requestId"] == sleep_id))
+        .await,
+        "no notifications/cancelled for the timed-out request: {:?}",
+        cancellations(&f)
+    );
+    f.gw.shutdown().await;
+}
+
 #[tokio::test]
 async fn gateway_handshakes_itself_when_client_skips_initialize() {
     let f = fixture().await;
