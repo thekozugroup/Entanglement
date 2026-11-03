@@ -15,6 +15,8 @@
 //! ANY of them, or with values outside the bounds, is rejected with a precise
 //! [`BridgeError`] variant.
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use biscuit_auth::PublicKey;
 use entangle_types::peer_id::PeerId;
 
@@ -74,6 +76,17 @@ pub enum BridgeError {
         got: String,
         /// The expected destination peer hex.
         expected: String,
+    },
+    /// ENTANGLE-E0425: relaying `requested` more bytes would exceed the cap
+    /// (`used + requested > cap`). Nothing is consumed when this is returned.
+    #[error("ENTANGLE-E0425: bridge byte budget exhausted (cap {cap}, used {used}, requested {requested})")]
+    BridgeBudgetExhausted {
+        /// The verified `total_bytes_cap` the budget was built from.
+        cap: u64,
+        /// Bytes already consumed against the cap.
+        used: u64,
+        /// Bytes the caller attempted to consume.
+        requested: u64,
     },
     /// Wraps a lower-level biscuit error.
     #[error("biscuit: {0}")]
@@ -193,6 +206,83 @@ pub fn verify_bridge_cap(
         total_bytes_cap: total_bytes,
         expires,
     })
+}
+
+/// Cumulative byte budget for one verified bridge cap (spec §6.4, ATC-BRG-6).
+///
+/// Built from the `total_bytes_cap` of a [`BridgeFacts`] returned by
+/// [`verify_bridge_cap`]. Each relayed chunk calls [`try_consume`](Self::try_consume);
+/// once the lifetime cap is reached every further consume is refused.
+///
+/// The counter is an [`AtomicU64`] advanced by a compare-exchange loop, so one
+/// budget can be shared (e.g. behind an `Arc`) by concurrent relay tasks and the
+/// cap can never be overshot by a race. Consumption is all-or-nothing: a refused
+/// request leaves the counter unchanged.
+#[derive(Debug)]
+pub struct BridgeBudget {
+    cap: u64,
+    used: AtomicU64,
+}
+
+impl BridgeBudget {
+    /// Create a budget with the given lifetime byte cap and nothing used yet.
+    pub fn new(total_bytes_cap: u64) -> Self {
+        Self {
+            cap: total_bytes_cap,
+            used: AtomicU64::new(0),
+        }
+    }
+
+    /// Create a budget from a verified bridge cap's facts.
+    pub fn from_facts(facts: &BridgeFacts) -> Self {
+        Self::new(facts.total_bytes_cap)
+    }
+
+    /// The lifetime byte cap this budget enforces.
+    pub fn cap(&self) -> u64 {
+        self.cap
+    }
+
+    /// Bytes consumed so far.
+    pub fn used(&self) -> u64 {
+        self.used.load(Ordering::Acquire)
+    }
+
+    /// Bytes still available (`cap - used`).
+    pub fn remaining(&self) -> u64 {
+        // `used` never exceeds `cap` (see `try_consume`), so this cannot underflow.
+        self.cap.saturating_sub(self.used())
+    }
+
+    /// Atomically consume `n` bytes from the budget.
+    ///
+    /// Succeeds only if `used + n <= cap`; otherwise returns
+    /// [`BridgeError::BridgeBudgetExhausted`] and leaves the counter untouched.
+    /// `n == 0` always succeeds. The addition is overflow-checked, so an
+    /// enormous `n` is refused rather than wrapping.
+    pub fn try_consume(&self, n: u64) -> Result<(), BridgeError> {
+        let mut current = self.used.load(Ordering::Acquire);
+        loop {
+            let exhausted = BridgeError::BridgeBudgetExhausted {
+                cap: self.cap,
+                used: current,
+                requested: n,
+            };
+            let next = current
+                .checked_add(n)
+                .filter(|&next| next <= self.cap)
+                .ok_or(exhausted)?;
+            match self.used.compare_exchange_weak(
+                current,
+                next,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return Ok(()),
+                Err(actual) => current = actual,
+            }
+        }
+    }
 }
 
 /// Build a [`ClaimSet`] containing the 5 mandatory bridge attenuation facts.
