@@ -240,6 +240,22 @@ pub fn sandboxed_command(profile: &SandboxProfile, plan: &Plan) -> Result<Comman
             c
         }
         Mechanism::Bubblewrap { path } => {
+            // bwrap resolves bind sources itself, following links: refuse a
+            // scope that traverses one (see `landlock::Rule::follow_links`).
+            #[cfg(target_os = "linux")]
+            for p in profile
+                .read_only
+                .iter()
+                .chain(&profile.read_write)
+                .chain(&profile.devices)
+            {
+                crate::linux::landlock::check_no_symlinks(p).map_err(|source| {
+                    SandboxError::PathRule {
+                        path: p.clone(),
+                        source,
+                    }
+                })?;
+            }
             let mut c = Command::new(path);
             c.args(crate::bwrap::bwrap_args(profile, &|p: &Path| p.exists()));
             c.current_dir("/");

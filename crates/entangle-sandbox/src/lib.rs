@@ -20,7 +20,10 @@
 //! A child that is not granted the network and runs under Landlock gets:
 //! - **Landlock** filesystem allowlist: its program (read+exec), the minimal
 //!   system paths to exec a dynamically linked binary, its storage scopes,
-//!   nothing else. On ABI ≥ 4 TCP `bind`/`connect` are handled (denied); on
+//!   nothing else. Scopes (read-only, read-write, devices) are opened
+//!   component by component without following symbolic links — a link
+//!   planted by another plugin with write access to a share cannot redirect
+//!   a grant — so callers pass them under canonical roots. On ABI ≥ 4 TCP `bind`/`connect` are handled (denied); on
 //!   ABI ≥ 6 signals and abstract Unix sockets are scoped to the sandbox, so
 //!   the plugin cannot signal the daemon. Below ABI 6 it can (same uid, no
 //!   PID namespace), and the plan reports itself as degraded.

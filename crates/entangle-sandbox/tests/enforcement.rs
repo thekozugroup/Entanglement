@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use entangle_sandbox::{
     plan, probe, sandboxed_command, InvokeLimits, Mechanism, NetworkIsolation, Plan, Policy,
-    SandboxProfile, Supervisor, SupervisorError,
+    SandboxError, SandboxProfile, Supervisor, SupervisorError,
 };
 
 fn testchild() -> PathBuf {
@@ -498,6 +498,80 @@ async fn device_grants_allow_ioctls_and_nothing_else_does() {
         let errno = denied_errno(call(&plain, "ioctl:/dev/null").await);
         assert_eq!(errno, libc::EACCES, "{}", plan.describe());
     }
+}
+
+/// A plugin granted `rw` on a share controls every path beneath it — including
+/// another plugin's `rw-scoped` directory `<share>/<publisher>/<name>`. If it
+/// swaps that directory (or the publisher directory above it) for a symbolic
+/// link, the victim's next invocation must not be granted the link's target.
+#[tokio::test(flavor = "multi_thread")]
+async fn grants_are_not_redirected_through_symbolic_links() {
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("secret.txt"), "top secret").unwrap();
+    std::fs::create_dir(outside.path().join("victim")).unwrap();
+    std::fs::write(outside.path().join("victim/secret.txt"), "top secret").unwrap();
+    let share = tempfile::tempdir().unwrap();
+    // The scoped directory itself replaced by a link ...
+    let leaf = share.path().join("victim");
+    std::os::unix::fs::symlink(outside.path(), &leaf).unwrap();
+    // ... or a directory above it.
+    let publisher = share.path().join("publisher");
+    std::os::unix::fs::symlink(outside.path(), &publisher).unwrap();
+    let below_link = publisher.join("victim");
+
+    for grant in [leaf, below_link] {
+        for p in [
+            profile().read_write(&grant),
+            profile().read_only(&grant),
+            profile().device(&grant),
+        ] {
+            let plan = host_plan(&p);
+            match sandboxed_command(&p, &plan) {
+                Err(SandboxError::PathRule { path, .. }) => assert_eq!(path, grant),
+                Ok(cmd) => {
+                    let req = format!("read:{}", grant.join("secret.txt").display());
+                    let r = Supervisor::new("testchild", InvokeLimits::default())
+                        .invoke(cmd, req.as_bytes())
+                        .await;
+                    panic!(
+                        "{}: a grant followed a symbolic link: {r:?}",
+                        plan.describe()
+                    );
+                }
+                Err(other) => panic!("unexpected error: {other}"),
+            }
+            // bubblewrap would bind the link's target the same way.
+            let bwrap = Plan {
+                mechanism: Mechanism::Bubblewrap {
+                    path: PathBuf::from("/usr/bin/bwrap"),
+                },
+                net_namespace: false,
+                seccomp: false,
+                landlock_net: false,
+                landlock_scopes: false,
+                no_new_privs: false,
+                network: NetworkIsolation::Denied,
+            };
+            assert!(
+                matches!(
+                    sandboxed_command(&p, &bwrap),
+                    Err(SandboxError::PathRule { .. })
+                ),
+                "bubblewrap plan accepted a grant through a symbolic link"
+            );
+        }
+    }
+    // Control: the same layout without links is granted and works.
+    let real = share.path().join("real");
+    std::fs::create_dir(&real).unwrap();
+    std::fs::write(real.join("f"), "mine").unwrap();
+    let out = call(
+        &profile().read_write(&real),
+        &format!("read:{}", real.join("f").display()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(out, b"mine");
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -282,7 +282,7 @@ pub fn profile_for(
             CapabilityKind::NetLan | CapabilityKind::NetWan => p = p.allow_network(true),
             CapabilityKind::HostDockerSocket => {
                 p = p
-                    .read_write("/var/run/docker.sock")
+                    .read_write(resolve_trusted(Path::new("/var/run/docker.sock")))
                     .allow_unix_sockets(true);
             }
             CapabilityKind::ComputeGpu => {
@@ -347,6 +347,12 @@ impl NativePlugin {
         grants: &[GrantedCapability],
         config: &NativeConfig,
     ) -> Result<Self, NativeError> {
+        // Scopes are granted without following links, so resolve the trusted
+        // roots they hang off first (see `resolve_trusted`).
+        let package_dir = package_dir.map(resolve_trusted);
+        let package_dir = package_dir.as_deref();
+        let data_dir = config.data_dir.as_deref().map(resolve_trusted);
+
         // Plan against a placeholder binary path first: the decision depends
         // only on the capabilities and the host, and refusing must not leave
         // a staged copy behind.
@@ -356,7 +362,7 @@ impl NativePlugin {
                 plugin_id,
                 binary: placeholder,
                 package_dir,
-                data_dir: config.data_dir.as_deref(),
+                data_dir: data_dir.as_deref(),
                 memory_limit_bytes: config.memory_limit_bytes,
             },
             grants,
@@ -381,7 +387,7 @@ impl NativePlugin {
                 plugin_id,
                 binary: &binary,
                 package_dir,
-                data_dir: config.data_dir.as_deref(),
+                data_dir: data_dir.as_deref(),
                 memory_limit_bytes: config.memory_limit_bytes,
             },
             grants,
@@ -448,16 +454,80 @@ impl NativePlugin {
     }
 }
 
-/// `mkdir -p` with mode 0700 on the leaf (Unix).
+/// Resolve a *trusted* root — one no plugin can write to or above, such as
+/// the daemon's data directory, a package directory or `/var/run` — to its
+/// canonical form. The longest existing ancestor is canonicalised and the
+/// rest appended, so a data directory that does not exist yet still loses
+/// the OS symlinks above it (`/home` → `var/home`).
+///
+/// Scopes derived from these roots are then granted without following any
+/// link (`entangle-sandbox` refuses one), so a link a plugin plants *below*
+/// a root can never redirect another plugin's grant.
+fn resolve_trusted(p: &Path) -> PathBuf {
+    let mut existing = p;
+    let mut rest: Vec<&std::ffi::OsStr> = Vec::new();
+    loop {
+        if let Ok(mut c) = std::fs::canonicalize(existing) {
+            c.extend(rest.iter().rev());
+            return c;
+        }
+        match (existing.parent(), existing.file_name()) {
+            (Some(parent), Some(name)) => {
+                rest.push(name);
+                existing = parent;
+            }
+            _ => return p.to_path_buf(),
+        }
+    }
+}
+
+/// `mkdir -p` with mode 0700 on every directory it creates (Unix), without
+/// following symbolic links: a plugin with write access to a share can plant
+/// links beneath it, and following one would create directories wherever it
+/// points. Callers pass paths under a [`resolve_trusted`] root.
 fn create_private_dir(d: &Path) -> std::io::Result<()> {
+    use std::path::Component;
     let mut b = std::fs::DirBuilder::new();
-    b.recursive(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::DirBuilderExt;
         b.mode(0o700);
     }
-    b.create(d)
+    let mut cur = PathBuf::new();
+    for comp in d.components() {
+        cur.push(comp);
+        match comp {
+            Component::Prefix(_) | Component::RootDir | Component::CurDir => continue,
+            Component::ParentDir => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "a storage path may not contain '..'",
+                ))
+            }
+            Component::Normal(_) => {}
+        }
+        // Create if missing (an existing entry, e.g. from a concurrent load,
+        // is then inspected like any other).
+        match b.create(&cur) {
+            Ok(()) => continue,
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(e),
+        }
+        let meta = std::fs::symlink_metadata(&cur)?;
+        if meta.file_type().is_symlink() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("{} is a symbolic link", cur.display()),
+            ));
+        }
+        if !meta.is_dir() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("{} is not a directory", cur.display()),
+            ));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -550,9 +620,11 @@ mod tests {
         )
         .unwrap();
         assert!(p.allow_unix_sockets);
+        // `/var/run` is a link to `/run` on most hosts; the grant names the
+        // resolved socket (scopes are granted without following links).
         assert!(p
             .read_write
-            .contains(&PathBuf::from("/var/run/docker.sock")));
+            .contains(&resolve_trusted(Path::new("/var/run/docker.sock"))));
         assert!(!p.allow_network);
     }
 
@@ -567,6 +639,90 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("ENTANGLE-E0741"), "{err}");
+    }
+
+    /// A plugin with `rw` on a share can plant links beneath it; creating
+    /// another plugin's scope directory must not follow them (it would
+    /// create directories wherever the link points).
+    #[cfg(unix)]
+    #[test]
+    fn scope_directories_are_created_without_following_links() {
+        let tmp = tempfile::tempdir().unwrap();
+        let outside = tmp.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        let share = tmp.path().join("share");
+        std::fs::create_dir(&share).unwrap();
+        std::os::unix::fs::symlink(&outside, share.join("publisher")).unwrap();
+        let err = create_private_dir(&share.join("publisher/victim")).unwrap_err();
+        assert!(err.to_string().contains("symbolic link"), "{err}");
+        assert!(!outside.join("victim").exists());
+        // Without links it is `mkdir -p` with private leaves.
+        let ok = share.join("real/a/b");
+        create_private_dir(&ok).unwrap();
+        create_private_dir(&ok).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&ok).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o700);
+    }
+
+    /// Scopes are granted without following links (entangle-sandbox), so the
+    /// trusted roots they hang off — the data directory, the package
+    /// directory — are resolved first: an OS symlink above them (Fedora
+    /// Silverblue's `/home` → `var/home`, `/var/run` → `/run`) must not make
+    /// every grant fail.
+    #[cfg(unix)]
+    #[test]
+    fn trusted_roots_are_resolved_before_scopes_are_derived() {
+        let tmp = tempfile::tempdir().unwrap();
+        let real_home = tmp.path().join("var-home");
+        std::fs::create_dir_all(real_home.join("pkg")).unwrap();
+        let link_home = tmp.path().join("home");
+        std::os::unix::fs::symlink(&real_home, &link_home).unwrap();
+        let canonical = std::fs::canonicalize(&real_home).unwrap();
+
+        // The data directory need not exist yet.
+        assert_eq!(
+            resolve_trusted(&link_home.join("data/x")),
+            canonical.join("data/x")
+        );
+        assert_eq!(
+            resolve_trusted(&link_home.join("pkg")),
+            canonical.join("pkg")
+        );
+
+        let id = pid();
+        let config = NativeConfig {
+            data_dir: Some(link_home.join("data")),
+            staging_dir: Some(tmp.path().join("stage")),
+            allow_unsandboxed: true,
+            ..NativeConfig::default()
+        };
+        let grants = [grant(CapabilityKind::StorageLocal {
+            scope: StorageScope::Plugin,
+        })];
+        let plugin = match NativePlugin::prepare(
+            &id,
+            b"\x7fELF",
+            Some(&link_home.join("pkg")),
+            &grants,
+            &config,
+        ) {
+            Ok(p) => p,
+            Err(NativeError::Sandbox(e)) => {
+                eprintln!("skipping: no sandbox plan on this host: {e}");
+                return;
+            }
+            Err(e) => panic!("{e}"),
+        };
+        let prof = plugin.profile();
+        assert_eq!(prof.read_only, vec![canonical.join("pkg")]);
+        assert_eq!(
+            prof.read_write,
+            vec![canonical
+                .join("data/plugins")
+                .join(&id.publisher)
+                .join(&id.name)]
+        );
     }
 
     #[test]

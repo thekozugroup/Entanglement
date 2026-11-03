@@ -163,39 +163,65 @@ impl Access {
     }
 }
 
-/// The rule list for `profile`: `(path, access, required)`. Optional entries
-/// (system paths) that do not exist on this host are skipped; required ones
-/// (everything the profile names) fail the build.
-pub(crate) fn rules_for(profile: &SandboxProfile) -> Vec<(PathBuf, Access, bool)> {
-    let mut rules = vec![(profile.program.clone(), Access::Rx, true)];
+/// One allowlist entry.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Rule {
+    pub(crate) path: PathBuf,
+    pub(crate) access: Access,
+    /// Profile-named paths are required (a missing one fails the build);
+    /// system paths that do not exist on this host are skipped.
+    pub(crate) required: bool,
+    /// Whether symbolic links in the path are followed. Scopes (read-only,
+    /// read-write, devices) are resolved without following any link: a
+    /// plugin with write access to a share could otherwise swap another
+    /// plugin's scope directory (or one above it) for a link and have that
+    /// plugin's next invocation granted the link's target. The program, the
+    /// read-exec trees and the system paths (`/lib` → `usr/lib`) follow.
+    pub(crate) follow_links: bool,
+}
+
+fn rule(path: &Path, access: Access, required: bool, follow_links: bool) -> Rule {
+    Rule {
+        path: path.to_path_buf(),
+        access,
+        required,
+        follow_links,
+    }
+}
+
+/// The rule list for `profile`. Optional entries (system paths) that do not
+/// exist on this host are skipped; required ones (everything the profile
+/// names) fail the build.
+pub(crate) fn rules_for(profile: &SandboxProfile) -> Vec<Rule> {
+    let mut rules = vec![rule(&profile.program, Access::Rx, true, true)];
     rules.extend(
         profile
             .read_exec
             .iter()
-            .map(|p| (p.clone(), Access::Rx, true)),
+            .map(|p| rule(p, Access::Rx, true, true)),
     );
     rules.extend(
         profile
             .read_only
             .iter()
-            .map(|p| (p.clone(), Access::Ro, true)),
+            .map(|p| rule(p, Access::Ro, true, false)),
     );
     rules.extend(
         profile
             .read_write
             .iter()
-            .map(|p| (p.clone(), Access::Rw, true)),
+            .map(|p| rule(p, Access::Rw, true, false)),
     );
     rules.extend(
         profile
             .devices
             .iter()
-            .map(|p| (p.clone(), Access::Dev, true)),
+            .map(|p| rule(p, Access::Dev, true, false)),
     );
     if profile.system_paths {
         let sys = |list: &[&str], a: Access| {
             list.iter()
-                .map(move |p| (PathBuf::from(p), a, false))
+                .map(move |p| rule(Path::new(p), a, false, true))
                 .collect::<Vec<_>>()
         };
         rules.extend(sys(LINUX_SYSTEM_READ_EXEC, Access::Rx));
@@ -206,6 +232,69 @@ pub(crate) fn rules_for(profile: &SandboxProfile) -> Vec<(PathBuf, Access, bool)
         }
     }
     rules
+}
+
+/// Open the absolute `path` as an `O_PATH` handle without following a
+/// symbolic link in *any* component: each component is opened with
+/// `O_NOFOLLOW` relative to the previous one, and a component that is a link
+/// is refused. The rule is then added on this very handle, so nothing can be
+/// swapped between the check and the grant.
+pub(crate) fn open_no_follow(path: &Path) -> io::Result<File> {
+    use std::os::unix::ffi::OsStrExt;
+    use std::path::Component;
+
+    let mut cur: File = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_PATH | libc::O_DIRECTORY | libc::O_CLOEXEC)
+        .open("/")?;
+    let mut walked = PathBuf::from("/");
+    for comp in path.components() {
+        let name = match comp {
+            Component::RootDir | Component::CurDir => continue,
+            Component::Normal(name) => name,
+            Component::ParentDir | Component::Prefix(_) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "a grant path may not contain '..'",
+                ))
+            }
+        };
+        walked.push(name);
+        let c = std::ffi::CString::new(name.as_bytes())
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "NUL in path"))?;
+        // SAFETY: `cur` is an open directory handle and `c` a NUL-terminated
+        // name; the returned descriptor is owned below.
+        let fd = unsafe {
+            libc::openat(
+                cur.as_raw_fd(),
+                c.as_ptr(),
+                libc::O_PATH | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
+        };
+        if fd < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: `fd` was just returned to us and is owned by nobody else.
+        let next = unsafe { File::from_raw_fd(fd) };
+        if next.metadata()?.file_type().is_symlink() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "{} is a symbolic link; storage and device grants are resolved \
+                     without following links",
+                    walked.display()
+                ),
+            ));
+        }
+        cur = next;
+    }
+    Ok(cur)
+}
+
+/// Refuse `path` if any component is a symbolic link (for mechanisms that
+/// resolve the path themselves, such as bubblewrap's bind mounts).
+pub(crate) fn check_no_symlinks(path: &Path) -> io::Result<()> {
+    open_no_follow(path).map(|_| ())
 }
 
 // ── parent side ──────────────────────────────────────────────────────────────
@@ -253,24 +342,34 @@ pub(crate) fn build_ruleset(
     // owns it.
     let ruleset = unsafe { OwnedFd::from_raw_fd(raw) };
 
-    for (path, access, required) in rules_for(profile) {
-        match add_path_rule(&ruleset, &path, access, handled) {
+    for r in rules_for(profile) {
+        match add_path_rule(&ruleset, &r, handled) {
             Ok(()) => {}
-            Err(e) if !required => {
-                tracing::trace!(path = %path.display(), error = %e, "optional system path skipped");
+            Err(e) if !r.required => {
+                tracing::trace!(path = %r.path.display(), error = %e, "optional system path skipped");
             }
-            Err(source) => return Err(SandboxError::PathRule { path, source }),
+            Err(source) => {
+                return Err(SandboxError::PathRule {
+                    path: r.path,
+                    source,
+                })
+            }
         }
     }
     Ok(ruleset)
 }
 
-fn add_path_rule(ruleset: &OwnedFd, path: &Path, access: Access, handled: u64) -> io::Result<()> {
+fn add_path_rule(ruleset: &OwnedFd, r: &Rule, handled: u64) -> io::Result<()> {
+    let access = r.access;
     // O_PATH: we only need a handle to the inode, not permission to read it.
-    let file: File = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_PATH | libc::O_CLOEXEC)
-        .open(path)?;
+    let file: File = if r.follow_links {
+        OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_PATH | libc::O_CLOEXEC)
+            .open(&r.path)?
+    } else {
+        open_no_follow(&r.path)?
+    };
     let is_dir = file.metadata()?.is_dir();
     let allowed = if is_dir {
         access.dir_rights(handled)
@@ -376,7 +475,7 @@ mod tests {
             }
         }
         let rules = rules_for(&SandboxProfile::new("/p").device("/dev/dri"));
-        assert!(rules.contains(&(PathBuf::from("/dev/dri"), Access::Dev, true)));
+        assert!(rules.contains(&rule(Path::new("/dev/dri"), Access::Dev, true, false)));
     }
 
     #[test]
@@ -385,19 +484,35 @@ mod tests {
             .read_write("/data/p")
             .read_only("/assets");
         let rules = rules_for(&p);
-        assert!(rules.contains(&(PathBuf::from("/opt/p/bin"), Access::Rx, true)));
-        assert!(rules.contains(&(PathBuf::from("/data/p"), Access::Rw, true)));
-        assert!(rules.contains(&(PathBuf::from("/assets"), Access::Ro, true)));
-        assert!(rules.contains(&(PathBuf::from("/usr/lib"), Access::Rx, false)));
-        assert!(rules.contains(&(PathBuf::from("/dev/null"), Access::Rw, false)));
+        // Scopes never follow links; the program and system paths do.
+        assert!(rules.contains(&rule(Path::new("/opt/p/bin"), Access::Rx, true, true)));
+        assert!(rules.contains(&rule(Path::new("/data/p"), Access::Rw, true, false)));
+        assert!(rules.contains(&rule(Path::new("/assets"), Access::Ro, true, false)));
+        assert!(rules.contains(&rule(Path::new("/usr/lib"), Access::Rx, false, true)));
+        assert!(rules.contains(&rule(Path::new("/dev/null"), Access::Rw, false, true)));
         // Name resolution files only with the network.
         assert!(!rules
             .iter()
-            .any(|(p, _, _)| p == Path::new("/etc/resolv.conf")));
+            .any(|r| r.path == Path::new("/etc/resolv.conf")));
         let rules = rules_for(&p.clone().allow_network(true));
         assert!(rules
             .iter()
-            .any(|(p, _, _)| p == Path::new("/etc/resolv.conf")));
+            .any(|r| r.path == Path::new("/etc/resolv.conf")));
+    }
+
+    #[test]
+    fn scope_paths_are_opened_without_following_links() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("real");
+        std::fs::create_dir(&real).unwrap();
+        std::os::unix::fs::symlink(&real, dir.path().join("link")).unwrap();
+        assert!(open_no_follow(&real).unwrap().metadata().unwrap().is_dir());
+        let err = open_no_follow(&dir.path().join("link")).unwrap_err();
+        assert!(err.to_string().contains("symbolic link"), "{err}");
+        // A link in a middle component is refused too.
+        let err = open_no_follow(&dir.path().join("link/x")).unwrap_err();
+        assert!(err.to_string().contains("symbolic link"), "{err}");
+        assert!(open_no_follow(Path::new("/a/../b")).is_err());
     }
 
     #[test]
