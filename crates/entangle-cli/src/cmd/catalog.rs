@@ -492,7 +492,8 @@ pub struct InstallOptions {
     pub out: Option<PathBuf>,
     /// Target triple.
     pub target: String,
-    /// Pre-built wasm to package instead of compiling.
+    /// Pre-built artifact to package instead of compiling: a `.wasm` component,
+    /// or a host executable for a native catalog entry.
     pub wasm: Option<PathBuf>,
     /// Skip the load step.
     pub no_load: bool,
@@ -524,6 +525,10 @@ pub fn default_out_dir(name: &str) -> PathBuf {
 /// so it happens here — idempotently, via
 /// [`crate::cmd::keyring::ensure_trusted`].
 pub fn prepare(entry: &CatalogEntry, opts: &InstallOptions) -> Result<Prepared> {
+    // The tier ceiling comes first: a plugin this host refuses to load must
+    // not be built, signed, trusted, or written anywhere (spec §9.4.1).
+    check_tier_ceiling(entry, config::max_tier_allowed()?)?;
+
     // Fail before the slow build when there is no key to sign with.
     let key_path = opts.key.clone().unwrap_or_else(config::identity_path);
     if !key_path.exists() {
@@ -537,7 +542,8 @@ pub fn prepare(entry: &CatalogEntry, opts: &InstallOptions) -> Result<Prepared> 
 
     // Fail before the slow build when the wasm target is missing, with the
     // exact rustup command instead of a wall of cargo output.
-    if opts.wasm.is_none() {
+    let native = entry.runtime == "native";
+    if opts.wasm.is_none() && !native {
         package::ensure_target_installed(&opts.target)?;
     }
 
@@ -550,7 +556,8 @@ pub fn prepare(entry: &CatalogEntry, opts: &InstallOptions) -> Result<Prepared> 
         dir: entry.dir.clone(),
         key: Some(key_path),
         out: Some(out),
-        wasm: opts.wasm.clone(),
+        wasm: opts.wasm.clone().filter(|_| !native),
+        bin: opts.wasm.clone().filter(|_| native),
         target: opts.target.clone(),
     })
     .with_context(|| {
@@ -573,6 +580,28 @@ pub fn prepare(entry: &CatalogEntry, opts: &InstallOptions) -> Result<Prepared> 
         outcome,
         trust,
     })
+}
+
+/// Refuse a plugin whose declared tier exceeds the configured ceiling.
+///
+/// A valid manifest's declared tier is its effective tier (validation rejects
+/// `declared < implied`), so the declared value is the one the daemon would
+/// check. Worded after spec §9.4.1 and carrying the same stable code as the
+/// kernel's refusal (`ENTANGLE-E0043`).
+pub fn check_tier_ceiling(entry: &CatalogEntry, ceiling: entangle_types::tier::Tier) -> Result<()> {
+    let ceiling = u8::from(ceiling);
+    if entry.tier > ceiling {
+        bail!(
+            "ENTANGLE-E0043: plugin '{}' declares tier={}; this host caps at \
+             max_tier_allowed={} (configured in {}). Nothing was built, signed or written.\n\
+             Edit the config to raise the ceiling, or install a lower-tier alternative.",
+            entry.name,
+            entry.tier,
+            ceiling,
+            config::config_path().display()
+        );
+    }
+    Ok(())
 }
 
 /// Trust the public half of the identity key at `key_path`, idempotently.
@@ -984,5 +1013,28 @@ target = "wasm32-wasip2"
         let msg = format!("{err:#}");
         assert!(msg.contains("no plugin projects"), "{msg}");
         assert!(msg.contains("--catalog"), "{msg}");
+    }
+
+    #[test]
+    fn tier_ceiling_check_refuses_only_above_the_ceiling() {
+        use entangle_types::tier::Tier;
+        let entry = |tier| CatalogEntry {
+            name: "p".into(),
+            dir: PathBuf::from("/c/p"),
+            version: "0.1.0".into(),
+            tier,
+            runtime: if tier >= 4 { "native" } else { "wasm" }.into(),
+            description: String::new(),
+        };
+        let err = check_tier_ceiling(&entry(5), Tier::Privileged).unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(msg.contains("ENTANGLE-E0043"), "{msg}");
+        assert!(
+            msg.contains("tier=5") && msg.contains("max_tier_allowed=4"),
+            "{msg}"
+        );
+        check_tier_ceiling(&entry(4), Tier::Privileged).expect("at the ceiling");
+        check_tier_ceiling(&entry(1), Tier::Pure).expect("tier 1 under ceiling 1");
+        assert!(check_tier_ceiling(&entry(3), Tier::Sandboxed).is_err());
     }
 }

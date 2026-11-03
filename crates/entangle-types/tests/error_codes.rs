@@ -27,6 +27,8 @@ const ERROR_SOURCES: &[&str] = &[
     "../entangle-runtime/src/integrity.rs",
     "../entangle-host/src/errors.rs",
     "../entangle-biscuits/src/bridge.rs",
+    "../entangle-sandbox/src/error.rs",
+    "../entangle-runtime/src/native.rs",
 ];
 
 /// The `ENTANGLE-` prefix a stable code always carries.

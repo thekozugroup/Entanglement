@@ -57,15 +57,21 @@ impl LoadedPlugin {
     ///
     /// This validates the component and compiles it to native code using the
     /// provided [`HostEngine`], then pre-instantiates it against the engine's
-    /// shared linker. Returns [`HostError::Compile`] if the bytes are not a
-    /// valid component, and [`HostError::Instantiate`] if the component's
-    /// imports cannot be satisfied or it lacks the required `run` export.
+    /// shared linker. Returns [`HostError::RuntimeKindMismatch`] if the bytes
+    /// are a native executable rather than wasm (ATC-MAN-3),
+    /// [`HostError::Compile`] if they are not a valid component, and
+    /// [`HostError::Instantiate`] if the component's imports cannot be
+    /// satisfied or it lacks the required `run` export.
     pub fn from_bytes(
         engine: &HostEngine,
         bytes: &[u8],
         plugin_id: PluginId,
         effective_tier: Tier,
     ) -> Result<Self, HostError> {
+        // A manifest that says "wasm" while shipping an ELF/Mach-O/PE binary
+        // is lying about its runtime kind; say so instead of reporting a
+        // confusing compile error.
+        crate::runtime_kind::check_runtime_kind(crate::runtime_kind::DeclaredRuntime::Wasm, bytes)?;
         let component = Component::from_binary(engine.engine(), bytes)?;
         // Resolve imports + validate exports once, at load time. This moves
         // linker work out of the invocation hot path (previously ~29% of

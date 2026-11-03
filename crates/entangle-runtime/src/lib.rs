@@ -9,7 +9,9 @@
 //! 1. Manifest is loaded and validated (`entangle-manifest`).
 //! 2. Plugin artifact + signature bundle are verified (`entangle-signing`).
 //! 3. Plugin is registered with the capability broker (`entangle-broker`).
-//! 4. The plugin is instantiated by the host (`entangle-host`).
+//! 4. The plugin is instantiated by the host (`entangle-host`), or — for a
+//!    native tier 4–5 plugin — staged and run in an OS sandbox
+//!    (`entangle-sandbox`, see [`native`]).
 //! 5. Lifecycle events are emitted on the IPC bus (`entangle-ipc`).
 //!
 //! # Key types
@@ -28,6 +30,7 @@ pub mod kernel;
 pub mod lifecycle;
 pub mod loader;
 pub mod metric;
+pub mod native;
 pub mod os_sandbox;
 
 #[cfg(test)]
@@ -39,4 +42,5 @@ pub use kernel::{Kernel, KernelConfig};
 pub use lifecycle::{LifecycleEvent, LifecyclePhase};
 pub use loader::PluginPackage;
 pub use metric::{MetricEntry, MetricRegistry};
+pub use native::{NativeConfig, NativeError};
 pub use os_sandbox::{probe as probe_os_sandbox, SandboxProbe};

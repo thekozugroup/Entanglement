@@ -4,7 +4,7 @@
 //! them. The IDs are taken verbatim from §16.1 of
 //! `docs/superpowers/specs/2026-04-29-entanglement-architecture-v6.md`.
 //!
-//! ATC-MAN-3 and ATC-MAN-4 cannot be exercised here:
+//! ATC-MAN-3 and ATC-MAN-4 are covered outside this crate:
 //! • ATC-MAN-3 requires entangle-host (runtime instantiation / ELF sniffing)
 //! • ATC-MAN-4 requires entangle-bin (install command + broker config)
 
@@ -114,28 +114,11 @@ fn atc_man_2_tier_over_declared_ok() {
     );
 }
 
-// ── ATC-MAN-3 (out-of-scope stub) ────────────────────────────────────────────
+// ── ATC-MAN-3 / ATC-MAN-4 (covered in other crates) ──────────────────────────
 
-// ATC-MAN-3: GIVEN runtime.kind = "wasm-component" AND the binary is actually ELF
-// WHEN entangle-host instantiates the plugin
-// THEN Err(Error::RuntimeKindMismatch { declared, observed })
+// ATC-MAN-3 exercises entangle-host's instantiation path (magic-byte sniffing),
+// not the manifest parser:
+//   crates/entangle-host/tests/runtime_kind.rs::atc_man_3_lie_at_instantiation_rejected
 //
-// This proposition exercises entangle-host's instantiation path (ELF sniffing),
-// not the manifest parser. The test lives in:
-// crates/entangle-host/tests/runtime_kind.rs::lie_at_instantiation_rejected
-//
-// It is out of scope for this crate and will be covered in.
-
-// ── ATC-MAN-4 (out-of-scope stub) ────────────────────────────────────────────
-
-// ATC-MAN-4: GIVEN tier = 3 AND config [security] max_tier_allowed = 2
-// WHEN `entangle install <manifest>` runs
-// THEN Err(Error::TierExceeded { plugin_tier: 3, ceiling: 2 })
-// AND no plugin state is mutated
-//
-// This proposition exercises the broker/install command (entangle-bin) and
-// requires a runtime config surface that doesn't exist in this crate.
-// The test lives in:
-// crates/entangle-bin/tests/install_max_tier.rs::install_rejects_above_ceiling
-//
-// It is out of scope for this crate and will be covered in.
+// ATC-MAN-4 exercises the daemon's install path and its `[security]` config:
+//   crates/entangle-bin/tests/install_max_tier.rs::atc_man_4_install_rejects_above_ceiling

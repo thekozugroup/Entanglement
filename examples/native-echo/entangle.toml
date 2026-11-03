@@ -1,0 +1,23 @@
+# Entanglement plugin manifest (spec §4.4) for a NATIVE plugin.
+#
+# `entangle plugins build` rewrites `id` with your publisher fingerprint,
+# compiles this crate for the host, and packages dist/plugin.bin +
+# dist/entangle.toml + dist/plugin.bin.sig.
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/native-echo@0.1.0"
+version = "0.1.0"
+# Native plugins require tier 4 or 5. A tier-5 plugin runs as a subprocess
+# under the host's OS sandbox (Landlock + seccomp + namespaces on Linux,
+# Seatbelt on macOS) and is refused where no sandbox exists.
+tier = 5
+runtime = "native"
+description = "Echoes its input back; demonstrates the sandboxed native-plugin protocol"
+
+# Granted capabilities become the sandbox profile. This one asks for its own
+# storage directory (read-write, exposed as $ENTANGLE_DATA_DIR) and nothing
+# else: no network, no other files.
+[capabilities]
+"storage.local" = { scope = "plugin" }
+
+[build]
+target = "host"

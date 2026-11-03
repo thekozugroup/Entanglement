@@ -1,0 +1,20 @@
+[workspace]
+# stand-alone — not a member of the Entanglement workspace.
+
+[package]
+name = "entangle-native-echo"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+# A native (tier 4-5) plugin is an ordinary executable. No dependencies: the
+# frame protocol is small enough to implement inline (see src/main.rs).
+[[bin]]
+name = "entangle-native-echo"
+path = "src/main.rs"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

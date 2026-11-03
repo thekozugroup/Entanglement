@@ -9,10 +9,17 @@
 //! Output layout (what [`entangle_runtime`]'s loader expects):
 //!
 //! ```text
-//! <dir>/dist/plugin.wasm       compiled component
+//! <dir>/dist/plugin.wasm       compiled component            (runtime = "wasm")
+//! <dir>/dist/plugin.bin        host executable               (runtime = "native")
 //! <dir>/dist/entangle.toml     manifest, id rewritten to the real publisher
-//! <dir>/dist/plugin.wasm.sig   detached signature bundle over wasm + manifest
+//! <dir>/dist/plugin.*.sig      detached signature bundle over artifact + manifest
 //! ```
+//!
+//! # Native plugins
+//! When the manifest declares `runtime = "native"` (tier 4–5) the project is a
+//! Rust **binary** crate: it is built with `cargo build --release` for the
+//! host (no `--target`), and the executable is packaged as `plugin.bin`. The
+//! signature covers it exactly as it covers a wasm component.
 //!
 //! # Plugin id rewriting
 //! The author writes a placeholder publisher in their source `entangle.toml`
@@ -52,9 +59,12 @@ pub struct BuildOptions {
     pub key: Option<PathBuf>,
     /// Output directory. Defaults to `<dir>/dist`.
     pub out: Option<PathBuf>,
-    /// Pre-built `.wasm` to package instead of invoking cargo.
+    /// Pre-built `.wasm` to package instead of invoking cargo (wasm plugins).
     pub wasm: Option<PathBuf>,
-    /// Target triple to build for.
+    /// Pre-built host executable to package instead of invoking cargo
+    /// (native plugins).
+    pub bin: Option<PathBuf>,
+    /// Target triple to build for (wasm plugins; native ones build for the host).
     pub target: String,
 }
 
@@ -71,6 +81,8 @@ pub struct RenderedManifest {
     pub plugin_id: String,
     /// Effective tier after validation (`max(declared, implied)`).
     pub effective_tier: u8,
+    /// `runtime = "native"`: package a host executable as `plugin.bin`.
+    pub native: bool,
 }
 
 /// What [`build`] produced — everything a caller needs to trust, load, and
@@ -196,6 +208,7 @@ pub fn render_dist_manifest(source: &str, fingerprint_hex: &str) -> Result<Rende
         toml: rendered,
         plugin_id,
         effective_tier: validated.effective_tier as u8,
+        native: validated.runtime == entangle_manifest::Runtime::Native,
     })
 }
 
@@ -212,6 +225,8 @@ struct CrateInfo {
     target_dir: PathBuf,
     /// Whether the lib target declares `crate-type = ["cdylib"]`.
     is_cdylib: bool,
+    /// Names of the package's `bin` targets.
+    bins: Vec<String>,
 }
 
 /// The cdylib output stem: cargo replaces `-` with `_` in artifact filenames.
@@ -267,10 +282,28 @@ fn cargo_metadata(manifest_path: &Path) -> Result<CrateInfo> {
         })
         .unwrap_or(false);
 
+    let bins = pkg
+        .get("targets")
+        .and_then(|v| v.as_array())
+        .map(|targets| {
+            targets
+                .iter()
+                .filter(|t| {
+                    t.get("kind")
+                        .and_then(|k| k.as_array())
+                        .map(|k| k.iter().any(|c| c.as_str() == Some("bin")))
+                        .unwrap_or(false)
+                })
+                .filter_map(|t| t.get("name").and_then(|n| n.as_str()).map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+
     Ok(CrateInfo {
         name,
         target_dir,
         is_cdylib,
+        bins,
     })
 }
 
@@ -374,29 +407,67 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
         rendered.effective_tier
     );
 
-    // Step 3 — obtain the wasm artifact.
-    let wasm_src = match &opts.wasm {
-        Some(p) => {
-            if !p.exists() {
-                bail!("--wasm {} does not exist", p.display());
-            }
-            p.clone()
+    // Step 3 — obtain the artifact.
+    let artifact_src = if rendered.native {
+        if opts.wasm.is_some() {
+            bail!(
+                "--wasm was given, but entangle.toml declares runtime = \"native\".\n\
+                 Pass a pre-built executable with --bin <FILE>, or omit it to build with cargo."
+            );
         }
-        None => {
-            if !cargo_manifest.exists() {
-                bail!(
-                    "{} not found.\n\
-                     Pass --wasm <FILE> to package an artifact built elsewhere.",
-                    cargo_manifest.display()
-                );
+        match &opts.bin {
+            Some(p) => {
+                if !p.exists() {
+                    bail!("--bin {} does not exist", p.display());
+                }
+                p.clone()
             }
-            build_wasm(&cargo_manifest, &opts.target)?
+            None => {
+                if !cargo_manifest.exists() {
+                    bail!(
+                        "{} not found.\n\
+                         Pass --bin <FILE> to package an executable built elsewhere.",
+                        cargo_manifest.display()
+                    );
+                }
+                build_native(&cargo_manifest)?
+            }
+        }
+    } else {
+        if opts.bin.is_some() {
+            bail!(
+                "--bin was given, but entangle.toml declares runtime = \"wasm\".\n\
+                 Pass a pre-built component with --wasm <FILE> instead."
+            );
+        }
+        match &opts.wasm {
+            Some(p) => {
+                if !p.exists() {
+                    bail!("--wasm {} does not exist", p.display());
+                }
+                p.clone()
+            }
+            None => {
+                if !cargo_manifest.exists() {
+                    bail!(
+                        "{} not found.\n\
+                         Pass --wasm <FILE> to package an artifact built elsewhere.",
+                        cargo_manifest.display()
+                    );
+                }
+                build_wasm(&cargo_manifest, &opts.target)?
+            }
         }
     };
 
     // Step 4 — write dist/.
     let dist = opts.out.clone().unwrap_or_else(|| dir.join("dist"));
-    write_dist(&dist, &wasm_src, &rendered, &keypair)?;
+    let artifact_name = if rendered.native {
+        entangle_runtime::loader::NATIVE_ARTIFACT
+    } else {
+        entangle_runtime::loader::WASM_ARTIFACT
+    };
+    write_dist_artifact(&dist, &artifact_src, artifact_name, &rendered, &keypair)?;
 
     Ok(BuildOutcome {
         plugin_id: rendered.plugin_id,
@@ -454,22 +525,92 @@ fn build_wasm(cargo_manifest: &Path, target: &str) -> Result<PathBuf> {
     Ok(wasm)
 }
 
-/// Write `plugin.wasm`, `entangle.toml`, and `plugin.wasm.sig` into `dist`.
+/// Compile a native plugin for the host and return the executable's path.
+fn build_native(cargo_manifest: &Path) -> Result<PathBuf> {
+    let info = cargo_metadata(cargo_manifest)?;
+    let bin = match info.bins.as_slice() {
+        [] => bail!(
+            "{} has no binary target.\n\
+             A native plugin is an executable: add src/main.rs (or a [[bin]] section).",
+            cargo_manifest.display()
+        ),
+        [only] => only.clone(),
+        many => many
+            .iter()
+            .find(|b| **b == info.name)
+            .cloned()
+            .with_context(|| {
+                format!(
+                    "{} has several binaries ({}) and none is named after the package; \
+                     pass the one to package with --bin <FILE>",
+                    cargo_manifest.display(),
+                    many.join(", ")
+                )
+            })?,
+    };
+    println!(
+        "[entangle] compiling native plugin {} ({bin}) for this host ({}-{})...",
+        info.name,
+        std::env::consts::ARCH,
+        std::env::consts::OS
+    );
+    let status = Command::new(cargo_bin())
+        .args(["build", "--release", "--bin", &bin, "--manifest-path"])
+        .arg(cargo_manifest)
+        .status()
+        .context("running cargo build")?;
+    if !status.success() {
+        bail!("cargo build --release --bin {bin} failed");
+    }
+    let exe = info
+        .target_dir
+        .join("release")
+        .join(format!("{bin}{}", std::env::consts::EXE_SUFFIX));
+    if !exe.exists() {
+        bail!("built executable not found at {}", exe.display());
+    }
+    Ok(exe)
+}
+
+/// Write `<artifact_name>` (`plugin.wasm` or `plugin.bin`), `entangle.toml`,
+/// and `<artifact_name>.sig` into `dist`.
 ///
-/// Split out of [`run`] so the packaging half is testable without a wasm
+/// Split out of [`run`] so the packaging half is testable without a
 /// toolchain: it takes an already-built artifact and an already-rendered
-/// manifest, and does nothing but copy, sign, and write.
-pub fn write_dist(
+/// manifest, and does nothing but copy, sign, and write. A stale artifact of
+/// the other kind is removed (the loader prefers
+/// `plugin.wasm` when both exist, so a leftover would shadow a native build).
+pub fn write_dist_artifact(
     dist: &Path,
-    wasm_src: &Path,
+    artifact_src: &Path,
+    artifact_name: &str,
     rendered: &RenderedManifest,
     keypair: &IdentityKeyPair,
 ) -> Result<()> {
     std::fs::create_dir_all(dist).with_context(|| format!("creating {}", dist.display()))?;
 
-    let wasm_dst = dist.join("plugin.wasm");
-    std::fs::copy(wasm_src, &wasm_dst)
-        .with_context(|| format!("copying {} to {}", wasm_src.display(), wasm_dst.display()))?;
+    for stale in [
+        entangle_runtime::loader::WASM_ARTIFACT,
+        entangle_runtime::loader::NATIVE_ARTIFACT,
+    ] {
+        if stale != artifact_name {
+            for p in [dist.join(stale), dist.join(format!("{stale}.sig"))] {
+                if p.exists() {
+                    std::fs::remove_file(&p)
+                        .with_context(|| format!("removing stale {}", p.display()))?;
+                }
+            }
+        }
+    }
+
+    let wasm_dst = dist.join(artifact_name);
+    std::fs::copy(artifact_src, &wasm_dst).with_context(|| {
+        format!(
+            "copying {} to {}",
+            artifact_src.display(),
+            wasm_dst.display()
+        )
+    })?;
     println!("[entangle] wrote {}", wasm_dst.display());
 
     // The manifest must be on disk *before* signing: the bundle covers both the
@@ -480,10 +621,10 @@ pub fn write_dist(
         .with_context(|| format!("writing {}", manifest_dst.display()))?;
     println!("[entangle] wrote {}", manifest_dst.display());
 
-    let wasm_bytes = std::fs::read(&wasm_dst).context("reading wasm for signing")?;
+    let wasm_bytes = std::fs::read(&wasm_dst).context("reading the artifact for signing")?;
     let bundle = sign_artifact(&wasm_bytes, rendered.toml.as_bytes(), keypair);
     let sig_toml = toml::to_string(&bundle).context("serializing signature bundle")?;
-    let sig_dst = dist.join("plugin.wasm.sig");
+    let sig_dst = dist.join(format!("{artifact_name}.sig"));
     std::fs::write(&sig_dst, &sig_toml)
         .with_context(|| format!("writing {}", sig_dst.display()))?;
     println!("[entangle] wrote {}", sig_dst.display());
@@ -667,7 +808,7 @@ target = "wasm32-wasip2"
         .unwrap();
 
         let dist = dir.join("dist");
-        write_dist(&dist, &fake_wasm, &rendered, &kp).unwrap();
+        write_dist_artifact(&dist, &fake_wasm, "plugin.wasm", &rendered, &kp).unwrap();
 
         assert!(dist.join("plugin.wasm").exists());
         assert!(dist.join("entangle.toml").exists());

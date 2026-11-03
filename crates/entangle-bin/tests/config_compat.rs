@@ -66,12 +66,15 @@ mod cli_mirror {
     pub struct SecurityConfig {
         #[serde(default = "default_max_tier")]
         pub max_tier_allowed: u8,
+        #[serde(default)]
+        pub allow_unsandboxed_native: bool,
     }
 
     impl Default for SecurityConfig {
         fn default() -> Self {
             Self {
                 max_tier_allowed: default_max_tier(),
+                allow_unsandboxed_native: false,
             }
         }
     }
@@ -116,6 +119,7 @@ fn daemon_parses_the_exact_bytes_entangle_init_writes() {
         },
         security: cli_mirror::SecurityConfig {
             max_tier_allowed: 3,
+            allow_unsandboxed_native: false,
         },
     };
 
@@ -161,6 +165,7 @@ fn every_cli_representable_value_crosses_the_boundary_intact() {
                     },
                     security: cli_mirror::SecurityConfig {
                         max_tier_allowed: tier_u8,
+                        allow_unsandboxed_native: false,
                     },
                 };
                 let daemon = daemon_parses_cli_output(&cli_cfg);
@@ -276,7 +281,7 @@ mod source_of_truth {
         );
         assert_eq!(
             struct_fields(&src, "SecurityConfig"),
-            vec!["max_tier_allowed: u8"],
+            vec!["max_tier_allowed: u8", "allow_unsandboxed_native: bool"],
             "entangle-cli's [security] section changed; the daemon parses this \
              integer as a Tier (serde try_from = u8), so a type change here \
              breaks the wire form"
@@ -439,6 +444,7 @@ fn load_config_boots_on_a_cli_written_file() {
         },
         security: cli_mirror::SecurityConfig {
             max_tier_allowed: 2,
+            allow_unsandboxed_native: false,
         },
     };
 

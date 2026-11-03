@@ -11,6 +11,8 @@
 //! - [`HostState`] — per-invocation WASI context and log buffer.
 //! - [`LoadedMetric`] — a compiled `entangle:integrity/metric` component
 //!   (spec §7.5), run at tier 2 with an observable instantiation counter.
+//! - [`check_runtime_kind`] — magic-byte check that an artifact is the runtime
+//!   kind its manifest declares (ATC-MAN-3).
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -20,10 +22,12 @@ pub mod engine;
 pub mod errors;
 pub mod metric;
 pub mod plugin;
+pub mod runtime_kind;
 pub mod state;
 
 pub use engine::HostEngine;
 pub use errors::HostError;
 pub use metric::LoadedMetric;
 pub use plugin::{LoadedPlugin, PluginRunResult};
+pub use runtime_kind::{check_runtime_kind, ArtifactKind, DeclaredRuntime};
 pub use state::HostState;

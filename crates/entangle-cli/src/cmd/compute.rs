@@ -27,7 +27,7 @@ use entangle_rpc::{
     methods::{ComputeDispatchParams, ComputeDispatchResult, ComputeIntegrity, ComputeReplica},
     Client as RpcClient, RpcError,
 };
-use entangle_runtime::{Kernel, KernelConfig};
+use entangle_runtime::Kernel;
 use entangle_scheduler::{DispatchResult, Dispatcher, WorkerPool};
 use entangle_signing::Keyring;
 use entangle_types::{
@@ -165,7 +165,7 @@ fn allow_local() -> bool {
 fn build_kernel() -> anyhow::Result<Kernel> {
     let kr_path = config::keyring_path();
     let keyring = Keyring::load(&kr_path)?;
-    Kernel::new(KernelConfig::default(), keyring)
+    Kernel::new(config::kernel_config()?, keyring)
         .map_err(|e| anyhow::anyhow!("failed to build kernel: {e}"))
 }
 
