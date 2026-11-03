@@ -33,6 +33,19 @@ pub enum RuntimeError {
     #[error("plugin not loaded: {0}")]
     NotLoaded(PluginId),
 
+    /// The plugin is loaded but implements the other `entangle:plugin`
+    /// world: a one-shot invoke of a stream plugin, or a stream of a
+    /// one-shot plugin.
+    #[error("plugin {plugin} implements the `{actual}` world, not `{expected}`")]
+    WrongWorld {
+        /// The plugin that was invoked.
+        plugin: PluginId,
+        /// The world the call needs (`"plugin"` or `"stream-plugin"`).
+        expected: &'static str,
+        /// The world the plugin implements.
+        actual: &'static str,
+    },
+
     /// An I/O error occurred (e.g. reading artifact bytes).
     #[error("io: {0}")]
     Io(#[from] std::io::Error),

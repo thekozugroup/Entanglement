@@ -99,6 +99,9 @@ pub struct HostState {
     log_bytes: usize,
     /// Whether the log buffer has been truncated (marker already emitted).
     log_truncated: bool,
+    /// The chunk channels of a streaming invocation (`stream-plugin` world);
+    /// `None` for a one-shot call.
+    pub(crate) stream: Option<crate::stream::StreamPort>,
     table: ResourceTable,
     wasi: WasiCtx,
 }
@@ -127,6 +130,7 @@ impl HostState {
             limits: limits.to_store_limits(),
             log_bytes: 0,
             log_truncated: false,
+            stream: None,
             table: ResourceTable::new(),
             wasi: builder.build(),
         }

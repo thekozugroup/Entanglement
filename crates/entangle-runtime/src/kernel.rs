@@ -6,7 +6,7 @@ use crate::{
     loader::PluginPackage,
 };
 use entangle_broker::{Broker, BrokerPolicy};
-use entangle_host::{HostEngine, LoadedPlugin};
+use entangle_host::{CompiledPlugin, HostEngine, StreamPort, StreamRunResult};
 use entangle_ipc::{Bus, Envelope, Topic};
 use entangle_manifest::{loader::LoadError, validate::validate, ValidatedManifest};
 use entangle_signing::{verify_artifact, Keyring, SignatureBundle, VerificationError};
@@ -46,7 +46,7 @@ impl Default for KernelConfig {
 
 struct LoadedRecord {
     effective_tier: Tier,
-    plugin: LoadedPlugin,
+    plugin: CompiledPlugin,
 }
 
 // ── Kernel ───────────────────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ impl Kernel {
         // ── Step 4: Host ─────────────────────────────────────────────────────
         // On failure, roll back the broker registration so no partial state
         // remains from this load attempt.
-        let plugin = match LoadedPlugin::from_bytes(
+        let plugin = match CompiledPlugin::from_bytes(
             &self.engine,
             &pkg.bytes,
             plugin_id.clone(),
@@ -256,12 +256,13 @@ impl Kernel {
     ) -> Result<Vec<u8>, RuntimeError> {
         // Acquire the read lock, clone what we need, then release it before
         // the async call so we don't hold a lock across an .await point.
-        let (plugin, effective_tier) = {
-            let plugins = self.plugins.read();
-            let record = plugins
-                .get(plugin_id)
-                .ok_or_else(|| RuntimeError::NotLoaded(plugin_id.clone()))?;
-            (record.plugin.clone(), record.effective_tier)
+        let (plugin, effective_tier) = self.record(plugin_id)?;
+        let CompiledPlugin::OneShot(plugin) = plugin else {
+            return Err(RuntimeError::WrongWorld {
+                plugin: plugin_id.clone(),
+                expected: "plugin",
+                actual: plugin.world(),
+            });
         };
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
@@ -269,6 +270,62 @@ impl Kernel {
         self.emit(plugin_id, effective_tier, LifecyclePhase::Idled);
 
         Ok(result?.output)
+    }
+
+    /// Run a loaded `stream-plugin` component's `start-stream(input)` with
+    /// `port` attached, until the plugin returns (spec §7.1).
+    ///
+    /// Chunks the plugin yields, and input it reads, flow through `port`;
+    /// the caller drives the other end. Bounded by `timeout_ms` exactly as a
+    /// one-shot invocation is. A one-shot plugin is
+    /// [`RuntimeError::WrongWorld`].
+    pub async fn invoke_stream(
+        &self,
+        plugin_id: &PluginId,
+        input: &[u8],
+        port: StreamPort,
+        timeout_ms: u64,
+    ) -> Result<StreamRunResult, RuntimeError> {
+        let (plugin, effective_tier) = self.record(plugin_id)?;
+        let CompiledPlugin::Stream(plugin) = plugin else {
+            return Err(RuntimeError::WrongWorld {
+                plugin: plugin_id.clone(),
+                expected: "stream-plugin",
+                actual: plugin.world(),
+            });
+        };
+
+        self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
+        let result = plugin
+            .run_stream(
+                &self.engine,
+                input,
+                port,
+                timeout_ms,
+                entangle_host::state::ResourceLimits::default(),
+            )
+            .await;
+        self.emit(plugin_id, effective_tier, LifecyclePhase::Idled);
+        Ok(result?)
+    }
+
+    /// The `entangle:plugin` world a loaded plugin implements: `"plugin"`
+    /// (one-shot `run`) or `"stream-plugin"` (`start-stream`).
+    pub fn plugin_world(&self, plugin_id: &PluginId) -> Option<&'static str> {
+        self.plugins
+            .read()
+            .get(plugin_id)
+            .map(|record| record.plugin.world())
+    }
+
+    /// Clone a loaded plugin's compiled component and tier, releasing the
+    /// lock before any `.await`.
+    fn record(&self, plugin_id: &PluginId) -> Result<(CompiledPlugin, Tier), RuntimeError> {
+        let plugins = self.plugins.read();
+        let record = plugins
+            .get(plugin_id)
+            .ok_or_else(|| RuntimeError::NotLoaded(plugin_id.clone()))?;
+        Ok((record.plugin.clone(), record.effective_tier))
     }
 
     /// Invoke a [`entangle_types::task::OneShotTask`] honoring its
