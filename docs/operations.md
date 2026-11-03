@@ -399,3 +399,49 @@ Docker, `docker logs -f entangled` shows the same JSON stream; pass
 | Cross-node capability grant refused with `ENTANGLE-E0100`/`E0101` | Biscuit signature doesn't verify, or the publisher/peer key isn't in the trust roots | Re-check the peer is actually paired (`entangle mesh peers`) and its key matches what's in `peers.toml`/`keyring.toml`. |
 | `clock-skew` check in `entangle doctor` reports `fail` | Local and daemon-host clocks have drifted >30s | Sync via NTP/chrony. Biscuit-auth tokens only tolerate ±60s, so severe drift breaks pairing TOFU and cross-node auth outright. |
 | mDNS peer discovery doesn't work under Docker on macOS | Docker Desktop's `network_mode: host` is scoped to its internal Linux VM, not the Mac's real network | Use a Linux host/VM for mDNS-dependent testing, or run `entangled` natively on macOS for local dev. See [`../docker/README.md`](../docker/README.md). |
+
+## 10. `mesh.tailscale` (tailnet transport)
+
+Opt-in; the daemon never uses a tailnet it merely found running. It runs
+only when **both** `[mesh.tailscale] enabled = true` and `"tailscale"` in
+`[mesh] transports` are set; with only the first, the daemon logs a warning
+at startup and `entangle doctor` shows the transport as inert.
+
+```toml
+[mesh]
+transports = ["tailscale"]
+
+[mesh.tailscale]
+enabled = true
+port = 41643                   # TCP, between tailnet IPs
+acl-mode = "entangle-on-top"   # or "trust-tailnet" (alias "tailscale-only")
+tailscale-cli = ""             # empty = `tailscale` on $PATH
+# bind-ip = "100.101.102.103"  # omitted = all interfaces
+```
+
+* Only tailnet source addresses (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) are
+  served: a connection from any other address (LAN, Docker bridge, the
+  internet) is closed before a byte is read or sent, whatever `bind-ip` is.
+  Discovery and outbound connections likewise never dial a non-tailnet
+  address, even if `tailscale status` lists one.
+* Inbound limits: at most 8 handshakes in flight per source address (64 in
+  all), and at most 16 established connections per peer (256 in all). A peer
+  over a limit is told so after the handshake (`connection limit`) and can
+  retry once one of its connections closes.
+
+* Traffic is TCP over WireGuard. A mutual Ed25519-signed X25519 handshake
+  authenticates the remote `PeerId` and agrees session keys; every frame after
+  it is sealed (ChaCha20-Poly1305), so a tailnet node that relays the
+  connection can neither read nor inject. A `PeerId` that answers discovery
+  from two tailnet nodes at once is skipped for that round (logged at warn).
+  `entangle-on-top` drops any authenticated
+  peer that is not in `peers.toml` before reading a request, and re-checks
+  the allowlist for every request, so `entangle peers remove` also ends
+  service on that peer's open connections; `trust-tailnet` skips the
+  allowlist but still authenticates identity.
+* Liveness (`active` / `stopped(reason)` / `uninstalled`) is polled every 5 s
+  (5 min once uninstalled); a change must persist for two polls and leaving
+  `active` needs 30 s of grace. One log line per transition, target
+  `entangle::mesh::tailscale`.
+* `entangle doctor` reports the current state in its `tailscale` row.
+* Errors: `ENTANGLE-E0640`..`E0649`. Handshake failures are logged at debug.

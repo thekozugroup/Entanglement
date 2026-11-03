@@ -1,6 +1,6 @@
 [package]
 name = "entangle-mesh-tailscale"
-description = "Tailscale-tailnet mesh transport for Entanglement (scaffold; real wiring is Phase 2)"
+description = "Tailscale-tailnet mesh transport for Entanglement: liveness polling, identity-bound TCP request/response over the tailnet"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,8 +14,18 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 entangle-types = { workspace = true }
+entangle-signing = { workspace = true }
+async-trait = { workspace = true }
+ed25519-dalek = { workspace = true }
+rand_core = { workspace = true, features = ["getrandom"] }
+ring = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["net", "io-util", "time", "sync", "process", "rt", "macros"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["full"] }
+tempfile = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["fmt"] }

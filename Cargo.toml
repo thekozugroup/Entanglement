@@ -75,6 +75,9 @@ blake3 = "1"
 biscuit-auth = "6"
 biscuit-quote = "0.3"
 rand_core = "0.6"
+# X25519 / HKDF / ChaCha20-Poly1305 for the mesh.tailscale session layer;
+# already in the tree via rustls, same (default) features.
+ring = "0.17"
 
 # CLI
 clap = { version = "4", features = ["derive"] }
@@ -148,6 +151,7 @@ entangle-runtime = { path = "crates/entangle-runtime" }
 entangle-sdk = { path = "crates/entangle-sdk" }
 entangle-mesh-local = { path = "crates/entangle-mesh-local" }
 entangle-mesh-iroh = { path = "crates/entangle-mesh-iroh" }
+entangle-mesh-tailscale = { path = "crates/entangle-mesh-tailscale" }
 entangle-oci = { path = "crates/entangle-oci" }
 entangle-rpc = { path = "crates/entangle-rpc" }
 entangle-peers = { path = "crates/entangle-peers" }

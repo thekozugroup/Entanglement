@@ -207,3 +207,51 @@ fn doctor_when_peers_empty_in_multi_node_warns() {
         "expected multi_node mention in warn, got: {peers_line}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// tailscale row: mirrors the daemon's activation rule and validation.
+// ---------------------------------------------------------------------------
+
+/// Run doctor with `config` as `~/.entangle/config.toml`; return the
+/// `tailscale` row.
+fn tailscale_row(config: &str) -> String {
+    let dir = tempfile::tempdir().unwrap();
+    let entangle_dir = dir.path().join(".entangle");
+    fs::create_dir_all(&entangle_dir).unwrap();
+    fs::write(entangle_dir.join("config.toml"), config).unwrap();
+    let output = doctor_cmd(dir.path()).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+    stdout
+        .lines()
+        .find(|l| l.split_whitespace().nth(1) == Some("tailscale"))
+        .unwrap_or_else(|| panic!("no tailscale row in:\n{stdout}"))
+        .to_owned()
+}
+
+#[test]
+fn doctor_tailscale_row_follows_the_daemon_activation_rule() {
+    // enabled, but [mesh] transports does not list "tailscale": the daemon
+    // never runs the transport, so doctor must not report on it as if it did.
+    let row = tailscale_row(
+        "[mesh]\ntransports = [\"local\"]\n\n[mesh.tailscale]\nenabled = true\ntailscale-cli = \"/nonexistent/tailscale\"\n",
+    );
+    assert!(row.contains("[warn]"), "{row}");
+    assert!(row.contains("transports"), "{row}");
+    assert!(!row.contains("uninstalled"), "{row}");
+}
+
+#[test]
+fn doctor_tailscale_row_fails_on_a_config_the_daemon_rejects() {
+    let row = tailscale_row(
+        "[mesh]\ntransports = [\"tailscale\"]\n\n[mesh.tailscale]\nenabled = true\nacl-mode = \"bogus\"\ntailscale-cli = \"/nonexistent/tailscale\"\n",
+    );
+    assert!(row.contains("[fail]"), "{row}");
+    assert!(row.contains("acl-mode"), "{row}");
+}
+
+#[test]
+fn doctor_tailscale_row_does_not_call_an_unparsable_config_not_enabled() {
+    let row = tailscale_row("[mesh\ntransports = [\"tailscale\"]\n");
+    assert!(!row.contains("not enabled"), "{row}");
+    assert!(row.contains("parse"), "{row}");
+}

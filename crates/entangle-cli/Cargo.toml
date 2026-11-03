@@ -19,6 +19,7 @@ entangle-signing   = { workspace = true }
 entangle-manifest  = { workspace = true }
 entangle-rpc       = { path = "../entangle-rpc" }
 entangle-peers     = { path = "../entangle-peers" }
+entangle-mesh-tailscale = { workspace = true }
 entangle-pairing   = { path = "../entangle-pairing" }
 entangle-scheduler     = { path = "../entangle-scheduler" }
 entangle-observability = { workspace = true }

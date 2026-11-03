@@ -257,6 +257,21 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         }
     });
 
+    // ── 6b. Optional `mesh.tailscale` transport + liveness poller ─────────────
+    let tailscale_rt = if entangle_bin::tailscale::enabled(&cfg.mesh) {
+        match entangle_bin::tailscale::start(&cfg.mesh, &state.identity, state.peer_store.clone())
+            .await
+        {
+            Ok(rt) => Some(rt),
+            Err(e) => {
+                tracing::error!(error = %e, "mesh.tailscale failed to start — transport disabled");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // ── 7. Block on shutdown signal ───────────────────────────────────────────
     wait_for_shutdown().await;
 
@@ -275,6 +290,10 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     // the accept loop (`accept` yields `Ok(None)` once closed).
     if let Some(transport) = &scheduler_mesh {
         transport.shutdown().await;
+    }
+
+    if let Some(rt) = &tailscale_rt {
+        rt.shutdown().await;
     }
 
     // Unregister from mDNS (sends a goodbye) and stop the browse task so
