@@ -38,6 +38,10 @@
 //!   answered `503` (`ENTANGLE-E0665`). Bodies over the cap get `413`
 //!   (`ENTANGLE-E0667`). Each downstream request has a timeout
 //!   (`ENTANGLE-E0663`).
+//! * **Client disconnects**: once a request is accepted it is processed in
+//!   its own task that holds the in-flight permit, so a client that closes
+//!   the connection mid-call does not cancel it: the call still finishes,
+//!   `after_tool` runs and the audit record is written.
 //! * **Policy/audit**: see [`Policy`], [`GatewayHooks`], [`AuditRecord`].
 //!
 //! Stable codes used in HTTP/JSON-RPC bodies: E0661 policy denial, E0662
@@ -603,6 +607,8 @@ struct Shared {
     audit: Mutex<VecDeque<AuditRecord>>,
     seq: AtomicU64,
     permits: Arc<Semaphore>,
+    /// Total number of permits in `permits`.
+    max_in_flight: u32,
     max_body: usize,
 }
 
@@ -722,7 +728,7 @@ async fn handle_inner(sh: Arc<Shared>, req: Request<Incoming>) -> Response<Full<
             .insert("allow", HeaderValue::from_static("POST"));
         return r;
     }
-    let Ok(_permit) = sh.permits.clone().try_acquire_owned() else {
+    let Ok(permit) = sh.permits.clone().try_acquire_owned() else {
         let mut r = http_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "ENTANGLE-E0665",
@@ -758,6 +764,29 @@ async fn handle_inner(sh: Arc<Shared>, req: Request<Incoming>) -> Response<Full<
         }
     };
 
+    // From here on the request is accepted: process it in its own task,
+    // which owns the in-flight permit. If the client disconnects, hyper drops
+    // this future, but the task still runs to completion, so a call that
+    // reached the downstream always gets after_tool and its audit record,
+    // and keeps counting against max_in_flight until it is really done.
+    let work = tokio::spawn(async move {
+        let _permit = permit;
+        process(&sh, &name, &ds, parsed).await
+    });
+    match work.await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!(error = %e, "gateway request task failed");
+            json_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &rpc_error(Value::Null, -32603, "internal gateway error"),
+            )
+        }
+    }
+}
+
+/// Handle one parsed body (single message or batch).
+async fn process(sh: &Shared, name: &str, ds: &Downstream, parsed: Value) -> Response<Full<Bytes>> {
     match parsed {
         Value::Array(items) => {
             if items.is_empty() {
@@ -768,7 +797,7 @@ async fn handle_inner(sh: Arc<Shared>, req: Request<Incoming>) -> Response<Full<
             }
             let mut replies = Vec::new();
             for m in items {
-                if let Some(r) = handle_message(&sh, &name, &ds, m).await {
+                if let Some(r) = handle_message(sh, name, ds, m).await {
                     replies.push(r);
                 }
             }
@@ -778,7 +807,7 @@ async fn handle_inner(sh: Arc<Shared>, req: Request<Incoming>) -> Response<Full<
                 json_response(StatusCode::OK, &Value::Array(replies))
             }
         }
-        other => match handle_message(&sh, &name, &ds, other).await {
+        other => match handle_message(sh, name, ds, other).await {
             Some(r) => json_response(StatusCode::OK, &r),
             None => accepted(),
         },
@@ -1037,8 +1066,9 @@ impl GatewayHandle {
         self.shared.audit.lock().iter().cloned().collect()
     }
 
-    /// Stop accepting, drop open connections, and kill every downstream
-    /// process (waiting for it to exit).
+    /// Stop accepting, drop open connections, kill every downstream
+    /// process (waiting for it to exit), then wait (up to 5 s) for requests
+    /// still being processed to write their audit records.
     pub async fn shutdown(mut self) {
         let _ = self.stop.send(true);
         if let Some(t) = self.task.take() {
@@ -1047,6 +1077,13 @@ impl GatewayHandle {
         for ds in self.shared.servers.values() {
             ds.shutdown().await;
         }
+        // Each in-flight request task holds a permit until it has recorded
+        // its outcome; with the downstreams gone they finish promptly.
+        let _ = tokio::time::timeout(
+            Duration::from_secs(5),
+            self.shared.permits.acquire_many(self.shared.max_in_flight),
+        )
+        .await;
     }
 }
 
@@ -1131,6 +1168,10 @@ impl Gateway {
         if self.config.max_in_flight == 0 {
             return Err(GatewayError::ZeroMaxInFlight);
         }
+        // Bounded so the permit count fits the semaphore and `acquire_many`.
+        let max_in_flight = u32::try_from(self.config.max_in_flight)
+            .unwrap_or(u32::MAX)
+            .min(u32::try_from(Semaphore::MAX_PERMITS).unwrap_or(u32::MAX));
         let bind = self.config.bind;
         let listener = TcpListener::bind(bind)
             .await
@@ -1160,7 +1201,8 @@ impl Gateway {
             hooks: self.hooks.clone(),
             audit: Mutex::new(VecDeque::new()),
             seq: AtomicU64::new(0),
-            permits: Arc::new(Semaphore::new(self.config.max_in_flight)),
+            permits: Arc::new(Semaphore::new(max_in_flight as usize)),
+            max_in_flight,
             max_body: self.max_body_bytes,
         });
 

@@ -7,11 +7,20 @@
 //! lines on stdout are not JSON and the gateway ignores them.)
 
 use entangle_agent_host::{
-    generate_bearer_token, AuditDecision, AuditOutcome, Gateway, GatewayConfig, GatewayHandle,
-    McpServerSpec, Policy,
+    generate_bearer_token, AuditDecision, AuditOutcome, Decision, Gateway, GatewayConfig,
+    GatewayHandle, GatewayHooks, McpServerSpec, Policy, ToolCall,
 };
 use serde_json::{json, Value};
-use std::{collections::BTreeMap, io::Write, path::PathBuf, time::Duration};
+use std::{
+    collections::BTreeMap,
+    io::Write,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
+};
 use tempfile::TempDir;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -110,6 +119,14 @@ fn spec(dir: &TempDir) -> (McpServerSpec, PathBuf, PathBuf) {
 }
 
 async fn fixture_with(policy: Policy, max_in_flight: usize) -> Fixture {
+    fixture_opts(Arc::new(policy), max_in_flight, Duration::from_secs(20)).await
+}
+
+async fn fixture_opts(
+    hooks: Arc<dyn GatewayHooks>,
+    max_in_flight: usize,
+    timeout: Duration,
+) -> Fixture {
     let dir = TempDir::new().unwrap();
     let (s, log, pid) = spec(&dir);
     let token = generate_bearer_token();
@@ -127,8 +144,8 @@ async fn fixture_with(policy: Policy, max_in_flight: usize) -> Fixture {
         ..GatewayConfig::default()
     })
     .with_servers(servers)
-    .with_policy(policy)
-    .with_request_timeout(Duration::from_secs(20))
+    .with_hooks(hooks)
+    .with_request_timeout(timeout)
     .start()
     .await
     .unwrap();
@@ -170,6 +187,49 @@ async fn http(
         .map(|(_, b)| b.to_string())
         .unwrap_or_default();
     (status, body)
+}
+
+/// Send one request on a raw connection and close the socket after `after`
+/// without reading the reply (a client that gives up mid-request).
+async fn send_then_drop(f: &Fixture, msg: &Value, after: Duration) {
+    let body = msg.to_string();
+    let mut s = TcpStream::connect(f.gw.addr).await.unwrap();
+    let head = format!(
+        "POST /mcp/fake HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: {}\r\nAuthorization: Bearer {}\r\n\r\n",
+        body.len(),
+        f.token
+    );
+    s.write_all(head.as_bytes()).await.unwrap();
+    s.write_all(body.as_bytes()).await.unwrap();
+    tokio::time::sleep(after).await;
+    drop(s);
+}
+
+/// Hooks that allow everything and count `after_tool` calls.
+#[derive(Debug, Default)]
+struct CountingHooks {
+    after: AtomicUsize,
+}
+
+impl GatewayHooks for CountingHooks {
+    fn before_tool(&self, _call: &ToolCall) -> Decision {
+        Decision::Allow
+    }
+    fn after_tool(&self, _call: &ToolCall, _outcome: &AuditOutcome) {
+        self.after.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+/// Poll `cond` every 50 ms for up to `limit`.
+async fn wait_until(limit: Duration, mut cond: impl FnMut() -> bool) -> bool {
+    let start = Instant::now();
+    while start.elapsed() < limit {
+        if cond() {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    cond()
 }
 
 async fn rpc(f: &Fixture, server: &str, msg: Value) -> (u16, Value) {
@@ -645,6 +705,103 @@ async fn in_flight_cap_returns_503_when_saturated() {
     )
     .await;
     assert_eq!(st, 200);
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
+async fn client_disconnect_mid_call_still_audits_and_holds_the_permit() {
+    let hooks = Arc::new(CountingHooks::default());
+    let f = fixture_opts(hooks.clone(), 1, Duration::from_secs(20)).await;
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":0,"method":"tools/list"}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    // The agent sends an allowed call and closes the socket while it runs.
+    send_then_drop(
+        &f,
+        &json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":1200}}}),
+        Duration::from_millis(300),
+    )
+    .await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    // The tool is still running downstream, so it still counts against
+    // max_in_flight.
+    let (st, body) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":4,"method":"tools/list"}),
+    )
+    .await;
+    assert_eq!(st, 503, "permit released while the call still runs: {body}");
+    assert!(calls(&f).iter().any(|l| l == "tools/call:sleep"));
+    // The call finishes and is audited, and after_tool runs.
+    assert!(
+        wait_until(Duration::from_secs(5), || f.gw.audit_log().len() == 1).await,
+        "no audit record for the abandoned call: {:?}",
+        f.gw.audit_log()
+    );
+    let log = f.gw.audit_log();
+    assert_eq!(log[0].tool, "sleep");
+    assert_eq!(log[0].decision, AuditDecision::Allow);
+    assert_eq!(log[0].outcome, AuditOutcome::Ok);
+    assert_eq!(hooks.after.load(Ordering::SeqCst), 1);
+    // Capacity comes back once it is done.
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":5,"method":"tools/list"}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
+async fn client_disconnect_mid_write_does_not_corrupt_the_next_message() {
+    let f = fixture().await;
+    rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":0,"method":"tools/list"}),
+    )
+    .await;
+    // A: keeps the single-threaded downstream from reading stdin.
+    let addr = f.gw.addr;
+    let bearer = format!("Bearer {}", f.token);
+    let b2 = bearer.clone();
+    let slow = tokio::spawn(async move {
+        let body = json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sleep","arguments":{"ms":1500}}}).to_string();
+        http(addr, "POST", "/mcp/fake", Some(&b2), &body).await
+    });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    // B: larger than the pipe buffer, so its write blocks; the client gives up.
+    let big = "x".repeat(1024 * 1024);
+    send_then_drop(
+        &f,
+        &json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"echo","arguments":{"text":big}}}),
+        Duration::from_millis(300),
+    )
+    .await;
+    assert_eq!(slow.await.unwrap().0, 200);
+    // C: must get its answer, not be glued onto a partial line from B.
+    let c = tokio::time::timeout(
+        Duration::from_secs(8),
+        http(
+            addr,
+            "POST",
+            "/mcp/fake",
+            Some(&bearer),
+            &json!({"jsonrpc":"2.0","id":3,"method":"tools/list"}).to_string(),
+        ),
+    )
+    .await
+    .expect("request after an abandoned large write hung");
+    assert_eq!(c.0, 200);
+    let v: Value = serde_json::from_str(&c.1).unwrap();
+    assert!(v["result"]["tools"].is_array(), "{v}");
     f.gw.shutdown().await;
 }
 

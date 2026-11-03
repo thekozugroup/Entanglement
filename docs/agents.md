@@ -67,6 +67,9 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
 * Policy: `--deny` wins over `--allow`; patterns are `server/tool`,
   `server/*`, `*`. Denied calls return JSON-RPC error `ENTANGLE-E0661` and
   never reach the downstream server.
+* A request that has been accepted is processed to the end even if the
+  agent closes the connection: the downstream call still completes, counts
+  against the in-flight limit until it does, and is audited.
 * Audit: every `tools/call` emits a structured `tracing` event on target
   `entangle::audit` (server, tool, decision, duration, outcome) and is kept in
   an in-memory log (`GatewayHandle::audit_log`). Enable with
