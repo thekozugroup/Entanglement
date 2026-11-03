@@ -386,6 +386,18 @@ struct StdioProc {
     reaper: Mutex<Option<JoinHandle<()>>>,
 }
 
+/// Removes a request's waiter from the pending map when dropped.
+struct PendingEntry<'a> {
+    pending: &'a Pending,
+    id: u64,
+}
+
+impl Drop for PendingEntry<'_> {
+    fn drop(&mut self) {
+        self.pending.lock().remove(&self.id);
+    }
+}
+
 /// Holds the stdin lock for one line. Unless the whole line was written and
 /// flushed (`done`), dropping it (write error, or the write future dropped
 /// by a timeout) poisons the process: stdin is closed and the child killed,
@@ -548,26 +560,27 @@ impl StdioProc {
         msg["id"] = json!(id);
         let (tx, rx) = oneshot::channel();
         self.pending.lock().insert(id, tx);
+        // Removes the entry however this future ends (reply, error,
+        // timeout, or being dropped from outside).
+        let _entry = PendingEntry {
+            pending: &self.pending,
+            id,
+        };
         if !self.alive.load(Ordering::Acquire) {
-            self.pending.lock().remove(&id);
             return Err(DsError::Closed);
         }
         let exchange = async {
             self.write_line(&msg).await?;
             rx.await.map_err(|_| DsError::Closed)
         };
-        let res = match tokio::time::timeout(timeout, exchange).await {
+        match tokio::time::timeout(timeout, exchange).await {
             Ok(Ok(mut resp)) => {
                 resp["id"] = orig_id;
                 Ok(resp)
             }
             Ok(Err(e)) => Err(e),
             Err(_) => Err(DsError::Timeout),
-        };
-        if res.is_err() {
-            self.pending.lock().remove(&id);
         }
-        res
     }
 
     /// Mark the process dead and tell the reaper to kill it (non-blocking).
@@ -1451,6 +1464,31 @@ mod tests {
             .await
             .expect_err("non-loopback must error");
         assert!(matches!(err, GatewayError::NonLoopbackBindRefused { .. }));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn dropped_request_removes_its_pending_entry() {
+        // A downstream that reads everything and never answers.
+        let p = StdioProc::spawn(
+            "t",
+            "sh",
+            &["-c".into(), "cat >/dev/null".into()],
+            &BTreeMap::new(),
+        )
+        .expect("spawn sh");
+        let msg = json!({"jsonrpc": "2.0", "id": 1, "method": "ping"});
+        let r = tokio::time::timeout(
+            Duration::from_millis(200),
+            p.request(msg, Duration::from_secs(30)),
+        )
+        .await;
+        assert!(r.is_err(), "the outer timeout must drop the request first");
+        assert!(
+            p.pending.lock().is_empty(),
+            "a dropped request left its pending entry behind"
+        );
+        p.kill().await;
     }
 
     #[test]
