@@ -456,6 +456,7 @@ network, 256 MiB memory, 10 s per comparison) — workers never load it.
 | `ENTANGLE-E0314` | Not enough replica pairs agreed. | The outputs genuinely differ, or the threshold is too strict for the metric. |
 | `ENTANGLE-E0315` | A worker reported running under a different policy hash (INV-INT-1). The peer loses reputation. | Investigate the peer. |
 | `ENTANGLE-E0316` | A control frame tried to change the policy of an in-flight task; the worker refused (the policy is immutable for a task's lifetime). | Submit a new task instead. |
+| `ENTANGLE-E0318` | Two groups of replicas agree internally, equally well, but contradict each other, so there is no single answer to return. Nobody loses reputation. | Re-run with more replicas or a higher `--quorum`; if it recurs with the same peers, investigate them. |
 
 Every successful dispatch reports the task's `policy_hash` (SHA-256 of the
 canonical policy encoding) and, with `--json`, one record per replica: peer,

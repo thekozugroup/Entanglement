@@ -180,6 +180,22 @@ pub enum IntegrityError {
     /// ENTANGLE-E0317: canonical policy bytes could not be decoded.
     #[error("ENTANGLE-E0317: malformed canonical integrity policy: {0}")]
     PolicyEncoding(String),
+    /// ENTANGLE-E0318: the best-supported `SemanticEquivalent` outputs
+    /// disagree with each other — two or more groups of replicas agree
+    /// internally, equally well, but not across groups — so there is no single
+    /// answer to return. Refused rather than settled by a tie-break, and
+    /// nobody is blamed.
+    #[error(
+        "ENTANGLE-E0318: semantic agreement is ambiguous: {candidates} replica outputs each \
+         agree with {agreements} other replica(s), but not all with each other; no single \
+         answer is best supported, so none is returned"
+    )]
+    AmbiguousAgreement {
+        /// How many replicas share the highest agreement count.
+        candidates: usize,
+        /// That agreement count (other replicas within threshold).
+        agreements: usize,
+    },
 }
 
 /// The output of one replica invocation together with its BLAKE3 digest.

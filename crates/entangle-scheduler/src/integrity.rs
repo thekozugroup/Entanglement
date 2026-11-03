@@ -80,6 +80,14 @@
 //! quorum. The reported `pair_agreement` / `QuorumNotReached::agreeing` is
 //! that cluster count.
 //!
+//! If another replica agrees with as many others as the candidate does but
+//! not with the candidate itself, two equally large groups contradict each
+//! other: the task is refused with `E0318 AmbiguousAgreement` and nobody is
+//! blamed. Rules 2–4 above therefore only ever choose among replicas that
+//! agree with one another, so neither closeness (which favours colluders
+//! returning byte-identical output) nor BLAKE3 order (which can be ground)
+//! decides between contradicting answers.
+//!
 //! The accepted cluster is the canonical replica plus every replica that
 //! agrees with it: remote peers in the cluster are recorded as correct, remote
 //! peers outside it are penalised for disagreeing with the accepted quorum.
@@ -543,6 +551,21 @@ impl IntegrityVerifier {
                     }
                     .into());
                 }
+                // Another replica agrees with as many others as the candidate
+                // does but not with the candidate itself: two equally large
+                // groups contradict each other. Any tie-break between them
+                // (closeness favours colluders returning identical bytes;
+                // BLAKE3 order can be ground) would be a guess, so refuse and
+                // blame nobody.
+                if let Some((candidates, agreements)) =
+                    ambiguous_top(&dist, *threshold, canonical_pos)
+                {
+                    return Err(IntegrityError::AmbiguousAgreement {
+                        candidates,
+                        agreements,
+                    }
+                    .into());
+                }
 
                 let chosen = order[canonical_pos];
                 for (pos, &idx) in order.iter().enumerate() {
@@ -717,6 +740,24 @@ pub fn choose_canonical(dist: &[Vec<f64>], threshold: f64) -> usize {
         }
     }
     best
+}
+
+/// Whether the choice of position `c` is ambiguous: some other position
+/// agrees with exactly as many others as `c` does, yet does not agree with
+/// `c`. Returns `(candidates sharing c's agreement count, that count)` when
+/// it is.
+pub fn ambiguous_top(dist: &[Vec<f64>], threshold: f64, c: usize) -> Option<(usize, usize)> {
+    let degree = |i: usize| {
+        dist[i]
+            .iter()
+            .enumerate()
+            .filter(|&(j, d)| j != i && *d < threshold)
+            .count()
+    };
+    let top = degree(c);
+    let tied: Vec<usize> = (0..dist.len()).filter(|&t| degree(t) == top).collect();
+    let contradicted = tied.iter().any(|&t| t != c && dist[c][t] >= threshold);
+    contradicted.then_some((tied.len(), top))
 }
 
 /// The number of agreeing pairs (`distance < threshold`) among position `c`
@@ -1076,6 +1117,53 @@ mod tests {
         }
     }
 
+    /// Two groups that agree internally but not with each other, each as well
+    /// supported as the other: an honest pair (distance 0.1) and two
+    /// colluders returning identical bytes (distance 0). Each group alone
+    /// meets quorum 1, and the colluders would win any closeness tie-break.
+    /// The verifier refuses the ambiguity instead of picking a side, and
+    /// blames nobody.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_tie_between_disagreeing_groups_is_refused_without_blame() {
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 4, 1, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        let reps = vec![
+            ok(1, &[10], h),
+            ok(2, &[11], h),
+            ok(3, &[50], h),
+            ok(4, &[50], h),
+        ];
+        let err = v.accept(&task(policy, 1024), &env, reps).await.unwrap_err();
+        assert!(
+            matches!(
+                err,
+                DispatchError::Integrity(IntegrityError::AmbiguousAgreement {
+                    candidates: 4,
+                    agreements: 1
+                })
+            ),
+            "{err:?}"
+        );
+        assert!(err.to_string().contains("ENTANGLE-E0318"), "{err}");
+        let k = PolicyKind::SemanticEquivalent;
+        for p in 1..=4 {
+            assert_eq!(v.reputation().record(&peer(p), k).total, 0, "peer {p}");
+        }
+
+        // A tie among replicas that all agree with one another is not
+        // ambiguous: the closest one is returned.
+        let (v, metric) = verifier_with_metric();
+        let policy = sem_policy(&metric, 3, 1, 0.25);
+        let env = PolicyEnvelope::seal(&policy).unwrap();
+        let h = env.hash();
+        let reps = vec![ok(1, &[10], h), ok(2, &[11], h), ok(3, &[12], h)];
+        let acc = v.accept(&task(policy, 1024), &env, reps).await.unwrap();
+        assert_eq!(acc.output, [11], "the middle output is closest to both");
+        assert_eq!(acc.pair_agreement, Some((3, 3)));
+    }
+
     /// When no comparison succeeds at all, the metric itself (or every
     /// output) is the problem: its error is reported and nobody is blamed.
     #[tokio::test(flavor = "multi_thread")]
@@ -1157,6 +1245,13 @@ mod tests {
         assert_eq!(cluster_support(&six, 0.5, 0), 2);
         assert_eq!(cluster_support(&six, 0.5, 3), 3);
         assert_eq!(choose_canonical(&six, 0.5), 3);
+        // ...but the hub has as many agreements as the triangle's members and
+        // disagrees with them: the choice is ambiguous (4 tied, degree 2).
+        assert_eq!(ambiguous_top(&six, 0.5, 3), Some((4, 2)));
+        // Ties among mutually agreeing positions are not ambiguous.
+        assert_eq!(ambiguous_top(&d, 0.5, 0), None);
+        assert_eq!(ambiguous_top(&hub, 0.5, 2), None);
+        assert_eq!(ambiguous_top(&pairish, 0.5, 0), None);
     }
 
     #[test]
