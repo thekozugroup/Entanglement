@@ -33,13 +33,19 @@
 //! # Wire protocol
 //!
 //! ALPN selects the sub-protocol (spec §6.7): [`ALPN_CONTROL`],
-//! [`ALPN_SCHEDULER`], [`ALPN_AGENT`], [`ALPN_BLOBS`], [`ALPN_DOCS`]. One
-//! transport instance serves one ALPN; run several for several protocols.
+//! [`ALPN_SCHEDULER`], [`ALPN_AGENT`], [`ALPN_BLOBS`], [`ALPN_DOCS`], and
+//! [`ALPN_STREAM`] for streaming tasks. A transport instance serves one
+//! primary ALPN ([`MeshIrohConfig::alpn`], returned by
+//! [`MeshTransport::accept`]); it may additionally accept
+//! [`MeshIrohConfig::extra_alpns`] on the **same endpoint and port**, each
+//! picked up with [`MeshIroh::accept_alpn`]. A dialler chooses the ALPN per
+//! connection with [`MeshIroh::connect_alpn`].
 //!
 //! On a stream, messages are length-prefixed — `u32` big-endian length then
 //! payload — capped at [`MAX_FRAME_BYTES`]. The cap is enforced against the
 //! header before any allocation; see the threat-model note on the framing
-//! module.
+//! module. Request/response traffic carries one frame each way per QUIC
+//! stream; [`FramedStream`] carries many (see the `stream` module).
 //!
 //! # Example
 //!
@@ -72,6 +78,7 @@
 mod error;
 mod framing;
 mod peer;
+mod stream;
 mod transport;
 
 use std::net::SocketAddr;
@@ -82,6 +89,7 @@ use entangle_types::task::OneShotTask;
 
 pub use crate::error::MeshIrohError;
 pub use crate::peer::{format_node_addr, parse_node_addr, IrohPeer};
+pub use crate::stream::{duplex_pair, FramedRecv, FramedSend, FramedStream, DEFAULT_DUPLEX_BUFFER};
 pub use crate::transport::{serve, MeshConn, MeshIroh, MeshRequest};
 
 /// ALPN for mesh membership / control traffic (spec §6.7). The default.
@@ -94,6 +102,9 @@ pub const ALPN_AGENT: &[u8] = b"entangle/agent/1";
 pub const ALPN_BLOBS: &[u8] = b"entangle/blobs/1";
 /// ALPN for shared-storage / docs traffic (spec §6.7).
 pub const ALPN_DOCS: &[u8] = b"entangle/docs/1";
+/// ALPN for streaming tasks (spec §7.1): long-lived bidirectional framed
+/// streams carrying chunks, credit and heartbeat frames.
+pub const ALPN_STREAM: &[u8] = b"entangle/stream/1";
 
 /// Hard ceiling on a single frame's payload, in bytes: 16 MiB + 64 KiB.
 ///
@@ -134,6 +145,10 @@ pub struct MeshIrohConfig {
     pub allow_derp_relay: bool,
     /// ALPN this transport speaks. One of the `ALPN_*` constants.
     pub alpn: Vec<u8>,
+    /// Further ALPNs the endpoint accepts on the same socket, each taken
+    /// with [`MeshIroh::accept_alpn`]. Empty (the default) means the
+    /// endpoint accepts only [`MeshIrohConfig::alpn`].
+    pub extra_alpns: Vec<Vec<u8>>,
     /// Deadline for [`MeshTransport::connect`].
     pub connect_timeout: Duration,
     /// Deadline for one [`MeshConn::request`] round-trip.
@@ -149,6 +164,7 @@ impl Default for MeshIrohConfig {
             bind: "0.0.0.0:0".parse().expect("default bind parses"),
             allow_derp_relay: true,
             alpn: ALPN_CONTROL.to_vec(),
+            extra_alpns: Vec::new(),
             connect_timeout: DEFAULT_CONNECT_TIMEOUT,
             request_timeout: DEFAULT_REQUEST_TIMEOUT,
             max_frame_bytes: MAX_FRAME_BYTES,
@@ -175,10 +191,27 @@ impl MeshIrohConfig {
     /// Applied by [`MeshIroh::start`], so a config that asks for a 1 GiB frame
     /// cap silently gets [`MAX_FRAME_BYTES`] instead of a remote-triggerable
     /// allocation.
+    ///
+    /// Also drops duplicate extra ALPNs and any extra ALPN equal to the
+    /// primary one, so every accepted ALPN has exactly one consumer.
     #[must_use]
     pub fn normalized(mut self) -> Self {
         self.max_frame_bytes = self.max_frame_bytes.clamp(1, MAX_FRAME_BYTES);
+        let mut extras: Vec<Vec<u8>> = Vec::new();
+        for alpn in std::mem::take(&mut self.extra_alpns) {
+            if alpn != self.alpn && !extras.contains(&alpn) {
+                extras.push(alpn);
+            }
+        }
+        self.extra_alpns = extras;
         self
+    }
+
+    /// Every ALPN the endpoint accepts: the primary one first.
+    pub fn accepted_alpns(&self) -> Vec<Vec<u8>> {
+        std::iter::once(self.alpn.clone())
+            .chain(self.extra_alpns.iter().cloned())
+            .collect()
     }
 }
 
@@ -280,6 +313,26 @@ mod tests {
         assert_eq!(ALPN_AGENT, b"entangle/agent/1");
         assert_eq!(ALPN_BLOBS, b"entangle/blobs/1");
         assert_eq!(ALPN_DOCS, b"entangle/docs/1");
+        assert_eq!(ALPN_STREAM, b"entangle/stream/1");
+    }
+
+    #[test]
+    fn normalized_dedups_extra_alpns_and_drops_the_primary() {
+        let c = MeshIrohConfig {
+            alpn: ALPN_SCHEDULER.to_vec(),
+            extra_alpns: vec![
+                ALPN_STREAM.to_vec(),
+                ALPN_SCHEDULER.to_vec(),
+                ALPN_STREAM.to_vec(),
+            ],
+            ..MeshIrohConfig::default()
+        }
+        .normalized();
+        assert_eq!(c.extra_alpns, vec![ALPN_STREAM.to_vec()]);
+        assert_eq!(
+            c.accepted_alpns(),
+            vec![ALPN_SCHEDULER.to_vec(), ALPN_STREAM.to_vec()]
+        );
     }
 
     /// `MeshTransport` must stay object-safe: the dispatcher stores one.

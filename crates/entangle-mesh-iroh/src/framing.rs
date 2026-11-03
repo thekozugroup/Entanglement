@@ -89,7 +89,52 @@ where
             MeshIrohError::Stream(format!("reading frame header: {e}"))
         }
     })?;
+    read_body(reader, header, max).await
+}
 
+/// Read one length-prefixed frame, or `None` if the stream ended cleanly
+/// **before** the frame began.
+///
+/// Used on multi-frame streams (`entangle/stream/1`), where the peer
+/// finishing its send side between two frames is the normal end of the
+/// stream rather than a protocol violation. A stream that ends part-way
+/// through a header or a body is still [`MeshIrohError::Protocol`].
+pub(crate) async fn read_frame_or_eof<R>(
+    reader: &mut R,
+    max: usize,
+) -> Result<Option<Vec<u8>>, MeshIrohError>
+where
+    R: AsyncRead + Unpin,
+{
+    let mut header = [0u8; HEADER_BYTES];
+    let mut filled = 0;
+    while filled < HEADER_BYTES {
+        let n = reader
+            .read(&mut header[filled..])
+            .await
+            .map_err(|e| MeshIrohError::Stream(format!("reading frame header: {e}")))?;
+        if n == 0 {
+            if filled == 0 {
+                return Ok(None);
+            }
+            return Err(MeshIrohError::Protocol(
+                "stream ended before a complete frame header".into(),
+            ));
+        }
+        filled += n;
+    }
+    read_body(reader, header, max).await.map(Some)
+}
+
+/// Validate a frame header against `max`, then read its body in bounded steps.
+async fn read_body<R>(
+    reader: &mut R,
+    header: [u8; HEADER_BYTES],
+    max: usize,
+) -> Result<Vec<u8>, MeshIrohError>
+where
+    R: AsyncRead + Unpin,
+{
     // Untrusted. Compare in u64 so the check is identical on 32- and 64-bit
     // targets, and reject *before* allocating anything.
     let declared = u64::from(u32::from_be_bytes(header));
@@ -226,6 +271,45 @@ mod tests {
         let err = read_frame(&mut cursor, 1024).await.expect_err("must error");
         assert!(matches!(err, MeshIrohError::Protocol(_)), "got {err}");
         assert!(err.to_string().contains("ENTANGLE-E0637"));
+    }
+
+    #[tokio::test]
+    async fn read_frame_or_eof_distinguishes_clean_end_from_truncation() {
+        let mut wire = Vec::new();
+        write_frame(&mut wire, b"one", 64).await.unwrap();
+        write_frame(&mut wire, b"two", 64).await.unwrap();
+        let mut cursor = std::io::Cursor::new(wire);
+        assert_eq!(
+            read_frame_or_eof(&mut cursor, 64).await.unwrap().as_deref(),
+            Some(&b"one"[..])
+        );
+        assert_eq!(
+            read_frame_or_eof(&mut cursor, 64).await.unwrap().as_deref(),
+            Some(&b"two"[..])
+        );
+        assert!(read_frame_or_eof(&mut cursor, 64).await.unwrap().is_none());
+
+        // Two header bytes, then EOF: truncated, not a clean end.
+        let mut partial = std::io::Cursor::new(vec![0u8, 0]);
+        assert!(matches!(
+            read_frame_or_eof(&mut partial, 64).await,
+            Err(MeshIrohError::Protocol(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn read_frame_or_eof_checks_the_cap_before_reading_the_body() {
+        let mut reader = HeaderOnlyReader {
+            header: 4096u32.to_be_bytes(),
+            pos: 0,
+        };
+        assert!(matches!(
+            read_frame_or_eof(&mut reader, 1024).await,
+            Err(MeshIrohError::FrameTooLarge {
+                declared: 4096,
+                max: 1024
+            })
+        ));
     }
 
     #[tokio::test]
