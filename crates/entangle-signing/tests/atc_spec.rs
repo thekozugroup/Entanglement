@@ -1,7 +1,7 @@
 //! §16 ATC-SIG-* acceptance tests for `entangle-signing`.
 //!
-//! Each test name is the ATC code lowercased, enabling's matrix runner
-//! to scrape `cargo test -- --list` output for spec coverage.
+//! Each test name starts with the ATC code in snake case, which is how the
+//! matrix runner in `crates/entangle-atc-matrix` maps spec IDs to tests.
 //!
 //! ATC IDs implemented here:
 //! ATC-SIG-1 sign-and-verify happy path
@@ -11,17 +11,8 @@
 //! ATC-SIG-5 unsupported algorithm → UnsupportedAlgorithm
 //! ATC-REP-1 Ed25519+BLAKE3 signatures are deterministic (differ only in created_at)
 //!
-//! ATC IDs deferred (out of scope for entangle-signing):
-//! ATC-BRG-{1..6} — crates/entangle-signing (bridge biscuit module, future iter)
-//! ATC-PKG-{1..4} — crates/cargo-entangle (reproducible packaging CLI)
-//! ATC-INT-{1..6} — crates/entangle-plugin-scheduler (IntegrityPolicy + verifier locality)
-//! ATC-MAN-{1..4} — crates/entangle-manifest (manifest + tier checks)
-//! ATC-STR-{1..3} — crates/entangle-plugin-scheduler (streaming credit/heartbeat)
-//! ATC-WRP-{1..3} — tests/bats (wrapper UX shell tests)
-//! ATC-MAX-{1..3} — tests/bats (max_tier_allowed interactive tests)
-//! ATC-MIR-{1..2} — crates/entangle-oci (mirror-as-CDN listing verification)
-//! ATC-REL-{1..2} — tests/integration (cosign + Shamir release signing)
-//! ATC-BUS-{1..2} — .github/workflows (bus-factor CI invariant)
+//! The other §16 groups are tested in the crates that implement them; run
+//! the matrix runner to see where each ID lives.
 
 use entangle_signing::{
     artifact::{sign_artifact, verify_artifact, VerificationError},
