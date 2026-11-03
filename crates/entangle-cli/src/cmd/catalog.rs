@@ -1025,6 +1025,7 @@ target = "wasm32-wasip2"
             tier,
             runtime: if tier >= 4 { "native" } else { "wasm" }.into(),
             description: String::new(),
+            wit_world: None,
         };
         let err = check_tier_ceiling(&entry(5), Tier::Privileged).unwrap_err();
         let msg = format!("{err:#}");
