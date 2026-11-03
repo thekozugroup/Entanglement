@@ -734,9 +734,21 @@ impl OciClient {
         let resp = self.execute(&req).await?;
         let resp = self.expect(resp, &[202], "POST blob upload").await?;
         let mut location = self.location(&req.url, resp.headers())?;
+        // OCI Distribution v1.1: a registry with a minimum chunk size
+        // advertises it in `OCI-Chunk-Min-Length` on this response, and every
+        // chunk but the last must be at least that long (ECR, for one, has a
+        // 5 MiB part minimum). Raising our chunk size to it also means a blob
+        // under the minimum goes up in one monolithic PUT.
+        let min_chunk = resp
+            .headers()
+            .get("oci-chunk-min-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .map(|n| usize::try_from(n).unwrap_or(usize::MAX))
+            .unwrap_or(0);
         drop(resp);
 
-        let chunk = self.cfg.chunk_size.max(1);
+        let chunk = self.cfg.chunk_size.max(min_chunk).max(1);
         if data.len() > chunk {
             let mut offset = 0usize;
             while offset < data.len() {

@@ -103,6 +103,11 @@ struct State {
     registry_addr: Mutex<Option<SocketAddr>>,
     opts: Mutex<MockOptions>,
     content_type_override: Mutex<HashMap<String, String>>,
+    /// Advertised and enforced `OCI-Chunk-Min-Length`, if any.
+    chunk_min: Mutex<Option<usize>>,
+    /// Upload sessions that already received a chunk shorter than `chunk_min`
+    /// (only the last chunk may be short).
+    short_chunk: Mutex<std::collections::HashSet<String>>,
 }
 
 /// A running mock registry (and optional CDN listener).
@@ -223,6 +228,12 @@ impl MockRegistry {
     /// Force the `Content-Type` header returned for manifests of `repo`.
     pub fn override_manifest_content_type(&self, repo: &str, content_type: &str) {
         lock(&self.state.content_type_override).insert(repo.to_owned(), content_type.to_owned());
+    }
+
+    /// Advertise `OCI-Chunk-Min-Length: n` on upload sessions and reject
+    /// (416) any chunk shorter than `n` that is not the last one.
+    pub fn set_chunk_min_length(&self, n: usize) {
+        *lock(&self.state.chunk_min) = Some(n);
     }
 
     /// Store a blob directly; returns `sha256:<hex>`.
@@ -595,16 +606,30 @@ fn uploads(
         Method::POST if id.is_empty() => {
             let id = format!("up{}", state.next_upload.fetch_add(1, Ordering::Relaxed));
             lock(&state.uploads).insert(id.clone(), Vec::new());
-            status(202)
-                .header("location", loc(&id))
-                .body(full(""))
-                .expect("response")
+            let mut b = status(202).header("location", loc(&id));
+            if let Some(min) = *lock(&state.chunk_min) {
+                b = b.header("oci-chunk-min-length", min.to_string());
+            }
+            b.body(full("")).expect("response")
         }
         Method::PATCH => {
             let mut ups = lock(&state.uploads);
             let Some(buf) = ups.get_mut(id) else {
                 return status(404).body(full("")).expect("response");
             };
+            if let Some(min) = *lock(&state.chunk_min) {
+                let mut short = lock(&state.short_chunk);
+                if short.contains(id) {
+                    return status(416)
+                        .body(full(
+                            "a chunk before this one was below OCI-Chunk-Min-Length",
+                        ))
+                        .expect("response");
+                }
+                if body.len() < min {
+                    short.insert(id.to_owned());
+                }
+            }
             let want = parts
                 .headers
                 .get("content-range")
@@ -626,6 +651,13 @@ fn uploads(
             let Some(mut buf) = ups.remove(id) else {
                 return status(404).body(full("")).expect("response");
             };
+            if !body.is_empty() && lock(&state.short_chunk).contains(id) {
+                return status(416)
+                    .body(full(
+                        "a chunk before this one was below OCI-Chunk-Min-Length",
+                    ))
+                    .expect("response");
+            }
             buf.extend_from_slice(body);
             let actual = format!("sha256:{}", hex::encode(Sha256::digest(&buf)));
             if query.get("digest") != Some(&actual) {

@@ -588,3 +588,43 @@ async fn every_post_put_and_patch_carries_content_length_even_when_empty() {
         assert_eq!(empty_post, Some("0"), "chunk={chunk}");
     }
 }
+
+#[tokio::test]
+async fn chunked_upload_honours_the_registrys_minimum_chunk_length() {
+    // (registry minimum, expected PATCH count): a minimum above the client's
+    // 1000-byte chunk size raises it; one above the blob means one PUT.
+    for (min, expect_patches) in [(5000usize, true), (1 << 20, false)] {
+        let mock = plain().await;
+        mock.set_chunk_min_length(min);
+        let pkg = signed_package(&keypair(4), "minchunk", &wasm_bytes(20_000));
+        let cfg = ClientConfig {
+            chunk_size: 1000,
+            ..ClientConfig::default()
+        };
+        let r = reference(&mock, "acme/minchunk:1");
+        push_artifact(&client_with(&mock, cfg), &r, &pkg)
+            .await
+            .unwrap_or_else(|e| panic!("min={min}: {e}"));
+        let patches: Vec<usize> = mock
+            .requests()
+            .iter()
+            .filter(|q| q.method == "PATCH")
+            .map(|q| q.content_length.as_deref().unwrap().parse().unwrap())
+            .collect();
+        assert_eq!(
+            !patches.is_empty(),
+            expect_patches,
+            "min={min}: {patches:?}"
+        );
+        if let Some((_last, before)) = patches.split_last() {
+            assert!(
+                before.iter().all(|n| *n >= min),
+                "min={min}: non-final chunks {patches:?}"
+            );
+        }
+        assert_eq!(
+            pull_artifact(&client(&mock), &r).await.unwrap().package,
+            pkg
+        );
+    }
+}
