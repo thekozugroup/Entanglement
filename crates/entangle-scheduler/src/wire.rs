@@ -615,6 +615,76 @@ mod tests {
         }
     }
 
+    const TP: &str = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+
+    #[test]
+    fn a_frame_without_a_traceparent_is_byte_identical_to_a_plain_v2_frame() {
+        let req = sample_request();
+        let plain = postcard::to_allocvec(&req).expect("plain postcard encoding");
+        assert_eq!(encode_request(&req).expect("encode"), plain);
+        let decoded = decode_request(&plain).expect("decode");
+        assert_eq!(task_body(&decoded).traceparent, None);
+    }
+
+    #[test]
+    fn traceparent_travels_as_a_trailing_extension_and_round_trips() {
+        let task = sample_task();
+        let envelope = PolicyEnvelope::seal(&task.integrity).expect("seal");
+        let body = RemoteTaskRequest::sealed(&task, &envelope).with_traceparent(Some(TP.into()));
+        let req = RemoteRequest::task(body);
+        let bytes = encode_request(&req).expect("encode");
+        let plain = postcard::to_allocvec(&req).expect("plain");
+        // serde(skip): the envelope is the plain one, then tag + string.
+        assert_eq!(&bytes[..plain.len()], &plain[..]);
+        assert_eq!(bytes[plain.len()], TRACE_EXTENSION_TAG);
+        let decoded = decode_request(&bytes).expect("decode");
+        assert_eq!(task_body(&decoded).traceparent.as_deref(), Some(TP));
+        assert_eq!(decoded, req);
+    }
+
+    #[test]
+    fn only_the_trace_extension_may_follow_the_envelope() {
+        let task = sample_task();
+        let envelope = PolicyEnvelope::seal(&task.integrity).expect("seal");
+        let with_tp = RemoteRequest::task(
+            RemoteTaskRequest::sealed(&task, &envelope).with_traceparent(Some(TP.into())),
+        );
+        let good = encode_request(&with_tp).expect("encode");
+        let plain_len = postcard::to_allocvec(&with_tp).expect("plain").len();
+
+        // Unknown tag, junk after the extension, a truncated extension, an
+        // over-long one: all malformed.
+        let mut unknown_tag = good.clone();
+        unknown_tag[plain_len] = 0xE2;
+        let mut junk_after = good.clone();
+        junk_after.push(0);
+        let truncated = good[..good.len() - 3].to_vec();
+        let mut too_long = good[..plain_len].to_vec();
+        too_long.push(TRACE_EXTENSION_TAG);
+        too_long.extend(postcard::to_allocvec(&"a".repeat(400)).expect("encode"));
+        for (what, bytes) in [
+            ("unknown tag", unknown_tag),
+            ("junk after the extension", junk_after),
+            ("truncated extension", truncated),
+            ("over-long extension", too_long),
+        ] {
+            assert!(
+                matches!(decode_request(&bytes), Err(WireError::Malformed(_))),
+                "{what} must be rejected"
+            );
+        }
+
+        // A control frame has no extension block: still strictly no trailing bytes.
+        let control = RemoteRequest::control(ControlFrame::set_policy(task.id, &envelope));
+        let mut bytes = encode_request(&control).expect("encode");
+        bytes.push(TRACE_EXTENSION_TAG);
+        bytes.extend(postcard::to_allocvec(TP).expect("encode"));
+        assert!(matches!(
+            decode_request(&bytes),
+            Err(WireError::Malformed(_))
+        ));
+    }
+
     #[test]
     fn request_round_trips() {
         let mut task = sample_task();

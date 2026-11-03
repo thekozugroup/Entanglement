@@ -387,6 +387,13 @@ impl Visit for AttrVisitor {
     }
 }
 
+/// Which spans and events the exporter records: those from `entangle*`
+/// targets at `INFO` and above. (Third-party crates' spans are left out of
+/// the trace; the daemon's logging filter does not affect this.)
+pub fn is_exported(meta: &tracing::Metadata<'_>) -> bool {
+    meta.target().starts_with("entangle") && *meta.level() <= Level::INFO
+}
+
 // ── the layer ────────────────────────────────────────────────────────────────
 
 /// A `tracing` layer that records spans into a [`SpanSink`].

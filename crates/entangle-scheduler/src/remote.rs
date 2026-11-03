@@ -387,7 +387,32 @@ impl RemoteDispatch {
             )
         };
 
-        let raw = match tokio::time::timeout(budget, self.transport.request(&addr, &frame)).await {
+        // The transport call runs on its own task so that it does not inherit
+        // the caller's tracing span: the transport (iroh) creates long-lived
+        // connection tasks and spans while dialling, and a child span that
+        // outlives the request would keep this request's span — and every
+        // ancestor — open, delaying its export until the connection ends.
+        let io = {
+            let transport = Arc::clone(&self.transport);
+            let (addr, frame) = (addr.clone(), frame.clone());
+            tokio::spawn(async move { transport.request(&addr, &frame).await })
+        };
+        let abort = io.abort_handle();
+        let answer = tokio::time::timeout(budget, io).await;
+        if answer.is_err() {
+            abort.abort();
+        }
+        let answer = match answer {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(join)) => {
+                return Err(DispatchError::RemoteTransport {
+                    peer,
+                    reason: format!("transport task failed: {join}"),
+                })
+            }
+            Err(elapsed) => Err(elapsed),
+        };
+        let raw = match answer {
             Ok(Ok(bytes)) => bytes,
             Ok(Err(e)) => {
                 // A frame-cap refusal is about the answer only when our own

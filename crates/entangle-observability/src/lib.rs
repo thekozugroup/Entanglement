@@ -89,9 +89,9 @@ pub fn init_with_otel(
     let exporter = otel::init(cfg)?;
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_directive));
-    let spans = exporter.layer().with_filter(filter_fn(|meta| {
-        meta.target().starts_with("entangle") && *meta.level() <= tracing::Level::INFO
-    }));
+    let spans = exporter
+        .layer()
+        .with_filter(filter_fn(context::is_exported));
     let registry = tracing_subscriber::registry().with(spans);
     if std::io::stderr().is_terminal() {
         registry
