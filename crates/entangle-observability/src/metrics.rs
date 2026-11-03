@@ -503,6 +503,54 @@ mod tests {
     }
 
     #[test]
+    fn a_family_is_capped_and_the_overflow_is_counted() {
+        let r = Registry::new();
+        for i in 0..MAX_SERIES_PER_FAMILY + 10 {
+            r.inc_counter("c_total", "c", &[("k", &i.to_string())], 1.0);
+        }
+        let out = r.render();
+        let series = out.lines().filter(|l| l.starts_with("c_total{")).count();
+        assert_eq!(series, MAX_SERIES_PER_FAMILY);
+        assert_eq!(r.dropped_series(), 10);
+        assert!(out.contains("entangle_metrics_dropped_series_total 10"), "{out}");
+        // Existing series keep updating once the cap is reached.
+        r.inc_counter("c_total", "c", &[("k", "0")], 4.0);
+        assert_eq!(r.value("c_total", &[("k", "0")]), Some(5.0));
+        // The cap applies to histograms too.
+        for i in 0..MAX_SERIES_PER_FAMILY + 1 {
+            r.observe_histogram("h", "h", &[("k", &i.to_string())], &[1.0], 0.5);
+        }
+        assert_eq!(r.dropped_series(), 11);
+    }
+
+    #[test]
+    fn collectors_run_before_render_and_clear_family_drops_stale_series() {
+        let r = Registry::new();
+        let members = std::sync::Arc::new(parking_lot::Mutex::new(vec!["a", "b"]));
+        let m2 = members.clone();
+        r.register_collector(move |r| {
+            r.clear_family("member_up");
+            for m in m2.lock().iter() {
+                r.set_gauge("member_up", "up", &[("m", m)], 1.0);
+            }
+        });
+        let out = r.render();
+        assert!(out.contains("member_up{m=\"a\"} 1") && out.contains("member_up{m=\"b\"} 1"));
+        members.lock().retain(|m| *m != "a");
+        let out = r.render();
+        assert!(!out.contains("m=\"a\""), "stale series must vanish: {out}");
+        assert!(out.contains("m=\"b\""));
+    }
+
+    #[test]
+    fn set_counter_mirrors_an_external_total() {
+        let r = Registry::new();
+        r.set_counter("ext_total", "ext", &[], 3.0);
+        r.set_counter("ext_total", "ext", &[], 9.0);
+        assert!(r.render().contains("# TYPE ext_total counter\next_total 9"));
+    }
+
+    #[test]
     fn histogram_label_preserved_on_bucket_lines() {
         let r = Registry::new();
         let buckets = [1.0, 10.0];
