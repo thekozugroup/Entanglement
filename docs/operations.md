@@ -402,7 +402,10 @@ Docker, `docker logs -f entangled` shows the same JSON stream; pass
 
 ## 10. `mesh.tailscale` (tailnet transport)
 
-Opt-in; the daemon never uses a tailnet it merely found running.
+Opt-in; the daemon never uses a tailnet it merely found running. It runs
+only when **both** `[mesh.tailscale] enabled = true` and `"tailscale"` in
+`[mesh] transports` are set; with only the first, the daemon logs a warning
+at startup and `entangle doctor` shows the transport as inert.
 
 ```toml
 [mesh]

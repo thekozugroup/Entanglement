@@ -20,8 +20,20 @@ use entangle_types::peer_id::PeerId;
 use crate::config::MeshConfig;
 
 /// `true` when the daemon should run the `mesh.tailscale` transport.
+///
+/// Logs a warning when `[mesh.tailscale] enabled = true` but `[mesh]
+/// transports` does not list `"tailscale"`: the operator asked for the
+/// transport, yet it stays off (the daemon calls this once at startup).
 pub fn enabled(mesh: &MeshConfig) -> bool {
-    mesh.tailscale.enabled && mesh.transports.iter().any(|t| t == "tailscale")
+    let listed = mesh.transports.iter().any(|t| t == "tailscale");
+    if mesh.tailscale.enabled && !listed {
+        tracing::warn!(
+            transports = ?mesh.transports,
+            "[mesh.tailscale] enabled = true, but [mesh] transports does not list \"tailscale\": \
+             the transport stays off (add it to transports, or set enabled = false)"
+        );
+    }
+    mesh.tailscale.enabled && listed
 }
 
 /// The peer store as the transport's allowlist (fails closed; revoked peers
@@ -134,4 +146,55 @@ pub async fn start(
         liveness,
         tasks: vec![serve, discover],
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    #[derive(Clone, Default)]
+    struct Captured(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Captured {
+        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(b);
+            Ok(b.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn logs_of(f: impl FnOnce()) -> String {
+        let cap = Captured::default();
+        let w = cap.clone();
+        let sub = tracing_subscriber::fmt()
+            .with_writer(move || w.clone())
+            .with_ansi(false)
+            .finish();
+        tracing::subscriber::with_default(sub, f);
+        let bytes = cap.0.lock().unwrap().clone();
+        String::from_utf8(bytes).unwrap()
+    }
+
+    fn mesh(toml_text: &str) -> MeshConfig {
+        toml::from_str::<crate::config::Config>(toml_text)
+            .unwrap()
+            .mesh
+    }
+
+    #[test]
+    fn enabled_but_not_in_transports_is_inert_and_says_so() {
+        let m = mesh("[mesh]\ntransports = [\"local\"]\n[mesh.tailscale]\nenabled = true\n");
+        let text = logs_of(|| assert!(!enabled(&m)));
+        assert!(text.contains("WARN"), "{text}");
+        assert!(text.contains("transports"), "{text}");
+
+        // Fully on, or fully off: nothing to warn about.
+        let on = mesh("[mesh]\ntransports = [\"tailscale\"]\n[mesh.tailscale]\nenabled = true\n");
+        assert!(logs_of(|| assert!(enabled(&on))).is_empty());
+        let off = mesh("[mesh]\ntransports = [\"tailscale\"]\n");
+        assert!(logs_of(|| assert!(!enabled(&off))).is_empty());
+    }
 }
