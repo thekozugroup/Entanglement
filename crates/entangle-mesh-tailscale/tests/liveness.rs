@@ -128,6 +128,42 @@ fn stopped_to_uninstalled_is_hysteresis_only() {
     assert!(m.observe(S(10), TailnetState::Uninstalled).is_some());
 }
 
+#[test]
+fn an_outage_whose_reason_keeps_changing_still_leaves_active() {
+    // tailscaled crash-looping: polls alternate between "daemon unreachable"
+    // and a backend state. That is one outage (state `stopped`), not a
+    // series of different states, so the 2-poll / 30 s rule still applies.
+    let mut m = LivenessMachine::new(LivenessConfig::default());
+    m.observe(S(0), TailnetState::Active);
+    let reasons = ["daemon unreachable: connection refused", "NoState"];
+    let mut fired = None;
+    for i in 1..=20u64 {
+        let r = reasons[(i % 2) as usize];
+        if let Some(t) = m.observe(S(i * 5), stopped(r)) {
+            fired = Some((i * 5, t));
+            break;
+        }
+    }
+    let (at, t) = fired.expect("a 100 s outage must leave active");
+    assert_eq!(
+        at, 35,
+        "first bad poll at t=5, so the 30 s grace ends at t=35"
+    );
+    assert_eq!(t.from, Some(TailnetState::Active));
+    assert_eq!(t.to.label(), "stopped");
+}
+
+#[test]
+fn a_reason_change_while_stopped_is_not_a_transition() {
+    let mut m = LivenessMachine::new(LivenessConfig::default());
+    m.observe(S(0), stopped("Stopped"));
+    for t in [5, 10, 15, 20] {
+        assert!(m.observe(S(t), stopped("NeedsLogin")).is_none(), "t={t}");
+    }
+    // The reason is still tracked, just without a transition.
+    assert_eq!(m.current(), Some(&stopped("NeedsLogin")));
+}
+
 // ------------------------------------------------------------- poll loop --
 
 /// Virtual clock: `sleep` advances time immediately and records the request.
@@ -265,6 +301,42 @@ async fn poll_loop_publishes_each_transition_once_and_logs_once() {
         .count();
     assert_eq!(events, 3, "one event per transition, not per poll:\n{text}");
     assert!(text.contains("NeedsLogin"));
+}
+
+#[tokio::test]
+async fn poll_loop_publishes_a_new_stop_reason_without_a_transition() {
+    let logs = Buf::default();
+    let _guard = tracing::subscriber::set_default(
+        tracing_subscriber::fmt()
+            .with_writer(logs.clone())
+            .with_ansi(false)
+            .with_max_level(tracing::Level::TRACE)
+            .finish(),
+    );
+    let clock = VirtualClock::new();
+    let source = Arc::new(Scripted {
+        clock: clock.clone(),
+        script: vec![
+            (S(0), stopped("Stopped")),
+            // `tailscale down` then `tailscale logout`.
+            (S(100), stopped("NeedsLogin")),
+        ],
+    });
+    let handle = spawn_liveness(source, clock.clone(), LivenessConfig::default());
+    let mut rx = handle.state();
+    let first = next_state(&mut rx).await;
+    assert_eq!(first.state, Some(stopped("Stopped")));
+    let second = next_state(&mut rx).await;
+    assert_eq!(second.state, Some(stopped("NeedsLogin")));
+    assert_eq!(second.transitions, 1, "a reason change is not a transition");
+    assert_eq!(second.since, first.since);
+    handle.shutdown();
+    let text = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let warnings = text
+        .lines()
+        .filter(|l| l.contains("mesh.tailscale state transition"))
+        .count();
+    assert_eq!(warnings, 1, "{text}");
 }
 
 #[tokio::test]

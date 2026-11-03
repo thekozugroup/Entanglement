@@ -13,14 +13,18 @@
 //!   persisted for the `grace` period (30 s), tolerating a `tailscaled`
 //!   restart or auto-update;
 //! * while the confirmed state is `Uninstalled` and nothing is pending, the
-//!   cadence drops from 5 s to 5 minutes.
+//!   cadence drops from 5 s to 5 minutes;
+//! * states are compared by kind (`active` / `stopped` / `uninstalled`), not
+//!   by the free-text stop reason: a reason that changes from poll to poll
+//!   neither resets the confirmation count nor counts as a transition. The
+//!   latest reason is tracked and published in place.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::status::{StatusSource, TailnetState, TailscaleStatus};
 
@@ -101,6 +105,10 @@ struct Pending {
     first_seen: Duration,
 }
 
+fn same_kind(a: &TailnetState, b: &TailnetState) -> bool {
+    std::mem::discriminant(a) == std::mem::discriminant(b)
+}
+
 /// Pure hysteresis / grace / cadence state machine.
 #[derive(Clone, Debug)]
 pub struct LivenessMachine {
@@ -126,6 +134,10 @@ impl LivenessMachine {
 
     /// Feed one observation taken at `now`; returns a transition when one is
     /// confirmed. The very first observation is adopted immediately.
+    ///
+    /// Only the kind of state matters for hysteresis and grace (see the
+    /// module docs); a new stop reason for the current kind replaces the
+    /// stored one without a transition.
     pub fn observe(&mut self, now: Duration, obs: TailnetState) -> Option<Transition> {
         let Some(cur) = self.current.clone() else {
             self.current = Some(obs.clone());
@@ -134,13 +146,17 @@ impl LivenessMachine {
                 to: obs,
             });
         };
-        if cur == obs {
+        if same_kind(&cur, &obs) {
             self.pending = None;
+            self.current = Some(obs);
             return None;
         }
         let leaving_active = cur == TailnetState::Active;
         match &mut self.pending {
-            Some(p) if p.state == obs => p.count += 1,
+            Some(p) if same_kind(&p.state, &obs) => {
+                p.count += 1;
+                p.state = obs;
+            }
             // While leaving Active the grace clock keeps running even if the
             // flavour of "not active" changes (e.g. stopped -> uninstalled).
             Some(p) if leaving_active => {
@@ -283,6 +299,22 @@ pub fn spawn_liveness(
                     state: Some(t.to),
                     since: Some(at),
                     transitions,
+                });
+            } else {
+                // Same kind of state, maybe a new reason: publish it without
+                // touching `since` / `transitions` and without a warning.
+                let cur = machine.current().cloned();
+                state_tx.send_if_modified(|snap| {
+                    if snap.state == cur {
+                        return false;
+                    }
+                    debug!(
+                        target: "entangle::mesh::tailscale",
+                        from = ?snap.state, to = ?cur,
+                        "mesh.tailscale stop reason changed"
+                    );
+                    snap.state = cur;
+                    true
                 });
             }
             clock.sleep(machine.next_delay()).await;
