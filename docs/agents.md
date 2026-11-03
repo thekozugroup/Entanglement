@@ -83,7 +83,9 @@ reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
   against the in-flight limit until it does, and is audited.
 * Audit: every `tools/call` emits a structured `tracing` event on target
   `entangle::audit` (server, tool, decision, duration, outcome) and is kept in
-  an in-memory log (`GatewayHandle::audit_log`). Enable with
+  an in-memory log (`GatewayHandle::audit_log`, last 10 000 records; tool
+  names over 256 bytes and reason/error texts over 1 KiB are truncated with
+  a marker giving the original length). Enable with
   `RUST_LOG=entangle::audit=info`.
 
 ## Error codes

@@ -70,6 +70,12 @@ fn fake_mcp_server() {
         let Some(id) = msg.get("id").cloned() else {
             continue;
         };
+        if tool == "bigerror" {
+            let err = json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32000, "message": "e".repeat(100_000)}});
+            writeln!(out, "{err}").unwrap();
+            out.flush().unwrap();
+            continue;
+        }
         let result = match method.as_str() {
             "initialize" => {
                 std::thread::sleep(Duration::from_millis(env_ms("FAKE_INIT_DELAY_MS")));
@@ -915,6 +921,69 @@ async fn invalid_jsonrpc_objects_get_invalid_request_errors() {
     // None of the invalid messages reached the downstream.
     let c = calls(&f);
     assert!(!c.iter().any(|l| l.starts_with("tools/list")), "{c:?}");
+    f.gw.shutdown().await;
+}
+
+#[tokio::test]
+async fn audit_records_do_not_keep_unbounded_strings() {
+    let f = fixture_with(
+        Policy {
+            allow: vec!["fake/bigerror".into()],
+            deny: vec![],
+        },
+        8,
+    )
+    .await;
+    let long = "t".repeat(100_000);
+    // Denied: the tool name is agent-controlled, and so is the reason text.
+    let (st, _) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":long}}),
+    )
+    .await;
+    assert_eq!(st, 200);
+    // Also as a notification.
+    rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","method":"tools/call","params":{"name":long}}),
+    )
+    .await;
+    // Allowed, and the downstream answers with a huge JSON-RPC error.
+    let (_, v) = rpc(
+        &f,
+        "fake",
+        json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"bigerror"}}),
+    )
+    .await;
+    assert_eq!(
+        v["error"]["message"].as_str().map(str::len),
+        Some(100_000),
+        "the reply itself is passed through unchanged"
+    );
+    let log = f.gw.audit_log();
+    assert_eq!(log.len(), 3, "{}", log.len());
+    for r in &log {
+        assert!(r.tool.len() <= 300, "tool kept {} bytes", r.tool.len());
+        let text = match &r.outcome {
+            AuditOutcome::Denied { reason } => reason,
+            AuditOutcome::RpcError { message, .. } => message,
+            AuditOutcome::TransportError { message } => message,
+            AuditOutcome::Ok | AuditOutcome::ToolError => continue,
+        };
+        assert!(text.len() <= 1100, "outcome kept {} bytes", text.len());
+    }
+    assert!(log[0].tool.starts_with("tttt"), "prefix kept");
+    assert!(
+        log[0].tool.contains("100000"),
+        "original length noted: {}",
+        log[0].tool
+    );
+    assert!(matches!(
+        &log[2].outcome,
+        AuditOutcome::RpcError { code: -32000, message } if message.starts_with("eeee")
+    ));
     f.gw.shutdown().await;
 }
 

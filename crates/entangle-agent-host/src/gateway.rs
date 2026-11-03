@@ -104,6 +104,24 @@ use tokio::{
 
 /// Maximum audit records kept in memory (oldest dropped first).
 const AUDIT_CAPACITY: usize = 10_000;
+/// Longest tool name stored in an audit record (the name is agent-chosen).
+const AUDIT_TOOL_CAP: usize = 256;
+/// Longest outcome text (deny reason, error message) stored in a record.
+const AUDIT_TEXT_CAP: usize = 1024;
+
+/// `s` cut to at most `max` bytes (on a char boundary), with a marker that
+/// gives the original length, so records stay bounded whatever the agent or
+/// downstream sends.
+fn clip(s: String, max: usize) -> String {
+    if s.len() <= max {
+        return s;
+    }
+    let mut cut = max;
+    while !s.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    format!("{}…[truncated, {} bytes]", &s[..cut], s.len())
+}
 
 /// Configuration for the MCP gateway HTTP server.
 #[derive(Clone, Debug)]
@@ -279,13 +297,15 @@ pub struct AuditRecord {
     pub timestamp_ms: u64,
     /// Downstream server name.
     pub server: String,
-    /// Tool name.
+    /// Tool name. Names over 256 bytes are cut, with a
+    /// `…[truncated, N bytes]` marker giving the original length.
     pub tool: String,
     /// Policy decision.
     pub decision: AuditDecision,
     /// Time from receipt to reply, in milliseconds.
     pub duration_ms: u64,
-    /// What happened.
+    /// What happened. Reason and message texts over 1 KiB are cut the same
+    /// way as `tool`.
     pub outcome: AuditOutcome,
 }
 
@@ -1006,6 +1026,21 @@ struct Shared {
 
 impl Shared {
     fn record(&self, mut rec: AuditRecord) {
+        // Bounded: AUDIT_CAPACITY records of bounded size.
+        rec.tool = clip(rec.tool, AUDIT_TOOL_CAP);
+        rec.outcome = match rec.outcome {
+            AuditOutcome::RpcError { code, message } => AuditOutcome::RpcError {
+                code,
+                message: clip(message, AUDIT_TEXT_CAP),
+            },
+            AuditOutcome::Denied { reason } => AuditOutcome::Denied {
+                reason: clip(reason, AUDIT_TEXT_CAP),
+            },
+            AuditOutcome::TransportError { message } => AuditOutcome::TransportError {
+                message: clip(message, AUDIT_TEXT_CAP),
+            },
+            o @ (AuditOutcome::Ok | AuditOutcome::ToolError) => o,
+        };
         rec.seq = self.seq.fetch_add(1, Ordering::Relaxed);
         rec.timestamp_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1310,7 +1345,7 @@ async fn handle_notification(
         let policy = sh.hooks.before_tool(&call);
         tracing::warn!(
             server = %call.server,
-            tool = %call.tool,
+            tool = %clip(call.tool.clone(), AUDIT_TOOL_CAP),
             policy = ?policy,
             "tools/call without an id dropped"
         );
@@ -1795,6 +1830,16 @@ mod tests {
             "a dropped request left its pending entry behind"
         );
         p.kill().await;
+    }
+
+    #[test]
+    fn clip_respects_char_boundaries_and_notes_the_length() {
+        assert_eq!(clip("short".into(), 10), "short");
+        let s = "é".repeat(10); // 20 bytes, 2 per char
+        let c = clip(s, 5);
+        assert!(c.starts_with("éé"), "{c}");
+        assert!(!c.starts_with("ééé"), "{c}");
+        assert!(c.ends_with("[truncated, 20 bytes]"), "{c}");
     }
 
     #[test]
