@@ -1836,40 +1836,40 @@ ATC-PKG-4
 ```
 ATC-BRG-1 (v5: 5 attenuations including total_bytes_cap)
   GIVEN  a bridge biscuit with all 5 attenuation facts (dest_pin, rate_limit, total_bytes_cap, ttl_le_3600s, bridge_marker)
-  WHEN   entangle-signing::verify_bridge(biscuit, verifier_node_id) runs
-  THEN   it returns Ok(BridgeCap {... })
-  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::valid_bridge_accepted
+  WHEN   entangle_biscuits::bridge::verify_bridge_cap(biscuit, root_pubkey, &BridgeVerifyContext) runs
+  THEN   it returns Ok(BridgeFacts {... })
+  TEST   crates/entangle-biscuits/tests/bridge.rs::atc_brg_1_full_attenuation_accepted
 
 ATC-BRG-2
   GIVEN  a bridge biscuit missing the rate_limit fact
-  WHEN   entangle-signing::verify_bridge(biscuit, verifier_node_id) runs
-  THEN   it returns Err(ENTANGLE-E0118)
-  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::missing_rate_limit_rejected
+  WHEN   entangle_biscuits::bridge::verify_bridge_cap(biscuit, root_pubkey, &BridgeVerifyContext) runs
+  THEN   it returns Err(BridgeError::AttenuationMissing("rate_limit_bps")) (ENTANGLE-E0420)
+  TEST   crates/entangle-biscuits/tests/bridge.rs::atc_brg_2_missing_rate_limit_rejected
 
 ATC-BRG-3
   GIVEN  a bridge biscuit pinned to NodeId X but verified by NodeId Y (Y ≠ X)
-  WHEN   entangle-signing::verify_bridge(biscuit, Y) runs
-  THEN   it returns Err(ENTANGLE-E0119)
-  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::wrong_dest_rejected
+  WHEN   entangle_biscuits::bridge::verify_bridge_cap(biscuit, root_pubkey, &BridgeVerifyContext{expected_destination: Y}) runs
+  THEN   it returns Err(BridgeError::DestPinMismatch) (ENTANGLE-E0424)
+  TEST   crates/entangle-biscuits/tests/bridge.rs::atc_brg_3_dest_pin_mismatch_rejected
 
 ATC-BRG-4
-  GIVEN  a bridge biscuit whose TTL elapsed
-  WHEN   entangle-signing::verify_bridge(biscuit, verifier_node_id) at T_now > biscuit.ttl runs
-  THEN   it returns Err(ENTANGLE-E0120)
-  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::expired_ttl_rejected
+  GIVEN  a bridge biscuit whose expiry (expires fact) is in the past
+  WHEN   entangle_biscuits::bridge::verify_bridge_cap(biscuit, root_pubkey, &BridgeVerifyContext{now_unix_secs >= expires}) runs
+  THEN   it returns Err(BridgeError::Biscuit(BiscuitError::Verify(..))) (ENTANGLE-E0412, raised by the shared verifier before the bridge checks)
+  TEST   crates/entangle-biscuits/tests/bridge.rs::atc_brg_4_expired_ttl_rejected
 
 ATC-BRG-5 (: total_bytes_cap; A-N1- tightening)
   GIVEN  a bridge biscuit missing the total_bytes_cap fact
-  WHEN   entangle-signing::verify_bridge(biscuit, verifier_node_id) runs
-  THEN   it returns Err(ENTANGLE-E0122)
-  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::missing_total_bytes_cap_rejected
+  WHEN   entangle_biscuits::bridge::verify_bridge_cap(biscuit, root_pubkey, &BridgeVerifyContext) runs
+  THEN   it returns Err(BridgeError::AttenuationMissing("total_bytes_cap")) (ENTANGLE-E0420)
+  TEST   crates/entangle-biscuits/tests/bridge.rs::atc_brg_5_missing_total_bytes_cap_rejected
 
 ATC-BRG-6 (: cumulative byte enforcement)
-  GIVEN  a valid bridge biscuit with total_bytes_cap = 1024
-  WHEN   the bridge has already relayed 1024 bytes under this cap
-         AND attempts to relay one more byte
-  THEN   the receiver rejects with Err(BridgeBudgetExhausted)
-  TEST   crates/entangle-plugin-mesh-bridge/tests/total_bytes_cap.rs
+  GIVEN  a valid bridge biscuit with total_bytes_cap = 1024, verified into BridgeFacts and wrapped in BridgeBudget::from_facts
+  WHEN   the bridge has already relayed 1024 bytes under this cap (budget.try_consume(1024) == Ok)
+         AND attempts to relay one more byte (budget.try_consume(1))
+  THEN   it returns Err(BridgeError::BridgeBudgetExhausted { cap: 1024, used: 1024, requested: 1 }) (ENTANGLE-E0425)
+  TEST   crates/entangle-biscuits/tests/bridge.rs::atc_brg_6_cumulative_byte_cap_enforced
 ```
 
 ### 16.4 IntegrityPolicy (M3 plumbing; A-N1-, A-N5-)
