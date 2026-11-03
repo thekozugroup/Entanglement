@@ -315,8 +315,10 @@ entangle plugins publish dist oci://ghcr.io/you/hello:0.1.0
 `publish` accepts the build directory (or an already packed package file),
 packs it, uploads the blobs (monolithic upload; chunked for packages larger
 than 4 MiB) and pushes the manifest. Credentials come from
-`ENTANGLE_OCI_TOKEN`, or `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD`, or
-`~/.entangle/oci-auth.toml` (see `docs/operations.md` section 12). Consumers run:
+`ENTANGLE_OCI_TOKEN`, or `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD`,
+together with `ENTANGLE_OCI_REGISTRY=<host[:port]>` naming the one registry
+they are for, or from `~/.entangle/oci-auth.toml` (see `docs/operations.md`
+section 12). Consumers run:
 
 ```sh
 entangle keyring add <YOUR_PUBLIC_KEY_HEX> --name you   # once

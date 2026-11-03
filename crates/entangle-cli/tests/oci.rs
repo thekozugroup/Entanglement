@@ -22,6 +22,7 @@ fn entangle(home: &TempDir) -> Command {
         "ENTANGLE_OCI_TOKEN",
         "ENTANGLE_OCI_USERNAME",
         "ENTANGLE_OCI_PASSWORD",
+        "ENTANGLE_OCI_REGISTRY",
     ] {
         cmd.env_remove(k);
     }
@@ -298,6 +299,36 @@ async fn credentials_come_from_the_environment_and_are_never_printed() {
         "{se}"
     );
 
+    // Environment credentials that do not name their registry are refused,
+    // not offered to whichever registry the reference names.
+    let seen_before = mock.requests().len();
+    let out = entangle(&home)
+        .args(["plugins", "install"])
+        .arg(&reference)
+        .arg("--no-load")
+        .arg("--out")
+        .arg(out_of(&home))
+        .env("ENTANGLE_OCI_USERNAME", "alice")
+        .env("ENTANGLE_OCI_PASSWORD", "hunter2-very-secret")
+        .output()
+        .unwrap();
+    let (so, se) = s(&out);
+    assert!(!out.status.success(), "{so}\n{se}");
+    assert!(
+        se.contains("ENTANGLE-E0815") && se.contains("ENTANGLE_OCI_REGISTRY"),
+        "{se}"
+    );
+    assert!(
+        !so.contains("hunter2") && !se.contains("hunter2"),
+        "{so}\n{se}"
+    );
+    assert_eq!(
+        mock.requests().len(),
+        seen_before,
+        "nothing may reach the registry: {:?}",
+        mock.requests()
+    );
+
     let out = entangle(&home)
         .args(["plugins", "install"])
         .arg(&reference)
@@ -307,6 +338,7 @@ async fn credentials_come_from_the_environment_and_are_never_printed() {
         .env("RUST_LOG", "trace")
         .env("ENTANGLE_OCI_USERNAME", "alice")
         .env("ENTANGLE_OCI_PASSWORD", "hunter2-very-secret")
+        .env("ENTANGLE_OCI_REGISTRY", mock.registry())
         .output()
         .unwrap();
     let (so, se) = s(&out);

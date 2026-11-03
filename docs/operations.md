@@ -542,14 +542,19 @@ verification the install also enforces `security.max_tier_allowed`
 
 ### Authentication
 
-Resolved per registry (`host[:port]`), first match wins; credentials are never
-logged or printed:
+Resolved per registry (`host[:port]`, spelled as in the reference, ASCII case
+ignored), first match wins; credentials are never logged or printed:
 
-1. `ENTANGLE_OCI_TOKEN` - a bearer token sent directly.
-2. `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD` - Basic credentials, also
+1. `ENTANGLE_OCI_TOKEN` - a bearer token sent directly, or
+   `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD` - Basic credentials, also
    used against the registry's token endpoint (the standard Bearer flow:
-   `WWW-Authenticate` realm/service/scope).
-3. `~/.entangle/oci-auth.toml`, which must be mode `0600` on Unix:
+   `WWW-Authenticate` realm/service/scope). Environment credentials apply
+   **only** to the registry named by `ENTANGLE_OCI_REGISTRY=<host[:port]>`;
+   every other registry is treated as if they were unset (it falls through to
+   the file below, or anonymous). Setting them without `ENTANGLE_OCI_REGISTRY`
+   is an error (`ENTANGLE-E0815`), so a CI token exported for one registry is
+   never offered to another.
+2. `~/.entangle/oci-auth.toml`, which must be mode `0600` on Unix:
 
    ```toml
    [registries."ghcr.io"]
@@ -562,8 +567,10 @@ logged or printed:
 
 With none of these the client is anonymous and still follows the token flow
 for public repositories. `Authorization` is only ever sent to the registry's
-own `host:port`: blob redirects to a CDN on another host are followed without
-it. Redirects are capped at 5; only HTTP 429 and 5xx are retried (4 attempts,
+own `host:port`, plus, for Basic credentials, the token endpoint (`realm`) that
+registry names in its Bearer challenge (standard token flow; that endpoint may
+be on another host, e.g. a separate auth service): blob redirects to a CDN on
+another host are followed without it. Redirects are capped at 5; only HTTP 429 and 5xx are retried (4 attempts,
 exponential backoff, `Retry-After` honoured up to 8 s).
 
 ### HTTPS and insecure registries

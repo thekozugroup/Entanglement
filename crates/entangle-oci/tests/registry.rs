@@ -501,3 +501,46 @@ async fn tag_listing_follows_pagination() {
     tags.sort();
     assert_eq!(tags, ["a", "b", "c", "d", "e"]);
 }
+
+#[tokio::test]
+async fn env_credentials_for_another_registry_are_never_sent_and_do_not_break_anonymous_pulls() {
+    // A public registry using the anonymous token flow.
+    let mock = MockRegistry::start(MockOptions {
+        auth: MockAuth::Bearer {
+            token_requires_basic: None,
+        },
+        ..MockOptions::default()
+    })
+    .await;
+    let pkg = signed_package(&keypair(1), "hello", &wasm_bytes(100));
+    seed_artifact(&mock, "r/p", "t", &pkg);
+
+    // CI exported a token for its internal registry, then installs from here.
+    let env = |k: &str| match k {
+        "ENTANGLE_OCI_TOKEN" => Some("internal-ci-token".to_owned()),
+        "ENTANGLE_OCI_REGISTRY" => Some("registry.internal:5000".to_owned()),
+        _ => None,
+    };
+    let credential = Credential::resolve_with(&mock.registry(), None, env).unwrap();
+    let cfg = ClientConfig {
+        credential,
+        ..ClientConfig::default()
+    };
+    let pulled = pull_artifact(&client_with(&mock, cfg), &reference(&mock, "r/p:t"))
+        .await
+        .unwrap();
+    assert_eq!(pulled.package, pkg);
+    let leaked: Vec<_> = mock
+        .requests()
+        .into_iter()
+        .filter(|r| {
+            r.authorization
+                .as_deref()
+                .is_some_and(|a| a.contains("internal-ci-token"))
+        })
+        .collect();
+    assert!(
+        leaked.is_empty(),
+        "token for another registry was sent: {leaked:?}"
+    );
+}

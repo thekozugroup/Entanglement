@@ -1,8 +1,11 @@
 //! The OCI Distribution v1.1 client: auth, redirects, retries, verified blobs.
 //!
 //! Invariants enforced here (each has a test in `tests/registry.rs`):
-//! * `Authorization` is only ever sent to the registry's own `host:port`; a
-//!   redirect to any other authority (a CDN) is followed without it.
+//! * `Authorization` is only ever sent to the registry's own `host:port`, plus
+//!   (Basic credentials only) the token endpoint that registry names in its
+//!   Bearer challenge, as in the standard token flow; a redirect to any other
+//!   authority (a CDN) is followed without it. Which registry a credential
+//!   belongs to is decided in [`crate::auth`].
 //! * Only HTTP 429 and 5xx are retried, with capped exponential backoff.
 //! * Blob bytes are hashed while streaming and rejected on any digest or size
 //!   difference from the descriptor; the descriptor size is also checked
@@ -328,7 +331,8 @@ impl OciClient {
                 }
                 _ => Err(self.auth_err(
                     "registry requires Basic authentication but no credential is configured \
-                     (set ENTANGLE_OCI_USERNAME/ENTANGLE_OCI_PASSWORD or ~/.entangle/oci-auth.toml)",
+                     (set ENTANGLE_OCI_USERNAME/ENTANGLE_OCI_PASSWORD together with \
+                     ENTANGLE_OCI_REGISTRY=<this registry>, or use ~/.entangle/oci-auth.toml)",
                 )),
             };
         }

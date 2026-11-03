@@ -2,10 +2,16 @@
 //!
 //! Resolution order for a registry (`host[:port]`):
 //! 1. environment: `ENTANGLE_OCI_TOKEN` (bearer), or
-//!    `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD` (basic);
+//!    `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD` (basic), **only** when
+//!    `ENTANGLE_OCI_REGISTRY` names this registry. Environment credentials
+//!    without `ENTANGLE_OCI_REGISTRY` are refused rather than offered to
+//!    whatever registry a reference happens to name;
 //! 2. `~/.entangle/oci-auth.toml`, section `[registries."<host[:port]>"]` with
 //!    `username`+`password`, or `token`.
 //! 3. none: anonymous.
+//!
+//! Registry names are compared as written in the reference (`host` or
+//! `host:port`, IPv6 in brackets), ignoring ASCII case.
 //!
 //! The file must not be readable by group/other on Unix (like `~/.ssh`).
 
@@ -56,6 +62,9 @@ pub const ENV_TOKEN: &str = "ENTANGLE_OCI_TOKEN";
 pub const ENV_USERNAME: &str = "ENTANGLE_OCI_USERNAME";
 /// Environment variable holding the basic-auth password.
 pub const ENV_PASSWORD: &str = "ENTANGLE_OCI_PASSWORD";
+/// Environment variable naming the one registry (`host[:port]`) the
+/// environment credentials belong to.
+pub const ENV_REGISTRY: &str = "ENTANGLE_OCI_REGISTRY";
 
 #[derive(serde::Deserialize, Default)]
 struct AuthFile {
@@ -83,22 +92,36 @@ impl Credential {
         auth_file: Option<&Path>,
         env: impl Fn(&str) -> Option<String>,
     ) -> Result<Option<Self>> {
-        let non_empty = |k: &str| env(k).filter(|v| !v.is_empty());
-        if let Some(t) = non_empty(ENV_TOKEN) {
-            return Ok(Some(Credential::Bearer(Secret::new(t))));
-        }
-        match (non_empty(ENV_USERNAME), non_empty(ENV_PASSWORD)) {
-            (Some(u), Some(p)) => {
-                return Ok(Some(Credential::Basic {
-                    username: u,
-                    password: Secret::new(p),
-                }))
-            }
-            (None, None) => {}
-            _ => {
+        let non_empty = |k: &str| env(k).filter(|v| !v.trim().is_empty());
+        let from_env = match (
+            non_empty(ENV_TOKEN),
+            non_empty(ENV_USERNAME),
+            non_empty(ENV_PASSWORD),
+        ) {
+            (Some(t), _, _) => Some(Credential::Bearer(Secret::new(t))),
+            (None, Some(u), Some(p)) => Some(Credential::Basic {
+                username: u,
+                password: Secret::new(p),
+            }),
+            (None, None, None) => None,
+            (None, _, _) => {
                 return Err(OciError::Credentials(format!(
                     "{ENV_USERNAME} and {ENV_PASSWORD} must be set together"
                 )))
+            }
+        };
+        if let Some(cred) = from_env {
+            // Environment credentials are bound to one named registry: a
+            // reference to any other registry must not receive them.
+            let Some(bound) = non_empty(ENV_REGISTRY) else {
+                return Err(OciError::Credentials(format!(
+                    "registry credentials are set in the environment but {ENV_REGISTRY} is not; \
+                     set {ENV_REGISTRY} to the host[:port] they belong to (they are never sent \
+                     to any other registry), or move them to oci-auth.toml"
+                )));
+            };
+            if bound.trim().eq_ignore_ascii_case(registry) {
+                return Ok(Some(cred));
             }
         }
         match auth_file {
@@ -153,13 +176,94 @@ mod tests {
 
     #[test]
     fn env_beats_file_and_debug_is_redacted() {
-        let c = Credential::resolve_with("r:1", None, |k| {
-            (k == ENV_TOKEN).then(|| "s3cret-token".to_owned())
-        })
+        let c = Credential::resolve_with(
+            "r:1",
+            None,
+            env_of(&[(ENV_TOKEN, "s3cret-token"), (ENV_REGISTRY, "r:1")]),
+        )
         .unwrap()
         .unwrap();
         assert!(!format!("{c:?}").contains("s3cret"));
         assert!(matches!(c, Credential::Bearer(_)));
+    }
+
+    fn env_of(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
+        let pairs: Vec<(String, String)> = pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect();
+        move |k| pairs.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())
+    }
+
+    #[test]
+    fn env_credentials_apply_only_to_the_registry_they_name() {
+        let env = env_of(&[
+            (ENV_TOKEN, "internal-token"),
+            (ENV_REGISTRY, "registry.internal:5000"),
+        ]);
+        for other in [
+            "ghcr.io",
+            "attacker.example",
+            "registry.internal",
+            "registry.internal:5001",
+        ] {
+            assert!(
+                Credential::resolve_with(other, None, &env)
+                    .unwrap()
+                    .is_none(),
+                "the env token must not be offered to {other}"
+            );
+        }
+        let c = Credential::resolve_with("Registry.Internal:5000", None, &env)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(c, Credential::Bearer(ref t) if t.expose() == "internal-token"));
+
+        let env = env_of(&[
+            (ENV_USERNAME, "ci"),
+            (ENV_PASSWORD, "pw"),
+            (ENV_REGISTRY, "registry.internal:5000"),
+        ]);
+        assert!(Credential::resolve_with("attacker.example", None, &env)
+            .unwrap()
+            .is_none());
+        assert!(matches!(
+            Credential::resolve_with("registry.internal:5000", None, &env).unwrap(),
+            Some(Credential::Basic { ref username, .. }) if username == "ci"
+        ));
+    }
+
+    #[test]
+    fn env_credentials_without_a_named_registry_are_refused() {
+        for env in [
+            env_of(&[(ENV_TOKEN, "s3cret-token")]),
+            env_of(&[(ENV_USERNAME, "ci"), (ENV_PASSWORD, "s3cret-pw")]),
+            env_of(&[(ENV_TOKEN, "s3cret-token"), (ENV_REGISTRY, "")]),
+        ] {
+            let e = Credential::resolve_with("ghcr.io", None, &env).unwrap_err();
+            let text = e.to_string();
+            assert!(text.starts_with("ENTANGLE-E0815"), "{text}");
+            assert!(text.contains(ENV_REGISTRY), "{text}");
+            assert!(!text.contains("s3cret"), "{text}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn env_credentials_for_another_registry_fall_back_to_the_auth_file() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("oci-auth.toml");
+        std::fs::write(&p, "[registries.\"ghcr.io\"]\ntoken = \"file-token\"\n").unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let env = env_of(&[
+            (ENV_TOKEN, "internal-token"),
+            (ENV_REGISTRY, "registry.internal:5000"),
+        ]);
+        let c = Credential::resolve_with("ghcr.io", Some(&p), &env)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(c, Credential::Bearer(ref t) if t.expose() == "file-token"));
     }
 
     #[test]
