@@ -14,6 +14,7 @@
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0600–E0699 | Agent-host adapter (see `entangle-agent-host`) |
 //! | E0640–E0649 | `mesh.tailscale` transport (see `entangle-mesh-tailscale`) |
+//! | E0800–E0829 | OCI registry distribution and mirror listings (see `entangle-oci`; E0800–E0819 in use) |
 //! | E0900       | I/O                            |
 //! | E9999       | Internal / unexpected          |
 //!
