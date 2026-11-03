@@ -439,7 +439,10 @@ entangle compute dispatch <plugin-id> --input 'translate: bonjour' \
 `--metric-dir` defaults to `~/.entangle/plugins/<metric name>`. The metric's
 publisher key must be in the **submitter's** keyring (`entangle keyring list`);
 anything else is refused with `ENTANGLE-E0307` before a single replica is
-sent. The metric runs only on the submitter, at tier 2 (no filesystem, no
+sent. The daemon reads `keyring.toml` once, at startup: if `entangled` was
+already running when `plugins install` (or `keyring add`) trusted the key,
+**restart the daemon** before dispatching, or it answers `ENTANGLE-E0307`
+even though `entangle keyring list` shows the key. The metric runs only on the submitter, at tier 2 (no filesystem, no
 network, 256 MiB memory, 10 s per comparison) — workers never load it.
 
 ### What the verifier refuses
@@ -451,7 +454,7 @@ network, 256 MiB memory, 10 s per comparison) — workers never load it.
 | `ENTANGLE-E0304` | `Attested` policy — TEE attestation is not supported yet. | Use `trusted-executor` for your own hardware. |
 | `ENTANGLE-E0305` | No strict majority of the `deterministic` replicas returned identical output. Nobody loses reputation (there is no majority to disagree with). | The workload is not deterministic, or several peers are faulty. |
 | `ENTANGLE-E0306` | `SemanticEquivalent` sent straight to a kernel. | Submit through the daemon / `compute dispatch`. |
-| `ENTANGLE-E0307` | Metric publisher not in your keyring. | `entangle keyring add` the publisher you actually trust, or use your own build. |
+| `ENTANGLE-E0307` | Metric publisher not in your keyring (as the running daemon loaded it). | `entangle keyring add` the publisher you actually trust, or use your own build; then restart the daemon, which reads the keyring only at startup. |
 | `ENTANGLE-E0308`–`E0310` | Metric reference inconsistent, not loaded, or package rejected (bad signature, tier > 2, capabilities, not a metric component). | Rebuild/reinstall the metric; check `--metric-dir`. |
 | `ENTANGLE-E0311`–`E0312` | The metric trapped / timed out / ran out of memory, or returned `NaN` or a negative distance, on **every** pair. When only some pairs fail, each failed pair counts as incomparable (a `MetricComparisonFailed` event at `entangle::telemetry`) and the task is still decided by the rest; a replica none of whose comparisons succeeded is reported `failed` with this error and loses reputation. | Fix the metric (a metric may return `+inf` for "incomparable"), or investigate the peer whose replica is reported `failed`. |
 | `ENTANGLE-E0313` | Unusable policy: `replicas` outside 2..=16, `quorum` outside 1..=pairs, threshold not a finite number > 0. | Fix the flags. |
@@ -464,6 +467,10 @@ Every successful dispatch reports the task's `policy_hash` (SHA-256 of the
 canonical policy encoding) and, with `--json`, one record per replica: peer,
 local/remote, status (`canonical`, `agreed`, `disagreed`, `failed`) and the
 policy hash that replica observed.
+
+Not implemented yet: the Layer 2 spot-check (re-running about 1% of
+accepted tasks under deterministic replay, spec §7.5). `Deterministic` and
+`SemanticEquivalent` verify only the replicas of each task as it runs.
 
 Scheduler wire version: v2 (task frames carry the policy and its hash). A
 node running an older build answers `unsupported-version`; upgrade both ends.

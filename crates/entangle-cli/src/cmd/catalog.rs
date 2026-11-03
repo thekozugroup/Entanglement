@@ -656,6 +656,10 @@ pub async fn install(opts: InstallOptions) -> Result<()> {
              submitter's verifier rather than run as a plugin",
             entry.name
         );
+        println!(
+            "      note: a running entangled reads keyring.toml only at startup; restart it \
+             if it was running before this key was trusted"
+        );
         println!();
         println!("Ready. Verify replicated tasks with it:");
         println!(
