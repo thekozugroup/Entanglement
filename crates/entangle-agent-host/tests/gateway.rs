@@ -99,7 +99,7 @@ fn fake_mcp_server() {
                 "exit" => std::process::exit(0),
                 // Start a grandchild (like `npx`/`uvx` wrappers do).
                 "spawn_child" => {
-                    let c = std::process::Command::new("sleep")
+                    let mut c = std::process::Command::new("sleep")
                         .arg("30")
                         .stdin(std::process::Stdio::null())
                         .stdout(std::process::Stdio::null())
@@ -107,6 +107,10 @@ fn fake_mcp_server() {
                         .spawn()
                         .unwrap();
                     std::fs::write(format!("{log_path}.child"), c.id().to_string()).unwrap();
+                    // Reap it if it exits while this server still runs.
+                    std::thread::spawn(move || {
+                        let _ = c.wait();
+                    });
                     json!({"content": []})
                 }
                 // Latin-1 (invalid UTF-8) log line on stderr.

@@ -482,7 +482,8 @@ struct StdioProc {
     initialized_sent: AtomicBool,
     /// Tells the reaper task to kill the child (also fires when dropped).
     kill_tx: watch::Sender<bool>,
-    /// Reaper task: owns the [`Child`], waits for it or kills it.
+    /// Reaper task: owns the [`tokio::process::Child`], waits for it or
+    /// kills it.
     reaper: Mutex<Option<JoinHandle<()>>>,
 }
 
