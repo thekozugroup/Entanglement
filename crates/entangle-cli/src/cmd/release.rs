@@ -396,9 +396,20 @@ fn generate(out: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Release-key bytes held by the ceremony commands, wiped when dropped (on
+/// every return path) so the key does not linger in freed memory.
+struct KeyBytes(Vec<u8>);
+
+impl Drop for KeyBytes {
+    fn drop(&mut self) {
+        shamir::wipe(&mut self.0);
+    }
+}
+
 fn split_key(key: &Path, threshold: u8, shares: u8, out_dir: Option<&Path>) -> Result<()> {
-    let secret = std::fs::read(key).with_context(|| format!("reading {}", key.display()))?;
-    let parts = shamir::split(&secret, threshold, shares).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let secret =
+        KeyBytes(std::fs::read(key).with_context(|| format!("reading {}", key.display()))?);
+    let parts = shamir::split(&secret.0, threshold, shares).map_err(|e| anyhow::anyhow!("{e}"))?;
     let dir = out_dir
         .map(Path::to_path_buf)
         .or_else(|| key.parent().map(Path::to_path_buf))
@@ -431,14 +442,14 @@ fn combine_key(files: &[PathBuf], out: &Path) -> Result<()> {
         parts
             .push(Share::decode(text.trim()).map_err(|e| anyhow::anyhow!("{}: {e}", f.display()))?);
     }
-    let secret = shamir::combine(&parts).map_err(|e| anyhow::anyhow!("{e}"))?;
-    write_secret_new(out, &secret)?;
+    let secret = KeyBytes(shamir::combine(&parts).map_err(|e| anyhow::anyhow!("{e}"))?);
+    write_secret_new(out, &secret.0)?;
     println!(
         "reconstructed {} bytes into {}",
-        secret.len(),
+        secret.0.len(),
         out.display()
     );
-    if let Some(kp) = std::str::from_utf8(&secret)
+    if let Some(kp) = std::str::from_utf8(&secret.0)
         .ok()
         .and_then(|p| IdentityKeyPair::from_pem(p).ok())
     {

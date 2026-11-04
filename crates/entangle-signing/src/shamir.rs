@@ -26,6 +26,14 @@
 //! per-split set id (mixing shares of two splits is rejected up front), the
 //! threshold, and a 4-byte BLAKE3 checksum over the whole encoded share
 //! (transcription errors are caught on [`Share::decode`]).
+//!
+//! # Wiping
+//! Every heap buffer [`split`] and [`combine`] fill with the secret (or with
+//! polynomial coefficients, which with one share give the secret away) is
+//! overwritten with zeros before it is freed, and none is reallocated while it
+//! holds secret bytes. The buffer [`combine`] returns is the caller's to
+//! [`wipe`]. Copies on the stack and in other crates (PEM parsing) are not
+//! covered.
 
 use rand_core::{CryptoRng, RngCore};
 
@@ -178,6 +186,28 @@ fn eval(coeffs: &[u8], x: u8) -> u8 {
     coeffs.iter().rev().fold(0u8, |acc, &c| gf_mul(acc, x) ^ c)
 }
 
+/// Overwrite all of `buf`'s allocation, spare capacity included, with zeros
+/// and leave it empty. Best effort without `unsafe`: the zeroed bytes are
+/// passed through [`std::hint::black_box`] so the stores are not removed as
+/// dead before the buffer is freed.
+pub fn wipe(buf: &mut Vec<u8>) {
+    let cap = buf.capacity();
+    // Never reallocates: the new length is the current capacity.
+    buf.resize(cap, 0);
+    buf.fill(0);
+    std::hint::black_box(buf.as_slice());
+    buf.clear();
+}
+
+/// A buffer that is [`wipe`]d when dropped (on every return path).
+struct Wiped(Vec<u8>);
+
+impl Drop for Wiped {
+    fn drop(&mut self) {
+        wipe(&mut self.0);
+    }
+}
+
 fn check_bytes(secret: &[u8]) -> [u8; CHECK_LEN] {
     let mut c = [0u8; CHECK_LEN];
     c.copy_from_slice(&blake3::hash(secret).as_bytes()[..CHECK_LEN]);
@@ -214,8 +244,10 @@ pub fn split_with_rng<R: RngCore + CryptoRng>(
     if secret.is_empty() || secret.len() > MAX_SECRET_LEN {
         return Err(ShamirError::BadSecretLength(secret.len()));
     }
-    let mut payload = secret.to_vec();
-    payload.extend_from_slice(&check_bytes(secret));
+    // Sized up front: growing it would free a block holding the secret.
+    let mut payload = Wiped(Vec::with_capacity(secret.len() + CHECK_LEN));
+    payload.0.extend_from_slice(secret);
+    payload.0.extend_from_slice(&check_bytes(secret));
 
     let mut set_id = [0u8; 4];
     rng.fill_bytes(&mut set_id);
@@ -225,15 +257,15 @@ pub fn split_with_rng<R: RngCore + CryptoRng>(
             set_id,
             threshold,
             index,
-            data: Vec::with_capacity(payload.len()),
+            data: Vec::with_capacity(payload.0.len()),
         })
         .collect();
-    let mut coeffs = vec![0u8; usize::from(threshold)];
-    for &byte in &payload {
-        coeffs[0] = byte;
-        rng.fill_bytes(&mut coeffs[1..]);
+    let mut coeffs = Wiped(vec![0u8; usize::from(threshold)]);
+    for &byte in &payload.0 {
+        coeffs.0[0] = byte;
+        rng.fill_bytes(&mut coeffs.0[1..]);
         for share in &mut out {
-            share.data.push(eval(&coeffs, share.index));
+            share.data.push(eval(&coeffs.0, share.index));
         }
     }
     Ok(out)
@@ -242,7 +274,8 @@ pub fn split_with_rng<R: RngCore + CryptoRng>(
 /// Reconstruct the secret from at least `threshold` shares of one split.
 ///
 /// Fails (rather than returning garbage) on too few shares, shares of
-/// different splits, duplicate indices, or a wrong share.
+/// different splits, duplicate indices, or a wrong share. The returned buffer
+/// holds the secret: [`wipe`] it when done.
 pub fn combine(shares: &[Share]) -> Result<Vec<u8>, ShamirError> {
     let first = shares
         .first()
@@ -279,24 +312,31 @@ pub fn combine(shares: &[Share]) -> Result<Vec<u8>, ShamirError> {
                 })
         })
         .collect();
-    let payload: Vec<u8> = (0..first.data.len())
-        .map(|k| {
+    let mut payload = Wiped(Vec::with_capacity(first.data.len()));
+    for k in 0..first.data.len() {
+        payload.0.push(
             used.iter()
                 .zip(&basis)
-                .fold(0u8, |acc, (s, &l)| acc ^ gf_mul(s.data[k], l))
-        })
-        .collect();
-    if payload.len() <= CHECK_LEN {
+                .fold(0u8, |acc, (s, &l)| acc ^ gf_mul(s.data[k], l)),
+        );
+    }
+    if payload.0.len() <= CHECK_LEN {
         return Err(ShamirError::CheckFailed);
     }
-    let (secret, check) = payload.split_at(payload.len() - CHECK_LEN);
+    let n = payload.0.len() - CHECK_LEN;
+    let (secret, check) = payload.0.split_at(n);
     let expect = check_bytes(secret);
     // Constant-time comparison of the trailer.
     let diff = expect.iter().zip(check).fold(0u8, |d, (a, b)| d | (a ^ b));
     if diff != 0 {
         return Err(ShamirError::CheckFailed);
     }
-    Ok(secret.to_vec())
+    // Hand the buffer itself to the caller (no further copy), check bytes
+    // zeroed; `payload` is left empty.
+    let mut out = std::mem::take(&mut payload.0);
+    out[n..].fill(0);
+    out.truncate(n);
+    Ok(out)
 }
 
 #[cfg(test)]
