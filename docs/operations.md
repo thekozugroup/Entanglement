@@ -347,7 +347,7 @@ canonical range table, maintained in
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
-| E0780–E0799 | Runtime lifecycle — see §21–§24: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788); a reload refused because another version of the plugin was loaded or unloaded meanwhile (E0789, retry) |
+| E0780–E0799 | Runtime lifecycle — see §21–§24: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788); a reload refused because another version of the plugin was loaded or unloaded meanwhile (E0789, retry); a load of a version that is still draining after being replaced or unloaded (E0790, retry once its calls and streams end) |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -2051,7 +2051,11 @@ different version loaded than the one it was checked against is rolled back
 with `ENTANGLE-E0789` (retry it).
 
 Loading the version that is already loaded is refused as before
-(`plugin already loaded`); unload it first or bump the version. Unloading the
+(`plugin already loaded`); unload it first or bump the version. Loading a
+version that was just replaced or unloaded (a rollback with
+`--allow-downgrade`) while its calls or streams are still running waits up to
+2 s for them, then is refused with `ENTANGLE-E0790` (`<id> is still
+draining`): retry once they have ended. Unloading the
 current version also ends the forwarding of the old ids. A capability revoked
 on the old version is not carried over to the new one. Reloads are counted in
 `entangle_plugin_reloads_total{outcome="swapped"|"refused"|"migrate_failed"}`

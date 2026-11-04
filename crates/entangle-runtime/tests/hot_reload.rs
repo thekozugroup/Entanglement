@@ -660,3 +660,51 @@ async fn revoking_through_a_replaced_id_reaches_the_version_answering_for_it() {
         .revoke_capability(&v1, "storage.local")
         .expect("revoking through the replaced id after the drain");
 }
+
+/// Rolling back to the replaced version while it still drains (a stream on
+/// it runs on) is refused with an error that says so — not the broker's
+/// "already registered" for an id `plugins list` no longer shows — and works
+/// once the drain is over.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn rolling_back_to_a_draining_version_says_it_is_draining() {
+    let f = Fixture::new();
+    let v1 = f.id("streamer", "1.0.0");
+    let old_dir = f.package("streamer", "1.0.0", STREAM_PROBE, 1, "");
+    f.kernel.load_plugin_from_dir(&old_dir).await.unwrap();
+    let (port, mut old) = entangle_host::stream_port(1);
+    let (k, id) = (f.kernel.clone(), v1.clone());
+    let old_stream =
+        tokio::spawn(async move { k.invoke_stream(&id, b"ls /\n", port, 30_000).await });
+    old.chunks.recv().await.expect("first chunk").ack.sent();
+    let outcome = f
+        .kernel
+        .load_plugin(
+            &f.package("streamer", "1.1.0", STREAM_PROBE, 1, ""),
+            LoadOptions::default(),
+        )
+        .await
+        .unwrap();
+    let replaced = outcome.replaced.unwrap();
+
+    let back = LoadOptions {
+        allow_downgrade: true,
+        ..LoadOptions::default()
+    };
+    let err = f.kernel.load_plugin(&old_dir, back).await.unwrap_err();
+    assert!(matches!(err, RuntimeError::StillDraining(_)), "{err}");
+    let text = err.to_string();
+    assert!(text.starts_with("ENTANGLE-E0790"), "{text}");
+    assert!(text.contains("still draining"), "{text}");
+    assert!(text.contains(&v1.to_string()), "{text}");
+    assert!(!text.contains("E0123"), "{text}");
+    assert_eq!(f.kernel.list_plugins(), vec![f.id("streamer", "1.1.0")]);
+
+    old.input
+        .send(entangle_host::StreamInput::End)
+        .await
+        .unwrap();
+    old_stream.await.unwrap().unwrap();
+    drained(replaced.drained).await;
+    let outcome = f.kernel.load_plugin(&old_dir, back).await.unwrap();
+    assert_eq!(outcome.plugin_id, v1);
+}

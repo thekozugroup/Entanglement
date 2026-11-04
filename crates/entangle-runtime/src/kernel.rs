@@ -325,7 +325,18 @@ pub struct Kernel {
     /// Ids of versions replaced by a hot reload → the version now loaded:
     /// calls addressed to a replaced version go to its successor.
     aliases: RwLock<HashMap<PluginId, PluginId>>,
+    /// Versions out of `plugins` (replaced or unloaded) but still registered
+    /// with the broker while their calls and streams finish, each with a
+    /// watch that turns `true` once it is unregistered.
+    draining: Draining,
 }
+
+/// The kernel's set of draining versions (its `draining` field).
+type Draining = Arc<Mutex<HashMap<PluginId, tokio::sync::watch::Receiver<bool>>>>;
+
+/// How long a load of a version that is still draining waits for the drain
+/// to end before it is refused (`ENTANGLE-E0790`).
+const DRAINING_WAIT: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// The `[plugins] disabled` set: plugin ids refused at load. Cheap to clone;
 /// clones share one set, so an update through
@@ -395,6 +406,7 @@ impl Kernel {
             config,
             metrics: None,
             aliases: RwLock::new(HashMap::new()),
+            draining: Arc::default(),
         })
     }
 
@@ -641,6 +653,18 @@ impl Kernel {
         // a rejected re-load leaves the running plugin fully intact.
         if self.plugins.read().contains_key(&plugin_id) {
             return Err(RuntimeError::AlreadyLoaded(plugin_id));
+        }
+        // This exact version, replaced or unloaded, still finishing calls or
+        // streams: it holds its broker registration until they end. Wait a
+        // little (a call about to return), then say so — rather than letting
+        // the broker refuse a duplicate registration of an id no listing
+        // shows any more.
+        let draining = self.draining.lock().get(&plugin_id).cloned();
+        if let Some(mut rx) = draining {
+            let done = tokio::time::timeout(DRAINING_WAIT, rx.wait_for(|d| *d)).await;
+            if !matches!(done, Ok(Ok(_))) {
+                return Err(RuntimeError::StillDraining(Box::new(plugin_id)));
+            }
         }
         // Another version of the same plugin: this load is a hot reload.
         let previous = self.loaded_version_of(&plugin_id);
@@ -950,13 +974,16 @@ impl Kernel {
             m.loaded_at.lock().remove(&id.to_string());
         }
         let (tx, rx) = tokio::sync::watch::channel(false);
+        self.draining.lock().insert(id.clone(), rx.clone());
         let broker = Arc::clone(&self.broker);
         let events = self.events.clone();
+        let draining = Arc::clone(&self.draining);
         tokio::spawn(async move {
             let _drained = record.inflight.write().await;
             if let Err(e) = broker.unregister_plugin(&id) {
                 tracing::warn!(plugin = %id, error = %e, "replaced plugin version was already unregistered");
             }
+            draining.lock().remove(&id);
             events.emit(&id, record.effective_tier, LifecyclePhase::Unloaded);
             let _ = tx.send(true);
         });
@@ -1500,8 +1527,13 @@ impl Kernel {
         if let PluginImpl::Wasm(slot) = &record.plugin {
             slot.retire();
         }
+        let (tx, rx) = tokio::sync::watch::channel(false);
+        self.draining.lock().insert(plugin.clone(), rx);
         let _drained = record.inflight.write().await;
-        self.broker.unregister_plugin(plugin)?;
+        let unregistered = self.broker.unregister_plugin(plugin);
+        self.draining.lock().remove(plugin);
+        let _ = tx.send(true);
+        unregistered?;
         self.emit(plugin, record.effective_tier, LifecyclePhase::Unloaded);
         Ok(())
     }

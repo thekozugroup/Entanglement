@@ -107,6 +107,16 @@ pub enum RuntimeError {
     )]
     ReloadRaced(Box<PluginId>),
 
+    /// This exact version was replaced by a hot reload, or unloaded, and
+    /// calls or streams that started on it are still running: it stays
+    /// registered (holding its grants) until they end, so it cannot be
+    /// loaded again yet.
+    #[error(
+        "ENTANGLE-E0790: {0} is still draining: calls or streams that started on it before it \
+         was replaced or unloaded are still running; retry once they end"
+    )]
+    StillDraining(Box<PluginId>),
+
     /// Host code panicked during this plugin call and the panic was
     /// contained (spec §2.1): the call's instance is discarded, the plugin
     /// stays loaded and the daemon keeps running. See
