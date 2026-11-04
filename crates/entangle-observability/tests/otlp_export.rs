@@ -341,7 +341,8 @@ fn retries_503_with_backoff_then_succeeds() {
 
 #[test]
 fn gives_up_after_max_retries_on_persistent_5xx() {
-    let collector = Collector::start(&[(500, None); 10], false);
+    // 503 is a retryable 5xx (a 500 is permanent, see below).
+    let collector = Collector::start(&[(503, None); 10], false);
     let cfg = OtelConfig {
         max_retries: 2,
         ..config(collector.endpoint())
@@ -353,6 +354,40 @@ fn gives_up_after_max_retries_on_persistent_5xx() {
     assert_eq!(exporter.stats().failed_batches(), 1);
     assert_eq!(exporter.stats().exported(), 0);
     exporter.shutdown();
+}
+
+/// OTLP/HTTP: only `429`, `502`, `503` and `504` are retryable; every other
+/// `4xx`/`5xx` MUST NOT be retried.
+#[test]
+fn only_429_502_503_504_are_retried() {
+    for status in [500u16, 501, 505, 507] {
+        let collector = Collector::start(&[(status, None); 4], false);
+        let exporter = OtelExporter::start(&config(collector.endpoint())).unwrap();
+        traced(&exporter, || drop(info_span!("refused")));
+        assert!(exporter.flush());
+        assert_eq!(
+            collector.requests().len(),
+            1,
+            "HTTP {status} is permanent and must not be resent"
+        );
+        assert_eq!(exporter.stats().retries(), 0, "HTTP {status}");
+        assert_eq!(exporter.stats().failed_batches(), 1, "HTTP {status}");
+        exporter.shutdown();
+    }
+    for status in [429u16, 502, 503, 504] {
+        let collector = Collector::start(&[(status, None)], false);
+        let exporter = OtelExporter::start(&config(collector.endpoint())).unwrap();
+        traced(&exporter, || drop(info_span!("transient")));
+        assert!(exporter.flush());
+        assert_eq!(
+            collector.requests().len(),
+            2,
+            "HTTP {status} is transient and is resent"
+        );
+        assert_eq!(exporter.stats().retries(), 1, "HTTP {status}");
+        assert_eq!(exporter.stats().exported(), 1, "HTTP {status}");
+        exporter.shutdown();
+    }
 }
 
 #[test]

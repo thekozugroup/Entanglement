@@ -17,12 +17,13 @@
 //!   [`OtelConfig::flush_interval`], whichever is first.
 //! * **Timeout.** Each attempt (connect, request, response) is bounded by
 //!   [`OtelConfig::request_timeout`].
-//! * **Retry.** `429` and `5xx` responses, and transport failures (a refused
-//!   connection or a timeout while the collector restarts), are retried with
+//! * **Retry.** The statuses the OTLP/HTTP specification lists as retryable
+//!   (`429`, `502`, `503`, `504`) and transport failures (a refused
+//!   connection or a timeout while the collector restarts) are retried with
 //!   exponential backoff (`backoff_base`, doubling, capped at `backoff_max`;
 //!   a `Retry-After` header of whole seconds is honoured up to that cap) up to
-//!   [`OtelConfig::max_retries`] times. Every other `4xx` is permanent: the
-//!   batch is dropped and counted, never retried.
+//!   [`OtelConfig::max_retries`] times. Every other `4xx` or `5xx` is
+//!   permanent: the batch is dropped and counted, never retried.
 //! * **Shutdown.** [`OtelExporter::shutdown`] drains the queue and sends the
 //!   remaining spans before returning (bounded by the same timeouts).
 //!
@@ -313,6 +314,17 @@ pub fn encode_batch(service_name: &str, instance_id: &str, spans: &[SpanRecord])
 
 // ── the exporter ─────────────────────────────────────────────────────────────
 
+/// Whether an HTTP status from the collector may be retried.
+///
+/// The OTLP/HTTP specification ("Failures", "Retryable Response Codes") lists
+/// exactly `429 Too Many Requests`, `502 Bad Gateway`, `503 Service
+/// Unavailable` and `504 Gateway Timeout` as retryable, and says every other
+/// `4xx` or `5xx` MUST NOT be retried. (Stated from the specification text as
+/// of OTLP 1.x; it was not re-fetched when this was written.)
+fn is_retryable_status(status: u16) -> bool {
+    matches!(status, 429 | 502 | 503 | 504)
+}
+
 enum Msg {
     Span(Box<SpanRecord>),
     Flush(mpsc::Sender<()>),
@@ -536,13 +548,11 @@ impl Worker {
             let outcome = tokio::time::timeout(self.cfg.request_timeout, self.post(body)).await;
             let retry_after = match outcome {
                 Ok(Ok((status, _))) if (200..300).contains(&status) => return true,
-                // 429 and 5xx are transient by the OTLP spec; honour the
-                // collector's own pacing hint when it sends one.
-                Ok(Ok((status, retry_after))) if status == 429 || (500..600).contains(&status) => {
-                    retry_after
-                }
-                // Any other status is permanent: retrying the same bytes
-                // cannot change the answer.
+                // Transient by the OTLP/HTTP spec; honour the collector's own
+                // pacing hint when it sends one.
+                Ok(Ok((status, retry_after))) if is_retryable_status(status) => retry_after,
+                // Any other status is permanent (the spec says it MUST NOT be
+                // retried): resending the same bytes cannot change the answer.
                 Ok(Ok((status, _))) => {
                     eprintln!(
                         "entangle: OTLP collector rejected a span batch with HTTP {status}; \

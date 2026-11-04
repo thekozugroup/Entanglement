@@ -648,9 +648,10 @@ receivers:
 
 Delivery: spans queue (2048) and ship in batches of up to 256 or every 5 s; a
 full queue drops the new span and counts it (never blocks the daemon). Each
-request has a 10 s timeout. `429`, `5xx` and connection failures are retried
-with exponential backoff (250 ms doubling to 10 s, `Retry-After` honoured, 3
-retries); any other `4xx` is permanent and the batch is dropped. On shutdown
+request has a 10 s timeout. `429`, `502`, `503`, `504` and connection
+failures are retried with exponential backoff (250 ms doubling to 10 s,
+`Retry-After` honoured, 3 retries); any other `4xx` or `5xx` is permanent and
+the batch is dropped (the OTLP/HTTP retry rules). On shutdown
 the queue is flushed. Failures are visible as `entangle_telemetry_*` metrics.
 
 Spans (from `entangle*` targets, `INFO` and above, independent of
