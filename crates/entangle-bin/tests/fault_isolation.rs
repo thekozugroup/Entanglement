@@ -166,6 +166,45 @@ fn a_core_task_that_returns_early_ends_the_daemon() {
     assert_eq!(lines[0]["fields"]["panicked"], false, "{}", lines[0]);
 }
 
+/// The RPC server refuses to unlink a socket path that is not a socket (a
+/// regular file, a symbolic link): its task ends, the daemon exits 70 — and
+/// that exit must not delete the file the server deliberately left alone.
+#[test]
+fn a_core_fault_exit_leaves_a_socket_path_that_is_not_a_socket() {
+    let tmp = tempfile::tempdir().unwrap();
+    let sock = tmp.path().join(".entangle/sock");
+    std::fs::create_dir_all(sock.parent().unwrap()).unwrap();
+    std::fs::write(&sock, b"not a socket").unwrap();
+    let mut d = Daemon::start(tmp.path(), "");
+    let status = d.wait_exit();
+    assert_eq!(status.code(), Some(CORE_FAULT), "{}", d.log());
+    assert!(
+        d.log().contains("existing path is not a socket"),
+        "{}",
+        d.log()
+    );
+    assert_eq!(
+        std::fs::read(&sock).ok().as_deref(),
+        Some(&b"not a socket"[..]),
+        "the fault exit removed a path that is not a socket: {}",
+        d.log()
+    );
+
+    // A symbolic link in its place survives too (and so does its target).
+    let target = tmp.path().join("target-file");
+    std::fs::write(&target, b"keep").unwrap();
+    std::fs::remove_file(&sock).unwrap();
+    std::os::unix::fs::symlink(&target, &sock).unwrap();
+    let mut d = Daemon::start(tmp.path(), "");
+    assert_eq!(d.wait_exit().code(), Some(CORE_FAULT), "{}", d.log());
+    assert!(
+        std::fs::symlink_metadata(&sock).is_ok_and(|m| m.file_type().is_symlink()),
+        "the fault exit removed the symbolic link: {}",
+        d.log()
+    );
+    assert_eq!(std::fs::read(&target).unwrap(), b"keep");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn panic_in_the_rpc_server_exits_with_the_core_fault_status() {
     let tmp = tempfile::tempdir().unwrap();

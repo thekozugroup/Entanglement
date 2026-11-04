@@ -442,8 +442,9 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         }
     }
 
-    // Remove the socket file on clean shutdown.
-    let _ = std::fs::remove_file(&socket_path);
+    // Remove the socket file on clean shutdown (only a socket: a path the
+    // RPC server refused to replace is not ours to delete).
+    let _ = entangle_core::fault::remove_if_socket(&socket_path);
 
     tracing::info!("entangled stopped");
     // Last: deliver the final span batches. `shutdown` blocks for at most the

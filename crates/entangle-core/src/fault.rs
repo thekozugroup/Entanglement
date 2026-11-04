@@ -73,12 +73,36 @@ thread_local! {
 static REMOVE_ON_FAULT_EXIT: std::sync::Mutex<Vec<std::path::PathBuf>> =
     std::sync::Mutex::new(Vec::new());
 
-/// Remove `path` when the process exits with [`EXIT_CORE_FAULT`] (from the
-/// panic hook or [`TaskEnded::exit`]): a core-fault exit is otherwise
-/// immediate and runs no destructors.
+/// Remove the socket at `path` when the process exits with
+/// [`EXIT_CORE_FAULT`] (from the panic hook or [`TaskEnded::exit`]): a
+/// core-fault exit is otherwise immediate and runs no destructors. Only a
+/// socket is removed (see [`remove_if_socket`]): whatever else is at `path`
+/// then — a regular file or symbolic link the RPC server refused to replace
+/// — is left alone.
 pub fn remove_on_fault_exit(path: impl Into<std::path::PathBuf>) {
     if let Ok(mut paths) = REMOVE_ON_FAULT_EXIT.lock() {
         paths.push(path.into());
+    }
+}
+
+/// Remove `path` if, and only if, it is a socket (not following a symbolic
+/// link). Returns whether it removed it. On a platform without Unix-domain
+/// sockets nothing is ever removed.
+pub fn remove_if_socket(path: &std::path::Path) -> std::io::Result<bool> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::FileTypeExt as _;
+        match std::fs::symlink_metadata(path) {
+            Ok(meta) if meta.file_type().is_socket() => std::fs::remove_file(path).map(|()| true),
+            Ok(_) => Ok(false),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(false)
     }
 }
 
@@ -87,7 +111,7 @@ pub fn remove_on_fault_exit(path: impl Into<std::path::PathBuf>) {
 fn fault_exit() -> ! {
     if let Ok(paths) = REMOVE_ON_FAULT_EXIT.try_lock() {
         for p in paths.iter() {
-            let _ = std::fs::remove_file(p);
+            let _ = remove_if_socket(p);
         }
     }
     std::process::exit(EXIT_CORE_FAULT)
