@@ -464,6 +464,31 @@ impl OtelExporter {
     }
 }
 
+/// Control requests [`Worker::drain`] took off the queue.
+#[derive(Default)]
+struct Drained {
+    flushes: Vec<mpsc::Sender<()>>,
+    shutdown: Option<mpsc::Sender<()>>,
+}
+
+impl Drained {
+    /// Answer the drained requests (the spans queued before them have been
+    /// sent). Returns whether one of them was a shutdown, i.e. the worker
+    /// must stop.
+    fn finish(self) -> bool {
+        for ack in self.flushes {
+            let _ = ack.send(());
+        }
+        match self.shutdown {
+            Some(ack) => {
+                let _ = ack.send(());
+                true
+            }
+            None => false,
+        }
+    }
+}
+
 struct Worker {
     cfg: OtelConfig,
     target: Target,
@@ -496,14 +521,20 @@ impl Worker {
                     }
                 }
                 Ok(Msg::Flush(ack)) => {
-                    self.drain(&rx, &mut batch);
+                    let found = self.drain(&rx, &mut batch);
                     self.send(&rt, &mut batch);
                     deadline = Instant::now() + self.cfg.flush_interval;
                     let _ = ack.send(());
+                    // A shutdown queued behind this flush was taken off the
+                    // queue by the drain: honour it here.
+                    if found.finish() {
+                        return;
+                    }
                 }
                 Ok(Msg::Shutdown(ack)) => {
-                    self.drain(&rx, &mut batch);
+                    let found = self.drain(&rx, &mut batch);
                     self.send(&rt, &mut batch);
+                    found.finish();
                     let _ = ack.send(());
                     return;
                 }
@@ -519,13 +550,19 @@ impl Worker {
         }
     }
 
-    /// Move every span already queued into `batch`.
-    fn drain(&self, rx: &mpsc::Receiver<Msg>, batch: &mut Vec<SpanRecord>) {
+    /// Move every span already queued into `batch`, keeping the control
+    /// requests found on the way (dropping one would lose its ack, and a
+    /// lost shutdown request would leave `shutdown()` joining forever).
+    fn drain(&self, rx: &mpsc::Receiver<Msg>, batch: &mut Vec<SpanRecord>) -> Drained {
+        let mut found = Drained::default();
         while let Ok(msg) = rx.try_recv() {
-            if let Msg::Span(s) = msg {
-                batch.push(*s);
+            match msg {
+                Msg::Span(s) => batch.push(*s),
+                Msg::Flush(ack) => found.flushes.push(ack),
+                Msg::Shutdown(ack) => found.shutdown = Some(ack),
             }
         }
+        found
     }
 
     /// Send `batch` in `batch_size` chunks; empties it.

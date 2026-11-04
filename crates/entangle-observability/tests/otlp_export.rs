@@ -444,6 +444,45 @@ fn shutdown_flushes_queued_spans() {
     exporter.shutdown();
 }
 
+/// A flush and a shutdown queued together: the flush's drain must not
+/// swallow the shutdown request (or `shutdown()` never returns), and every
+/// flush is answered.
+#[test]
+fn a_shutdown_queued_behind_a_flush_is_not_lost() {
+    // The collector never answers, so the worker is busy with the first
+    // batch while the flush and then the shutdown queue up behind it.
+    let collector = Collector::start(&[], true);
+    let cfg = OtelConfig {
+        batch_size: 1,
+        request_timeout: Duration::from_millis(500),
+        max_retries: 0,
+        ..config(collector.endpoint())
+    };
+    let exporter = OtelExporter::start(&cfg).unwrap();
+    traced(&exporter, || drop(info_span!("first")));
+    assert!(collector.wait_for(1), "the worker is posting the first batch");
+
+    let flusher = {
+        let e = exporter.clone();
+        std::thread::spawn(move || e.flush())
+    };
+    // Let the flush request reach the queue before the shutdown request.
+    std::thread::sleep(Duration::from_millis(100));
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    {
+        let e = exporter.clone();
+        std::thread::spawn(move || {
+            e.shutdown();
+            let _ = done_tx.send(());
+        });
+    }
+    assert!(
+        done_rx.recv_timeout(Duration::from_secs(10)).is_ok(),
+        "shutdown() did not return: the flush swallowed the shutdown request"
+    );
+    assert!(flusher.join().unwrap(), "the flush was answered");
+}
+
 #[test]
 fn a_full_batch_is_sent_without_waiting_for_the_interval() {
     let collector = Collector::start(&[], false);
