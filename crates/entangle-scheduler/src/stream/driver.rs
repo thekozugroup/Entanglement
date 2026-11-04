@@ -139,6 +139,12 @@ async fn sleep_until(deadline: Option<Instant>) {
 
 /// Flush `out` into the writer, close the writer, and wait for the peer to
 /// finish its side (bounded by [`LINGER`]).
+///
+/// A peer that has not taken the final frames within [`LINGER`] has stopped
+/// reading: the writer is then aborted rather than left parked on a write
+/// that may never complete, which would keep its queued frames and the
+/// stream alive after this function returns. Dropping the stream's send
+/// half unfinished resets a QUIC stream, so the transport lets go of it too.
 async fn linger(
     mut out: Outbound,
     wtx: mpsc::Sender<Vec<u8>>,
@@ -150,6 +156,7 @@ async fn linger(
         caps,
         task: reader,
     } = reading;
+    let abort_writer = writer.abort_handle();
     let flush = async {
         while let Some(frame) = out.frames.pop_front() {
             if wtx.send(frame).await.is_err() {
@@ -159,7 +166,9 @@ async fn linger(
         drop(wtx);
         let _ = writer.await;
     };
-    let _ = tokio::time::timeout(LINGER, flush).await;
+    if tokio::time::timeout(LINGER, flush).await.is_err() {
+        abort_writer.abort();
+    }
     let drain = async {
         // Whatever still arrives is discarded; only control-sized frames are
         // read, so a closing peer cannot make this end allocate.

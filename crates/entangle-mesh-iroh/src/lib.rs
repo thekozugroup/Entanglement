@@ -89,7 +89,9 @@ use entangle_types::task::OneShotTask;
 
 pub use crate::error::MeshIrohError;
 pub use crate::peer::{format_node_addr, parse_node_addr, IrohPeer};
-pub use crate::stream::{duplex_pair, FramedRecv, FramedSend, FramedStream, DEFAULT_DUPLEX_BUFFER};
+pub use crate::stream::{
+    duplex_pair, FramedRecv, FramedSend, FramedStream, DEFAULT_DUPLEX_BUFFER, STREAM_ABANDONED,
+};
 pub use crate::transport::{serve, MeshConn, MeshIroh, MeshRequest};
 
 /// ALPN for mesh membership / control traffic (spec §6.7). The default.

@@ -413,7 +413,7 @@ impl MeshConn {
             .open_bi()
             .await
             .map_err(|e| MeshIrohError::Stream(format!("opening stream: {e}")))?;
-        Ok(FramedStream::from_parts(
+        Ok(FramedStream::from_quic(
             send,
             recv,
             self.remote_public_key,
@@ -430,7 +430,7 @@ impl MeshConn {
             Err(e) if is_clean_close(&e) => return Ok(None),
             Err(e) => return Err(MeshIrohError::Stream(format!("accepting stream: {e}"))),
         };
-        Ok(Some(FramedStream::from_parts(
+        Ok(Some(FramedStream::from_quic(
             send,
             recv,
             self.remote_public_key,

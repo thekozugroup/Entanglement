@@ -28,22 +28,81 @@
 //! stalls costs one read buffer, not a frame-sized allocation.
 
 use std::fmt;
+use std::io;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use entangle_types::peer_id::PeerId;
+use iroh::endpoint::{RecvStream, SendStream, VarInt};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use crate::error::MeshIrohError;
 use crate::framing::{read_frame_or_eof, write_frame};
 
-/// A boxed async writer: a QUIC send stream or an in-memory pipe.
+/// A boxed async writer: an in-memory pipe or any other non-QUIC sink.
 type BoxedWrite = Box<dyn AsyncWrite + Send + Unpin>;
 /// A boxed async reader: a QUIC receive stream or an in-memory pipe.
 type BoxedRead = Box<dyn AsyncRead + Send + Unpin>;
 
+/// QUIC application error code a [`FramedSend`] dropped before
+/// [`FramedSend::finish`] resets its stream with.
+pub const STREAM_ABANDONED: u32 = 1;
+
+/// Where a [`FramedSend`] writes. A QUIC send stream is kept as itself so an
+/// abandoned one can be reset rather than implicitly finished.
+enum Writer {
+    Quic(SendStream),
+    Other(BoxedWrite),
+}
+
+impl AsyncWrite for Writer {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        match self.get_mut() {
+            // The trait method, not the inherent one (which has its own error type).
+            Self::Quic(s) => AsyncWrite::poll_write(Pin::new(s), cx, buf),
+            Self::Other(w) => Pin::new(w).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            Self::Quic(s) => AsyncWrite::poll_flush(Pin::new(s), cx),
+            Self::Other(w) => Pin::new(w).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match self.get_mut() {
+            Self::Quic(s) => AsyncWrite::poll_shutdown(Pin::new(s), cx),
+            Self::Other(w) => Pin::new(w).poll_shutdown(cx),
+        }
+    }
+}
+
 /// The sending half of a [`FramedStream`].
+///
+/// Dropping it before [`FramedSend::finish`] has succeeded **resets** a QUIC
+/// stream (code [`STREAM_ABANDONED`]): the peer sees a stream error rather
+/// than a clean end, and the local QUIC stack discards whatever it has not
+/// sent yet instead of keeping it — and the stream — alive until a peer that
+/// may never read again has read it.
 pub struct FramedSend {
-    inner: BoxedWrite,
+    inner: Writer,
     max_frame_bytes: usize,
+    finished: bool,
+}
+
+impl Drop for FramedSend {
+    fn drop(&mut self) {
+        if let (Writer::Quic(stream), false) = (&mut self.inner, self.finished) {
+            // Already finished or reset by the peer: nothing to discard.
+            let _ = stream.reset(VarInt::from_u32(STREAM_ABANDONED));
+        }
+    }
 }
 
 impl fmt::Debug for FramedSend {
@@ -73,7 +132,9 @@ impl FramedSend {
         self.inner
             .shutdown()
             .await
-            .map_err(|e| MeshIrohError::Stream(format!("finishing stream: {e}")))
+            .map_err(|e| MeshIrohError::Stream(format!("finishing stream: {e}")))?;
+        self.finished = true;
+        Ok(())
     }
 
     /// The largest payload [`FramedSend::send`] accepts.
@@ -150,14 +211,45 @@ impl FramedStream {
         W: AsyncWrite + Send + Unpin + 'static,
         R: AsyncRead + Send + Unpin + 'static,
     {
+        Self::assemble(
+            Writer::Other(Box::new(writer)),
+            Box::new(reader),
+            remote_public_key,
+            max_frame_bytes,
+        )
+    }
+
+    /// A framed stream over a QUIC bidirectional stream whose remote end the
+    /// handshake authenticated as `remote_public_key`.
+    pub(crate) fn from_quic(
+        send: SendStream,
+        recv: RecvStream,
+        remote_public_key: [u8; 32],
+        max_frame_bytes: usize,
+    ) -> Self {
+        Self::assemble(
+            Writer::Quic(send),
+            Box::new(recv),
+            remote_public_key,
+            max_frame_bytes,
+        )
+    }
+
+    fn assemble(
+        writer: Writer,
+        reader: BoxedRead,
+        remote_public_key: [u8; 32],
+        max_frame_bytes: usize,
+    ) -> Self {
         let max_frame_bytes = max_frame_bytes.clamp(1, crate::MAX_FRAME_BYTES);
         Self {
             send: FramedSend {
-                inner: Box::new(writer),
+                inner: writer,
                 max_frame_bytes,
+                finished: false,
             },
             recv: FramedRecv {
-                inner: Box::new(reader),
+                inner: reader,
                 max_frame_bytes,
             },
             remote_peer_id: PeerId::from_public_key_bytes(&remote_public_key),

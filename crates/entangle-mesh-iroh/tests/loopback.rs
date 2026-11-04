@@ -509,3 +509,60 @@ async fn relay_assisted_connect_reaches_a_relay() {
         .expect("endpoint must reach a relay within 30s");
     assert!(!t.local_addrs().is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// Long-lived framed streams (`entangle/stream/1`).
+// ---------------------------------------------------------------------------
+
+/// A framed stream whose send half is dropped without `finish` — its writer
+/// was abandoned, e.g. because the peer stopped reading — is **reset**: the
+/// peer sees a stream error, never a clean end of stream, and the sender's
+/// QUIC stack discards what it could not send instead of holding it (and the
+/// stream) until the peer reads.
+#[tokio::test]
+async fn an_abandoned_framed_stream_is_reset_not_finished() {
+    let stream_config = || MeshIrohConfig {
+        alpn: entangle_mesh_iroh::ALPN_STREAM.to_vec(),
+        ..loopback_config()
+    };
+    let (id_a, id_b) = (IdentityKeyPair::generate(), IdentityKeyPair::generate());
+    let a = MeshIroh::start(stream_config(), &id_a).await.unwrap();
+    let b = Arc::new(MeshIroh::start(stream_config(), &id_b).await.unwrap());
+    let b_peer = peer_of(&b);
+
+    // B accepts one stream and reports what each of its first two reads saw.
+    let reader = tokio::spawn(async move {
+        let inbound = b
+            .accept_alpn(entangle_mesh_iroh::ALPN_STREAM)
+            .await
+            .unwrap()
+            .expect("a connection");
+        let mut peer = inbound.accept_stream().await.unwrap().expect("a stream");
+        let first = peer.recv().await;
+        let second = peer.recv().await;
+        (first, second, inbound, b)
+    });
+
+    let conn = deadline(
+        "connect",
+        a.connect_alpn(&b_peer, entangle_mesh_iroh::ALPN_STREAM),
+    )
+    .await
+    .unwrap();
+    let mut io = deadline("open stream", conn.open_stream()).await.unwrap();
+    deadline("first frame", io.send(b"first")).await.unwrap();
+    // Let the frame reach B before the send half goes away.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let (send, _recv) = io.split();
+    drop(send);
+
+    let (first, second, _inbound, _b) = deadline("B's reads", reader).await.unwrap();
+    assert_eq!(first.unwrap().as_deref(), Some(&b"first"[..]));
+    match second {
+        Err(MeshIrohError::Stream(detail)) => {
+            assert!(detail.contains("reset"), "{detail}");
+        }
+        other => panic!("an abandoned stream must not look like a clean end: {other:?}"),
+    }
+    conn.close();
+}

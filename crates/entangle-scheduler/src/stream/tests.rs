@@ -1179,3 +1179,107 @@ async fn buffered_input_reaches_a_plugin_that_reads_before_it_yields() {
         .unwrap();
     assert_eq!(report.outcome, Ok(()));
 }
+
+/// A transport half whose peer never reads: every write stays pending
+/// forever. Dropping it drops the sender it holds, which is how a test sees
+/// the writer let go of it.
+struct StuckWriter(#[allow(dead_code)] tokio::sync::oneshot::Sender<()>);
+
+impl tokio::io::AsyncWrite for StuckWriter {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        _: &mut std::task::Context<'_>,
+        _: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        std::task::Poll::Pending
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        _: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::task::Poll::Pending
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        _: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::task::Poll::Pending
+    }
+}
+
+/// A transport half whose peer never sends anything.
+struct SilentReader;
+
+impl tokio::io::AsyncRead for SilentReader {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        _: &mut std::task::Context<'_>,
+        _: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::task::Poll::Pending
+    }
+}
+
+/// An executor machine for a stream with no submitter attached, pinging
+/// every `heartbeat`.
+fn lone_executor(heartbeat: Duration) -> ExecutorMachine {
+    let env = PolicyEnvelope::seal(&IntegrityPolicy::None).unwrap();
+    let limits = StreamLimits {
+        max_chunk_bytes: 64,
+        max_total_bytes: 1024,
+        credit_window: 4,
+        input_window: 4,
+        heartbeat,
+        credit_timeout: 5 * SEC,
+        timeout: 60 * SEC,
+    };
+    let task_id = task_with(channel()).id;
+    ExecutorMachine::new(
+        ExecutorConfig {
+            task_id,
+            policy_hash: env.hash(),
+            limits,
+            local_peer: PeerId::from_public_key_bytes(exec_key().public().as_bytes()),
+        },
+        ChunkSigner::new(exec_key(), *task_id.as_bytes(), env.hash()),
+        Instant::now(),
+    )
+}
+
+/// A submitter that stops reading must not leave the executor's writer
+/// task — the stream it owns and the frames queued for it — parked forever
+/// once the stream is over.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_executor_whose_submitter_stops_reading_lets_go_of_its_writer() {
+    use entangle_host::stream_port;
+    use entangle_mesh_iroh::{FramedStream, MAX_FRAME_BYTES};
+
+    let (writer_alive, writer_dropped) = tokio::sync::oneshot::channel::<()>();
+    let io = FramedStream::from_parts(
+        StuckWriter(writer_alive),
+        SilentReader,
+        *IdentityKeyPair::from_seed(&[9; 32]).public().as_bytes(),
+        MAX_FRAME_BYTES,
+    );
+    let (_guest_port, driver_port) = stream_port(1);
+    let plugin = std::future::pending::<Result<(), String>>();
+    let report = tokio::time::timeout(
+        Duration::from_secs(20),
+        driver::drive_executor(
+            lone_executor(Duration::from_millis(20)),
+            io,
+            driver_port,
+            plugin,
+            None,
+        ),
+    )
+    .await
+    .expect("the executor gives up on a submitter that never answers");
+    assert_eq!(report.outcome, Err(StreamError::PeerLost { missed: 3 }));
+    tokio::time::timeout(Duration::from_secs(2), writer_dropped)
+        .await
+        .expect("the writer let go of the stream when the executor returned")
+        .unwrap_err();
+}
