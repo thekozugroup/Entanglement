@@ -16,6 +16,16 @@
 //! [`TrustedPeer::new_validated`], which re-derives the peer id from the key
 //! and refuses a record where the two do not correspond.
 //!
+//! Both channels also exchange `mesh.peer` capability tokens (spec §6.3 step
+//! 4, [`entangle_pairing::grant`]): each side mints one rooted at its own
+//! identity key for the other, sends it inside the exchange, checks the one
+//! it receives, and stores it with the peer record (`peers.toml`, mode
+//! 0600) next to the revocation ids of the one it issued. Remote tasks and
+//! streams to that peer carry an attenuation of the stored token. A token
+//! that went out for a pairing that then fails or is not confirmed is
+//! revoked locally (`revoked-tokens.toml`), so it stays dead even if that
+//! device is put on the allowlist by hand later.
+//!
 //! # Blob format (manual channel)
 //! `ENT-{REQ,ACC,FIN}-<base64url>`, where the payload is the JSON
 //! serialisation of the envelope struct. JSON keeps the blobs inspectable.
@@ -29,9 +39,10 @@ use anyhow::{bail, Context};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use clap::Args;
+use entangle_pairing::grant;
 use entangle_pairing::mesh::{
-    dial_and_pair, discover_pairing_hosts, parse_node_addr, start_pairing_transport, IrohPeer,
-    PairingCandidate, PairingListener, PairingTransportExt as _, DEFAULT_PAIRING_BIND,
+    dial_and_pair_with_grant, discover_pairing_hosts, parse_node_addr, start_pairing_transport,
+    IrohPeer, PairingCandidate, PairingListener, PairingTransportExt as _, DEFAULT_PAIRING_BIND,
 };
 use entangle_pairing::net::HostConfig;
 use entangle_pairing::{
@@ -39,7 +50,7 @@ use entangle_pairing::{
     PairingRequest,
 };
 use entangle_pairing::{PairedPeer, PairingCode, ShortFingerprint, DEFAULT_MAX_ATTEMPTS};
-use entangle_peers::{PeerStore, TrustedPeer};
+use entangle_peers::{PeerStore, RevocationStore, TrustedPeer, REVOCATIONS_FILE};
 use entangle_signing::{IdentityPublicKey, Signature};
 use entangle_types::peer_id::PeerId;
 
@@ -265,16 +276,70 @@ fn identity_path(args: &PairArgs) -> PathBuf {
         .unwrap_or_else(|| entangle_dir().join("identity.key"))
 }
 
+/// The capability-token revocation set next to the peer list (where the
+/// daemon reads both).
+fn revocations(args: &PairArgs) -> anyhow::Result<RevocationStore> {
+    crate::cmd::peers::revocations_at(&peers_path(args).with_file_name(REVOCATIONS_FILE))
+}
+
 /// Store a paired peer, validating that the recorded id really is the
-/// fingerprint of the recorded key.
-fn persist(args: &PairArgs, peer_id: PeerId, pubkey_hex: &str, name: &str) -> anyhow::Result<()> {
+/// fingerprint of the recorded key, together with the token it issued this
+/// device (`received`) and the revocation ids of the token this device
+/// issued it (`issued`). A token this device issued to it in an earlier
+/// pairing is revoked (`PeerStore::add_paired`).
+fn persist(
+    args: &PairArgs,
+    peer_id: PeerId,
+    pubkey_hex: &str,
+    name: &str,
+    received: Option<&[u8]>,
+    issued: &[Vec<u8>],
+) -> anyhow::Result<()> {
     let peer = TrustedPeer::new_validated(peer_id, pubkey_hex.to_string(), name.to_string())
-        .context("refusing to store a peer whose id does not match its public key")?;
+        .context("refusing to store a peer whose id does not match its public key")?
+        .with_tokens(received, issued);
     let path = peers_path(args);
     let store = PeerStore::open(&path)?;
-    store.add(peer)?;
+    store.add_paired(peer, &revocations(args)?)?;
     eprintln!("✓ added to {}", path.display());
+    if received.is_some() {
+        eprintln!("✓ capability tokens exchanged (remote tasks and streams to it are authorised)");
+    } else {
+        eprintln!(
+            "warning: the other device sent no capability token (it runs an older version). \
+             It is paired, but this device's remote requests carry no token there; re-pair \
+             after upgrading it."
+        );
+    }
     Ok(())
+}
+
+/// Revoke the token this device issued in a pairing that did not complete:
+/// it may already be in the other device's hands.
+fn revoke_issued(args: &PairArgs, peer_id: PeerId, issued: &[Vec<u8>], why: &str) {
+    if issued.is_empty() {
+        return;
+    }
+    let result = revocations(args).and_then(|r| Ok(r.revoke(issued, &peer_id, why)?));
+    if let Err(e) = result {
+        eprintln!(
+            "warning: could not revoke the capability token sent to {} ({e:#}); remove that \
+             peer with `entangle peers remove` if it is ever added",
+            peer_id.to_hex()
+        );
+    }
+}
+
+/// Persist a pairing produced by `entangle-pairing` (the network channel).
+fn persist_paired(args: &PairArgs, paired: &PairedPeer) -> anyhow::Result<()> {
+    persist(
+        args,
+        paired.peer_id,
+        &paired.pubkey_hex,
+        &paired.display_name,
+        paired.capability_token.as_deref(),
+        &paired.issued_revocation_ids,
+    )
 }
 
 // ── Display name ──────────────────────────────────────────────────────────────
@@ -350,14 +415,17 @@ async fn run_responder(args: PairArgs) -> anyhow::Result<()> {
 
     report_pairing(&paired, listener.local_fingerprint());
     listener.shutdown().await;
-    confirm_or_abort(&args, &paired, "initiator")?;
+    if let Err(e) = confirm_or_abort(&args, &paired, "initiator") {
+        revoke_issued(
+            &args,
+            paired.peer_id,
+            &paired.issued_revocation_ids,
+            "pairing not confirmed",
+        );
+        return Err(e);
+    }
 
-    persist(
-        &args,
-        paired.peer_id,
-        &paired.pubkey_hex,
-        &paired.display_name,
-    )
+    persist_paired(&args, &paired)
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -374,24 +442,34 @@ async fn run_initiator(args: PairArgs) -> anyhow::Result<()> {
     let code = read_code(&args, &target_name)?;
 
     eprintln!("\nPairing with {target_name}…");
+    // This device's token for the target, minted up front so it can be
+    // revoked if the exchange fails after it was sent.
+    let target_id = PeerId::from_public_key_bytes(&target.public_key);
+    let issued = grant::issue(&kp, target_id).context("minting the capability token")?;
+    let issued_ids = issued.revocation_ids.clone();
     let transport = start_pairing_transport(&kp, args.bind_addr()?)
         .await
         .context("could not bind a local endpoint")?;
-    let paired = dial_and_pair(&transport, &target, &kp, &display_name, code).await;
+    let paired =
+        dial_and_pair_with_grant(&transport, &target, &kp, &display_name, code, issued).await;
     transport.shutdown().await;
-    let paired = paired.map_err(|e| anyhow::anyhow!(e)).context(
-        "pairing failed — check the code, and that the other device is still showing it",
-    )?;
+    let paired = match paired {
+        Ok(p) => p,
+        Err(e) => {
+            revoke_issued(&args, target_id, &issued_ids, "pairing failed");
+            return Err(anyhow::anyhow!(e)).context(
+                "pairing failed — check the code, and that the other device is still showing it",
+            );
+        }
+    };
 
     report_pairing(&paired, local_fingerprint);
-    confirm_or_abort(&args, &paired, "other device")?;
+    if let Err(e) = confirm_or_abort(&args, &paired, "other device") {
+        revoke_issued(&args, target_id, &issued_ids, "pairing not confirmed");
+        return Err(e);
+    }
 
-    persist(
-        &args,
-        paired.peer_id,
-        &paired.pubkey_hex,
-        &paired.display_name,
-    )
+    persist_paired(&args, &paired)
 }
 
 /// Print both fingerprints. The user compares them against the other screen —
@@ -613,6 +691,17 @@ fn run_manual_initiator(args: PairArgs) -> anyhow::Result<()> {
         .verify(&payload, &sig)
         .map_err(|_| anyhow::anyhow!("signature verification failed — pairing aborted"))?;
 
+    // The responder's capability token (if it sent one) must be a mesh.peer
+    // grant from its key to this device; then mint ours for it.
+    let their_peer_id = PeerId::from_public_key_bytes(&their_pubkey_arr);
+    let received = grant::check_optional(
+        accept.capability_token_hex.as_deref(),
+        &their_pubkey_arr,
+        peer_id,
+    )
+    .map_err(|e| anyhow::anyhow!("pairing aborted: {e}"))?;
+    let issued = grant::issue(&kp, their_peer_id).context("minting the capability token")?;
+
     eprintln!(
         "\n✓ Paired with peer '{}' ({})",
         accept.responder_display_name, their_fp
@@ -623,20 +712,31 @@ fn run_manual_initiator(args: PairArgs) -> anyhow::Result<()> {
     let finalize = PairingFinalize {
         signature_hex: my_sig.to_hex(),
         created_at_secs: now_secs(),
+        capability_token_hex: Some(grant::to_hex(&issued)),
     };
     let fin_blob = encode_blob(PREFIX_FIN, &finalize)?;
 
     if args.emit_finalize_file.is_none() {
         eprintln!("\nPaste this FINALIZE blob to the other device:\n");
     }
-    write_blob(args.emit_finalize_file.as_deref(), &fin_blob)?;
+    if let Err(e) = write_blob(args.emit_finalize_file.as_deref(), &fin_blob) {
+        revoke_issued(
+            &args,
+            their_peer_id,
+            &issued.revocation_ids,
+            "pairing failed",
+        );
+        return Err(e);
+    }
 
     // Persist their peer.
     persist(
         &args,
-        PeerId::from_public_key_bytes(&their_pubkey_arr),
+        their_peer_id,
         &accept.responder_pubkey_hex,
         &accept.responder_display_name,
+        received.as_deref(),
+        &issued.revocation_ids,
     )
 }
 
@@ -707,16 +807,20 @@ fn run_manual_responder(args: PairArgs) -> anyhow::Result<()> {
     }
     eprintln!("✓ Code matches");
 
-    // Sign the payload and emit ACCEPT blob.
+    // Sign the payload and emit ACCEPT blob, with this device's capability
+    // token for the initiator (it proved it knows the code).
     let payload = signing_payload(code, &request.nonce);
     let sig = kp.sign(&payload);
     let peer_id = PeerId::from_public_key_bytes(&pubkey_bytes);
+    let their_peer_id = PeerId::from_public_key_bytes(&their_pubkey_arr);
+    let issued = grant::issue(&kp, their_peer_id).context("minting the capability token")?;
     let accept = PairingAccept {
         responder_peer_id: peer_id,
         responder_pubkey_hex: hex::encode(pubkey_bytes),
         responder_display_name: display_name.clone(),
         signature_hex: sig.to_hex(),
         created_at_secs: now_secs(),
+        capability_token_hex: Some(grant::to_hex(&issued)),
     };
     let acc_blob = encode_blob(PREFIX_ACC, &accept)?;
 
@@ -725,7 +829,46 @@ fn run_manual_responder(args: PairArgs) -> anyhow::Result<()> {
     }
     write_blob(args.emit_accept_file.as_deref(), &acc_blob)?;
 
-    // Read FINALIZE blob.
+    // From here on the ACCEPT blob, with this device's token, is out: a
+    // pairing that does not complete revokes it.
+    let finished = finish_manual_responder(&payload, &their_pubkey_arr, peer_id, &args);
+    let received = match finished {
+        Ok(received) => received,
+        Err(e) => {
+            revoke_issued(
+                &args,
+                their_peer_id,
+                &issued.revocation_ids,
+                "pairing failed",
+            );
+            return Err(e);
+        }
+    };
+
+    eprintln!(
+        "\n✓ Paired with peer '{}' ({})",
+        request.initiator_display_name, their_fp
+    );
+
+    // Persist their peer.
+    persist(
+        &args,
+        their_peer_id,
+        &request.initiator_pubkey_hex,
+        &request.initiator_display_name,
+        received.as_deref(),
+        &issued.revocation_ids,
+    )
+}
+
+/// Read and verify the FINALIZE blob: the initiator's signature over
+/// `payload`, and its capability token for this device (`own_id`), if any.
+fn finish_manual_responder(
+    payload: &[u8; 64],
+    their_pubkey_arr: &[u8; 32],
+    own_id: PeerId,
+    args: &PairArgs,
+) -> anyhow::Result<Option<Vec<u8>>> {
     let fin_raw = if args.consume_finalize_file.is_some() {
         read_blob_line(args.consume_finalize_file.as_deref(), "")?
     } else {
@@ -737,24 +880,18 @@ fn run_manual_responder(args: PairArgs) -> anyhow::Result<()> {
         decode_blob(PREFIX_FIN, &fin_raw).context("failed to decode FINALIZE blob")?;
 
     // Verify initiator's signature over the same payload.
-    let their_pubkey = IdentityPublicKey::from_bytes(&their_pubkey_arr)
+    let their_pubkey = IdentityPublicKey::from_bytes(their_pubkey_arr)
         .map_err(|e| anyhow::anyhow!("invalid initiator pubkey: {e}"))?;
     let fin_sig = Signature::from_hex(&finalize.signature_hex)
         .map_err(|_| anyhow::anyhow!("signature mismatch: malformed FINALIZE signature"))?;
     their_pubkey
-        .verify(&payload, &fin_sig)
+        .verify(payload, &fin_sig)
         .map_err(|_| anyhow::anyhow!("signature verification failed — pairing aborted"))?;
 
-    eprintln!(
-        "\n✓ Paired with peer '{}' ({})",
-        request.initiator_display_name, their_fp
-    );
-
-    // Persist their peer.
-    persist(
-        &args,
-        PeerId::from_public_key_bytes(&their_pubkey_arr),
-        &request.initiator_pubkey_hex,
-        &request.initiator_display_name,
+    grant::check_optional(
+        finalize.capability_token_hex.as_deref(),
+        their_pubkey_arr,
+        own_id,
     )
+    .map_err(|e| anyhow::anyhow!("pairing aborted: {e}"))
 }

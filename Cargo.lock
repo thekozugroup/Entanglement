@@ -1846,6 +1846,7 @@ name = "entangle-pairing"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "entangle-biscuits",
  "entangle-mesh-iroh",
  "entangle-mesh-local",
  "entangle-peers",

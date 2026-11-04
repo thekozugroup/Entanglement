@@ -37,6 +37,12 @@ pub struct PairingAccept {
     pub signature_hex: String,
     /// Unix timestamp (seconds) when this accept was created.
     pub created_at_secs: u64,
+    /// Hex of the `mesh.peer` capability token the responder mints for the
+    /// initiator (spec §6.3 step 4; see [`crate::grant`]). Absent from a
+    /// device built before tokens existed: the pairing then completes
+    /// without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_token_hex: Option<String>,
 }
 
 /// Final mutual confirmation: initiator signs `(responder.nonce || code)` too.
@@ -46,6 +52,11 @@ pub struct PairingFinalize {
     pub signature_hex: String,
     /// Unix timestamp (seconds) when this finalization was created.
     pub created_at_secs: u64,
+    /// Hex of the `mesh.peer` capability token the finalizing side mints for
+    /// the other (spec §6.3 step 4; see [`crate::grant`]). Absent from a
+    /// device built before tokens existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_token_hex: Option<String>,
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

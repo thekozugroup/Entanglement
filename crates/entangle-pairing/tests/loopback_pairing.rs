@@ -183,6 +183,47 @@ async fn correct_code_pairs_both_devices_over_quic() {
     );
     assert_eq!(stored_by_host.public_key_hex, hex::encode(dialer_key));
 
+    // ── Spec §6.3 step 4: each side holds a mesh.peer token from the other ─
+    let host_key: [u8; 32] = hex::decode(&dialer_view.pubkey_hex)
+        .unwrap()
+        .try_into()
+        .unwrap();
+    let dialer_id = PeerId::from_public_key_bytes(&dialer_key);
+    let dialer_holds = dialer_view
+        .capability_token
+        .as_deref()
+        .expect("the host sent the dialer a token");
+    let host_holds = host_view
+        .capability_token
+        .as_deref()
+        .expect("the dialer sent the host a token");
+    let now = entangle_biscuits::templates::now_unix_secs();
+    let dialer_grant = entangle_biscuits::templates::verify_mesh_peer_grant(
+        dialer_holds,
+        &host_key,
+        dialer_id,
+        now,
+    )
+    .expect("rooted at the host, issued to the dialer");
+    let host_grant = entangle_biscuits::templates::verify_mesh_peer_grant(
+        host_holds,
+        &dialer_key,
+        host_peer_id,
+        now,
+    )
+    .expect("rooted at the dialer, issued to the host");
+    // Each side knows the revocation ids of the token it handed out.
+    assert_eq!(dialer_view.issued_revocation_ids, host_grant.revocation_ids);
+    assert_eq!(host_view.issued_revocation_ids, dialer_grant.revocation_ids);
+    // And a token is useless to anybody but its holder.
+    assert!(entangle_biscuits::templates::verify_mesh_peer_grant(
+        dialer_holds,
+        &host_key,
+        host_peer_id,
+        now
+    )
+    .is_err());
+
     assert_eq!(host.session().ended(), Some(SessionEnd::Paired));
     assert_eq!(host.session().attempts(), 0);
 
@@ -439,7 +480,7 @@ async fn dial_and_read_finalize_late(
 
     // A raw stream speaks the same framing as `MeshConn::request`, but lets the
     // read of the answer be delayed independently of the write.
-    let accept = PairingWire::Accept(dialer.accept_for(&offer))
+    let accept = PairingWire::Accept(dialer.accept_for(&offer).map_err(|e| e.to_string())?)
         .encode()
         .map_err(|e| e.to_string())?;
     let mut io = conn.open_stream().await.map_err(|e| e.to_string())?;
@@ -665,7 +706,8 @@ async fn wait_is_bounded_when_the_frame_that_ends_the_session_cannot_be_delivere
     };
     let accept = PairingWire::Accept(
         Dialer::new(&IdentityKeyPair::generate(), "x", PairingCode::generate())
-            .accept_for(&made_up_offer),
+            .accept_for(&made_up_offer)
+            .expect("an accept can be built for any offer"),
     )
     .encode()
     .expect("encode accept");
