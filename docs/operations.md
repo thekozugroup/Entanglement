@@ -379,7 +379,9 @@ ENTANGLE_BACKUP_PASSPHRASE=... entangle backup --to node.bak          # automati
 ```
 
 The archive holds `identity.key`, `keyring.toml`, `release-keyring.toml` and
-`peers.toml` (whichever exist) and, with `--include-config`, `config.toml`. It
+`peers.toml` (whichever exist) and, with `--include-config`, `config.toml`.
+Plugin data under `~/.entangle/data` is **not** archived (a deviation from
+architecture.md §9.6; back that directory up with your usual file backup). It
 is encrypted with a passphrase: Argon2id (64 MiB, 3 passes, 1 lane; above the
 OWASP minimum) derives a key for XChaCha20-Poly1305, and the format header
 (magic, version, KDF parameters, salt, nonce) is authenticated as associated
