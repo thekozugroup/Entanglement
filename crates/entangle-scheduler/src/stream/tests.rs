@@ -1225,8 +1225,7 @@ impl tokio::io::AsyncRead for SilentReader {
 /// An executor machine for a stream with no submitter attached, pinging
 /// every `heartbeat`.
 fn lone_executor(heartbeat: Duration) -> ExecutorMachine {
-    let env = PolicyEnvelope::seal(&IntegrityPolicy::None).unwrap();
-    let limits = StreamLimits {
+    executor_with(StreamLimits {
         max_chunk_bytes: 64,
         max_total_bytes: 1024,
         credit_window: 4,
@@ -1234,7 +1233,12 @@ fn lone_executor(heartbeat: Duration) -> ExecutorMachine {
         heartbeat,
         credit_timeout: 5 * SEC,
         timeout: 60 * SEC,
-    };
+    })
+}
+
+/// An executor machine under `limits`, with no submitter attached.
+fn executor_with(limits: StreamLimits) -> ExecutorMachine {
+    let env = PolicyEnvelope::seal(&IntegrityPolicy::None).unwrap();
     let task_id = task_with(channel()).id;
     ExecutorMachine::new(
         ExecutorConfig {
@@ -1328,4 +1332,71 @@ async fn a_refusal_to_a_peer_that_never_reads_is_bounded() {
         .await
         .expect("the refused stream is released")
         .unwrap_err();
+}
+
+/// Heartbeat frames are not queued behind data: a `Pong` answering a `Ping`
+/// that arrives while full chunk frames wait for a slow link overtakes them,
+/// so a healthy but bandwidth-bound stream is not declared lost.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_pong_overtakes_chunks_queued_for_a_slow_link() {
+    use entangle_host::{stream_port, OUTPUT_HANDLE};
+    use entangle_mesh_iroh::{duplex_pair, MAX_FRAME_BYTES};
+
+    // ~1 KiB of "link": the executor's writer blocks after a frame or two.
+    let (mut sub_io, exec_io) = duplex_pair(
+        *IdentityKeyPair::from_seed(&[9; 32]).public().as_bytes(),
+        *exec_key().public().as_bytes(),
+        MAX_FRAME_BYTES,
+        1024,
+    );
+    let machine = executor_with(StreamLimits {
+        max_chunk_bytes: 512,
+        max_total_bytes: 1 << 20,
+        credit_window: 32,
+        input_window: 4,
+        heartbeat: 60 * SEC,
+        credit_timeout: 60 * SEC,
+        timeout: 60 * SEC,
+    });
+    let (mut port, driver_port) = stream_port(1);
+    let plugin = async move {
+        for i in 0..32u8 {
+            port.yield_chunk(OUTPUT_HANDLE, vec![i; 500]).await?;
+        }
+        Ok(())
+    };
+    let executor = tokio::spawn(driver::drive_executor(
+        machine,
+        exec_io,
+        driver_port,
+        plugin,
+        None,
+    ));
+    // Let the executor fill every queue it has while nobody reads.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    sub_io
+        .send(&encode_frame(&Frame::Ping { seq: 77, ts_ms: 1 }).unwrap())
+        .await
+        .unwrap();
+    // …and let it answer: the Pong is queued while the chunks still wait.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let mut chunks_before_pong = 0;
+    loop {
+        let bytes = tokio::time::timeout(Duration::from_secs(10), sub_io.recv())
+            .await
+            .expect("a frame")
+            .unwrap()
+            .expect("the stream is open");
+        match decode_frame(&bytes, Side::Executor).unwrap() {
+            Frame::Pong { seq: 77, .. } => break,
+            Frame::Chunk(_) => chunks_before_pong += 1,
+            _ => {}
+        }
+    }
+    assert!(
+        chunks_before_pong <= 3,
+        "the Pong waited behind {chunks_before_pong} queued chunks"
+    );
+    executor.abort();
 }

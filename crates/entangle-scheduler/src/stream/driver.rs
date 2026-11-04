@@ -7,9 +7,12 @@
 //!   the machine computes ([`ExecutorMachine::frame_cap`] /
 //!   [`SubmitterMachine::frame_cap`]) — so an oversized chunk is refused from
 //!   its header, before allocation;
-//! * a **writer** task behind a small bounded queue, so a peer that stops
+//! * a **writer** task behind two small bounded queues, so a peer that stops
 //!   reading blocks the writer, never the timers: heartbeats, stall
-//!   detection and the wall-clock deadline keep running;
+//!   detection and the wall-clock deadline keep running. Heartbeat and
+//!   credit frames ([`Frame::is_urgent`]) have their own queue, which the
+//!   writer always drains first: a `Pong` waits for at most the frame being
+//!   written, never for every chunk queued for a slow link;
 //! * the **loop** itself, which feeds frames, timer expiries and
 //!   application requests into the machine and moves the frames it emits to
 //!   the writer.
@@ -37,15 +40,18 @@ use tokio::task::JoinHandle;
 
 use super::error::{Reason, Side, StreamError};
 use super::executor::{ExecutorMachine, InputPoll, SendOutcome};
-use super::frame::{decode_frame, encode_frame_owned, CONTROL_FRAME_MAX};
+use super::frame::{decode_frame, encode_frame_owned, Frame, CONTROL_FRAME_MAX};
 use super::partial::{finalize, StreamContext, StreamOutcome, StreamResult};
 use super::submitter::{ChunkPoll, InputSend, SubmitterMachine, SubmitterOptions, VerifiedChunk};
 use super::StreamEvent;
 use crate::reputation::{ReputationReason, ReputationStore};
 
-/// Frames the writer queue holds before the loop stops taking new plugin
-/// chunks.
+/// Data frames the writer queue holds before the loop stops taking new
+/// plugin chunks.
 const WRITE_QUEUE: usize = 8;
+
+/// Urgent frames (heartbeat, credit) the writer's priority queue holds.
+const URGENT_QUEUE: usize = 32;
 
 /// Frames waiting for the writer queue beyond which the peer is treated as
 /// gone (it has stopped reading while still sending, e.g. a ping flood).
@@ -98,10 +104,24 @@ fn spawn_reader(
     (rx, cap_tx, task)
 }
 
-fn spawn_writer(mut send: FramedSend) -> (mpsc::Sender<Vec<u8>>, JoinHandle<()>) {
-    let (tx, mut rx) = mpsc::channel::<Vec<u8>>(WRITE_QUEUE);
+/// The writer's two queues: urgent frames go out before any queued data
+/// frame; within each queue, order is kept.
+struct WriteQueues {
+    urgent: mpsc::Sender<Vec<u8>>,
+    data: mpsc::Sender<Vec<u8>>,
+}
+
+fn spawn_writer(mut send: FramedSend) -> (WriteQueues, JoinHandle<()>) {
+    let (urgent, mut urgent_rx) = mpsc::channel::<Vec<u8>>(URGENT_QUEUE);
+    let (data, mut data_rx) = mpsc::channel::<Vec<u8>>(WRITE_QUEUE);
     let task = tokio::spawn(async move {
-        while let Some(frame) = rx.recv().await {
+        loop {
+            let frame = tokio::select! {
+                biased;
+                Some(frame) = urgent_rx.recv() => frame,
+                Some(frame) = data_rx.recv() => frame,
+                else => break,
+            };
             if let Err(e) = send.send(&frame).await {
                 tracing::debug!(target: super::STREAM_TRACE_TARGET, error = %e, "stream writer stopped");
                 return;
@@ -109,7 +129,7 @@ fn spawn_writer(mut send: FramedSend) -> (mpsc::Sender<Vec<u8>>, JoinHandle<()>)
         }
         let _ = send.finish().await;
     });
-    (tx, task)
+    (WriteQueues { urgent, data }, task)
 }
 
 /// The reader task and its two channels.
@@ -119,15 +139,28 @@ struct Reading {
     task: JoinHandle<()>,
 }
 
-/// Encoded frames waiting for room in the writer queue.
+/// Encoded frames waiting for room in the writer's queues.
 #[derive(Default)]
 struct Outbound {
-    frames: VecDeque<Vec<u8>>,
+    urgent: VecDeque<Vec<u8>>,
+    data: VecDeque<Vec<u8>>,
 }
 
 impl Outbound {
-    fn is_empty(&self) -> bool {
-        self.frames.is_empty()
+    /// Encode `frame` onto the queue its kind belongs to.
+    fn push(&mut self, frame: Frame) -> Result<(), StreamError> {
+        let urgent = frame.is_urgent();
+        let bytes = encode_frame_owned(frame)?;
+        if urgent {
+            self.urgent.push_back(bytes);
+        } else {
+            self.data.push_back(bytes);
+        }
+        Ok(())
+    }
+
+    fn len(&self) -> usize {
+        self.urgent.len() + self.data.len()
     }
 }
 
@@ -145,12 +178,7 @@ async fn sleep_until(deadline: Option<Instant>) {
 /// that may never complete, which would keep its queued frames and the
 /// stream alive after this function returns. Dropping the stream's send
 /// half unfinished resets a QUIC stream, so the transport lets go of it too.
-async fn linger(
-    mut out: Outbound,
-    wtx: mpsc::Sender<Vec<u8>>,
-    writer: JoinHandle<()>,
-    reading: Reading,
-) {
+async fn linger(mut out: Outbound, wq: WriteQueues, writer: JoinHandle<()>, reading: Reading) {
     let Reading {
         mut rx,
         caps,
@@ -158,12 +186,14 @@ async fn linger(
     } = reading;
     let abort_writer = writer.abort_handle();
     let flush = async {
-        while let Some(frame) = out.frames.pop_front() {
-            if wtx.send(frame).await.is_err() {
-                break;
+        let WriteQueues { urgent, data } = wq;
+        for (queue, tx) in [(&mut out.urgent, urgent), (&mut out.data, data)] {
+            while let Some(frame) = queue.pop_front() {
+                if tx.send(frame).await.is_err() {
+                    break;
+                }
             }
         }
-        drop(wtx);
         let _ = writer.await;
     };
     if tokio::time::timeout(LINGER, flush).await.is_err() {
@@ -248,7 +278,7 @@ where
         caps,
         task: reader,
     };
-    let (wtx, writer) = spawn_writer(send);
+    let (wq, writer) = spawn_writer(send);
     let mut out = Outbound::default();
     let mut seen = Vec::new();
     let mut plugin = std::pin::pin!(plugin);
@@ -314,12 +344,12 @@ where
             }
             break;
         }
-        if out.frames.len() > MAX_PENDING_FRAMES {
+        if out.len() > MAX_PENDING_FRAMES {
             m.on_transport_lost("the submitter stopped reading the stream".into());
             continue;
         }
         let deadline = m.poll_timeout();
-        let take_chunk = chunks_open && pending.is_none() && out.is_empty();
+        let take_chunk = chunks_open && pending.is_none() && out.data.is_empty();
         // The plugin's input channel holds one item: when the guest takes
         // it, the next buffered chunk (or the input's end) must follow at
         // once, not at the loop's next unrelated wake-up.
@@ -340,9 +370,17 @@ where
                 Some(ReadItem::Failed(e)) => m.on_transport_lost(e),
                 None => m.on_transport_lost("stream reader stopped".into()),
             },
-            permit = wtx.reserve(), if !out.is_empty() => match permit {
+            permit = wq.urgent.reserve(), if !out.urgent.is_empty() => match permit {
                 Ok(permit) => {
-                    if let Some(frame) = out.frames.pop_front() {
+                    if let Some(frame) = out.urgent.pop_front() {
+                        permit.send(frame);
+                    }
+                }
+                Err(_) => m.on_transport_lost("stream writer stopped".into()),
+            },
+            permit = wq.data.reserve(), if !out.data.is_empty() => match permit {
+                Ok(permit) => {
+                    if let Some(frame) = out.data.pop_front() {
                         permit.send(frame);
                     }
                 }
@@ -376,7 +414,7 @@ where
 
     // Close the plugin's input so a guest still reading sees the end.
     drop(port);
-    linger(out, wtx, writer, reading).await;
+    linger(out, wq, writer, reading).await;
     let outcome = match m.error() {
         None => Ok(()),
         Some(e) => Err(e.clone()),
@@ -402,11 +440,8 @@ where
 
 fn move_frames_executor(m: &mut ExecutorMachine, out: &mut Outbound) {
     while let Some(frame) = m.poll_transmit() {
-        match encode_frame_owned(frame) {
-            Ok(bytes) => out.frames.push_back(bytes),
-            Err(e) => {
-                m.fail(StreamError::Transport(e.to_string()));
-            }
+        if let Err(e) = out.push(frame) {
+            m.fail(StreamError::Transport(e.to_string()));
         }
     }
 }
@@ -745,7 +780,7 @@ async fn drive_submitter(
         caps,
         task: reader,
     };
-    let (wtx, writer) = spawn_writer(send);
+    let (wq, writer) = spawn_writer(send);
     let mut out = Outbound::default();
     let mut pending_next: Option<oneshot::Sender<ChunkPoll>> = None;
     let mut pending_input: Option<(Vec<u8>, Reply)> = None;
@@ -792,11 +827,8 @@ async fn drive_submitter(
             }
         }
         while let Some(frame) = m.poll_transmit() {
-            match encode_frame_owned(frame) {
-                Ok(bytes) => out.frames.push_back(bytes),
-                Err(e) => {
-                    m.fail(StreamError::Transport(e.to_string()));
-                }
+            if let Err(e) = out.push(frame) {
+                m.fail(StreamError::Transport(e.to_string()));
             }
         }
         while let Some(event) = m.poll_event() {
@@ -807,7 +839,7 @@ async fn drive_submitter(
         if m.is_terminal() {
             break;
         }
-        if out.frames.len() > MAX_PENDING_FRAMES {
+        if out.len() > MAX_PENDING_FRAMES {
             m.on_transport_lost("the executor stopped reading the stream".into());
             continue;
         }
@@ -828,9 +860,17 @@ async fn drive_submitter(
                 Some(ReadItem::Failed(e)) => m.on_transport_lost(e),
                 None => m.on_transport_lost("stream reader stopped".into()),
             },
-            permit = wtx.reserve(), if !out.is_empty() => match permit {
+            permit = wq.urgent.reserve(), if !out.urgent.is_empty() => match permit {
                 Ok(permit) => {
-                    if let Some(frame) = out.frames.pop_front() {
+                    if let Some(frame) = out.urgent.pop_front() {
+                        permit.send(frame);
+                    }
+                }
+                Err(_) => m.on_transport_lost("stream writer stopped".into()),
+            },
+            permit = wq.data.reserve(), if !out.data.is_empty() => match permit {
+                Ok(permit) => {
+                    if let Some(frame) = out.data.pop_front() {
                         permit.send(frame);
                     }
                 }
@@ -862,9 +902,7 @@ async fn drive_submitter(
 
     // Terminal: move the final frames out, then answer whatever is pending.
     while let Some(frame) = m.poll_transmit() {
-        if let Ok(bytes) = encode_frame_owned(frame) {
-            out.frames.push_back(bytes);
-        }
+        let _ = out.push(frame);
     }
     while let Some(event) = m.poll_event() {
         if let Some(tx) = &options.events {
@@ -891,7 +929,7 @@ async fn drive_submitter(
             other => break other,
         }
     };
-    linger(out, wtx, writer, reading).await;
+    linger(out, wq, writer, reading).await;
 
     let outcome = match &terminal {
         ChunkPoll::Ended(end) => StreamOutcome::Complete(end.clone()),

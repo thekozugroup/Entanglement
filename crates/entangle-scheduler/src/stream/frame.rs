@@ -292,6 +292,25 @@ impl Frame {
         }
     }
 
+    /// `true` for the frames a sender may put ahead of data frames it has
+    /// already queued: the heartbeat (`Ping`, `Pong`) and `Credit`, none of
+    /// which carries data or needs to stay in order with it, plus the
+    /// stream-opening `Open` / `Accepted`, which precede everything anyway.
+    ///
+    /// Everything else stays in order: `End` must follow the last chunk,
+    /// `InputEnd` the last input chunk, and `Error` / `Cancel` must not cut
+    /// off chunks the peer may keep as a partial result.
+    pub const fn is_urgent(&self) -> bool {
+        matches!(
+            self,
+            Self::Open(_)
+                | Self::Accepted(_)
+                | Self::Ping { .. }
+                | Self::Pong { .. }
+                | Self::Credit { .. }
+        )
+    }
+
     /// An `Error` frame, its message truncated to [`MAX_ERROR_MESSAGE_BYTES`].
     pub fn error(reason: Reason, message: impl Into<String>) -> Self {
         let mut message = message.into();
