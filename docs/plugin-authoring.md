@@ -515,7 +515,8 @@ from `ENTANGLE_PLUGIN_ID`. `storage.local { scope = "plugin" }` adds a private
 directory at `$ENTANGLE_DATA_DIR` — the same host directory a wasm plugin sees
 as `/data`, read-write or read-only per `mode`. For native plugins `net.lan`
 and `net.wan` currently grant IP networking as a whole; the per-address rules
-above apply to wasm plugins.
+above apply to wasm plugins. For the same reason an operator who denies either
+one (`[security] deny_capabilities`) denies a native plugin both.
 
 Native plugins are refused on hosts with no sandbox primitive, and operators
 can disable them entirely with `[security] max_tier_allowed = 3` (or tier 5

@@ -399,3 +399,85 @@ fn registration_refuses_capabilities_above_the_manifest_tier() {
     m.effective_tier = entangle_types::tier::Tier::Native;
     broker.register_plugin(m).unwrap();
 }
+
+fn native_manifest(name: &str, caps: &str) -> ValidatedManifest {
+    let text = format!(
+        r#"
+[plugin]
+id = "{PUB}/{name}@0.1.0"
+version = "0.1.0"
+tier = 4
+runtime = "native"
+
+[capabilities]
+{caps}
+"#
+    );
+    let raw: Manifest = toml::from_str(&text).expect("toml");
+    validate(raw).expect("valid manifest")
+}
+
+/// A native plugin's OS sandbox grants IP networking as a whole: it cannot
+/// keep a `net.lan` grant off the WAN, or a host-limited `net.wan` off the
+/// LAN. So when the operator denies either network capability, a native
+/// plugin gets neither — otherwise `deny_capabilities = ["net.wan"]` would
+/// not stop a native plugin's WAN egress. Wasm plugins, whose rules are
+/// per address, keep the other one.
+#[test]
+fn operator_net_denial_covers_both_net_capabilities_of_a_native_plugin() {
+    for (deny, declared) in [
+        ("net.wan", r#""net.lan" = {}"#),
+        ("net.lan", r#""net.wan" = { hosts = ["api.example.com:443"] }"#),
+    ] {
+        let reg = Registry::new();
+        let broker = Broker::new(policy(&[deny])).with_metrics(reg.clone());
+        let m = native_manifest("native-net", &format!("\"compute.cpu\" = {{}}\n{declared}"));
+        let id = m.plugin_id.clone();
+        let net = m
+            .capabilities
+            .iter()
+            .find(|c| c.family().starts_with("net."))
+            .unwrap()
+            .clone();
+        broker.register_plugin(m).unwrap();
+
+        let resolution = broker.grant_declared(&id).unwrap();
+        assert_eq!(
+            resolution
+                .granted
+                .iter()
+                .map(|g| g.kind.clone())
+                .collect::<Vec<_>>(),
+            vec![CapabilityKind::ComputeCpu],
+            "deny {deny}: a native plugin's {} must not be granted",
+            net.key()
+        );
+        assert_eq!(resolution.denied.len(), 1);
+        assert!(
+            resolution.denied[0].1.starts_with("ENTANGLE-E0124"),
+            "{}",
+            resolution.denied[0].1
+        );
+        let err = broker.grant_by_key(&id, &net.key()).unwrap_err();
+        assert!(
+            matches!(err, BrokerError::CapabilityDeniedByPolicy(_)),
+            "{err}"
+        );
+        assert_eq!(
+            denial_count(&reg, net.family(), "operator_policy"),
+            Some(2.0)
+        );
+        let report = broker.capability_report(&id).unwrap();
+        let state = &report.iter().find(|s| s.capability == net).unwrap().state;
+        assert!(matches!(state, GrantState::Denied { .. }), "{state:?}");
+    }
+
+    // The same denial leaves a wasm plugin its other network capability.
+    let broker = Broker::new(policy(&["net.wan"]));
+    let m = manifest("wasm-net", r#""net.lan" = {}"#);
+    let id = m.plugin_id.clone();
+    broker.register_plugin(m).unwrap();
+    let resolution = broker.grant_declared(&id).unwrap();
+    assert_eq!(resolution.granted.len(), 1);
+    assert_eq!(resolution.granted[0].kind, CapabilityKind::NetLan);
+}

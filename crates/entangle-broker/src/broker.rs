@@ -10,6 +10,8 @@
 //!   [`BrokerPolicy::max_tier_allowed`] are refused at registration.
 //! - **Operator policy** (spec §4.5): a capability matching
 //!   [`BrokerPolicy::denied_capabilities`] is never granted, declared or not.
+//!   For a native plugin, whose OS sandbox allows or forbids IP networking
+//!   as a whole, denying either `net.lan` or `net.wan` denies both.
 //! - **Revocation** (spec §4.6): [`Broker::revoke`] withdraws a capability
 //!   from a plugin for the rest of its registration; later requests are
 //!   refused as revoked.
@@ -28,7 +30,7 @@ use crate::{
     policy::{BrokerPolicy, CrossNodePolicy},
 };
 use entangle_biscuits::verifier;
-use entangle_manifest::ValidatedManifest;
+use entangle_manifest::{Runtime, ValidatedManifest};
 use entangle_types::{
     capability::CapabilityKind, peer_id::PeerId, plugin_id::PluginId, tier::Tier,
 };
@@ -480,12 +482,9 @@ impl Broker {
                         GrantState::Denied {
                             reason: e.to_string(),
                         }
-                    } else if let Some(p) = self.policy.denies(cap) {
+                    } else if let Some(detail) = self.operator_denial(&record.manifest, cap) {
                         GrantState::Denied {
-                            reason: format!(
-                                "operator policy (deny_capabilities = {:?})",
-                                p.as_str()
-                            ),
+                            reason: format!("operator policy (deny_capabilities = {detail:?})"),
                         }
                     } else {
                         let mut grant_ids: Vec<GrantId> = table
@@ -510,6 +509,36 @@ impl Broker {
         )
     }
 
+    /// Why the operator's deny list refuses `cap` to the plugin whose
+    /// manifest is `manifest`: the matching pattern, or `None`.
+    ///
+    /// A native plugin's OS sandbox can only allow or forbid IP networking
+    /// as a whole, so for it `net.lan` and `net.wan` are one authority: a
+    /// pattern denying either denies both. Otherwise denying `net.wan` would
+    /// not stop the WAN egress a granted `net.lan` gives a native plugin
+    /// (wasm plugins' rules are per address and keep the other one).
+    fn operator_denial(&self, manifest: &ValidatedManifest, cap: &CapabilityKind) -> Option<String> {
+        if let Some(p) = self.policy.denies(cap) {
+            return Some(p.as_str().to_owned());
+        }
+        let is_net = matches!(cap, CapabilityKind::NetLan | CapabilityKind::NetWan { .. });
+        if manifest.runtime != Runtime::Native || !is_net {
+            return None;
+        }
+        [
+            CapabilityKind::NetLan,
+            CapabilityKind::NetWan { hosts: Vec::new() },
+        ]
+        .iter()
+        .find_map(|other| self.policy.denies(other))
+        .map(|p| {
+            format!(
+                "{} (a native sandbox cannot separate net.lan from net.wan)",
+                p.as_str()
+            )
+        })
+    }
+
     /// The broker's decision for `requested`, issuing the grant (under the
     /// plugin's table lock) when every check passes.
     fn decide(&self, record: &PluginRecord, requested: &CapabilityKind) -> Result<GrantId, Denial> {
@@ -526,8 +555,8 @@ impl Broker {
             return Err(Denial::TierCeiling(e.to_string()));
         }
         // Operator deny list (§4.5).
-        if let Some(p) = self.policy.denies(requested) {
-            return Err(Denial::OperatorPolicy(p.as_str().to_owned()));
+        if let Some(detail) = self.operator_denial(&record.manifest, requested) {
+            return Err(Denial::OperatorPolicy(detail));
         }
         let mut table = record.table.lock();
         if table.revoked.contains(requested.key().as_ref()) {

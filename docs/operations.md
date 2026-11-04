@@ -586,7 +586,7 @@ reported as *reduced* (UDP not isolated) rather than silently accepted.
 | `storage.local { scope = "plugin" }` | `~/.entangle/data/plugins/<publisher>/<name>` = `$ENTANGLE_DATA_DIR` = `$HOME` = cwd; rw, or ro with `mode = "ro"` |
 | `storage.local { scope = "shared" }` | `~/.entangle/data/shared` = `$ENTANGLE_SHARED_DIR`; rw, or ro with `mode = "ro"` |
 | `storage.share.<n>` | `~/.entangle/data/shares/<n>` (ro / rw / rw-scoped per mode) = `$ENTANGLE_SHARE_<N>`; `<n>` must match `[a-z0-9][a-z0-9_-]*`, so a share can never name a path outside `shares/` (`ENTANGLE-E0743`) |
-| `net.lan`, `net.wan` | IP networking (no per-host allowlist yet — wasm plugins get per-address rules, §15) |
+| `net.lan`, `net.wan` | IP networking as a whole (no per-host allowlist yet — wasm plugins get per-address rules, §15); an operator denial of either refuses both to a native plugin |
 | `compute.gpu` | read, write and ioctl on `/dev/dri`, `/dev/kfd`, `/dev/nvidia*` when present (ordinary scopes never get device ioctls) |
 | `host.docker-socket` | rw `/var/run/docker.sock` + `AF_UNIX` sockets |
 
@@ -929,7 +929,11 @@ Each is granted unless the operator's policy refuses it:
   network, `capability.fetch` answers `not-granted` with `ENTANGLE-E0124`.
   This follows §4.5, where the deny decision is made per capability request,
   and lets an operator run a plugin with less than it asked for; plugins are
-  expected to degrade gracefully.
+  expected to degrade gracefully. A native plugin's OS sandbox can only allow
+  or forbid IP networking as a whole, so for a native plugin denying either
+  `net.lan` or `net.wan` denies both — `deny_capabilities = ["net.wan"]`
+  leaves a native plugin no network at all rather than a `net.lan` grant that
+  would reach the WAN too.
 
 These load-time grants are what both runtimes build the sandbox from: the
 OS-sandbox profile for native plugins (§12), the WASI context for wasm
