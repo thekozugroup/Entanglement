@@ -13,6 +13,8 @@
 //! - [`metrics_server`] — the Prometheus `/metrics` scrape endpoint.
 //! - [`perms`] — `perms/list` and `perms/revoke`: plugins' capability grants.
 //! - [`maintenance`] — built-in tier-2 maintenance loop (log rotation, GC, nags).
+//! - [`mesh`] — multi-transport scheduling: shared task/stream servers,
+//!   the per-peer transport router, mDNS sightings as `local` routes.
 //! - [`methods`] — JSON-RPC 2.0 method dispatch (`version`, `plugins/*`).
 //! - [`remote`] — cross-node scheduler transport: serving work to trusted
 //!   peers and dispatching work to them. Off unless configured.
@@ -25,6 +27,7 @@
 pub mod config;
 pub mod diag;
 pub mod maintenance;
+pub mod mesh;
 pub mod methods;
 pub mod metrics_server;
 pub mod perms;

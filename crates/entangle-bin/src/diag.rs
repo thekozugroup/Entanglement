@@ -4,29 +4,44 @@
 //! view: which transports are configured and which actually started, the
 //! addresses this node can be reached at, whether the tailnet is up, and, for
 //! every trusted peer, each path a transport currently knows (mDNS sighting,
-//! iroh address-book entry, tailscale candidate). With `probe`, it also
-//! measures a round trip on every path that can carry one.
+//! iroh address-book entry, tailscale candidate) and how remote dispatch
+//! picks among them (the order it would try, what it skips and why, and the
+//! transport it last used). With `probe`, it also measures a round trip on
+//! every path that can carry one.
 //!
 //! # How a probe works
 //!
-//! * **iroh** — a scheduler *control frame* naming a task that does not
-//!   exist. The peer authenticates the connection, checks its allowlist and
-//!   answers `UnknownTask` without running anything. Receiving any answer
-//!   proves the path end to end (dial, handshake, authorization, framing);
-//!   `NotAuthorized` is reported as reachable-but-not-trusted-by-them.
-//! * **tailscale** — one request over the identity-bound tailnet session.
-//! * **mDNS** — a sighting is passive; it has no round trip to measure.
+//! Every probe is a scheduler *control frame* naming a task that does not
+//! exist, sent over that one path. The peer authenticates the connection,
+//! checks its allowlist and answers `UnknownTask` without running anything.
+//! Receiving any answer proves the path end to end (dial, handshake,
+//! authorization, framing); `NotAuthorized` is reported as
+//! reachable-but-not-trusted-by-them.
+//!
+//! * **iroh** — over the iroh endpoint to the address-book entry.
+//! * **tailscale** — over the tailnet session (`entangle/scheduler/1`
+//!   selected on the connection).
+//! * **mDNS** — a sighting is passive, but when this node runs the iroh
+//!   endpoint and the sighting advertises a key and mesh port, the LAN path
+//!   (`local`) is probed directly.
 //!
 //! Probes run concurrently, one task per `(peer, path)`, each bounded by the
 //! caller's timeout (clamped to [`MAX_PROBE_TIMEOUT`]).
 
 use crate::state::DaemonState;
 use entangle_peers::TrustLevel;
-use entangle_rpc::methods::{DiagEndpoint, DiagMeshResult, DiagPath, DiagPeer, DiagTailscale};
+use entangle_rpc::methods::{
+    DiagEndpoint, DiagMeshResult, DiagPath, DiagPeer, DiagRoute, DiagTailscale,
+};
+use entangle_scheduler::transport::DialTarget;
 use entangle_scheduler::work_unit::hash_canonical;
-use entangle_scheduler::{ControlAction, ControlFrame, DispatchError, RemoteErrorCode};
+use entangle_scheduler::{
+    ControlAction, ControlFrame, DispatchError, RemoteErrorCode, TailscaleLink, TransportKind,
+    TransportRouter,
+};
 use entangle_types::peer_id::PeerId;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
 /// Upper bound on a client-supplied probe timeout.
@@ -34,9 +49,6 @@ pub const MAX_PROBE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Probe timeout when the caller sends `0`.
 pub const DEFAULT_PROBE_TIMEOUT: Duration = Duration::from_secs(3);
-
-/// Payload of a tailscale probe request (the peer's handler ignores it).
-const TAILSCALE_PING: &[u8] = b"entangle-diag-ping";
 
 /// Build the mesh report. See the module docs.
 pub async fn mesh_report(
@@ -129,6 +141,11 @@ pub async fn mesh_report(
         .collect();
     trusted.sort_by_key(|p| p.peer_id.to_hex());
 
+    let router = state.dispatcher.remote().map(|r| Arc::clone(r.router()));
+    let has_local = router
+        .as_ref()
+        .is_some_and(|r| r.transports().contains(&TransportKind::Local));
+
     let mut peers = Vec::with_capacity(trusted.len());
     // (peer index, path index, future) for probes, collected then joined.
     let mut probes = tokio::task::JoinSet::new();
@@ -137,6 +154,19 @@ pub async fn mesh_report(
         if let Some(seen) = sightings.get(&tp.peer_id) {
             let ago = seen.last_seen.elapsed().map(|d| d.as_secs()).unwrap_or(0);
             let ips: Vec<String> = seen.addresses.iter().map(|a| a.to_string()).collect();
+            let pi_path = paths.len();
+            if probe && has_local && seen.is_dialable() {
+                if let Some(remote) = state.dispatcher.remote().cloned() {
+                    let peer = tp.peer_id;
+                    probes.spawn(async move {
+                        (
+                            pi,
+                            pi_path,
+                            probe_via(&remote, peer, TransportKind::Local, timeout).await,
+                        )
+                    });
+                }
+            }
             paths.push(DiagPath {
                 transport: "mdns".into(),
                 address: ips.first().map(|ip| format!("{ip}:{}", seen.port)),
@@ -166,7 +196,11 @@ pub async fn mesh_report(
                     Some(remote) => {
                         let peer = tp.peer_id;
                         probes.spawn(async move {
-                            (pi, pi_path, probe_iroh(&remote, peer, timeout).await)
+                            (
+                                pi,
+                                pi_path,
+                                probe_via(&remote, peer, TransportKind::Iroh, timeout).await,
+                            )
                         });
                     }
                     None => paths[pi_path].probe_error = Some("no iroh transport running".into()),
@@ -188,17 +222,19 @@ pub async fn mesh_report(
             });
             if probe {
                 if let Some(ts) = &diag.tailscale {
-                    let (transport, cand) = (ts.transport.clone(), cand.clone());
+                    let link = TailscaleLink::new(ts.transport.clone(), ts.liveness.clone());
+                    let cand = cand.clone();
                     probes.spawn(async move {
                         (
                             pi,
                             pi_path,
-                            probe_tailscale(&transport, &cand, timeout).await,
+                            probe_tailscale(&link, cand, timeout).await,
                         )
                     });
                 }
             }
         }
+        let route = router.as_ref().map(|r| route_of(r, &tp.peer_id));
         peers.push(DiagPeer {
             peer_id: tp.peer_id.to_hex(),
             display_name: tp.display_name.clone(),
@@ -209,6 +245,7 @@ pub async fn mesh_report(
             }
             .into(),
             paths,
+            route,
         });
     }
 
@@ -257,22 +294,61 @@ fn ms(since: Instant) -> f64 {
     since.elapsed().as_secs_f64() * 1000.0
 }
 
-async fn probe_iroh(
-    remote: &entangle_scheduler::RemoteDispatch,
-    peer: PeerId,
-    timeout: Duration,
-) -> ProbeOutcome {
-    // A control frame about a task that does not exist: answered with
-    // `UnknownTask` after authentication and authorization, executing nothing.
-    let frame = ControlFrame {
+/// How dispatch would route to `peer`, and what it last used.
+fn route_of(router: &TransportRouter, peer: &PeerId) -> DiagRoute {
+    let plan = router.plan(peer);
+    let last = router.last_route(peer);
+    DiagRoute {
+        order: plan
+            .candidates
+            .iter()
+            .map(|c| c.transport.as_str().to_owned())
+            .collect(),
+        skipped: plan
+            .skipped
+            .iter()
+            .map(|s| format!("{}: {}", s.transport, s.reason))
+            .collect(),
+        last_used: last.as_ref().map(|r| r.transport.as_str().to_owned()),
+        last_used_secs: last
+            .and_then(|r| SystemTime::now().duration_since(r.at).ok())
+            .map(|d| d.as_secs()),
+        overridden: router.policy().has_override(peer),
+    }
+}
+
+/// A control frame about a task that does not exist: answered with
+/// `UnknownTask` after authentication and authorization, executing nothing.
+fn probe_frame() -> ControlFrame {
+    ControlFrame {
         task_id: *uuid::Uuid::new_v4().as_bytes(),
         action: ControlAction::SetPolicy {
             policy: Vec::new(),
             policy_hash: hash_canonical(&[]),
         },
-    };
+    }
+}
+
+async fn probe_via(
+    remote: &entangle_scheduler::RemoteDispatch,
+    peer: PeerId,
+    transport: TransportKind,
+    timeout: Duration,
+) -> ProbeOutcome {
     let started = Instant::now();
-    match remote.send_control(peer, frame, timeout).await {
+    classify(
+        started,
+        remote
+            .send_control_via(peer, probe_frame(), timeout, Some(transport))
+            .await,
+    )
+}
+
+fn classify(
+    started: Instant,
+    answer: Result<entangle_scheduler::work_unit::PolicyHash, DispatchError>,
+) -> ProbeOutcome {
+    match answer {
         // Not expected (the task id is random) but still an answer.
         Ok(_) => ProbeOutcome::Rtt(ms(started)),
         Err(DispatchError::RemoteRejected {
@@ -293,15 +369,21 @@ async fn probe_iroh(
     }
 }
 
+/// Probe a tailnet candidate directly (whatever the routing policy says).
 async fn probe_tailscale(
-    transport: &entangle_mesh_tailscale::MeshTailscale,
-    peer: &entangle_mesh_tailscale::TailscalePeer,
+    link: &TailscaleLink,
+    peer: entangle_mesh_tailscale::TailscalePeer,
     timeout: Duration,
 ) -> ProbeOutcome {
     let started = Instant::now();
-    match tokio::time::timeout(timeout, transport.request(peer, TAILSCALE_PING)).await {
-        Ok(Ok(_)) => ProbeOutcome::Rtt(ms(started)),
-        Ok(Err(e)) => ProbeOutcome::Failed(e.to_string()),
-        Err(_) => ProbeOutcome::Failed(format!("no answer within {}ms", timeout.as_millis())),
-    }
+    classify(
+        started,
+        entangle_scheduler::send_control_over(
+            link,
+            &DialTarget::Tailscale(peer),
+            probe_frame(),
+            timeout,
+        )
+        .await,
+    )
 }

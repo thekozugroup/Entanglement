@@ -197,20 +197,142 @@ impl Default for SchedulerConfig {
 
 /// Mesh-layer configuration.
 ///
-/// Mirrors `entangle-cli`'s `MeshConfig` exactly.
+/// `transports` and `multi_node` mirror `entangle-cli`'s `MeshConfig`
+/// exactly; `preferred`, `[mesh.overrides]` and `[mesh.tailscale]` are
+/// daemon-only (the CLI ignores them when it reads the file and keeps them
+/// when it edits it).
+///
+/// ```toml
+/// [mesh]
+/// transports = ["local", "tailscale", "iroh"]
+/// preferred = "tailscale"        # tried first for every peer (spec §6.1)
+///
+/// [mesh.overrides]               # per peer (peer id hex): exactly these, in order
+/// "7a21c0de7a21c0de7a21c0de7a21c0de" = "iroh"
+/// "0b5e55ed0b5e55ed0b5e55ed0b5e55ed" = ["tailscale", "iroh"]
+/// ```
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MeshConfig {
-    /// Active transport backends.  Phase 1 supports `"local"` (mDNS).
+    /// Active transport backends: `"local"` (mDNS), `"iroh"`, `"tailscale"`.
     /// Example in `config.toml`: `transports = ["local"]`
     pub transports: Vec<String>,
     /// When `true` the daemon requires at least one trusted peer before
     /// starting (spec §11 #16, enforced via ENTANGLE-E0050 at startup).
     pub multi_node: bool,
+    /// `[mesh] preferred` — the transport tried first for every peer
+    /// without an override (`"local"`, `"tailscale"` or `"iroh"`); the
+    /// others stay as fallbacks in the spec §6.1 order. Validated when the
+    /// file is loaded (`ENTANGLE-E0434`).
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "de_preferred"
+    )]
+    pub preferred: Option<String>,
+    /// `[mesh.overrides]` — per-peer transport choice, keyed by peer id
+    /// (hex): one transport forces it, a list gives the exact order. Peers
+    /// listed here do not fall back to transports their entry omits.
+    /// Validated when the file is loaded (`ENTANGLE-E0434`/`E0435`).
+    #[serde(
+        skip_serializing_if = "std::collections::BTreeMap::is_empty",
+        deserialize_with = "de_overrides"
+    )]
+    pub overrides: std::collections::BTreeMap<String, TransportOverride>,
     /// `[mesh.tailscale]` — daemon-side settings for the `mesh.tailscale`
     /// transport (spec §6.1.1). Inert unless `enabled = true` **and**
     /// `transports` contains `"tailscale"`.
     pub tailscale: TailscaleSection,
+}
+
+/// One `[mesh.overrides]` entry: a transport, or an ordered list of them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum TransportOverride {
+    /// `"<peer>" = "iroh"`: only this transport.
+    One(String),
+    /// `"<peer>" = ["tailscale", "iroh"]`: these, in this order.
+    Order(Vec<String>),
+}
+
+impl TransportOverride {
+    /// The transport names, in order.
+    pub fn names(&self) -> Vec<&str> {
+        match self {
+            Self::One(s) => vec![s.as_str()],
+            Self::Order(v) => v.iter().map(String::as_str).collect(),
+        }
+    }
+}
+
+fn de_preferred<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
+    let s = String::deserialize(d)?;
+    s.parse::<entangle_scheduler::TransportKind>()
+        .map_err(|e| serde::de::Error::custom(format!("[mesh] preferred: {e}")))?;
+    Ok(Some(s))
+}
+
+fn de_overrides<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<std::collections::BTreeMap<String, TransportOverride>, D::Error> {
+    let map = std::collections::BTreeMap::<String, TransportOverride>::deserialize(d)?;
+    for (key, value) in &map {
+        parse_override(key, value)
+            .map_err(|e| serde::de::Error::custom(format!("[mesh.overrides]: {e}")))?;
+    }
+    Ok(map)
+}
+
+/// Parse one `[mesh.overrides]` entry.
+fn parse_override(
+    key: &str,
+    value: &TransportOverride,
+) -> Result<
+    (
+        entangle_types::peer_id::PeerId,
+        Vec<entangle_scheduler::TransportKind>,
+    ),
+    entangle_scheduler::RouteError,
+> {
+    use entangle_scheduler::{RouteError, TransportKind};
+    let bad = |reason: String| RouteError::BadOverride {
+        key: key.to_owned(),
+        reason,
+    };
+    let peer = entangle_types::peer_id::PeerId::from_hex(key)
+        .map_err(|e| bad(format!("not a peer id ({e})")))?;
+    let names = value.names();
+    if names.is_empty() {
+        return Err(bad("the transport list is empty".into()));
+    }
+    let mut kinds = Vec::with_capacity(names.len());
+    for name in names {
+        let kind: TransportKind = name.parse()?;
+        if kinds.contains(&kind) {
+            return Err(bad(format!("{name:?} is listed twice")));
+        }
+        kinds.push(kind);
+    }
+    Ok((peer, kinds))
+}
+
+impl MeshConfig {
+    /// The routing policy `preferred` and `[mesh.overrides]` describe
+    /// (spec §6.1 order otherwise).
+    pub fn route_policy(
+        &self,
+    ) -> Result<entangle_scheduler::RoutePolicy, entangle_scheduler::RouteError> {
+        let preferred = self
+            .preferred
+            .as_deref()
+            .map(str::parse::<entangle_scheduler::TransportKind>)
+            .transpose()?;
+        let mut policy = entangle_scheduler::RoutePolicy::new().with_preferred(preferred);
+        for (key, value) in &self.overrides {
+            let (peer, kinds) = parse_override(key, value)?;
+            policy = policy.with_override(peer, kinds);
+        }
+        Ok(policy)
+    }
 }
 
 /// `[mesh.tailscale]` section.
@@ -527,6 +649,54 @@ max_tier_allowed = 2
         let built =
             crate::tailscale::build_config(&cfg.mesh, entangle_peers::PeerStore::new()).unwrap();
         assert!(built.bind_ip.is_unspecified());
+    }
+
+    #[test]
+    fn preferred_and_per_peer_overrides_parse_into_a_route_policy() {
+        use entangle_scheduler::TransportKind as K;
+        let a = "7a21c0de7a21c0de7a21c0de7a21c0de";
+        let b = "0b5e55ed0b5e55ed0b5e55ed0b5e55ed";
+        let raw = format!(
+            "[mesh]\ntransports = [\"local\", \"tailscale\", \"iroh\"]\npreferred = \"iroh\"\n\
+             [mesh.overrides]\n\"{a}\" = \"tailscale\"\n\"{b}\" = [\"tailscale\", \"local\"]\n"
+        );
+        let cfg: Config = toml::from_str(&raw).unwrap();
+        let policy = cfg.mesh.route_policy().unwrap();
+        let id = |h: &str| entangle_types::peer_id::PeerId::from_hex(h).unwrap();
+        assert_eq!(policy.order_for(&id(a)), [K::Tailscale]);
+        assert_eq!(policy.order_for(&id(b)), [K::Tailscale, K::Local]);
+        let other = entangle_types::peer_id::PeerId::from_public_key_bytes(&[1; 32]);
+        assert_eq!(policy.order_for(&other), [K::Iroh, K::Local, K::Tailscale]);
+        // Round trip keeps both.
+        let again: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(again.mesh.preferred.as_deref(), Some("iroh"));
+        assert_eq!(again.mesh.overrides, cfg.mesh.overrides);
+        // Absent: the spec order, and nothing new in what the daemon writes.
+        let plain: Config = toml::from_str("[mesh]\ntransports = [\"iroh\"]\n").unwrap();
+        assert_eq!(
+            plain.mesh.route_policy().unwrap().order_for(&other),
+            [K::Local, K::Tailscale, K::Iroh]
+        );
+        let written = toml::to_string_pretty(&plain).unwrap();
+        assert!(!written.contains("preferred") && !written.contains("overrides"), "{written}");
+    }
+
+    #[test]
+    fn bad_transport_choices_fail_when_the_file_is_loaded() {
+        let peer = "7a21c0de7a21c0de7a21c0de7a21c0de";
+        for (bad, needle) in [
+            ("[mesh]\npreferred = \"wifi\"\n".to_owned(), "ENTANGLE-E0434"),
+            (format!("[mesh.overrides]\n\"{peer}\" = \"udp\"\n"), "ENTANGLE-E0434"),
+            (format!("[mesh.overrides]\n\"{peer}\" = []\n"), "ENTANGLE-E0435"),
+            (
+                format!("[mesh.overrides]\n\"{peer}\" = [\"iroh\", \"iroh\"]\n"),
+                "ENTANGLE-E0435",
+            ),
+            ("[mesh.overrides]\n\"bob\" = \"iroh\"\n".to_owned(), "ENTANGLE-E0435"),
+        ] {
+            let err = toml::from_str::<Config>(&bad).expect_err(&bad);
+            assert!(err.to_string().contains(needle), "{bad}: {err}");
+        }
     }
 
     #[test]

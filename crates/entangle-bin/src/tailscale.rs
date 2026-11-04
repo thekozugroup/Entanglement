@@ -2,19 +2,24 @@
 //!
 //! Off unless `[mesh.tailscale] enabled = true` **and** `[mesh] transports`
 //! contains `"tailscale"`. When on, the daemon starts the identity-bound TCP
-//! listener, the liveness poller, and a discovery task that re-enumerates
-//! tailnet peers every 60 s while the tailnet is active. Routing scheduler
-//! traffic over this transport is a later step; for now inbound requests get
-//! a fixed "no service bound" reply.
+//! listener, the liveness poller, a discovery task that re-enumerates
+//! tailnet peers every 60 s while the tailnet is active, and serves the
+//! scheduler protocols on the listener — `entangle/scheduler/1` and
+//! `entangle/stream/1`, selected per connection
+//! ([`entangle_scheduler::serve_tailscale`]) — with the same task and stream
+//! servers (and so the same peer-store allowlist) as the iroh endpoint.
+//! Outbound, the tailnet is one of the transports the dispatcher's router
+//! picks from per peer (see `crate::mesh`).
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use entangle_mesh_tailscale::{
     AclMode, LivenessHandle, LivenessSnapshot, MeshTailscale, MeshTailscaleConfig, PeerAllowlist,
-    RequestHandler, TailscaleStatus,
+    TailscaleStatus,
 };
 use entangle_peers::{PeerStore, TrustLevel};
+use entangle_scheduler::{RemoteTaskServer, StreamServer};
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
 use tokio::sync::watch;
@@ -57,15 +62,6 @@ impl PeerAllowlist for StoreAllowlist {
     }
 }
 
-struct NoService;
-
-#[async_trait::async_trait]
-impl RequestHandler for NoService {
-    async fn handle(&self, _peer: PeerId, _payload: Vec<u8>) -> Vec<u8> {
-        b"entangle: no service is bound to mesh.tailscale yet".to_vec()
-    }
-}
-
 /// Running tailscale transport pieces.
 pub struct TailscaleRuntime {
     /// The transport.
@@ -100,6 +96,9 @@ pub fn build_config(mesh: &MeshConfig, store: PeerStore) -> anyhow::Result<MeshT
         allowlist: Some(Arc::new(StoreAllowlist(store))),
         port: mesh.tailscale.port,
         bind_ip: mesh.tailscale.bind_ip.unwrap_or(defaults.bind_ip),
+        // The scheduler's frames: one maximum task input plus envelope, the
+        // same ceiling the iroh endpoint applies.
+        max_frame_bytes: entangle_mesh_iroh::MAX_FRAME_BYTES,
         ..defaults
     })
 }
@@ -165,10 +164,16 @@ pub fn spawn_state_metrics(
 }
 
 /// Start the transport, serving loop, liveness poller and discovery task.
+///
+/// `tasks` / `streams` are served on the listener (pass the instances the
+/// iroh endpoint serves, so in-flight tables and limits are shared); with
+/// neither, a connection is closed after its protocol selection.
 pub async fn start(
     mesh: &MeshConfig,
     identity: &IdentityKeyPair,
     store: PeerStore,
+    tasks: Option<Arc<RemoteTaskServer>>,
+    streams: Option<Arc<StreamServer>>,
 ) -> anyhow::Result<TailscaleRuntime> {
     let cfg = build_config(mesh, store)?;
     let liveness = cfg.spawn_liveness();
@@ -179,10 +184,11 @@ pub async fn start(
         "mesh.tailscale transport listening",
     );
 
-    let serve = {
-        let t = transport.clone();
-        tokio::spawn(async move { t.serve(Arc::new(NoService)).await })
-    };
+    let serve = tokio::spawn(entangle_scheduler::serve_tailscale(
+        transport.clone(),
+        tasks,
+        streams,
+    ));
     let discover = tokio::spawn(run_discovery(
         transport.clone(),
         liveness.state(),

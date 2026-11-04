@@ -165,6 +165,30 @@ pub fn render_text(r: &DiagMeshResult) -> String {
             }
             let _ = writeln!(out);
         }
+        if let Some(route) = &p.route {
+            let order = if route.order.is_empty() {
+                "none (no usable transport)".to_owned()
+            } else {
+                route.order.join(" -> ")
+            };
+            let _ = write!(out, "    route: {order}");
+            if route.overridden {
+                let _ = write!(out, "  [mesh.overrides]");
+            }
+            match (&route.last_used, route.last_used_secs) {
+                (Some(t), Some(secs)) => {
+                    let _ = write!(out, "  (last used: {t}, {secs}s ago)");
+                }
+                (Some(t), None) => {
+                    let _ = write!(out, "  (last used: {t})");
+                }
+                _ => {}
+            }
+            let _ = writeln!(out);
+            for skip in &route.skipped {
+                let _ = writeln!(out, "      skipped {skip}");
+            }
+        }
     }
     if r.probed {
         let reachable = r
@@ -214,7 +238,7 @@ fn hint_for_unreachable(r: &DiagMeshResult) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use entangle_rpc::methods::{DiagEndpoint, DiagPath, DiagPeer, DiagTailscale};
+    use entangle_rpc::methods::{DiagEndpoint, DiagPath, DiagPeer, DiagRoute, DiagTailscale};
 
     fn sample() -> DiagMeshResult {
         DiagMeshResult {
@@ -245,12 +269,20 @@ mod tests {
                         rtt_ms: Some(4.25),
                         probe_error: None,
                     }],
+                    route: Some(DiagRoute {
+                        order: vec!["iroh".into()],
+                        skipped: vec!["tailscale: tailnet stopped (NeedsLogin)".into()],
+                        last_used: Some("iroh".into()),
+                        last_used_secs: Some(3),
+                        overridden: false,
+                    }),
                 },
                 DiagPeer {
                     peer_id: "cc33".into(),
                     display_name: String::new(),
                     trust: "observer".into(),
                     paths: vec![],
+                    route: None,
                 },
             ],
             untrusted_sightings: 1,
@@ -277,6 +309,8 @@ mod tests {
             "[scheduler] peers",
             "Probe: 1 of 2 trusted peer(s) answered",
             "1 untrusted mDNS sighting(s)",
+            "route: iroh  (last used: iroh, 3s ago)",
+            "skipped tailscale: tailnet stopped (NeedsLogin)",
         ] {
             assert!(t.contains(needle), "missing {needle:?} in:\n{t}");
         }

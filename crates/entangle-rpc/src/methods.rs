@@ -295,6 +295,32 @@ pub struct DiagPeer {
     pub trust: String,
     /// Known paths; empty means no transport currently knows how to reach it.
     pub paths: Vec<DiagPath>,
+    /// How remote dispatch would pick a transport for this peer, and which
+    /// one it last used. Absent when this node dispatches nothing remotely.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route: Option<DiagRoute>,
+}
+
+/// Transport selection for one peer (spec §6.1).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiagRoute {
+    /// Transports dispatch would try, in order (`local`, `tailscale`,
+    /// `iroh`); the first that connects carries the request.
+    #[serde(default)]
+    pub order: Vec<String>,
+    /// Transports that would not be tried, each as `transport: reason`.
+    #[serde(default)]
+    pub skipped: Vec<String>,
+    /// The transport the last successful dispatch or stream to this peer
+    /// used (the peer record's chosen transport).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_used: Option<String>,
+    /// Seconds since that happened.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_used_secs: Option<u64>,
+    /// Whether a per-peer override (`[mesh.overrides]`) decides the order.
+    #[serde(default)]
+    pub overridden: bool,
 }
 
 /// Result of the `diag/mesh` RPC method.

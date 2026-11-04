@@ -28,6 +28,7 @@ const ERROR_SOURCES: &[&str] = &[
     "../entangle-host/src/errors.rs",
     "../entangle-biscuits/src/bridge.rs",
     "../entangle-scheduler/src/stream/error.rs",
+    "../entangle-scheduler/src/transport/error.rs",
     "../entangle-oci/src/error.rs",
     "../entangle-sandbox/src/error.rs",
     "../entangle-runtime/src/native.rs",

@@ -10,10 +10,11 @@ use entangle_broker::BrokerPolicy;
 use entangle_mesh_iroh::MeshTransport;
 use entangle_mesh_local::{
     Discovery, DiscoveryConfig, DiscoveryEvent, HardwareAdvert, LocalPeer, PeerSeen,
+    TransportAdvert,
 };
 use entangle_peers::{PeerStore, TrustLevel};
 use entangle_runtime::Kernel;
-use entangle_scheduler::{Dispatcher, RemoteDispatch, WorkerInfo, WorkerPool};
+use entangle_scheduler::{Dispatcher, PeerDirectory, RemoteDispatch, WorkerInfo, WorkerPool};
 use entangle_signing::{IdentityKeyPair, Keyring};
 use entangle_types::peer_id::PeerId;
 use entangle_types::resource::GpuRequirement;
@@ -180,41 +181,37 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         None
     };
 
-    let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id)
-        .with_metrics(registry.clone());
-    let mut iroh_directory = None;
-    if let Some(transport) = &scheduler_mesh {
-        // Client half: this node may send work to configured, trusted peers.
-        let directory = remote::directory_from_config(&cfg.scheduler, &peer_store, local_peer_id);
-        iroh_directory = Some(directory.clone());
-        dispatcher = dispatcher.with_remote(Arc::new(RemoteDispatch::new(
-            Arc::clone(transport) as Arc<dyn MeshTransport>,
-            Arc::new(directory),
-        )));
-
-        // Server half: trusted peers may run work here. The peer store is the
-        // authorization gate — see `remote::PeerStoreAllowlist`.
-        remote::spawn_task_server_with_metrics(
-            Arc::clone(transport),
-            kernel.clone(),
-            peer_store.clone(),
-            local_peer_id,
-            Some(registry.clone()),
-        );
-        // Streaming tasks (entangle/stream/1) on the same endpoint and gate.
-        remote::spawn_stream_server(
-            Arc::clone(transport),
+    // Inbound: one task server and one stream server, shared by every
+    // transport that serves the scheduler protocols, gated on the peer
+    // store (see `remote::PeerStoreAllowlist`).
+    let tailscale_on = entangle_bin::tailscale::enabled(&cfg.mesh);
+    let servers = (scheduler_mesh.is_some() || tailscale_on).then(|| {
+        entangle_bin::mesh::scheduler_servers(
             kernel.clone(),
             peer_store.clone(),
             identity.clone(),
-        );
+            Some(registry.clone()),
+        )
+    });
+    if let (Some(transport), Some(servers)) = (&scheduler_mesh, &servers) {
+        // entangle/scheduler/1 and entangle/stream/1 on the same endpoint.
+        entangle_bin::mesh::serve_on_iroh(transport, servers);
     }
-    let dispatcher = Arc::new(dispatcher);
 
     // ── 3b'. Optional `mesh.tailscale` transport + liveness poller ────────────
-    // Started before the shared state so `diag/mesh` can see it.
-    let tailscale_rt = if entangle_bin::tailscale::enabled(&cfg.mesh) {
-        match entangle_bin::tailscale::start(&cfg.mesh, &identity, peer_store.clone()).await {
+    // Started before the dispatcher (it is one of its outbound transports)
+    // and before the shared state (so `diag/mesh` can see it). It serves the
+    // same task and stream servers.
+    let tailscale_rt = if tailscale_on {
+        match entangle_bin::tailscale::start(
+            &cfg.mesh,
+            &identity,
+            peer_store.clone(),
+            servers.as_ref().map(|s| Arc::clone(&s.tasks)),
+            servers.as_ref().map(|s| Arc::clone(&s.streams)),
+        )
+        .await
+        {
             Ok(rt) => {
                 // The state gauge exists only while the transport does.
                 entangle_bin::tailscale::spawn_state_metrics(registry.clone(), rt.liveness.state());
@@ -228,6 +225,45 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     } else {
         None
     };
+
+    // Outbound: a router picking a transport per peer (spec §6.1).
+    let local_on = cfg.mesh.transports.iter().any(|t| t == "local");
+    let iroh_directory = scheduler_mesh
+        .as_ref()
+        .map(|_| remote::directory_from_config(&cfg.scheduler, &peer_store, local_peer_id));
+    let local_sightings = (scheduler_mesh.is_some() && local_on).then(PeerDirectory::new);
+    let route_policy = cfg
+        .mesh
+        .route_policy()
+        .context("[mesh] preferred / [mesh.overrides]")?;
+    let router = entangle_bin::mesh::build_router(
+        local_peer_id,
+        entangle_bin::mesh::RouterInputs {
+            iroh: scheduler_mesh.clone(),
+            iroh_directory: iroh_directory.clone(),
+            local_sightings: local_sightings.clone(),
+            tailscale: tailscale_rt
+                .as_ref()
+                .map(|rt| (rt.transport.clone(), rt.liveness.state())),
+            policy: route_policy,
+            metrics: Some(registry.clone()),
+        },
+    );
+    let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id)
+        .with_metrics(registry.clone());
+    if let Some(router) = router {
+        let running = router.transports();
+        tracing::info!(
+            transports = ?running.iter().map(|k| k.as_str()).collect::<Vec<_>>(),
+            preferred = cfg.mesh.preferred.as_deref().unwrap_or("-"),
+            overrides = cfg.mesh.overrides.len(),
+            "remote dispatch enabled"
+        );
+        entangle_bin::mesh::warn_unavailable_choices(&cfg.mesh, &running);
+        dispatcher =
+            dispatcher.with_remote(Arc::new(RemoteDispatch::with_router(Arc::new(router))));
+    }
+    let dispatcher = Arc::new(dispatcher);
 
     // ── 3c. Assemble shared DaemonState ──────────────────────────────────────
     let display_name = std::env::var("HOSTNAME")
@@ -261,7 +297,17 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
             announce_interval_secs: 30,
             channel_capacity: 256,
         };
-        match Discovery::new(discovery_cfg) {
+        // Advertise the scheduler endpoint's key and port, so trusted peers
+        // on the LAN can dial it directly (`mesh.local`).
+        let advert = scheduler_mesh.as_ref().and_then(|t| {
+            t.local_addrs()
+                .first()
+                .map(|a| TransportAdvert::new(t.local_public_key(), a.port()))
+        });
+        match Discovery::new(discovery_cfg).map(|d| match advert {
+            Some(a) => d.with_transport_advert(a),
+            None => d,
+        }) {
             Ok(d) => {
                 if let Err(e) = d.start_announcing() {
                     tracing::warn!(error = %e, "mDNS announce failed — discovery disabled");
@@ -277,6 +323,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
                         daemon_state.peer_store.clone(),
                         daemon_state.local_peer_id,
                         registry.clone(),
+                        local_sightings.clone(),
                     );
                 }
             }
@@ -442,6 +489,7 @@ fn spawn_discovery_feeder(
     peer_store: PeerStore,
     local_peer: PeerId,
     registry: entangle_observability::Registry,
+    sightings: Option<PeerDirectory>,
 ) {
     let mut sub = discovery.subscribe();
     tokio::spawn(async move {
@@ -450,6 +498,9 @@ fn spawn_discovery_feeder(
         loop {
             match sub.recv().await {
                 Ok(evt) => {
+                    if let Some(dir) = &sightings {
+                        entangle_bin::mesh::track_sighting(dir, &evt, &peer_store, local_peer);
+                    }
                     apply_discovery_event(evt, &pool, &peer_store, local_peer);
                     record_sightings(&discovery, &registry).await;
                 }
@@ -459,6 +510,14 @@ fn spawn_discovery_feeder(
                         "discovery feeder lagged — resyncing worker pool from snapshot"
                     );
                     let snapshot = discovery.snapshot_peers().await;
+                    if let Some(dir) = &sightings {
+                        entangle_bin::mesh::resync_sightings(
+                            dir,
+                            &snapshot,
+                            &peer_store,
+                            local_peer,
+                        );
+                    }
                     resync_pool_from_snapshot(&snapshot, &pool, &peer_store, local_peer);
                     record_sightings(&discovery, &registry).await;
                 }

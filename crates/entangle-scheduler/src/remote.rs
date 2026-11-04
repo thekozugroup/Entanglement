@@ -126,6 +126,11 @@ impl PeerDirectory {
         self.inner.read().len()
     }
 
+    /// Every peer with a known address.
+    pub fn peers(&self) -> Vec<PeerId> {
+        self.inner.read().keys().copied().collect()
+    }
+
     /// Whether the directory is empty.
     pub fn is_empty(&self) -> bool {
         self.inner.read().is_empty()

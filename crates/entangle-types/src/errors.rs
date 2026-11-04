@@ -12,6 +12,7 @@
 //! | E0302–E0305 | Integrity policy (see `entangle-runtime`) |
 //! | E0306–E0349 | Integrity verification: metrics, policy envelope, quorum (`entangle_runtime::IntegrityError`; E0306–E0318 in use) |
 //! | E0350–E0399 | Streaming tasks: submit-time validation, credit, heartbeat, chunk signing, size caps (`entangle_scheduler::stream::StreamError`; E0350–E0371 in use) |
+//! | E0430–E0449 | Scheduler transport selection: no route, every candidate unreachable, failure after send, frame cap, transport-name and per-peer override config (`entangle_scheduler::transport::RouteError`; E0430–E0435 in use) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0507       | Host artifact checks: runtime-kind sniffing (see `entangle-host`) |
 //! | E0508–E0519 | Host: realising capability grants in a wasm instance (storage root, scope directories, unsafe paths; E0508–E0510 in use, and E0511 for an invocation stopped because a network grant was withdrawn while it ran; see `entangle-host`) |
@@ -32,7 +33,8 @@
 //! `entangle-broker` owns E0050 and E0123–E0127 (E0124 operator
 //! `deny_capabilities` refusal, E0125 revoked capability, E0126 invalid deny
 //! pattern, E0127 tier ceiling on a grant), and E0400–E0425 belong to the
-//! broker / biscuits cross-node paths. The table above is therefore *this
+//! broker / biscuits cross-node paths (E0430–E0449, scheduler transport
+//! selection, is listed above). The table above is therefore *this
 //! crate's* view, not a workspace-wide registry.
 //!
 //! **Uniqueness.** Within the enums covered by `tests/error_codes.rs`
