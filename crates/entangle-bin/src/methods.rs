@@ -552,8 +552,9 @@ async fn handle_compute_dispatch(
         Err(e) => return error_resp(id, -32602, format!("invalid plugin id: {e}")),
     };
 
-    // Verify the plugin is loaded before dispatching.
-    if !state.kernel.list_plugins().contains(&plugin_id) {
+    // Verify the plugin is loaded before dispatching (an id replaced by a
+    // hot reload counts: its calls run on the version that replaced it).
+    if state.kernel.resolve(&plugin_id).is_none() {
         return error_resp(id, -32000, "plugin not loaded");
     }
 

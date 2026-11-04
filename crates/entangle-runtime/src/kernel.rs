@@ -1269,13 +1269,39 @@ impl Kernel {
         Ok(result?)
     }
 
-    /// The `entangle:plugin` world a loaded plugin implements: `"plugin"`
-    /// (one-shot `run`) or `"stream-plugin"` (`start-stream`).
+    /// The `entangle:plugin` world of the plugin answering for `plugin_id`
+    /// (see [`Kernel::resolve`]): `"plugin"` (one-shot `run`) or
+    /// `"stream-plugin"` (`start-stream`). `None` when nothing answers.
     pub fn plugin_world(&self, plugin_id: &PluginId) -> Option<&'static str> {
-        self.plugins
-            .read()
-            .get(plugin_id)
+        let plugins = self.plugins.read();
+        self.resolve_in(&plugins, plugin_id)
+            .and_then(|id| plugins.get(&id))
             .map(|record| record.plugin.world())
+    }
+
+    /// The loaded plugin that answers calls and streams addressed to
+    /// `requested`: `requested` itself when it is loaded, the version that
+    /// replaced it by a hot reload (spec §3.3) when that one is, `None`
+    /// otherwise. Every "is this plugin loaded" check outside the kernel
+    /// should ask this, so it agrees with where [`Kernel::invoke`] and
+    /// [`Kernel::invoke_stream`] route the call.
+    pub fn resolve(&self, requested: &PluginId) -> Option<PluginId> {
+        self.resolve_in(&self.plugins.read(), requested)
+    }
+
+    fn resolve_in(
+        &self,
+        plugins: &HashMap<PluginId, LoadedRecord>,
+        requested: &PluginId,
+    ) -> Option<PluginId> {
+        if plugins.contains_key(requested) {
+            return Some(requested.clone());
+        }
+        self.aliases
+            .read()
+            .get(requested)
+            .filter(|current| plugins.contains_key(*current))
+            .cloned()
     }
 
     /// Whether a loaded plugin has a resident instance: a wasm plugin
@@ -1321,15 +1347,10 @@ impl Kernel {
     ) -> Result<(PluginId, PluginImpl, Tier, InflightToken), RuntimeError> {
         let plugins = self.plugins.read();
         // A version replaced by a hot reload answers through its successor.
-        let (plugin_id, record) = match plugins.get_key_value(requested) {
-            Some(found) => found,
-            None => {
-                let current = self.aliases.read().get(requested).cloned();
-                current
-                    .and_then(|c| plugins.get_key_value(&c))
-                    .ok_or_else(|| RuntimeError::NotLoaded(requested.clone()))?
-            }
-        };
+        let (plugin_id, record) = self
+            .resolve_in(&plugins, requested)
+            .and_then(|id| plugins.get_key_value(&id))
+            .ok_or_else(|| RuntimeError::NotLoaded(requested.clone()))?;
         // Above a ceiling lowered since it loaded (it is waiting to be
         // drained and unloaded): suspended, nothing new starts.
         self.broker

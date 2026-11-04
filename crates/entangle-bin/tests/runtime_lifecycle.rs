@@ -473,6 +473,39 @@ mod restart {
         assert_eq!(ids, [v2_id.as_str()]);
     }
 
+    /// After a hot reload, `compute/dispatch` naming the replaced version's id
+    /// runs the new version, as `plugins/invoke` does, instead of answering
+    /// "plugin not loaded".
+    #[tokio::test(flavor = "multi_thread")]
+    async fn compute_dispatch_to_a_replaced_id_runs_the_new_version() {
+        let node = Node::new();
+        let (v1, v1_id) = node.package("probe", "0.1.0", PROBE, 1, "");
+        let (v2, v2_id) = node.package("probe", "0.2.0", PROBE, 1, "");
+        let reg = Registry::new();
+        let (d, _) = node.start(&reg).await;
+        for dir in [&v1, &v2] {
+            let r = rpc(&d, "plugins/load", serde_json::json!({ "dir": dir })).await;
+            assert!(r["error"].is_null(), "{r}");
+        }
+        let r = rpc(
+            &d,
+            "compute/dispatch",
+            serde_json::json!({
+                "plugin_id": v1_id,
+                "input": b"info\n",
+                "timeout_ms": 30_000,
+                "cpu_cores": 0.0,
+                "memory_bytes": 0,
+                "gpu_required": false,
+                "gpu_vram_min_bytes": 0,
+                "integrity": { "kind": "none" },
+            }),
+        )
+        .await;
+        assert!(r["error"].is_null(), "{r}");
+        assert!(output(&r).contains(&v2_id), "{r}");
+    }
+
     /// Captures formatted log lines (JSON) for assertions.
     #[derive(Clone, Default)]
     struct LogCapture(Arc<std::sync::Mutex<Vec<u8>>>);

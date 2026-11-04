@@ -540,3 +540,36 @@ async fn concurrent_reloads_leave_exactly_one_version() {
         current.to_string()
     );
 }
+
+/// Every check that a plugin is loaded honours the old id's forwarding, not
+/// only `invoke`: the mesh stream server and the spot-check selection ask
+/// [`Kernel::plugin_world`], `compute/dispatch` asks [`Kernel::resolve`].
+#[tokio::test(flavor = "multi_thread")]
+async fn an_old_id_is_loaded_for_every_check_after_a_reload() {
+    let f = Fixture::new();
+    let (v1, v2) = (f.id("probe", "0.1.0"), f.id("probe", "0.2.0"));
+    f.kernel
+        .load_plugin_from_dir(&f.package("probe", "0.1.0", PROBE, 1, ""))
+        .await
+        .unwrap();
+    let outcome = f
+        .kernel
+        .load_plugin(
+            &f.package("probe", "0.2.0", PROBE, 1, ""),
+            LoadOptions::default(),
+        )
+        .await
+        .unwrap();
+    drained(outcome.replaced.unwrap().drained).await;
+    assert_eq!(f.call(&v1, "id").await, v2.to_string());
+    assert_eq!(f.kernel.plugin_world(&v1), Some("plugin"));
+    assert_eq!(f.kernel.plugin_world(&v2), Some("plugin"));
+    assert_eq!(f.kernel.resolve(&v1), Some(v2.clone()));
+    assert_eq!(f.kernel.resolve(&v2), Some(v2.clone()));
+    assert_eq!(f.kernel.resolve(&f.id("probe", "0.9.0")), None);
+
+    // Unloading the version answering ends it everywhere.
+    f.kernel.unload(&v2).await.unwrap();
+    assert_eq!(f.kernel.plugin_world(&v1), None);
+    assert_eq!(f.kernel.resolve(&v1), None);
+}
