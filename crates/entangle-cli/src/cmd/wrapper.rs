@@ -283,43 +283,78 @@ fn set_install(on: bool) -> Result<()> {
     doc.save(&path)
 }
 
+/// `entangle wrapper enable`: record the opt-in and install the shim in
+/// every rc file.
+pub fn enable() -> Result<()> {
+    let hosts = rcblock::hosts_from_adapters();
+    set_install(true)?;
+    let failed = apply(Op::Install, &hosts)?;
+    if failed > 0 {
+        bail!("{failed} rc file(s) could not be updated");
+    }
+    println!(
+        "Wrappers enabled for: {}. Open a new shell (or `source` your rc file) to use them.",
+        hosts
+            .iter()
+            .map(|h| h.binary.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    println!("Outside an Entanglement session they warn on stderr, then run the real binary.");
+    Ok(())
+}
+
+/// `entangle wrapper disable`: record the opt-out, then remove the shim
+/// from every rc file (also what `entangle uninstall` runs).
+pub fn disable() -> Result<()> {
+    let hosts = rcblock::hosts_from_adapters();
+    // Record the opt-out first: it must survive a failure below.
+    set_install(false)?;
+    let failed = apply(Op::Remove, &hosts)?;
+    println!(
+        "Wrappers DISABLED: recorded [wrappers] install = false in {}.",
+        config::config_path().display()
+    );
+    println!("Agent hosts run outside `entangle agent run` will no longer warn. Re-enable with `entangle wrapper enable`.");
+    if failed > 0 {
+        bail!("{failed} rc file(s) could not be cleaned; fix them and re-run `entangle wrapper disable`");
+    }
+    Ok(())
+}
+
+/// Remove the shim from every rc file without recording anything (for
+/// `entangle uninstall` on a machine with no `~/.entangle`, which must not
+/// create one).
+pub fn remove_blocks() -> Result<()> {
+    let hosts = rcblock::hosts_from_adapters();
+    let failed = apply(Op::Remove, &hosts)?;
+    if failed > 0 {
+        bail!("{failed} rc file(s) could not be cleaned; fix them and re-run");
+    }
+    Ok(())
+}
+
+/// What config.toml records about the shim: `Some(true)` opted in,
+/// `Some(false)` opted out, `None` never asked.
+pub fn recorded_choice() -> Option<bool> {
+    std::fs::read_to_string(config::config_path())
+        .ok()
+        .and_then(|t| t.parse::<toml::Table>().ok())
+        .and_then(|t| t.get("wrappers")?.get("install")?.as_bool())
+}
+
+/// Record the opt-out without touching any rc file (`entangle install
+/// --no-wrapper` when no choice was recorded yet).
+pub fn record_opt_out() -> Result<()> {
+    set_install(false)
+}
+
 /// Entry point for `entangle wrapper`.
 pub async fn run(a: WrapperArgs) -> Result<()> {
     let hosts = rcblock::hosts_from_adapters();
     match a.cmd {
-        WrapperCmd::Enable => {
-            set_install(true)?;
-            let failed = apply(Op::Install, &hosts)?;
-            if failed > 0 {
-                bail!("{failed} rc file(s) could not be updated");
-            }
-            println!(
-                "Wrappers enabled for: {}. Open a new shell (or `source` your rc file) to use them.",
-                hosts
-                    .iter()
-                    .map(|h| h.binary.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-            println!(
-                "Outside an Entanglement session they warn on stderr, then run the real binary."
-            );
-            Ok(())
-        }
-        WrapperCmd::Disable => {
-            // Record the opt-out first: it must survive a failure below.
-            set_install(false)?;
-            let failed = apply(Op::Remove, &hosts)?;
-            println!(
-                "Wrappers DISABLED: recorded [wrappers] install = false in {}.",
-                config::config_path().display()
-            );
-            println!("Agent hosts run outside `entangle agent run` will no longer warn. Re-enable with `entangle wrapper enable`.");
-            if failed > 0 {
-                bail!("{failed} rc file(s) could not be cleaned; fix them and re-run `entangle wrapper disable`");
-            }
-            Ok(())
-        }
+        WrapperCmd::Enable => enable(),
+        WrapperCmd::Disable => disable(),
         WrapperCmd::Status => {
             let enabled = wrappers_enabled();
             println!(

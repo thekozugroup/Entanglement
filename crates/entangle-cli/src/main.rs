@@ -1,9 +1,9 @@
 //! `entangle` CLI — entry point.
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
-//! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke},
+//! init, install, uninstall, version, doctor, keys gen, keyring {list,add,remove}, plugins {list,load,unload,invoke},
 //! mesh {peers,status,trust,untrust,revoke}, peers {list,remove}, perms {list,revoke}, pair (initiator/responder),
-//! wrapper, security set-max-tier, config {reload,validate}, metrics, diag mesh.
+//! wrapper, security set-max-tier, config {reload,validate,set,get,unset}, metrics, diag mesh.
 //! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
 //! Pairing goes directly to peers.toml (no daemon RPC).
 
@@ -21,7 +21,9 @@ use cmd::{
     compute::ComputeArgs,
     diag::DiagArgs,
     init::InitArgs,
+    install::{InstallArgs, UninstallArgs},
     keyring::KeyringArgs,
+    keys::KeysArgs,
     mesh::MeshArgs,
     pair::PairArgs,
     peers::PeersArgs,
@@ -72,6 +74,12 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     Quickstart(QuickstartArgs),
     /// Generate identity, write ~/.entangle/identity.key and config.toml.
     Init(InitArgs),
+    /// First-run setup: init if needed, the shell-wrapper question, and
+    /// checksums of your agent configs (which Entanglement never modifies).
+    Install(InstallArgs),
+    /// Remove wrappers and leftover agent sessions, verify your agent configs
+    /// are untouched; `--purge` also deletes ~/.entangle.
+    Uninstall(UninstallArgs),
     /// Export identity, keyrings and paired peers to a passphrase-encrypted archive.
     Backup(BackupArgs),
     /// Import an archive written by `entangle backup` (e.g. on a new device).
@@ -83,13 +91,16 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Manage the trusted publisher keyring.
     #[command(subcommand_required = true)]
     Keyring(KeyringArgs),
+    /// Publisher keys for signing plugins (`gen`).
+    #[command(subcommand_required = true)]
+    Keys(KeysArgs),
     /// Author plugins (new, build) and manage loaded ones (list, load, unload, invoke).
     #[command(subcommand_required = true)]
     Plugins(PluginsArgs),
     /// Verify and sign release artifacts; release-key ceremony.
     #[command(subcommand_required = true)]
     Release(ReleaseArgs),
-    /// Manage the local mesh: list peers, trust/untrust/revoke.
+    /// Manage the local mesh: list peers, routes per peer, trust/untrust/revoke.
     #[command(subcommand_required = true)]
     Mesh(MeshArgs),
     /// Pair this device with another (short-code + fingerprint exchange).
@@ -109,7 +120,7 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Security policy: change `max_tier_allowed` safely.
     #[command(subcommand_required = true)]
     Security(SecurityArgs),
-    /// Apply or validate config.toml changes (`reload`, `validate`).
+    /// Read, change, apply or validate config.toml (`get`, `set`, `unset`, `reload`, `validate`).
     #[command(subcommand_required = true)]
     Config(ConfigArgs),
     /// Print the detected platform and the sandbox primitive that would be used
@@ -118,7 +129,7 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Plugins' capability grants: list them, revoke one (spec §4.6).
     #[command(subcommand_required = true)]
     Perms(PermsArgs),
-    /// Operator triage reports (`diag mesh`).
+    /// Operator triage reports (`diag mesh`, `diag pair`).
     #[command(subcommand_required = true)]
     Diag(DiagArgs),
     /// Read a plugin's or a subsystem's recent log lines from the daemon.
@@ -197,12 +208,15 @@ async fn run() -> anyhow::Result<()> {
 
     match cli.cmd {
         Cmd::Quickstart(a) => cmd::quickstart::run(a).await,
-        Cmd::Init(a) => cmd::init::run(a).await,
+        Cmd::Init(a) => exit_with(cmd::init::run(a).await?),
+        Cmd::Install(a) => exit_with(cmd::install::run_install(a).await?),
+        Cmd::Uninstall(a) => exit_with(cmd::install::run_uninstall(a).await?),
         Cmd::Backup(a) => cmd::backup::run_backup(a).await,
         Cmd::Restore(a) => cmd::backup::run_restore(a).await,
         Cmd::Version => cmd::version::run().await,
         Cmd::Doctor => cmd::doctor::run().await,
         Cmd::Keyring(a) => cmd::keyring::run(a).await,
+        Cmd::Keys(a) => cmd::keys::run(a).await,
         Cmd::Plugins(a) => cmd::plugins::run(a).await,
         Cmd::Release(a) => cmd::release::run(a).await,
         Cmd::Mesh(a) => cmd::mesh::run(a).await,

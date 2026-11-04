@@ -311,9 +311,13 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let dispatcher = Arc::new(dispatcher);
 
     // ── 3c. Assemble shared DaemonState ──────────────────────────────────────
-    let display_name = std::env::var("HOSTNAME")
-        .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_owned()))
-        .unwrap_or_else(|_| "entangled".to_owned());
+    // `[node] label` (spec §9.4), else the host name.
+    let display_name = match cfg.node_label() {
+        Some(label) => label.to_owned(),
+        None => std::env::var("HOSTNAME")
+            .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_owned()))
+            .unwrap_or_else(|_| "entangled".to_owned()),
+    };
     let mut daemon_state = DaemonState::new(
         kernel.clone(),
         dispatcher,

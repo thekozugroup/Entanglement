@@ -134,6 +134,7 @@ pub async fn run(args: QuickstartArgs) -> Result<()> {
     crate::cmd::init::ensure_initialised(
         InitArgs {
             non_interactive: true,
+            ..InitArgs::default()
         },
         false,
     )

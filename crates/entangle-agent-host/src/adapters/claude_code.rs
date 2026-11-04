@@ -28,6 +28,18 @@ impl Adapter for ClaudeCodeAdapter {
         true
     }
 
+    /// `~/.claude/settings.json` (spec §8.3): the user's own config, which a
+    /// session never touches. Not `~/.claude.json`: that is Claude Code's
+    /// mutable app state (start-up counters, per-project history), which it
+    /// rewrites on every run — sessions launched by `entangle agent run`
+    /// included — so a checksum of it would report a change after any use.
+    fn user_config_files(&self) -> Vec<Utf8PathBuf> {
+        let Ok(home) = std::env::var("HOME") else {
+            return Vec::new();
+        };
+        vec![Utf8PathBuf::from(home).join(".claude/settings.json")]
+    }
+
     fn snapshot(&self, path: &Utf8PathBuf) -> Result<Snapshot, AdapterError> {
         let bytes = std::fs::read(path).unwrap_or_default();
         Ok(Snapshot {

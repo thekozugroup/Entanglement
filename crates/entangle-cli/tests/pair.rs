@@ -33,10 +33,12 @@ fn binary() -> PathBuf {
     assert_cmd::cargo::cargo_bin("entangle")
 }
 
-/// What the responder printed: the code to type, and its dialable address.
+/// What the responder printed: the code to type, its dialable address and
+/// its own full fingerprint (the `SHA-256:` line of the code screen).
 struct Responder {
     code: String,
     node_addr: String,
+    sha256: String,
     child: std::process::Child,
     stderr: BufReader<std::process::ChildStderr>,
 }
@@ -67,18 +69,21 @@ fn start_responder(home: &TempDir, peers: &Path, identity: &Path) -> Responder {
         .expect("responder must start");
 
     let mut stderr = BufReader::new(child.stderr.take().expect("piped stderr"));
-    let (mut code, mut node_addr) = (None, None);
+    let (mut code, mut node_addr, mut sha256) = (None, None, None);
     let mut transcript = String::new();
     let mut line = String::new();
     // The banner is printed as soon as the endpoint is bound, before the
     // process blocks waiting for a dial.
-    while code.is_none() || node_addr.is_none() {
+    while code.is_none() || node_addr.is_none() || sha256.is_none() {
         line.clear();
         let read = stderr.read_line(&mut line).expect("read responder stderr");
         assert!(read > 0, "responder exited early:\n{transcript}");
         transcript.push_str(&line);
         if let Some(rest) = line.trim().strip_prefix("Pairing code:") {
             code = rest.split_whitespace().next().map(str::to_string);
+        }
+        if let Some(rest) = line.trim().strip_prefix("SHA-256:") {
+            sha256 = Some(rest.trim().to_string());
         }
         if let Some(rest) = line
             .trim()
@@ -91,6 +96,7 @@ fn start_responder(home: &TempDir, peers: &Path, identity: &Path) -> Responder {
     Responder {
         code: code.expect("a code"),
         node_addr: node_addr.expect("a node address"),
+        sha256: sha256.expect("a SHA-256 line"),
         child,
         stderr,
     }
@@ -212,6 +218,95 @@ fn pair_over_the_network_stores_both_peers() {
     // the other, exchanged them, and stored the one they received — and each
     // recorded the revocation ids of the one it issued.
     assert_tokens_exchanged(&i_peers, &i_key, &r_peers, &r_key);
+}
+
+/// The value after `label` on the line that starts with it.
+fn line_value<'a>(text: &'a str, label: &str) -> Option<&'a str> {
+    text.lines()
+        .find_map(|l| l.trim().strip_prefix(label))
+        .map(str::trim)
+}
+
+/// `SHA256:<hex>` of a raw public key, computed here independently of the
+/// CLI: the SHA-256 digest of the 32 key bytes.
+fn sha256_of_key(pubkey_hex: &str) -> String {
+    use sha2::Digest as _;
+    let key = hex::decode(pubkey_hex).expect("hex public key");
+    assert_eq!(key.len(), 32, "an Ed25519 public key");
+    format!("SHA256:{}", hex::encode(sha2::Sha256::digest(&key)))
+}
+
+/// Spec §6.3 / §9.4.2: after the exchange each device shows the *other*
+/// device's full fingerprint as "Their SHA-256" — on the device that shows
+/// the code too, where it must be the device that typed it, never itself.
+#[test]
+fn each_side_shows_the_other_devices_sha256() {
+    let r_home = TempDir::new().unwrap();
+    let i_home = TempDir::new().unwrap();
+    let work = TempDir::new().unwrap();
+    let r_peers = work.path().join("r-peers.toml");
+    let i_peers = work.path().join("i-peers.toml");
+    let r_key = work.path().join("r-identity.key");
+    let i_key = work.path().join("i-identity.key");
+
+    let responder = start_responder(&r_home, &r_peers, &r_key);
+    let responder_sha = responder.sha256.clone();
+    let responder_pubkey = responder
+        .node_addr
+        .split('@')
+        .next()
+        .expect("long address is <pubkey>@<addr>")
+        .to_string();
+    assert_eq!(
+        responder_sha,
+        sha256_of_key(&responder_pubkey),
+        "the code screen shows this device's own SHA-256"
+    );
+
+    let out = entangle(&i_home)
+        .args([
+            "pair",
+            &responder.code,
+            "--display-name",
+            "laptop",
+            "--peer",
+            &responder.node_addr,
+            "--yes",
+            "--no-mdns",
+            "--bind",
+            "127.0.0.1:0",
+            "--peers-file",
+            i_peers.to_str().unwrap(),
+            "--identity-file",
+            i_key.to_str().unwrap(),
+        ])
+        .timeout(Duration::from_secs(60))
+        .assert()
+        .success()
+        .get_output()
+        .stderr
+        .clone();
+    let i_stderr = String::from_utf8_lossy(&out).into_owned();
+    let (ok, r_tail) = responder.finish();
+    assert!(ok, "responder must exit cleanly; tail:\n{r_tail}");
+
+    // The initiator's key, as the responder authenticated and stored it.
+    let r_store = entangle_peers::PeerStore::open(&r_peers).unwrap();
+    let stored = r_store.list();
+    assert_eq!(stored.len(), 1, "the responder stored the initiator");
+    let initiator_sha = sha256_of_key(&stored[0].public_key_hex);
+    assert_ne!(initiator_sha, responder_sha);
+
+    assert_eq!(
+        line_value(&i_stderr, "Their SHA-256:"),
+        Some(responder_sha.as_str()),
+        "the typing device shows the code screen's SHA-256:\n{i_stderr}"
+    );
+    assert_eq!(
+        line_value(&r_tail, "Their SHA-256:"),
+        Some(initiator_sha.as_str()),
+        "the code-showing device shows the typing device's SHA-256, not its own:\n{r_tail}"
+    );
 }
 
 /// Both peer lists hold exactly the other device, with a `mesh.peer` token
@@ -536,6 +631,40 @@ fn manual_flag_selects_the_blob_channel() {
         .stderr(predicate::str::contains("blob"));
 }
 
+/// `--print-code` shows a code and waits on the network. On the copy-paste
+/// channel the code is shown by the side that runs without `--responder`,
+/// so `--print-code` with `--manual` (or a blob file option) is refused as a
+/// usage error instead of running the side that asks for a REQUEST blob.
+#[test]
+fn print_code_is_refused_on_the_manual_channel() {
+    let home = TempDir::new().unwrap();
+    let work = TempDir::new().unwrap();
+    let peers = work.path().join("peers.toml");
+    let req = work.path().join("req.txt");
+    for extra in [
+        vec!["--manual"],
+        vec!["--request-file", req.to_str().unwrap()],
+    ] {
+        let mut args = vec![
+            "pair",
+            "--print-code",
+            "--peers-file",
+            peers.to_str().unwrap(),
+        ];
+        args.extend(extra.iter().copied());
+        let out = entangle(&home)
+            .args(&args)
+            .write_stdin("\n")
+            .assert()
+            .code(2)
+            .get_output()
+            .clone();
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(!stderr.contains("REQUEST"), "{extra:?}:\n{stderr}");
+        assert!(stderr.contains("--print-code"), "{extra:?}:\n{stderr}");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // 3. Help text.
 // ---------------------------------------------------------------------------
@@ -566,4 +695,206 @@ fn pair_help_shows_network_flags() {
         .stdout(predicate::str::contains("--manual"))
         .stdout(predicate::str::contains("--yes"))
         .stdout(predicate::str::contains("--timeout"));
+}
+
+// ---------------------------------------------------------------------------
+// 4. Pairing UX (spec §6.3 failure modes, §9.4.2).
+// ---------------------------------------------------------------------------
+
+/// `--print-code` shows the code, the short and the full SHA-256
+/// fingerprint and a QR code; when nobody pairs in time it says the code
+/// expired and how to get a new one, and records the attempt for
+/// `entangle diag pair`.
+#[test]
+fn print_code_shows_sha256_and_qr_then_expires_with_a_remedy() {
+    let home = TempDir::new().unwrap();
+    let work = TempDir::new().unwrap();
+    let peers = work.path().join("peers.toml");
+    let out = StdCommand::new(binary())
+        .args([
+            "pair",
+            "--print-code",
+            "--display-name",
+            "studio",
+            "--bind",
+            "127.0.0.1:0",
+            "--no-mdns",
+            "--timeout",
+            "10",
+            "--peers-file",
+            peers.to_str().unwrap(),
+            "--identity-file",
+            work.path().join("id.key").to_str().unwrap(),
+        ])
+        .env("HOME", home.path())
+        .env_remove("TERM")
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success());
+    let sha = stderr
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("SHA-256:"))
+        .unwrap_or_else(|| panic!("no SHA-256 line:\n{stderr}"))
+        .trim();
+    assert!(
+        sha.starts_with("SHA256:") && sha.len() == 7 + 64,
+        "full hex fingerprint: {sha}"
+    );
+    // The value is the SHA-256 of the identity file's raw public key,
+    // computed here independently of the CLI.
+    let identity = entangle_signing::IdentityKeyPair::from_pem(
+        &std::fs::read_to_string(work.path().join("id.key")).expect("identity written"),
+    )
+    .expect("identity parses");
+    assert_eq!(
+        sha,
+        sha256_of_key(&hex::encode(identity.public().as_bytes())),
+        "the printed SHA-256 is the digest of this device's public key"
+    );
+    assert!(stderr.contains("Pairing code:"), "{stderr}");
+    let qr_rows = stderr.lines().filter(|l| l.contains('█')).count();
+    assert!(qr_rows > 10, "a QR code is drawn:\n{stderr}");
+    assert!(stderr.contains("ENTANGLE-E0886: code expired"), "{stderr}");
+    assert!(stderr.contains("entangle pair --print-code"), "{stderr}");
+
+    let log = std::fs::read_to_string(work.path().join("pairing-attempts.json")).unwrap();
+    assert!(
+        log.contains("\"show-code\"") && log.contains("\"failed\""),
+        "{log}"
+    );
+}
+
+/// No reachability: the error lists each transport tried and why it failed,
+/// names what was not tried, and points at `entangle diag pair`, which then
+/// shows the attempt.
+#[test]
+fn unreachable_device_lists_what_was_tried_and_diag_pair_shows_it() {
+    let home = TempDir::new().unwrap();
+    let peers = home.path().join(".entangle/peers.toml");
+    std::fs::create_dir_all(peers.parent().unwrap()).unwrap();
+    // A key nobody listens for, on a loopback port nothing serves.
+    let ghost = hex::encode(
+        entangle_signing::IdentityKeyPair::generate()
+            .public()
+            .as_bytes(),
+    );
+    let sock = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+    let dead = sock.local_addr().unwrap();
+    drop(sock);
+    let a = entangle(&home)
+        .args([
+            "pair",
+            "--peer",
+            &format!("{ghost}@{dead}"),
+            "--code",
+            "123-456",
+            "--yes",
+            "--no-mdns",
+            "--bind",
+            "127.0.0.1:0",
+        ])
+        .timeout(Duration::from_secs(90))
+        .assert()
+        .failure();
+    let stderr = String::from_utf8_lossy(&a.get_output().stderr).into_owned();
+    for needle in [
+        "ENTANGLE-E0888",
+        "Transports tried:",
+        "mesh.iroh (QUIC)",
+        &dead.to_string(),
+        "mesh.tailscale",
+        "entangle diag pair",
+    ] {
+        assert!(stderr.contains(needle), "missing {needle:?}:\n{stderr}");
+    }
+
+    let a = entangle(&home)
+        .args([
+            "diag",
+            "pair",
+            "--json",
+            "--no-mdns",
+            "--bind",
+            "127.0.0.1:0",
+        ])
+        .env("PATH", "/nonexistent")
+        .timeout(Duration::from_secs(60))
+        .assert()
+        .success();
+    let report: serde_json::Value = serde_json::from_slice(&a.get_output().stdout).unwrap();
+    assert_eq!(report["quic"]["status"], "ok", "{report:#}");
+    assert_eq!(report["mdns"]["status"], "skipped");
+    assert_eq!(report["tailscale"]["state"], "uninstalled");
+    let last = &report["last_attempts"][0];
+    assert_eq!(last["role"], "enter-code", "{report:#}");
+    assert_eq!(last["outcome"], "failed");
+    assert!(
+        last["tried"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["transport"] == "mesh.iroh (QUIC)"),
+        "{report:#}"
+    );
+    assert!(
+        report["hints"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|h| h.as_str().unwrap().contains("last pairing attempt failed")),
+        "{report:#}"
+    );
+
+    // The text form says the same.
+    entangle(&home)
+        .args(["diag", "pair", "--no-mdns", "--bind", "127.0.0.1:0"])
+        .env("PATH", "/nonexistent")
+        .timeout(Duration::from_secs(60))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Last pairing attempts"))
+        .stdout(predicate::str::contains("enter-code"))
+        .stdout(predicate::str::contains("QUIC endpoint"));
+}
+
+/// The copy-paste channel's expiry says so with a stable code and the remedy.
+#[test]
+fn manual_request_past_its_expiry_says_the_code_expired() {
+    use base64::Engine as _;
+    let home = TempDir::new().unwrap();
+    let work = TempDir::new().unwrap();
+    let kp = entangle_signing::IdentityKeyPair::generate();
+    let key = *kp.public().as_bytes();
+    let code: entangle_pairing::PairingCode = "123-456".parse().unwrap();
+    let request = entangle_pairing::PairingRequest {
+        initiator_peer_id: entangle_types::peer_id::PeerId::from_public_key_bytes(&key),
+        initiator_pubkey_hex: hex::encode(key),
+        initiator_display_name: "old".into(),
+        code_commit: entangle_pairing::make_code_commit(code, &key),
+        nonce: [0; 32],
+        created_at_secs: 1,
+    };
+    let blob = format!(
+        "ENT-REQ-{}",
+        base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(serde_json::to_vec(&request).unwrap())
+    );
+    let req = work.path().join("req.blob");
+    std::fs::write(&req, blob).unwrap();
+    entangle(&home)
+        .args([
+            "pair",
+            "--responder",
+            "--request-file",
+            req.to_str().unwrap(),
+            "--code",
+            "123-456",
+            "--peers-file",
+            work.path().join("peers.toml").to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0886: code expired"))
+        .stderr(predicate::str::contains("entangle pair --manual"));
 }

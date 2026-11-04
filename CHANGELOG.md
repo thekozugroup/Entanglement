@@ -48,6 +48,11 @@ Runtime lifecycle
 Operations
 - `entangle security set-max-tier`, `entangle config reload|validate`; lowering the ceiling drains in-flight calls and streams before unloading and records the unloaded plugins in `[plugins] disabled`; audit codes `W0214`, `I0215`, `I0216`, `I0217`.
 - `entangle wrapper enable|disable|status|repair`; `doctor` detects shadowing; format-preserving config writer.
+- `entangle config set|get|unset` (validated, format-preserving, `mesh.*.enabled` spellings); `[node] label`.
+- `entangle init` wizard: `--single-node`, `--transport`, `--headless`, Tailscale detection with login profiles and a 1.62.0 minimum version (also checked by the daemon), plain prompts and `NO_COLOR`.
+- `entangle keys gen --label [--trust]`.
+- Pairing UX: terminal QR and SHA-256 fingerprint, expiry and mismatch messages, tried transports, `entangle diag pair`, `pair --print-code`; `entangle mesh routes`.
+- `entangle install`, `entangle uninstall`, `entangle agent host cleanup [--all]`; error codes `ENTANGLE-E0880`..`E0899`.
 - `[plugins] disabled` is enforced at load by the daemon and the CLI's local kernel (`ENTANGLE-E0759`); `entangle plugins enable|disable <id>` (`enable` refused above the ceiling, `ENTANGLE-E0760`).
 - `entangle backup` / `entangle restore`: passphrase-encrypted archive (Argon2id, XChaCha20-Poly1305, header as associated data) of identity, keyring and paired peers; restore is all-or-nothing and needs `--force` to replace an identity (`ENTANGLE-E0860`..`E0867`).
 - Daemon `/metrics` endpoint (disabled by default, loopback by default); real metrics with bounded labels; `entangle metrics` over RPC.
@@ -104,7 +109,8 @@ Tests
 - Runtime lifecycle: panics on Tokio's blocking pool exit the daemon; `mesh.tailscale` accept loops are not supervised; WIT `init`/`activate`/`idle`/`shutdown` exports; an old version's id runs the new version after a hot reload.
 - OCI listing rollback protection (listings expire, but an older unexpired listing is accepted); a TLS handshake test for the OCI client.
 - `RLIMIT_NPROC`, `RLIMIT_FSIZE`, cgroups and a per-host `net.wan` allowlist for native plugins.
-- `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
+- `entangle logs`, `entangle upgrade`, `entangle trace task`.
+- `[node] data_dir` and `identity` (paths are fixed under `~/.entangle`); init does not open firewall ports.
 - Bus-factor check fails by design (one holder per role).
 - No published release; `install.sh` and Homebrew need a `v0.1.0` tag.
 

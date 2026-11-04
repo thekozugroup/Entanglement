@@ -17,6 +17,8 @@ use std::path::PathBuf;
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
+    /// `[node]` — this device (see [`NodeSection`]).
+    pub node: NodeSection,
     /// Runtime-specific tuning knobs (daemon-only section).
     pub runtime: RuntimeConfig,
     /// Mesh transport configuration (shared with the CLI schema).
@@ -42,6 +44,121 @@ pub struct Config {
     pub logs: LogsSection,
     /// Trust policy for remote requests (daemon-only section).
     pub trust: TrustSection,
+}
+
+/// `[node]` — this device (spec §9.4).
+///
+/// ```toml
+/// [node]
+/// label = "alice-laptop"   # shown to peers when pairing and in mDNS
+/// ```
+///
+/// `label` is the human-readable device label `entangle init` asks for. The
+/// daemon advertises it (mDNS, `entangle diag mesh`) and `entangle pair`
+/// shows it to the other device (spec §6.3 step 2); absent, both fall back
+/// to the host name. It is at most [`MAX_LABEL_LEN`] bytes, not blank and
+/// without control characters, validated when the file is loaded.
+///
+/// *Deviation (spec §9.4):* the spec's `data_dir` and `identity` keys are
+/// not supported — every command and the daemon resolve their files under
+/// `~/.entangle` directly — and fail the load with a message saying so,
+/// rather than as an unknown key.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct NodeSection {
+    /// Human-readable device label.
+    #[serde(skip_serializing_if = "Option::is_none", deserialize_with = "de_label")]
+    pub label: Option<String>,
+    /// Not supported (spec §9.4 deviation); present only to explain so.
+    #[serde(
+        skip_serializing,
+        deserialize_with = "de_unsupported_data_dir",
+        rename = "data_dir"
+    )]
+    pub data_dir: Option<()>,
+    /// Not supported (spec §9.4 deviation); present only to explain so.
+    #[serde(
+        skip_serializing,
+        deserialize_with = "de_unsupported_identity",
+        rename = "identity"
+    )]
+    pub identity: Option<()>,
+}
+
+/// Longest accepted `[node] label`, in bytes (what pairing accepts from the
+/// other device, too).
+pub const MAX_LABEL_LEN: usize = 64;
+
+/// Check a device label: not blank, at most [`MAX_LABEL_LEN`] bytes, no
+/// control characters.
+pub fn check_label(label: &str) -> Result<(), String> {
+    if label.trim().is_empty() {
+        return Err("[node] label must not be blank".into());
+    }
+    if label.len() > MAX_LABEL_LEN {
+        return Err(format!(
+            "[node] label is {} bytes; at most {MAX_LABEL_LEN} are allowed",
+            label.len()
+        ));
+    }
+    if label.chars().any(char::is_control) {
+        return Err("[node] label must not contain control characters".into());
+    }
+    Ok(())
+}
+
+fn de_label<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
+    let s = String::deserialize(d)?;
+    check_label(&s).map_err(serde::de::Error::custom)?;
+    Ok(Some(s))
+}
+
+fn unsupported_node_key<'de, D: serde::Deserializer<'de>>(
+    d: D,
+    key: &str,
+) -> Result<Option<()>, D::Error> {
+    serde::de::IgnoredAny::deserialize(d)?;
+    Err(serde::de::Error::custom(format!(
+        "[node] {key} is not supported: Entanglement keeps its files in ~/.entangle \
+         (set HOME to relocate them); remove the key"
+    )))
+}
+
+fn de_unsupported_data_dir<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<()>, D::Error> {
+    unsupported_node_key(d, "data_dir")
+}
+
+fn de_unsupported_identity<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<()>, D::Error> {
+    unsupported_node_key(d, "identity")
+}
+
+impl Config {
+    /// The configured device label, if any.
+    pub fn node_label(&self) -> Option<&str> {
+        self.node.label.as_deref()
+    }
+
+    /// The checks the daemon makes on a parsed file before it starts
+    /// anything (beyond those `toml::from_str` already makes): the OTLP
+    /// exporter settings, the metrics listen address (when enabled), the
+    /// transport routing policy, and the `mesh.tailscale` settings.
+    ///
+    /// `entangle config set` runs this on the edited file before writing it,
+    /// so it never writes a file the daemon would refuse at startup.
+    pub fn validate(&self) -> anyhow::Result<()> {
+        use anyhow::Context as _;
+        self.telemetry
+            .otel_config()
+            .context("[telemetry.otlp] is invalid")?;
+        if self.metrics.enabled {
+            crate::metrics_server::resolve_listen(&self.metrics).context("[metrics] is invalid")?;
+        }
+        self.mesh
+            .route_policy()
+            .context("[mesh] preferred / [mesh.overrides]")?;
+        crate::tailscale::build_config(&self.mesh, entangle_peers::PeerStore::new())?;
+        Ok(())
+    }
 }
 
 /// `[trust]` — how this node authorises work peers send it.
@@ -1085,6 +1202,59 @@ max_tier_allowed = 2
         assert_eq!(cfg.security.max_tier_allowed, Tier::Native);
         assert!(!cfg.mesh.multi_node);
     }
+    #[test]
+    fn node_label_is_optional_validated_and_round_trips() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert_eq!(cfg.node_label(), None);
+        let cfg: Config = toml::from_str("[node]\nlabel = \"alice-laptop\"\n").unwrap();
+        assert_eq!(cfg.node_label(), Some("alice-laptop"));
+        let again: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(again.node, cfg.node);
+        let long = "x".repeat(MAX_LABEL_LEN + 1);
+        for bad in [
+            "\"  \"".to_owned(),
+            format!("{long:?}"),
+            "\"a\\nb\"".to_owned(),
+        ] {
+            let err =
+                toml::from_str::<Config>(&format!("[node]\nlabel = {bad}\n")).expect_err(&bad);
+            assert!(err.to_string().contains("[node] label"), "{bad}: {err}");
+        }
+        assert!(toml::from_str::<Config>("[node]\nbogus = 1\n").is_err());
+    }
+
+    /// Spec §9.4 deviation: `data_dir` / `identity` are refused with a
+    /// message that says why, not as an anonymous unknown key.
+    #[test]
+    fn node_data_dir_and_identity_are_refused_with_an_explanation() {
+        for key in ["data_dir", "identity"] {
+            let err = toml::from_str::<Config>(&format!("[node]\n{key} = \"/var/lib/entangle\"\n"))
+                .expect_err(key);
+            let text = err.to_string();
+            assert!(
+                text.contains(&format!("[node] {key} is not supported")),
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_runs_the_daemon_startup_checks() {
+        let ok: Config = toml::from_str("[metrics]\nenabled = true\n").unwrap();
+        ok.validate().unwrap();
+        let bad_listen: Config =
+            toml::from_str("[metrics]\nenabled = true\nlisten = \"0.0.0.0:9\"\n").unwrap();
+        assert!(format!("{:#}", bad_listen.validate().unwrap_err()).contains("E0656"));
+        let bad_otlp: Config =
+            toml::from_str("[telemetry.otlp]\nenabled = true\nendpoint = \"localhost:4317\"\n")
+                .unwrap();
+        assert!(format!("{:#}", bad_otlp.validate().unwrap_err()).contains("E0651"));
+        // A disabled section is not checked, as at startup.
+        let off: Config =
+            toml::from_str("[metrics]\nenabled = false\nlisten = \"nonsense\"\n").unwrap();
+        off.validate().unwrap();
+    }
+
     #[test]
     fn trust_requires_capability_tokens_unless_told_otherwise() {
         let cfg: Config = toml::from_str("").expect("empty config");

@@ -3,7 +3,10 @@
 //! Every variant carries a stable `ENTANGLE-E064x` code from the
 //! `E0640–E0649` block. `E0640` and `E0641` were minted by the Phase-1
 //! scaffold and keep their meaning; `E0642`–`E0649` belong to the real
-//! transport.
+//! transport. That block is full, so the version floor
+//! ([`MeshTailscaleError::UnsupportedVersion`]) takes `ENTANGLE-E0891`, and
+//! an unknown version ([`MeshTailscaleError::VersionUnknown`]) `ENTANGLE-E0893`,
+//! from the operator-flows block (`E0880–E0899`), which `entangle init` shares.
 
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -77,10 +80,37 @@ pub enum MeshTailscaleError {
     /// `ENTANGLE-E0649` — `tailscale status --json` failed or was unparsable.
     #[error("ENTANGLE-E0649: tailscale status unavailable: {0}")]
     Status(String),
+
+    /// `ENTANGLE-E0891` — the host's `tailscale` is older than
+    /// [`crate::MIN_SUPPORTED_VERSION`] (spec §11 #17). The transport is not
+    /// enabled on it, by `entangle init` or by the daemon at boot.
+    #[error(
+        "ENTANGLE-E0891: tailscale {found} is older than the supported minimum {minimum}; \
+         upgrade Tailscale (https://tailscale.com/download), or drop the transport with \
+         `entangle config set mesh.tailscale.enabled false`"
+    )]
+    UnsupportedVersion {
+        /// The version `tailscale version` (or tailscaled's status JSON)
+        /// reported.
+        found: crate::TailscaleVersion,
+        /// The minimum this build supports.
+        minimum: crate::TailscaleVersion,
+    },
+
+    /// `ENTANGLE-E0893` — neither `tailscale version` nor tailscaled's
+    /// status JSON gave a version, so the floor of spec §11 #17 cannot be
+    /// checked; the transport is refused rather than trusted unchecked.
+    #[error(
+        "ENTANGLE-E0893: could not determine the tailscale version ({0}), so the supported \
+         minimum {min} cannot be checked; check `tailscale version` and `tailscale status \
+         --json`, or drop the transport with `entangle config set mesh.tailscale.enabled false`",
+        min = crate::MIN_SUPPORTED_VERSION
+    )]
+    VersionUnknown(String),
 }
 
 impl MeshTailscaleError {
-    /// The stable `ENTANGLE-E064x` code for this error.
+    /// The stable `ENTANGLE-Exxxx` code for this error.
     pub const fn code(&self) -> &'static str {
         match self {
             Self::NotImplemented => "ENTANGLE-E0640",
@@ -93,6 +123,8 @@ impl MeshTailscaleError {
             Self::Stream(_) => "ENTANGLE-E0647",
             Self::PeerNotAllowed(_) => "ENTANGLE-E0648",
             Self::Status(_) => "ENTANGLE-E0649",
+            Self::UnsupportedVersion { .. } => "ENTANGLE-E0891",
+            Self::VersionUnknown(_) => "ENTANGLE-E0893",
         }
     }
 
@@ -127,6 +159,11 @@ mod tests {
             MeshTailscaleError::Stream("x".into()),
             MeshTailscaleError::PeerNotAllowed(PeerId::from_public_key_bytes(&[1; 32])),
             MeshTailscaleError::Status("x".into()),
+            MeshTailscaleError::UnsupportedVersion {
+                found: crate::TailscaleVersion::new(1, 50, 0),
+                minimum: crate::MIN_SUPPORTED_VERSION,
+            },
+            MeshTailscaleError::VersionUnknown("x".into()),
         ]
     }
 

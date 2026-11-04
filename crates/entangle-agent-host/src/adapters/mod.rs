@@ -56,6 +56,18 @@ pub trait Adapter: Send + Sync {
         false
     }
 
+    /// The user's own (not project-scoped) config files of this agent,
+    /// whether or not they exist. Entanglement never writes them (spec
+    /// §8.3); `entangle install` records their checksums and `entangle
+    /// uninstall` verifies they are unchanged. Default: the
+    /// [`config_path`](Self::config_path), unless it is project-scoped.
+    fn user_config_files(&self) -> Vec<Utf8PathBuf> {
+        if self.default_config_is_project_scoped() {
+            return Vec::new();
+        }
+        self.config_path().map(|p| vec![p]).unwrap_or_default()
+    }
+
     /// MCP servers the agent would also load from config files other than
     /// `original` (it merges several), mapped to the file declaring each.
     /// The session config overrides them so they cannot run outside the
@@ -354,6 +366,31 @@ pub fn known_adapter_names() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn user_config_files_name_each_agents_own_configs() {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let files: Vec<(String, Vec<Utf8PathBuf>)> = registry()
+            .iter()
+            .map(|a| (a.name().to_owned(), a.user_config_files()))
+            .collect();
+        let of = |n: &str| &files.iter().find(|(name, _)| name == n).unwrap().1;
+        if !home.is_empty() {
+            assert_eq!(
+                of("claude-code"),
+                &[Utf8PathBuf::from(&home).join(".claude/settings.json")],
+                "not ~/.claude.json: Claude Code rewrites it on every run"
+            );
+            assert!(of("codex").contains(&Utf8PathBuf::from(&home).join(".codex/config.toml")));
+        }
+        let oc = opencode::OpenCodeAdapter::with_dirs("/g", "/p");
+        assert_eq!(
+            oc.user_config_files(),
+            ["/g/opencode.json", "/g/opencode.jsonc", "/g/config.json"].map(Utf8PathBuf::from)
+        );
+        // Never a project-scoped file such as `.mcp.json`.
+        assert!(files.iter().all(|(_, f)| f.iter().all(|p| p.is_absolute())));
+    }
 
     #[test]
     fn known_adapter_names_lists_all_three_phase1_adapters() {

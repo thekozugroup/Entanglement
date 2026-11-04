@@ -1,4 +1,6 @@
-//! `entangle mesh` subcommands — peers, status, trust, untrust, revoke.
+//! `entangle mesh` subcommands — peers, routes, status, trust, untrust, revoke.
+//!
+//! `routes` lives in [`crate::cmd::routes`].
 //!
 //! Iter 9: RPC-backed `peers` and `status`; direct on-disk writes for
 //! `trust` / `untrust` / `revoke` (spec §6.3 — these never go through RPC).
@@ -38,6 +40,19 @@ pub enum MeshCmd {
         /// Emit machine-readable JSON instead of the plain-text table.
         #[arg(long)]
         json: bool,
+    },
+    /// Per trusted peer: which of this node's transports reach it, which one
+    /// is picked, and what to change when none can (spec §6.4).
+    Routes {
+        /// Emit machine-readable JSON instead of the table.
+        #[arg(long)]
+        json: bool,
+        /// Count only paths that answer a probe round trip (through the daemon).
+        #[arg(long)]
+        probe: bool,
+        /// Per-peer probe timeout in milliseconds.
+        #[arg(long, default_value_t = 3000)]
+        timeout_ms: u64,
     },
     /// Show local mesh state: own peer id, active transports, peer counts.
     Status {
@@ -79,6 +94,11 @@ pub async fn run(args: MeshArgs) -> anyhow::Result<()> {
     match args.cmd {
         MeshCmd::Peers { json } => peers(json).await,
         MeshCmd::Status { json } => status(json).await,
+        MeshCmd::Routes {
+            json,
+            probe,
+            timeout_ms,
+        } => crate::cmd::routes::run(json, probe, timeout_ms).await,
         MeshCmd::Trust {
             peer_id,
             public_key_hex,

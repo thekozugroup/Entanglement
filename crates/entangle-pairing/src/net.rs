@@ -192,7 +192,7 @@ impl std::fmt::Display for RejectReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Self::BadCode => "the code did not match the one displayed on the other device",
-            Self::Expired => "the pairing session expired",
+            Self::Expired => "the code expired",
             Self::TooManyAttempts => "too many wrong codes; the session was destroyed",
             Self::AlreadyPaired => "that session has already paired (codes are single-use)",
             Self::Malformed => "the other device rejected the message as malformed",
@@ -220,8 +220,11 @@ pub enum PairingNetError {
     /// know the code that was typed — i.e. the wrong device, or the wrong code.
     #[error("verification failed: the other device could not prove it knows this code")]
     VerifyFailed,
-    /// The local session ran out of time.
-    #[error("the pairing session expired")]
+    /// `ENTANGLE-E0886` — the local session ran out of time: the code
+    /// expired.
+    #[error(
+        "ENTANGLE-E0886: the pairing session expired; run `entangle pair` again for a new code"
+    )]
     Expired,
     /// The host stopped listening without pairing.
     #[error("no device completed pairing")]

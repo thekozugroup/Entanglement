@@ -31,6 +31,16 @@ pub struct TailscaleStatus {
     pub self_node: Option<TailnetNode>,
     /// Peers, ordered by DNS name.
     pub peers: Vec<TailnetNode>,
+    /// `Version` of the local `tailscaled` (e.g. `1.76.1-t0123abcd`); empty
+    /// when absent.
+    pub version: String,
+    /// `CurrentTailnet.Name` (e.g. `corp.ts.net`), when reported.
+    pub tailnet_name: Option<String>,
+    /// `CurrentTailnet.MagicDNSEnabled`, when reported.
+    pub magic_dns_enabled: Option<bool>,
+    /// Distinct `LoginName`s in the `User` map, sorted. More than one means
+    /// the tailnet is shared with other accounts (spec §9.1.1).
+    pub users: Vec<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -51,6 +61,23 @@ struct RawStatus {
     #[serde(rename = "Self")]
     self_node: Option<RawNode>,
     peer: Option<BTreeMap<String, RawNode>>,
+    version: Option<String>,
+    current_tailnet: Option<RawTailnet>,
+    user: Option<BTreeMap<String, RawUser>>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default, rename_all = "PascalCase")]
+struct RawTailnet {
+    name: Option<String>,
+    #[serde(rename = "MagicDNSEnabled")]
+    magic_dns_enabled: Option<bool>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default, rename_all = "PascalCase")]
+struct RawUser {
+    login_name: Option<String>,
 }
 
 impl From<RawNode> for TailnetNode {
@@ -85,11 +112,33 @@ impl TailscaleStatus {
             .map(Into::into)
             .collect();
         peers.sort_by(|a, b| a.dns_name.cmp(&b.dns_name));
+        let mut users: Vec<String> = raw
+            .user
+            .unwrap_or_default()
+            .into_values()
+            .filter_map(|u| u.login_name)
+            .filter(|n| !n.is_empty())
+            .collect();
+        users.sort();
+        users.dedup();
+        let (tailnet_name, magic_dns_enabled) = match raw.current_tailnet {
+            Some(t) => (t.name.filter(|n| !n.is_empty()), t.magic_dns_enabled),
+            None => (None, None),
+        };
         Ok(Self {
             backend_state: raw.backend_state.unwrap_or_default(),
             self_node: raw.self_node.map(Into::into),
             peers,
+            version: raw.version.unwrap_or_default(),
+            tailnet_name,
+            magic_dns_enabled,
+            users,
         })
+    }
+
+    /// The daemon version parsed from [`Self::version`], if well-formed.
+    pub fn parsed_version(&self) -> Option<crate::TailscaleVersion> {
+        crate::TailscaleVersion::parse(&self.version)
     }
 
     /// Classify per the §6.1.1 table (the `Uninstalled` case is decided by
@@ -274,6 +323,62 @@ impl CliStatusSource {
 }
 
 impl CliStatusSource {
+    /// The command this source runs (a path or a bare name looked up on
+    /// `$PATH`).
+    pub fn cli(&self) -> &str {
+        &self.cli
+    }
+
+    /// Run `tailscale version` and parse its first line.
+    ///
+    /// `Err(NotInstalled)` when the binary does not exist,
+    /// [`MeshTailscaleError::Status`] when it fails or prints no version.
+    pub async fn fetch_version(&self) -> Result<crate::TailscaleVersion, MeshTailscaleError> {
+        let out = self.run(&["version"]).await.map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => MeshTailscaleError::NotInstalled,
+            _ => MeshTailscaleError::Status(e.to_string()),
+        })?;
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        if !out.status.success() {
+            return Err(MeshTailscaleError::Status(format!(
+                "`{} version` exited with {}: {}",
+                self.cli,
+                out.status,
+                String::from_utf8_lossy(&out.stderr).trim()
+            )));
+        }
+        crate::TailscaleVersion::parse(&stdout).ok_or_else(|| {
+            MeshTailscaleError::Status(format!(
+                "`{} version` printed no version: {:?}",
+                self.cli,
+                stdout.lines().next().unwrap_or("")
+            ))
+        })
+    }
+
+    /// Run `tailscale switch --list` and parse the profiles. A CLI too old
+    /// to have `switch` fails with [`MeshTailscaleError::Status`].
+    pub async fn list_profiles(&self) -> Result<Vec<crate::TailscaleProfile>, MeshTailscaleError> {
+        let out = self
+            .run(&["switch", "--list"])
+            .await
+            .map_err(|e| match e.kind() {
+                std::io::ErrorKind::NotFound => MeshTailscaleError::NotInstalled,
+                _ => MeshTailscaleError::Status(e.to_string()),
+            })?;
+        if !out.status.success() {
+            return Err(MeshTailscaleError::Status(format!(
+                "`{} switch --list` exited with {}: {}",
+                self.cli,
+                out.status,
+                String::from_utf8_lossy(&out.stderr).trim()
+            )));
+        }
+        Ok(crate::version::parse_profiles(&String::from_utf8_lossy(
+            &out.stdout,
+        )))
+    }
+
     /// The CLI could not be spawned because it does not exist. Spec §6.1.1:
     /// that is `uninstalled` only if `tailscaled`'s socket is absent too;
     /// with the socket present the daemon is installed (and maybe running)
@@ -346,6 +451,24 @@ mod tests {
                        "TailscaleIPs": null}
       }
     }"#;
+
+    #[test]
+    fn version_tailnet_and_users_are_parsed() {
+        let json = r#"{"Version":"1.76.1-t123","BackendState":"Running",
+          "CurrentTailnet":{"Name":"corp.ts.net","MagicDNSSuffix":"tail1.ts.net","MagicDNSEnabled":true},
+          "User":{"1":{"ID":1,"LoginName":"bob@corp"},"2":{"ID":2,"LoginName":"alice@corp"},
+                  "3":{"ID":3,"LoginName":"alice@corp"},"4":{"ID":4}}}"#;
+        let st = TailscaleStatus::parse(json).unwrap();
+        assert_eq!(
+            st.parsed_version(),
+            Some(crate::TailscaleVersion::new(1, 76, 1))
+        );
+        assert_eq!(st.tailnet_name.as_deref(), Some("corp.ts.net"));
+        assert_eq!(st.magic_dns_enabled, Some(true));
+        assert_eq!(st.users, ["alice@corp", "bob@corp"]);
+        let bare = TailscaleStatus::parse("{}").unwrap();
+        assert!(bare.version.is_empty() && bare.tailnet_name.is_none() && bare.users.is_empty());
+    }
 
     #[test]
     fn active_status_parses_and_classifies() {

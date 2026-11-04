@@ -1,6 +1,7 @@
 //! `entangle security set-max-tier` and `entangle config {reload,validate}` —
 //! the safe-lowering workflow for `[security] max_tier_allowed`
-//! (spec §9.4.1).
+//! (spec §9.4.1). `entangle config {set,get,unset}` live in
+//! [`crate::cmd::configset`].
 //!
 //! Lowering the ceiling below the tier of a loaded plugin is never silent:
 //! the affected plugins are listed, the operator chooses unload-and-disable
@@ -96,12 +97,51 @@ restarts. Flags behave as for `entangle security set-max-tier`.")]
         #[arg(long, short = 'y')]
         yes: bool,
     },
-    /// Check config.toml and list plugins the ceiling in it would orphan.
+    /// Check config.toml as the daemon loads it, and list plugins the ceiling in it would orphan.
     #[command(long_about = "\
-Check ~/.entangle/config.toml without applying anything. Exits 1 if the file
-is invalid or if its `max_tier_allowed` is below the tier of a loaded plugin
-(for CI: fail fast on a config that would orphan plugins).")]
+Check ~/.entangle/config.toml without applying anything: exactly as the daemon
+loads it (every key and value, and the multi-node start-up rule), then the
+tier ceiling against the running daemon. Exits 1 if the file is invalid or if
+its `max_tier_allowed` is below the tier of a loaded plugin (for CI: fail fast
+on a config that would orphan plugins).")]
     Validate,
+    /// Set one key in config.toml (checked as the daemon loads it).
+    #[command(long_about = "\
+Set one key in ~/.entangle/config.toml, e.g.
+
+  entangle config set mesh.tailscale.enabled true
+  entangle config set mesh.iroh.enabled true
+  entangle config set node.label alice-laptop
+  entangle config set mesh.transports local,iroh
+  entangle config set mesh.overrides.<peer-id> tailscale,iroh
+
+Keys are dotted paths onto the daemon's schema (`entangle config get` lists
+them). `mesh.local.enabled` / `mesh.iroh.enabled` add or remove the transport
+in `[mesh] transports`; `mesh.tailscale.enabled` also sets `[mesh.tailscale]
+enabled`. The value is checked against the key's type and the edited file
+exactly as the daemon loads it (including the multi-node start-up rule) before
+anything is written; the write is atomic and keeps comments, key order and the
+file mode. `security.max_tier_allowed` applies to a running daemon with
+`entangle config reload`; every other key when the daemon restarts.")]
+    Set {
+        /// Dotted key, e.g. `mesh.tailscale.enabled`.
+        key: String,
+        /// New value (lists: `a,b` or a TOML array).
+        value: String,
+    },
+    /// Print one key's value (or every key, with `[*]` marking those set in the file).
+    Get {
+        /// Dotted key; omitted: list every key.
+        key: Option<String>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Remove one key from config.toml, so the default applies.
+    Unset {
+        /// Dotted key.
+        key: String,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +170,9 @@ pub async fn run_config(a: ConfigArgs) -> Result<i32> {
             lower_or_raise(tier, Mode::Reload, Flags { force_unload, yes }).await
         }
         ConfigCmd::Validate => validate().await,
+        ConfigCmd::Set { key, value } => crate::cmd::configset::set(&key, &value),
+        ConfigCmd::Get { key, json } => crate::cmd::configset::get(key.as_deref(), json),
+        ConfigCmd::Unset { key } => crate::cmd::configset::unset(&key),
     }
 }
 
@@ -558,6 +601,21 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
 }
 
 async fn validate() -> Result<i32> {
+    // First the whole file, exactly as the daemon loads it (schema, values,
+    // the multi-node start-up rule): not just the tier ceiling.
+    let path = config::config_path();
+    match std::fs::read_to_string(&path) {
+        Ok(text) => {
+            crate::cmd::configset::validate_as_daemon(
+                &text,
+                &config::entangle_dir().join("peers.toml"),
+            )
+            .with_context(|| format!("checking {}", path.display()))?;
+        }
+        // No file: the daemon starts on its defaults.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    }
     let new = tier_from_config_file()?;
     match rpc_client().security_plan_max_tier(new).await {
         Ok(p) if p.affected.is_empty() => {

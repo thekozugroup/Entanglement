@@ -42,9 +42,10 @@ use clap::Args;
 use entangle_pairing::grant;
 use entangle_pairing::mesh::{
     dial_and_pair_with_grant, discover_pairing_hosts, parse_node_addr, start_pairing_transport,
-    IrohPeer, PairingCandidate, PairingListener, PairingTransportExt as _, DEFAULT_PAIRING_BIND,
+    IrohPeer, PairingCandidate, PairingListener, PairingMeshError, PairingTransportExt as _,
+    DEFAULT_PAIRING_BIND,
 };
-use entangle_pairing::net::HostConfig;
+use entangle_pairing::net::{HostConfig, PairingNetError, RejectReason};
 use entangle_pairing::{
     fingerprint_from_hex, make_code_commit, signing_payload, PairingAccept, PairingFinalize,
     PairingRequest,
@@ -54,6 +55,7 @@ use entangle_peers::{PeerStore, RevocationStore, TrustedPeer, REVOCATIONS_FILE};
 use entangle_signing::{IdentityPublicKey, Signature};
 use entangle_types::peer_id::PeerId;
 
+use crate::cmd::pairlog::Tried;
 use crate::config::entangle_dir;
 use crate::identity::ensure_identity;
 
@@ -79,6 +81,25 @@ pub struct PairArgs {
     /// Act as the responder: show a pairing code and wait for the other device.
     #[arg(long)]
     pub responder: bool,
+
+    /// Show a pairing code on this device and wait for the other device to
+    /// type it (`entangle pair <code>` there). Same as --responder, over the
+    /// network only: on the copy-paste channel the device that runs
+    /// `entangle pair --manual` without --responder shows the code.
+    #[arg(
+        long,
+        conflicts_with_all = [
+            "responder",
+            "manual",
+            "emit_request_file",
+            "consume_accept_file",
+            "emit_finalize_file",
+            "request_file",
+            "emit_accept_file",
+            "consume_finalize_file",
+        ]
+    )]
+    pub print_code: bool,
 
     /// Human-readable display name for this device (default: hostname).
     #[arg(long)]
@@ -156,13 +177,18 @@ pub struct PairArgs {
     #[arg(long, value_name = "PATH", hide = true)]
     pub identity_file: Option<PathBuf>,
 
-    /// Override the transport bind address (useful in tests).
-    #[arg(long, value_name = "ADDR", hide = true)]
+    /// Bind the pairing endpoint here (default 0.0.0.0:0, a random UDP
+    /// port). Fix the port to allow it through a firewall.
+    #[arg(long, value_name = "ADDR")]
     pub bind: Option<String>,
 
     /// Skip mDNS entirely (useful in tests and on locked-down networks).
     #[arg(long, hide = true)]
     pub no_mdns: bool,
+
+    /// Do not draw the QR code next to the pairing code.
+    #[arg(long)]
+    pub no_qr: bool,
 }
 
 impl PairArgs {
@@ -180,6 +206,11 @@ impl PairArgs {
 
     fn is_manual(&self) -> bool {
         self.manual || self.uses_blob_files()
+    }
+
+    /// This device shows the code (`--responder` / `--print-code`).
+    fn shows_code(&self) -> bool {
+        self.responder || self.print_code
     }
 
     /// The code the user supplied, from either spelling.
@@ -344,19 +375,50 @@ fn persist_paired(args: &PairArgs, paired: &PairedPeer) -> anyhow::Result<()> {
 
 // ── Display name ──────────────────────────────────────────────────────────────
 
+/// `--display-name`, else `[node] label` from config.toml, else the host
+/// name: the human-readable label the other device shows next to this one's
+/// fingerprint (spec §6.3 step 2).
 fn resolve_display_name(args: &PairArgs) -> String {
-    args.display_name.clone().unwrap_or_else(|| {
-        // Try to get a reasonable device name from environment variables.
-        std::env::var("HOSTNAME")
-            .or_else(|_| std::env::var("COMPUTERNAME"))
-            .unwrap_or_else(|_| "unknown".to_string())
-    })
+    args.display_name
+        .clone()
+        .unwrap_or_else(crate::config::device_label)
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
+/// `entangle init`'s "pair now": show a code on this device and wait for the
+/// other one (`entangle pair <code>` there), exactly as `entangle pair
+/// --print-code` does, with `label` as this device's name.
+pub async fn pair_from_wizard(label: &str) -> anyhow::Result<()> {
+    run(PairArgs {
+        responder: true,
+        print_code: false,
+        display_name: Some(label.to_owned()),
+        manual: false,
+        peer: None,
+        code: None,
+        code_arg: None,
+        yes: false,
+        timeout: 300,
+        max_attempts: DEFAULT_MAX_ATTEMPTS,
+        discover_secs: 4,
+        emit_request_file: None,
+        consume_accept_file: None,
+        emit_finalize_file: None,
+        request_file: None,
+        emit_accept_file: None,
+        consume_finalize_file: None,
+        peers_file: None,
+        identity_file: None,
+        bind: None,
+        no_mdns: false,
+        no_qr: false,
+    })
+    .await
+}
+
 pub async fn run(args: PairArgs) -> anyhow::Result<()> {
-    match (args.is_manual(), args.responder) {
+    match (args.is_manual(), args.shows_code()) {
         (true, true) => run_manual_responder(args),
         (true, false) => run_manual_initiator(args),
         (false, true) => run_responder(args).await,
@@ -368,10 +430,69 @@ pub async fn run(args: PairArgs) -> anyhow::Result<()> {
 // NETWORK RESPONDER — shows the code, waits for a dial
 // ═════════════════════════════════════════════════════════════════════════════
 
+/// Where the spec §6.3 "what this means" page for a fingerprint mismatch is.
+pub const FINGERPRINT_MISMATCH_DOCS: &str =
+    "https://github.com/thekozugroup/Entanglement/blob/main/docs/operations.md#fingerprint-mismatch \
+     (docs/operations.md, \"Fingerprint mismatch\")";
+
+/// `SHA256:<hex>` of a raw public key: the full fingerprint shown next to
+/// the short one and the QR code (spec §6.3, §9.4.2).
+pub fn sha256_fingerprint(public_key: &[u8; 32]) -> String {
+    use sha2::Digest as _;
+    format!("SHA256:{}", hex::encode(sha2::Sha256::digest(public_key)))
+}
+
+/// The text the pairing QR code carries: the code and the full fingerprint.
+pub fn qr_payload(code: PairingCode, public_key: &[u8; 32]) -> String {
+    let sha = sha256_fingerprint(public_key);
+    let hex = sha.trim_start_matches("SHA256:");
+    format!(
+        "entangle:pair?code={}&sha256={hex}",
+        code.display_grouped().replace('-', "")
+    )
+}
+
+/// The QR code as lines (empty with `--no-qr` or on `TERM=dumb`).
+fn qr_lines(args: &PairArgs, payload: &str) -> Vec<String> {
+    if args.no_qr || !crate::cmd::ui::unicode_graphics_allowed() {
+        return Vec::new();
+    }
+    crate::cmd::qr::QrCode::encode(payload.as_bytes())
+        .map(|q| q.to_half_blocks())
+        .unwrap_or_default()
+}
+
+fn attempts_path(args: &PairArgs) -> PathBuf {
+    crate::cmd::pairlog::path_next_to(&peers_path(args))
+}
+
+fn record_attempt(
+    args: &PairArgs,
+    role: &str,
+    outcome: &str,
+    peer: Option<String>,
+    error: Option<String>,
+    tried: Vec<Tried>,
+) {
+    crate::cmd::pairlog::record(
+        &attempts_path(args),
+        crate::cmd::pairlog::Attempt {
+            at_unix: crate::cmd::pairlog::now(),
+            role: role.into(),
+            outcome: outcome.into(),
+            peer,
+            error,
+            tried,
+        },
+    );
+}
+
 async fn run_responder(args: PairArgs) -> anyhow::Result<()> {
     let kp = ensure_identity(&identity_path(&args))?;
+    let public_key = *kp.public().as_bytes();
     let display_name = resolve_display_name(&args);
     let ttl = Duration::from_secs(args.timeout.clamp(10, 3600));
+    let mdns = !args.no_mdns;
 
     let listener = PairingListener::start(
         kp,
@@ -381,21 +502,57 @@ async fn run_responder(args: PairArgs) -> anyhow::Result<()> {
             max_attempts: args.max_attempts.max(1),
         },
         args.bind_addr()?,
-        !args.no_mdns,
+        mdns,
     )
-    .await
-    .context("could not start the pairing listener")?;
+    .await;
+    let listener = match listener {
+        Ok(l) => l,
+        Err(e) => {
+            let tried = vec![Tried::new(
+                "mesh.iroh (QUIC)",
+                format!("bind {}", args.bind_addr()?),
+                format!("failed: {e}"),
+            )];
+            record_attempt(
+                &args,
+                "show-code",
+                "failed",
+                None,
+                Some(e.to_string()),
+                tried,
+            );
+            return Err(anyhow::anyhow!(e)).context(
+                "could not start the pairing listener (run `entangle diag pair` to see what \
+                 pairing can use on this host)",
+            );
+        }
+    };
 
+    let code = listener.code();
     eprintln!("Waiting for another device to pair.\n");
     eprintln!(
         "  Pairing code:  {}   (expires in {}s)",
-        listener.code().display_grouped(),
+        code.display_grouped(),
         ttl.as_secs()
     );
     eprintln!("  Fingerprint:   {}", listener.local_fingerprint());
+    eprintln!("  SHA-256:       {}", sha256_fingerprint(&public_key));
     eprintln!("  This device:   {display_name}");
+    let payload = qr_payload(code, &public_key);
+    let qr = qr_lines(&args, &payload);
+    if !qr.is_empty() {
+        eprintln!(
+            "\n  Scan (the 6-digit code above is canonical; the QR carries it and the SHA-256):"
+        );
+        for line in &qr {
+            eprintln!("  {line}");
+        }
+    }
     if listener.is_announcing() {
-        eprintln!("\nOn the other device run:  entangle pair");
+        eprintln!(
+            "\nOn the other device run:  entangle pair {}",
+            code.display_grouped()
+        );
     } else {
         eprintln!("\n(no mDNS beacon — the other device needs --peer)");
     }
@@ -404,17 +561,82 @@ async fn run_responder(args: PairArgs) -> anyhow::Result<()> {
     }
     eprintln!();
 
+    let mut tried = vec![
+        Tried::new(
+            "mesh.iroh (QUIC)",
+            listener.node_addrs().join(", "),
+            "listening",
+        ),
+        Tried::new(
+            "mesh.local (mDNS)",
+            "pairing beacon",
+            if listener.is_announcing() {
+                "announcing"
+            } else if mdns {
+                "could not announce"
+            } else {
+                "off (--no-mdns)"
+            },
+        ),
+    ];
     let result = listener.wait().await;
     let paired = match result {
         Ok(p) => p,
         Err(e) => {
             listener.shutdown().await;
-            return Err(anyhow::anyhow!(e)).context("pairing did not complete");
+            let err = match &e {
+                PairingMeshError::Timeout(after) => anyhow::anyhow!(
+                    "ENTANGLE-E0886: code expired: no device paired within {}s. Run `entangle \
+                     pair --print-code` again for a new code (and `entangle pair <code>` on the \
+                     other device); `entangle diag pair` shows what pairing can use here.",
+                    after.as_secs()
+                ),
+                PairingMeshError::Net(PairingNetError::Identity(why)) => fingerprint_mismatch(why),
+                _ => anyhow::anyhow!(e.to_string()).context("pairing did not complete"),
+            };
+            tried.push(Tried::new("wait", "other device", format!("{err:#}")));
+            record_attempt(
+                &args,
+                "show-code",
+                "failed",
+                None,
+                Some(format!("{err:#}")),
+                tried,
+            );
+            return Err(err);
         }
     };
 
-    report_pairing(&paired, listener.local_fingerprint());
+    // "Their SHA-256" is the other device's key, as the exchange
+    // authenticated it — never this device's own.
+    let their_key = match their_key(&paired) {
+        Ok(k) => k,
+        Err(e) => {
+            listener.shutdown().await;
+            revoke_issued(
+                &args,
+                paired.peer_id,
+                &paired.issued_revocation_ids,
+                "pairing failed",
+            );
+            record_attempt(
+                &args,
+                "show-code",
+                "failed",
+                None,
+                Some(format!("{e:#}")),
+                tried,
+            );
+            return Err(e);
+        }
+    };
+    report_pairing(&paired, listener.local_fingerprint(), &their_key);
     listener.shutdown().await;
+    let peer = Some(format!(
+        "{} ({})",
+        paired.display_name,
+        paired.peer_id.to_hex()
+    ));
     if let Err(e) = confirm_or_abort(&args, &paired, "initiator") {
         revoke_issued(
             &args,
@@ -422,15 +644,53 @@ async fn run_responder(args: PairArgs) -> anyhow::Result<()> {
             &paired.issued_revocation_ids,
             "pairing not confirmed",
         );
+        record_attempt(
+            &args,
+            "show-code",
+            "not-confirmed",
+            peer,
+            Some(format!("{e:#}")),
+            tried,
+        );
         return Err(e);
     }
 
-    persist_paired(&args, &paired)
+    persist_paired(&args, &paired)?;
+    record_attempt(&args, "show-code", "paired", peer, None, tried);
+    Ok(())
+}
+
+/// Spec §6.3: a hard error, with a link to what it means.
+fn fingerprint_mismatch(detail: &str) -> anyhow::Error {
+    anyhow::anyhow!(
+        "ENTANGLE-E0887: fingerprint mismatch: {detail}. Nothing was stored. This can mean \
+         someone on the network is impersonating the other device (a man-in-the-middle on the \
+         rendezvous); do not retry blindly. What it means and what to do: {FINGERPRINT_MISMATCH_DOCS}"
+    )
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
 // NETWORK INITIATOR — finds the device, types the code
 // ═════════════════════════════════════════════════════════════════════════════
+
+/// Spec §6.3 "No reachability": which transports were tried and why each
+/// failed, what was not tried, and `entangle diag pair`.
+fn unreachable(tried: &[Tried], why: &str) -> anyhow::Error {
+    let mut msg = format!("ENTANGLE-E0888: {why}\nTransports tried:\n");
+    for t in tried {
+        msg.push_str(&format!(
+            "  - {}: {} -> {}\n",
+            t.transport, t.target, t.result
+        ));
+    }
+    msg.push_str(
+        "Not tried:\n  - mesh.tailscale: pairing does not search the tailnet; if both devices \
+         are on one, run `entangle pair --peer <address>` with the tailnet address that \
+         `entangle pair --print-code` prints on the other device\n",
+    );
+    msg.push_str("Run `entangle diag pair` on both devices to see what pairing can use on each.");
+    anyhow::anyhow!(msg)
+}
 
 async fn run_initiator(args: PairArgs) -> anyhow::Result<()> {
     let kp = ensure_identity(&identity_path(&args))?;
@@ -438,7 +698,21 @@ async fn run_initiator(args: PairArgs) -> anyhow::Result<()> {
     let local_peer_id = PeerId::from_public_key_bytes(kp.public().as_bytes());
     let local_fingerprint = ShortFingerprint::from_public_key(kp.public().as_bytes());
 
-    let (target, target_name) = resolve_target(&args, local_peer_id).await?;
+    let mut tried = Vec::new();
+    let (target, target_name) = match resolve_target(&args, local_peer_id, &mut tried).await {
+        Ok(t) => t,
+        Err(e) => {
+            record_attempt(
+                &args,
+                "enter-code",
+                "failed",
+                None,
+                Some(format!("{e:#}")),
+                tried,
+            );
+            return Err(e);
+        }
+    };
     let code = read_code(&args, &target_name)?;
 
     eprintln!("\nPairing with {target_name}…");
@@ -447,36 +721,159 @@ async fn run_initiator(args: PairArgs) -> anyhow::Result<()> {
     let target_id = PeerId::from_public_key_bytes(&target.public_key);
     let issued = grant::issue(&kp, target_id).context("minting the capability token")?;
     let issued_ids = issued.revocation_ids.clone();
-    let transport = start_pairing_transport(&kp, args.bind_addr()?)
-        .await
-        .context("could not bind a local endpoint")?;
+    let bind = args.bind_addr()?;
+    let transport = match start_pairing_transport(&kp, bind).await {
+        Ok(t) => t,
+        Err(e) => {
+            tried.push(Tried::new(
+                "mesh.iroh (QUIC)",
+                format!("bind {bind}"),
+                format!("failed: {e}"),
+            ));
+            let err = unreachable(&tried, "could not bind a local QUIC endpoint for pairing.");
+            record_attempt(
+                &args,
+                "enter-code",
+                "failed",
+                Some(target_name),
+                Some(format!("{err:#}")),
+                tried,
+            );
+            return Err(err);
+        }
+    };
+    let relay = transport.config().allow_derp_relay;
     let paired =
         dial_and_pair_with_grant(&transport, &target, &kp, &display_name, code, issued).await;
     transport.shutdown().await;
+    let dial_target = format!(
+        "{} ({})",
+        target
+            .addrs()
+            .map(|a| a.to_string())
+            .collect::<Vec<_>>()
+            .join(", "),
+        if relay {
+            "direct UDP, relay fallback on"
+        } else {
+            "direct UDP only"
+        }
+    );
     let paired = match paired {
-        Ok(p) => p,
+        Ok(p) => {
+            tried.push(Tried::new("mesh.iroh (QUIC)", dial_target, "ok"));
+            p
+        }
         Err(e) => {
             revoke_issued(&args, target_id, &issued_ids, "pairing failed");
-            return Err(anyhow::anyhow!(e)).context(
-                "pairing failed — check the code, and that the other device is still showing it",
+            let err = dial_error(&e, &target_name, dial_target, &mut tried);
+            record_attempt(
+                &args,
+                "enter-code",
+                "failed",
+                Some(target_name),
+                Some(format!("{err:#}")),
+                tried,
             );
+            return Err(err);
         }
     };
 
-    report_pairing(&paired, local_fingerprint);
+    let their_key = match their_key(&paired) {
+        Ok(k) => k,
+        Err(e) => {
+            revoke_issued(&args, target_id, &issued_ids, "pairing failed");
+            record_attempt(
+                &args,
+                "enter-code",
+                "failed",
+                Some(target_name),
+                Some(format!("{e:#}")),
+                tried,
+            );
+            return Err(e);
+        }
+    };
+    report_pairing(&paired, local_fingerprint, &their_key);
+    let peer = Some(format!(
+        "{} ({})",
+        paired.display_name,
+        paired.peer_id.to_hex()
+    ));
     if let Err(e) = confirm_or_abort(&args, &paired, "other device") {
         revoke_issued(&args, target_id, &issued_ids, "pairing not confirmed");
+        record_attempt(
+            &args,
+            "enter-code",
+            "not-confirmed",
+            peer,
+            Some(format!("{e:#}")),
+            tried,
+        );
         return Err(e);
     }
 
-    persist_paired(&args, &paired)
+    persist_paired(&args, &paired)?;
+    record_attempt(&args, "enter-code", "paired", peer, None, tried);
+    Ok(())
+}
+
+/// What a failed dial means for the user (spec §6.3 failure modes), with
+/// the step recorded in `tried`.
+fn dial_error(
+    e: &PairingMeshError,
+    target_name: &str,
+    dial_target: String,
+    tried: &mut Vec<Tried>,
+) -> anyhow::Error {
+    const QUIC: &str = "mesh.iroh (QUIC)";
+    match e {
+        PairingMeshError::Transport(t) => {
+            tried.push(Tried::new(QUIC, dial_target, format!("failed: {t}")));
+            unreachable(tried, &format!("could not reach {target_name}."))
+        }
+        PairingMeshError::Net(PairingNetError::Rejected(RejectReason::Expired)) => {
+            tried.push(Tried::new(QUIC, dial_target, "reached; code expired"));
+            anyhow::anyhow!(
+                "ENTANGLE-E0886: code expired; ask {target_name} to run `entangle pair \
+                 --print-code` again, then enter the new code"
+            )
+        }
+        PairingMeshError::Net(PairingNetError::Identity(why)) => {
+            tried.push(Tried::new(QUIC, dial_target, "reached; identity mismatch"));
+            fingerprint_mismatch(why)
+        }
+        other => {
+            tried.push(Tried::new(QUIC, dial_target, format!("reached; {other}")));
+            anyhow::anyhow!(other.to_string()).context(
+                "pairing failed — check the code, and that the other device is still showing it",
+            )
+        }
+    }
+}
+
+fn decode_pubkey(hex_key: &str) -> Option<[u8; 32]> {
+    hex::decode(hex_key).ok()?.try_into().ok()
+}
+
+/// The other device's raw public key from a completed exchange. An
+/// undecodable key is an error, never a placeholder: the SHA-256 shown from
+/// it is what the user compares (spec §6.3).
+fn their_key(paired: &PairedPeer) -> anyhow::Result<[u8; 32]> {
+    decode_pubkey(&paired.pubkey_hex).ok_or_else(|| {
+        anyhow::anyhow!(
+            "the other device's public key is not 32 bytes of hex ({:?}); nothing was stored",
+            paired.pubkey_hex
+        )
+    })
 }
 
 /// Print both fingerprints. The user compares them against the other screen —
 /// this is the step that catches a device that learned the code some other way.
-fn report_pairing(paired: &PairedPeer, local: ShortFingerprint) {
+fn report_pairing(paired: &PairedPeer, local: ShortFingerprint, their_key: &[u8; 32]) {
     eprintln!("\n✓ Exchange complete with '{}'", paired.display_name);
     eprintln!("  Their fingerprint: {}", paired.fingerprint);
+    eprintln!("  Their SHA-256:     {}", sha256_fingerprint(their_key));
     eprintln!("  Your fingerprint:  {local}");
     eprintln!("  Verify BOTH lines appear, swapped, on the other device.");
 }
@@ -485,7 +882,8 @@ fn report_pairing(paired: &PairedPeer, local: ShortFingerprint) {
 ///
 /// Without a terminal there is nobody to ask, and silently storing the peer
 /// would turn the confirmation into a no-op — so that case is an error that
-/// names `--yes` rather than an implicit accept.
+/// names `--yes` rather than an implicit accept. A "no" is a fingerprint
+/// mismatch: a hard error that links to what it means.
 fn confirm_or_abort(args: &PairArgs, paired: &PairedPeer, side: &str) -> anyhow::Result<()> {
     if args.yes {
         return Ok(());
@@ -501,19 +899,21 @@ fn confirm_or_abort(args: &PairArgs, paired: &PairedPeer, side: &str) -> anyhow:
         return Ok(());
     }
     eprintln!(
-        "Aborted — nothing stored here.\n\
-         Note: the {side} already recorded this pairing; remove it there with\n\
-         `entangle mesh untrust {}`.",
+        "Note: the {side} already recorded this pairing; remove it there with\n\
+         `entangle peers remove {}`.",
         paired.peer_id.to_hex()
     );
-    bail!("pairing not confirmed")
+    Err(fingerprint_mismatch(
+        "the fingerprints shown here do not match the other device's screen",
+    ))
 }
 
 /// Work out which device to dial: an explicit `--peer`, or a chooser over what
-/// mDNS found.
+/// mDNS found. Each discovery step is added to `tried`.
 async fn resolve_target(
     args: &PairArgs,
     local_peer_id: PeerId,
+    tried: &mut Vec<Tried>,
 ) -> anyhow::Result<(IrohPeer, String)> {
     if let Some(spec) = args.peer.as_deref() {
         if spec.contains('@') {
@@ -525,7 +925,7 @@ async fn resolve_target(
         if args.no_mdns {
             bail!("--peer must be a <pubkey-hex>@<host>:<port> long address when mDNS is off");
         }
-        let candidates = browse(args, local_peer_id).await?;
+        let candidates = browse(args, local_peer_id, tried).await?;
         let matched: Vec<&PairingCandidate> = candidates
             .iter()
             .filter(|c| {
@@ -536,7 +936,10 @@ async fn resolve_target(
             .collect();
         return match matched.as_slice() {
             [one] => Ok((one.to_peer()?, describe(one))),
-            [] => bail!("no device in pairing mode matches '{spec}'"),
+            [] => Err(unreachable(
+                tried,
+                &format!("no device in pairing mode matches '{spec}'."),
+            )),
             many => bail!(
                 "'{spec}' matches {} devices — use the full peer id or a long address",
                 many.len()
@@ -548,13 +951,14 @@ async fn resolve_target(
         bail!("mDNS is disabled: pass --peer <pubkey-hex>@<host>:<port>");
     }
 
-    let candidates = browse(args, local_peer_id).await?;
+    let candidates = browse(args, local_peer_id, tried).await?;
     match candidates.len() {
-        0 => bail!(
-            "no devices are waiting to pair.\n\
-             Run `entangle pair --responder` on the other device, or pass its\n\
-             `--peer <pubkey-hex>@<host>:<port>` address if it is on another network."
-        ),
+        0 => Err(unreachable(
+            tried,
+            "no devices are waiting to pair. Run `entangle pair --print-code` on the other \
+             device, or pass its `--peer <pubkey-hex>@<host>:<port>` address if it is on \
+             another network.",
+        )),
         1 => {
             let only = &candidates[0];
             eprintln!("Found one device: {}", describe(only));
@@ -577,15 +981,39 @@ async fn resolve_target(
     }
 }
 
-async fn browse(args: &PairArgs, local_peer_id: PeerId) -> anyhow::Result<Vec<PairingCandidate>> {
+async fn browse(
+    args: &PairArgs,
+    local_peer_id: PeerId,
+    tried: &mut Vec<Tried>,
+) -> anyhow::Result<Vec<PairingCandidate>> {
     let window = Duration::from_secs(args.discover_secs.clamp(1, 60));
     eprintln!(
         "Searching for devices in pairing mode ({}s)…",
         window.as_secs()
     );
-    discover_pairing_hosts(local_peer_id, window)
-        .await
-        .map_err(|e| anyhow::anyhow!("mDNS discovery failed: {e}"))
+    let target = format!("devices in pairing mode on the LAN ({}s)", window.as_secs());
+    match discover_pairing_hosts(local_peer_id, window).await {
+        Ok(found) => {
+            tried.push(Tried::new(
+                "mesh.local (mDNS)",
+                target,
+                if found.is_empty() {
+                    "none answered".to_owned()
+                } else {
+                    format!("found {}", found.len())
+                },
+            ));
+            Ok(found)
+        }
+        Err(e) => {
+            tried.push(Tried::new(
+                "mesh.local (mDNS)",
+                target,
+                format!("failed: {e}"),
+            ));
+            Err(unreachable(tried, "mDNS discovery failed."))
+        }
+    }
 }
 
 /// One chooser line. The fingerprint is shown *before* dialing so the user can
@@ -764,7 +1192,10 @@ fn run_manual_responder(args: PairArgs) -> anyhow::Result<()> {
 
     // Check expiry.
     if now_secs().saturating_sub(request.created_at_secs) > EXPIRY_SECS {
-        bail!("request expired (>5 min) — restart the pair flow on both sides");
+        bail!(
+            "ENTANGLE-E0886: code expired (the REQUEST blob is over 5 minutes old); ask the \
+             device that showed the code to run `entangle pair --manual` again"
+        );
     }
 
     // Show identities.
@@ -894,4 +1325,134 @@ fn finish_manual_responder(
         own_id,
     )
     .map_err(|e| anyhow::anyhow!("pairing aborted: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dial_failures_say_what_happened_and_what_to_do() {
+        let mut tried = vec![Tried::new("mesh.local (mDNS)", "LAN", "found 1")];
+        let expired = dial_error(
+            &PairingMeshError::Net(PairingNetError::Rejected(RejectReason::Expired)),
+            "studio",
+            "10.0.0.2:5000".into(),
+            &mut tried,
+        )
+        .to_string();
+        assert!(
+            expired.starts_with("ENTANGLE-E0886: code expired; ask studio"),
+            "{expired}"
+        );
+        assert!(expired.contains("entangle pair --print-code"), "{expired}");
+
+        let mismatch = format!(
+            "{:#}",
+            dial_error(
+                &PairingMeshError::Net(PairingNetError::Identity("host key differs".into())),
+                "studio",
+                "10.0.0.2:5000".into(),
+                &mut tried,
+            )
+        );
+        assert!(
+            mismatch.starts_with("ENTANGLE-E0887: fingerprint mismatch"),
+            "{mismatch}"
+        );
+        assert!(
+            mismatch.contains("docs/operations.md#fingerprint-mismatch"),
+            "{mismatch}"
+        );
+
+        let unreachable = format!(
+            "{:#}",
+            dial_error(
+                &PairingMeshError::Timeout(Duration::from_secs(10)),
+                "studio",
+                "10.0.0.2:5000".into(),
+                &mut tried,
+            )
+        );
+        assert!(unreachable.contains("pairing failed"), "{unreachable}");
+        assert_eq!(tried.len(), 4, "every step is recorded: {tried:?}");
+    }
+
+    #[test]
+    fn unreachable_lists_every_transport_and_points_at_diag_pair() {
+        let tried = vec![
+            Tried::new(
+                "mesh.local (mDNS)",
+                "devices in pairing mode",
+                "none answered",
+            ),
+            Tried::new("mesh.iroh (QUIC)", "10.0.0.2:5000", "failed: timed out"),
+        ];
+        let text = unreachable(&tried, "could not reach studio.").to_string();
+        for needle in [
+            "ENTANGLE-E0888",
+            "mesh.local (mDNS): devices in pairing mode -> none answered",
+            "mesh.iroh (QUIC): 10.0.0.2:5000 -> failed: timed out",
+            "mesh.tailscale",
+            "entangle diag pair",
+        ] {
+            assert!(text.contains(needle), "missing {needle:?}:\n{text}");
+        }
+    }
+
+    /// Known answers computed outside the implementation: SHA-256 of 32
+    /// zero bytes and of the bytes 0..32.
+    #[test]
+    fn sha256_fingerprint_matches_known_vectors() {
+        assert_eq!(
+            sha256_fingerprint(&[0u8; 32]),
+            "SHA256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+        );
+        let mut seq = [0u8; 32];
+        for (i, b) in seq.iter_mut().enumerate() {
+            *b = i as u8;
+        }
+        let want = "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd";
+        assert_eq!(sha256_fingerprint(&seq), format!("SHA256:{want}"));
+        assert_eq!(
+            qr_payload("734-291".parse().unwrap(), &seq),
+            format!("entangle:pair?code=734291&sha256={want}")
+        );
+    }
+
+    #[test]
+    fn the_qr_payload_carries_the_code_and_the_full_fingerprint() {
+        let key = [7u8; 32];
+        let code: PairingCode = "734-291".parse().unwrap();
+        let sha = sha256_fingerprint(&key);
+        assert_eq!(sha.len(), "SHA256:".len() + 64);
+        let payload = qr_payload(code, &key);
+        assert_eq!(
+            payload,
+            format!(
+                "entangle:pair?code=734291&sha256={}",
+                &sha["SHA256:".len()..]
+            )
+        );
+        assert!(crate::cmd::qr::QrCode::encode(payload.as_bytes()).is_some());
+    }
+
+    /// The key behind "Their SHA-256" is the other device's, decoded from
+    /// the exchange; an undecodable one is an error, not a zero key.
+    #[test]
+    fn their_key_is_the_paired_devices_key_or_an_error() {
+        let key = [9u8; 32];
+        let mut paired = PairedPeer {
+            peer_id: PeerId::from_public_key_bytes(&key),
+            pubkey_hex: hex::encode(key),
+            display_name: "laptop".into(),
+            fingerprint: ShortFingerprint::from_public_key(&key),
+            capability_token: None,
+            issued_revocation_ids: Vec::new(),
+        };
+        assert_eq!(their_key(&paired).unwrap(), key);
+        paired.pubkey_hex = "zz".into();
+        let err = their_key(&paired).unwrap_err().to_string();
+        assert!(err.contains("nothing was stored"), "{err}");
+    }
 }

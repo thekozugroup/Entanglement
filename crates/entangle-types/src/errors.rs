@@ -31,6 +31,7 @@
 //! | E0800–E0829 | OCI registry distribution and mirror listings (see `entangle-oci`; E0800–E0819 in use) |
 //! | E0830–E0859 | Packaging reproducibility, release verification, release-key ceremony (E0830–E0839 packaging in `entangle-cli` `cmd::package`; E0840–E0849 release signatures in `entangle-signing::release` and `entangle-cli` `cmd::release`; E0850–E0859 Shamir sharing in `entangle-signing::shamir`) |
 //! | E0860–E0879 | Operator backup / restore archive (`entangle-cli` `cmd::backup`; E0860–E0867 in use) |
+//! | E0880–E0899 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0891 is the 1.62.0 Tailscale version floor and E0893 a Tailscale version that cannot be read, both also enforced by the daemon; `entangle_mesh_tailscale::MeshTailscaleError::UnsupportedVersion` / `VersionUnknown`), `keys gen`, pairing UX (`entangle_pairing::PairingError`), `install` / `uninstall` / `agent host cleanup` (see `entangle-cli` `cmd::configset`, `cmd::init`, `cmd::keys`, `cmd::pair`, `cmd::install`) |
 //! | E0900       | I/O                            |
 //! | E0920–E0939 | Operator log and trace stores: `entangle logs`, `entangle trace` (`entangle_observability::QueryError`, `entangle-bin` RPC `logs/read`, `trace/get`; E0920–E0924 in use) |
 //! | E9999       | Internal / unexpected          |

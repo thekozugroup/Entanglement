@@ -469,3 +469,50 @@ fn peers_list_shows_which_peers_hold_no_token() {
         .stdout(predicate::str::contains("none"))
         .stdout(predicate::str::contains("entangle pair"));
 }
+
+/// `entangle mesh routes` without a daemon: the paired peers from
+/// peers.toml, reachability marked unknown, and the no-bridging statement.
+#[test]
+fn mesh_routes_without_a_daemon_lists_peers_and_says_reachability_is_unknown() {
+    let tmp = TempDir::new().unwrap();
+    let (peer_id, public_key_hex) = make_test_peer();
+    entangle(&tmp)
+        .args([
+            "mesh",
+            "trust",
+            &peer_id,
+            "--public-key-hex",
+            &public_key_hex,
+            "--display-name",
+            "charlie-server",
+        ])
+        .assert()
+        .success();
+    entangle(&tmp)
+        .args(["config", "set", "node.label", "alice-laptop"])
+        .assert()
+        .success();
+    entangle(&tmp)
+        .args(["mesh", "routes"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("alice-laptop  (this node)"))
+        .stdout(predicate::str::contains("charlie-server"))
+        .stdout(predicate::str::contains("unknown (daemon not running)"))
+        .stdout(predicate::str::contains(
+            "if charlie-server uses mesh.tailscale, enable it here: entangle config set \
+             mesh.tailscale.enabled true",
+        ))
+        .stdout(predicate::str::contains("bridging is not supported"));
+    let out = entangle(&tmp)
+        .args(["mesh", "routes", "--json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(v["daemon_running"], false);
+    assert_eq!(v["peers"][0]["peer_id"], peer_id);
+    assert!(v["peers"][0]["fingerprint"].as_str().unwrap().contains('-'));
+}
