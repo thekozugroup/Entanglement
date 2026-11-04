@@ -313,14 +313,32 @@ fn atc_brg_4_expired_ttl_rejected() {
     let expired_at = NOW - 1;
 
     let token = full_bridge_biscuit(&base, &kp, dest, expired_at, 1_000_000, 10_000_000);
+    assert_expired(verify_bridge_cap(&token, &kp.public(), &bridge_ctx(dest)).unwrap_err());
 
-    let err = verify_bridge_cap(&token, &kp.public(), &bridge_ctx(dest)).unwrap_err();
+    // The spec's boundary: `now_unix_secs >= expires`, so a token whose
+    // expiry is exactly now is already expired.
+    let at_now = full_bridge_biscuit(&base, &kp, dest, NOW, 1_000_000, 10_000_000);
+    assert_expired(verify_bridge_cap(&at_now, &kp.public(), &bridge_ctx(dest)).unwrap_err());
+
+    // Control: a token that expires one second after now verifies.
+    let live = full_bridge_biscuit(&base, &kp, dest, NOW + 1, 1_000_000, 10_000_000);
+    verify_bridge_cap(&live, &kp.public(), &bridge_ctx(dest))
+        .expect("a bridge cap that expires after now must verify");
+}
+
+/// ATC-BRG-4's THEN clause: `BridgeError::Biscuit(BiscuitError::Verify(..))`
+/// carrying `ENTANGLE-E0412`.
+fn assert_expired(err: BridgeError) {
     match &err {
         BridgeError::Biscuit(BiscuitError::Verify(msg)) => {
             assert!(msg.contains("expired"), "unexpected verify message: {msg}");
         }
         other => panic!("expected expiry rejection, got: {other}"),
     }
+    assert!(
+        err.to_string().contains("ENTANGLE-E0412"),
+        "expiry must carry ENTANGLE-E0412: {err}"
+    );
 }
 
 // ─── ATC-BRG-6 ───────────────────────────────────────────────────────────────
