@@ -627,6 +627,14 @@ async fn handle_compute_dispatch(
     task.integrity = integrity;
     // Clamp the client-supplied timeout before it flows into the kernel.
     task.timeout_ms = p.timeout_ms.min(MAX_INVOKE_TIMEOUT_MS);
+    // A workload preset may lower the output cap (spec §7.1: workload A's
+    // 1 MiB); it never raises it above the default.
+    if let Some(n) = p.max_output_bytes {
+        task.max_output_bytes = n.min(OneShotTask::DEFAULT_MAX_OUTPUT_BYTES);
+    }
+    if let Some(n) = p.max_attempts {
+        task.retry.max_attempts = n;
+    }
 
     // Use the shared Dispatcher — no ephemeral construction per call.
     let dispatcher = state.dispatcher.clone();
@@ -682,6 +690,29 @@ async fn resolve_metric(
     Ok(reference)
 }
 
+/// The scheduler's attempt records in RPC form.
+fn rpc_attempts(attempts: &[entangle_scheduler::Attempt]) -> Vec<entangle_rpc::methods::ComputeAttempt> {
+    attempts
+        .iter()
+        .map(|a| entangle_rpc::methods::ComputeAttempt {
+            replica: a.replica,
+            peer: a.peer.to_hex(),
+            remote: a.remote,
+            kind: a.kind.label().to_owned(),
+            cause: match a.kind {
+                entangle_scheduler::AttemptKind::Retry(cause) => Some(cause.label().to_owned()),
+                _ => None,
+            },
+            outcome: a.outcome.label().to_owned(),
+            error: match &a.outcome {
+                entangle_scheduler::AttemptOutcome::Failed(why) => Some(why.clone()),
+                _ => None,
+            },
+            elapsed_ms: u64::try_from(a.elapsed.as_millis()).unwrap_or(u64::MAX),
+        })
+        .collect()
+}
+
 /// Render a dispatch result for the wire, including the integrity audit.
 pub(crate) fn compute_result(result: entangle_scheduler::DispatchResult) -> ComputeDispatchResult {
     ComputeDispatchResult {
@@ -704,6 +735,10 @@ pub(crate) fn compute_result(result: entangle_scheduler::DispatchResult) -> Comp
             .collect(),
         pair_agreement: result.pair_agreement,
         spot_check: Some(result.spot_check.label().to_owned()),
+        attempts: rpc_attempts(&result.attempts),
+        executed_component: result
+            .executed_component
+            .map(|d| d.iter().map(|b| format!("{b:02x}")).collect()),
     }
 }
 

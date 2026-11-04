@@ -48,6 +48,8 @@ async fn compute_dispatch_returns_typed_result_from_fake_server() {
         gpu_required: false,
         gpu_vram_min_bytes: 0,
         integrity: ComputeIntegrity::None,
+        max_output_bytes: None,
+        max_attempts: None,
     };
     let result: ComputeDispatchResult = client
         .compute_dispatch(params)
@@ -87,6 +89,8 @@ async fn compute_dispatch_deterministic_integrity_serialises() {
         gpu_required: false,
         gpu_vram_min_bytes: 0,
         integrity: ComputeIntegrity::Deterministic { replicas: 3 },
+        max_output_bytes: None,
+        max_attempts: None,
     };
     let result = client
         .compute_dispatch(params)
@@ -120,6 +124,8 @@ async fn compute_dispatch_trusted_executor_integrity_serialises() {
         integrity: ComputeIntegrity::TrustedExecutor {
             allowlist: vec!["deadbeef".into(), "cafebabe".into()],
         },
+        max_output_bytes: None,
+        max_attempts: None,
     };
     let result = client
         .compute_dispatch(params)
@@ -144,6 +150,8 @@ async fn compute_dispatch_no_daemon_returns_not_running() {
         gpu_required: false,
         gpu_vram_min_bytes: 0,
         integrity: ComputeIntegrity::None,
+        max_output_bytes: None,
+        max_attempts: None,
     };
     let err = client
         .compute_dispatch(params)

@@ -409,6 +409,8 @@ async fn compute_dispatch_semantic_equivalent_via_typed_client() {
             metric_dir: Some(dir.to_string_lossy().into_owned()),
             threshold: 0.2,
         },
+        max_output_bytes: None,
+        max_attempts: None,
     };
 
     let r = client

@@ -28,7 +28,7 @@ use entangle_rpc::{
     Client as RpcClient, RpcError,
 };
 use entangle_runtime::Kernel;
-use entangle_scheduler::{DispatchResult, Dispatcher, WorkerPool};
+use entangle_scheduler::{DispatchResult, Dispatcher, WorkerPool, Workload};
 use entangle_signing::Keyring;
 use entangle_types::{
     peer_id::PeerId,
@@ -96,8 +96,27 @@ pub struct DispatchArgs {
     pub gpu_vram_min_mib: u64,
 
     /// Integrity policy: none | deterministic | semantic-equivalent | trusted-executor.
-    #[arg(long, default_value = "none")]
-    pub integrity: String,
+    /// Default: the --workload preset's, else none.
+    #[arg(long)]
+    pub integrity: Option<String>,
+
+    /// Reference-workload preset (spec §7.0): `a` (LLM offload to your own
+    /// machine: trusted-executor over the --allow ids, 1 MiB output cap),
+    /// `b` (batch on a trusted mesh: deterministic, 1 replica),
+    /// `b-federated` (deterministic, 3 replicas) or `c` (test runs:
+    /// deterministic, 1 replica, 3 attempts). Explicit flags override it.
+    #[arg(long)]
+    pub workload: Option<String>,
+
+    /// The task's max_output_bytes (default 16 MiB; workload a: 1 MiB).
+    #[arg(long)]
+    pub max_output_bytes: Option<u64>,
+
+    /// Attempts in all when a worker crashes or is lost mid-task, the first
+    /// included (default 3; 1 never retries). Plugin errors, refusals and
+    /// timeouts are never retried.
+    #[arg(long)]
+    pub max_attempts: Option<u8>,
 
     /// Number of replicas for --integrity deterministic or semantic-equivalent.
     /// Replicas go to distinct trusted peers; any remainder runs locally.
@@ -212,22 +231,77 @@ fn stray_semantic_flags(a: &DispatchArgs) -> Vec<&'static str> {
     .collect()
 }
 
+/// The `--workload` preset, if one was asked for.
+fn parse_workload(a: &DispatchArgs) -> anyhow::Result<Option<Workload>> {
+    a.workload
+        .as_deref()
+        .map(|w| w.parse::<Workload>().map_err(anyhow::Error::from))
+        .transpose()
+}
+
+/// The integrity policy to send: `--integrity` when given (explicit flags
+/// override the preset), else the `--workload` preset's, else `none`.
+fn resolve_integrity(a: &DispatchArgs, workload: Option<Workload>) -> anyhow::Result<ComputeIntegrity> {
+    match (a.integrity.as_deref(), workload) {
+        (None, Some(w)) => {
+            if !stray_semantic_flags(a).is_empty() {
+                return parse_integrity(a);
+            }
+            let executors = a
+                .allow
+                .iter()
+                .map(|h| {
+                    PeerId::from_hex(h)
+                        .map_err(|e| anyhow::anyhow!("invalid --allow peer id '{h}': {e}"))
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            Ok(match w.integrity(&executors)? {
+                IntegrityPolicy::TrustedExecutor { allowlist } => ComputeIntegrity::TrustedExecutor {
+                    allowlist: allowlist.iter().map(PeerId::to_hex).collect(),
+                },
+                IntegrityPolicy::Deterministic { replicas } => {
+                    ComputeIntegrity::Deterministic { replicas }
+                }
+                _ => ComputeIntegrity::None,
+            })
+        }
+        _ => parse_integrity(a),
+    }
+}
+
+/// `--max-output-bytes`, else the preset's, else the default (`None`).
+fn resolve_max_output_bytes(a: &DispatchArgs, workload: Option<Workload>) -> Option<u64> {
+    a.max_output_bytes.or(match workload {
+        Some(Workload::A) => Some(Workload::A_MAX_OUTPUT_BYTES),
+        _ => None,
+    })
+}
+
+/// `--max-attempts`, else the preset's, else the default (`None`).
+fn resolve_max_attempts(a: &DispatchArgs, workload: Option<Workload>) -> Option<u8> {
+    a.max_attempts.or(match workload {
+        Some(Workload::C) => Some(3),
+        _ => None,
+    })
+}
+
 fn parse_integrity(a: &DispatchArgs) -> anyhow::Result<ComputeIntegrity> {
+    let integrity = a.integrity.as_deref().unwrap_or("none");
     // These flags configure verification only under semantic-equivalent.
     // Dropping them silently would run the task once, unverified, while the
     // operator believes it was checked.
-    if a.integrity != "semantic-equivalent" {
+    if integrity != "semantic-equivalent" {
         let stray = stray_semantic_flags(a);
         if !stray.is_empty() {
             anyhow::bail!(
                 "{} only apply with --integrity semantic-equivalent (got --integrity {}); \
                  add --integrity semantic-equivalent or drop the flag",
                 stray.join(", "),
-                a.integrity
+                integrity
             );
         }
     }
-    match a.integrity.as_str() {
+    match integrity {
         "none" => Ok(ComputeIntegrity::None),
         "deterministic" => Ok(ComputeIntegrity::Deterministic {
             replicas: a.replicas,
@@ -291,6 +365,29 @@ fn parse_integrity(a: &DispatchArgs) -> anyhow::Result<ComputeIntegrity> {
     }
 }
 
+/// The scheduler's attempt records in RPC form.
+fn rpc_attempts(attempts: &[entangle_scheduler::Attempt]) -> Vec<entangle_rpc::methods::ComputeAttempt> {
+    attempts
+        .iter()
+        .map(|a| entangle_rpc::methods::ComputeAttempt {
+            replica: a.replica,
+            peer: a.peer.to_hex(),
+            remote: a.remote,
+            kind: a.kind.label().to_owned(),
+            cause: match a.kind {
+                entangle_scheduler::AttemptKind::Retry(cause) => Some(cause.label().to_owned()),
+                _ => None,
+            },
+            outcome: a.outcome.label().to_owned(),
+            error: match &a.outcome {
+                entangle_scheduler::AttemptOutcome::Failed(why) => Some(why.clone()),
+                _ => None,
+            },
+            elapsed_ms: u64::try_from(a.elapsed.as_millis()).unwrap_or(u64::MAX),
+        })
+        .collect()
+}
+
 /// Render a local dispatch result in the same shape the daemon returns.
 fn compute_result(result: DispatchResult) -> ComputeDispatchResult {
     ComputeDispatchResult {
@@ -313,6 +410,8 @@ fn compute_result(result: DispatchResult) -> ComputeDispatchResult {
             .collect(),
         pair_agreement: result.pair_agreement,
         spot_check: Some(result.spot_check.label().to_owned()),
+        attempts: rpc_attempts(&result.attempts),
+        executed_component: result.executed_component.map(hex::encode),
     }
 }
 
@@ -329,6 +428,8 @@ fn print_dispatch_output(r: &ComputeDispatchResult, json: bool) -> anyhow::Resul
             "replicas": r.replicas,
             "pair_agreement": r.pair_agreement,
             "spot_check": r.spot_check,
+            "attempts": r.attempts,
+            "executed_component": r.executed_component,
         });
         println!("{}", serde_json::to_string(&body)?);
         return Ok(());
@@ -338,6 +439,28 @@ fn print_dispatch_output(r: &ComputeDispatchResult, json: bool) -> anyhow::Resul
     match std::str::from_utf8(&r.output) {
         Ok(s) if !s.contains('\x00') => println!("Output: {s}"),
         _ => println!("Output: {}", BASE64.encode(&r.output)),
+    }
+    if let Some(c) = &r.executed_component {
+        println!("Component: {c}");
+    }
+    if r.attempts.len() > r.replicas.len().max(1) {
+        for at in &r.attempts {
+            let place = if at.remote { "remote" } else { "local" };
+            let kind = match &at.cause {
+                Some(cause) => format!("{} ({cause})", at.kind),
+                None => at.kind.clone(),
+            };
+            match &at.error {
+                Some(e) => println!(
+                    "Attempt: replica {} {kind} on {} ({place}) {} after {}ms: {e}",
+                    at.replica, at.peer, at.outcome, at.elapsed_ms
+                ),
+                None => println!(
+                    "Attempt: replica {} {kind} on {} ({place}) {} after {}ms",
+                    at.replica, at.peer, at.outcome, at.elapsed_ms
+                ),
+            }
+        }
     }
     if r.replicas.len() > 1 {
         if let Some(h) = &r.policy_hash {
@@ -370,7 +493,10 @@ async fn dispatch(a: DispatchArgs) -> anyhow::Result<()> {
         (None, None) => Vec::new(),
     };
 
-    let integrity_rpc = parse_integrity(&a)?;
+    let workload = parse_workload(&a)?;
+    let integrity_rpc = resolve_integrity(&a, workload)?;
+    let max_output_bytes = resolve_max_output_bytes(&a, workload);
+    let max_attempts = resolve_max_attempts(&a, workload);
     let gpu_vram_min_bytes = a.gpu_vram_min_mib * 1024 * 1024;
 
     let params = ComputeDispatchParams {
@@ -382,6 +508,8 @@ async fn dispatch(a: DispatchArgs) -> anyhow::Result<()> {
         gpu_required: a.gpu,
         gpu_vram_min_bytes,
         integrity: integrity_rpc.clone(),
+        max_output_bytes,
+        max_attempts,
     };
 
     let client = rpc_client();
@@ -389,7 +517,8 @@ async fn dispatch(a: DispatchArgs) -> anyhow::Result<()> {
         Ok(r) => print_dispatch_output(&r, a.json),
         Err(RpcError::DaemonNotRunning(_)) => {
             if allow_local() {
-                dispatch_local(&a, input_bytes, gpu_vram_min_bytes, integrity_rpc).await
+                let limits = (max_output_bytes, max_attempts);
+                dispatch_local(&a, input_bytes, gpu_vram_min_bytes, integrity_rpc, limits).await
             } else {
                 Err(daemon_not_running_error())
             }
@@ -407,6 +536,7 @@ async fn dispatch_local(
     input_bytes: Vec<u8>,
     gpu_vram_min_bytes: u64,
     integrity: ComputeIntegrity,
+    (max_output_bytes, max_attempts): (Option<u64>, Option<u8>),
 ) -> anyhow::Result<()> {
     use std::sync::Arc;
 
@@ -514,6 +644,12 @@ async fn dispatch_local(
     task.resources = resources;
     task.integrity = integrity_policy;
     task.timeout_ms = a.timeout_ms;
+    if let Some(n) = max_output_bytes {
+        task.max_output_bytes = n;
+    }
+    if let Some(n) = max_attempts {
+        task.retry.max_attempts = n;
+    }
 
     let result = dispatcher
         .dispatch_one_shot(task)
@@ -526,6 +662,80 @@ async fn dispatch_local(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(clap::Parser)]
+    struct Cli {
+        #[command(flatten)]
+        a: DispatchArgs,
+    }
+
+    fn args(argv: &[&str]) -> DispatchArgs {
+        use clap::Parser as _;
+        let mut full = vec!["dispatch", "0123456789abcdef0123456789abcdef/demo@0.1.0"];
+        full.extend_from_slice(argv);
+        Cli::try_parse_from(full).expect("args").a
+    }
+
+    #[test]
+    fn workload_presets_fill_in_what_flags_leave_unset() {
+        let me = PeerId::from_public_key_bytes(&[5; 32]).to_hex();
+        // a: trusted-executor over --allow, 1 MiB output cap.
+        let a = args(&["--workload", "a", "--allow", &me]);
+        let w = parse_workload(&a).unwrap();
+        assert_eq!(
+            resolve_integrity(&a, w).unwrap(),
+            ComputeIntegrity::TrustedExecutor {
+                allowlist: vec![me.clone()]
+            }
+        );
+        assert_eq!(resolve_max_output_bytes(&a, w), Some(1024 * 1024));
+        assert_eq!(resolve_max_attempts(&a, w), None);
+        let err = resolve_integrity(&args(&["--workload", "a"]), w).unwrap_err();
+        assert!(err.to_string().contains("ENTANGLE-E0472"), "{err}");
+        // b / b-federated / c: deterministic; c retries.
+        for (name, replicas) in [("b", 1), ("b-federated", 3), ("c", 1)] {
+            let a = args(&["--workload", name]);
+            let w = parse_workload(&a).unwrap();
+            assert_eq!(
+                resolve_integrity(&a, w).unwrap(),
+                ComputeIntegrity::Deterministic { replicas }
+            );
+            assert_eq!(resolve_max_output_bytes(&a, w), None);
+        }
+        let c = args(&["--workload", "c"]);
+        assert_eq!(resolve_max_attempts(&c, parse_workload(&c).unwrap()), Some(3));
+        let err = parse_workload(&args(&["--workload", "z"])).unwrap_err();
+        assert!(err.to_string().contains("ENTANGLE-E0471"), "{err}");
+    }
+
+    #[test]
+    fn explicit_flags_override_the_preset() {
+        let me = PeerId::from_public_key_bytes(&[5; 32]).to_hex();
+        let a = args(&[
+            "--workload",
+            "a",
+            "--allow",
+            &me,
+            "--integrity",
+            "none",
+            "--max-output-bytes",
+            "77",
+            "--max-attempts",
+            "1",
+        ]);
+        let w = parse_workload(&a).unwrap();
+        assert_eq!(resolve_integrity(&a, w).unwrap(), ComputeIntegrity::None);
+        assert_eq!(resolve_max_output_bytes(&a, w), Some(77));
+        assert_eq!(resolve_max_attempts(&a, w), Some(1));
+        let b = args(&["--workload", "b", "--integrity", "deterministic", "--replicas", "5"]);
+        assert_eq!(
+            resolve_integrity(&b, parse_workload(&b).unwrap()).unwrap(),
+            ComputeIntegrity::Deterministic { replicas: 5 }
+        );
+        // No preset, no --integrity: none, as before.
+        let plain = args(&[]);
+        assert_eq!(resolve_integrity(&plain, None).unwrap(), ComputeIntegrity::None);
+    }
 
     #[test]
     fn default_quorum_is_a_strict_majority_of_pairs() {

@@ -75,7 +75,7 @@ use entangle_scheduler::stream::{
 use entangle_scheduler::transport::{build_router, RouterInputs};
 use entangle_scheduler::{
     HeldToken, PeerDirectory, RoutePolicy, StaticAllowlist, StaticTokens, TransportKind,
-    TransportRouter,
+    TransportRouter, Workload,
 };
 use entangle_signing::{IdentityKeyPair, Keyring};
 use entangle_types::{
@@ -112,8 +112,21 @@ pub struct StreamArgs {
 
     /// Integrity policy: none | trusted-executor. Streams cannot be
     /// replicated, so deterministic and semantic-equivalent are refused.
-    #[arg(long, default_value = "none")]
-    pub integrity: String,
+    /// Default: the --workload preset's, else none.
+    #[arg(long)]
+    pub integrity: Option<String>,
+
+    /// Reference-workload preset (spec §7.0). Only `a` streams (LLM offload
+    /// to your own machine): trusted-executor over the --allow ids (else
+    /// the --peer), 64 MiB max-total-bytes, a 32-chunk credit window,
+    /// partial output kept. Explicit flags override it.
+    #[arg(long)]
+    pub workload: Option<String>,
+
+    /// Cap on the stream's cumulative bytes per direction (default 256
+    /// MiB; workload a: 64 MiB).
+    #[arg(long)]
+    pub max_total_bytes: Option<u64>,
 
     /// trusted-executor: peer ids the executor must be one of. May be repeated.
     #[arg(long = "allow")]
@@ -121,16 +134,18 @@ pub struct StreamArgs {
 
     /// What an interrupted stream leaves: keep | keep-signed | discard.
     /// `discard` holds all output back until the stream completes.
-    #[arg(long, default_value = "keep")]
-    pub partial: String,
+    /// Default: keep.
+    #[arg(long)]
+    pub partial: Option<String>,
 
     /// Wall-clock timeout for the whole stream, in milliseconds.
     #[arg(long, default_value_t = StreamingTask::DEFAULT_TIMEOUT_MS)]
     pub timeout_ms: u64,
 
-    /// Credit window: chunks the executor may send ahead of this reader.
-    #[arg(long, default_value_t = 16)]
-    pub credit_window: u32,
+    /// Credit window: chunks the executor may send ahead of this reader
+    /// (default 16; workload a: 32).
+    #[arg(long)]
+    pub credit_window: Option<u32>,
 
     /// --allow-local only: the plugin's signed package directory. Defaults to
     /// `~/.entangle/plugins/<plugin-name>`.
@@ -155,7 +170,7 @@ fn parse_partial(s: &str) -> anyhow::Result<PartialResultPolicy> {
 }
 
 fn parse_integrity(a: &StreamArgs) -> anyhow::Result<IntegrityPolicy> {
-    match a.integrity.as_str() {
+    match a.integrity.as_deref().unwrap_or("none") {
         "none" => {
             if !a.allow.is_empty() {
                 anyhow::bail!("--allow only applies with --integrity trusted-executor");
@@ -603,8 +618,7 @@ pub async fn run(a: StreamArgs) -> anyhow::Result<()> {
     let plugin =
         PluginId::from_str(&a.plugin_id).map_err(|e| anyhow::anyhow!("invalid plugin id: {e}"))?;
     let mut task = StreamingTask::with_defaults(plugin.clone(), read_input(&a)?);
-    task.integrity = parse_integrity(&a)?;
-    task.partial_result = parse_partial(&a.partial)?;
+    apply_flags(&a, &mut task)?;
     // Text mode prints raw bytes, which carry no signatures: `keep-signed`
     // would keep nothing `keep` does not. The signatures are in `--json`.
     if task.partial_result == PartialResultPolicy::KeepSigned && !a.json {
@@ -613,7 +627,6 @@ pub async fn run(a: StreamArgs) -> anyhow::Result<()> {
         );
     }
     task.timeout_ms = a.timeout_ms;
-    task.channel.credit_window = a.credit_window;
     // ATC-INT-4: refused here, before any socket is opened.
     entangle_scheduler::validate_stream_submit(&task)?;
 
@@ -626,6 +639,44 @@ pub async fn run(a: StreamArgs) -> anyhow::Result<()> {
              plugin in this process"
         ),
     }
+}
+
+/// The `--workload` preset first, then every explicit flag over it.
+fn apply_flags(a: &StreamArgs, task: &mut StreamingTask) -> anyhow::Result<()> {
+    let workload = a
+        .workload
+        .as_deref()
+        .map(|w| w.parse::<Workload>())
+        .transpose()?;
+    if let Some(w) = workload {
+        // The executors to trust: --allow, else the --peer.
+        let mut executors = a
+            .allow
+            .iter()
+            .map(|h| {
+                PeerId::from_hex(h).map_err(|e| anyhow::anyhow!("invalid --allow peer id '{h}': {e}"))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        if executors.is_empty() {
+            if let Some(spec) = &a.peer {
+                executors.push(resolve_target(spec, &Routing::default())?.0);
+            }
+        }
+        w.apply_stream(task, &executors)?;
+    }
+    if a.integrity.is_some() || workload.is_none() {
+        task.integrity = parse_integrity(a)?;
+    }
+    if let Some(p) = &a.partial {
+        task.partial_result = parse_partial(p)?;
+    }
+    if let Some(n) = a.credit_window {
+        task.channel.credit_window = n;
+    }
+    if let Some(n) = a.max_total_bytes {
+        task.channel.max_total_bytes = n;
+    }
+    Ok(())
 }
 
 fn allow_local() -> bool {
@@ -933,21 +984,56 @@ mod tests {
             input: None,
             input_file: None,
             peer: None,
-            integrity: "none".into(),
+            integrity: None,
+            workload: None,
+            max_total_bytes: None,
             allow: vec![],
-            partial: "keep".into(),
+            partial: None,
             timeout_ms: 1,
-            credit_window: 1,
+            credit_window: Some(1),
             plugin_dir: None,
             json: false,
         }
     }
 
     #[test]
+    fn the_workload_a_preset_and_explicit_overrides() {
+        let me = PeerId::from_public_key_bytes(&[4; 32]);
+        let plugin: PluginId = "0123456789abcdef0123456789abcdef/s@0.1.0".parse().unwrap();
+        let mut a = args();
+        a.credit_window = None;
+        a.workload = Some("a".into());
+        a.peer = Some(me.to_hex());
+        let mut task = StreamingTask::with_defaults(plugin.clone(), vec![]);
+        apply_flags(&a, &mut task).unwrap();
+        assert_eq!(task.integrity, IntegrityPolicy::TrustedExecutor { allowlist: vec![me] });
+        assert_eq!(task.channel.max_total_bytes, 64 * 1024 * 1024);
+        assert_eq!(task.channel.credit_window, 32);
+        assert_eq!(task.partial_result, PartialResultPolicy::Keep);
+
+        a.credit_window = Some(8);
+        a.max_total_bytes = Some(1_000);
+        a.partial = Some("discard".into());
+        let mut task = StreamingTask::with_defaults(plugin.clone(), vec![]);
+        apply_flags(&a, &mut task).unwrap();
+        assert_eq!(task.channel.credit_window, 8);
+        assert_eq!(task.channel.max_total_bytes, 1_000);
+        assert_eq!(task.partial_result, PartialResultPolicy::Discard);
+
+        a.workload = Some("b".into());
+        let err = apply_flags(&a, &mut task).unwrap_err().to_string();
+        assert!(err.contains("ENTANGLE-E0473"), "{err}");
+        let mut a = args();
+        a.workload = Some("a".into());
+        let err = apply_flags(&a, &mut task).unwrap_err().to_string();
+        assert!(err.contains("ENTANGLE-E0472"), "{err}");
+    }
+
+    #[test]
     fn integrity_flags_map_onto_stream_policies() {
         assert_eq!(parse_integrity(&args()).unwrap(), IntegrityPolicy::None);
         let mut a = args();
-        a.integrity = "trusted-executor".into();
+        a.integrity = Some("trusted-executor".into());
         assert!(parse_integrity(&a).is_err(), "needs --allow");
         a.allow = vec![PeerId::from_public_key_bytes(&[1; 32]).to_hex()];
         assert!(matches!(
@@ -955,7 +1041,7 @@ mod tests {
             IntegrityPolicy::TrustedExecutor { allowlist } if allowlist.len() == 1
         ));
         let mut a = args();
-        a.integrity = "semantic-equivalent".into();
+        a.integrity = Some("semantic-equivalent".into());
         let err = parse_integrity(&a).unwrap_err().to_string();
         assert!(err.contains("TrustedExecutor"), "{err}");
     }
