@@ -863,6 +863,10 @@ fn atc_pkg_4_rebuild_verify_pass_and_fail() {
         .iter()
         .any(|a| a == "--locked"));
     assert!(prov.get("git_commit").is_some());
+    // Exactly the commit available for the source: this copy is normally not
+    // in a repository, so none may be invented (the commit-present case is
+    // atc_pkg_4_provenance_records_the_git_commit_when_available).
+    assert_records_commit_of(&prov, &built.project);
     let text = prov.to_string();
     assert!(
         !text.contains(&built.project.display().to_string()),
@@ -937,6 +941,90 @@ fn plugins_build_prints_the_sha256_of_the_archive() {
     );
 }
 
+/// Run `git` in `dir` with an isolated configuration (no global or system
+/// config, no signing, no hooks). Panics on failure; returns trimmed stdout.
+fn git_in(dir: &Path, args: &[&str]) -> String {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["-c", "user.name=t", "-c", "user.email=t@example.com"])
+        .args([
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+        ])
+        .args(args)
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_SYSTEM", "/dev/null")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "git {args:?}: {out:?}");
+    String::from_utf8(out.stdout).unwrap().trim().to_owned()
+}
+
+/// `git rev-parse HEAD` of the repository containing `dir`, or `None` when
+/// `dir` is not inside one: the commit that is "available" for `dir`.
+fn head_commit(dir: &Path) -> Option<String> {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).trim().to_owned())
+}
+
+/// The git commit in `provenance.json` must be exactly the commit available
+/// for `project`, and null when there is none (none may be invented).
+fn assert_records_commit_of(prov: &serde_json::Value, project: &Path) {
+    let obj = prov.as_object().expect("provenance is an object");
+    assert!(obj.contains_key("git_commit"), "{prov}");
+    match head_commit(project) {
+        Some(head) => assert_eq!(prov["git_commit"].as_str(), Some(head.as_str()), "{prov}"),
+        None => assert!(prov["git_commit"].is_null(), "{prov}"),
+    }
+}
+
+/// ATC-PKG-4 GIVEN: provenance.json records the git commit when one is
+/// available, i.e. exactly `git rev-parse HEAD` of the source repository, and
+/// records none for source that is not in a repository. The rebuild verifier
+/// reports the recorded commit.
+#[test]
+fn atc_pkg_4_provenance_records_the_git_commit_when_available() {
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+
+    // Not a repository: nothing to record.
+    let loose = tiny_plugin(root.path(), "loose", None, TINY_LIB);
+    let archive = build_tiny(home.path(), &loose);
+    let files = entangle_oci::unpack(&std::fs::read(&archive).unwrap()).unwrap();
+    let prov: serde_json::Value = serde_json::from_slice(&files.provenance.unwrap()).unwrap();
+    assert_records_commit_of(&prov, &loose);
+
+    // A repository: its HEAD commit is recorded verbatim.
+    let project = tiny_plugin(root.path(), "tracked", None, TINY_LIB);
+    git_in(&project, &["init", "-q"]);
+    std::fs::write(project.join(".gitignore"), "target/\ndist/\n").unwrap();
+    git_in(&project, &["add", "-A"]);
+    git_in(&project, &["commit", "-q", "-m", "one"]);
+    let head = git_in(&project, &["rev-parse", "HEAD"]);
+    assert_eq!(head.len(), 40, "{head}");
+    let archive = build_tiny(home.path(), &project);
+    let files = entangle_oci::unpack(&std::fs::read(&archive).unwrap()).unwrap();
+    let prov: serde_json::Value = serde_json::from_slice(&files.provenance.unwrap()).unwrap();
+    assert_eq!(prov["git_commit"].as_str(), Some(head.as_str()), "{prov}");
+    assert_records_commit_of(&prov, &project);
+
+    trust_fixture_key(home.path());
+    verify_rebuild(home.path(), &archive, &project)
+        .success()
+        .stdout(predicate::str::contains("PASS"))
+        .stdout(predicate::str::contains(format!("git commit {head}")));
+}
+
 /// A different git commit with identical source is reported, not failed: the
 /// source digest already pins the content.
 #[test]
@@ -945,22 +1033,7 @@ fn rebuild_verify_reports_a_git_commit_mismatch_without_failing() {
     let root = TempDir::new().unwrap();
     let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
     let git = |args: &[&str]| {
-        let out = std::process::Command::new("git")
-            .arg("-C")
-            .arg(&project)
-            .args(["-c", "user.name=t", "-c", "user.email=t@example.com"])
-            .args([
-                "-c",
-                "commit.gpgsign=false",
-                "-c",
-                "core.hooksPath=/dev/null",
-            ])
-            .args(args)
-            .env("GIT_CONFIG_GLOBAL", "/dev/null")
-            .env("GIT_CONFIG_SYSTEM", "/dev/null")
-            .output()
-            .unwrap();
-        assert!(out.status.success(), "git {args:?}: {out:?}");
+        git_in(&project, args);
     };
     git(&["init", "-q"]);
     // Keep build outputs out of the commit; they are not source anyway.
@@ -1009,6 +1082,10 @@ fn rebuild_verify_rejects_a_tampered_manifest() {
         .stdout(predicate::str::contains("FAIL: "));
 }
 
+/// ATC-PKG-4 mismatches caught from the recorded provenance before any
+/// rebuild: source digest, toolchain, build flags (`rustflags`), cargo
+/// arguments, and a missing provenance file. Each prints `FAIL: <first
+/// difference>` and exits non-zero.
 #[test]
 fn atc_pkg_4_rebuild_verify_fails_on_changed_source_and_toolchain_without_building() {
     let home = TempDir::new().unwrap();
@@ -1046,6 +1123,48 @@ fn atc_pkg_4_rebuild_verify_fails_on_changed_source_and_toolchain_without_buildi
         .failure()
         .stdout(predicate::str::contains("FAIL: toolchain differs"))
         .stdout(predicate::str::contains("rustc 0.0.1 (deadbeef)"));
+
+    // Recorded build flags differ from the ones a rebuild would use: the
+    // verifier fails naming the flag difference instead of rebuilding with
+    // other flags.
+    let flagged = repack_with(&built.archive, |f| {
+        let mut v: serde_json::Value =
+            serde_json::from_slice(f.provenance.as_ref().unwrap()).unwrap();
+        v["build"]["rustflags"]
+            .as_array_mut()
+            .unwrap()
+            .push("-Cdebug-assertions=on".into());
+        f.provenance = Some(serde_json::to_vec_pretty(&v).unwrap());
+    });
+    entangle(home.path())
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&flagged)
+        .arg("--source")
+        .arg(&built.project)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("PASS").not())
+        .stdout(predicate::str::contains("FAIL: build flags differ"))
+        .stdout(predicate::str::contains("-Cdebug-assertions=on"));
+
+    // Likewise for the recorded cargo arguments.
+    let args = repack_with(&built.archive, |f| {
+        let mut v: serde_json::Value =
+            serde_json::from_slice(f.provenance.as_ref().unwrap()).unwrap();
+        let cargo_args = v["build"]["cargo_args"].as_array_mut().unwrap();
+        cargo_args.retain(|a| a != "--release");
+        f.provenance = Some(serde_json::to_vec_pretty(&v).unwrap());
+    });
+    entangle(home.path())
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&args)
+        .arg("--source")
+        .arg(&built.project)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("PASS").not())
+        .stdout(predicate::str::contains("FAIL: cargo arguments differ"))
+        .stdout(predicate::str::contains("--release"));
 
     // A package without provenance cannot be rebuild-verified.
     let bare = repack_with(&built.archive, |f| f.provenance = None);
