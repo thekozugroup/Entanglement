@@ -22,6 +22,7 @@ use cmd::{
     diag::DiagArgs,
     init::InitArgs,
     keyring::KeyringArgs,
+    keys::KeysArgs,
     mesh::MeshArgs,
     pair::PairArgs,
     peers::PeersArgs,
@@ -83,6 +84,9 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Manage the trusted publisher keyring.
     #[command(subcommand_required = true)]
     Keyring(KeyringArgs),
+    /// Publisher keys for signing plugins (`gen`).
+    #[command(subcommand_required = true)]
+    Keys(KeysArgs),
     /// Author plugins (new, build) and manage loaded ones (list, load, unload, invoke).
     #[command(subcommand_required = true)]
     Plugins(PluginsArgs),
@@ -183,6 +187,7 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Version => cmd::version::run().await,
         Cmd::Doctor => cmd::doctor::run().await,
         Cmd::Keyring(a) => cmd::keyring::run(a).await,
+        Cmd::Keys(a) => cmd::keys::run(a).await,
         Cmd::Plugins(a) => cmd::plugins::run(a).await,
         Cmd::Release(a) => cmd::release::run(a).await,
         Cmd::Mesh(a) => cmd::mesh::run(a).await,
