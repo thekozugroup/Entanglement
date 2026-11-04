@@ -238,15 +238,17 @@ impl std::fmt::Debug for LoadedStreamPlugin {
 impl LoadedStreamPlugin {
     /// Compile `bytes` as a `stream-plugin` component.
     ///
-    /// [`HostError::Compile`] for bytes that are not a component;
-    /// [`HostError::Instantiate`] for a component without a `start-stream`
-    /// export or with imports the host does not provide.
+    /// [`HostError::RuntimeKindMismatch`] for a native executable
+    /// (ATC-MAN-3); [`HostError::Compile`] for other bytes that are not a
+    /// component; [`HostError::Instantiate`] for a component without a
+    /// `start-stream` export or with imports the host does not provide.
     pub fn from_bytes(
         engine: &HostEngine,
         bytes: &[u8],
         plugin_id: PluginId,
         effective_tier: Tier,
     ) -> Result<Self, HostError> {
+        crate::runtime_kind::check_runtime_kind(crate::runtime_kind::DeclaredRuntime::Wasm, bytes)?;
         let component = Component::from_binary(engine.engine(), bytes)?;
         let instance_pre = engine
             .linker()

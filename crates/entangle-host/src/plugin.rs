@@ -214,13 +214,16 @@ impl CompiledPlugin {
     /// The component is compiled and its imports resolved once; it is then
     /// matched against the `plugin` world (`run`) and, failing that, the
     /// `stream-plugin` world (`start-stream`). A component that exports
-    /// neither is [`HostError::Instantiate`] with both reasons.
+    /// neither is [`HostError::Instantiate`] with both reasons; a native
+    /// executable is [`HostError::RuntimeKindMismatch`] (ATC-MAN-3), as in
+    /// [`LoadedPlugin::from_bytes`].
     pub fn from_bytes(
         engine: &HostEngine,
         bytes: &[u8],
         plugin_id: PluginId,
         effective_tier: Tier,
     ) -> Result<Self, HostError> {
+        crate::runtime_kind::check_runtime_kind(crate::runtime_kind::DeclaredRuntime::Wasm, bytes)?;
         let component = Component::from_binary(engine.engine(), bytes)?;
         let instance_pre = engine
             .linker()

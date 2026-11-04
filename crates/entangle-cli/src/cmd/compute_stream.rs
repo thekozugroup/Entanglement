@@ -42,7 +42,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use clap::Args;
 use entangle_mesh_iroh::{parse_node_addr, IrohPeer, MeshIroh, MeshIrohConfig, ALPN_STREAM};
 use entangle_peers::{PeerStore, TrustLevel};
-use entangle_runtime::{Kernel, KernelConfig};
+use entangle_runtime::Kernel;
 use entangle_scheduler::stream::{
     ChunkPoll, StreamError, StreamHandle, StreamOptions, StreamServer, TRUSTED_EXECUTOR_HINT,
 };
@@ -293,8 +293,10 @@ async fn run_remote(a: &StreamArgs, task: &StreamingTask, spec: &str) -> anyhow:
 
 async fn run_local(a: &StreamArgs, task: &StreamingTask, plugin: &PluginId) -> anyhow::Result<()> {
     let keyring = Keyring::load(&config::keyring_path())?;
+    // The same config-honouring kernel as `compute dispatch --allow-local`:
+    // a local stream is never more permissive than the daemon would be.
     let kernel = Arc::new(
-        Kernel::new(KernelConfig::default(), keyring)
+        Kernel::new(config::kernel_config()?, keyring)
             .map_err(|e| anyhow::anyhow!("failed to build kernel: {e}"))?,
     );
     let dir = match &a.plugin_dir {
