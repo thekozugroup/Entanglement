@@ -10,7 +10,7 @@ use entangle_runtime::{
 };
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::plugin_id::PluginId;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -130,7 +130,7 @@ async fn a_call_in_flight_finishes_on_the_old_version_and_the_next_sees_the_new(
     let mut sub = f.kernel.bus().subscribe();
     // A slow call on 0.1.0.
     let (k, id) = (f.kernel.clone(), v1.clone());
-    let slow = tokio::spawn(async move { k.invoke(&id, b"spin:4000", 30_000).await });
+    let slow = tokio::spawn(async move { k.invoke(&id, b"spin:10000", 60_000).await });
     loop {
         let env = sub.recv().await.unwrap();
         if env.payload.plugin == v1 && env.payload.phase == LifecyclePhase::Activated {
@@ -175,7 +175,7 @@ async fn a_call_in_flight_finishes_on_the_old_version_and_the_next_sees_the_new(
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_stream_on_the_old_version_drains_while_new_streams_use_the_new() {
     let f = Fixture::new();
-    let (v1, v2) = (f.id("streamer", "1.0.0"), f.id("streamer", "1.1.0"));
+    let v1 = f.id("streamer", "1.0.0");
     f.kernel
         .load_plugin_from_dir(&f.package("streamer", "1.0.0", STREAM_PROBE, 1, ""))
         .await
@@ -249,7 +249,6 @@ async fn a_stream_on_the_old_version_drains_while_new_streams_use_the_new() {
     assert!(pos("1.1.0", LifecyclePhase::Loaded) < pos("1.0.0", LifecyclePhase::Idled));
     assert!(pos("1.0.0", LifecyclePhase::Idled) < pos("1.0.0", LifecyclePhase::Unloaded));
     assert!(pos("1.1.0", LifecyclePhase::Activated) > pos("1.1.0", LifecyclePhase::Loaded));
-    let _ = v2;
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -318,6 +317,51 @@ async fn more_capabilities_or_a_higher_tier_need_consent() {
         .await
         .expect("less authority needs no consent");
     assert_eq!(outcome.plugin_id, f.id("probe", "0.3.0"));
+}
+
+/// Escalation by tier alone: the capabilities are identical, only the tier
+/// rises, so the diff has nothing added and the tier is what needs consent.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_higher_tier_alone_needs_consent() {
+    let f = Fixture::new();
+    let (v1, v2) = (f.id("probe", "0.1.0"), f.id("probe", "0.2.0"));
+    let caps = "\"custom.telemetry\" = {}";
+    f.kernel
+        .load_plugin_from_dir(&f.package("probe", "0.1.0", PROBE, 1, caps))
+        .await
+        .unwrap();
+    let higher = f.package("probe", "0.2.0", PROBE, 3, caps);
+    let err = f
+        .kernel
+        .load_plugin(&higher, LoadOptions::default())
+        .await
+        .unwrap_err();
+    let RuntimeError::ReloadNeedsConsent(consent) = &err else {
+        panic!("{err}");
+    };
+    assert_eq!((&consent.from, &consent.to), (&v1, &v2));
+    assert!(consent.diff.added.is_empty(), "{:?}", consent.diff);
+    assert!(consent.diff.removed.is_empty(), "{:?}", consent.diff);
+    assert!(
+        consent.diff.tier.1 > consent.diff.tier.0,
+        "{:?}",
+        consent.diff.tier
+    );
+    assert!(err.to_string().starts_with("ENTANGLE-E0781"), "{err}");
+    assert_eq!(f.kernel.list_plugins(), vec![v1.clone()]);
+
+    let outcome = f
+        .kernel
+        .load_plugin(
+            &higher,
+            LoadOptions {
+                accept_new_capabilities: true,
+                ..LoadOptions::default()
+            },
+        )
+        .await
+        .expect("consent admits the higher tier");
+    assert_eq!(outcome.plugin_id, v2);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -491,12 +535,12 @@ async fn chained_reloads_forward_every_old_id_to_the_newest() {
         assert_eq!(f.call(&f.id("probe", v), "id").await, newest.to_string());
     }
     assert_eq!(f.kernel.broker().registered_tiers().len(), 1);
-    let _ = Path::new("");
 }
 
 /// Two new versions loaded at once over the same plugin: never two versions
 /// loaded, never a swap checked against a version that is no longer there.
-/// Each load either swaps or is refused (`ENTANGLE-E0789`).
+/// Each load either swaps or is refused (`ENTANGLE-E0789`, or `ENTANGLE-E0782`
+/// when it is checked against the winner and is older).
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_reloads_leave_exactly_one_version() {
     let f = Fixture::new();
@@ -520,9 +564,15 @@ async fn concurrent_reloads_leave_exactly_one_version() {
                     drained(r.drained).await;
                 }
             }
+            // Reloads are serialised per plugin, so the loser is checked against
+            // the winner: 0.2.0 after 0.3.0 is a downgrade (E0782); the race
+            // refusal (E0789) stays acceptable too.
             Err(e) => assert!(
-                matches!(e, RuntimeError::ReloadRaced(_))
-                    && e.to_string().starts_with("ENTANGLE-E0789"),
+                matches!(
+                    e,
+                    RuntimeError::ReloadRaced(_) | RuntimeError::ReloadDowngrade { .. }
+                ) && (e.to_string().starts_with("ENTANGLE-E0789")
+                    || e.to_string().starts_with("ENTANGLE-E0782")),
                 "{e}"
             ),
         }
@@ -668,7 +718,7 @@ async fn revoking_through_a_replaced_id_reaches_the_version_answering_for_it() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn rolling_back_to_a_draining_version_says_it_is_draining() {
     let f = Fixture::new();
-    let v1 = f.id("streamer", "1.0.0");
+    let (v1, v2) = (f.id("streamer", "1.0.0"), f.id("streamer", "1.1.0"));
     let old_dir = f.package("streamer", "1.0.0", STREAM_PROBE, 1, "");
     f.kernel.load_plugin_from_dir(&old_dir).await.unwrap();
     let (port, mut old) = entangle_host::stream_port(1);

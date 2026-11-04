@@ -408,7 +408,7 @@ mod restart {
     #[tokio::test(flavor = "multi_thread")]
     async fn a_package_changed_while_the_daemon_was_down_is_not_reloaded() {
         let node = Node::new();
-        let (hello, hello_id) = node.hello();
+        let (hello, _) = node.hello();
         {
             let reg = Registry::new();
             let (d, _) = node.start(&reg).await;
@@ -428,7 +428,6 @@ mod restart {
             "{report:?}"
         );
         assert!(list(&d).await.is_empty());
-        let _ = hello_id;
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -654,7 +653,4 @@ mod restart {
             Ok(())
         }
     }
-
-    #[allow(dead_code)]
-    fn _unused(_: &Path) {}
 }

@@ -9,6 +9,8 @@
 //! plugin invocation is contained: that call fails with `ENTANGLE-E0788` and
 //! the daemon keeps serving.
 
+#![cfg(debug_assertions)] // fault points exist only in debug builds
+
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
@@ -164,6 +166,45 @@ fn a_core_task_that_returns_early_ends_the_daemon() {
     assert_eq!(lines[0]["target"], "entangle::telemetry");
     assert_eq!(lines[0]["fields"]["task"], "maintenance", "{}", lines[0]);
     assert_eq!(lines[0]["fields"]["panicked"], false, "{}", lines[0]);
+}
+
+/// Write a config that serves the scheduler protocols over a loopback
+/// `mesh.iroh` endpoint (no relay), so the mesh task and stream servers run.
+fn enable_iroh(home: &Path) {
+    let dir = home.join(".entangle");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("config.toml"),
+        "[mesh]\ntransports = [\"iroh\"]\n\n[scheduler]\nbind = \"127.0.0.1:0\"\nrelay = false\n",
+    )
+    .unwrap();
+}
+
+/// A panic or an early return of either mesh server is a core fault: the
+/// supervisor wrapped around them in `main` ends the daemon with status 70.
+#[test]
+fn a_mesh_server_that_panics_or_returns_ends_the_daemon() {
+    for (point, panicked) in [
+        ("mesh-task-server", true),
+        ("mesh-stream-server", true),
+        ("mesh-task-server-return", false),
+        ("mesh-stream-server-return", false),
+    ] {
+        let tmp = tempfile::tempdir().unwrap();
+        enable_iroh(tmp.path());
+        let mut d = Daemon::start(tmp.path(), point);
+        let status = d.wait_exit();
+        assert_eq!(status.code(), Some(CORE_FAULT), "{point}: {}", d.log());
+        let lines = d.lines_with_code("ENTANGLE-E0787");
+        assert_eq!(lines.len(), 1, "{point}: {}", d.log());
+        if panicked {
+            // The panic hook fires first, in the server's own task.
+            assert!(lines[0]["fields"]["location"].is_string(), "{point}");
+        } else {
+            assert_eq!(lines[0]["fields"]["task"], "scheduler-server", "{point}");
+            assert_eq!(lines[0]["fields"]["panicked"], false, "{point}");
+        }
+    }
 }
 
 /// The RPC server refuses to unlink a socket path that is not a socket (a
@@ -375,5 +416,75 @@ async fn plugins_come_back_after_the_daemon_is_killed_and_restarted() {
         .lines()
         .any(|l| l.contains("plugin state restored") && l.contains("\"restored\":1"));
     assert!(restored, "{}", d.log());
+    assert_eq!(d.terminate().code(), Some(0), "{}", d.log());
+}
+
+/// A run-time revocation is recorded and re-applied by the restarted process
+/// before the plugin can be called (real `entangled`, SIGKILL in between).
+#[tokio::test(flavor = "multi_thread")]
+async fn a_revocation_survives_the_daemon_being_killed_and_restarted() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (pkg, id) = install_probe(tmp.path());
+    let mut d = Daemon::start(tmp.path(), "");
+    let client = d.client().await;
+    client.plugins_load(&pkg).await.expect("load");
+    let out = client
+        .plugins_invoke(&id, b"write /data/f before\n".to_vec(), 10_000)
+        .await
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&out.output), "ok\n");
+    client.perms_revoke(&id, "storage.local").await.unwrap();
+    let _ = d.child.kill();
+    let _ = d.child.wait();
+    drop(d);
+
+    let mut d = Daemon::start(tmp.path(), "");
+    let client = d.client().await;
+    assert_eq!(
+        client.plugins_list().await.unwrap().plugins,
+        vec![id.clone()]
+    );
+    let after = client
+        .plugins_invoke(&id, b"write /data/f after\n".to_vec(), 10_000)
+        .await;
+    let wrote = after
+        .as_ref()
+        .map(|o| String::from_utf8_lossy(&o.output).into_owned())
+        .unwrap_or_default();
+    assert_ne!(wrote, "ok\n", "storage.local was revoked: {after:?}");
+    let report = client.perms_list(Some(&id)).await.unwrap();
+    assert!(
+        !format!("{report:?}").contains("storage.local")
+            || format!("{report:?}").contains("revoked"),
+        "{report:?}"
+    );
+    assert_eq!(d.terminate().code(), Some(0), "{}", d.log());
+}
+
+/// A package replaced while the daemon was down is not loaded by the
+/// restarted process (real `entangled`).
+#[tokio::test(flavor = "multi_thread")]
+async fn a_package_changed_while_the_daemon_was_down_stays_unloaded() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (pkg, _id) = install_probe(tmp.path());
+    let mut d = Daemon::start(tmp.path(), "");
+    let client = d.client().await;
+    client.plugins_load(&pkg).await.expect("load");
+    let _ = d.child.kill();
+    let _ = d.child.wait();
+    drop(d);
+
+    let mut wasm = std::fs::read(pkg.join("plugin.wasm")).unwrap();
+    wasm.extend_from_slice(&[0, 0, 0]);
+    std::fs::write(pkg.join("plugin.wasm"), wasm).unwrap();
+
+    let mut d = Daemon::start(tmp.path(), "");
+    let client = d.client().await;
+    assert!(
+        client.plugins_list().await.unwrap().plugins.is_empty(),
+        "{}",
+        d.log()
+    );
+    assert!(d.log().contains("ENTANGLE-E0784"), "{}", d.log());
     assert_eq!(d.terminate().code(), Some(0), "{}", d.log());
 }

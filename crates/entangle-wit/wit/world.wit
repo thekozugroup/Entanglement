@@ -40,8 +40,11 @@ world stream-plugin {
 /// of a plugin with this one it calls `migrate` on a fresh instance of the
 /// **new** version, with the version it replaces, before any call is routed
 /// to it. `ok` lets the swap proceed; `err` keeps the old version running
-/// and refuses the reload. A component without the export is swapped in
-/// after the old version drains (drain-and-swap).
+/// and refuses the reload. A component without the export needs no
+/// conversion. Either way the new version takes every new call at once,
+/// while calls and streams already running on the old version finish there
+/// (drain-and-swap), so both versions can use the plugin's storage at the
+/// same time until the old one has drained.
 ///
 /// The instance gets the new version's capability grants, so a plugin can
 /// rewrite its own storage (`/data`) into the new version's format here.

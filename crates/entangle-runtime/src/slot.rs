@@ -206,10 +206,11 @@ impl WasmSlot {
         st.instance = None;
         drop(st);
         tracing::debug!(plugin = %self.plugin_id, idle_secs = idle.as_secs(), "idle instance torn down");
-        events.emit(&self.plugin_id, self.tier, LifecyclePhase::TornDown);
+        // Count before announcing: an observer woken by the event must see the metric.
         if let Some((registry, label)) = metric {
             entangle_observability::catalog::plugin_idle_teardown(registry, label);
         }
+        events.emit(&self.plugin_id, self.tier, LifecyclePhase::TornDown);
         None
     }
 }

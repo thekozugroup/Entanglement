@@ -69,15 +69,23 @@ pub fn serve_on_iroh(
     transport: &Arc<MeshIroh>,
     servers: &SchedulerServers,
 ) -> Vec<tokio::task::JoinHandle<()>> {
+    let (t, tasks) = (Arc::clone(transport), Arc::clone(&servers.tasks));
+    let (s, streams) = (Arc::clone(transport), Arc::clone(&servers.streams));
     vec![
-        tokio::spawn(entangle_scheduler::serve_tasks(
-            Arc::clone(transport),
-            Arc::clone(&servers.tasks),
-        )),
-        tokio::spawn(entangle_scheduler::serve_streams(
-            Arc::clone(transport),
-            Arc::clone(&servers.streams),
-        )),
+        tokio::spawn(async move {
+            // Debug-build fault points (spec §2.1 tests): the supervisor must
+            // turn a panic or an early return of this server into exit 70.
+            entangle_core::fault::inject("mesh-task-server");
+            if !entangle_core::fault::injected("mesh-task-server-return") {
+                entangle_scheduler::serve_tasks(t, tasks).await;
+            }
+        }),
+        tokio::spawn(async move {
+            entangle_core::fault::inject("mesh-stream-server");
+            if !entangle_core::fault::injected("mesh-stream-server-return") {
+                entangle_scheduler::serve_streams(s, streams).await;
+            }
+        }),
     ]
 }
 
