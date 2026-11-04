@@ -27,7 +27,8 @@ use entangle_mesh_iroh::{
 };
 use entangle_mesh_tailscale::{
     AclMode, AddressPolicy, LivenessSnapshot, MeshTailscale, MeshTailscaleConfig, PeerAllowlist,
-    StaticAllowlist as TailnetAllowlist, TailnetState, TailscaleStatus,
+    ProtocolHandler, RequestHandler, RequestProtocol, StaticAllowlist as TailnetAllowlist,
+    TailnetState, TailscaleStatus,
 };
 use entangle_observability::catalog::names;
 use entangle_observability::context::{hex_string, AttrValue, SpanLayer, SpanRecord, SpanSink};
@@ -267,18 +268,14 @@ impl Submitter {
     /// A discovery round, as the daemon runs it: `tailscale status` lists
     /// one online peer at 127.0.0.1, probed on `worker`'s port.
     async fn discover(&self, worker: &Worker) {
-        let json = r#"{"BackendState":"Running","Self":{"Online":true},
-          "Peer":{"w":{"Online":true,"DNSName":"w.tail.ts.net.","TailscaleIPs":["127.0.0.1"]}}}"#;
-        let status = TailscaleStatus::parse(json).unwrap();
-        let found = self
-            .tailnet
-            .discover_on_port(&status, worker.tailnet.local_addr().port())
+        self.discover_listener(&worker.tailnet, worker.peer_id)
             .await;
-        assert_eq!(
-            found.iter().map(|p| p.peer_id).collect::<Vec<_>>(),
-            [worker.peer_id],
-            "discovery finds the worker on the tailnet"
-        );
+    }
+
+    /// [`Submitter::discover`] for any tailnet listener (`expect`: its
+    /// peer id).
+    async fn discover_listener(&self, listener: &MeshTailscale, expect: PeerId) {
+        discover_from(&self.tailnet, listener, expect).await;
     }
 
     fn tailnet_link(&self) -> Arc<TailscaleLink> {
@@ -313,6 +310,23 @@ impl Submitter {
     fn set_tailnet(&self, state: TailnetState) {
         self.liveness.send_replace(snapshot(state));
     }
+}
+
+/// A discovery round on `client`: `tailscale status` lists one online peer
+/// at 127.0.0.1, probed on `listener`'s port, which must answer as
+/// `expect`.
+async fn discover_from(client: &MeshTailscale, listener: &MeshTailscale, expect: PeerId) {
+    let json = r#"{"BackendState":"Running","Self":{"Online":true},
+      "Peer":{"w":{"Online":true,"DNSName":"w.tail.ts.net.","TailscaleIPs":["127.0.0.1"]}}}"#;
+    let status = TailscaleStatus::parse(json).unwrap();
+    let found = client
+        .discover_on_port(&status, listener.local_addr().port())
+        .await;
+    assert_eq!(
+        found.iter().map(|p| p.peer_id).collect::<Vec<_>>(),
+        [expect],
+        "discovery finds the worker on the tailnet"
+    );
 }
 
 fn one_shot(plugin: &PluginId, input: &[u8]) -> OneShotTask {
@@ -736,6 +750,118 @@ async fn preferred_and_per_peer_overrides_choose_the_transport() {
         (b.served("ok", "iroh"), b.served("ok", "tailscale")),
         (1.0, 1.0)
     );
+}
+
+// ── the tailnet's connection limits ─────────────────────────────────────────
+
+/// Answers each request after a while, as a running task holds its
+/// connection.
+struct SlowEcho(Duration);
+
+#[async_trait::async_trait]
+impl RequestHandler for SlowEcho {
+    async fn handle(&self, _peer: PeerId, payload: Vec<u8>) -> Vec<u8> {
+        tokio::time::sleep(self.0).await;
+        payload
+    }
+}
+
+/// The tailnet carries one request per connection, and its listener caps
+/// handshakes in flight per source (8) and connections per peer (16). A
+/// burst of concurrent tasks to one peer — ordinary scheduler concurrency,
+/// which iroh carries on one connection — waits for those slots on the
+/// submitting side instead of failing with `connection limit` or a dropped
+/// handshake.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_burst_of_concurrent_requests_over_the_tailnet_all_complete() {
+    let a = Submitter::start().await;
+    let key = IdentityKeyPair::generate();
+    let b_id = peer_of(&key);
+    let b = MeshTailscale::start(&key, tailnet_config(AclMode::EntangleOnTop, &[a.peer_id]))
+        .await
+        .unwrap();
+    let handler: Arc<dyn ProtocolHandler> = Arc::new(RequestProtocol(Arc::new(SlowEcho(
+        Duration::from_millis(500),
+    ))));
+    let server = b.clone();
+    tokio::spawn(async move {
+        server
+            .serve_protocols(vec![(ALPN_SCHEDULER.to_vec(), handler)])
+            .await;
+    });
+    a.discover_listener(&b, b_id).await;
+    let router = Arc::new(TransportRouter::new(a.peer_id).with_link(a.tailnet_link()));
+    let burst: Vec<_> = (0..24u8)
+        .map(|i| {
+            let router = Arc::clone(&router);
+            tokio::spawn(async move { router.request(b_id, &[i], None).await })
+        })
+        .collect();
+    for (i, request) in burst.into_iter().enumerate() {
+        let (answer, kind) = deadline("a request of the burst", request)
+            .await
+            .unwrap()
+            .unwrap_or_else(|e| panic!("request {i} of the burst failed: {e}"));
+        assert_eq!((answer, kind), (vec![i as u8], TransportKind::Tailscale));
+    }
+}
+
+/// A tailnet stream holds its connection slot for its whole life: with one
+/// slot per peer, a request to the same peer waits until the stream ends,
+/// then goes through.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_tailnet_stream_holds_its_connection_slot_until_it_ends() {
+    let a = Submitter::start().await;
+    let b = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
+    let one_slot = MeshTailscale::start(
+        &a.key,
+        MeshTailscaleConfig {
+            max_connections_per_peer: 1,
+            ..tailnet_config(AclMode::EntangleOnTop, &[])
+        },
+    )
+    .await
+    .unwrap();
+    discover_from(&one_slot, &b.tailnet, b.peer_id).await;
+    let router = Arc::new(
+        TransportRouter::new(a.peer_id).with_link(Arc::new(TailscaleLink::new(
+            one_slot,
+            a.liveness.subscribe(),
+        ))),
+    );
+
+    let mut task = StreamingTask::with_defaults(b.lines.clone(), b"x\n".to_vec());
+    task.integrity = IntegrityPolicy::TrustedExecutor {
+        allowlist: vec![b.peer_id],
+    };
+    let mut handle = deadline(
+        "open a stream over the tailnet",
+        router.open_stream(b.peer_id, &task, StreamOptions::default()),
+    )
+    .await
+    .unwrap();
+    let pending = {
+        let router = Arc::clone(&router);
+        let peer = b.peer_id;
+        tokio::spawn(async move { router.request(peer, b"\xff not a frame", None).await })
+    };
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(
+        !pending.is_finished(),
+        "the request waits while the stream holds the only slot"
+    );
+    handle.finish_input().await.unwrap();
+    let result = deadline("collect", handle.collect()).await;
+    assert!(
+        matches!(result.outcome, StreamOutcome::Complete(_)),
+        "{:?}",
+        result.outcome
+    );
+    let (_, kind) = deadline("the request once the stream ended", pending)
+        .await
+        .unwrap()
+        .expect("the stream's slot was freed");
+    assert_eq!(kind, TransportKind::Tailscale);
 }
 
 // ── the allowlist gate on the tailnet path ──────────────────────────────────

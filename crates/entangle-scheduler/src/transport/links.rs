@@ -1,14 +1,21 @@
 //! The two concrete links: the iroh endpoint (as `mesh.iroh` or
 //! `mesh.local`) and the tailnet transport.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use entangle_mesh_iroh::{DynMeshTransport, MeshIroh, MeshIrohError, ALPN_SCHEDULER, ALPN_STREAM};
-use entangle_mesh_tailscale::{LivenessSnapshot, MeshTailscale, MeshTailscaleError, TailnetState};
+use entangle_mesh_tailscale::{
+    LivenessSnapshot, MeshConn, MeshTailscale, MeshTailscaleError, TailnetState,
+};
 use entangle_types::peer_id::PeerId;
-use tokio::sync::watch;
+use parking_lot::Mutex;
+use tokio::sync::{watch, OwnedSemaphorePermit, Semaphore};
 
-use super::{Availability, Connecting, DialTarget, Link, LinkError, StreamIo, TransportKind};
+use super::{
+    Availability, Connecting, DialTarget, FrameError, FrameRecv, FrameSend, Link, LinkError,
+    StreamIo, TransportKind,
+};
 use crate::remote::PeerAddressBook;
 
 /// Classify an iroh error: failures while dialling or authenticating
@@ -140,10 +147,36 @@ impl Link for IrohLink {
 /// it is not); its targets are the candidates the last discovery round
 /// found. Each request or stream is one connection: handshake (pinning the
 /// candidate's key), then the sub-protocol selection, then the traffic.
+///
+/// The peer's listener caps what one node may hold there: 8 handshakes in
+/// flight per source address (more are dropped unanswered) and
+/// `max_connections_per_peer` established connections (more are refused
+/// as `connection limit`). Since every request holds a connection until
+/// its answer, and every stream for its life, a burst of concurrent work
+/// to one peer would run into both. So the link keeps under them itself,
+/// per peer: at most 4 connection setups at a time,
+/// and at most this node's own `max_connections_per_peer` (the default is
+/// the same on every node) connections open. Work beyond that waits for a
+/// slot — up to the transport's request timeout, the longest a request
+/// holds one — as connection setup, so the router's connect deadline
+/// applies to the wait too.
 #[derive(Debug, Clone)]
 pub struct TailscaleLink {
     transport: MeshTailscale,
     liveness: watch::Receiver<LivenessSnapshot>,
+    slots: Arc<Mutex<HashMap<PeerId, Arc<PeerSlots>>>>,
+}
+
+/// Connection setups (dial, handshake, protocol selection) one node runs at
+/// once to one tailnet peer: half the listener's per-source cap of 8, which
+/// leaves room for handshakes the listener has not finished counting down.
+const MAX_SETUPS_PER_PEER: usize = 4;
+
+/// One peer's slots; see [`TailscaleLink`].
+#[derive(Debug)]
+struct PeerSlots {
+    setups: Semaphore,
+    open: Arc<Semaphore>,
 }
 
 impl TailscaleLink {
@@ -152,6 +185,7 @@ impl TailscaleLink {
         Self {
             transport,
             liveness,
+            slots: Arc::default(),
         }
     }
 
@@ -160,20 +194,91 @@ impl TailscaleLink {
         &self.transport
     }
 
+    /// `peer`'s slots. One entry per peer ever dialled: discovery
+    /// candidates, i.e. trusted peers, so the map stays small.
+    fn slots(&self, peer: PeerId) -> Arc<PeerSlots> {
+        let open = self.transport.config().max_connections_per_peer.max(1);
+        Arc::clone(self.slots.lock().entry(peer).or_insert_with(|| {
+            Arc::new(PeerSlots {
+                setups: Semaphore::new(MAX_SETUPS_PER_PEER),
+                open: Arc::new(Semaphore::new(open)),
+            })
+        }))
+    }
+
+    /// Take one of the peer's connection slots, then connect and select
+    /// `protocol`. The connection holds the returned slot until both are
+    /// dropped (connection first).
     async fn connect(
         &self,
         target: &DialTarget,
         protocol: &[u8],
-    ) -> Result<entangle_mesh_tailscale::MeshConn, LinkError> {
+    ) -> Result<(MeshConn, OwnedSemaphorePermit), LinkError> {
         let DialTarget::Tailscale(peer) = target else {
             return Err(LinkError::Connect("not a tailnet dial target".into()));
         };
+        let slots = self.slots(peer.peer_id);
+        let wait = self.transport.config().request_timeout;
+        let busy = || {
+            LinkError::Connect(format!(
+                "every connection this node may hold to peer {} is in use, and none was \
+                 freed within {}ms",
+                peer.peer_id,
+                wait.as_millis()
+            ))
+        };
+        // The semaphores are never closed, so `acquire` fails only on
+        // timeout.
+        let open = tokio::time::timeout(wait, Arc::clone(&slots.open).acquire_owned())
+            .await
+            .map_err(|_| busy())?
+            .map_err(|_| busy())?;
+        let setup = tokio::time::timeout(wait, slots.setups.acquire())
+            .await
+            .map_err(|_| busy())?
+            .map_err(|_| busy())?;
         // Every error before the selection is answered happens before any
         // application data is sent.
-        self.transport
+        let conn = self
+            .transport
             .connect_protocol(peer, protocol)
             .await
-            .map_err(|e| LinkError::Connect(e.to_string()))
+            .map_err(|e| LinkError::Connect(e.to_string()))?;
+        drop(setup);
+        Ok((conn, open))
+    }
+}
+
+/// A stream half that holds its connection's slot (see [`TailscaleLink`]):
+/// the slot is freed once both halves, and so the connection, are gone.
+struct Held<T> {
+    // Dropped first: the connection closes before its slot is freed.
+    inner: T,
+    _slot: Arc<OwnedSemaphorePermit>,
+}
+
+#[async_trait::async_trait]
+impl<T: FrameSend> FrameSend for Held<T> {
+    async fn send(&mut self, payload: &[u8]) -> Result<(), FrameError> {
+        self.inner.send(payload).await
+    }
+    async fn finish(&mut self) -> Result<(), FrameError> {
+        self.inner.finish().await
+    }
+}
+
+#[async_trait::async_trait]
+impl<T: FrameRecv> FrameRecv for Held<T> {
+    async fn recv_capped(&mut self, cap: usize) -> Result<Option<Vec<u8>>, FrameError> {
+        self.inner.recv_capped(cap).await
+    }
+    async fn recv_capped_by(
+        &mut self,
+        cap: usize,
+        peek: usize,
+        cap_for: &mut (dyn for<'p> FnMut(&'p [u8]) -> usize + Send),
+    ) -> Result<Option<Vec<u8>>, FrameError> {
+        self.inner.recv_capped_by(cap, peek, cap_for).await
     }
 }
 
@@ -215,15 +320,34 @@ impl Link for TailscaleLink {
         payload: &[u8],
         connecting: &Connecting,
     ) -> Result<Vec<u8>, LinkError> {
-        let mut conn = self.connect(target, ALPN_SCHEDULER).await?;
+        let (mut conn, slot) = self.connect(target, ALPN_SCHEDULER).await?;
         connecting.connected();
-        conn.request(payload).await.map_err(tailscale_error)
+        let answer = conn.request(payload).await.map_err(tailscale_error);
+        // The connection closes before its slot is freed.
+        drop(conn);
+        drop(slot);
+        answer
     }
 
     async fn open_stream(&self, target: &DialTarget) -> Result<StreamIo, LinkError> {
-        let conn = self.connect(target, ALPN_STREAM).await?;
-        conn.into_stream()
-            .map(StreamIo::from)
-            .map_err(|e| LinkError::Connect(e.to_string()))
+        let (conn, slot) = self.connect(target, ALPN_STREAM).await?;
+        let io = conn
+            .into_stream()
+            .map_err(|e| LinkError::Connect(e.to_string()))?;
+        let key = io.remote_public_key();
+        let (send, recv) = io.split();
+        let slot = Arc::new(slot);
+        Ok(StreamIo::new(
+            Box::new(Held {
+                inner: send,
+                _slot: Arc::clone(&slot),
+            }),
+            Box::new(Held {
+                inner: recv,
+                _slot: slot,
+            }),
+            key,
+            TransportKind::Tailscale,
+        ))
     }
 }

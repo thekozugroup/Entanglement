@@ -492,6 +492,13 @@ tailscale-cli = ""             # empty = `tailscale` on $PATH
   all), and at most 16 established connections per peer (256 in all). A peer
   over a limit is told so after the handshake (`connection limit`) and can
   retry once one of its connections closes.
+* Outbound, the scheduler stays under those limits on its own: each task
+  or stream to a peer holds one connection (until the answer, or for the
+  stream's life), and the node runs at most 4 connection setups and holds
+  at most 16 connections per peer at a time. Work beyond that waits for a
+  slot (up to the 30 s request timeout) instead of failing; the wait counts
+  as connecting, so a peer also reachable another way may be served there
+  meanwhile (§19).
 
 * Traffic is TCP over WireGuard. A mutual Ed25519-signed X25519 handshake
   authenticates the remote `PeerId` and agrees session keys; every frame after
