@@ -68,7 +68,7 @@ Entanglement is a **small Rust core runtime** that runs Wasm Component plugins u
 
 ### One-paragraph elevator
 
-**Entanglement is a tiny Rust runtime + plugin ecosystem that turns the devices you already own into one cooperative compute fabric.** Two roles drive every design decision: (1) **AI sysadmin** plugins — agents like Claude Code, Codex, OpenCode that operate the system on the user's behalf, including managing Docker on the host as a sealed tier-5 capability; and (2) **swarm compute** — pooling CPU/GPU/NPU across paired devices so individual workloads (LLM inference, batch jobs, test parallelization) finish faster than they would on any single machine. Everything else in this document — the tier model, the capability broker, the three mesh transports, the biscuit auth, the OCI/tarball distribution — exists to make those two roles safe and ship-able. **How it actually feels to a user.** A user runs `brew install entangle && entangle init`. The init wizard generates an Ed25519 identity, writes `~/.config/entangle/config.toml`, opens the firewall hole (or skips it if Tailscale is detected), and prints a 6-digit pairing code. On the second device they run `entangle pair <code>` — TOFU on both sides with explicit accept. Each daemon discovers peers via mDNS on LAN or by probing the online peers of its tailnet (§6.1.1), and dials `mesh.iroh` peers on the WAN from the `[scheduler] peers` address list (`<pubkey-hex>@host:port`) — whichever transports the node is configured to participate in. (pkarr is not implemented.) UDP-hostile network? Tell the user to install Tailscale; Entanglement's `mesh.tailscale` mode then works without our shipping our own TURN. Plugins — distributed as signed OCI artifacts *or* `.tar.zst` from an HTTPS URL — declare the capabilities they need. Capability handles are the only authority. From there: a `scheduler` plugin places signed Wasm work units (the swarm-compute role); an `agent-host-claude-code` subprocess plugin runs Claude Code with the kernel intercepting every MCP tool call (the AI-sysadmin role); a `entangle-mesh-fs` plugin shares storage. The core stays small. ---
+**Entanglement is a tiny Rust runtime + plugin ecosystem that turns the devices you already own into one cooperative compute fabric.** Two roles drive every design decision: (1) **AI sysadmin** plugins — agents like Claude Code, Codex, OpenCode that operate the system on the user's behalf, including managing Docker on the host as a sealed tier-5 capability; and (2) **swarm compute** — pooling CPU/GPU/NPU across paired devices so individual workloads (LLM inference, batch jobs, test parallelization) finish faster than they would on any single machine. Everything else in this document — the tier model, the capability broker, the three mesh transports, the biscuit auth, the OCI/tarball distribution — exists to make those two roles safe and ship-able. **How it actually feels to a user.** A user runs `brew install entangle && entangle init`. The init wizard generates an Ed25519 identity, writes `~/.config/entangle/config.toml`, opens the firewall hole (or skips it if Tailscale is detected), and prints a 6-digit pairing code. *(Implementation note (deviation): `entangle init` never changes a host firewall; it prints the ports to open, see §9.2 step 6.)* On the second device they run `entangle pair <code>` — TOFU on both sides with explicit accept. Each daemon discovers peers via mDNS on LAN or by probing the online peers of its tailnet (§6.1.1), and dials `mesh.iroh` peers on the WAN from the `[scheduler] peers` address list (`<pubkey-hex>@host:port`) — whichever transports the node is configured to participate in. (pkarr is not implemented.) UDP-hostile network? Tell the user to install Tailscale; Entanglement's `mesh.tailscale` mode then works without our shipping our own TURN. Plugins — distributed as signed OCI artifacts *or* `.tar.zst` from an HTTPS URL — declare the capabilities they need. Capability handles are the only authority. From there: a `scheduler` plugin places signed Wasm work units (the swarm-compute role); an `agent-host-claude-code` subprocess plugin runs Claude Code with the kernel intercepting every MCP tool call (the AI-sysadmin role); a `entangle-mesh-fs` plugin shares storage. The core stays small. ---
 
 ## 2. Core Runtime Responsibilities
 
@@ -469,7 +469,7 @@ charlie-server                     ghi56... tailscale                    NOT REA
                                                                                       Or:  ask charlie to also enable mesh.iroh. diana-phone                        jkl78... tailscale (control surface)  12m ago (tailscale)
 ```
 
-The hint is *prescriptive*: it names which side needs a config change and gives the literal command. This is the same UX philosophy as `entangle pair` failure modes (§6.3). **Opt-in bridging.** A node that participates in both `mesh.iroh` and `mesh.tailscale` MAY relay traffic between two peers that share no direct transport — a "transport bridge." This is **off by default** and requires three things:
+The hint is *prescriptive*: it names which side needs a config change and gives the literal command. *Implementation note (deviation): nodes do not advertise their transport set, so `entangle mesh routes` cannot say which transports the peer has; for a peer no running transport reaches, it lists the literal `entangle config set mesh.<transport>.enabled true` for each transport this node lacks, plus a stopped tailnet, a missing `[scheduler] peers` address, or asking the peer to enable one of this node's transports, and states that bridging is not supported (the opt-in bridging below is not implemented).* This is the same UX philosophy as `entangle pair` failure modes (§6.3). **Opt-in bridging.** A node that participates in both `mesh.iroh` and `mesh.tailscale` MAY relay traffic between two peers that share no direct transport — a "transport bridge." This is **off by default** and requires three things:
 
 1. The bridging node sets `[mesh.bridge] enabled = true` in `config.toml` AND lists which transport pairs it is willing to bridge: `pairs = ["iroh<->tailscale"]`.
 
@@ -986,7 +986,7 @@ User runs: entangle agent run claude-code
 
    The same shim is installed for `codex`, `aider`, and other supported agent hosts (per §8.3.1).
 
-2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`. *(Implementation status: the shim is opt-in through `entangle wrapper enable` only; the first-run question, `--no-wrapper` and the shell-history note of item 3 are not implemented. See docs/operations.md §15.)*
+2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`. *(Implementation status: `entangle install` asks this question; `--wrapper` / `--no-wrapper` answer it, and a choice already recorded in `[wrappers] install` is respected (deviation: `--headless` with neither flag installs nothing). The shell-history note of item 3 is not implemented. See docs/operations.md §15, §26.)*
 
 3. **Doctor check.** `entangle doctor` validates the wrapper is in place AND not shadowed:
    - If the wrapper block is missing from the user's rc files → warning with `entangle wrapper enable`.
@@ -1061,15 +1061,15 @@ entangle init
 ```
 # If you're already running Tailscale, skip the WAN/Iroh setup entirely:
 entangle init --transport tailscale
-# Design only: `entangle init` has no --transport flag in the code. Today the transport
-# is enabled with `[mesh] transports` and `[mesh.tailscale]` in config.toml, and the daemon
-# enumerates online tailnet peers and probes them (§6.1.1); no SRV/TXT records are published. # No DERP, no pkarr, no firewall holes — Tailscale already solved that. ```
+# Implemented: this sets `[mesh] transports` and `[mesh.tailscale] enabled = true` after the
+# §9.1.1 checks; the daemon then enumerates online tailnet peers and probes them (§6.1.1);
+# no SRV/TXT records are published. # No DERP, no pkarr, no firewall holes — Tailscale already solved that. ```
 
 This is the recommended path for users who already have a tailnet — including Headscale users.
 
 #### 9.1.1 `entangle init --transport tailscale` failure modes
 
-*Implementation note: not implemented. `entangle init` has no `--transport` flag and the messages and exit codes below are not produced by any command. The daemon reports the liveness states of §6.1.1 instead (`entangle diag mesh`, `entangle_mesh_tailscale_state`).*
+*Implementation note: implemented by `entangle init --transport tailscale` (and by the interactive wizard when `mesh.tailscale` is chosen), with these messages and exit codes; profiles are read from `tailscale switch --list`, and `--headless` refuses several profiles (exit 64) unless `--tailscale-profile` names the active one. Added: a `tailscale` older than 1.62.0 (§11 #17) exits 69 with `ENTANGLE-E0791`. The MagicDNS row is not checked (the transport works without MagicDNS, §6.1.1). The daemon reports the liveness states of §6.1.1 (`entangle diag mesh`, `entangle_mesh_tailscale_state`).*
 
 The Tailscale path is one command on the happy path and a careful ladder of error messages otherwise. Each failure mode has a precise message, a clear remedy, and an exit code. Mirrors §6.3's pairing UX commitment. | Detected condition | Message | Exit code |
 |---|---|---|
@@ -1101,11 +1101,11 @@ Interactive. makes the single-node-vs-multi-node split explicit and resolves the
 
 5. Detects whether `tailscale status --json` succeeds. If yes: offers `mesh.tailscale` (default-on if detected). Asks about `mesh.local` and `mesh.iroh`. Failure modes per §9.1.1.
 
-6. Tries to open the firewall hole for the enabled transports (skipped entirely in tailnet-only mode).
+6. Tries to open the firewall hole for the enabled transports (skipped entirely in tailnet-only mode). *Implementation note (deviation): `entangle init` never modifies a host firewall; it prints the port to allow for each enabled transport (and the pairing port) instead.*
 
 7. On success, the second device's fingerprint is added to `[trust] entangle.peers`. The daemon then starts.
 
-- **Pair later** → wizard adds the local node's *own* fingerprint to `[trust] entangle.peers` (so the allowlist is non-empty, satisfying the invariant) and prints:
+- **Pair later** → wizard adds the local node's *own* fingerprint to `[trust] entangle.peers` (so the allowlist is non-empty, satisfying the invariant) and prints: *(Implementation note (deviation): the node's own key is never put on its allowlist. Instead `[mesh] multi_node` is written `false` until a device is paired — the wizard sets it after a successful "pair now" — so the daemon starts; the message below is printed with a final `entangle config set mesh.multi_node true` step.)*
      ```
      Daemon configured but not started. Pair a peer first:
        entangle pair --print-code     # on this device
@@ -1122,7 +1122,7 @@ The daemon's startup check (in `entangle-core`) re-validates the invariant: any 
 error: multi-node transport configured (mesh.tailscale) but no peers trusted. Run 'entangle pair --print-code' or 'entangle init' to pair a peer. Or disable the transport: entangle config set mesh.tailscale.enabled false
 ```
 
-This closes the §9.2 / §11 #16 contradiction — the invariant holds at every layer (init wizard, config validation, daemon start). A non-interactive `entangle init --headless --single-node --identity-label X` exists for Docker/CI; multi-node headless init requires `--peer <fingerprint>` to seed the allowlist.
+This closes the §9.2 / §11 #16 contradiction — the invariant holds at every layer (init wizard, config validation, daemon start). A non-interactive `entangle init --headless --single-node --identity-label X` exists for Docker/CI; multi-node headless init requires `--peer <fingerprint>` to seed the allowlist. *Implementation note (deviation): there is no `--peer` flag (a fingerprint alone cannot authenticate a peer); headless init with multi-node transports writes them with `multi_node = false` and prints the `entangle pair` commands. Step 8's `entangle install <ref>` is `entangle plugins install <NAME>`; `entangle install` is the first-run path of §8.3.*
 
 ### 9.3 Hello-world walkthrough
 
@@ -1131,7 +1131,11 @@ today — `entangle-cli`, `tools/xtask`, and `examples/hello-world`. Everything
 from the horizontal rule onward (the `cargo-entangle` scaffolding/packaging
 tool, reproducible-packaging CI, and the `keys` / `trust` / `install` /
 `plugin start` / `logs` subcommands) is **Phase 2 / planned design** — it
-does not exist yet. Today's real subcommands are `init`, `version`, `doctor`,
+does not exist yet. *(Since then `entangle keys gen --label <label>` exists — it
+writes `~/.entangle/publishers/<label>.key` (mode 0600) and `.pub` instead of
+`~/.config/entangle/publishers/` (deviation), with `--trust` adding the key to
+the keyring — and `entangle install` exists as the first-run path of §8.3, not
+as a plugin installer.)* Today's real subcommands are `init`, `version`, `doctor`,
 `keyring`, `plugins`, `mesh`, `pair`, `compute`, `print-platform`, and
 `metrics` (see `crates/entangle-cli/src/main.rs`); today's real build tool is
 `cargo xtask` (`tools/xtask`), which builds, copies, and signs an example
@@ -1361,6 +1365,8 @@ In this planned design, the walkthrough would be end-to-end CI-tested on every c
 ### 9.4 Daemon mode, config, telemetry
 
 Daemon: `entangled` runs as the `entangle` user, drops privileges. Systemd unit ships in the deb/rpm. Config (`config.toml`) per  §9.3, with rename and additions:
+
+*Implementation note (deviation): `[node] label` is implemented (set by `entangle init`, shown when pairing, advertised by the daemon). `data_dir` and `identity` are not: every command and the daemon resolve their files under `~/.entangle` (relocate it with `$HOME`), and a config that sets either fails to load with a message saying so.*
 
 ```toml
 [node]
@@ -1614,7 +1620,7 @@ LOC count of first-party crates is half the story. The actual security-review su
 | 13 | **Cross-plugin side channels via shared CPU/blob cache**  | Per-plugin fuel budgets; per-plugin blob cache namespaces; opt-in cache flushing on capability drop |
 | 14 | **Registry compromise (OCI host)**  | Trust roots are publisher keys, not registries; tarball path (§3.6) bypasses registry entirely; `entangle audit` diffs versions before install |
 | 15 | **Compromise-recovery UX**  | Backup/restore (§9.6); identity rotation (§6.5); per-user keyring rotation procedure documented |
-| 16 | **Tailnet-shared-by-multiple-tenants attack** (v2.1; sharpened) | A malicious tailnet peer (e.g. on a contractor- or family-shared tailnet, or an MSP-managed tailnet) speaks Entanglement protocol but is not a sanctioned Entanglement node. Mitigation: in `mesh.tailscale` mode (and any other multi-node mode), `[trust] entangle.peers` allowlist of Ed25519 fingerprints is **mandatory** (the daemon refuses to start in any multi-node mode without a populated allowlist; single-node mode is permitted with an empty allowlist — see §9.2); biscuit caps gate every operation; default `acl-mode = "entangle-on-top"` does not defer to tailnet ACLs. We additionally recommend the user configure Tailscale ACLs to restrict reachability to the Entanglement port (`[mesh.tailscale] port`, default 41643) — the install wizard prints a sample ACL fragment. *Implementation note: no SRV record is published, and `entangle init` does not print an ACL fragment.* |
+| 16 | **Tailnet-shared-by-multiple-tenants attack** (v2.1; sharpened) | A malicious tailnet peer (e.g. on a contractor- or family-shared tailnet, or an MSP-managed tailnet) speaks Entanglement protocol but is not a sanctioned Entanglement node. Mitigation: in `mesh.tailscale` mode (and any other multi-node mode), `[trust] entangle.peers` allowlist of Ed25519 fingerprints is **mandatory** (the daemon refuses to start in any multi-node mode without a populated allowlist; single-node mode is permitted with an empty allowlist — see §9.2); biscuit caps gate every operation; default `acl-mode = "entangle-on-top"` does not defer to tailnet ACLs. We additionally recommend the user configure Tailscale ACLs to restrict reachability to the Entanglement port (`[mesh.tailscale] port`, default 41643) — the install wizard prints a sample ACL fragment. *Implementation note: no SRV record is published; `entangle init` prints a sample ACL fragment when `mesh.tailscale` is chosen.* |
 | 17 | **Host `tailscale` binary supply chain**  | `entangle-mesh-tailscale` shells out to the host `tailscale` binary and trusts its `--json` output for peer enumeration. A compromised `tailscale` binary could lie about peer state, advertise rogue peers, or leak Entanglement's Ed25519 fingerprint. Mitigation: pin a minimum supported Tailscale version (`tailscale version >= 1.62.0` checked at boot); document expected provenance (Tailscale's official packages, Apple App Store on macOS); recommend Tailscale's auto-update; structured logging records the detected Tailscale version on every state transition. We do **not** verify the `tailscale` binary signature ourselves — the OS package manager does that, and re-implementing it would be redundant. The user-facing surface in the `init` wizard names this trust dependency explicitly: "Entanglement trusts the local Tailscale binary (`/usr/bin/tailscale`, version 1.x) for peer discovery." |
 | 18 | **Hostile Tailscale/Headscale control plane**  | A self-hosted Headscale operator (or a compromised control plane) can rewrite MagicDNS or the peer list to point Entanglement's peer probes at attacker-controlled nodes (no SRV/TXT records are used; see §6.1.1). Mitigation: Entanglement's own TOFU (§6.3) is the security primitive; MagicDNS provides rendezvous, not authentication. A peer that resolves via a hostile MagicDNS record still must pass the `[trust] entangle.peers` allowlist *and* present a biscuit signed by a key the local node trusts. We recommend `entangle-on-top` ACL mode (default) precisely because it doesn't trust the tailnet's reachability decisions; we document this in the install wizard for users on shared/non-self-controlled control planes. |
 

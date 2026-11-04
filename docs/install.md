@@ -446,18 +446,37 @@ brew services restart entangle
 hand:
 
 ```bash
-entangle init                      # interactive wizard
-entangle init --non-interactive    # accept defaults: transports=local, max_tier=5, new identity
+entangle install                   # first run: init if needed, the wrapper question, agent-config checksums
+entangle init                      # just the wizard (label, single/multi-node, transports, tier, identity)
+entangle init --headless           # ask nothing: transports=local, max_tier=5, new identity
+entangle init --headless --single-node --label ci-box
+entangle init --headless --transport tailscale --label lab    # checks the tailnet first
 ```
+
+`entangle install` runs `init` when there is no identity yet, asks whether to
+install the shell wrappers that warn when an agent host runs outside
+Entanglement (`--wrapper` / `--no-wrapper` answer it), and records checksums of
+your own agent config files so `entangle uninstall` can show they were never
+modified. The wizard asks plain one-line questions (it works on `TERM=dumb`,
+with a screen reader and with stdin piped) and honours `NO_COLOR`. Choosing
+`mesh.tailscale` checks `tailscale` first (installed, at least 1.62.0, logged
+in, online; several profiles need confirming) and fails with a specific exit
+code otherwise. `init` never changes your firewall: it prints the ports to
+open. See [operations.md §23](operations.md#23-first-run-entangle-init) for
+every flag and exit code.
 
 `init` creates `~/.entangle/` at mode 0700 containing:
 
 | File | Mode | Contents |
 |------|------|----------|
 | `identity.key` | 0600 | your Ed25519 device identity (never share it) |
-| `config.toml` | 0644 | `[mesh] transports`, `multi_node`; `[security] max_tier_allowed` |
+| `config.toml` | 0644 | `[node] label`; `[mesh] transports`, `multi_node` (and `[mesh.tailscale]` when chosen); `[security] max_tier_allowed` |
 | `keyring.toml` | 0600 | trusted publisher keys |
-| `peers.toml` | 0600 | the trusted-peer allowlist |
+| `peers.toml` | 0600 | the trusted-peer allowlist (empty: pair a device with `entangle pair --print-code`) |
+
+Change any setting later with `entangle config set <key> <value>`
+(`entangle config get` lists them), e.g. `entangle config set
+mesh.tailscale.enabled true`.
 
 `init` is idempotent: with all four files present it prints
 `Already initialized` and changes nothing. Importing a *different* key over an
@@ -539,6 +558,21 @@ restart.
 
 ## Uninstall
 
+First let `entangle` clean up after itself:
+
+```bash
+entangle uninstall            # wrappers, leftover agent sessions, verify your agent configs
+entangle uninstall --purge    # also delete ~/.entangle (asks you to type `purge`; --yes skips)
+```
+
+`entangle uninstall` removes the shell wrappers, deletes every per-session
+agent config directory (`entangle agent host cleanup --all`), and compares
+your `~/.claude/settings.json`, `~/.claude.json`, `~/.codex/config.toml` and
+OpenCode configs with the checksums `entangle install` recorded, reporting any
+that changed (Entanglement never writes them). It keeps `~/.entangle` unless
+`--purge`, which refuses while the daemon is running. It does not remove the
+binaries or a service unit: do that as below.
+
 Removing the binaries never removes your identity or config — that is a
 separate, deliberate step.
 
@@ -601,6 +635,7 @@ sudo userdel entangle
 device you have paired with will no longer recognise you):
 
 ```bash
+entangle uninstall --purge   # before removing the binaries; or by hand:
 rm -rf ~/.entangle
 ```
 

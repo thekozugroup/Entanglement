@@ -214,7 +214,7 @@ fn shipped_config_set_hints_name_working_commands() {
                     let clean =
                         |w: &str| w.trim_matches(|c: char| "`'\".,;)".contains(c)).to_owned();
                     let (k, v) = (clean(words[0]), clean(words[1]));
-                    if k.contains('<') || v.contains('<') || v.is_empty() {
+                    if [&k, &v].iter().any(|w| w.contains(['<', '{'])) || v.is_empty() {
                         continue;
                     }
                     hints.push((p.display().to_string(), k, v));

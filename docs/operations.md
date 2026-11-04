@@ -104,6 +104,9 @@ section uses **`deny_unknown_fields`** — a typo'd key is a loud startup/parse
 error, not a silently-ignored setting (`crates/entangle-bin/src/config.rs`).
 
 ```toml
+[node]
+label = "alice-laptop"     # default: absent (the host name is used); see §23
+
 [runtime]
 bus_capacity = 1024        # default 1024
 
@@ -141,6 +144,7 @@ service_name = "entangled"
 
 | Section | Key | Type | Default | Meaning |
 |---|---|---|---|---|
+| `[node]` | `label` | string | absent | The human-readable device label (`entangle init` asks for it): shown to the other device when pairing (spec §6.3 step 2), advertised over mDNS and reported by `entangle diag mesh`. Absent: the host name. At most 64 bytes, not blank, no control characters. The spec's `[node] data_dir` and `identity` are **not supported** (every file lives under `~/.entangle`, §3) and fail the load with a message saying so. |
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
 | `[mesh]` | `transports` | array of strings | `[]` | Active mesh transports: `"local"` (mDNS on `_entangle._udp.local`; LAN dialling also needs `"iroh"`), `"iroh"` (the scheduler endpoint, `[scheduler]`), `"tailscale"` (also needs `[mesh.tailscale] enabled = true`, §10). See §20 for how a transport is chosen per peer. |
 | `[mesh]` | `preferred` | string | absent | Daemon-only. `"local"`, `"tailscale"` or `"iroh"`: tried first for every peer; the others stay fallbacks in the spec order (§20). Anything else fails the load (`ENTANGLE-E0434`). |
@@ -157,7 +161,12 @@ service_name = "entangled"
 
 Notes:
 
-- The `[mesh]`, `[security]` (including `deny_capabilities`), `[wrappers]`
+- Change any key with `entangle config set <key> <value>` (§22): it checks
+  the value and the whole edited file the way the daemon loads it before
+  writing anything, and says whether the change applies on `entangle config
+  reload` or at the next daemon start. `entangle config get` lists every key
+  with its current value.
+- The `[node]`, `[mesh]`, `[security]` (including `deny_capabilities`), `[wrappers]`
   and `[plugins]` sections are **field-for-field shared** with the CLI's own
   config schema (`crates/entangle-cli/src/config.rs`), which is what
   actually writes the file (via `entangle init`, `entangle mesh
@@ -203,6 +212,9 @@ world-writable path like `/tmp`).
 | `~/.entangle/peers.toml` | Persistent trusted-peer allowlist (pairing results). | `0600` | Written atomically via a mode-`0600` sibling temp file + rename. |
 | `~/.entangle/sock` | The daemon's Unix-domain RPC socket. | `0600` | The server **forces** mode `0600` after bind and **refuses to serve** if any group/other bit remains; every accepted connection is additionally checked against the socket owner's uid via `SO_PEERCRED` (defense-in-depth beyond the mode bit). |
 | `~/.entangle/cache/`, `~/.entangle/logs/` | Plugin artifact cache; daemon logs. | — | Managed by the built-in maintenance loop (§7). |
+| `~/.entangle/publishers/` | Publisher keypairs from `entangle keys gen` (`<label>.key` PEM, `<label>.pub` hex), §27. | `0700` dir, `0600` keys | Created with the mode applied at creation; an existing key is never overwritten. |
+| `~/.entangle/pairing-attempts.json` | The last 20 `entangle pair` attempts (what was tried, the outcome; no codes or tokens), read by `entangle diag pair` (§24). | `0600` | Written atomically by `entangle pair`. |
+| `~/.entangle/agent-host/install-checksums.json` | SHA-256 of your own agent config files at `entangle install`, verified by `entangle uninstall` (§26). | `0600` | Written atomically by `entangle install`. |
 | `~/.entangle/data/` | Plugin storage: `plugins/<publisher>/<name>/` (each plugin's private directory, wasm `/data` or native `$ENTANGLE_DATA_DIR`), `shared/`, `shares/<name>/`. See §18. | `0700` on every directory the daemon creates | Created on demand when a storage grant is realised, without following symbolic links. |
 
 `entangle doctor` (see §4) is the fastest way to audit all of the above at
@@ -321,6 +333,7 @@ canonical range table, maintained in
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
+| E0780–E0799 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0791: the 1.62.0 Tailscale floor, also enforced by the daemon), `keys gen`, pairing UX, `install` / `uninstall` / `agent host cleanup` — see §22–§27 |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -352,6 +365,19 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0758` | Daemon refused `security/apply-max-tier`: a plugin above the new ceiling was not on the list the operator confirmed (loaded while the prompt waited); nothing changed, re-run to see the current list (§16). |
 | `ENTANGLE-E0759` | A plugin id listed in `[plugins] disabled` was refused at load; run `entangle plugins enable <id>` (§16). |
 | `ENTANGLE-E0760` | `entangle plugins enable` refused: the plugin's tier is above the current `max_tier_allowed`; raise the ceiling first (§16). |
+| `ENTANGLE-E0780` | `entangle config set/get/unset`: unknown key (the message lists the keys of that section), or a key managed by another command (`wrappers.install`, `plugins.disabled`) (§22). |
+| `ENTANGLE-E0781` | `entangle config set`: the value does not have the key's type (out of range, not a transport, not an address, ...); nothing was written (§22). |
+| `ENTANGLE-E0782` | `entangle config set/unset`: the edited file would be refused by the daemon (its parser, the start-up checks of `[metrics]`, `[telemetry.otlp]`, `[mesh]` routing and `[mesh.tailscale]`, or `multi_node = true` with no paired peer, `ENTANGLE-E0050`); nothing was written (§22). |
+| `ENTANGLE-E0783` | `entangle init` / `install`: input ended before a question was answered; use `--headless` and flags (§23). |
+| `ENTANGLE-E0784` | `entangle init`: a bad flag (unknown `--transport`, invalid `--label`), or the active Tailscale profile is not the one confirmed with `--tailscale-profile` / at the prompt (exit 64) (§23). |
+| `ENTANGLE-E0785` | `entangle keys gen`: the label is not a safe file name, or a key with that label exists (never overwritten) (§27). |
+| `ENTANGLE-E0786` | Pairing: the code expired; the message names the command that shows a new one (§24). |
+| `ENTANGLE-E0787` | Pairing: fingerprint mismatch — a hard error; nothing is stored. See [Fingerprint mismatch](#fingerprint-mismatch). |
+| `ENTANGLE-E0788` | Pairing: the other device could not be reached; the message lists each transport tried and why it failed, and suggests `entangle diag pair` (§24). |
+| `ENTANGLE-E0789` | `entangle init`: the tailnet is not usable for `mesh.tailscale` — binary not found (exit 64), not logged in or stopped (65), running but offline (75) (§23). |
+| `ENTANGLE-E0790` | `entangle uninstall --purge` refused: not confirmed, the daemon is running, or the directory does not look like Entanglement's (§26). |
+| `ENTANGLE-E0791` | The host `tailscale` is older than 1.62.0: `entangle init` refuses to enable `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §23). |
+| `ENTANGLE-E0792` | `entangle uninstall`: the install checksum record is unreadable (§26). |
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§16). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§16). |
 | `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§16). |
@@ -516,6 +542,17 @@ Opt-in; the daemon never uses a tailnet it merely found running. It runs
 only when **both** `[mesh.tailscale] enabled = true` and `"tailscale"` in
 `[mesh] transports` are set; with only the first, the daemon logs a warning
 at startup and `entangle doctor` shows the transport as inert.
+`entangle config set mesh.tailscale.enabled true` sets both (and `false`
+clears both); `entangle init --transport tailscale` does too, after checking
+the tailnet (§23).
+
+**Minimum Tailscale version: 1.62.0** (spec §11 #17). At boot the daemon runs
+`tailscale version` and does not start the transport on an older binary
+(`ENTANGLE-E0791` in the log; the rest of the daemon runs). A binary that is
+missing or cannot report its version does not block the start (the liveness
+state then says `uninstalled` / `stopped`). Every liveness transition logs the
+version `tailscaled` reports (`tailscale_version=...`) and warns when it is
+below the floor.
 
 ```toml
 [mesh]
@@ -1142,6 +1179,10 @@ by design, spec §8.3). The **wrapper** is an opt-in shell function that prints 
 warning to stderr when you do that by accident, then runs the real binary with
 the same arguments and exit status. It is a UX guardrail, **not a security
 boundary**: `command claude` or `\claude` bypasses it.
+
+`entangle install` asks whether to install it (spec §8.3 item 2; `--wrapper`
+installs without asking, `--no-wrapper` records the opt-out) and respects a
+choice already recorded in `[wrappers] install` (§26).
 
 ```bash
 entangle wrapper enable     # install into ~/.bashrc, ~/.zshrc, ~/.config/fish/conf.d/entangle.fish
@@ -1860,3 +1901,299 @@ token fields of every record whenever it rewrites the file (any
 `mesh trust|untrust|revoke`). After running an old binary, re-pair the
 affected peers; the tokens this node issued can no longer be revoked from
 that file.
+
+---
+
+## 22. Changing settings: `entangle config set|get|unset`
+
+```bash
+entangle config get                                  # every key, its value, [*] = set in the file
+entangle config get mesh.tailscale.port              # one value (strings bare, the rest as TOML)
+entangle config set mesh.tailscale.enabled true      # both [mesh.tailscale] enabled and transports
+entangle config set mesh.iroh.enabled true           # adds "iroh" to [mesh] transports
+entangle config set mesh.local.enabled false         # removes "local"
+entangle config set node.label alice-laptop
+entangle config set mesh.transports local,iroh       # or a TOML array: '["local","iroh"]'
+entangle config set mesh.overrides.<peer-id> tailscale,iroh
+entangle config unset mesh.preferred                 # back to the default
+```
+
+Keys are dotted paths onto the schema of §2 (`mesh.tailscale.acl-mode` is
+`[mesh.tailscale] acl-mode`). The spec's transport switches
+`mesh.local.enabled`, `mesh.iroh.enabled` and `mesh.tailscale.enabled` are
+keys too, although they are not tables in the file: the first two add or
+remove the transport in `[mesh] transports`; the third also sets
+`[mesh.tailscale] enabled`, since the daemon runs the transport only with
+both.
+
+Before anything is written, `config set` checks:
+
+1. the key exists (`ENTANGLE-E0780` lists the keys of that section);
+2. the value has the key's type: booleans are `true`/`false`, integers are
+   range-checked (`mesh.tailscale.port` 0–65535, `security.max_tier_allowed`
+   1–5), transports must be `local`, `iroh` or `tailscale` (`ENTANGLE-E0781`);
+3. the whole edited file, exactly as the daemon loads it: its parser (every
+   `deny_unknown_fields` section and field validator) and its start-up checks
+   (`[telemetry.otlp]`, an enabled `[metrics]` address, `[mesh] preferred` /
+   `[mesh.overrides]`, `[mesh.tailscale]`), plus the multi-node rule: `[mesh]
+   multi_node = true` needs a paired peer (`ENTANGLE-E0782`, naming
+   `ENTANGLE-E0050`).
+
+The write is atomic and format-preserving: comments, key order and every
+other key stay as they were, and the file keeps its mode. `wrappers.install`
+and `plugins.disabled` are refused: `entangle wrapper enable|disable` and
+`entangle plugins disable|enable` keep the rest of their state in step.
+
+**When a change takes effect.** `security.max_tier_allowed` applies to a
+running daemon with `entangle config reload` (lowering it over loaded plugins
+follows §16; `entangle security set-max-tier` does both steps). `node.label`
+is used by `entangle pair` at once and by the daemon (mDNS name, `diag mesh`)
+when it restarts. Every other key takes effect when the daemon restarts.
+`entangle config get` shows this per key (`[reload]`, `[restart]`).
+
+After a transport is enabled on a node with no paired device, `config set`
+prints the pairing commands (§24).
+
+---
+
+## 23. First run: `entangle init`
+
+`entangle init` sets up `~/.entangle`: the Ed25519 identity, `config.toml`,
+an empty `peers.toml` and `keyring.toml` (spec §9.2). With all four present it
+changes nothing.
+
+**Interactive** (the default) it asks, one plain line each (`question
+[default]:`, Enter takes the default; no cursor movement or menus, so it works
+the same under a screen reader, on `TERM=dumb` and with stdin piped):
+
+1. the device label (default: host name), saved as `[node] label`;
+2. whether this daemon will ever talk to another node — *no* is single-node,
+   no transports;
+3. transports: it runs `tailscale status --json` and offers `mesh.tailscale`
+   (default yes when the tailnet is active), then `mesh.local` and
+   `mesh.iroh`;
+4. the tier ceiling (`[security] max_tier_allowed`);
+5. generate a key or import a PEM file.
+
+**Non-interactive**: `--headless` (or `--non-interactive`) asks nothing:
+
+```bash
+entangle init --headless --single-node --label ci-box          # no transports
+entangle init --headless --transport tailscale,local --label lab
+entangle init --headless --transport tailscale --tailscale-profile corp.ts.net
+entangle init --headless                                        # transports = local (the old default)
+```
+
+`--transport` and `--single-node` work interactively too (they answer those
+questions). `--max-tier <1-5>` sets the ceiling; `--identity-label` is an alias
+of `--label`.
+
+**Choosing `mesh.tailscale`** really enables it (`[mesh.tailscale] enabled =
+true`, `"tailscale"` in `transports`, `acl-mode = "entangle-on-top"`), after
+these checks, each with its message and exit code (spec §9.1.1):
+
+| Condition | Exit |
+|---|---|
+| `tailscale` not found | 64 (`ENTANGLE-E0789`) |
+| `tailscale version` older than 1.62.0 | 69 (`ENTANGLE-E0791`) |
+| `BackendState` `NeedsLogin`, or stopped | 65 (`ENTANGLE-E0789`): run `tailscale up` |
+| running but this node offline | 75 (`ENTANGLE-E0789`): wait and retry |
+| several login profiles (`tailscale switch --list`) | interactive: warns and asks to continue with the active one; headless: 64 unless `--tailscale-profile <tailnet|account|id>` names the active profile (a different one is 64 with the `tailscale switch` to run) |
+
+Nothing is written when a check fails. On success it prints which binary it
+trusts and its version (spec §11 #17), the shared-tailnet note with the
+default `acl-mode`, how many accounts the tailnet has, and a sample Tailscale
+ACL limiting the Entanglement port to tagged devices. MagicDNS is not checked:
+the transport dials tailnet IPs and works without it.
+
+**Firewall.** `init` never changes a firewall (a deviation from spec §1 and
+§9.2 step 6). It prints what to allow instead: UDP 5353 for mDNS
+(`mesh.local`), the `[scheduler] bind` UDP port for `mesh.iroh` (random by
+default; fix it with `entangle config set scheduler.bind 0.0.0.0:41641`),
+nothing for `mesh.tailscale` (it arrives over the tailnet; restrict it with a
+Tailscale ACL), and the pairing port (random per run; `entangle pair
+--print-code --bind 0.0.0.0:<port>` fixes it).
+
+**Multi-node and the allowlist.** `init` never writes `[mesh] multi_node =
+true` with an empty allowlist (the daemon would refuse to start,
+`ENTANGLE-E0050`) and never puts the node's own key on it (a deviation from
+spec §9.2 step 7, which seeds it). With transports chosen, the interactive
+wizard offers to pair now (it shows a code, as `entangle pair --print-code`)
+and sets `multi_node = true` once a device is paired; otherwise it prints:
+
+```
+entangle pair --print-code     # on this device
+entangle pair <code>           # on the other device
+entangle config set mesh.multi_node true   # afterwards, to require a paired peer at start
+```
+
+Colour (headings, `warning:`) is used only on a terminal, never with
+`NO_COLOR` set or on `TERM=dumb`; `CLICOLOR_FORCE=1` forces it.
+
+---
+
+## 24. Pairing
+
+```bash
+entangle pair --print-code       # this device shows a code and waits (same as --responder)
+entangle pair 734-291            # the other device enters it (finds the first over mDNS)
+entangle pair --peer <pubkey-hex>@<host>:<port> --code 734-291   # across networks, no mDNS
+entangle pair --manual           # copy-paste blobs, no network at all
+entangle diag pair [--json]      # what pairing can use on this host
+```
+
+The code screen shows the 6-digit code (canonical), the short fingerprint,
+the full SHA-256 fingerprint (`SHA256:<64 hex>`), this device's label
+(`[node] label`, else the host name; `--display-name` overrides it), a QR code
+(Unicode half blocks, carrying `entangle:pair?code=…&sha256=…`; omitted on
+`TERM=dumb` or with `--no-qr`, the hex line carries the same information) and
+the direct addresses for `--peer`. After the exchange each side shows the
+other's short and SHA-256 fingerprints; compare them with the other screen
+before confirming.
+
+**Failure modes** (spec §6.3), each with a stable code:
+
+- *Code expired* (`ENTANGLE-E0786`): the device that showed it says no device
+  paired in time; the device that typed it says "code expired; ask <device> to
+  run `entangle pair --print-code` again". Both name the command that makes a
+  new code.
+- *Fingerprint mismatch* (`ENTANGLE-E0787`): see below.
+- *No reachability* (`ENTANGLE-E0788`): the error lists each transport tried —
+  the mDNS browse (`mesh.local`), the QUIC dial (`mesh.iroh`, direct UDP and,
+  unless disabled, relay fallback) with its addresses — and why each failed,
+  says that the tailnet is not searched (pass the tailnet address the other
+  device prints to `--peer`), and suggests `entangle diag pair`.
+
+Every attempt is recorded (`~/.entangle/pairing-attempts.json`, last 20, no
+codes or tokens). `entangle diag pair` needs no daemon; it checks, live:
+mDNS browsing, a QUIC endpoint bound as `entangle pair` would (its addresses
+and whether relay fallback is on), the tailnet (state, version against the
+1.62.0 floor, profiles), the transports in `config.toml` and the pairing port,
+shows the last attempts with what each tried, and prints hints (`--no-mdns`
+skips the browse, `--bind` the endpoint address, `--json` for scripts).
+
+### Fingerprint mismatch
+
+`ENTANGLE-E0787` means the identity at the other end of the pairing is not
+the one it should be. It is raised when:
+
+- the device that answered authenticated with a different key from the one
+  announced or dialled (the transport proves who holds the key; the pairing
+  messages must name that same key), or
+- you answered *no* to "Do both fingerprints match the other device's
+  screen?".
+
+**What it means.** Pairing is trust on first use: the fingerprints are what
+tells you that the device you are pairing with is the one in front of you. A
+mismatch most likely means something between the two devices answered in the
+other device's place — a man-in-the-middle on the rendezvous (another host on
+the LAN answering the mDNS browse, or a hostile relay or tailnet node) — or
+that you typed the code into a different device than the one showing it.
+Nothing was stored on this device; a capability token this device sent during
+the attempt is revoked.
+
+**What to do.**
+
+1. Do not retry in a loop. On both devices run `entangle diag pair` and check
+   that each one's fingerprint (and `SHA256:` line) is what the other device
+   expects.
+2. Pair over a path you control: `entangle pair --peer <pubkey-hex>@<ip>:<port>`
+   with the address printed on the other device's screen (the key in it is
+   pinned), or `entangle pair --manual` (copy-paste, no network).
+3. If the other device already recorded this pairing, remove it there:
+   `entangle peers remove <peer-id>`.
+4. If it keeps happening on one network, treat that network as hostile.
+
+---
+
+## 25. Reachability per peer: `entangle mesh routes`
+
+```bash
+entangle mesh routes            # table
+entangle mesh routes --probe    # count only paths that answer a round trip
+entangle mesh routes --json
+```
+
+For each trusted peer: the transports of this node that currently know a
+path to it (from the daemon's `diag/mesh` report: an mDNS sighting counts as
+`local`, an address-book entry as `iroh`, a tailnet candidate as
+`tailscale`), the transport the router tries first and the order, the
+transport last used, and — when none can reach it — a prescriptive hint: the
+literal `entangle config set mesh.<transport>.enabled true` for each transport
+this node lacks, a configured transport that is not running, a stopped
+tailnet (`tailscale up`), the `[scheduler] peers` address `mesh.iroh` needs,
+or asking the peer to enable one of this node's transports.
+
+Transport bridging is not supported (deferred; spec §6.4 "Opt-in bridging"):
+a peer that shares no transport with this node cannot be reached through a
+third node, and the output says so. Without a running daemon the peers come
+from `peers.toml` and reachability is shown as unknown.
+
+---
+
+## 26. Install, uninstall and leftover agent sessions
+
+```bash
+entangle install [--wrapper | --no-wrapper] [--headless]
+entangle agent host cleanup [--all] [--json]
+entangle uninstall [--purge [--yes]]
+```
+
+**`entangle install`** is the first-run path (spec §8.3): it runs `entangle
+init` when this device is not initialized (interactive, or `--headless`), asks
+whether to install the shell wrappers (§15; `--wrapper` / `--no-wrapper`; a
+choice already recorded in `[wrappers] install` is respected, and with
+`--headless` and no flag nothing is installed), and records a SHA-256 checksum
+of each agent config file Entanglement never modifies — your
+`~/.claude/settings.json` and `~/.claude.json`, `~/.codex/config.toml`, and
+OpenCode's global `opencode.json(c)` / `config.json` — in
+`~/.entangle/agent-host/install-checksums.json` (absent files are recorded as
+absent). Re-running it keeps the first recording and adds files it did not
+know.
+
+**`entangle agent host cleanup`** removes per-session agent config
+directories that were left behind: a session killed with SIGKILL cannot remove
+its own. `entangle agent run` records its pid in each session directory; a
+directory whose owner is gone (or that has no owner record and is more than a
+day old) is removed, a live one is kept. `--all` removes every session
+directory, in use or not. Only `sess-*` directories directly under the
+sessions root (`$ENTANGLE_SESSIONS_DIR`, else
+`$XDG_RUNTIME_DIR/entangle/sessions`, else `~/.entangle/sessions`) are
+removed, never through a symbolic link; your own configs are never touched.
+
+**`entangle uninstall`**:
+
+1. removes the shell wrappers (`entangle wrapper disable`, which records the
+   opt-out);
+2. runs `entangle agent host cleanup --all`;
+3. compares each recorded agent config with its install checksum and reports
+   it as unchanged, CHANGED, REMOVED or CREATED since install (Entanglement
+   never writes them, so a change was made by you or something else; the
+   files are reported, never restored);
+4. keeps `~/.entangle` (identity, paired peers, keyrings, config, plugin data)
+   unless `--purge`. `--purge` refuses while the daemon is running, reminds you
+   to `entangle backup` first, and deletes the directory only when you type
+   `purge` (a `y`, or `yes |`, is not enough) or pass `--yes`
+   (`ENTANGLE-E0790` otherwise).
+
+It does not remove the `entangle` / `entangled` binaries or a service unit;
+see [install.md](install.md#uninstall).
+
+---
+
+## 27. Publisher keys: `entangle keys gen`
+
+```bash
+entangle keys gen --label alice            # ~/.entangle/publishers/alice.key + alice.pub
+entangle keys gen --label ci --trust       # also trust it in this machine's keyring
+```
+
+A publisher key signs plugins; it is separate from the node identity, so it
+can be kept offline or shared between build machines. It is an
+`entangle-signing` Ed25519 keypair in the same PKCS#8 PEM form as
+`identity.key`: sign with `entangle plugins build --key
+~/.entangle/publishers/alice.key`. The private key is created with mode
+`0600` (the directory `0700`); an existing key with that label is never
+overwritten (`ENTANGLE-E0785`). The command prints the public key
+(`ed25519:<hex>`) and the fingerprint `entangle keyring list` shows; on
+another machine trust it with `entangle keyring add <hex> --name alice`.

@@ -67,9 +67,16 @@ Identity fingerprint: a3f9…c7d1   ← your public key, hex-encoded SHA-256
 Done. Run `entangle version` to verify.
 ```
 
-`--non-interactive` skips the guided wizard (useful for CI). Omit it for a
-step-by-step prompts version that lets you set a display name and preferred
-broker URL.
+`--non-interactive` (or `--headless`) skips the guided wizard (useful for
+CI). Omit it for one-line prompts that ask for this device's label, whether it
+will talk to other devices, which transports to use (it detects a Tailscale
+tailnet and offers it), the plugin tier ceiling and whether to generate or
+import the identity key. Flags answer the same questions without prompting:
+`--label <name>`, `--single-node`, `--transport local,iroh,tailscale`,
+`--max-tier <1-5>`. `entangle install` runs this step for you on first use and
+also asks about the shell wrappers. Change settings later with `entangle
+config set <key> <value>` (for example `entangle config set node.label
+alice-laptop`).
 
 > **Note:** The `~/.entangle/` directory contains your private key. Back it up.
 > If you lose it you cannot sign future plugin releases under the same publisher
@@ -354,11 +361,18 @@ out-of-band) plus a fingerprint comparison.
 
 There are two channels:
 
-- **Over the network (default).** On device B run `entangle pair --responder`.
-  It binds a QUIC endpoint, announces itself over mDNS and shows a 6-digit
-  code. On device A run `entangle pair`, pick device B from the list (or pass
-  `--peer <pubkey-hex>@<host>:<port>`), type the code, compare the two
-  fingerprints and confirm. Neither side needs a running daemon.
+- **Over the network (default).** On device B run `entangle pair
+  --print-code` (the older spelling `--responder` still works). It binds a
+  QUIC endpoint, announces itself over mDNS and shows a 6-digit code, its
+  fingerprint (short and full SHA-256) and a QR code. On device A run
+  `entangle pair <code>` (or just `entangle pair` and type the code), pick
+  device B from the list if several are waiting (or pass `--peer
+  <pubkey-hex>@<host>:<port>`), compare the fingerprints and confirm. Neither
+  side needs a running daemon. If it fails, the error says whether the code
+  expired, the fingerprints did not match (see [operations.md, "Fingerprint
+  mismatch"](operations.md#fingerprint-mismatch)) or the device could not be
+  reached (with each transport tried); `entangle diag pair` shows what pairing
+  can use on each device.
 - **Copy-paste (`--manual`).** Three text blobs are carried between the devices
   by hand. Use it on air-gapped hosts or where neither mDNS nor QUIC can
   cross. Any `--*-file` blob option also selects it.
@@ -498,9 +512,13 @@ not walked through here. Commands and flags are in
 | Metrics, traces, `entangle diag mesh` | operations.md |
 | Backup and restore (`entangle backup`, `entangle restore`) | operations.md §7 |
 | `entangle plugins enable` and `disable` | operations.md |
+| `entangle config set|get|unset` | operations.md §22 |
+| Which transport reaches each peer (`entangle mesh routes`) | operations.md §25 |
+| `entangle install`, `entangle uninstall`, `entangle agent host cleanup` | operations.md §26 |
+| Publisher keys (`entangle keys gen`) | operations.md §27 |
 
 Not implemented: `Attested` integrity (needs TEE hardware), native Windows,
-`entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
+`entangle logs`, `entangle upgrade`, `entangle trace task`.
 
 If you encounter an error code not listed in this tutorial, check the full
 error reference in [operations.md §6](operations.md#6-reading-entangle-exxxx-error-codes).
@@ -522,9 +540,12 @@ error reference in [operations.md §6](operations.md#6-reading-entangle-exxxx-er
 | `entangle plugins invoke <id> --input <s>` | Call a plugin |
 | `entangled run` | Start the background daemon |
 | `entangle doctor` | Health check |
-| `entangle pair` | Begin device pairing (initiator) |
-| `entangle pair --responder` | Respond to a pairing request |
+| `entangle pair --print-code` | Show a pairing code and wait (same as `--responder`) |
+| `entangle pair <code>` | Enter the code shown on the other device |
 | `entangle pair --manual` | Pair by copy-paste blobs instead of the network |
+| `entangle diag pair` | What pairing can use on this host, and the last attempts |
+| `entangle config set <key> <value>` | Change a setting (checked as the daemon loads it) |
+| `entangle mesh routes` | Which transport reaches each paired device |
 
 ---
 
