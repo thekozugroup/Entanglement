@@ -1283,3 +1283,49 @@ async fn an_executor_whose_submitter_stops_reading_lets_go_of_its_writer() {
         .expect("the writer let go of the stream when the executor returned")
         .unwrap_err();
 }
+
+/// A refusal is one best-effort `Error` frame: a peer that never reads (a
+/// QUIC stack advertising a zero stream window, say) must not pin the
+/// handler — and the stream it holds — forever. Nothing here needs the peer
+/// to be authorized.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_refusal_to_a_peer_that_never_reads_is_bounded() {
+    use entangle_mesh_iroh::{FramedStream, MAX_FRAME_BYTES};
+    use std::sync::Arc;
+
+    let kernel = Arc::new(
+        entangle_runtime::Kernel::new(
+            entangle_runtime::KernelConfig::default(),
+            entangle_signing::Keyring::new(),
+        )
+        .unwrap(),
+    );
+    let nobody: crate::StaticAllowlist = std::iter::empty().collect();
+    let server = StreamServer::new(kernel, Arc::new(nobody), exec_key());
+
+    let (writer_alive, writer_dropped) = tokio::sync::oneshot::channel::<()>();
+    let stranger = IdentityKeyPair::from_seed(&[42; 32]);
+    let io = FramedStream::from_parts(
+        StuckWriter(writer_alive),
+        SilentReader,
+        *stranger.public().as_bytes(),
+        MAX_FRAME_BYTES,
+    );
+    let refused = tokio::time::timeout(Duration::from_secs(10), server.handle(io))
+        .await
+        .expect("refusing a peer that never reads gives up instead of hanging");
+    assert!(
+        matches!(
+            refused,
+            Err(StreamError::PeerAborted {
+                reason: Reason::NotAuthorized,
+                ..
+            })
+        ),
+        "{refused:?}"
+    );
+    tokio::time::timeout(Duration::from_secs(2), writer_dropped)
+        .await
+        .expect("the refused stream is released")
+        .unwrap_err();
+}

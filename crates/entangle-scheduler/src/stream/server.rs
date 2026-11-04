@@ -52,6 +52,12 @@ use crate::work_unit::PolicyEnvelope;
 /// How long an authorized peer has to send its `Open` frame.
 pub const OPEN_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// How long a refusal (`Error` frame plus finish) may take to write. A peer
+/// that does not take it in this time — one that never reads — gets its
+/// stream reset instead, so it cannot pin the handler (or, on the
+/// unauthorized path, anything at all) by not reading.
+pub const REFUSE_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// Streams running on this executor: `(authenticated submitter, task id)`.
 type InFlight = Arc<Mutex<HashSet<(PeerId, [u8; 16])>>>;
 
@@ -198,7 +204,10 @@ impl StreamServer {
             }
         };
 
-        let open = match decode_frame(&first, Side::Submitter) {
+        let decoded = decode_frame(&first, Side::Submitter);
+        // The raw frame is no longer needed (the input lives on in `open`).
+        drop(first);
+        let open = match decoded {
             Ok(Frame::Open(open)) => open,
             Ok(other) => {
                 let err = StreamError::Protocol {
@@ -281,6 +290,8 @@ impl StreamServer {
             }
         };
         if let Some(message) = busy {
+            // Not running it: do not keep its input while refusing it.
+            drop(open.input);
             refuse(&mut send, Reason::Busy, message).await;
             return Err(StreamError::PeerAborted {
                 by: Side::Executor,
@@ -352,12 +363,23 @@ impl StreamServer {
     }
 }
 
-/// Send one `Error` frame and finish the stream.
+/// Send one `Error` frame and finish the stream, giving up after
+/// [`REFUSE_TIMEOUT`] (the caller then drops the stream unfinished, which
+/// resets it).
 async fn refuse(send: &mut FramedSend, reason: Reason, message: &str) {
-    if let Ok(bytes) = encode_frame(&Frame::error(reason, message)) {
-        let _ = send.send(&bytes).await;
+    let write = async {
+        if let Ok(bytes) = encode_frame(&Frame::error(reason, message)) {
+            let _ = send.send(&bytes).await;
+        }
+        let _ = send.finish().await;
+    };
+    if tokio::time::timeout(REFUSE_TIMEOUT, write).await.is_err() {
+        tracing::debug!(
+            target: STREAM_TRACE_TARGET,
+            %reason,
+            "peer did not take the refusal in time; resetting the stream"
+        );
     }
-    let _ = send.finish().await;
 }
 
 /// Serve `entangle/stream/1` on `transport` until it is shut down.
