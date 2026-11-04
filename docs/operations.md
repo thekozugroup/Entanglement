@@ -1295,11 +1295,32 @@ streams at once.
 `compute stream` does not go through the daemon: it *is* the submitter. It
 dials the executor itself with this node's identity (`~/.entangle/identity.key`,
 so the executor's allowlist entry for this node covers it), grants credit as
-stdout drains, and verifies every chunk's signature against the key the QUIC
-handshake proved for the executor. It dials over iroh only (the long address
-from `--peer` or `[scheduler] peers`); choosing among transports per peer
-(§20) is what the scheduler library's transport router does, and it is not
-wired into this command yet.
+stdout drains, and verifies every chunk's signature against the key the
+transport authenticated for the executor (the QUIC handshake, or the
+tailnet's signed key exchange).
+
+It picks the transport exactly as the daemon's dispatcher does (§20), from
+the same `config.toml`: `local`, then `tailscale`, then `iroh`, with
+`[mesh] preferred` first and a `[mesh.overrides]` entry as the exact list
+for that peer; a candidate that fails to connect falls back to the next, and
+nothing is retried once the stream's `Open` frame may have reached the peer.
+Being its own process, it starts only what that order can use for the peer:
+
+* `local` (`"local"` in `[mesh] transports`): it listens on mDNS for up to
+  1.5 s for the peer's LAN sighting (which the peer's daemon announces only
+  when it runs both `"local"` and `"iroh"`);
+* `tailscale` (`[mesh.tailscale] enabled` and `"tailscale"` listed): one
+  `tailscale status` and one discovery round on `[mesh.tailscale] port`
+  (at most 8 s), from a client-only tailnet transport whose listener is
+  bound to loopback and serves nothing;
+* `iroh`: when the peer has a long address — `--peer <key>@host:port` or its
+  `[scheduler] peers` entry — whether or not `"iroh"` is listed, as before.
+
+`--peer` may therefore be a bare peer id that only the tailnet or the LAN
+knows. With `--json` the final status object names the `transport` that
+carried the stream. When nothing can reach the peer the command fails with
+the router's `ENTANGLE-E0430` / `E0431` (inside `ENTANGLE-E0363`), followed by
+why a wanted transport did not start (e.g. `tailscale status` failed).
 
 ```bash
 # On a paired peer, by long address or by peer id ([scheduler] peers gives the address):
@@ -1615,6 +1636,9 @@ When no candidate exists the dispatch fails at once with `ENTANGLE-E0430`
 (naming, per transport, why it had none); when every candidate failed to
 connect, with `ENTANGLE-E0431` (naming each attempt). Both arrive inside
 `ENTANGLE-E0402` (`compute/dispatch`) or `ENTANGLE-E0363` (streams).
+
+`entangle compute stream` builds its router with the same code from the
+same settings (§17), so a stream it opens follows these rules too.
 
 The transport that carried the last successful request or stream to a peer
 is recorded (in memory, per peer), logged at info when it changes

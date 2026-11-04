@@ -1604,6 +1604,7 @@ dependencies = [
  "entangle-broker",
  "entangle-manifest",
  "entangle-mesh-iroh",
+ "entangle-mesh-local",
  "entangle-mesh-tailscale",
  "entangle-observability",
  "entangle-oci",

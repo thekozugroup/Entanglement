@@ -25,8 +25,29 @@
 //!   node has paired with (`~/.entangle/peers.toml`), like the daemon.
 //!
 //! The cost is that the CLI needs the identity key (the same file the
-//! daemon reads, readable only by its owner) and its own UDP socket while
-//! the stream runs.
+//! daemon reads, readable only by its owner) and its own sockets while the
+//! stream runs.
+//!
+//! # Choosing a transport
+//!
+//! The executor is reached through the scheduler's [`TransportRouter`],
+//! built by the same [`build_router`] the daemon's dispatcher uses, from the
+//! same `config.toml` (spec §6.1): candidates in the order `local` →
+//! `tailscale` → `iroh`, `[mesh] preferred` first, a `[mesh.overrides]`
+//! entry for the peer as the exact list; a candidate that fails to
+//! *connect* falls back to the next one, and nothing is retried once the
+//! stream's `Open` frame may have been sent. The CLI starts only what the
+//! order for this peer can use:
+//!
+//! * `local` — `"local"` in `[mesh] transports`: a short mDNS browse for the
+//!   peer's LAN sighting (its advertised key and mesh port), dialled over
+//!   this process's iroh endpoint;
+//! * `tailscale` — `[mesh.tailscale] enabled` and `"tailscale"` listed: one
+//!   `tailscale status` and one discovery round on `[mesh.tailscale] port`,
+//!   dialled from a client-only tailnet transport (its listener is bound to
+//!   loopback and serves nothing);
+//! * `iroh` — the peer has a long address (`--peer <key>@host:port`, or its
+//!   `[scheduler] peers` entry), as before.
 //!
 //! Without `--peer`, `--allow-local` runs the plugin in this process — the
 //! same protocol over an in-memory stream, chunks signed by the node
@@ -37,22 +58,31 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use std::time::Duration;
+
 use anyhow::Context as _;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use clap::Args;
 use entangle_mesh_iroh::{parse_node_addr, IrohPeer, MeshIroh, MeshIrohConfig, ALPN_STREAM};
+use entangle_mesh_tailscale::{
+    LivenessSnapshot, MeshTailscale, MeshTailscaleConfig, StaticAllowlist as TailnetAllowlist,
+};
 use entangle_peers::{PeerStore, TrustLevel};
 use entangle_runtime::Kernel;
 use entangle_scheduler::stream::{
     ChunkPoll, StreamError, StreamHandle, StreamOptions, StreamServer, TRUSTED_EXECUTOR_HINT,
 };
-use entangle_scheduler::StaticAllowlist;
+use entangle_scheduler::transport::{build_router, RouterInputs};
+use entangle_scheduler::{
+    PeerDirectory, RoutePolicy, StaticAllowlist, TransportKind, TransportRouter,
+};
 use entangle_signing::{IdentityKeyPair, Keyring};
 use entangle_types::{
     peer_id::PeerId,
     plugin_id::PluginId,
     task::{IntegrityPolicy, PartialResultPolicy, StreamingTask},
 };
+use tokio::sync::watch;
 
 use crate::config;
 
@@ -70,10 +100,12 @@ pub struct StreamArgs {
     #[arg(long, conflicts_with = "input")]
     pub input_file: Option<String>,
 
-    /// The executor: a peer id (its address is taken from `[scheduler] peers`
-    /// in ~/.entangle/config.toml) or a long address `<pubkey-hex>@host:port`.
-    /// The peer must be paired (`entangle mesh trust`). Omit it, with
-    /// --allow-local, to run the plugin in this process.
+    /// The executor: a peer id, or a long address `<pubkey-hex>@host:port`.
+    /// It is reached over the transports ~/.entangle/config.toml enables, in
+    /// the daemon's order (`[mesh] preferred`, `[mesh.overrides]`); its iroh
+    /// address comes from the long address or `[scheduler] peers`. The peer
+    /// must be paired (`entangle mesh trust`). Omit it, with --allow-local,
+    /// to run the plugin in this process.
     #[arg(long)]
     pub peer: Option<String>,
 
@@ -178,8 +210,8 @@ fn node_identity() -> anyhow::Result<Option<IdentityKeyPair>> {
 }
 
 /// The raw `~/.entangle/config.toml`, read leniently: this command needs
-/// only `[scheduler] peers` / `relay`, which the CLI's own schema does not
-/// model (the daemon owns that section).
+/// only `[mesh]` and `[scheduler]` (the daemon's routing settings), which the
+/// CLI's own schema does not fully model.
 fn raw_config() -> anyhow::Result<toml::Value> {
     let path = config::config_path();
     if !path.exists() {
@@ -189,31 +221,366 @@ fn raw_config() -> anyhow::Result<toml::Value> {
     toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))
 }
 
-/// Resolve `--peer` to a dialable descriptor.
-fn resolve_peer(spec: &str, cfg: &toml::Value) -> anyhow::Result<IrohPeer> {
+/// How long a `local` lookup listens for the peer's mDNS sighting.
+const LAN_BROWSE: Duration = Duration::from_millis(1500);
+
+/// The most one tailnet discovery round may take.
+const TAILNET_DISCOVERY: Duration = Duration::from_secs(8);
+
+/// The daemon's routing settings, as `config.toml` gives them.
+#[derive(Clone, Debug, Default)]
+struct Routing {
+    /// `[mesh] transports`.
+    transports: Vec<String>,
+    /// `[mesh] preferred` and `[mesh.overrides]`, validated as the daemon
+    /// validates them (`ENTANGLE-E0434` / `E0435`).
+    policy: RoutePolicy,
+    /// `[scheduler] peers`.
+    book: Vec<IrohPeer>,
+    /// `[scheduler] relay` (default `true`).
+    relay: bool,
+    /// `[mesh.tailscale]`, when the tailnet transport is on (enabled **and**
+    /// listed in `transports`, as for the daemon).
+    tailnet: Option<TailnetSettings>,
+}
+
+/// What a client-only tailnet transport needs.
+#[derive(Clone, Debug)]
+struct TailnetSettings {
+    /// `[mesh.tailscale] port`: where peers' listeners are probed.
+    port: u16,
+    /// `[mesh.tailscale] tailscale-cli` (empty: `tailscale` on `$PATH`).
+    cli: String,
+}
+
+impl Routing {
+    fn from_config(cfg: &toml::Value) -> anyhow::Result<Self> {
+        let mesh = cfg.get("mesh");
+        let transports: Vec<String> = mesh
+            .and_then(|m| m.get("transports"))
+            .and_then(toml::Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let preferred = mesh
+            .and_then(|m| m.get("preferred"))
+            .map(|v| {
+                v.as_str()
+                    .ok_or_else(|| anyhow::anyhow!("[mesh] preferred must be a transport name"))
+            })
+            .transpose()?;
+        let mut overrides: Vec<(&str, Vec<&str>)> = Vec::new();
+        if let Some(table) = mesh
+            .and_then(|m| m.get("overrides"))
+            .and_then(toml::Value::as_table)
+        {
+            for (key, value) in table {
+                let names = match value {
+                    toml::Value::String(one) => vec![one.as_str()],
+                    toml::Value::Array(list) => list
+                        .iter()
+                        .map(|v| {
+                            v.as_str().ok_or_else(|| {
+                                anyhow::anyhow!("[mesh.overrides] {key:?}: not a transport name")
+                            })
+                        })
+                        .collect::<anyhow::Result<_>>()?,
+                    _ => anyhow::bail!(
+                        "[mesh.overrides] {key:?}: expected a transport name or a list of them"
+                    ),
+                };
+                overrides.push((key.as_str(), names));
+            }
+        }
+        let policy = RoutePolicy::from_names(preferred, overrides)
+            .context("[mesh] preferred / [mesh.overrides] in ~/.entangle/config.toml")?;
+
+        let scheduler = cfg.get("scheduler");
+        let book = scheduler
+            .and_then(|s| s.get("peers"))
+            .and_then(toml::Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .filter_map(toml::Value::as_str)
+                    .filter_map(|s| parse_node_addr(s).ok())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let relay = scheduler
+            .and_then(|s| s.get("relay"))
+            .and_then(toml::Value::as_bool)
+            .unwrap_or(true);
+
+        let section = mesh.and_then(|m| m.get("tailscale"));
+        let enabled = section
+            .and_then(|t| t.get("enabled"))
+            .and_then(toml::Value::as_bool)
+            .unwrap_or(false);
+        let tailnet =
+            (enabled && transports.iter().any(|t| t == "tailscale")).then(|| TailnetSettings {
+                port: section
+                    .and_then(|t| t.get("port"))
+                    .and_then(toml::Value::as_integer)
+                    .and_then(|p| u16::try_from(p).ok())
+                    .unwrap_or(entangle_mesh_tailscale::DEFAULT_PORT),
+                cli: section
+                    .and_then(|t| t.get("tailscale-cli"))
+                    .and_then(toml::Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned(),
+            });
+        Ok(Self {
+            transports,
+            policy,
+            book,
+            relay,
+            tailnet,
+        })
+    }
+
+    /// Whether `local` may carry a stream to `peer` (`"local"` enabled and
+    /// in the peer's order).
+    fn wants_local(&self, peer: &PeerId) -> bool {
+        self.transports.iter().any(|t| t == "local")
+            && self.policy.order_for(peer).contains(&TransportKind::Local)
+    }
+
+    /// Whether `tailscale` may carry a stream to `peer`.
+    fn wants_tailnet(&self, peer: &PeerId) -> bool {
+        self.tailnet.is_some()
+            && self
+                .policy
+                .order_for(peer)
+                .contains(&TransportKind::Tailscale)
+    }
+
+    /// Whether `iroh` may carry a stream to `peer`, whose long address is
+    /// `address`.
+    fn wants_iroh(&self, peer: &PeerId, address: Option<&IrohPeer>) -> bool {
+        address.is_some() && self.policy.order_for(peer).contains(&TransportKind::Iroh)
+    }
+}
+
+/// `--peer` as the executor's id plus its iroh address, when the flag (a
+/// long address) or `[scheduler] peers` gives one.
+fn resolve_target(spec: &str, routing: &Routing) -> anyhow::Result<(PeerId, Option<IrohPeer>)> {
     if spec.contains('@') {
-        return parse_node_addr(spec).map_err(|e| anyhow::anyhow!("--peer {spec}: {e}"));
+        let peer = parse_node_addr(spec).map_err(|e| anyhow::anyhow!("--peer {spec}: {e}"))?;
+        return Ok((peer.peer_id, Some(peer)));
     }
     let id = PeerId::from_hex(spec).map_err(|e| {
         anyhow::anyhow!("--peer must be a peer id or <pubkey-hex>@host:port, got '{spec}': {e}")
     })?;
-    let entries = cfg
-        .get("scheduler")
-        .and_then(|s| s.get("peers"))
-        .and_then(|p| p.as_array())
-        .cloned()
-        .unwrap_or_default();
-    entries
-        .iter()
-        .filter_map(|v| v.as_str())
-        .filter_map(|s| parse_node_addr(s).ok())
-        .find(|p| p.peer_id == id)
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "no address known for peer {id}: add its long address to [scheduler] peers in \
-                 ~/.entangle/config.toml, or pass --peer <pubkey-hex>@host:port"
-            )
-        })
+    Ok((id, routing.book.iter().find(|p| p.peer_id == id).cloned()))
+}
+
+/// The transports one run dials with; each is optional.
+#[derive(Default)]
+struct Dialers {
+    /// This process's iroh endpoint (carries `local` and `iroh`).
+    iroh: Option<Arc<MeshIroh>>,
+    /// The peer's LAN sighting, as a `local` dial target.
+    sightings: Option<PeerDirectory>,
+    /// The client-only tailnet transport and the tailnet state it saw.
+    tailscale: Option<(MeshTailscale, watch::Receiver<LivenessSnapshot>)>,
+    /// Why a transport this run wanted did not start (shown if the stream
+    /// cannot be opened).
+    notes: Vec<String>,
+}
+
+impl Dialers {
+    async fn shutdown(&self) {
+        use entangle_mesh_iroh::MeshTransport as _;
+        if let Some(iroh) = &self.iroh {
+            iroh.shutdown().await;
+        }
+        if let Some((tailnet, _)) = &self.tailscale {
+            tailnet.shutdown().await;
+        }
+    }
+}
+
+/// Start what `routing` can use to reach `peer` (see the module docs).
+async fn start_dialers(
+    identity: &IdentityKeyPair,
+    store: &PeerStore,
+    routing: &Routing,
+    peer: PeerId,
+    address: Option<&IrohPeer>,
+) -> Dialers {
+    let mut dialers = Dialers::default();
+    let tailnet = async {
+        match &routing.tailnet {
+            Some(settings) if routing.wants_tailnet(&peer) => {
+                Some(start_tailnet(identity, settings).await)
+            }
+            _ => None,
+        }
+    };
+    let lan = async {
+        if routing.wants_local(&peer) {
+            Some(browse_lan(peer, store).await)
+        } else {
+            None
+        }
+    };
+    let (tailnet, lan) = tokio::join!(tailnet, lan);
+    match tailnet {
+        Some(Ok(t)) => dialers.tailscale = Some(t),
+        Some(Err(why)) => dialers.notes.push(format!("tailscale: {why}")),
+        None => {}
+    }
+    match lan {
+        Some(Ok(sightings)) => dialers.sightings = Some(sightings),
+        Some(Err(why)) => dialers.notes.push(format!("local: {why}")),
+        None => {}
+    }
+    let lan_route = dialers
+        .sightings
+        .as_ref()
+        .is_some_and(|s| s.peers().contains(&peer));
+    if routing.wants_iroh(&peer, address) || lan_route {
+        let config = MeshIrohConfig {
+            alpn: ALPN_STREAM.to_vec(),
+            allow_derp_relay: routing.relay,
+            ..MeshIrohConfig::default()
+        };
+        match MeshIroh::start(config, identity).await {
+            Ok(iroh) => dialers.iroh = Some(Arc::new(iroh)),
+            Err(e) => dialers
+                .notes
+                .push(format!("iroh: the endpoint did not start: {e}")),
+        }
+    }
+    dialers
+}
+
+/// A client-only tailnet transport (listener on loopback, serving nothing),
+/// the tailnet state from one `tailscale status`, and — while the tailnet
+/// is active — one discovery round on the configured port.
+async fn start_tailnet(
+    identity: &IdentityKeyPair,
+    settings: &TailnetSettings,
+) -> Result<(MeshTailscale, watch::Receiver<LivenessSnapshot>), String> {
+    let config = MeshTailscaleConfig {
+        tailscale_cli: settings.cli.clone(),
+        allowlist: Some(Arc::new(TailnetAllowlist::new(Vec::<PeerId>::new()))),
+        port: 0,
+        bind_ip: std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+        max_frame_bytes: entangle_mesh_iroh::MAX_FRAME_BYTES,
+        ..MeshTailscaleConfig::default()
+    };
+    let status = config
+        .status_source()
+        .fetch_status()
+        .await
+        .map_err(|e| format!("`tailscale status` failed: {e}"))?;
+    let transport = MeshTailscale::start(identity, config)
+        .await
+        .map_err(|e| format!("the client transport did not start: {e}"))?;
+    let state = status.classify();
+    if matches!(state, entangle_mesh_tailscale::TailnetState::Active)
+        && tokio::time::timeout(
+            TAILNET_DISCOVERY,
+            transport.discover_on_port(&status, settings.port),
+        )
+        .await
+        .is_err()
+    {
+        tracing::debug!("tailnet discovery did not finish in time");
+    }
+    let (_, liveness) = watch::channel(LivenessSnapshot {
+        state: Some(state),
+        since: None,
+        transitions: 1,
+    });
+    Ok((transport, liveness))
+}
+
+/// Listen on mDNS for `peer`'s sighting for up to [`LAN_BROWSE`]: its route
+/// (advertised key, every resolved address on its mesh port) if it is
+/// trusted and dialable.
+async fn browse_lan(peer: PeerId, store: &PeerStore) -> Result<PeerDirectory, String> {
+    use entangle_mesh_local::{Discovery, DiscoveryConfig, DiscoveryEvent};
+    use tokio::sync::broadcast::error::RecvError;
+    let discovery = Discovery::new(DiscoveryConfig::default()).map_err(|e| e.to_string())?;
+    let mut events = discovery.subscribe();
+    discovery.spawn_browser().map_err(|e| e.to_string())?;
+    let found = tokio::time::timeout(LAN_BROWSE, async {
+        loop {
+            match events.recv().await {
+                Ok(DiscoveryEvent::PeerAppeared(seen) | DiscoveryEvent::PeerUpdated(seen))
+                    if seen.peer_id == peer =>
+                {
+                    if let Some(route) = lan_route(&seen) {
+                        return Some(route);
+                    }
+                }
+                Ok(_) | Err(RecvError::Lagged(_)) => {}
+                Err(RecvError::Closed) => return None,
+            }
+        }
+    })
+    .await
+    .ok()
+    .flatten();
+    let _ = discovery.shutdown();
+    let sightings = PeerDirectory::new();
+    let trusted = matches!(store.get(&peer), Some(p) if p.trust != TrustLevel::Revoked);
+    if let Some(route) = found.filter(|_| trusted) {
+        sightings.insert(route);
+    }
+    Ok(sightings)
+}
+
+/// The `local` dial target a sighting gives (the daemon's rule): its
+/// advertised key and every resolved address on its advertised mesh port.
+fn lan_route(seen: &entangle_mesh_local::PeerSeen) -> Option<IrohPeer> {
+    let key = seen.public_key?;
+    let mut addrs = seen.dial_targets().into_iter();
+    let first = addrs.next()?;
+    Some(addrs.fold(IrohPeer::new(key, first), IrohPeer::with_addr))
+}
+
+/// The router this run dials through: the daemon's [`build_router`] over
+/// `dialers`, with `routing`'s policy and address book (plus `address`).
+fn stream_router(
+    local: PeerId,
+    routing: &Routing,
+    address: Option<&IrohPeer>,
+    dialers: &Dialers,
+) -> Option<TransportRouter> {
+    let book = PeerDirectory::new();
+    for entry in routing.book.iter().chain(address) {
+        book.insert(entry.clone());
+    }
+    build_router(
+        local,
+        RouterInputs {
+            iroh: dialers.iroh.clone(),
+            iroh_directory: Some(book),
+            local_sightings: dialers.sightings.clone(),
+            tailscale: dialers.tailscale.clone(),
+            policy: routing.policy.clone(),
+            metrics: None,
+        },
+    )
+}
+
+/// Open `task` on `peer` through `router`; also returns the transport that
+/// carried it.
+async fn open_routed(
+    router: &TransportRouter,
+    peer: PeerId,
+    task: &StreamingTask,
+) -> Result<(StreamHandle, Option<TransportKind>), StreamError> {
+    let handle = router
+        .open_stream(peer, task, StreamOptions::default())
+        .await?;
+    Ok((handle, router.last_route(&peer).map(|r| r.transport)))
 }
 
 pub async fn run(a: StreamArgs) -> anyhow::Result<()> {
@@ -259,36 +626,44 @@ async fn run_remote(a: &StreamArgs, task: &StreamingTask, spec: &str) -> anyhow:
             config::identity_path().display()
         )
     })?;
-    let cfg = raw_config()?;
-    let peer = resolve_peer(spec, &cfg)?;
+    let routing = Routing::from_config(&raw_config()?)?;
+    let (peer, address) = resolve_target(spec, &routing)?;
     let store = PeerStore::open(config::entangle_dir().join("peers.toml"))?;
-    if !matches!(store.get(&peer.peer_id), Some(p) if p.trust != TrustLevel::Revoked) {
+    if !matches!(store.get(&peer), Some(p) if p.trust != TrustLevel::Revoked) {
         anyhow::bail!(
-            "peer {} is not trusted: pair it first (`entangle mesh trust` / `entangle pair`)",
-            peer.peer_id
+            "peer {peer} is not trusted: pair it first (`entangle mesh trust` / `entangle pair`)"
         );
     }
-    let relay = cfg
-        .get("scheduler")
-        .and_then(|s| s.get("relay"))
-        .and_then(|r| r.as_bool())
-        .unwrap_or(true);
-    let transport = MeshIroh::start(
-        MeshIrohConfig {
-            alpn: ALPN_STREAM.to_vec(),
-            allow_derp_relay: relay,
-            ..MeshIrohConfig::default()
-        },
-        &identity,
-    )
-    .await
-    .context("starting the mesh.iroh endpoint")?;
-    let handle =
-        entangle_scheduler::open_stream(&transport, &peer, task, StreamOptions::default()).await?;
-    let result = consume(handle, a.json, task.partial_result).await;
-    use entangle_mesh_iroh::MeshTransport as _;
-    transport.shutdown().await;
+    let dialers = start_dialers(&identity, &store, &routing, peer, address.as_ref()).await;
+    let local = PeerId::from_public_key_bytes(identity.public().as_bytes());
+    let opened = match stream_router(local, &routing, address.as_ref(), &dialers) {
+        Some(router) => open_routed(&router, peer, task)
+            .await
+            .map_err(|e| with_notes(e.into(), &dialers.notes)),
+        None => Err(with_notes(
+            anyhow::anyhow!(
+                "no transport can reach peer {peer}: give its long address (--peer \
+                 <pubkey-hex>@host:port, or [scheduler] peers), or enable \"local\" or \
+                 mesh.tailscale in ~/.entangle/config.toml"
+            ),
+            &dialers.notes,
+        )),
+    };
+    let result = match opened {
+        Ok((handle, transport)) => consume(handle, a.json, task.partial_result, transport).await,
+        Err(e) => Err(e),
+    };
+    dialers.shutdown().await;
     result
+}
+
+/// `error`, plus why transports this run wanted did not start.
+fn with_notes(error: anyhow::Error, notes: &[String]) -> anyhow::Error {
+    if notes.is_empty() {
+        error
+    } else {
+        error.context(format!("not available: {}", notes.join("; ")))
+    }
 }
 
 async fn run_local(a: &StreamArgs, task: &StreamingTask, plugin: &PluginId) -> anyhow::Result<()> {
@@ -331,7 +706,7 @@ async fn run_local(a: &StreamArgs, task: &StreamingTask, plugin: &PluginId) -> a
     );
     let served = tokio::spawn(async move { server.handle(exec_io).await });
     let handle = StreamHandle::start(sub_io, task, StreamOptions::default())?;
-    let result = consume(handle, a.json, task.partial_result).await;
+    let result = consume(handle, a.json, task.partial_result, None).await;
     let _ = served.await;
     result
 }
@@ -342,7 +717,9 @@ async fn consume(
     mut handle: StreamHandle,
     json: bool,
     partial: PartialResultPolicy,
+    transport: Option<TransportKind>,
 ) -> anyhow::Result<()> {
+    let transport = TransportKind::label(transport);
     // No input beyond the initial one.
     handle.finish_input().await.ok();
     let executor = handle.executor();
@@ -399,6 +776,7 @@ async fn consume(
                     serde_json::json!({
                         "status": "complete",
                         "executor": executor.to_hex(),
+                        "transport": transport,
                         "chunks": end.chunks,
                         "bytes": end.bytes,
                         "transcript": hex::encode(end.transcript),
@@ -416,6 +794,7 @@ async fn consume(
                     serde_json::json!({
                         "status": "interrupted",
                         "executor": executor.to_hex(),
+                        "transport": transport,
                         "reason": error.reason().as_str(),
                         "error": error.to_string(),
                         "chunks": report.context.received_chunks,
@@ -491,12 +870,356 @@ mod tests {
         let long = format!("{}@127.0.0.1:4100", hex::encode(key));
         let cfg: toml::Value =
             toml::from_str(&format!("[scheduler]\npeers = [\"{long}\"]\n")).unwrap();
-        let by_addr = resolve_peer(&long, &toml::Value::Table(Default::default())).unwrap();
-        let by_id = resolve_peer(&by_addr.peer_id.to_hex(), &cfg).unwrap();
+        let routing = Routing::from_config(&cfg).unwrap();
+        let (id, by_addr) = resolve_target(&long, &Routing::default()).unwrap();
+        let (same, by_id) = resolve_target(&id.to_hex(), &routing).unwrap();
+        assert_eq!(id, same);
         assert_eq!(by_addr, by_id);
-        let other = PeerId::from_public_key_bytes(&[0xbb; 32]).to_hex();
-        assert!(resolve_peer(&other, &cfg).is_err());
-        assert!(resolve_peer("nonsense", &cfg).is_err());
+        assert!(by_id.is_some());
+        // A peer without a long address is still a target: the tailnet or
+        // the LAN may know it (the router says so if nothing does).
+        let other = PeerId::from_public_key_bytes(&[0xbb; 32]);
+        assert_eq!(
+            resolve_target(&other.to_hex(), &routing).unwrap(),
+            (other, None)
+        );
+        assert!(resolve_target("nonsense", &routing).is_err());
+    }
+
+    #[test]
+    fn routing_reads_and_validates_the_daemons_mesh_settings() {
+        let a = PeerId::from_public_key_bytes(&[1; 32]);
+        let b = PeerId::from_public_key_bytes(&[2; 32]);
+        let c = PeerId::from_public_key_bytes(&[3; 32]);
+        let cfg: toml::Value = toml::from_str(&format!(
+            "[mesh]\ntransports = [\"local\", \"tailscale\", \"iroh\"]\npreferred = \"iroh\"\n\
+             [mesh.overrides]\n\"{}\" = \"tailscale\"\n\"{}\" = [\"tailscale\", \"local\"]\n\
+             [mesh.tailscale]\nenabled = true\nport = 41999\ntailscale-cli = \"/opt/ts\"\n\
+             [scheduler]\nrelay = false\n",
+            a.to_hex(),
+            b.to_hex()
+        ))
+        .unwrap();
+        let r = Routing::from_config(&cfg).unwrap();
+        use TransportKind::{Iroh, Local, Tailscale};
+        assert_eq!(r.policy.order_for(&a), [Tailscale]);
+        assert_eq!(r.policy.order_for(&b), [Tailscale, Local]);
+        assert_eq!(r.policy.order_for(&c), [Iroh, Local, Tailscale]);
+        assert!(!r.relay);
+        let ts = r.tailnet.as_ref().expect("enabled and listed");
+        assert_eq!((ts.port, ts.cli.as_str()), (41999, "/opt/ts"));
+        // What each peer's order lets this run start.
+        let addr = IrohPeer::new([1; 32], "127.0.0.1:1".parse().unwrap());
+        assert!(!r.wants_local(&a) && r.wants_tailnet(&a) && !r.wants_iroh(&a, Some(&addr)));
+        assert!(r.wants_local(&b) && !r.wants_iroh(&b, Some(&addr)));
+        assert!(r.wants_iroh(&c, Some(&addr)) && !r.wants_iroh(&c, None));
+
+        // Enabled but not listed in transports: off, as for the daemon.
+        let off: toml::Value =
+            toml::from_str("[mesh]\ntransports = [\"iroh\"]\n[mesh.tailscale]\nenabled = true\n")
+                .unwrap();
+        let r = Routing::from_config(&off).unwrap();
+        assert!(r.tailnet.is_none());
+        assert!(!r.wants_local(&c));
+
+        // The daemon's load-time validation, with its codes.
+        for (bad, code) in [
+            ("[mesh]\npreferred = \"carrier-pigeon\"\n", "ENTANGLE-E0434"),
+            (
+                "[mesh.overrides]\n\"not-a-peer\" = \"iroh\"\n",
+                "ENTANGLE-E0435",
+            ),
+            (
+                &*format!(
+                    "[mesh.overrides]\n\"{}\" = [\"iroh\", \"iroh\"]\n",
+                    a.to_hex()
+                ),
+                "ENTANGLE-E0435",
+            ),
+            (
+                &*format!("[mesh.overrides]\n\"{}\" = []\n", a.to_hex()),
+                "ENTANGLE-E0435",
+            ),
+        ] {
+            let cfg: toml::Value = toml::from_str(bad).unwrap();
+            let err = format!("{:#}", Routing::from_config(&cfg).unwrap_err());
+            assert!(err.contains(code), "{bad}: {err}");
+        }
+    }
+
+    // ── a real stream over loopback transports ──────────────────────────────
+
+    mod loopback {
+        use super::*;
+        use entangle_mesh_iroh::MeshTransport as _;
+        use entangle_mesh_tailscale::{AclMode, AddressPolicy, TailnetState, TailscaleStatus};
+        use entangle_runtime::KernelConfig;
+        use entangle_scheduler::stream::StreamOutcome;
+        use entangle_signing::{sign_artifact, TrustEntry};
+
+        const DEADLINE: Duration = Duration::from_secs(30);
+
+        async fn deadline<F: std::future::Future>(what: &str, fut: F) -> F::Output {
+            match tokio::time::timeout(DEADLINE, fut).await {
+                Ok(v) => v,
+                Err(_) => panic!("{what} did not finish within {DEADLINE:?}"),
+            }
+        }
+
+        fn peer_of(key: &IdentityKeyPair) -> PeerId {
+            PeerId::from_public_key_bytes(key.public().as_bytes())
+        }
+
+        fn iroh_config() -> MeshIrohConfig {
+            MeshIrohConfig {
+                alpn: ALPN_STREAM.to_vec(),
+                connect_timeout: Duration::from_secs(5),
+                request_timeout: Duration::from_secs(10),
+                ..MeshIrohConfig::loopback()
+            }
+        }
+
+        fn tailnet_config(allow: &[PeerId]) -> MeshTailscaleConfig {
+            MeshTailscaleConfig {
+                acl_mode: AclMode::EntangleOnTop,
+                allowlist: Some(Arc::new(TailnetAllowlist::new(allow.iter().copied()))),
+                port: 0,
+                bind_ip: std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+                // Loopback is not a tailnet address.
+                address_policy: AddressPolicy::Any,
+                max_frame_bytes: entangle_mesh_iroh::MAX_FRAME_BYTES,
+                handshake_timeout: Duration::from_secs(10),
+                request_timeout: Duration::from_secs(10),
+                ..MeshTailscaleConfig::default()
+            }
+        }
+
+        /// An executor serving `stream-lines` on an iroh endpoint and a
+        /// tailnet listener (both on loopback), for `submitter` only.
+        struct Executor {
+            peer_id: PeerId,
+            iroh: Arc<MeshIroh>,
+            tailnet: MeshTailscale,
+            plugin: PluginId,
+            _dir: tempfile::TempDir,
+        }
+
+        impl Executor {
+            async fn start(submitter: PeerId) -> Self {
+                let publisher = IdentityKeyPair::generate();
+                let mut keyring = Keyring::new();
+                keyring.add(TrustEntry {
+                    fingerprint: publisher.public().fingerprint(),
+                    public_key: *publisher.public().as_bytes(),
+                    publisher_name: "test".into(),
+                    added_at: 0,
+                    note: String::new(),
+                });
+                let kernel = Arc::new(Kernel::new(KernelConfig::default(), keyring).unwrap());
+                let dir = tempfile::tempdir().unwrap();
+                let wasm = std::fs::read(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../entangle-scheduler/tests/fixtures/stream-lines.wasm"
+                ))
+                .unwrap();
+                let id = format!("{}/stream-lines@0.1.0", publisher.fingerprint_hex());
+                let manifest = format!(
+                    "[plugin]\nid = \"{id}\"\nversion = \"0.1.0\"\ntier = 1\nruntime = \"wasm\"\n"
+                );
+                std::fs::write(dir.path().join("entangle.toml"), &manifest).unwrap();
+                std::fs::write(dir.path().join("plugin.wasm"), &wasm).unwrap();
+                let bundle = sign_artifact(&wasm, manifest.as_bytes(), &publisher);
+                std::fs::write(
+                    dir.path().join("plugin.wasm.sig"),
+                    toml::to_string(&bundle).unwrap(),
+                )
+                .unwrap();
+                let plugin = kernel.load_plugin_from_dir(dir.path()).await.unwrap();
+
+                let key = IdentityKeyPair::generate();
+                let iroh = Arc::new(MeshIroh::start(iroh_config(), &key).await.unwrap());
+                let tailnet = MeshTailscale::start(&key, tailnet_config(&[submitter]))
+                    .await
+                    .unwrap();
+                let streams = Arc::new(StreamServer::new(
+                    kernel,
+                    Arc::new(StaticAllowlist::new().allow(submitter)),
+                    key.clone(),
+                ));
+                tokio::spawn(entangle_scheduler::serve_streams(
+                    Arc::clone(&iroh),
+                    Arc::clone(&streams),
+                ));
+                tokio::spawn(entangle_scheduler::serve_tailscale(
+                    tailnet.clone(),
+                    None,
+                    Some(streams),
+                ));
+                Self {
+                    peer_id: peer_of(&key),
+                    iroh,
+                    tailnet,
+                    plugin,
+                    _dir: dir,
+                }
+            }
+
+            fn long_address(&self) -> IrohPeer {
+                let addr = self
+                    .iroh
+                    .local_addrs()
+                    .into_iter()
+                    .find(|a| a.ip().is_loopback())
+                    .unwrap();
+                IrohPeer::new(self.iroh.local_public_key(), addr)
+            }
+        }
+
+        fn stopped() -> TailnetState {
+            TailnetState::Stopped {
+                reason: "NeedsLogin".into(),
+            }
+        }
+
+        fn liveness(state: TailnetState) -> watch::Receiver<LivenessSnapshot> {
+            watch::channel(LivenessSnapshot {
+                state: Some(state),
+                since: None,
+                transitions: 1,
+            })
+            .1
+        }
+
+        /// Run one stream through the router `compute stream` builds and
+        /// return its text and the transport that carried it.
+        async fn stream_once(
+            local: PeerId,
+            routing: &Routing,
+            dialers: &Dialers,
+            exec: &Executor,
+        ) -> Result<(String, Option<TransportKind>), String> {
+            let address = exec.long_address();
+            let router = stream_router(local, routing, Some(&address), dialers)
+                .expect("at least one transport is running");
+            let task = StreamingTask::with_defaults(exec.plugin.clone(), b"one\ntwo\n".to_vec());
+            let (mut handle, transport) =
+                deadline("open", open_routed(&router, exec.peer_id, &task))
+                    .await
+                    .map_err(|e| e.to_string())?;
+            handle.finish_input().await.ok();
+            let mut text = String::new();
+            loop {
+                match deadline("next chunk", handle.next()).await {
+                    ChunkPoll::Chunk(c) => text.push_str(std::str::from_utf8(&c.bytes).unwrap()),
+                    ChunkPoll::Ended(_) => break,
+                    other => panic!("unexpected {other:?}"),
+                }
+            }
+            let report = handle.finish().await;
+            assert!(matches!(report.outcome, StreamOutcome::Complete(_)));
+            Ok((text, transport))
+        }
+
+        fn routing(extra: &str) -> Routing {
+            let cfg: toml::Value = toml::from_str(&format!(
+                "[mesh]\ntransports = [\"local\", \"tailscale\", \"iroh\"]\n{extra}\n\
+                 [mesh.tailscale]\nenabled = true\n"
+            ))
+            .unwrap();
+            Routing::from_config(&cfg).unwrap()
+        }
+
+        /// `compute stream` picks the executor's transport the way the
+        /// daemon's dispatcher does — §6.1 order (`local`, `tailscale`,
+        /// `iroh`), `[mesh] preferred`, `[mesh.overrides]` as the exact
+        /// list — over real loopback transports, and falls back to the next
+        /// candidate when one fails to connect.
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn compute_stream_routes_like_the_dispatcher() {
+            let key = IdentityKeyPair::generate();
+            let me = peer_of(&key);
+            let exec = Executor::start(me).await;
+            let iroh = Arc::new(MeshIroh::start(iroh_config(), &key).await.unwrap());
+            let tailnet = MeshTailscale::start(&key, tailnet_config(&[]))
+                .await
+                .unwrap();
+            // One discovery round, as `start_tailnet` runs it: the status
+            // lists one online node at 127.0.0.1, probed on the executor's
+            // listener port.
+            let status = TailscaleStatus::parse(
+                r#"{"BackendState":"Running","Self":{"Online":true},
+                  "Peer":{"x":{"Online":true,"DNSName":"x.ts.net.","TailscaleIPs":["127.0.0.1"]}}}"#,
+            )
+            .unwrap();
+            let found = tailnet
+                .discover_on_port(&status, exec.tailnet.local_addr().port())
+                .await;
+            assert_eq!(found.len(), 1, "discovery finds the executor");
+            let lan = PeerDirectory::new();
+            lan.insert(exec.long_address());
+            let dialers = |sightings: Option<PeerDirectory>, state: TailnetState| Dialers {
+                iroh: Some(Arc::clone(&iroh)),
+                sightings,
+                tailscale: Some((tailnet.clone(), liveness(state))),
+                notes: Vec::new(),
+            };
+            let all = routing("");
+
+            // Sighted on the LAN: `local` first.
+            let got = stream_once(
+                me,
+                &all,
+                &dialers(Some(lan.clone()), TailnetState::Active),
+                &exec,
+            )
+            .await;
+            assert_eq!(got, Ok(("one\ntwo\n".into(), Some(TransportKind::Local))));
+            // Not on the LAN: the tailnet comes next.
+            let got = stream_once(me, &all, &dialers(None, TailnetState::Active), &exec).await;
+            assert_eq!(
+                got,
+                Ok(("one\ntwo\n".into(), Some(TransportKind::Tailscale)))
+            );
+            // The tailnet stopped: its candidate is skipped, iroh carries it.
+            let got = stream_once(me, &all, &dialers(None, stopped()), &exec).await;
+            assert_eq!(got.unwrap().1, Some(TransportKind::Iroh));
+            // `[mesh] preferred` moves iroh to the front, even with a sighting.
+            let pref = routing("preferred = \"iroh\"");
+            let got = stream_once(
+                me,
+                &pref,
+                &dialers(Some(lan.clone()), TailnetState::Active),
+                &exec,
+            )
+            .await;
+            assert_eq!(got.unwrap().1, Some(TransportKind::Iroh));
+            // An override is the exact list: tailscale only, and while the
+            // tailnet is stopped nothing else is tried.
+            let only = routing(&format!(
+                "[mesh.overrides]\n\"{}\" = \"tailscale\"",
+                exec.peer_id.to_hex()
+            ));
+            let got = stream_once(
+                me,
+                &only,
+                &dialers(Some(lan.clone()), TailnetState::Active),
+                &exec,
+            )
+            .await;
+            assert_eq!(got.unwrap().1, Some(TransportKind::Tailscale));
+            let err = stream_once(me, &only, &dialers(Some(lan), stopped()), &exec)
+                .await
+                .expect_err("no other transport is allowed for this peer");
+            assert!(err.contains("ENTANGLE-E0430"), "{err}");
+            assert!(err.contains("tailscale"), "{err}");
+
+            // Connect failure falls back: the executor's tailnet listener is
+            // gone, so the tailnet candidate fails to connect (nothing was
+            // sent) and iroh carries the stream.
+            exec.tailnet.shutdown().await;
+            let got = stream_once(me, &all, &dialers(None, TailnetState::Active), &exec).await;
+            assert_eq!(got, Ok(("one\ntwo\n".into(), Some(TransportKind::Iroh))));
+        }
     }
 
     #[test]
