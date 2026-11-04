@@ -634,25 +634,43 @@ Layer-2 spot-check (spec §7.5) is the counterweight. After a
 `deterministic` or `semantic-equivalent` task is **accepted** and its result
 returned, the daemon re-runs it, with probability
 `[scheduler] spot_check_probability` (default `0.01`, i.e. 1 %), on an
-executor that ran none of its replicas: the best-placed trusted peer whose
-reputation for that policy is not excluded, else this node's own kernel if it
-has the plugin loaded (else the check is skipped). The re-run is compared
-with the accepted output on this node, as replicas are: byte-identical
-(BLAKE3) for `deterministic`, metric distance `< --threshold` for
-`semantic-equivalent`.
+executor that ran none of its replicas: this node's own kernel if it has the
+plugin loaded (the one executor it can trust), else a trusted peer whose
+reputation for that policy is not excluded, **drawn at random** (else the
+check is skipped). If this node's kernel ran a replica and the remote
+majority outvoted it, that output is the re-run (nothing runs again). An
+executor that cannot produce a comparable re-run (the plugin is not
+installed there, it is unreachable, it breaks a guard) is followed by the
+next one, up to four. The re-run is compared with the accepted output on
+this node, as replicas are: byte-identical (BLAKE3) for `deterministic`,
+metric distance `< --threshold` for `semantic-equivalent` (in acceptance's
+pair order).
 
-* **Match**: nothing happens (counted as `confirmed`).
-* **Mismatch** — an attestation failure, `ENTANGLE-E0319`: every remote
-  replica that produced or agreed with the accepted output loses reputation
-  for that policy (reason `spot-check-mismatch`), a
-  `SpotCheckAttestationFailure` warning is logged at target
-  `entangle::telemetry` (task id, plugin, policy hash, checker, both BLAKE3
-  digests, the metric distance, the penalised peers) and counted as
-  `mismatch`.
-* **Inconclusive**: the re-run failed, timed out, was oversized or echoed
-  another policy hash, or the metric could not compare it. Nobody behind the
-  accepted output is blamed (a remote checker that broke the size or
-  policy-hash guard loses standing itself).
+One re-run never outweighs the replicas on its own word. A re-run that does
+not reproduce the accepted output is decisive only when it is a
+`deterministic` re-run on this node's own kernel; otherwise (a remote
+checker may lie; a `semantic-equivalent` re-run may be an honest outlier) the
+next executor re-runs the task to break the tie.
+
+* **Match** (counted as `confirmed`): the remote replicas behind the
+  accepted output are credited — also when a tie-breaker reproduced the
+  accepted output, in which case a remote checker that contradicted it loses
+  standing (reason `spot-check-dissent`).
+* **Mismatch** — an attestation failure, `ENTANGLE-E0319`: decisive, or
+  corroborated by the tie-breaker. Every remote replica that produced or
+  agreed with the accepted output loses reputation for that policy (reason
+  `spot-check-mismatch`), a `SpotCheckAttestationFailure` warning is logged
+  at target `entangle::telemetry` (task id, plugin, policy hash, checker,
+  tie-breaker, both BLAKE3 digests, the metric distance, the penalised peers)
+  and counted as `mismatch`.
+* **Inconclusive**: no executor produced a comparable re-run (each failed,
+  timed out, was oversized or echoed another policy hash), the metric could
+  not compare it, or a contradiction could not be settled (no tie-breaker
+  left, or it agreed with neither side). Nobody behind the accepted output is
+  blamed (a remote executor that broke the size or policy-hash guard loses
+  standing itself). With only remote checkers, blaming anyone needs two
+  spare peers; a mesh with one spare peer and the plugin not loaded here
+  can confirm results but not catch colluders.
 
 It is **detective, not preventive**: the check starts after the caller has
 its result and never changes it. A wrong answer that colluders got accepted

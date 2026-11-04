@@ -30,7 +30,7 @@ A PGP key will be linked here once published; until then, plaintext email is acc
 - Mesh transports (`mesh.local`, `mesh.iroh`, `mesh.tailscale`) — not implemented yet.
 - Distributed compute scheduler — not implemented yet.
 - Agent host plugin (Claude Code/Codex MCP gateway) — not implemented yet.
-- Integrity policies: `Deterministic` and `SemanticEquivalent` replication, and `TrustedExecutor`, are enforced by the submitting node (see `docs/operations.md` §11). `Attested` (TEE) is not supported. The Layer 2 spot-check re-runs a sample (1 % by default) of accepted `Deterministic` / `SemanticEquivalent` tasks on another executor and downranks the replicas behind an output it cannot reproduce; it is detective, not preventive (the result already returned stands).
+- Integrity policies: `Deterministic` and `SemanticEquivalent` replication, and `TrustedExecutor`, are enforced by the submitting node (see `docs/operations.md` §11). `Attested` (TEE) is not supported. The Layer 2 spot-check re-runs a sample (1 % by default) of accepted `Deterministic` / `SemanticEquivalent` tasks on another executor (the submitter's own kernel when it has the plugin, else a randomly drawn peer) and downranks the replicas behind an output it cannot reproduce; a remote checker's contradiction counts only when an independent tie-breaking re-run corroborates it. It is detective, not preventive (the result already returned stands).
 
 Reports against unimplemented features are welcome but will be tracked as design issues, not security advisories.
 

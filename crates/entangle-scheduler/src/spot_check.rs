@@ -12,10 +12,13 @@
 //! A sampled task is run once more, in the background, on an executor that
 //! produced none of its replicas:
 //!
-//! * the best-ranked live remote worker that ran no replica of the task and
-//!   whose reputation for the policy is not `Excluded`;
-//! * failing that, this node's own kernel, if it has the plugin loaded;
-//! * failing that, nobody: the check is skipped (`skipped_no_checker`).
+//! * this node's own kernel — the one executor the submitter can trust — if
+//!   it has the plugin loaded;
+//! * otherwise a live remote worker that ran no replica of the task and
+//!   whose reputation for the policy is not `Excluded`, drawn **at random**
+//!   (rank is self-advertised: a deterministic choice would let a worker
+//!   place itself to be the checker of every task, and know it);
+//! * failing those, nobody: the check is skipped (`skipped_no_checker`).
 //!
 //! An executor whose re-run produces nothing comparable — workers do not
 //! advertise their plugins, so one that does not have it is an ordinary
@@ -34,9 +37,28 @@
 //!   first, [`crate::integrity::canonical_operands`]), so an asymmetric
 //!   metric gives the distance acceptance would give the same pair.
 //!
-//! A mismatch is an **attestation failure** ([`SpotCheckVerdict::Mismatch`],
-//! `ENTANGLE-E0319`): every remote replica that produced or agreed with the
-//! accepted output loses reputation for that policy variant
+//! # One re-run never outweighs the replicas
+//!
+//! A re-run that reproduces the accepted output **confirms** it, and the
+//! remote replicas behind it are credited (so standing can rise as well as
+//! fall). A re-run that does not is decisive only when it is a
+//! `Deterministic` re-run on this node's own kernel. Otherwise — a remote
+//! checker might lie, and a `SemanticEquivalent` re-run might be an honest
+//! outlier, which acceptance itself would blame on the outlier — the next
+//! executor in the order above **breaks the tie** ([`TieBreak`]):
+//!
+//! * it reproduces the accepted output: the checker loses the tie (a remote
+//!   one loses reputation,
+//!   [`ReputationReason::SpotCheckDissent`](crate::ReputationReason::SpotCheckDissent))
+//!   and the verdict is `Confirmed`;
+//! * it reproduces the checker's output: the mismatch is corroborated;
+//! * it agrees with neither, or there is no executor left: `Inconclusive`,
+//!   nobody is blamed.
+//!
+//! A corroborated (or decisive) mismatch is an **attestation failure**
+//! ([`SpotCheckVerdict::Mismatch`], `ENTANGLE-E0319`): every remote replica
+//! that produced or agreed with the accepted output loses reputation for
+//! that policy variant
 //! ([`ReputationReason::SpotCheckMismatch`](crate::ReputationReason::SpotCheckMismatch)),
 //! a `SpotCheckAttestationFailure` warning is emitted at
 //! [`TELEMETRY_TARGET`], the
@@ -51,9 +73,10 @@
 //! asks for more replicas. What a spot-check does is make lying expensive
 //! over time — colluding replicas that agree on a wrong answer are caught at
 //! the sampling rate and lose standing until placement stops choosing them.
-//! The verdict trusts the checker's re-run; that is why a remote checker
-//! must itself be in good standing, and why this node's own kernel is the
-//! fallback.
+//! Only this node's kernel is trusted on its own word; with remote checkers
+//! only, a mismatch needs two independent executors to agree against the
+//! replicas, so a mesh with a single spare worker (and the plugin not
+//! loaded here) can confirm accepted outputs but not blame anyone.
 //!
 //! # What is never spot-checked
 //!
@@ -269,6 +292,23 @@ impl SpotCheckVerdict {
     }
 }
 
+/// The tie-breaking re-run of a spot-check whose first re-run contradicted
+/// the accepted output.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TieBreak {
+    /// Who ran it.
+    pub executor: PeerId,
+    /// Whether that is another node (`false`: this node's kernel).
+    pub remote: bool,
+    /// BLAKE3 of its output.
+    pub rerun_blake3: [u8; 32],
+    /// It agrees with the accepted output: the checker lost the tie.
+    pub agrees_with_accepted: bool,
+    /// It agrees with the checker's re-run: with the above false, the
+    /// mismatch is corroborated.
+    pub agrees_with_checker: bool,
+}
+
 /// The audit record of one finished spot-check.
 #[derive(Clone, Debug)]
 pub struct SpotCheckRecord {
@@ -280,7 +320,7 @@ pub struct SpotCheckRecord {
     pub policy: PolicyKind,
     /// Its policy hash `H` (INV-INT-1).
     pub policy_hash: PolicyHash,
-    /// Who re-ran it.
+    /// Who re-ran it (the re-run the verdict starts from).
     pub checker: PeerId,
     /// Whether the checker is another node (`false`: this node's kernel).
     pub checker_remote: bool,
@@ -293,7 +333,8 @@ pub struct SpotCheckRecord {
     /// The remote replicas that produced or agreed with the accepted output.
     pub implicated: Vec<PeerId>,
     /// Who lost reputation because of this check: the implicated replicas
-    /// on a mismatch, or a remote checker that broke a guard.
+    /// on a mismatch; a remote checker that broke a guard, or whose re-run a
+    /// tie-breaker contradicted.
     pub penalised: Vec<PeerId>,
     /// The checker's output is the one its own replica of the task already
     /// produced — this node's kernel, outvoted at acceptance — so nothing
@@ -304,6 +345,13 @@ pub struct SpotCheckRecord {
     /// installed there — was oversized, or echoed another policy hash),
     /// with why. The check moved on to the next eligible executor.
     pub unavailable: Vec<(PeerId, String)>,
+    /// The independent re-run that broke the tie after the checker's re-run
+    /// did not reproduce the accepted output (unless that re-run was
+    /// decisive: a `Deterministic` one on this node's kernel).
+    pub tie_breaker: Option<TieBreak>,
+    /// Who was credited (recorded correct) because the accepted output stood
+    /// up to the check: the implicated replicas, on a confirmation.
+    pub credited: Vec<PeerId>,
     /// The verdict.
     pub verdict: SpotCheckVerdict,
 }
@@ -333,6 +381,11 @@ impl SpotCheckRecord {
             accepted_blake3 = %hex::encode(self.accepted_blake3),
             rerun_blake3 = %self.rerun_blake3.map(hex::encode).unwrap_or_default(),
             distance = self.distance.unwrap_or(f64::NAN),
+            tie_breaker = %self
+                .tie_breaker
+                .as_ref()
+                .map(|t| t.executor.to_hex())
+                .unwrap_or_default(),
             penalised = %penalised,
             error = %error,
             "spot-check: an accepted result was not reproduced on another executor; \
@@ -473,6 +526,15 @@ impl SpotChecker {
     }
 }
 
+/// Shuffle `items` uniformly (Fisher–Yates over [`unit_random`]).
+pub(crate) fn shuffle<T>(items: &mut [T]) {
+    for i in (1..items.len()).rev() {
+        // `unit_random() < 1`, so this is at most `i`; `min` guards rounding.
+        let j = ((unit_random() * (i + 1) as f64) as usize).min(i);
+        items.swap(i, j);
+    }
+}
+
 /// A uniform draw from `[0, 1)` with 53 bits of OS randomness (the
 /// random bytes of a v4 UUID: bytes 9..16 carry no version or variant bits).
 fn unit_random() -> f64 {
@@ -536,6 +598,30 @@ mod tests {
     }
 
     #[test]
+    fn shuffle_permutes_uniformly_enough_to_vary_the_checker() {
+        let mut orders = std::collections::HashSet::new();
+        let mut firsts = [0usize; 4];
+        for _ in 0..2_000 {
+            let mut v = vec![0usize, 1, 2, 3];
+            shuffle(&mut v);
+            let mut sorted = v.clone();
+            sorted.sort_unstable();
+            assert_eq!(sorted, [0, 1, 2, 3], "a permutation");
+            firsts[v[0]] += 1;
+            orders.insert(v);
+        }
+        assert_eq!(orders.len(), 24, "every order occurs");
+        // 500 expected per value; sigma ~19.
+        for n in firsts {
+            assert!((350..650).contains(&n), "{firsts:?}");
+        }
+        let mut one = [7];
+        shuffle(&mut one);
+        assert_eq!(one, [7]);
+        shuffle::<u8>(&mut []);
+    }
+
+    #[test]
     fn the_bound_is_enforced_and_saturation_is_counted() {
         let checker = SpotChecker::new(SpotCheckConfig {
             probability: 1.0,
@@ -570,6 +656,8 @@ mod tests {
             penalised: Vec::new(),
             reused_replica: false,
             unavailable: Vec::new(),
+            tie_breaker: None,
+            credited: Vec::new(),
             verdict,
         })
     }
