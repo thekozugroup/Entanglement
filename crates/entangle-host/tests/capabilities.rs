@@ -744,14 +744,22 @@ fn the_hosts_own_addresses_are_never_reachable() {
         classify: lan_everywhere,
         ..NetRules::default()
     };
-    assert_eq!(as_lan.check(SocketAddr::new(me, 8080), connect), None, "{me}");
+    assert_eq!(
+        as_lan.check(SocketAddr::new(me, 8080), connect),
+        None,
+        "{me}"
+    );
     let as_wan = NetRules {
         wan: true,
         wan_targets: vec![WanTarget { ip: me, port: None }],
         classify: |_| AddrClass::Wan,
         ..NetRules::default()
     };
-    assert_eq!(as_wan.check(SocketAddr::new(me, 8080), connect), None, "{me}");
+    assert_eq!(
+        as_wan.check(SocketAddr::new(me, 8080), connect),
+        None,
+        "{me}"
+    );
     // Another address with the same rules is allowed: only the host's own
     // addresses are refused.
     let other: IpAddr = "198.51.100.7".parse().unwrap();
@@ -871,10 +879,7 @@ async fn net_wan_hostnames_are_pinned_to_their_resolved_addresses() {
 #[tokio::test(flavor = "multi_thread")]
 async fn name_lookups_answer_only_allowlisted_names_from_the_pin() {
     let svc = listener("127.0.0.1", "hello-svc").await;
-    let caps = format!(
-        r#""net.wan" = {{ hosts = ["{SVC}:{}"] }}"#,
-        svc.addr.port()
-    );
+    let caps = format!(r#""net.wan" = {{ hosts = ["{SVC}:{}"] }}"#, svc.addr.port());
     let h = Setup {
         classify: Some(public_on_loopback),
         resolver: Some(svc_on_loopback),
@@ -965,10 +970,19 @@ async fn each_allowlisted_name_is_resolved_once() {
         2,
         "one lookup per distinct name"
     );
-    let mut names: Vec<_> = grants.pinned_names.iter().map(|p| p.name.as_str()).collect();
+    let mut names: Vec<_> = grants
+        .pinned_names
+        .iter()
+        .map(|p| p.name.as_str())
+        .collect();
     names.sort_unstable();
     assert_eq!(names, ["a.entangle.test", "b.entangle.test"]);
-    assert_eq!(grants.net.wan_targets.len(), 3, "{:?}", grants.net.wan_targets);
+    assert_eq!(
+        grants.net.wan_targets.len(),
+        3,
+        "{:?}",
+        grants.net.wan_targets
+    );
 }
 
 /// Allowlisted names are resolved concurrently, and resolution may take at
@@ -1215,9 +1229,14 @@ async fn revoking_a_net_grant_stops_an_invocation_in_flight() {
 async fn revoking_a_net_grant_stops_a_busy_networked_invocation() {
     const STRESS: &[u8] = include_bytes!("fixtures/stress.wasm");
     let h = Setup::new("busy", r#""net.lan" = {}"#).harness();
-    let plugin = LoadedPlugin::from_bytes(&h.engine, STRESS, h.id.clone(), entangle_types::tier::Tier::Networked)
-        .unwrap()
-        .with_capabilities(h.plugin.capabilities().unwrap().clone());
+    let plugin = LoadedPlugin::from_bytes(
+        &h.engine,
+        STRESS,
+        h.id.clone(),
+        entangle_types::tier::Tier::Networked,
+    )
+    .unwrap()
+    .with_capabilities(h.plugin.capabilities().unwrap().clone());
 
     let broker = Arc::clone(&h.broker);
     let id = h.id.clone();
@@ -1232,10 +1251,7 @@ async fn revoking_a_net_grant_stops_a_busy_networked_invocation() {
         Ok(_) => panic!("the busy invocation outlived the revocation"),
         Err(e) => e,
     };
-    assert!(
-        matches!(err, HostError::CapabilityRevoked { .. }),
-        "{err}"
-    );
+    assert!(matches!(err, HostError::CapabilityRevoked { .. }), "{err}");
     assert!(err.to_string().starts_with("ENTANGLE-E0511"), "{err}");
     assert!(
         started.elapsed() < std::time::Duration::from_millis(2_000),
@@ -1246,9 +1262,14 @@ async fn revoking_a_net_grant_stops_a_busy_networked_invocation() {
     // Without a revocation, the same busy networked invocation times out at
     // its deadline as before.
     let h = Setup::new("busy-timeout", r#""net.lan" = {}"#).harness();
-    let plugin = LoadedPlugin::from_bytes(&h.engine, STRESS, h.id.clone(), entangle_types::tier::Tier::Networked)
-        .unwrap()
-        .with_capabilities(h.plugin.capabilities().unwrap().clone());
+    let plugin = LoadedPlugin::from_bytes(
+        &h.engine,
+        STRESS,
+        h.id.clone(),
+        entangle_types::tier::Tier::Networked,
+    )
+    .unwrap()
+    .with_capabilities(h.plugin.capabilities().unwrap().clone());
     let started = std::time::Instant::now();
     let err = plugin
         .run_one_shot(&h.engine, b"spin:4000", 300)

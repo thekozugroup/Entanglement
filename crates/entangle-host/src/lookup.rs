@@ -177,7 +177,10 @@ mod tests {
 
     #[test]
     fn names_are_normalised_and_literals_recognised() {
-        assert_eq!(normalise("API.Example.com.").as_deref(), Some("api.example.com"));
+        assert_eq!(
+            normalise("API.Example.com.").as_deref(),
+            Some("api.example.com")
+        );
         assert_eq!(normalise("a..b"), None);
         assert_eq!(normalise(""), None);
         assert_eq!(normalise("a b"), None);
@@ -200,9 +203,18 @@ mod tests {
             lookup.answer("Api.Example.Com."),
             Ok(vec!["8.8.8.8".parse().unwrap()])
         );
-        assert_eq!(lookup.answer("10.1.2.3"), Ok(vec!["10.1.2.3".parse().unwrap()]));
-        assert_eq!(lookup.answer("other.example.com"), Err(ErrorCode::NameUnresolvable));
+        assert_eq!(
+            lookup.answer("10.1.2.3"),
+            Ok(vec!["10.1.2.3".parse().unwrap()])
+        );
+        assert_eq!(
+            lookup.answer("other.example.com"),
+            Err(ErrorCode::NameUnresolvable)
+        );
         let off = NameLookup::default();
-        assert_eq!(off.answer("10.1.2.3"), Err(ErrorCode::PermanentResolverFailure));
+        assert_eq!(
+            off.answer("10.1.2.3"),
+            Err(ErrorCode::PermanentResolverFailure)
+        );
     }
 }

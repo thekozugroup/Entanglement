@@ -427,7 +427,10 @@ runtime = "native"
 fn operator_net_denial_covers_both_net_capabilities_of_a_native_plugin() {
     for (deny, declared) in [
         ("net.wan", r#""net.lan" = {}"#),
-        ("net.lan", r#""net.wan" = { hosts = ["api.example.com:443"] }"#),
+        (
+            "net.lan",
+            r#""net.wan" = { hosts = ["api.example.com:443"] }"#,
+        ),
     ] {
         let reg = Registry::new();
         let broker = Broker::new(policy(&[deny])).with_metrics(reg.clone());

@@ -79,8 +79,8 @@ use entangle_types::capability::{
 };
 use entangle_types::plugin_id::PluginId;
 use std::collections::BTreeMap;
-use std::net::IpAddr;
 use std::future::Future;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -114,7 +114,9 @@ pub type Resolver =
     fn(String) -> Pin<Box<dyn Future<Output = std::io::Result<Vec<IpAddr>>> + Send>>;
 
 /// The system resolver (`getaddrinfo` through tokio).
-fn system_resolver(name: String) -> Pin<Box<dyn Future<Output = std::io::Result<Vec<IpAddr>>> + Send>> {
+fn system_resolver(
+    name: String,
+) -> Pin<Box<dyn Future<Output = std::io::Result<Vec<IpAddr>>> + Send>> {
     Box::pin(async move {
         let addrs = tokio::net::lookup_host((name.as_str(), 0)).await?;
         Ok(addrs.map(|a| a.ip()).collect())

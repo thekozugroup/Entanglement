@@ -517,7 +517,11 @@ impl Broker {
     /// pattern denying either denies both. Otherwise denying `net.wan` would
     /// not stop the WAN egress a granted `net.lan` gives a native plugin
     /// (wasm plugins' rules are per address and keep the other one).
-    fn operator_denial(&self, manifest: &ValidatedManifest, cap: &CapabilityKind) -> Option<String> {
+    fn operator_denial(
+        &self,
+        manifest: &ValidatedManifest,
+        cap: &CapabilityKind,
+    ) -> Option<String> {
         if let Some(p) = self.policy.denies(cap) {
             return Some(p.as_str().to_owned());
         }
