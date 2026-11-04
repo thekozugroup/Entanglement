@@ -1,5 +1,10 @@
 name: Bus Factor Check
 
+# ATC-BUS-1 (INV-BUS-1, spec 12.1): every role has at least 2 active holders,
+# where active = at least one merge in the trailing 60 days. The logic lives in
+# `cargo xtask bus-factor` (tools/xtask/src/governance.rs), which is covered by
+# tests; this workflow only runs it and opens the P0 issue on failure.
+
 on:
   schedule:
     - cron: '0 9 * * 1'
@@ -10,86 +15,56 @@ permissions:
   contents: read
 
 jobs:
-  bus-factor:
+  invariant_check:
     name: bus-factor
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0   # git log --merges needs history
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch (no version tags)
+        with:
+          toolchain: "1.91"
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
 
       - name: Check role coverage
         id: check
-        env:
-          ROLES_FILE: docs/maintainers/roles.toml
-        run: |
-          # Parse the roster with a real TOML parser (tomllib, stdlib on the
-          # Python 3.11+ that ships with ubuntu-24.04). The schema is:
-          #     [role.<name>]
-          #     holders = ["handle", ...]
-          # INV-BUS-1 (spec §12.1) requires >= 2 holders per role.
-          python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import os
-          import tomllib
-
-          roles = [
-              "core-runtime-lead",
-              "mesh-lead",
-              "agent-lead",
-              "security-lead",
-              "release-lead",
-          ]
-
-          path = os.environ["ROLES_FILE"]
-          data = None
-          if os.path.exists(path):
-              with open(path, "rb") as fh:
-                  data = tomllib.load(fh)
-
-          violations = []
-          for role in roles:
-              if data is None:
-                  violations.append(f"{role}: 0 holders (file missing)")
-                  continue
-              holders = data.get("role", {}).get(role, {}).get("holders", []) or []
-              count = len(holders)
-              if count < 2:
-                  violations.append(f"{role}: {count} active holder(s) (need >= 2)")
-
-          if violations:
-              print("violation=true")
-              print("violation_body<<BODY")
-              print("## P0: Bus Factor Violation (INV-BUS-1)")
-              print("")
-              print("The following roles have fewer than 2 active holders:")
-              print("")
-              for item in violations:
-                  print(f"- {item}")
-              print("")
-              print(
-                  "**Required action**: Add active holders to "
-                  "`docs/maintainers/roles.toml` and update `.github/CODEOWNERS`."
-              )
-              print("")
-              print("See spec section 12.1 INV-BUS-1 for requirements.")
-              print("BODY")
-          else:
-              print("violation=false")
-          PY
+        continue-on-error: true
+        run: cargo xtask bus-factor --report "${RUNNER_TEMP}/bus-factor-body.md"
 
       - name: Open P0 issue on violation
-        if: steps.check.outputs.violation == 'true'
+        if: steps.check.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
-          VIOLATION_BODY: ${{ steps.check.outputs.violation_body }}
         run: |
-          printf '%s\n' "${VIOLATION_BODY}" > /tmp/bus-factor-body.md
-          gh issue create \
-            --title "P0: Bus Factor Violation — role coverage below minimum (INV-BUS-1)" \
-            --label "P0" \
-            --body-file /tmp/bus-factor-body.md \
-            || echo "Issue may already exist; check open issues."
+          set -euo pipefail
+          title="P0: Bus Factor Violation — role coverage below minimum (INV-BUS-1)"
+          body="${RUNNER_TEMP}/bus-factor-body.md"
+          # The report is only written for policy violations; a tooling error
+          # (git failure, unparsable roles.toml) leaves none, and the issue must
+          # still be filed.
+          if [ ! -s "${RUNNER_TEMP}/bus-factor-body.md" ]; then
+            {
+              echo "The weekly bus-factor check failed without producing a report"
+              echo "(a tooling error, not necessarily a coverage gap)."
+              echo
+              echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            } > "$body"
+          fi
+          gh label create P0 --color B60205 \
+            --description "Release-blocking invariant violation" 2>/dev/null || true
+          # Tolerate only a genuine duplicate; any other gh failure fails the job.
+          existing=$(gh issue list --label P0 --state open --search "Bus Factor Violation in:title" --json number --jq 'length')
+          if [ "$existing" -gt 0 ]; then
+            echo "An open P0 bus-factor issue already exists; not opening another."
+          else
+            gh issue create --title "$title" --label "P0" --body-file "$body"
+          fi
 
       - name: Fail on violation
-        if: steps.check.outputs.violation == 'true'
+        if: steps.check.outcome == 'failure'
         run: |
-          echo "Bus factor check failed — see issue for details."
+          echo "Bus factor check failed — see the P0 issue for details."
           exit 1

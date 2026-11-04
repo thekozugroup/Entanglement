@@ -41,7 +41,7 @@ fn copy_native_echo(dst: &Path) -> PathBuf {
     let src = examples_dir().join("native-echo");
     let out = dst.join("native-echo");
     std::fs::create_dir_all(out.join("src")).unwrap();
-    for f in ["Cargo.toml", "entangle.toml", "src/main.rs"] {
+    for f in ["Cargo.toml", "Cargo.lock", "entangle.toml", "src/main.rs"] {
         std::fs::copy(src.join(f), out.join(f)).unwrap();
     }
     out

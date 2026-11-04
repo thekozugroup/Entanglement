@@ -88,14 +88,28 @@ pub fn sign_artifact(
     manifest: &[u8],
     keypair: &IdentityKeyPair,
 ) -> SignatureBundle {
-    let artifact_hash: [u8; 32] = *blake3::hash(artifact).as_bytes();
-    let manifest_hash: [u8; 32] = *blake3::hash(manifest).as_bytes();
-    let sig: Signature = keypair.sign(&signed_digest(&artifact_hash, &manifest_hash));
     let created_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
+    sign_artifact_at(artifact, manifest, keypair, created_at)
+}
 
+/// Like [`sign_artifact`], but with a caller-chosen `created_at`.
+///
+/// Ed25519 signing is deterministic and `created_at` is the only
+/// non-content field in the bundle, so passing a fixed value (for example
+/// `SOURCE_DATE_EPOCH`) makes the whole bundle a pure function of its inputs.
+/// Reproducible packaging (ATC-PKG-1) relies on this.
+pub fn sign_artifact_at(
+    artifact: &[u8],
+    manifest: &[u8],
+    keypair: &IdentityKeyPair,
+    created_at: u64,
+) -> SignatureBundle {
+    let artifact_hash: [u8; 32] = *blake3::hash(artifact).as_bytes();
+    let manifest_hash: [u8; 32] = *blake3::hash(manifest).as_bytes();
+    let sig: Signature = keypair.sign(&signed_digest(&artifact_hash, &manifest_hash));
     SignatureBundle {
         version: SIGNATURE_BUNDLE_VERSION,
         publisher_fingerprint: keypair.fingerprint(),

@@ -1,0 +1,127 @@
+name: Reproducibility
+
+# ATC-PKG-1 (serial_double_build) and ATC-PKG-2 (cross_host_matrix).
+#
+# `entangle plugins build` must turn the same plugin source into byte-identical
+# package archives: twice in a row on one host, and across macOS-14,
+# Ubuntu-22.04 and Ubuntu-24.04 with the pinned toolchain. The signing key is
+# the public, test-only key in tests/fixtures/repro-ci-key.pem (never a real
+# publisher key) so that every host signs as the same publisher.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "crates/entangle-cli/**"
+      - "crates/entangle-oci/**"
+      - "crates/entangle-signing/**"
+      - "crates/entangle-sdk/**"
+      - "examples/hello-world/**"
+      - "tests/fixtures/repro-ci-key.pem"
+      - ".github/workflows/reproducibility.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ATC-PKG-1: two builds, same host, from separate copies of the source in
+  # different directories (so a dropped path remap changes the digest).
+  serial_double_build:
+    name: serial_double_build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch (no version tags)
+        with:
+          toolchain: "1.91"
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - run: cargo build --release --locked -p entangle-cli
+      - name: Build twice and compare
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="$PWD/crates/entangle-sdk"
+          bin="$PWD/target/release/entangle"
+          key="$PWD/tests/fixtures/repro-ci-key.pem"
+          for n in 1 2; do
+            # a different project directory (and so target directory) each time
+            dir="$RUNNER_TEMP/build$n/project-$n"
+            mkdir -p "$dir"
+            cp -r examples/hello-world "$dir/"
+            rm -rf "$dir/hello-world/target"
+            sed -i.bak "s|../../crates/entangle-sdk|$sdk|" "$dir/hello-world/Cargo.toml"
+            rm "$dir/hello-world/Cargo.toml.bak"
+            "$bin" plugins build "$dir/hello-world" --key "$key" --out "$PWD/out$n"
+          done
+          a=$(sha256sum out1/hello-world-*.tar.zst | cut -d' ' -f1)
+          b=$(sha256sum out2/hello-world-*.tar.zst | cut -d' ' -f1)
+          echo "build 1: $a"
+          echo "build 2: $b"
+          test "$a" = "$b"
+
+  # ATC-PKG-2: the same source on three hosts.
+  cross_host_matrix:
+    name: build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch (no version tags)
+        with:
+          toolchain: "1.91"
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          key: repro-${{ matrix.os }}
+      - run: cargo build --release --locked -p entangle-cli
+      - name: Package hello-world and record its SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          target/release/entangle plugins build examples/hello-world \
+            --key tests/fixtures/repro-ci-key.pem --out out
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum out/hello-world-*.tar.zst | cut -d' ' -f1 > sha256.txt
+          else
+            shasum -a 256 out/hello-world-*.tar.zst | cut -d' ' -f1 > sha256.txt
+          fi
+          echo "${{ matrix.os }}: $(cat sha256.txt)"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sha256-${{ matrix.os }}
+          path: sha256.txt
+          if-no-files-found: error
+
+  compare:
+    name: compare
+    needs: cross_host_matrix
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: sha256-*
+      - name: All three hosts must agree
+        shell: bash
+        run: |
+          set -euo pipefail
+          n=$(ls -d sha256-*/ | wc -l)
+          if [ "$n" -ne 3 ]; then
+            echo "expected 3 host digests, found $n" >&2
+            exit 1
+          fi
+          for d in sha256-*/; do echo "${d%/}: $(cat "$d/sha256.txt")"; done
+          uniq=$(cat sha256-*/sha256.txt | sort -u | wc -l)
+          if [ "$uniq" -ne 1 ]; then
+            echo "package digests differ across hosts: not reproducible" >&2
+            exit 1
+          fi
+          echo "reproducible across all hosts"

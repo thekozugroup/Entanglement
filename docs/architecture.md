@@ -1329,6 +1329,8 @@ The `.tar.zst` exists after `package`; `sign` produces a sibling `.sig` file. Bo
 | Toolchain | `rust-toolchain.toml` MUST be present and pinned to a specific stable version (`channel = "1.83.0"` not `"stable"`). |
 | Filesystem locale | `LC_ALL=C` and `TZ=UTC` enforced in the package step. |
 
+**As implemented (deviations from the text above).** The shipped command is `entangle plugins build` (there is no `cargo-entangle` crate) and the rebuild check is `entangle plugins verify --rebuild <package> [--source <dir>]`. Differences: (a) timestamps use `SOURCE_DATE_EPOCH` when set, else the fixed epoch 2024-01-01T00:00:00Z, not the last git commit time; the only timestamp in a package is `created_at` in the signature bundle, and the wasm is built with `--remap-path-prefix` for the project, path dependencies, the cargo target directory, `$CARGO_HOME`, `$RUSTUP_HOME` and the sysroot; (b) the archive holds `entangle.toml`, `plugin.wasm`, `plugin.wasm.sig` and `provenance.json` (source-tree SHA-256, git commit when available, toolchain, flags) in that (alphabetical) order, written by `entangle-oci::pack`, not `tar-rs`; (c) `provenance.json` is not covered by the publisher signature, `verify --rebuild` is what checks it; (d) `--source` is a local directory, the command does not re-clone, and a git-commit mismatch is reported but does not fail when the source digest matches; (e) a pinned `rust-toolchain.toml` and exact-version WIT imports are not validated by the packager (`Cargo.lock` is, `ENTANGLE-E0830`); (f) only wasm plugins get an archive, native plugins (`plugin.bin`) do not yet.
+
 **CI verification.** `.github/workflows/reproducibility.yml` runs `cargo entangle package` twice in series in the same workspace and asserts `sha256` of the two `.tar.zst` outputs match. A separate matrix job runs the build on Ubuntu-22.04, Ubuntu-24.04, and macOS-14 with the pinned toolchain and asserts the hashes match across hosts (this catches non-deterministic dependency-tree resolution). A regression that breaks reproducibility is a P0 release-blocker, documented in `docs/release/reproducibility-checklist.md`. **Third-party rebuild surface.** Any user can run `cargo entangle verify --rebuild./hello-world-0.1.0.tar.zst` to:
 1. Extract the source manifest.
 
@@ -1839,28 +1841,30 @@ ATC-MAN-4 4.1)
 
 ```
 ATC-PKG-1
-  GIVEN  the hello-world fixture at tests/fixtures/hello-world/ with pinned Cargo.lock + rust-toolchain.toml
-  WHEN   `cargo entangle package` runs twice in series in a clean workspace
-  THEN   sha256 of both.tar.zst outputs are identical
-  TEST.github/workflows/reproducibility.yml::serial_double_build
+  GIVEN  examples/hello-world with its pinned Cargo.lock and the pinned toolchain
+  WHEN   `entangle plugins build` runs twice, from two different project and target directories
+  THEN   sha256 of both <name>-<version>.tar.zst outputs are identical
+  TEST   crates/entangle-cli/tests/reproducible.rs::atc_pkg_1_two_builds_are_byte_identical
+         (CI: .github/workflows/reproducibility.yml::serial_double_build)
 
 ATC-PKG-2
   GIVEN  the hello-world fixture
-  WHEN   `cargo entangle package` runs on macOS-14 AND Ubuntu-22.04 AND Ubuntu-24.04 with the pinned toolchain
+  WHEN   `entangle plugins build` runs on macOS-14 AND Ubuntu-22.04 AND Ubuntu-24.04 with the pinned toolchain
   THEN   sha256 is identical across all three hosts
-  TEST.github/workflows/reproducibility.yml::cross_host_matrix
+  TEST   .github/workflows/reproducibility.yml::cross_host_matrix + ::compare (the comparison itself runs only in CI);
+         structure pinned by crates/entangle-cli/tests/reproducible.rs::atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests
 
 ATC-PKG-3
   GIVEN  a workspace missing Cargo.lock
-  WHEN   `cargo entangle package` is invoked
-  THEN   it returns exit code != 0 with message containing "Cargo.lock missing"
-  TEST   crates/cargo-entangle/tests/package.rs::no_lockfile_rejected
+  WHEN   `entangle plugins build` is invoked
+  THEN   it returns exit code != 0 with message containing "Cargo.lock missing" (ENTANGLE-E0830), fetching and writing nothing
+  TEST   crates/entangle-cli/tests/reproducible.rs::atc_pkg_3_no_lockfile_rejected
 
 ATC-PKG-4
-  GIVEN  a published.tar.zst +.sig + recorded source-commit
-  WHEN   `cargo entangle verify --rebuild` runs
-  THEN   exit code == 0 AND output contains "PASS"
-  TEST   crates/cargo-entangle/tests/verify_rebuild.rs::happy_path
+  GIVEN  a package .tar.zst whose provenance.json records source digest, git commit (when available), toolchain and build flags
+  WHEN   `entangle plugins verify --rebuild <package> --source <dir>` runs
+  THEN   exit code == 0 AND output contains "PASS"; a mismatch prints "FAIL: <first difference>" and exits non-zero
+  TEST   crates/entangle-cli/tests/reproducible.rs::atc_pkg_4_rebuild_verify_pass_and_fail
 ```
 
 ### 16.3 Bridge cap-arithmetic (scaffolded M4, used in Phase 2; A-N2-)
@@ -2048,15 +2052,17 @@ ATC-MIR-2
 ATC-REL-1 (cosign + Ed25519)
   GIVEN  a 1.0 RC release artifact
   WHEN   verifier runs `entangle release verify <artifact>`
-  THEN   both Ed25519 (publisher) AND cosign (Rekor) signatures pass
-  TEST   tests/integration/release_verify.rs::dual_sig_pass
+  THEN   both Ed25519 (release key, a trust class distinct from plugin publishers) AND cosign (Rekor) signatures pass
+  TEST   crates/entangle-cli/tests/release.rs::atc_rel_1_dual_sig_pass (Ed25519 for real, cosign faked; real cosign runs in
+         .github/workflows/release.yml, job sigstore-attest)
 
 ATC-REL-2 (Shamir 2-of-3)
   GIVEN  the release-key ceremony rehearsal recorded in docs/governance/key-ceremony.md
   WHEN   any 1 share is unavailable AND 2 shares are present
-  THEN   the signature can be reconstructed
+  THEN   the release key can be reconstructed (`entangle release key combine`)
   AND    with only 1 share, reconstruction is impossible
-  TEST   tests/integration/shamir.rs::two_of_three
+  TEST   crates/entangle-cli/tests/release.rs::atc_rel_2_two_of_three,
+         crates/entangle-signing/tests/shamir.rs::atc_rel_2_single_share_is_equally_consistent_with_every_secret
 ```
 
 ### 16.10 Bus-factor invariant (B-bus-factor-) — M1 + every release
@@ -2064,18 +2070,20 @@ ATC-REL-2 (Shamir 2-of-3)
 ```
 ATC-BUS-1 (INV-BUS-1)
   GIVEN  the git log + CODEOWNERS at HEAD
-  WHEN.github/workflows/bus-factor.yml runs (weekly + per-release)
+  WHEN   .github/workflows/bus-factor.yml runs `cargo xtask bus-factor` (weekly; not yet wired into release.yml)
   THEN   for every role in {core-runtime, mesh, agent, security, release},
          |active_holders(role)| ≥ 2 (active = ≥1 merge in trailing 60d)
   AND    if any role drops below 2, a P0 GitHub issue is opened
-  TEST.github/workflows/bus-factor.yml::invariant_check
+  TEST   tools/xtask/tests/governance.rs::atc_bus_1_fails_when_a_holder_has_no_merge_in_sixty_days
+         (workflow: .github/workflows/bus-factor.yml::invariant_check)
 
 ATC-BUS-2 (rotation note freshness)
   GIVEN  docs/governance/rotations.md
   WHEN   a release is published
   THEN   the most recent rotation note is dated within the trailing 35 days
-  AND    release fails if not
-  TEST.github/workflows/release.yml::rotation_note_fresh
+  AND    release fails if not (`cargo xtask rotation-note-check`)
+  TEST   tools/xtask/tests/governance.rs::atc_bus_2_stale_note_fails_one_day_past_the_limit
+         (workflow: .github/workflows/release.yml::rotation_note_fresh)
 ```
 
 ### Acceptance summary

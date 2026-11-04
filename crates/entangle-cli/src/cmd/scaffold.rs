@@ -8,7 +8,8 @@
 //!   entangle.toml  manifest with a documented tier + capability table
 //!   src/lib.rs     a working `run` wired up by `entangle_plugin!`
 //!   README.md      the exact build/sign/load/invoke commands for this plugin
-//!   .gitignore     target/ and dist/
+//!   .gitignore     target/ and dist/ (Cargo.lock is deliberately NOT ignored:
+//!                  `entangle plugins build` requires it, see ATC-PKG-3)
 //! ```
 //!
 //! With `--native` the project is instead a dependency-free Rust **binary**
@@ -60,6 +61,8 @@ pub struct NewOptions {
     pub sdk: String,
     /// Overwrite files that already exist.
     pub force: bool,
+    /// Do not run `cargo generate-lockfile` after scaffolding.
+    pub no_lockfile: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -562,7 +565,7 @@ sandbox primitive refuses native plugins unless the operator sets
 
 /// Render the generated `.gitignore`.
 pub fn render_gitignore() -> String {
-    "target/\ndist/\nCargo.lock\n".to_owned()
+    "target/\ndist/\n".to_owned()
 }
 
 // ---------------------------------------------------------------------------
@@ -671,6 +674,27 @@ pub fn run(opts: NewOptions) -> Result<()> {
         Some(sdk) => println!("  SDK source: {}", sdk.summary()),
         None => println!("  runtime:    native (sandboxed subprocess)"),
     }
+    // `plugins build` refuses to build without a Cargo.lock (ENTANGLE-E0830),
+    // so pin dependencies now. Best effort: needs a reachable registry.
+    if !opts.no_lockfile {
+        let status = std::process::Command::new(
+            std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned()),
+        )
+        .args(["generate-lockfile", "--manifest-path"])
+        .arg(dir.join("Cargo.toml"))
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+        match status {
+            Ok(st) if st.success() => println!("  created {}", dir.join("Cargo.lock").display()),
+            _ => println!(
+                "  note: could not generate Cargo.lock (registry unreachable?). \
+                 Run `cargo generate-lockfile` in {} before building.",
+                dir.display()
+            ),
+        }
+    }
+
     println!();
     println!("Next steps:");
     if sdk.is_some() {
@@ -823,6 +847,7 @@ mod tests {
             description: None,
             sdk: "crates-io".into(),
             force: false,
+            no_lockfile: true,
         };
         run(opts.clone()).expect("scaffold should succeed");
 
@@ -854,6 +879,7 @@ mod tests {
             description: None,
             sdk: "crates-io".into(),
             force: false,
+            no_lockfile: true,
         };
         let err = run(base.clone()).expect_err("uppercase name must be rejected");
         assert!(
@@ -902,6 +928,7 @@ mod tests {
             description: None,
             sdk: "auto".into(),
             force: false,
+            no_lockfile: true,
         };
         run(opts.clone()).expect("native scaffold");
         assert!(dir.join("src/main.rs").exists());

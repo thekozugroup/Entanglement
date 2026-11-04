@@ -4,6 +4,12 @@
 # A weekly CI workflow (.github/workflows/bus-factor.yml) checks this and opens
 # a P0 issue on violation.
 #
+# A holder is *active* when they authored at least one merge commit in the
+# trailing 60 days (`cargo xtask bus-factor`, tools/xtask/src/governance.rs).
+# Git authors are matched to handles by author name, e-mail local part or
+# GitHub noreply address; add an `[identity.<handle>]` table with `emails` /
+# `names` lists when a holder commits under a different identity.
+#
 # Current state: 1 holder per role. CI WILL FAIL until a second holder is seated
 # for each. Phase 1 cannot ship until each role has its required quorum.
 

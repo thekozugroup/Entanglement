@@ -36,8 +36,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{bail, Context, Result};
-use entangle_signing::{sign_artifact, IdentityKeyPair};
+use entangle_signing::{sign_artifact_at, IdentityKeyPair};
 
+use crate::cmd::repro;
 use crate::config;
 
 /// Default rustup/cargo target triple for wasm plugins.
@@ -103,6 +104,11 @@ pub struct BuildOutcome {
     pub public_key_hex: String,
     /// Effective tier of the signed manifest.
     pub effective_tier: u8,
+    /// Reproducible package archive (`<dist>/<name>-<version>.tar.zst`); wasm
+    /// plugins only.
+    pub archive: Option<PathBuf>,
+    /// SHA-256 (hex) of [`BuildOutcome::archive`].
+    pub archive_sha256: Option<String>,
 }
 
 /// Split an `entangle.toml` `plugin.id` into its bare `<name>` segment.
@@ -342,6 +348,10 @@ pub fn ensure_target_installed(target: &str) -> Result<()> {
 pub fn run(opts: BuildOptions) -> Result<()> {
     let outcome = build(opts)?;
 
+    if let (Some(a), Some(h)) = (&outcome.archive, &outcome.archive_sha256) {
+        println!();
+        println!("Package archive: {} (sha256 {h})", a.display());
+    }
     println!();
     println!("Next steps:");
     println!(
@@ -354,6 +364,57 @@ pub fn run(opts: BuildOptions) -> Result<()> {
         outcome.plugin_id
     );
     Ok(())
+}
+
+/// Options for [`run_verify`].
+#[derive(Debug, Clone)]
+pub struct VerifyOptions {
+    /// Package archive or build output directory.
+    pub package: PathBuf,
+    /// Rebuild from source and compare.
+    pub rebuild: bool,
+    /// Source directory (default `.`).
+    pub source: Option<PathBuf>,
+    /// Publisher keyring (default `~/.entangle/keyring.toml`).
+    pub keyring: Option<PathBuf>,
+    /// Target triple of the package.
+    pub target: String,
+}
+
+/// `entangle plugins verify`. Prints `PASS ...` and returns `Ok`, or prints
+/// `FAIL: <first difference>` and returns an error (non-zero exit).
+pub fn run_verify(opts: VerifyOptions) -> Result<()> {
+    let kr_path = opts.keyring.clone().unwrap_or_else(config::keyring_path);
+    let keyring = entangle_signing::Keyring::load(&kr_path)
+        .with_context(|| format!("loading {}", kr_path.display()))?;
+    if !opts.rebuild {
+        let files = repro::load_package(&opts.package)?;
+        let bundle: entangle_signing::SignatureBundle = toml::from_str(
+            std::str::from_utf8(&files.signature).context("signature bundle is not UTF-8")?,
+        )
+        .context("parsing the package's signature bundle")?;
+        entangle_signing::verify_artifact(&files.wasm, &files.manifest, &bundle, &keyring)
+            .map_err(|e| anyhow::anyhow!("FAIL: {e}"))?;
+        println!("PASS: signature verifies against the keyring (no rebuild requested)");
+        return Ok(());
+    }
+    let source = opts.source.clone().unwrap_or_else(|| PathBuf::from("."));
+    match repro::verify_rebuild(&opts.package, &source, Some(&keyring), &opts.target)? {
+        repro::RebuildVerdict::Pass(notes) => {
+            for n in &notes {
+                println!("[entangle] {n}");
+            }
+            println!(
+                "PASS: rebuild from {} reproduces the package",
+                source.display()
+            );
+            Ok(())
+        }
+        repro::RebuildVerdict::Fail(first) => {
+            println!("FAIL: {first}");
+            bail!("ENTANGLE-E0832: rebuild verification failed: {first}")
+        }
+    }
 }
 
 /// Build + sign the plugin project described by `opts`.
@@ -408,6 +469,7 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
     );
 
     // Step 3 — obtain the artifact.
+    let mut recipe: Option<repro::BuildRecipe> = None;
     let artifact_src = if rendered.native {
         if opts.wasm.is_some() {
             bail!(
@@ -455,7 +517,9 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
                         cargo_manifest.display()
                     );
                 }
-                build_wasm(&cargo_manifest, &opts.target)?
+                let built = build_wasm_in(&cargo_manifest, &opts.target, None, None)?;
+                recipe = Some(built.recipe);
+                built.wasm
             }
         }
     };
@@ -469,7 +533,19 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
     };
     write_dist_artifact(&dist, &artifact_src, artifact_name, &rendered, &keypair)?;
 
+    // Step 5 — reproducible archive + provenance (wasm packages).
+    let archive = if rendered.native {
+        None
+    } else {
+        let info = repro::write_archive(&dist, &dir, &rendered.plugin_id, recipe)?;
+        println!("[entangle] wrote {}", info.path.display());
+        println!("[entangle] package sha256: {}", info.sha256);
+        Some(info)
+    };
+
     Ok(BuildOutcome {
+        archive_sha256: archive.as_ref().map(|a| a.sha256.clone()),
+        archive: archive.map(|a| a.path),
         plugin_id: rendered.plugin_id,
         dist,
         fingerprint,
@@ -478,8 +554,32 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
     })
 }
 
-/// Compile the plugin to wasm and return the path to the produced artifact.
-fn build_wasm(cargo_manifest: &Path, target: &str) -> Result<PathBuf> {
+/// A compiled wasm artifact and the recipe that produced it.
+pub struct WasmBuild {
+    /// Path of the built `.wasm`.
+    pub wasm: PathBuf,
+    /// Toolchain, flags and epoch used (recorded in provenance).
+    pub recipe: repro::BuildRecipe,
+}
+
+/// Compile the plugin to wasm reproducibly (`--locked`, path-remapped,
+/// `SOURCE_DATE_EPOCH` fixed). `target_dir` overrides cargo's target
+/// directory (used by `verify --rebuild` to leave the source tree untouched);
+/// `source_date_epoch` overrides [`repro::signing_epoch`] (used by
+/// `verify --rebuild` to rebuild with the recorded epoch).
+pub fn build_wasm_in(
+    cargo_manifest: &Path,
+    target: &str,
+    target_dir: Option<&Path>,
+    source_date_epoch: Option<u64>,
+) -> Result<WasmBuild> {
+    let cargo_manifest = &absolute_manifest(cargo_manifest)?;
+    // ATC-PKG-3: refuse before touching rustup, cargo, or the network.
+    let project = cargo_manifest
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    repro::require_lockfile(project)?;
     ensure_target_installed(target)?;
 
     let info = cargo_metadata(cargo_manifest)?;
@@ -491,6 +591,22 @@ fn build_wasm(cargo_manifest: &Path, target: &str) -> Result<PathBuf> {
         );
     }
 
+    let target_root = match target_dir {
+        Some(td) => td.to_path_buf(),
+        None => info.target_dir.clone(),
+    };
+    // Exists before the flags are computed, so its canonical spelling is
+    // remapped too.
+    std::fs::create_dir_all(&target_root)
+        .with_context(|| format!("creating {}", target_root.display()))?;
+    let prepared = repro::prepare_build(
+        cargo_manifest,
+        target,
+        &cargo_bin(),
+        &target_root,
+        source_date_epoch.unwrap_or_else(repro::signing_epoch),
+    )?;
+
     // A release wasm build takes tens of seconds to minutes (and longer on the
     // first run, when the SDK and wit-bindgen have to be fetched and compiled).
     // Say so *before* handing the terminal to cargo, so a long silence reads as
@@ -500,17 +616,39 @@ fn build_wasm(cargo_manifest: &Path, target: &str) -> Result<PathBuf> {
         "[entangle] this is a cargo release build: expect 30s-2min, and longer the first\n\
          [entangle] time while dependencies are fetched and compiled."
     );
-    let status = Command::new(cargo_bin())
-        .args(["build", "--release", "--target", target, "--manifest-path"])
-        .arg(cargo_manifest)
-        .status()
-        .context("running cargo build")?;
+    println!("[entangle] toolchain: {}", prepared.recipe.toolchain);
+    let mut cmd = Command::new(cargo_bin());
+    cmd.args([
+        "build",
+        "--release",
+        "--locked",
+        "--target",
+        target,
+        "--manifest-path",
+    ])
+    .arg(cargo_manifest)
+    // Run from the project so its rust-toolchain.toml / .cargo/config apply.
+    .current_dir(project_dir_for(cargo_manifest))
+    // Encoded form: the remap flags carry real paths, which may contain
+    // spaces (cargo splits `RUSTFLAGS` on whitespace).
+    .env("CARGO_ENCODED_RUSTFLAGS", prepared.encoded_rustflags())
+    .env_remove("RUSTFLAGS")
+    .env(
+        "SOURCE_DATE_EPOCH",
+        prepared.recipe.source_date_epoch.to_string(),
+    )
+    .env("CARGO_INCREMENTAL", "0")
+    .env("LC_ALL", "C")
+    .env("TZ", "UTC");
+    if let Some(td) = target_dir {
+        cmd.env("CARGO_TARGET_DIR", td);
+    }
+    let status = cmd.status().context("running cargo build")?;
     if !status.success() {
-        bail!("cargo build --release --target {target} failed");
+        bail!("cargo build --release --locked --target {target} failed");
     }
 
-    let wasm = info
-        .target_dir
+    let wasm = target_root
         .join(target)
         .join("release")
         .join(format!("{}.wasm", artifact_stem(&info.name)));
@@ -522,11 +660,33 @@ fn build_wasm(cargo_manifest: &Path, target: &str) -> Result<PathBuf> {
             artifact_stem(&info.name)
         );
     }
-    Ok(wasm)
+    Ok(WasmBuild {
+        wasm,
+        recipe: prepared.recipe,
+    })
+}
+
+/// `cargo_manifest` made absolute. cargo runs with the project as its
+/// working directory (so the project's rust-toolchain.toml and .cargo/config
+/// apply), and a relative `--manifest-path` would then resolve against the
+/// wrong directory.
+fn absolute_manifest(cargo_manifest: &Path) -> Result<PathBuf> {
+    std::path::absolute(cargo_manifest)
+        .with_context(|| format!("resolving {}", cargo_manifest.display()))
+}
+
+fn project_dir_for(cargo_manifest: &Path) -> PathBuf {
+    cargo_manifest
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 /// Compile a native plugin for the host and return the executable's path.
 fn build_native(cargo_manifest: &Path) -> Result<PathBuf> {
+    let cargo_manifest = &absolute_manifest(cargo_manifest)?;
+    repro::require_lockfile(&project_dir_for(cargo_manifest))?;
     let info = cargo_metadata(cargo_manifest)?;
     let bin = match info.bins.as_slice() {
         [] => bail!(
@@ -555,8 +715,16 @@ fn build_native(cargo_manifest: &Path) -> Result<PathBuf> {
         std::env::consts::OS
     );
     let status = Command::new(cargo_bin())
-        .args(["build", "--release", "--bin", &bin, "--manifest-path"])
+        .args([
+            "build",
+            "--release",
+            "--locked",
+            "--bin",
+            &bin,
+            "--manifest-path",
+        ])
         .arg(cargo_manifest)
+        .current_dir(project_dir_for(cargo_manifest))
         .status()
         .context("running cargo build")?;
     if !status.success() {
@@ -622,7 +790,12 @@ pub fn write_dist_artifact(
     println!("[entangle] wrote {}", manifest_dst.display());
 
     let wasm_bytes = std::fs::read(&wasm_dst).context("reading the artifact for signing")?;
-    let bundle = sign_artifact(&wasm_bytes, rendered.toml.as_bytes(), keypair);
+    let bundle = sign_artifact_at(
+        &wasm_bytes,
+        rendered.toml.as_bytes(),
+        keypair,
+        repro::signing_epoch(),
+    );
     let sig_toml = toml::to_string(&bundle).context("serializing signature bundle")?;
     let sig_dst = dist.join(format!("{artifact_name}.sig"));
     std::fs::write(&sig_dst, &sig_toml)

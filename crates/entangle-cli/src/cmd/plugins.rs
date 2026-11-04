@@ -65,6 +65,9 @@ pub enum PluginsCmd {
         /// Overwrite files that already exist.
         #[arg(long)]
         force: bool,
+        /// Skip `cargo generate-lockfile` (builds need a Cargo.lock; create one yourself).
+        #[arg(long)]
+        no_lockfile: bool,
     },
     /// Build and sign a plugin project into `<dir>/dist/`.
     ///
@@ -88,6 +91,30 @@ pub enum PluginsCmd {
         bin: Option<PathBuf>,
         /// Target triple to compile for (wasm plugins; native plugins are
         /// built for the host).
+        #[arg(long, default_value = crate::cmd::package::DEFAULT_TARGET)]
+        target: String,
+    },
+    /// Verify a built package: its publisher signature, and with `--rebuild`
+    /// that it reproduces from source.
+    ///
+    /// `--rebuild` rebuilds the plugin from `--source` with the recorded
+    /// toolchain and flags and compares: source digest, toolchain, flags,
+    /// manifest, wasm, then checks the publisher signature against the
+    /// keyring. Prints `PASS` (exit 0) or `FAIL: <first difference>`
+    /// (non-zero).
+    Verify {
+        /// A package archive (`*.tar.zst`) or a build output directory.
+        package: PathBuf,
+        /// Rebuild from source and compare (ATC-PKG-4).
+        #[arg(long)]
+        rebuild: bool,
+        /// Plugin source directory for --rebuild. Defaults to the current directory.
+        #[arg(long)]
+        source: Option<PathBuf>,
+        /// Publisher keyring. Defaults to `~/.entangle/keyring.toml`.
+        #[arg(long)]
+        keyring: Option<PathBuf>,
+        /// Target triple the package was built for.
         #[arg(long, default_value = crate::cmd::package::DEFAULT_TARGET)]
         target: String,
     },
@@ -270,7 +297,9 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             description,
             sdk,
             force,
+            no_lockfile,
         } => crate::cmd::scaffold::run(crate::cmd::scaffold::NewOptions {
+            no_lockfile,
             name,
             path,
             tier: tier.unwrap_or(if native { 5 } else { 1 }),
@@ -292,6 +321,19 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             out,
             wasm,
             bin,
+            target,
+        }),
+        PluginsCmd::Verify {
+            package,
+            rebuild,
+            source,
+            keyring,
+            target,
+        } => crate::cmd::package::run_verify(crate::cmd::package::VerifyOptions {
+            package,
+            rebuild,
+            source,
+            keyring,
             target,
         }),
         PluginsCmd::Install {

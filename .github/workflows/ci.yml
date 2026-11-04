@@ -52,6 +52,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch (no version tags)
         with:
           toolchain: "1.91"
+          # The wasm-building tests (plugin authoring, reproducible packaging,
+          # hello-world e2e) compile real components, so the target must exist.
+          targets: wasm32-wasip2
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo test --workspace
 

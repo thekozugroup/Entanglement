@@ -6,7 +6,7 @@
 //! `cargo xtask hello-world build`.
 //!
 //! Compiling real wasm needs the `wasm32-wasip2` target plus a network fetch of
-//! the SDK, so the cargo-invoking half is covered by an `#[ignore]`d test at the
+//! the SDK, so the cargo-invoking half is covered by a slower test at the
 //! bottom. Everything else runs on the packaging path via `--wasm`, which
 //! packages a pre-built artifact instead of shelling out to cargo.
 
@@ -22,6 +22,17 @@ use tempfile::TempDir;
 fn entangle(tmp: &TempDir) -> Command {
     let mut cmd = Command::cargo_bin("entangle").expect("entangle binary built");
     cmd.env("HOME", tmp.path());
+    // HOME points at a scratch dir, so cargo and rustup must be told where the
+    // real toolchain and registry cache live for the wasm-compiling test.
+    if let Some(real) = std::env::var_os("HOME") {
+        let real = PathBuf::from(real);
+        if std::env::var_os("CARGO_HOME").is_none() {
+            cmd.env("CARGO_HOME", real.join(".cargo"));
+        }
+        if std::env::var_os("RUSTUP_HOME").is_none() {
+            cmd.env("RUSTUP_HOME", real.join(".rustup"));
+        }
+    }
     // Keep `--sdk auto` deterministic: without this the scaffolder would walk
     // up from the test's cwd and find this very repository's SDK checkout.
     cmd.env_remove("ENTANGLE_SDK_PATH");
@@ -357,18 +368,11 @@ fn build_without_a_manifest_points_at_the_scaffolder() {
 /// loads without editing boilerplate" — nothing in `acme-widget` is touched
 /// between `plugins new` and `plugins invoke`.
 ///
-/// `#[ignore]` because it needs the `wasm32-wasip2` target installed *and* a
-/// network-reachable registry to resolve `wit-bindgen`, either of which makes it
-/// flaky in a sandboxed CI runner; it also takes tens of seconds rather than
-/// milliseconds.
-///
-/// Run it deliberately with:
-/// ```text
-/// rustup target add wasm32-wasip2
-/// cargo test -p entangle-cli --test authoring -- --ignored
-/// ```
+/// Needs the `wasm32-wasip2` target (installed in the CI `test` job) and a
+/// reachable registry to resolve `wit-bindgen`; it takes tens of seconds. It
+/// runs by default; `plugins new` pins a `Cargo.lock` itself, which
+/// `plugins build` requires.
 #[tokio::test]
-#[ignore = "compiles real wasm: needs the wasm32-wasip2 target and a reachable registry"]
 async fn scaffolded_project_compiles_loads_and_invokes() {
     let tmp = TempDir::new().unwrap();
     init(&tmp);

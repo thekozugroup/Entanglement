@@ -110,8 +110,8 @@ bus_capacity = 1024        # default 1024
 [mesh]
 transports = ["local"]     # default: [] (empty)
 multi_node = false         # default: false
-# preferred = "tailscale"  # daemon-only; see §19
-# [mesh.overrides]         # daemon-only; see §19
+# preferred = "tailscale"  # daemon-only; see §20
+# [mesh.overrides]         # daemon-only; see §20
 
 [security]
 max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
@@ -138,9 +138,9 @@ service_name = "entangled"
 | Section | Key | Type | Default | Meaning |
 |---|---|---|---|---|
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
-| `[mesh]` | `transports` | array of strings | `[]` | Active mesh transports: `"local"` (mDNS on `_entangle._udp.local`; LAN dialling also needs `"iroh"`), `"iroh"` (the scheduler endpoint, `[scheduler]`), `"tailscale"` (also needs `[mesh.tailscale] enabled = true`, §10). See §19 for how a transport is chosen per peer. |
-| `[mesh]` | `preferred` | string | absent | Daemon-only. `"local"`, `"tailscale"` or `"iroh"`: tried first for every peer; the others stay fallbacks in the spec order (§19). Anything else fails the load (`ENTANGLE-E0434`). |
-| `[mesh.overrides]` | `"<peer-id>"` | string or array of strings | none | Daemon-only. Per peer (32-hex peer id): one transport forces it, a list gives the exact order; no fallback outside it (§19). A bad id, an empty list or a repeated transport fails the load (`ENTANGLE-E0435`). |
+| `[mesh]` | `transports` | array of strings | `[]` | Active mesh transports: `"local"` (mDNS on `_entangle._udp.local`; LAN dialling also needs `"iroh"`), `"iroh"` (the scheduler endpoint, `[scheduler]`), `"tailscale"` (also needs `[mesh.tailscale] enabled = true`, §10). See §20 for how a transport is chosen per peer. |
+| `[mesh]` | `preferred` | string | absent | Daemon-only. `"local"`, `"tailscale"` or `"iroh"`: tried first for every peer; the others stay fallbacks in the spec order (§20). Anything else fails the load (`ENTANGLE-E0434`). |
+| `[mesh.overrides]` | `"<peer-id>"` | string or array of strings | none | Daemon-only. Per peer (32-hex peer id): one transport forces it, a list gives the exact order; no fallback outside it (§20). A bad id, an empty list or a repeated transport fails the load (`ENTANGLE-E0435`). |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
 | `[metrics]` | `enabled`, `listen`, `allow_non_loopback` | bool, `ip:port`, bool | `false`, `127.0.0.1:9464`, `false` | Prometheus scrape endpoint (§14). A non-loopback `listen` is refused (`ENTANGLE-E0656`) unless `allow_non_loopback = true`. |
 | `[telemetry.otlp]` | `enabled`, `endpoint`, `service_name` | bool, URL, string | `false`, `http://localhost:4318`, `entangled` | OTLP/HTTP trace export (§14). `endpoint` must be `http://`; `4318` is OTLP/HTTP (`4317` is gRPC, which is not spoken). |
@@ -307,7 +307,7 @@ canonical range table, maintained in
 | E0300–E0301 | Task execution (output-size limit, timeout) |
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
 | E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum (`entangle-runtime::IntegrityError`; see §11) |
-| E0430–E0449 | Scheduler transport selection (`entangle_scheduler::transport::RouteError`; see §19): no route to the peer on any usable transport (E0430), every candidate failed to connect (E0431), a transport failed after the request was sent and it was not retried (E0432), a frame over the transport cap (E0433), an unknown transport name in `[mesh] preferred` / `[mesh.overrides]` (E0434), an unusable `[mesh.overrides]` entry (E0435) |
+| E0430–E0449 | Scheduler transport selection (`entangle_scheduler::transport::RouteError`; see §20): no route to the peer on any usable transport (E0430), every candidate failed to connect (E0431), a transport failed after the request was sent and it was not retried (E0432), a frame over the transport cap (E0433), an unknown transport name in `[mesh] preferred` / `[mesh.overrides]` (E0434), an unusable `[mesh.overrides]` entry (E0435) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
 | E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component; `E0511` an invocation or stream stopped because a network grant it relied on was revoked (or the plugin unloaded, or the tier ceiling lowered below it) while it ran (`entangle-host`) |
 | E0600–E0699 | Agent-host adapter (`entangle-agent-host`) |
@@ -498,7 +498,7 @@ tailscale-cli = ""             # empty = `tailscale` on $PATH
   at most 16 connections per peer at a time. Work beyond that waits for a
   slot (up to the 30 s request timeout) instead of failing; the wait counts
   as connecting, so a peer also reachable another way may be served there
-  meanwhile (§19).
+  meanwhile (§20).
 
 * Traffic is TCP over WireGuard. A mutual Ed25519-signed X25519 handshake
   authenticates the remote `PeerId` and agrees session keys; every frame after
@@ -538,7 +538,7 @@ who may run work is always the peer store. Frames are capped at 16 MiB +
 64 KiB, as on iroh (one maximal task input plus envelope).
 
 Outbound, the tailnet is one of the transports remote dispatch chooses from
-per peer (§19). It is used only while liveness is `active`: in `stopped` or
+per peer (§20). It is used only while liveness is `active`: in `stopped` or
 `uninstalled` the discovery candidates are dropped and the router skips the
 transport, so peers also known over iroh or the LAN are re-routed there, and
 peers known only over the tailnet fail fast with `ENTANGLE-E0430` instead of
@@ -862,7 +862,7 @@ scrape_configs:
 | `entangle_rpc_request_duration_seconds` | histogram | `method` | RPC handling time. |
 | `entangle_remote_dispatch_total` | counter | `outcome`, `transport` | Tasks this node sent to a peer: `ok`, `transport_error`, `output_too_large`, `error`, or `rejected_<code>` for a peer's refusal (`rejected_not_authorized`, `rejected_plugin_not_loaded`, ...). `transport` is the one that carried it (or was being tried when it failed): `local`, `tailscale`, `iroh`, or `none` when no transport had a route. |
 | `entangle_remote_serve_total` | counter | `outcome`, `transport` | Frames this node answered for peers: `ok`, `ack`, or the refusal code (`not-authorized`, `plugin-not-loaded`, ...). `transport` is the one the frame arrived on: `iroh` (which includes LAN dialling, `local` on the sender's side) or `tailscale`. |
-| `entangle_remote_stream_opens_total` | counter | `outcome` (`ok`, `transport_error`, `no_route`), `transport` | Streams this node opened to peers through the transport router (§19). |
+| `entangle_remote_stream_opens_total` | counter | `outcome` (`ok`, `transport_error`, `no_route`), `transport` | Streams this node opened to peers through the transport router (§20). |
 | `entangle_integrity_verdicts_total` | counter | `policy`, `outcome` | One per `compute/dispatch`: `policy` is `none`, `deterministic`, `semantic-equivalent`, `trusted-executor` or `attested`; `outcome` is `accepted`, `rejected` (integrity refusal), `output_size_exceeded` or `failed` (placement/transport/execution). |
 | `entangle_integrity_output_size_exceeded_total` | counter | — | Replica outputs over `max_output_bytes` (the `OutputSizeExceededWarning` events, `ENTANGLE-E0300`). |
 | `entangle_reputation_peers` | gauge | `policy`, `tier` (`trusted`/`good`/`probation`/`excluded`) | How many observed peers sit in each reputation tier. |
@@ -984,7 +984,7 @@ path a transport currently knows: an mDNS sighting, an iroh address-book entry
 counted.
 
 Each trusted peer also has a `route:` line: the transports remote dispatch
-would try for it right now, in order (§19), the transports it would skip and
+would try for it right now, in order (§20), the transports it would skip and
 why (`tailscale: tailnet stopped (NeedsLogin)`, `iroh: not in the address
 book ([scheduler] peers)`, `... [mesh.overrides]`), and the transport the
 last successful dispatch or stream to it used (the peer record's chosen
@@ -1243,7 +1243,7 @@ so the executor's allowlist entry for this node covers it), grants credit as
 stdout drains, and verifies every chunk's signature against the key the QUIC
 handshake proved for the executor. It dials over iroh only (the long address
 from `--peer` or `[scheduler] peers`); choosing among transports per peer
-(§19) is what the scheduler library's transport router does, and it is not
+(§20) is what the scheduler library's transport router does, and it is not
 wired into this command yet.
 
 ```bash
@@ -1421,7 +1421,64 @@ the time.
 
 ---
 
-## 19. Transport selection (`local`, `tailscale`, `iroh`)
+## 19. Reproducible packages, release verification and governance checks
+
+### 18.1 Building and verifying a reproducible package
+
+`entangle plugins build <dir>` writes, next to `plugin.wasm`, `entangle.toml`,
+`plugin.wasm.sig` and `provenance.json`, a deterministic archive
+`<dir>/dist/<name>-<version>.tar.zst` and prints its SHA-256. Two builds of the same
+source produce the same bytes: absolute paths are remapped out of the wasm
+(`--remap-path-prefix` for the project, path dependencies, the cargo target directory,
+`$CARGO_HOME`, `$RUSTUP_HOME`, the sysroot), the signature timestamp is `SOURCE_DATE_EPOCH` (default
+2024-01-01T00:00:00Z), the tar is normalised and zstd uses fixed parameters.
+
+* The project **must** have a committed `Cargo.lock`; otherwise the build stops with
+  `ENTANGLE-E0830: Cargo.lock missing` before fetching or writing anything. `plugins new`
+  generates one (skip with `--no-lockfile`). Builds run `cargo build --locked`.
+* Flags from `CARGO_ENCODED_RUSTFLAGS` or `RUSTFLAGS` in the environment are kept and
+  recorded; the build passes them, with the remap flags, as `CARGO_ENCODED_RUSTFLAGS`
+  (so paths with spaces work), which replaces any `build.rustflags` in `.cargo/config.toml`.
+* `entangle plugins verify --rebuild <package|dist-dir> [--source <dir>]` rebuilds in a
+  scratch target dir, with the recorded `SOURCE_DATE_EPOCH`, and compares source digest,
+  toolchain, flags, manifest, wasm and the signature bundle's hashes and `created_at`,
+  then checks the publisher signature against the keyring (`--keyring`, default
+  `~/.entangle/keyring.toml`; an untrusted publisher is a failure). It prints `PASS`
+  (exit 0) or `FAIL: <first difference>` (non-zero). Without `--rebuild` it only checks
+  the publisher signature.
+* Cross-host reproducibility (macOS-14, Ubuntu-22.04, Ubuntu-24.04) is checked only in CI:
+  `.github/workflows/reproducibility.yml` (signing with the public test key
+  `tests/fixtures/repro-ci-key.pem`).
+
+### 18.2 Verifying a release
+
+```text
+entangle release key add <release-public-key-hex> --name release-2026   # release keyring
+entangle release verify entanglement-v1.0.0-<target>.tar.gz
+```
+
+Needs `<artifact>.ed25519` (from `entangle release sign`) and the cosign bundle
+`<artifact>.sigstore`, and verifies both; either failing fails the command. The release
+keyring is `~/.entangle/release-keyring.toml`, separate from the publisher keyring
+(`--release-key <hex>` trusts a single key instead). `cosign` must be on `PATH` (or
+`--cosign <path>`); if it is missing the command fails with `ENTANGLE-E0845`.
+`--certificate-identity-regexp` / `--certificate-oidc-issuer` default to the values used by
+`.github/workflows/release.yml`: the identity must be that workflow file of this repository
+run on a `v*` tag (anchored; other workflows, branch, pull-request and dispatch runs are
+rejected), and the workflow signs only on tag runs. The key ceremony (2-of-3 Shamir split with
+`entangle release key split|combine`) is in `docs/governance/key-ceremony.md`.
+
+### 18.3 Governance checks
+
+`cargo xtask bus-factor` fails when any role in `docs/maintainers/roles.toml` has fewer than
+two active holders (a merge authored in the last 60 days); the weekly workflow runs it and
+opens the P0 issue. `cargo xtask rotation-note-check` fails when the newest
+`## YYYY-MM-DD` note in `docs/governance/rotations.md` is older than 35 days; the release
+workflow runs it first (`rotation_note_fresh`).
+
+---
+
+## 20. Transport selection (`local`, `tailscale`, `iroh`)
 
 Spec §6.1. A daemon can reach a peer over up to three transports at once,
 and picks one **per request** (and per stream) from what it currently knows

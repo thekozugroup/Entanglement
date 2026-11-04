@@ -23,7 +23,7 @@ fi
 # 3. Verify sigstore bundle
 if command -v cosign >/dev/null 2>&1; then
     cosign verify-blob \
-        --certificate-identity-regexp 'https://github.com/thekozugroup/Entanglement/.+' \
+        --certificate-identity-regexp '^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' \
         --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
         --bundle "${TARBALL}.sigstore" \
         "${TARBALL}"

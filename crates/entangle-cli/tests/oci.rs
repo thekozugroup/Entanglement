@@ -85,6 +85,7 @@ target = "wasm32-wasip2"
         manifest: manifest.into_bytes(),
         wasm,
         signature: toml::to_string(&bundle).unwrap().into_bytes(),
+        provenance: None,
     }
 }
 

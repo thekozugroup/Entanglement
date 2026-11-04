@@ -30,8 +30,9 @@ use std::path::Path;
 /// Path to the spec, relative to the workspace root.
 const SPEC_REL: &str = "docs/architecture.md";
 
-/// Directories (relative to the workspace root) that are scanned for tests.
-const SCAN_DIRS: &[&str] = &["crates", "plugins"];
+/// Directories (relative to the workspace root) that are scanned for tests
+/// (`tools/` holds the xtask governance tests, ATC-BUS-1/2).
+const SCAN_DIRS: &[&str] = &["crates", "plugins", "tools"];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Kind {
@@ -202,7 +203,6 @@ fn is_extension(id: &str) -> bool {
 }
 
 #[test]
-#[ignore = "gating is switched on once every §16 stream has landed"]
 fn atc_matrix_full_coverage() {
     let root = workspace_root();
     let spec_path = root.join(SPEC_REL);
