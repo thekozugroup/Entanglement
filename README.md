@@ -75,7 +75,7 @@ troubleshooting: [`docs/install.md`](./docs/install.md).
 
 Pre-release. No version is tagged or published. Measured on commit `080ab0b`: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings` and `RUSTDOCFLAGS=-D warnings cargo doc` are clean, and `cargo test --workspace` reports 1552 passed, 0 failed, 10 ignored. All 35 acceptance IDs in architecture.md §16 are covered by live tests.
 
-Works now: local plugin hosting and invocation; pairing over the network; remote one-shot tasks over Iroh and Tailscale; streaming tasks (the daemon serves them over Iroh and Tailscale, `entangle compute stream` dials over Iroh only); integrity policies other than `Attested`; the MCP gateway (stdio downstream servers) and `entangle agent run`; tier-5 sandboxing on Linux; OCI publish and pull; metrics and traces.
+Works now: local plugin hosting and invocation; pairing over the network; remote one-shot tasks over Iroh and Tailscale; streaming tasks (the daemon serves them over Iroh and Tailscale, `entangle compute stream` dials over Iroh only); integrity policies other than `Attested`; the MCP gateway (stdio and HTTP downstream servers) and `entangle agent run`; encrypted identity backup and restore; `plugins enable|disable`; tier-5 sandboxing on Linux; OCI publish and pull; metrics and traces.
 
 Not available yet:
 
@@ -83,7 +83,6 @@ Not available yet:
 - Native Windows (Phase 5). On Windows only WSL2 is targeted; no CI job runs on Windows or WSL2.
 - `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
 - In progress, not in this tree yet: the Layer-2 1% replay spot-check, per-peer transport routing for `entangle compute stream` (here it dials Iroh only), streaming invocation metrics.
-- In progress, not in this tree yet: `entangle backup` / `restore`; `plugins enable|disable` and a daemon that reads `[plugins] disabled` (here `set-max-tier` writes that list and nothing reads it); `entangle release verify --tag`; HTTP downstream servers in the MCP gateway.
 
 Full list with reasons: [`STATUS.md`](./STATUS.md). Changes: [`CHANGELOG.md`](./CHANGELOG.md).
 

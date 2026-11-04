@@ -85,20 +85,20 @@ Plugins in the repository: `examples/` has `hello-world`, `hash-it` and
 Each item has tests in the workspace; none were verified on a multi-host
 deployment in this environment.
 
-- **Identity and config:** `entangle init`; format-preserving config edits.
+- **Identity and config:** `entangle init`; format-preserving config edits; `entangle backup --to` / `restore --from` write and read a passphrase-encrypted archive (Argon2id, XChaCha20-Poly1305) of the identity, keyring and paired peers, optionally `config.toml`. Restore refuses to replace an existing identity without `--force`, copies what it replaces aside, and changes nothing if it fails part-way.
 - **Plugins:** `plugins new|build|load|unload|invoke|list|install`; `keyring`; signed `.tar.zst` packages; `plugins verify --rebuild` compares a rebuild with the package.
 - **Capability grants (wasm):** `capability.fetch` through the broker; WASI preopens `/data`, `/shared`, `/shares/<n>`; `net.lan` and `net.wan` socket rules with pinned DNS (loopback, own-host and cloud-metadata addresses refused); live revocation; operator `deny_capabilities`; `entangle perms list|revoke`. Stream plugins get the same grants.
 - **Tier-5 native plugins:** run under the Linux sandbox. The runtime-kind check (ATC-MAN-3) and the install-time tier ceiling check (ATC-MAN-4, no state change on refusal) are tested. `[security] allow_unsandboxed_native` exists.
-- **Max tier and wrapper:** `entangle security set-max-tier` and `entangle config reload` apply a new ceiling to the running daemon. Lowering it drains in-flight calls and streams of the affected plugins before unloading them, and adds them to `[plugins] disabled` in `config.toml` (the daemon parses that list but does not read it, because it loads no plugins at startup). Audit codes: `W0214`, `I0215`, `I0216`, `I0217`. `entangle config validate` only checks the file. `config reload` applies only `max_tier_allowed`; other settings need a restart. `entangle wrapper enable`, `disable`, `status`, `repair`; `doctor` detects shadowing.
+- **Max tier and wrapper:** `entangle security set-max-tier` and `entangle config reload` apply a new ceiling to the running daemon. Lowering it drains in-flight calls and streams of the affected plugins before unloading them, and adds them to `[plugins] disabled` in `config.toml`. The daemon (re-reading the list before each load) and the CLI's local kernel refuse to load a plugin on that list, including metric plugins; `entangle plugins enable <id>` and `disable <id>` edit the list, and `enable` is refused above the ceiling. Audit codes: `W0214`, `I0215`, `I0216`, `I0217`. `entangle config validate` only checks the file. `config reload` applies only `max_tier_allowed`; other settings need a restart. `entangle wrapper enable`, `disable`, `status`, `repair`; `doctor` detects shadowing.
 - **Pairing:** 6-digit code over the network. A race where the responder closed the connection before its last frame was delivered is fixed (36 of 100 runs failed under load before, 0 of 100 after).
 - **Transports:** `mesh.local`, `mesh.iroh`, `mesh.tailscale`. Per peer the scheduler tries local, then tailscale (only when active), then iroh; `[mesh] preferred` and `[mesh.overrides]` change the order. It falls back only when a connect fails. The transport label appears in metrics and `diag`.
 - **Remote one-shot tasks:** `entangle compute dispatch`, gated on the peer allowlist.
 - **Integrity:** `Deterministic` (majority hash quorum across distinct workers), `SemanticEquivalent` (signed metric component, metric runs on the verifier, output-size guard before the metric loads), `TrustedExecutor`, policy hash envelope (`INV-INT-1`), `PolicyMutation` rejection, per-peer per-policy reputation (EWMA).
 - **Streaming tasks:** credit flow control, heartbeat with `PeerLost` after three missed pongs, signed chunks bound to the request, total-byte and chunk-count caps, partial-result policies. The daemon serves ALPN `entangle/stream/1` over Iroh and Tailscale. `entangle compute stream` dials over Iroh only.
-- **Agents:** `entangle agent run` for claude-code, codex and opencode with a session-scoped config; the gateway authenticates a bearer token, applies allow/deny policy, writes an audit record, and starts stdio downstream servers with connection and size limits. Servers from the project's own config need consent (`--trust-project-servers`).
+- **Agents:** `entangle agent run` for claude-code, codex and opencode with a session-scoped config; the gateway authenticates a bearer token, applies allow/deny policy, writes an audit record, and starts stdio downstream servers with connection and size limits. HTTP (`url`) downstream servers are proxied over Streamable HTTP (JSON or SSE replies, `Mcp-Session-Id`, per-route request-id remapping, cancellation on timeout, no redirects, https only except loopback); the gateway's bearer token is never forwarded. Legacy `type: "sse"` servers are refused with `ENTANGLE-E0664`. Every HTTP server from the project's own config needs consent. Servers from the project's own config need consent (`--trust-project-servers`).
 - **Observability:** `/metrics` (disabled by default, loopback by default), `entangle metrics`, OTLP/HTTP JSON traces (`http://` endpoints only), `traceparent` on the scheduler wire, `entangle diag mesh [--probe]`.
 - **Distribution:** `plugins publish|tags|install oci://...`; `plugins mirror-sign` writes signed mirror listings (they expire, 7 days by default) with separate mirror keys (ATC-MIR-1/2); reproducible archives and provenance; `Cargo.lock` is required.
-- **Release tooling:** `entangle release verify` (Ed25519 release key and cosign), `release key split|combine` (Shamir secret sharing, 2-of-3 by default), `cargo xtask bus-factor`, `cargo xtask rotation-note-check`, `.github/workflows/reproducibility.yml`. CI builds for `wasm32-wasip2` in the test job.
+- **Release tooling:** `entangle release verify` (Ed25519 release key and cosign, with the cosign identity pinned to the tag being verified: `--tag` or inferred from the artifact name), `release key split|combine` (Shamir secret sharing, 2-of-3 by default), `cargo xtask bus-factor`, `cargo xtask rotation-note-check`, `.github/workflows/reproducibility.yml`. CI builds for `wasm32-wasip2` in the test job.
 
 ## Not done / deferred
 
@@ -108,7 +108,6 @@ deployment in this environment.
 | Native Windows | Not started (Phase 5); WSL2 only | AppContainer and Job Objects do not give the same rigor as Landlock/Seatbelt without further work |
 | bubblewrap and Seatbelt paths | Profiles generated and unit-tested; not run on a real bubblewrap or macOS host in this work. `crates/entangle-sandbox/tests/seatbelt_smoke.rs` runs `sandbox-exec` and compiles only on macOS (CI macos-14 test job); no result from it is recorded here | No macOS or bubblewrap host was used in this work |
 | Cross-host reproducibility, real cosign | Run only in CI workflows | `reproducibility.yml` needs macos-14, ubuntu-22.04 and ubuntu-24.04 runners; real cosign runs in `release.yml` on a `v*.*.*` tag or manual dispatch, and no tag exists |
-| cosign identity | Pinned to `release.yml` on any `v<semver>` tag, not to the tag being verified | `release verify --tag` is on an unmerged branch |
 | Capability revocation | Lasts until the plugin is reloaded | `deny_capabilities` is the permanent setting |
 | OCI mirror listings | Listings expire (`expires_at`), but an older listing that has not expired is accepted in place of a newer one | No record of the newest listing seen; rollback protection not implemented |
 | OCI client TLS | No test performs a TLS handshake (one unit test covers the TLS server name of an IP literal) | Not written |
@@ -120,21 +119,16 @@ deployment in this environment.
 | Published release | None | `install.sh` and the Homebrew formula need a `v0.1.0` tag |
 | Speculative execution, straggler mitigation, reputation gossip | Not implemented | Not started |
 
-### On unmerged branches, not in this tree
+### In progress, not in this tree yet
 
-These are implemented on branches that fork from `080ab0b` and are not merged.
-(`main` itself is still at `43cdef5`, the baseline; none of the work in this
-file is on `main`.)
+(`main` itself is still at `43cdef5`, the baseline; the work in this file is on
+branch `claude/pensive-darwin-8e8jd5`.)
 
 | Item | Status | State in this tree |
 |---|---|---|
 | Layer-2 1% replay spot-check | In progress | Not available |
 | Per-peer transport routing for `entangle compute stream` | In progress | Dials Iroh only |
 | Streaming invocation metrics | In progress | Not available |
-| `entangle backup` / `restore` | In progress | Not available |
-| `plugins enable` and `plugins disable`; daemon honours `[plugins] disabled` | In progress | `set-max-tier` and `config reload` write `[plugins] disabled`; the daemon parses it but nothing reads it |
-| `entangle release verify --tag` | In progress | Not available |
-| HTTP downstream servers in the MCP gateway | In progress | `url` entries are refused with `ENTANGLE-E0664` |
 
 ## Release pipeline
 

@@ -37,20 +37,23 @@ Plugins and sandboxing
 - Catalog plugins and the `native-echo` example.
 
 Operations
-- `entangle security set-max-tier`, `entangle config reload|validate`; lowering the ceiling drains in-flight calls and streams before unloading and records the unloaded plugins in `[plugins] disabled` (not read by the daemon); audit codes `W0214`, `I0215`, `I0216`, `I0217`.
+- `entangle security set-max-tier`, `entangle config reload|validate`; lowering the ceiling drains in-flight calls and streams before unloading and records the unloaded plugins in `[plugins] disabled`; audit codes `W0214`, `I0215`, `I0216`, `I0217`.
 - `entangle wrapper enable|disable|status|repair`; `doctor` detects shadowing; format-preserving config writer.
+- `[plugins] disabled` is enforced at load by the daemon and the CLI's local kernel (`ENTANGLE-E0759`); `entangle plugins enable|disable <id>` (`enable` refused above the ceiling, `ENTANGLE-E0760`).
+- `entangle backup` / `entangle restore`: passphrase-encrypted archive (Argon2id, XChaCha20-Poly1305, header as associated data) of identity, keyring and paired peers; restore is all-or-nothing and needs `--force` to replace an identity (`ENTANGLE-E0860`..`E0867`).
 - Daemon `/metrics` endpoint (disabled by default, loopback by default); real metrics with bounded labels; `entangle metrics` over RPC.
 - OTLP/HTTP JSON trace exporter (`http://` endpoints only); `traceparent` on the scheduler wire.
 
 Agents
 - MCP gateway HTTP server in `entangle-agent-host`: bearer auth, allow/deny policy, audit, stdio downstream servers, connection and size limits.
 - `entangle agent run` with session-scoped configs for claude-code, codex and opencode; `--trust-project-servers` consent.
+- HTTP downstream MCP servers (Streamable HTTP, JSON and SSE replies, `Mcp-Session-Id`, request-id remapping, cancellation on timeout); configured headers are sent, the gateway's bearer token never is; legacy `type: "sse"` servers are refused.
 
 Distribution and release
 - OCI registry client (token and basic auth, digest and size checks, redirects without leaking credentials); push and pull; `entangle plugins install oci://...`, `plugins publish`, `plugins tags`.
 - Signed, expiring mirror listings with separate mirror keys (ATC-MIR-1/2); `entangle plugins mirror-sign`.
 - Reproducible plugin archives, provenance, `entangle plugins verify --rebuild`; `Cargo.lock` required.
-- `entangle release verify` (Ed25519 release key and cosign); `entangle release key split|combine` (Shamir secret sharing, 2-of-3 by default).
+- `entangle release verify` (Ed25519 release key and cosign; the cosign identity is pinned to the artifact's tag, from `--tag` or the file name); `entangle release key split|combine` (Shamir secret sharing, 2-of-3 by default).
 - `cargo xtask bus-factor` and `cargo xtask rotation-note-check`; `.github/workflows/reproducibility.yml`; `wasm32-wasip2` target in the CI test job.
 
 Biscuits
@@ -94,7 +97,6 @@ Tests
 - Bus-factor check fails by design (one holder per role).
 - No published release; `install.sh` and Homebrew need a `v0.1.0` tag.
 - In progress, not in this tree yet: Layer-2 1% replay spot-check; per-peer transport routing for `compute stream`; streaming invocation metrics.
-- In progress, not in this tree yet: `entangle backup` / `restore`; `plugins enable|disable` and a daemon that reads `[plugins] disabled`; `release verify --tag`; HTTP downstream servers in the gateway.
 
 ### Earlier, before `43cdef5`
 
