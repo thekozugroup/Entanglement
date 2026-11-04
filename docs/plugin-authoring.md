@@ -264,7 +264,9 @@ a `net.*` grant there is no TCP, no UDP and no DNS at all.
   name does not resolve. Under `net.lan` alone no name resolves — connect to
   LAN hosts by address.
 - Plugins are clients: listening (`TcpListener::bind`) is always refused; a
-  UDP socket may bind only an ephemeral port on the unspecified address.
+  UDP socket may bind only an ephemeral port on the unspecified address, and
+  `recv_from` only returns datagrams from addresses your grants let you send
+  to (others are dropped by the daemon).
 
 A refused address fails with `PermissionDenied`, before any packet is sent.
 

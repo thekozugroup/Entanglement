@@ -32,6 +32,7 @@ pub mod plugin;
 pub mod runtime_kind;
 pub mod state;
 pub mod storage;
+mod udp_inbound;
 
 pub use capability::{CapabilityContext, WasiGrants};
 pub use engine::HostEngine;

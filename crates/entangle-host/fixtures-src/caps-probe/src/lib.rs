@@ -15,6 +15,7 @@
 //! | `connect <host:port>`   | TCP connect (resolving names), read the greeting   |
 //! | `listen <ip:port>`      | TCP bind + listen                                  |
 //! | `udp <ip:port>`         | bind an ephemeral UDP socket and send one datagram |
+//! | `udprecv <ip:port>`     | as `udp`, then receive one datagram → `ok:<from>:<text>` |
 //! | `resolve <host>`        | DNS lookup → `ok:<ip>,<ip>`                        |
 //! | `fetch <kind> [<name>]` | `capability.fetch` → `ok:<handle>`                 |
 //! | `release <handle>`      | `capability.release`                               |
@@ -117,6 +118,21 @@ fn step(line: &str) -> String {
         "udp" => match std::net::UdpSocket::bind("0.0.0.0:0") {
             Ok(s) => match s.send_to(b"ping", a) {
                 Ok(_) => "ok".into(),
+                Err(e) => io_err(e),
+            },
+            Err(e) => io_err(e),
+        },
+        "udprecv" => match std::net::UdpSocket::bind("0.0.0.0:0") {
+            Ok(s) => match s.send_to(b"ping", a) {
+                Ok(_) => {
+                    let mut buf = [0u8; 64];
+                    match s.recv_from(&mut buf) {
+                        Ok((n, from)) => {
+                            format!("ok:{from}:{}", String::from_utf8_lossy(&buf[..n]))
+                        }
+                        Err(e) => io_err(e),
+                    }
+                }
                 Err(e) => io_err(e),
             },
             Err(e) => io_err(e),

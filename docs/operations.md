@@ -976,7 +976,9 @@ audited and counted the same way.
   `fd00:ec2::…` IPv6 forms — are excluded from `net.lan` although the rest of
   link-local space is LAN. Neither are CGNAT, multicast, broadcast,
   documentation or other special-purpose ranges. IPv4-mapped and NAT64 IPv6 forms are judged by the IPv4 address
-  they carry. Plugins never listen. `net.wan` host names are resolved by the
+  they carry. Plugins never listen, and a plugin's UDP socket receives
+  only datagrams from addresses its grants let it send to (anything else
+  writing to its port is dropped). `net.wan` host names are resolved by the
   daemon when an invocation starts — each distinct name once, all at the
   same time, bounded at 5 s and at half the invocation's timeout (a name
   that does not resolve in time is simply unreachable for that invocation,

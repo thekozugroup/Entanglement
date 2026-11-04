@@ -36,7 +36,7 @@ Run from within `crates/entangle-host/tests/fixtures/`, or adjust the relative p
 `entangle-runtime/tests/wasm_capabilities.rs`, `entangle-bin/tests/perms_rpc.rs`)
 to check what capability grants let a plugin do. The input is a script, one
 command per line (`write`, `read`, `mkdir`, `ls`, `symlink`, `connect`,
-`listen`, `udp`, `resolve`, `fetch`, `release`, `info`); the output has one
+`listen`, `udp`, `udprecv`, `resolve`, `fetch`, `release`, `info`); the output has one
 `ok[:detail]` or `err:<kind>:<message>` line per command. See the table at
 the top of its `src/lib.rs`.
 

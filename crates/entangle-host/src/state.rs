@@ -4,6 +4,7 @@ use crate::capability::{CapTable, CapabilityContext, NetLiveness, WasiGrants};
 use crate::errors::HostError;
 use crate::lookup::NameLookup;
 use crate::net::Via;
+use crate::udp_inbound::InboundRules;
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 use wasmtime::component::ResourceTable;
 use wasmtime::{StoreLimits, StoreLimitsBuilder};
@@ -109,6 +110,9 @@ pub struct HostState {
     pub(crate) caps: CapTable,
     /// How the guest's name lookups are answered (see `crate::lookup`).
     pub(crate) lookup: NameLookup,
+    /// Which sources its UDP sockets may receive from (see
+    /// `crate::udp_inbound`); `None` (no network grant): none.
+    pub(crate) inbound: Option<InboundRules>,
     pub(crate) table: ResourceTable,
     wasi: WasiCtx,
 }
@@ -145,6 +149,7 @@ impl HostState {
             builder.build(),
             None,
             NameLookup::default(),
+            None,
         )
     }
 
@@ -196,6 +201,10 @@ impl HostState {
             },
             live: live.clone(),
         };
+        let inbound = any.then(|| InboundRules {
+            rules: net.clone(),
+            live: live.clone(),
+        });
         if any {
             // Every socket use is checked against the rules AND against the
             // broker: a grant revoked mid-invocation refuses new sockets.
@@ -220,6 +229,7 @@ impl HostState {
             builder.build(),
             ctx,
             lookup,
+            inbound,
         ))
     }
 
@@ -230,10 +240,12 @@ impl HostState {
         wasi: WasiCtx,
         ctx: Option<CapabilityContext>,
         lookup: NameLookup,
+        inbound: Option<InboundRules>,
     ) -> Self {
         Self {
             caps: CapTable::new(ctx, plugin_id.clone()),
             lookup,
+            inbound,
             plugin_id,
             effective_tier,
             log_buffer: Vec::new(),

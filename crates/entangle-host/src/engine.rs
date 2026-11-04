@@ -90,6 +90,13 @@ impl HostEngine {
             wasmtime::component::HasSelf<HostState>,
         >(&mut linker, |s| s)
         .context("replace wasi:sockets/ip-name-lookup")?;
+        // Inbound datagrams are filtered by the grants (`crate::udp_inbound`);
+        // the rest of the UDP interface is wasmtime-wasi's, delegated.
+        wasmtime_wasi::p2::bindings::sockets::udp::add_to_linker::<
+            HostState,
+            wasmtime::component::HasSelf<HostState>,
+        >(&mut linker, |s| s)
+        .context("replace wasi:sockets/udp")?;
         linker.allow_shadowing(false);
 
         // Lifetime epoch ticker. Holds only a weak engine handle so it never

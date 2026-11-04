@@ -31,7 +31,8 @@
 //!
 //! Plugins are clients: a TCP `bind` (listening) is always refused; a UDP
 //! socket may bind only an ephemeral port on the unspecified address, which
-//! WASI requires before sending.
+//! WASI requires before sending, and receives only datagrams whose source
+//! these rules would let it send to (see `crate::udp_inbound`).
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use wasmtime_wasi::sockets::SocketAddrUse;

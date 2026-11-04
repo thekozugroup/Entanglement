@@ -1282,3 +1282,35 @@ async fn revoking_a_net_grant_stops_a_busy_networked_invocation() {
         started.elapsed()
     );
 }
+
+/// A plugin's UDP socket receives datagrams only from addresses its grants
+/// let it send to: an unconnected socket opened to talk to an allowlisted
+/// `net.wan` peer is not an inbound channel for anyone else (another host,
+/// or another port of the same one).
+#[tokio::test(flavor = "multi_thread")]
+async fn udp_receives_only_from_sources_the_grants_allow() {
+    let peer = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let intruder = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let peer_addr = peer.local_addr().unwrap();
+    let caps = format!(r#""net.wan" = {{ hosts = ["{peer_addr}"] }}"#);
+    let h = Setup {
+        classify: Some(public_on_loopback),
+        ..Setup::new("udp-in", &caps)
+    }
+    .harness();
+    let responder = tokio::spawn(async move {
+        let mut buf = [0u8; 16];
+        let (n, guest) = peer.recv_from(&mut buf).await.unwrap();
+        assert_eq!(&buf[..n], b"ping");
+        // Someone the plugin may not talk to writes first ...
+        intruder.send_to(b"intrusion", guest).await.unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        // ... then the allowlisted peer answers.
+        peer.send_to(b"reply", guest).await.unwrap();
+    });
+    let script = format!("udprecv {peer_addr}\n");
+    let got = h.run(&script).await;
+    responder.await.unwrap();
+    let want = format!("ok:{peer_addr}:reply");
+    expect(&script, &got, &[want.as_str()]);
+}
