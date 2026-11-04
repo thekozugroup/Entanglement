@@ -99,7 +99,8 @@ pub enum PluginsCmd {
     ///
     /// `--rebuild` rebuilds the plugin from `--source` with the recorded
     /// toolchain and flags and compares: source digest, toolchain, flags,
-    /// manifest, wasm. Prints `PASS` (exit 0) or `FAIL: <first difference>`
+    /// manifest, wasm, then checks the publisher signature against the
+    /// keyring. Prints `PASS` (exit 0) or `FAIL: <first difference>`
     /// (non-zero).
     Verify {
         /// A package archive (`*.tar.zst`) or a build output directory.

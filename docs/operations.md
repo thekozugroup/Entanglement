@@ -1215,9 +1215,11 @@ source produce the same bytes: absolute paths are remapped out of the wasm
   (so paths with spaces work), which replaces any `build.rustflags` in `.cargo/config.toml`.
 * `entangle plugins verify --rebuild <package|dist-dir> [--source <dir>]` rebuilds in a
   scratch target dir, with the recorded `SOURCE_DATE_EPOCH`, and compares source digest,
-  toolchain, flags, manifest, wasm and the signature bundle's hashes and `created_at`.
-  It prints `PASS` (exit 0) or `FAIL: <first difference>` (non-zero). Without `--rebuild`
-  it only checks the publisher signature against the keyring.
+  toolchain, flags, manifest, wasm and the signature bundle's hashes and `created_at`,
+  then checks the publisher signature against the keyring (`--keyring`, default
+  `~/.entangle/keyring.toml`; an untrusted publisher is a failure). It prints `PASS`
+  (exit 0) or `FAIL: <first difference>` (non-zero). Without `--rebuild` it only checks
+  the publisher signature.
 * Cross-host reproducibility (macOS-14, Ubuntu-22.04, Ubuntu-24.04) is checked only in CI:
   `.github/workflows/reproducibility.yml` (signing with the public test key
   `tests/fixtures/repro-ci-key.pem`).

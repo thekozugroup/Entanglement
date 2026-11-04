@@ -661,9 +661,9 @@ pub fn load_package(p: &Path) -> Result<PackageFiles> {
 /// Comparison order (the first mismatch is the one reported): source digest,
 /// path-dependency digests, toolchain,
 /// build flags, rendered manifest, wasm artifact, then the signature
-/// bundle's recorded hashes and `created_at`. The rebuild runs with the
-/// recorded `SOURCE_DATE_EPOCH`. If the signer is in `keyring` the Ed25519
-/// signature is verified too.
+/// bundle's recorded hashes and `created_at`, then the Ed25519 signature
+/// against `keyring` (a publisher not in it is a failure). The rebuild runs
+/// with the recorded `SOURCE_DATE_EPOCH`.
 pub fn verify_rebuild(
     package: &Path,
     source: &Path,
@@ -799,7 +799,7 @@ pub fn verify_rebuild(
         blake3::hash(&wasm).to_hex()
     ));
 
-    // 4. Recorded hashes and (when we can) the signature itself.
+    // 4. Recorded hashes, then the signature itself.
     if bundle.artifact_blake3 != *blake3::hash(&wasm).as_bytes()
         || prov.artifact_blake3 != blake3::hash(&wasm).to_hex().to_string()
     {
@@ -821,16 +821,19 @@ pub fn verify_rebuild(
             bundle.created_at
         )));
     }
-    match keyring {
-        Some(kr) if kr.lookup(&bundle.publisher_fingerprint).is_some() => {
-            entangle_signing::verify_artifact(&files.wasm, &files.manifest, &bundle, kr)
-                .map_err(|e| anyhow::anyhow!("signature does not verify: {e}"))?;
-            notes.push("publisher signature verified".into());
-        }
-        _ => notes.push(format!(
-            "publisher {fingerprint} is not in the keyring: signature not checked"
-        )),
+    // The signature is part of the package: an unchecked or bad one is a
+    // FAIL, so `--rebuild` is never weaker than the plain signature check.
+    let Some(kr) = keyring.filter(|kr| kr.lookup(&bundle.publisher_fingerprint).is_some()) else {
+        return Ok(Fail(format!(
+            "publisher {fingerprint} is not in the keyring, so the package signature cannot be \
+             checked; trust the publisher's key with `entangle keyring add <public-key-hex>` \
+             (or pass --keyring <file>) and verify again"
+        )));
+    };
+    if let Err(e) = entangle_signing::verify_artifact(&files.wasm, &files.manifest, &bundle, kr) {
+        return Ok(Fail(format!("signature does not verify: {e}")));
     }
+    notes.push("publisher signature verified".into());
     Ok(Pass(notes))
 }
 

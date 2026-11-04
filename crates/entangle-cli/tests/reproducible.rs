@@ -473,6 +473,44 @@ fn outputs_inside_the_project_do_not_change_the_source_digest() {
     assert_eq!(d1, d4, "default build hashed the --out directory");
 }
 
+/// `--rebuild` is a superset of the plain signature check: a package whose
+/// signature cannot be checked (publisher not trusted) or does not verify is
+/// a `FAIL: <first difference>`, never a PASS or a bare error.
+#[test]
+fn rebuild_verify_requires_a_valid_publisher_signature() {
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
+    let archive = build_tiny(home.path(), &project);
+
+    // Untrusted publisher (no keyring at all): the signature is unchecked.
+    verify_rebuild(home.path(), &archive, &project)
+        .failure()
+        .stdout(predicate::str::contains("PASS").not())
+        .stdout(predicate::str::contains("FAIL: "))
+        .stdout(predicate::str::contains("not in the keyring"));
+
+    // Trusted publisher, signature bytes corrupted (hashes still match).
+    trust_fixture_key(home.path());
+    let forged = repack_with(&archive, |f| {
+        let mut v: toml::Value =
+            toml::from_str(std::str::from_utf8(&f.signature).unwrap()).unwrap();
+        let sig = v["signature"].as_str().unwrap().to_owned();
+        let flipped = if sig.starts_with('0') { "1" } else { "0" };
+        v["signature"] = toml::Value::String(format!("{flipped}{}", &sig[1..]));
+        f.signature = toml::to_string(&v).unwrap().into_bytes();
+    });
+    verify_rebuild(home.path(), &forged, &project)
+        .failure()
+        .stdout(predicate::str::contains("PASS").not())
+        .stdout(predicate::str::contains("FAIL: signature does not verify"));
+
+    // And the genuine package passes once the publisher is trusted.
+    verify_rebuild(home.path(), &archive, &project)
+        .success()
+        .stdout(predicate::str::contains("publisher signature verified"));
+}
+
 // ---------------------------------------------------------------------------
 // ATC-PKG-2 (structural: one process cannot run three hosts)
 // ---------------------------------------------------------------------------
@@ -621,6 +659,8 @@ fn repack_with(archive: &Path, edit: impl FnOnce(&mut entangle_oci::PackageFiles
 #[test]
 fn atc_pkg_4_rebuild_verify_pass_and_fail() {
     let home = TempDir::new().unwrap();
+    // The rebuild check includes the publisher signature.
+    trust_fixture_key(home.path());
     let built = build_hello(home.path());
 
     // The package records its provenance.
