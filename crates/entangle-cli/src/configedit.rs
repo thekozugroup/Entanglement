@@ -4,14 +4,21 @@
 //! re-serialising it would drop comments, reorder keys and delete sections it
 //! does not model (`[mesh.tailscale]`, `[metrics]`, `[telemetry]`, ...). Every
 //! operator-facing write (`entangle wrapper`, `entangle security`,
-//! `entangle config reload`) therefore goes through [`toml_edit`], which keeps
-//! all bytes it was not asked to change. The write itself is atomic and keeps
-//! the file's permissions ([`crate::fsutil::atomic_write`]).
+//! `entangle config reload|set|unset`, `entangle init`) therefore goes through
+//! [`toml_edit`], which keeps all bytes it was not asked to change. The write
+//! itself is atomic and keeps the file's permissions
+//! ([`crate::fsutil::atomic_write`]).
+//!
+//! Tables are addressed by path (`["mesh", "tailscale"]`); a path may run
+//! through standard tables (`[mesh.tailscale]`) or inline ones
+//! (`mesh = { tailscale = { ... } }`), and missing tables are created as
+//! standard tables (the parents of a new nested table stay implicit, so no
+//! empty `[mesh]` header appears).
 
 use std::path::Path;
 
 use anyhow::{Context as _, Result};
-use toml_edit::{value, Array, DocumentMut, Item, Table, Value};
+use toml_edit::{value, Array, DocumentMut, Item, Table, TableLike, Value};
 
 /// An editable, format-preserving view of a TOML document.
 pub struct ConfigDoc {
@@ -58,33 +65,77 @@ impl ConfigDoc {
             .with_context(|| format!("writing {}", path.display()))
     }
 
-    fn table_mut(&mut self, section: &str) -> Result<&mut Table> {
-        let item = self
-            .doc
-            .entry(section)
-            .or_insert_with(|| Item::Table(Table::new()));
-        item.as_table_mut().ok_or_else(|| {
-            anyhow::anyhow!(
-                "ENTANGLE-E0754: [{section}] in config.toml is not a table; fix it by hand"
-            )
-        })
+    /// The table at `path`, created (with implicit parents) when missing.
+    fn table_at_mut(&mut self, path: &[&str]) -> Result<&mut dyn TableLike> {
+        let mut cur: &mut dyn TableLike = self.doc.as_table_mut();
+        for (depth, name) in path.iter().enumerate() {
+            let shown = path[..=depth].join(".");
+            let last = depth + 1 == path.len();
+            let item = cur.entry(name).or_insert_with(|| {
+                let mut t = Table::new();
+                // A parent created only to hold a nested table prints no
+                // header of its own.
+                t.set_implicit(!last);
+                Item::Table(t)
+            });
+            cur = item.as_table_like_mut().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ENTANGLE-E0754: [{shown}] in config.toml is not a table; fix it by hand"
+                )
+            })?;
+        }
+        Ok(cur)
+    }
+
+    /// The table at `path`, if every part of it exists and is a table.
+    fn table_at(&self, path: &[&str]) -> Option<&dyn TableLike> {
+        let mut cur: &dyn TableLike = self.doc.as_table();
+        for name in path {
+            cur = cur.get(name)?.as_table_like()?;
+        }
+        Some(cur)
+    }
+
+    /// The item at `path.key`, if present.
+    pub fn get_at(&self, path: &[&str], key: &str) -> Option<&Item> {
+        self.table_at(path)?.get(key)
+    }
+
+    /// Set `path.key` to `new`, keeping the key's position and any trailing
+    /// comment when it already exists.
+    pub fn set_at(&mut self, path: &[&str], key: &str, new: Value) -> Result<()> {
+        let shown = path.join(".");
+        let table = self.table_at_mut(path)?;
+        match table.get_mut(key) {
+            Some(Item::Value(old)) => {
+                let mut v = new;
+                *v.decor_mut() = old.decor().clone();
+                *old = v;
+            }
+            Some(Item::None) | None => {
+                table.insert(key, value(new));
+            }
+            Some(_) => anyhow::bail!(
+                "ENTANGLE-E0754: [{shown}] {key} in config.toml is a table, not a value; fix it \
+                 by hand"
+            ),
+        }
+        Ok(())
+    }
+
+    /// Remove `path.key`; returns whether it was there. Comments and other
+    /// keys of the table are kept, and so is a table left empty.
+    pub fn remove_at(&mut self, path: &[&str], key: &str) -> Result<bool> {
+        if self.table_at(path).is_none() {
+            return Ok(false);
+        }
+        Ok(self.table_at_mut(path)?.remove(key).is_some())
     }
 
     /// Set `section.key` to `new`, keeping the key's position and any
     /// trailing comment when it already exists.
     pub fn set(&mut self, section: &str, key: &str, new: Value) -> Result<()> {
-        let table = self.table_mut(section)?;
-        match table.get_mut(key).and_then(Item::as_value_mut) {
-            Some(old) => {
-                let mut v = new;
-                *v.decor_mut() = old.decor().clone();
-                *old = v;
-            }
-            None => {
-                table.insert(key, value(new));
-            }
-        }
-        Ok(())
+        self.set_at(&[section], key, new)
     }
 
     /// Set `section.key` to a boolean.
@@ -111,9 +162,12 @@ impl ConfigDoc {
 
     /// Strings in the array `section.key` (empty when absent).
     pub fn get_str_array(&self, section: &str, key: &str) -> Vec<String> {
-        self.doc
-            .get(section)
-            .and_then(|s| s.get(key))
+        self.get_str_array_at(&[section], key)
+    }
+
+    /// Strings in the array `path.key` (empty when absent).
+    pub fn get_str_array_at(&self, path: &[&str], key: &str) -> Vec<String> {
+        self.get_at(path, key)
             .and_then(Item::as_array)
             .map(|a| {
                 a.iter()
@@ -125,32 +179,52 @@ impl ConfigDoc {
 
     /// Add `item` to the string array `section.key` unless already there.
     pub fn add_to_str_array(&mut self, section: &str, key: &str, item: &str) -> Result<()> {
-        let table = self.table_mut(section)?;
+        self.add_to_str_array_at(&[section], key, item).map(|_| ())
+    }
+
+    /// Add `item` to the string array `path.key` unless already there;
+    /// returns whether it was added.
+    pub fn add_to_str_array_at(&mut self, path: &[&str], key: &str, item: &str) -> Result<bool> {
+        let shown = path.join(".");
+        let table = self.table_at_mut(path)?;
         let arr = table
             .entry(key)
             .or_insert_with(|| value(Array::new()))
             .as_array_mut()
             .ok_or_else(|| {
-                anyhow::anyhow!("ENTANGLE-E0754: [{section}] {key} in config.toml is not an array")
+                anyhow::anyhow!("ENTANGLE-E0754: [{shown}] {key} in config.toml is not an array")
             })?;
-        if !arr.iter().any(|v| v.as_str() == Some(item)) {
-            arr.push(item);
+        if arr.iter().any(|v| v.as_str() == Some(item)) {
+            return Ok(false);
         }
-        Ok(())
+        arr.push(item);
+        Ok(true)
     }
 
     /// Remove `item` from the string array `section.key`; returns whether it
     /// was there. Other elements, comments and an empty leftover array are
     /// kept as they are.
     pub fn remove_from_str_array(&mut self, section: &str, key: &str, item: &str) -> Result<bool> {
-        let Some(table) = self.doc.get_mut(section).and_then(Item::as_table_mut) else {
+        self.remove_from_str_array_at(&[section], key, item)
+    }
+
+    /// [`Self::remove_from_str_array`] for the array at `path.key`.
+    pub fn remove_from_str_array_at(
+        &mut self,
+        path: &[&str],
+        key: &str,
+        item: &str,
+    ) -> Result<bool> {
+        let shown = path.join(".");
+        if self.get_at(path, key).is_none() {
             return Ok(false);
-        };
+        }
+        let table = self.table_at_mut(path)?;
         let Some(item_ref) = table.get_mut(key) else {
             return Ok(false);
         };
         let arr = item_ref.as_array_mut().ok_or_else(|| {
-            anyhow::anyhow!("ENTANGLE-E0754: [{section}] {key} in config.toml is not an array")
+            anyhow::anyhow!("ENTANGLE-E0754: [{shown}] {key} in config.toml is not an array")
         })?;
         let before = arr.len();
         arr.retain(|v| v.as_str() != Some(item));
@@ -231,6 +305,53 @@ opt_in = false
         let mut doc = ConfigDoc::parse(crlf).unwrap();
         doc.set_int("security", "max_tier_allowed", 2).unwrap();
         assert_eq!(doc.to_text(), "[security]\r\nmax_tier_allowed = 2\r\n");
+    }
+
+    #[test]
+    fn nested_tables_are_edited_in_place_or_created_without_empty_parents() {
+        let mut d = ConfigDoc::parse(SAMPLE).unwrap();
+        d.set_at(&["mesh", "tailscale"], "port", Value::from(9))
+            .unwrap();
+        d.set_at(&["telemetry", "otlp"], "enabled", Value::from(true))
+            .unwrap();
+        let out = d.to_text();
+        assert!(
+            out.contains(
+                "[mesh.tailscale]\nenabled = true\nacl-mode = \"trust-tailnet\"\nport = 9\n"
+            ),
+            "{out}"
+        );
+        assert!(out.contains("[telemetry.otlp]\nenabled = true\n"), "{out}");
+        assert!(
+            out.starts_with("# operator notes: keep me\n[mesh]\n"),
+            "{out}"
+        );
+
+        // A fresh document: no empty `[mesh]` header above `[mesh.tailscale]`.
+        let mut d = ConfigDoc::parse("").unwrap();
+        d.set_at(&["mesh", "tailscale"], "enabled", Value::from(true))
+            .unwrap();
+        assert_eq!(d.to_text(), "[mesh.tailscale]\nenabled = true\n");
+        assert_eq!(
+            d.get_at(&["mesh", "tailscale"], "enabled")
+                .and_then(Item::as_bool),
+            Some(true)
+        );
+
+        // Inline tables are edited where they are.
+        let mut d = ConfigDoc::parse("mesh = { transports = [\"local\"] }\n").unwrap();
+        assert!(d
+            .add_to_str_array_at(&["mesh"], "transports", "iroh")
+            .unwrap());
+        assert!(!d
+            .add_to_str_array_at(&["mesh"], "transports", "iroh")
+            .unwrap());
+        assert_eq!(
+            d.get_str_array_at(&["mesh"], "transports"),
+            ["local", "iroh"]
+        );
+        assert!(d.remove_at(&["mesh"], "transports").unwrap());
+        assert!(!d.remove_at(&["nope"], "x").unwrap());
     }
 
     #[test]

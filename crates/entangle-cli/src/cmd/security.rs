@@ -1,6 +1,7 @@
 //! `entangle security set-max-tier` and `entangle config {reload,validate}` —
 //! the safe-lowering workflow for `[security] max_tier_allowed`
-//! (spec §9.4.1).
+//! (spec §9.4.1). `entangle config {set,get,unset}` live in
+//! [`crate::cmd::configset`].
 //!
 //! Lowering the ceiling below the tier of a loaded plugin is never silent:
 //! the affected plugins are listed, the operator chooses unload-and-disable
@@ -102,6 +103,43 @@ Check ~/.entangle/config.toml without applying anything. Exits 1 if the file
 is invalid or if its `max_tier_allowed` is below the tier of a loaded plugin
 (for CI: fail fast on a config that would orphan plugins).")]
     Validate,
+    /// Set one key in config.toml (checked as the daemon loads it).
+    #[command(long_about = "\
+Set one key in ~/.entangle/config.toml, e.g.
+
+  entangle config set mesh.tailscale.enabled true
+  entangle config set mesh.iroh.enabled true
+  entangle config set node.label alice-laptop
+  entangle config set mesh.transports local,iroh
+  entangle config set mesh.overrides.<peer-id> tailscale,iroh
+
+Keys are dotted paths onto the daemon's schema (`entangle config get` lists
+them). `mesh.local.enabled` / `mesh.iroh.enabled` add or remove the transport
+in `[mesh] transports`; `mesh.tailscale.enabled` also sets `[mesh.tailscale]
+enabled`. The value is checked against the key's type and the edited file
+exactly as the daemon loads it (including the multi-node start-up rule) before
+anything is written; the write is atomic and keeps comments, key order and the
+file mode. `security.max_tier_allowed` applies to a running daemon with
+`entangle config reload`; every other key when the daemon restarts.")]
+    Set {
+        /// Dotted key, e.g. `mesh.tailscale.enabled`.
+        key: String,
+        /// New value (lists: `a,b` or a TOML array).
+        value: String,
+    },
+    /// Print one key's value (or every key, with `[*]` marking those set in the file).
+    Get {
+        /// Dotted key; omitted: list every key.
+        key: Option<String>,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Remove one key from config.toml, so the default applies.
+    Unset {
+        /// Dotted key.
+        key: String,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +168,9 @@ pub async fn run_config(a: ConfigArgs) -> Result<i32> {
             lower_or_raise(tier, Mode::Reload, Flags { force_unload, yes }).await
         }
         ConfigCmd::Validate => validate().await,
+        ConfigCmd::Set { key, value } => crate::cmd::configset::set(&key, &value),
+        ConfigCmd::Get { key, json } => crate::cmd::configset::get(key.as_deref(), json),
+        ConfigCmd::Unset { key } => crate::cmd::configset::unset(&key),
     }
 }
 

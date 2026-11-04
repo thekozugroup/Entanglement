@@ -268,7 +268,46 @@ pub fn spawn_state_metrics(
     })
 }
 
+/// The boot-time version check (spec §11 #17): refuse to enable the
+/// transport on a `tailscale` older than
+/// [`entangle_mesh_tailscale::MIN_SUPPORTED_VERSION`] (`ENTANGLE-E0791`).
+///
+/// A CLI that is missing or cannot report its version does not block the
+/// start — the liveness poller then reports the tailnet as `uninstalled` or
+/// `stopped`, and logs the daemon's version on every transition once one is
+/// seen — but it is logged. Returns the version when it was read.
+pub async fn check_version(
+    mesh: &MeshConfig,
+) -> anyhow::Result<Option<entangle_mesh_tailscale::TailscaleVersion>> {
+    let source =
+        entangle_mesh_tailscale::CliStatusSource::new(if mesh.tailscale.tailscale_cli.is_empty() {
+            "tailscale"
+        } else {
+            mesh.tailscale.tailscale_cli.as_str()
+        });
+    match source.fetch_version().await {
+        Ok(v) => {
+            v.check_supported()?;
+            tracing::info!(tailscale_version = %v, cli = source.cli(), "mesh.tailscale: host tailscale version");
+            Ok(Some(v))
+        }
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                cli = source.cli(),
+                minimum = %entangle_mesh_tailscale::MIN_SUPPORTED_VERSION,
+                "mesh.tailscale: could not read the tailscale version; it is checked again \
+                 at every liveness transition"
+            );
+            Ok(None)
+        }
+    }
+}
+
 /// Start the transport, serving loop, liveness poller and discovery task.
+///
+/// Refuses (before binding anything) when the host `tailscale` is older
+/// than the supported minimum ([`check_version`]).
 ///
 /// `tasks` / `streams` are served on the listener (pass the instances the
 /// iroh endpoint serves, so in-flight tables and limits are shared); with
@@ -282,6 +321,7 @@ pub async fn start(
     workers: Option<Arc<TailnetWorkers>>,
 ) -> anyhow::Result<TailscaleRuntime> {
     let cfg = build_config(mesh, store)?;
+    check_version(mesh).await?;
     let liveness = cfg.spawn_liveness();
     let transport = MeshTailscale::start(identity, cfg).await?;
     tracing::info!(
@@ -357,6 +397,66 @@ mod tests {
         assert!(logs_of(|| assert!(enabled(&on))).is_empty());
         let off = mesh("[mesh]\ntransports = [\"tailscale\"]\n");
         assert!(logs_of(|| assert!(!enabled(&off))).is_empty());
+    }
+}
+
+#[cfg(all(test, unix))]
+mod version_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt as _;
+
+    fn fake_cli(dir: &std::path::Path, version: &str) -> String {
+        let path = dir.join(format!("tailscale-{version}"));
+        // Written whole before it is made executable and spawned.
+        std::fs::write(
+            &path,
+            format!("#!/bin/sh\ncase \"$1\" in version) echo {version} ;; *) exit 1 ;; esac\n"),
+        )
+        .unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path.display().to_string()
+    }
+
+    fn mesh_with(cli: String) -> MeshConfig {
+        let mut cfg = crate::config::Config::default();
+        cfg.mesh.transports = vec!["tailscale".into()];
+        cfg.mesh.tailscale.enabled = true;
+        cfg.mesh.tailscale.tailscale_cli = cli;
+        cfg.mesh.tailscale.port = 0;
+        cfg.mesh
+    }
+
+    /// Spec §11 #17: the daemon refuses to enable `mesh.tailscale` on a
+    /// tailscale older than 1.62.0, before binding its listener.
+    #[tokio::test]
+    async fn boot_refuses_a_tailscale_below_the_floor() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = mesh_with(fake_cli(dir.path(), "1.58.2"));
+        let err = start(
+            &old,
+            &IdentityKeyPair::generate(),
+            PeerStore::new(),
+            None,
+            None,
+            None,
+        )
+        .await
+        .err()
+        .expect("an old tailscale is refused");
+        let text = format!("{err:#}");
+        assert!(
+            text.contains("ENTANGLE-E0791") && text.contains("1.58.2"),
+            "{text}"
+        );
+
+        let new = mesh_with(fake_cli(dir.path(), "1.62.0"));
+        assert_eq!(
+            check_version(&new).await.unwrap(),
+            Some(entangle_mesh_tailscale::TailscaleVersion::new(1, 62, 0))
+        );
+        // Missing CLI: not a refusal (the poller reports `uninstalled`).
+        let missing = mesh_with("/nonexistent/tailscale".into());
+        assert_eq!(check_version(&missing).await.unwrap(), None);
     }
 }
 

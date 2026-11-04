@@ -45,6 +45,8 @@ mod cli_mirror {
     /// Mirrors `entangle_cli::config::Config`.
     #[derive(Clone, Debug, Default, Serialize, Deserialize)]
     pub struct Config {
+        #[serde(default, skip_serializing_if = "NodeConfig::is_default")]
+        pub node: NodeConfig,
         #[serde(default)]
         pub mesh: MeshConfig,
         #[serde(default)]
@@ -53,6 +55,19 @@ mod cli_mirror {
         pub wrappers: WrappersConfig,
         #[serde(default, skip_serializing_if = "PluginsConfig::is_default")]
         pub plugins: PluginsConfig,
+    }
+
+    /// Mirrors `entangle_cli::config::NodeConfig`.
+    #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct NodeConfig {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub label: Option<String>,
+    }
+
+    impl NodeConfig {
+        fn is_default(&self) -> bool {
+            *self == Self::default()
+        }
     }
 
     /// Mirrors `entangle_cli::config::WrappersConfig`.
@@ -184,6 +199,18 @@ fn daemon_parses_the_wrapper_and_disabled_plugin_sections_the_cli_writes() {
         daemon.plugins.disabled,
         vec!["ab/agent-host@0.1.0".to_owned()]
     );
+}
+
+#[test]
+fn daemon_parses_the_node_label_the_cli_writes() {
+    let cli_cfg = cli_mirror::Config {
+        node: cli_mirror::NodeConfig {
+            label: Some("alice-laptop".to_owned()),
+        },
+        ..Default::default()
+    };
+    let daemon = daemon_parses_cli_output(&cli_cfg);
+    assert_eq!(daemon.node_label(), Some("alice-laptop"));
 }
 
 #[test]
@@ -326,12 +353,18 @@ mod source_of_truth {
         assert_eq!(
             struct_fields(&src, "Config"),
             vec![
+                "node: NodeConfig",
                 "mesh: MeshConfig",
                 "security: SecurityConfig",
                 "wrappers: WrappersConfig",
                 "plugins: PluginsConfig"
             ],
             "entangle-cli's top-level Config changed"
+        );
+        assert_eq!(
+            struct_fields(&src, "NodeConfig"),
+            vec!["label: Option<String>"],
+            "entangle-cli's [node] section changed"
         );
         assert_eq!(
             struct_fields(&src, "WrappersConfig"),

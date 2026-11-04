@@ -3,7 +3,7 @@
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
 //! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke},
 //! mesh {peers,status,trust,untrust,revoke}, peers {list,remove}, perms {list,revoke}, pair (initiator/responder),
-//! wrapper, security set-max-tier, config {reload,validate}, metrics, diag mesh.
+//! wrapper, security set-max-tier, config {reload,validate,set,get,unset}, metrics, diag mesh.
 //! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
 //! Pairing goes directly to peers.toml (no daemon RPC).
 
@@ -109,7 +109,7 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Security policy: change `max_tier_allowed` safely.
     #[command(subcommand_required = true)]
     Security(SecurityArgs),
-    /// Apply or validate config.toml changes (`reload`, `validate`).
+    /// Read, change, apply or validate config.toml (`get`, `set`, `unset`, `reload`, `validate`).
     #[command(subcommand_required = true)]
     Config(ConfigArgs),
     /// Print the detected platform and the sandbox primitive that would be used

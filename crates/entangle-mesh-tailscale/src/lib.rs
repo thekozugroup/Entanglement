@@ -63,11 +63,11 @@ pub use status::{
     CliStatusSource, Observation, StatusSource, TailnetNode, TailnetState, TailscaleStatus,
 };
 pub use stream::{SealedRecv, SealedSend, SealedStream, FRAGMENT_BYTES};
-pub use version::{parse_profiles, TailscaleProfile, TailscaleVersion, MIN_SUPPORTED_VERSION};
 pub use transport::{
     MeshConn, MeshRequest, MeshTailscale, PeerAllowlist, ProtocolHandler, RequestHandler,
     RequestProtocol, StaticAllowlist,
 };
+pub use version::{parse_profiles, TailscaleProfile, TailscaleVersion, MIN_SUPPORTED_VERSION};
 
 /// Default TCP port for Entanglement over the tailnet.
 pub const DEFAULT_PORT: u16 = 41643;

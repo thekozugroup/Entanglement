@@ -14,6 +14,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Config {
+    /// `[node]` — this device (spec §9.4).
+    #[serde(default, skip_serializing_if = "NodeConfig::is_default")]
+    pub node: NodeConfig,
     #[serde(default)]
     pub mesh: MeshConfig,
     #[serde(default)]
@@ -24,6 +27,48 @@ pub struct Config {
     /// `[plugins]` — operator state about plugins.
     #[serde(default, skip_serializing_if = "PluginsConfig::is_default")]
     pub plugins: PluginsConfig,
+}
+
+/// `[node]` section.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeConfig {
+    /// Human-readable device label (`entangle init` asks for it); shown to
+    /// the other device when pairing. Absent: the host name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+impl NodeConfig {
+    fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// The `[node] label` from config.toml, if set (an unreadable file reads as
+/// unset: callers fall back to the host name).
+pub fn node_label() -> Option<String> {
+    load(&config_path())
+        .ok()
+        .and_then(|c| c.node.label)
+        .filter(|l| !l.trim().is_empty())
+}
+
+/// This machine's host name: `/etc/hostname`, else `$HOSTNAME` /
+/// `$COMPUTERNAME`, else `my-device`.
+pub fn host_name() -> String {
+    std::fs::read_to_string("/etc/hostname")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .or_else(|| std::env::var("HOSTNAME").ok().filter(|s| !s.is_empty()))
+        .or_else(|| std::env::var("COMPUTERNAME").ok().filter(|s| !s.is_empty()))
+        .unwrap_or_else(|| "my-device".to_string())
+}
+
+/// The label this device shows to others: `[node] label`, else the host
+/// name (spec §6.3 step 2, §9.4).
+pub fn device_label() -> String {
+    node_label().unwrap_or_else(host_name)
 }
 
 /// `[wrappers]` section.

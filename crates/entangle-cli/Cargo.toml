@@ -31,6 +31,10 @@ entangle-scheduler     = { path = "../entangle-scheduler" }
 entangle-mesh-iroh     = { workspace = true }
 entangle-observability = { workspace = true, features = ["otlp"] }
 entangle-agent-host    = { path = "../entangle-agent-host" }
+# `entangle config set` validates the edited file with the daemon's own
+# config schema and start-up checks (`entangle_bin::config`). Already built
+# for the daemon binary and as a dev-dependency: no new crates or features.
+entangle-bin           = { path = "../entangle-bin" }
 camino            = { workspace = true }
 clap              = { workspace = true, features = ["derive"] }
 clap_complete     = "4"

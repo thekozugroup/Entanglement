@@ -5,6 +5,7 @@ pub mod backup;
 pub mod catalog;
 pub mod compute;
 pub mod compute_stream;
+pub mod configset;
 pub mod diag;
 pub mod doctor;
 pub mod init;

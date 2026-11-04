@@ -358,9 +358,7 @@ impl CliStatusSource {
 
     /// Run `tailscale switch --list` and parse the profiles. A CLI too old
     /// to have `switch` fails with [`MeshTailscaleError::Status`].
-    pub async fn list_profiles(
-        &self,
-    ) -> Result<Vec<crate::TailscaleProfile>, MeshTailscaleError> {
+    pub async fn list_profiles(&self) -> Result<Vec<crate::TailscaleProfile>, MeshTailscaleError> {
         let out = self
             .run(&["switch", "--list"])
             .await

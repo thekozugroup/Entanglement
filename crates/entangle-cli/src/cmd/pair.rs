@@ -344,13 +344,13 @@ fn persist_paired(args: &PairArgs, paired: &PairedPeer) -> anyhow::Result<()> {
 
 // ── Display name ──────────────────────────────────────────────────────────────
 
+/// `--display-name`, else `[node] label` from config.toml, else the host
+/// name: the human-readable label the other device shows next to this one's
+/// fingerprint (spec §6.3 step 2).
 fn resolve_display_name(args: &PairArgs) -> String {
-    args.display_name.clone().unwrap_or_else(|| {
-        // Try to get a reasonable device name from environment variables.
-        std::env::var("HOSTNAME")
-            .or_else(|_| std::env::var("COMPUTERNAME"))
-            .unwrap_or_else(|_| "unknown".to_string())
-    })
+    args.display_name
+        .clone()
+        .unwrap_or_else(crate::config::device_label)
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────
