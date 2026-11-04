@@ -391,7 +391,7 @@ flowchart TB
   BR --> CONN[Pick transport per peer-pair, log choice]
 ```
 
-**Negotiation between modes:** for any peer pair where both nodes share more than one transport, Entanglement picks in order: `mesh.local` (cheapest) → `mesh.tailscale` (already on a trusted overlay) → `mesh.iroh` (last because of DERP latency). The chosen transport is recorded on the peer record. The user can force a transport via `[mesh] preferred = "tailscale"` or per-peer overrides. **Honestly unsupported configurations** (documented):
+**Negotiation between modes:** for any peer pair where both nodes share more than one transport, Entanglement picks in order: `mesh.local` (cheapest) → `mesh.tailscale` (already on a trusted overlay) → `mesh.iroh` (last because of DERP latency). The chosen transport is recorded on the peer record. The user can force a transport via `[mesh] preferred = "tailscale"` or per-peer overrides. *Implementation note (deviation):* the choice is made per request (or stream) by the scheduler's transport router, trying candidates in that order and moving to the next only when *connecting* fails — a failure after the request may have been delivered, or any answer from the peer, is never retried elsewhere. `preferred` moves one transport to the front and keeps the others as fallbacks; a per-peer override (`[mesh.overrides] "<peer-id>" = "iroh"` or an ordered list) is exact, with no fallback outside it. "Recorded on the peer record" is the router's in-memory record of the transport that last carried traffic to the peer, shown by `entangle diag mesh` and as a `transport` metric label; it is not persisted to `peers.toml`. `mesh.local` candidates (mDNS sightings that advertise a key and mesh port) are dialled over the `mesh.iroh` endpoint, so they need `"iroh"` in `transports` as well as `"local"`. **Honestly unsupported configurations** (documented):
 
 - Networks blocking UDP outbound AND not running Tailscale AND with no LAN peers: not supported. Tell the user to install Tailscale.
 
@@ -549,7 +549,7 @@ Biscuits unchanged in semantics. Two additions:
 
 ### 6.7 ALPN multiplexing
 
-`entangle/control/1` membership; `entangle/scheduler/1` work; `entangle/stream/1` streaming tasks (§7.1; served on the same endpoint and port as `entangle/scheduler/1`); `entangle/agent/1` A2A; `entangle/blobs/1` blob transfer; `entangle/docs/1` shared-storage. Same as. ---
+`entangle/control/1` membership; `entangle/scheduler/1` work; `entangle/stream/1` streaming tasks (§7.1; served on the same endpoint and port as `entangle/scheduler/1`); `entangle/agent/1` A2A; `entangle/blobs/1` blob transfer; `entangle/docs/1` shared-storage. Same as. *Implementation note:* `mesh.tailscale` has no ALPN (one TCP stream per connection), so a connection names the same protocol string in its first sealed record after the handshake and the server answers served / not served before anything else; streams over the tailnet carry the frames as sealed records whose first record authenticates the frame length. ---
 
 ## 7. Distributed Compute Scheduler (a Plugin)
 

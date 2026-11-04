@@ -110,6 +110,8 @@ bus_capacity = 1024        # default 1024
 [mesh]
 transports = ["local"]     # default: [] (empty)
 multi_node = false         # default: false
+# preferred = "tailscale"  # daemon-only; see §19
+# [mesh.overrides]         # daemon-only; see §19
 
 [security]
 max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
@@ -136,7 +138,9 @@ service_name = "entangled"
 | Section | Key | Type | Default | Meaning |
 |---|---|---|---|---|
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
-| `[mesh]` | `transports` | array of strings | `[]` | Active mesh transport backends. Phase 1 supports only `"local"` (mDNS on `_entangle._udp.local`). Listing `"iroh"`/`"tailscale"` here does not activate them — those crates are Phase-2 scaffolds. |
+| `[mesh]` | `transports` | array of strings | `[]` | Active mesh transports: `"local"` (mDNS on `_entangle._udp.local`; LAN dialling also needs `"iroh"`), `"iroh"` (the scheduler endpoint, `[scheduler]`), `"tailscale"` (also needs `[mesh.tailscale] enabled = true`, §10). See §19 for how a transport is chosen per peer. |
+| `[mesh]` | `preferred` | string | absent | Daemon-only. `"local"`, `"tailscale"` or `"iroh"`: tried first for every peer; the others stay fallbacks in the spec order (§19). Anything else fails the load (`ENTANGLE-E0434`). |
+| `[mesh.overrides]` | `"<peer-id>"` | string or array of strings | none | Daemon-only. Per peer (32-hex peer id): one transport forces it, a list gives the exact order; no fallback outside it (§19). A bad id, an empty list or a repeated transport fails the load (`ENTANGLE-E0435`). |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
 | `[metrics]` | `enabled`, `listen`, `allow_non_loopback` | bool, `ip:port`, bool | `false`, `127.0.0.1:9464`, `false` | Prometheus scrape endpoint (§14). A non-loopback `listen` is refused (`ENTANGLE-E0656`) unless `allow_non_loopback = true`. |
 | `[telemetry.otlp]` | `enabled`, `endpoint`, `service_name` | bool, URL, string | `false`, `http://localhost:4318`, `entangled` | OTLP/HTTP trace export (§14). `endpoint` must be `http://`; `4318` is OTLP/HTTP (`4317` is gRPC, which is not spoken). |
@@ -162,7 +166,10 @@ Notes:
     which gets range validation for free — the wire representation (an
     integer 1–5) is identical either way.
 - `[runtime]`, `[metrics]` and `[telemetry]` are daemon-only; the CLI never
-  writes them and ignores them when it reads the file. Two keys that *used to*
+  writes them and ignores them when it reads the file. So are the `[mesh]`
+  keys `preferred`, `[mesh.overrides]` and `[mesh.tailscale]`: the CLI's
+  `[mesh]` models only `transports` and `multi_node`, ignores the rest when
+  reading, and leaves them alone when editing. Two keys that *used to*
   live under `[runtime]` (`multi_node`, `max_tier`) were relocated to `[mesh]`
   and `[security]` respectively — the old locations are now hard parse errors
   thanks to `deny_unknown_fields`, not silently-ignored dead settings.
@@ -300,6 +307,7 @@ canonical range table, maintained in
 | E0300–E0301 | Task execution (output-size limit, timeout) |
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
 | E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum (`entangle-runtime::IntegrityError`; see §11) |
+| E0430–E0449 | Scheduler transport selection (`entangle_scheduler::transport::RouteError`; see §19): no route to the peer on any usable transport (E0430), every candidate failed to connect (E0431), a transport failed after the request was sent and it was not retried (E0432), a frame over the transport cap (E0433), an unknown transport name in `[mesh] preferred` / `[mesh.overrides]` (E0434), an unusable `[mesh.overrides]` entry (E0435) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
 | E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component; `E0511` an invocation or stream stopped because a network grant it relied on was revoked (or the plugin unloaded, or the tier ceiling lowered below it) while it ran (`entangle-host`) |
 | E0600–E0699 | Agent-host adapter (`entangle-agent-host`) |
@@ -501,6 +509,33 @@ tailscale-cli = ""             # empty = `tailscale` on $PATH
   `entangle::mesh::tailscale`.
 * `entangle doctor` reports the current state in its `tailscale` row.
 * Errors: `ENTANGLE-E0640`..`E0649`. Handshake failures are logged at debug.
+
+**What the listener serves.** The scheduler protocols, exactly as the iroh
+endpoint does: one-shot tasks (`entangle/scheduler/1`) and streaming tasks
+(`entangle/stream/1`, §17), by the same task and stream servers (so the
+in-flight tables and the 64-stream limit span both transports). A
+connection names its protocol in its first sealed record after the
+handshake, the tailnet's equivalent of an ALPN; the daemon answers
+"served" or "not served" before anything else, and closes a connection
+that sends anything else. Two gates apply, in order:
+
+1. the transport's: the handshake authenticates the peer's `PeerId`, and in
+   `entangle-on-top` the peer must be in `peers.toml` before it can even
+   select a protocol (re-checked for every request and stream frame);
+2. the scheduler's: the peer must be trusted in `peers.toml` (and not
+   revoked) before any frame it sends is decoded, or it gets
+   `not-authorized`.
+
+`acl-mode = "trust-tailnet"` relaxes only the first gate (who may connect);
+who may run work is always the peer store. Frames are capped at 16 MiB +
+64 KiB, as on iroh (one maximal task input plus envelope).
+
+Outbound, the tailnet is one of the transports remote dispatch chooses from
+per peer (§19). It is used only while liveness is `active`: in `stopped` or
+`uninstalled` the discovery candidates are dropped and the router skips the
+transport, so peers also known over iroh or the LAN are re-routed there, and
+peers known only over the tailnet fail fast with `ENTANGLE-E0430` instead of
+dialling.
 
 ---
 
@@ -810,8 +845,9 @@ scrape_configs:
 | `entangle_biscuit_verification_seconds` | histogram | `outcome` (`ok`/`denied`) | Latency of cross-node biscuit verification. |
 | `entangle_rpc_requests_total` | counter | `method`, `outcome` (`ok`/`error`) | RPC requests. |
 | `entangle_rpc_request_duration_seconds` | histogram | `method` | RPC handling time. |
-| `entangle_remote_dispatch_total` | counter | `outcome` | Tasks this node sent to a peer: `ok`, `transport_error`, `output_too_large`, `error`, or `rejected_<code>` for a peer's refusal (`rejected_not_authorized`, `rejected_plugin_not_loaded`, ...). |
-| `entangle_remote_serve_total` | counter | `outcome` | Frames this node answered for peers: `ok`, `ack`, or the refusal code (`not-authorized`, `plugin-not-loaded`, ...). |
+| `entangle_remote_dispatch_total` | counter | `outcome`, `transport` | Tasks this node sent to a peer: `ok`, `transport_error`, `output_too_large`, `error`, or `rejected_<code>` for a peer's refusal (`rejected_not_authorized`, `rejected_plugin_not_loaded`, ...). `transport` is the one that carried it (or was being tried when it failed): `local`, `tailscale`, `iroh`, or `none` when no transport had a route. |
+| `entangle_remote_serve_total` | counter | `outcome`, `transport` | Frames this node answered for peers: `ok`, `ack`, or the refusal code (`not-authorized`, `plugin-not-loaded`, ...). `transport` is the one the frame arrived on: `iroh` (which includes LAN dialling, `local` on the sender's side) or `tailscale`. |
+| `entangle_remote_stream_opens_total` | counter | `outcome` (`ok`, `transport_error`, `no_route`), `transport` | Streams this node opened to peers through the transport router (§19). |
 | `entangle_integrity_verdicts_total` | counter | `policy`, `outcome` | One per `compute/dispatch`: `policy` is `none`, `deterministic`, `semantic-equivalent`, `trusted-executor` or `attested`; `outcome` is `accepted`, `rejected` (integrity refusal), `output_size_exceeded` or `failed` (placement/transport/execution). |
 | `entangle_integrity_output_size_exceeded_total` | counter | — | Replica outputs over `max_output_bytes` (the `OutputSizeExceededWarning` events, `ENTANGLE-E0300`). |
 | `entangle_reputation_peers` | gauge | `policy`, `tier` (`trusted`/`good`/`probation`/`excluded`) | How many observed peers sit in each reputation tier. |
@@ -830,7 +866,8 @@ No label carries a peer id or free text. `capability` is the capability
 *kind* (`compute.cpu`, `storage.share`, `custom`, ...), never a share or
 custom name. `method` is normalised to the RPC methods the daemon implements
 (everything else is `unknown`). `class`, `policy`, `tier`, `state` and
-`outcome` draw from the closed sets above. The one open-ended label is
+`outcome` draw from the closed sets above, and `transport` from `local`,
+`tailscale`, `iroh`, `none`. The one open-ended label is
 `plugin`: each distinct plugin id gets its own series for the **first 64**
 ids the daemon sees; later ids fold into `plugin="other"`. As a backstop every
 family holds at most 512 label sets (excess samples are dropped and counted in
@@ -879,12 +916,13 @@ the daemon's exit by at most about 11 s. Failures are visible as
 
 Spans (from `entangle*` targets, `INFO` and above, independent of
 `RUST_LOG`): `rpc.request`, `task.dispatch`, `plugin.invoke`,
-`remote.dispatch` (client) and `remote.task.execute` (server). `WARN`/`ERROR`
+`remote.dispatch` (client) and `remote.task.execute` (server); the last two
+carry a `transport` attribute (`local`, `tailscale`, `iroh`, `none`). `WARN`/`ERROR`
 events inside a span are attached to it; an `ERROR` marks the span failed.
 
 **Across the mesh.** When a remote dispatch happens inside a recorded span,
 the task frame carries a W3C `traceparent` (an optional trailing extension on
-the scheduler wire v2 task frame). The worker's `remote.task.execute` span
+the scheduler wire v2 task frame), over whichever transport carries it. The worker's `remote.task.execute` span
 joins that trace, so one trace shows the submitter's `remote.dispatch` and the
 worker's execution (and its `plugin.invoke`) as parent and child. The worker
 treats the value as untrusted: it only chooses which trace the span belongs
@@ -892,7 +930,8 @@ to; authorization is decided before and independently from the transport-
 authenticated peer id, and a malformed value is ignored. With export off no
 extension is sent, so frames are byte-identical to before. A peer built before
 this extension answers it `MalformedRequest`; the dispatcher then resends the
-same task without it and stops attaching it for that peer until restart.
+same task without it, on the same transport, and stops attaching it for that
+peer until restart.
 
 ### 14c. `entangle diag mesh`
 
@@ -910,8 +949,10 @@ Local endpoints
 
 Trusted peers (2)
   desk  7a21…  [trusted]
-    mdns       192.168.1.31:7001   sighted 4s ago (1 address; unauthenticated, passive)
+    mdns       192.168.1.31:7001   sighted 4s ago (1 address; unauthenticated, passive)  rtt 1.1 ms
     iroh       192.168.1.31:41641  address book ([scheduler] peers)  rtt 3.2 ms
+    route: local -> iroh  (last used: local, 12s ago)
+      skipped tailscale: not running on this node
   ghost  c0de…  [trusted]
     no path: no transport currently knows how to reach this peer
     hint: is the peer on the same LAN with mDNS allowed?; add its address under [scheduler] peers
@@ -927,14 +968,25 @@ path a transport currently knows: an mDNS sighting, an iroh address-book entry
 (`[scheduler] peers`), a tailscale candidate. Untrusted mDNS sightings are only
 counted.
 
+Each trusted peer also has a `route:` line: the transports remote dispatch
+would try for it right now, in order (§19), the transports it would skip and
+why (`tailscale: tailnet stopped (NeedsLogin)`, `iroh: not in the address
+book ([scheduler] peers)`, `... [mesh.overrides]`), and the transport the
+last successful dispatch or stream to it used (the peer record's chosen
+transport). It is absent when this node dispatches nothing remotely.
+
 `--probe` (with `--timeout-ms`, default 3000, at most 30000) measures a round
-trip per path, through the daemon, concurrently. The iroh probe is a scheduler
-control frame about a task that does not exist: the peer authenticates us,
-checks its allowlist and answers `unknown task` without running anything, so
-an answer proves dial + handshake + authorization. A peer that answers
-`not authorized` is shown as reached with that error: the network path is fine
-but *it* does not trust this node. tailscale paths are probed with one request
-over the tailnet session. mDNS sightings are passive and have no round trip.
+trip per path, through the daemon, concurrently, each over its own transport
+regardless of the routing policy. Every probe is a scheduler control frame
+about a task that does not exist: the peer authenticates us, checks its
+allowlist and answers `unknown task` without running anything, so an answer
+proves dial + handshake + authorization. A peer that answers `not authorized`
+is shown as reached with that error: the network path is fine but *it* does
+not trust this node. iroh paths are probed over the iroh endpoint, tailscale
+paths over the tailnet session (`entangle/scheduler/1` selected on it), and an
+mDNS sighting that advertises a key and mesh port over the LAN path when this
+node runs the iroh endpoint; other sightings are passive and have no round
+trip.
 
 ---
 
@@ -1147,7 +1199,8 @@ log tail. The submitter controls the pace: the executor may run at most
 A daemon with `"iroh"` in `[mesh] transports` serves streams on its
 scheduler endpoint: the same `[scheduler] bind` port answers both
 `entangle/scheduler/1` (one-shot tasks) and `entangle/stream/1`, so a peer's
-one long address covers both. The gate is the same peer store: only peers
+one long address covers both. With `mesh.tailscale` running (§10) the
+tailnet listener serves both as well, by the same stream server. The gate is the same peer store: only peers
 paired with `entangle mesh trust` (and not revoked) may open a stream, and an
 unpaired peer is refused before anything it sent is decoded. Load the stream
 plugin like any other (`entangle plugins load <dir>`); a one-shot plugin
@@ -1173,7 +1226,10 @@ streams at once.
 dials the executor itself with this node's identity (`~/.entangle/identity.key`,
 so the executor's allowlist entry for this node covers it), grants credit as
 stdout drains, and verifies every chunk's signature against the key the QUIC
-handshake proved for the executor.
+handshake proved for the executor. It dials over iroh only (the long address
+from `--peer` or `[scheduler] peers`); choosing among transports per peer
+(§19) is what the scheduler library's transport router does, and it is not
+wired into this command yet.
 
 ```bash
 # On a paired peer, by long address or by peer id ([scheduler] peers gives the address):
@@ -1347,3 +1403,93 @@ plugin, use `deny_capabilities` instead.
 Every grant, denial, release and revocation is recorded in the broker's
 audit log with the plugin, the capability and its parameters, the reason and
 the time.
+
+---
+
+## 19. Transport selection (`local`, `tailscale`, `iroh`)
+
+Spec §6.1. A daemon can reach a peer over up to three transports at once,
+and picks one **per request** (and per stream) from what it currently knows
+about that peer.
+
+### Where the candidates come from
+
+| Transport | Running when | Candidate for a peer when |
+|---|---|---|
+| `local` | `"local"` **and** `"iroh"` in `[mesh] transports` | its mDNS sighting advertises its key and mesh port (every daemon running the iroh endpoint advertises them) and it is trusted in `peers.toml`. Dialled over the iroh endpoint to the LAN addresses only. |
+| `tailscale` | §10 (`[mesh.tailscale] enabled = true` and `"tailscale"` in `transports`) | the last discovery round found it on the tailnet **and** the tailnet is `active`. |
+| `iroh` | `"iroh"` in `transports` | its long address is in `[scheduler] peers` and it is trusted. |
+
+Every connection authenticates the peer's `PeerId` and pins it to the key
+the candidate names (the QUIC handshake, or the tailnet's signed key
+exchange), so a stale or spoofed address can only fail to connect, never
+reach someone else.
+
+### The order
+
+1. A peer with a `[mesh.overrides]` entry: exactly the transports listed
+   there, in that order. One transport forces it; nothing outside the list
+   is ever tried for that peer.
+2. Otherwise `local`, then `tailscale`, then `iroh` (cheapest first), with
+   `[mesh] preferred` moved to the front if set.
+
+```toml
+[mesh]
+transports = ["local", "tailscale", "iroh"]
+preferred = "tailscale"            # first for every peer without an override
+
+[mesh.overrides]                   # keys: the peer id (`entangle mesh peers`)
+"7a21c0de7a21c0de7a21c0de7a21c0de" = "iroh"                  # only iroh
+"0b5e55ed0b5e55ed0b5e55ed0b5e55ed" = ["tailscale", "iroh"]   # these, in order
+```
+
+Both keys are validated when the file is loaded: an unknown transport name
+is `ENTANGLE-E0434`, a bad peer id, an empty list or a repeated transport
+`ENTANGLE-E0435`, and the daemon does not start. Naming a transport that is
+not running is accepted (it may be enabled later) and logged at startup;
+until then it simply has no candidates.
+
+### Fallback, and what is never retried
+
+The router tries the candidates in order. It moves on to the next one only
+when **connecting** fails: dial refused or timed out, handshake or identity
+failure, the peer's ACL refusing us on the tailnet, or the peer not serving
+the protocol. Nothing was delivered in those cases. Everything after the
+connection is up is final:
+
+* an answer from the peer — success, or a refusal such as `not-authorized`
+  or `plugin-not-loaded` — is the result, never resent elsewhere;
+* a transport failure once the request may have reached the peer (a reset
+  mid-response, a response timeout, an over-cap frame) fails the dispatch
+  with `ENTANGLE-E0432` / `E0433` rather than risking a second execution.
+
+When no candidate exists the dispatch fails at once with `ENTANGLE-E0430`
+(naming, per transport, why it had none); when every candidate failed to
+connect, with `ENTANGLE-E0431` (naming each attempt). Both arrive inside
+`ENTANGLE-E0402` (`compute/dispatch`) or `ENTANGLE-E0363` (streams).
+
+The transport that carried the last successful request or stream to a peer
+is recorded (in memory, per peer), logged at info when it changes
+(`mesh: transport chosen for peer`), shown in `entangle diag mesh` (§14c) and
+used as the `transport` label of `entangle_remote_dispatch_total` and
+`entangle_remote_stream_opens_total` (§14a).
+
+### Serving
+
+Inbound, both transports serve the same thing — one task server and one
+stream server behind `peers.toml` — so a peer may reach this node over
+whichever transport it picks. The serving side's `transport` label is the
+transport that carried the frame (`iroh` covers LAN dialling).
+
+### Troubleshooting
+
+| Symptom | Likely cause and fix |
+|---|---|
+| `ENTANGLE-E0430 ... tailscale: tailnet stopped (NeedsLogin)` | The tailnet is down and the peer is known only there. `tailscale up`, or give it a `[scheduler] peers` address. |
+| `... tailscale: not a tailnet discovery candidate` | The peer is not online in the tailnet, does not run `entangled` with `mesh.tailscale`, or uses another `[mesh.tailscale] port`. Discovery runs every 60 s; `entangle diag mesh` shows the candidate count. |
+| `... local: no mDNS sighting with a dialable address` | The peer is not on the LAN, mDNS is blocked, or it runs without `"iroh"` (nothing to dial). |
+| `... iroh: not in the address book ([scheduler] peers)` | Add the peer's long address under `[scheduler] peers` (it must also be trusted). |
+| `ENTANGLE-E0431 ... tailscale: ... rejected us (we are not in its allowlist)` | The peer runs `entangle-on-top` and has not trusted this node: pair the two (`entangle pair`) or `entangle mesh trust` this node on the peer. |
+| `... does not serve entangle/scheduler/1 over mesh.tailscale` | The peer's tailnet listener predates this release (it answered without protocol selection). Upgrade it; until then the router falls back to the next transport. |
+| Traffic uses a slower transport than expected | Check the `route:` line in `entangle diag mesh` (order, skips, last used) and `[mesh] preferred` / `[mesh.overrides]`. A connect failure on the first candidate (e.g. a stale tailnet address) silently falls back; `RUST_LOG=entangle_scheduler=debug` logs each failed attempt. |
+| `ENTANGLE-E0432` | The connection broke after the request was sent; the task may or may not have run on the peer, so it was not retried. Re-submit if the task is idempotent. |
