@@ -114,6 +114,7 @@ multi_node = false         # default: false
 [security]
 max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
 allow_unsandboxed_native = false   # default: false
+deny_capabilities = []     # default: none denied; e.g. ["net.wan", "storage.share.*"]
 
 [metrics]                  # daemon-only; see §14
 enabled = false            # default: false
@@ -135,6 +136,7 @@ service_name = "entangled"
 | `[telemetry.otlp]` | `enabled`, `endpoint`, `service_name` | bool, URL, string | `false`, `http://localhost:4318`, `entangled` | OTLP/HTTP trace export (§14). `endpoint` must be `http://`; `4318` is OTLP/HTTP (`4317` is gRPC, which is not spoken). |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
 | `[security]` | `allow_unsandboxed_native` | bool | `false` | Run native (tier 4–5) plugins on a host that has **no** OS sandbox primitive. Off: such plugins are refused with `ENTANGLE-E0700`. No effect on hosts that have one — the sandbox is then always engaged. See §12. |
+| `[security]` | `deny_capabilities` | array of strings | `[]` | Capabilities the broker never grants to any plugin, whatever its manifest declares (spec §4.5): exact keys (`"net.wan"`, `"storage.share.photos"`, `"custom.telemetry"`), family prefixes (`"net.*"`, `"storage.*"`, `"storage.share.*"`, `"compute.*"`, `"custom.*"`) or `"*"`. A plugin that declares a denied capability **still loads, without it**; see §15. An invalid pattern (e.g. `"net.wann"`) is a startup error, `ENTANGLE-E0126`. Omitted from the file the CLI writes when empty. |
 
 Notes:
 
@@ -176,6 +178,7 @@ world-writable path like `/tmp`).
 | `~/.entangle/peers.toml` | Persistent trusted-peer allowlist (pairing results). | `0600` | Written atomically via a mode-`0600` sibling temp file + rename. |
 | `~/.entangle/sock` | The daemon's Unix-domain RPC socket. | `0600` | The server **forces** mode `0600` after bind and **refuses to serve** if any group/other bit remains; every accepted connection is additionally checked against the socket owner's uid via `SO_PEERCRED` (defense-in-depth beyond the mode bit). |
 | `~/.entangle/cache/`, `~/.entangle/logs/` | Plugin artifact cache; daemon logs. | — | Managed by the built-in maintenance loop (§7). |
+| `~/.entangle/data/` | Plugin storage: `plugins/<publisher>/<name>/` (each plugin's private directory, wasm `/data` or native `$ENTANGLE_DATA_DIR`), `shared/`, `shares/<name>/`. See §15. | `0700` on every directory the daemon creates | Created on demand when a storage grant is realised, without following symbolic links. |
 
 `entangle doctor` (see §4) is the fastest way to audit all of the above at
 once — its `identity-perms` and `dir-perms` checks specifically flag mode
@@ -279,12 +282,13 @@ canonical range table, maintained in
 |---|---|
 | E0042–E0043 | Tier violations (plugin tier vs. capability requirement, or vs. daemon ceiling) |
 | E0100–E0122 | Authentication / authorization (signature verification, publisher trust, capability grants) |
-| E0200–E0201 | Manifest / plugin id validation |
+| E0123–E0127 | Capability broker: duplicate registration (E0123), operator `deny_capabilities` refusal (E0124), revoked capability (E0125), invalid `deny_capabilities` pattern (E0126), tier ceiling on a grant (E0127) — see §15 |
+| E0200–E0203 | Manifest / plugin id validation; malformed (E0202) or unknown (E0203) capability parameters |
 | E0300–E0301 | Task execution (output-size limit, timeout) |
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
 | E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum (`entangle-runtime::IntegrityError`; see §11) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
-| E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch (`entangle-host`) |
+| E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component (`entangle-host`) |
 | E0600–E0699 | Agent-host adapter (`entangle-agent-host`) |
 | E0700–E0719 | OS-sandbox engagement (`entangle-sandbox`) — see §12 |
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
@@ -579,10 +583,10 @@ reported as *reduced* (UDP not isolated) rather than silently accepted.
 
 | Capability | Child gets |
 |---|---|
-| `storage.local { scope = "plugin" }` | rw `~/.entangle/data/plugins/<publisher>/<name>` = `$ENTANGLE_DATA_DIR` = `$HOME` = cwd |
-| `storage.local { scope = "shared" }` | rw `~/.entangle/data/shared` = `$ENTANGLE_SHARED_DIR` |
+| `storage.local { scope = "plugin" }` | `~/.entangle/data/plugins/<publisher>/<name>` = `$ENTANGLE_DATA_DIR` = `$HOME` = cwd; rw, or ro with `mode = "ro"` |
+| `storage.local { scope = "shared" }` | `~/.entangle/data/shared` = `$ENTANGLE_SHARED_DIR`; rw, or ro with `mode = "ro"` |
 | `storage.share.<n>` | `~/.entangle/data/shares/<n>` (ro / rw / rw-scoped per mode) = `$ENTANGLE_SHARE_<N>`; `<n>` must match `[a-z0-9][a-z0-9_-]*`, so a share can never name a path outside `shares/` (`ENTANGLE-E0743`) |
-| `net.lan`, `net.wan` | IP networking (no per-host allowlist yet) |
+| `net.lan`, `net.wan` | IP networking (no per-host allowlist yet — wasm plugins get per-address rules, §15) |
 | `compute.gpu` | read, write and ioctl on `/dev/dri`, `/dev/kfd`, `/dev/nvidia*` when present (ordinary scopes never get device ioctls) |
 | `host.docker-socket` | rw `/var/run/docker.sock` + `AF_UNIX` sockets |
 
@@ -775,8 +779,8 @@ scrape_configs:
 | `entangle_plugin_errors_total` | counter | `plugin`, `class` | Failed invocations by error-code class: `E05xx` is `ENTANGLE-E05..`, `none` if the error carries no code. |
 | `entangle_plugins_loaded` | gauge | — | Plugins currently loaded. |
 | `entangle_plugin_uptime_seconds` | gauge | `plugin` | Seconds since each loaded plugin was loaded (series vanish on unload). |
-| `entangle_capability_grants_total` | counter | `capability` | Broker grants. Emitted by `Broker::grant`; plugin `capability.fetch` is not yet routed through the broker, so a plugin call does not move this series yet. |
-| `entangle_capability_denials_total` | counter | `capability`, `reason` (`not_declared`, `biscuit_invalid`) | Broker denials (same caveat as grants). |
+| `entangle_capability_grants_total` | counter | `capability` | Broker grants: one per declared capability when a plugin loads (its standing grant), plus one per successful plugin `capability.fetch`. |
+| `entangle_capability_denials_total` | counter | `capability`, `reason` (`not_declared`, `operator_policy`, `tier_ceiling`, `revoked`, `biscuit_invalid`) | Broker denials, at load (`operator_policy`) and for every refused `capability.fetch`. |
 | `entangle_biscuit_verification_seconds` | histogram | `outcome` (`ok`/`denied`) | Latency of cross-node biscuit verification. |
 | `entangle_rpc_requests_total` | counter | `method`, `outcome` (`ok`/`error`) | RPC requests. |
 | `entangle_rpc_request_duration_seconds` | histogram | `method` | RPC handling time. |
@@ -905,3 +909,105 @@ an answer proves dial + handshake + authorization. A peer that answers
 `not authorized` is shown as reached with that error: the network path is fine
 but *it* does not trust this node. tailscale paths are probed with one request
 over the tailnet session. mDNS sightings are passive and have no round trip.
+
+---
+
+## 15. Plugin capability grants
+
+A plugin's manifest *declares* capabilities; the daemon's capability broker
+*grants* them, and only grants have any effect. When a plugin is loaded the
+kernel asks the broker to decide every declared capability once (spec §4.5).
+Each is granted unless the operator's policy refuses it:
+
+- `[security] max_tier_allowed` below the plugin's tier refuses the whole
+  plugin (`ENTANGLE-E0043`, before anything is verified or granted);
+- `[security] deny_capabilities` refuses individual capabilities. **The
+  plugin still loads, without them**: the denial is audited, counted
+  (`entangle_capability_denials_total{reason="operator_policy"}`), logged as
+  a warning, and shown by `entangle perms list`. Inside the plugin a denied
+  capability behaves exactly like one it never had — no directory, no
+  network, `capability.fetch` answers `not-granted` with `ENTANGLE-E0124`.
+  This follows §4.5, where the deny decision is made per capability request,
+  and lets an operator run a plugin with less than it asked for; plugins are
+  expected to degrade gracefully.
+
+These load-time grants are what both runtimes build the sandbox from: the
+OS-sandbox profile for native plugins (§12), the WASI context for wasm
+plugins (below). The manifest is never read directly for this. Each
+`capability.fetch` a plugin makes at run time is a further broker decision,
+audited and counted the same way.
+
+### What a wasm plugin's grants realise
+
+| Grant | In the guest |
+|---|---|
+| `storage.local { scope = "plugin" }` | `/data` → `~/.entangle/data/plugins/<publisher>/<name>/`, read-write or read-only per `mode` |
+| `storage.local { scope = "shared" }` | `/shared` → `~/.entangle/data/shared/` |
+| `storage.share.<n>` | `/shares/<n>` → `~/.entangle/data/shares/<n>/` (`rw-scoped`: its `<publisher>/<name>/` subdirectory) |
+| `net.lan` | TCP/UDP to RFC 1918, link-local and unique-local IPv6 addresses; DNS |
+| `net.wan { hosts }` | TCP/UDP to exactly the listed host:port pairs; DNS |
+| anything else (`compute.*`, `custom.*`, …) | nothing in WASI; `capability.fetch` returns a handle |
+| no grant at all | no preopened directory, no TCP, no UDP, no DNS |
+
+- **Where plugin data lives.** `~/.entangle/data/plugins/<publisher>/<name>/`,
+  shared with native plugins (the same capability names the same directory in
+  both runtimes) and keyed by publisher and name — not version, so an upgrade
+  keeps its data. The daemon creates every directory `0700` without following
+  symbolic links, and re-validates the publisher, name and share name as
+  single path components (`ENTANGLE-E0510`). A grant whose directory is a
+  symbolic link or not a directory fails the load (`ENTANGLE-E0509`), as does
+  a storage grant on a kernel with no data directory (`ENTANGLE-E0508`).
+  Inside the guest, wasmtime-wasi (cap-std) confines every path to its
+  preopen: absolute paths elsewhere, `..` above it, and symbolic links that
+  point out of it — whether the guest or anyone else created them — fail.
+  Back up or delete a plugin's data by copying or removing its directory
+  while it is not running.
+- **Network rules.** Loopback (`127.0.0.0/8`, `::1`) is reachable through no
+  grant, so plugins cannot reach the daemon or other local services; neither
+  are CGNAT, multicast, broadcast, documentation or other special-purpose
+  ranges. IPv4-mapped and NAT64 IPv6 forms are judged by the IPv4 address
+  they carry. Plugins never listen. `net.wan` host names are resolved by the
+  daemon when an invocation starts (bounded at 5 s; a name that does not
+  resolve is simply unreachable for that invocation, with a warning in the
+  log), and the invocation may connect to exactly those addresses. This is
+  done at instantiation rather than by checking the guest's own lookups at
+  connect time because the socket check only ever sees an address, and the
+  guest controls the name-to-address mapping it would present; pinning also
+  makes DNS rebinding during an invocation useless. An allowlisted name that
+  resolves to a LAN or loopback address is not reachable through `net.wan`.
+  Wildcard `net.wan` entries are tier 4 and therefore never reach a wasm
+  plugin (wasm is tier 1–3).
+- **Resource limits** (fuel/epoch deadline, memory) are unchanged by grants.
+
+### Inspecting and revoking grants
+
+```console
+$ entangle perms list
+aabbccddeeff00112233445566778899/fetcher@0.3.1 (tier 3)
+  net.wan [hosts=api.example.com:443]              denied: operator policy (deny_capabilities = "net.wan")
+  storage.local [scope=plugin mode=rw]             granted (grant 7)
+
+$ entangle perms revoke aabbccddeeff00112233445566778899/fetcher@0.3.1 storage.local
+storage.local revoked from aabbccddeeff00112233445566778899/fetcher@0.3.1; withdrew grant(s) 7
+It stays revoked until the plugin is unloaded and loaded again.
+```
+
+`entangle perms list [<plugin>] --json` prints the `perms/list` RPC result:
+per plugin, its effective tier and every declared capability with its
+parameters, `state` (`granted` with the outstanding `grant_ids` — the load-time
+grant plus any handle a running invocation holds; `denied` with the `reason`;
+`revoked`; `not-granted`). Both commands need the daemon.
+
+A revocation takes effect at once for `capability.fetch` (`revoked`,
+`ENTANGLE-E0125`) and for a wasm plugin's network access — every socket check
+re-confirms that the grant behind it is still live — and from the next
+invocation for storage (an invocation already running keeps its open
+directory until it ends). A native plugin's OS-sandbox profile is fixed when
+it loads, so a native plugin with a revoked capability is refused outright
+(`ENTANGLE-E0125`) from its next invocation. A revocation lasts until the
+plugin is unloaded and loaded again; to keep a capability away from every
+plugin, use `deny_capabilities` instead.
+
+Every grant, denial, release and revocation is recorded in the broker's
+audit log with the plugin, the capability and its parameters, the reason and
+the time.

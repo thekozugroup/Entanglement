@@ -67,6 +67,12 @@ impl Default for KernelConfig {
 struct LoadedRecord {
     effective_tier: Tier,
     plugin: PluginImpl,
+    /// The grants a native plugin's sandbox profile was derived from (empty
+    /// for wasm, whose context is re-derived from the broker per
+    /// invocation). The profile is fixed at load, so once any of them is
+    /// revoked the plugin is refused until it is reloaded — never run with
+    /// authority the broker has withdrawn.
+    sandbox_grants: Vec<entangle_broker::GrantedCapability>,
 }
 
 /// How a loaded plugin executes.
@@ -213,7 +219,9 @@ impl Kernel {
     /// Revoke a loaded plugin's capability by manifest key (`net.wan`,
     /// `storage.local`, ...) — `entangle perms revoke` (spec §4.6). Takes
     /// effect at once for `capability.fetch` and for wasm socket checks, and
-    /// from the next invocation for storage. Returns the grants withdrawn.
+    /// from the next invocation for wasm storage. A native plugin whose
+    /// sandbox was derived from a revoked grant is refused
+    /// (`ENTANGLE-E0125`) until it is reloaded. Returns the grants withdrawn.
     pub fn revoke_capability(
         &self,
         plugin: &PluginId,
@@ -369,13 +377,16 @@ impl Kernel {
         let plugin = match self.resolve_capabilities(&plugin_id) {
             Err(e) => Err(e),
             Ok(grants) => match runtime {
-                Runtime::Wasm => self.prepare_wasm(&plugin_id, &pkg, effective_tier).await,
+                Runtime::Wasm => self
+                    .prepare_wasm(&plugin_id, &pkg, effective_tier)
+                    .await
+                    .map(|p| (p, Vec::new())),
                 Runtime::Native => self
                     .prepare_native(&plugin_id, &pkg, &grants)
-                    .map(|n| PluginImpl::Native(Arc::new(n))),
+                    .map(|n| (PluginImpl::Native(Arc::new(n)), grants)),
             },
         };
-        let plugin = match plugin {
+        let (plugin, sandbox_grants) = match plugin {
             Ok(p) => p,
             Err(e) => {
                 let _ = self.broker.unregister_plugin(&plugin_id);
@@ -396,6 +407,7 @@ impl Kernel {
                 slot.insert(LoadedRecord {
                     effective_tier,
                     plugin,
+                    sandbox_grants,
                 });
                 if let Some(m) = &self.metrics {
                     m.loaded_at
@@ -460,6 +472,17 @@ impl Kernel {
             let record = plugins
                 .get(plugin_id)
                 .ok_or_else(|| RuntimeError::NotLoaded(plugin_id.clone()))?;
+            // A native sandbox cannot shed a revoked grant: refuse instead.
+            if let Some(g) = record
+                .sandbox_grants
+                .iter()
+                .find(|g| !self.broker.is_live(plugin_id, g.grant_id))
+            {
+                return Err(RuntimeError::Broker(BrokerError::CapabilityRevoked {
+                    plugin: plugin_id.clone(),
+                    capability: g.kind.key().into_owned(),
+                }));
+            }
             (record.plugin.clone(), record.effective_tier)
         };
 

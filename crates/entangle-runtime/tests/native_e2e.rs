@@ -190,6 +190,17 @@ async fn native_plugin_loads_and_invokes_through_the_kernel() {
         .join("native-echo");
     assert_eq!(std::fs::read_to_string(own.join("requests")).unwrap(), "2");
 
+    // Revoking the grant its sandbox was built from refuses further
+    // invocations (the profile cannot shed it) until the plugin is reloaded.
+    k.revoke_capability(&id, "storage.local").unwrap();
+    let err = k.invoke(&id, b"after revoke", 10_000).await.unwrap_err();
+    assert!(err.to_string().contains("ENTANGLE-E0125"), "{err}");
+    assert_eq!(
+        std::fs::read_to_string(own.join("requests")).unwrap(),
+        "2",
+        "a refused invocation never ran"
+    );
+
     k.unload(&id).await.unwrap();
     assert!(k.list_plugins().is_empty());
     assert!(k.broker().snapshot_grants(&id).is_empty());
