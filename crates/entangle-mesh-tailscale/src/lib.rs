@@ -23,7 +23,10 @@
 //!   [`MeshTailscale::serve_protocols`]);
 //! * [`stream`] turns a connection into a long-lived bidirectional framed
 //!   stream ([`SealedStream`]) with the same caps-before-allocation rule as
-//!   the request path.
+//!   the request path;
+//! * [`version`] parses the host binary's version and pins the supported
+//!   floor, [`MIN_SUPPORTED_VERSION`] (1.62.0, spec §11 #17), and parses
+//!   `tailscale switch --list` profiles.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -43,6 +46,7 @@ pub mod protocol;
 pub mod status;
 pub mod stream;
 mod transport;
+pub mod version;
 
 #[cfg(test)]
 mod transport_tests;
@@ -59,6 +63,7 @@ pub use status::{
     CliStatusSource, Observation, StatusSource, TailnetNode, TailnetState, TailscaleStatus,
 };
 pub use stream::{SealedRecv, SealedSend, SealedStream, FRAGMENT_BYTES};
+pub use version::{parse_profiles, TailscaleProfile, TailscaleVersion, MIN_SUPPORTED_VERSION};
 pub use transport::{
     MeshConn, MeshRequest, MeshTailscale, PeerAllowlist, ProtocolHandler, RequestHandler,
     RequestProtocol, StaticAllowlist,

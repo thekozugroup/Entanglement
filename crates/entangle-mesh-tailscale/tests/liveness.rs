@@ -302,6 +302,63 @@ async fn poll_loop_publishes_each_transition_once_and_logs_once() {
     assert!(text.contains("NeedsLogin"));
 }
 
+/// Source that reports an active tailnet whose daemon is `version`.
+struct Versioned {
+    version: &'static str,
+}
+
+#[async_trait::async_trait]
+impl StatusSource for Versioned {
+    async fn observe(&self) -> Observation {
+        let json = format!(
+            r#"{{"Version":"{}","BackendState":"Running","Self":{{"Online":true}}}}"#,
+            self.version
+        );
+        Observation {
+            state: TailnetState::Active,
+            status: Some(entangle_mesh_tailscale::TailscaleStatus::parse(&json).unwrap()),
+        }
+    }
+}
+
+/// Spec §11 #17: the detected Tailscale version is logged on every state
+/// transition, with a warning when it is below the supported floor.
+#[tokio::test]
+async fn transitions_log_the_tailscale_version_and_warn_below_the_floor() {
+    for (version, warns) in [("1.58.2-t1", true), ("1.76.1-t9", false)] {
+        let logs = Buf::default();
+        let _guard = tracing::subscriber::set_default(
+            tracing_subscriber::fmt()
+                .with_writer(logs.clone())
+                .with_ansi(false)
+                .finish(),
+        );
+        let clock = VirtualClock::new();
+        let handle = spawn_liveness(
+            Arc::new(Versioned { version }),
+            clock,
+            LivenessConfig::default(),
+        );
+        let mut rx = handle.state();
+        assert!(next_state(&mut rx).await.is_active());
+        handle.shutdown();
+        let text = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+        let line = text
+            .lines()
+            .find(|l| l.contains("mesh.tailscale state transition"))
+            .unwrap_or_else(|| panic!("no transition logged:\n{text}"));
+        assert!(
+            line.contains(&format!("tailscale_version=\"{version}\"")),
+            "{line}"
+        );
+        assert_eq!(
+            text.contains("older than the supported minimum"),
+            warns,
+            "{version}:\n{text}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn poll_loop_publishes_a_new_stop_reason_without_a_transition() {
     let logs = Buf::default();
@@ -390,7 +447,8 @@ mod fake_cli {
                 br#"#!/bin/sh
 d=$(dirname "$0")
 case "$1" in
-  version) [ -f "$d/no-version" ] && exit 3; echo 1.76.0 ;;
+  version) [ -f "$d/no-version" ] && exit 3; echo 1.76.0; echo "  tailscale commit: abc" ;;
+  switch)  printf 'ID    Tailnet      Account\n1a2b  example.com  alice@example.com*\n3c4d  corp.ts.net  admin@corp.ts.net\n' ;;
   status)  [ -f "$d/down" ] && { echo "failed to connect to local tailscaled" >&2; exit 1; }
            cat "$d/status.json" ;;
 esac
@@ -418,6 +476,27 @@ esac
                 let _ = std::fs::remove_file(p);
             }
         }
+    }
+
+    #[tokio::test]
+    async fn cli_source_reads_the_version_and_the_profiles() {
+        let _g = SPAWN.lock().await;
+        let fake = Fake::new();
+        let src = CliStatusSource::new(fake.cli());
+        let v = src.fetch_version().await.unwrap();
+        assert_eq!(v, entangle_mesh_tailscale::TailscaleVersion::new(1, 76, 0));
+        assert!(v.is_supported());
+        let profiles = src.list_profiles().await.unwrap();
+        assert_eq!(profiles.len(), 2);
+        assert!(profiles[0].active && profiles[0].tailnet == "example.com");
+        fake.flag("no-version", true);
+        let err = src.fetch_version().await.unwrap_err();
+        assert_eq!(err.code(), "ENTANGLE-E0649", "{err}");
+        let gone = CliStatusSource::new("/nonexistent/dir/tailscale");
+        assert_eq!(
+            gone.fetch_version().await.unwrap_err().code(),
+            "ENTANGLE-E0641"
+        );
     }
 
     #[tokio::test]

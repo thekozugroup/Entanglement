@@ -248,26 +248,37 @@ fn unix_secs(t: SystemTime) -> u64 {
     t.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
-fn emit_transition(t: &Transition, at: SystemTime) {
+fn emit_transition(t: &Transition, at: SystemTime, version: Option<&str>) {
     let from = t.from.as_ref().map_or("unknown", TailnetState::label);
     let reason = t.to.reason().unwrap_or("");
+    // Spec §11 #17: the detected Tailscale version on every transition.
+    let tailscale_version = version.unwrap_or("unknown");
     match &t.to {
         TailnetState::Active => info!(
             target: "entangle::mesh::tailscale",
-            from, to = "active", since_unix = unix_secs(at),
+            from, to = "active", since_unix = unix_secs(at), tailscale_version,
             "mesh.tailscale state transition"
         ),
         TailnetState::Stopped { .. } => warn!(
             target: "entangle::mesh::tailscale",
-            from, to = "stopped", reason, since_unix = unix_secs(at),
+            from, to = "stopped", reason, since_unix = unix_secs(at), tailscale_version,
             "mesh.tailscale state transition: peers reachable only via tailscale are unreachable"
         ),
         TailnetState::Uninstalled => warn!(
             target: "entangle::mesh::tailscale",
-            from, to = "uninstalled", since_unix = unix_secs(at),
+            from, to = "uninstalled", since_unix = unix_secs(at), tailscale_version,
             hint = "run `entangle config set mesh.tailscale.enabled false` to drop the transport",
             "mesh.tailscale state transition: tailscale not installed, polling every 5 minutes"
         ),
+    }
+    if let Some(v) = version.and_then(crate::TailscaleVersion::parse) {
+        if !v.is_supported() {
+            warn!(
+                target: "entangle::mesh::tailscale",
+                tailscale_version = %v, minimum = %crate::MIN_SUPPORTED_VERSION,
+                "tailscaled is older than the supported minimum; upgrade Tailscale"
+            );
+        }
     }
 }
 
@@ -286,15 +297,21 @@ pub fn spawn_liveness(
     let task = tokio::spawn(async move {
         let mut machine = LivenessMachine::new(cfg);
         let mut transitions = 0u64;
+        // The daemon version last seen in a status (none until one parses;
+        // a status without `Version` keeps the previous one).
+        let mut version: Option<String> = None;
         loop {
             let obs = source.observe().await;
             if let Some(status) = obs.status {
+                if !status.version.is_empty() {
+                    version = Some(status.version.clone());
+                }
                 let _ = status_tx.send(Some(Arc::new(status)));
             }
             if let Some(t) = machine.observe(clock.now(), obs.state) {
                 transitions += 1;
                 let at = SystemTime::now();
-                emit_transition(&t, at);
+                emit_transition(&t, at, version.as_deref());
                 let _ = state_tx.send(LivenessSnapshot {
                     state: Some(t.to),
                     since: Some(at),
