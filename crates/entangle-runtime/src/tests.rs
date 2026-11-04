@@ -650,3 +650,36 @@ async fn lowering_drains_in_flight_invocations_before_unloading() {
         .any(|e| e.code() == Some("ENTANGLE-W0214")));
     assert!(kernel.list_plugins().is_empty());
 }
+
+/// Spec §9.4.1: raising the ceiling is "a privileged, audited operation" —
+/// every change of the ceiling leaves an audit entry, not only lowering.
+#[tokio::test(flavor = "multi_thread")]
+async fn raising_the_ceiling_is_audited() {
+    let keyring = keyring_for(&IdentityKeyPair::generate());
+    let config = KernelConfig {
+        max_tier_allowed: Tier::Networked,
+        ..KernelConfig::default()
+    };
+    let kernel = Kernel::new(config, keyring).expect("kernel");
+    let before = kernel.broker().audit_log().snapshot().len();
+
+    kernel
+        .apply_max_tier(Tier::Native, false)
+        .await
+        .expect("raising needs no confirmation");
+    let events = kernel.broker().audit_log().snapshot();
+    assert_eq!(
+        events.len(),
+        before + 1,
+        "one audit event for the raise: {events:?}"
+    );
+    let last = events.last().expect("event");
+    assert_eq!(last.code(), Some("ENTANGLE-I0217"), "{last:?}");
+
+    // Re-applying the same ceiling changes nothing and audits nothing.
+    kernel
+        .apply_max_tier(Tier::Native, false)
+        .await
+        .expect("no-op");
+    assert_eq!(kernel.broker().audit_log().snapshot().len(), before + 1);
+}

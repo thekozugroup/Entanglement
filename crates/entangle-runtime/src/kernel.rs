@@ -550,7 +550,8 @@ impl Kernel {
     /// already running and then releases the broker grants; only then is the
     /// plugin's `ENTANGLE-W0214` audit event recorded (one per plugin),
     /// then an `ENTANGLE-I0215` summary. Afterwards loads above the ceiling
-    /// fail with `ENTANGLE-E0043`.
+    /// fail with `ENTANGLE-E0043`. Raising records `ENTANGLE-I0217`; applying
+    /// the ceiling already in force records nothing.
     pub async fn apply_max_tier(
         &self,
         new: Tier,
@@ -598,6 +599,14 @@ impl Kernel {
                     old_ceiling: old,
                     new_ceiling: new,
                     unloaded: unloaded.len() as u32,
+                    at: std::time::SystemTime::now(),
+                });
+        } else if new > old {
+            self.broker
+                .audit_log()
+                .record(entangle_broker::AuditEvent::CeilingRaised {
+                    old_ceiling: old,
+                    new_ceiling: new,
                     at: std::time::SystemTime::now(),
                 });
         }

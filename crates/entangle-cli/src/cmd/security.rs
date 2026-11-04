@@ -6,7 +6,8 @@
 //! the affected plugins are listed, the operator chooses unload-and-disable
 //! (default) or cancel, and every outcome is audited — `ENTANGLE-W0214` per
 //! unloaded plugin, `ENTANGLE-I0215` summary, `ENTANGLE-I0216` on cancel.
-//! Raising the ceiling never unloads anything.
+//! Raising the ceiling never unloads anything and is audited too
+//! (`ENTANGLE-I0217`).
 //!
 //! Audit entries go to two places: the running daemon's broker audit log
 //! (recorded by the daemon when it applies the change over RPC) and the
@@ -202,6 +203,25 @@ fn audit(code: &str, message: &str, extra: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
+/// Durable audit line for a ceiling change that unloaded nothing: I0215 for
+/// a lowering, I0217 for a raise (spec §9.4.1: both are audited).
+fn audit_ceiling_change(old: u8, new: u8, applied_to: &str) -> Result<()> {
+    let fields = serde_json::json!({
+        "old_ceiling": old, "new_ceiling": new, "applied_to": applied_to,
+    });
+    if new > old {
+        audit("ENTANGLE-I0217", "max_tier_allowed raised", fields)
+    } else {
+        let mut fields = fields;
+        fields["unloaded"] = serde_json::json!(0);
+        audit(
+            "ENTANGLE-I0215",
+            "max_tier_allowed lowered; no plugins affected",
+            fields,
+        )
+    }
+}
+
 fn fmt_uptime(secs: u64) -> String {
     match secs {
         0..=59 => format!("{secs}s uptime"),
@@ -312,11 +332,19 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
             RpcClient::default_socket().display()
         );
         if mode == Mode::SetMaxTier {
+            // The file's ceiling is the one the next daemon start applies, so
+            // a change of it is audited like a runtime change.
+            let old = config::load(&cfg_path)
+                .ok()
+                .map(|c| c.security.max_tier_allowed);
             persist(mode, new, &[])?;
             println!(
                 "max_tier_allowed = {new} written to {}; it applies when the daemon starts.",
                 cfg_path.display()
             );
+            if let Some(old) = old.filter(|o| *o != new) {
+                audit_ceiling_change(old, new, "config.toml (daemon not running)")?;
+            }
         } else {
             println!(
                 "max_tier_allowed = {new} in {}; nothing to reload (daemon not running).",
@@ -337,7 +365,7 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
         }
         if applied.old < applied.new {
             println!(
-                "max_tier_allowed raised {} -> {}; nothing was unloaded.",
+                "max_tier_allowed raised {} -> {}; nothing was unloaded. (ENTANGLE-I0217 audited)",
                 applied.old, applied.new
             );
         } else if applied.old == applied.new {
@@ -347,11 +375,9 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
                 "max_tier_allowed lowered {} -> {}; no loaded plugin is above it.",
                 applied.old, applied.new
             );
-            audit(
-                "ENTANGLE-I0215",
-                "max_tier_allowed lowered; no plugins affected",
-                serde_json::json!({"old_ceiling": applied.old, "new_ceiling": applied.new, "unloaded": 0}),
-            )?;
+        }
+        if applied.old != applied.new {
+            audit_ceiling_change(applied.old, applied.new, "daemon")?;
         }
         return Ok(0);
     }

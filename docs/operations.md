@@ -315,6 +315,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§15). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§15). |
 | `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§15). |
+| `ENTANGLE-I0217` | **Info (audit).** `max_tier_allowed` was raised (spec §9.4.1: raising is an audited operation) (§15). |
 
 If you hit a code not listed above, the fastest way to find its exact meaning
 and the crate that owns it is:
@@ -853,7 +854,9 @@ Decision [u/c]:
   and each plugin gets an `ENTANGLE-W0214` line. There is no flag that skips
   the audit trail.
 - **Raising** (or lowering past every loaded plugin's tier) never unloads
-  anything.
+  anything. Every change of the ceiling is audited: a raise as
+  `ENTANGLE-I0217`, a lowering as `ENTANGLE-I0215` — also when the daemon is
+  not running and only `config.toml` changes.
 - The daemon is told over RPC (`security/plan-max-tier`, `security/apply-max-tier`,
   `security/cancel-max-tier`); only the ceiling is applied at runtime, every
   other config change needs a daemon restart. If the daemon is not running,
@@ -862,7 +865,7 @@ Decision [u/c]:
 
 **Audit trail.** Each outcome is written in two places: the daemon's in-memory
 broker audit log (`ENTANGLE-W0214` per unloaded plugin, `ENTANGLE-I0215`
-summary, `ENTANGLE-I0216` on cancel — the same log that records grants and
+summary, `ENTANGLE-I0216` on cancel, `ENTANGLE-I0217` for a raise — the same log that records grants and
 releases, also emitted to the `entangle::audit` tracing target), and the durable
 operator trail `~/.entangle/audit.log` (JSON lines, mode 0600), which survives
 daemon restarts and exists even when the daemon is down.

@@ -449,6 +449,67 @@ async fn raising_or_harmless_lowering_never_unloads() {
     assert!(String::from_utf8_lossy(&out.stderr).contains("ENTANGLE-E0752"));
 }
 
+/// Spec §9.4.1: raising the ceiling is "a privileged, audited operation".
+/// Every change of the ceiling is audited — in the daemon's broker log and in
+/// the durable `~/.entangle/audit.log` — whether it lowers or raises it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn raising_the_ceiling_is_audited() {
+    let f = Fixture::new("", true).await;
+    for args in [
+        &["security", "set-max-tier", "4", "--force-unload"][..],
+        &["security", "set-max-tier", "5"][..],
+    ] {
+        let mut c = f.cmd(args);
+        let out = tokio::task::spawn_blocking(move || {
+            run_blocking(std::mem::replace(&mut c, Command::new("true")))
+        })
+        .await
+        .unwrap();
+        assert!(
+            out.status.success(),
+            "{args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    assert_eq!(f.state.kernel.max_tier_allowed() as u8, 5);
+    let raised = f.audit_file("ENTANGLE-I0217");
+    assert_eq!(raised.len(), 1, "{raised:?}");
+    assert_eq!(raised[0]["old_ceiling"], 4);
+    assert_eq!(raised[0]["new_ceiling"], 5);
+    let daemon: Vec<_> = f
+        .state
+        .kernel
+        .broker()
+        .audit_log()
+        .snapshot()
+        .into_iter()
+        .filter(|e| e.code() == Some("ENTANGLE-I0217"))
+        .collect();
+    assert_eq!(daemon.len(), 1, "{daemon:?}");
+}
+
+/// Without a daemon the change is still audited in the durable trail.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ceiling_changes_without_daemon_are_audited() {
+    let f = Fixture::new("", false).await;
+    for n in ["3", "4"] {
+        let out = f.cmd(&["security", "set-max-tier", n]).output().unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    let lowered = f.audit_file("ENTANGLE-I0215");
+    assert_eq!(lowered.len(), 1, "{lowered:?}");
+    assert_eq!(lowered[0]["old_ceiling"], 5);
+    assert_eq!(lowered[0]["new_ceiling"], 3);
+    let raised = f.audit_file("ENTANGLE-I0217");
+    assert_eq!(raised.len(), 1, "{raised:?}");
+    assert_eq!(raised[0]["old_ceiling"], 3);
+    assert_eq!(raised[0]["new_ceiling"], 4);
+}
+
 /// With no daemon nothing is loaded: the config is edited, preserving
 /// everything else, and the operator is told so.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

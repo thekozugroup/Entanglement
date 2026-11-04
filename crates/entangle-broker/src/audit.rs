@@ -102,6 +102,17 @@ pub enum AuditEvent {
         /// Wall-clock time of the change.
         at: SystemTime,
     },
+    /// `ENTANGLE-I0217` — the tier ceiling was raised at runtime (spec
+    /// §9.4.1: raising is "a privileged, audited operation"). Raising never
+    /// unloads anything.
+    CeilingRaised {
+        /// The ceiling before the change.
+        old_ceiling: Tier,
+        /// The ceiling now in force.
+        new_ceiling: Tier,
+        /// Wall-clock time of the change.
+        at: SystemTime,
+    },
     /// `ENTANGLE-I0216` — the operator cancelled a ceiling lowering; the
     /// previous ceiling stays in force.
     CeilingLoweringCancelled {
@@ -133,6 +144,8 @@ pub enum AuditKind {
     CeilingLowered,
     /// Matches [`AuditEvent::CeilingLoweringCancelled`] (`ENTANGLE-I0216`).
     CeilingLoweringCancelled,
+    /// Matches [`AuditEvent::CeilingRaised`] (`ENTANGLE-I0217`).
+    CeilingRaised,
 }
 
 impl AuditEvent {
@@ -147,6 +160,7 @@ impl AuditEvent {
             AuditEvent::PluginDisabledByCeiling { .. } => AuditKind::PluginDisabledByCeiling,
             AuditEvent::CeilingLowered { .. } => AuditKind::CeilingLowered,
             AuditEvent::CeilingLoweringCancelled { .. } => AuditKind::CeilingLoweringCancelled,
+            AuditEvent::CeilingRaised { .. } => AuditKind::CeilingRaised,
         }
     }
 
@@ -157,6 +171,7 @@ impl AuditEvent {
             AuditEvent::PluginDisabledByCeiling { .. } => Some("ENTANGLE-W0214"),
             AuditEvent::CeilingLowered { .. } => Some("ENTANGLE-I0215"),
             AuditEvent::CeilingLoweringCancelled { .. } => Some("ENTANGLE-I0216"),
+            AuditEvent::CeilingRaised { .. } => Some("ENTANGLE-I0217"),
             _ => None,
         }
     }
@@ -172,6 +187,7 @@ impl AuditEvent {
             AuditEvent::PluginDisabledByCeiling { at, .. } => at,
             AuditEvent::CeilingLowered { at, .. } => at,
             AuditEvent::CeilingLoweringCancelled { at, .. } => at,
+            AuditEvent::CeilingRaised { at, .. } => at,
         }
     }
 }
