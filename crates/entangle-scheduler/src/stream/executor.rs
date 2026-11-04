@@ -412,6 +412,12 @@ impl ExecutorMachine {
         }
     }
 
+    /// `true` when [`ExecutorMachine::next_input`] has something for the
+    /// plugin: a buffered input chunk, or the input's end.
+    pub fn has_input(&self) -> bool {
+        !self.input.buffer.is_empty() || self.input.ended
+    }
+
     /// When the machine next needs [`ExecutorMachine::on_timeout`].
     pub fn poll_timeout(&self) -> Option<Instant> {
         if self.is_terminal() {

@@ -1080,3 +1080,102 @@ async fn heartbeats_are_answered_while_the_plugin_computes() {
         .unwrap();
     assert_eq!(report.outcome, Ok(()));
 }
+
+/// A submitter [`StreamHandle`] for `task` over a duplex, and the executor
+/// end as `StreamServer::handle` sets it up after the gate: the machine and
+/// the executor's half of the stream (its `Open` already read).
+async fn driven_pair(
+    task: &StreamingTask,
+    ceilings: StreamCeilings,
+    buffer: usize,
+) -> (
+    StreamHandle,
+    ExecutorMachine,
+    entangle_mesh_iroh::FramedStream,
+) {
+    use entangle_mesh_iroh::{duplex_pair, MAX_FRAME_BYTES};
+
+    let exec = exec_key();
+    let sub = IdentityKeyPair::from_seed(&[9; 32]);
+    let (sub_io, mut exec_io) = duplex_pair(
+        *sub.public().as_bytes(),
+        *exec.public().as_bytes(),
+        MAX_FRAME_BYTES,
+        buffer,
+    );
+    let handle = StreamHandle::start(sub_io, task, StreamOptions::default()).unwrap();
+    let open = match exec_io.recv().await.unwrap() {
+        Some(bytes) => match decode_frame(&bytes, Side::Submitter).unwrap() {
+            Frame::Open(open) => open,
+            other => panic!("expected Open, got {}", other.name()),
+        },
+        None => panic!("no Open frame"),
+    };
+    let env = PolicyEnvelope::open(open.policy, open.policy_hash).unwrap();
+    let limits = ceilings.accept(&open.channel, open.timeout_ms).unwrap();
+    let machine = ExecutorMachine::new(
+        ExecutorConfig {
+            task_id: task.id,
+            policy_hash: env.hash(),
+            limits,
+            local_peer: PeerId::from_public_key_bytes(exec.public().as_bytes()),
+        },
+        ChunkSigner::new(exec, open.task_id, env.hash()),
+        Instant::now(),
+    );
+    (handle, machine, exec_io)
+}
+
+/// A plugin that reads several input chunks before it yields anything must
+/// get every buffered chunk (and the input's end) as soon as it asks for
+/// it — not one per unrelated wake-up of the executor loop (the next
+/// heartbeat, seconds away).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn buffered_input_reaches_a_plugin_that_reads_before_it_yields() {
+    use entangle_host::{stream_port, ChunkResult, INPUT_HANDLE, OUTPUT_HANDLE};
+
+    // 5 s heartbeats: nothing but the input itself may wake the loop here.
+    let task = task_with(channel());
+    let (mut handle, machine, exec_io) = driven_pair(
+        &task,
+        StreamCeilings::default(),
+        entangle_mesh_iroh::DEFAULT_DUPLEX_BUFFER,
+    )
+    .await;
+    let (mut port, driver_port) = stream_port(1);
+    let plugin = async move {
+        // Let the whole input arrive (and queue in the machine) first.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let mut got = Vec::new();
+        loop {
+            match port.next_chunk(INPUT_HANDLE).await {
+                ChunkResult::Ok(bytes) => got.extend_from_slice(&bytes),
+                ChunkResult::End => break,
+                ChunkResult::Error(e) => return Err(e),
+            }
+        }
+        port.yield_chunk(OUTPUT_HANDLE, got).await
+    };
+    let executor = tokio::spawn(driver::drive_executor(
+        machine,
+        exec_io,
+        driver_port,
+        plugin,
+        None,
+    ));
+    for part in [&b"a"[..], b"b", b"c", b"d"] {
+        handle.send_input(part.to_vec()).await.unwrap();
+    }
+    handle.finish_input().await.unwrap();
+
+    let result = tokio::time::timeout(Duration::from_secs(3), handle.collect())
+        .await
+        .expect("the plugin gets its buffered input without waiting for a heartbeat");
+    assert!(result.is_complete(), "{:?}", result.outcome);
+    assert_eq!(result.bytes(), b"abcd");
+    let report = tokio::time::timeout(Duration::from_secs(10), executor)
+        .await
+        .expect("the executor finishes")
+        .unwrap();
+    assert_eq!(report.outcome, Ok(()));
+}

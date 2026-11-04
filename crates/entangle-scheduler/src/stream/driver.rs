@@ -311,6 +311,10 @@ where
         }
         let deadline = m.poll_timeout();
         let take_chunk = chunks_open && pending.is_none() && out.is_empty();
+        // The plugin's input channel holds one item: when the guest takes
+        // it, the next buffered chunk (or the input's end) must follow at
+        // once, not at the loop's next unrelated wake-up.
+        let feed_input = !input_end_sent && m.has_input();
 
         tokio::select! {
             biased;
@@ -336,6 +340,18 @@ where
                 Err(_) => m.on_transport_lost("stream writer stopped".into()),
             },
             () = sleep_until(deadline) => m.on_timeout(Instant::now()),
+            permit = port.input.reserve(), if feed_input => match permit {
+                Ok(permit) => match m.next_input() {
+                    InputPoll::Chunk(bytes) => permit.send(StreamInput::Chunk(bytes)),
+                    InputPoll::End => {
+                        permit.send(StreamInput::End);
+                        input_end_sent = true;
+                    }
+                    InputPoll::Pending | InputPoll::Closed => {}
+                },
+                // The guest dropped its port: it is gone or going.
+                Err(_) => input_end_sent = true,
+            },
             chunk = port.chunks.recv(), if take_chunk => match chunk {
                 Some(chunk) => pending = Some(chunk),
                 None => chunks_open = false,
