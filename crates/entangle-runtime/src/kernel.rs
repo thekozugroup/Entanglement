@@ -1084,8 +1084,6 @@ fn parse_manifest(bytes: &[u8]) -> Result<ValidatedManifest, RuntimeError> {
     Ok(validate(raw)?)
 }
 
-/// Publishes [`LifecyclePhase::Idled`] when dropped, so a stream future that
-/// is dropped mid-run still balances its `Activated`.
 /// Records one stream-plugin invocation's metrics exactly once: from
 /// [`StreamRecorder::finish`] when the invocation returns, or as `cancelled`
 /// when its future is dropped first.
@@ -1146,6 +1144,8 @@ impl Drop for StreamRecorder<'_> {
     }
 }
 
+/// Publishes [`LifecyclePhase::Idled`] when dropped, so a stream future that
+/// is dropped mid-run still balances its `Activated`.
 struct IdleOnDrop<'a> {
     kernel: &'a Kernel,
     plugin_id: &'a PluginId,

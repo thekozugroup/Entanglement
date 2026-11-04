@@ -312,7 +312,7 @@ canonical range table, maintained in
 | E0300–E0301 | Task execution (output-size limit, timeout) |
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
 | E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum, Layer-2 spot-check attestation failure (E0319) (`entangle-runtime::IntegrityError`; see §11) |
-| E0350–E0399 | Streaming tasks (`entangle_scheduler::stream::StreamError`; see §17): integrity policy not usable for a stream (E0350), invalid task field or limit (E0351), chunk signature or sequence rejected (E0352), `max_total_bytes` (E0353) or `max_chunk_bytes` (E0354) exceeded, credit violation (E0355), peer lost after missed heartbeats (E0356), submitter unresponsive (E0357), cancelled (E0358), protocol violation (E0359), unsupported stream wire version (E0360), the other end closed the stream and said why (E0361), bad end-of-stream frame (E0362), transport failure under the stream (E0363; carries any E0430–E0435 routing error), wall-clock timeout (E0364), input over `max_input_bytes` (E0365), operation on a closed stream (E0366), executor observed another policy hash (E0367), executor outside the `TrustedExecutor` allowlist (E0368), plugin failure (E0369), policy envelope rejected (E0370), chunk-count allowance exceeded (E0371) |
+| E0350–E0399 | Streaming tasks (`entangle_scheduler::stream::StreamError`; see §17): integrity policy not usable for a stream (E0350), invalid task field or limit (E0351), chunk signature or sequence rejected (E0352), `max_total_bytes` (E0353) or `max_chunk_bytes` (E0354) exceeded, credit violation (E0355), peer lost after missed heartbeats (E0356), submitter unresponsive (E0357), cancelled (E0358), protocol violation (E0359), unsupported stream wire version (E0360), the other end closed the stream and said why (E0361), bad end-of-stream frame (E0362), transport failure under the stream (E0363; carries an E0430–E0433 routing error; E0434/E0435 are config errors raised before any stream exists), wall-clock timeout (E0364), input over `max_input_bytes` (E0365), operation on a closed stream (E0366), executor observed another policy hash (E0367), executor outside the `TrustedExecutor` allowlist (E0368), plugin failure (E0369), policy envelope rejected (E0370), chunk-count allowance exceeded (E0371) |
 | E0430–E0449 | Scheduler transport selection (`entangle_scheduler::transport::RouteError`; see §20): no route to the peer on any usable transport (E0430), every candidate failed to connect (E0431), a transport failed after the request was sent and it was not retried (E0432), a frame over the transport cap (E0433), an unknown transport name in `[mesh] preferred` / `[mesh.overrides]` (E0434), an unusable `[mesh.overrides]` entry (E0435) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
 | E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component; `E0511` an invocation or stream stopped because a network grant it relied on was revoked (or the plugin unloaded, or the tier ceiling lowered below it) while it ran (`entangle-host`) |
@@ -689,6 +689,23 @@ decision as `spot_check`: `scheduled`, `not-sampled`, `skipped-saturated`,
 `entangle_integrity_spot_checks_total` metric (§14a), never back into the
 result. Set `spot_check_probability = 0` to turn spot-checks off (every
 spot-check is one more execution of the task on someone's machine).
+
+Known limitations:
+
+* **Colluders that outvote the local kernel.** When this node's own kernel
+  ran a replica and was outvoted, its output counts as the spot-check re-run
+  only if the task was sampled. With `spot_check_probability = 0` nothing is
+  ever re-run, and at the default rate colluding peers that outvote the
+  submitter's own kernel are penalised only on the sampled share of such
+  tasks.
+* **Executors can tell a spot-check from the policy.** The sealed policy shows
+  `replicas: N` to every executor. A worker that is never best-ranked for a
+  `Deterministic { replicas: 1 }` task can therefore tell that a frame it
+  receives is a spot-check, and answer it honestly (for a lie it told as a
+  replica) or make it inconclusive. A remote checker's contradiction needs an
+  independent tie-breaker, which bounds framing, but this does not hide the
+  check from a colluder. Nothing in the code changes this; mitigate with more
+  replicas.
 
 Scheduler wire version: v2 (task frames carry the policy and its hash). A
 node running an older build answers `unsupported-version`; upgrade both ends.

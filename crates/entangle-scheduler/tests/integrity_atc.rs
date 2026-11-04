@@ -1617,11 +1617,14 @@ async fn spot_checks_of_honest_replicas_confirm_and_penalise_nobody() {
     let publisher = IdentityKeyPair::generate();
     let mut submitter = Node::start(&publisher).await;
     let plugin = submitter.load(&publisher, "hello", &hello_pong()).await;
+    let mut local_bus = submitter.kernel.bus().subscribe();
+    let mut worker_buses = Vec::new();
     let mut workers = Vec::new();
     for _ in 0..2 {
         let mut w = Node::start(&publisher).await;
         w.load(&publisher, "hello", &hello_pong()).await;
         w.serve_for(submitter.peer_id);
+        worker_buses.push(w.kernel.bus().subscribe());
         workers.push(w);
     }
     let registry = Registry::new();
@@ -1658,6 +1661,11 @@ async fn spot_checks_of_honest_replicas_confirm_and_penalise_nobody() {
     assert!(record.penalised.is_empty());
     let worker_ids = sorted(workers.iter().map(|w| w.peer_id).collect());
     assert_eq!(sorted(record.credited.clone()), worker_ids);
+    // Both workers ran a replica, so the re-run is the submitter's own kernel.
+    assert_eq!(record.checker, submitter.peer_id);
+    assert!(!record.checker_remote);
+    assert!(!record.reused_replica);
+    assert!(workers.iter().all(|w| w.peer_id != record.checker));
 
     // SemanticEquivalent: identical bytes, so no metric is needed.
     let policy = IntegrityPolicy::SemanticEquivalent {
@@ -1680,12 +1688,21 @@ async fn spot_checks_of_honest_replicas_confirm_and_penalise_nobody() {
     .expect("finishes");
     assert!(matches!(record.verdict, SpotCheckVerdict::Confirmed));
     assert_eq!(sorted(record.credited.clone()), worker_ids);
+    assert_eq!(record.checker, submitter.peer_id);
+    assert!(!record.checker_remote);
     assert_eq!(record.distance, None, "identical bytes need no metric");
     assert_eq!(
         dispatcher.verifier().metrics().instantiations(&metric),
         1,
         "only the replica pair was compared"
     );
+
+    // Each of the two checks ran exactly once on the submitter and each
+    // worker ran exactly its two replicas: no re-run landed on a replica.
+    assert_eq!(activations(&drain(&mut local_bus).await), 2);
+    for bus in &mut worker_buses {
+        assert_eq!(activations(&drain(bus).await), 2);
+    }
 
     let rep = dispatcher.verifier().reputation();
     for w in &workers {
@@ -1782,6 +1799,8 @@ async fn spot_checks_never_run_at_probability_zero() {
         let rec = rep.record(&liar.peer_id, PolicyKind::Deterministic);
         assert_eq!((rec.correct, rec.total), (5, 5));
     }
+    // `Disabled` and the zeroed stats above are the deterministic proof that
+    // no check was scheduled; the quiet window only backs them up.
     assert!(
         drain_for(&mut local_bus, QUIET_NEGATIVE).await.is_empty(),
         "nothing was re-run on the submitter"
@@ -2045,6 +2064,75 @@ async fn an_outvoted_local_replica_is_the_spot_check_of_the_majority() {
         1,
         "the replica was the only execution here"
     );
+}
+
+/// Two colluders and one honest dissenter, all remote: the accepted output
+/// is the colluders' lie, the dissenter is on the losing side of the quorum
+/// and the submitter's own kernel (no replica) is the checker. Only the
+/// replicas behind the accepted output are implicated and penalised; the
+/// dissenter keeps exactly the standing acceptance left it with.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_dissenting_replica_is_not_penalised_by_the_spot_check() {
+    let publisher = IdentityKeyPair::generate();
+    let mut submitter = Node::start(&publisher).await;
+    let plugin = submitter.load(&publisher, "hello", &hello_pong()).await;
+    let liars = colluders(&publisher, b"Hello, liar!").await;
+    let mut honest = Node::start(&publisher).await;
+    honest.load(&publisher, "hello", &hello_pong()).await;
+    honest.serve_for(submitter.peer_id);
+    let registry = Registry::new();
+    let dispatcher = spot_checked_dispatcher(
+        &submitter,
+        &[(&liars[0], 0.0), (&liars[1], 0.0), (&honest, 0.0)],
+        ALWAYS,
+        &registry,
+    );
+
+    let t = task(
+        plugin,
+        b"world",
+        IntegrityPolicy::Deterministic { replicas: 3 },
+    );
+    let result = deadline(
+        "two colluders, one dissenter",
+        dispatcher.dispatch_one_shot(t),
+    )
+    .await
+    .expect("the colluders are a hash majority");
+    assert_eq!(result.output, b"Hello, liar!");
+    let dissenter = result
+        .replicas
+        .iter()
+        .find(|r| r.peer == honest.peer_id)
+        .expect("the honest worker ran a replica");
+    assert_eq!(dissenter.status, ReplicaStatus::Disagreed);
+    let record = deadline(
+        "spot-check verdict",
+        result.spot_check.handle().expect("scheduled").outcome(),
+    )
+    .await
+    .expect("the spot-check finishes");
+    assert_eq!(record.checker, submitter.peer_id);
+    assert!(matches!(record.verdict, SpotCheckVerdict::Mismatch(_)));
+    let liar_ids = sorted(liars.iter().map(|l| l.peer_id).collect());
+    assert_eq!(sorted(record.implicated.clone()), liar_ids);
+    assert_eq!(sorted(record.penalised.clone()), liar_ids);
+    assert!(!record.implicated.contains(&honest.peer_id));
+    assert!(!record.penalised.contains(&honest.peer_id));
+
+    let rep = dispatcher.verifier().reputation();
+    let kind = PolicyKind::Deterministic;
+    let before = rep.record(&honest.peer_id, kind);
+    assert!(
+        rep.get(&honest.peer_id, kind) <= INITIAL_SCORE,
+        "acceptance blamed the dissenter"
+    );
+    // Exactly one entry (the acceptance's), no spot-check penalty on top.
+    assert_eq!(before.total, 1, "{before:?}");
+    for liar in &liars {
+        let rec = rep.record(&liar.peer_id, kind);
+        assert_eq!((rec.correct, rec.total), (1, 2));
+    }
 }
 
 /// A checker that cannot run the task does not end the spot-check: the
