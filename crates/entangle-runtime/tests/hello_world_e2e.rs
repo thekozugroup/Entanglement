@@ -1,9 +1,8 @@
 //! End-to-end integration test: build hello-world → sign → load via kernel → lifecycle events.
 //!
-//! Marked `#[ignore]` because it requires the `wasm32-wasip2` target to be installed
-//! and performs an out-of-process `cargo build`. Run with:
-//!
-//!   cargo test -p entangle-runtime --test hello_world_e2e -- --ignored
+//! Performs an out-of-process `cargo build` of the example, so it needs the
+//! `wasm32-wasip2` target (installed in the CI `test` job); without the target it
+//! falls back to a minimal component and still runs.
 //!
 //! The test does NOT invoke the wasm `run` export (that requires host-side
 //! bindgen, deferred to a later iteration). Instantiation succeeding — and all
@@ -117,9 +116,7 @@ fn build_hello_world() -> Option<std::path::PathBuf> {
 
 /// Full pipeline: build → sign (in-test key) → load via kernel → assert lifecycle events.
 ///
-/// Run with:  cargo test -p entangle-runtime --test hello_world_e2e -- --ignored
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires wasm32-wasip2 target and runs cargo build out-of-process"]
 async fn hello_world_full_pipeline() {
     // Step 1: build (or fall back to minimal wasm component bytes for CI).
     let wasm_bytes: Vec<u8> = match build_hello_world() {

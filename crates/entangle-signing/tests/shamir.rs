@@ -1,6 +1,6 @@
 //! ATC-REL-2 at the library level: Shamir 2-of-3 over GF(256).
 
-use entangle_signing::shamir::{combine, gf_inv, gf_mul, split, Share, ShamirError};
+use entangle_signing::shamir::{combine, gf_inv, gf_mul, split, ShamirError, Share};
 
 #[test]
 fn atc_rel_2_two_of_three_reconstructs_from_any_pair() {

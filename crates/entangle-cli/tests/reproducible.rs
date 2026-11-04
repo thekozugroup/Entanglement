@@ -135,7 +135,12 @@ fn atc_pkg_1_two_builds_are_byte_identical() {
 
     // Everything the archive is made of is identical too, so a mismatch
     // would be pinpointed rather than just "the archive differs".
-    for f in ["plugin.wasm", "entangle.toml", "plugin.wasm.sig", "provenance.json"] {
+    for f in [
+        "plugin.wasm",
+        "entangle.toml",
+        "plugin.wasm.sig",
+        "provenance.json",
+    ] {
         assert_eq!(
             std::fs::read(a.out.join(f)).unwrap(),
             std::fs::read(b.out.join(f)).unwrap(),
@@ -224,7 +229,10 @@ fn atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests() {
     let build = serde_yaml::to_string(&jobs["cross_host_matrix"]).unwrap();
     assert!(build.contains("examples/hello-world"), "{build}");
     assert!(build.contains("plugins build"), "{build}");
-    assert!(build.contains("toolchain: '1.91'") || build.contains("toolchain: \"1.91\""), "{build}");
+    assert!(
+        build.contains("toolchain: '1.91'") || build.contains("toolchain: \"1.91\""),
+        "{build}"
+    );
     assert!(build.contains("wasm32-wasip2"), "{build}");
     assert!(build.contains("sha256"), "{build}");
     assert!(build.contains("upload-artifact"), "{build}");
@@ -233,7 +241,10 @@ fn atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests() {
     assert_eq!(compare["needs"].as_str(), Some("cross_host_matrix"));
     let c = serde_yaml::to_string(compare).unwrap();
     assert!(c.contains("download-artifact"), "{c}");
-    assert!(c.contains("exit 1"), "the comparison must be able to fail: {c}");
+    assert!(
+        c.contains("exit 1"),
+        "the comparison must be able to fail: {c}"
+    );
     assert!(c.contains("sort -u"), "{c}");
     assert!(c.contains("-ne 3"), "must require all three hosts: {c}");
 
@@ -299,8 +310,14 @@ fn atc_pkg_4_rebuild_verify_pass_and_fail() {
     // The package records its provenance.
     let files = entangle_oci::unpack(&std::fs::read(&built.archive).unwrap()).unwrap();
     let prov: serde_json::Value = serde_json::from_slice(&files.provenance.unwrap()).unwrap();
-    assert!(prov["source_digest"].as_str().unwrap().starts_with("sha256:"));
-    assert!(prov["build"]["toolchain"].as_str().unwrap().starts_with("rustc 1."));
+    assert!(prov["source_digest"]
+        .as_str()
+        .unwrap()
+        .starts_with("sha256:"));
+    assert!(prov["build"]["toolchain"]
+        .as_str()
+        .unwrap()
+        .starts_with("rustc 1."));
     assert!(prov["build"]["rustflags"]
         .as_array()
         .unwrap()

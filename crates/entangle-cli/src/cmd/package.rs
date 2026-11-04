@@ -404,7 +404,10 @@ pub fn run_verify(opts: VerifyOptions) -> Result<()> {
             for n in &notes {
                 println!("[entangle] {n}");
             }
-            println!("PASS: rebuild from {} reproduces the package", source.display());
+            println!(
+                "PASS: rebuild from {} reproduces the package",
+                source.display()
+            );
             Ok(())
         }
         repro::RebuildVerdict::Fail(first) => {
@@ -597,14 +600,26 @@ pub fn build_wasm_in(
     );
     println!("[entangle] toolchain: {}", prepared.recipe.toolchain);
     let mut cmd = Command::new(cargo_bin());
-    cmd.args(["build", "--release", "--locked", "--target", target, "--manifest-path"])
-        .arg(cargo_manifest)
-        // Run from the project so its rust-toolchain.toml / .cargo/config apply.
-        .current_dir(project_dir_for(cargo_manifest))
-        .env("RUSTFLAGS", &prepared.rustflags)
-        .env("SOURCE_DATE_EPOCH", prepared.recipe.source_date_epoch.to_string())
-        .env("CARGO_INCREMENTAL", "0")
-        .env_remove("CARGO_ENCODED_RUSTFLAGS");
+    cmd.args([
+        "build",
+        "--release",
+        "--locked",
+        "--target",
+        target,
+        "--manifest-path",
+    ])
+    .arg(cargo_manifest)
+    // Run from the project so its rust-toolchain.toml / .cargo/config apply.
+    .current_dir(project_dir_for(cargo_manifest))
+    .env("RUSTFLAGS", &prepared.rustflags)
+    .env(
+        "SOURCE_DATE_EPOCH",
+        prepared.recipe.source_date_epoch.to_string(),
+    )
+    .env("CARGO_INCREMENTAL", "0")
+    .env("LC_ALL", "C")
+    .env("TZ", "UTC")
+    .env_remove("CARGO_ENCODED_RUSTFLAGS");
     if let Some(td) = target_dir {
         cmd.env("CARGO_TARGET_DIR", td);
     }
@@ -674,7 +689,14 @@ fn build_native(cargo_manifest: &Path) -> Result<PathBuf> {
         std::env::consts::OS
     );
     let status = Command::new(cargo_bin())
-        .args(["build", "--release", "--locked", "--bin", &bin, "--manifest-path"])
+        .args([
+            "build",
+            "--release",
+            "--locked",
+            "--bin",
+            &bin,
+            "--manifest-path",
+        ])
         .arg(cargo_manifest)
         .current_dir(project_dir_for(cargo_manifest))
         .status()

@@ -7,8 +7,9 @@
 //!
 //! ATC IDs whose full contracts require the scheduler are implemented in the
 //! scheduler's own tests (e.g. `crates/entangle-scheduler/tests/stream_atc.rs`
-//! for ATC-INT-4/-6 and ATC-STR-1/-2/-3); the few operational ones left are
-//! marked `#[ignore]` with a pointer to where they are verified.
+//! for ATC-INT-4/-6 and ATC-STR-1/-2/-3); the packaging, release and
+//! governance ones (ATC-PKG/REL/BUS) are implemented where listed at the
+//! bottom of this file.
 
 use entangle_types::{
     errors::EntangleError,
@@ -237,28 +238,11 @@ fn atc_out_1_output_size_exceeded_display_format() {
 }
 
 // ---------------------------------------------------------------------------
-// Placeholder / deferred ATC IDs — require Phase 3+ runtime code
+// Operational ATC IDs live next to the code they check
 // ---------------------------------------------------------------------------
-
-/// §16 ATC-BUS-1, ATC-BUS-2 — bus / rotation governance invariants.
-///
-/// These are operational / process invariants verified by release CI workflow
-/// and governance documentation, not unit tests.
-/// Deferred to: release CI (ATC-BUS-1: INV-BUS-1 rotation freshness) and
-/// governance docs. Future iteration: release pipeline Phase 5+.
-#[test]
-#[ignore = "Phase 5+: operational invariants verified in release CI / governance docs"]
-fn atc_bus_rotation_governance_invariants() {
-    unimplemented!("§16 ATC-BUS-1/2 — verified in release CI workflow, not unit tests")
-}
-
-/// §16 ATC-MIRROR-1, ATC-RELEASE-1 — mirror/release operational invariants.
-///
-/// These are release-process invariants (mirror consistency, release signing).
-/// Verified in release CI; not unit-testable.
-/// Future iteration: Phase 5+ release pipeline.
-#[test]
-#[ignore = "Phase 5+: release/mirror invariants verified in release CI, not unit tests"]
-fn atc_mirror_release_operational_invariants() {
-    unimplemented!("§16 ATC-MIRROR-1 / ATC-RELEASE-1 — see release CI workflow Phase 5+")
-}
+//
+// ATC-PKG-1..4   crates/entangle-cli/tests/reproducible.rs
+// ATC-REL-1, -2  crates/entangle-cli/tests/release.rs,
+//                crates/entangle-signing/tests/shamir.rs
+// ATC-BUS-1, -2  tools/xtask/tests/governance.rs
+// ATC-MIR-1, -2  crates/entangle-oci/tests

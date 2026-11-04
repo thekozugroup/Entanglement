@@ -28,7 +28,12 @@ fn git(dir: &Path, args: &[&str], env: &[(&str, String)]) {
     let out = Command::new("git")
         .arg("-C")
         .arg(dir)
-        .args(["-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main"])
+        .args([
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "init.defaultBranch=main",
+        ])
         .args(args)
         .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
         .output()
@@ -80,7 +85,14 @@ fn fixture_repo(merges: &[(&str, &str, i64)]) -> TempDir {
         git(p, &["checkout", "-q", "main"], &env);
         git(
             p,
-            &["merge", "-q", "--no-ff", "-m", &format!("merge {i}"), &branch],
+            &[
+                "merge",
+                "-q",
+                "--no-ff",
+                "-m",
+                &format!("merge {i}"),
+                &branch,
+            ],
             &env,
         );
     }
@@ -188,7 +200,10 @@ holders = ["alice", "bob"]
     let out = bus_factor(repo.path(), &roles, None);
     assert!(!out.status.success());
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("VIOLATION release-lead: 0 active"), "{stderr}");
+    assert!(
+        stderr.contains("VIOLATION release-lead: 0 active"),
+        "{stderr}"
+    );
     assert!(stderr.contains("VIOLATION mesh-lead: 1 active"), "{stderr}");
     assert!(!stderr.contains("VIOLATION agent-lead"), "{stderr}");
 }
@@ -247,7 +262,10 @@ fn atc_bus_1_workflow_runs_the_xtask_and_opens_a_p0_issue() {
     assert!(wf.contains("gh issue create"), "{wf}");
     assert!(wf.contains("\"P0\""), "{wf}");
     assert!(wf.contains("schedule:"), "weekly trigger missing");
-    assert!(!wf.contains("python3"), "logic must live in xtask, not inline");
+    assert!(
+        !wf.contains("python3"),
+        "logic must live in xtask, not inline"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -287,7 +305,10 @@ fn atc_bus_2_stale_note_fails_one_day_past_the_limit() {
     let out = rotation(NOTES, "2026-07-07");
     assert!(!out.status.success());
     let err = String::from_utf8_lossy(&out.stderr);
-    assert!(err.contains("2026-06-01") && err.contains("36 days old"), "{err}");
+    assert!(
+        err.contains("2026-06-01") && err.contains("36 days old"),
+        "{err}"
+    );
 }
 
 #[test]
@@ -301,8 +322,12 @@ fn atc_bus_2_uses_the_newest_note_wherever_it_sits() {
 
 #[test]
 fn atc_bus_2_rejects_missing_notes_and_future_dates() {
-    assert!(!rotation("# Rotations\n\nno notes\n", "2026-06-20").status.success());
-    assert!(!rotation("## not-a-date heading\n", "2026-06-20").status.success());
+    assert!(!rotation("# Rotations\n\nno notes\n", "2026-06-20")
+        .status
+        .success());
+    assert!(!rotation("## not-a-date heading\n", "2026-06-20")
+        .status
+        .success());
     let future = rotation("## 2026-09-01 - from the future\n", "2026-06-20");
     assert!(!future.status.success());
     assert!(String::from_utf8_lossy(&future.stderr).contains("in the future"));

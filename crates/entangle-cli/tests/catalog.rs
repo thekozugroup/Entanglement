@@ -9,7 +9,7 @@
 //!
 //! Compiling wasm is never exercised by default: the install tests package a
 //! pre-built (fake) artifact via `--wasm`, and the one test that runs a real
-//! `cargo build --target wasm32-wasip2` is `#[ignore]`d.
+//! `cargo build --target wasm32-wasip2` is the last test in the file.
 
 use assert_cmd::Command;
 use predicates::prelude::*;
@@ -25,6 +25,17 @@ use tempfile::TempDir;
 fn entangle(tmp: &TempDir) -> Command {
     let mut cmd = Command::cargo_bin("entangle").expect("entangle binary built");
     cmd.env("HOME", tmp.path());
+    // HOME is a scratch dir: tell cargo/rustup where the real toolchain and
+    // registry cache live for the wasm-compiling test.
+    if let Some(real) = std::env::var_os("HOME") {
+        let real = PathBuf::from(real);
+        if std::env::var_os("CARGO_HOME").is_none() {
+            cmd.env("CARGO_HOME", real.join(".cargo"));
+        }
+        if std::env::var_os("RUSTUP_HOME").is_none() {
+            cmd.env("RUSTUP_HOME", real.join(".rustup"));
+        }
+    }
     cmd.env_remove("ENTANGLE_CATALOG");
     cmd.env_remove("ENTANGLE_SDK_PATH");
     cmd.env_remove("ENTANGLE_ALLOW_LOCAL");
@@ -639,16 +650,9 @@ fn quickstart_rejects_an_unknown_starter_by_name() {
 /// `entangle quickstart` against the repository's own `plugins/` catalog, with
 /// nothing faked: real cargo build, real signature, real load, real invoke.
 ///
-/// `#[ignore]`d because it compiles wasm (needs the `wasm32-wasip2` target and a
-/// reachable registry) and takes minutes, and because it requires the top-level
-/// `plugins/` catalog to be present.
-///
-/// ```text
-/// rustup target add wasm32-wasip2
-/// cargo test -p entangle-cli --test catalog -- --ignored
-/// ```
+/// Compiles wasm (needs the `wasm32-wasip2` target, installed in the CI `test`
+/// job, and a reachable registry) and requires the top-level `plugins/` catalog.
 #[test]
-#[ignore = "compiles real wasm: needs the wasm32-wasip2 target, a reachable registry, and ./plugins"]
 fn quickstart_against_the_repository_catalog() {
     let repo_plugins = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()

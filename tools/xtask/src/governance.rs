@@ -330,8 +330,11 @@ pub fn parse_date(s: &str) -> Option<i64> {
     }
     let days = days_from_civil(y, m, d);
     // Reject 2026-02-31 style dates by round-tripping through the next day.
-    let mdays = days_from_civil(if m == 12 { y + 1 } else { y }, if m == 12 { 1 } else { m + 1 }, 1)
-        - days_from_civil(y, m, 1);
+    let mdays = days_from_civil(
+        if m == 12 { y + 1 } else { y },
+        if m == 12 { 1 } else { m + 1 },
+        1,
+    ) - days_from_civil(y, m, 1);
     (d <= mdays).then_some(days)
 }
 
@@ -355,7 +358,10 @@ pub fn rotation_note_check(text: &str, today: i64, max_age_days: i64) -> Result<
     };
     let age = today - days;
     if age < 0 {
-        bail!("newest rotation note is dated {date}, in the future ({} day(s) ahead)", -age);
+        bail!(
+            "newest rotation note is dated {date}, in the future ({} day(s) ahead)",
+            -age
+        );
     }
     if age > max_age_days {
         bail!(

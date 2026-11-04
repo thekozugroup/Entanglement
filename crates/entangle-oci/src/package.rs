@@ -37,7 +37,7 @@ pub const FILE_PROVENANCE: &str = "provenance.json";
 
 /// Zstd compression level used by [`pack`]. Part of the reproducible-package
 /// contract (ATC-PKG-1): changing it changes every package digest.
-pub const ZSTD_LEVEL: i32 = 9;
+pub const ZSTD_LEVEL: i32 = 19;
 
 /// Cap on the decompressed size of a package (zip-bomb guard).
 pub const MAX_UNPACKED_BYTES: u64 = 256 * 1024 * 1024;
@@ -324,6 +324,38 @@ mod tests {
         let a = pack(&f).unwrap();
         assert_eq!(unpack(&a).unwrap(), f);
         assert_eq!(a, pack(&f).unwrap());
+    }
+
+    /// The tar stream inside the archive carries no machine- or time-specific
+    /// metadata: ATC-PKG-1's archive half.
+    #[test]
+    fn packed_tar_is_normalised() {
+        let mut f = sample();
+        f.provenance = Some(b"{}".to_vec());
+        let packed = pack(&f).unwrap();
+        let mut tar = Vec::new();
+        zstd::stream::read::Decoder::new(&packed[..])
+            .unwrap()
+            .read_to_end(&mut tar)
+            .unwrap();
+        let mut names = Vec::new();
+        let mut pos = 0;
+        while tar[pos..pos + 512].iter().any(|b| *b != 0) {
+            let h = &tar[pos..pos + 512];
+            let end = h[..100].iter().position(|b| *b == 0).unwrap();
+            names.push(String::from_utf8(h[..end].to_vec()).unwrap());
+            assert_eq!(&h[100..108], b"0000644\0", "mode");
+            assert_eq!(&h[108..116], b"0000000\0", "uid");
+            assert_eq!(&h[116..124], b"0000000\0", "gid");
+            assert_eq!(&h[136..148], b"00000000000\0", "mtime");
+            assert!(h[265..345].iter().all(|b| *b == 0), "uname/gname");
+            let size = parse_octal(&h[124..136]).unwrap() as usize;
+            pos += 512 + size.div_ceil(512) * 512;
+        }
+        let mut sorted = names.clone();
+        sorted.sort();
+        assert_eq!(names, sorted, "entries are in alphabetical order");
+        assert_eq!(names.len(), 4);
     }
 
     #[test]

@@ -157,7 +157,9 @@ fn atc_rel_1_explicit_release_key_replaces_the_keyring() {
     let f = fixture();
     // No keyring entry at all; the key is given on the command line.
     let (mut c, _) = f.verify(&["--release-key", &f.pubkey]);
-    c.assert().success().stdout(predicate::str::contains("PASS"));
+    c.assert()
+        .success()
+        .stdout(predicate::str::contains("PASS"));
 }
 
 #[test]
@@ -264,7 +266,15 @@ fn atc_rel_1_release_workflow_runs_real_cosign_with_the_same_flags() {
 
 fn split_2_of_3(f: &Fixture, dir: &Path) -> Vec<PathBuf> {
     entangle(f.home.path())
-        .args(["release", "key", "split", "--threshold", "2", "--shares", "3"])
+        .args([
+            "release",
+            "key",
+            "split",
+            "--threshold",
+            "2",
+            "--shares",
+            "3",
+        ])
         .arg(&f.key)
         .arg("--out-dir")
         .arg(dir)

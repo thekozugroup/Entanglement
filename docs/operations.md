@@ -1194,3 +1194,52 @@ credit-exhaustion timeout (30 min by default) the executor logs a
 `StalledEvent` (`RUST_LOG=entangle::scheduler::stream=warn`; the event is
 named `StalledEvent` in the log line) and waits as long again before giving
 up. Reading again before then resumes the stream.
+
+## 18. Reproducible packages, release verification and governance checks
+
+### 18.1 Building and verifying a reproducible package
+
+`entangle plugins build <dir>` writes, next to `plugin.wasm`, `entangle.toml`,
+`plugin.wasm.sig` and `provenance.json`, a deterministic archive
+`<dir>/dist/<name>-<version>.tar.zst` and prints its SHA-256. Two builds of the same
+source produce the same bytes: absolute paths are remapped out of the wasm
+(`--remap-path-prefix` for the project, path dependencies, `$CARGO_HOME`, `$RUSTUP_HOME`,
+the sysroot), the signature timestamp is `SOURCE_DATE_EPOCH` (default
+2024-01-01T00:00:00Z), the tar is normalised and zstd uses fixed parameters.
+
+* The project **must** have a committed `Cargo.lock`; otherwise the build stops with
+  `ENTANGLE-E0830: Cargo.lock missing` before fetching or writing anything. `plugins new`
+  generates one (skip with `--no-lockfile`). Builds run `cargo build --locked`.
+* `RUSTFLAGS` from the environment is kept and recorded, but replaces any
+  `build.rustflags` in `.cargo/config.toml`.
+* `entangle plugins verify --rebuild <package|dist-dir> [--source <dir>]` rebuilds in a
+  scratch target dir and compares source digest, toolchain, flags, manifest and wasm.
+  It prints `PASS` (exit 0) or `FAIL: <first difference>` (non-zero). Without `--rebuild`
+  it only checks the publisher signature against the keyring.
+* Cross-host reproducibility (macOS-14, Ubuntu-22.04, Ubuntu-24.04) is checked only in CI:
+  `.github/workflows/reproducibility.yml` (signing with the public test key
+  `tests/fixtures/repro-ci-key.pem`).
+
+### 18.2 Verifying a release
+
+```text
+entangle release key add <release-public-key-hex> --name release-2026   # release keyring
+entangle release verify entanglement-v1.0.0-<target>.tar.gz
+```
+
+Needs `<artifact>.ed25519` (from `entangle release sign`) and the cosign bundle
+`<artifact>.sigstore`, and verifies both; either failing fails the command. The release
+keyring is `~/.entangle/release-keyring.toml`, separate from the publisher keyring
+(`--release-key <hex>` trusts a single key instead). `cosign` must be on `PATH` (or
+`--cosign <path>`); if it is missing the command fails with `ENTANGLE-E0845`.
+`--certificate-identity-regexp` / `--certificate-oidc-issuer` default to the values used by
+`.github/workflows/release.yml`. The key ceremony (2-of-3 Shamir split with
+`entangle release key split|combine`) is in `docs/governance/key-ceremony.md`.
+
+### 18.3 Governance checks
+
+`cargo xtask bus-factor` fails when any role in `docs/maintainers/roles.toml` has fewer than
+two active holders (a merge authored in the last 60 days); the weekly workflow runs it and
+opens the P0 issue. `cargo xtask rotation-note-check` fails when the newest
+`## YYYY-MM-DD` note in `docs/governance/rotations.md` is older than 35 days; the release
+workflow runs it first (`rotation_note_fresh`).

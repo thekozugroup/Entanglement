@@ -65,7 +65,9 @@ pub enum ShamirError {
         got: usize,
     },
     /// The reconstruction's check bytes do not match: a share is wrong.
-    #[error("ENTANGLE-E0856: reconstruction failed its integrity check (a share is wrong or corrupted)")]
+    #[error(
+        "ENTANGLE-E0856: reconstruction failed its integrity check (a share is wrong or corrupted)"
+    )]
     CheckFailed,
 }
 
@@ -242,10 +244,9 @@ pub fn split_with_rng<R: RngCore + CryptoRng>(
 /// Fails (rather than returning garbage) on too few shares, shares of
 /// different splits, duplicate indices, or a wrong share.
 pub fn combine(shares: &[Share]) -> Result<Vec<u8>, ShamirError> {
-    let first = shares.first().ok_or(ShamirError::NotEnoughShares {
-        needed: 2,
-        got: 0,
-    })?;
+    let first = shares
+        .first()
+        .ok_or(ShamirError::NotEnoughShares { needed: 2, got: 0 })?;
     for s in shares {
         if s.set_id != first.set_id
             || s.threshold != first.threshold

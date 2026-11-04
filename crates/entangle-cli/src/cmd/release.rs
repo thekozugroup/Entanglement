@@ -338,7 +338,10 @@ fn add_key(public_key_hex: &str, name: &str, ring_path: &Path) -> Result<()> {
     let mut ring = Keyring::load(ring_path)?;
     ring.add(entry);
     ring.save(ring_path)?;
-    println!("added release key {fp} \"{name}\" to {}", ring_path.display());
+    println!(
+        "added release key {fp} \"{name}\" to {}",
+        ring_path.display()
+    );
     Ok(())
 }
 
@@ -400,13 +403,16 @@ fn combine_key(files: &[PathBuf], out: &Path) -> Result<()> {
     for f in files {
         let text =
             std::fs::read_to_string(f).with_context(|| format!("reading {}", f.display()))?;
-        parts.push(
-            Share::decode(text.trim()).map_err(|e| anyhow::anyhow!("{}: {e}", f.display()))?,
-        );
+        parts
+            .push(Share::decode(text.trim()).map_err(|e| anyhow::anyhow!("{}: {e}", f.display()))?);
     }
     let secret = shamir::combine(&parts).map_err(|e| anyhow::anyhow!("{e}"))?;
     write_secret_new(out, &secret)?;
-    println!("reconstructed {} bytes into {}", secret.len(), out.display());
+    println!(
+        "reconstructed {} bytes into {}",
+        secret.len(),
+        out.display()
+    );
     if let Some(kp) = std::str::from_utf8(&secret)
         .ok()
         .and_then(|p| IdentityKeyPair::from_pem(p).ok())

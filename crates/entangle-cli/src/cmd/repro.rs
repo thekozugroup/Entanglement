@@ -426,7 +426,14 @@ pub fn make_provenance(
     manifest: &[u8],
 ) -> Result<Provenance> {
     let mut deps = Vec::new();
-    for (name, dir) in path_dependencies(manifest_path, &cargo_bin())? {
+    // A project packaging a pre-built artifact (`--wasm`) may have no
+    // Cargo.toml at all; it then has no path dependencies to digest.
+    let dep_dirs = if manifest_path.is_file() {
+        path_dependencies(manifest_path, &cargo_bin())?
+    } else {
+        Vec::new()
+    };
+    for (name, dir) in dep_dirs {
         deps.push(PathDepDigest {
             name,
             digest: source_digest(&dir)?,
@@ -507,8 +514,16 @@ pub enum RebuildVerdict {
 
 fn first_byte_difference(a: &[u8], b: &[u8]) -> String {
     match a.iter().zip(b).position(|(x, y)| x != y) {
-        Some(i) => format!("first differing byte at offset {i} (lengths {} vs {})", a.len(), b.len()),
-        None => format!("lengths differ ({} vs {}) but common prefix is identical", a.len(), b.len()),
+        Some(i) => format!(
+            "first differing byte at offset {i} (lengths {} vs {})",
+            a.len(),
+            b.len()
+        ),
+        None => format!(
+            "lengths differ ({} vs {}) but common prefix is identical",
+            a.len(),
+            b.len()
+        ),
     }
 }
 
@@ -571,7 +586,12 @@ pub fn verify_rebuild(
             .path_dependencies
             .iter()
             .find(|r| !local_deps.contains(r))
-            .map(|r| format!("path dependency {} differs from the recorded digest", r.name))
+            .map(|r| {
+                format!(
+                    "path dependency {} differs from the recorded digest",
+                    r.name
+                )
+            })
             .unwrap_or_else(|| "set of path dependencies differs".into());
         return Ok(Fail(detail));
     }
@@ -640,7 +660,10 @@ pub fn verify_rebuild(
             blake3::hash(&wasm).to_hex()
         )));
     }
-    notes.push(format!("plugin.wasm blake3 {}", blake3::hash(&wasm).to_hex()));
+    notes.push(format!(
+        "plugin.wasm blake3 {}",
+        blake3::hash(&wasm).to_hex()
+    ));
 
     // 4. Recorded hashes and (when we can) the signature itself.
     if bundle.artifact_blake3 != *blake3::hash(&wasm).as_bytes()
@@ -652,7 +675,8 @@ pub fn verify_rebuild(
     }
     if bundle.manifest_blake3 != *blake3::hash(rendered.toml.as_bytes()).as_bytes() {
         return Ok(Fail(
-            "recorded manifest hash in the signature bundle does not match the rebuilt manifest".into(),
+            "recorded manifest hash in the signature bundle does not match the rebuilt manifest"
+                .into(),
         ));
     }
     match keyring {
