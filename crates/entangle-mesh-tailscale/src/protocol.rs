@@ -16,7 +16,7 @@
 //! * Both records are sealed under the session keys, so a relaying tailnet
 //!   node can neither change which protocol was asked for nor turn a refusal
 //!   into an acceptance.
-//! * Both are read under a [`SELECT_MAX`]-byte cap that is compared with the
+//! * Both are read under a small fixed cap (70 bytes) that is compared with the
 //!   declared length before anything is allocated, and under the handshake
 //!   timeout, so a silent peer cannot hold the connection open at this step.
 //! * The server re-checks its allowlist (`entangle-on-top`) before parsing

@@ -443,17 +443,6 @@ impl MeshTailscale {
         }
     }
 
-    /// Resolves once [`MeshTailscale::shutdown`] has been called.
-    pub async fn wait_shutdown(&self) {
-        let mut rx = self.inner.shutdown_tx.subscribe();
-        // `send_replace`-free: `shutdown` sends `true` once; a receiver that
-        // subscribed afterwards sees it as the current value.
-        if *rx.borrow_and_update() {
-            return;
-        }
-        let _ = rx.wait_for(|down| *down).await;
-    }
-
     /// Stop accepting and signal serving tasks to finish.
     pub async fn shutdown(&self) {
         let _ = self.inner.shutdown_tx.send(true);

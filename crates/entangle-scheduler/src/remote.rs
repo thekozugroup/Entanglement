@@ -515,6 +515,10 @@ impl RemoteDispatch {
 }
 
 /// What a control frame's answer means for the caller.
+// `DispatchError` is the error type of every remote call in this crate (the
+// async APIs returning it are not subject to this lint); boxing it here
+// alone would only add an unwrap at both call sites.
+#[allow(clippy::result_large_err)]
 fn control_outcome(
     peer: PeerId,
     task_id: TaskId,
