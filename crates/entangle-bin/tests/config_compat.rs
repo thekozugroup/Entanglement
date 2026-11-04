@@ -570,3 +570,108 @@ fn deny_capabilities_cross_the_boundary_and_are_validated() {
         assert!(err.to_string().contains("ENTANGLE-E0126"), "{bad}: {err}");
     }
 }
+
+/// Both lines of work add sections to the same file: `[security]
+/// deny_capabilities` (capability grants), `[wrappers]` / `[plugins]`
+/// (operator safety UX, written by the CLI) and the daemon-only `[metrics]` /
+/// `[telemetry.otlp]` (observability). All of them together, in one file,
+/// cross the boundary in both directions: the daemon parses what the CLI
+/// writes and a file holding every section, and the CLI reads every section
+/// it models back out of either, ignoring the daemon-only ones.
+#[test]
+fn every_section_of_both_branches_crosses_the_boundary_in_one_file() {
+    // CLI → daemon: what `entangle` itself writes.
+    let cli_cfg = cli_mirror::Config {
+        security: cli_mirror::SecurityConfig {
+            max_tier_allowed: 3,
+            deny_capabilities: vec!["net.wan".to_owned(), "custom.*".to_owned()],
+            ..Default::default()
+        },
+        wrappers: cli_mirror::WrappersConfig { install: true },
+        plugins: cli_mirror::PluginsConfig {
+            disabled: vec!["aabbccddeeff00112233445566778899/x@0.1.0".to_owned()],
+        },
+        ..Default::default()
+    };
+    let daemon = daemon_parses_cli_output(&cli_cfg);
+    assert_eq!(daemon.security.max_tier_allowed, Tier::Networked);
+    let denied: Vec<String> = daemon
+        .security
+        .deny_capabilities
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    assert_eq!(denied, ["net.wan", "custom.*"]);
+    assert!(daemon.wrappers.install);
+    assert_eq!(daemon.plugins.disabled, cli_cfg.plugins.disabled);
+    assert!(!daemon.metrics.enabled && !daemon.telemetry.otlp.enabled);
+
+    // A hand-edited file with every section of both branches.
+    let full = r#"
+[runtime]
+bus_capacity = 512
+
+[mesh]
+transports = ["local"]
+multi_node = false
+
+[security]
+max_tier_allowed = 4
+allow_unsandboxed_native = false
+deny_capabilities = ["net.wan", "storage.share.*"]
+
+[wrappers]
+install = true
+
+[plugins]
+disabled = ["aabbccddeeff00112233445566778899/x@0.1.0"]
+
+[metrics]
+enabled = true
+listen = "127.0.0.1:9464"
+allow_non_loopback = false
+
+[telemetry.otlp]
+enabled = false
+endpoint = "http://localhost:4318"
+service_name = "entangled"
+"#;
+    let daemon: DaemonConfig = toml::from_str(full).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(daemon.runtime.bus_capacity, 512);
+    assert_eq!(daemon.security.max_tier_allowed, Tier::Privileged);
+    assert_eq!(daemon.security.deny_capabilities.len(), 2);
+    assert!(daemon.wrappers.install && daemon.metrics.enabled);
+    assert_eq!(daemon.plugins.disabled.len(), 1);
+    let k = entangle_bin::config::kernel_config(&daemon, std::path::Path::new("/x"));
+    assert_eq!(k.denied_capabilities, daemon.security.deny_capabilities);
+    assert_eq!(k.max_tier_allowed, Tier::Privileged);
+
+    // daemon → CLI: the same file, and what the daemon serialises.
+    let cli: cli_mirror::Config = toml::from_str(full).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(cli.security.max_tier_allowed, 4);
+    assert_eq!(
+        cli.security.deny_capabilities,
+        ["net.wan", "storage.share.*"]
+    );
+    assert!(cli.wrappers.install);
+    assert_eq!(cli.plugins.disabled.len(), 1);
+    let written = toml::to_string_pretty(&daemon).expect("daemon config serializes");
+    for section in [
+        "[security]",
+        "[wrappers]",
+        "[plugins]",
+        "[metrics]",
+        "[telemetry.otlp]",
+    ] {
+        assert!(written.contains(section), "{section} in\n{written}");
+    }
+    let back: cli_mirror::Config = toml::from_str(&written).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(
+        back.security.deny_capabilities,
+        ["net.wan", "storage.share.*"]
+    );
+    assert!(back.wrappers.install);
+    assert_eq!(back.plugins.disabled, cli.plugins.disabled);
+    let again: DaemonConfig = toml::from_str(&written).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(again.security.deny_capabilities.len(), 2);
+}

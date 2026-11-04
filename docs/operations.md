@@ -148,16 +148,21 @@ service_name = "entangled"
 
 Notes:
 
-- The `[mesh]` and `[security]` sections are **field-for-field shared** with
-  the CLI's own config schema (`crates/entangle-cli/src/config.rs`), which is
-  what actually writes the file (via `entangle init` or `entangle mesh
-  trust`/`untrust`). A round-trip test in `entangle-bin` pins this
-  compatibility so the two schemas cannot silently drift.
+- The `[mesh]`, `[security]` (including `deny_capabilities`), `[wrappers]`
+  and `[plugins]` sections are **field-for-field shared** with the CLI's own
+  config schema (`crates/entangle-cli/src/config.rs`), which is what
+  actually writes the file (via `entangle init`, `entangle mesh
+  trust`/`untrust`, `entangle wrapper`, `entangle security`). A round-trip
+  test in `entangle-bin` pins this compatibility — every section in one
+  file, in both directions — so the two schemas cannot silently drift. The
+  CLI's edits are format-preserving: they change only the key they set and
+  keep `deny_capabilities`, comments and the daemon-only sections.
   - One asymmetry to know about: the CLI stores `max_tier_allowed` as a bare
     `u8` (default `5`), while the daemon deserializes it into the `Tier` enum,
     which gets range validation for free — the wire representation (an
     integer 1–5) is identical either way.
-- `[runtime]` is daemon-only; the CLI never writes it. Two keys that *used to*
+- `[runtime]`, `[metrics]` and `[telemetry]` are daemon-only; the CLI never
+  writes them and ignores them when it reads the file. Two keys that *used to*
   live under `[runtime]` (`multi_node`, `max_tier`) were relocated to `[mesh]`
   and `[security]` respectively — the old locations are now hard parse errors
   thanks to `deny_unknown_fields`, not silently-ignored dead settings.

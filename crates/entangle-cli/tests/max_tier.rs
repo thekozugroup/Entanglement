@@ -965,3 +965,38 @@ async fn config_reload_without_daemon_changes_nothing() {
     assert!(so.contains("nothing to reload"), "{so}");
     assert_eq!(f.config(), before);
 }
+
+/// The ceiling edit changes `max_tier_allowed` only: the rest of
+/// `[security]` — `deny_capabilities`, comment included — and the other
+/// sections of both branches survive, and the daemon still parses the file
+/// with its deny list intact.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn set_max_tier_keeps_deny_capabilities_and_every_other_section() {
+    let f = Fixture::new(
+        "deny_capabilities = [\"net.wan\", \"storage.share.*\"] # operator choice\n\n\
+         [wrappers]\ninstall = true\n\n\
+         [metrics]\nenabled = false\nlisten = \"127.0.0.1:9464\"\n\n\
+         [telemetry.otlp]\nenabled = false\n",
+        false,
+    )
+    .await;
+    let out = f.cmd(&["security", "set-max-tier", "3"]).output().unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "{stderr}");
+    let cfg = f.config();
+    assert!(cfg.contains("max_tier_allowed = 3"), "{cfg}");
+    assert!(
+        cfg.contains("deny_capabilities = [\"net.wan\", \"storage.share.*\"] # operator choice"),
+        "{cfg}"
+    );
+    assert!(
+        cfg.contains("[wrappers]\ninstall = true")
+            && cfg.contains("[metrics]")
+            && cfg.contains("[telemetry.otlp]"),
+        "{cfg}"
+    );
+    let daemon: dcfg::Config = toml::from_str(&cfg).unwrap_or_else(|e| panic!("{e}\n{cfg}"));
+    assert_eq!(daemon.security.max_tier_allowed as u8, 3);
+    assert_eq!(daemon.security.deny_capabilities.len(), 2);
+    assert!(daemon.wrappers.install);
+}
