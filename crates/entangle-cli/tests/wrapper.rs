@@ -632,3 +632,30 @@ fn doctor_as_a_background_job_is_not_stopped_by_the_probe() {
         .unwrap_or_default();
     assert!(line.contains("[ok]"), "{report}");
 }
+
+/// An rc file that `exec`s (e.g. `exec tmux`) or exits before the probe
+/// script runs leaves doctor nothing to check: that is "could not check" (a
+/// warning), never a pass -- here every shim function is even gone.
+#[test]
+fn doctor_warns_when_the_probe_shell_answers_nothing() {
+    let e = Env::new();
+    e.ok(&["init", "--non-interactive"]);
+    e.ok(&["wrapper", "enable"]);
+    let rc = e.rc();
+    std::fs::write(
+        e.home.join(".bashrc"),
+        format!("{rc}\nunset -f claude codex opencode\nexec sleep 0\n"),
+    )
+    .unwrap();
+    let o = doctor(&e);
+    let line = wrapper_line(&o);
+    assert!(
+        !line.contains("[ok]") && line.contains("shadow check could not run"),
+        "{}",
+        stdout(&o)
+    );
+    assert!(
+        line.contains("claude"),
+        "names what was not checked: {line}"
+    );
+}

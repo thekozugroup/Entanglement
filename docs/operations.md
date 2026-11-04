@@ -802,7 +802,8 @@ to change). Limits:
   it cannot stop `entangle doctor &` run as a background job), so an rc file
   that behaves differently without a tty is probed in that mode, and one that
   blocks or reads stdin is cut off by the timeout (reported as a warning, not
-  a pass);
+  a pass); one that `exec`s or exits before the probe runs (`exec tmux`) is
+  reported as "could not run" too;
 - only what an *interactive* shell loads is seen; shadowing introduced only by a
   login profile (`~/.bash_profile`, `~/.zprofile`) that the interactive shell
   does not re-read is not;

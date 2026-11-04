@@ -792,6 +792,22 @@ async fn check_wrappers() -> CheckResult {
             let sp = shell_path.clone().unwrap_or_default();
             match wrapper::probe_shell(&sp, &bins, wrapper_probe_timeout()).await {
                 Ok(res) => {
+                    // A name the shell never answered for was not checked:
+                    // the rc file exec'd or exited before the probe script
+                    // ran (`exec tmux`, `exec zsh`). That is "could not
+                    // check", never a pass.
+                    let unanswered: Vec<&str> = bins
+                        .iter()
+                        .filter(|b| !res.iter().any(|(r, _)| r == *b))
+                        .map(String::as_str)
+                        .collect();
+                    if !unanswered.is_empty() {
+                        problems.push(format!(
+                            "shadow check could not run for {}: the {kind} shell exited before \
+                             answering (does an rc file `exec` or `exit` in interactive shells?)",
+                            unanswered.join(", ")
+                        ));
+                    }
                     for (bin, r) in res {
                         let advice = format!("Run 'entangle wrapper repair' or 'unalias {bin}'.");
                         match r {
