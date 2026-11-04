@@ -12,7 +12,7 @@ Covers the work since commit `43cdef5` (277 non-merge commits). Measured on `080
 Transports and scheduling
 - `mesh.tailscale` transport: liveness polling (active, stopped, uninstalled) with hysteresis.
 - `mesh.tailscale`: mutually authenticated key exchange (X25519 + Ed25519), ChaCha20-Poly1305 sealed frames.
-- `mesh.tailscale`: tailnet-only source filter, connection caps, allowlist modes (`entangle-on-top`, `trust-tailnet`).
+- `mesh.tailscale`: tailnet-only source filter, connection caps, `acl-mode` values `entangle-on-top` and `trust-tailnet` (alias `tailscale-only`).
 - Protocol multiplexing and framed streams over Tailscale; the daemon serves the scheduler and stream protocols over it.
 - Per-peer transport selection: local, then tailscale (only when active), then iroh; `[mesh] preferred` and `[mesh.overrides]`; fallback only on connect failure; transport label in metrics and diag.
 - Hardware detection for scheduler adverts: memory, GPU backend and VRAM, NPU.
@@ -27,7 +27,7 @@ Integrity
 
 Streaming
 - Streaming tasks: credit flow control, heartbeat with `PeerLost` after three missed pongs, signed chunks bound to the request, total-byte and chunk-count caps, partial-result policies.
-- ALPN `entangle/stream/1` over Iroh and Tailscale; `stream-lines` plugin; `entangle compute stream`.
+- The daemon serves ALPN `entangle/stream/1` over Iroh and Tailscale; `stream-lines` plugin; `entangle compute stream` (dials over Iroh only).
 
 Plugins and sandboxing
 - New crate `entangle-sandbox`: Landlock (ABI probe), user and net namespace, seccomp socket-family filter, `no_new_privs`, rlimits, process groups; bubblewrap and Seatbelt profile generation.
@@ -37,7 +37,7 @@ Plugins and sandboxing
 - Catalog plugins and the `native-echo` example.
 
 Operations
-- `entangle security set-max-tier`, `entangle config reload|validate`; daemon RPCs drain in-flight calls and streams; audit codes `W0214`, `I0215`, `I0216`, `I0217`.
+- `entangle security set-max-tier`, `entangle config reload|validate`; lowering the ceiling drains in-flight calls and streams before unloading and records the unloaded plugins in `[plugins] disabled` (not read by the daemon); audit codes `W0214`, `I0215`, `I0216`, `I0217`.
 - `entangle wrapper enable|disable|status|repair`; `doctor` detects shadowing; format-preserving config writer.
 - Daemon `/metrics` endpoint (disabled by default, loopback by default); real metrics with bounded labels; `entangle metrics` over RPC.
 - OTLP/HTTP JSON trace exporter (`http://` endpoints only); `traceparent` on the scheduler wire.
@@ -48,9 +48,9 @@ Agents
 
 Distribution and release
 - OCI registry client (token and basic auth, digest and size checks, redirects without leaking credentials); push and pull; `entangle plugins install oci://...`, `plugins publish`, `plugins tags`.
-- Signed mirror listings with separate mirror keys (ATC-MIR-1/2).
+- Signed, expiring mirror listings with separate mirror keys (ATC-MIR-1/2); `entangle plugins mirror-sign`.
 - Reproducible plugin archives, provenance, `entangle plugins verify --rebuild`; `Cargo.lock` required.
-- `entangle release verify` (Ed25519 release key and cosign); `entangle release key split|combine` (Shamir 2-of-3).
+- `entangle release verify` (Ed25519 release key and cosign); `entangle release key split|combine` (Shamir secret sharing, 2-of-3 by default).
 - `cargo xtask bus-factor` and `cargo xtask rotation-note-check`; `.github/workflows/reproducibility.yml`; `wasm32-wasip2` target in the CI test job.
 
 Biscuits
@@ -69,7 +69,7 @@ Tests
 
 - Pairing: the responder closed the connection before its final frame was delivered (36 of 100 runs failed under load before, 0 of 100 after).
 - A gitignored test-only fixture key broke 17 tests on fresh checkouts; the key is now committed.
-- Security fixes from review (each fixed with a failing test first):
+- Security fixes from review (each fix commit adds a test):
   - MCP gateway: a `tools/call` sent as a notification bypassed policy and audit.
   - MCP gateway: no header-read timeout or connection cap let a local process exhaust file descriptors; the audit log was capped by record count but not size.
   - OpenCode adapter wrote a config schema OpenCode does not read, so the user's servers bypassed the gateway.
@@ -78,21 +78,22 @@ Tests
   - Integrity: oversized answers refused by the transport or framing still trip INV-INT-2.
   - OCI: environment registry credentials are bound to `ENTANGLE_OCI_REGISTRY`.
   - Streaming: a stream's chunk count is capped, not only its bytes.
-- A stream `wait()` could hang past its TTL when a dialer withheld stream credit.
+- Pairing: `PairingListener::wait()` could hang past the code's expiry when a dialer withheld QUIC stream credit, so `entangle pair --responder` kept its endpoint and mDNS beacon up past the advertised expiry.
 
 ### Deferred
 
 - `Attested` integrity: needs TEE hardware; returns `ENTANGLE-E0304`.
 - Native Windows (Phase 5).
-- bubblewrap and Seatbelt paths have not been run on a real host.
+- bubblewrap and Seatbelt paths have not been run on a real host in this work (a Seatbelt test that runs `sandbox-exec` compiles only on macOS).
 - Cross-host reproducibility and real cosign run only in CI; cosign identity is not pinned to the specific tag.
 - Capability revocations last until the plugin is reloaded.
-- OCI listing replay protection; OCI client TLS tests.
+- OCI listing rollback protection (listings expire, but an older unexpired listing is accepted); a TLS handshake test for the OCI client.
 - `RLIMIT_NPROC`, `RLIMIT_FSIZE`, cgroups and a per-host `net.wan` allowlist for native plugins.
 - `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
 - Bus-factor check fails by design (one holder per role).
 - No published release; `install.sh` and Homebrew need a `v0.1.0` tag.
-- On branches, not on main: Layer-2 1% replay spot-check; per-peer transport routing for `compute stream`; streaming invocation metrics; `entangle backup` / `restore`; `[plugins] disabled` with `plugins enable|disable`; `release verify --tag`; HTTP downstream servers in the gateway.
+- On the unmerged branch `wip/followups-sched`: Layer-2 1% replay spot-check; per-peer transport routing for `compute stream`; streaming invocation metrics.
+- On the unmerged branch `wip/followups-ops`: `entangle backup` / `restore`; `plugins enable|disable` and a daemon that reads `[plugins] disabled`; `release verify --tag`; HTTP downstream servers in the gateway.
 
 ### Earlier, before `43cdef5`
 
