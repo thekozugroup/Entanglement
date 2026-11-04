@@ -524,6 +524,39 @@ async fn slow_downstream_times_out_with_e0663() {
     f.gw.shutdown().await;
 }
 
+/// A dropped connection is not a cancellation in MCP Streamable HTTP: a
+/// request that times out is cancelled explicitly, under its downstream id
+/// and in the session, as the stdio path does.
+#[tokio::test]
+async fn a_timed_out_request_is_cancelled_downstream() {
+    let f = fixture_with(&[], Duration::from_millis(300), 1 << 20, Policy::default()).await;
+    post(&f, &init()).await;
+    f.mock.set(Mode::Slow(Duration::from_secs(5)));
+    let r = post(&f, &call(3, "x")).await;
+    assert!(
+        r.body["error"]["message"]
+            .as_str()
+            .unwrap_or("")
+            .contains("ENTANGLE-E0663"),
+        "{:?}",
+        r.body
+    );
+    let posts = f.mock.posts();
+    let sent = posts
+        .iter()
+        .find(|p| p.body["method"] == "tools/call")
+        .expect("the call reached the server");
+    let cancel = posts
+        .iter()
+        .find(|p| p.body["method"] == "notifications/cancelled")
+        .unwrap_or_else(|| panic!("no notifications/cancelled sent: {posts:?}"));
+    assert_eq!(cancel.body["params"]["requestId"], sent.body["id"]);
+    assert!(cancel.body.get("id").is_none(), "a notification");
+    assert_eq!(cancel.headers["mcp-session-id"], "sess-1");
+    assert_eq!(cancel.headers["mcp-protocol-version"], "2025-06-18");
+    f.gw.shutdown().await;
+}
+
 #[tokio::test]
 async fn oversize_reply_is_refused() {
     let f = fixture_with(&[], Duration::from_secs(10), 4096, Policy::default()).await;

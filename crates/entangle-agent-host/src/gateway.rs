@@ -65,8 +65,10 @@
 //!   that request; the next one starts a new session. Every client of the
 //!   route shares that session, so request ids are remapped to
 //!   gateway-unique ids (restored on the reply) and a client
-//!   `notifications/cancelled` is translated, exactly as for stdio.
-//!   `tools/call` goes through the same policy,
+//!   `notifications/cancelled` is translated, exactly as for stdio; a
+//!   request that times out is cancelled downstream with
+//!   `notifications/cancelled` (a dropped connection is not a cancellation
+//!   in Streamable HTTP). `tools/call` goes through the same policy,
 //!   audit and `after_tool` hooks as for stdio, and the request timeout and
 //!   the downstream message cap apply to the whole exchange. Only `https`
 //!   URLs are used, except loopback hosts (`http://127.0.0.1:…`,
@@ -698,7 +700,7 @@ where
     }
 }
 
-/// Upper bound for writing a `notifications/cancelled` after a timeout.
+/// Upper bound for sending a `notifications/cancelled` after a timeout.
 const CANCEL_WRITE_TIMEOUT: Duration = Duration::from_secs(1);
 
 impl StdioProc {
@@ -1237,6 +1239,28 @@ impl Downstream {
                     *route.public_session.lock() = None;
                 }
                 Err(http_err(HttpError::SessionExpired))
+            }
+            Err(HttpError::Timeout) => {
+                // MCP Streamable HTTP: a dropped connection is not a
+                // cancellation, so say so explicitly (best effort, briefly
+                // bounded), as for stdio. The request may not even have
+                // reached the server; a cancellation for an unknown id is
+                // ignored there.
+                let cancel = json!({
+                    "jsonrpc": "2.0",
+                    "method": "notifications/cancelled",
+                    "params": {"requestId": id, "reason": "timed out in the Entanglement gateway"}
+                });
+                let _ = target
+                    .post(
+                        &cancel,
+                        session.as_deref(),
+                        protocol.as_deref(),
+                        CANCEL_WRITE_TIMEOUT.min(self.timeout),
+                        self.max_message,
+                    )
+                    .await;
+                Err(DsError::Timeout)
             }
             Err(e) => Err(http_err(e)),
         }

@@ -176,7 +176,9 @@ itself sets `type`, `command` and `"enabled": true` win over the override.
     shares that one session, so, as for stdio, request ids are remapped to
     gateway-unique ones (the agent gets its own id back) and an agent's
     `notifications/cancelled` is translated to the downstream id (dropped
-    when no single in-flight request matches);
+    when no single in-flight request matches). A request that times out is
+    cancelled downstream with `notifications/cancelled`, since a closed
+    connection is not a cancellation in Streamable HTTP;
   - policy, `after_tool` and audit hooks are the same as for stdio; the
     request timeout (E0663) covers connecting, the TLS handshake, sending and
     reading the whole reply, and a JSON body or SSE event over the downstream
