@@ -10,6 +10,7 @@
 //! authenticate. The one test that needs real multicast is `#[ignore]`d and
 //! says so.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -17,7 +18,9 @@ use entangle_pairing::mesh::{
     dial_and_pair, loopback_pairing_config, start_pairing_transport_with, IrohPeer,
     PairingListener, PairingMeshError,
 };
-use entangle_pairing::net::{HostConfig, PairingNetError, RejectReason, SessionEnd};
+use entangle_pairing::net::{
+    Dialer, HostConfig, PairingNetError, PairingWire, RejectReason, SessionEnd,
+};
 use entangle_pairing::{PairedPeer, PairingCode};
 use entangle_peers::TrustedPeer;
 use entangle_signing::IdentityKeyPair;
@@ -399,7 +402,136 @@ async fn dialing_a_non_listener_fails_cleanly() {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Needs real multicast.
+// 7. The last frame survives a responder that leaves as soon as it is paired.
+// ---------------------------------------------------------------------------
+
+/// How long the slow dialer below sits on the host's last frame before reading
+/// it: a loaded CPU or a slow link, compressed.
+const SLOW_READ: Duration = Duration::from_millis(750);
+
+/// The dialer side of the exchange driven by hand, so it can stall for
+/// `stall` between sending its proof (`Accept`) and reading the host's
+/// `Finalize`, the way a device does when it is slow to get to its last
+/// message. Everything else is what [`dial_and_pair`] does.
+///
+/// `read_it` is set the moment the `Finalize` has been read, before the
+/// connection is closed.
+async fn dial_and_read_finalize_late(
+    transport: &MeshIroh,
+    peer: &IrohPeer,
+    identity: &IdentityKeyPair,
+    code: PairingCode,
+    stall: Duration,
+    read_it: &AtomicBool,
+) -> Result<PairedPeer, String> {
+    let dialer = Dialer::new(identity, "laptop", code);
+    let conn = transport.connect(peer).await.map_err(|e| e.to_string())?;
+    let remote = conn.remote_public_key();
+
+    let hello = dialer.hello().encode().map_err(|e| e.to_string())?;
+    let reply = conn.request(&hello).await.map_err(|e| e.to_string())?;
+    let PairingWire::Offer(offer) = PairingWire::decode(&reply).map_err(|e| e.to_string())? else {
+        return Err("expected an offer".into());
+    };
+    dialer
+        .check_offer(remote, &offer)
+        .map_err(|e| e.to_string())?;
+
+    // A raw stream speaks the same framing as `MeshConn::request`, but lets the
+    // read of the answer be delayed independently of the write.
+    let accept = PairingWire::Accept(dialer.accept_for(&offer))
+        .encode()
+        .map_err(|e| e.to_string())?;
+    let mut io = conn.open_stream().await.map_err(|e| e.to_string())?;
+    io.send(&accept).await.map_err(|e| e.to_string())?;
+    io.finish().await.map_err(|e| e.to_string())?;
+
+    tokio::time::sleep(stall).await;
+
+    let reply = io
+        .recv()
+        .await
+        .map_err(|e| format!("reading the finalize: {e}"))?
+        .ok_or("the host ended the stream without a finalize")?;
+    read_it.store(true, Ordering::SeqCst);
+    let PairingWire::Finalize(finalize) = PairingWire::decode(&reply).map_err(|e| e.to_string())?
+    else {
+        return Err("expected a finalize".into());
+    };
+    let paired = dialer
+        .finish(remote, &offer, &finalize)
+        .map_err(|e| e.to_string())?;
+    // Only now, having read the last frame, does the dialer let go.
+    conn.close();
+    Ok(paired)
+}
+
+/// `entangle pair --responder` returns from [`PairingListener::wait`] and
+/// shuts its endpoint down straight away, and a QUIC close discards every
+/// frame the peer has not yet received. So `wait` must not report success
+/// until the dialer has taken the `Finalize` (it closes the connection once it
+/// has): a dialer that is slow to get to it (a loaded machine, a slow link)
+/// must still receive it, or the responder stores a peer that never learned
+/// it was paired.
+///
+/// Regression test for the intermittent `connection lost` in
+/// `entangle-cli`'s `pair_over_the_network_stores_both_peers` under load:
+/// `wait` used to return as soon as the session recorded the peer — before
+/// the `Finalize` was even written — and the shutdown that followed raced
+/// its transmission.
+#[tokio::test]
+async fn a_responder_that_exits_on_success_still_delivers_the_finalize() {
+    let host = listener(Duration::from_secs(30), 5).await;
+    let code = host.code();
+    let peer = dialable(&host);
+    let dialer_read_finalize = Arc::new(AtomicBool::new(false));
+
+    // Exactly the CLI's sequence: wait, then tear everything down at once.
+    let read_flag = Arc::clone(&dialer_read_finalize);
+    let responder = tokio::spawn(async move {
+        let outcome = host.wait().await;
+        let delivered_first = read_flag.load(Ordering::SeqCst);
+        host.shutdown().await;
+        (outcome, delivered_first)
+    });
+
+    let dialer_identity = IdentityKeyPair::generate();
+    let dialer_transport = transport(&dialer_identity).await;
+    let dialer_view = deadline(
+        "slow dialer",
+        dial_and_read_finalize_late(
+            &dialer_transport,
+            &peer,
+            &dialer_identity,
+            code,
+            SLOW_READ,
+            &dialer_read_finalize,
+        ),
+    )
+    .await;
+    let (host_view, delivered_first) = deadline("responder", responder)
+        .await
+        .expect("responder task must not panic");
+    dialer_transport.shutdown().await;
+
+    let host_view = host_view.expect("the responder paired");
+    assert!(
+        delivered_first,
+        "wait() reported the pairing while the dialer had not yet read the finalize; \
+         the shutdown that follows it can discard that frame"
+    );
+    let dialer_view = dialer_view.unwrap_or_else(|e| {
+        panic!("the responder recorded the pairing but the dialer never got the finalize: {e}")
+    });
+    assert_eq!(dialer_view.peer_id, peer.peer_id);
+    assert_eq!(
+        host_view.peer_id,
+        PeerId::from_public_key_bytes(dialer_identity.public().as_bytes())
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 8. Needs real multicast.
 // ---------------------------------------------------------------------------
 
 /// mDNS discovery needs a live multicast-capable interface, which sandboxed CI
