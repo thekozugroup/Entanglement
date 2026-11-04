@@ -639,7 +639,8 @@ pub fn verify_gpu_job(
 
 /// Check an `agent.session` token presented by `holder` for `session_id`:
 /// a valid `mesh.peer` chain under `root`, bound to that session, with an
-/// expiry that has not passed.
+/// expiry that has not passed and is at most [`AGENT_SESSION_MAX_TTL_SECS`]
+/// (+ [`MAX_CLOCK_SKEW_SECS`]) after `now`.
 pub fn verify_agent_session(
     token: &[u8],
     root: &PublicKey,
@@ -651,10 +652,22 @@ pub fn verify_agent_session(
     if scanned.agent_sessions.is_empty() {
         return Err(TokenError::CapabilityNotGranted(AGENT_SESSION.to_owned()));
     }
-    if scanned.expires.is_none() {
+    let Some(expires) = scanned.expires else {
         return Err(TokenError::RestrictionNotMet(
             "an agent.session token must carry an expiry".into(),
         ));
+    };
+    // The template's "short expiry" is enforced here, not only by the
+    // builder: a holder can append its own block with any `expires`, so the
+    // verifier must not take the presenter's word for it. The clock-skew
+    // allowance is the one per-request tokens get.
+    let max_secs = AGENT_SESSION_MAX_TTL_SECS + MAX_CLOCK_SKEW_SECS;
+    if expires.saturating_sub(now) > max_secs {
+        return Err(TokenError::RestrictionNotMet(format!(
+            "an {AGENT_SESSION} token must expire within {max_secs}s; this one expires at \
+             {expires}, {}s from now",
+            expires.saturating_sub(now)
+        )));
     }
     check_restrictions(&scanned, Operation::AgentSession(session_id))?;
     Ok(TemplateGrant {

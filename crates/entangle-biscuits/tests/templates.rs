@@ -404,6 +404,46 @@ fn the_agent_session_template_binds_one_session_with_a_short_expiry() {
     .unwrap();
 }
 
+/// The template promises a *short* expiry; a holder who bypasses the
+/// builder (appending its own block) must not get a long-lived session.
+#[test]
+fn an_agent_session_expiry_beyond_the_template_cap_is_refused_by_the_verifier() {
+    use entangle_biscuits::templates::AGENT_SESSION_MAX_TTL_SECS;
+    let (w, b) = (Node::new(), Node::new());
+    let root = root_public_key(&w.public()).unwrap();
+    let token = grant(&w, &b);
+    let ten_years = format!("expires({})", NOW + 10 * 365 * 24 * 3_600);
+    let long = append_raw(
+        &token,
+        &w,
+        &["agent_session(\"s1\")", ten_years.as_str()],
+        &[],
+    );
+    assert!(
+        matches!(
+            verify_agent_session(&long, &root, b.id(), "s1", NOW),
+            Err(TokenError::RestrictionNotMet(_))
+        ),
+        "an agent.session expiry ten years out must be refused"
+    );
+    // At the cap (plus the clock-skew allowance) it is still accepted.
+    let at_cap = format!(
+        "expires({})",
+        NOW + AGENT_SESSION_MAX_TTL_SECS + MAX_CLOCK_SKEW_SECS
+    );
+    let ok = append_raw(&token, &w, &["agent_session(\"s1\")", at_cap.as_str()], &[]);
+    verify_agent_session(&ok, &root, b.id(), "s1", NOW).unwrap();
+    let over = format!(
+        "expires({})",
+        NOW + AGENT_SESSION_MAX_TTL_SECS + MAX_CLOCK_SKEW_SECS + 1
+    );
+    let over = append_raw(&token, &w, &["agent_session(\"s1\")", over.as_str()], &[]);
+    assert!(matches!(
+        verify_agent_session(&over, &root, b.id(), "s1", NOW),
+        Err(TokenError::RestrictionNotMet(_))
+    ));
+}
+
 #[test]
 fn the_verifier_refuses_a_replayed_nonce() {
     let (w, b) = (Node::new(), Node::new());
