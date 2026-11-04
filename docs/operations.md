@@ -357,7 +357,7 @@ grep -rn "ENTANGLE-E<code>" crates/*/src/
 
 ---
 
-## 7. Backup / restore of `identity.key`
+## 7. Backup / restore
 
 `identity.key` is the node's Ed25519 private key. **The daemon's `peer_id` —
 and every existing pairing — is derived from its public key.** There is no
@@ -370,49 +370,73 @@ recovery path for a lost key:
 
 ### Backup
 
-There is no dedicated `entangle backup` command in Phase 1 — back it up like
-any other secret file:
-
 ```bash
-cp ~/.entangle/identity.key /secure/offline/location/identity.key.bak
-chmod 600 /secure/offline/location/identity.key.bak
+entangle backup --to /secure/offline/node.entangle-backup            # prompts twice
+entangle backup --to node.bak --include-config --passphrase-file ~/.bk-pass
+ENTANGLE_BACKUP_PASSPHRASE=... entangle backup --to node.bak          # automation
 ```
 
-After backing it up, touch the sentinel the built-in maintenance loop checks
-for, so it stops nagging in the logs:
+The archive holds `identity.key`, `keyring.toml`, `release-keyring.toml` and
+`peers.toml` (whichever exist) and, with `--include-config`, `config.toml`. It
+is encrypted with a passphrase: Argon2id (64 MiB, 3 passes, 1 lane; above the
+OWASP minimum) derives a key for XChaCha20-Poly1305, and the format header
+(magic, version, KDF parameters, salt, nonce) is authenticated as associated
+data, so changing any byte of the file makes it unreadable. The passphrase
+comes from a TTY prompt (asked twice, at least 8 characters),
+`--passphrase-file <file>` (first line) or `ENTANGLE_BACKUP_PASSPHRASE`; it is
+never accepted on the command line. Without a TTY and without one of those
+sources the command fails instead of hanging. The archive is written with mode
+`0600`, atomically; an existing `--to` file is only replaced with `--force`.
+A successful backup touches `~/.entangle/.identity_backed_up`, which silences
+the maintenance loop's "identity has no backup" warning
+(`crates/entangle-bin/src/maintenance.rs`, `warn_backup`). The loop also warns
+once the key is older than `key_rotation_warn_days` (default 365 days).
 
-```bash
-touch ~/.entangle/.identity_backed_up
-```
+Keep the passphrase separate from the archive: without it the archive cannot
+be opened, and there is no recovery.
 
-(`crates/entangle-bin/src/maintenance.rs`'s `warn_backup` check emits a
-`maintenance: identity has no backup sentinel …` warning on every tick while
-that sentinel file is absent. It does not track *how stale* your backup is —
-only whether one was ever acknowledged — so re-touch it after any deliberate
-key rotation, but there's no automated re-check on a schedule.)
+### Restore (new device or disaster)
 
-The maintenance loop also warns (does not fail) once the key is older than
-`key_rotation_warn_days` (default 365 days), as a rotation reminder.
-
-### Restore
-
-Stop the daemon, place the backed-up PEM at `~/.entangle/identity.key` with
-mode `0600`, and restart:
+Stop the daemon, then:
 
 ```bash
 systemctl stop entangled          # or: docker stop entangled
-cp /secure/offline/location/identity.key.bak ~/.entangle/identity.key
-chmod 600 ~/.entangle/identity.key
+entangle restore --from /secure/offline/node.entangle-backup
 systemctl start entangled         # or: docker start entangled
 ```
 
-`entangle init` also supports importing a PEM interactively (option `i` in
-the wizard, or non-interactively by pre-placing the file): if an identity
-already exists and differs from the one being imported, it requires explicit
-confirmation, takes an automatic `identity.key.bak-<unix_ts>` copy (mode
-`0600`) of the *old* key before overwriting, and offers to clear
-`peers.toml` (since the old pairings are now stale against the new key).
-Importing a byte-identical key is a no-op.
+The passphrase is read like for `backup` (once). Decryption and validation
+happen entirely before anything is written, so a wrong passphrase, a modified
+or truncated archive, or an archive that is not a backup leaves the target
+untouched. Restored files get mode `0600` (`~/.entangle/` `0700` if it had to
+be created). The restored node has the same `peer_id`, the same keyring and
+the same peer list, and every biscuit issued earlier stays valid, since
+biscuits are bound to keys, not to the device.
+
+If this device already has an identity, keyring or peer list that differs from
+the archive, `restore` refuses (`ENTANGLE-E0864`). With `--force` it first
+copies every file it is about to replace into
+`~/.entangle/restore-backup-<unix_ts>/` (mode `0700`, files `0600`), then
+writes the archive's files. Managed files the archive does not contain
+(for example `peers.toml` when the source had no pairings) are moved to that
+directory too, because they would be stale against the restored identity.
+`config.toml` is touched only when the archive contains it.
+
+| Code | Meaning |
+|------|---------|
+| `ENTANGLE-E0860` | No usable passphrase (no TTY and no file/env, empty, too short, prompts differ) |
+| `ENTANGLE-E0861` | Not a backup, unsupported version, truncated, or KDF parameters out of range |
+| `ENTANGLE-E0862` | Wrong passphrase, or the archive was modified |
+| `ENTANGLE-E0863` | Decrypted payload is invalid (bad identity, unexpected file, malformed TOML) |
+| `ENTANGLE-E0864` | Restore would overwrite existing state; pass `--force` |
+| `ENTANGLE-E0865` | `backup --to` path exists; pass `--force` |
+| `ENTANGLE-E0866` | No readable `identity.key` to back up |
+| `ENTANGLE-E0867` | I/O error while writing |
+
+`entangle init` can also import a bare PEM (option `i` in the wizard): if an
+identity already exists and differs it requires confirmation, takes an
+automatic `identity.key.bak-<unix_ts>` copy (mode `0600`) and offers to clear
+`peers.toml`. `entangle restore` is the way to move a whole node.
 
 ---
 
@@ -453,7 +477,7 @@ Docker, `docker logs -f entangled` shows the same JSON stream; pass
 | Daemon fails to start with a TOML parse error mentioning an unknown field | A typo'd config key, or a key left over from an old schema (e.g. `[runtime] multi_node` or `[runtime] max_tier`, which moved to `[mesh]`/`[security]`) | Fix or remove the offending key — `deny_unknown_fields` means every section rejects keys it doesn't recognize. Cross-check against the schema table in §2. |
 | Daemon fails to start: "cannot resolve a private socket path" / "cannot resolve the config directory" | `$HOME` is unset (common in minimal container/service environments) and no absolute `$XDG_RUNTIME_DIR` is set either | Set `HOME` explicitly (systemd: `Environment=HOME=...`; Docker: `ENV HOME=...`, already done in the shipped image). The code deliberately refuses to fall back to a world-writable path like `/tmp`. |
 | Daemon logs "socket … is group/world accessible; refusing to serve" | Something (or someone) loosened the permissions on an existing socket path before bind, or a very permissive umask affected the parent dir | Remove the stale socket / fix the parent directory to `0700`, then restart. The server will not serve on a socket it can't restrict to `0600`. |
-| `entangle`/`entangled` fail identity checks with "PEM parse failed" / corrupt key | `identity.key` truncated, corrupted, or edited by hand | Restore from backup (§7); if none exists, `entangle init` can generate a fresh identity — but every existing pairing must be redone via `entangle pair`. |
+| `entangle`/`entangled` fail identity checks with "PEM parse failed" / corrupt key | `identity.key` truncated, corrupted, or edited by hand | Restore from backup (§7, `entangle restore`); if none exists, `entangle init` can generate a fresh identity — but every existing pairing must be redone via `entangle pair`. |
 | `entangle doctor`'s `identity-perms` or `dir-perms` check warns | File/dir permissions loosened outside the tool (e.g. by a backup/restore process, or an `umask` override) | `chmod 600 ~/.entangle/identity.key` / `chmod 700 ~/.entangle` as suggested in the check's own output. |
 | `entangled status` fails / hangs | Daemon not running, socket path mismatch, or daemon wedged | Check `systemctl status entangled` / `docker ps`; confirm the socket path matches (`--socket` override vs. default `$HOME/.entangle/sock`); check logs for the last activity before it stopped responding. |
 | Native plugin refused with `ENTANGLE-E0700` / `E0701` | No sandbox primitive on this host (E0700), or one exists but cannot take the network away (E0701) | Run `entangle doctor` (§12). Enable Landlock / install bubblewrap; or grant the plugin `net.*`; or, knowingly, set `allow_unsandboxed_native = true`. |
