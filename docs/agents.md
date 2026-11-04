@@ -172,8 +172,11 @@ itself sets `type`, `command` and `"enabled": true` win over the override.
     request; the id is also returned in the `Mcp-Session-Id` header of the
     gateway's replies. If the server forgets the session (404) that request
     fails (`ENTANGLE-E0671`) and the next one starts a fresh session; at
-    shutdown the gateway sends `DELETE` to end it. Request ids are the
-    agent's own (not remapped, unlike stdio);
+    shutdown the gateway sends `DELETE` to end it. Every client of a route
+    shares that one session, so, as for stdio, request ids are remapped to
+    gateway-unique ones (the agent gets its own id back) and an agent's
+    `notifications/cancelled` is translated to the downstream id (dropped
+    when no single in-flight request matches);
   - policy, `after_tool` and audit hooks are the same as for stdio; the
     request timeout (E0663) covers connecting, the TLS handshake, sending and
     reading the whole reply, and a JSON body or SSE event over the downstream

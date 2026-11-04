@@ -62,8 +62,11 @@
 //!   assigns and sends it, with `MCP-Protocol-Version`, on every later
 //!   request; the id is also returned to the client in the reply's
 //!   `Mcp-Session-Id` header. A server that forgets the session (404) fails
-//!   that request; the next one starts a new session. Request ids are the
-//!   client's (not remapped). `tools/call` goes through the same policy,
+//!   that request; the next one starts a new session. Every client of the
+//!   route shares that session, so request ids are remapped to
+//!   gateway-unique ids (restored on the reply) and a client
+//!   `notifications/cancelled` is translated, exactly as for stdio.
+//!   `tools/call` goes through the same policy,
 //!   audit and `after_tool` hooks as for stdio, and the request timeout and
 //!   the downstream message cap apply to the whole exchange. Only `https`
 //!   URLs are used, except loopback hosts (`http://127.0.0.1:…`,
@@ -512,6 +515,41 @@ impl DsError {
 
 type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>>;
 
+/// In-flight requests by the client's id (as JSON text) -> the downstream
+/// ids the gateway gave them, to translate `notifications/cancelled`.
+type InflightIds = Mutex<HashMap<String, Vec<u64>>>;
+
+fn inflight_add(map: &InflightIds, client_key: &str, id: u64) {
+    map.lock()
+        .entry(client_key.to_owned())
+        .or_default()
+        .push(id);
+}
+
+fn inflight_remove(map: &InflightIds, client_key: &str, id: u64) {
+    let mut inflight = map.lock();
+    if let Some(ids) = inflight.get_mut(client_key) {
+        ids.retain(|i| *i != id);
+        if ids.is_empty() {
+            inflight.remove(client_key);
+        }
+    }
+}
+
+/// Translate a client `notifications/cancelled` into the downstream id
+/// space. `None` when its `requestId` matches no single in-flight request
+/// (finished, unknown, or ambiguous between clients).
+fn remap_cancellation(map: &InflightIds, msg: &Value) -> Option<Value> {
+    let key = msg.pointer("/params/requestId")?.to_string();
+    let id = match map.lock().get(&key).map(Vec::as_slice) {
+        Some([one]) => *one,
+        _ => return None,
+    };
+    let mut msg = msg.clone();
+    msg["params"]["requestId"] = json!(id);
+    Some(msg)
+}
+
 struct StdioProc {
     name: String,
     /// Bound for writes the gateway makes on its own (replies to
@@ -520,9 +558,8 @@ struct StdioProc {
     /// `None` once a write was cut short: nothing may follow a partial line.
     stdin: tokio::sync::Mutex<Option<ChildStdin>>,
     pending: Pending,
-    /// In-flight requests by the client's id (as JSON text) -> gateway ids,
-    /// to translate `notifications/cancelled`.
-    inflight: Mutex<HashMap<String, Vec<u64>>>,
+    /// See [`InflightIds`].
+    inflight: InflightIds,
     next_id: AtomicU64,
     alive: Arc<AtomicBool>,
     init_result: Mutex<Option<Value>>,
@@ -546,11 +583,7 @@ impl<'a> InFlight<'a> {
     fn new(proc: &'a StdioProc, id: u64, client_id: &Value, tx: oneshot::Sender<Value>) -> Self {
         let client_key = client_id.to_string();
         proc.pending.lock().insert(id, tx);
-        proc.inflight
-            .lock()
-            .entry(client_key.clone())
-            .or_default()
-            .push(id);
+        inflight_add(&proc.inflight, &client_key, id);
         Self {
             proc,
             id,
@@ -562,13 +595,33 @@ impl<'a> InFlight<'a> {
 impl Drop for InFlight<'_> {
     fn drop(&mut self) {
         self.proc.pending.lock().remove(&self.id);
-        let mut inflight = self.proc.inflight.lock();
-        if let Some(ids) = inflight.get_mut(&self.client_key) {
-            ids.retain(|i| *i != self.id);
-            if ids.is_empty() {
-                inflight.remove(&self.client_key);
-            }
+        inflight_remove(&self.proc.inflight, &self.client_key, self.id);
+    }
+}
+
+/// Registers an HTTP route's in-flight request under the client's id and
+/// removes it when dropped, however the request ends.
+struct HttpInFlight<'a> {
+    route: &'a HttpRoute,
+    id: u64,
+    client_key: String,
+}
+
+impl<'a> HttpInFlight<'a> {
+    fn new(route: &'a HttpRoute, id: u64, client_id: &Value) -> Self {
+        let client_key = client_id.to_string();
+        inflight_add(&route.inflight, &client_key, id);
+        Self {
+            route,
+            id,
+            client_key,
         }
+    }
+}
+
+impl Drop for HttpInFlight<'_> {
+    fn drop(&mut self) {
+        inflight_remove(&self.route.inflight, &self.client_key, self.id);
     }
 }
 
@@ -913,14 +966,7 @@ impl StdioProc {
     /// space. `None` when its `requestId` matches no single in-flight
     /// request here (finished, unknown, or ambiguous between clients).
     fn remap_cancellation(&self, msg: &Value) -> Option<Value> {
-        let key = msg.pointer("/params/requestId")?.to_string();
-        let id = match self.inflight.lock().get(&key).map(Vec::as_slice) {
-            Some([one]) => *one,
-            _ => return None,
-        };
-        let mut msg = msg.clone();
-        msg["params"]["requestId"] = json!(id);
-        Some(msg)
+        remap_cancellation(&self.inflight, msg)
     }
 
     /// Mark the process dead and tell the reaper to kill it (non-blocking).
@@ -993,6 +1039,12 @@ struct HttpRoute {
     /// Mirror of `HttpState::session_id` readable without the async lock,
     /// for the reply header.
     public_session: Mutex<Option<String>>,
+    /// Next id for a request sent downstream. Every client of the route
+    /// shares one downstream session, and MCP forbids reusing a request id
+    /// within a session, so the gateway assigns its own ids (as for stdio).
+    next_id: AtomicU64,
+    /// See [`InflightIds`].
+    inflight: InflightIds,
 }
 
 #[derive(Default)]
@@ -1005,6 +1057,11 @@ struct HttpState {
 }
 
 impl HttpRoute {
+    /// A fresh downstream request id.
+    fn next_id(&self) -> u64 {
+        self.next_id.fetch_add(1, Ordering::Relaxed)
+    }
+
     fn new(spec: &McpServerSpec) -> Option<Self> {
         let McpServerSpec::Http { url, headers } = spec else {
             return None;
@@ -1019,6 +1076,8 @@ impl HttpRoute {
             target,
             state: tokio::sync::Mutex::new(HttpState::default()),
             public_session: Mutex::new(None),
+            next_id: AtomicU64::new(1),
+            inflight: InflightIds::default(),
         })
     }
 }
@@ -1059,9 +1118,9 @@ impl Downstream {
             .lock()
             .clone()
             .unwrap_or_else(|| DEFAULT_PROTOCOL_VERSION.to_string());
-        let init = client_init.map(without_unrelayable_capabilities).unwrap_or_else(|| {
+        let mut init = client_init.map(without_unrelayable_capabilities).unwrap_or_else(|| {
             json!({
-                "jsonrpc": "2.0", "id": 0, "method": "initialize",
+                "jsonrpc": "2.0", "method": "initialize",
                 "params": {
                     "protocolVersion": version,
                     "capabilities": {},
@@ -1069,13 +1128,18 @@ impl Downstream {
                 }
             })
         });
+        init["id"] = json!(route.next_id());
         let reply = target
             .post(&init, None, None, self.timeout, self.max_message)
             .await
             .map_err(http_err)?;
-        let Some(resp) = reply.message else {
+        let Some(mut resp) = reply.message else {
             return Err(DsError::Http("initialize got no response".into()));
         };
+        // The client gets its own id back (unused for the gateway's own).
+        resp["id"] = client_init
+            .and_then(|m| m.get("id").cloned())
+            .unwrap_or(Value::Null);
         let Some(result) = resp.get("result").cloned() else {
             // Refused (e.g. unsupported protocol version): no session.
             if client_init.is_some() {
@@ -1109,7 +1173,7 @@ impl Downstream {
         Ok(client_init.map(|_| resp))
     }
 
-    async fn http_call(&self, route: &HttpRoute, msg: Value) -> Result<Value, DsError> {
+    async fn http_call(&self, route: &HttpRoute, mut msg: Value) -> Result<Value, DsError> {
         let target = route
             .target
             .as_ref()
@@ -1141,6 +1205,13 @@ impl Downstream {
             }
             (st.session_id.clone(), st.protocol.clone())
         };
+        // A gateway-unique id downstream (never the client's, which another
+        // client of this session may be using too); the client's id is
+        // restored on the reply.
+        let client_id = msg.get("id").cloned().unwrap_or(Value::Null);
+        let id = route.next_id();
+        msg["id"] = json!(id);
+        let _entry = HttpInFlight::new(route, id, &client_id);
         match target
             .post(
                 &msg,
@@ -1151,9 +1222,13 @@ impl Downstream {
             )
             .await
         {
-            Ok(r) => r
-                .message
-                .ok_or_else(|| DsError::Http("the server sent no response".into())),
+            Ok(r) => {
+                let mut resp = r
+                    .message
+                    .ok_or_else(|| DsError::Http("the server sent no response".into()))?;
+                resp["id"] = client_id;
+                Ok(resp)
+            }
             Err(HttpError::SessionExpired) => {
                 let mut st = route.state.lock().await;
                 // Only if nobody has re-established a session meanwhile.
@@ -1182,6 +1257,20 @@ impl Downstream {
         if method == Some("notifications/initialized") {
             return;
         }
+        // Request ids are remapped, so a cancellation must name the
+        // downstream id; forwarding the client's id could cancel another
+        // client's request.
+        let remapped;
+        let msg = if method == Some("notifications/cancelled") {
+            let Some(m) = remap_cancellation(&route.inflight, msg) else {
+                tracing::debug!(server = %self.name, "cancellation for no single in-flight request dropped");
+                return;
+            };
+            remapped = m;
+            &remapped
+        } else {
+            msg
+        };
         if let Err(e) = target
             .post(
                 msg,

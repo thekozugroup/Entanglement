@@ -678,6 +678,118 @@ async fn non_https_non_loopback_and_bad_headers_are_refused_without_contact() {
     gw.shutdown().await;
 }
 
+/// The `tools/call` ids the mock received, in arrival order.
+fn downstream_call_ids(f: &Fixture) -> Vec<Value> {
+    f.mock
+        .posts()
+        .iter()
+        .filter(|p| p.body["method"] == "tools/call")
+        .map(|p| p.body["id"].clone())
+        .collect()
+}
+
+/// Poll until the mock has received `n` `tools/call` requests.
+async fn wait_for_calls(f: &Fixture, n: usize) {
+    for _ in 0..200 {
+        if downstream_call_ids(f).len() >= n {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("the mock never saw {n} tools/call requests");
+}
+
+/// Every client of a route shares one downstream session, so two clients
+/// (or a reconnected client reusing ids) can have the same id in flight. The
+/// MCP spec forbids reusing a request id within a session: the gateway sends
+/// its own unique ids and gives each client back its own id and result.
+#[tokio::test]
+async fn request_ids_are_unique_within_the_downstream_session() {
+    let f = fixture().await;
+    post(&f, &init()).await;
+    f.mock.set(Mode::Slow(Duration::from_millis(300)));
+    let (m1, m2) = (call(3, "first"), call(3, "second"));
+    let (a, b) = tokio::join!(post(&f, &m1), post(&f, &m2));
+    assert_eq!(
+        (a.body["id"].clone(), b.body["id"].clone()),
+        (json!(3), json!(3))
+    );
+    assert_eq!(text_of(&a), "first", "{:?}", a.body);
+    assert_eq!(text_of(&b), "second", "{:?}", b.body);
+    // A `null` id is the client's business too: it never goes downstream.
+    f.mock.set(Mode::Json);
+    let r = post(
+        &f,
+        &json!({"jsonrpc":"2.0","id":null,"method":"tools/call",
+                "params":{"name":"echo","arguments":{"text":"n"}}}),
+    )
+    .await;
+    assert_eq!(r.body["id"], Value::Null);
+    assert_eq!(text_of(&r), "n");
+
+    let ids: Vec<Value> = f
+        .mock
+        .posts()
+        .iter()
+        .filter(|p| p.body.get("method").is_some())
+        .filter_map(|p| p.body.get("id").cloned())
+        .collect();
+    assert_eq!(ids.len(), 4, "initialize + 3 calls: {ids:?}");
+    assert!(ids.iter().all(Value::is_u64), "{ids:?}");
+    let mut unique = ids.clone();
+    unique.sort_by_key(|v| v.as_u64());
+    unique.dedup();
+    assert_eq!(unique.len(), ids.len(), "an id was reused: {ids:?}");
+    f.gw.shutdown().await;
+}
+
+/// A client's `notifications/cancelled` names its own id: it is translated
+/// to the downstream id of that request, and dropped when that id is in
+/// flight for more than one client (it would otherwise cancel both).
+#[tokio::test]
+async fn cancellation_names_the_downstream_id_and_is_dropped_when_ambiguous() {
+    let f = fixture().await;
+    post(&f, &init()).await;
+    f.mock.set(Mode::Slow(Duration::from_millis(600)));
+    let cancel = |id: u64| {
+        json!({"jsonrpc":"2.0","method":"notifications/cancelled",
+               "params":{"requestId": id, "reason": "user"}})
+    };
+    let cancels = |f: &Fixture| -> Vec<Value> {
+        f.mock
+            .posts()
+            .iter()
+            .filter(|p| p.body["method"] == "notifications/cancelled")
+            .map(|p| p.body["params"]["requestId"].clone())
+            .collect()
+    };
+
+    // Two clients with id 5 in flight: the cancellation is ambiguous.
+    let (m1, m2, c5) = (call(5, "a"), call(5, "b"), cancel(5));
+    let both = async {
+        tokio::join!(post(&f, &m1), post(&f, &m2));
+    };
+    let cancel_ambiguous = async {
+        wait_for_calls(&f, 2).await;
+        let r = post(&f, &c5).await;
+        assert_eq!(r.status, 202);
+    };
+    tokio::join!(both, cancel_ambiguous);
+    assert!(cancels(&f).is_empty(), "{:?}", cancels(&f));
+
+    // One request with id 7 in flight: translated to its downstream id.
+    let (m3, c7) = (call(7, "c"), cancel(7));
+    let one = post(&f, &m3);
+    let cancel_one = async {
+        wait_for_calls(&f, 3).await;
+        post(&f, &c7).await;
+    };
+    tokio::join!(one, cancel_one);
+    let downstream = downstream_call_ids(&f)[2].clone();
+    assert_eq!(cancels(&f), vec![downstream]);
+    f.gw.shutdown().await;
+}
+
 #[tokio::test]
 async fn shutdown_ends_the_session_with_a_delete() {
     let f = fixture().await;
