@@ -255,7 +255,12 @@ a `net.*` grant there is no TCP, no UDP and no DNS at all.
   allowlisted name that resolves somewhere else mid-invocation (DNS
   rebinding) is still refused, as is any allowlisted name that resolves to a
   LAN, loopback or other non-public address (use `net.lan` for LAN hosts).
-- Either grant enables DNS lookups (`ToSocketAddrs`) for the guest.
+- Name lookups (`ToSocketAddrs`, `TcpStream::connect("name:port")`) are
+  answered by the daemon, not passed to a resolver: a `net.wan` allowlisted
+  name resolves to exactly the addresses pinned for the invocation, so
+  connecting by name always reaches an address the rules accept; any other
+  name does not resolve. Under `net.lan` alone no name resolves — connect to
+  LAN hosts by address.
 - Plugins are clients: listening (`TcpListener::bind`) is always refused; a
   UDP socket may bind only an ephemeral port on the unspecified address.
 

@@ -25,6 +25,7 @@ pub mod bindings;
 pub mod capability;
 pub mod engine;
 pub mod errors;
+mod lookup;
 pub mod metric;
 pub mod net;
 pub mod plugin;

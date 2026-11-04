@@ -69,6 +69,24 @@ fn own_address() -> Option<IpAddr> {
     (!ip.is_loopback() && !ip.is_unspecified()).then_some(ip)
 }
 
+/// A name no real resolver answers (`.test` is reserved, RFC 2606).
+const SVC: &str = "svc.entangle.test";
+
+/// Test resolver: [`SVC`] is `127.0.0.1` (a stand-in public host under
+/// [`public_on_loopback`]); every other name is unknown. The system
+/// resolver used by the guest's own lookups knows nothing of [`SVC`].
+fn svc_on_loopback(
+    name: String,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<Vec<IpAddr>>> + Send>> {
+    Box::pin(async move {
+        if name == SVC {
+            Ok(vec![IpAddr::V4(Ipv4Addr::LOCALHOST)])
+        } else {
+            Err(std::io::Error::new(std::io::ErrorKind::NotFound, name))
+        }
+    })
+}
+
 fn manifest(name: &str, tier: u8, caps: &str) -> ValidatedManifest {
     let text = format!(
         r#"
@@ -101,6 +119,7 @@ struct Setup<'a> {
     caps: &'a str,
     deny: &'a [&'a str],
     classify: Option<fn(IpAddr) -> AddrClass>,
+    resolver: Option<entangle_host::capability::Resolver>,
     /// Extra (already validated) capabilities appended to the manifest, for
     /// kinds a wasm manifest cannot declare (tier-4 `storage.share`). The
     /// manifest's tiers are raised to what they imply, as the broker
@@ -117,6 +136,7 @@ impl<'a> Setup<'a> {
             caps,
             deny: &[],
             classify: None,
+            resolver: None,
             extra: Vec::new(),
             storage_root: true,
         }
@@ -154,6 +174,9 @@ impl<'a> Setup<'a> {
         }
         if let Some(c) = self.classify {
             ctx = ctx.with_address_classifier(c);
+        }
+        if let Some(r) = self.resolver {
+            ctx = ctx.with_resolver(r);
         }
         let engine = HostEngine::new().expect("engine");
         let plugin = LoadedPlugin::from_bytes(&engine, PROBE, id.clone(), tier)
@@ -587,8 +610,10 @@ async fn unrealisable_storage_grants_fail_closed() {
 
 // ── network ────────────────────────────────────────────────────────────────
 
-/// `net.lan` reaches a LAN host (TCP and UDP) and resolves names, but not a
-/// public address; plugins never listen.
+/// `net.lan` reaches a LAN host (TCP and UDP), but not a public address;
+/// it resolves no names (LAN hosts are reached by address, see
+/// `name_lookups_answer_only_allowlisted_names_from_the_pin`); plugins never
+/// listen.
 #[tokio::test(flavor = "multi_thread")]
 async fn net_lan_allows_lan_hosts_but_not_public_ones() {
     let lan = listener("127.0.0.1", "hello-lan").await;
@@ -627,12 +652,11 @@ async fn net_lan_allows_lan_hosts_but_not_public_ones() {
             "err:",
             "ok",
             "err:",
-            "ok:",
+            "err:",
             "err:",
             "err:",
         ],
     );
-    assert!(got[6].contains("127.0.0.1"), "{}", got[6]);
     assert_eq!(lan.accepted(), 1);
     assert_eq!(public.accepted(), 0);
     let mut buf = [0u8; 16];
@@ -836,6 +860,56 @@ async fn net_wan_hostnames_are_pinned_to_their_resolved_addresses() {
     let got = h.run(&script).await;
     expect(&script, &got, &["ok:hello-by-name", "err:", "ok:"]);
     assert_eq!(other.accepted(), 0);
+}
+
+/// The guest's name lookups are answered by the host, from the `net.wan`
+/// allowlist pinned when the instance was created: an allowlisted name
+/// resolves to exactly the addresses the socket rules accept (even when the
+/// system resolver would answer differently, or not at all), and every
+/// other name is refused — so no grant lets a guest send arbitrary queries
+/// (`<data>.attacker.example`) to upstream resolvers.
+#[tokio::test(flavor = "multi_thread")]
+async fn name_lookups_answer_only_allowlisted_names_from_the_pin() {
+    let svc = listener("127.0.0.1", "hello-svc").await;
+    let caps = format!(
+        r#""net.wan" = {{ hosts = ["{SVC}:{}"] }}"#,
+        svc.addr.port()
+    );
+    let h = Setup {
+        classify: Some(public_on_loopback),
+        resolver: Some(svc_on_loopback),
+        ..Setup::new("wan-dns", &caps)
+    }
+    .harness();
+    let script = format!(
+        "resolve {SVC}\n\
+         resolve SVC.Entangle.Test.\n\
+         connect {SVC}:{port}\n\
+         resolve localhost\n\
+         resolve exfil-0123abcd.example.com\n",
+        port = svc.addr.port()
+    );
+    let got = h.run(&script).await;
+    expect(
+        &script,
+        &got,
+        &[
+            "ok:127.0.0.1",
+            "ok:127.0.0.1",
+            "ok:hello-svc",
+            "err:",
+            "err:",
+        ],
+    );
+    assert_eq!(got[0], "ok:127.0.0.1", "exactly the pinned address");
+    assert_eq!(svc.accepted(), 1);
+
+    // `net.lan` alone resolves no names at all (LAN hosts are reached by
+    // address); without the allowlist there is nothing to answer from.
+    let h = Setup::new("lan-dns", r#""net.lan" = {}"#).harness();
+    let script = format!("resolve localhost\nresolve {SVC}\n");
+    let got = h.run(&script).await;
+    expect(&script, &got, &["err:", "err:"]);
 }
 
 // ── capability.fetch ───────────────────────────────────────────────────────

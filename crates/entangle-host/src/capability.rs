@@ -15,8 +15,8 @@
 //! | `storage.local { scope = "plugin" }` | preopen [`GUEST_DATA_DIR`] (`/data`) → the plugin's private directory, read-only or read-write per `mode` |
 //! | `storage.local { scope = "shared" }` | preopen [`GUEST_SHARED_DIR`] (`/shared`), per `mode` |
 //! | `storage.share.<n>` | preopen `/shares/<n>` ([`GUEST_SHARES_DIR`]); `ro` read-only, `rw` / `rw-scoped` read-write |
-//! | `net.lan` | TCP/UDP to LAN addresses (see [`crate::net`]); DNS lookups |
-//! | `net.wan { hosts }` | TCP/UDP to the allowlisted host:port pairs only; DNS lookups |
+//! | `net.lan` | TCP/UDP to LAN addresses (see [`crate::net`]); IP literals only, no name lookups |
+//! | `net.wan { hosts }` | TCP/UDP to the allowlisted host:port pairs only; lookups of the allowlisted names, answered from the pin |
 //! | anything else | nothing in WASI; `fetch` still returns a handle |
 //!
 //! Directories are laid out by [`crate::storage`] (the same paths the native
@@ -37,6 +37,13 @@
 //! rebinding during an invocation useless. Because every invocation is a
 //! fresh instance, the pin is at most one invocation old. A name that does
 //! not resolve (within [`DNS_TIMEOUT`]) contributes no address.
+//!
+//! The guest's own lookups are answered from the same pin
+//! ([`WasiGrants::pinned_names`]), never by asking the system resolver
+//! again: an allowlisted name resolves to exactly the addresses the socket
+//! rules accept, and any other name does not resolve at all — so a grant
+//! cannot be used to send arbitrary queries (`<data>.attacker.example`) to
+//! upstream name servers. See `crate::lookup`.
 //!
 //! # Revocation
 //! A revoked grant (`Broker::revoke`) is gone from the next instance's
@@ -64,7 +71,9 @@ use entangle_types::capability::{
 use entangle_types::plugin_id::PluginId;
 use std::collections::BTreeMap;
 use std::net::IpAddr;
+use std::future::Future;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -85,6 +94,19 @@ pub const MAX_HANDLES_PER_INSTANCE: usize = 256;
 /// decision, so this bounds how much audit traffic one invocation can cause.
 pub const MAX_FETCHES_PER_INSTANCE: u32 = 1024;
 
+/// Resolves a `net.wan` host name to its addresses when an instance is
+/// created (see the module docs). Production: the system resolver.
+pub type Resolver =
+    fn(String) -> Pin<Box<dyn Future<Output = std::io::Result<Vec<IpAddr>>> + Send>>;
+
+/// The system resolver (`getaddrinfo` through tokio).
+fn system_resolver(name: String) -> Pin<Box<dyn Future<Output = std::io::Result<Vec<IpAddr>>> + Send>> {
+    Box::pin(async move {
+        let addrs = tokio::net::lookup_host((name.as_str(), 0)).await?;
+        Ok(addrs.map(|a| a.ip()).collect())
+    })
+}
+
 /// What a plugin's capabilities are decided and realised against: the
 /// broker, and the storage root its directories live under.
 #[derive(Clone)]
@@ -92,6 +114,7 @@ pub struct CapabilityContext {
     broker: Arc<Broker>,
     storage_root: Option<PathBuf>,
     classify: Classifier,
+    resolve: Resolver,
 }
 
 impl std::fmt::Debug for CapabilityContext {
@@ -110,6 +133,7 @@ impl CapabilityContext {
             broker,
             storage_root: None,
             classify: crate::net::classify,
+            resolve: system_resolver,
         }
     }
 
@@ -129,6 +153,16 @@ impl CapabilityContext {
     #[must_use]
     pub fn with_address_classifier(mut self, classify: fn(IpAddr) -> AddrClass) -> Self {
         self.classify = classify;
+        self
+    }
+
+    /// **Test hook — never set by the daemon or the CLI.** Replace the
+    /// resolver that pins `net.wan` host names when an instance is created
+    /// (production: the system resolver). Tests use it to give a name an
+    /// answer the system resolver does not, or to make resolution slow.
+    #[must_use]
+    pub fn with_resolver(mut self, resolve: Resolver) -> Self {
+        self.resolve = resolve;
         self
     }
 
@@ -165,6 +199,70 @@ pub struct WasiGrants {
     pub lan_grants: Vec<GrantId>,
     /// Grants backing `net.wan` (re-checked for liveness per socket use).
     pub wan_grants: Vec<GrantId>,
+    /// The `net.wan` allowlist's host names and the addresses they were
+    /// pinned to: the only names the guest's lookups resolve.
+    pub pinned_names: Vec<PinnedName>,
+}
+
+/// An allowlisted `net.wan` host name and the addresses it resolved to when
+/// the instance was created.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PinnedName {
+    /// The name, lowercase, without a trailing dot.
+    pub name: String,
+    /// Its addresses (canonical form, see [`crate::net::canonical`]); empty
+    /// when it did not resolve.
+    pub addrs: Vec<IpAddr>,
+}
+
+/// The broker grants behind an instance's network access, re-checked while
+/// it runs (socket checks, name lookups).
+#[derive(Clone)]
+pub(crate) struct NetLiveness {
+    broker: Arc<Broker>,
+    plugin: PluginId,
+    lan: Vec<GrantId>,
+    wan: Vec<GrantId>,
+}
+
+impl std::fmt::Debug for NetLiveness {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NetLiveness")
+            .field("plugin", &self.plugin)
+            .field("lan", &self.lan)
+            .field("wan", &self.wan)
+            .finish_non_exhaustive()
+    }
+}
+
+impl NetLiveness {
+    pub(crate) fn new(ctx: &CapabilityContext, plugin: &PluginId, grants: &WasiGrants) -> Self {
+        Self {
+            broker: Arc::clone(&ctx.broker),
+            plugin: plugin.clone(),
+            lan: grants.lan_grants.clone(),
+            wan: grants.wan_grants.clone(),
+        }
+    }
+
+    fn live(&self, gids: &[GrantId]) -> bool {
+        gids.iter().any(|g| self.broker.is_live(&self.plugin, *g))
+    }
+
+    /// A `net.lan` grant behind the instance is still outstanding.
+    pub(crate) fn lan_live(&self) -> bool {
+        self.live(&self.lan)
+    }
+
+    /// A `net.wan` grant behind the instance is still outstanding.
+    pub(crate) fn wan_live(&self) -> bool {
+        self.live(&self.wan)
+    }
+
+    /// Any network grant behind the instance is still outstanding.
+    pub(crate) fn any_live(&self) -> bool {
+        self.lan_live() || self.wan_live()
+    }
 }
 
 /// Derive the WASI context for `plugin` from its live broker grants: create
@@ -241,7 +339,9 @@ pub async fn realise_grants(
             | CapabilityKind::Custom(_) => {}
         }
     }
-    out.net.wan_targets = resolve_wan(plugin, &wan_hosts).await;
+    let (targets, pinned) = resolve_wan(ctx, plugin, &wan_hosts).await;
+    out.net.wan_targets = targets;
+    out.pinned_names = pinned;
     Ok(out)
 }
 
@@ -283,13 +383,34 @@ fn add_preopen(
     Ok(())
 }
 
-/// Resolve the `net.wan` allowlist to exact addresses (see the module docs).
+/// Resolve the `net.wan` allowlist to exact addresses (see the module docs),
+/// and record each host name's addresses for the guest's own lookups.
 /// Wildcards cannot be realised in wasm (they are a tier-4 authority and
 /// wasm plugins are tier 1–3) and contribute nothing.
 async fn resolve_wan(
+    ctx: &CapabilityContext,
     plugin: &PluginId,
     hosts: &[entangle_types::capability::NetHost],
-) -> Vec<WanTarget> {
+) -> (Vec<WanTarget>, Vec<PinnedName>) {
+    let mut pinned: Vec<PinnedName> = Vec::new();
+    let mut pin = |name: &str, addrs: &[IpAddr]| {
+        let name = name.trim_end_matches('.').to_ascii_lowercase();
+        let entry = match pinned.iter_mut().find(|p| p.name == name) {
+            Some(p) => p,
+            None => {
+                pinned.push(PinnedName {
+                    name,
+                    addrs: Vec::new(),
+                });
+                pinned.last_mut().expect("just pushed")
+            }
+        };
+        for a in addrs {
+            if !entry.addrs.contains(a) {
+                entry.addrs.push(*a);
+            }
+        }
+    };
     let mut out: Vec<WanTarget> = Vec::new();
     let mut push = |t: WanTarget| {
         if !out.contains(&t) {
@@ -308,25 +429,29 @@ async fn resolve_wan(
             });
             continue;
         }
-        let lookup = tokio::net::lookup_host((h.host(), h.port().unwrap_or(0)));
+        let lookup = (ctx.resolve)(h.host().to_owned());
         match tokio::time::timeout(DNS_TIMEOUT, lookup).await {
             Ok(Ok(addrs)) => {
+                let addrs: Vec<IpAddr> = addrs.into_iter().map(crate::net::canonical).collect();
+                pin(h.host(), &addrs);
                 for a in addrs {
                     push(WanTarget {
-                        ip: crate::net::canonical(a.ip()),
+                        ip: a,
                         port: h.port(),
                     });
                 }
             }
             Ok(Err(e)) => {
+                pin(h.host(), &[]);
                 tracing::warn!(plugin = %plugin, host = %h, error = %e, "net.wan host did not resolve; unreachable this invocation");
             }
             Err(_) => {
+                pin(h.host(), &[]);
                 tracing::warn!(plugin = %plugin, host = %h, "net.wan host resolution timed out; unreachable this invocation");
             }
         }
     }
-    out
+    (out, pinned)
 }
 
 /// Why `capability.fetch` refused, in WIT terms.

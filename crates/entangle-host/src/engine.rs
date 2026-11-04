@@ -81,6 +81,16 @@ impl HostEngine {
             |s| s,
         )
         .context("add entangle:plugin host imports to linker")?;
+        // The guest's name lookups are answered from its grants
+        // (`crate::lookup`), never by wasmtime-wasi's resolver, which would
+        // forward any name to the system resolver: replace that interface.
+        linker.allow_shadowing(true);
+        wasmtime_wasi::p2::bindings::sockets::ip_name_lookup::add_to_linker::<
+            HostState,
+            wasmtime::component::HasSelf<HostState>,
+        >(&mut linker, |s| s)
+        .context("replace wasi:sockets/ip-name-lookup")?;
+        linker.allow_shadowing(false);
 
         // Lifetime epoch ticker. Holds only a weak engine handle so it never
         // keeps the engine alive; exits when the last strong handle is gone

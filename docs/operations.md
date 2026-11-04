@@ -948,8 +948,8 @@ audited and counted the same way.
 | `storage.local { scope = "plugin" }` | `/data` → `~/.entangle/data/plugins/<publisher>/<name>/`, read-write or read-only per `mode` |
 | `storage.local { scope = "shared" }` | `/shared` → `~/.entangle/data/shared/` |
 | `storage.share.<n>` | `/shares/<n>` → `~/.entangle/data/shares/<n>/` (`rw-scoped`: its `<publisher>/<name>/` subdirectory) |
-| `net.lan` | TCP/UDP to RFC 1918, link-local and unique-local IPv6 addresses (not the host's own, not cloud metadata endpoints); DNS |
-| `net.wan { hosts }` | TCP/UDP to exactly the listed host:port pairs; DNS |
+| `net.lan` | TCP/UDP to RFC 1918, link-local and unique-local IPv6 addresses (not the host's own, not cloud metadata endpoints); no name lookups |
+| `net.wan { hosts }` | TCP/UDP to exactly the listed host:port pairs; lookups of the listed names only, answered from the pin |
 | anything else (`compute.*`, `custom.*`, …) | nothing in WASI; `capability.fetch` returns a handle |
 | no grant at all | no preopened directory, no TCP, no UDP, no DNS |
 
@@ -986,10 +986,13 @@ audited and counted the same way.
   makes DNS rebinding during an invocation useless. An allowlisted name that
   resolves to a LAN or loopback address is not reachable through `net.wan`.
   Wildcard `net.wan` entries are tier 4 and therefore never reach a wasm
-  plugin (wasm is tier 1–3). With any `net.*` grant the guest may also ask
-  the host's resolver to look up names (any name — the lookup itself is not
-  allowlisted, only the connections that follow); without one it cannot
-  resolve at all.
+  plugin (wasm is tier 1–3). The guest's own name lookups never reach the
+  daemon's resolver: an allowlisted `net.wan` name resolves to exactly the
+  addresses pinned for the invocation (so a round-robin or short-TTL name is
+  still reachable), an IP literal to itself, and every other name — under
+  any grant, `net.lan` included — does not resolve. A plugin therefore
+  cannot use lookups of names like `<data>.attacker.example` to send data to
+  outside name servers. Without a `net.*` grant nothing resolves.
 - **Resource limits** (fuel/epoch deadline, memory) are unchanged by grants.
 
 ### Inspecting and revoking grants

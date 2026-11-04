@@ -1,7 +1,8 @@
 //! [`HostState`] — per-plugin store data carrying WASI context and observability buffers.
 
-use crate::capability::{CapTable, CapabilityContext, WasiGrants};
+use crate::capability::{CapTable, CapabilityContext, NetLiveness, WasiGrants};
 use crate::errors::HostError;
+use crate::lookup::NameLookup;
 use crate::net::Via;
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 use wasmtime::component::ResourceTable;
@@ -106,7 +107,9 @@ pub struct HostState {
     log_truncated: bool,
     /// `capability.fetch` handles held by this instance.
     pub(crate) caps: CapTable,
-    table: ResourceTable,
+    /// How the guest's name lookups are answered (see `crate::lookup`).
+    pub(crate) lookup: NameLookup,
+    pub(crate) table: ResourceTable,
     wasi: WasiCtx,
 }
 
@@ -135,7 +138,14 @@ impl HostState {
             .allow_tcp(false)
             .allow_udp(false)
             .allow_ip_name_lookup(false);
-        Self::from_parts(plugin_id, effective_tier, limits, builder.build(), None)
+        Self::from_parts(
+            plugin_id,
+            effective_tier,
+            limits,
+            builder.build(),
+            None,
+            NameLookup::default(),
+        )
     }
 
     /// Create a [`HostState`] whose WASI context realises `grants` (see
@@ -171,29 +181,31 @@ impl HostState {
         builder
             .allow_tcp(any)
             .allow_udp(any)
-            .allow_ip_name_lookup(any);
+            // Name lookups are answered by `crate::lookup` from the grants,
+            // never by wasmtime-wasi's resolver: keep its switch off too.
+            .allow_ip_name_lookup(false);
+        let live = ctx
+            .as_ref()
+            .map(|c| NetLiveness::new(c, &plugin_id, grants));
+        let lookup = NameLookup {
+            enabled: any,
+            pinned: if net.wan {
+                grants.pinned_names.clone()
+            } else {
+                Vec::new()
+            },
+            live: live.clone(),
+        };
         if any {
             // Every socket use is checked against the rules AND against the
-            // broker: a grant revoked mid-invocation stops working at once.
-            let live = ctx.as_ref().map(|c| {
-                (
-                    std::sync::Arc::clone(c.broker()),
-                    plugin_id.clone(),
-                    grants.lan_grants.clone(),
-                    grants.wan_grants.clone(),
-                )
-            });
+            // broker: a grant revoked mid-invocation refuses new sockets.
             let plugin = plugin_id.clone();
             builder.socket_addr_check(move |addr, use_| {
-                let is_live = |gids: &[u64]| match &live {
-                    Some((broker, plugin, _, _)) => gids.iter().any(|g| broker.is_live(plugin, *g)),
-                    None => true,
-                };
                 let allowed = match net.check(addr, use_) {
                     None => false,
                     Some(Via::LocalBind) => true,
-                    Some(Via::Lan) => live.as_ref().is_none_or(|(_, _, lan, _)| is_live(lan)),
-                    Some(Via::Wan) => live.as_ref().is_none_or(|(_, _, _, wan)| is_live(wan)),
+                    Some(Via::Lan) => live.as_ref().is_none_or(NetLiveness::lan_live),
+                    Some(Via::Wan) => live.as_ref().is_none_or(NetLiveness::wan_live),
                 };
                 if !allowed {
                     tracing::debug!(plugin = %plugin, %addr, use_ = ?use_, "socket address refused");
@@ -207,6 +219,7 @@ impl HostState {
             limits,
             builder.build(),
             ctx,
+            lookup,
         ))
     }
 
@@ -216,9 +229,11 @@ impl HostState {
         limits: ResourceLimits,
         wasi: WasiCtx,
         ctx: Option<CapabilityContext>,
+        lookup: NameLookup,
     ) -> Self {
         Self {
             caps: CapTable::new(ctx, plugin_id.clone()),
+            lookup,
             plugin_id,
             effective_tier,
             log_buffer: Vec::new(),
