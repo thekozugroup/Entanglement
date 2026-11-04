@@ -298,3 +298,65 @@ fn a_passphrase_from_the_environment_is_announced() {
         .success()
         .stdout(predicate::str::contains("even at a terminal"));
 }
+
+/// `restore --force` that fails part-way (here the file-size limit stops the
+/// keyring write after identity.key went through) must not leave the node
+/// with the restored identity next to its old keyring and peer list, and
+/// must say what state it left.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_restore_that_fails_part_way_changes_nothing() {
+    let old = TempDir::new().unwrap();
+    populate(old.path());
+    // A keyring bigger than the file-size limit set below.
+    let big = format!(
+        "# publisher keys\n{}",
+        "# padding padding padding padding\n".repeat(4096)
+    );
+    std::fs::write(old.path().join(".entangle/keyring.toml"), big).unwrap();
+    let work = TempDir::new().unwrap();
+    let pass = passfile(work.path(), "correct horse battery");
+    let ar = work.path().join("node.bak");
+    backup(old.path(), &ar, &pass, &[]).success();
+
+    let new = TempDir::new().unwrap();
+    populate(new.path());
+    let dir = new.path().join(".entangle");
+    let before: Vec<(&str, Vec<u8>)> = ["identity.key", "keyring.toml", "peers.toml"]
+        .into_iter()
+        .map(|f| (f, std::fs::read(dir.join(f)).unwrap()))
+        .collect();
+    // `ulimit -f 32` (16 or 32 KiB depending on the shell) lets the small
+    // files through but not the keyring; with SIGXFSZ ignored the write
+    // fails with EFBIG instead of killing the process.
+    let out = std::process::Command::new("sh")
+        .arg("-c")
+        .arg("trap '' XFSZ; ulimit -f 32 && exec \"$@\"")
+        .arg("sh")
+        .arg(assert_cmd::cargo::cargo_bin("entangle"))
+        .args(["restore", "--force", "--from"])
+        .arg(&ar)
+        .arg("--passphrase-file")
+        .arg(&pass)
+        .env("HOME", new.path())
+        .env_remove("ENTANGLE_BACKUP_PASSPHRASE")
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success(), "{stderr}");
+    assert!(stderr.contains("ENTANGLE-E0867"), "{stderr}");
+    assert!(stderr.contains("nothing was changed"), "{stderr}");
+    for (f, bytes) in &before {
+        assert_eq!(
+            &std::fs::read(dir.join(f)).unwrap(),
+            bytes,
+            "{f} changed: {stderr}"
+        );
+    }
+    let leftovers: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|n| n.contains(".tmp-") || n.starts_with("restore-backup-"))
+        .collect();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+}

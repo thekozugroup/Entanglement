@@ -420,7 +420,11 @@ If this device already has an identity, keyring or peer list that differs from
 the archive, `restore` refuses (`ENTANGLE-E0864`). With `--force` it first
 copies every file it is about to replace into
 `~/.entangle/restore-backup-<unix_ts>/` (mode `0700`, files `0600`), then
-writes the archive's files. Managed files the archive does not contain
+writes the archive's files: each is first written to a temporary file
+next to its target and only then renamed into place, so a write failure
+(full disk, file-size limit) changes nothing, and if a rename fails the files
+already replaced are put back; the error (`ENTANGLE-E0867`) says which
+happened and where the copies are. Managed files the archive does not contain
 (for example `peers.toml` when the source had no pairings) are moved to that
 directory too, because they would be stale against the restored identity.
 `config.toml` is touched only when the archive contains it.

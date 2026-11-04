@@ -405,6 +405,18 @@ fn warn_if_group_readable(path: &Path) {
 /// place). An existing file is replaced, never written through, so a stale
 /// looser mode cannot survive.
 fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let tmp = stage_private(path, bytes)?;
+    let result = std::fs::rename(&tmp, path);
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result
+}
+
+/// Write `bytes` to a new temporary file next to `path` (mode 0600 from
+/// creation, fsynced) and return its path; renaming it over `path` is left
+/// to the caller. Nothing is left behind on failure.
+fn stage_private(path: &Path, bytes: &[u8]) -> std::io::Result<PathBuf> {
     let parent = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -427,14 +439,15 @@ fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
         }
         let mut f = opts.open(&tmp)?;
         f.write_all(bytes)?;
-        f.sync_all()?;
-        drop(f);
-        std::fs::rename(&tmp, path)
+        f.sync_all()
     })();
-    if result.is_err() {
-        let _ = std::fs::remove_file(&tmp);
+    match result {
+        Ok(()) => Ok(tmp),
+        Err(e) => {
+            let _ = std::fs::remove_file(&tmp);
+            Err(e)
+        }
     }
-    result
 }
 
 /// `create_dir_all`, with mode 0700 for directories this call creates.
@@ -562,7 +575,26 @@ fn plan(dir: &Path, c: &Contents) -> Result<Vec<Change>> {
 
 /// Apply an archive's `contents` to `dir`. Returns the directory holding
 /// copies of replaced files, if any were replaced.
+///
+/// All or nothing as far as the file system allows: every new file is first
+/// written to a temporary file next to its target, so a write failure (a
+/// full disk, a file-size limit) changes nothing; only then are they renamed
+/// into place, and if a rename fails the files already replaced are put
+/// back. The identity is never left next to another identity's keyring or
+/// peer list.
 pub fn apply(dir: &Path, contents: &Contents, force: bool) -> Result<Option<PathBuf>> {
+    apply_with(dir, contents, force, &mut |from, to| {
+        std::fs::rename(from, to)
+    })
+}
+
+/// [`apply`], with the commit step's rename injectable (tests).
+fn apply_with(
+    dir: &Path,
+    contents: &Contents,
+    force: bool,
+    rename: &mut dyn FnMut(&Path, &Path) -> std::io::Result<()>,
+) -> Result<Option<PathBuf>> {
     let changes = plan(dir, contents)?;
     let differs = |c: &Change| c.existing.is_some() && c.existing != c.new;
     let conflicts: Vec<&str> = changes
@@ -606,19 +638,88 @@ pub fn apply(dir: &Path, contents: &Contents, force: bool) -> Result<Option<Path
         }
         backup_dir = Some(bd);
     }
+    let discard = |staged: &[Option<PathBuf>]| {
+        for t in staged.iter().flatten() {
+            let _ = std::fs::remove_file(t);
+        }
+    };
+    // 1. Stage every new file (identical content too: that makes sure the
+    //    mode is private). A failure here has changed nothing.
+    let mut staged: Vec<Option<PathBuf>> = Vec::with_capacity(changes.len());
     for c in &changes {
         let path = dir.join(c.name);
-        match &c.new {
-            Some(bytes) if c.existing.as_ref() == Some(bytes) => {
-                // Identical content: only make sure the mode is private.
-                write_private(&path, bytes)
-            }
-            Some(bytes) => write_private(&path, bytes),
+        let tmp = match &c.new {
+            Some(bytes) => match stage_private(&path, bytes) {
+                Ok(t) => Some(t),
+                Err(e) => {
+                    discard(&staged);
+                    // Nothing was replaced, so the copies are not needed.
+                    if let Some(bd) = &backup_dir {
+                        let _ = std::fs::remove_dir_all(bd);
+                    }
+                    bail!(
+                        "ENTANGLE-E0867: writing {}: {e}; nothing was changed",
+                        path.display()
+                    );
+                }
+            },
+            None => None,
+        };
+        staged.push(tmp);
+    }
+    // 2. Commit, in MANAGED order: rename into place, or remove a stale file
+    //    the archive does not have. On failure put back what was replaced.
+    for (i, (c, tmp)) in changes.iter().zip(&staged).enumerate() {
+        let path = dir.join(c.name);
+        let result = match tmp {
+            Some(t) => rename(t, &path),
             None => std::fs::remove_file(&path),
+        };
+        if let Err(e) = result {
+            discard(&staged[i..]);
+            let state = match roll_back(dir, &changes[..i]) {
+                Ok(()) => "the files already replaced were put back".to_string(),
+                Err(failed) => format!(
+                    "could not put back {failed}, so this node may hold a mix of old and \
+                     restored files"
+                ),
+            };
+            let copies = backup_dir
+                .as_ref()
+                .map(|bd| format!("; the previous files are in {}", bd.display()))
+                .unwrap_or_default();
+            bail!(
+                "ENTANGLE-E0867: replacing {}: {e}; {state}{copies}",
+                path.display()
+            );
         }
-        .with_context(|| format!("ENTANGLE-E0867: writing {}", path.display()))?;
     }
     Ok(backup_dir)
+}
+
+/// Undo `done` (changes already committed, in order): restore each file's
+/// previous bytes, or remove it if it did not exist. `Err` names the files
+/// that could not be put back.
+fn roll_back(dir: &Path, done: &[Change]) -> std::result::Result<(), String> {
+    let mut failed = Vec::new();
+    for c in done.iter().rev() {
+        let path = dir.join(c.name);
+        let result = match &c.existing {
+            Some(old) => write_private(&path, old),
+            None => match std::fs::remove_file(&path) {
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                r => r,
+            },
+        };
+        if result.is_err() {
+            failed.push(c.name);
+        }
+    }
+    if failed.is_empty() {
+        Ok(())
+    } else {
+        Err(failed.join(", "))
+    }
 }
 
 /// `entangle restore`.
@@ -771,6 +872,47 @@ mod tests {
                 .fingerprint_hex(),
             c.peer_id
         );
+    }
+
+    /// A rename that fails during the commit step: what was already
+    /// replaced is put back, and the error says so and names the copies.
+    #[test]
+    fn a_failed_commit_puts_back_what_it_replaced() {
+        let src = tempfile::tempdir().unwrap();
+        let c = sample(src.path());
+        let dst = tempfile::tempdir().unwrap();
+        let old_id = IdentityKeyPair::generate().to_pem();
+        std::fs::write(dst.path().join(IDENTITY), &old_id).unwrap();
+        std::fs::write(dst.path().join(KEYRING), "# old keys\n").unwrap();
+        let mut n = 0;
+        let e = apply_with(dst.path(), &c, true, &mut |from, to| {
+            n += 1;
+            if n == 2 {
+                return Err(std::io::Error::other("injected"));
+            }
+            std::fs::rename(from, to)
+        })
+        .unwrap_err()
+        .to_string();
+        assert!(
+            e.contains("ENTANGLE-E0867") && e.contains("put back") && e.contains("restore-backup-"),
+            "{e}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dst.path().join(IDENTITY)).unwrap(),
+            old_id
+        );
+        assert_eq!(
+            std::fs::read_to_string(dst.path().join(KEYRING)).unwrap(),
+            "# old keys\n"
+        );
+        assert!(!dst.path().join(PEERS).exists(), "{e}");
+        let tmp: Vec<_> = std::fs::read_dir(dst.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains(".tmp-"))
+            .collect();
+        assert!(tmp.is_empty(), "{tmp:?}");
     }
 
     #[test]
