@@ -517,7 +517,7 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
                         cargo_manifest.display()
                     );
                 }
-                let built = build_wasm_in(&cargo_manifest, &opts.target, None)?;
+                let built = build_wasm_in(&cargo_manifest, &opts.target, None, None)?;
                 recipe = Some(built.recipe);
                 built.wasm
             }
@@ -564,11 +564,14 @@ pub struct WasmBuild {
 
 /// Compile the plugin to wasm reproducibly (`--locked`, path-remapped,
 /// `SOURCE_DATE_EPOCH` fixed). `target_dir` overrides cargo's target
-/// directory (used by `verify --rebuild` to leave the source tree untouched).
+/// directory (used by `verify --rebuild` to leave the source tree untouched);
+/// `source_date_epoch` overrides [`repro::signing_epoch`] (used by
+/// `verify --rebuild` to rebuild with the recorded epoch).
 pub fn build_wasm_in(
     cargo_manifest: &Path,
     target: &str,
     target_dir: Option<&Path>,
+    source_date_epoch: Option<u64>,
 ) -> Result<WasmBuild> {
     let cargo_manifest = &absolute_manifest(cargo_manifest)?;
     // ATC-PKG-3: refuse before touching rustup, cargo, or the network.
@@ -596,7 +599,13 @@ pub fn build_wasm_in(
     // remapped too.
     std::fs::create_dir_all(&target_root)
         .with_context(|| format!("creating {}", target_root.display()))?;
-    let prepared = repro::prepare_build(cargo_manifest, target, &cargo_bin(), &target_root)?;
+    let prepared = repro::prepare_build(
+        cargo_manifest,
+        target,
+        &cargo_bin(),
+        &target_root,
+        source_date_epoch.unwrap_or_else(repro::signing_epoch),
+    )?;
 
     // A release wasm build takes tens of seconds to minutes (and longer on the
     // first run, when the SDK and wit-bindgen have to be fetched and compiled).

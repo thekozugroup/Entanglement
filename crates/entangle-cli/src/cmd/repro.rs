@@ -361,12 +361,14 @@ fn sysroot(dir: &Path) -> Option<PathBuf> {
 }
 
 /// Assemble the recipe and the concrete rustc flags for building `manifest`
-/// into `target_dir` (cargo's effective target directory for this build).
+/// into `target_dir` (cargo's effective target directory for this build)
+/// with `SOURCE_DATE_EPOCH = source_date_epoch`.
 pub fn prepare_build(
     manifest: &Path,
     target: &str,
     cargo: &str,
     target_dir: &Path,
+    source_date_epoch: u64,
 ) -> Result<PreparedBuild> {
     let project = manifest
         .parent()
@@ -397,7 +399,7 @@ pub fn prepare_build(
                 .map(str::to_owned)
                 .to_vec(),
             rustflags: logical,
-            source_date_epoch: signing_epoch(),
+            source_date_epoch,
         },
         rustflags: actual,
     })
@@ -632,7 +634,8 @@ pub fn load_package(p: &Path) -> Result<PackageFiles> {
 /// Comparison order (the first mismatch is the one reported): source digest,
 /// path-dependency digests, toolchain,
 /// build flags, rendered manifest, wasm artifact, then the signature
-/// bundle's recorded hashes. If the signer is in `keyring` the Ed25519
+/// bundle's recorded hashes and `created_at`. The rebuild runs with the
+/// recorded `SOURCE_DATE_EPOCH`. If the signer is in `keyring` the Ed25519
 /// signature is verified too.
 pub fn verify_rebuild(
     package: &Path,
@@ -705,7 +708,10 @@ pub fn verify_rebuild(
     };
     // Scratch target dir: the source tree is untouched.
     let scratch = tempfile::tempdir().context("creating scratch target dir")?;
-    let prepared = prepare_build(&manifest_path, target, &cargo_bin(), scratch.path())?;
+    // The rebuild runs with the recorded epoch, whatever the verifier's
+    // environment says (a build script may embed it).
+    let epoch = recipe.source_date_epoch;
+    let prepared = prepare_build(&manifest_path, target, &cargo_bin(), scratch.path(), epoch)?;
     if prepared.recipe.toolchain != recipe.toolchain {
         return Ok(Fail(format!(
             "toolchain differs: package built with {}, local is {}",
@@ -740,7 +746,18 @@ pub fn verify_rebuild(
             first_byte_difference(rendered.toml.as_bytes(), &files.manifest)
         )));
     }
-    let built = crate::cmd::package::build_wasm_in(&manifest_path, target, Some(scratch.path()))?;
+    if epoch != signing_epoch() {
+        notes.push(format!(
+            "rebuilt with the recorded SOURCE_DATE_EPOCH {epoch} (this environment would use {})",
+            signing_epoch()
+        ));
+    }
+    let built = crate::cmd::package::build_wasm_in(
+        &manifest_path,
+        target,
+        Some(scratch.path()),
+        Some(epoch),
+    )?;
     let wasm = std::fs::read(&built.wasm)?;
     if wasm != files.wasm {
         return Ok(Fail(format!(
@@ -768,6 +785,14 @@ pub fn verify_rebuild(
             "recorded manifest hash in the signature bundle does not match the rebuilt manifest"
                 .into(),
         ));
+    }
+    // `plugins build` signs with created_at = SOURCE_DATE_EPOCH; any other
+    // value is a bundle the reproducible build did not produce.
+    if bundle.created_at != epoch {
+        return Ok(Fail(format!(
+            "signature bundle created_at {} differs from the recorded SOURCE_DATE_EPOCH {epoch}",
+            bundle.created_at
+        )));
     }
     match keyring {
         Some(kr) if kr.lookup(&bundle.publisher_fingerprint).is_some() => {

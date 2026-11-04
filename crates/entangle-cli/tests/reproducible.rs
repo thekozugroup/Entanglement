@@ -380,6 +380,59 @@ fn build_script_out_dir_paths_are_remapped_and_rebuild_verifies() {
     assert_eq!(wasm, wasm2, "target directory location changed the wasm");
 }
 
+/// The rebuild runs with the recorded `SOURCE_DATE_EPOCH`, not the
+/// verifier's: a plugin whose build embeds the epoch reproduces from a shell
+/// without the variable. A signature bundle whose `created_at` is not the
+/// recorded epoch is not what the reproducible build produced.
+#[test]
+fn rebuild_uses_the_recorded_source_date_epoch() {
+    const BUILD_RS: &str = r#"fn main() {
+    println!("cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH");
+    let epoch = std::env::var("SOURCE_DATE_EPOCH").unwrap_or_default();
+    println!("cargo:rustc-env=TINY_EPOCH={epoch}");
+}
+"#;
+    const LIB_RS: &str = "#[no_mangle]\npub static TINY_EPOCH: [u8; 10] = {\n\
+        let s = env!(\"TINY_EPOCH\").as_bytes();\n    let mut a = [0u8; 10];\n    let mut i = 0;\n\
+        while i < s.len() && i < 10 { a[i] = s[i]; i += 1; }\n    a\n};\n";
+    let home = TempDir::new().unwrap();
+    trust_fixture_key(home.path());
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", Some(BUILD_RS), LIB_RS);
+    entangle(home.path())
+        .env("SOURCE_DATE_EPOCH", "1700000000")
+        .env_remove("CARGO_TARGET_DIR")
+        .args(["plugins", "build"])
+        .arg(&project)
+        .arg("--key")
+        .arg(key())
+        .assert()
+        .success();
+    let archive = project.join("dist/tiny-0.1.0.tar.zst");
+    let wasm = std::fs::read(project.join("dist/plugin.wasm")).unwrap();
+    assert!(
+        wasm.windows(10).any(|w| w == b"1700000000"),
+        "fixture must embed the epoch"
+    );
+
+    // `entangle()` clears SOURCE_DATE_EPOCH: the verifier's env differs.
+    verify_rebuild(home.path(), &archive, &project)
+        .success()
+        .stdout(predicate::str::contains("PASS"));
+
+    let resigned = repack_with(&archive, |f| {
+        let text = String::from_utf8(f.signature.clone()).unwrap();
+        assert!(text.contains("created_at = 1700000000"), "{text}");
+        f.signature = text
+            .replace("created_at = 1700000000", "created_at = 1700000001")
+            .into_bytes();
+    });
+    verify_rebuild(home.path(), &resigned, &project)
+        .failure()
+        .stdout(predicate::str::contains("FAIL: "))
+        .stdout(predicate::str::contains("created_at"));
+}
+
 // ---------------------------------------------------------------------------
 // ATC-PKG-2 (structural: one process cannot run three hosts)
 // ---------------------------------------------------------------------------

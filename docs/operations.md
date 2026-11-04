@@ -1214,7 +1214,8 @@ source produce the same bytes: absolute paths are remapped out of the wasm
   recorded; the build passes them, with the remap flags, as `CARGO_ENCODED_RUSTFLAGS`
   (so paths with spaces work), which replaces any `build.rustflags` in `.cargo/config.toml`.
 * `entangle plugins verify --rebuild <package|dist-dir> [--source <dir>]` rebuilds in a
-  scratch target dir and compares source digest, toolchain, flags, manifest and wasm.
+  scratch target dir, with the recorded `SOURCE_DATE_EPOCH`, and compares source digest,
+  toolchain, flags, manifest, wasm and the signature bundle's hashes and `created_at`.
   It prints `PASS` (exit 0) or `FAIL: <first difference>` (non-zero). Without `--rebuild`
   it only checks the publisher signature against the keyring.
 * Cross-host reproducibility (macOS-14, Ubuntu-22.04, Ubuntu-24.04) is checked only in CI:
