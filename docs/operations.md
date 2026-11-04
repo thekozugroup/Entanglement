@@ -573,8 +573,8 @@ repeatable; the executor must be one of them). `deterministic` and
 `semantic-equivalent` are refused at submit time with `ENTANGLE-E0350`: there
 is one executor and no second stream to compare against. `--partial keep`
 (default) prints chunks as they arrive and, if the stream is interrupted,
-keeps what arrived; `keep-signed` is the same for the CLI (the signatures are
-in `--json`); `discard` holds all output back until the stream completes and
+keeps what arrived; `keep-signed` requires `--json` (the per-chunk signatures
+are printed there; plain byte output carries none, so it is refused); `discard` holds all output back until the stream completes and
 prints nothing if it does not. The exit status is non-zero for an
 interrupted stream either way. Ctrl-C cancels the stream on the executor.
 

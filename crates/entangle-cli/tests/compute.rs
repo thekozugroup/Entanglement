@@ -405,6 +405,20 @@ fn compute_stream_refuses_deterministic_with_the_trusted_executor_hint() {
         .stderr(predicate::str::contains("TrustedExecutor"));
 }
 
+/// `--partial keep-signed` keeps nothing attributable in text mode (raw bytes
+/// carry no signatures), so it is refused there; with `--json` it is accepted.
+#[test]
+fn compute_stream_keep_signed_needs_json() {
+    let tmp = TempDir::new().unwrap();
+    entangle(&tmp)
+        .args(["compute", "stream", PLUGIN, "--partial", "keep-signed"])
+        .args(["--peer", &format!("{}@127.0.0.1:9", "ab".repeat(32))])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("keep-signed"))
+        .stderr(predicate::str::contains("--json"));
+}
+
 /// Without --peer the command needs --allow-local; an unpaired peer is
 /// refused before it is dialled.
 #[test]

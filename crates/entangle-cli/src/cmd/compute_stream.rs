@@ -222,6 +222,13 @@ pub async fn run(a: StreamArgs) -> anyhow::Result<()> {
     let mut task = StreamingTask::with_defaults(plugin.clone(), read_input(&a)?);
     task.integrity = parse_integrity(&a)?;
     task.partial_result = parse_partial(&a.partial)?;
+    // Text mode prints raw bytes, which carry no signatures: `keep-signed`
+    // would keep nothing `keep` does not. The signatures are in `--json`.
+    if task.partial_result == PartialResultPolicy::KeepSigned && !a.json {
+        anyhow::bail!(
+            "--partial keep-signed needs --json: the plain byte output carries no signatures,              so nothing attributable would be kept (use --partial keep for the bytes alone)"
+        );
+    }
     task.timeout_ms = a.timeout_ms;
     task.channel.credit_window = a.credit_window;
     // ATC-INT-4: refused here, before any socket is opened.
