@@ -205,10 +205,15 @@ impl Link for Workers {
             _ => {}
         }
         let worker = self.workers.get(&peer).expect("known worker");
-        let answer = worker
-            .server
-            .handle_via(self.from, frame, TransportKind::Iroh)
-            .await;
+        // The worker runs the frame on its own task, as a remote node would:
+        // a submitter that drops its request (a cancelled copy) does not
+        // stop the worker — only a `Cancel` frame does.
+        let server = Arc::clone(&worker.server);
+        let from = self.from;
+        let answer =
+            tokio::spawn(async move { server.handle_via(from, frame, TransportKind::Iroh).await })
+                .await
+                .map_err(|e| LinkError::Transport(format!("worker task failed: {e}")))?;
         if kind == "cancel" {
             if let Ok(RemoteTaskResponse {
                 outcome: RemoteOutcome::Ack { .. },
@@ -650,7 +655,7 @@ async fn a_replica_retry_never_goes_to_a_worker_holding_a_replica() {
 // Speculative execution
 // ═════════════════════════════════════════════════════════════════════════
 
-/// The best-ranked worker runs the task slowly (a real 3 s busy loop); past
+/// The best-ranked worker runs the task slowly (a real 6 s busy loop); past
 /// the threshold a backup starts on the next worker, which answers first;
 /// its result wins and the slow copy is cancelled: its request is dropped
 /// and a `Cancel` control frame reaches the slow worker, which acknowledges
@@ -670,17 +675,17 @@ async fn a_straggler_gets_a_backup_and_the_first_valid_result_wins() {
     let started = Instant::now();
     let result = deadline(
         "dispatch",
-        d.dispatch_one_shot(c.task(b"spin:3000", IntegrityPolicy::None)),
+        d.dispatch_one_shot(c.task(b"spin:6000", IntegrityPolicy::None)),
     )
     .await
     .expect("the backup answers");
     let took = started.elapsed();
     assert_eq!(
-        result.output, b"Hello, spin:3000!",
+        result.output, b"Hello, spin:6000!",
         "the fast worker's answer"
     );
     assert_eq!(result.chosen.peer_id, fast);
-    assert!(took < Duration::from_millis(2_500), "{took:?}");
+    assert!(took < Duration::from_millis(5_000), "{took:?}");
     assert!(took >= Duration::from_millis(200), "{took:?}");
 
     assert_eq!(result.attempts.len(), 2);
