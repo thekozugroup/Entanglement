@@ -610,8 +610,8 @@ async fn a_stream_open_falls_back_on_connect_failure_but_is_never_retried_after_
     let err = r
         .open_stream(p, &stream_task(p), StreamOptions::default())
         .await
-        .err()
-        .expect("a transport failure after connecting is an error");
+        .map(|_| ())
+        .expect_err("a transport failure after connecting is an error");
     assert!(err.to_string().contains("ENTANGLE-E0432"), "{err}");
     assert_eq!((ts.calls(), iroh.calls()), (1, 0));
 }
@@ -622,7 +622,7 @@ async fn a_stream_open_falls_back_on_connect_failure_but_is_never_retried_after_
 async fn a_stream_cut_before_its_end_is_interrupted_not_complete() {
     let p = peer(1);
     let ts = Scripted::answering(TransportKind::Tailscale, p);
-    let r = router(&[ts.clone()]);
+    let r = router(std::slice::from_ref(&ts));
     let mut handle = r
         .open_stream(p, &stream_task(p), StreamOptions::default())
         .await
