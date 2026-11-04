@@ -611,15 +611,17 @@ pub fn build_wasm_in(
     .arg(cargo_manifest)
     // Run from the project so its rust-toolchain.toml / .cargo/config apply.
     .current_dir(project_dir_for(cargo_manifest))
-    .env("RUSTFLAGS", &prepared.rustflags)
+    // Encoded form: the remap flags carry real paths, which may contain
+    // spaces (cargo splits `RUSTFLAGS` on whitespace).
+    .env("CARGO_ENCODED_RUSTFLAGS", prepared.encoded_rustflags())
+    .env_remove("RUSTFLAGS")
     .env(
         "SOURCE_DATE_EPOCH",
         prepared.recipe.source_date_epoch.to_string(),
     )
     .env("CARGO_INCREMENTAL", "0")
     .env("LC_ALL", "C")
-    .env("TZ", "UTC")
-    .env_remove("CARGO_ENCODED_RUSTFLAGS");
+    .env("TZ", "UTC");
     if let Some(td) = target_dir {
         cmd.env("CARGO_TARGET_DIR", td);
     }

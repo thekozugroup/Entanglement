@@ -25,9 +25,10 @@
 //!   compare with the package.
 //!
 //! # Limits
-//! `RUSTFLAGS` set in the environment replaces (cargo semantics) any
-//! `build.rustflags` from `.cargo/config.toml`; the reproducible build owns
-//! the flag set. `provenance.json` is not covered by the publisher signature
+//! The build runs with `CARGO_ENCODED_RUSTFLAGS` (user flags from
+//! `CARGO_ENCODED_RUSTFLAGS` or `RUSTFLAGS`, then the remap flags), which
+//! replaces (cargo semantics) any `build.rustflags` from `.cargo/config.toml`;
+//! the reproducible build owns the flag set. `provenance.json` is not covered by the publisher signature
 //! (which binds artifact and manifest); `verify --rebuild` is what validates
 //! it.
 
@@ -107,12 +108,38 @@ pub struct BuildRecipe {
     pub source_date_epoch: u64,
 }
 
-/// A build recipe plus the concrete RUSTFLAGS string to run it with.
+/// A build recipe plus the concrete rustc flags to run it with.
 pub struct PreparedBuild {
     /// What gets recorded.
     pub recipe: BuildRecipe,
-    /// The actual `RUSTFLAGS` value (real paths).
-    pub rustflags: String,
+    /// The actual flags (real paths), one rustc argument per element.
+    pub rustflags: Vec<String>,
+}
+
+impl PreparedBuild {
+    /// The flags as a `CARGO_ENCODED_RUSTFLAGS` value (`0x1f`-separated).
+    ///
+    /// The remap flags carry real paths, which may contain spaces; cargo
+    /// splits `RUSTFLAGS` on whitespace, so it cannot carry them.
+    pub fn encoded_rustflags(&self) -> String {
+        self.rustflags.join("\x1f")
+    }
+}
+
+/// The user's rustc flags from the environment, read the way cargo reads
+/// them: `CARGO_ENCODED_RUSTFLAGS` (`0x1f`-separated; set but empty means
+/// none) takes precedence over `RUSTFLAGS` (whitespace-separated).
+fn env_rustflags() -> Vec<String> {
+    if let Ok(enc) = std::env::var("CARGO_ENCODED_RUSTFLAGS") {
+        if enc.is_empty() {
+            return Vec::new();
+        }
+        return enc.split('\x1f').map(str::to_owned).collect();
+    }
+    std::env::var("RUSTFLAGS")
+        .ok()
+        .map(|s| s.split_whitespace().map(str::to_owned).collect())
+        .unwrap_or_default()
 }
 
 fn home_dir(var: &str, default_sub: &str) -> Option<PathBuf> {
@@ -286,11 +313,8 @@ pub fn prepare_build(manifest: &Path, target: &str, cargo: &str) -> Result<Prepa
     let sysroot = sysroot(&project);
     let remaps = remap_flags(&project, &deps, sysroot.as_deref());
 
-    // User-provided RUSTFLAGS are kept (and recorded) ahead of ours.
-    let user: Vec<String> = std::env::var("RUSTFLAGS")
-        .ok()
-        .map(|s| s.split_whitespace().map(str::to_owned).collect())
-        .unwrap_or_default();
+    // User-provided flags are kept (and recorded) ahead of ours.
+    let user = env_rustflags();
 
     let mut logical = user.clone();
     let mut actual = user;
@@ -310,7 +334,7 @@ pub fn prepare_build(manifest: &Path, target: &str, cargo: &str) -> Result<Prepa
             rustflags: logical,
             source_date_epoch: signing_epoch(),
         },
-        rustflags: actual.join(" "),
+        rustflags: actual,
     })
 }
 

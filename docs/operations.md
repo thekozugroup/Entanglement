@@ -1210,8 +1210,9 @@ the sysroot), the signature timestamp is `SOURCE_DATE_EPOCH` (default
 * The project **must** have a committed `Cargo.lock`; otherwise the build stops with
   `ENTANGLE-E0830: Cargo.lock missing` before fetching or writing anything. `plugins new`
   generates one (skip with `--no-lockfile`). Builds run `cargo build --locked`.
-* `RUSTFLAGS` from the environment is kept and recorded, but replaces any
-  `build.rustflags` in `.cargo/config.toml`.
+* Flags from `CARGO_ENCODED_RUSTFLAGS` or `RUSTFLAGS` in the environment are kept and
+  recorded; the build passes them, with the remap flags, as `CARGO_ENCODED_RUSTFLAGS`
+  (so paths with spaces work), which replaces any `build.rustflags` in `.cargo/config.toml`.
 * `entangle plugins verify --rebuild <package|dist-dir> [--source <dir>]` rebuilds in a
   scratch target dir and compares source digest, toolchain, flags, manifest and wasm.
   It prints `PASS` (exit 0) or `FAIL: <first difference>` (non-zero). Without `--rebuild`
