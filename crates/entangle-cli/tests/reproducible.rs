@@ -195,16 +195,100 @@ fn build_hello(home: &Path) -> Built {
     }
 }
 
+/// The toolchain channel the repository pins in `rust-toolchain.toml`.
+fn pinned_channel() -> String {
+    let text = std::fs::read_to_string(repo_root().join("rust-toolchain.toml")).unwrap();
+    let doc: toml::Table = toml::from_str(&text).unwrap();
+    doc["toolchain"]["channel"]
+        .as_str()
+        .expect("rust-toolchain.toml pins a channel")
+        .to_owned()
+}
+
+/// `true` when `release` (e.g. `1.91.1`) belongs to `channel` (e.g. `1.91`
+/// or `1.91.1`).
+fn release_matches_channel(release: &str, channel: &str) -> bool {
+    release == channel || release.starts_with(&format!("{channel}."))
+}
+
+/// The `toolchain` input of the `dtolnay/rust-toolchain` step of `job`.
+fn workflow_job_toolchain(doc: &serde_yaml::Value, job: &str) -> String {
+    doc["jobs"][job]["steps"]
+        .as_sequence()
+        .unwrap()
+        .iter()
+        .find(|s| {
+            s["uses"]
+                .as_str()
+                .is_some_and(|u| u.starts_with("dtolnay/rust-toolchain@"))
+        })
+        .and_then(|s| s["with"]["toolchain"].as_str())
+        .unwrap_or_else(|| panic!("job {job} installs no pinned toolchain"))
+        .to_owned()
+}
+
 // ---------------------------------------------------------------------------
 // ATC-PKG-1
 // ---------------------------------------------------------------------------
 
 #[test]
 fn atc_pkg_1_two_builds_are_byte_identical() {
+    // GIVEN hello-world with its pinned Cargo.lock: the repository ships one
+    // (committed, when this is a git checkout) and each copy carries it.
+    let lock_rel = "examples/hello-world/Cargo.lock";
+    let pinned_lock = std::fs::read(repo_root().join(lock_rel)).expect("hello-world Cargo.lock");
+    if head_commit(&repo_root()).is_some() {
+        let tracked = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_root())
+            .args(["ls-files", "--error-unmatch", lock_rel])
+            .output()
+            .unwrap();
+        assert!(
+            tracked.status.success(),
+            "{lock_rel} is not committed: {tracked:?}"
+        );
+    }
+
     let home = TempDir::new().unwrap();
     let a = build_hello(home.path());
     let b = build_hello(home.path());
     assert_ne!(a.project, b.project, "builds must run from different paths");
+
+    // Both builds used that lockfile as is: `--locked`, and left unchanged.
+    for built in [&a, &b] {
+        assert_eq!(
+            std::fs::read(built.project.join("Cargo.lock")).unwrap(),
+            pinned_lock,
+            "the build must not rewrite the pinned Cargo.lock"
+        );
+    }
+
+    // GIVEN the pinned toolchain: the recorded toolchain (`rustc -vV` in the
+    // project) is the channel rust-toolchain.toml pins, not whatever the host
+    // defaults to. Both provenance files are compared byte-for-byte below,
+    // so checking one covers both builds.
+    let prov: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(a.out.join("provenance.json")).unwrap()).unwrap();
+    let toolchain = prov["build"]["toolchain"].as_str().unwrap();
+    let release = toolchain
+        .strip_prefix("rustc ")
+        .and_then(|t| t.split_whitespace().next())
+        .unwrap_or_else(|| panic!("unexpected toolchain id {toolchain}"));
+    let channel = pinned_channel();
+    assert!(
+        release_matches_channel(release, &channel),
+        "built with {toolchain}, but rust-toolchain.toml pins {channel}: run the tests with the \
+         pinned toolchain"
+    );
+    assert!(
+        prov["build"]["cargo_args"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|arg| arg == "--locked"),
+        "{prov}"
+    );
 
     let (ba, bb) = (
         std::fs::read(&a.archive).unwrap(),
@@ -570,6 +654,11 @@ fn atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests() {
         "{build}"
     );
     assert!(build.contains("wasm32-wasip2"), "{build}");
+    assert_eq!(
+        workflow_job_toolchain(&doc, "cross_host_matrix"),
+        pinned_channel(),
+        "the hosts must build with the toolchain rust-toolchain.toml pins"
+    );
     assert!(build.contains("sha256"), "{build}");
     assert!(build.contains("upload-artifact"), "{build}");
 
@@ -725,6 +814,20 @@ fn atc_pkg_1_workflow_serial_double_build_uses_different_directories() {
     assert!(
         !build_line.contains("examples/hello-world"),
         "must not build the in-tree project at one fixed path: {build_line}"
+    );
+
+    // GIVEN the pinned toolchain and Cargo.lock: the job installs exactly the
+    // channel rust-toolchain.toml pins, and builds the CLI locked.
+    assert_eq!(
+        workflow_job_toolchain(&doc, "serial_double_build"),
+        pinned_channel()
+    );
+    assert!(
+        steps
+            .iter()
+            .filter_map(|s| s["run"].as_str())
+            .any(|r| r.contains("cargo build --release --locked")),
+        "the CLI is built locked"
     );
 }
 
