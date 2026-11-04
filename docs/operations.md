@@ -1009,7 +1009,9 @@ aabbccddeeff00112233445566778899/fetcher@0.3.1 (tier 3)
 
 $ entangle perms revoke aabbccddeeff00112233445566778899/fetcher@0.3.1 storage.local
 storage.local revoked from aabbccddeeff00112233445566778899/fetcher@0.3.1; withdrew grant(s) 7
-It stays revoked until the plugin is unloaded and loaded again.
+Not persistent: the plugin gets this capability back when it is unloaded and
+loaded again or when the daemon restarts. To keep a capability away for good,
+add it to [security] deny_capabilities.
 ```
 
 `entangle perms list [<plugin>] --json` prints the `perms/list` RPC result:
@@ -1027,8 +1029,9 @@ connection it had open — an established connection never outlives the
 grant. Storage is revoked from the next invocation (an invocation already
 running keeps its open directory until it ends). A native plugin's OS-sandbox profile is fixed when
 it loads, so a native plugin with a revoked capability is refused outright
-(`ENTANGLE-E0125`) from its next invocation. A revocation lasts until the
-plugin is unloaded and loaded again; to keep a capability away from every
+(`ENTANGLE-E0125`) from its next invocation. A revocation is held in the
+daemon's memory: it lasts until the plugin is unloaded and loaded again or
+the daemon restarts; to keep a capability away from every
 plugin, use `deny_capabilities` instead.
 
 Every grant, denial, release and revocation is recorded in the broker's

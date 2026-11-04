@@ -81,11 +81,19 @@ pub async fn run(args: PermsArgs) -> anyhow::Result<()> {
                     ids.join(", ")
                 );
             }
-            println!("It stays revoked until the plugin is unloaded and loaded again.");
+            println!("{REVOKE_CAVEAT}");
             Ok(())
         }
     }
 }
+
+/// What an operator must know about how long a revocation lasts: it is held
+/// in the daemon's memory only, so a reload or a daemon restart restores the
+/// plugin's declared grants.
+pub const REVOKE_CAVEAT: &str =
+    "Not persistent: the plugin gets this capability back when it is unloaded and \
+loaded again or when the daemon restarts. To keep a capability away for good, \
+add it to [security] deny_capabilities.";
 
 /// Render `perms list` for a terminal.
 pub fn render_text(r: &PermsListResult) -> String {
@@ -124,6 +132,15 @@ pub fn render_text(r: &PermsListResult) -> String {
 mod tests {
     use super::*;
     use entangle_rpc::methods::{CapabilityGrantInfo, PluginPerms};
+
+    #[test]
+    fn revoke_caveat_names_the_daemon_restart_and_the_permanent_remedy() {
+        assert!(REVOKE_CAVEAT.contains("daemon restarts"), "{REVOKE_CAVEAT}");
+        assert!(
+            REVOKE_CAVEAT.contains("deny_capabilities"),
+            "{REVOKE_CAVEAT}"
+        );
+    }
 
     #[test]
     fn renders_each_state() {
