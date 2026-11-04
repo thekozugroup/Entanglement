@@ -91,7 +91,7 @@ mod restart {
     use entangle_scheduler::{Dispatcher, WorkerPool};
     use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
     use entangle_types::peer_id::PeerId;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use std::sync::Arc;
 
     const HELLO: &[u8] = include_bytes!("../../entangle-host/tests/fixtures/hello-pong.wasm");

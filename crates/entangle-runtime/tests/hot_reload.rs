@@ -718,7 +718,7 @@ async fn revoking_through_a_replaced_id_reaches_the_version_answering_for_it() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn rolling_back_to_a_draining_version_says_it_is_draining() {
     let f = Fixture::new();
-    let (v1, v2) = (f.id("streamer", "1.0.0"), f.id("streamer", "1.1.0"));
+    let v1 = f.id("streamer", "1.0.0");
     let old_dir = f.package("streamer", "1.0.0", STREAM_PROBE, 1, "");
     f.kernel.load_plugin_from_dir(&old_dir).await.unwrap();
     let (port, mut old) = entangle_host::stream_port(1);
