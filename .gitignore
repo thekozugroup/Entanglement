@@ -10,6 +10,9 @@ node_modules/
 .entangle/
 *.key
 *.pem
+# Public, test-only signing key used by the reproducibility tests and
+# workflow (see tests/fixtures/README.md). Not a credential.
+!tests/fixtures/repro-ci-key.pem
 *.p12
 .env
 .env.*
