@@ -116,6 +116,13 @@ pub enum McpServerSpec {
         /// already expanded. Credentials: never printed by `Debug`.
         headers: BTreeMap<String, String>,
     },
+    /// A remote server using the deprecated HTTP+SSE transport (Claude Code
+    /// `"type": "sse"`). The gateway speaks only Streamable HTTP, so it
+    /// refuses this route (`ENTANGLE-E0664`) without contacting the server.
+    LegacySse {
+        /// The server's SSE endpoint URL.
+        url: String,
+    },
 }
 
 impl std::fmt::Debug for McpServerSpec {
@@ -133,6 +140,7 @@ impl std::fmt::Debug for McpServerSpec {
                 .field("url", url)
                 .field("headers", &headers.keys().collect::<Vec<_>>())
                 .finish(),
+            Self::LegacySse { url } => f.debug_struct("LegacySse").field("url", url).finish(),
         }
     }
 }
@@ -192,8 +200,9 @@ pub fn decode_server_name(seg: &str) -> Option<String> {
 /// Parse one server entry (as JSON) into a [`McpServerSpec`].
 ///
 /// Understands `command` as a string (+ `args`) or as an array (OpenCode
-/// style), `env` / `environment` maps, and `url`. Returns `None` for entries
-/// with neither a command nor a url.
+/// style), `env` / `environment` maps, and `url` (`"type": "sse"` marks the
+/// legacy HTTP+SSE transport). Returns `None` for entries with neither a
+/// command nor a url.
 pub(crate) fn parse_server_entry(v: &Value) -> Option<McpServerSpec> {
     let obj = v.as_object()?;
     if let Some(cmd) = obj.get("command") {
@@ -221,6 +230,11 @@ pub(crate) fn parse_server_entry(v: &Value) -> Option<McpServerSpec> {
         return Some(McpServerSpec::Stdio { command, args, env });
     }
     let url = obj.get("url").and_then(Value::as_str)?.to_string();
+    // Claude Code's `type` for a url entry is `http` (Streamable HTTP) or
+    // `sse` (the deprecated HTTP+SSE transport of MCP 2024-11-05).
+    if obj.get("type").and_then(Value::as_str) == Some("sse") {
+        return Some(McpServerSpec::LegacySse { url });
+    }
     let mut headers = BTreeMap::new();
     // Claude Code `headers`, Codex `http_headers`: literal values, which may
     // reference the environment.

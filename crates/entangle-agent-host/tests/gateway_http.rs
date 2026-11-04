@@ -694,6 +694,54 @@ async fn a_configured_user_agent_replaces_the_gateways() {
     f.gw.shutdown().await;
 }
 
+/// A Claude Code `"type": "sse"` entry uses the deprecated HTTP+SSE
+/// transport, which the gateway does not speak: proxying it as Streamable
+/// HTTP would fail every request with an unclear status error. It is refused
+/// (E0664, naming the transport) without contacting the server.
+#[tokio::test]
+async fn legacy_sse_servers_are_refused_without_contact() {
+    let mock = Mock::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let cfg = dir.path().join(".mcp.json");
+    std::fs::write(
+        &cfg,
+        json!({"mcpServers": {"remote": {"type": "sse", "url": mock.url()}}}).to_string(),
+    )
+    .unwrap();
+    let cfg = camino::Utf8PathBuf::from_path_buf(cfg).unwrap();
+    let session = entangle_agent_host::AgentSession::prepare("claude-code", Some(&cfg)).unwrap();
+    let why = entangle_agent_host::gateway::check_downstream(&session.servers()["remote"])
+        .expect_err("a legacy SSE server is reported at start");
+    assert!(why.contains("sse"), "{why}");
+
+    let token = generate_bearer_token();
+    let gw = Gateway::new(GatewayConfig {
+        bearer_token: token.clone(),
+        ..GatewayConfig::default()
+    })
+    .with_servers(session.servers().clone())
+    .start()
+    .await
+    .unwrap();
+    let r = post_to(
+        gw.addr,
+        &token,
+        &json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}),
+    )
+    .await;
+    let msg = r.body["error"]["message"].as_str().unwrap_or("");
+    assert!(
+        msg.contains("ENTANGLE-E0664") && msg.contains("sse"),
+        "{:?}",
+        r.body
+    );
+    assert!(
+        mock.seen.lock().is_empty(),
+        "the server must not be contacted"
+    );
+    gw.shutdown().await;
+}
+
 #[tokio::test]
 async fn non_https_non_loopback_and_bad_headers_are_refused_without_contact() {
     let mock = Mock::start().await;

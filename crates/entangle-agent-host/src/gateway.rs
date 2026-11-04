@@ -75,8 +75,10 @@
 //!   the downstream message cap apply to the whole exchange. Only `https`
 //!   URLs are used, except loopback hosts (`http://127.0.0.1:…`,
 //!   `http://localhost:…`); anything else is refused with `ENTANGLE-E0664`
-//!   without contacting it. Redirects are not followed. Other failures
-//!   (status, content-type, bad JSON) are `ENTANGLE-E0671`.
+//!   without contacting it, and so is a `"type": "sse"` entry (the
+//!   deprecated HTTP+SSE transport is not proxied). Redirects are not
+//!   followed. Other failures (status, content-type, bad JSON) are
+//!   `ENTANGLE-E0671`.
 //! * **Connections**: at most 128 open client connections (further ones
 //!   wait unaccepted); a connection that does not send a complete request
 //!   head within 30 s, or sits idle that long between keep-alive requests,
@@ -252,6 +254,32 @@ pub enum GatewayError {
 /// reason, with no query string or credentials in it.
 pub fn check_http_downstream(url: &str) -> Result<(), String> {
     crate::http_downstream::check_url(url)
+}
+
+/// Why the gateway refuses the route for `spec` (`ENTANGLE-E0664`), if it
+/// does: a legacy SSE server, an unusable URL, or a header that cannot be
+/// configured. Stdio servers are never refused here. The reason holds no
+/// header values, query string or credentials.
+pub fn check_downstream(spec: &McpServerSpec) -> Result<(), String> {
+    match spec {
+        McpServerSpec::Stdio { .. } => Ok(()),
+        McpServerSpec::Http { url, headers } => HttpTarget::new(url, headers)
+            .map(|_| ())
+            .map_err(refusal_reason),
+        McpServerSpec::LegacySse { .. } => Err(LEGACY_SSE_REFUSAL.to_string()),
+    }
+}
+
+/// Why a `"type": "sse"` route is refused.
+const LEGACY_SSE_REFUSAL: &str = "it uses the deprecated HTTP+SSE transport (\"type\": \"sse\"), \
+     which the gateway does not proxy; point it at the server's Streamable HTTP endpoint \
+     (\"type\": \"http\") instead";
+
+fn refusal_reason(e: HttpError) -> String {
+    match e {
+        HttpError::Refused(m) => m,
+        other => format!("{other:?}"),
+    }
 }
 
 /// `url` without credentials, query or fragment, for showing to the user.
@@ -1089,15 +1117,13 @@ impl HttpRoute {
     }
 
     fn new(spec: &McpServerSpec) -> Option<Self> {
-        let McpServerSpec::Http { url, headers } = spec else {
-            return None;
+        let target = match spec {
+            McpServerSpec::Stdio { .. } => return None,
+            McpServerSpec::Http { url, headers } => HttpTarget::new(url, headers)
+                .map(Arc::new)
+                .map_err(refusal_reason),
+            McpServerSpec::LegacySse { .. } => Err(LEGACY_SSE_REFUSAL.to_string()),
         };
-        let target = HttpTarget::new(url, headers)
-            .map(Arc::new)
-            .map_err(|e| match e {
-                HttpError::Refused(m) => m,
-                other => format!("{other:?}"),
-            });
         Some(Self {
             target,
             state: tokio::sync::Mutex::new(HttpState::default()),

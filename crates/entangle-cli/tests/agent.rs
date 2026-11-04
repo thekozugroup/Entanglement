@@ -676,3 +676,32 @@ fn agent_list_shows_adapters() {
         .stdout(predicate::str::contains("codex"))
         .stdout(predicate::str::contains("opencode"));
 }
+
+/// A Claude Code `"type": "sse"` server (the deprecated HTTP+SSE transport)
+/// is refused by the gateway; `agent run` says so at start instead of every
+/// request failing later.
+#[test]
+fn agent_run_warns_that_a_legacy_sse_server_is_refused() {
+    let dir = TempDir::new().unwrap();
+    let cfg = dir.path().join("mcp.json");
+    fs::write(
+        &cfg,
+        r#"{"mcpServers":{"old":{"type":"sse","url":"https://mcp.example.com/sse"}}}"#,
+    )
+    .unwrap();
+    let agent = dir.path().join("fake-claude.sh");
+    fs::write(&agent, RECORDING_AGENT).unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    entangle()
+        .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+        .env("RECORD", dir.path().join("record"))
+        .args(["agent", "run", "claude-code", "--config"])
+        .arg(&cfg)
+        .arg("--bin")
+        .arg(&agent)
+        .assert()
+        .code(7)
+        .stderr(predicate::str::contains("'old'"))
+        .stderr(predicate::str::contains("ENTANGLE-E0664"))
+        .stderr(predicate::str::contains("\"sse\""));
+}

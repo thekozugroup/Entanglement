@@ -190,7 +190,9 @@ itself sets `type`, `command` and `"enabled": true` win over the override.
     `http://localhost:…`, `http://[::1]:…`, re-checked against the connected
     address); a URL with embedded credentials or any other scheme is refused
     with `ENTANGLE-E0664` without being contacted (`entangle agent run` warns
-    about it at start). Redirects are never followed, so configured headers
+    about it at start). So is a Claude Code `"type": "sse"` server: the
+    deprecated HTTP+SSE transport is not proxied, point the entry at the
+    server's Streamable HTTP endpoint (`"type": "http"`). Redirects are never followed, so configured headers
     cannot be handed to another host; a non-2xx status, an unexpected
     content-type or invalid JSON is `ENTANGLE-E0671`. Each request opens its own
     connection (`Connection: close`);

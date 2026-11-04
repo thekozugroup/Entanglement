@@ -248,13 +248,11 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
     }
     let servers = session.servers().clone();
     for (name, spec) in &servers {
-        if let McpServerSpec::Http { url, .. } = spec {
-            if let Err(why) = entangle_agent_host::gateway::check_http_downstream(url) {
-                eprintln!(
-                    "warning: MCP server '{name}' is remote HTTP but the gateway will refuse it \
-                     (ENTANGLE-E0664): {why}"
-                );
-            }
+        if let Err(why) = entangle_agent_host::gateway::check_downstream(spec) {
+            eprintln!(
+                "warning: MCP server '{name}' is remote but the gateway will refuse it \
+                 (ENTANGLE-E0664): {why}"
+            );
         }
     }
 
