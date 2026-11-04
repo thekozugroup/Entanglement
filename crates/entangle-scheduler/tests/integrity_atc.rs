@@ -1934,3 +1934,78 @@ async fn a_semantic_spot_check_compares_in_the_canonical_pair_order() {
         );
     }
 }
+
+/// This node's own kernel ran one replica and was outvoted by two
+/// colluders returning the same lie. Its output, already in hand, is the
+/// spot-check re-run — the trusted kernel contradicts the accepted output —
+/// so the colluders behind it lose reputation, even though no other
+/// executor is free. Nothing is executed a second time.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_outvoted_local_replica_is_the_spot_check_of_the_majority() {
+    let publisher = IdentityKeyPair::generate();
+    let mut submitter = Node::start(&publisher).await;
+    let plugin = submitter.load(&publisher, "hello", &hello_pong()).await;
+    let mut local_bus = submitter.kernel.bus().subscribe();
+    let liars = colluders(&publisher, b"Hello, liar!").await;
+    let registry = Registry::new();
+    let dispatcher = spot_checked_dispatcher(
+        &submitter,
+        &[(&liars[0], 0.0), (&liars[1], 0.0)],
+        ALWAYS,
+        &registry,
+    );
+
+    let t = task(
+        plugin,
+        b"world",
+        IntegrityPolicy::Deterministic { replicas: 3 },
+    );
+    let result = deadline("outvoted local replica", dispatcher.dispatch_one_shot(t))
+        .await
+        .expect("the colluders are a hash majority");
+    assert_eq!(result.output, b"Hello, liar!");
+    let local = result
+        .replicas
+        .iter()
+        .find(|r| !r.remote)
+        .expect("the third replica ran on the submitter");
+    assert_eq!(local.status, ReplicaStatus::Disagreed);
+    let record = deadline(
+        "spot-check verdict",
+        result
+            .spot_check
+            .handle()
+            .expect("scheduled: the outvoted local replica is the re-run")
+            .outcome(),
+    )
+    .await
+    .expect("the spot-check finishes");
+    assert_eq!(record.checker, submitter.peer_id);
+    assert!(!record.checker_remote);
+    assert!(record.reused_replica, "no second execution was needed");
+    assert_eq!(
+        record.rerun_blake3,
+        Some(*blake3::hash(b"Hello, world!").as_bytes())
+    );
+    assert!(
+        matches!(record.verdict, SpotCheckVerdict::Mismatch(_)),
+        "{:?}",
+        record.verdict
+    );
+    let liar_ids = sorted(liars.iter().map(|l| l.peer_id).collect());
+    assert_eq!(sorted(record.penalised.clone()), liar_ids);
+    let rep = dispatcher.verifier().reputation();
+    for liar in &liars {
+        let rec = rep.record(&liar.peer_id, PolicyKind::Deterministic);
+        assert_eq!(
+            (rec.correct, rec.total),
+            (1, 2),
+            "credited by the majority, then downranked by the trusted kernel's output"
+        );
+    }
+    assert_eq!(
+        activations(&drain(&mut local_bus).await),
+        1,
+        "the replica was the only execution here"
+    );
+}

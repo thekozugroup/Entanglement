@@ -57,6 +57,15 @@
 //!   kernel (a local replica produced or agreed with it): there is nothing
 //!   left to attest.
 //!
+//! # A local replica that was outvoted
+//!
+//! When this node's own kernel ran a replica and the remote majority
+//! outvoted it (its status is `disagreed`), its output — already in hand —
+//! *is* the re-run of a sampled task: nothing runs again, and no other
+//! executor is needed ([`SpotCheckRecord::reused_replica`]). The trusted
+//! kernel contradicting the accepted output is the strongest evidence a
+//! spot-check can have.
+//!
 //! # Bounded
 //!
 //! At most [`SpotCheckConfig::max_concurrent`] spot-checks run at once. A
@@ -274,6 +283,10 @@ pub struct SpotCheckRecord {
     /// Who lost reputation because of this check: the implicated replicas
     /// on a mismatch, or a remote checker that broke a guard.
     pub penalised: Vec<PeerId>,
+    /// The checker's output is the one its own replica of the task already
+    /// produced — this node's kernel, outvoted at acceptance — so nothing
+    /// ran again.
+    pub reused_replica: bool,
     /// The verdict.
     pub verdict: SpotCheckVerdict,
 }
@@ -538,6 +551,7 @@ mod tests {
             distance: None,
             implicated: Vec::new(),
             penalised: Vec::new(),
+            reused_replica: false,
             verdict,
         })
     }
