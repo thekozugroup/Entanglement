@@ -67,6 +67,45 @@ pub enum BrokerError {
     #[error("ENTANGLE-E0123: plugin already registered: {0}")]
     AlreadyRegistered(PluginId),
 
+    /// ENTANGLE-E0124: the operator's `[security] deny_capabilities` policy
+    /// refuses this capability (spec §4.5), whatever the manifest declares.
+    #[error(
+        "ENTANGLE-E0124: capability '{capability}' denied to plugin '{plugin}' by operator \
+         policy (deny_capabilities = {pattern:?})"
+    )]
+    CapabilityDeniedByPolicy {
+        /// The requesting plugin.
+        plugin: PluginId,
+        /// The refused capability.
+        capability: String,
+        /// The deny pattern that matched.
+        pattern: String,
+    },
+
+    /// ENTANGLE-E0125: the capability was revoked from this plugin
+    /// (`entangle perms revoke`, spec §4.6); it stays refused until the
+    /// plugin is reloaded.
+    #[error("ENTANGLE-E0125: capability '{capability}' was revoked from plugin '{plugin}'")]
+    CapabilityRevoked {
+        /// The requesting plugin.
+        plugin: PluginId,
+        /// The revoked capability.
+        capability: String,
+    },
+
+    /// ENTANGLE-E0127: the plugin's effective tier is above the daemon's
+    /// `max_tier_allowed`, so none of its capabilities may be granted
+    /// (spec §4.5 "plugin tier within global cap?").
+    #[error("ENTANGLE-E0127: capability '{capability}' denied to plugin '{plugin}': {reason}")]
+    TierCeiling {
+        /// The requesting plugin.
+        plugin: PluginId,
+        /// The refused capability.
+        capability: String,
+        /// The ceiling violation.
+        reason: String,
+    },
+
     /// ENTANGLE-E0411: biscuit verification failed.
     ///
     /// Returned by [`crate::Broker::grant_with_biscuit`] when no trust root

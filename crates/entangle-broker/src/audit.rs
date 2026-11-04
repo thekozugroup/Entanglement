@@ -65,6 +65,18 @@ pub enum AuditEvent {
         /// Wall-clock time of the denial.
         at: SystemTime,
     },
+    /// A capability was revoked from a plugin by the operator (spec §4.6);
+    /// `grant_ids` lists the outstanding grants withdrawn with it.
+    CapabilityRevoked {
+        /// The plugin the capability was revoked from.
+        plugin: PluginId,
+        /// The capability's manifest key (e.g. `"net.wan"`).
+        capability: Cow<'static, str>,
+        /// The grants withdrawn by the revocation (possibly none).
+        grant_ids: Vec<u64>,
+        /// Wall-clock time of the revocation.
+        at: SystemTime,
+    },
     /// An outstanding capability grant was released.
     CapabilityReleased {
         /// The plugin whose grant was released.
@@ -91,6 +103,8 @@ pub enum AuditKind {
     CapabilityDenied,
     /// Matches [`AuditEvent::CapabilityReleased`].
     CapabilityReleased,
+    /// Matches [`AuditEvent::CapabilityRevoked`].
+    CapabilityRevoked,
 }
 
 impl AuditEvent {
@@ -102,6 +116,7 @@ impl AuditEvent {
             AuditEvent::CapabilityGranted { .. } => AuditKind::CapabilityGranted,
             AuditEvent::CapabilityDenied { .. } => AuditKind::CapabilityDenied,
             AuditEvent::CapabilityReleased { .. } => AuditKind::CapabilityReleased,
+            AuditEvent::CapabilityRevoked { .. } => AuditKind::CapabilityRevoked,
         }
     }
 
@@ -113,6 +128,7 @@ impl AuditEvent {
             AuditEvent::CapabilityGranted { at, .. } => at,
             AuditEvent::CapabilityDenied { at, .. } => at,
             AuditEvent::CapabilityReleased { at, .. } => at,
+            AuditEvent::CapabilityRevoked { at, .. } => at,
         }
     }
 }
