@@ -376,3 +376,51 @@ fn atc_bus_2_release_workflow_gates_on_the_check_and_the_real_file_parses() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+// ---------------------------------------------------------------------------
+// Workflow hygiene
+// ---------------------------------------------------------------------------
+
+/// `tools/xtask` is a member of the root workspace, so its build output is in
+/// the root `target/`; pointing rust-cache at `tools/xtask` caches nothing.
+#[test]
+fn workflows_cache_the_root_workspace_for_xtask() {
+    for f in ["bus-factor.yml", "release.yml"] {
+        let wf = std::fs::read_to_string(repo_root().join(".github/workflows").join(f)).unwrap();
+        assert!(
+            !wf.contains("workspaces: tools/xtask"),
+            "{f}: rust-cache must use the root workspace"
+        );
+    }
+}
+
+#[test]
+fn release_rotation_gate_job_is_read_only() {
+    let wf = std::fs::read_to_string(repo_root().join(".github/workflows/release.yml")).unwrap();
+    let start = wf.find("  rotation_note_fresh:").unwrap();
+    let rest = &wf[start..];
+    let end = rest.find("\n  build:").unwrap();
+    let job = &rest[..end];
+    assert!(
+        job.contains("permissions:\n      contents: read"),
+        "rotation_note_fresh needs an explicit read-only token:\n{job}"
+    );
+}
+
+/// The P0 issue must not be silently skipped: the label is ensured, a body is
+/// written when the report is absent (tooling error), and only a genuine
+/// duplicate is tolerated, not every `gh` failure.
+#[test]
+fn atc_bus_1_workflow_cannot_silently_skip_the_p0_issue() {
+    let wf = std::fs::read_to_string(repo_root().join(".github/workflows/bus-factor.yml")).unwrap();
+    assert!(wf.contains("gh label create P0"), "{wf}");
+    assert!(
+        !wf.contains("|| echo"),
+        "gh failures must not be swallowed:\n{wf}"
+    );
+    assert!(wf.contains("gh issue list"), "duplicate detection missing");
+    assert!(
+        wf.contains("! -s \"${RUNNER_TEMP}/bus-factor-body.md\""),
+        "a fallback body is needed when the report was not written"
+    );
+}

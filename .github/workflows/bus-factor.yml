@@ -28,8 +28,6 @@ jobs:
           toolchain: "1.91"
 
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        with:
-          workspaces: tools/xtask
 
       - name: Check role coverage
         id: check
@@ -41,11 +39,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue create \
-            --title "P0: Bus Factor Violation — role coverage below minimum (INV-BUS-1)" \
-            --label "P0" \
-            --body-file "${RUNNER_TEMP}/bus-factor-body.md" \
-            || echo "Issue may already exist; check open issues."
+          set -euo pipefail
+          title="P0: Bus Factor Violation — role coverage below minimum (INV-BUS-1)"
+          body="${RUNNER_TEMP}/bus-factor-body.md"
+          # The report is only written for policy violations; a tooling error
+          # (git failure, unparsable roles.toml) leaves none, and the issue must
+          # still be filed.
+          if [ ! -s "${RUNNER_TEMP}/bus-factor-body.md" ]; then
+            {
+              echo "The weekly bus-factor check failed without producing a report"
+              echo "(a tooling error, not necessarily a coverage gap)."
+              echo
+              echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            } > "$body"
+          fi
+          gh label create P0 --color B60205 \
+            --description "Release-blocking invariant violation" 2>/dev/null || true
+          # Tolerate only a genuine duplicate; any other gh failure fails the job.
+          existing=$(gh issue list --label P0 --state open --search "Bus Factor Violation in:title" --json number --jq 'length')
+          if [ "$existing" -gt 0 ]; then
+            echo "An open P0 bus-factor issue already exists; not opening another."
+          else
+            gh issue create --title "$title" --label "P0" --body-file "$body"
+          fi
 
       - name: Fail on violation
         if: steps.check.outcome == 'failure'

@@ -26,6 +26,8 @@ jobs:
   rotation_note_fresh:
     name: rotation_note_fresh
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -34,8 +36,6 @@ jobs:
           toolchain: "1.91"
 
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        with:
-          workspaces: tools/xtask
 
       - name: Newest rotation note must be within 35 days
         run: cargo xtask rotation-note-check

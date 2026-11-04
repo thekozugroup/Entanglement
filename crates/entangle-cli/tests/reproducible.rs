@@ -569,6 +569,47 @@ fn atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests() {
     entangle_signing::IdentityKeyPair::from_pem(&pem).expect("fixture key parses");
 }
 
+/// The serial double build must vary the project and target directory between
+/// the two builds, otherwise a dropped path remap would still give identical
+/// archives (ATC-PKG-1 says "two different project and target directories").
+#[test]
+fn atc_pkg_1_workflow_serial_double_build_uses_different_directories() {
+    let text =
+        std::fs::read_to_string(repo_root().join(".github/workflows/reproducibility.yml")).unwrap();
+    let doc: serde_yaml::Value = serde_yaml::from_str(&text).unwrap();
+    let steps = doc["jobs"]["serial_double_build"]["steps"]
+        .as_sequence()
+        .unwrap();
+    let script = steps
+        .iter()
+        .filter_map(|s| s["run"].as_str())
+        .find(|r| r.contains("plugins build"))
+        .expect("a step runs plugins build");
+    assert!(
+        script.contains("cp -r examples/hello-world"),
+        "each build needs its own copy of the source:\n{script}"
+    );
+    let build_line = script
+        .lines()
+        .find(|l| l.contains("plugins build"))
+        .unwrap();
+    assert!(
+        !build_line.contains("examples/hello-world"),
+        "must not build the in-tree project at one fixed path: {build_line}"
+    );
+}
+
+/// The reproducibility workflow only reads the repository.
+#[test]
+fn reproducibility_workflow_declares_read_only_permissions() {
+    let text =
+        std::fs::read_to_string(repo_root().join(".github/workflows/reproducibility.yml")).unwrap();
+    let doc: serde_yaml::Value = serde_yaml::from_str(&text).unwrap();
+    let perms = &doc["permissions"];
+    assert_eq!(perms["contents"].as_str(), Some("read"), "{perms:?}");
+    assert_eq!(perms.as_mapping().map(|m| m.len()), Some(1), "{perms:?}");
+}
+
 // ---------------------------------------------------------------------------
 // ATC-PKG-3
 // ---------------------------------------------------------------------------

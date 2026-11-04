@@ -22,11 +22,15 @@ on:
       - ".github/workflows/reproducibility.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # ATC-PKG-1: two builds, same host, from separate copies of the source.
+  # ATC-PKG-1: two builds, same host, from separate copies of the source in
+  # different directories (so a dropped path remap changes the digest).
   serial_double_build:
     name: serial_double_build
     runs-on: ubuntu-24.04
@@ -42,11 +46,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sdk="$PWD/crates/entangle-sdk"
+          bin="$PWD/target/release/entangle"
+          key="$PWD/tests/fixtures/repro-ci-key.pem"
           for n in 1 2; do
-            target/release/entangle plugins build examples/hello-world \
-              --key tests/fixtures/repro-ci-key.pem --out "out$n"
-            # a different build directory each time
-            rm -rf examples/hello-world/target
+            # a different project directory (and so target directory) each time
+            dir="$RUNNER_TEMP/build$n/project-$n"
+            mkdir -p "$dir"
+            cp -r examples/hello-world "$dir/"
+            rm -rf "$dir/hello-world/target"
+            sed -i.bak "s|../../crates/entangle-sdk|$sdk|" "$dir/hello-world/Cargo.toml"
+            rm "$dir/hello-world/Cargo.toml.bak"
+            "$bin" plugins build "$dir/hello-world" --key "$key" --out "$PWD/out$n"
           done
           a=$(sha256sum out1/hello-world-*.tar.zst | cut -d' ' -f1)
           b=$(sha256sum out2/hello-world-*.tar.zst | cut -d' ' -f1)
