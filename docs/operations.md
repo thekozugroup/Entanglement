@@ -124,6 +124,10 @@ install = false            # written by `entangle wrapper enable|disable` (§15)
 [plugins]
 disabled = []              # written by a `max_tier_allowed` lowering (§16)
 
+[scheduler]                # daemon-only; see §11, §20
+spot_check_probability = 0.01     # default 0.01 (spec §7.5: 1 %); 0 disables
+spot_check_max_concurrent = 4     # default 4
+
 [metrics]                  # daemon-only; see §14
 enabled = false            # default: false
 listen = "127.0.0.1:9464"  # default
@@ -142,6 +146,7 @@ service_name = "entangled"
 | `[mesh]` | `preferred` | string | absent | Daemon-only. `"local"`, `"tailscale"` or `"iroh"`: tried first for every peer; the others stay fallbacks in the spec order (§20). Anything else fails the load (`ENTANGLE-E0434`). |
 | `[mesh.overrides]` | `"<peer-id>"` | string or array of strings | none | Daemon-only. Per peer (32-hex peer id): one transport forces it, a list gives the exact order; no fallback outside it (§20). A bad id, an empty list or a repeated transport fails the load (`ENTANGLE-E0435`). |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
+| `[scheduler]` | `spot_check_probability`, `spot_check_max_concurrent` | float in 0..=1, integer ≥ 1 | `0.01`, `4` | Daemon-only. Layer-2 spot-checks of accepted `deterministic` / `semantic-equivalent` tasks (§11): the share re-run on another executor, and how many may run at once. `0` disables them; out-of-range values fail the load. (`bind`, `peers`, `relay` configure the iroh scheduler endpoint, §20.) |
 | `[metrics]` | `enabled`, `listen`, `allow_non_loopback` | bool, `ip:port`, bool | `false`, `127.0.0.1:9464`, `false` | Prometheus scrape endpoint (§14). A non-loopback `listen` is refused (`ENTANGLE-E0656`) unless `allow_non_loopback = true`. |
 | `[telemetry.otlp]` | `enabled`, `endpoint`, `service_name` | bool, URL, string | `false`, `http://localhost:4318`, `entangled` | OTLP/HTTP trace export (§14). `endpoint` must be `http://`; `4318` is OTLP/HTTP (`4317` is gRPC, which is not spoken). |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
@@ -614,15 +619,58 @@ network, 256 MiB memory, 10 s per comparison) — workers never load it.
 | `ENTANGLE-E0315` | A worker reported running under a different policy hash (INV-INT-1). The peer loses reputation. | Investigate the peer. |
 | `ENTANGLE-E0316` | A control frame tried to change the policy of an in-flight task; the worker refused (the policy is immutable for a task's lifetime). | Submit a new task instead. |
 | `ENTANGLE-E0318` | Two groups of replicas agree internally, equally well, but contradict each other, so there is no single answer to return. Nobody loses reputation. | Re-run with more replicas or a higher `--quorum`; if it recurs with the same peers, investigate them. |
+| `ENTANGLE-E0319` | Not returned to the caller: logged (`SpotCheckAttestationFailure`) when a Layer-2 spot-check's re-run did not reproduce an output that was already accepted and returned (see below). The replicas behind that output lose reputation. | Treat results those peers returned as suspect; investigate them. Repeated failures exclude them from placement for that policy. |
 
 Every successful dispatch reports the task's `policy_hash` (SHA-256 of the
 canonical policy encoding) and, with `--json`, one record per replica: peer,
 local/remote, status (`canonical`, `agreed`, `disagreed`, `failed`) and the
 policy hash that replica observed.
 
-Not implemented yet: the Layer 2 spot-check (re-running about 1% of
-accepted tasks under deterministic replay, spec §7.5). `Deterministic` and
-`SemanticEquivalent` verify only the replicas of each task as it runs.
+### Spot-checks (Layer 2)
+
+Replication only compares the replicas of one task with each other, so
+replicas that collude — return the same wrong answer — win their vote. The
+Layer-2 spot-check (spec §7.5) is the counterweight. After a
+`deterministic` or `semantic-equivalent` task is **accepted** and its result
+returned, the daemon re-runs it, with probability
+`[scheduler] spot_check_probability` (default `0.01`, i.e. 1 %), on an
+executor that ran none of its replicas: the best-placed trusted peer whose
+reputation for that policy is not excluded, else this node's own kernel if it
+has the plugin loaded (else the check is skipped). The re-run is compared
+with the accepted output on this node, as replicas are: byte-identical
+(BLAKE3) for `deterministic`, metric distance `< --threshold` for
+`semantic-equivalent`.
+
+* **Match**: nothing happens (counted as `confirmed`).
+* **Mismatch** — an attestation failure, `ENTANGLE-E0319`: every remote
+  replica that produced or agreed with the accepted output loses reputation
+  for that policy (reason `spot-check-mismatch`), a
+  `SpotCheckAttestationFailure` warning is logged at target
+  `entangle::telemetry` (task id, plugin, policy hash, checker, both BLAKE3
+  digests, the metric distance, the penalised peers) and counted as
+  `mismatch`.
+* **Inconclusive**: the re-run failed, timed out, was oversized or echoed
+  another policy hash, or the metric could not compare it. Nobody behind the
+  accepted output is blamed (a remote checker that broke the size or
+  policy-hash guard loses standing itself).
+
+It is **detective, not preventive**: the check starts after the caller has
+its result and never changes it. A wrong answer that colluders got accepted
+is not recalled; what changes is that they are caught at the sampling rate
+and, after a few failures, excluded from placement for that policy (§11
+reputation tiers). If a single task must not be wrong, ask for more replicas.
+
+Not checked: `none`, `trusted-executor` (spec §7.5 exempts them) and tasks
+whose accepted output this node's own kernel already produced or agreed with
+(a local replica). At most `spot_check_max_concurrent` (default 4) run at
+once; a sampled task that finds them all busy is skipped and counted
+(`skipped_saturated`), never queued. `compute dispatch --json` reports the
+decision as `spot_check`: `scheduled`, `not-sampled`, `skipped-saturated`,
+`skipped-no-checker`, `exempt-policy`, `exempt-reproduced-locally` or
+`disabled`; the verdict itself goes to the log and the
+`entangle_integrity_spot_checks_total` metric (§14a), never back into the
+result. Set `spot_check_probability = 0` to turn spot-checks off (every
+spot-check is one more execution of the task on someone's machine).
 
 Scheduler wire version: v2 (task frames carry the policy and its hash). A
 node running an older build answers `unsupported-version`; upgrade both ends.
@@ -867,6 +915,8 @@ scrape_configs:
 | `entangle_remote_serve_total` | counter | `outcome`, `transport` | Frames this node answered for peers: `ok`, `ack`, or the refusal code (`not-authorized`, `plugin-not-loaded`, ...). `transport` is the one the frame arrived on: `iroh` (which includes LAN dialling, `local` on the sender's side) or `tailscale`. |
 | `entangle_remote_stream_opens_total` | counter | `outcome` (`ok`, `transport_error`, `no_route`), `transport` | Streams this node opened to peers through the transport router (§20). |
 | `entangle_integrity_verdicts_total` | counter | `policy`, `outcome` | One per `compute/dispatch`: `policy` is `none`, `deterministic`, `semantic-equivalent`, `trusted-executor` or `attested`; `outcome` is `accepted`, `rejected` (integrity refusal), `output_size_exceeded` or `failed` (placement/transport/execution). |
+| `entangle_integrity_spot_checks_total` | counter | `policy`, `outcome` (`confirmed`, `mismatch`, `inconclusive`, `skipped_saturated`, `skipped_no_checker`) | Layer-2 spot-checks (§11): finished re-runs by verdict (`mismatch` is an attestation failure, `ENTANGLE-E0319`), and sampled tasks that were not re-run. |
+| `entangle_integrity_spot_checks_inflight` | gauge | — | Spot-checks running right now (at most `[scheduler] spot_check_max_concurrent`). |
 | `entangle_integrity_output_size_exceeded_total` | counter | — | Replica outputs over `max_output_bytes` (the `OutputSizeExceededWarning` events, `ENTANGLE-E0300`). |
 | `entangle_reputation_peers` | gauge | `policy`, `tier` (`trusted`/`good`/`probation`/`excluded`) | How many observed peers sit in each reputation tier. |
 | `entangle_mesh_peers` | gauge | `state` (`trusted`, `observer`, `revoked`, `sighted`) | Peer-store (one per trust level) and mDNS counts. `sighted` is unauthenticated and exists only with `mesh.local`. |

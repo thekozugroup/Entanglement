@@ -838,7 +838,7 @@ enum IntegrityPolicy {
 | Workload C (test parallelization) | `Deterministic { replication: 1, quorum: 1 }` | Tests must be deterministic to be useful; rerun on flake (`retry`). |
 | Federated public LLM eval | `SemanticEquivalent { 3, 2, metric: bleu, threshold: 0.85 }` | Distributed eval where workers don't know each other; semantic agreement is the right primitive. |
 
-- **Layer 2 (deterministic-replay attestation).** Applies to `Deterministic` and `SemanticEquivalent` tasks. The scheduler spot-checks 1% of completed tasks. Attestation failures downrank the offending peer.
+- **Layer 2 (deterministic-replay attestation).** Applies to `Deterministic` and `SemanticEquivalent` tasks. The scheduler spot-checks 1% of completed tasks. Attestation failures downrank the offending peer. [Implementation: "completed" means accepted; the re-run happens after the result is returned and never changes it, on an executor that ran none of the task's replicas (else the submitter's own kernel), and a mismatch downranks every remote replica behind the accepted output. Tasks whose accepted output the submitter's own kernel already produced are not re-run. The rate is `[scheduler] spot_check_probability`.]
 
 - **Layer 3 (per-peer correctness reputation).** EWMA of `correct / total` per peer per policy variant. Thresholds 0.95 / 0.90 / 0.80. Reputation is maintained *separately* per policy: a peer can be trusted for `Deterministic` jobs and not for `SemanticEquivalent`, and that asymmetry is preserved. **Submit-time validation.** `entangle-scheduler` rejects mismatched combinations at submit-time with a clear error:
 

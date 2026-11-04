@@ -21,18 +21,13 @@
 
 use std::sync::Arc;
 
-use entangle_mesh_iroh::{IrohPeer, MeshIroh, MeshTransport};
+use entangle_mesh_iroh::{IrohPeer, MeshIroh};
 use entangle_mesh_local::{DiscoveryEvent, PeerSeen};
-use entangle_mesh_tailscale::{LivenessSnapshot, MeshTailscale};
 use entangle_peers::{PeerStore, TrustLevel};
 use entangle_runtime::Kernel;
-use entangle_scheduler::{
-    IrohLink, PeerDirectory, RemoteTaskServer, RoutePolicy, StreamServer, TailscaleLink,
-    TransportKind, TransportRouter,
-};
+use entangle_scheduler::{PeerDirectory, RemoteTaskServer, StreamServer, TransportKind};
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
-use tokio::sync::watch;
 
 use crate::config::MeshConfig;
 use crate::remote::PeerStoreAllowlist;
@@ -150,52 +145,10 @@ pub fn resync_sightings(
     }
 }
 
-/// What [`build_router`] wires together. Every part is optional: a link
-/// exists only for a transport that is running.
-#[derive(Default)]
-pub struct RouterInputs {
-    /// The iroh scheduler endpoint (carries `local` and `iroh`).
-    pub iroh: Option<Arc<MeshIroh>>,
-    /// `[scheduler] peers`, for the `iroh` link.
-    pub iroh_directory: Option<PeerDirectory>,
-    /// Trusted mDNS sightings, for the `local` link (`mesh.local` running).
-    pub local_sightings: Option<PeerDirectory>,
-    /// The tailnet transport and its liveness.
-    pub tailscale: Option<(MeshTailscale, watch::Receiver<LivenessSnapshot>)>,
-    /// `[mesh] preferred` / `[mesh.overrides]`.
-    pub policy: RoutePolicy,
-    /// Where stream opens are counted.
-    pub metrics: Option<entangle_observability::Registry>,
-}
-
-/// The outbound router, or `None` when no transport is running (the
-/// dispatcher then stays local-only).
-pub fn build_router(local_peer_id: PeerId, inputs: RouterInputs) -> Option<TransportRouter> {
-    let mut router = TransportRouter::new(local_peer_id).with_policy(inputs.policy);
-    if let Some(registry) = inputs.metrics {
-        router = router.with_metrics(registry);
-    }
-    let mut any = false;
-    if let Some(iroh) = &inputs.iroh {
-        let dyn_transport = Arc::clone(iroh) as Arc<dyn MeshTransport>;
-        if let Some(sightings) = inputs.local_sightings {
-            router = router.with_link(Arc::new(
-                IrohLink::local(Arc::clone(&dyn_transport), Arc::new(sightings))
-                    .with_streams(Arc::clone(iroh)),
-            ));
-        }
-        let book = inputs.iroh_directory.unwrap_or_default();
-        router = router.with_link(Arc::new(
-            IrohLink::new(dyn_transport, Arc::new(book)).with_streams(Arc::clone(iroh)),
-        ));
-        any = true;
-    }
-    if let Some((transport, liveness)) = inputs.tailscale {
-        router = router.with_link(Arc::new(TailscaleLink::new(transport, liveness)));
-        any = true;
-    }
-    any.then_some(router)
-}
+/// The router inputs and builder live in the scheduler library, shared with
+/// `entangle compute stream`, so the daemon and the CLI pick transports the
+/// same way.
+pub use entangle_scheduler::transport::{build_router, RouterInputs};
 
 /// Warn about `[mesh] preferred` / `[mesh.overrides]` entries naming a
 /// transport this node is not running: they are kept (the transport may be

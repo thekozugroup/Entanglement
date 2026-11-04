@@ -157,7 +157,8 @@ async fn stream_invocations_get_a_span_and_scrapeable_metrics() {
 
     // ── a stream torn down before the plugin returns.
     let (port, mut driver) = entangle_host::stream_port(1);
-    let mut running = Box::pin(kernel.invoke_stream(&stream, b"fetch storage-local\n", port, 30_000));
+    let mut running =
+        Box::pin(kernel.invoke_stream(&stream, b"fetch storage-local\n", port, 30_000));
     tokio::select! {
         r = &mut running => panic!("the plugin waits for its input to end, got {r:?}"),
         chunk = driver.chunks.recv() => chunk.expect("first chunk").ack.sent(),

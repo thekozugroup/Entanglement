@@ -566,7 +566,10 @@ mod tests {
         );
         // The one-shot families are untouched.
         assert_eq!(
-            r.value(names::PLUGIN_INVOCATIONS, &[("plugin", "p"), ("outcome", "ok")]),
+            r.value(
+                names::PLUGIN_INVOCATIONS,
+                &[("plugin", "p"), ("outcome", "ok")]
+            ),
             None
         );
     }
