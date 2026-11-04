@@ -13,7 +13,7 @@
 //! | E0306–E0349 | Integrity verification: metrics, policy envelope, quorum (`entangle_runtime::IntegrityError`; E0306–E0318 in use) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0507       | Host artifact checks: runtime-kind sniffing (see `entangle-host`) |
-//! | E0508–E0519 | Host: realising capability grants in a wasm instance (storage root, scope directories, unsafe paths; E0508–E0510 in use; see `entangle-host`) |
+//! | E0508–E0519 | Host: realising capability grants in a wasm instance (storage root, scope directories, unsafe paths; E0508–E0510 in use, and E0511 for an invocation stopped because a network grant was withdrawn while it ran; see `entangle-host`) |
 //! | E0600–E0629 | Agent host: adapters, MCP gateway (see `entangle-agent-host`) |
 //! | E0630–E0639 | `mesh.iroh` transport (see `entangle-mesh-iroh`) |
 //! | E0640–E0649 | `mesh.tailscale` transport (see `entangle-mesh-tailscale`) |

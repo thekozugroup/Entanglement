@@ -8,7 +8,7 @@
 ///
 /// The stable code blocks `ENTANGLE-E0500`–`ENTANGLE-E0506` (Wasm execution),
 /// `ENTANGLE-E0507` (artifact checks) and `ENTANGLE-E0508`–`ENTANGLE-E0519`
-/// (realising capability grants) are reserved for this enum; see the range
+/// (realising and enforcing capability grants) are reserved for this enum; see the range
 /// table in `entangle-types::errors` for the workspace map.
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
@@ -87,4 +87,17 @@ pub enum HostError {
     /// component).
     #[error("ENTANGLE-E0510: refusing storage path: {0}")]
     UnsafeStoragePath(String),
+
+    /// ENTANGLE-E0511: a network capability the running invocation relied
+    /// on was withdrawn while it ran (`entangle perms revoke`, or the plugin
+    /// was unloaded). The invocation is stopped — closing every socket it
+    /// had open — so no connection outlives the grant.
+    #[error(
+        "ENTANGLE-E0511: invocation stopped: capability '{capability}' was withdrawn while it \
+         ran (revoked, or the plugin was unloaded)"
+    )]
+    CapabilityRevoked {
+        /// The withdrawn capability's manifest key (`net.lan`, `net.wan`).
+        capability: String,
+    },
 }

@@ -50,10 +50,16 @@
 //!
 //! # Revocation
 //! A revoked grant (`Broker::revoke`) is gone from the next instance's
-//! context; within a running instance, every socket check also re-confirms
-//! that the grant it relies on is still live, so network access stops
-//! immediately. Preopened directories stay open for the rest of the
-//! invocation in flight.
+//! context. Within a running instance, network access stops at once:
+//! every socket check and name lookup re-confirms that the grant it relies
+//! on is still live, and an invocation whose `net.lan` or `net.wan` grants
+//! are all withdrawn is **stopped** (`ENTANGLE-E0511`) — checked every
+//! [`REVOCATION_POLL`] while the guest waits on the host, and at the
+//! store's epoch checks while it runs wasm code — because a connection it
+//! opened earlier (or a connected UDP socket) is never re-checked by
+//! wasmtime-wasi and would otherwise last until the invocation ends.
+//! Preopened directories stay open for the rest of the invocation in
+//! flight.
 //!
 //! # `capability.fetch`
 //! [`HostState::fetch_capability`] maps the WIT `(kind, name)` to a manifest
@@ -90,6 +96,11 @@ pub const GUEST_SHARES_DIR: &str = "/shares";
 /// Upper bound on resolving a `net.wan` allowlist when an instance is
 /// created.
 pub const DNS_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// How often a running networked invocation re-checks, while the guest
+/// waits on the host, that the grants behind its network access are still
+/// live (see the module docs on revocation).
+pub const REVOCATION_POLL: Duration = Duration::from_millis(25);
 
 /// Most capability handles one instance may hold at once.
 pub const MAX_HANDLES_PER_INSTANCE: usize = 256;
@@ -265,6 +276,35 @@ impl NetLiveness {
     /// Any network grant behind the instance is still outstanding.
     pub(crate) fn any_live(&self) -> bool {
         self.lan_live() || self.wan_live()
+    }
+
+    /// The instance has network access at all.
+    pub(crate) fn has_net(&self) -> bool {
+        !self.lan.is_empty() || !self.wan.is_empty()
+    }
+
+    /// The network capability whose every grant behind the instance has
+    /// been withdrawn (revoked, or released with the plugin's
+    /// registration), if any.
+    pub(crate) fn withdrawn(&self) -> Option<&'static str> {
+        if !self.lan.is_empty() && !self.lan_live() {
+            Some("net.lan")
+        } else if !self.wan.is_empty() && !self.wan_live() {
+            Some("net.wan")
+        } else {
+            None
+        }
+    }
+
+    /// Resolve once [`NetLiveness::withdrawn`] does, checking every
+    /// [`REVOCATION_POLL`].
+    pub(crate) async fn wait_withdrawn(&self) -> &'static str {
+        loop {
+            if let Some(capability) = self.withdrawn() {
+                return capability;
+            }
+            tokio::time::sleep(REVOCATION_POLL).await;
+        }
     }
 }
 

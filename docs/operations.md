@@ -288,7 +288,7 @@ canonical range table, maintained in
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
 | E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum (`entangle-runtime::IntegrityError`; see §11) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
-| E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component (`entangle-host`) |
+| E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component; `E0511` an invocation stopped because a network grant it relied on was revoked (or the plugin unloaded) while it ran (`entangle-host`) |
 | E0600–E0699 | Agent-host adapter (`entangle-agent-host`) |
 | E0700–E0719 | OS-sandbox engagement (`entangle-sandbox`) — see §12 |
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
@@ -1017,10 +1017,13 @@ grant plus any handle a running invocation holds; `denied` with the `reason`;
 `revoked`; `not-granted`). Both commands need the daemon.
 
 A revocation takes effect at once for `capability.fetch` (`revoked`,
-`ENTANGLE-E0125`) and for a wasm plugin's network access — every socket check
-re-confirms that the grant behind it is still live — and from the next
-invocation for storage (an invocation already running keeps its open
-directory until it ends). A native plugin's OS-sandbox profile is fixed when
+`ENTANGLE-E0125`) and for a wasm plugin's network access: new sockets and
+name lookups re-confirm that the grant behind them is still live, and an
+invocation running with a `net.lan` / `net.wan` grant that is revoked is
+stopped (`ENTANGLE-E0511`, within about 50 ms), which closes every
+connection it had open — an established connection never outlives the
+grant. Storage is revoked from the next invocation (an invocation already
+running keeps its open directory until it ends). A native plugin's OS-sandbox profile is fixed when
 it loads, so a native plugin with a revoked capability is refused outright
 (`ENTANGLE-E0125`) from its next invocation. A revocation lasts until the
 plugin is unloaded and loaded again; to keep a capability away from every

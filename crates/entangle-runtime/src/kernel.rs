@@ -218,7 +218,9 @@ impl Kernel {
 
     /// Revoke a loaded plugin's capability by manifest key (`net.wan`,
     /// `storage.local`, ...) — `entangle perms revoke` (spec §4.6). Takes
-    /// effect at once for `capability.fetch` and for wasm socket checks, and
+    /// effect at once for `capability.fetch` and for a wasm plugin's network
+    /// (new sockets and lookups are refused, and an invocation running on a
+    /// revoked network grant is stopped with `ENTANGLE-E0511`), and
     /// from the next invocation for wasm storage. A native plugin whose
     /// sandbox was derived from a revoked grant is refused
     /// (`ENTANGLE-E0125`) until it is reloaded. Returns the grants withdrawn.

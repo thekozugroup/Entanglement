@@ -1156,3 +1156,108 @@ async fn revoked_capabilities_are_refused_and_no_longer_realised() {
         .count();
     assert_eq!(revoked, 2);
 }
+
+/// §4.6: revoking a network capability stops an invocation that is using it
+/// at once. A connection the guest opened before the revocation does not
+/// outlive the grant: the invocation is stopped (`ENTANGLE-E0511`), which
+/// closes its sockets, instead of running on until it ends.
+#[tokio::test(flavor = "multi_thread")]
+async fn revoking_a_net_grant_stops_an_invocation_in_flight() {
+    let h = Setup {
+        classify: Some(lan_everywhere),
+        ..Setup::new("in-flight", r#""net.lan" = {}"#)
+    }
+    .harness();
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = l.local_addr().unwrap();
+    let broker = Arc::clone(&h.broker);
+    let id = h.id.clone();
+    tokio::spawn(async move {
+        if let Ok((mut s, _)) = l.accept().await {
+            // The guest is connected and waiting for a greeting: revoke the
+            // grant its connection rests on, then keep talking.
+            broker.revoke(&id, "net.lan").unwrap();
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            let _ = s.write_all(b"after-revocation").await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+    });
+    let script = format!("connect {addr}\nresolve 10.0.0.1\n");
+    let started = std::time::Instant::now();
+    let err = match h
+        .plugin
+        .run_one_shot(&h.engine, script.as_bytes(), 30_000)
+        .await
+    {
+        Ok(out) => panic!(
+            "the connection outlived the revocation:\n{}",
+            String::from_utf8_lossy(&out.output)
+        ),
+        Err(e) => e,
+    };
+    assert!(
+        matches!(err, HostError::CapabilityRevoked { ref capability } if capability == "net.lan"),
+        "{err}"
+    );
+    assert!(err.to_string().starts_with("ENTANGLE-E0511"), "{err}");
+    assert!(err.to_string().contains("net.lan"), "{err}");
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(5),
+        "stopped at the revocation, not at the end: {:?}",
+        started.elapsed()
+    );
+}
+
+/// The same holds for a guest that never waits on the host (busy in wasm
+/// code): the per-invocation epoch check stops it, and a networked
+/// invocation still times out as before.
+#[tokio::test(flavor = "multi_thread")]
+async fn revoking_a_net_grant_stops_a_busy_networked_invocation() {
+    const STRESS: &[u8] = include_bytes!("fixtures/stress.wasm");
+    let h = Setup::new("busy", r#""net.lan" = {}"#).harness();
+    let plugin = LoadedPlugin::from_bytes(&h.engine, STRESS, h.id.clone(), entangle_types::tier::Tier::Networked)
+        .unwrap()
+        .with_capabilities(h.plugin.capabilities().unwrap().clone());
+
+    let broker = Arc::clone(&h.broker);
+    let id = h.id.clone();
+    let revoker = tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        broker.revoke(&id, "net.lan").unwrap();
+    });
+    let started = std::time::Instant::now();
+    let res = plugin.run_one_shot(&h.engine, b"spin:4000", 30_000).await;
+    revoker.await.unwrap();
+    let err = match res {
+        Ok(_) => panic!("the busy invocation outlived the revocation"),
+        Err(e) => e,
+    };
+    assert!(
+        matches!(err, HostError::CapabilityRevoked { .. }),
+        "{err}"
+    );
+    assert!(err.to_string().starts_with("ENTANGLE-E0511"), "{err}");
+    assert!(
+        started.elapsed() < std::time::Duration::from_millis(2_000),
+        "{:?}",
+        started.elapsed()
+    );
+
+    // Without a revocation, the same busy networked invocation times out at
+    // its deadline as before.
+    let h = Setup::new("busy-timeout", r#""net.lan" = {}"#).harness();
+    let plugin = LoadedPlugin::from_bytes(&h.engine, STRESS, h.id.clone(), entangle_types::tier::Tier::Networked)
+        .unwrap()
+        .with_capabilities(h.plugin.capabilities().unwrap().clone());
+    let started = std::time::Instant::now();
+    let err = plugin
+        .run_one_shot(&h.engine, b"spin:4000", 300)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, HostError::Timeout(300)), "{err}");
+    assert!(
+        started.elapsed() < std::time::Duration::from_millis(2_000),
+        "{:?}",
+        started.elapsed()
+    );
+}

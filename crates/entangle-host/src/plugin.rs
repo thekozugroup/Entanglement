@@ -1,20 +1,24 @@
 //! [`LoadedPlugin`] — a compiled + ready-to-instantiate WebAssembly component.
 
 use crate::bindings::PluginPre;
-use crate::capability::{CapabilityContext, WasiGrants};
+use crate::capability::{CapabilityContext, NetLiveness, WasiGrants};
 use crate::engine::{HostEngine, EPOCH_TICK_MS};
 use crate::errors::HostError;
 use crate::state::{HostState, ResourceLimits};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use wasmtime::component::Component;
-use wasmtime::{Store, Trap};
+use wasmtime::{Store, Trap, UpdateDeadline};
 
 /// Extra wall-clock slack, beyond `timeout_ms`, granted to the tokio backstop
 /// timeout. The (precise) epoch deadline normally fires first; the backstop
 /// only catches guests parked in host futures where no wasm executes and the
 /// epoch deadline can never trap.
 const TIMEOUT_BACKSTOP_SLACK_MS: u64 = 250;
+
+/// Epoch ticks between the checks a networked instance makes, while it runs
+/// wasm code, that its network grants are still live (50 ms).
+const REVOCATION_CHECK_TICKS: u64 = 5;
 
 /// A WebAssembly component that has been compiled and is ready to instantiate.
 ///
@@ -191,12 +195,41 @@ impl LoadedPlugin {
             &grants,
             self.caps.clone(),
         )?;
+        // The grants behind the instance's network access, if it has any:
+        // their withdrawal stops the invocation (see `crate::capability`).
+        let watch = self
+            .caps
+            .as_ref()
+            .map(|ctx| NetLiveness::new(ctx, &self.plugin_id, &grants))
+            .filter(NetLiveness::has_net);
         let mut store = Store::new(engine.engine(), state);
         // Enforce memory/table/instance caps on everything this store
         // allocates, including instantiation-time initial memories.
         store.limiter(|s| &mut s.limits);
         // Independent per-store deadline against the shared engine epoch.
-        store.set_epoch_deadline(timeout_ms.div_ceil(EPOCH_TICK_MS).max(1));
+        let ticks = timeout_ms.div_ceil(EPOCH_TICK_MS).max(1);
+        match &watch {
+            None => store.set_epoch_deadline(ticks),
+            Some(watch) => {
+                // A networked instance stops at its deadline as before, and
+                // also as soon as its network grants are withdrawn while it
+                // runs wasm code: check every few ticks.
+                let watch = watch.clone();
+                let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+                let step = REVOCATION_CHECK_TICKS.min(ticks);
+                store.set_epoch_deadline(step);
+                store.epoch_deadline_callback(move |_| {
+                    let left = deadline.saturating_duration_since(Instant::now());
+                    if watch.withdrawn().is_some() || left.is_zero() {
+                        return Ok(UpdateDeadline::Interrupt);
+                    }
+                    let left_ms = u64::try_from(left.as_millis()).unwrap_or(u64::MAX);
+                    Ok(UpdateDeadline::Continue(
+                        step.min(left_ms.div_ceil(EPOCH_TICK_MS).max(1)),
+                    ))
+                });
+            }
+        }
 
         let invoke = async {
             // Instantiate the pre-linked component (async — bindgen! with
@@ -214,8 +247,33 @@ impl LoadedPlugin {
                 .map_err(|e| classify_call_error(e.into(), timeout_ms))
         };
 
-        let call_result = match tokio::time::timeout(backstop, invoke).await {
-            Ok(result) => result?,
+        let call = tokio::time::timeout(backstop, invoke);
+        let outcome = match &watch {
+            None => call.await,
+            // While the guest waits on the host (a socket read, a poll), the
+            // epoch callback cannot run: watch the grants alongside.
+            Some(watch) => tokio::select! {
+                outcome = call => outcome,
+                capability = watch.wait_withdrawn() => {
+                    return Err(HostError::CapabilityRevoked {
+                        capability: capability.to_owned(),
+                    });
+                }
+            },
+        };
+        let call_result = match outcome {
+            Ok(Ok(result)) => result,
+            // The epoch callback interrupts a busy guest the same way for a
+            // timeout and a withdrawal: tell them apart.
+            Ok(Err(HostError::Timeout(t))) => {
+                return Err(match watch.as_ref().and_then(NetLiveness::withdrawn) {
+                    Some(capability) => HostError::CapabilityRevoked {
+                        capability: capability.to_owned(),
+                    },
+                    None => HostError::Timeout(t),
+                });
+            }
+            Ok(Err(e)) => return Err(e),
             Err(_elapsed) => return Err(HostError::Timeout(timeout_ms)),
         };
 
