@@ -20,7 +20,9 @@
 //! State that is cheaper to *read at scrape time* than to push on every
 //! change (loaded plugins, peer counts, ...) is exposed through
 //! [`Registry::register_collector`]: each collector runs just before
-//! [`Registry::render`] and sets its gauges.
+//! [`Registry::render`] and sets its gauges. Renders are serialised, so a
+//! collector that clears and rebuilds a family (`clear_family`, then
+//! `set_gauge` per member) never has another scrape format it half-built.
 
 use parking_lot::Mutex;
 use std::collections::BTreeMap;
@@ -79,6 +81,10 @@ pub struct Registry {
     families: Arc<Mutex<BTreeMap<String, Family>>>,
     collectors: Arc<Mutex<Vec<Collector>>>,
     dropped_series: Arc<AtomicU64>,
+    /// Held for a whole [`Registry::render`] (collectors and formatting), so
+    /// one render's collectors cannot rebuild a family while another render
+    /// formats it.
+    render_lock: Arc<Mutex<()>>,
 }
 
 impl std::fmt::Debug for Registry {
@@ -129,7 +135,8 @@ impl Registry {
     /// Run `collector` just before every [`Registry::render`].
     ///
     /// The collector sets gauges (or absolute counters) from live state. It
-    /// must be quick and must not call [`Registry::render`].
+    /// must be quick and must not call [`Registry::render`] (renders are
+    /// serialised, so that would deadlock).
     pub fn register_collector(&self, collector: impl Fn(&Registry) + Send + Sync + 'static) {
         self.collectors.lock().push(Arc::new(collector));
     }
@@ -273,6 +280,10 @@ impl Registry {
     /// The output is deterministic for a given state: families are sorted by
     /// name and samples by labels.
     pub fn render(&self) -> String {
+        // One render at a time: a concurrent render's collectors would
+        // otherwise `clear_family` between this render's collectors and its
+        // snapshot below, and this scrape would miss those series.
+        let _render = self.render_lock.lock();
         // Collectors set gauges through the normal API, so run them before
         // taking the family lock (they re-enter `set_gauge`).
         let collectors: Vec<Collector> = self.collectors.lock().clone();
@@ -543,6 +554,69 @@ mod tests {
         let out = r.render();
         assert!(!out.contains("m=\"a\""), "stale series must vanish: {out}");
         assert!(out.contains("m=\"b\""));
+    }
+
+    /// Two renders at once (a Prometheus scrape and `metrics/export`): one
+    /// render's collector must not clear a family while the other render is
+    /// formatting it. The interleaving is forced: render A stops after its
+    /// collectors and before it formats, until render B's collector has
+    /// cleared the family (or a timeout says B cannot run alongside A).
+    #[test]
+    fn a_concurrent_render_never_sees_a_collector_family_half_rebuilt() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize};
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let r = Registry::new();
+        let runs = Arc::new(AtomicUsize::new(0));
+        let (cleared_tx, cleared_rx) = mpsc::channel::<()>();
+        let cleared_tx = Mutex::new(cleared_tx);
+        {
+            let runs = runs.clone();
+            r.register_collector(move |r| {
+                let run = runs.fetch_add(1, Ordering::SeqCst);
+                r.clear_family("member_up");
+                if run == 1 {
+                    // Render B: stall between clearing and re-setting.
+                    let _ = cleared_tx.lock().send(());
+                    std::thread::sleep(Duration::from_millis(300));
+                }
+                for m in ["a", "b", "c"] {
+                    r.set_gauge("member_up", "up", &[("m", m)], 1.0);
+                }
+            });
+        }
+        let (in_a_tx, in_a_rx) = mpsc::channel::<()>();
+        let in_a_tx = Mutex::new(in_a_tx);
+        let cleared_rx = Mutex::new(cleared_rx);
+        let first = AtomicBool::new(true);
+        r.register_collector(move |_| {
+            if first.swap(false, Ordering::SeqCst) {
+                // Render A, collectors done: hold until B has cleared.
+                let _ = in_a_tx.lock().send(());
+                let _ = cleared_rx.lock().recv_timeout(Duration::from_secs(1));
+            }
+        });
+
+        let a = {
+            let r = r.clone();
+            std::thread::spawn(move || r.render())
+        };
+        in_a_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("render A reached its collectors");
+        let b = {
+            let r = r.clone();
+            std::thread::spawn(move || r.render())
+        };
+        for (which, out) in [("A", a.join().unwrap()), ("B", b.join().unwrap())] {
+            for m in ["a", "b", "c"] {
+                assert!(
+                    out.contains(&format!("member_up{{m=\"{m}\"}} 1")),
+                    "render {which} is missing member {m}:\n{out}"
+                );
+            }
+        }
     }
 
     #[test]
