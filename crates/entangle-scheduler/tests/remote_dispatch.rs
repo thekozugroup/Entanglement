@@ -27,20 +27,20 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use entangle_biscuits::templates::{
+    attenuate_for_request, now_unix_secs, RequestRestrictions, StaticRevocations,
+};
 use entangle_mesh_iroh::{
     IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER, MAX_FRAME_BYTES,
 };
+use entangle_observability::catalog::names;
+use entangle_observability::Registry;
 use entangle_runtime::{Kernel, KernelConfig, LifecyclePhase};
+use entangle_scheduler::capability::{task_binding, CapabilityGate, HeldToken, StaticTokens};
 use entangle_scheduler::wire::{
     decode_response, encode_request, RemoteErrorCode, RemoteOutcome, RemoteRequest, RequestFrame,
     WIRE_VERSION,
 };
-use entangle_biscuits::templates::{
-    attenuate_for_request, now_unix_secs, RequestRestrictions, StaticRevocations,
-};
-use entangle_observability::catalog::names;
-use entangle_observability::Registry;
-use entangle_scheduler::capability::{task_binding, CapabilityGate, HeldToken, StaticTokens};
 use entangle_scheduler::{
     DispatchError, Dispatcher, PeerDirectory, RemoteDispatch, RemoteTaskServer, StaticAllowlist,
     WorkerInfo, WorkerPool, MAX_REMOTE_TASK_TIMEOUT_MS,
@@ -1154,7 +1154,12 @@ async fn with_the_gate_off_a_tokenless_task_runs_and_is_counted() {
     let wrong = b.issue_to(&a).present([0; 32]).unwrap();
     let mut b_events = b.kernel.bus().subscribe();
     assert_refused!(
-        send_raw(&a, &b, &with_token(task_request(&plugin, b"world"), Some(wrong))).await,
+        send_raw(
+            &a,
+            &b,
+            &with_token(task_request(&plugin, b"world"), Some(wrong))
+        )
+        .await,
         RemoteErrorCode::CapabilityRejected,
         "ENTANGLE-E0456",
         b_events
@@ -1278,7 +1283,8 @@ async fn a_revoked_token_is_refused() {
                 .with_revocations(Arc::new(revoked.clone())),
         ),
     ));
-    let minted = entangle_biscuits::templates::mint_mesh_peer(&b.identity, a.peer_id, None).unwrap();
+    let minted =
+        entangle_biscuits::templates::mint_mesh_peer(&b.identity, a.peer_id, None).unwrap();
     let held = HeldToken {
         token: minted.bytes.clone(),
         issuer_public_key: *b.identity.public().as_bytes(),

@@ -35,6 +35,9 @@ use std::time::Duration;
 use entangle_mesh_iroh::{IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER};
 use entangle_observability::{catalog::names, Registry};
 use entangle_runtime::{IntegrityError, Kernel, KernelConfig, LifecyclePhase};
+use entangle_scheduler::capability::{
+    task_binding, CapabilityGate, CapabilityTokens, HeldToken, StaticTokens,
+};
 use entangle_scheduler::reputation::INITIAL_SCORE;
 use entangle_scheduler::spot_check::{Exemption, SkipReason, ATTESTATION_FAILURE_EVENT};
 use entangle_scheduler::wire::{
@@ -47,9 +50,6 @@ use entangle_scheduler::{
     DispatchError, Dispatcher, OutputSizeExceededWarning, PeerDirectory, RemoteDispatch,
     RemoteTaskServer, ReplicaStatus, SpotCheck, SpotCheckConfig, SpotCheckVerdict, StaticAllowlist,
     WorkerInfo, WorkerPool, TELEMETRY_TARGET,
-};
-use entangle_scheduler::capability::{
-    task_binding, CapabilityGate, CapabilityTokens, HeldToken, StaticTokens,
 };
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::errors::EntangleError;

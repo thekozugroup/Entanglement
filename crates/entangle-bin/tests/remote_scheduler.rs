@@ -17,8 +17,8 @@ use entangle_mesh_iroh::{
     IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_CONTROL, ALPN_SCHEDULER,
 };
 use entangle_peers::{PeerStore, RevocationStore, TrustLevel, TrustedPeer, REVOCATIONS_FILE};
-use entangle_scheduler::capability::{task_binding, CapabilityGate, CapabilityTokens, HeldToken};
 use entangle_runtime::{Kernel, KernelConfig};
+use entangle_scheduler::capability::{task_binding, CapabilityGate, CapabilityTokens, HeldToken};
 use entangle_scheduler::wire::{decode_response, encode_request, RemoteRequest};
 use entangle_scheduler::{PeerAllowlist, RemoteErrorCode, RemoteOutcome};
 use entangle_signing::{IdentityKeyPair, Keyring};
@@ -70,7 +70,14 @@ fn demo_plugin() -> PluginId {
 /// The daemon's capability gate for `identity`, tokens required, no
 /// revocations yet.
 fn daemon_gate(identity: &IdentityKeyPair, store: &PeerStore) -> Arc<CapabilityGate> {
-    capability_gate(identity, true, Arc::new(RevocationStore::new()), store, None).expect("gate")
+    capability_gate(
+        identity,
+        true,
+        Arc::new(RevocationStore::new()),
+        store,
+        None,
+    )
+    .expect("gate")
 }
 
 /// The `mesh.peer` token the daemon `daemon` would mint for `client` while
@@ -84,7 +91,8 @@ fn issued(daemon: &IdentityKeyPair, client: &MeshIroh) -> HeldToken {
 async fn ask(client: &MeshIroh, server: &MeshIroh, token: Option<&HeldToken>) -> RemoteOutcome {
     let task = OneShotTask::with_defaults(demo_plugin(), b"world".to_vec());
     let mut request = RemoteRequest::for_task(&task).expect("seal");
-    if let (entangle_scheduler::RequestFrame::Task(body), Some(held)) = (&mut request.frame, token) {
+    if let (entangle_scheduler::RequestFrame::Task(body), Some(held)) = (&mut request.frame, token)
+    {
         body.capability = Some(held.present(task_binding(body)).expect("present"));
     }
     let frame = encode_request(&request).expect("encode");
@@ -498,12 +506,9 @@ async fn a_removed_then_re_added_peer_cannot_use_its_old_token() {
 
     // Pairing left the daemon with the client's record, carrying the
     // revocation ids of the token the daemon minted for it.
-    let minted = entangle_biscuits::templates::mint_mesh_peer(
-        &id_daemon,
-        client.local_peer_id(),
-        None,
-    )
-    .unwrap();
+    let minted =
+        entangle_biscuits::templates::mint_mesh_peer(&id_daemon, client.local_peer_id(), None)
+            .unwrap();
     let store = PeerStore::open(dir.path().join("peers.toml")).unwrap();
     let cli_revocations = RevocationStore::open(dir.path().join(REVOCATIONS_FILE)).unwrap();
     let record = || {
@@ -515,7 +520,10 @@ async fn a_removed_then_re_added_peer_cannot_use_its_old_token() {
         .unwrap()
     };
     store
-        .add_paired(record().with_tokens(None, &minted.revocation_ids), &cli_revocations)
+        .add_paired(
+            record().with_tokens(None, &minted.revocation_ids),
+            &cli_revocations,
+        )
         .unwrap();
 
     // The daemon reads the revocation set through its own handle, as it does
@@ -585,8 +593,14 @@ async fn a_tokenless_request_needs_the_migration_setting() {
                 "pre-token peer".into(),
             ))
             .unwrap();
-        let gate = capability_gate(&id_daemon, require, Arc::new(RevocationStore::new()), &store, None)
-            .unwrap();
+        let gate = capability_gate(
+            &id_daemon,
+            require,
+            Arc::new(RevocationStore::new()),
+            &store,
+            None,
+        )
+        .unwrap();
         spawn_task_server(Arc::clone(&daemon), empty_kernel(), store, gate);
         match ask(&client, &daemon, None).await {
             RemoteOutcome::Err { code, message } if require => {
@@ -594,7 +608,11 @@ async fn a_tokenless_request_needs_the_migration_setting() {
                 assert!(message.contains("entangle pair"), "{message}");
             }
             RemoteOutcome::Err { code, .. } => {
-                assert_eq!(code, RemoteErrorCode::PluginNotLoaded, "admitted without a token")
+                assert_eq!(
+                    code,
+                    RemoteErrorCode::PluginNotLoaded,
+                    "admitted without a token"
+                )
             }
             other => panic!("unexpected {other:?}"),
         }
@@ -606,18 +624,27 @@ async fn a_tokenless_request_needs_the_migration_setting() {
 #[test]
 fn outbound_tokens_come_from_the_peer_store() {
     let store = PeerStore::new();
-    let (peer_key, me) = (IdentityKeyPair::generate(), PeerId::from_public_key_bytes(&[5; 32]));
+    let (peer_key, me) = (
+        IdentityKeyPair::generate(),
+        PeerId::from_public_key_bytes(&[5; 32]),
+    );
     let peer = PeerId::from_public_key_bytes(peer_key.public().as_bytes());
     let minted = entangle_biscuits::templates::mint_mesh_peer(&peer_key, me, None).unwrap();
-    let record = TrustedPeer::new_validated(peer, hex::encode(peer_key.public().as_bytes()), "p".into())
-        .unwrap();
+    let record =
+        TrustedPeer::new_validated(peer, hex::encode(peer_key.public().as_bytes()), "p".into())
+            .unwrap();
     let tokens = PeerStoreTokens::new(store.clone());
     store.add(record.clone()).unwrap();
     assert!(tokens.token_for(&peer).is_none(), "paired before tokens");
-    store.add(record.with_tokens(Some(&minted.bytes), &[])).unwrap();
+    store
+        .add(record.with_tokens(Some(&minted.bytes), &[]))
+        .unwrap();
     let held = tokens.token_for(&peer).expect("the stored token");
     assert_eq!(held.token, minted.bytes);
     assert_eq!(&held.issuer_public_key, peer_key.public().as_bytes());
     store.revoke(&peer).unwrap();
-    assert!(tokens.token_for(&peer).is_none(), "a revoked peer gets nothing");
+    assert!(
+        tokens.token_for(&peer).is_none(),
+        "a revoked peer gets nothing"
+    );
 }

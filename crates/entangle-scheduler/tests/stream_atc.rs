@@ -18,11 +18,17 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use entangle_biscuits::templates::{
+    attenuate_for_request, attenuate_gpu_job, now_unix_secs, RequestRestrictions, StaticRevocations,
+};
 use entangle_mesh_iroh::{
     duplex_pair, FramedStream, IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER,
     ALPN_STREAM, MAX_FRAME_BYTES,
 };
+use entangle_observability::catalog::names;
+use entangle_observability::Registry;
 use entangle_runtime::{Kernel, KernelConfig};
+use entangle_scheduler::capability::{CapabilityGate, CapabilityTokens, HeldToken, StaticTokens};
 use entangle_scheduler::stream::frame::{
     decode_frame, encode_frame, AcceptedFrame, ChunkFrame, Frame, OpenFrame, CHUNK_FRAME_OVERHEAD,
     CONTROL_FRAME_MAX,
@@ -33,13 +39,6 @@ use entangle_scheduler::stream::{
     StalledEvent, StreamCeilings, StreamError, StreamEvent, StreamHandle, StreamOptions,
     StreamOutcome, StreamServer, SubmitterMachine, SubmitterOptions, SubmitterState,
 };
-use entangle_biscuits::templates::{
-    attenuate_for_request, attenuate_gpu_job, now_unix_secs, RequestRestrictions,
-    StaticRevocations,
-};
-use entangle_observability::catalog::names;
-use entangle_observability::Registry;
-use entangle_scheduler::capability::{CapabilityGate, CapabilityTokens, HeldToken, StaticTokens};
 use entangle_scheduler::work_unit::PolicyEnvelope;
 use entangle_scheduler::{ReputationStore, StaticAllowlist};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
@@ -1694,7 +1693,10 @@ async fn refused_open(
     );
     assert!(matches!(
         deadline("executor", served).await.unwrap(),
-        Err(StreamError::PeerAborted { by: Side::Executor, .. })
+        Err(StreamError::PeerAborted {
+            by: Side::Executor,
+            ..
+        })
     ));
     assert!(events.try_recv().is_err(), "the executor accepted nothing");
     assert_eq!(probe.in_flight_len(), 0, "no stream slot was taken");
@@ -1717,8 +1719,18 @@ async fn every_capability_failure_on_a_stream_open_is_refused_before_any_chunk()
     let own_e = own.clone();
     let own_g = own.clone();
     let cases: Vec<(&str, Build, Reason, &str)> = vec![
-        ("no token", Box::new(|_| None), Reason::CapabilityRequired, "ENTANGLE-E0450"),
-        ("malformed", Box::new(|_| Some(vec![1, 2, 3])), Reason::CapabilityRejected, "ENTANGLE-E0451"),
+        (
+            "no token",
+            Box::new(|_| None),
+            Reason::CapabilityRequired,
+            "ENTANGLE-E0450",
+        ),
+        (
+            "malformed",
+            Box::new(|_| Some(vec![1, 2, 3])),
+            Reason::CapabilityRejected,
+            "ENTANGLE-E0451",
+        ),
         (
             "minted by another node",
             Box::new(move |b| Some(foreign.present(b).unwrap())),
@@ -1772,7 +1784,11 @@ async fn every_capability_failure_on_a_stream_open_is_refused_before_any_chunk()
     ];
     for (what, build, reason, code) in cases {
         // The stranger is allowlisted too: the token, not the allowlist, refuses.
-        let (srv, events) = server(&plugins, &executor, &[peer_of(&submitter), peer_of(&stranger)]);
+        let (srv, events) = server(
+            &plugins,
+            &executor,
+            &[peer_of(&submitter), peer_of(&stranger)],
+        );
         let (mut open, binding) = open_for(&task, &executor);
         open.capability = build(binding);
         let (got, message) = refused_open(srv, events, &submitter, &executor, open).await;
@@ -1881,7 +1897,11 @@ async fn stream_opens_honour_revocation_and_the_migration_setting() {
     let (mut open, _) = open_for(&task, &executor);
     open.capability = Some(held.present([0; 32]).unwrap());
     let (reason, message) = refused_open(srv, events, &submitter, &executor, open).await;
-    assert_eq!(reason, Reason::CapabilityRejected, "a token is verified even with the gate off");
+    assert_eq!(
+        reason,
+        Reason::CapabilityRejected,
+        "a token is verified even with the gate off"
+    );
     assert!(message.contains("ENTANGLE-E0456"), "{message}");
 }
 

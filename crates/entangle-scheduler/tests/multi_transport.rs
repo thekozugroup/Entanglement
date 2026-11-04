@@ -434,7 +434,8 @@ async fn a_stream_lines_stream_runs_over_the_tailscale_transport() {
     let b = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
     a.discover(&b).await;
     let metrics = Registry::new();
-    let router = a.new_router()
+    let router = a
+        .new_router()
         .with_link(a.tailnet_link())
         .with_metrics(metrics.clone());
 
@@ -545,9 +546,8 @@ async fn a_peer_on_both_transports_uses_tailscale_first_and_iroh_while_the_tailn
     );
 
     // A peer reachable only over the tailnet is unreachable meanwhile.
-    let tailnet_only = RemoteDispatch::with_router(Arc::new(
-        a.new_router().with_link(a.tailnet_link()),
-    ));
+    let tailnet_only =
+        RemoteDispatch::with_router(Arc::new(a.new_router().with_link(a.tailnet_link())));
     let (out, kind) = run(&tailnet_only, &one_shot(&b.hello, b"three"), b.peer_id).await;
     let err = out.unwrap_err().to_string();
     assert!(
@@ -600,12 +600,18 @@ async fn every_transport_carries_the_capability_token_and_the_worker_requires_it
         .await;
         assert_eq!(out.expect("a task with a token runs"), b"Hello, token!");
         assert_eq!(got, Some(kind));
-        let mut handle = deadline("open", with.open_stream(b.peer_id, &stream, StreamOptions::default()))
-            .await
-            .expect("a stream with a token opens");
+        let mut handle = deadline(
+            "open",
+            with.open_stream(b.peer_id, &stream, StreamOptions::default()),
+        )
+        .await
+        .expect("a stream with a token opens");
         handle.finish_input().await.unwrap();
         assert!(
-            matches!(deadline("collect", handle.collect()).await.outcome, StreamOutcome::Complete(_)),
+            matches!(
+                deadline("collect", handle.collect()).await.outcome,
+                StreamOutcome::Complete(_)
+            ),
             "{kind:?}: the stream ran"
         );
 
@@ -625,9 +631,12 @@ async fn every_transport_carries_the_capability_token_and_the_worker_requires_it
             }) => assert!(message.contains("ENTANGLE-E0450"), "{message}"),
             other => panic!("{kind:?}: a tokenless task must be refused, got {other:?}"),
         }
-        let refused = deadline("open", without.open_stream(b.peer_id, &stream, StreamOptions::default()))
-            .await
-            .expect("the stream is opened, then refused");
+        let refused = deadline(
+            "open",
+            without.open_stream(b.peer_id, &stream, StreamOptions::default()),
+        )
+        .await
+        .expect("the stream is opened, then refused");
         match deadline("collect", refused.collect()).await.outcome {
             StreamOutcome::Interrupted(StreamError::PeerAborted {
                 reason: Reason::CapabilityRequired,
@@ -992,12 +1001,10 @@ async fn a_tailnet_stream_holds_its_connection_slot_until_it_ends() {
     .await
     .unwrap();
     discover_from(&one_slot, &b.tailnet, b.peer_id).await;
-    let router = Arc::new(
-        a.new_router().with_link(Arc::new(TailscaleLink::new(
-            one_slot,
-            a.liveness.subscribe(),
-        ))),
-    );
+    let router = Arc::new(a.new_router().with_link(Arc::new(TailscaleLink::new(
+        one_slot,
+        a.liveness.subscribe(),
+    ))));
 
     let mut task = StreamingTask::with_defaults(b.lines.clone(), b"x\n".to_vec());
     task.integrity = IntegrityPolicy::TrustedExecutor {
@@ -1161,9 +1168,7 @@ async fn a_one_shot_task_over_the_tailnet_continues_the_submitters_trace() {
     let a = Submitter::start().await;
     let b = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
     a.discover(&b).await;
-    let client = RemoteDispatch::with_router(Arc::new(
-        a.new_router().with_link(a.tailnet_link()),
-    ));
+    let client = RemoteDispatch::with_router(Arc::new(a.new_router().with_link(a.tailnet_link())));
     let submit = tracing::info_span!(target: "entangle_test", "test.submit");
     let (out, kind) = run(&client, &one_shot(&b.hello, b"trace"), b.peer_id)
         .instrument(submit)

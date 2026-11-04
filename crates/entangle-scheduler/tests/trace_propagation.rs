@@ -14,6 +14,7 @@ use std::time::Duration;
 use entangle_mesh_iroh::{IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER};
 use entangle_observability::context::{hex_string, SpanLayer, SpanRecord, SpanSink};
 use entangle_runtime::{Kernel, KernelConfig};
+use entangle_scheduler::capability::{CapabilityGate, StaticTokens};
 use entangle_scheduler::wire::{
     decode_response, encode_request, encode_response, RemoteErrorCode, RemoteOutcome,
     RemoteRequest, RemoteTaskRequest, RemoteTaskResponse, RequestFrame, TRACE_EXTENSION_TAG,
@@ -22,7 +23,6 @@ use entangle_scheduler::{
     Dispatcher, PeerDirectory, RemoteDispatch, RemoteTaskServer, StaticAllowlist, WorkerInfo,
     WorkerPool,
 };
-use entangle_scheduler::capability::{CapabilityGate, StaticTokens};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::peer_id::PeerId;
 use entangle_types::plugin_id::PluginId;

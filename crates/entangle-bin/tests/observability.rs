@@ -764,9 +764,7 @@ async fn diag_mesh_reports_paths_and_probes_round_trips() {
         let server = Arc::new(RemoteTaskServer::new(
             kernel(),
             Arc::new(allow),
-            Arc::new(
-                entangle_scheduler::CapabilityGate::new(&node.local_public_key()).unwrap(),
-            ),
+            Arc::new(entangle_scheduler::CapabilityGate::new(&node.local_public_key()).unwrap()),
         ));
         tokio::spawn(entangle_scheduler::serve_tasks(Arc::clone(node), server));
     }
