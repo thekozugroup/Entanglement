@@ -175,6 +175,14 @@ fn rpc_client() -> RpcClient {
     RpcClient::new(RpcClient::default_socket())
 }
 
+/// True when the RPC error means no daemon is running, so nothing is loaded
+/// and only config.toml matters. Only a missing socket qualifies: a connect
+/// timeout means the socket exists and a daemon may be running (busy) with
+/// plugins loaded, so it is an error ("did not answer; nothing changed").
+fn daemon_down(e: &RpcError) -> bool {
+    matches!(e, RpcError::DaemonNotRunning(_))
+}
+
 fn audit_path() -> std::path::PathBuf {
     config::entangle_dir().join("audit.log")
 }
@@ -342,8 +350,12 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
     // "current" can only come from the daemon.
     let plan = match client.security_plan_max_tier(new).await {
         Ok(p) => Some(p),
-        Err(RpcError::DaemonNotRunning(_)) | Err(RpcError::ConnectTimeout { .. }) => None,
-        Err(e) => return Err(e).context("asking the daemon which plugins the new ceiling affects"),
+        Err(e) if daemon_down(&e) => None,
+        Err(e) => {
+            return Err(e).context(
+                "asking the daemon which plugins the new ceiling affects (nothing was changed)",
+            )
+        }
     };
 
     let Some(plan) = plan else {
@@ -565,7 +577,7 @@ async fn validate() -> Result<i32> {
             );
             Ok(1)
         }
-        Err(RpcError::DaemonNotRunning(_)) | Err(RpcError::ConnectTimeout { .. }) => {
+        Err(e) if daemon_down(&e) => {
             println!(
                 "config ok: max_tier_allowed = {new}; daemon not running, so no loaded plugins to check."
             );
@@ -585,6 +597,20 @@ mod tests {
         assert_eq!(fmt_uptime(17 * 60), "17m uptime");
         assert_eq!(fmt_uptime(3600 + 17 * 60), "1h17m uptime");
         assert_eq!(fmt_uptime(22 * 3600 + 5), "22h uptime");
+    }
+
+    /// Only a missing socket means "no daemon". A connect timeout means a
+    /// socket exists and a daemon may be running (busy) with plugins loaded:
+    /// treating it as down would persist a lowered ceiling and report "none
+    /// affected" while the daemon keeps its old ceiling and plugins.
+    #[test]
+    fn only_a_missing_socket_counts_as_no_daemon() {
+        let sock = std::path::PathBuf::from("/x/sock");
+        assert!(daemon_down(&RpcError::DaemonNotRunning(sock.clone())));
+        assert!(!daemon_down(&RpcError::ConnectTimeout {
+            socket: sock,
+            timeout: std::time::Duration::from_secs(2),
+        }));
     }
 
     #[test]
