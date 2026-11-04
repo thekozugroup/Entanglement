@@ -1874,6 +1874,7 @@ dependencies = [
  "entangle-host",
  "entangle-ipc",
  "entangle-mesh-iroh",
+ "entangle-mesh-tailscale",
  "entangle-observability",
  "entangle-runtime",
  "entangle-signing",

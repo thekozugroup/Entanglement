@@ -19,6 +19,7 @@
 //! | `policy` | the five integrity policy kinds |
 //! | `tier` | `trusted`, `good`, `probation`, `excluded` |
 //! | `state` | the tailnet states / peer states listed per metric |
+//! | `transport` | [`TRANSPORT_LABELS`]: `local`, `tailscale`, `iroh`, or `none` when no transport was tried |
 //! | `plugin` | plugin id, **bounded to [`PLUGIN_LABEL_LIMIT`] distinct ids** per [`PluginLabels`]; further ids fold into `other` |
 //!
 //! [`Registry`] additionally caps each family at
@@ -70,10 +71,12 @@ pub mod names {
     pub const RPC_REQUESTS: &str = "entangle_rpc_requests_total";
     /// RPC request handling duration, by `method`.
     pub const RPC_DURATION: &str = "entangle_rpc_request_duration_seconds";
-    /// Remote dispatches this node made, by `outcome`.
+    /// Remote dispatches this node made, by `outcome` and `transport`.
     pub const REMOTE_DISPATCH: &str = "entangle_remote_dispatch_total";
-    /// Remote tasks this node served for peers, by `outcome`.
+    /// Remote tasks this node served for peers, by `outcome` and `transport`.
     pub const REMOTE_SERVE: &str = "entangle_remote_serve_total";
+    /// Streams this node opened to peers, by `outcome` and `transport`.
+    pub const REMOTE_STREAM_OPENS: &str = "entangle_remote_stream_opens_total";
     /// Integrity verdicts, by `policy` and `outcome`.
     pub const INTEGRITY_VERDICTS: &str = "entangle_integrity_verdicts_total";
     /// Replica outputs over `max_output_bytes` (INV-INT-2).
@@ -94,6 +97,20 @@ pub mod names {
     pub const OTLP_EXPORTED: &str = "entangle_telemetry_spans_exported_total";
     /// Span batches the OTLP exporter gave up on.
     pub const OTLP_FAILED_BATCHES: &str = "entangle_telemetry_export_failures_total";
+}
+
+/// The values of the `transport` label: the three mesh transports, and
+/// `none` when no transport was tried (no route).
+pub const TRANSPORT_LABELS: [&str; 4] = ["local", "tailscale", "iroh", "none"];
+
+/// `transport` itself when it is one of [`TRANSPORT_LABELS`], else `none`
+/// (keeps the label bounded whatever a caller passes).
+fn transport_label(transport: &str) -> &'static str {
+    TRANSPORT_LABELS
+        .iter()
+        .copied()
+        .find(|t| *t == transport)
+        .unwrap_or("none")
 }
 
 /// The states `entangle_mesh_tailscale_state` reports; exactly one is `1`.
@@ -254,23 +271,46 @@ pub fn rpc_request(reg: &Registry, method: &str, ok: bool, seconds: f64) {
     );
 }
 
-/// A remote dispatch this node made finished with `outcome`
-/// (`ok`, `transport_error`, `output_too_large`, `rejected_<code>`).
-pub fn remote_dispatch(reg: &Registry, outcome: &str) {
+/// A remote dispatch this node made over `transport` finished with
+/// `outcome` (`ok`, `transport_error`, `output_too_large`,
+/// `rejected_<code>`). `transport` is one of [`TRANSPORT_LABELS`].
+pub fn remote_dispatch(reg: &Registry, outcome: &str, transport: &str) {
     reg.inc_counter(
         names::REMOTE_DISPATCH,
-        "Remote task dispatches by outcome",
-        &[("outcome", outcome)],
+        "Remote task dispatches by outcome and transport",
+        &[
+            ("outcome", outcome),
+            ("transport", transport_label(transport)),
+        ],
         1.0,
     );
 }
 
-/// A task served for a remote peer finished with `outcome`.
-pub fn remote_serve(reg: &Registry, outcome: &str) {
+/// A frame served for a remote peer, which arrived over `transport`,
+/// finished with `outcome`.
+pub fn remote_serve(reg: &Registry, outcome: &str, transport: &str) {
     reg.inc_counter(
         names::REMOTE_SERVE,
-        "Tasks executed for remote peers by outcome",
-        &[("outcome", outcome)],
+        "Tasks executed for remote peers by outcome and transport",
+        &[
+            ("outcome", outcome),
+            ("transport", transport_label(transport)),
+        ],
+        1.0,
+    );
+}
+
+/// This node tried to open a stream to a peer: `outcome` is `ok`,
+/// `transport_error` or `no_route`; `transport` the transport that carried
+/// (or last failed) it.
+pub fn remote_stream_open(reg: &Registry, outcome: &str, transport: &str) {
+    reg.inc_counter(
+        names::REMOTE_STREAM_OPENS,
+        "Streams opened to remote peers by outcome and transport",
+        &[
+            ("outcome", outcome),
+            ("transport", transport_label(transport)),
+        ],
         1.0,
     );
 }
@@ -317,6 +357,27 @@ pub fn tailscale_state(reg: &Registry, active: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_transport_label_is_bounded() {
+        let reg = Registry::new();
+        remote_dispatch(&reg, "ok", "tailscale");
+        remote_dispatch(&reg, "ok", "carrier-pigeon");
+        assert_eq!(
+            reg.value(
+                names::REMOTE_DISPATCH,
+                &[("outcome", "ok"), ("transport", "tailscale")]
+            ),
+            Some(1.0)
+        );
+        assert_eq!(
+            reg.value(
+                names::REMOTE_DISPATCH,
+                &[("outcome", "ok"), ("transport", "none")]
+            ),
+            Some(1.0)
+        );
+    }
 
     #[test]
     fn code_class_reduces_to_the_hundred() {

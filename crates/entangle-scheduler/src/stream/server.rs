@@ -4,7 +4,7 @@
 //! # The executor gate, in order
 //!
 //! 1. **Authorization, before decoding anything.** The peer is the one the
-//!    transport authenticated (`FramedStream::remote_peer_id`); unless the
+//!    transport authenticated (`StreamIo::remote_peer_id`); unless the
 //!    [`PeerAllowlist`] admits it, the stream gets one `Error {
 //!    NotAuthorized }` frame and is closed — the `Open` frame is never even
 //!    read.
@@ -28,7 +28,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use entangle_host::stream_port;
-use entangle_mesh_iroh::{FramedSend, FramedStream, IrohPeer, MeshIroh, ALPN_STREAM};
+use entangle_mesh_iroh::{IrohPeer, MeshIroh, ALPN_STREAM};
 use entangle_runtime::Kernel;
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
@@ -47,6 +47,7 @@ use super::validate::{
 };
 use super::{StreamEvent, STREAM_TRACE_TARGET};
 use crate::remote::PeerAllowlist;
+use crate::transport::{FrameError, FrameSend, StreamIo};
 use crate::work_unit::PolicyEnvelope;
 
 /// How long an authorized peer has to send its `Open` frame.
@@ -154,11 +155,15 @@ impl StreamServer {
         self.in_flight.lock().len()
     }
 
-    /// Serve one inbound stream to its end. See the module docs for the
-    /// gate. `Err` means the stream was refused before the plugin ran.
-    pub async fn handle(&self, io: FramedStream) -> Result<ExecutorReport, StreamError> {
+    /// Serve one inbound stream (over any transport) to its end. See the
+    /// module docs for the gate. `Err` means the stream was refused before
+    /// the plugin ran.
+    pub async fn handle<I: Into<StreamIo>>(&self, io: I) -> Result<ExecutorReport, StreamError> {
+        let io: StreamIo = io.into();
         let peer = io.remote_peer_id();
-        let (mut send, mut recv) = io.split();
+        let transport = io.transport();
+        // An attached connection (none on the serving side) closes with `io`.
+        let (mut send, mut recv, _conn) = io.into_parts();
 
         // ── THE SECURITY GATE ────────────────────────────────────────────
         // `peer` is the identity the transport authenticated. Check it
@@ -168,6 +173,7 @@ impl StreamServer {
             tracing::warn!(
                 target: STREAM_TRACE_TARGET,
                 %peer,
+                transport = transport.as_str(),
                 "refused a stream from a peer that is not in the trusted allowlist"
             );
             let refusal = StreamError::PeerAborted {
@@ -186,7 +192,7 @@ impl StreamServer {
         {
             Ok(Ok(Some(bytes))) => bytes,
             Ok(Ok(None)) => return Err(StreamError::Transport("stream ended before Open".into())),
-            Ok(Err(entangle_mesh_iroh::MeshIrohError::FrameTooLarge { declared, .. })) => {
+            Ok(Err(FrameError::TooLarge { declared, .. })) => {
                 let err = StreamError::InputTooLarge {
                     declared: self.ceilings.max_input_bytes,
                     actual: declared.saturating_sub(OPEN_FRAME_OVERHEAD as u64),
@@ -314,6 +320,7 @@ impl StreamServer {
             target: STREAM_TRACE_TARGET,
             %peer,
             %plugin,
+            transport = transport.as_str(),
             task = %task_id,
             input_bytes = open.input.len(),
             policy = %envelope.policy().kind(),
@@ -374,7 +381,7 @@ impl StreamServer {
 /// Send one `Error` frame and finish the stream, giving up after
 /// [`REFUSE_TIMEOUT`] (the caller then drops the stream unfinished, which
 /// resets it).
-async fn refuse(send: &mut FramedSend, reason: Reason, message: &str) {
+async fn refuse(send: &mut Box<dyn FrameSend>, reason: Reason, message: &str) {
     let write = async {
         if let Ok(bytes) = encode_frame(&Frame::error(reason, message)) {
             let _ = send.send(&bytes).await;
@@ -440,12 +447,14 @@ pub async fn serve_streams(transport: Arc<MeshIroh>, server: Arc<StreamServer>) 
     }
 }
 
-/// Submit `task` as a stream to `peer`: validate it (ATC-INT-4), check that
-/// its policy trusts `peer`, dial `peer` under [`ALPN_STREAM`] and start
-/// streaming.
+/// Submit `task` as a stream to `peer` over one iroh endpoint: validate it
+/// (ATC-INT-4), check that its policy trusts `peer`, dial `peer` under
+/// [`ALPN_STREAM`] and start streaming.
 ///
 /// Chunks verify against the key the QUIC handshake authenticated for
-/// `peer`. Nothing is dialled when validation fails.
+/// `peer`. Nothing is dialled when validation fails. To choose among
+/// several transports per peer, use
+/// [`TransportRouter::open_stream`](crate::transport::TransportRouter::open_stream).
 pub async fn open_stream(
     transport: &MeshIroh,
     peer: &IrohPeer,
@@ -465,11 +474,5 @@ pub async fn open_stream(
             return Err(StreamError::Transport(e.to_string()));
         }
     };
-    match StreamHandle::start(io, task, options) {
-        Ok(handle) => Ok(handle.with_connection(conn)),
-        Err(e) => {
-            conn.close();
-            Err(e)
-        }
-    }
+    StreamHandle::start(StreamIo::from(io).with_connection(conn), task, options)
 }

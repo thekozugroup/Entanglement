@@ -4,10 +4,14 @@
 //! # Client half
 //!
 //! [`RemoteDispatch`] turns a `PeerId` chosen by placement into an actual
-//! round-trip: resolve the peer to a dialable address via a
-//! [`PeerAddressBook`], encode a [`RemoteTaskRequest`], send it over a
-//! [`MeshTransport`] speaking [`ALPN_SCHEDULER`], and decode the answer under
-//! a deadline. Every failure is a typed [`DispatchError`]; none of them hang.
+//! round-trip: encode a [`RemoteTaskRequest`], hand it to a
+//! [`TransportRouter`], which picks a transport for the peer (spec §6.1:
+//! `local`, then `tailscale`, then `iroh`, honouring `[mesh] preferred` and
+//! per-peer overrides) and sends it as `entangle/scheduler/1`, and decode
+//! the answer under a deadline. Every failure is a typed [`DispatchError`];
+//! none of them hang. [`RemoteDispatch::new`] keeps the single-transport
+//! form: one [`MeshTransport`] speaking [`ALPN_SCHEDULER`] and a
+//! [`PeerAddressBook`].
 //!
 //! # Server half
 //!
@@ -18,9 +22,10 @@
 //! The gate is [`PeerAllowlist`], checked **before the payload is even
 //! decoded**:
 //!
-//! * the peer id is the one QUIC authenticated during the handshake
-//!   (`MeshConn::remote_peer_id`), i.e. the peer proved possession of the
-//!   Ed25519 secret key behind it — it is not a claim in the payload;
+//! * the peer id is the one the transport authenticated during its handshake
+//!   (QUIC for iroh, the signed key exchange for tailscale), i.e. the peer
+//!   proved possession of the Ed25519 secret key behind it — it is not a
+//!   claim in the payload;
 //! * an id absent from the allowlist, or present but revoked, gets
 //!   [`RemoteErrorCode::NotAuthorized`] and nothing else happens.
 //!
@@ -56,12 +61,13 @@
 //! [`ALPN_SCHEDULER`]: entangle_mesh_iroh::ALPN_SCHEDULER
 //! [`MeshTransport`]: entangle_mesh_iroh::MeshTransport
 //! [`IntegrityPolicy::None`]: entangle_types::task::IntegrityPolicy::None
+//! [`TransportRouter`]: crate::transport::TransportRouter
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
-use entangle_mesh_iroh::{DynMeshTransport, IrohPeer, MeshIroh, MeshIrohError};
+use entangle_mesh_iroh::{DynMeshTransport, IrohPeer, MeshIroh};
 use entangle_runtime::{IntegrityError, Kernel, RuntimeError};
 use entangle_types::peer_id::PeerId;
 use entangle_types::plugin_id::PluginId;
@@ -71,6 +77,9 @@ use parking_lot::{Mutex, RwLock};
 use tracing::Instrument as _;
 
 use crate::dispatcher::DispatchError;
+use crate::transport::{
+    AttemptCell, DialTarget, IrohLink, Link, LinkError, RouteError, TransportKind, TransportRouter,
+};
 use crate::wire::{
     decode_request, decode_response, encode_request, encode_response, ControlAction, ControlFrame,
     RemoteErrorCode, RemoteOutcome, RemoteRequest, RemoteTaskRequest, RemoteTaskResponse,
@@ -135,15 +144,15 @@ pub const DEFAULT_REMOTE_OVERHEAD: Duration = Duration::from_secs(10);
 
 /// The client half of cross-node dispatch.
 ///
-/// Holds a transport and an address book. Attach one to a [`Dispatcher`] with
-/// [`Dispatcher::with_remote`] to make remote placements actually go remote.
+/// Holds a [`TransportRouter`] (one transport or several). Attach one to a
+/// [`Dispatcher`] with [`Dispatcher::with_remote`] to make remote placements
+/// actually go remote.
 ///
 /// [`Dispatcher`]: crate::Dispatcher
 /// [`Dispatcher::with_remote`]: crate::Dispatcher::with_remote
 #[derive(Clone)]
 pub struct RemoteDispatch {
-    transport: DynMeshTransport,
-    addresses: Arc<dyn PeerAddressBook>,
+    router: Arc<TransportRouter>,
     overhead: Duration,
     /// Peers that answered a frame carrying a `traceparent` extension with
     /// `MalformedRequest` (a pre-extension build): we stop attaching it for
@@ -154,24 +163,31 @@ pub struct RemoteDispatch {
 impl std::fmt::Debug for RemoteDispatch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RemoteDispatch")
-            .field("local_peer_id", &self.transport.local_peer_id())
-            .field("addresses", &self.addresses)
+            .field("router", &self.router)
             .field("overhead", &self.overhead)
             .finish()
     }
 }
 
 impl RemoteDispatch {
-    /// Build a client over `transport`, resolving peers through `addresses`.
+    /// Build a single-transport client over `transport`, resolving peers
+    /// through `addresses` (an iroh-only [`TransportRouter`]).
     ///
     /// `transport` must be speaking [`ALPN_SCHEDULER`]; a transport on another
     /// ALPN will fail to connect rather than silently mis-route.
     ///
     /// [`ALPN_SCHEDULER`]: entangle_mesh_iroh::ALPN_SCHEDULER
     pub fn new(transport: DynMeshTransport, addresses: Arc<dyn PeerAddressBook>) -> Self {
+        let local = transport.local_peer_id();
+        Self::with_router(Arc::new(
+            TransportRouter::new(local).with_link(Arc::new(IrohLink::new(transport, addresses))),
+        ))
+    }
+
+    /// Build a client that sends every request through `router`.
+    pub fn with_router(router: Arc<TransportRouter>) -> Self {
         Self {
-            transport,
-            addresses,
+            router,
             overhead: DEFAULT_REMOTE_OVERHEAD,
             no_trace_extension: Arc::default(),
         }
@@ -184,9 +200,14 @@ impl RemoteDispatch {
         self
     }
 
-    /// This node's own peer id, as the transport reports it.
+    /// This node's own peer id.
     pub fn local_peer_id(&self) -> PeerId {
-        self.transport.local_peer_id()
+        self.router.local_peer_id()
+    }
+
+    /// The router that picks a transport per peer.
+    pub const fn router(&self) -> &Arc<TransportRouter> {
+        &self.router
     }
 
     /// Ship `task` to `peer` and return the output bytes it produced.
@@ -230,17 +251,31 @@ impl RemoteDispatch {
         peer: PeerId,
         envelope: &PolicyEnvelope,
     ) -> Result<RemoteReplica, DispatchError> {
+        self.dispatch_sealed_routed(task, peer, envelope).await.0
+    }
+
+    /// [`RemoteDispatch::dispatch_sealed`], also returning the transport the
+    /// request went out on (`None` when no transport was tried, e.g. no
+    /// route). The `remote.dispatch` span carries it as `transport`.
+    pub async fn dispatch_sealed_routed(
+        &self,
+        task: &OneShotTask,
+        peer: PeerId,
+        envelope: &PolicyEnvelope,
+    ) -> (Result<RemoteReplica, DispatchError>, Option<TransportKind>) {
         let span = tracing::info_span!(
             "remote.dispatch",
             otel.kind = "client",
             peer = %peer,
             plugin = %task.plugin,
+            transport = tracing::field::Empty,
         );
-        let response = self
+        let (response, kind) = self
             .dispatch_traced(task, peer, envelope)
-            .instrument(span)
-            .await?;
-        match response.outcome {
+            .instrument(span.clone())
+            .await;
+        span.record("transport", TransportKind::label(kind));
+        let result = response.and_then(|response| match response.outcome {
             RemoteOutcome::Ok {
                 output,
                 observed_policy_hash,
@@ -257,7 +292,8 @@ impl RemoteDispatch {
                 code,
                 message,
             }),
-        }
+        });
+        (result, kind)
     }
 
     /// Send the task frame, carrying the current span's `traceparent` when a
@@ -265,14 +301,18 @@ impl RemoteDispatch {
     ///
     /// A peer built before the extension existed rejects such a frame as
     /// malformed; that one answer makes us resend the identical task without
-    /// it and remember not to attach it for that peer again. (The rejected
-    /// frame was refused at decode time, so nothing ran.)
+    /// it — on the transport that answered — and remember not to attach it
+    /// for that peer again. (The rejected frame was refused at decode time,
+    /// so nothing ran.)
     async fn dispatch_traced(
         &self,
         task: &OneShotTask,
         peer: PeerId,
         envelope: &PolicyEnvelope,
-    ) -> Result<RemoteTaskResponse, DispatchError> {
+    ) -> (
+        Result<RemoteTaskResponse, DispatchError>,
+        Option<TransportKind>,
+    ) {
         let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
         let traceparent = if self.no_trace_extension.lock().contains(&peer) {
             None
@@ -281,19 +321,22 @@ impl RemoteDispatch {
         };
         let body = RemoteTaskRequest::sealed(task, envelope);
         let request = RemoteRequest::task(body.clone().with_traceparent(traceparent.clone()));
-        let response = self
-            .round_trip(peer, &request, budget, task.max_output_bytes)
-            .await?;
+        let (response, kind) = self
+            .round_trip(peer, &request, budget, task.max_output_bytes, None)
+            .await;
         let rejected_extension = traceparent.is_some()
             && matches!(
-                response.outcome,
-                RemoteOutcome::Err {
-                    code: RemoteErrorCode::MalformedRequest,
+                &response,
+                Ok(RemoteTaskResponse {
+                    outcome: RemoteOutcome::Err {
+                        code: RemoteErrorCode::MalformedRequest,
+                        ..
+                    },
                     ..
-                }
+                })
             );
         if !rejected_extension {
-            return Ok(response);
+            return (response, kind);
         }
         tracing::debug!(%peer, "peer rejected the traceparent extension; resending without it");
         self.no_trace_extension.lock().insert(peer);
@@ -302,6 +345,7 @@ impl RemoteDispatch {
             &RemoteRequest::task(body),
             budget,
             task.max_output_bytes,
+            kind,
         )
         .await
     }
@@ -319,57 +363,52 @@ impl RemoteDispatch {
         frame: ControlFrame,
         timeout: Duration,
     ) -> Result<PolicyHash, DispatchError> {
-        let task_id = TaskId::from_bytes(frame.task_id);
-        let response = self
-            .round_trip(peer, &RemoteRequest::control(frame), timeout, 0)
-            .await?;
-        match response.outcome {
-            RemoteOutcome::Ack {
-                observed_policy_hash,
-                ..
-            } => Ok(observed_policy_hash),
-            RemoteOutcome::Err {
-                code: RemoteErrorCode::PolicyMutation,
-                ..
-            } => Err(IntegrityError::PolicyMutation {
-                peer: peer.to_hex(),
-                task_id: task_id.to_string(),
-            }
-            .into()),
-            RemoteOutcome::Err { code, message } => Err(DispatchError::RemoteRejected {
-                peer,
-                code,
-                message,
-            }),
-            RemoteOutcome::Ok { .. } => Err(DispatchError::RemoteTransport {
-                peer,
-                reason: "peer answered a control frame with task output".into(),
-            }),
-        }
+        self.send_control_via(peer, frame, timeout, None).await
     }
 
-    /// Encode, send, and decode one request under `budget`.
+    /// [`RemoteDispatch::send_control`] restricted to one transport (`None`:
+    /// the router's choice). `entangle diag mesh --probe` uses this to probe
+    /// each path separately.
+    pub async fn send_control_via(
+        &self,
+        peer: PeerId,
+        frame: ControlFrame,
+        timeout: Duration,
+        only: Option<TransportKind>,
+    ) -> Result<PolicyHash, DispatchError> {
+        let task_id = TaskId::from_bytes(frame.task_id);
+        let (response, _) = self
+            .round_trip(peer, &RemoteRequest::control(frame), timeout, 0, only)
+            .await;
+        control_outcome(peer, task_id, response?)
+    }
+
+    /// Encode, send, and decode one request under `budget`. Returns the
+    /// transport that carried it (or was being tried when the budget ran
+    /// out), if any.
     async fn round_trip(
         &self,
         peer: PeerId,
         request: &RemoteRequest,
         budget: Duration,
         max_output_bytes: u64,
-    ) -> Result<RemoteTaskResponse, DispatchError> {
-        let addr = self
-            .addresses
-            .lookup(&peer)
-            .ok_or_else(|| DispatchError::RemoteTransport {
-                peer,
-                reason: "no known network address for this peer (not paired, or no address \
-                         learned yet)"
-                    .to_owned(),
-            })?;
-
-        let frame = encode_request(request).map_err(|e| DispatchError::RemoteTransport {
-            peer,
-            reason: format!("encoding request: {e}"),
-        })?;
+        only: Option<TransportKind>,
+    ) -> (
+        Result<RemoteTaskResponse, DispatchError>,
+        Option<TransportKind>,
+    ) {
+        let frame = match encode_request(request) {
+            Ok(f) => f,
+            Err(e) => {
+                return (
+                    Err(DispatchError::RemoteTransport {
+                        peer,
+                        reason: format!("encoding request: {e}"),
+                    }),
+                    None,
+                )
+            }
+        };
 
         // INV-INT-2: a task answer bigger than the task's `max_output_bytes`
         // is an oversized output wherever it is caught — by the decoder, or
@@ -395,53 +434,64 @@ impl RemoteDispatch {
         // The task is still owned by this call: it is aborted when the budget
         // runs out *and* when this future is dropped (a cancelled dispatch),
         // exactly as an inline `await` would have been.
+        let attempt = Arc::new(AttemptCell::default());
         let io = {
-            let transport = Arc::clone(&self.transport);
-            let (addr, frame) = (addr.clone(), frame.clone());
+            let router = Arc::clone(&self.router);
+            let attempt = Arc::clone(&attempt);
+            let frame = frame.clone();
             AbortOnDrop(tokio::spawn(async move {
-                transport.request(&addr, &frame).await
+                router.request_tracked(peer, &frame, only, &attempt).await
             }))
         };
         let answer = match tokio::time::timeout(budget, io).await {
-            Ok(Ok(result)) => Ok(result),
+            Ok(Ok(result)) => result,
             Ok(Err(join)) => {
-                return Err(DispatchError::RemoteTransport {
-                    peer,
-                    reason: format!("transport task failed: {join}"),
-                })
-            }
-            Err(elapsed) => Err(elapsed),
-        };
-        let raw = match answer {
-            Ok(Ok(bytes)) => bytes,
-            Ok(Err(e)) => {
-                // A frame-cap refusal is about the answer only when our own
-                // request fit under that cap.
-                if let MeshIrohError::FrameTooLarge { declared, max } = &e {
-                    if is_task && frame.len() <= *max && *declared > max_output_bytes {
-                        return Err(oversized(*declared));
-                    }
-                }
-                return Err(DispatchError::RemoteTransport {
-                    peer,
-                    reason: e.to_string(),
-                });
+                return (
+                    Err(DispatchError::RemoteTransport {
+                        peer,
+                        reason: format!("transport task failed: {join}"),
+                    }),
+                    attempt.get(),
+                )
             }
             Err(_elapsed) => {
-                return Err(DispatchError::RemoteTransport {
-                    peer,
-                    reason: format!(
-                        "no answer within {}ms (request budget including {}ms overhead)",
-                        budget.as_millis(),
-                        self.overhead.as_millis()
-                    ),
-                })
+                return (
+                    Err(DispatchError::RemoteTransport {
+                        peer,
+                        reason: format!(
+                            "no answer within {}ms (request budget including {}ms overhead)",
+                            budget.as_millis(),
+                            self.overhead.as_millis()
+                        ),
+                    }),
+                    attempt.get(),
+                )
+            }
+        };
+        let (raw, kind) = match answer {
+            Ok(ok) => ok,
+            Err(e) => {
+                let kind = e.transport();
+                // A frame-cap refusal is about the answer only when our own
+                // request fit under that cap.
+                if let RouteError::FrameTooLarge { declared, max, .. } = &e {
+                    if is_task && frame.len() <= *max && *declared > max_output_bytes {
+                        return (Err(oversized(*declared)), kind);
+                    }
+                }
+                return (
+                    Err(DispatchError::RemoteTransport {
+                        peer,
+                        reason: e.to_string(),
+                    }),
+                    kind,
+                );
             }
         };
 
         // The peer's answer is untrusted input: size-check it against *our*
         // limit, not anything it told us.
-        decode_response(&raw, max_output_bytes).map_err(|e| match e {
+        let decoded = decode_response(&raw, max_output_bytes).map_err(|e| match e {
             WireError::OutputTooLarge { actual, .. } => oversized(actual),
             // Over the wire cap (reachable only with a transport whose own
             // cap is larger) and over the task's limit: oversized too.
@@ -454,8 +504,85 @@ impl RemoteDispatch {
                 peer,
                 reason: other.to_string(),
             },
-        })
+        });
+        (decoded, Some(kind))
     }
+}
+
+/// What a control frame's answer means for the caller.
+fn control_outcome(
+    peer: PeerId,
+    task_id: TaskId,
+    response: RemoteTaskResponse,
+) -> Result<PolicyHash, DispatchError> {
+    match response.outcome {
+        RemoteOutcome::Ack {
+            observed_policy_hash,
+            ..
+        } => Ok(observed_policy_hash),
+        RemoteOutcome::Err {
+            code: RemoteErrorCode::PolicyMutation,
+            ..
+        } => Err(IntegrityError::PolicyMutation {
+            peer: peer.to_hex(),
+            task_id: task_id.to_string(),
+        }
+        .into()),
+        RemoteOutcome::Err { code, message } => Err(DispatchError::RemoteRejected {
+            peer,
+            code,
+            message,
+        }),
+        RemoteOutcome::Ok { .. } => Err(DispatchError::RemoteTransport {
+            peer,
+            reason: "peer answered a control frame with task output".into(),
+        }),
+    }
+}
+
+/// Send one control frame to `target` over `link` directly — whatever the
+/// link's availability and the routing policy say — bounded by `timeout`.
+///
+/// For diagnostics that probe one specific path (`entangle diag mesh
+/// --probe`). The answer is interpreted as by
+/// [`RemoteDispatch::send_control`].
+pub async fn send_control_over(
+    link: &dyn Link,
+    target: &DialTarget,
+    frame: ControlFrame,
+    timeout: Duration,
+) -> Result<PolicyHash, DispatchError> {
+    let peer = target.peer_id();
+    let task_id = TaskId::from_bytes(frame.task_id);
+    let bytes = encode_request(&RemoteRequest::control(frame)).map_err(|e| {
+        DispatchError::RemoteTransport {
+            peer,
+            reason: format!("encoding request: {e}"),
+        }
+    })?;
+    let raw = match tokio::time::timeout(timeout, link.request(target, &bytes)).await {
+        Ok(Ok(raw)) => raw,
+        Ok(Err(LinkError::Connect(why) | LinkError::Transport(why))) => {
+            return Err(DispatchError::RemoteTransport { peer, reason: why })
+        }
+        Ok(Err(LinkError::FrameTooLarge { declared, max })) => {
+            return Err(DispatchError::RemoteTransport {
+                peer,
+                reason: format!("frame declares {declared} bytes, cap is {max} bytes"),
+            })
+        }
+        Err(_) => {
+            return Err(DispatchError::RemoteTransport {
+                peer,
+                reason: format!("no answer within {}ms", timeout.as_millis()),
+            })
+        }
+    };
+    let response = decode_response(&raw, 0).map_err(|e| DispatchError::RemoteTransport {
+        peer,
+        reason: e.to_string(),
+    })?;
+    control_outcome(peer, task_id, response)
 }
 
 /// A spawned task that is aborted when this handle is dropped, so the task
@@ -610,9 +737,10 @@ impl RemoteTaskServer {
         }
     }
 
-    /// Count every answered frame by outcome into `registry`
+    /// Count every answered frame by outcome and transport into `registry`
     /// (`entangle_remote_serve_total`; outcomes: `ok`, `ack`, or a
-    /// [`RemoteErrorCode`] label).
+    /// [`RemoteErrorCode`] label; transport: `iroh` or `tailscale`, the one
+    /// that carried the frame).
     #[must_use]
     pub fn with_metrics(mut self, registry: entangle_observability::Registry) -> Self {
         self.metrics = Some(registry);
@@ -683,15 +811,30 @@ impl RemoteTaskServer {
     /// Never panics and never returns `Err`: a caller waiting on a response
     /// must always get one, so every failure is encoded as a structured
     /// [`RemoteOutcome::Err`].
+    ///
+    /// The frame is taken to have arrived over `mesh.iroh`; see
+    /// [`RemoteTaskServer::handle_via`].
     pub async fn handle(&self, from: PeerId, payload: Vec<u8>) -> Vec<u8> {
-        let response = self.respond(from, payload).await;
+        self.handle_via(from, payload, TransportKind::Iroh).await
+    }
+
+    /// [`RemoteTaskServer::handle`] for a frame that arrived over
+    /// `transport` (recorded in metrics and on the `remote.task.execute`
+    /// span; it plays no part in authorization).
+    pub async fn handle_via(
+        &self,
+        from: PeerId,
+        payload: Vec<u8>,
+        transport: TransportKind,
+    ) -> Vec<u8> {
+        let response = self.respond(from, payload, transport).await;
         if let Some(reg) = &self.metrics {
             let outcome = match &response.outcome {
                 RemoteOutcome::Ok { .. } => "ok",
                 RemoteOutcome::Ack { .. } => "ack",
                 RemoteOutcome::Err { code, .. } => code.as_str(),
             };
-            entangle_observability::catalog::remote_serve(reg, outcome);
+            entangle_observability::catalog::remote_serve(reg, outcome, transport.as_str());
         }
         encode_response(&response).unwrap_or_else(|e| {
             // The only realistic cause is an output that fits the task's
@@ -708,14 +851,21 @@ impl RemoteTaskServer {
     }
 
     /// The decision logic behind [`RemoteTaskServer::handle`].
-    async fn respond(&self, from: PeerId, payload: Vec<u8>) -> RemoteTaskResponse {
+    async fn respond(
+        &self,
+        from: PeerId,
+        payload: Vec<u8>,
+        transport: TransportKind,
+    ) -> RemoteTaskResponse {
         // ── THE SECURITY GATE ────────────────────────────────────────────
-        // `from` is the identity QUIC authenticated during the handshake.
+        // `from` is the identity the transport authenticated during its
+        // handshake (QUIC, or the tailnet's signed key exchange).
         // Check it before decoding: an unauthorized peer must not even get
         // this node's parser as an attack surface, let alone its kernel.
         if !self.allowlist.is_authorized(&from) {
             tracing::warn!(
                 peer = %from,
+                transport = transport.as_str(),
                 "scheduler: refused task from a peer that is not in the trusted allowlist"
             );
             return RemoteTaskResponse::err(
@@ -741,7 +891,7 @@ impl RemoteTaskServer {
         };
 
         match request.frame {
-            RequestFrame::Task(task) => self.run_task(from, task).await,
+            RequestFrame::Task(task) => self.run_task(from, task, transport).await,
             RequestFrame::Control(control) => self.control(from, control),
         }
     }
@@ -751,12 +901,18 @@ impl RemoteTaskServer {
     /// `traceparent`. The `traceparent` only picks the trace; it grants
     /// nothing (the allowlist check already ran, on the transport-authenticated
     /// identity).
-    async fn run_task(&self, from: PeerId, request: RemoteTaskRequest) -> RemoteTaskResponse {
+    async fn run_task(
+        &self,
+        from: PeerId,
+        request: RemoteTaskRequest,
+        transport: TransportKind,
+    ) -> RemoteTaskResponse {
         let span = tracing::info_span!(
             "remote.task.execute",
             otel.kind = "server",
             peer = %from,
             plugin = %request.plugin,
+            transport = transport.as_str(),
         );
         if let Some(tp) = request.traceparent.as_deref() {
             entangle_observability::context::set_remote_parent(&span, tp);
@@ -968,7 +1124,7 @@ impl RemoteTaskServer {
 pub async fn serve_tasks(transport: Arc<MeshIroh>, server: Arc<RemoteTaskServer>) {
     entangle_mesh_iroh::serve(transport, move |peer, bytes| {
         let server = Arc::clone(&server);
-        async move { server.handle(peer, bytes).await }
+        async move { server.handle_via(peer, bytes, TransportKind::Iroh).await }
     })
     .await;
 }
@@ -976,7 +1132,7 @@ pub async fn serve_tasks(transport: Arc<MeshIroh>, server: Arc<RemoteTaskServer>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use entangle_mesh_iroh::{MeshConn, MeshTransport, MAX_FRAME_BYTES};
+    use entangle_mesh_iroh::{MeshConn, MeshIrohError, MeshTransport, MAX_FRAME_BYTES};
     use entangle_types::errors::EntangleError;
 
     fn peer(byte: u8) -> PeerId {

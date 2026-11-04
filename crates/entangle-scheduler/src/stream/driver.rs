@@ -1,5 +1,7 @@
 //! Async drivers: the pure state machines on real time, over a real
-//! [`FramedStream`].
+//! [`StreamIo`] — an iroh [`FramedStream`](entangle_mesh_iroh::FramedStream),
+//! a tailnet [`SealedStream`](entangle_mesh_tailscale::SealedStream), or an
+//! in-memory duplex.
 //!
 //! Each driver owns one stream and runs three things:
 //!
@@ -33,7 +35,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use entangle_host::{PluginChunk, StreamInput, StreamPortDriver};
-use entangle_mesh_iroh::{FramedRecv, FramedSend, FramedStream, MeshConn, MeshIrohError};
+use entangle_mesh_iroh::MeshConn;
 use entangle_types::peer_id::PeerId;
 use entangle_types::task::{PartialResultPolicy, StreamingTask, TaskId};
 use tokio::sync::{mpsc, oneshot};
@@ -49,6 +51,7 @@ use super::partial::{finalize, StreamContext, StreamOutcome, StreamResult};
 use super::submitter::{ChunkPoll, InputSend, SubmitterMachine, SubmitterOptions, VerifiedChunk};
 use super::StreamEvent;
 use crate::reputation::{ReputationReason, ReputationStore};
+use crate::transport::{FrameError, FrameRecv, FrameSend, StreamIo};
 
 /// Data frames the writer queue holds before the loop stops taking new
 /// plugin chunks.
@@ -88,7 +91,7 @@ enum ReadItem {
 /// [`CONTROL_FRAME_MAX`]; which one a frame is, the reader learns from the
 /// header and the two bytes after it, before reading the rest.
 fn spawn_reader(
-    mut recv: FramedRecv,
+    mut recv: Box<dyn FrameRecv>,
     first_data_cap: usize,
 ) -> (
     mpsc::Receiver<ReadItem>,
@@ -102,25 +105,26 @@ fn spawn_reader(
         while let Some(data_cap) = cap_rx.recv().await {
             // `None`: refused from the header, before the kind was seen.
             let mut data_frame = None;
+            let mut classify = |prefix: &[u8]| {
+                let data = is_data_frame_prefix(prefix);
+                data_frame = Some(data);
+                if data {
+                    data_cap
+                } else {
+                    CONTROL_FRAME_MAX
+                }
+            };
             let read = recv
                 .recv_capped_by(
                     data_cap.max(CONTROL_FRAME_MAX),
                     FRAME_KIND_PREFIX,
-                    |prefix| {
-                        let data = is_data_frame_prefix(prefix);
-                        data_frame = Some(data);
-                        if data {
-                            data_cap
-                        } else {
-                            CONTROL_FRAME_MAX
-                        }
-                    },
+                    &mut classify,
                 )
                 .await;
             let item = match read {
                 Ok(Some(bytes)) => ReadItem::Frame(bytes),
                 Ok(None) => ReadItem::Eof,
-                Err(MeshIrohError::FrameTooLarge { declared, .. }) => match data_frame {
+                Err(FrameError::TooLarge { declared, .. }) => match data_frame {
                     Some(false) => ReadItem::ControlTooLarge(declared),
                     Some(true) | None => ReadItem::TooLarge(declared),
                 },
@@ -142,7 +146,7 @@ struct WriteQueues {
     data: mpsc::Sender<Vec<u8>>,
 }
 
-fn spawn_writer(mut send: FramedSend) -> (WriteQueues, JoinHandle<()>) {
+fn spawn_writer(mut send: Box<dyn FrameSend>) -> (WriteQueues, JoinHandle<()>) {
     let (urgent, mut urgent_rx) = mpsc::channel::<Vec<u8>>(URGENT_QUEUE);
     let (data, mut data_rx) = mpsc::channel::<Vec<u8>>(WRITE_QUEUE);
     let task = tokio::spawn(async move {
@@ -280,7 +284,7 @@ pub struct ExecutorReport {
 /// happens.
 pub async fn drive_executor<P>(
     machine: ExecutorMachine,
-    io: FramedStream,
+    io: impl Into<StreamIo>,
     port: StreamPortDriver,
     plugin: P,
     events: Option<mpsc::UnboundedSender<StreamEvent>>,
@@ -288,15 +292,19 @@ pub async fn drive_executor<P>(
 where
     P: Future<Output = Result<(), String>> + Send + 'static,
 {
-    let (send, recv) = io.split();
-    drive_executor_halves(machine, send, recv, port, plugin, events).await
+    let (send, recv, conn) = io.into().into_parts();
+    let report = drive_executor_halves(machine, send, recv, port, plugin, events).await;
+    if let Some(conn) = conn {
+        conn.close();
+    }
+    report
 }
 
 /// [`drive_executor`] over an already-split stream.
 pub async fn drive_executor_halves<P>(
     mut m: ExecutorMachine,
-    send: FramedSend,
-    recv: FramedRecv,
+    send: Box<dyn FrameSend>,
+    recv: Box<dyn FrameRecv>,
     mut port: StreamPortDriver,
     plugin: P,
     events: Option<mpsc::UnboundedSender<StreamEvent>>,
@@ -606,28 +614,39 @@ impl std::fmt::Debug for StreamHandle {
 impl StreamHandle {
     /// Validate `task` (ATC-INT-4) and start streaming it over `io`, whose
     /// remote end is the executor. Its transport-authenticated key is what
-    /// every chunk must verify against.
+    /// every chunk must verify against. A connection attached to `io`
+    /// ([`StreamIo::with_connection`]) is kept open for the stream's
+    /// lifetime, as with [`StreamHandle::with_connection`].
     ///
     /// Must be called inside a tokio runtime. Nothing is sent when it fails.
     pub fn start(
-        io: FramedStream,
+        io: impl Into<StreamIo>,
         task: &StreamingTask,
         options: StreamOptions,
     ) -> Result<Self, StreamError> {
+        let io = io.into();
         let executor = io.remote_peer_id();
-        let machine = SubmitterMachine::new(
-            task,
-            io.remote_public_key(),
-            options.submitter,
-            Instant::now(),
-        )?;
+        let executor_key = io.remote_public_key();
+        let (send, recv, conn) = io.into_parts();
+        let machine =
+            match SubmitterMachine::new(task, executor_key, options.submitter, Instant::now()) {
+                Ok(m) => m,
+                Err(e) => {
+                    if let Some(conn) = conn {
+                        conn.close();
+                    }
+                    return Err(e);
+                }
+            };
         let (cmds, cmd_rx) = mpsc::channel(8);
-        let join = tokio::spawn(drive_submitter(machine, io, cmd_rx, options, executor));
+        let join = tokio::spawn(drive_submitter(
+            machine, send, recv, cmd_rx, options, executor,
+        ));
         Ok(Self {
             state: HandleState::Running { cmds, join },
             task_id: task.id,
             executor,
-            conn: None,
+            conn,
         })
     }
 
@@ -815,12 +834,12 @@ fn penalty(error: &StreamError) -> Option<ReputationReason> {
 
 async fn drive_submitter(
     mut m: SubmitterMachine,
-    io: FramedStream,
+    send: Box<dyn FrameSend>,
+    recv: Box<dyn FrameRecv>,
     mut cmds: mpsc::Receiver<Cmd>,
     options: StreamOptions,
     executor: PeerId,
 ) -> Finished {
-    let (send, recv) = io.split();
     let (rx, caps, reader) = spawn_reader(recv, m.data_frame_cap());
     let mut reading = Reading {
         rx,

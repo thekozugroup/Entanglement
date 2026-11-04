@@ -20,6 +20,9 @@ entangle-runtime   = { workspace = true }
 # Already in the graph via entangle-runtime, so no new build cost.
 entangle-host      = { workspace = true }
 entangle-mesh-iroh = { workspace = true }
+# The tailnet transport: a light crate (no iroh / wasmtime), already a
+# daemon dependency.
+entangle-mesh-tailscale = { workspace = true }
 entangle-signing   = { workspace = true }
 parking_lot        = { workspace = true }
 blake3             = { workspace = true }

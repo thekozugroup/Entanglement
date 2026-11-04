@@ -626,9 +626,13 @@ impl Dispatcher {
     ) -> ReplicaResult {
         let outcome = match &self.remote {
             Some(remote) => {
-                let raw = remote.dispatch_sealed(task, peer, envelope).await;
+                let (raw, transport) = remote.dispatch_sealed_routed(task, peer, envelope).await;
                 if let Some(reg) = &self.metrics {
-                    catalog::remote_dispatch(reg, &remote_outcome(&raw));
+                    catalog::remote_dispatch(
+                        reg,
+                        &remote_outcome(&raw),
+                        crate::transport::TransportKind::label(transport),
+                    );
                 }
                 raw.map(|r| ReplicaBytes {
                     bytes: r.output,
