@@ -515,6 +515,27 @@ fn rebuild_verify_requires_a_valid_publisher_signature() {
 // ATC-PKG-2 (structural: one process cannot run three hosts)
 // ---------------------------------------------------------------------------
 
+/// Run the `compare` job's `script` the way GitHub runs a `shell: bash` step
+/// (`bash --noprofile --norc -eo pipefail <file>`), in a directory laid out as
+/// `download-artifact` with `pattern: sha256-*` leaves it: one
+/// `sha256-<host>/sha256.txt` per `(host, digest)`.
+fn run_compare_script(script: &str, digests: &[(&str, &str)]) -> std::process::Output {
+    let dir = TempDir::new().unwrap();
+    for (host, digest) in digests {
+        let d = dir.path().join(format!("sha256-{host}"));
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("sha256.txt"), format!("{digest}\n")).unwrap();
+    }
+    let file = dir.path().join("compare.sh");
+    std::fs::write(&file, script).unwrap();
+    std::process::Command::new("bash")
+        .args(["--noprofile", "--norc", "-eo", "pipefail"])
+        .arg(&file)
+        .current_dir(dir.path())
+        .output()
+        .unwrap()
+}
+
 /// Structural check of `.github/workflows/reproducibility.yml`.
 ///
 /// This cannot run the build on macOS-14, Ubuntu-22.04 and Ubuntu-24.04 from a
@@ -522,6 +543,8 @@ fn rebuild_verify_requires_a_valid_publisher_signature() {
 /// workflow runs in CI. What this test pins is that the workflow exists, builds
 /// hello-world on exactly those three hosts with the pinned toolchain, uploads
 /// each host's SHA-256, and has a final job that fails unless all three match.
+/// That last part is checked by running the job's own comparison script on
+/// equal, differing and missing digests.
 #[test]
 fn atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests() {
     let text =
@@ -603,6 +626,69 @@ fn atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests() {
     assert_eq!(download["with"]["pattern"].as_str(), Some("sha256-*"));
     let compare_run = run_of("compare");
     assert!(compare_run.contains("sha256-*/sha256.txt"), "{compare_run}");
+
+    // THEN sha256 is identical across all three hosts: run the compare job's
+    // own script against the artifact layout `download-artifact` produces and
+    // check that it passes only when all three hosts report the same digest.
+    // Neither the job nor its step may be skippable or allowed to fail.
+    for key in ["if", "continue-on-error"] {
+        assert!(compare.get(key).is_none(), "compare job has `{key}`: {c}");
+    }
+    let compare_steps: Vec<_> = steps("compare")
+        .into_iter()
+        .filter(|s| s.get("run").is_some())
+        .collect();
+    assert_eq!(compare_steps.len(), 1, "one comparison step: {c}");
+    let check = &compare_steps[0];
+    assert_eq!(check["shell"].as_str(), Some("bash"), "{c}");
+    for key in ["if", "continue-on-error"] {
+        assert!(check.get(key).is_none(), "comparison step has `{key}`: {c}");
+    }
+    let script = check["run"].as_str().unwrap();
+    let a = "a".repeat(64);
+    let b = "b".repeat(64);
+    let hosts = ["macos-14", "ubuntu-22.04", "ubuntu-24.04"];
+
+    let same = run_compare_script(script, &hosts.map(|h| (h, a.as_str())));
+    assert!(
+        same.status.success(),
+        "three equal digests must pass: {same:?}"
+    );
+    assert!(
+        String::from_utf8_lossy(&same.stdout).contains("reproducible across all hosts"),
+        "{same:?}"
+    );
+
+    for odd in 0..hosts.len() {
+        let digests: Vec<_> = hosts
+            .iter()
+            .enumerate()
+            .map(|(i, h)| (*h, if i == odd { b.as_str() } else { a.as_str() }))
+            .collect();
+        let differ = run_compare_script(script, &digests);
+        assert_eq!(
+            differ.status.code(),
+            Some(1),
+            "a differing digest on {} must fail the compare job: {differ:?}",
+            hosts[odd]
+        );
+        assert!(
+            String::from_utf8_lossy(&differ.stderr).contains("package digests differ"),
+            "{differ:?}"
+        );
+        assert!(
+            !String::from_utf8_lossy(&differ.stdout).contains("reproducible across all hosts"),
+            "{differ:?}"
+        );
+    }
+
+    // Two hosts that agree are not three: a missing host fails too.
+    let missing = run_compare_script(script, &[(hosts[0], a.as_str()), (hosts[1], a.as_str())]);
+    assert_eq!(missing.status.code(), Some(1), "{missing:?}");
+    assert!(
+        String::from_utf8_lossy(&missing.stderr).contains("expected 3 host digests, found 2"),
+        "{missing:?}"
+    );
 
     // ATC-PKG-1's serial double build lives in the same workflow.
     assert!(jobs["serial_double_build"].is_mapping());
