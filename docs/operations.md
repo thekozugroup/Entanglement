@@ -1890,10 +1890,14 @@ disabled`, the runtime-kind check and the capability policy all run as for
 `entangle plugins load`. Then:
 
 - **A package that changed** while the daemon was down (another id, artifact
-  or manifest in that directory than the digests recorded) is unloaded again
+  or manifest in that directory than the digests recorded) is refused before
+  anything of it is loaded — nothing registered, granted, compiled or
+  migrated, and no other version of a plugin restored earlier is replaced —
   and not restored: those bytes were never loaded by the operator. Load it
   explicitly with `entangle plugins load <dir>`.
-- **Revocations** recorded in `revoked` are applied again.
+- **Revocations** recorded in `revoked` are applied again as soon as the
+  plugin's grants exist, before it can be called (a native plugin's sandbox
+  is derived without them, so it restores usable).
 - **An entry that cannot be restored** — its signature no longer verifies, its
   publisher left the keyring, it is above the ceiling, `[plugins] disabled`
   names it, its directory is gone — is skipped with one structured warning at

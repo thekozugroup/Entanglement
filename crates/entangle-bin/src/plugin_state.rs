@@ -11,13 +11,17 @@
 //!
 //! At startup [`restore`] reloads each entry **through the normal load
 //! path** — signature, keyring, tier ceiling, `[plugins] disabled`, runtime
-//! kind all re-run — and then:
+//! kind all re-run — with two additions
+//! ([`entangle_runtime::Kernel::load_plugin_expecting`]):
 //!
-//! - refuses a package whose artifact or manifest changed since it was
-//!   recorded (it is unloaded again: the operator never approved those
-//!   bytes; `entangle plugins load` them explicitly);
-//! - re-applies run-time revocations (`entangle perms revoke` survives a
-//!   restart).
+//! - a package whose id, artifact or manifest differs from what was recorded
+//!   is refused before anything of it is loaded (no registration, grant,
+//!   compile, storage, `migrate` hook or hot reload of a plugin restored
+//!   earlier): the operator never approved those bytes; `entangle plugins
+//!   load` them explicitly;
+//! - run-time revocations are withdrawn as soon as the plugin's grants exist,
+//!   before it can be called (`entangle perms revoke` survives a restart;
+//!   a native plugin's sandbox is derived without them).
 //!
 //! An entry that fails is skipped with one structured warning
 //! (`ENTANGLE-E0784`, target `entangle::telemetry`) and counted in
@@ -354,30 +358,27 @@ async fn restore_one(kernel: &Kernel, entry: &PluginEntry) -> Result<(), Skip> {
             "ENTANGLE-E0759: {expected} is in [plugins] disabled"
         )));
     }
-    let id = kernel
-        .load_plugin_from_dir(&entry.dir)
+    // The kernel compares the package with the entry on the bytes it then
+    // verifies, before anything of it is registered, granted, compiled or
+    // swapped in, and withdraws the recorded revocations before the plugin
+    // can be called.
+    let want = entangle_runtime::ExpectedPackage {
+        plugin_id: expected.clone(),
+        artifact_digest: entry.artifact_digest.clone(),
+        manifest_digest: entry.manifest_digest.clone(),
+        revoked: entry.revoked.clone(),
+    };
+    kernel
+        .load_plugin_expecting(&entry.dir, entangle_runtime::LoadOptions::default(), &want)
         .await
         .map_err(|e| match e {
             entangle_runtime::RuntimeError::PluginDisabled(_) => Skip::Disabled(e.to_string()),
+            entangle_runtime::RuntimeError::PackageChanged { found, .. } => Skip::Failed(format!(
+                "the package in {} changed since it was recorded (now {found}); it was not \
+                     reloaded automatically — load it again with `entangle plugins load`",
+                entry.dir.display()
+            )),
             e => Skip::Failed(e.to_string()),
         })?;
-    let source = kernel.loaded_source(&id);
-    let unchanged = id == expected
-        && source.as_ref().is_some_and(|s| {
-            s.artifact_digest == entry.artifact_digest && s.manifest_digest == entry.manifest_digest
-        });
-    if !unchanged {
-        let _ = kernel.unload(&id).await;
-        return Err(Skip::Failed(format!(
-            "the package in {} changed since it was recorded (now {id}); it was not \
-             reloaded automatically — load it again with `entangle plugins load`",
-            entry.dir.display()
-        )));
-    }
-    for key in &entry.revoked {
-        if let Err(e) = kernel.revoke_capability(&id, key) {
-            tracing::warn!(plugin = %id, capability = %key, error = %e, "could not re-apply a recorded revocation");
-        }
-    }
     Ok(())
 }

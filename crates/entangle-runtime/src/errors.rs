@@ -117,6 +117,24 @@ pub enum RuntimeError {
     )]
     StillDraining(Box<PluginId>),
 
+    /// The package is not the one the load expected
+    /// (`Kernel::load_plugin_expecting`: another plugin id, or other
+    /// artifact or manifest bytes than recorded); nothing of it was loaded.
+    #[error(
+        "ENTANGLE-E0791: the package in {} is not the one recorded for {expected} (it holds \
+         {found}{}); it was not loaded",
+        dir.display(),
+        if expected == found { " with different bytes" } else { "" }
+    )]
+    PackageChanged {
+        /// The package directory.
+        dir: std::path::PathBuf,
+        /// The plugin expected there.
+        expected: Box<PluginId>,
+        /// The plugin its manifest declares.
+        found: Box<PluginId>,
+    },
+
     /// Host code panicked during this plugin call and the panic was
     /// contained (spec §2.1): the call's instance is discarded, the plugin
     /// stays loaded and the daemon keeps running. See

@@ -96,6 +96,8 @@ mod restart {
 
     const HELLO: &[u8] = include_bytes!("../../entangle-host/tests/fixtures/hello-pong.wasm");
     const PROBE: &[u8] = include_bytes!("../../entangle-host/tests/fixtures/caps-probe.wasm");
+    const MIGRATING: &[u8] =
+        include_bytes!("../../entangle-host/tests/fixtures/lifecycle-probe.wasm");
 
     /// A node's on-disk state: `~/.entangle` and the packages it loads.
     pub(super) struct Node {
@@ -552,6 +554,56 @@ mod restart {
         let file = PluginStateFile::read(&node.state_file()).unwrap();
         let entry = file.plugins.iter().find(|e| e.id == v2_id).unwrap();
         assert_eq!(entry.revoked, ["storage.local"]);
+    }
+
+    /// A recorded package directory that now holds another version of a
+    /// plugin restored earlier in the file is refused before anything of it
+    /// runs: no hot reload of the restored plugin (no migrate hook on its
+    /// data, no swap), which stays loaded and recorded.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_package_dir_now_holding_another_version_never_reloads_a_restored_plugin() {
+        let node = Node::new();
+        let caps = "\"storage.local\" = { mode = \"rw\" }";
+        let (a, a_id) = node.package("lp", "1.0.0", MIGRATING, 1, caps);
+        let (b, b_id) = node.hello();
+        {
+            let reg = Registry::new();
+            let (d, _) = node.start(&reg).await;
+            for dir in [&a, &b] {
+                let r = rpc(&d, "plugins/load", serde_json::json!({ "dir": dir })).await;
+                assert!(r["error"].is_null(), "{r}");
+            }
+        }
+        // While the daemon is down, hello's directory is replaced by a signed
+        // lp@2.0.0 (an upgrade needing no consent).
+        let (newer, _) = node.package("lp", "2.0.0", MIGRATING, 1, caps);
+        std::fs::remove_dir_all(&b).unwrap();
+        std::fs::rename(&newer, &b).unwrap();
+
+        let reg = Registry::new();
+        let (d, report) = node.start(&reg).await;
+        assert_eq!(report.restored, [a_id.clone()], "{report:?}");
+        assert_eq!(report.failed.len(), 1, "{report:?}");
+        assert_eq!(report.failed[0].0, b_id);
+        assert!(
+            report.failed[0].1.contains("changed since it was recorded"),
+            "{report:?}"
+        );
+        assert_eq!(list(&d).await, vec![a_id.clone()]);
+        // lp@2.0.0's migrate hook never ran on lp's data.
+        let fp = node.kp.fingerprint_hex();
+        let migrated = node.dir.join("data/plugins").join(&fp).join("lp/migrated");
+        assert!(
+            !migrated.exists(),
+            "{}",
+            std::fs::read_to_string(&migrated).unwrap_or_default()
+        );
+        // Both entries stay recorded: lp@1.0.0 loaded, hello marked failed.
+        let file = PluginStateFile::read(&node.state_file()).unwrap();
+        let ids: Vec<&str> = file.plugins.iter().map(|e| e.id.as_str()).collect();
+        assert_eq!(ids, [a_id.as_str(), b_id.as_str()]);
+        assert!(file.plugins[0].failed.is_none());
+        assert!(file.plugins[1].failed.is_some());
     }
 
     /// Captures formatted log lines (JSON) for assertions.

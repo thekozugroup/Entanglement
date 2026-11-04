@@ -45,8 +45,9 @@ pub use entangle_manifest::lifecycle::{Activation, Lifecycle};
 pub use errors::RuntimeError;
 pub use integrity::{check_trusted_executor, verify_deterministic, IntegrityError, ReplicaOutput};
 pub use kernel::{
-    CapabilityDiff, ConsentRequired, DisabledPlugins, Kernel, KernelConfig, LoadOptions,
-    LoadOutcome, LoadedPluginInfo, MaxTierOutcome, MaxTierRefusal, PluginSource, Replaced,
+    CapabilityDiff, ConsentRequired, DisabledPlugins, ExpectedPackage, Kernel, KernelConfig,
+    LoadOptions, LoadOutcome, LoadedPluginInfo, MaxTierOutcome, MaxTierRefusal, PluginSource,
+    Replaced,
 };
 pub use lifecycle::{LifecycleEvent, LifecyclePhase};
 pub use loader::PluginPackage;

@@ -166,6 +166,26 @@ pub struct LoadOptions {
     pub allow_downgrade: bool,
 }
 
+/// What a load must find in its package, checked by
+/// [`Kernel::load_plugin_expecting`] on the very bytes it then verifies,
+/// before anything is registered, granted, compiled or swapped. The daemon
+/// restores its recorded plugins with it at startup.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExpectedPackage {
+    /// The plugin id the manifest must declare.
+    pub plugin_id: PluginId,
+    /// BLAKE3 (hex) the artifact must have.
+    pub artifact_digest: String,
+    /// BLAKE3 (hex) the manifest must have.
+    pub manifest_digest: String,
+    /// Capability keys (`storage.local`, ...) revoked as soon as they are
+    /// granted, before the plugin can be called: a run-time revocation
+    /// carried across a restart. A native plugin's sandbox is derived
+    /// without them. A key the manifest does not declare is logged and
+    /// skipped.
+    pub revoked: Vec<String>,
+}
+
 /// What [`Kernel::load_plugin`] did.
 #[derive(Clone, Debug)]
 pub struct LoadOutcome {
@@ -675,6 +695,34 @@ impl Kernel {
         dir: &Path,
         opts: LoadOptions,
     ) -> Result<LoadOutcome, RuntimeError> {
+        self.load_inner(dir, opts, None).await
+    }
+
+    /// [`Kernel::load_plugin`] of a package that must be exactly `expected`
+    /// (its id and the digests of its artifact and manifest), with
+    /// `expected.revoked` withdrawn before the plugin can be called.
+    ///
+    /// A package that differs is refused with
+    /// [`RuntimeError::PackageChanged`] (`ENTANGLE-E0791`) before anything
+    /// of it runs or is recorded: no broker registration, grant, storage
+    /// directory, compile, native staging, `migrate` hook or swap of another
+    /// version of the plugin. The comparison is made on the bytes read once
+    /// and then verified, so a file replaced in between cannot slip past.
+    pub async fn load_plugin_expecting(
+        &self,
+        dir: &Path,
+        opts: LoadOptions,
+        expected: &ExpectedPackage,
+    ) -> Result<LoadOutcome, RuntimeError> {
+        self.load_inner(dir, opts, Some(expected)).await
+    }
+
+    async fn load_inner(
+        &self,
+        dir: &Path,
+        opts: LoadOptions,
+        expected: Option<&ExpectedPackage>,
+    ) -> Result<LoadOutcome, RuntimeError> {
         let pkg = PluginPackage::from_directory(dir)?;
 
         // ── Step 1: Manifest ─────────────────────────────────────────────────
@@ -683,6 +731,22 @@ impl Kernel {
         let (manifest, lifecycle) = parse_manifest(&pkg.manifest_bytes)?;
         let plugin_id = manifest.plugin_id.clone();
         let effective_tier = manifest.effective_tier;
+        let artifact_digest = blake3::hash(&pkg.bytes).to_hex().to_string();
+        let manifest_digest = blake3::hash(&pkg.manifest_bytes).to_hex().to_string();
+
+        // The package the caller expects, or nothing at all.
+        if let Some(exp) = expected {
+            if plugin_id != exp.plugin_id
+                || artifact_digest != exp.artifact_digest
+                || manifest_digest != exp.manifest_digest
+            {
+                return Err(RuntimeError::PackageChanged {
+                    dir: pkg.dir.clone(),
+                    expected: Box::new(exp.plugin_id.clone()),
+                    found: Box::new(plugin_id),
+                });
+            }
+        }
 
         // Operator-disabled plugins (`[plugins] disabled`) never load, whatever
         // their signature says; refusing needs no verified manifest.
@@ -827,21 +891,34 @@ impl Kernel {
         // any grants, audited) so no partial state remains.
         let plugin = match self.resolve_capabilities(&plugin_id) {
             Err(e) => Err(e),
-            Ok(grants) => match runtime {
-                Runtime::Wasm => self
-                    .prepare_wasm(
-                        &plugin_id,
-                        &pkg,
-                        effective_tier,
-                        lifecycle,
-                        previous.as_ref(),
-                    )
-                    .await
-                    .map(|(p, migrated)| (p, Vec::new(), migrated)),
-                Runtime::Native => self
-                    .prepare_native(&plugin_id, &pkg, &grants)
-                    .map(|n| (PluginImpl::Native(Arc::new(n)), grants, false)),
-            },
+            Ok(mut grants) => {
+                // Revocations carried over (a restore): withdrawn before the
+                // plugin exists anywhere it could be called, and before a
+                // native sandbox is derived from the grants.
+                if let Some(exp) = expected {
+                    for key in &exp.revoked {
+                        if let Err(e) = self.broker.revoke(&plugin_id, key) {
+                            tracing::warn!(plugin = %plugin_id, capability = %key, error = %e, "could not re-apply a recorded revocation");
+                        }
+                    }
+                    grants.retain(|g| self.broker.is_live(&plugin_id, g.grant_id));
+                }
+                match runtime {
+                    Runtime::Wasm => self
+                        .prepare_wasm(
+                            &plugin_id,
+                            &pkg,
+                            effective_tier,
+                            lifecycle,
+                            previous.as_ref(),
+                        )
+                        .await
+                        .map(|(p, migrated)| (p, Vec::new(), migrated)),
+                    Runtime::Native => self
+                        .prepare_native(&plugin_id, &pkg, &grants)
+                        .map(|n| (PluginImpl::Native(Arc::new(n)), grants, false)),
+                }
+            }
         };
         let (plugin, sandbox_grants, migrated) = match plugin {
             Ok(p) => p,
@@ -936,8 +1013,8 @@ impl Kernel {
                         inflight: Arc::new(tokio::sync::RwLock::new(())),
                         source: PluginSource {
                             dir: pkg.dir.clone(),
-                            artifact_digest: blake3::hash(&pkg.bytes).to_hex().to_string(),
-                            manifest_digest: blake3::hash(&pkg.manifest_bytes).to_hex().to_string(),
+                            artifact_digest,
+                            manifest_digest,
                             lifecycle,
                         },
                     });
