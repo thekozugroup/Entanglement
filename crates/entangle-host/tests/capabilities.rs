@@ -86,7 +86,9 @@ struct Setup<'a> {
     deny: &'a [&'a str],
     classify: Option<fn(IpAddr) -> AddrClass>,
     /// Extra (already validated) capabilities appended to the manifest, for
-    /// kinds a wasm manifest cannot declare (tier-4 `storage.share`).
+    /// kinds a wasm manifest cannot declare (tier-4 `storage.share`). The
+    /// manifest's tiers are raised to what they imply, as the broker
+    /// refuses a capability above the manifest's tier (§4.3).
     extra: Vec<CapabilityKind>,
     storage_root: bool,
 }
@@ -117,6 +119,12 @@ impl<'a> Setup<'a> {
         let broker = Arc::new(Broker::new(policy).with_metrics(registry.clone()));
         let mut m = manifest(self.name, self.tier, self.caps);
         m.capabilities.extend(self.extra);
+        let implied = m.capabilities.iter().map(|c| c.min_tier()).max();
+        if let Some(t) = implied.filter(|t| *t > m.declared_tier) {
+            m.declared_tier = t;
+            m.implied_tier = t;
+            m.effective_tier = t;
+        }
         let id = m.plugin_id.clone();
         let tier = m.effective_tier;
         broker.register_plugin(m).expect("register");

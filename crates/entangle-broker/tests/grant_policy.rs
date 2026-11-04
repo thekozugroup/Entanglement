@@ -366,3 +366,36 @@ fn custom_capabilities_have_one_audit_name() {
         ]
     );
 }
+
+/// §4.3: every capability's `min_tier` gates it. A manifest whose
+/// capability list was extended after validation (its fields are public)
+/// cannot smuggle a capability above its tier past the broker: the
+/// registration is refused and nothing is ever granted.
+#[test]
+fn registration_refuses_capabilities_above_the_manifest_tier() {
+    let broker = Broker::new(BrokerPolicy::default());
+    let mut m = manifest("smuggler", r#""compute.cpu" = {}"#);
+    assert_eq!(m.effective_tier, entangle_types::tier::Tier::Networked);
+    m.capabilities.push(CapabilityKind::HostDockerSocket);
+    let id = m.plugin_id.clone();
+    let err = broker.register_plugin(m).unwrap_err();
+    assert!(
+        matches!(err, BrokerError::TierBelowCapability { .. }),
+        "{err}"
+    );
+    assert!(err.to_string().starts_with("ENTANGLE-E0042"), "{err}");
+    assert!(err.to_string().contains("host.docker-socket"), "{err}");
+    assert!(broker.declared(&id).is_none(), "nothing was registered");
+    assert!(broker
+        .grant(&id, &CapabilityKind::HostDockerSocket)
+        .is_err());
+
+    // Raising the tiers consistently is a different (tier-5) manifest, and
+    // registers.
+    let mut m = manifest("honest", r#""compute.cpu" = {}"#);
+    m.capabilities.push(CapabilityKind::HostDockerSocket);
+    m.declared_tier = entangle_types::tier::Tier::Native;
+    m.implied_tier = entangle_types::tier::Tier::Native;
+    m.effective_tier = entangle_types::tier::Tier::Native;
+    broker.register_plugin(m).unwrap();
+}

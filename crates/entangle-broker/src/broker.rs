@@ -193,9 +193,15 @@ impl Broker {
     /// Register a validated plugin manifest with the broker.
     ///
     /// Enforces the tier ceiling from [`BrokerPolicy::max_tier_allowed`]
-    /// (spec §9.4.1). The manifest validation layer (`entangle-manifest`)
-    /// has already ensured `declared >= implied` (spec §4.4.1); the broker
-    /// does not re-check that invariant.
+    /// (spec §9.4.1), and re-checks the tier binding (spec §4.3): every
+    /// declared capability's `min_tier` must be within the manifest's
+    /// declared and effective tiers, or the registration is refused with
+    /// [`BrokerError::TierBelowCapability`] (`ENTANGLE-E0042`). Validation
+    /// already ensures this, but [`ValidatedManifest`]'s fields are public,
+    /// so a capability list changed after validation must not pass for a
+    /// validated one. The registered manifest is private to the broker and
+    /// never changes, so every later grant (which must match a declared
+    /// capability) is within the tier too.
     ///
     /// Registration is strictly insert-only: a second registration under the
     /// same [`PluginId`] returns [`BrokerError::AlreadyRegistered`] instead of
@@ -203,6 +209,19 @@ impl Broker {
     /// grants with no `CapabilityReleased` audit trail).
     pub fn register_plugin(&self, manifest: ValidatedManifest) -> Result<(), BrokerError> {
         self.policy.check_plugin_load(manifest.effective_tier)?;
+        let ceiling = manifest.declared_tier.min(manifest.effective_tier);
+        if let Some(cap) = manifest
+            .capabilities
+            .iter()
+            .find(|c| c.min_tier() > ceiling)
+        {
+            return Err(BrokerError::TierBelowCapability {
+                plugin: manifest.plugin_id.clone(),
+                declared: ceiling,
+                implied: cap.min_tier(),
+                capability: cap.key().into_owned(),
+            });
+        }
 
         let plugin_id = manifest.plugin_id.clone();
         let declared_tier = manifest.declared_tier;
