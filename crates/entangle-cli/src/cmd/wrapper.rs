@@ -322,6 +322,18 @@ pub fn disable() -> Result<()> {
     Ok(())
 }
 
+/// Remove the shim from every rc file without recording anything (for
+/// `entangle uninstall` on a machine with no `~/.entangle`, which must not
+/// create one).
+pub fn remove_blocks() -> Result<()> {
+    let hosts = rcblock::hosts_from_adapters();
+    let failed = apply(Op::Remove, &hosts)?;
+    if failed > 0 {
+        bail!("{failed} rc file(s) could not be cleaned; fix them and re-run");
+    }
+    Ok(())
+}
+
 /// What config.toml records about the shim: `Some(true)` opted in,
 /// `Some(false)` opted out, `None` never asked.
 pub fn recorded_choice() -> Option<bool> {

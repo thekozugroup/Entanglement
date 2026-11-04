@@ -426,7 +426,9 @@ async fn launch(
         .clone();
     // Who owns the directory, so `entangle agent host cleanup` can tell a
     // live session from one a SIGKILL left behind.
-    crate::cmd::install::write_session_owner(dir.as_std_path(), session.agent())?;
+    if let Err(e) = crate::cmd::install::write_session_owner(dir.as_std_path(), session.agent()) {
+        tracing::warn!(error = %format!("{e:#}"), "session owner not recorded; `entangle agent host cleanup` will treat this directory as unowned");
+    }
 
     if let Some(stop) = *stop.borrow() {
         // Asked to stop before the agent started: do not start it.

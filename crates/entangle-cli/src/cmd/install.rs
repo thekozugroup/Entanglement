@@ -270,7 +270,10 @@ pub fn cleanup_sessions(root: &Path, all: bool) -> Result<Vec<SessionOutcome>> {
         let entry = entry?;
         let name = entry.file_name().to_string_lossy().into_owned();
         let path = entry.path();
-        let meta = std::fs::symlink_metadata(&path)?;
+        // An entry that disappears meanwhile (a session ending) is skipped.
+        let Ok(meta) = std::fs::symlink_metadata(&path) else {
+            continue;
+        };
         if !is_session_name(&name) || !meta.file_type().is_dir() {
             continue;
         }
@@ -478,7 +481,15 @@ pub async fn run_uninstall(a: UninstallArgs) -> Result<i32> {
     }
 
     println!("{}", st.bold("[1/4] Shell wrappers"));
-    if let Err(e) = crate::cmd::wrapper::disable() {
+    // `wrapper disable` records the opt-out in config.toml; with no
+    // ~/.entangle at all, only the rc blocks are removed (uninstall must not
+    // create the directory it is cleaning up).
+    let removed = if config::entangle_dir().exists() {
+        crate::cmd::wrapper::disable()
+    } else {
+        crate::cmd::wrapper::remove_blocks()
+    };
+    if let Err(e) = removed {
         eprintln!("{} {e:#}", Style::stderr().warning());
     }
 

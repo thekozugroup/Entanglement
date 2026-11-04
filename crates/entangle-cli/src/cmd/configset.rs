@@ -863,17 +863,18 @@ fn write(key: &str, raw: Option<&str>) -> Result<i32> {
     for note in edit.notes {
         println!("note: {note}");
     }
-    follow_up_hints(&r, &cfg);
+    follow_up_hints(&r, raw, &cfg);
     Ok(0)
 }
 
 /// After enabling a multi-node transport, say how to pair (spec §9.2 step 4:
 /// "re-runs the wizard's pairing prompt").
-fn follow_up_hints(r: &Resolved, cfg: &entangle_bin::config::Config) {
-    let enabling = matches!(
+fn follow_up_hints(r: &Resolved, raw: Option<&str>, cfg: &entangle_bin::config::Config) {
+    let switched_on = matches!(
         r.spec.target,
         Target::TransportMember(_) | Target::Tailscale
-    ) || r.spec.key == "mesh.transports";
+    ) && raw.map(str::trim) == Some("true");
+    let enabling = switched_on || (r.spec.key == "mesh.transports" && raw.is_some());
     if !enabling || cfg.mesh.transports.is_empty() || has_trusted_peer(&peers_path()) {
         return;
     }

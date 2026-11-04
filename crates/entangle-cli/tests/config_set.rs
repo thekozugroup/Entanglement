@@ -255,3 +255,24 @@ fn shipped_config_set_hints_name_working_commands() {
         );
     }
 }
+
+/// The pairing commands are printed when a transport is switched on with no
+/// device paired, and not when one is switched off.
+#[test]
+fn enabling_a_transport_with_no_peer_prints_the_pairing_commands() {
+    let home = TempDir::new().unwrap();
+    entangle(&home)
+        .args(["config", "set", "mesh.iroh.enabled", "true"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("entangle pair --print-code"));
+    entangle(&home)
+        .args(["config", "set", "mesh.local.enabled", "true"])
+        .assert()
+        .success();
+    entangle(&home)
+        .args(["config", "set", "mesh.local.enabled", "false"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("entangle pair").not());
+}

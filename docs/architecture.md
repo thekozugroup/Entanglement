@@ -1095,7 +1095,7 @@ Interactive. makes the single-node-vs-multi-node split explicit and resolves the
 3. Asks for an optional human label ("alice-laptop").
 
 4. **Single-node-or-not branch.** Asks: *"Will this daemon ever talk to another Entanglement node?"*
-   - **No** → single-node mode. No transports enabled by default; `[trust] entangle.peers` left empty; daemon starts. The user can later run `entangle config set mesh.local.enabled true` etc., which re-runs the wizard's pairing prompt.
+   - **No** → single-node mode. No transports enabled by default; `[trust] entangle.peers` left empty; daemon starts. The user can later run `entangle config set mesh.local.enabled true` etc., which re-runs the wizard's pairing prompt. *(Implementation note (deviation): `entangle config set` prints the `entangle pair --print-code` / `entangle pair <code>` commands when it switches a transport on with no device paired, rather than prompting.)*
 
 - **Yes** → continue to step 5. The wizard will not let `init` finish without populating `[trust] entangle.peers` (or the user explicitly opting back into single-node mode).
 

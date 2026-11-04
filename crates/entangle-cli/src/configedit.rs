@@ -9,11 +9,12 @@
 //! itself is atomic and keeps the file's permissions
 //! ([`crate::fsutil::atomic_write`]).
 //!
-//! Tables are addressed by path (`["mesh", "tailscale"]`); a path may run
-//! through standard tables (`[mesh.tailscale]`) or inline ones
-//! (`mesh = { tailscale = { ... } }`), and missing tables are created as
-//! standard tables (the parents of a new nested table stay implicit, so no
-//! empty `[mesh]` header appears).
+//! Tables are addressed by path (`["mesh", "tailscale"]`). Values are read
+//! through standard (`[mesh.tailscale]`) and inline (`mesh = { ... }`)
+//! tables alike, but written only into standard ones: an inline table on the
+//! path is refused (`ENTANGLE-E0754`, "fix it by hand") rather than
+//! rewritten. Missing tables are created as standard tables (the parents of
+//! a new nested table stay implicit, so no empty `[mesh]` header appears).
 
 use std::path::Path;
 
@@ -66,8 +67,10 @@ impl ConfigDoc {
     }
 
     /// The table at `path`, created (with implicit parents) when missing.
-    fn table_at_mut(&mut self, path: &[&str]) -> Result<&mut dyn TableLike> {
-        let mut cur: &mut dyn TableLike = self.doc.as_table_mut();
+    /// Only standard tables are written to: an inline table on the path
+    /// (`security = { ... }`) is refused, as before, rather than rewritten.
+    fn table_at_mut(&mut self, path: &[&str]) -> Result<&mut Table> {
+        let mut cur: &mut Table = self.doc.as_table_mut();
         for (depth, name) in path.iter().enumerate() {
             let shown = path[..=depth].join(".");
             let last = depth + 1 == path.len();
@@ -78,7 +81,7 @@ impl ConfigDoc {
                 t.set_implicit(!last);
                 Item::Table(t)
             });
-            cur = item.as_table_like_mut().ok_or_else(|| {
+            cur = item.as_table_mut().ok_or_else(|| {
                 anyhow::anyhow!(
                     "ENTANGLE-E0754: [{shown}] in config.toml is not a table; fix it by hand"
                 )
@@ -338,20 +341,25 @@ opt_in = false
             Some(true)
         );
 
-        // Inline tables are edited where they are.
-        let mut d = ConfigDoc::parse("mesh = { transports = [\"local\"] }\n").unwrap();
+        // Inline tables are read, but never rewritten.
+        let inline = "mesh = { transports = [\"local\"] }\n";
+        let mut d = ConfigDoc::parse(inline).unwrap();
+        assert_eq!(d.get_str_array_at(&["mesh"], "transports"), ["local"]);
+        let err = d
+            .add_to_str_array_at(&["mesh"], "transports", "iroh")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("ENTANGLE-E0754"), "{err}");
+        assert_eq!(d.to_text(), inline);
+        assert!(!d.remove_at(&["nope"], "x").unwrap());
+        let mut d = ConfigDoc::parse("[mesh]\ntransports = [\"local\"]\n").unwrap();
         assert!(d
             .add_to_str_array_at(&["mesh"], "transports", "iroh")
             .unwrap());
         assert!(!d
             .add_to_str_array_at(&["mesh"], "transports", "iroh")
             .unwrap());
-        assert_eq!(
-            d.get_str_array_at(&["mesh"], "transports"),
-            ["local", "iroh"]
-        );
         assert!(d.remove_at(&["mesh"], "transports").unwrap());
-        assert!(!d.remove_at(&["nope"], "x").unwrap());
     }
 
     #[test]

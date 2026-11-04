@@ -218,3 +218,16 @@ fn purge_needs_the_typed_word_or_yes() {
     assert!(!env.dot().exists());
     assert!(env.home.path().join(".codex/config.toml").exists());
 }
+
+/// Uninstall on a machine that was never set up removes nothing it should
+/// not and does not create the directory it cleans up.
+#[test]
+fn uninstall_without_an_install_creates_nothing() {
+    let env = Env::new();
+    env.cmd()
+        .arg("uninstall")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No checksums were recorded"));
+    assert!(!env.dot().exists(), "~/.entangle must not be created");
+}
