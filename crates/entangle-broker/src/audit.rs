@@ -237,7 +237,18 @@ impl AuditLog {
     /// When the log is at capacity the oldest retained event is evicted and
     /// the dropped counter incremented.
     pub fn record(&self, e: AuditEvent) {
-        tracing::info!(target: "entangle::audit", event = ?e, "broker audit");
+        // Operator-facing events carry their stable code as a field (so the
+        // daemon log can be grepped for e.g. `ENTANGLE-W0214`, spec §9.4.1
+        // step 4), and W-codes are logged as warnings.
+        match e.code() {
+            Some(code) if code.starts_with("ENTANGLE-W") => {
+                tracing::warn!(target: "entangle::audit", code, event = ?e, "broker audit")
+            }
+            Some(code) => {
+                tracing::info!(target: "entangle::audit", code, event = ?e, "broker audit")
+            }
+            None => tracing::info!(target: "entangle::audit", event = ?e, "broker audit"),
+        }
         let mut events = self.events.lock();
         while events.len() >= self.max_events {
             events.pop_front();
@@ -382,6 +393,59 @@ mod tests {
         let denied = log.filter(t, Some(AuditKind::CapabilityDenied));
         assert_eq!(denied.len(), 1);
         assert_eq!(denied[0].kind(), AuditKind::CapabilityDenied);
+    }
+
+    /// Spec §9.4.1 step 4: "the daemon emits a structured ENTANGLE-W0214
+    /// warning per plugin". The `entangle::audit` log line of an event with a
+    /// stable code carries that code as a field, and W-codes log at WARN.
+    #[test]
+    fn coded_events_log_their_code_and_warnings_at_warn_level() {
+        use std::sync::{Arc, Mutex};
+        #[derive(Clone)]
+        struct Buf(Arc<Mutex<Vec<u8>>>);
+        impl std::io::Write for Buf {
+            fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(b);
+                Ok(b.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let buf = Buf(Arc::new(Mutex::new(Vec::new())));
+        let writer = buf.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(move || writer.clone())
+            .with_ansi(false)
+            .with_max_level(tracing::Level::TRACE)
+            .finish();
+        let log = AuditLog::default();
+        tracing::subscriber::with_default(subscriber, || {
+            log.record(AuditEvent::PluginDisabledByCeiling {
+                plugin: plugin("hot"),
+                tier: Tier::Native,
+                old_ceiling: Tier::Native,
+                new_ceiling: Tier::Networked,
+                at: SystemTime::UNIX_EPOCH,
+            });
+            log.record(AuditEvent::CeilingLowered {
+                old_ceiling: Tier::Native,
+                new_ceiling: Tier::Networked,
+                unloaded: 1,
+                at: SystemTime::UNIX_EPOCH,
+            });
+        });
+        let out = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
+        let lines: Vec<&str> = out.lines().collect();
+        assert_eq!(lines.len(), 2, "{out}");
+        assert!(
+            lines[0].contains("WARN") && lines[0].contains("ENTANGLE-W0214"),
+            "{out}"
+        );
+        assert!(
+            lines[1].contains("INFO") && lines[1].contains("ENTANGLE-I0215"),
+            "{out}"
+        );
     }
 
     fn registered(name: &str, at: SystemTime) -> AuditEvent {

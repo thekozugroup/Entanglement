@@ -881,7 +881,9 @@ Decision [u/c]:
 **Audit trail.** Each outcome is written in two places: the daemon's in-memory
 broker audit log (`ENTANGLE-W0214` per unloaded plugin, `ENTANGLE-I0215`
 summary, `ENTANGLE-I0216` on cancel, `ENTANGLE-I0217` for a raise — the same log that records grants and
-releases, also emitted to the `entangle::audit` tracing target), and the durable
+releases, also emitted to the `entangle::audit` tracing target with the code in
+a `code` field — W-codes at WARN level, so `grep ENTANGLE-W0214` on the daemon
+log finds them), and the durable
 operator trail `~/.entangle/audit.log` (JSON lines, mode 0600), which survives
 daemon restarts and exists even when the daemon is down.
 
