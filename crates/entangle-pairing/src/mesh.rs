@@ -249,11 +249,11 @@ impl PairingListener {
     /// When a frame ends the session, this returns only once that frame has
     /// been delivered: the dialer closed the connection after reading it, or
     /// the listener's bound on that (the dialer's own round-trip timeout) ran
-    /// out. A caller may therefore shut the
-    /// listener down (or exit) the moment this returns without discarding the
-    /// dialer's `Finalize` — the session records the peer *before* that frame
-    /// is even written, so returning on the session state alone would leave
-    /// the dialer without it on a loaded machine or a slow link.
+    /// out. A caller may therefore shut the listener down, or exit, the moment
+    /// this returns without discarding the dialer's `Finalize`. The session
+    /// records the peer *before* that frame is even written, so returning on
+    /// the session state alone leaves the dialer without it whenever the
+    /// shutdown overtakes the frame (a loaded machine, a lossy link).
     pub async fn wait(&self) -> Result<PairedPeer, PairingMeshError> {
         let ttl = self.session.ttl();
         let deadline = TokioInstant::now() + self.session.time_remaining();
@@ -306,10 +306,14 @@ struct Progress {
     /// Woken whenever a frame has been fully handled, so `wait` observes
     /// state changes immediately instead of polling.
     notify: Notify,
-    /// Frames between "read off the wire" and "delivered". The session can
-    /// end inside [`HostSession::handle`], before the frame that ends it is
-    /// written; while this is non-zero `wait` must not report the end, or a
-    /// caller that shuts down right after would discard that frame.
+    /// Frames that reached a session that had not yet ended, between "read
+    /// off the wire" and "delivered". The session can end inside
+    /// [`HostSession::handle`], before the frame that ends it is written;
+    /// while this is non-zero `wait` must not report the end, or a caller that
+    /// shuts down right after would discard that frame.
+    ///
+    /// Frames arriving after the end are not counted: they cannot change the
+    /// outcome, and counting them would let late dialers hold `wait` open.
     in_flight: AtomicUsize,
 }
 
@@ -373,7 +377,9 @@ async fn serve_connection(session: &HostSession, conn: &MeshConn, progress: &Pro
                 break;
             }
         };
-        let _in_flight = progress.frame();
+        // Tracked only while the session is live: this may be the frame that
+        // ends it, and `wait` must then wait for its delivery.
+        let _in_flight = (!session.is_finished()).then(|| progress.frame());
         let response = session.handle(remote_key, request.payload());
         let finished = session.is_finished();
         if let Err(e) = request.respond(&response).await {
