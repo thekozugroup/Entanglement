@@ -24,8 +24,11 @@
 //! What lowers a score, and why, is a [`ReputationReason`]: an oversized
 //! output (INV-INT-2), a policy-hash echo that does not match (INV-INT-1), a
 //! replica that disagreed with the accepted quorum, an output the metric
-//! could not compare with any other replica's, or an accepted output that a
-//! Layer-2 spot-check failed to reproduce ([`crate::spot_check`]).
+//! could not compare with any other replica's, an accepted output that a
+//! Layer-2 spot-check failed to reproduce, or — for a spot-check executor —
+//! a re-run that a tie-breaker contradicted ([`crate::spot_check`]). A
+//! spot-check that confirms an accepted output credits the replicas behind
+//! it.
 //!
 //! The store is in-memory and per-node: it records this submitter's own
 //! observations and is never gossiped.
@@ -109,6 +112,10 @@ pub enum ReputationReason {
     /// Layer-2 spot-check re-run on another executor did not reproduce
     /// (spec §7.5, `ENTANGLE-E0319`): an attestation failure.
     SpotCheckMismatch,
+    /// As a Layer-2 spot-check executor, its re-run contradicted an accepted
+    /// output that an independent tie-breaking re-run then reproduced: it
+    /// lost the tie.
+    SpotCheckDissent,
 }
 
 impl ReputationReason {
@@ -122,6 +129,7 @@ impl ReputationReason {
             Self::BadChunkSignature => "bad-chunk-signature",
             Self::StreamProtocolViolation => "stream-protocol-violation",
             Self::SpotCheckMismatch => "spot-check-mismatch",
+            Self::SpotCheckDissent => "spot-check-dissent",
         }
     }
 }

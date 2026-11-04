@@ -93,8 +93,8 @@ deployment in this environment.
 - **Pairing:** 6-digit code over the network. A race where the responder closed the connection before its last frame was delivered is fixed (36 of 100 runs failed under load before, 0 of 100 after).
 - **Transports:** `mesh.local`, `mesh.iroh`, `mesh.tailscale`. Per peer the scheduler tries local, then tailscale (only when active), then iroh; `[mesh] preferred` and `[mesh.overrides]` change the order. It falls back only when a connect fails. The transport label appears in metrics and `diag`.
 - **Remote one-shot tasks:** `entangle compute dispatch`, gated on the peer allowlist.
-- **Integrity:** `Deterministic` (majority hash quorum across distinct workers), `SemanticEquivalent` (signed metric component, metric runs on the verifier, output-size guard before the metric loads), `TrustedExecutor`, policy hash envelope (`INV-INT-1`), `PolicyMutation` rejection, per-peer per-policy reputation (EWMA).
-- **Streaming tasks:** credit flow control, heartbeat with `PeerLost` after three missed pongs, signed chunks bound to the request, total-byte and chunk-count caps, partial-result policies. The daemon serves ALPN `entangle/stream/1` over Iroh and Tailscale. `entangle compute stream` dials over Iroh only.
+- **Integrity:** `Deterministic` (majority hash quorum across distinct workers), `SemanticEquivalent` (signed metric component, metric runs on the verifier, output-size guard before the metric loads), `TrustedExecutor`, policy hash envelope (`INV-INT-1`), `PolicyMutation` rejection, per-peer per-policy reputation (EWMA). Layer-2 replay spot-checks (1% of accepted `Deterministic` and `SemanticEquivalent` tasks by default, `[scheduler] spot_check_probability`) re-run a task after its result is returned, preferring the submitter's own kernel; a confirmed mismatch lowers the reputation of the replicas behind the accepted output. They detect, they do not prevent: the returned result is never changed. A lone remote checker cannot get honest replicas penalised: a tie-breaker re-run decides, and a checker that is outvoted loses reputation. Known limits are in `docs/operations.md` §11.
+- **Streaming tasks:** credit flow control, heartbeat with `PeerLost` after three missed pongs, signed chunks bound to the request, total-byte and chunk-count caps, partial-result policies. The daemon serves ALPN `entangle/stream/1` over Iroh and Tailscale. `entangle compute stream` uses the dispatcher's router (local, then tailscale, then iroh; `[mesh] preferred` and `[mesh.overrides]`; fallback only on connect failure, never after `Open` is sent). Stream invocations get a `plugin.invoke` span and `entangle_plugin_streams_total{plugin,outcome}` plus a duration histogram.
 - **Agents:** `entangle agent run` for claude-code, codex and opencode with a session-scoped config; the gateway authenticates a bearer token, applies allow/deny policy, writes an audit record, and starts stdio downstream servers with connection and size limits. HTTP (`url`) downstream servers are proxied over Streamable HTTP (JSON or SSE replies, `Mcp-Session-Id`, per-route request-id remapping, cancellation on timeout, no redirects, https only except loopback); the gateway's bearer token is never forwarded. Legacy `type: "sse"` servers are refused with `ENTANGLE-E0664`. Every HTTP server from the project's own config needs consent. Servers from the project's own config need consent (`--trust-project-servers`).
 - **Observability:** `/metrics` (disabled by default, loopback by default), `entangle metrics`, OTLP/HTTP JSON traces (`http://` endpoints only), `traceparent` on the scheduler wire, `entangle diag mesh [--probe]`.
 - **Distribution:** `plugins publish|tags|install oci://...`; `plugins mirror-sign` writes signed mirror listings (they expire, 7 days by default) with separate mirror keys (ATC-MIR-1/2); reproducible archives and provenance; `Cargo.lock` is required.
@@ -119,16 +119,8 @@ deployment in this environment.
 | Published release | None | `install.sh` and the Homebrew formula need a `v0.1.0` tag |
 | Speculative execution, straggler mitigation, reputation gossip | Not implemented | Not started |
 
-### In progress, not in this tree yet
-
-(`main` itself is still at `43cdef5`, the baseline; the work in this file is on
-branch `claude/pensive-darwin-8e8jd5`.)
-
-| Item | Status | State in this tree |
-|---|---|---|
-| Layer-2 1% replay spot-check | In progress | Not available |
-| Per-peer transport routing for `entangle compute stream` | In progress | Dials Iroh only |
-| Streaming invocation metrics | In progress | Not available |
+`main` itself is still at `43cdef5`, the baseline; the work in this file is on
+branch `claude/pensive-darwin-8e8jd5`.
 
 ## Release pipeline
 

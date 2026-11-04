@@ -47,5 +47,5 @@ pub use runtime_kind::{check_runtime_kind, ArtifactKind, DeclaredRuntime};
 pub use state::HostState;
 pub use stream::{
     stream_port, ChunkAck, ChunkResult, LoadedStreamPlugin, PluginChunk, StreamInput, StreamPort,
-    StreamPortDriver, StreamRunResult, INPUT_HANDLE, OUTPUT_HANDLE,
+    StreamPortDriver, StreamRunResult, TeardownSignal, INPUT_HANDLE, OUTPUT_HANDLE,
 };

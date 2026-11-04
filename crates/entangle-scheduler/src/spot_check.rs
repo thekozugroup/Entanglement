@@ -12,10 +12,19 @@
 //! A sampled task is run once more, in the background, on an executor that
 //! produced none of its replicas:
 //!
-//! * the best-ranked live remote worker that ran no replica of the task and
-//!   whose reputation for the policy is not `Excluded`;
-//! * failing that, this node's own kernel, if it has the plugin loaded;
-//! * failing that, nobody: the check is skipped (`skipped_no_checker`).
+//! * this node's own kernel — the one executor the submitter can trust — if
+//!   it has the plugin loaded;
+//! * otherwise a live remote worker that ran no replica of the task and
+//!   whose reputation for the policy is not `Excluded`, drawn **at random**
+//!   (rank is self-advertised: a deterministic choice would let a worker
+//!   place itself to be the checker of every task, and know it);
+//! * failing those, nobody: the check is skipped (`skipped_no_checker`).
+//!
+//! An executor whose re-run produces nothing comparable — workers do not
+//! advertise their plugins, so one that does not have it is an ordinary
+//! case; or it is unreachable, or breaks a guard — does not end the check:
+//! the next one in that order is asked, up to [`MAX_EXECUTORS`]
+//! ([`SpotCheckRecord::unavailable`] lists who was skipped and why).
 //!
 //! The re-run passes the same guards as a replica (output size, then the
 //! echoed policy hash) and is then compared with the accepted output — on
@@ -23,11 +32,33 @@
 //!
 //! * `Deterministic`: byte-identical (BLAKE3);
 //! * `SemanticEquivalent`: the policy's metric distance between the
-//!   accepted output and the re-run's, which must be `< threshold`.
+//!   accepted output and the re-run's, which must be `< threshold`. The two
+//!   are compared in acceptance's canonical pair order (lower output BLAKE3
+//!   first, [`crate::integrity::canonical_operands`]), so an asymmetric
+//!   metric gives the distance acceptance would give the same pair.
 //!
-//! A mismatch is an **attestation failure** ([`SpotCheckVerdict::Mismatch`],
-//! `ENTANGLE-E0319`): every remote replica that produced or agreed with the
-//! accepted output loses reputation for that policy variant
+//! # One re-run never outweighs the replicas
+//!
+//! A re-run that reproduces the accepted output **confirms** it, and the
+//! remote replicas behind it are credited (so standing can rise as well as
+//! fall). A re-run that does not is decisive only when it is a
+//! `Deterministic` re-run on this node's own kernel. Otherwise — a remote
+//! checker might lie, and a `SemanticEquivalent` re-run might be an honest
+//! outlier, which acceptance itself would blame on the outlier — the next
+//! executor in the order above **breaks the tie** ([`TieBreak`]):
+//!
+//! * it reproduces the accepted output: the checker loses the tie (a remote
+//!   one loses reputation,
+//!   [`ReputationReason::SpotCheckDissent`](crate::ReputationReason::SpotCheckDissent))
+//!   and the verdict is `Confirmed`;
+//! * it reproduces the checker's output: the mismatch is corroborated;
+//! * it agrees with neither, or there is no executor left: `Inconclusive`,
+//!   nobody is blamed.
+//!
+//! A corroborated (or decisive) mismatch is an **attestation failure**
+//! ([`SpotCheckVerdict::Mismatch`], `ENTANGLE-E0319`): every remote replica
+//! that produced or agreed with the accepted output loses reputation for
+//! that policy variant
 //! ([`ReputationReason::SpotCheckMismatch`](crate::ReputationReason::SpotCheckMismatch)),
 //! a `SpotCheckAttestationFailure` warning is emitted at
 //! [`TELEMETRY_TARGET`], the
@@ -42,9 +73,10 @@
 //! asks for more replicas. What a spot-check does is make lying expensive
 //! over time — colluding replicas that agree on a wrong answer are caught at
 //! the sampling rate and lose standing until placement stops choosing them.
-//! The verdict trusts the checker's re-run; that is why a remote checker
-//! must itself be in good standing, and why this node's own kernel is the
-//! fallback.
+//! Only this node's kernel is trusted on its own word; with remote checkers
+//! only, a mismatch needs two independent executors to agree against the
+//! replicas, so a mesh with a single spare worker (and the plugin not
+//! loaded here) can confirm accepted outputs but not blame anyone.
 //!
 //! # What is never spot-checked
 //!
@@ -53,6 +85,15 @@
 //! * a task whose accepted output this node already reproduced on its own
 //!   kernel (a local replica produced or agreed with it): there is nothing
 //!   left to attest.
+//!
+//! # A local replica that was outvoted
+//!
+//! When this node's own kernel ran a replica and the remote majority
+//! outvoted it (its status is `disagreed`), its output — already in hand —
+//! *is* the re-run of a sampled task: nothing runs again, and no other
+//! executor is needed ([`SpotCheckRecord::reused_replica`]). The trusted
+//! kernel contradicting the accepted output is the strongest evidence a
+//! spot-check can have.
 //!
 //! # Bounded
 //!
@@ -81,8 +122,20 @@ pub const DEFAULT_PROBABILITY: f64 = 0.01;
 /// Default bound on spot-checks running at once.
 pub const DEFAULT_MAX_CONCURRENT: usize = 4;
 
+/// The largest [`SpotCheckConfig::max_concurrent`] accepted: each running
+/// spot-check holds a re-run and, for `SemanticEquivalent`, the accepted
+/// output (up to `max_output_bytes`), so a larger bound is no bound at all —
+/// and tokio's semaphore cannot hold more than `usize::MAX >> 3` permits.
+pub const MAX_CONCURRENT_LIMIT: usize = 1024;
+
 /// How many finished spot-checks [`SpotChecker::recent`] keeps.
 pub const AUDIT_CAPACITY: usize = 256;
+
+/// Most executors one spot-check asks to re-run its task: one that cannot
+/// produce a comparable re-run (the plugin is not installed there, it is
+/// unreachable, it broke a guard) is followed by the next eligible one, up
+/// to this many, so a single unusable checker cannot switch Layer 2 off.
+pub const MAX_EXECUTORS: usize = 4;
 
 /// The `event` field of the warning emitted for an attestation failure.
 pub const ATTESTATION_FAILURE_EVENT: &str = "SpotCheckAttestationFailure";
@@ -94,7 +147,7 @@ pub struct SpotCheckConfig {
     /// `0` never, `1` always. Values outside the range are clamped; `NaN`
     /// counts as `0`.
     pub probability: f64,
-    /// Most spot-checks running at once (at least 1).
+    /// Most spot-checks running at once, in `1..=`[`MAX_CONCURRENT_LIMIT`].
     pub max_concurrent: usize,
 }
 
@@ -116,8 +169,8 @@ impl SpotCheckConfig {
         }
     }
 
-    /// The probability clamped into `[0, 1]` (`NaN` is `0`) and a bound of at
-    /// least 1.
+    /// The probability clamped into `[0, 1]` (`NaN` is `0`) and the bound
+    /// into `1..=`[`MAX_CONCURRENT_LIMIT`].
     pub fn normalized(self) -> Self {
         let probability = if self.probability.is_nan() {
             0.0
@@ -126,7 +179,7 @@ impl SpotCheckConfig {
         };
         Self {
             probability,
-            max_concurrent: self.max_concurrent.max(1),
+            max_concurrent: self.max_concurrent.clamp(1, MAX_CONCURRENT_LIMIT),
         }
     }
 }
@@ -245,6 +298,23 @@ impl SpotCheckVerdict {
     }
 }
 
+/// The tie-breaking re-run of a spot-check whose first re-run contradicted
+/// the accepted output.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TieBreak {
+    /// Who ran it.
+    pub executor: PeerId,
+    /// Whether that is another node (`false`: this node's kernel).
+    pub remote: bool,
+    /// BLAKE3 of its output.
+    pub rerun_blake3: [u8; 32],
+    /// It agrees with the accepted output: the checker lost the tie.
+    pub agrees_with_accepted: bool,
+    /// It agrees with the checker's re-run: with the above false, the
+    /// mismatch is corroborated.
+    pub agrees_with_checker: bool,
+}
+
 /// The audit record of one finished spot-check.
 #[derive(Clone, Debug)]
 pub struct SpotCheckRecord {
@@ -256,7 +326,7 @@ pub struct SpotCheckRecord {
     pub policy: PolicyKind,
     /// Its policy hash `H` (INV-INT-1).
     pub policy_hash: PolicyHash,
-    /// Who re-ran it.
+    /// Who re-ran it (the re-run the verdict starts from).
     pub checker: PeerId,
     /// Whether the checker is another node (`false`: this node's kernel).
     pub checker_remote: bool,
@@ -269,8 +339,30 @@ pub struct SpotCheckRecord {
     /// The remote replicas that produced or agreed with the accepted output.
     pub implicated: Vec<PeerId>,
     /// Who lost reputation because of this check: the implicated replicas
-    /// on a mismatch, or a remote checker that broke a guard.
+    /// on a mismatch; a remote checker that broke a guard, or whose re-run a
+    /// tie-breaker contradicted.
     pub penalised: Vec<PeerId>,
+    /// The checker's output is the one its own replica of the task already
+    /// produced — this node's kernel, outvoted at acceptance — so nothing
+    /// ran again.
+    pub reused_replica: bool,
+    /// Executors asked to re-run the task before `checker` that produced
+    /// nothing comparable (the re-run failed — e.g. the plugin is not
+    /// installed there — was oversized, or echoed another policy hash),
+    /// with why. The check moved on to the next eligible executor.
+    pub unavailable: Vec<(PeerId, String)>,
+    /// The independent re-run that broke the tie after the checker's re-run
+    /// did not reproduce the accepted output (unless that re-run was
+    /// decisive: a `Deterministic` one on this node's kernel).
+    pub tie_breaker: Option<TieBreak>,
+    /// Who was credited (recorded correct) because the accepted output stood
+    /// up to the check: the implicated replicas, on a confirmation.
+    pub credited: Vec<PeerId>,
+    /// The id the checker's re-run was sent under, when it was sent to
+    /// another node: a fresh one per re-run, so no executor can link a re-run
+    /// to the task it checks (which goes in its own trace, too). `None` when
+    /// the re-run ran on this node or none was produced.
+    pub rerun_task_id: Option<TaskId>,
     /// The verdict.
     pub verdict: SpotCheckVerdict,
 }
@@ -300,6 +392,11 @@ impl SpotCheckRecord {
             accepted_blake3 = %hex::encode(self.accepted_blake3),
             rerun_blake3 = %self.rerun_blake3.map(hex::encode).unwrap_or_default(),
             distance = self.distance.unwrap_or(f64::NAN),
+            tie_breaker = %self
+                .tie_breaker
+                .as_ref()
+                .map(|t| t.executor.to_hex())
+                .unwrap_or_default(),
             penalised = %penalised,
             error = %error,
             "spot-check: an accepted result was not reproduced on another executor; \
@@ -440,6 +537,15 @@ impl SpotChecker {
     }
 }
 
+/// Shuffle `items` uniformly (Fisher–Yates over [`unit_random`]).
+pub(crate) fn shuffle<T>(items: &mut [T]) {
+    for i in (1..items.len()).rev() {
+        // `unit_random() < 1`, so this is at most `i`; `min` guards rounding.
+        let j = ((unit_random() * (i + 1) as f64) as usize).min(i);
+        items.swap(i, j);
+    }
+}
+
 /// A uniform draw from `[0, 1)` with 53 bits of OS randomness (the
 /// random bytes of a v4 UUID: bytes 9..16 carry no version or variant bits).
 fn unit_random() -> f64 {
@@ -479,6 +585,22 @@ mod tests {
         assert_eq!(SpotCheckConfig::default().probability, DEFAULT_PROBABILITY);
     }
 
+    /// A bound tokio's semaphore cannot hold (it panics above
+    /// `usize::MAX >> 3` permits) is clamped, not a panic.
+    #[test]
+    fn an_oversized_concurrency_bound_is_clamped() {
+        for max_concurrent in [usize::MAX, usize::MAX >> 2, MAX_CONCURRENT_LIMIT + 1] {
+            let checker = SpotChecker::new(SpotCheckConfig {
+                probability: 1.0,
+                max_concurrent,
+            });
+            assert_eq!(checker.config().max_concurrent, MAX_CONCURRENT_LIMIT);
+            assert_eq!(checker.in_flight(), 0);
+            let _slot = checker.try_begin().expect("a slot");
+            assert_eq!(checker.in_flight(), 1);
+        }
+    }
+
     #[test]
     fn probability_zero_never_samples_and_one_always_does() {
         let never = SpotChecker::new(SpotCheckConfig::with_probability(0.0));
@@ -500,6 +622,30 @@ mod tests {
             let u = unit_random();
             assert!((0.0..1.0).contains(&u), "{u}");
         }
+    }
+
+    #[test]
+    fn shuffle_permutes_uniformly_enough_to_vary_the_checker() {
+        let mut orders = std::collections::HashSet::new();
+        let mut firsts = [0usize; 4];
+        for _ in 0..2_000 {
+            let mut v = vec![0usize, 1, 2, 3];
+            shuffle(&mut v);
+            let mut sorted = v.clone();
+            sorted.sort_unstable();
+            assert_eq!(sorted, [0, 1, 2, 3], "a permutation");
+            firsts[v[0]] += 1;
+            orders.insert(v);
+        }
+        assert_eq!(orders.len(), 24, "every order occurs");
+        // 500 expected per value; sigma ~19.
+        for n in firsts {
+            assert!((350..650).contains(&n), "{firsts:?}");
+        }
+        let mut one = [7];
+        shuffle(&mut one);
+        assert_eq!(one, [7]);
+        shuffle::<u8>(&mut []);
     }
 
     #[test]
@@ -535,6 +681,11 @@ mod tests {
             distance: None,
             implicated: Vec::new(),
             penalised: Vec::new(),
+            reused_replica: false,
+            unavailable: Vec::new(),
+            tie_breaker: None,
+            credited: Vec::new(),
+            rerun_task_id: None,
             verdict,
         })
     }

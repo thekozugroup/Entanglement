@@ -75,14 +75,13 @@ troubleshooting: [`docs/install.md`](./docs/install.md).
 
 Pre-release. No version is tagged or published. Measured on commit `080ab0b`: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings` and `RUSTDOCFLAGS=-D warnings cargo doc` are clean, and `cargo test --workspace` reports 1552 passed, 0 failed, 10 ignored. All 35 acceptance IDs in architecture.md §16 are covered by live tests.
 
-Works now: local plugin hosting and invocation; pairing over the network; remote one-shot tasks over Iroh and Tailscale; streaming tasks (the daemon serves them over Iroh and Tailscale, `entangle compute stream` dials over Iroh only); integrity policies other than `Attested`; the MCP gateway (stdio and HTTP downstream servers) and `entangle agent run`; encrypted identity backup and restore; `plugins enable|disable`; tier-5 sandboxing on Linux; OCI publish and pull; metrics and traces.
+Works now: local plugin hosting and invocation; pairing over the network; remote one-shot tasks over Iroh and Tailscale; streaming tasks over Iroh and Tailscale (`entangle compute stream` picks the transport per peer like dispatch does); integrity policies other than `Attested`, with Layer-2 replay spot-checks; the MCP gateway (stdio and HTTP downstream servers) and `entangle agent run`; encrypted identity backup and restore; `plugins enable|disable`; tier-5 sandboxing on Linux; OCI publish and pull; metrics and traces.
 
 Not available yet:
 
 - `Attested` integrity (needs TEE hardware; returns `ENTANGLE-E0304`).
 - Native Windows (Phase 5). On Windows only WSL2 is targeted; no CI job runs on Windows or WSL2.
 - `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
-- In progress, not in this tree yet: the Layer-2 1% replay spot-check, per-peer transport routing for `entangle compute stream` (here it dials Iroh only), streaming invocation metrics.
 
 Full list with reasons: [`STATUS.md`](./STATUS.md). Changes: [`CHANGELOG.md`](./CHANGELOG.md).
 
@@ -126,8 +125,8 @@ The phase numbers below are this README's own. They differ from the phases in ar
 | 1     | Core runtime, WASM host, signing, manifest, UDS RPC, mDNS LAN, pairing, biscuit tokens, local scheduler, agent-host config adapter | Implemented |
 | 2     | Cross-node dispatch over Iroh; automatic pairing | Implemented |
 | 2b    | `mesh.tailscale`, multi-transport scheduling, MCP gateway HTTP server, tier-5 OS sandboxing, capability grants, Prometheus and OTLP export | Implemented, with the gaps listed in STATUS.md (sandbox paths other than Linux Landlock/seccomp never run on a real host; gateway proxies stdio downstream servers only) |
-| 3     | Integrity policies: `Deterministic`, `SemanticEquivalent` | Implemented. `Attested` is not implemented (needs TEE hardware). The Layer-2 1% replay spot-check is on an unmerged branch |
-| 4     | Streaming tasks with chunk signing | Implemented. The daemon serves streams over Iroh and Tailscale; `compute stream` dials Iroh only; streaming metrics are on an unmerged branch. Speculative execution, straggler mitigation and reputation gossip are not implemented (reputation is a local per-peer, per-policy score) |
+| 3     | Integrity policies: `Deterministic`, `SemanticEquivalent` | Implemented, with Layer-2 replay spot-checks (1% by default). `Attested` is not implemented (needs TEE hardware) |
+| 4     | Streaming tasks with chunk signing | Implemented. Streams run over Iroh and Tailscale, with per-peer transport selection in `compute stream`, and have invocation spans and metrics. Speculative execution, straggler mitigation and reputation gossip are not implemented (reputation is a local per-peer, per-policy score) |
 | 1.5   | Distribution: OCI registry, reproducible packages, release verification, install script, Homebrew | Code and CI workflows exist. No release is published; `install.sh` and Homebrew need a `v0.1.0` tag. Cross-host reproducibility and real cosign run only in CI. Bus-factor check fails by design (one holder per role) |
 | 5     | Native Windows AppContainer; Aider and Cursor adapters; plugin marketplace | Not started |
 

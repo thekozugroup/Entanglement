@@ -274,7 +274,9 @@ pub enum StreamEnd<'a> {
     Ok,
     /// The plugin failed; the error message (its code class is recorded).
     Err(&'a str),
-    /// The invocation was dropped before the plugin returned.
+    /// The stream was torn down under the plugin: the invocation was dropped
+    /// before it returned, or the plugin failed once its stream had been
+    /// closed under it, or it ran out of time.
     Cancelled,
 }
 

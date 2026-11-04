@@ -31,15 +31,15 @@
 
 use crate::{
     integrity::{
-        replica_count, IntegrityVerifier, OutputSizeExceededWarning, ReplicaBytes, ReplicaReport,
-        ReplicaResult, ReplicaStatus,
+        canonical_operands, replica_count, IntegrityVerifier, OutputSizeExceededWarning,
+        ReplicaBytes, ReplicaReport, ReplicaResult, ReplicaStatus,
     },
     placement::{choose, rank, PlacementChoice, PlacementError},
     remote::RemoteDispatch,
     reputation::ReputationReason,
     spot_check::{
-        Exemption, SkipReason, SpotCheck, SpotCheckConfig, SpotCheckHandle, SpotCheckRecord,
-        SpotCheckVerdict, SpotChecker,
+        shuffle, Exemption, SkipReason, SpotCheck, SpotCheckConfig, SpotCheckHandle,
+        SpotCheckRecord, SpotCheckVerdict, SpotChecker, TieBreak, MAX_EXECUTORS,
     },
     wire::RemoteErrorCode,
     work_unit::{PolicyEnvelope, PolicyHash},
@@ -50,7 +50,7 @@ use entangle_runtime::{IntegrityError, Kernel};
 use entangle_types::{
     errors::EntangleError,
     peer_id::PeerId,
-    task::{IntegrityPolicy, OneShotTask, PolicyKind},
+    task::{IntegrityPolicy, OneShotTask, PolicyKind, TaskId},
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -511,8 +511,13 @@ impl Dispatcher {
             .verifier
             .accept(&task, &envelope, vec![replica])
             .await?;
-        let spot_check =
-            self.schedule_spot_check(&task, &envelope, &acceptance.output, &acceptance.reports);
+        let spot_check = self.schedule_spot_check(
+            &task,
+            &envelope,
+            &acceptance.output,
+            &acceptance.reports,
+            Vec::new(),
+        );
         Ok(DispatchResult {
             chosen,
             output: acceptance.output,
@@ -644,9 +649,30 @@ impl Dispatcher {
             })
             .collect();
 
+        // A local replica the remote majority outvotes is a spot-check
+        // re-run already in hand (see `schedule_spot_check`); a metric needs
+        // its bytes, which acceptance consumes.
+        let local_outputs: Vec<(usize, Vec<u8>)> =
+            if self.spot.as_ref().is_some_and(|c| c.enabled())
+                && kind == PolicyKind::SemanticEquivalent
+            {
+                replicas
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, r)| !r.remote)
+                    .filter_map(|(i, r)| r.outcome.as_ref().ok().map(|o| (i, o.bytes.clone())))
+                    .collect()
+            } else {
+                Vec::new()
+            };
         let acceptance = self.verifier.accept(&task, &envelope, replicas).await?;
-        let spot_check =
-            self.schedule_spot_check(&task, &envelope, &acceptance.output, &acceptance.reports);
+        let spot_check = self.schedule_spot_check(
+            &task,
+            &envelope,
+            &acceptance.output,
+            &acceptance.reports,
+            local_outputs,
+        );
         Ok(DispatchResult {
             chosen: targets[acceptance.chosen].clone(),
             output: acceptance.output,
@@ -660,12 +686,17 @@ impl Dispatcher {
     /// Decide the Layer-2 spot-check of an accepted result and, when it is
     /// sampled and a slot and an executor are free, start it in the
     /// background (see [`crate::spot_check`]).
+    ///
+    /// `local_outputs` are the outputs of the replicas this node's kernel
+    /// ran, by replica index (`SemanticEquivalent` only: a hash comparison
+    /// needs just the reports).
     fn schedule_spot_check(
         &self,
         task: &OneShotTask,
         envelope: &PolicyEnvelope,
         output: &[u8],
         reports: &[ReplicaReport],
+        mut local_outputs: Vec<(usize, Vec<u8>)>,
     ) -> SpotCheck {
         let Some(checker) = self.spot.as_ref().filter(|c| c.enabled()) else {
             return SpotCheck::Disabled;
@@ -687,8 +718,34 @@ impl Dispatcher {
         if !checker.sample() {
             return SpotCheck::NotSampled;
         }
+        // This node's own kernel ran a replica and the remote majority
+        // outvoted it: the trusted kernel's output, already in hand, is the
+        // re-run — nothing needs to run again, and no other executor is
+        // needed.
+        let seed = reports
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| !r.remote && r.status == ReplicaStatus::Disagreed)
+            .find_map(|(i, r)| {
+                let bytes = match kind {
+                    PolicyKind::SemanticEquivalent => {
+                        let at = local_outputs.iter().position(|(j, _)| *j == i)?;
+                        Some(local_outputs.swap_remove(at).1)
+                    }
+                    _ => None,
+                };
+                Some(Rerun {
+                    executor: r.peer,
+                    remote: false,
+                    task_id: None,
+                    blake3: r.output_blake3?,
+                    bytes,
+                })
+            });
+        drop(local_outputs);
         let replicas: Vec<PeerId> = reports.iter().map(|r| r.peer).collect();
-        let Some((executor, remote)) = self.spot_check_executor(task, kind, &replicas) else {
+        let executors = self.spot_check_executors(task, kind, &replicas);
+        if seed.is_none() && executors.is_empty() {
             checker.note_no_checker();
             self.count_spot_check(kind, "skipped_no_checker");
             tracing::info!(
@@ -702,7 +759,7 @@ impl Dispatcher {
                  can run it"
             );
             return SpotCheck::Skipped(SkipReason::NoChecker);
-        };
+        }
         let Some(permit) = checker.try_begin() else {
             self.count_spot_check(kind, "skipped_saturated");
             tracing::info!(
@@ -728,14 +785,21 @@ impl Dispatcher {
             bytes: matches!(kind, PolicyKind::SemanticEquivalent).then(|| output.to_vec()),
         };
         let (tx, handle) = SpotCheckHandle::channel();
+        // The root of a trace of its own: a re-run frame carries the current
+        // trace context, and must not tell its executor which dispatch (and
+        // so which replicas) it checks. Linked here with `follows_from`, and
+        // by the `task_id` attribute, which stays on this node.
         let span = tracing::info_span!(
+            parent: None,
             "integrity.spot_check",
             task_id = %task.id,
             plugin = %task.plugin,
             policy = %kind,
-            checker = %executor,
-            checker_remote = remote,
+            // Known once an executor has produced the re-run.
+            checker = tracing::field::Empty,
+            checker_remote = tracing::field::Empty,
         );
+        span.follows_from(tracing::Span::current().id());
         let this = self.clone();
         let checker = Arc::clone(checker);
         let task = task.clone();
@@ -745,7 +809,7 @@ impl Dispatcher {
                 // Held for the re-run and comparison: the concurrency bound.
                 let slot = permit;
                 let record = Arc::new(
-                    this.run_spot_check(&task, &envelope, accepted, executor, remote, implicated)
+                    this.run_spot_check(&task, &envelope, accepted, executors, seed, implicated)
                         .await,
                 );
                 // The slot is free before the verdict is visible, so a
@@ -762,61 +826,311 @@ impl Dispatcher {
         SpotCheck::Scheduled(handle)
     }
 
-    /// Who re-runs a spot-checked task: the best-ranked live remote worker
-    /// that ran none of its `replicas` and is not excluded for `kind`, else
-    /// this node's kernel if it has the plugin loaded (and is not itself
-    /// among the replicas), else nobody.
-    fn spot_check_executor(
+    /// Who may re-run a spot-checked task, in the order they are asked:
+    /// this node's own kernel first — the one executor the submitter can
+    /// trust — if it has the plugin loaded and is not itself among the
+    /// `replicas`; then the live remote workers that ran none of them, fit
+    /// the task's resources and are not excluded for `kind`, in **random**
+    /// order (rank is self-advertised, so a worker could otherwise place
+    /// itself to be the checker every time) — at most [`MAX_EXECUTORS`].
+    /// Empty: nobody.
+    fn spot_check_executors(
         &self,
         task: &OneShotTask,
         kind: PolicyKind,
         replicas: &[PeerId],
-    ) -> Option<(PeerId, bool)> {
+    ) -> Vec<(PeerId, bool)> {
+        let mut out = Vec::new();
+        if !replicas.contains(&self.local_peer_id)
+            && self.kernel.plugin_world(&task.plugin) == Some("plugin")
+        {
+            out.push((self.local_peer_id, false));
+        }
         if self.remote.is_some() {
             let live = self.workers.live(self.worker_ttl);
             if let Ok(ranked) = rank(&live, &task.resources) {
-                let remote = ranked.into_iter().find(|c| {
-                    c.peer_id != self.local_peer_id
-                        && !replicas.contains(&c.peer_id)
-                        && self.verifier.reputation().is_eligible(&c.peer_id, kind)
-                });
-                if let Some(choice) = remote {
-                    return Some((choice.peer_id, true));
-                }
+                let mut remote: Vec<(PeerId, bool)> = ranked
+                    .into_iter()
+                    .filter(|c| {
+                        c.peer_id != self.local_peer_id
+                            && !replicas.contains(&c.peer_id)
+                            && self.verifier.reputation().is_eligible(&c.peer_id, kind)
+                    })
+                    .map(|c| (c.peer_id, true))
+                    .collect();
+                shuffle(&mut remote);
+                out.extend(remote);
             }
         }
-        let local_can_run = !replicas.contains(&self.local_peer_id)
-            && self.kernel.plugin_world(&task.plugin) == Some("plugin");
-        local_can_run.then_some((self.local_peer_id, false))
+        out.truncate(MAX_EXECUTORS);
+        out
     }
 
-    /// Re-run `task` on `executor` and compare with the accepted output.
-    /// Penalises the `implicated` replicas on a mismatch, and a remote
-    /// executor that breaks the size or policy-hash guard.
+    /// Re-run `task` — or take `seed`, a re-run already in hand — and
+    /// compare with the accepted output. The `executors` are asked in turn
+    /// until one produces a comparable output (one that cannot run the task
+    /// does not end the check).
+    ///
+    /// One re-run never outweighs the replicas on its own word: a re-run
+    /// that does not reproduce the accepted output is decisive only when it
+    /// is a `Deterministic` re-run on this node's own kernel. Otherwise the
+    /// next executor breaks the tie — if it reproduces the accepted output,
+    /// the checker loses ([`ReputationReason::SpotCheckDissent`], when
+    /// remote) and the verdict is `Confirmed`; if it reproduces the
+    /// checker's, the mismatch is corroborated; with no tie-breaker, or
+    /// three different answers, nobody is blamed (`Inconclusive`).
+    ///
+    /// On a mismatch the `implicated` replicas lose reputation; on a
+    /// confirmation they are credited. A remote executor that breaks the
+    /// size or policy-hash guard loses reputation too.
     async fn run_spot_check(
         &self,
         task: &OneShotTask,
         envelope: &PolicyEnvelope,
         accepted: Accepted,
-        executor: PeerId,
-        remote: bool,
+        executors: Vec<(PeerId, bool)>,
+        seed: Option<Rerun>,
         implicated: Vec<PeerId>,
     ) -> SpotCheckRecord {
         let kind = envelope.policy().kind();
         let reputation = self.verifier.reputation();
+        let (first, first_remote) = seed
+            .as_ref()
+            .map(|r| (r.executor, r.remote))
+            .or_else(|| executors.first().copied())
+            .unwrap_or((self.local_peer_id, false));
         let mut record = SpotCheckRecord {
             task_id: task.id,
             plugin: task.plugin.clone(),
             policy: kind,
             policy_hash: envelope.hash(),
-            checker: executor,
-            checker_remote: remote,
+            checker: first,
+            checker_remote: first_remote,
             accepted_blake3: accepted.blake3,
             rerun_blake3: None,
             distance: None,
             implicated,
             penalised: Vec::new(),
+            reused_replica: seed.is_some(),
+            unavailable: Vec::new(),
+            tie_breaker: None,
+            credited: Vec::new(),
+            rerun_task_id: None,
             verdict: SpotCheckVerdict::Confirmed,
+        };
+        let mut executors = executors.into_iter();
+        let out = match seed {
+            Some(rerun) => rerun,
+            None => match self
+                .next_rerun(task, envelope, &mut executors, &mut record)
+                .await
+            {
+                Some(rerun) => rerun,
+                None => {
+                    if let Some((executor, _)) = record.unavailable.last() {
+                        record.checker = *executor;
+                        record.checker_remote = *executor != self.local_peer_id;
+                    }
+                    record.verdict = SpotCheckVerdict::Inconclusive(format!(
+                        "no executor produced a comparable re-run ({})",
+                        describe_unavailable(&record.unavailable)
+                    ));
+                    return record;
+                }
+            },
+        };
+        record.checker = out.executor;
+        record.checker_remote = out.remote;
+        record.rerun_task_id = out.task_id;
+        let span = tracing::Span::current();
+        span.record("checker", tracing::field::display(out.executor));
+        span.record("checker_remote", out.remote);
+        record.rerun_blake3 = Some(out.blake3);
+        let accepted_view = (
+            accepted.bytes.as_deref().unwrap_or_default(),
+            &accepted.blake3,
+        );
+        let (agrees, distance) = match self.agreement(envelope, accepted_view, out.view()).await {
+            Ok(a) => a,
+            Err(e) => {
+                record.verdict = SpotCheckVerdict::Inconclusive(format!(
+                    "the metric could not compare the re-run with the accepted output: {e}"
+                ));
+                return record;
+            }
+        };
+        record.distance = distance;
+        if agrees {
+            self.credit(&mut record, kind);
+            return record;
+        }
+        let mut detail = match (envelope.policy(), distance) {
+            (IntegrityPolicy::SemanticEquivalent { threshold, .. }, Some(d)) => format!(
+                "returned an output at metric distance {d} from the accepted one (threshold \
+                 {threshold})"
+            ),
+            _ => format!(
+                "returned output with BLAKE3 {}, not the accepted {}",
+                hex::encode(out.blake3),
+                hex::encode(accepted.blake3)
+            ),
+        };
+
+        // A `Deterministic` re-run on this node's own kernel is decisive: the
+        // submitter trusts its kernel, and the output is byte-exact. Any
+        // other contradiction needs an independent tie-breaker before anyone
+        // is blamed (a remote checker may lie; a semantic re-run may be an
+        // honest outlier).
+        let decisive = !out.remote && kind == PolicyKind::Deterministic;
+        if !decisive {
+            let Some(tie) = self
+                .next_rerun(task, envelope, &mut executors, &mut record)
+                .await
+            else {
+                record.verdict = SpotCheckVerdict::Inconclusive(format!(
+                    "the re-run on {} {detail}, and no independent executor was left to break \
+                     the tie: one re-run does not outweigh the replicas, so nobody is blamed",
+                    out.executor
+                ));
+                return record;
+            };
+            let with_accepted = self.agreement(envelope, accepted_view, tie.view()).await;
+            let with_checker = self.agreement(envelope, out.view(), tie.view()).await;
+            let (Ok((agrees_with_accepted, _)), Ok((agrees_with_checker, _))) =
+                (with_accepted, with_checker)
+            else {
+                record.verdict = SpotCheckVerdict::Inconclusive(format!(
+                    "the metric could not compare the tie-breaking re-run on {}",
+                    tie.executor
+                ));
+                return record;
+            };
+            record.tie_breaker = Some(TieBreak {
+                executor: tie.executor,
+                remote: tie.remote,
+                rerun_blake3: tie.blake3,
+                agrees_with_accepted,
+                agrees_with_checker,
+            });
+            if agrees_with_accepted {
+                // The accepted output is reproduced after all: the checker
+                // lost the tie (unless the tie-breaker agrees with it too).
+                if !agrees_with_checker && out.remote {
+                    reputation.penalize(&out.executor, kind, ReputationReason::SpotCheckDissent);
+                    record.penalised.push(out.executor);
+                }
+                self.credit(&mut record, kind);
+                return record;
+            }
+            if !agrees_with_checker {
+                record.verdict = SpotCheckVerdict::Inconclusive(format!(
+                    "the re-run on {} {detail}, and the tie-breaking re-run on {} agrees with \
+                     neither: nobody is blamed",
+                    out.executor, tie.executor
+                ));
+                return record;
+            }
+            detail.push_str(&format!(
+                "; corroborated by an independent re-run on {}",
+                tie.executor
+            ));
+        }
+        for peer in &record.implicated {
+            reputation.penalize(peer, kind, ReputationReason::SpotCheckMismatch);
+        }
+        record.penalised.extend(record.implicated.iter().copied());
+        record.verdict = SpotCheckVerdict::Mismatch(IntegrityError::SpotCheckMismatch {
+            task: task.id.to_string(),
+            checker: out.executor.to_hex(),
+            detail,
+            agreed: record.implicated.len(),
+        });
+        record
+    }
+
+    /// The accepted output stood up to the check: credit the replicas behind
+    /// it, so standing rises with confirmations as it falls with failures.
+    fn credit(&self, record: &mut SpotCheckRecord, kind: PolicyKind) {
+        for peer in &record.implicated {
+            self.verifier.reputation().record_correct(peer, kind);
+        }
+        record.credited = record.implicated.clone();
+        record.verdict = SpotCheckVerdict::Confirmed;
+    }
+
+    /// Whether two outputs agree under the task's policy — identical bytes
+    /// always do (no metric is run); `SemanticEquivalent` compares in
+    /// acceptance's canonical pair order, a metric may be asymmetric — and
+    /// the metric distance when one was computed. `Err`: the metric could
+    /// not compare them.
+    async fn agreement(
+        &self,
+        envelope: &PolicyEnvelope,
+        x: (&[u8], &[u8; 32]),
+        y: (&[u8], &[u8; 32]),
+    ) -> Result<(bool, Option<f64>), IntegrityError> {
+        if x.1 == y.1 {
+            return Ok((true, None));
+        }
+        match envelope.policy() {
+            IntegrityPolicy::SemanticEquivalent {
+                metric, threshold, ..
+            } => {
+                let (a, b) = canonical_operands(x, y);
+                let d = self.verifier.metrics().compare(metric, a, b).await?;
+                Ok((d < *threshold, Some(d)))
+            }
+            _ => Ok((false, None)),
+        }
+    }
+
+    /// Ask `executors` in turn to re-run `task` until one produces a
+    /// comparable output; each that does not is listed in
+    /// `record.unavailable` with why. `None` when none of them did.
+    async fn next_rerun(
+        &self,
+        task: &OneShotTask,
+        envelope: &PolicyEnvelope,
+        executors: &mut impl Iterator<Item = (PeerId, bool)>,
+        record: &mut SpotCheckRecord,
+    ) -> Option<Rerun> {
+        for (executor, remote) in executors.by_ref() {
+            match self.rerun(task, envelope, executor, remote, record).await {
+                Ok(rerun) => return Some(rerun),
+                Err(why) => {
+                    tracing::debug!(
+                        %executor,
+                        why = %why,
+                        "spot-check executor produced nothing comparable; trying the next"
+                    );
+                    record.unavailable.push((executor, why));
+                }
+            }
+        }
+        None
+    }
+
+    /// Run `task` once more on `executor` and pass the result through the
+    /// guards a replica passes (output size, then the echoed policy hash).
+    /// `Err` (why) when it produced nothing comparable; a remote executor
+    /// that broke a guard is penalised and listed in `record.penalised`.
+    ///
+    /// The re-run is sent under a **fresh task id**: with the checked task's
+    /// id a node linked to one of its replicas would know exactly which
+    /// frame re-checks which accepted task.
+    async fn rerun(
+        &self,
+        task: &OneShotTask,
+        envelope: &PolicyEnvelope,
+        executor: PeerId,
+        remote: bool,
+        record: &mut SpotCheckRecord,
+    ) -> Result<Rerun, String> {
+        let kind = envelope.policy().kind();
+        let reputation = self.verifier.reputation();
+        let task = &OneShotTask {
+            id: uuid::Uuid::new_v4(),
+            ..task.clone()
         };
         let replica = if remote {
             self.remote_replica(task, executor, envelope).await
@@ -847,87 +1161,34 @@ impl Dispatcher {
                 reputation.penalize(&executor, kind, ReputationReason::OversizedOutput);
                 record.penalised.push(executor);
             }
-            record.verdict = SpotCheckVerdict::Inconclusive(format!(
+            return Err(format!(
                 "the re-run returned {actual} bytes, over max_output_bytes {declared}"
             ));
-            return record;
         }
-        let out = match replica.outcome {
-            Ok(out) => out,
-            Err(e) => {
-                record.verdict =
-                    SpotCheckVerdict::Inconclusive(format!("the re-run did not complete: {e}"));
-                return record;
-            }
-        };
+        let out = replica
+            .outcome
+            .map_err(|e| format!("the re-run did not complete: {e}"))?;
         // INV-INT-1, as for a replica.
         if out.observed_policy_hash != envelope.hash() {
             if remote {
                 reputation.penalize(&executor, kind, ReputationReason::PolicyHashMismatch);
                 record.penalised.push(executor);
             }
-            record.verdict = SpotCheckVerdict::Inconclusive(format!(
+            return Err(format!(
                 "the re-run reported policy hash {}, not the dispatched {}",
                 out.observed_policy_hash,
                 envelope.hash()
             ));
-            return record;
         }
-        let rerun_blake3 = *blake3::hash(&out.bytes).as_bytes();
-        record.rerun_blake3 = Some(rerun_blake3);
-        let mismatch = match envelope.policy() {
-            // Byte-identical output agrees under any metric; only a
-            // different output needs one (and its instantiation).
-            IntegrityPolicy::SemanticEquivalent {
-                metric, threshold, ..
-            } if rerun_blake3 != accepted.blake3 => {
-                let accepted_bytes = accepted.bytes.as_deref().unwrap_or_default();
-                match self
-                    .verifier
-                    .metrics()
-                    .compare(metric, accepted_bytes, &out.bytes)
-                    .await
-                {
-                    Ok(d) => {
-                        record.distance = Some(d);
-                        (d >= *threshold).then(|| {
-                            format!(
-                                "returned an output at metric distance {d} from the accepted \
-                                 one (threshold {threshold})"
-                            )
-                        })
-                    }
-                    Err(e) => {
-                        record.verdict = SpotCheckVerdict::Inconclusive(format!(
-                            "the metric could not compare the re-run with the accepted output: \
-                             {e}"
-                        ));
-                        return record;
-                    }
-                }
-            }
-            IntegrityPolicy::SemanticEquivalent { .. } => None,
-            _ => (rerun_blake3 != accepted.blake3).then(|| {
-                format!(
-                    "returned output with BLAKE3 {}, not the accepted {}",
-                    hex::encode(rerun_blake3),
-                    hex::encode(accepted.blake3)
-                )
-            }),
-        };
-        if let Some(detail) = mismatch {
-            for peer in &record.implicated {
-                reputation.penalize(peer, kind, ReputationReason::SpotCheckMismatch);
-            }
-            record.penalised = record.implicated.clone();
-            record.verdict = SpotCheckVerdict::Mismatch(IntegrityError::SpotCheckMismatch {
-                task: task.id.to_string(),
-                checker: executor.to_hex(),
-                detail,
-                agreed: record.implicated.len(),
-            });
-        }
-        record
+        let blake3 = *blake3::hash(&out.bytes).as_bytes();
+        Ok(Rerun {
+            executor,
+            remote,
+            task_id: remote.then_some(task.id),
+            blake3,
+            // Only a metric needs the bytes.
+            bytes: (kind == PolicyKind::SemanticEquivalent).then_some(out.bytes),
+        })
     }
 
     fn count_spot_check(&self, kind: PolicyKind, outcome: &str) {
@@ -987,6 +1248,40 @@ impl Dispatcher {
             remote: true,
             outcome,
         }
+    }
+}
+
+/// `unavailable` as one line for a verdict.
+fn describe_unavailable(unavailable: &[(PeerId, String)]) -> String {
+    if unavailable.is_empty() {
+        return "none was available".to_owned();
+    }
+    unavailable
+        .iter()
+        .map(|(peer, why)| format!("{peer}: {why}"))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// One spot-check re-run that produced a comparable output.
+struct Rerun {
+    /// Who ran it.
+    executor: PeerId,
+    /// Whether that is another node.
+    remote: bool,
+    /// The (fresh) id it was sent to `executor` under; `None` when it ran
+    /// on this node.
+    task_id: Option<TaskId>,
+    /// BLAKE3 of its output.
+    blake3: [u8; 32],
+    /// Its bytes, for a metric comparison (`SemanticEquivalent` only).
+    bytes: Option<Vec<u8>>,
+}
+
+impl Rerun {
+    /// `(bytes, BLAKE3)` for a comparison.
+    fn view(&self) -> (&[u8], &[u8; 32]) {
+        (self.bytes.as_deref().unwrap_or_default(), &self.blake3)
     }
 }
 

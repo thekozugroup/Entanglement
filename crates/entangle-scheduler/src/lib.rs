@@ -69,6 +69,7 @@ pub use remote::{
 pub use reputation::{ReputationReason, ReputationStore, ReputationTier};
 pub use spot_check::{
     SpotCheck, SpotCheckConfig, SpotCheckHandle, SpotCheckRecord, SpotCheckVerdict, SpotChecker,
+    TieBreak,
 };
 pub use stream::{
     open_stream, serve_streams, validate_submit as validate_stream_submit, StreamError,

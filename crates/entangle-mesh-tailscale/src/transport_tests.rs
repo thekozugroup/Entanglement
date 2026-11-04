@@ -1090,6 +1090,53 @@ async fn a_revoked_peer_is_not_served_on_its_open_connection() {
     );
 }
 
+/// A bounded round publishes the answers in hand at its deadline: a node
+/// whose port accepts and never answers (here on both of its addresses)
+/// does not cost the candidate every other node gave at once — the round
+/// ends at the deadline, not when the slow probes give up.
+#[tokio::test]
+async fn a_bounded_round_keeps_the_answers_in_hand_at_its_deadline() {
+    let (a, _) = node(AclMode::TrustTailnet, None).await;
+    let (b, kb) = node(AclMode::TrustTailnet, None).await;
+    let port = b.local_addr().port();
+    let mut silent = Vec::new();
+    for ip in ["127.0.0.2", "127.0.0.3"] {
+        let l = TcpListener::bind((ip, port)).await.unwrap();
+        silent.push(tokio::spawn(async move {
+            let mut held = Vec::new();
+            while let Ok((s, _)) = l.accept().await {
+                held.push(s);
+            }
+        }));
+    }
+    let json = r#"{"BackendState":"Running","Self":{"Online":true},"Peer":{
+        "slow":{"Online":true,"DNSName":"slow.t.ts.net.","TailscaleIPs":["127.0.0.2","127.0.0.3"]},
+        "bob":{"Online":true,"DNSName":"bob.t.ts.net.","TailscaleIPs":["127.0.0.1"]}}}"#;
+    let st = TailscaleStatus::parse(json).unwrap();
+    let started = std::time::Instant::now();
+    let found = a
+        .discover_on_port_within(&st, port, Duration::from_millis(800))
+        .await;
+    let took = started.elapsed();
+    assert!(
+        took < Duration::from_secs(4),
+        "ended at its deadline, not after the slow probes' 10 s handshake timeouts: {took:?}"
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].peer_id, id_of(&kb));
+    assert_eq!(a.candidate(&id_of(&kb)), Some(found[0].clone()));
+    // Without a deadline the round would still be waiting on the slow node.
+    assert!(
+        timeout(Duration::from_millis(800), a.discover_on_port(&st, port))
+            .await
+            .is_err(),
+        "the unbounded round waits for every probe"
+    );
+    for t in silent {
+        t.abort();
+    }
+}
+
 #[tokio::test]
 async fn discovery_bounds_concurrent_probes() {
     // 40 online "tailnet nodes" whose port accepts and then says nothing (as

@@ -48,6 +48,8 @@ use crate::plugin::{
 };
 use crate::state::{HostState, ResourceLimits};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use wasmtime::component::{Component, InstancePre};
@@ -130,6 +132,28 @@ pub struct StreamPort {
     chunks: mpsc::Sender<PluginChunk>,
     input: mpsc::Receiver<StreamInput>,
     input_ended: bool,
+    torn_down: TeardownSignal,
+}
+
+/// Whether the driver side closed a [`StreamPort`]'s stream under its guest:
+/// a `yield-chunk` was refused or found the stream gone, or `next-chunk`
+/// returned the stream's error or found the input gone. The driver does that
+/// only once the stream is over for reasons that are not the plugin's own —
+/// a cancel, a lost peer, a size cap, the stream's timeout — so a plugin that
+/// then fails was torn down, not broken. Cheap to clone; read it after the
+/// port has been handed to the invocation.
+#[derive(Clone, Debug, Default)]
+pub struct TeardownSignal(Arc<AtomicBool>);
+
+impl TeardownSignal {
+    /// Whether the guest has seen its stream closed under it.
+    pub fn torn_down(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+
+    fn set(&self) {
+        self.0.store(true, Ordering::Release);
+    }
 }
 
 /// The driver-facing end of a [`StreamPort`].
@@ -156,6 +180,7 @@ pub fn stream_port(input_buffer: usize) -> (StreamPort, StreamPortDriver) {
             chunks: chunk_tx,
             input: input_rx,
             input_ended: false,
+            torn_down: TeardownSignal::default(),
         },
         StreamPortDriver {
             chunks: chunk_rx,
@@ -165,6 +190,12 @@ pub fn stream_port(input_buffer: usize) -> (StreamPort, StreamPortDriver) {
 }
 
 impl StreamPort {
+    /// Tells, after the port is handed to an invocation, whether the stream
+    /// was closed under its guest (see [`TeardownSignal`]).
+    pub fn teardown_signal(&self) -> TeardownSignal {
+        self.torn_down.clone()
+    }
+
     /// `yield-chunk(handle, chunk)`: what the guest import does, also usable
     /// directly by a native (in-process) producer.
     pub async fn yield_chunk(&mut self, handle: u64, bytes: Vec<u8>) -> Result<(), String> {
@@ -174,14 +205,22 @@ impl StreamPort {
             ));
         }
         let (tx, rx) = oneshot::channel();
-        self.chunks
+        let sent = self
+            .chunks
             .send(PluginChunk {
                 bytes,
                 ack: ChunkAck(tx),
             })
-            .await
-            .map_err(|_| STREAM_CLOSED.to_owned())?;
-        rx.await.unwrap_or_else(|_| Err(STREAM_CLOSED.to_owned()))
+            .await;
+        let acked = match sent {
+            Ok(()) => rx.await.unwrap_or_else(|_| Err(STREAM_CLOSED.to_owned())),
+            Err(_) => Err(STREAM_CLOSED.to_owned()),
+        };
+        // A refusal (or no driver to answer) means the stream is over.
+        if acked.is_err() {
+            self.torn_down.set();
+        }
+        acked
     }
 
     /// `next-chunk(handle)`: what the guest import does, also usable
@@ -201,8 +240,14 @@ impl StreamPort {
                 self.input_ended = true;
                 ChunkResult::End
             }
-            Some(StreamInput::Error(e)) => ChunkResult::Error(e),
-            None => ChunkResult::Error(STREAM_CLOSED.to_owned()),
+            Some(StreamInput::Error(e)) => {
+                self.torn_down.set();
+                ChunkResult::Error(e)
+            }
+            None => {
+                self.torn_down.set();
+                ChunkResult::Error(STREAM_CLOSED.to_owned())
+            }
         }
     }
 }

@@ -464,7 +464,61 @@ fn compute_stream_needs_a_paired_peer_or_allow_local() {
         .args(["compute", "stream", PLUGIN, "--peer", &paired_id.to_hex()])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("no transport can reach peer"))
+        .stderr(predicate::str::contains("ENTANGLE-E0430"))
+        .stderr(predicate::str::contains("[scheduler] peers"));
+}
+
+/// When nothing can carry the stream to a paired peer, the command fails
+/// with the routing codes the docs promise (`ENTANGLE-E0430` inside
+/// `ENTANGLE-E0363`) and says, per transport, why it could not be used —
+/// from what is configured: with `"local"` enabled it is never told to
+/// enable `"local"`, and a peer the LAN browse did not see says so.
+#[test]
+fn compute_stream_without_a_route_names_the_code_and_what_is_configured() {
+    let tmp = TempDir::new().unwrap();
+    let dir = tmp.path().join(".entangle");
+    std::fs::create_dir_all(&dir).unwrap();
+    let identity = entangle_signing::IdentityKeyPair::generate();
+    std::fs::write(dir.join("identity.key"), identity.to_pem()).unwrap();
+    let paired = entangle_signing::IdentityKeyPair::generate();
+    let paired_id =
+        entangle_types::peer_id::PeerId::from_public_key_bytes(paired.public().as_bytes());
+    entangle_peers::PeerStore::open(dir.join("peers.toml"))
+        .unwrap()
+        .add(entangle_peers::TrustedPeer::new(
+            paired_id,
+            hex::encode(paired.public().as_bytes()),
+            "desk".into(),
+        ))
+        .unwrap();
+
+    // Nothing configured: every transport's reason names its setting.
+    entangle(&tmp)
+        .args(["compute", "stream", PLUGIN, "--peer", &paired_id.to_hex()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0363"))
+        .stderr(predicate::str::contains("ENTANGLE-E0430"))
+        .stderr(predicate::str::contains(
+            "\"local\" is not in [mesh] transports",
+        ))
+        .stderr(predicate::str::contains("[mesh.tailscale]"))
+        .stderr(predicate::str::contains("[scheduler] peers"));
+
+    // `local` enabled, the peer off the LAN: no advice to enable it.
+    std::fs::write(
+        dir.join("config.toml"),
+        "[mesh]\ntransports = [\"local\"]\n",
+    )
+    .unwrap();
+    entangle(&tmp)
+        .args(["compute", "stream", PLUGIN, "--peer", &paired_id.to_hex()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0430"))
+        .stderr(predicate::str::contains("local: "))
+        .stderr(predicate::str::contains("not in [mesh] transports").not())
+        .stderr(predicate::str::contains("enable \"local\"").not())
         .stderr(predicate::str::contains("[scheduler] peers"));
 }
 

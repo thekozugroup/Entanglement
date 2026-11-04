@@ -478,7 +478,9 @@ impl IntegrityVerifier {
                     .map(|r| r.outcome.as_ref().map_or(&[][..], |o| o.bytes.as_slice()))
                     .collect();
 
-                // Canonical order: output BLAKE3, then peer id, then index.
+                // Canonical order: output BLAKE3, then peer id, then index —
+                // so each pair below is compared as `canonical_operands`
+                // orders it (the order a spot-check compares in too).
                 let mut order = ok.clone();
                 order.sort_by(|&a, &b| {
                     (reports[a].output_blake3, replicas[a].peer, a).cmp(&(
@@ -756,6 +758,25 @@ impl IntegrityVerifier {
                 })
             }
         }
+    }
+}
+
+/// The two operands of one metric comparison in **canonical order**: the
+/// output with the lower BLAKE3 first, exactly the order
+/// [`IntegrityVerifier::accept`] compares every replica pair in. A metric
+/// may be asymmetric (BLEU's brevity penalty only punishes a short
+/// *candidate*, its first operand), so every other comparison of two outputs
+/// — a Layer-2 spot-check's — goes through this to compute the distance
+/// acceptance would compute for the same pair. Equal hashes mean equal bytes,
+/// for which the order cannot matter.
+pub fn canonical_operands<'a>(
+    x: (&'a [u8], &[u8; 32]),
+    y: (&'a [u8], &[u8; 32]),
+) -> (&'a [u8], &'a [u8]) {
+    if y.1 < x.1 {
+        (y.0, x.0)
+    } else {
+        (x.0, y.0)
     }
 }
 

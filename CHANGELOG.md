@@ -23,11 +23,13 @@ Integrity
 - Policy hash envelope (INV-INT-1) and `PolicyMutation` rejection.
 - Per-peer per-policy reputation (EWMA).
 - Majority hash quorum for `Deterministic` across distinct workers.
+- Layer-2 replay spot-checks (spec §7.5): `[scheduler] spot_check_probability` (default 0.01) and `spot_check_max_concurrent`; re-runs prefer the submitter's kernel, use a fresh task id, and need a tie-breaker before a remote checker's dissent penalises anyone; `ENTANGLE-E0319`, `ReputationReason::SpotCheckMismatch` and `SpotCheckDissent`, `entangle_integrity_spot_checks_total{policy,outcome}`.
 - Plugins `metric-bleu-4` and `metric-numerical-l2-relative`.
 
 Streaming
 - Streaming tasks: credit flow control, heartbeat with `PeerLost` after three missed pongs, signed chunks bound to the request, total-byte and chunk-count caps, partial-result policies.
-- The daemon serves ALPN `entangle/stream/1` over Iroh and Tailscale; `stream-lines` plugin; `entangle compute stream` (dials over Iroh only).
+- The daemon serves ALPN `entangle/stream/1` over Iroh and Tailscale; `stream-lines` plugin; `entangle compute stream`, which selects the transport per peer with the dispatcher's router.
+- Stream invocations get a `plugin.invoke` span (`world="stream-plugin"`), `entangle_plugin_streams_total{plugin,outcome}` and a duration histogram; cancelled streams count as cancelled.
 
 Plugins and sandboxing
 - New crate `entangle-sandbox`: Landlock (ABI probe), user and net namespace, seccomp socket-family filter, `no_new_privs`, rlimits, process groups; bubblewrap and Seatbelt profile generation.
@@ -96,7 +98,6 @@ Tests
 - `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
 - Bus-factor check fails by design (one holder per role).
 - No published release; `install.sh` and Homebrew need a `v0.1.0` tag.
-- In progress, not in this tree yet: Layer-2 1% replay spot-check; per-peer transport routing for `compute stream`; streaming invocation metrics.
 
 ### Earlier, before `43cdef5`
 

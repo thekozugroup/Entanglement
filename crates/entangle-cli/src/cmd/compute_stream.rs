@@ -443,6 +443,12 @@ async fn start_dialers(
         .sightings
         .as_ref()
         .is_some_and(|s| s.peers().contains(&peer));
+    if dialers.sightings.is_some() && !lan_route {
+        dialers.notes.push(format!(
+            "local: peer {peer} was not seen on the LAN (mDNS, {} ms)",
+            LAN_BROWSE.as_millis()
+        ));
+    }
     if routing.wants_iroh(&peer, address) || lan_route {
         let config = MeshIrohConfig {
             alpn: ALPN_STREAM.to_vec(),
@@ -483,15 +489,8 @@ async fn start_tailnet(
         .await
         .map_err(|e| format!("the client transport did not start: {e}"))?;
     let state = status.classify();
-    if matches!(state, entangle_mesh_tailscale::TailnetState::Active)
-        && tokio::time::timeout(
-            TAILNET_DISCOVERY,
-            transport.discover_on_port(&status, settings.port),
-        )
-        .await
-        .is_err()
-    {
-        tracing::debug!("tailnet discovery did not finish in time");
+    if matches!(state, entangle_mesh_tailscale::TailnetState::Active) {
+        tailnet_round(&transport, &status, settings.port, TAILNET_DISCOVERY).await;
     }
     let (_, liveness) = watch::channel(LivenessSnapshot {
         state: Some(state),
@@ -499,6 +498,20 @@ async fn start_tailnet(
         transitions: 1,
     });
     Ok((transport, liveness))
+}
+
+/// One discovery round on `port`, for at most `limit`. A node still being
+/// probed then (one that accepts and never answers costs `connect_timeout +
+/// handshake_timeout` per address, longer than the cap) is abandoned, and
+/// the answers already in hand — the executor's, typically within
+/// milliseconds — are kept as candidates.
+async fn tailnet_round(
+    transport: &MeshTailscale,
+    status: &entangle_mesh_tailscale::TailscaleStatus,
+    port: u16,
+    limit: Duration,
+) {
+    transport.discover_on_port_within(status, port, limit).await;
 }
 
 /// Listen on mDNS for `peer`'s sighting for up to [`LAN_BROWSE`]: its route
@@ -660,14 +673,7 @@ async fn run_remote(a: &StreamArgs, task: &StreamingTask, spec: &str) -> anyhow:
         Some(router) => open_routed(&router, peer, task)
             .await
             .map_err(|e| with_notes(e.into(), &dialers.notes)),
-        None => Err(with_notes(
-            anyhow::anyhow!(
-                "no transport can reach peer {peer}: give its long address (--peer \
-                 <pubkey-hex>@host:port, or [scheduler] peers), or enable \"local\" or \
-                 mesh.tailscale in ~/.entangle/config.toml"
-            ),
-            &dialers.notes,
-        )),
+        None => Err(no_route(peer, &routing, address.as_ref(), &dialers).into()),
     };
     let result = match opened {
         Ok((handle, transport)) => consume(handle, a.json, task.partial_result, transport).await,
@@ -675,6 +681,63 @@ async fn run_remote(a: &StreamArgs, task: &StreamingTask, spec: &str) -> anyhow:
     };
     dialers.shutdown().await;
     result
+}
+
+/// Nothing this run started can carry a stream to `peer`: the router's
+/// `ENTANGLE-E0430` inside `ENTANGLE-E0363`, as when the router itself finds
+/// no route, with each transport's reason taken from what is configured (a
+/// transport that is enabled is never "to be enabled").
+fn no_route(
+    peer: PeerId,
+    routing: &Routing,
+    address: Option<&IrohPeer>,
+    dialers: &Dialers,
+) -> StreamError {
+    let order = routing.policy.order_for(&peer);
+    let not_listed = |kind: TransportKind| {
+        format!(
+            "{}: [mesh.overrides] does not list it for this peer",
+            kind.as_str()
+        )
+    };
+    let noted = |prefix: &str| {
+        dialers
+            .notes
+            .iter()
+            .find(|n| n.starts_with(prefix))
+            .cloned()
+    };
+    let local = if !routing.transports.iter().any(|t| t == "local") {
+        "local: \"local\" is not in [mesh] transports".to_owned()
+    } else if !order.contains(&TransportKind::Local) {
+        not_listed(TransportKind::Local)
+    } else {
+        noted("local: ").unwrap_or_else(|| format!("local: peer {peer} was not seen on the LAN"))
+    };
+    let tailscale = if routing.tailnet.is_none() {
+        "tailscale: not enabled (set [mesh.tailscale] enabled = true and list \"tailscale\" in \
+         [mesh] transports)"
+            .to_owned()
+    } else if !order.contains(&TransportKind::Tailscale) {
+        not_listed(TransportKind::Tailscale)
+    } else {
+        noted("tailscale: ")
+            .unwrap_or_else(|| "tailscale: the tailnet transport did not start".into())
+    };
+    let iroh = if address.is_none() {
+        "iroh: no address for the peer (give --peer <pubkey-hex>@host:port, or add it to \
+         [scheduler] peers)"
+            .to_owned()
+    } else if !order.contains(&TransportKind::Iroh) {
+        not_listed(TransportKind::Iroh)
+    } else {
+        noted("iroh: ").unwrap_or_else(|| "iroh: the endpoint did not start".into())
+    };
+    let route = entangle_scheduler::RouteError::NoRoute {
+        peer,
+        detail: [local, tailscale, iroh].join("; "),
+    };
+    StreamError::Transport(route.to_string())
 }
 
 /// `error`, plus why transports this run wanted did not start.
@@ -999,7 +1062,7 @@ mod tests {
             }
         }
 
-        fn peer_of(key: &IdentityKeyPair) -> PeerId {
+        pub(super) fn peer_of(key: &IdentityKeyPair) -> PeerId {
             PeerId::from_public_key_bytes(key.public().as_bytes())
         }
 
@@ -1012,7 +1075,7 @@ mod tests {
             }
         }
 
-        fn tailnet_config(allow: &[PeerId]) -> MeshTailscaleConfig {
+        pub(super) fn tailnet_config(allow: &[PeerId]) -> MeshTailscaleConfig {
             MeshTailscaleConfig {
                 acl_mode: AclMode::EntangleOnTop,
                 allowlist: Some(Arc::new(TailnetAllowlist::new(allow.iter().copied()))),
@@ -1029,17 +1092,17 @@ mod tests {
 
         /// An executor serving `stream-lines` on an iroh endpoint and a
         /// tailnet listener (both on loopback), for `submitter` only.
-        struct Executor {
-            peer_id: PeerId,
+        pub(super) struct Executor {
+            pub(super) peer_id: PeerId,
             key: IdentityKeyPair,
             iroh: Arc<MeshIroh>,
-            tailnet: MeshTailscale,
+            pub(super) tailnet: MeshTailscale,
             plugin: PluginId,
             _dir: tempfile::TempDir,
         }
 
         impl Executor {
-            async fn start(submitter: PeerId) -> Self {
+            pub(super) async fn start(submitter: PeerId) -> Self {
                 let publisher = IdentityKeyPair::generate();
                 let mut keyring = Keyring::new();
                 keyring.add(TrustEntry {
@@ -1258,6 +1321,56 @@ mod tests {
             exec.tailnet.shutdown().await;
             let got = stream_once(me, &all, &dialers(None, TailnetState::Active), &exec).await;
             assert_eq!(got, Ok(("one\ntwo\n".into(), Some(TransportKind::Iroh))));
+        }
+    }
+
+    /// One slow tailnet node — online in `tailscale status`, but its port
+    /// accepts and never answers the handshake (a host that drops or stalls
+    /// the port; a sleeping laptop still shown online) — must not hide the
+    /// executor, which answers at once: the round's cap publishes what was
+    /// found instead of throwing every candidate away.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_slow_tailnet_node_does_not_hide_the_executor() {
+        let key = IdentityKeyPair::generate();
+        let me = loopback::peer_of(&key);
+        let exec = loopback::Executor::start(me).await;
+        let port = exec.tailnet.local_addr().port();
+        // The slow node, dual-stack as tailnet nodes are: both its addresses
+        // accept on the probed port and then say nothing.
+        let mut silent = Vec::new();
+        for ip in ["127.0.0.2", "127.0.0.3"] {
+            let listener = tokio::net::TcpListener::bind((ip, port)).await.unwrap();
+            silent.push(tokio::spawn(async move {
+                let mut held = Vec::new();
+                while let Ok((conn, _)) = listener.accept().await {
+                    held.push(conn);
+                }
+            }));
+        }
+        let status = entangle_mesh_tailscale::TailscaleStatus::parse(
+            r#"{"BackendState":"Running","Self":{"Online":true},"Peer":{
+              "slow":{"Online":true,"DNSName":"slow.ts.net.","TailscaleIPs":["127.0.0.2","127.0.0.3"]},
+              "exec":{"Online":true,"DNSName":"exec.ts.net.","TailscaleIPs":["127.0.0.1"]}}}"#,
+        )
+        .unwrap();
+        let client = MeshTailscale::start(&key, loopback::tailnet_config(&[]))
+            .await
+            .unwrap();
+        let started = std::time::Instant::now();
+        tailnet_round(&client, &status, port, Duration::from_millis(1500)).await;
+        let took = started.elapsed();
+        assert!(
+            took < Duration::from_secs(5),
+            "bounded by the cap: {took:?}"
+        );
+        let found = client.candidate(&exec.peer_id);
+        assert!(
+            found.is_some(),
+            "the executor answered in time and must be a candidate: {:?}",
+            client.candidates()
+        );
+        for task in silent {
+            task.abort();
         }
     }
 
