@@ -69,6 +69,30 @@ thread_local! {
     static CRITICAL: Cell<u32> = const { Cell::new(0) };
 }
 
+/// Files removed just before a core-fault exit (the RPC socket).
+static REMOVE_ON_FAULT_EXIT: std::sync::Mutex<Vec<std::path::PathBuf>> =
+    std::sync::Mutex::new(Vec::new());
+
+/// Remove `path` when the process exits with [`EXIT_CORE_FAULT`] (from the
+/// panic hook or [`TaskEnded::exit`]): a core-fault exit is otherwise
+/// immediate and runs no destructors.
+pub fn remove_on_fault_exit(path: impl Into<std::path::PathBuf>) {
+    if let Ok(mut paths) = REMOVE_ON_FAULT_EXIT.lock() {
+        paths.push(path.into());
+    }
+}
+
+/// Best effort: never blocks on a poisoned or contended lock while the
+/// process is going down.
+fn fault_exit() -> ! {
+    if let Ok(paths) = REMOVE_ON_FAULT_EXIT.try_lock() {
+        for p in paths.iter() {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+    std::process::exit(EXIT_CORE_FAULT)
+}
+
 /// Whether a panic raised on this thread right now would be contained.
 pub fn is_contained() -> bool {
     CONTAINED.with(Cell::get) > 0 && CRITICAL.with(Cell::get) == 0
@@ -116,7 +140,7 @@ pub fn install_panic_hook() {
             "ENTANGLE-E0787: panic in core code; exiting so the service manager restarts \
              the daemon"
         );
-        std::process::exit(EXIT_CORE_FAULT);
+        fault_exit();
     }));
 }
 
@@ -359,7 +383,7 @@ impl TaskEnded {
             "ENTANGLE-E0787: a core task ended while the daemon was running; exiting so \
              the service manager restarts the daemon"
         );
-        std::process::exit(EXIT_CORE_FAULT)
+        fault_exit()
     }
 }
 

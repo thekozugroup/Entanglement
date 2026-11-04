@@ -396,6 +396,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     // ── 6. Bind socket and spawn RPC accept loop ──────────────────────────────
     let socket_path_clone = socket_path.clone();
     let state_clone = state.clone();
+    entangle_core::fault::remove_on_fault_exit(socket_path.clone());
     supervisor.spawn("rpc-server", async move {
         if let Err(e) = server::serve(socket_path_clone, state_clone).await {
             tracing::error!(error = %e, "RPC server fatal error");
@@ -405,12 +406,9 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     // ── 7. Block on shutdown signal (or a core task ending) ──────────────────
     tokio::select! {
         () = wait_for_shutdown() => {}
-        ended = supervisor.next_ended() => {
-            // The socket would otherwise outlive the process; the next start
-            // replaces a stale socket anyway.
-            let _ = std::fs::remove_file(&socket_path);
-            ended.exit();
-        }
+        // Exits with status 70, removing the socket (registered above; the
+        // next start would replace a stale one anyway).
+        ended = supervisor.next_ended() => ended.exit(),
     }
 
     tracing::info!("shutting down entangled");
