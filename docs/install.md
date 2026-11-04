@@ -217,8 +217,12 @@ docker run -d \
 ```
 
 The image's `ENTRYPOINT` is `entangled` with a default command of `run`, so the
-container starts the daemon with no extra arguments. In Phase 1 the daemon
-listens only on a Unix socket — no ports are published.
+container starts the daemon with no extra arguments. The image publishes no
+ports. With `[mesh] transports = ["local"]` (what `entangle init
+--non-interactive` writes) and `[metrics]` off, the daemon opens no TCP port:
+RPC is on its Unix socket and discovery uses mDNS. Adding `iroh` or
+`tailscale` to `transports`, or setting `[metrics] enabled = true`, opens a UDP
+or TCP port.
 
 Run CLI commands inside the container (they share the volume, hence the same
 `~/.entangle`):
@@ -691,8 +695,10 @@ daemon resolves `~/.entangle` from `$HOME`; the unit sets
 Ubuntu 24.04 runners. On older distros or on musl (Alpine), use the container
 image or build from source.
 
-**Peers are not discovered** — Phase 1 discovery is mDNS on the LAN
-(`mesh.local`). Under Docker it needs `network_mode: host` on a Linux host;
+**Peers are not discovered** — automatic discovery is mDNS on the LAN
+(`mesh.local`) and, with `mesh.tailscale` enabled, probing of the online
+tailnet peers. `mesh.iroh` peers are not discovered; list them in
+`[scheduler] peers`. Under Docker it needs `network_mode: host` on a Linux host;
 Docker Desktop for Mac cannot bridge mDNS to your LAN.
 
 For the full operator runbook — config schema, error codes, backup/restore —
