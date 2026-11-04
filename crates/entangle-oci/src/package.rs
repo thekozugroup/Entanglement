@@ -28,6 +28,17 @@ pub const FILE_WASM: &str = "plugin.wasm";
 /// Signature bundle file name inside a package.
 pub const FILE_SIGNATURE: &str = "plugin.wasm.sig";
 
+/// Optional build-provenance record inside a package (`entangle plugins build`
+/// writes it; see `entangle-cli`'s `cmd::package::Provenance`). It is **not**
+/// covered by the publisher signature, which binds only the artifact and
+/// manifest; `entangle plugins verify --rebuild` is what checks it, by
+/// rebuilding from source and comparing.
+pub const FILE_PROVENANCE: &str = "provenance.json";
+
+/// Zstd compression level used by [`pack`]. Part of the reproducible-package
+/// contract (ATC-PKG-1): changing it changes every package digest.
+pub const ZSTD_LEVEL: i32 = 9;
+
 /// Cap on the decompressed size of a package (zip-bomb guard).
 pub const MAX_UNPACKED_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -40,6 +51,8 @@ pub struct PackageFiles {
     pub wasm: Vec<u8>,
     /// `plugin.wasm.sig` bytes (TOML signature bundle).
     pub signature: Vec<u8>,
+    /// `provenance.json` bytes, when the builder recorded provenance.
+    pub provenance: Option<Vec<u8>>,
 }
 
 impl PackageFiles {
@@ -54,6 +67,7 @@ impl PackageFiles {
             manifest: rd(FILE_MANIFEST)?,
             wasm: rd(FILE_WASM)?,
             signature: rd(FILE_SIGNATURE)?,
+            provenance: std::fs::read(dir.join(FILE_PROVENANCE)).ok(),
         })
     }
 
@@ -63,12 +77,18 @@ impl PackageFiles {
         std::fs::write(dir.join(FILE_MANIFEST), &self.manifest)?;
         std::fs::write(dir.join(FILE_WASM), &self.wasm)?;
         std::fs::write(dir.join(FILE_SIGNATURE), &self.signature)?;
+        if let Some(p) = &self.provenance {
+            std::fs::write(dir.join(FILE_PROVENANCE), p)?;
+        }
         Ok(())
     }
 }
 
-/// Pack files into the layer format. Deterministic for the same input
-/// (fixed order, zero mtimes, zero owners).
+/// Pack files into the layer format. Byte-for-byte deterministic for the same
+/// input (ATC-PKG-1): fixed entry order, mtime 0, uid/gid 0, empty
+/// uname/gname, mode 0644, and an explicitly parameterised single-threaded
+/// zstd stream (level [`ZSTD_LEVEL`], content size pledged, checksum on, no
+/// long-distance matching, no dictionary).
 pub fn pack(files: &PackageFiles) -> Result<Vec<u8>> {
     let mut tar = Vec::new();
     for (name, data) in [
@@ -78,9 +98,23 @@ pub fn pack(files: &PackageFiles) -> Result<Vec<u8>> {
     ] {
         tar_entry(&mut tar, name, data);
     }
+    if let Some(p) = &files.provenance {
+        tar_entry(&mut tar, FILE_PROVENANCE, p);
+    }
     tar.extend_from_slice(&[0u8; 1024]);
-    zstd::stream::encode_all(&tar[..], 9)
+    zstd_deterministic(&tar)
         .map_err(|e| OciError::InvalidPackage(format!("zstd compression failed: {e}")))
+}
+
+fn zstd_deterministic(tar: &[u8]) -> std::io::Result<Vec<u8>> {
+    use std::io::Write as _;
+    let mut enc = zstd::stream::write::Encoder::new(Vec::new(), ZSTD_LEVEL)?;
+    enc.set_pledged_src_size(Some(tar.len() as u64))?;
+    enc.include_contentsize(true)?;
+    enc.include_checksum(true)?;
+    enc.long_distance_matching(false)?;
+    enc.write_all(tar)?;
+    enc.finish()
 }
 
 /// Read a build directory and pack it.
@@ -122,7 +156,7 @@ pub fn unpack(bytes: &[u8]) -> Result<PackageFiles> {
         )));
     }
 
-    let (mut manifest, mut wasm, mut signature) = (None, None, None);
+    let (mut manifest, mut wasm, mut signature, mut provenance) = (None, None, None, None);
     let mut pos = 0usize;
     loop {
         let Some(h) = tar.get(pos..pos + 512) else {
@@ -172,6 +206,7 @@ pub fn unpack(bytes: &[u8]) -> Result<PackageFiles> {
             FILE_MANIFEST => &mut manifest,
             FILE_WASM => &mut wasm,
             FILE_SIGNATURE => &mut signature,
+            FILE_PROVENANCE => &mut provenance,
             other => return Err(bad(format!("unexpected entry {other:?}"))),
         };
         if slot.is_some() {
@@ -186,6 +221,7 @@ pub fn unpack(bytes: &[u8]) -> Result<PackageFiles> {
         manifest: need(manifest, FILE_MANIFEST)?,
         wasm: need(wasm, FILE_WASM)?,
         signature: need(signature, FILE_SIGNATURE)?,
+        provenance,
     })
 }
 
@@ -278,6 +314,7 @@ mod tests {
             manifest: b"[plugin]\nid = \"x\"\n".to_vec(),
             wasm: [0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9].repeat(200),
             signature: b"sig".to_vec(),
+            provenance: None,
         }
     }
 

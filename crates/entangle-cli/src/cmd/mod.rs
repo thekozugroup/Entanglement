@@ -15,6 +15,8 @@ pub mod pair;
 pub mod plugins;
 pub mod quickstart;
 pub mod rcblock;
+pub mod release;
+pub mod repro;
 pub mod scaffold;
 pub mod security;
 pub mod version;

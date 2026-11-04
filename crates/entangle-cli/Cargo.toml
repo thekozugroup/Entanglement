@@ -44,6 +44,9 @@ base64            = { workspace = true }
 serde_json        = { workspace = true }
 rand_core         = { workspace = true, features = ["getrandom"] }
 dialoguer         = { workspace = true }
+sha2              = { workspace = true }
+blake3            = { workspace = true }
+tempfile          = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix            = { workspace = true }
@@ -52,7 +55,6 @@ rustix            = { workspace = true }
 entangle-oci      = { workspace = true, features = ["testing"] }
 tokio             = { workspace = true, features = ["full"] }
 assert_cmd        = "2"
-tempfile          = { workspace = true }
 predicates        = "3"
 entangle-signing  = { workspace = true }
 entangle-pairing  = { path = "../entangle-pairing" }

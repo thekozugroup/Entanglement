@@ -25,6 +25,7 @@ use cmd::{
     pair::PairArgs,
     plugins::PluginsArgs,
     quickstart::QuickstartArgs,
+    release::ReleaseArgs,
     security::{ConfigArgs, SecurityArgs},
     wrapper::WrapperArgs,
 };
@@ -78,6 +79,9 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Author plugins (new, build) and manage loaded ones (list, load, unload, invoke).
     #[command(subcommand_required = true)]
     Plugins(PluginsArgs),
+    /// Verify and sign release artifacts; release-key ceremony.
+    #[command(subcommand_required = true)]
+    Release(ReleaseArgs),
     /// Manage the local mesh: list peers, trust/untrust/revoke.
     #[command(subcommand_required = true)]
     Mesh(MeshArgs),
@@ -165,6 +169,7 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Doctor => cmd::doctor::run().await,
         Cmd::Keyring(a) => cmd::keyring::run(a).await,
         Cmd::Plugins(a) => cmd::plugins::run(a).await,
+        Cmd::Release(a) => cmd::release::run(a).await,
         Cmd::Mesh(a) => cmd::mesh::run(a).await,
         Cmd::Pair(a) => cmd::pair::run(a).await,
         Cmd::Compute(a) => cmd::compute::run(a).await,

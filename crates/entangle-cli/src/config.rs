@@ -120,6 +120,12 @@ pub fn keyring_path() -> PathBuf {
     entangle_dir().join("keyring.toml")
 }
 
+/// Release-key keyring: a distinct trust class from the plugin-publisher
+/// keyring, so a publisher key can never vouch for an `entangle` release.
+pub fn release_keyring_path() -> PathBuf {
+    entangle_dir().join("release-keyring.toml")
+}
+
 // ---------------------------------------------------------------------------
 // I/O
 // ---------------------------------------------------------------------------

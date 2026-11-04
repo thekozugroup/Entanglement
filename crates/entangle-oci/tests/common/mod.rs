@@ -40,6 +40,7 @@ pub fn signed_files(kp: &IdentityKeyPair, name: &str, wasm: &[u8]) -> PackageFil
         signature: toml::to_string(&bundle_to_value(&bundle))
             .unwrap()
             .into_bytes(),
+        provenance: None,
     }
 }
 

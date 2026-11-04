@@ -39,7 +39,7 @@ pub use listing::{
 };
 pub use package::{
     pack, pack_dir, unpack, verify_package, PackageFiles, VerifiedPackage, FILE_MANIFEST,
-    FILE_SIGNATURE, FILE_WASM,
+    FILE_PROVENANCE, FILE_SIGNATURE, FILE_WASM,
 };
 pub use reference::{Digest, Reference, Selector};
 pub use types::*;
