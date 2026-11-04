@@ -384,9 +384,10 @@ is encrypted with a passphrase: Argon2id (64 MiB, 3 passes, 1 lane; above the
 OWASP minimum) derives a key for XChaCha20-Poly1305, and the format header
 (magic, version, KDF parameters, salt, nonce) is authenticated as associated
 data, so changing any byte of the file makes it unreadable. The passphrase
-comes from a TTY prompt (asked twice, at least 8 characters),
-`--passphrase-file <file>` (first line) or `ENTANGLE_BACKUP_PASSPHRASE`; it is
-never accepted on the command line. Without a TTY and without one of those
+comes from `--passphrase-file <file>` (first line), else from
+`ENTANGLE_BACKUP_PASSPHRASE` when it is set (even at a terminal; the command
+says so on stderr), else from a TTY prompt (asked twice); at least 8
+characters. It is never accepted on the command line. Without a TTY and without one of those
 sources the command fails instead of hanging. The archive is written with mode
 `0600`, atomically; an existing `--to` file is only replaced with `--force`.
 A successful backup touches `~/.entangle/.identity_backed_up`, which silences

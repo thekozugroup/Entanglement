@@ -97,8 +97,9 @@ pub struct BackupArgs {
     /// Also include config.toml.
     #[arg(long)]
     pub include_config: bool,
-    /// Read the passphrase from this file (first line) instead of prompting.
-    /// `ENTANGLE_BACKUP_PASSPHRASE` is used when neither this nor a TTY is available.
+    /// Read the passphrase from this file (first line). Without it,
+    /// `ENTANGLE_BACKUP_PASSPHRASE` is used when set (even at a terminal);
+    /// otherwise the passphrase is prompted for, twice, on the terminal.
     #[arg(long, value_name = "FILE")]
     pub passphrase_file: Option<PathBuf>,
     /// Overwrite an existing archive at --to.
@@ -116,8 +117,9 @@ pub struct RestoreArgs {
     /// first copied to ~/.entangle/restore-backup-<unix_ts>/).
     #[arg(long)]
     pub force: bool,
-    /// Read the passphrase from this file (first line) instead of prompting.
-    /// `ENTANGLE_BACKUP_PASSPHRASE` is used when neither this nor a TTY is available.
+    /// Read the passphrase from this file (first line). Without it,
+    /// `ENTANGLE_BACKUP_PASSPHRASE` is used when set (even at a terminal);
+    /// otherwise the passphrase is prompted for on the terminal.
     #[arg(long, value_name = "FILE")]
     pub passphrase_file: Option<PathBuf>,
 }
@@ -339,6 +341,11 @@ fn validate(c: &Contents) -> Result<()> {
 // Passphrase
 // ---------------------------------------------------------------------------
 
+/// The passphrase, from (in this order) `file`, [`PASSPHRASE_ENV`], or a
+/// terminal prompt (twice when `confirm`). The variable wins over the prompt,
+/// as `RESTIC_PASSWORD` or `BORG_PASSPHRASE` do, so it is announced on
+/// stderr: a variable exported for some automated job is never used
+/// silently.
 fn read_passphrase(file: Option<&Path>, confirm: bool) -> Result<Zeroizing<String>> {
     let raw = if let Some(path) = file {
         warn_if_group_readable(path);
@@ -350,6 +357,7 @@ fn read_passphrase(file: Option<&Path>, confirm: bool) -> Result<Zeroizing<Strin
         })?);
         Zeroizing::new(text.lines().next().unwrap_or("").to_string())
     } else if let Some(v) = std::env::var_os(PASSPHRASE_ENV) {
+        eprintln!("using the passphrase from the {PASSPHRASE_ENV} environment variable");
         Zeroizing::new(v.to_string_lossy().into_owned())
     } else if std::io::stdin().is_terminal() && std::io::stderr().is_terminal() {
         let mut p = dialoguer::Password::new().with_prompt("Backup passphrase");

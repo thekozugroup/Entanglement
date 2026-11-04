@@ -265,3 +265,36 @@ fn backup_without_an_identity_is_refused() {
         .stderr(predicate::str::contains("ENTANGLE-E0866"));
     assert!(!home.path().join("x.bak").exists());
 }
+
+/// `ENTANGLE_BACKUP_PASSPHRASE` takes precedence over the terminal prompt
+/// (as `RESTIC_PASSWORD` or `BORG_PASSPHRASE` do), so it is never used
+/// silently: both commands say where the passphrase came from.
+#[test]
+fn a_passphrase_from_the_environment_is_announced() {
+    let old = TempDir::new().unwrap();
+    populate(old.path());
+    let work = TempDir::new().unwrap();
+    let ar = work.path().join("env.bak");
+    entangle(old.path())
+        .env("ENTANGLE_BACKUP_PASSPHRASE", "from the environment")
+        .args(["backup", "--to"])
+        .arg(&ar)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("ENTANGLE_BACKUP_PASSPHRASE"))
+        .stderr(predicate::str::contains("from the environment").not());
+    let new = TempDir::new().unwrap();
+    entangle(new.path())
+        .env("ENTANGLE_BACKUP_PASSPHRASE", "from the environment")
+        .args(["restore", "--from"])
+        .arg(&ar)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("ENTANGLE_BACKUP_PASSPHRASE"));
+    // The help text states the same order.
+    entangle(old.path())
+        .args(["backup", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("even at a terminal"));
+}
