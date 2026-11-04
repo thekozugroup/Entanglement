@@ -219,7 +219,12 @@ fn a_metric_asking_for_more_than_tier_2_is_refused() {
     let with_caps = package(
         &kp,
         &wasm,
-        &manifest(&kp, "greedy", 3, "\n[capabilities]\n\"net.wan\" = {}\n"),
+        &manifest(
+            &kp,
+            "greedy",
+            3,
+            "\n[capabilities]\n\"net.wan\" = { hosts = [\"api.example.com:443\"] }\n",
+        ),
     );
     assert!(matches!(
         registry.load_from_dir(with_caps.path()),

@@ -240,7 +240,7 @@ runtime = "wasm"
 description = "hand-written, not scaffolded"
 
 [capabilities]
-"net.wan" = {}
+"net.wan" = { hosts = ["api.example.com:443"] }
 "#,
     )
     .unwrap();

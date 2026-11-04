@@ -50,7 +50,7 @@ fn bench_manifest_validate(c: &mut Criterion) {
                         "compute.cpu",
                         "compute.gpu",
                         "net.lan",
-                        "net.wan",
+                        "storage.local",
                         "agent.invoke",
                     ] {
                         map.insert(cap.to_string(), toml::Value::Table(Default::default()));

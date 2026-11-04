@@ -182,7 +182,7 @@ fn bench_snapshot_grants(c: &mut Criterion) {
     broker
         .register_plugin(manifest_with(
             "snap-plugin",
-            &["compute.cpu", "net.lan", "net.wan"],
+            &["compute.cpu", "net.lan", "agent.invoke"],
         ))
         .expect("register");
     for _ in 0..100 {
