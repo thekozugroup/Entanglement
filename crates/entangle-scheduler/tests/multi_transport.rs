@@ -524,6 +524,48 @@ async fn a_peer_on_both_transports_uses_tailscale_first_and_iroh_while_the_tailn
     assert_eq!(kind, Some(TransportKind::Tailscale));
 }
 
+/// `mesh.local`: an mDNS sighting's LAN address, dialled over the iroh
+/// endpoint, is the cheapest candidate and goes first (spec §6.1).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_lan_sighting_is_tried_before_the_tailnet_and_the_internet() {
+    let a = Submitter::start().await;
+    let b = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
+    a.discover(&b).await;
+    let sightings = PeerDirectory::new();
+    sightings.insert(b.iroh_address());
+    let local = IrohLink::local(
+        Arc::clone(&a.iroh) as Arc<dyn MeshTransport>,
+        Arc::new(sightings),
+    )
+    .with_streams(Arc::clone(&a.iroh));
+    let router = Arc::new(
+        TransportRouter::new(a.peer_id)
+            .with_link(a.iroh_link(&b))
+            .with_link(a.tailnet_link())
+            .with_link(Arc::new(local)),
+    );
+    let plan: Vec<_> = router
+        .plan(&b.peer_id)
+        .candidates
+        .iter()
+        .map(|c| c.transport)
+        .collect();
+    assert_eq!(
+        plan,
+        [
+            TransportKind::Local,
+            TransportKind::Tailscale,
+            TransportKind::Iroh
+        ]
+    );
+    let client = RemoteDispatch::with_router(Arc::clone(&router));
+    let (out, kind) = run(&client, &one_shot(&b.hello, b"lan"), b.peer_id).await;
+    assert_eq!(out.unwrap(), b"Hello, lan!");
+    assert_eq!(kind, Some(TransportKind::Local));
+    // The worker counts it under the transport that carried it.
+    assert_eq!(b.served("ok", "iroh"), 1.0);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_connect_failure_on_the_first_candidate_falls_back_to_the_next() {
     let a = Submitter::start().await;

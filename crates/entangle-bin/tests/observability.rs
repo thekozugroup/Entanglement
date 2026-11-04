@@ -1040,3 +1040,150 @@ fn method_all_lists_every_method_constant() {
     }
     assert_eq!(all.len(), defined.len(), "{all:?} vs {defined:?}");
 }
+
+/// `diag/mesh` over the tailnet: the daemon's own wiring (`mesh::
+/// scheduler_servers` served with `serve_tailscale`, `mesh::build_router`)
+/// on loopback. A trusted peer known on the tailnet shows its route (the
+/// order dispatch would try, what it skips), the transport the last request
+/// used, and a probe that speaks the scheduler protocol over the tailnet.
+#[tokio::test(flavor = "multi_thread")]
+async fn diag_mesh_shows_the_chosen_transport_and_probes_the_tailnet_path() {
+    use entangle_bin::mesh::{build_router, scheduler_servers, RouterInputs};
+    use entangle_mesh_tailscale::TailscaleStatus;
+    use entangle_scheduler::{ControlAction, ControlFrame, RemoteErrorCode};
+
+    let loopback_tailnet = |acl| MeshTailscaleConfig {
+        acl_mode: acl,
+        bind_ip: [127, 0, 0, 1].into(),
+        port: 0,
+        address_policy: AddressPolicy::Any,
+        ..MeshTailscaleConfig::default()
+    };
+    let (id_a, id_b) = (IdentityKeyPair::generate(), IdentityKeyPair::generate());
+    let peer = |k: &IdentityKeyPair| PeerId::from_public_key_bytes(k.public().as_bytes());
+
+    // B: the daemon's servers on its tailnet listener; B trusts A.
+    let b_store = PeerStore::new();
+    b_store
+        .add(trusted(peer(&id_a), *id_a.public().as_bytes(), "node-a"))
+        .unwrap();
+    let b_ts = MeshTailscale::start(&id_b, loopback_tailnet(AclMode::TrustTailnet))
+        .await
+        .unwrap();
+    let b_served = Registry::new();
+    let servers = scheduler_servers(
+        Arc::new(Kernel::new(KernelConfig::default(), Keyring::new()).unwrap()),
+        b_store,
+        id_b.clone(),
+        Some(b_served.clone()),
+    );
+    tokio::spawn(entangle_scheduler::serve_tailscale(
+        b_ts.clone(),
+        Some(servers.tasks.clone()),
+        Some(servers.streams.clone()),
+    ));
+
+    // A: tailnet only, B discovered on loopback, tailnet active.
+    let a_ts = MeshTailscale::start(&id_a, loopback_tailnet(AclMode::EntangleOnTop))
+        .await
+        .unwrap();
+    let status = TailscaleStatus::parse(
+        r#"{"BackendState":"Running","Self":{"Online":true},
+           "Peer":{"b":{"Online":true,"DNSName":"b.t.ts.net.","TailscaleIPs":["127.0.0.1"]}}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        a_ts.discover_on_port(&status, b_ts.local_addr().port())
+            .await
+            .len(),
+        1
+    );
+    let (_live_tx, live_rx) = watch::channel(snapshot(Some(TailnetState::Active), 1));
+    let router = build_router(
+        peer(&id_a),
+        RouterInputs {
+            tailscale: Some((a_ts.clone(), live_rx.clone())),
+            ..RouterInputs::default()
+        },
+    )
+    .expect("a running transport gives a router");
+    let remote = Arc::new(RemoteDispatch::with_router(Arc::new(router)));
+    let kernel_a = Arc::new(Kernel::new(KernelConfig::default(), Keyring::new()).unwrap());
+    let pool = WorkerPool::new();
+    let peers = PeerStore::new();
+    peers
+        .add(trusted(peer(&id_b), *id_b.public().as_bytes(), "node-b"))
+        .unwrap();
+    let state = DaemonState::new(
+        kernel_a.clone(),
+        Arc::new(Dispatcher::new(pool.clone(), kernel_a, peer(&id_a)).with_remote(remote.clone())),
+        pool,
+        peers,
+        id_a.clone(),
+        "node-a".into(),
+    )
+    .with_diag(MeshDiagSources {
+        configured_transports: vec!["tailscale".into()],
+        iroh: None,
+        iroh_directory: None,
+        tailscale: Some(TailscaleDiag {
+            transport: a_ts.clone(),
+            liveness: live_rx,
+        }),
+        metrics_listen: None,
+    });
+
+    // Before any traffic: the route is planned, nothing used yet.
+    let report = diag::mesh_report(&state, false, Duration::ZERO).await;
+    let b = &report.peers[0];
+    let route = b.route.as_ref().expect("a route section");
+    assert_eq!(route.order, ["tailscale"]);
+    assert!(route
+        .skipped
+        .iter()
+        .any(|s| s.starts_with("iroh: not running")));
+    assert_eq!(route.last_used, None);
+
+    // One routed request (a control frame naming no task: executes nothing).
+    let frame = ControlFrame {
+        task_id: [1; 16],
+        action: ControlAction::SetPolicy {
+            policy: Vec::new(),
+            policy_hash: entangle_scheduler::work_unit::hash_canonical(&[]),
+        },
+    };
+    let answer = remote
+        .send_control(peer(&id_b), frame, Duration::from_secs(10))
+        .await;
+    assert!(
+        matches!(
+            answer,
+            Err(entangle_scheduler::DispatchError::RemoteRejected {
+                code: RemoteErrorCode::UnknownTask,
+                ..
+            })
+        ),
+        "{answer:?}"
+    );
+
+    let probed = diag::mesh_report(&state, true, Duration::from_secs(10)).await;
+    let b = &probed.peers[0];
+    assert_eq!(
+        b.route.as_ref().and_then(|r| r.last_used.as_deref()),
+        Some("tailscale"),
+        "the chosen transport is on the peer record"
+    );
+    let path = b.paths.iter().find(|p| p.transport == "tailscale").unwrap();
+    assert!(path.rtt_ms.is_some(), "{path:?}");
+    assert_eq!(path.probe_error, None, "{path:?}");
+    assert_eq!(
+        b_served.value(
+            entangle_observability::catalog::names::REMOTE_SERVE,
+            &[("outcome", "unknown-task"), ("transport", "tailscale")]
+        ),
+        Some(2.0),
+        "the request and the probe both arrived over the tailnet"
+    );
+    a_ts.shutdown().await;
+    b_ts.shutdown().await;
+}
