@@ -201,7 +201,8 @@ fn classify_v6(ip: Ipv6Addr) -> AddrClass {
 /// other host it is the address of the outgoing interface. Loopback
 /// destinations return `false` — they are [`AddrClass::Loopback`] and never
 /// reachable anyway. Fails closed: when no socket can be opened to ask, the
-/// address counts as the host's own.
+/// address counts as the host's own — except an IPv6 address on a host with
+/// no IPv6 stack, which cannot be one of its addresses.
 pub fn is_own_address(addr: SocketAddr) -> bool {
     let ip = canonical(addr.ip());
     if ip.is_loopback() || ip.is_unspecified() {
@@ -227,8 +228,15 @@ pub fn is_own_address(addr: SocketAddr) -> bool {
             (Ipv4Addr::UNSPECIFIED, 0).into(),
         ),
     };
-    let Ok(probe) = std::net::UdpSocket::bind(bind) else {
-        return true;
+    let probe = match std::net::UdpSocket::bind(bind) {
+        Ok(probe) => probe,
+        // An IPv6 socket cannot be opened but an IPv4 one can: the host has
+        // no IPv6 stack, so no IPv6 address of its own (and the guest's
+        // connect fails the same way).
+        Err(_) if to.is_ipv6() && std::net::UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).is_ok() => {
+            return false;
+        }
+        Err(_) => return true,
     };
     if probe.connect(to).is_err() {
         // No route to it: certainly not one of this host's addresses.
