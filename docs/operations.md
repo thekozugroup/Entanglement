@@ -1070,18 +1070,17 @@ Decision [u/c]:
   delta set or refused with `ENTANGLE-E0043`), then drains each affected
   plugin — new invocations are refused, invocations already running complete
   (each within its own timeout) — and only then unloads it, releasing its
-  broker grants, and audits it. From the moment the ceiling is lowered, an
-  affected plugin's capabilities stop as if revoked (§18): its
-  `capability.fetch` calls are refused (`ENTANGLE-E0127`), new sockets and
-  name lookups are refused, and an invocation or stream running on a
-  `net.lan` / `net.wan` grant is stopped (`ENTANGLE-E0511`) rather than
-  drained — no connection outlives the ceiling that forbids it. An
-  invocation without network keeps the directories it had open until it
-  ends. An active stream (§17) of an affected plugin
+  broker grants, and audits it. An active stream (§17) of an affected plugin
   is drained the same way: the lowering waits until it ends (completes,
   reaches its stream timeout, or is cancelled by its submitter); new streams
-  are refused. Afterwards a load above the ceiling fails with
-  `ENTANGLE-E0043`. The plugin ids are added to
+  are refused. From the moment the ceiling is lowered, though, an affected
+  plugin's capabilities stop as if revoked (§18): its `capability.fetch`
+  calls are refused (`ENTANGLE-E0127`), new sockets and name lookups are
+  refused, and an invocation or stream running on a `net.lan` / `net.wan`
+  grant is stopped (`ENTANGLE-E0511`) rather than drained — no connection
+  outlives the ceiling that forbids it. One without network keeps the
+  directories it had open until it ends. Afterwards a load above the
+  ceiling fails with `ENTANGLE-E0043`. The plugin ids are added to
   `[plugins] disabled` in `config.toml`.
 - An answer at the prompt covers exactly the plugins listed. If another
   plugin above the new ceiling was loaded while the prompt waited, the daemon
@@ -1156,10 +1155,11 @@ cannot be streamed, and a stream plugin cannot be `invoke`d. Its declared
 capabilities are decided and realised exactly as for a one-shot wasm plugin
 (§18): the same `/data`, `/shared` and `/shares/<n>` preopens, socket rules
 and pinned `net.wan` names, and `entangle perms list` / `revoke` apply — a
-revoked network capability stops a running stream (`ENTANGLE-E0511`). Unloading a
-stream plugin, or lowering the tier ceiling below its tier (§16), waits for
-its active streams to end before releasing its grants, exactly as for
-one-shot invocations.
+revoked network capability stops a running stream (`ENTANGLE-E0511`).
+Unloading a stream plugin, or lowering the tier ceiling below its tier
+(§16), waits for its active streams to end before releasing its grants,
+exactly as for one-shot invocations; a lowering stops a stream that is
+running on a network grant at once, as a revocation would.
 
 Every limit a submitter asks for is clamped by the executor (and reported
 back in the `Accepted` frame): stream timeout ≤ 1 h, input ≤ 16 MiB, chunk ≤
