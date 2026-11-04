@@ -50,7 +50,9 @@ fn run(d: &TempDir) -> Output {
 
 #[test]
 fn within_budget_passes_and_prints_breakdown() {
-    let d = fixture(5);
+    // Total 5: under a budget of 6 (a budget of 5 is not "under": see
+    // `a_total_equal_to_the_budget_fails`).
+    let d = fixture(6);
     let out = run(&d);
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
@@ -67,6 +69,7 @@ fn within_budget_passes_and_prints_breakdown() {
         stdout.contains("TOTAL") && stdout.contains(" 5 "),
         "{stdout}"
     );
+    assert!(stdout.contains("loc-budget OK: 5 < 6"), "{stdout}");
 }
 
 #[test]
@@ -77,6 +80,22 @@ fn over_budget_fails_with_the_overage() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("over the 4 budget by 1"), "{stderr}");
     assert!(String::from_utf8_lossy(&out.stdout).contains("crates/a"));
+}
+
+/// Spec §10: the crates must "total < 25k LOC" — a total equal to the budget
+/// is not under it.
+#[test]
+fn a_total_equal_to_the_budget_fails() {
+    let d = fixture(5);
+    let out = run(&d);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success(), "{stdout}{stderr}");
+    assert!(
+        stderr.contains("trust footprint is 5 LOC") && stderr.contains("must stay under the 5"),
+        "{stderr}"
+    );
+    assert!(!stdout.contains("loc-budget OK"), "{stdout}");
 }
 
 #[test]

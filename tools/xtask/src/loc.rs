@@ -12,8 +12,8 @@ use anyhow::{bail, Context, Result};
 /// Parsed `docs/trust-footprint.toml`.
 #[derive(Debug)]
 pub struct Config {
-    /// Maximum allowed total (exclusive upper bound is the budget itself:
-    /// totals `<= budget` pass, matching "stays under a budget").
+    /// Exclusive upper bound on the total: only totals `< budget` pass
+    /// (spec §10: "total < 25k LOC"; §2.3: "stays under a budget").
     pub budget: usize,
     /// Crate directories (relative to the root) that must exist.
     pub crates: Vec<String>,
@@ -78,9 +78,10 @@ pub struct Report {
 }
 
 impl Report {
-    /// Whether the total is within the budget.
+    /// Whether the total is under the budget (strictly: spec §10 requires
+    /// "total < 25k LOC", so a total equal to the budget fails).
     pub fn within_budget(&self) -> bool {
-        self.total <= self.budget
+        self.total < self.budget
     }
 
     /// Human-readable breakdown.

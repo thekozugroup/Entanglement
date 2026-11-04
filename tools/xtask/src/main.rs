@@ -79,9 +79,9 @@ enum Task {
         #[arg(long)]
         report: Option<PathBuf>,
     },
-    /// Spec §2.3/§10: L1+L2 trust-footprint LOC must stay within the budget in
-    /// `docs/trust-footprint.toml`. Prints a per-crate breakdown; exits
-    /// non-zero when over budget.
+    /// Spec §2.3/§10: L1+L2 trust-footprint LOC must stay under the budget in
+    /// `docs/trust-footprint.toml` (total < budget). Prints a per-crate
+    /// breakdown; exits non-zero when the total reaches or exceeds it.
     #[command(name = "loc-budget")]
     LocBudget {
         /// Crate list and budget.
@@ -179,11 +179,17 @@ fn main() -> Result<()> {
             let report = loc::run(&root, &cfg)?;
             print!("{}", report.render());
             if report.within_budget() {
-                println!("loc-budget OK: {} <= {}", report.total, report.budget);
+                println!("loc-budget OK: {} < {}", report.total, report.budget);
                 Ok(())
+            } else if report.total == report.budget {
+                bail!(
+                    "trust footprint is {} LOC: it must stay under the {} budget",
+                    report.total,
+                    report.budget
+                )
             } else {
                 bail!(
-                    "trust footprint is {} LOC, over the {} budget by {}",
+                    "trust footprint is {} LOC, over the {} budget by {}: it must stay under the budget",
                     report.total,
                     report.budget,
                     report.total - report.budget
