@@ -1234,6 +1234,45 @@ async fn stdlib_metric_components_match_their_documented_math() {
     );
     assert_eq!(registry.instantiations(&bleu), 3);
     assert_eq!(registry.instantiations(&l2), 3);
+
+    // embedding-cosine: 1 - cos of the pinned feature-hashing embedding
+    // for text, of the vectors themselves for numeric outputs.
+    let (cosine, _d3) = load(
+        "metric-embedding-cosine",
+        fixture("tests/fixtures/metric-embedding-cosine.wasm"),
+    );
+    let near = registry
+        .compare(&cosine, b"The cat sat on the mat.", b"the cats sat on a mat")
+        .await
+        .unwrap();
+    let far = registry
+        .compare(
+            &cosine,
+            b"The cat sat on the mat.",
+            b"Quarterly revenue grew by four percent.",
+        )
+        .await
+        .unwrap();
+    assert!((near - 0.210_468_078_075_556_9).abs() < 1e-9, "{near}");
+    assert!(far > 0.9 && near < far, "{far}");
+    assert_eq!(
+        registry
+            .compare(&cosine, b"Hello, World!", b"hello world")
+            .await
+            .unwrap(),
+        0.0
+    );
+    let d = registry.compare(&cosine, b"[3, 4]", b"[4, 3]").await.unwrap();
+    assert!((d - 0.04).abs() < 1e-12, "{d}");
+    assert_eq!(
+        registry
+            .compare(&cosine, b"[1, 2]", b"some words")
+            .await
+            .unwrap(),
+        f64::INFINITY,
+        "a vector against text is incomparable"
+    );
+    assert_eq!(registry.instantiations(&cosine), 5);
 }
 
 /// A worker refuses a work unit whose metric reference names one publisher

@@ -10,6 +10,7 @@ the `wasm32-wasip2` target at test time.
 |---|---|---|
 | `metric-bleu-4.wasm` | `plugins/metric-bleu-4/` | `entangle:integrity/metric@0.1.0` |
 | `metric-numerical-l2-relative.wasm` | `plugins/metric-numerical-l2-relative/` | `entangle:integrity/metric@0.1.0` |
+| `metric-embedding-cosine.wasm` | `plugins/metric-embedding-cosine/` | `entangle:integrity/metric@0.1.0` |
 | `stream-lines.wasm` | `plugins/stream-lines/` | `entangle:plugin@0.1.0` world `stream-plugin` |
 
 **Rebuild**: `bash build.sh` (from this directory or anywhere).

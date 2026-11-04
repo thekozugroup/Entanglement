@@ -101,11 +101,12 @@ jobs:
           workspaces: |
             plugins/metric-bleu-4
             plugins/metric-numerical-l2-relative
+            plugins/metric-embedding-cosine
             crates/entangle-host/fixtures-src/caps-probe
             crates/entangle-host/fixtures-src/stream-caps-probe
       - name: Native math tests
         run: |
-          for d in metric-bleu-4 metric-numerical-l2-relative; do
+          for d in metric-bleu-4 metric-numerical-l2-relative metric-embedding-cosine; do
             (cd plugins/$d && cargo test --locked)
           done
       - name: Rebuild fixtures and compare with the committed blobs
