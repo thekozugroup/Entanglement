@@ -15,6 +15,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod determinism;
 pub mod lifecycle;
 pub mod loader;
 pub mod schema;

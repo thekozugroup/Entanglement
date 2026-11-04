@@ -158,6 +158,12 @@ pub enum DispatchError {
     /// [`DispatchError::OutputSizeExceeded`] instead.
     #[error("{0}")]
     Integrity(#[from] IntegrityError),
+    /// The task was refused at submit time by [`crate::submit`]: a
+    /// `Deterministic` task for a plugin that declares non-determinism
+    /// (`ENTANGLE-E0470`), or a workload preset that cannot apply
+    /// (`E0471`–`E0473`). Nothing was placed or sent.
+    #[error("{0}")]
+    Submit(#[from] crate::submit::SubmitError),
 }
 
 /// Combines a placement decision with the task output bytes.
@@ -182,6 +188,15 @@ pub struct DispatchResult {
     /// first attempt of each replica, its retries and any speculative
     /// backup copy (see [`crate::retry`]).
     pub attempts: Vec<Attempt>,
+    /// BLAKE3 digest of the component artifact that produced the returned
+    /// output, when known (spec §7.5 `TrustedExecutor`: "the work unit's
+    /// signed component CID is recorded with the result for after-the-fact
+    /// audit"): this node's own loaded artifact when it ran the task, the
+    /// executor's report when a `TrustedExecutor` task ran remotely (other
+    /// policies do not ask remote executors for it). The remote value is
+    /// the executor's claim — attributable to it through the transport's
+    /// authentication, not independently verifiable.
+    pub executed_component: Option<[u8; 32]>,
 }
 
 /// Why an attempt was started.
@@ -510,7 +525,7 @@ impl Dispatcher {
             let outcome = match &result {
                 Ok(_) => "accepted",
                 Err(DispatchError::OutputSizeExceeded(_)) => "output_size_exceeded",
-                Err(DispatchError::Integrity(_)) => "rejected",
+                Err(DispatchError::Integrity(_) | DispatchError::Submit(_)) => "rejected",
                 Err(_) => "failed",
             };
             catalog::integrity_verdict(reg, kind.as_str(), outcome);
@@ -532,6 +547,10 @@ impl Dispatcher {
         // Submit-time validation (ATC-INT-2 lives here): nothing has been
         // placed or sent yet.
         let envelope = self.verifier.validate_submit(&task.integrity)?;
+        // §7.5: `Deterministic` is refused for a plugin whose manifest (as
+        // this node's kernel loaded it) declares non-determinism. Executors
+        // check their own copy as well.
+        crate::submit::check_determinism(&self.kernel, &task.plugin, &task.integrity)?;
 
         let replicated = matches!(
             task.integrity,
@@ -600,6 +619,7 @@ impl Dispatcher {
             // Enforce the task's policy on the local kernel (TrustedExecutor
             // allowlist, Deterministic { 0 | 1 } as a single invocation).
             let started = Instant::now();
+            let component = self.local_component(&task.plugin);
             let outcome = self
                 .kernel
                 .invoke_with_integrity(&task, self.local_peer_id)
@@ -607,6 +627,7 @@ impl Dispatcher {
                 .map(|bytes| ReplicaBytes {
                     bytes,
                     observed_policy_hash: envelope.recompute_hash(),
+                    component,
                 })
                 .map_err(DispatchError::from);
             let replica = ReplicaResult {
@@ -648,6 +669,10 @@ impl Dispatcher {
             .verifier
             .accept(&task, &envelope, vec![replica])
             .await?;
+        let executed_component = acceptance
+            .reports
+            .get(acceptance.chosen)
+            .and_then(|r| r.component);
         let spot_check = self.schedule_spot_check(
             &task,
             &envelope,
@@ -663,6 +688,7 @@ impl Dispatcher {
             pair_agreement: acceptance.pair_agreement,
             spot_check,
             attempts,
+            executed_component,
         })
     }
 
@@ -840,6 +866,10 @@ impl Dispatcher {
             &acceptance.reports,
             local_outputs,
         );
+        let executed_component = acceptance
+            .reports
+            .get(acceptance.chosen)
+            .and_then(|r| r.component);
         let mut chosen = targets[acceptance.chosen].clone();
         if let Some(peer) = final_peers.get(acceptance.chosen) {
             if *peer != chosen.peer_id {
@@ -858,6 +888,7 @@ impl Dispatcher {
             pair_agreement: acceptance.pair_agreement,
             spot_check,
             attempts,
+            executed_component,
         })
     }
 
@@ -1742,6 +1773,7 @@ impl Dispatcher {
     /// One replica on the local kernel: exactly one invocation, no policy
     /// applied (verification happens in the acceptance pipeline).
     async fn local_replica(&self, task: &OneShotTask, envelope: &PolicyEnvelope) -> ReplicaResult {
+        let component = self.local_component(&task.plugin);
         let outcome = self
             .kernel
             .invoke(&task.plugin, &task.input, task.timeout_ms)
@@ -1749,6 +1781,7 @@ impl Dispatcher {
             .map(|bytes| ReplicaBytes {
                 bytes,
                 observed_policy_hash: envelope.recompute_hash(),
+                component,
             })
             .map_err(DispatchError::from);
         ReplicaResult {
@@ -1756,6 +1789,15 @@ impl Dispatcher {
             remote: false,
             outcome,
         }
+    }
+
+    /// BLAKE3 of the artifact this node's kernel would run for `plugin`
+    /// (the version answering for it after a hot reload).
+    fn local_component(&self, plugin: &entangle_types::plugin_id::PluginId) -> Option<[u8; 32]> {
+        let source = self.kernel.loaded_source(&self.kernel.resolve(plugin)?)?;
+        let mut digest = [0u8; 32];
+        hex::decode_to_slice(&source.artifact_digest, &mut digest).ok()?;
+        Some(digest)
     }
 
     /// One replica on `peer`. Only called when a transport is configured.
@@ -1789,6 +1831,7 @@ impl Dispatcher {
                     attempt.result.map(|r| ReplicaBytes {
                         bytes: r.output,
                         observed_policy_hash: r.observed_policy_hash,
+                        component: r.component,
                     }),
                     attempt.cause,
                 )

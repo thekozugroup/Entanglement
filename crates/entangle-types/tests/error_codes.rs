@@ -32,6 +32,8 @@ const ERROR_SOURCES: &[&str] = &[
     "../entangle-biscuits/src/templates.rs",
     "../entangle-scheduler/src/stream/error.rs",
     "../entangle-scheduler/src/transport/error.rs",
+    // Submit-time refusals and workload presets (E0470–E0473).
+    "../entangle-scheduler/src/submit.rs",
     "../entangle-oci/src/error.rs",
     "../entangle-sandbox/src/error.rs",
     "../entangle-runtime/src/native.rs",

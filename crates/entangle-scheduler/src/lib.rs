@@ -20,6 +20,9 @@
 //!   accepted `Deterministic` / `SemanticEquivalent` tasks re-run on another
 //!   executor after the result is returned; a mismatch downranks the
 //!   replicas behind the accepted output.
+//! * [`submit`] — submit-time checks (a `Deterministic` task for a plugin
+//!   that declares non-determinism is refused) and the spec's reference
+//!   workload presets ([`Workload`]).
 //! * [`stream`] — streaming tasks (spec §7.1): the `entangle/stream/1`
 //!   protocol, credit flow control, heartbeats, chunk signing, and the
 //!   [`StreamServer`] executor.
@@ -54,6 +57,7 @@ pub mod reputation;
 pub mod retry;
 pub mod spot_check;
 pub mod stream;
+pub mod submit;
 pub mod transport;
 pub mod wire;
 pub mod work_unit;
@@ -71,6 +75,7 @@ pub use remote::{
 };
 pub use reputation::{ReputationReason, ReputationStore, ReputationTier};
 pub use retry::{DurationHistory, RetryCause, SpeculationConfig};
+pub use submit::{SubmitError, Workload};
 pub use spot_check::{
     SpotCheck, SpotCheckConfig, SpotCheckHandle, SpotCheckRecord, SpotCheckVerdict, SpotChecker,
     TieBreak,

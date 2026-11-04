@@ -165,6 +165,11 @@ pub struct ReplicaBytes {
     /// The hash the executor echoed (for a local replica: the hash the
     /// submitter itself recomputed when the replica finished).
     pub observed_policy_hash: PolicyHash,
+    /// BLAKE3 of the component artifact that produced the output, when
+    /// known: this node's own loaded artifact for a local replica, the
+    /// executor's report for a remote one (asked for `TrustedExecutor`
+    /// tasks).
+    pub component: Option<[u8; 32]>,
 }
 
 /// One replica's result as handed to [`IntegrityVerifier::accept`].
@@ -225,6 +230,9 @@ pub struct ReplicaReport {
     pub output_bytes: Option<u64>,
     /// BLAKE3 of its output.
     pub output_blake3: Option<[u8; 32]>,
+    /// BLAKE3 of the component that produced it, when known (see
+    /// [`ReplicaBytes::component`]).
+    pub component: Option<[u8; 32]>,
     /// What became of it.
     pub status: ReplicaStatus,
 }
@@ -880,6 +888,7 @@ fn report_for(r: &ReplicaResult) -> ReplicaReport {
             observed_policy_hash: Some(out.observed_policy_hash),
             output_bytes: Some(out.bytes.len() as u64),
             output_blake3: Some(*blake3::hash(&out.bytes).as_bytes()),
+            component: out.component,
             status: ReplicaStatus::Disagreed,
         },
         Err(e) => ReplicaReport {
@@ -888,6 +897,7 @@ fn report_for(r: &ReplicaResult) -> ReplicaReport {
             observed_policy_hash: None,
             output_bytes: None,
             output_blake3: None,
+            component: None,
             status: ReplicaStatus::Failed(e.to_string()),
         },
     }
@@ -940,6 +950,7 @@ mod tests {
             outcome: Ok(ReplicaBytes {
                 bytes: bytes.to_vec(),
                 observed_policy_hash: h,
+                component: None,
             }),
         }
     }

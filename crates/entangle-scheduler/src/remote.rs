@@ -338,6 +338,7 @@ impl RemoteDispatch {
             } => Ok(RemoteReplica {
                 output,
                 observed_policy_hash,
+                component: response.component,
             }),
             RemoteOutcome::Ack { .. } => Err(DispatchError::RemoteTransport {
                 peer,
@@ -388,11 +389,16 @@ impl RemoteDispatch {
         envelope: &PolicyEnvelope,
     ) -> RoundTrip {
         let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
-        let traceparent = if self.no_trace_extension.lock().contains(&peer) {
+        let legacy = self.no_trace_extension.lock().contains(&peer);
+        let traceparent = if legacy {
             None
         } else {
             entangle_observability::context::current_traceparent()
         };
+        // `TrustedExecutor` records the executed component's digest with the
+        // result (spec §7.5): ask the executor to report it.
+        let report_component =
+            !legacy && matches!(task.integrity, IntegrityPolicy::TrustedExecutor { .. });
         let body = RemoteTaskRequest::sealed(task, envelope);
         // The capability token is attenuated per attempt, once the attempt's
         // link has connected ([`TaskFrame`]): dialling and falling back
@@ -400,7 +406,11 @@ impl RemoteDispatch {
         // resend included — carries a fresh nonce, a new request as far as
         // the executor's replay cache is concerned.
         let binding = task_binding(&body);
-        let request = RemoteRequest::task(body.clone().with_traceparent(traceparent.clone()));
+        let request = RemoteRequest::task(
+            body.clone()
+                .with_traceparent(traceparent.clone())
+                .with_component_report(report_component),
+        );
         let first = self
             .round_trip(
                 peer,
@@ -411,7 +421,7 @@ impl RemoteDispatch {
                 None,
             )
             .await;
-        let rejected_extension = traceparent.is_some()
+        let rejected_extension = (traceparent.is_some() || report_component)
             && matches!(
                 &first.response,
                 Ok(RemoteTaskResponse {
@@ -425,7 +435,7 @@ impl RemoteDispatch {
         if !rejected_extension {
             return first;
         }
-        tracing::debug!(%peer, "peer rejected the traceparent extension; resending without it");
+        tracing::debug!(%peer, "peer rejected an optional extension (traceparent, executed component); resending without them");
         self.no_trace_extension.lock().insert(peer);
         self.round_trip(
             peer,
@@ -843,6 +853,9 @@ pub struct RemoteReplica {
     pub output: Vec<u8>,
     /// The policy hash the executor reported observing.
     pub observed_policy_hash: PolicyHash,
+    /// The BLAKE3 digest of the component the executor reported running,
+    /// when it was asked (`TrustedExecutor` tasks) and reported one.
+    pub component: Option<[u8; 32]>,
 }
 
 // ─── server half ─────────────────────────────────────────────────────────────
@@ -1177,6 +1190,7 @@ impl RemoteTaskServer {
     }
 
     async fn run_task_inner(&self, from: PeerId, request: RemoteTaskRequest) -> RemoteTaskResponse {
+        let report_component = request.report_component;
         // The caller's own declared ceiling was already enforced by
         // `decode_request`; this is *this node's* ceiling, which the caller
         // cannot raise.
@@ -1225,6 +1239,15 @@ impl RemoteTaskServer {
                 )
             }
         };
+
+        // §7.5, the executor's half: a `Deterministic` replica of a plugin
+        // whose manifest here declares non-determinism is refused before it
+        // runs (the submitter may not have the plugin to check).
+        if let Err(refusal) =
+            crate::submit::check_determinism(&self.kernel, &plugin, envelope.policy())
+        {
+            return RemoteTaskResponse::err(RemoteErrorCode::Nondeterministic, refusal.to_string());
+        }
 
         // Register as in flight. One frame, one execution: a second frame
         // with the same id while this one runs is refused, not run twice.
@@ -1285,8 +1308,25 @@ impl RemoteTaskServer {
             "scheduler: executing task for remote peer"
         );
 
+        // The component that will answer for the plugin id (after a hot
+        // reload, the version that replaced it), recorded for the caller's
+        // audit when it asked.
+        let component = if report_component {
+            self.kernel
+                .resolve(&task.plugin)
+                .and_then(|id| self.kernel.loaded_source(&id))
+                .and_then(|source| {
+                    let mut digest = [0u8; 32];
+                    hex::decode_to_slice(&source.artifact_digest, &mut digest)
+                        .ok()
+                        .map(|()| digest)
+                })
+        } else {
+            None
+        };
+
         // A `Cancel` control frame from the caller stops the run at its
-        // next await point (a wasm guest yields at every epoch tick).
+        // next await point.
         let result = tokio::select! {
             result = self.kernel.invoke_with_integrity(&task, self.local_peer_id) => result,
             () = cancel.notified() => {
@@ -1319,7 +1359,7 @@ impl RemoteTaskServer {
                         format!("output of {actual} bytes exceeds the {output_cap} byte limit"),
                     );
                 }
-                RemoteTaskResponse::ok(output, observed)
+                RemoteTaskResponse::ok(output, observed).with_component(component)
             }
             Err(RuntimeError::NotLoaded(id)) => RemoteTaskResponse::err(
                 RemoteErrorCode::PluginNotLoaded,

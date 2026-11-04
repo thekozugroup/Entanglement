@@ -1964,6 +1964,7 @@ dependencies = [
  "entangle-biscuits",
  "entangle-host",
  "entangle-ipc",
+ "entangle-manifest",
  "entangle-mesh-iroh",
  "entangle-mesh-tailscale",
  "entangle-observability",

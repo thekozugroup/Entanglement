@@ -95,6 +95,7 @@ async fn oversized_outputs_and_reputation_tiers_are_exposed() {
         outcome: Ok(ReplicaBytes {
             bytes: vec![0; 64],
             observed_policy_hash: envelope.hash(),
+            component: None,
         }),
     };
     let err = d

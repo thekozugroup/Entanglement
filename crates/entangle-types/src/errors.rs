@@ -15,6 +15,7 @@
 //! | E0400–E0429 | Broker / biscuits cross-node verification (`entangle-broker`, `entangle_biscuits::BiscuitError`; E0420–E0425 bridge tokens in `entangle_biscuits::bridge`; E0411 build and E0412 expiry are shared with `entangle_biscuits::templates::TokenError`, where they mean the same thing) |
 //! | E0430–E0449 | Scheduler transport selection: no route, every candidate unreachable, failure after send, frame cap, transport-name and per-peer override config (`entangle_scheduler::transport::RouteError`; E0430–E0435 in use) |
 //! | E0450–E0469 | Remote capability tokens: the `mesh.peer` / `compute.gpu-job` / `agent.session` templates and the per-request token check on `entangle/scheduler/1` and `entangle/stream/1` (`entangle_biscuits::templates::TokenError`; E0450–E0463 in use) |
+//! | E0470–E0489 | Scheduler failure handling and submit-time checks: a `Deterministic` task for a plugin that declares non-determinism, workload presets (`entangle_scheduler::submit::SubmitError`, E0470–E0473), stalled-stream preemption and stream restarts (`entangle_scheduler::stream::StreamError`, E0474–E0476) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0507       | Host artifact checks: runtime-kind sniffing (see `entangle-host`) |
 //! | E0508–E0519 | Host: realising capability grants in a wasm instance (storage root, scope directories, unsafe paths; E0508–E0510 in use, and E0511 for an invocation stopped because a network grant was withdrawn while it ran; see `entangle-host`) |

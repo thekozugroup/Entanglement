@@ -70,11 +70,20 @@ fn keyring_for(publisher: &IdentityKeyPair) -> Keyring {
 /// loading different components under the same id model two workers that
 /// run the same task at very different speeds.
 async fn kernel_with(publisher: &IdentityKeyPair, wasm: &str) -> (Arc<Kernel>, PluginId, tempfile::TempDir) {
+    kernel_with_manifest(publisher, wasm, "").await
+}
+
+/// [`kernel_with`], with `extra` lines in the manifest's `[plugin]` table.
+async fn kernel_with_manifest(
+    publisher: &IdentityKeyPair,
+    wasm: &str,
+    extra: &str,
+) -> (Arc<Kernel>, PluginId, tempfile::TempDir) {
     let kernel = Arc::new(Kernel::new(KernelConfig::default(), keyring_for(publisher)).expect("kernel"));
     let dir = tempfile::tempdir().expect("tempdir");
     let id = format!("{}/demo@0.1.0", publisher.fingerprint_hex());
     let manifest = format!(
-        "[plugin]\nid = \"{id}\"\nversion = \"0.1.0\"\ntier = 1\nruntime = \"wasm\"\ndescription = \"failure-handling test plugin\"\n"
+        "[plugin]\nid = \"{id}\"\nversion = \"0.1.0\"\ntier = 1\nruntime = \"wasm\"\ndescription = \"failure-handling test plugin\"\n{extra}\n"
     );
     let bytes = std::fs::read(wasm).expect("fixture");
     std::fs::write(dir.path().join("entangle.toml"), manifest.as_bytes()).unwrap();
@@ -671,4 +680,136 @@ async fn a_replica_backup_replaces_the_slow_replica_on_a_distinct_worker() {
         .attempts
         .iter()
         .any(|x| x.peer == slow && x.outcome == AttemptOutcome::Cancelled));
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// TrustedExecutor: the executed component is recorded with the result
+// ═════════════════════════════════════════════════════════════════════════
+
+/// A `TrustedExecutor` task asks its executor which component it ran and
+/// records the digest — the BLAKE3 of the artifact the worker loaded — in
+/// the dispatch result (spec §7.5); a task under another policy does not
+/// ask remote executors.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_trusted_executor_result_records_the_executed_component() {
+    let (c, tokens) = cluster_with_tokens(&[HELLO_PONG_WASM]).await;
+    let a = c.peers[0];
+    let d = c.dispatcher(&tokens, SpeculationConfig::Off);
+    let expected = *blake3::hash(&std::fs::read(HELLO_PONG_WASM).unwrap()).as_bytes();
+
+    let trusted = deadline(
+        "dispatch",
+        d.dispatch_one_shot(c.task(
+            b"audit",
+            IntegrityPolicy::TrustedExecutor { allowlist: vec![a] },
+        )),
+    )
+    .await
+    .expect("the trusted executor runs it");
+    assert_eq!(trusted.output, b"Hello, audit!");
+    assert_eq!(trusted.executed_component, Some(expected));
+    assert_eq!(trusted.replicas[0].component, Some(expected));
+
+    let plain = deadline("dispatch", d.dispatch_one_shot(c.task(b"x", IntegrityPolicy::None)))
+        .await
+        .unwrap();
+    assert_eq!(plain.executed_component, None, "not asked outside TrustedExecutor");
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// §7.5: Deterministic is rejected at submit for a nondeterministic plugin
+// ═════════════════════════════════════════════════════════════════════════
+
+/// A plugin whose manifest declares `pure = false` cannot be dispatched as
+/// `Deterministic`: the submitter that has it refuses before placing
+/// anything (`ENTANGLE-E0470`, suggesting `SemanticEquivalent`); an
+/// executor that has it refuses a submitter that does not, before running
+/// it — and that refusal is not retried. Other policies still run.
+#[tokio::test(flavor = "multi_thread")]
+async fn deterministic_is_refused_for_a_plugin_that_declares_nondeterminism() {
+    let publisher = IdentityKeyPair::generate();
+    // The submitter's own kernel has the plugin: refused at submit.
+    let (kernel, plugin, _dir) =
+        kernel_with_manifest(&publisher, HELLO_PONG_WASM, "pure = false").await;
+    let me = PeerId::from_public_key_bytes(&[42; 32]);
+    let local = Dispatcher::new(WorkerPool::new(), Arc::clone(&kernel), me);
+    let mut task = OneShotTask::with_defaults(plugin.clone(), b"x".to_vec());
+    task.integrity = IntegrityPolicy::Deterministic { replicas: 3 };
+    let err = deadline("dispatch", local.dispatch_one_shot(task.clone()))
+        .await
+        .unwrap_err();
+    let text = err.to_string();
+    assert!(matches!(err, DispatchError::Submit(_)), "{err:?}");
+    assert!(text.starts_with("ENTANGLE-E0470"), "{text}");
+    assert!(text.contains("pure = false") && text.contains("SemanticEquivalent"), "{text}");
+    task.integrity = IntegrityPolicy::None;
+    let ok = deadline("dispatch", local.dispatch_one_shot(task)).await.unwrap();
+    assert_eq!(ok.output, b"Hello, x!");
+    assert_eq!(
+        ok.executed_component,
+        Some(*blake3::hash(&std::fs::read(HELLO_PONG_WASM).unwrap()).as_bytes()),
+        "a local run records this node's own artifact digest"
+    );
+
+    // Only the executors have it (declaring a clock): they refuse.
+    let (c, tokens) = cluster_with_declared(&publisher, "nondeterministic = [\"clock\"]").await;
+    let d = c.dispatcher(&tokens, SpeculationConfig::Off);
+    let mut task = c.task(b"x", IntegrityPolicy::Deterministic { replicas: 1 });
+    task.plugin = c.plugin.clone();
+    let err = deadline("dispatch", d.dispatch_one_shot(task)).await.unwrap_err();
+    match &err {
+        DispatchError::RemoteRejected { code, message, .. } => {
+            assert_eq!(*code, RemoteErrorCode::Nondeterministic);
+            assert!(message.contains("ENTANGLE-E0470"), "{message}");
+        }
+        other => panic!("expected the executor's refusal, got {other:?}"),
+    }
+    assert_eq!(c.workers.frames_to(c.peers[1], "task"), 0, "not retried elsewhere");
+}
+
+/// Two workers whose plugin manifest carries `extra`.
+async fn cluster_with_declared(publisher: &IdentityKeyPair, extra: &str) -> (Cluster, StaticTokens) {
+    let submitter = PeerId::from_public_key_bytes(&[43; 32]);
+    let mut identities = Vec::new();
+    let mut workers = HashMap::new();
+    let mut peers = Vec::new();
+    let mut servers = Vec::new();
+    let mut dirs = Vec::new();
+    let mut plugin = None;
+    for _ in 0..2 {
+        let identity = IdentityKeyPair::generate();
+        let key = *identity.public().as_bytes();
+        let peer = PeerId::from_public_key_bytes(&key);
+        let (kernel, id, dir) = kernel_with_manifest(publisher, HELLO_PONG_WASM, extra).await;
+        plugin.get_or_insert(id);
+        dirs.push(dir);
+        let server = Arc::new(RemoteTaskServer::new(
+            kernel,
+            Arc::new(StaticAllowlist::new().allow(submitter)),
+            Arc::new(CapabilityGate::for_identity(&identity).expect("gate")),
+        ));
+        workers.insert(peer, Worker { key, server: Arc::clone(&server) });
+        peers.push(peer);
+        servers.push(server);
+        identities.push(identity);
+    }
+    let c = Cluster {
+        submitter,
+        peers,
+        workers: Arc::new(Workers {
+            from: submitter,
+            workers,
+            behaviour: Mutex::new(HashMap::new()),
+            log: Mutex::new(Vec::new()),
+        }),
+        servers,
+        plugin: plugin.expect("plugin"),
+        registry: Registry::new(),
+        _dirs: dirs,
+        submitter_kernel: Arc::new(
+            Kernel::new(KernelConfig::default(), keyring_for(publisher)).expect("kernel"),
+        ),
+    };
+    let tokens = tokens_for(&c, &identities);
+    (c, tokens)
 }
