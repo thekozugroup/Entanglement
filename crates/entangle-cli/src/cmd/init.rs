@@ -261,10 +261,8 @@ impl TsReport {
         {
             return Some(fail(
                 EXIT_USAGE,
-                format!(
-                    "ENTANGLE-E0789: tailscale binary not found.\n  Install: \
-                     https://tailscale.com/download\n  Or: rerun with --transport local,iroh"
-                ),
+                "ENTANGLE-E0789: tailscale binary not found.\n  Install: \
+                 https://tailscale.com/download\n  Or: rerun with --transport local,iroh",
             ));
         }
         if let Ok(v) = self.version {

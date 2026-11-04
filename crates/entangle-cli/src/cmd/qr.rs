@@ -128,15 +128,16 @@ fn alignment_positions(ver: usize) -> Vec<usize> {
 }
 
 fn mask_applies(mask: u32, x: usize, y: usize) -> bool {
+    let even = |n: usize| n.is_multiple_of(2);
     match mask {
-        0 => (x + y) % 2 == 0,
-        1 => y % 2 == 0,
-        2 => x % 3 == 0,
-        3 => (x + y) % 3 == 0,
-        4 => (x / 3 + y / 2) % 2 == 0,
+        0 => even(x + y),
+        1 => even(y),
+        2 => x.is_multiple_of(3),
+        3 => (x + y).is_multiple_of(3),
+        4 => even(x / 3 + y / 2),
         5 => x * y % 2 + x * y % 3 == 0,
-        6 => (x * y % 2 + x * y % 3) % 2 == 0,
-        _ => ((x + y) % 2 + x * y % 3) % 2 == 0,
+        6 => even(x * y % 2 + x * y % 3),
+        _ => even((x + y) % 2 + x * y % 3),
     }
 }
 
@@ -284,7 +285,9 @@ impl QrCode {
         let n = pos.len();
         for (i, &ax) in pos.iter().enumerate() {
             for (j, &ay) in pos.iter().enumerate() {
-                let corner = (i == 0 && j == 0) || (i == 0 && j == n - 1) || (i == n - 1 && j == 0);
+                // The three finder corners have no alignment pattern.
+                let corner =
+                    matches!((i, j), (0, 0)) || (i == 0 && j == n - 1) || (i == n - 1 && j == 0);
                 if corner {
                     continue;
                 }
