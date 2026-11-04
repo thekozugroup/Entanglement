@@ -12,7 +12,9 @@
 //! | E0302–E0305 | Integrity policy (see `entangle-runtime`) |
 //! | E0306–E0349 | Integrity verification: metrics, policy envelope, quorum, Layer-2 spot-check attestation failure (`entangle_runtime::IntegrityError`; E0306–E0319 in use) |
 //! | E0350–E0399 | Streaming tasks: submit-time validation, credit, heartbeat, chunk signing, size caps (`entangle_scheduler::stream::StreamError`; E0350–E0371 in use) |
+//! | E0400–E0429 | Broker / biscuits cross-node verification (`entangle-broker`, `entangle_biscuits::BiscuitError`; E0420–E0425 bridge tokens in `entangle_biscuits::bridge`; E0411 build and E0412 expiry are shared with `entangle_biscuits::templates::TokenError`, where they mean the same thing) |
 //! | E0430–E0449 | Scheduler transport selection: no route, every candidate unreachable, failure after send, frame cap, transport-name and per-peer override config (`entangle_scheduler::transport::RouteError`; E0430–E0435 in use) |
+//! | E0450–E0469 | Remote capability tokens: the `mesh.peer` / `compute.gpu-job` / `agent.session` templates and the per-request token check on `entangle/scheduler/1` and `entangle/stream/1` (`entangle_biscuits::templates::TokenError`; E0450–E0463 in use) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0507       | Host artifact checks: runtime-kind sniffing (see `entangle-host`) |
 //! | E0508–E0519 | Host: realising capability grants in a wasm instance (storage root, scope directories, unsafe paths; E0508–E0510 in use, and E0511 for an invocation stopped because a network grant was withdrawn while it ran; see `entangle-host`) |
@@ -34,15 +36,16 @@
 //! Other crates layer their own codes into the gaps between these ranges —
 //! `entangle-broker` owns E0050 and E0123–E0127 (E0124 operator
 //! `deny_capabilities` refusal, E0125 revoked capability, E0126 invalid deny
-//! pattern, E0127 tier ceiling on a grant), and E0400–E0425 belong to the
-//! broker / biscuits cross-node paths (E0430–E0449, scheduler transport
-//! selection, is listed above). The table above is therefore *this
-//! crate's* view, not a workspace-wide registry.
+//! pattern, E0127 tier ceiling on a grant). The table above is therefore
+//! *this crate's* view, not a workspace-wide registry; every code emitted by
+//! an enum that `tests/error_codes.rs` covers must still fall in one of its
+//! rows (`every_covered_code_is_in_a_registered_range`).
 //!
 //! **Uniqueness.** Within the enums covered by `tests/error_codes.rs`
 //! ([`EntangleError`], `entangle_runtime::IntegrityError`,
 //! `entangle_host::HostError`, `entangle_sandbox::{SandboxError,
-//! SupervisorError}` and `entangle_runtime::native::NativeError`) a code
+//! SupervisorError}`, `entangle_runtime::native::NativeError` and
+//! `entangle_biscuits::templates::TokenError`, among others) a code
 //! identifies exactly one variant, and the test enforces that mechanically. Workspace-wide uniqueness is the *intent*
 //! but is not yet mechanically enforced: a handful of codes outside those
 //! three enums are still claimed by more than one variant. Widening the test

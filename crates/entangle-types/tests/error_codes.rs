@@ -27,6 +27,9 @@ const ERROR_SOURCES: &[&str] = &[
     "../entangle-runtime/src/integrity.rs",
     "../entangle-host/src/errors.rs",
     "../entangle-biscuits/src/bridge.rs",
+    // Remote capability tokens (E0450–E0469). E0411/E0412 are shared on
+    // purpose with `BiscuitError` (biscuits/src/errors.rs, not covered).
+    "../entangle-biscuits/src/templates.rs",
     "../entangle-scheduler/src/stream/error.rs",
     "../entangle-scheduler/src/transport/error.rs",
     "../entangle-oci/src/error.rs",
@@ -257,4 +260,63 @@ fn doc_comments_match_emitted_codes() {
             }
         }
     }
+}
+
+/// The ranges the table in `src/errors.rs` registers: its `//! | Exxxx | …`
+/// and `//! | Exxxx–Eyyyy | …` rows.
+fn registered_ranges() -> Vec<(u16, u16)> {
+    let table = read_source("src/errors.rs");
+    let mut ranges = Vec::new();
+    for line in table.lines() {
+        let Some(cell) = line.strip_prefix("//! | E") else {
+            continue;
+        };
+        let Some(cell) = cell.split('|').next() else {
+            continue;
+        };
+        let mut bounds = cell.trim().split("–E");
+        let (Some(lo), hi) = (bounds.next(), bounds.next()) else {
+            continue;
+        };
+        let (Ok(lo), Ok(hi)) = (
+            lo.trim().parse::<u16>(),
+            hi.unwrap_or(lo).trim().parse::<u16>(),
+        ) else {
+            continue;
+        };
+        ranges.push((lo, hi));
+    }
+    ranges
+}
+
+/// Every code a covered enum emits lies in a range registered in the table of
+/// `src/errors.rs`: an operator who sees the code can find its domain, and a
+/// new area cannot quietly squat on numbers nobody claimed.
+#[test]
+fn every_covered_code_is_in_a_registered_range() {
+    let ranges = registered_ranges();
+    assert!(
+        ranges.len() >= 20,
+        "parsed only {} range rows from src/errors.rs: {ranges:?}",
+        ranges.len()
+    );
+    let mut report = String::new();
+    for (code, sites) in declarations_by_code() {
+        let n: u16 = code[1..].parse().expect("four digits");
+        if ranges.iter().any(|&(lo, hi)| (lo..=hi).contains(&n)) {
+            continue;
+        }
+        for site in sites {
+            let _ = writeln!(
+                report,
+                "  ENTANGLE-{code}: {}:{} {}",
+                site.file, site.line, site.variant
+            );
+        }
+    }
+    assert!(
+        report.is_empty(),
+        "error codes outside every range registered in crates/entangle-types/src/errors.rs \
+         — add a row for the domain:\n{report}"
+    );
 }
