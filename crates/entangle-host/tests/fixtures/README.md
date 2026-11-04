@@ -30,5 +30,24 @@ bash ../../fixtures-src/stress/build.sh
 ```
 Run from within `crates/entangle-host/tests/fixtures/`, or adjust the relative path.
 
+## caps-probe.wasm
+
+**Purpose**: Stable binary artifact used by `capabilities.rs` (and by
+`entangle-runtime/tests/wasm_capabilities.rs`, `entangle-bin/tests/perms_rpc.rs`)
+to check what capability grants let a plugin do. The input is a script, one
+command per line (`write`, `read`, `mkdir`, `ls`, `symlink`, `connect`,
+`listen`, `udp`, `resolve`, `fetch`, `release`, `info`); the output has one
+`ok[:detail]` or `err:<kind>:<message>` line per command. See the table at
+the top of its `src/lib.rs`.
+
+**Source**: `crates/entangle-host/fixtures-src/caps-probe/`
+
+**Rebuild**:
+```bash
+bash ../../fixtures-src/caps-probe/build.sh
+```
+The build is reproducible: rebuilding from the committed source yields a
+byte-identical file.
+
 **Binary blob policy**: Committed `.wasm` files are binary blobs — this is intentional.  
 The source of truth is the `fixtures-src/` directory; the blob is reproducible via the build script above.

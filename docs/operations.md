@@ -976,7 +976,10 @@ audited and counted the same way.
   makes DNS rebinding during an invocation useless. An allowlisted name that
   resolves to a LAN or loopback address is not reachable through `net.wan`.
   Wildcard `net.wan` entries are tier 4 and therefore never reach a wasm
-  plugin (wasm is tier 1–3).
+  plugin (wasm is tier 1–3). With any `net.*` grant the guest may also ask
+  the host's resolver to look up names (any name — the lookup itself is not
+  allowlisted, only the connections that follow); without one it cannot
+  resolve at all.
 - **Resource limits** (fuel/epoch deadline, memory) are unchanged by grants.
 
 ### Inspecting and revoking grants
