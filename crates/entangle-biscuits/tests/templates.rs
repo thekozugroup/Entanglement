@@ -690,6 +690,92 @@ fn a_large_frame_is_expired_only_once_its_grace_has_passed_too() {
     ));
 }
 
+/// The grace undoes only the per-request block's own 60 s being used up in
+/// transit. Every other expiry in the chain — the grant's, a delegated
+/// attenuation's, any block the holder appended without a nonce — stays
+/// strict, however large the frame the presenter sends.
+#[test]
+fn the_grace_stretches_only_the_per_request_expiry_never_a_grant_or_other_block() {
+    let (w, b) = (Node::new(), Node::new());
+    let root = root_public_key(&w.public()).unwrap();
+    // The largest task frame: 64 s of grace.
+    let big = 16 * 1024 * 1024 + 64 * 1024;
+    assert_eq!(late_arrival_grace_secs(big), 64);
+    let at = |presented: &[u8], now: i64| {
+        verify_request(
+            presented,
+            &RequestCheck {
+                received_frame_len: big,
+                now_unix_secs: now,
+                ..check(&root, b.id(), TASK)
+            },
+        )
+    };
+
+    // A grant that expired a second ago, presented with a fresh request
+    // block in a 16 MiB frame: still expired, with the shared E0412.
+    let lapsed = mint_mesh_peer(&w.key, b.id(), Some(NOW - 1)).unwrap().bytes;
+    let presented = request(&lapsed, &w, NOW + 59, 1, BINDING);
+    let err = at(&presented, NOW).unwrap_err();
+    assert_eq!(
+        err,
+        TokenError::Expired {
+            expires: NOW - 1,
+            now: NOW
+        }
+    );
+    assert!(err.to_string().starts_with("ENTANGLE-E0412"));
+
+    // A grant expiring in ten seconds bounds the request at its own expiry,
+    // and the replay cache need hold the nonce only until then.
+    let short = mint_mesh_peer(&w.key, b.id(), Some(NOW + 10)).unwrap().bytes;
+    let presented = request(&short, &w, NOW + 59, 2, BINDING);
+    let ok = at(&presented, NOW + 9).unwrap();
+    assert_eq!(ok.accepted_until(), NOW + 10);
+    assert_eq!(
+        at(&presented, NOW + 10),
+        Err(TokenError::Expired {
+            expires: NOW + 10,
+            now: NOW + 10
+        })
+    );
+
+    // An attenuation block carrying its own expiry (here the gpu_job
+    // template, minted with one) is strict too: refused as expired before
+    // its restriction is even looked at.
+    let gpu = attenuate_gpu_job(&grant(&w, &b), &w.public(), Some(NOW - 1)).unwrap();
+    let presented = request(&gpu, &w, NOW + 59, 3, BINDING);
+    assert_eq!(
+        at(&presented, NOW),
+        Err(TokenError::Expired {
+            expires: NOW - 1,
+            now: NOW
+        })
+    );
+
+    // So is a block the holder appended without a nonce.
+    let own = append_raw(
+        &grant(&w, &b),
+        &w,
+        &[&format!("expires({})", NOW - 1)],
+        &[],
+    );
+    let presented = request(&own, &w, NOW + 59, 4, BINDING);
+    assert!(matches!(
+        at(&presented, NOW),
+        Err(TokenError::Expired { expires, .. }) if expires == NOW - 1
+    ));
+
+    // The per-request block's own expiry still earns the grace, under a
+    // grant that has not expired too.
+    let presented = request(&short, &w, NOW - 5, 5, BINDING);
+    let ok = at(&presented, NOW).unwrap();
+    assert_eq!((ok.expires, ok.late_grace_secs), (NOW - 5, 64));
+    assert_eq!(ok.accepted_until(), NOW + 10, "the grant's expiry binds");
+    let presented = request(&grant(&w, &b), &w, NOW - 5, 6, BINDING);
+    assert_eq!(at(&presented, NOW).unwrap().accepted_until(), NOW + 59);
+}
+
 #[test]
 fn a_replay_inside_the_grace_window_is_refused_as_a_replay() {
     let (w, b) = (Node::new(), Node::new());
