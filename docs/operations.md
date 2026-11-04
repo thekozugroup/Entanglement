@@ -1496,7 +1496,8 @@ source produce the same bytes: absolute paths are remapped out of the wasm
 
 ```text
 entangle release key add <release-public-key-hex> --name release-2026   # release keyring
-entangle release verify entanglement-v1.0.0-<target>.tar.gz
+entangle release verify entanglement-v1.0.0-<target>.tar.gz          # tag read from the file name
+entangle release verify download.tar.gz --tag v1.0.0               # or given explicitly
 ```
 
 Needs `<artifact>.ed25519` (from `entangle release sign`) and the cosign bundle
@@ -1504,10 +1505,18 @@ Needs `<artifact>.ed25519` (from `entangle release sign`) and the cosign bundle
 keyring is `~/.entangle/release-keyring.toml`, separate from the publisher keyring
 (`--release-key <hex>` trusts a single key instead). `cosign` must be on `PATH` (or
 `--cosign <path>`); if it is missing the command fails with `ENTANGLE-E0845`.
-`--certificate-identity-regexp` / `--certificate-oidc-issuer` default to the values used by
-`.github/workflows/release.yml`: the identity must be that workflow file of this repository
-run on a `v*` tag (anchored; other workflows, branch, pull-request and dispatch runs are
-rejected), and the workflow signs only on tag runs. The key ceremony (2-of-3 Shamir split with
+The cosign certificate identity is pinned to **one release**: the release workflow of this
+repository run on exactly `refs/tags/<tag>`, with `<tag>` from `--tag vX.Y.Z` or, when
+omitted, from an `entanglement-<tag>-<target>.tar.gz` file name. If neither is available the
+command refuses (`ENTANGLE-E0847`); a `--tag` that is not a `vX.Y.Z[-pre]` tag is refused
+the same way, and one that contradicts a release-style file name is refused
+(`ENTANGLE-E0848`). This is what stops a rollback: an older release (valid signatures and
+all) renamed to a newer version was minted by the older tag's run and fails the newer
+tag's identity (`ENTANGLE-E0846`). The identity is anchored and the tag's dots escaped, so
+no other tag, branch, pull-request or dispatch run, workflow or repository matches.
+`--certificate-identity-regexp` replaces the pinning outright (for forks with their own
+release workflow; it excludes `--tag`), and `--certificate-oidc-issuer` defaults to GitHub
+Actions. `.github/workflows/release.yml` signs only tag runs. The key ceremony (2-of-3 Shamir split with
 `entangle release key split|combine`) is in `docs/governance/key-ceremony.md`.
 
 ### 18.3 Governance checks
