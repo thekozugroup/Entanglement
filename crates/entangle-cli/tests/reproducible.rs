@@ -433,6 +433,46 @@ fn rebuild_uses_the_recorded_source_date_epoch() {
         .stdout(predicate::str::contains("created_at"));
 }
 
+/// The source digest covers the source, not the builder's own earlier
+/// outputs: repeated builds into an output directory inside the project (any
+/// name, not just `dist`) give the same archive.
+#[test]
+fn outputs_inside_the_project_do_not_change_the_source_digest() {
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
+    let wasm = root.path().join("prebuilt.wasm");
+    std::fs::write(&wasm, b"\0asm\x01\0\0\0").unwrap();
+    let build = |out: Option<&Path>| -> (Vec<u8>, String) {
+        let mut c = entangle(home.path());
+        c.args(["plugins", "build"])
+            .arg(&project)
+            .arg("--key")
+            .arg(key())
+            .arg("--wasm")
+            .arg(&wasm);
+        if let Some(o) = out {
+            c.arg("--out").arg(o);
+        }
+        c.assert().success();
+        let dir = out.map(Path::to_path_buf).unwrap_or(project.join("dist"));
+        let archive = std::fs::read(dir.join("tiny-0.1.0.tar.zst")).unwrap();
+        let prov: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(dir.join("provenance.json")).unwrap()).unwrap();
+        (archive, prov["source_digest"].as_str().unwrap().to_owned())
+    };
+    let out = project.join("out");
+    let (a1, d1) = build(Some(&out));
+    let (a2, d2) = build(Some(&out));
+    let (a3, d3) = build(Some(&out));
+    assert_eq!(d1, d2, "second build hashed the first build's outputs");
+    assert_eq!(d2, d3);
+    assert_eq!(a1, a2);
+    assert_eq!(a2, a3);
+    let (_, d4) = build(None);
+    assert_eq!(d1, d4, "default build hashed the --out directory");
+}
+
 // ---------------------------------------------------------------------------
 // ATC-PKG-2 (structural: one process cannot run three hosts)
 // ---------------------------------------------------------------------------

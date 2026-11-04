@@ -409,6 +409,19 @@ pub fn prepare_build(
 // Source digest
 // ---------------------------------------------------------------------------
 
+/// `true` for a directory `entangle plugins build` wrote a package into
+/// (`--out`, by default `dist/`): it holds a `plugin.wasm.sig` or
+/// `plugin.bin.sig`. Recognised by content, not by name, so the publisher and
+/// a verifier skip the same directories without knowing the `--out` used.
+fn is_package_output_dir(dir: &Path) -> bool {
+    [
+        entangle_runtime::loader::WASM_ARTIFACT,
+        entangle_runtime::loader::NATIVE_ARTIFACT,
+    ]
+    .iter()
+    .any(|a| dir.join(format!("{a}.sig")).is_file())
+}
+
 fn collect_files(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
     for entry in std::fs::read_dir(dir).with_context(|| format!("reading {}", dir.display()))? {
         let entry = entry?;
@@ -416,7 +429,7 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> 
         let ty = entry.file_type()?;
         if ty.is_dir() {
             let name = entry.file_name();
-            if DIGEST_SKIP_DIRS.iter().any(|s| name == *s) {
+            if DIGEST_SKIP_DIRS.iter().any(|s| name == *s) || is_package_output_dir(&path) {
                 continue;
             }
             collect_files(root, &path, out)?;
@@ -428,8 +441,8 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> 
 }
 
 /// SHA-256 over a source tree: for every regular file (sorted by
-/// `/`-separated relative path; `target/`, `dist/`, VCS dirs skipped)
-/// `path \0 len(u64 LE) content`. Independent of mtimes, permissions, owners
+/// `/`-separated relative path; `target/`, `dist/`, VCS dirs and package
+/// output directories skipped) `path \0 len(u64 LE) content`. Independent of mtimes, permissions, owners
 /// and the checkout location.
 pub fn source_digest(dir: &Path) -> Result<String> {
     let mut files = Vec::new();
