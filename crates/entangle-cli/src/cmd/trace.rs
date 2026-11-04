@@ -21,6 +21,7 @@ use entangle_rpc::{Client as RpcClient, RpcError};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
+use super::logs::escape_controls;
 use crate::daemon_not_running_error;
 
 /// Attributes shown per span in the tree.
@@ -83,12 +84,15 @@ pub fn format_duration_us(us: u64) -> String {
     }
 }
 
+/// `v` cut to [`MAX_VALUE`] characters, its control characters escaped
+/// (event names, status messages and attribute values can carry text a
+/// plugin chose; see [`escape_controls`]).
 fn short(v: &str) -> String {
     if v.chars().count() > MAX_VALUE {
         let cut: String = v.chars().take(MAX_VALUE).collect();
-        format!("{cut}…")
+        format!("{}…", escape_controls(&cut))
     } else {
-        v.to_owned()
+        escape_controls(v).into_owned()
     }
 }
 
@@ -107,9 +111,10 @@ pub fn render(r: &TraceGetResult) -> String {
 fn render_trace(out: &mut String, t: &TraceWire, asked: &str) {
     let _ = writeln!(
         out,
-        "Trace {}  ({} spans)  for {asked}",
-        t.trace_id,
-        t.spans.len()
+        "Trace {}  ({} spans)  for {}",
+        escape_controls(&t.trace_id),
+        t.spans.len(),
+        escape_controls(asked)
     );
     let ids: HashSet<&str> = t.spans.iter().map(|s| s.span_id.as_str()).collect();
     let mut children: HashMap<&str, Vec<&SpanWire>> = HashMap::new();
@@ -142,7 +147,7 @@ fn render_trace(out: &mut String, t: &TraceWire, asked: &str) {
         );
     }
     for h in &t.remote_hints {
-        let _ = writeln!(out, "note: {h}");
+        let _ = writeln!(out, "note: {}", escape_controls(h));
     }
 }
 
@@ -167,11 +172,11 @@ fn write_span<'a>(
     };
     let mut line = format!(
         "{prefix}{branch}{}  {}",
-        s.name,
+        escape_controls(&s.name),
         format_duration_us(s.duration_us)
     );
     if s.kind != "internal" {
-        let _ = write!(line, "  {}", s.kind);
+        let _ = write!(line, "  {}", escape_controls(&s.kind));
     }
     if s.status == "error" {
         let _ = write!(
@@ -187,7 +192,7 @@ fn write_span<'a>(
     }
     let shown = s.attributes.iter().filter(|(k, _)| k != "otel.kind");
     for (k, v) in shown.clone().take(MAX_ATTRS) {
-        let _ = write!(line, "  {k}={}", short(v));
+        let _ = write!(line, "  {}={}", escape_controls(k), short(v));
     }
     let hidden = shown.count().saturating_sub(MAX_ATTRS);
     if hidden > 0 {
@@ -281,6 +286,45 @@ mod tests {
         assert_eq!(
             lines[6],
             "note: spans for work on peer ab12 are held by that node"
+        );
+    }
+
+    /// Event names, status messages and attribute values carry text a
+    /// plugin chose: they reach the terminal escaped.
+    #[test]
+    fn plugin_controlled_text_in_a_trace_cannot_drive_the_terminal() {
+        let mut s = span("a", None, "plugin.invoke", 1, 10);
+        s.status = "error".into();
+        s.status_message = Some("bad\x1b[2K\rforged".into());
+        s.attributes = vec![("note".into(), "x\x1b]52;c;aGk=\x07".into())];
+        s.events = vec![entangle_rpc::methods::SpanEventWire {
+            unix_ms: 0,
+            name: "ok\n2026-11-04T15:56:34.719Z WARN  forged\x1b[1A".into(),
+            attributes: vec![],
+        }];
+        let text = render(&TraceGetResult {
+            id: "i".into(),
+            traces: vec![TraceWire {
+                trace_id: "t".repeat(32),
+                spans: vec![s],
+                dropped_spans: 0,
+                remote_hints: vec![],
+            }],
+        });
+        assert!(
+            !text.chars().any(|c| c.is_control() && c != '\n'),
+            "{text:?}"
+        );
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 3, "header, span, event: {text}");
+        assert!(
+            lines[1].contains("ERROR: bad\\u{1b}[2K\\rforged")
+                && lines[1].contains("note=x\\u{1b}]52;c;aGk=\\u{7}"),
+            "{text}"
+        );
+        assert!(
+            lines[2].contains("! ok\\n2026-11-04T15:56:34.719Z WARN  forged\\u{1b}[1A"),
+            "{text}"
         );
     }
 

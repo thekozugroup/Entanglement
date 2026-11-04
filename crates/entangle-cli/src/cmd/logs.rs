@@ -20,6 +20,7 @@
 use clap::Args;
 use entangle_rpc::methods::{LogLineWire, LogsReadParams, LogsReadResult};
 use entangle_rpc::{Client as RpcClient, RpcError};
+use std::borrow::Cow;
 use std::io::Write as _;
 use std::time::Duration;
 
@@ -104,31 +105,56 @@ pub fn format_timestamp(unix_ms: u64) -> String {
     )
 }
 
+/// `s` with every control character but tab escaped (`\n`, `\r`,
+/// `\u{1b}`, C1 controls such as `\u{9b}`, DEL): text a plugin printed goes
+/// to the operator's terminal, where an ESC or CSI sequence would run (move
+/// the cursor, erase lines, set the clipboard) and a newline would let it
+/// forge a log line. Text without control characters is returned as is.
+pub fn escape_controls(s: &str) -> Cow<'_, str> {
+    if !s.chars().any(|c| c.is_control() && c != '\t') {
+        return Cow::Borrowed(s);
+    }
+    let mut out = String::with_capacity(s.len() + 8);
+    for c in s.chars() {
+        if c.is_control() && c != '\t' {
+            out.extend(c.escape_default());
+        } else {
+            out.push(c);
+        }
+    }
+    Cow::Owned(out)
+}
+
 /// One line as text:
 /// `2026-11-04T15:56:34.719Z WARN  entangle::scheduler::stream [StalledEvent] message k=v`.
+///
+/// Every part that can carry text a plugin chose is passed through
+/// [`escape_controls`] (values with whitespace are quoted with Rust's
+/// escaping), so one buffered line is one terminal line.
 pub fn format_line(l: &LogLineWire) -> String {
     let mut out = format!(
         "{} {:<5}",
         format_timestamp(l.unix_ms),
-        l.level.to_uppercase()
+        escape_controls(&l.level.to_uppercase())
     );
     // Plugin output is already filed under its plugin: the target adds nothing.
     if l.target != "entangle::plugin" && l.target != "entangle::native" {
         out.push(' ');
-        out.push_str(&l.target);
+        out.push_str(&escape_controls(&l.target));
     }
     if let Some(e) = &l.event {
-        out.push_str(&format!(" [{e}]"));
+        out.push_str(&format!(" [{}]", escape_controls(e)));
     }
     if !l.message.is_empty() {
         out.push(' ');
-        out.push_str(&l.message);
+        out.push_str(&escape_controls(&l.message));
     }
     for (k, v) in &l.fields {
+        let k = escape_controls(k);
         if v.contains(char::is_whitespace) {
             out.push_str(&format!(" {k}={v:?}"));
         } else {
-            out.push_str(&format!(" {k}={v}"));
+            out.push_str(&format!(" {k}={}", escape_controls(v)));
         }
     }
     out
@@ -293,5 +319,49 @@ mod tests {
             format_line(&out),
             "1970-01-01T00:00:00.000Z INFO  hello stream=stdout"
         );
+    }
+
+    /// Text a plugin printed reaches the terminal escaped: no line it can
+    /// forge, no escape sequence the terminal would run.
+    #[test]
+    fn plugin_controlled_text_cannot_drive_the_terminal() {
+        let l = LogLineWire {
+            seq: 1,
+            unix_ms: 0,
+            level: "info".into(),
+            target: "entangle::plugin".into(),
+            event: Some("ev\x1b[31m".into()),
+            message:
+                "ok\n2026-11-04T15:56:34.719Z WARN  entangle_runtime::kernel capability granted\
+                      \x1b]52;c;aGk=\x07\r\x1b[1A\x1b[2K\u{9b}31m\u{7f}\ttab"
+                    .into(),
+            fields: vec![
+                ("stream".into(), "stdout\x1b[2J".into()),
+                ("note".into(), "a\x1b[1A b".into()),
+            ],
+        };
+        let text = format_line(&l);
+        assert!(
+            !text.chars().any(|c| c.is_control() && c != '\t'),
+            "{text:?}"
+        );
+        assert!(
+            text.contains(
+                "ok\\n2026-11-04T15:56:34.719Z WARN  entangle_runtime::kernel capability granted"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.contains("\\u{1b}]52;c;aGk=\\u{7}\\r\\u{1b}[1A\\u{1b}[2K\\u{9b}31m\\u{7f}\ttab"),
+            "{text}"
+        );
+        assert!(text.contains(" stream=stdout\\u{1b}[2J"), "{text}");
+        assert!(text.contains(" note=\"a\\u{1b}[1A b\""), "{text}");
+        assert!(text.contains("[ev\\u{1b}[31m]"), "{text}");
+        // Ordinary text (non-ASCII, tabs) is passed through untouched.
+        assert!(matches!(
+            escape_controls("café\tok ✓"),
+            Cow::Borrowed("café\tok ✓")
+        ));
     }
 }
