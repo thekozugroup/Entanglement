@@ -153,11 +153,18 @@ async fn handle(
     mode: Arc<Mutex<Mode>>,
 ) -> Result<Resp, Infallible> {
     let method = req.method().to_string();
-    let headers: BTreeMap<String, String> = req
-        .headers()
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
-        .collect();
+    // A header sent twice shows as its values joined with ", ".
+    let mut headers: BTreeMap<String, String> = BTreeMap::new();
+    for (k, v) in req.headers() {
+        let v = v.to_str().unwrap_or("");
+        headers
+            .entry(k.to_string())
+            .and_modify(|e| {
+                e.push_str(", ");
+                e.push_str(v);
+            })
+            .or_insert_with(|| v.to_string());
+    }
     let bytes = req.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     seen.lock().push(Seen {
@@ -662,6 +669,28 @@ async fn errors_and_redirects_are_reported_not_followed() {
     f.mock.set(Mode::Broken);
     let r = post(&f, &call(3, "x")).await;
     assert!(r.body["error"]["message"].as_str().unwrap().contains("500"));
+    f.gw.shutdown().await;
+}
+
+/// A configured `User-Agent` is what the server sees, not a second
+/// `User-Agent` next to the gateway's own.
+#[tokio::test]
+async fn a_configured_user_agent_replaces_the_gateways() {
+    let f = fixture_with(
+        &[("User-Agent", "my-client/2.0")],
+        Duration::from_secs(10),
+        1 << 20,
+        Policy::default(),
+    )
+    .await;
+    post(&f, &init()).await;
+    for p in f.mock.posts() {
+        assert_eq!(p.headers["user-agent"], "my-client/2.0", "{p:?}");
+    }
+    f.gw.shutdown().await;
+    let f = fixture().await;
+    post(&f, &init()).await;
+    assert!(f.mock.posts()[0].headers["user-agent"].starts_with("entangle-gateway/"));
     f.gw.shutdown().await;
 }
 

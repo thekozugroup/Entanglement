@@ -159,8 +159,11 @@ itself sets `type`, `command` and `"enabled": true` win over the override.
     `${VAR:-default}` and `{env:VAR}` references are expanded from your
     environment). The gateway's bearer token is never sent downstream, and the
     headers never reach the agent: the rewritten session config only holds the
-    gateway URL and token. `Host`, `Content-*`, `Accept`, `Mcp-*` and
-    hop-by-hop names cannot be configured (`ENTANGLE-E0664`);
+    gateway URL and token. `Host`, `Accept`, any `Content-*` or `Mcp-*`
+    name and the hop-by-hop names (`Connection`, `Keep-Alive`,
+    `Proxy-Connection`, `Proxy-Authenticate`, `Proxy-Authorization`, `TE`,
+    `Trailer`, `Transfer-Encoding`, `Upgrade`) cannot be configured
+    (`ENTANGLE-E0664`); a configured `User-Agent` replaces the gateway's;
   - replies may be `application/json` (an object or a batch) or
     `text/event-stream`: events are read until the response to the request id
     arrives, other server notifications are dropped, and a server `ping`

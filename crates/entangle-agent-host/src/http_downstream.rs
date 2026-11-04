@@ -36,21 +36,35 @@ use serde_json::{json, Value};
 use tokio::net::TcpStream;
 use url::{Host, Url};
 
-/// Header names the gateway sets itself; a user header with one of these
-/// names is refused rather than silently overridden.
+/// Header names a user cannot configure (refused rather than silently
+/// overridden or sent twice): those the gateway sets itself (`host`,
+/// `accept`) and the hop-by-hop names, which describe the gateway's own
+/// connection (RFC 9110 §7.6.1; `proxy-*` because no proxy is involved, so a
+/// `Proxy-Authorization` would only hand a credential to the server).
 const RESERVED_HEADERS: &[&str] = &[
     "host",
-    "content-length",
-    "content-type",
     "accept",
     "connection",
+    "keep-alive",
+    "proxy-connection",
+    "proxy-authenticate",
+    "proxy-authorization",
     "transfer-encoding",
     "upgrade",
     "te",
     "trailer",
-    "mcp-session-id",
-    "mcp-protocol-version",
 ];
+
+/// Header name prefixes a user cannot configure: `content-*` describes the
+/// body the gateway sends (a `Content-Encoding` would make the server
+/// misread it) and `mcp-*` is the transport's own namespace
+/// (`Mcp-Session-Id`, `MCP-Protocol-Version`).
+const RESERVED_PREFIXES: &[&str] = &["content-", "mcp-"];
+
+fn is_reserved(name: &HeaderName) -> bool {
+    let n = name.as_str();
+    RESERVED_HEADERS.contains(&n) || RESERVED_PREFIXES.iter().any(|p| n.starts_with(p))
+}
 
 /// Why a request to an HTTP downstream failed.
 #[derive(Debug)]
@@ -159,7 +173,7 @@ impl HttpTarget {
         for (k, v) in headers {
             let name = HeaderName::from_bytes(k.as_bytes())
                 .map_err(|_| HttpError::Refused(format!("invalid header name {k:?}")))?;
-            if RESERVED_HEADERS.contains(&name.as_str()) {
+            if is_reserved(&name) {
                 return Err(HttpError::Refused(format!(
                     "header {k:?} is set by the gateway and cannot be configured"
                 )));
@@ -265,11 +279,19 @@ impl HttpTarget {
                 None => url.path().to_owned(),
             })
             .header("host", host_hdr)
-            .header("connection", "close")
-            .header(
+            .header("connection", "close");
+        // A configured `User-Agent` replaces the gateway's (it is added with
+        // the other configured headers below).
+        if !self
+            .headers
+            .iter()
+            .any(|(k, _)| k == hyper::header::USER_AGENT)
+        {
+            req = req.header(
                 "user-agent",
                 concat!("entangle-gateway/", env!("CARGO_PKG_VERSION")),
             );
+        }
         if method == Method::POST {
             req = req
                 .header("content-type", "application/json")
@@ -621,6 +643,38 @@ mod tests {
                 HttpTarget::new("https://x.example/mcp", &h),
                 Err(HttpError::Refused(_))
             ));
+        }
+        // What the docs promise: `Content-*`, `Mcp-*` and hop-by-hop names
+        // are refused too, not only the names the gateway sets itself.
+        for reserved in [
+            "Content-Encoding",
+            "content-language",
+            "Mcp-Anything",
+            "Keep-Alive",
+            "Proxy-Connection",
+            "Proxy-Authorization",
+            "Transfer-Encoding",
+            "Upgrade",
+            "TE",
+            "Trailer",
+        ] {
+            let mut h = std::collections::BTreeMap::new();
+            h.insert(reserved.to_string(), "x".to_string());
+            assert!(
+                matches!(
+                    HttpTarget::new("https://x.example/mcp", &h),
+                    Err(HttpError::Refused(_))
+                ),
+                "{reserved} accepted"
+            );
+        }
+        for allowed in ["Authorization", "X-Api-Key", "User-Agent", "Contentious"] {
+            let mut h = std::collections::BTreeMap::new();
+            h.insert(allowed.to_string(), "x".to_string());
+            assert!(
+                HttpTarget::new("https://x.example/mcp", &h).is_ok(),
+                "{allowed}"
+            );
         }
         let mut h = std::collections::BTreeMap::new();
         h.insert("X-A".to_string(), "bad\r\nvalue: 1".to_string());
