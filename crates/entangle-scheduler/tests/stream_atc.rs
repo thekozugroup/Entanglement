@@ -1591,8 +1591,12 @@ async fn an_aborted_stream_still_publishes_idled() {
     let (port, _driver) = entangle_host::stream_port(1);
     let kernel = plugins.kernel.clone();
     let id = plugins.stream_lines.clone();
-    let run =
-        tokio::spawn(async move { kernel.invoke_stream(&id, b"", port, 30_000).await.map(|_| ()) });
+    let run = tokio::spawn(async move {
+        kernel
+            .invoke_stream(&id, b"", port, 30_000)
+            .await
+            .map(|_| ())
+    });
 
     let activated = tokio::time::timeout(TEST_DEADLINE, sub.recv())
         .await
