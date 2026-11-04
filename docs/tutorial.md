@@ -382,7 +382,7 @@ Code:         123-456  (read aloud — expires in 5 minutes)
 Fingerprint:  a3f9…c7d1
 Display name: alice-laptop
 
-Paste this REQUEST blob to the other device's `entangle pair --responder`:
+Paste this REQUEST blob to the other device's `entangle pair --responder --manual`:
 
 ENT-REQ-eyJpbml0aWF0b3JfcGVlcl9pZCI6Ii4uLiJ9
 
@@ -422,8 +422,9 @@ Waiting for FINALIZE blob:
 >
 ```
 
-You can type the code with or without the dash — `entangle pair --code
-123456` also works non-interactively. Send the `ENT-ACC-...` blob back to
+You can type the code with or without the dash —
+`entangle pair --responder --manual --code 123456` also works
+non-interactively. Send the `ENT-ACC-...` blob back to
 the initiator.
 
 ### 11.3 Initiator receives the ACCEPT blob
@@ -488,7 +489,7 @@ not walked through here. Commands and flags are in
 
 | Feature | Where to read |
 |---------|---------------|
-| Remote one-shot and streaming tasks (`entangle compute dispatch`, `compute stream`) over `mesh.iroh` and `mesh.tailscale` | operations.md |
+| Remote one-shot tasks (`entangle compute dispatch`) over `mesh.iroh` and `mesh.tailscale`; streaming tasks (`entangle compute stream`, which dials over `mesh.iroh` only) | operations.md |
 | Integrity policies (`deterministic`, `semantic-equivalent`, `trusted-executor`) | operations.md, architecture.md §7.5 |
 | MCP gateway and `entangle agent run` | operations.md, [agents.md](agents.md) |
 | Tier-5 native plugins and the Linux sandbox | architecture.md §3.4, operations.md |
@@ -498,7 +499,8 @@ not walked through here. Commands and flags are in
 
 Not implemented: `Attested` integrity (needs TEE hardware), native Windows,
 `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
-Not on main yet: `entangle backup` / `restore`, plugin enable/disable.
+On unmerged branches, not in this tree: `entangle backup` / `restore`,
+`entangle plugins enable|disable`.
 
 If you encounter an error code not listed in this tutorial, check the full
 error reference in [architecture.md §appendix-errors](architecture.md#appendix-errors).
