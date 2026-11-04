@@ -9,9 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use entangle_bin::config::MetricsSection;
-use entangle_bin::metrics_server::{
-    MetricsServer, CONTENT_TYPE_PROMETHEUS, HEADER_TIMEOUT, MAX_CONNECTIONS,
-};
+use entangle_bin::metrics_server::{MetricsServer, CONTENT_TYPE_PROMETHEUS, MAX_CONNECTIONS};
 use entangle_bin::state::{DaemonState, MeshDiagSources, TailscaleDiag};
 use entangle_bin::{diag, server};
 use entangle_mesh_iroh::{IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER};
@@ -545,10 +543,16 @@ async fn routes_and_methods() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn connections_are_capped_and_stalled_clients_are_reaped() {
-    let server = MetricsServer::start(&section("127.0.0.1:0", false), Registry::new())
-        .await
-        .unwrap()
-        .unwrap();
+    let header_timeout = Duration::from_secs(1);
+    let server = MetricsServer::start_with_timeouts(
+        &section("127.0.0.1:0", false),
+        Registry::new(),
+        header_timeout,
+        Duration::from_secs(15),
+    )
+    .await
+    .unwrap()
+    .unwrap();
     let addr = server.local_addr();
 
     // Fill every slot with a client that connects and says nothing.
@@ -571,7 +575,7 @@ async fn connections_are_capped_and_stalled_clients_are_reaped() {
 
     // The stalled clients are reaped once the header timeout passes, freeing
     // the slots: a real scrape then works.
-    tokio::time::sleep(HEADER_TIMEOUT + Duration::from_secs(2)).await;
+    tokio::time::sleep(header_timeout + Duration::from_secs(1)).await;
     let ok = http(addr, &get("/metrics")).await;
     assert_eq!(ok.status, 200);
     for mut s in idle {
@@ -711,10 +715,10 @@ async fn diag_mesh_reports_paths_and_probes_round_trips() {
 
     let ghost_key = IdentityKeyPair::generate();
     let ghost_id = PeerId::from_public_key_bytes(ghost_key.public().as_bytes());
-    let dead_port = {
-        let s = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
-        s.local_addr().unwrap().port()
-    };
+    // Keep the socket bound (and unread) for the whole test, so no other
+    // process can take the port and answer the probe.
+    let dead_socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+    let dead_port = dead_socket.local_addr().unwrap().port();
     let ghost = IrohPeer::new(
         *ghost_key.public().as_bytes(),
         SocketAddr::from(([127, 0, 0, 1], dead_port)),
@@ -891,6 +895,7 @@ async fn diag_mesh_reports_paths_and_probes_round_trips() {
     assert_eq!(via_rpc.transports_active, plain.transports_active);
 
     ts.shutdown().await;
+    drop(dead_socket);
 }
 
 /// `entangle_mesh_peers` counts every trust level separately: an Observer is
@@ -916,10 +921,38 @@ async fn mesh_peer_gauge_separates_trusted_observer_and_revoked() {
     let registry = Registry::new();
     let _state = make_state(Keyring::new(), &registry, store);
     let (_, samples) = parse_exposition(&registry.render());
-    let n = |state: &str| {
-        find(&samples, "entangle_mesh_peers", &[("state", state)]).map(|s| s.value)
-    };
+    let n =
+        |state: &str| find(&samples, "entangle_mesh_peers", &[("state", state)]).map(|s| s.value);
     assert_eq!(n("trusted"), Some(1.0));
     assert_eq!(n("observer"), Some(1.0));
     assert_eq!(n("revoked"), Some(1.0));
+}
+
+/// The overall connection timeout reaps a client that the header timeout
+/// does not: here the header timeout is effectively disabled and a client
+/// that starts a request line but never finishes the headers must still be
+/// closed once the total budget is spent.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_total_connection_timeout_reaps_a_stalled_client() {
+    let server = MetricsServer::start_with_timeouts(
+        &section("127.0.0.1:0", false),
+        Registry::new(),
+        Duration::from_secs(3600),
+        Duration::from_millis(500),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let mut s = TcpStream::connect(server.local_addr()).await.unwrap();
+    s.write_all(b"GET /metrics HTTP/1.1\r\nHost: x\r\n")
+        .await
+        .unwrap();
+    let mut b = Vec::new();
+    let r = tokio::time::timeout(Duration::from_secs(5), s.read_to_end(&mut b)).await;
+    assert!(
+        r.is_ok(),
+        "the server must close the connection at the total timeout"
+    );
+    assert!(b.is_empty(), "no response is owed to an unfinished request");
+    server.shutdown().await;
 }

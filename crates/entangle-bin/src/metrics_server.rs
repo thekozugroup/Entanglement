@@ -118,6 +118,17 @@ impl MetricsServer {
         cfg: &MetricsSection,
         registry: Registry,
     ) -> Result<Option<Self>, MetricsError> {
+        Self::start_with_timeouts(cfg, registry, HEADER_TIMEOUT, CONNECTION_TIMEOUT).await
+    }
+
+    /// [`MetricsServer::start`] with explicit per-connection timeouts, so
+    /// tests need not wait for the production values.
+    pub async fn start_with_timeouts(
+        cfg: &MetricsSection,
+        registry: Registry,
+        header_timeout: Duration,
+        connection_timeout: Duration,
+    ) -> Result<Option<Self>, MetricsError> {
         if !cfg.enabled {
             return Ok(None);
         }
@@ -129,7 +140,13 @@ impl MetricsServer {
             .local_addr()
             .map_err(|source| MetricsError::Bind { addr, source })?;
         let (stop, stopped) = watch::channel(false);
-        let task = tokio::spawn(accept_loop(listener, registry, stopped));
+        let task = tokio::spawn(accept_loop(
+            listener,
+            registry,
+            stopped,
+            header_timeout,
+            connection_timeout,
+        ));
         tracing::info!(%addr, "metrics endpoint listening (GET /metrics)");
         Ok(Some(Self { addr, stop, task }))
     }
@@ -150,6 +167,8 @@ async fn accept_loop(
     listener: TcpListener,
     registry: Registry,
     mut stopped: watch::Receiver<bool>,
+    header_timeout: Duration,
+    connection_timeout: Duration,
 ) {
     let slots = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     loop {
@@ -179,11 +198,11 @@ async fn accept_loop(
             });
             let conn = hyper::server::conn::http1::Builder::new()
                 .timer(TokioTimer::new())
-                .header_read_timeout(HEADER_TIMEOUT)
+                .header_read_timeout(header_timeout)
                 .keep_alive(false)
                 .serve_connection(TokioIo::new(stream), service);
             // Both errors and the overall timeout just end this connection.
-            let _ = tokio::time::timeout(CONNECTION_TIMEOUT, conn).await;
+            let _ = tokio::time::timeout(connection_timeout, conn).await;
         });
     }
 }
