@@ -49,10 +49,25 @@ fn trust(home: &TempDir, keys: &[&IdentityKeyPair]) {
 }
 
 fn files(k: &IdentityKeyPair, name: &str, tier: u8) -> PackageFiles {
+    files_v(k, name, tier, "0.1.0")
+}
+
+fn files_v(k: &IdentityKeyPair, name: &str, tier: u8, version: &str) -> PackageFiles {
+    let wasm = b"\0asm\x01\x00\x00\x00 not really a component".to_vec();
+    files_wasm(k, name, tier, version, wasm)
+}
+
+fn files_wasm(
+    k: &IdentityKeyPair,
+    name: &str,
+    tier: u8,
+    version: &str,
+    wasm: Vec<u8>,
+) -> PackageFiles {
     let manifest = format!(
         r#"[plugin]
-id = "{}/{name}@0.1.0"
-version = "0.1.0"
+id = "{}/{name}@{version}"
+version = "{version}"
 tier = {tier}
 runtime = "wasm"
 description = "test plugin"
@@ -65,7 +80,6 @@ target = "wasm32-wasip2"
 "#,
         k.fingerprint_hex()
     );
-    let wasm = b"\0asm\x01\x00\x00\x00 not really a component".to_vec();
     let bundle = sign_artifact(&wasm, manifest.as_bytes(), k);
     PackageFiles {
         manifest: manifest.into_bytes(),
@@ -128,11 +142,11 @@ async fn install_from_oci_verifies_and_writes_the_package() {
     let publisher = kp(1);
     trust(&home, &[&publisher]);
     let f = files(&publisher, "hello", 1);
-    seed(&mock, "acme/hello", "1.0.0", &f);
+    seed(&mock, "acme/hello", "0.1.0", &f);
 
     let out = entangle(&home)
         .args(["plugins", "install"])
-        .arg(format!("oci://{}/acme/hello:1.0.0", mock.registry()))
+        .arg(format!("oci://{}/acme/hello:0.1.0", mock.registry()))
         .arg("--no-load")
         .arg("--out")
         .arg(out_of(&home))
@@ -208,11 +222,18 @@ async fn install_without_no_load_goes_through_the_shared_load_path() {
     let home = TempDir::new().unwrap();
     let publisher = kp(1);
     trust(&home, &[&publisher]);
-    seed(&mock, "acme/hello", "1", &files(&publisher, "hello", 1));
+    // The empty component compiles but exports no `run`, so the kernel (the
+    // same Session::load_package as the catalog install) registers the plugin
+    // and then fails at instantiation. That specific error proves the load
+    // reached the kernel with the verified on-disk package.
+    let empty_component = b"\0asm\x0d\x00\x01\x00".to_vec();
+    seed(
+        &mock,
+        "acme/hello",
+        "1",
+        &files_wasm(&publisher, "hello", 1, "0.1.0", empty_component),
+    );
 
-    // The wasm is a stub, so the kernel (same Session::load_package as the
-    // catalog install) must reject it; the point is that loading is attempted
-    // on the verified on-disk package and the error says how to retry.
     let out = entangle(&home)
         .args(["plugins", "install"])
         .arg(format!("oci://{}/acme/hello:1", mock.registry()))
@@ -221,7 +242,11 @@ async fn install_without_no_load_goes_through_the_shared_load_path() {
         .output()
         .unwrap();
     let (so, se) = s(&out);
-    assert!(!out.status.success(), "stub wasm cannot load\n{so}\n{se}");
+    assert!(!out.status.success(), "no `run` export\n{so}\n{se}");
+    assert!(
+        se.contains("ENTANGLE-E0502") && se.contains("no export `run`"),
+        "{se}"
+    );
     assert!(se.contains("entangle plugins load"), "{se}");
     assert!(out_of(&home).join("plugin.wasm.sig").exists());
 }
@@ -441,4 +466,236 @@ async fn tags_reports_listing_status_and_mirror_sign_publishes_one() {
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["verification"]["status"], "verified");
     assert_eq!(v["tags"].as_array().unwrap().len(), 2);
+}
+
+fn install_args(home: &TempDir, reference: &str, out: Option<&Path>) -> std::process::Output {
+    let mut cmd = entangle(home);
+    cmd.args(["plugins", "install", reference, "--no-load"]);
+    if let Some(o) = out {
+        cmd.arg("--out").arg(o);
+    }
+    cmd.output().unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn install_is_bound_to_the_requested_repository_and_version() {
+    let mock = MockRegistry::start(MockOptions::default()).await;
+    let home = TempDir::new().unwrap();
+    let a = kp(1);
+    let b = kp(2);
+    trust(&home, &[&a, &b]);
+    // A compromised registry answers `acme/hash-it:2.1.0` with a different,
+    // validly signed plugin from another trusted publisher ...
+    seed(
+        &mock,
+        "acme/hash-it",
+        "2.1.0",
+        &files_v(&b, "net-backup", 1, "0.3.0"),
+    );
+    // ... and `acme/hello:2.0.0` with an older version of the right plugin.
+    seed(
+        &mock,
+        "acme/hello",
+        "2.0.0",
+        &files_v(&a, "hello", 1, "1.0.0"),
+    );
+    // A floating tag is not a version claim.
+    seed(
+        &mock,
+        "acme/hello",
+        "stable",
+        &files_v(&a, "hello", 1, "1.0.0"),
+    );
+    seed(
+        &mock,
+        "acme/hello",
+        "1.0.0",
+        &files_v(&a, "hello", 1, "1.0.0"),
+    );
+
+    for (r, needle) in [
+        ("acme/hash-it:2.1.0", "net-backup"),
+        ("acme/hello:2.0.0", "2.0.0"),
+    ] {
+        let out = install_args(
+            &home,
+            &format!("oci://{}/{r}", mock.registry()),
+            Some(&out_of(&home)),
+        );
+        let (so, se) = s(&out);
+        assert!(!out.status.success(), "{r} must be refused\n{so}\n{se}");
+        assert!(
+            se.contains("does not match the request") && se.contains(needle),
+            "{se}"
+        );
+        assert!(!out_of(&home).exists(), "nothing may be written for {r}");
+    }
+    for r in ["acme/hello:stable", "acme/hello:1.0.0"] {
+        let out = install_args(
+            &home,
+            &format!("oci://{}/{r}", mock.registry()),
+            Some(&out_of(&home)),
+        );
+        let (so, se) = s(&out);
+        assert!(out.status.success(), "{r}\n{so}\n{se}");
+        std::fs::remove_dir_all(out_of(&home)).unwrap();
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn default_install_dir_is_not_shared_between_publishers() {
+    let mock = MockRegistry::start(MockOptions::default()).await;
+    let home = TempDir::new().unwrap();
+    let a = kp(1);
+    let b = kp(2);
+    trust(&home, &[&a, &b]);
+    let fa = files(&a, "hello", 1);
+    seed(&mock, "a/hello", "0.1.0", &fa);
+    seed(&mock, "b/hello", "0.1.0", &files(&b, "hello", 1));
+    let default_dir = home.path().join(".entangle/plugins/hello");
+
+    let out = install_args(
+        &home,
+        &format!("oci://{}/a/hello:0.1.0", mock.registry()),
+        None,
+    );
+    assert!(out.status.success(), "{:?}", s(&out));
+    assert_eq!(read_dir_files(&default_dir), fa);
+
+    let out = install_args(
+        &home,
+        &format!("oci://{}/b/hello:0.1.0", mock.registry()),
+        None,
+    );
+    let (so, se) = s(&out);
+    assert!(!out.status.success(), "{so}\n{se}");
+    assert!(
+        se.contains("different publisher") && se.contains("--out"),
+        "{se}"
+    );
+    assert_eq!(read_dir_files(&default_dir), fa, "A's install must survive");
+
+    // Re-installing A's own plugin (an upgrade) is fine.
+    let out = install_args(
+        &home,
+        &format!("oci://{}/a/hello:0.1.0", mock.registry()),
+        None,
+    );
+    assert!(out.status.success(), "{:?}", s(&out));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn install_replaces_an_existing_dir_as_a_whole() {
+    let mock = MockRegistry::start(MockOptions::default()).await;
+    let home = TempDir::new().unwrap();
+    let a = kp(1);
+    trust(&home, &[&a]);
+    let f = files(&a, "hello", 1);
+    seed(&mock, "acme/hello", "0.1.0", &f);
+    // A previous install whose plugin.wasm slot cannot be overwritten in
+    // place (a directory): the old code rewrote entangle.toml first and then
+    // failed, leaving a new manifest beside stale files.
+    let dir = out_of(&home);
+    std::fs::create_dir_all(dir.join("plugin.wasm")).unwrap();
+    std::fs::write(dir.join("entangle.toml"), b"old manifest").unwrap();
+
+    let out = install_args(
+        &home,
+        &format!("oci://{}/acme/hello:0.1.0", mock.registry()),
+        Some(&dir),
+    );
+    let (so, se) = s(&out);
+    assert!(out.status.success(), "{so}\n{se}");
+    assert_eq!(read_dir_files(&dir), f, "a complete, consistent package");
+    let leftovers: Vec<_> = std::fs::read_dir(home.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|n| n.contains("installed") && n != "installed")
+        .collect();
+    assert!(
+        leftovers.is_empty(),
+        "staging dirs left behind: {leftovers:?}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn catalog_only_flags_are_rejected_for_oci_references() {
+    let mock = MockRegistry::start(MockOptions::default()).await;
+    let home = TempDir::new().unwrap();
+    let a = kp(1);
+    trust(&home, &[&a]);
+    seed(&mock, "acme/hello", "0.1.0", &files(&a, "hello", 1));
+    let reference = format!("oci://{}/acme/hello:0.1.0", mock.registry());
+    for flag in [
+        ["--wasm", "my.wasm"],
+        ["--catalog", "cat"],
+        ["--key", "k.pem"],
+        ["--target", "wasm32-wasip1"],
+    ] {
+        let out = entangle(&home)
+            .args(["plugins", "install", &reference, "--no-load", "--out"])
+            .arg(out_of(&home))
+            .args(flag)
+            .output()
+            .unwrap();
+        let (so, se) = s(&out);
+        assert!(
+            !out.status.success(),
+            "{flag:?} must be refused\n{so}\n{se}"
+        );
+        assert!(se.contains(flag[0]) && se.contains("oci://"), "{se}");
+        assert!(!out_of(&home).exists());
+    }
+    assert!(mock.requests().is_empty(), "refused before any network I/O");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn install_accepts_a_tier_equal_to_max_tier_allowed() {
+    let mock = MockRegistry::start(MockOptions::default()).await;
+    let home = TempDir::new().unwrap();
+    let a = kp(1);
+    trust(&home, &[&a]);
+    std::fs::write(
+        home.path().join(".entangle/config.toml"),
+        "[security]\nmax_tier_allowed = 2\n",
+    )
+    .unwrap();
+    seed(&mock, "acme/hello", "0.1.0", &files(&a, "hello", 2));
+    let out = install_args(
+        &home,
+        &format!("oci://{}/acme/hello:0.1.0", mock.registry()),
+        Some(&out_of(&home)),
+    );
+    let (so, se) = s(&out);
+    assert!(out.status.success(), "tier == max is allowed\n{so}\n{se}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn local_kernel_fallback_enforces_max_tier_allowed() {
+    let home = TempDir::new().unwrap();
+    let a = kp(1);
+    trust(&home, &[&a]);
+    std::fs::write(
+        home.path().join(".entangle/config.toml"),
+        "[security]\nmax_tier_allowed = 1\n",
+    )
+    .unwrap();
+    let dir = home.path().join("pkg");
+    // The empty component: a valid component binary, so the kernel gets past
+    // compilation to the tier check.
+    let empty_component = b"\0asm\x0d\x00\x01\x00".to_vec();
+    files_wasm(&a, "hello", 2, "0.1.0", empty_component)
+        .write_dir(&dir)
+        .unwrap();
+    // No daemon: the temporary in-process kernel must apply config.toml's
+    // ceiling itself, not only the install command's pre-check.
+    let out = entangle(&home)
+        .env("ENTANGLE_ALLOW_LOCAL", "1")
+        .args(["plugins", "load"])
+        .arg(&dir)
+        .output()
+        .unwrap();
+    let (so, se) = s(&out);
+    assert!(!out.status.success(), "{so}\n{se}");
+    assert!(se.contains("ENTANGLE-E0043"), "{se}");
 }

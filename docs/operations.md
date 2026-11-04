@@ -538,7 +538,20 @@ your credentials for it, and any mirror listing are not inputs to that
 decision (ATC-MIR-1): a package signed by an unknown key is rejected
 (`ENTANGLE-E0814` wrapping `E0101`) even from a registry you operate. After
 verification the install also enforces `security.max_tier_allowed`
-(`ENTANGLE-E0043`) and the kernel's load-time checks.
+(`ENTANGLE-E0043`) and the kernel's load-time checks; the daemon-less
+fallback kernel applies the same `max_tier_allowed` ceiling.
+
+**What is installed is what you asked for.** A valid signature proves who
+signed the bytes, not that they are the plugin you named, so the install also
+requires the package's plugin name to equal the last component of the
+repository (`oci://r/acme/hello:1.0.0` must serve a plugin named `hello`) and,
+when the tag is a full `MAJOR.MINOR.PATCH` version, the package's version to
+equal it. Floating tags (`latest`, `stable`) and digests make no version
+claim. The package is staged in a sibling directory and swapped into place, so
+a failed install never leaves a half-written directory. Without `--out`, an
+existing `~/.entangle/plugins/<name>` that holds another publisher's plugin is
+not overwritten; pass `--out`. Catalog-only flags (`--catalog`, `--key`,
+`--wasm`, `--target`) are refused for `oci://` references rather than ignored.
 
 ### Authentication
 

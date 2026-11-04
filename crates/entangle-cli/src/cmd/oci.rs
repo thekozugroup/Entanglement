@@ -77,6 +77,119 @@ fn effective_tier(manifest: &[u8]) -> Result<u8> {
     Ok(validated.effective_tier as u8)
 }
 
+/// Does `tag` look like a full `MAJOR.MINOR.PATCH` version (optionally `v`-prefixed)?
+fn version_like(tag: &str) -> Option<&str> {
+    let t = tag.strip_prefix('v').unwrap_or(tag);
+    let core = t.split(['-', '+']).next().unwrap_or(t);
+    let parts: Vec<&str> = core.split('.').collect();
+    (parts.len() == 3
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit())))
+    .then_some(t)
+}
+
+/// Bind the verified package to what the user asked for.
+///
+/// Signature verification proves *who* signed the bytes, not that they are the
+/// plugin the user named: a registry or mirror could answer any tag with some
+/// other validly signed package. Require the plugin name to equal the last
+/// repository component, and a version-looking tag to equal the package's
+/// version. A floating tag (`latest`, `stable`) or a digest makes no version
+/// claim.
+fn check_binding(reference: &Reference, id: &PluginId) -> Result<()> {
+    let last = reference
+        .repository
+        .rsplit('/')
+        .next()
+        .unwrap_or(&reference.repository);
+    if id.name != last {
+        bail!(
+            "the package served for {reference} is the plugin `{id}`, whose name does not match \
+             the request (repository `{last}`); the signature is valid but this is not what you \
+             asked for, so it was NOT installed"
+        );
+    }
+    if let Selector::Tag(tag) = &reference.selector {
+        if let Some(want) = version_like(tag) {
+            if want != id.version.to_string() {
+                bail!(
+                    "the package served for {reference} is `{id}` (version {}), which does not \
+                     match the requested version {want}; it was NOT installed",
+                    id.version
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The default install directory is keyed on the plugin name only; do not let
+/// one trusted publisher's plugin silently replace another's there.
+fn refuse_other_publishers_install(dir: &Path, id: &PluginId) -> Result<()> {
+    let Ok(text) = std::fs::read_to_string(dir.join("entangle.toml")) else {
+        return Ok(());
+    };
+    let existing = toml::from_str::<toml::Value>(&text)
+        .ok()
+        .and_then(|v| v.get("plugin")?.get("id")?.as_str().map(str::to_owned))
+        .and_then(|s| PluginId::from_str(&s).ok());
+    if let Some(old) = existing {
+        if old.publisher != id.publisher {
+            bail!(
+                "{} already holds `{old}`, installed from a different publisher than `{id}`; \
+                 not overwriting it. Pick another directory with --out",
+                dir.display()
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Write `files` into `out` so that a failure never leaves a mixed directory:
+/// stage in a sibling directory, then swap it into place.
+fn write_package_atomically(files: &entangle_oci::PackageFiles, out: &Path) -> Result<()> {
+    let parent = match out.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
+        _ => PathBuf::from("."),
+    };
+    std::fs::create_dir_all(&parent)?;
+    let base = out
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "plugin".into());
+    let pid = std::process::id();
+    let staging = parent.join(format!(".{base}.staging-{pid}"));
+    let backup = parent.join(format!(".{base}.old-{pid}"));
+    let _ = std::fs::remove_dir_all(&staging);
+    let _ = std::fs::remove_dir_all(&backup);
+    if let Err(e) = files.write_dir(&staging) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(e.into());
+    }
+    let had_old = std::fs::symlink_metadata(out).is_ok();
+    if had_old {
+        if let Err(e) = std::fs::rename(out, &backup) {
+            let _ = std::fs::remove_dir_all(&staging);
+            return Err(e.into());
+        }
+    }
+    if let Err(e) = std::fs::rename(&staging, out) {
+        if had_old {
+            let _ = std::fs::rename(&backup, out);
+        }
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(e.into());
+    }
+    if had_old {
+        // Best effort: the new package is already in place.
+        if std::fs::remove_dir_all(&backup).is_err() {
+            let _ = std::fs::remove_file(&backup);
+        }
+    }
+    Ok(())
+}
+
 /// `entangle plugins install oci://…`.
 pub async fn install(opts: InstallOptions) -> Result<()> {
     let reference = Reference::parse(&opts.reference)?;
@@ -118,13 +231,16 @@ pub async fn install(opts: InstallOptions) -> Result<()> {
 
     let id = PluginId::from_str(&verified.plugin_id)
         .map_err(|e| anyhow::anyhow!("plugin id {}: {e}", verified.plugin_id))?;
+    check_binding(&reference, &id)?;
+    let default_dir = opts.out.is_none();
     let out = opts
         .out
         .unwrap_or_else(|| crate::cmd::catalog::default_out_dir(&id.name));
+    if default_dir {
+        refuse_other_publishers_install(&out, &id)?;
+    }
     println!("[3/4] writing package to {}", out.display());
-    verified
-        .files
-        .write_dir(&out)
+    write_package_atomically(&verified.files, &out)
         .with_context(|| format!("writing package to {}", out.display()))?;
 
     if opts.no_load {

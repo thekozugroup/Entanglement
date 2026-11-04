@@ -115,7 +115,7 @@ kernel and the command says so — the signed package still persists on disk, so
         ///
         /// For `oci://` the package is installed only if its signature verifies
         /// against YOUR keyring and its tier is within `max_tier_allowed`; the
-        /// build/catalog options below are ignored.
+        /// build/catalog options below are refused.
         name: String,
         /// Catalog directory to install from (highest-priority source).
         #[arg(long)]
@@ -290,6 +290,26 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             insecure_registry,
         } => {
             if name.starts_with("oci://") {
+                let mut ignored = Vec::new();
+                if catalog.is_some() {
+                    ignored.push("--catalog");
+                }
+                if key.is_some() {
+                    ignored.push("--key");
+                }
+                if wasm.is_some() {
+                    ignored.push("--wasm");
+                }
+                if target != crate::cmd::package::DEFAULT_TARGET {
+                    ignored.push("--target");
+                }
+                if !ignored.is_empty() {
+                    anyhow::bail!(
+                        "{} only apply to catalog installs and would be ignored for an oci:// \
+                         reference (the registry's signed package is installed as-is); remove them",
+                        ignored.join(", ")
+                    );
+                }
                 return crate::cmd::oci::install(crate::cmd::oci::InstallOptions {
                     reference: name,
                     insecure_registry,
@@ -384,7 +404,20 @@ use crate::daemon_not_running_error;
 fn build_kernel() -> anyhow::Result<Kernel> {
     let kr_path = config::keyring_path();
     let keyring = Keyring::load(&kr_path)?;
-    let kernel = Kernel::new(KernelConfig::default(), keyring)?;
+    // The local kernel must enforce the same ceiling the daemon would
+    // (`security.max_tier_allowed`), not the permissive default.
+    let max = config::load(&config::config_path())?
+        .security
+        .max_tier_allowed;
+    let max_tier_allowed = entangle_types::tier::Tier::try_from(max)
+        .map_err(|e| anyhow::anyhow!("security.max_tier_allowed = {max}: {e}"))?;
+    let kernel = Kernel::new(
+        KernelConfig {
+            max_tier_allowed,
+            ..KernelConfig::default()
+        },
+        keyring,
+    )?;
     Ok(kernel)
 }
 
