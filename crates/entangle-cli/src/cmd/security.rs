@@ -97,11 +97,13 @@ restarts. Flags behave as for `entangle security set-max-tier`.")]
         #[arg(long, short = 'y')]
         yes: bool,
     },
-    /// Check config.toml and list plugins the ceiling in it would orphan.
+    /// Check config.toml as the daemon loads it, and list plugins the ceiling in it would orphan.
     #[command(long_about = "\
-Check ~/.entangle/config.toml without applying anything. Exits 1 if the file
-is invalid or if its `max_tier_allowed` is below the tier of a loaded plugin
-(for CI: fail fast on a config that would orphan plugins).")]
+Check ~/.entangle/config.toml without applying anything: exactly as the daemon
+loads it (every key and value, and the multi-node start-up rule), then the
+tier ceiling against the running daemon. Exits 1 if the file is invalid or if
+its `max_tier_allowed` is below the tier of a loaded plugin (for CI: fail fast
+on a config that would orphan plugins).")]
     Validate,
     /// Set one key in config.toml (checked as the daemon loads it).
     #[command(long_about = "\
@@ -599,6 +601,21 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
 }
 
 async fn validate() -> Result<i32> {
+    // First the whole file, exactly as the daemon loads it (schema, values,
+    // the multi-node start-up rule): not just the tier ceiling.
+    let path = config::config_path();
+    match std::fs::read_to_string(&path) {
+        Ok(text) => {
+            crate::cmd::configset::validate_as_daemon(
+                &text,
+                &config::entangle_dir().join("peers.toml"),
+            )
+            .with_context(|| format!("checking {}", path.display()))?;
+        }
+        // No file: the daemon starts on its defaults.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    }
     let new = tier_from_config_file()?;
     match rpc_client().security_plan_max_tier(new).await {
         Ok(p) if p.affected.is_empty() => {

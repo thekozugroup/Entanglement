@@ -257,7 +257,8 @@ fn hints(r: &PairDiag, ts: &crate::cmd::init::TsReport) -> Vec<String> {
     }
     if let Some(e) = &r.config_error {
         out.push(format!(
-            "config.toml is invalid ({e}); fix it, or check a change with `entangle config get`"
+            "config.toml is invalid ({e}); fix it, then check it with `entangle config \
+             validate`, which reads it as the daemon does"
         ));
     }
     if r.mdns.status == "failed" {

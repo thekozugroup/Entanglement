@@ -276,3 +276,51 @@ fn enabling_a_transport_with_no_peer_prints_the_pairing_commands() {
         .success()
         .stdout(predicate::str::contains("entangle pair").not());
 }
+
+/// `entangle diag pair` names a command that really checks config.toml as
+/// the daemon loads it, and that command catches what the daemon refuses
+/// (here the unsupported `[node] data_dir`), then passes once it is fixed.
+#[test]
+fn diag_pair_names_a_check_that_catches_what_the_daemon_refuses() {
+    let home = TempDir::new().unwrap();
+    write_cfg(&home, "[node]\nlabel = \"studio\"\ndata_dir = \"/x\"\n");
+    let out = entangle(&home)
+        .args([
+            "diag",
+            "pair",
+            "--json",
+            "--no-mdns",
+            "--bind",
+            "127.0.0.1:0",
+        ])
+        .env("PATH", "/nonexistent")
+        .timeout(std::time::Duration::from_secs(60))
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    let hint = report["hints"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|h| h.as_str())
+        .find(|h| h.contains("config.toml is invalid"))
+        .unwrap_or_else(|| panic!("no config hint: {report:#}"))
+        .to_owned();
+    assert!(hint.contains("`entangle config validate`"), "{hint}");
+
+    entangle(&home)
+        .args(["config", "validate"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0782"))
+        .stderr(predicate::str::contains("data_dir"));
+    write_cfg(&home, "[node]\nlabel = \"studio\"\n");
+    entangle(&home)
+        .args(["config", "validate"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("config ok"));
+}

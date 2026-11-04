@@ -1285,7 +1285,7 @@ entangle security set-max-tier 3                 # asks, at a terminal
 entangle security set-max-tier 3 --force-unload  # non-interactive, loud
 # or edit config.toml by hand, then:
 entangle config reload                           # same prompt; cancel reverts your edit
-entangle config validate                         # CI: exit 1 if the file would orphan plugins
+entangle config validate                         # CI: exit 1 if the daemon would refuse the file, or it would orphan plugins
 ```
 
 At a terminal (stdin is a tty) you see:
