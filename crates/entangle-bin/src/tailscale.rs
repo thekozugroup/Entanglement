@@ -14,11 +14,11 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use entangle_mesh_tailscale::TailscalePeer;
 use entangle_mesh_tailscale::{
     AclMode, LivenessHandle, LivenessSnapshot, MeshTailscale, MeshTailscaleConfig, PeerAllowlist,
     TailscaleStatus,
 };
-use entangle_mesh_tailscale::TailscalePeer;
 use entangle_peers::{PeerStore, TrustLevel};
 use entangle_scheduler::{RemoteTaskServer, StreamServer, WorkerInfo, WorkerPool};
 use entangle_signing::IdentityKeyPair;

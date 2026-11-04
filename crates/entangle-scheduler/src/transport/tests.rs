@@ -609,6 +609,28 @@ async fn preferred_and_overrides_pick_the_first_candidate() {
 }
 
 #[tokio::test]
+async fn a_restricted_diagnostic_request_leaves_the_chosen_transport_alone() {
+    let p = peer(1);
+    let iroh = Scripted::answering(TransportKind::Iroh, p);
+    let ts = Scripted::answering(TransportKind::Tailscale, p);
+    let r = router(&[iroh.clone(), ts.clone()]);
+    r.request(p, b"x", None).await.unwrap();
+    let before = r.last_route(&p).expect("chosen");
+    assert_eq!(before.transport, TransportKind::Tailscale);
+
+    // `diag mesh --probe` pins the iroh path: it answers, but dispatch did
+    // not choose it.
+    let (_, kind) = r
+        .request(p, b"probe", Some(TransportKind::Iroh))
+        .await
+        .unwrap();
+    assert_eq!(kind, TransportKind::Iroh);
+    let after = r.last_route(&p).expect("still chosen");
+    assert_eq!(after.transport, TransportKind::Tailscale);
+    assert_eq!(after.at, before.at, "the record was not rewritten");
+}
+
+#[tokio::test]
 async fn an_unknown_peer_has_no_route_and_says_which_books_were_checked() {
     let r = router(&[Scripted::answering(TransportKind::Iroh, peer(1))]);
     let err = r.request(peer(2), b"", None).await.unwrap_err();

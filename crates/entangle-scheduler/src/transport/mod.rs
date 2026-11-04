@@ -696,7 +696,11 @@ impl TransportRouter {
             match result {
                 Ok(answer) => {
                     self.note_connect(peer, kind, false, only);
-                    self.record(peer, kind, &target);
+                    // A restricted attempt (`diag mesh --probe`) says what
+                    // one path can do, not what dispatch chose.
+                    if only.is_none() {
+                        self.record(peer, kind, &target);
+                    }
                     return Ok((answer, kind));
                 }
                 Err(LinkError::Connect(why)) => {
