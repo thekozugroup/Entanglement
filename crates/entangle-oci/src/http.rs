@@ -4,8 +4,12 @@
 //! latency-critical here and this keeps redirect/auth reasoning trivial. The
 //! scheme policy lives here so no code path can reach the network around it.
 
+use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use bytes::Bytes;
@@ -13,7 +17,9 @@ use http_body_util::Full;
 use hyper::body::Incoming;
 use hyper::{Method, Request, Response};
 use hyper_util::rt::TokioIo;
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
+use tokio::time::Instant;
 use url::{Host, Url};
 
 use crate::error::{OciError, Result};
@@ -126,6 +132,11 @@ impl Transport {
                 return Err(OciError::InsecureTransport { host: auth });
             }
         }
+        let progress = Arc::new(Progress::new());
+        let tcp = Counted {
+            inner: tcp,
+            progress: progress.clone(),
+        };
 
         let mut req = Request::builder()
             .method(method.clone())
@@ -171,7 +182,8 @@ impl Transport {
             .map_err(|e| transport_err(format!("building request: {e}")))?;
 
         if plain {
-            self.roundtrip(TokioIo::new(tcp), req, &auth).await
+            self.roundtrip(TokioIo::new(tcp), req, &auth, &progress)
+                .await
         } else {
             let name = tls_server_name(url)
                 .map_err(|e| transport_err(format!("bad TLS server name: {e}")))?;
@@ -185,15 +197,27 @@ impl Transport {
                 .await
                 .map_err(|_| OciError::Timeout(format!("TLS handshake with {auth}")))?
                 .map_err(|e| transport_err(format!("TLS: {e}")))?;
-            self.roundtrip(TokioIo::new(tls), req, &auth).await
+            self.roundtrip(TokioIo::new(tls), req, &auth, &progress)
+                .await
         }
     }
 
+    /// Send `req` and wait for the response head.
+    ///
+    /// The timeout is an idle timeout: it fires only when the connection has
+    /// accepted no bytes for `self.timeout` and no response has arrived. A
+    /// fixed deadline would also bound the upload of the request body, so a
+    /// multi-MiB PUT/PATCH over a slow link could never finish; once the body
+    /// is written, the registry still gets `self.timeout` to answer. (Bytes the
+    /// kernel still queues after our last write must drain in that time too;
+    /// Linux sizes that queue to about twice the congestion window, i.e. a
+    /// few round trips' worth on a real link.)
     async fn roundtrip<T>(
         &self,
         io: TokioIo<T>,
         req: Request<Full<Bytes>>,
         auth: &str,
+        progress: &Progress,
     ) -> Result<Response<Incoming>>
     where
         T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
@@ -209,10 +233,103 @@ impl Transport {
             // Ends when the response body is consumed or dropped.
             let _ = conn.await;
         });
-        tokio::time::timeout(self.timeout, sender.send_request(req))
-            .await
-            .map_err(|_| OciError::Timeout(format!("waiting for {auth} to answer")))?
-            .map_err(|e| transport_err(format!("request: {e}")))
+        let mut response = std::pin::pin!(sender.send_request(req));
+        let mut deadline = progress.last_write() + self.timeout;
+        loop {
+            match tokio::time::timeout_at(deadline, response.as_mut()).await {
+                Ok(r) => return r.map_err(|e| transport_err(format!("request: {e}"))),
+                Err(_) => {
+                    let next = progress.last_write() + self.timeout;
+                    if next <= deadline {
+                        return Err(OciError::Timeout(format!("waiting for {auth} to answer")));
+                    }
+                    deadline = next;
+                }
+            }
+        }
+    }
+}
+
+/// When a connection last accepted bytes from us.
+struct Progress {
+    start: Instant,
+    /// Microseconds after `start` of the last successful write.
+    last_write_us: AtomicU64,
+}
+
+impl Progress {
+    fn new() -> Self {
+        Self {
+            start: Instant::now(),
+            last_write_us: AtomicU64::new(0),
+        }
+    }
+
+    fn wrote(&self, n: usize) {
+        if n > 0 {
+            let us = u64::try_from(self.start.elapsed().as_micros()).unwrap_or(u64::MAX);
+            self.last_write_us.fetch_max(us, Ordering::Relaxed);
+        }
+    }
+
+    fn last_write(&self) -> Instant {
+        self.start + Duration::from_micros(self.last_write_us.load(Ordering::Relaxed))
+    }
+}
+
+/// A connection that records when it last accepted bytes (see `roundtrip`).
+struct Counted<T> {
+    inner: T,
+    progress: Arc<Progress>,
+}
+
+impl<T: AsyncRead + Unpin> AsyncRead for Counted<T> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.get_mut().inner).poll_read(cx, buf)
+    }
+}
+
+impl<T: AsyncWrite + Unpin> AsyncWrite for Counted<T> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let this = self.get_mut();
+        let r = Pin::new(&mut this.inner).poll_write(cx, buf);
+        if let Poll::Ready(Ok(n)) = &r {
+            this.progress.wrote(*n);
+        }
+        r
+    }
+
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[io::IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        let this = self.get_mut();
+        let r = Pin::new(&mut this.inner).poll_write_vectored(cx, bufs);
+        if let Poll::Ready(Ok(n)) = &r {
+            this.progress.wrote(*n);
+        }
+        r
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        self.inner.is_write_vectored()
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.get_mut().inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.get_mut().inner).poll_shutdown(cx)
     }
 }
 
@@ -316,6 +433,95 @@ mod tests {
                 assert!(!e.to_string().contains("lookup"), "{e}");
             }
         }
+    }
+
+    #[tokio::test]
+    async fn a_slow_but_steady_upload_is_not_cut_off_by_the_request_timeout() {
+        use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+        const BODY: usize = 32 * 1024 * 1024;
+        const TIMEOUT: Duration = Duration::from_secs(2);
+        // A receiver that reads 128 KiB every 15 ms (~8 MB/s): the upload
+        // takes about 4 s, twice the timeout, but the connection keeps
+        // accepting bytes all along. Its receive buffer is capped so the
+        // kernel cannot swallow the body at once. (Loopback lets the sender's
+        // kernel queue ~4 MB, which it then takes ~0.5 s to drain after the
+        // last write, still well inside the timeout.)
+        let sock = tokio::net::TcpSocket::new_v4().unwrap();
+        sock.set_recv_buffer_size(256 * 1024).unwrap();
+        sock.bind("127.0.0.1:0".parse().unwrap()).unwrap();
+        let listener = sock.listen(1).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move {
+            let (mut s, _) = listener.accept().await.unwrap();
+            let mut buf = vec![0u8; 128 * 1024];
+            let mut head = Vec::new();
+            let mut body = None::<usize>;
+            loop {
+                tokio::time::sleep(Duration::from_millis(15)).await;
+                let n = s.read(&mut buf).await.unwrap();
+                assert!(n > 0, "client gave up after {body:?} body bytes");
+                match body.as_mut() {
+                    Some(b) => *b += n,
+                    None => {
+                        head.extend_from_slice(&buf[..n]);
+                        if let Some(i) = head.windows(4).position(|w| w == b"\r\n\r\n") {
+                            body = Some(head.len() - (i + 4));
+                        }
+                    }
+                }
+                if body.is_some_and(|b| b >= BODY) {
+                    break;
+                }
+            }
+            s.write_all(b"HTTP/1.1 201 Created\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
+                .await
+                .unwrap();
+            body.unwrap()
+        });
+        let t = Transport::new(false, TIMEOUT);
+        let url = Url::parse(&format!("http://127.0.0.1:{port}/v2/r/blobs/uploads/x")).unwrap();
+        let started = std::time::Instant::now();
+        let resp = t
+            .send(&Method::PUT, &url, &[], Bytes::from(vec![0x5a; BODY]))
+            .await
+            .unwrap_or_else(|e| panic!("after {:?}: {e}", started.elapsed()));
+        assert_eq!(resp.status(), 201);
+        assert_eq!(server.await.unwrap(), BODY);
+        assert!(
+            started.elapsed() > TIMEOUT,
+            "the upload was meant to outlast the timeout ({:?})",
+            started.elapsed()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_server_that_reads_nothing_still_times_out() {
+        // Accepts, then never reads or answers: the idle timeout must fire.
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let _server = tokio::spawn(async move {
+            let (s, _) = listener.accept().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(30)).await;
+            drop(s);
+        });
+        let t = Transport::new(false, Duration::from_millis(300));
+        let url = Url::parse(&format!("http://127.0.0.1:{port}/v2/")).unwrap();
+        let started = std::time::Instant::now();
+        let e = t
+            .send(
+                &Method::PUT,
+                &url,
+                &[],
+                Bytes::from(vec![1u8; 32 * 1024 * 1024]),
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(e, OciError::Timeout(_)), "{e}");
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "{:?}",
+            started.elapsed()
+        );
     }
 
     #[test]

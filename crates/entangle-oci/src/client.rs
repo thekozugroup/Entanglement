@@ -65,7 +65,10 @@ pub struct ClientConfig {
     pub max_manifest_bytes: u64,
     /// Retry policy.
     pub retry: RetryPolicy,
-    /// Per-request connect/header timeout and per-read idle timeout.
+    /// Connect and TLS-handshake timeout, and idle timeout: a request fails
+    /// once the connection has accepted no bytes and no response has arrived
+    /// for this long (a slow but steady upload is not cut off), and a body
+    /// read fails when no data arrives for this long.
     pub timeout: Duration,
     /// Upload chunk size; blobs at most this large are uploaded monolithically.
     pub chunk_size: usize,
