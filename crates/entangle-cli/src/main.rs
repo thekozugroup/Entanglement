@@ -2,7 +2,8 @@
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
 //! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke},
-//! mesh {peers,status,trust,untrust,revoke}, pair (initiator/responder).
+//! mesh {peers,status,trust,untrust,revoke}, pair (initiator/responder),
+//! wrapper, security set-max-tier, config {reload,validate}, metrics, diag mesh.
 //! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
 //! Pairing goes directly to peers.toml (no daemon RPC).
 
@@ -10,11 +11,22 @@ use clap::{CommandFactory, Parser, Subcommand};
 
 mod cmd;
 mod config;
+mod configedit;
+mod fsutil;
 mod identity;
 
 use cmd::{
-    agent::AgentArgs, compute::ComputeArgs, diag::DiagArgs, init::InitArgs, keyring::KeyringArgs,
-    mesh::MeshArgs, pair::PairArgs, plugins::PluginsArgs, quickstart::QuickstartArgs,
+    agent::AgentArgs,
+    compute::ComputeArgs,
+    diag::DiagArgs,
+    init::InitArgs,
+    keyring::KeyringArgs,
+    mesh::MeshArgs,
+    pair::PairArgs,
+    plugins::PluginsArgs,
+    quickstart::QuickstartArgs,
+    security::{ConfigArgs, SecurityArgs},
+    wrapper::WrapperArgs,
 };
 
 #[derive(Parser)]
@@ -77,6 +89,15 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Run an AI coding agent with its MCP tool calls mediated by the local gateway.
     #[command(subcommand_required = true)]
     Agent(AgentArgs),
+    /// Install or remove the shell shim that warns when an agent host runs outside Entanglement.
+    #[command(subcommand_required = true)]
+    Wrapper(WrapperArgs),
+    /// Security policy: change `max_tier_allowed` safely.
+    #[command(subcommand_required = true)]
+    Security(SecurityArgs),
+    /// Apply or validate config.toml changes (`reload`, `validate`).
+    #[command(subcommand_required = true)]
+    Config(ConfigArgs),
     /// Print the detected platform and the sandbox primitive that would be used
     /// for tier-5 plugins on this host (spec §0.2).
     PrintPlatform,
@@ -156,11 +177,22 @@ async fn run() -> anyhow::Result<()> {
             }
             Ok(())
         }
+        Cmd::Wrapper(a) => cmd::wrapper::run(a).await,
+        Cmd::Security(a) => exit_with(cmd::security::run_security(a).await?),
+        Cmd::Config(a) => exit_with(cmd::security::run_config(a).await?),
         Cmd::PrintPlatform => print_platform(),
         Cmd::Diag(a) => cmd::diag::run(a).await,
         Cmd::Metrics => print_metrics().await,
         Cmd::Completions { shell } => generate_completions(shell),
     }
+}
+
+/// Exit with `code` if non-zero (after all cleanup the command did itself).
+fn exit_with(code: i32) -> anyhow::Result<()> {
+    if code != 0 {
+        std::process::exit(code);
+    }
+    Ok(())
 }
 
 /// Shared "daemon not running" error used by the RPC-backed subcommands

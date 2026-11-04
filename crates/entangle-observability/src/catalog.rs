@@ -112,6 +112,9 @@ pub const RPC_METHODS: &[&str] = &[
     "compute/dispatch",
     "metrics/export",
     "diag/mesh",
+    "security/plan-max-tier",
+    "security/apply-max-tier",
+    "security/cancel-max-tier",
 ];
 
 /// A bounded interner for plugin-id label values.

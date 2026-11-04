@@ -501,6 +501,7 @@ pub(crate) async fn ensure_initialised(
                 max_tier_allowed: answers.max_tier,
                 allow_unsandboxed_native: false,
             },
+            ..Config::default()
         };
         config::save(&cfg_path, &cfg)?;
         println!("  Wrote {}", cfg_path.display());

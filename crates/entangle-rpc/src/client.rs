@@ -172,6 +172,47 @@ impl Client {
             .await
     }
 
+    /// `security/plan-max-tier` — what would lowering the ceiling to
+    /// `max_tier` unload? Changes nothing.
+    pub async fn security_plan_max_tier(&self, max_tier: u8) -> Result<MaxTierPlan, RpcError> {
+        self.call(method::SECURITY_PLAN_MAX_TIER, MaxTierParams { max_tier })
+            .await
+    }
+
+    /// `security/apply-max-tier` — apply a new ceiling at runtime; with
+    /// `unload`, plugins above it are unloaded and audited. `confirmed`
+    /// restricts the unload to the plugins the operator agreed to (see
+    /// [`MaxTierApplyParams::confirmed`]).
+    pub async fn security_apply_max_tier(
+        &self,
+        max_tier: u8,
+        unload: bool,
+        confirmed: Option<Vec<String>>,
+    ) -> Result<MaxTierApplied, RpcError> {
+        self.call(
+            method::SECURITY_APPLY_MAX_TIER,
+            MaxTierApplyParams {
+                max_tier,
+                unload,
+                confirmed,
+            },
+        )
+        .await
+    }
+
+    /// `security/cancel-max-tier` — record a cancelled lowering (`ENTANGLE-I0216`).
+    pub async fn security_cancel_max_tier(&self, requested: u8) -> Result<(), RpcError> {
+        let _: serde_json::Value = self
+            .call(
+                method::SECURITY_CANCEL_MAX_TIER,
+                MaxTierParams {
+                    max_tier: requested,
+                },
+            )
+            .await?;
+        Ok(())
+    }
+
     /// `metrics/export` — the daemon's Prometheus exposition text.
     pub async fn metrics_export(&self) -> Result<MetricsExportResult, RpcError> {
         self.call(method::METRICS_EXPORT, serde_json::Value::Null)

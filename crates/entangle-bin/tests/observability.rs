@@ -545,6 +545,58 @@ async fn routes_and_methods() {
     server.shutdown().await;
 }
 
+/// Every method the daemon routes is counted under its own `method` label,
+/// not folded into `unknown` (the label set is a separate list in the
+/// observability catalogue, so a newly routed method must be added there).
+#[tokio::test(flavor = "multi_thread")]
+async fn every_routed_rpc_method_has_its_own_metric_label() {
+    use entangle_rpc::methods::method;
+    let registry = Registry::new();
+    let state = make_state(Keyring::new(), &registry, PeerStore::new());
+    let routed = [
+        method::VERSION,
+        method::TIME,
+        method::PLUGINS_LIST,
+        method::PLUGINS_LOAD,
+        method::PLUGINS_UNLOAD,
+        method::PLUGINS_INVOKE,
+        method::MESH_PEERS,
+        method::MESH_STATUS,
+        method::COMPUTE_DISPATCH,
+        method::METRICS_EXPORT,
+        method::DIAG_MESH,
+        method::SECURITY_PLAN_MAX_TIER,
+        method::SECURITY_APPLY_MAX_TIER,
+        method::SECURITY_CANCEL_MAX_TIER,
+    ];
+    for (i, m) in routed.iter().enumerate() {
+        // Parameters do not matter: an invalid-params error is still counted
+        // under the method's own label.
+        let line = format!(r#"{{"jsonrpc":"2.0","id":{i},"method":"{m}"}}"#);
+        let resp = entangle_bin::methods::dispatch(&line, &state).await;
+        assert!(
+            !resp.contains("method not found"),
+            "{m} is not routed: {resp}"
+        );
+        let counted = ["ok", "error"].iter().any(|outcome| {
+            registry
+                .value(
+                    "entangle_rpc_requests_total",
+                    &[("method", m), ("outcome", outcome)],
+                )
+                .is_some()
+        });
+        assert!(counted, "{m} was not counted under its own method label");
+    }
+    assert_eq!(
+        registry.value(
+            "entangle_rpc_requests_total",
+            &[("method", "unknown"), ("outcome", "error")]
+        ),
+        None
+    );
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn connections_are_capped_and_stalled_clients_are_reaped() {
     let header_timeout = Duration::from_secs(1);

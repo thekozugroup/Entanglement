@@ -81,7 +81,7 @@ struct PluginRecord {
 /// a plugin cannot be unregistered or re-registered while any grant holds the
 /// read lock, and no other operation can change what the manifest declares.
 pub struct Broker {
-    policy: BrokerPolicy,
+    policy: RwLock<BrokerPolicy>,
     plugins: RwLock<HashMap<PluginId, PluginRecord>>,
     next_grant_id: AtomicU64,
     audit: Arc<AuditLog>,
@@ -93,7 +93,7 @@ impl Broker {
     /// Construct a broker with the given daemon-wide policy.
     pub fn new(policy: BrokerPolicy) -> Self {
         Self {
-            policy,
+            policy: RwLock::new(policy),
             plugins: RwLock::new(HashMap::new()),
             next_grant_id: AtomicU64::new(1),
             audit: Arc::new(AuditLog::default()),
@@ -117,9 +117,37 @@ impl Broker {
         self.audit.clone()
     }
 
-    /// Return a reference to the daemon-wide policy.
-    pub fn policy(&self) -> &BrokerPolicy {
-        &self.policy
+    /// Return a snapshot of the daemon-wide policy.
+    ///
+    /// A copy, because the tier ceiling can be changed at runtime
+    /// ([`Broker::set_max_tier_allowed`]).
+    pub fn policy(&self) -> BrokerPolicy {
+        self.policy.read().clone()
+    }
+
+    /// Change the tier ceiling at runtime (spec §9.4.1 lowering workflow).
+    ///
+    /// Later registrations above the new ceiling fail with `ENTANGLE-E0043`.
+    /// This does **not** unload anything: the caller (the kernel) unloads the
+    /// affected plugins first, so the broker never holds a plugin above its
+    /// own ceiling. Returns the previous ceiling.
+    pub fn set_max_tier_allowed(
+        &self,
+        tier: entangle_types::tier::Tier,
+    ) -> entangle_types::tier::Tier {
+        std::mem::replace(&mut self.policy.write().max_tier_allowed, tier)
+    }
+
+    /// Effective tier of every registered plugin, sorted by plugin id.
+    pub fn registered_tiers(&self) -> Vec<(PluginId, entangle_types::tier::Tier)> {
+        let mut v: Vec<_> = self
+            .plugins
+            .read()
+            .iter()
+            .map(|(id, rec)| (id.clone(), rec.manifest.effective_tier))
+            .collect();
+        v.sort_by_key(|(id, _)| id.to_string());
+        v
     }
 
     /// Register a validated plugin manifest with the broker.
@@ -134,7 +162,9 @@ impl Broker {
     /// overwriting the live record (which would silently drop its outstanding
     /// grants with no `CapabilityReleased` audit trail).
     pub fn register_plugin(&self, manifest: ValidatedManifest) -> Result<(), BrokerError> {
-        self.policy.check_plugin_load(manifest.effective_tier)?;
+        self.policy
+            .read()
+            .check_plugin_load(manifest.effective_tier)?;
 
         let plugin_id = manifest.plugin_id.clone();
         let declared_tier = manifest.declared_tier;
@@ -742,5 +772,21 @@ mod tests {
             "expected ENTANGLE-E0042 TierBelowCapability from manifest layer, got: {err}"
         );
         // The broker never sees this manifest; no BrokerError::TierBelowCapability needed here.
+    }
+    #[test]
+    fn ceiling_changes_at_runtime_and_applies_to_later_registrations() {
+        let b = Broker::new(BrokerPolicy::default());
+        b.register_plugin(make_manifest("hi", 5, Runtime::Native, &[]))
+            .unwrap();
+        assert_eq!(b.registered_tiers().len(), 1);
+        assert_eq!(b.set_max_tier_allowed(Tier::Sandboxed), Tier::Native);
+        assert_eq!(b.policy().max_tier_allowed, Tier::Sandboxed);
+        // Raising/lowering the ceiling does not itself unregister anything...
+        assert_eq!(b.registered_tiers()[0].1, Tier::Native);
+        // ...but a later registration above it is refused with E0043.
+        let err = b
+            .register_plugin(make_manifest("hi2", 5, Runtime::Native, &[]))
+            .unwrap_err();
+        assert!(err.to_string().contains("ENTANGLE-E0043"), "{err}");
     }
 }

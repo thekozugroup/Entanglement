@@ -965,7 +965,7 @@ User runs: entangle agent run claude-code
 
    The same shim is installed for `codex`, `aider`, and other supported agent hosts (per §8.3.1).
 
-2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`.
+2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`. *(Implementation status: the shim is opt-in through `entangle wrapper enable` only; the first-run question, `--no-wrapper` and the shell-history note of item 3 are not implemented. See docs/operations.md §15.)*
 
 3. **Doctor check.** `entangle doctor` validates the wrapper is in place AND not shadowed:
    - If the wrapper block is missing from the user's rc files → warning with `entangle wrapper enable`.
@@ -1964,23 +1964,23 @@ ATC-STR-3 (chunk signing)
 
 ```
 ATC-WRP-1
-  GIVEN  `entangle install` has run with default settings AND user opts in to wrappers
-  WHEN   the user runs `claude-code` in a fresh shell with ENTANGLE_SESSION_ID unset
-  THEN   stderr contains the string "claude-code launched outside Entanglement session"
-  AND    exit code matches `command claude-code --version` (warning is non-blocking)
-  TEST   tests/bats/wrapper.bats::warns_outside_session
+  GIVEN  the user opted in to wrappers (`entangle wrapper enable`, or the install-time prompt)
+  WHEN   the user runs `claude` (the adapter's `binary()`; `claude-code` is its `entangle agent run` name) in a fresh shell with ENTANGLE_SESSION_ID unset
+  THEN   stderr contains the string "claude launched outside Entanglement session"
+  AND    exit code matches `command claude --version` (warning is non-blocking)
+  TEST   crates/entangle-cli/tests/wrapper.rs::atc_wrp_1_warns_outside_session
 
 ATC-WRP-2
   GIVEN  `entangle wrapper disable` has run
-  WHEN   the user runs `claude-code`
+  WHEN   the user runs `claude`
   THEN   stderr does NOT contain the wrapper warning
-  TEST   tests/bats/wrapper.bats::disable_silences
+  TEST   crates/entangle-cli/tests/wrapper.rs::atc_wrp_2_disable_silences
 
 ATC-WRP-3
-  GIVEN  PATH is ordered such that /usr/local/bin/claude-code resolves before the shell function
+  GIVEN  the user's shell resolves /usr/local/bin/claude (the adapter's `binary()`) instead of the shell function
   WHEN   `entangle doctor` runs
   THEN   stdout contains "shadowed" AND exit code == 1
-  TEST   tests/bats/doctor.bats::detects_shadowed_wrapper
+  TEST   crates/entangle-cli/tests/wrapper.rs::atc_wrp_3_detects_shadowed_wrapper
 ```
 
 ### 16.7 max_tier_allowed lowering (B-max_tier-) — M5
@@ -1991,20 +1991,20 @@ ATC-MAX-1 (interactive prompt)
   WHEN   user lowers to max_tier_allowed = 3 via interactive `entangle config reload`
   THEN   stdout contains "agent-host" in the affected list
   AND    default action is unload-and-disable; cancel reverts the edit
-  TEST   tests/bats/max_tier.bats::interactive_lowering_prompts
+  TEST   crates/entangle-cli/tests/max_tier.rs::atc_max_1_interactive_lowering_prompts
 
 ATC-MAX-2 (force-unload non-silent)
   GIVEN  same precondition as ATC-MAX-1
   WHEN   `entangle security set-max-tier 3 --force-unload` runs
   THEN   stderr contains the affected-plugin list AND audit log has ENTANGLE-W0214 entry per plugin
-  TEST   tests/bats/max_tier.bats::force_unload_is_loud
+  TEST   crates/entangle-cli/tests/max_tier.rs::atc_max_2_force_unload_is_loud
 
 ATC-MAX-3 (cancel revert)
   GIVEN  same precondition as ATC-MAX-1
   WHEN   user chooses "cancel" at the prompt
   THEN   max_tier_allowed remains 5 in config.toml
   AND    audit log has ENTANGLE-I0216 entry
-  TEST   tests/bats/max_tier.bats::cancel_reverts_edit
+  TEST   crates/entangle-cli/tests/max_tier.rs::atc_max_3_cancel_reverts_edit
 ```
 
 ### 16.8 Mirror-as-CDN (B-mirror-signing-) — M4
