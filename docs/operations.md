@@ -545,7 +545,8 @@ cannot be streamed, and a stream plugin cannot be `invoke`d.
 Every limit a submitter asks for is clamped by the executor (and reported
 back in the `Accepted` frame): stream timeout ≤ 1 h, input ≤ 16 MiB, chunk ≤
 4 MiB, total ≤ 256 MiB per direction, credit window ≤ 256, heartbeat between
-1 s and 60 s, credit-exhaustion timeout ≤ 30 min, at most 64 streams at once.
+1 s and 60 s, credit-exhaustion timeout between 1 s and 30 min, at most 64
+streams at once.
 
 ### Running one
 

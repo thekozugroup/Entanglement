@@ -191,6 +191,10 @@ pub struct StreamCeilings {
     /// Heartbeat interval ceiling: a peer cannot switch liveness detection
     /// off by asking for an enormous interval.
     pub max_heartbeat_ms: u32,
+    /// Credit-exhaustion timeout floor: a peer cannot make this node
+    /// declare a stall (and log a `StalledEvent`) more often than this, by
+    /// asking for a tiny timeout and granting credit just after each stall.
+    pub min_credit_exhaustion_timeout_ms: u64,
     /// Ceiling on the credit-exhaustion timeout.
     pub max_credit_exhaustion_timeout_ms: u64,
     /// Streams this executor runs at once, across all peers.
@@ -211,6 +215,7 @@ impl Default for StreamCeilings {
             input_window: 16,
             min_heartbeat_ms: 1_000,
             max_heartbeat_ms: 60_000,
+            min_credit_exhaustion_timeout_ms: 1_000,
             max_credit_exhaustion_timeout_ms: ChannelSpec::DEFAULT_CREDIT_EXHAUSTION_TIMEOUT_MS,
             max_concurrent_streams: 64,
         }
@@ -222,12 +227,16 @@ impl StreamCeilings {
     /// heartbeat bounds into a sane order: configuration can tighten an
     /// executor, never loosen it past the defaults.
     ///
-    /// The heartbeat floor is the one bound a config may *lower* (down to
-    /// 10 ms) — scaled-down integration tests need sub-second heartbeats.
+    /// The heartbeat and credit-exhaustion floors are the bounds a config
+    /// may *lower* (down to 10 ms) — scaled-down integration tests need
+    /// sub-second heartbeats and stalls.
     #[must_use]
     pub fn clamped(self) -> Self {
         let d = Self::default();
         let min_heartbeat_ms = self.min_heartbeat_ms.max(10);
+        let max_credit_exhaustion_timeout_ms = self
+            .max_credit_exhaustion_timeout_ms
+            .clamp(10, d.max_credit_exhaustion_timeout_ms);
         Self {
             max_timeout_ms: self.max_timeout_ms.min(d.max_timeout_ms),
             max_input_bytes: self.max_input_bytes.min(d.max_input_bytes),
@@ -239,9 +248,10 @@ impl StreamCeilings {
             max_heartbeat_ms: self
                 .max_heartbeat_ms
                 .clamp(min_heartbeat_ms, d.max_heartbeat_ms),
-            max_credit_exhaustion_timeout_ms: self
-                .max_credit_exhaustion_timeout_ms
-                .clamp(1, d.max_credit_exhaustion_timeout_ms),
+            min_credit_exhaustion_timeout_ms: self
+                .min_credit_exhaustion_timeout_ms
+                .clamp(10, max_credit_exhaustion_timeout_ms),
+            max_credit_exhaustion_timeout_ms,
             max_concurrent_streams: self.max_concurrent_streams.clamp(1, 4096),
         }
     }
@@ -276,9 +286,12 @@ impl StreamCeilings {
             credit_window: requested.credit_window.min(self.max_credit_window),
             input_window: self.input_window,
             heartbeat: Duration::from_millis(u64::from(heartbeat_ms)),
+            // `max(min).min(max)`, not `clamp`: unclamped ceilings may have
+            // the floor above the ceiling, and must not panic here.
             credit_timeout: Duration::from_millis(
                 requested
                     .credit_exhaustion_timeout_ms
+                    .max(self.min_credit_exhaustion_timeout_ms)
                     .min(self.max_credit_exhaustion_timeout_ms),
             ),
             timeout: Duration::from_millis(timeout_ms.min(self.max_timeout_ms)),
@@ -423,9 +436,34 @@ mod tests {
             (10, 100, 2)
         );
         assert_eq!(l.heartbeat, Duration::from_millis(1_000), "heartbeat floor");
-        assert_eq!(l.credit_timeout, Duration::from_millis(5));
+        assert_eq!(
+            l.credit_timeout,
+            Duration::from_millis(1_000),
+            "credit-exhaustion floor"
+        );
         assert_eq!(l.timeout, Duration::from_millis(7));
         assert!(ceilings.accept(&modest, 0).is_err());
+    }
+
+    /// A remote submitter cannot make this node stall (and log a
+    /// `StalledEvent`) every millisecond: the credit-exhaustion timeout has
+    /// a floor, as the heartbeat interval does.
+    #[test]
+    fn a_remote_cannot_shrink_the_credit_timeout_below_the_floor() {
+        let ceilings = StreamCeilings::default();
+        let hasty = WireChannel {
+            max_chunk_bytes: 10,
+            max_total_bytes: 100,
+            credit_window: 1,
+            heartbeat_ms: 1_000,
+            credit_exhaustion_timeout_ms: 1,
+        };
+        let l = ceilings.accept(&hasty, 60_000).unwrap();
+        assert!(
+            l.credit_timeout >= Duration::from_secs(1),
+            "a 1 ms request became {:?}",
+            l.credit_timeout
+        );
     }
 
     #[test]
@@ -439,6 +477,7 @@ mod tests {
             input_window: u32::MAX,
             min_heartbeat_ms: 0,
             max_heartbeat_ms: u32::MAX,
+            min_credit_exhaustion_timeout_ms: 0,
             max_credit_exhaustion_timeout_ms: u64::MAX,
             max_concurrent_streams: usize::MAX,
         }
@@ -451,5 +490,10 @@ mod tests {
         assert_eq!(loose.max_credit_window, d.max_credit_window);
         assert_eq!(loose.min_heartbeat_ms, 10);
         assert_eq!(loose.max_heartbeat_ms, d.max_heartbeat_ms);
+        assert_eq!(loose.min_credit_exhaustion_timeout_ms, 10);
+        assert_eq!(
+            loose.max_credit_exhaustion_timeout_ms,
+            d.max_credit_exhaustion_timeout_ms
+        );
     }
 }

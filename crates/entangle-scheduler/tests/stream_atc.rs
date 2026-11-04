@@ -157,10 +157,11 @@ fn lines(n: usize, width: usize) -> String {
         .collect()
 }
 
-/// Test ceilings: sub-second heartbeats allowed, small input window.
+/// Test ceilings: sub-second heartbeats and stall timeouts allowed.
 fn fast_ceilings() -> StreamCeilings {
     StreamCeilings {
         min_heartbeat_ms: 10,
+        min_credit_exhaustion_timeout_ms: 10,
         ..StreamCeilings::default()
     }
 }
