@@ -28,13 +28,16 @@ use crate::{
     work_unit::{PolicyEnvelope, PolicyHash},
     worker::{WorkerInfo, WorkerPool},
 };
+use entangle_observability::{catalog, Registry};
 use entangle_runtime::{IntegrityError, Kernel};
 use entangle_types::{
     peer_id::PeerId,
     task::{IntegrityPolicy, OneShotTask},
 };
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tracing::Instrument as _;
 
 /// Errors that can arise during task dispatch.
 #[derive(Debug, thiserror::Error)]
@@ -157,6 +160,24 @@ pub struct Dispatcher {
     /// remote placement really does go remote and its failures are reported
     /// as themselves rather than being masked by a local re-run.
     pub strict_remote: bool,
+    /// Metrics sink; `None` until [`Dispatcher::with_metrics`].
+    metrics: Option<Registry>,
+    /// Tasks inside [`Dispatcher::dispatch_one_shot`] right now.
+    inflight: Arc<AtomicU64>,
+}
+
+/// Metric label for the outcome of a remote replica.
+fn remote_outcome<T>(result: &Result<T, DispatchError>) -> String {
+    match result {
+        Ok(_) => "ok".to_owned(),
+        Err(DispatchError::RemoteTransport { .. }) => "transport_error".to_owned(),
+        // `RemoteErrorCode` labels are a closed set (kebab-case).
+        Err(DispatchError::RemoteRejected { code, .. }) => {
+            format!("rejected_{}", code.as_str().replace('-', "_"))
+        }
+        Err(DispatchError::OutputSizeExceeded(_)) => "output_too_large".to_owned(),
+        Err(_) => "error".to_owned(),
+    }
 }
 
 impl Dispatcher {
@@ -177,7 +198,62 @@ impl Dispatcher {
             verifier,
             worker_ttl: Duration::from_secs(60),
             strict_remote: false,
+            metrics: None,
+            inflight: Arc::new(AtomicU64::new(0)),
         }
+    }
+
+    /// Record this dispatcher's activity into `registry`.
+    ///
+    /// Counts remote dispatches by outcome and integrity verdicts by policy
+    /// kind and outcome, counts oversized replica outputs, and exposes (at
+    /// scrape time) the in-flight task count, the live-worker count and the
+    /// number of peers in each reputation tier. There is no scheduler queue:
+    /// dispatch is immediate, so *in-flight* is the saturation signal.
+    #[must_use]
+    pub fn with_metrics(mut self, registry: Registry) -> Self {
+        self.verifier.set_telemetry(registry.clone());
+        let inflight = Arc::clone(&self.inflight);
+        let workers = self.workers.clone();
+        let ttl = self.worker_ttl;
+        let reputation = Arc::clone(self.verifier.reputation());
+        registry.register_collector(move |r| {
+            r.set_gauge(
+                catalog::names::SCHEDULER_INFLIGHT,
+                "Tasks the dispatcher is executing right now",
+                &[],
+                inflight.load(Ordering::Relaxed) as f64,
+            );
+            r.set_gauge(
+                catalog::names::SCHEDULER_WORKERS,
+                "Live workers in the scheduler pool",
+                &[],
+                workers.live(ttl).len() as f64,
+            );
+            // Rebuilt each scrape so a peer that left a tier does not leave
+            // a stale count behind.
+            r.clear_family(catalog::names::REPUTATION_PEERS);
+            for (kind, tier, n) in reputation.tier_counts() {
+                r.set_gauge(
+                    catalog::names::REPUTATION_PEERS,
+                    "Peers per reputation tier and integrity policy kind",
+                    &[("policy", kind.as_str()), ("tier", tier.as_str())],
+                    n as f64,
+                );
+            }
+        });
+        self.metrics = Some(registry);
+        self
+    }
+
+    /// Tasks executing inside the dispatcher right now.
+    pub fn inflight(&self) -> u64 {
+        self.inflight.load(Ordering::Relaxed)
+    }
+
+    /// The remote dispatch client, if a transport is configured.
+    pub fn remote(&self) -> Option<&Arc<RemoteDispatch>> {
+        self.remote.as_ref()
     }
 
     /// Enable strict remote enforcement.
@@ -253,6 +329,29 @@ impl Dispatcher {
         &self,
         task: OneShotTask,
     ) -> Result<DispatchResult, DispatchError> {
+        let kind = task.integrity.kind();
+        let span = tracing::info_span!(
+            "task.dispatch",
+            plugin = %task.plugin,
+            policy = %kind,
+            input_bytes = task.input.len() as u64,
+        );
+        self.inflight.fetch_add(1, Ordering::Relaxed);
+        let result = self.dispatch_checked(task).instrument(span).await;
+        self.inflight.fetch_sub(1, Ordering::Relaxed);
+        if let Some(reg) = &self.metrics {
+            let outcome = match &result {
+                Ok(_) => "accepted",
+                Err(DispatchError::OutputSizeExceeded(_)) => "output_size_exceeded",
+                Err(DispatchError::Integrity(_)) => "rejected",
+                Err(_) => "failed",
+            };
+            catalog::integrity_verdict(reg, kind.as_str(), outcome);
+        }
+        result
+    }
+
+    async fn dispatch_checked(&self, task: OneShotTask) -> Result<DispatchResult, DispatchError> {
         // Reject an oversized input before doing any placement or execution
         // work — an oversized request must never reach the kernel.
         let input_len = task.input.len() as u64;
@@ -527,13 +626,14 @@ impl Dispatcher {
     ) -> ReplicaResult {
         let outcome = match &self.remote {
             Some(remote) => {
-                remote
-                    .dispatch_sealed(task, peer, envelope)
-                    .await
-                    .map(|r| ReplicaBytes {
-                        bytes: r.output,
-                        observed_policy_hash: r.observed_policy_hash,
-                    })
+                let raw = remote.dispatch_sealed(task, peer, envelope).await;
+                if let Some(reg) = &self.metrics {
+                    catalog::remote_dispatch(reg, &remote_outcome(&raw));
+                }
+                raw.map(|r| ReplicaBytes {
+                    bytes: r.output,
+                    observed_policy_hash: r.observed_policy_hash,
+                })
             }
             None => Err(DispatchError::RemoteNotImplemented {
                 peer,

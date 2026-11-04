@@ -16,6 +16,7 @@ path = "src/main.rs"
 entangle-types     = { workspace = true }
 entangle-runtime   = { workspace = true }
 entangle-signing   = { workspace = true }
+entangle-oci       = { workspace = true }
 entangle-manifest  = { workspace = true }
 entangle-rpc       = { path = "../entangle-rpc" }
 entangle-peers     = { path = "../entangle-peers" }
@@ -25,7 +26,7 @@ entangle-scheduler     = { path = "../entangle-scheduler" }
 # `compute stream` dials the executor itself (see cmd/compute_stream.rs).
 # Already in the graph via entangle-scheduler: no new build cost.
 entangle-mesh-iroh     = { workspace = true }
-entangle-observability = { workspace = true }
+entangle-observability = { workspace = true, features = ["otlp"] }
 entangle-agent-host    = { path = "../entangle-agent-host" }
 camino            = { workspace = true }
 clap              = { workspace = true, features = ["derive"] }
@@ -47,6 +48,8 @@ dialoguer         = { workspace = true }
 rustix            = { workspace = true }
 
 [dev-dependencies]
+entangle-oci      = { workspace = true, features = ["testing"] }
+tokio             = { workspace = true, features = ["full"] }
 assert_cmd        = "2"
 tempfile          = { workspace = true }
 predicates        = "3"

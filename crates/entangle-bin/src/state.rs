@@ -2,13 +2,44 @@
 //! and peer store. Constructed once at daemon startup, shared by all RPC
 //! handlers via `Arc<DaemonState>`.
 
+use entangle_mesh_iroh::MeshIroh;
 use entangle_mesh_local::Discovery;
+use entangle_mesh_tailscale::{LivenessSnapshot, MeshTailscale};
+use entangle_observability::Registry;
 use entangle_peers::PeerStore;
 use entangle_runtime::Kernel;
-use entangle_scheduler::{Dispatcher, WorkerPool};
+use entangle_scheduler::{Dispatcher, PeerDirectory, WorkerPool};
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
+use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Instant;
+use tokio::sync::watch;
+
+/// The `mesh.tailscale` pieces `diag/mesh` reads.
+#[derive(Clone)]
+pub struct TailscaleDiag {
+    /// The running transport (candidate list, local address).
+    pub transport: MeshTailscale,
+    /// Confirmed liveness, updated by the poller.
+    pub liveness: watch::Receiver<LivenessSnapshot>,
+}
+
+/// What the `diag/mesh` report needs to know about the mesh setup. All parts
+/// are optional: the report only describes transports that are running.
+#[derive(Clone, Default)]
+pub struct MeshDiagSources {
+    /// `[mesh] transports` as configured.
+    pub configured_transports: Vec<String>,
+    /// The `mesh.iroh` scheduler endpoint, when started.
+    pub iroh: Option<Arc<MeshIroh>>,
+    /// Addresses of the peers this node may dispatch to over iroh.
+    pub iroh_directory: Option<PeerDirectory>,
+    /// The `mesh.tailscale` transport, when started.
+    pub tailscale: Option<TailscaleDiag>,
+    /// Where the metrics endpoint listens, when enabled.
+    pub metrics_listen: Option<SocketAddr>,
+}
 
 /// All runtime state the daemon needs to serve RPC requests.
 ///
@@ -33,6 +64,14 @@ pub struct DaemonState {
     pub identity: IdentityKeyPair,
     /// mDNS discovery handle; `None` when `mesh.local` transport is disabled.
     pub discovery: Option<Arc<Discovery>>,
+    /// The daemon's metrics registry (shared with the kernel, dispatcher and
+    /// the scrape endpoint). A fresh private one unless
+    /// [`DaemonState::with_metrics`] is used.
+    pub metrics: Registry,
+    /// Mesh details for `diag/mesh`.
+    pub diag: MeshDiagSources,
+    /// When the daemon started (for uptime).
+    pub started_at: Instant,
 }
 
 impl DaemonState {
@@ -59,7 +98,62 @@ impl DaemonState {
             local_display_name: display_name,
             identity,
             discovery: None,
+            metrics: Registry::new(),
+            diag: MeshDiagSources::default(),
+            started_at: Instant::now(),
         }
+    }
+
+    /// Use `registry` as the daemon's metrics registry. It should be the same
+    /// one the kernel and dispatcher were given.
+    #[must_use]
+    pub fn with_metrics(mut self, registry: Registry) -> Self {
+        self.metrics = registry;
+        self
+    }
+
+    /// Describe the mesh setup for `diag/mesh`.
+    #[must_use]
+    pub fn with_diag(mut self, diag: MeshDiagSources) -> Self {
+        self.diag = diag;
+        self
+    }
+
+    /// Register the scrape-time collectors for daemon-wide gauges: build
+    /// info, uptime and trusted/revoked peer counts. Call once.
+    pub fn register_collectors(&self) {
+        let peers = self.peer_store.clone();
+        let started = self.started_at;
+        self.metrics.register_collector(move |r| {
+            use entangle_observability::catalog::names;
+            use entangle_peers::TrustLevel;
+            r.set_gauge(
+                "entangle_build_info",
+                "Daemon build information (value is always 1)",
+                &[("version", env!("CARGO_PKG_VERSION"))],
+                1.0,
+            );
+            r.set_gauge(
+                "entangle_daemon_uptime_seconds",
+                "Seconds since the daemon started",
+                &[],
+                started.elapsed().as_secs_f64(),
+            );
+            let all = peers.list();
+            let count = |level: TrustLevel| all.iter().filter(|p| p.trust == level).count();
+            for (state, n) in [
+                ("trusted", count(TrustLevel::Trusted)),
+                ("observer", count(TrustLevel::Observer)),
+                ("revoked", count(TrustLevel::Revoked)),
+            ] {
+                r.set_gauge(
+                    names::MESH_PEERS,
+                    "Mesh peers by state (trusted, observer and revoked come from the peer store, sighted from mDNS)",
+                    &[("state", state)],
+                    n as f64,
+                );
+            }
+        });
     }
 
     /// Attach a running [`Discovery`] handle.  Called after construction when

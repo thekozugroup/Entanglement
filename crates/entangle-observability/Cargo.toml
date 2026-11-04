@@ -14,13 +14,31 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter", "json", "fmt"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json", "fmt", "registry"] }
 is-terminal = { workspace = true }
 thiserror = { workspace = true }
 parking_lot = { workspace = true }
+uuid = { workspace = true }
+# OTLP/HTTP exporter (feature `otlp`): hyper client over a raw TcpStream. All
+# already in Cargo.lock; the opentelemetry crates are deliberately not used.
+tokio = { workspace = true, features = ["rt", "net", "time", "macros", "sync"], optional = true }
+hyper = { workspace = true, features = ["client", "http1"], optional = true }
+hyper-util = { workspace = true, optional = true }
+http-body-util = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+hyper = { workspace = true, features = ["server", "client", "http1"] }
+hyper-util = { workspace = true }
+http-body-util = { workspace = true }
+bytes = { workspace = true }
+serde_json = { workspace = true }
 
 [features]
-default = []
-# Phase-2 feature flags — the actual exporter wiring is deferred.
-prometheus = []
-otel = []
+default = ["otlp"]
+# The OTLP/HTTP trace exporter (`otel` module, `init_with_otel`). Library
+# crates that only *record* metrics or propagate trace context depend on this
+# crate with `default-features = false` to stay light.
+otlp = ["dep:tokio", "dep:hyper", "dep:hyper-util", "dep:http-body-util", "dep:bytes", "dep:serde_json"]

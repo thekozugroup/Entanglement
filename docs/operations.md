@@ -113,6 +113,17 @@ multi_node = false         # default: false
 
 [security]
 max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
+allow_unsandboxed_native = false   # default: false
+
+[metrics]                  # daemon-only; see §14
+enabled = false            # default: false
+listen = "127.0.0.1:9464"  # default
+allow_non_loopback = false # default: false
+
+[telemetry.otlp]           # daemon-only; see §14
+enabled = false            # default: false
+endpoint = "http://localhost:4318"
+service_name = "entangled"
 ```
 
 | Section | Key | Type | Default | Meaning |
@@ -120,7 +131,10 @@ max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
 | `[mesh]` | `transports` | array of strings | `[]` | Active mesh transport backends. Phase 1 supports only `"local"` (mDNS on `_entangle._udp.local`). Listing `"iroh"`/`"tailscale"` here does not activate them — those crates are Phase-2 scaffolds. |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
-| `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043`. Out-of-range values (`0` or `>5`) fail to parse. |
+| `[metrics]` | `enabled`, `listen`, `allow_non_loopback` | bool, `ip:port`, bool | `false`, `127.0.0.1:9464`, `false` | Prometheus scrape endpoint (§14). A non-loopback `listen` is refused (`ENTANGLE-E0656`) unless `allow_non_loopback = true`. |
+| `[telemetry.otlp]` | `enabled`, `endpoint`, `service_name` | bool, URL, string | `false`, `http://localhost:4318`, `entangled` | OTLP/HTTP trace export (§14). `endpoint` must be `http://`; `4318` is OTLP/HTTP (`4317` is gRPC, which is not spoken). |
+| `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
+| `[security]` | `allow_unsandboxed_native` | bool | `false` | Run native (tier 4–5) plugins on a host that has **no** OS sandbox primitive. Off: such plugins are refused with `ENTANGLE-E0700`. No effect on hosts that have one — the sandbox is then always engaged. See §12. |
 
 Notes:
 
@@ -175,7 +189,7 @@ Two independent tools answer "is it working," at different levels:
 
 ### `entangle doctor` — structured pre-flight / ongoing diagnostics
 
-Runs 13 checks and prints one `[ok] / [warn] / [fail] / [skip]` line each,
+Runs 14 checks and prints one `[ok] / [warn] / [fail] / [skip]` line each,
 then a summary (`crates/entangle-cli/src/cmd/doctor.rs`):
 
 1. `identity` — `identity.key` present and parses as a valid Ed25519 keypair.
@@ -188,9 +202,10 @@ then a summary (`crates/entangle-cli/src/cmd/doctor.rs`):
 8. `wasm32-wasip2` — whether the Wasm target is installed (needed to build plugins, not to run the daemon).
 9. `daemon-reachable` — connects to the RPC socket and calls `version`. **Only warns** (exit code stays 0) if the daemon is unreachable — it does not fail the overall check.
 10. `daemon-version-match` — compares the daemon's reported version to the CLI's own; skipped if the daemon isn't reachable.
-11. `OS sandbox` — availability of Seatbelt/Landlock/Bubblewrap for tier-5 plugin isolation (probe only in Phase 1 — no enforcement yet).
-12. `disk-space` — warns below 1 GiB free on the filesystem hosting `~/.entangle` (or `/tmp` if that dir doesn't exist yet).
-13. `clock-skew` — compares the daemon's clock to the local clock via a `time` RPC; `warn` above 2s drift, **`fail`** above 30s (biscuit-auth tokens have only ±60s allowance, so severe drift breaks cross-node auth and pairing TOFU).
+11. `OS sandbox` — the layers a tier-5 plugin without network access would run under on this host (e.g. `Landlock ABI 7 + seccomp + user/net namespace + Landlock TCP rules; network denied`), or why native plugins would be refused. Warns on reduced isolation. See §12.
+12. `sandbox trial` — engages that sandbox for real on two trivial children: `true` must run, and `cat` of a file outside the profile must be denied. **Fails** if the child could read the file (sandbox not enforcing) or if engagement fails on a host that should support it.
+13. `disk-space` — warns below 1 GiB free on the filesystem hosting `~/.entangle` (or `/tmp` if that dir doesn't exist yet).
+14. `clock-skew` — compares the daemon's clock to the local clock via a `time` RPC; `warn` above 2s drift, **`fail`** above 30s (biscuit-auth tokens have only ±60s allowance, so severe drift breaks cross-node auth and pairing TOFU).
 
 Exit code is `1` if any check is `fail`, else `0` — `warn` never fails the
 command. Because check 9 (daemon reachability) only warns, **`entangle
@@ -269,7 +284,11 @@ canonical range table, maintained in
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
 | E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum (`entangle-runtime::IntegrityError`; see §11) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
+| E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch (`entangle-host`) |
 | E0600–E0699 | Agent-host adapter (`entangle-agent-host`) |
+| E0700–E0719 | OS-sandbox engagement (`entangle-sandbox`) — see §12 |
+| E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
+| E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -288,7 +307,8 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0420`–`E0425` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch (E0420–E0424); E0425 is a relay whose cumulative `total_bytes_cap` budget is exhausted. |
 | `ENTANGLE-E0620`–`E0624`, `E0660`–`E0670` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
 | `ENTANGLE-E0630`, `E0640` | Retired `NotImplemented` codes for `mesh.iroh` and `mesh.tailscale`; both transports are implemented. |
-| `ENTANGLE-E0650` | OpenTelemetry export not implemented yet. |
+| `ENTANGLE-E0651`–`E0654` | OTLP trace export: invalid `[telemetry.otlp]` endpoint (E0651; `https://` is not supported), empty `service_name` (E0652), an out-of-range exporter setting (E0653), the export thread could not start (E0654). `E0650` is retired. See §14. |
+| `ENTANGLE-E0655`–`E0657` | Metrics endpoint: `[metrics] listen` is not an `ip:port` (E0655), a non-loopback `listen` without `allow_non_loopback = true` (E0656), the socket could not be bound (E0657). See §14. |
 
 If you hit a code not listed above, the fastest way to find its exact meaning
 and the crate that owns it is:
@@ -398,6 +418,9 @@ Docker, `docker logs -f entangled` shows the same JSON stream; pass
 | `entangle`/`entangled` fail identity checks with "PEM parse failed" / corrupt key | `identity.key` truncated, corrupted, or edited by hand | Restore from backup (§7); if none exists, `entangle init` can generate a fresh identity — but every existing pairing must be redone via `entangle pair`. |
 | `entangle doctor`'s `identity-perms` or `dir-perms` check warns | File/dir permissions loosened outside the tool (e.g. by a backup/restore process, or an `umask` override) | `chmod 600 ~/.entangle/identity.key` / `chmod 700 ~/.entangle` as suggested in the check's own output. |
 | `entangled status` fails / hangs | Daemon not running, socket path mismatch, or daemon wedged | Check `systemctl status entangled` / `docker ps`; confirm the socket path matches (`--socket` override vs. default `$HOME/.entangle/sock`); check logs for the last activity before it stopped responding. |
+| Native plugin refused with `ENTANGLE-E0700` / `E0701` | No sandbox primitive on this host (E0700), or one exists but cannot take the network away (E0701) | Run `entangle doctor` (§12). Enable Landlock / install bubblewrap; or grant the plugin `net.*`; or, knowingly, set `allow_unsandboxed_native = true`. |
+| Native plugin invocation fails with `ENTANGLE-E0726` | A sandbox step failed in the child before `exec` (fail-closed), e.g. user namespaces blocked by a container's seccomp profile after the probe | Check `entangle doctor`'s `sandbox trial` line; the error carries the OS errno. |
+| Plugin load refused with `ENTANGLE-E0507` | The artifact is not what `runtime` declares (an executable shipped as `wasm`, a component shipped as `native`, or a binary for another OS) | Rebuild with `entangle plugins build`, which picks the artifact kind from the manifest. |
 | Plugin load refused with `ENTANGLE-E0043` | Plugin's declared tier exceeds `[security] max_tier_allowed` in `config.toml` | Either raise `max_tier_allowed` (understand the tier's capability implications first — see spec §4.2) or use a lower-tier plugin build. |
 | Cross-node capability grant refused with `ENTANGLE-E0100`/`E0101` | Biscuit signature doesn't verify, or the publisher/peer key isn't in the trust roots | Re-check the peer is actually paired (`entangle mesh peers`) and its key matches what's in `peers.toml`/`keyring.toml`. |
 | `clock-skew` check in `entangle doctor` reports `fail` | Local and daemon-host clocks have drifted >30s | Sync via NTP/chrony. Biscuit-auth tokens only tolerate ±60s, so severe drift breaks pairing TOFU and cross-node auth outright. |
@@ -523,7 +546,369 @@ accepted tasks under deterministic replay, spec §7.5). `Deterministic` and
 Scheduler wire version: v2 (task frames carry the policy and its hash). A
 node running an older build answers `unsupported-version`; upgrade both ends.
 
-## 12. Streaming tasks (`entangle compute stream`)
+---
+
+## 12. Native (tier 4–5) plugins and the OS sandbox
+
+A native plugin is a host executable (`runtime = "native"`, packaged as
+`plugin.bin`). It is signature-verified exactly like a wasm component, then
+run as a **sandboxed subprocess**, one fresh process per invocation, spoken
+to over length-prefixed frames on stdin/stdout (`crates/entangle-sandbox`).
+
+**Disable them.** `[security] max_tier_allowed = 4` refuses every tier-5
+plugin; `= 3` refuses every native plugin. Refusal happens before signature
+work, capability grants, or any file write (`ENTANGLE-E0043`).
+
+**What the sandbox is made of.** The capabilities the broker grants become
+the profile; everything else is denied.
+
+| Layer (Linux) | What it does |
+|---|---|
+| Landlock (ABI ≥ 1) | Filesystem allowlist: the staged binary (read+exec), system libraries and loader cache (read+exec), the package directory (read), the plugin's storage scopes (read+write, never exec), `/dev/null`. Scopes are resolved without following symbolic links (the daemon resolves its own data and package directories first), so a plugin that can write into a share cannot redirect another plugin's grant with a planted link. ABI ≥ 4: TCP bind/connect denied unless networking is granted. ABI ≥ 6: signals and abstract Unix sockets scoped to the sandbox (the plugin cannot signal the daemon). Below ABI 6 the plan is reported as *reduced*: the plugin runs under the daemon's uid with no PID namespace and can signal it. |
+| user + network namespace | When unprivileged user namespaces work: the plugin sees only a downed loopback. |
+| seccomp-bpf | `socket()` and `socketpair()` refused for every address family not granted (`AF_UNIX` only with `host.docker-socket` — this is what keeps the daemon's RPC socket out of reach); creating or joining namespaces refused (`clone3` reports `ENOSYS`, libc falls back to `clone`); `prlimit`/`setpriority`/`sched_set*`/`ioprio_set` refused on any process but the plugin itself (it shares the daemon's uid); `keyctl`/`add_key`/`request_key` refused; `setsid`/`setpgid` refused (descendants stay in the group that is killed); `io_uring_setup`, x32 and foreign-arch syscalls refused. |
+| process | no capabilities (ambient, bounding, effective, permitted and inheritable sets emptied — a daemon run as root does not hand root to its plugins), a fresh, empty session keyring (the daemon's or login session's keys are not reachable; with seccomp the key syscalls are refused outright), `no_new_privs`, `RLIMIT_CORE=0`, address-space / CPU-time / fd rlimits, inherited fds closed at exec, empty environment, own process group (killed on timeout or when the invocation is dropped), killed if the spawning daemon/CLI dies (`PR_SET_PDEATHSIG`). |
+
+Fallbacks: **bubblewrap** when Landlock is absent; **Seatbelt** (`sandbox-exec
+-p <generated profile>`) on macOS. On hosts that restrict unprivileged user
+namespaces (Ubuntu ≥ 23.10 by default) network denial still holds via seccomp
+and Landlock's TCP rules; if only Landlock TCP rules remain, the plan is
+reported as *reduced* (UDP not isolated) rather than silently accepted.
+
+**Capability → access.**
+
+| Capability | Child gets |
+|---|---|
+| `storage.local { scope = "plugin" }` | rw `~/.entangle/data/plugins/<publisher>/<name>` = `$ENTANGLE_DATA_DIR` = `$HOME` = cwd |
+| `storage.local { scope = "shared" }` | rw `~/.entangle/data/shared` = `$ENTANGLE_SHARED_DIR` |
+| `storage.share.<n>` | `~/.entangle/data/shares/<n>` (ro / rw / rw-scoped per mode) = `$ENTANGLE_SHARE_<N>`; `<n>` must match `[a-z0-9][a-z0-9_-]*`, so a share can never name a path outside `shares/` (`ENTANGLE-E0743`) |
+| `net.lan`, `net.wan` | IP networking (no per-host allowlist yet) |
+| `compute.gpu` | read, write and ioctl on `/dev/dri`, `/dev/kfd`, `/dev/nvidia*` when present (ordinary scopes never get device ioctls) |
+| `host.docker-socket` | rw `/var/run/docker.sock` + `AF_UNIX` sockets |
+
+**Where things live.** Verified binaries are staged (never run from the
+package directory) under `~/.entangle/native/entangle-native-<name>-<random>/`
+(`0700`, binary `0500`), removed on unload. The process using a copy holds a
+lock on it; copies left behind by a daemon that was killed (SIGKILL, OOM) are
+removed when the next daemon or local (`--allow-local`) kernel starts, while
+copies a running daemon still uses are kept. Plugin stderr is logged under the
+`entangle::native` tracing target, bounded per invocation.
+
+**No primitive at all.** Native plugins are refused with `ENTANGLE-E0700`
+unless the operator sets `allow_unsandboxed_native = true`, in which case
+they run with only the process layer (and seccomp/namespaces if available) —
+`entangle doctor` then warns on every run.
+
+**Check a host.** `entangle doctor` (checks 11–12) and `entangle
+print-platform` show the exact layers and run a real trial engagement.
+
+Known limits: on a host without seccomp, descendants that call `setsid()`
+escape the timeout kill (they stay sandboxed); no cgroup accounting; Landlock (through ABI 7) does not cover
+path-based Unix sockets, which is why the seccomp `AF_UNIX` rule matters — on a
+host without seccomp that protection is absent, and the plan is reported as *reduced*.
+
+---
+
+## 13. OCI registries and mirrors
+
+`entangle plugins install oci://registry[:port]/repo[:tag|@sha256:<hex>]`,
+`entangle plugins publish`, `entangle plugins tags` and
+`entangle plugins mirror-sign` use the `entangle-oci` client (OCI Distribution
+v1.1). Error codes are `ENTANGLE-E0800`..`E0829`.
+
+**Trust model.** Only your publisher keyring (`~/.entangle/keyring.toml`)
+decides whether a pulled package installs. The registry's name, TLS identity,
+your credentials for it, and any mirror listing are not inputs to that
+decision (ATC-MIR-1): a package signed by an unknown key is rejected
+(`ENTANGLE-E0814` wrapping `E0101`) even from a registry you operate. After
+verification the install also enforces `security.max_tier_allowed`
+(`ENTANGLE-E0043`) and the kernel's load-time checks; the daemon-less
+fallback kernel applies the same `max_tier_allowed` ceiling.
+
+**What is installed is what you asked for.** A valid signature proves who
+signed the bytes, not that they are the plugin you named, so the install also
+requires the package's plugin name to equal the last component of the
+repository (`oci://r/acme/hello:1.0.0` must serve a plugin named `hello`) and,
+when the tag is a full `MAJOR.MINOR.PATCH` version, the package's version to
+equal it. Floating tags (`latest`, `stable`) and digests make no version
+claim. The package is staged in a sibling directory and swapped into place, so
+a failed install never leaves a half-written directory. Without `--out`, an
+existing `~/.entangle/plugins/<name>` that holds another publisher's plugin is
+not overwritten; pass `--out`. Catalog-only flags (`--catalog`, `--key`,
+`--wasm`, `--target`) are refused for `oci://` references rather than ignored.
+
+### Authentication
+
+Resolved per registry (`host[:port]`, spelled as in the reference, ASCII case
+ignored), first match wins; credentials are never logged or printed:
+
+1. `ENTANGLE_OCI_TOKEN` - a bearer token sent directly, or
+   `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD` - Basic credentials, also
+   used against the registry's token endpoint (the standard Bearer flow:
+   `WWW-Authenticate` realm/service/scope). Environment credentials apply
+   **only** to the registry named by `ENTANGLE_OCI_REGISTRY=<host[:port]>`;
+   every other registry is treated as if they were unset (it falls through to
+   the file below, or anonymous). Setting them without `ENTANGLE_OCI_REGISTRY`
+   is an error (`ENTANGLE-E0815`), so a CI token exported for one registry is
+   never offered to another.
+2. `~/.entangle/oci-auth.toml`, which must be mode `0600` on Unix:
+
+   ```toml
+   [registries."ghcr.io"]
+   username = "you"
+   password = "<personal access token>"
+
+   [registries."registry.internal:5000"]
+   token = "<bearer token>"
+   ```
+
+With none of these the client is anonymous and still follows the token flow
+for public repositories. `Authorization` is only ever sent to the registry's
+own `host:port`, plus, for Basic credentials, the token endpoint (`realm`) that
+registry names in its Bearer challenge (standard token flow; that endpoint may
+be on another host, e.g. a separate auth service): blob redirects to a CDN on
+another host are followed without it. Redirects are capped at 5; only HTTP 429 and 5xx are retried (4 attempts,
+exponential backoff, `Retry-After` honoured up to 8 s). A chunk upload
+(`PATCH`) that fails that way is not resent blindly: the client asks the
+registry how much of the upload it holds (`GET` on the upload URL, `Range`
+header) and continues from there, since a proxy can answer 5xx after the
+registry already stored the chunk. Chunks are at least the registry's
+`OCI-Chunk-Min-Length`, when it advertises one.
+
+### HTTPS and insecure registries
+
+HTTPS is mandatory, using the bundled web roots plus the system trust store
+(`SSL_CERT_FILE` is honoured, so a private CA works). Plain HTTP is allowed
+only for loopback registries (`localhost`, `127.0.0.0/8`, `::1`; the resolved
+peer must really be loopback) or when you pass `--insecure-registry`, which
+makes the client speak plain HTTP to that registry (and to token endpoints and
+redirect targets it names). Use it on trusted networks only; it does not
+weaken artifact verification, but it exposes your registry credentials.
+
+### Size limits
+
+Blobs are capped at 512 MiB (checked from the descriptor before any bytes are
+requested and enforced while streaming; a registry that sends more than the
+descriptor says is cut off), manifests at 4 MiB, a decompressed package at
+256 MiB. A blob whose SHA-256 differs from its descriptor is rejected
+(`ENTANGLE-E0807`).
+
+### Mirror keys and signed listings
+
+A mirror can publish a signed listing of a repository's tags (see
+`docs/plugin-authoring.md` section 7). Configure the keys you accept for
+listings in `~/.entangle/mirror-keys.toml`, same schema as `keyring.toml`:
+
+```toml
+[[entries]]
+fingerprint = "<32 hex>"
+public_key = "<64 hex>"
+publisher_name = "example mirror"
+added_at = 0
+note = "listing key"
+```
+
+(`entangle plugins tags --mirror-keys <FILE>` uses another file.) Mirror keys
+are a separate trust root: a mirror key can sign listings but never artifacts,
+and publisher keys are not accepted for listings. `entangle plugins tags`
+warns if one key is in both files. `plugins tags` prints the listing's recorded
+verification status:
+
+| Status | Meaning |
+|--------|---------|
+| `verified (mirror key <fp>)` | signed by a configured mirror key, for this repository, not expired; tag digests shown come from the signed listing |
+| `unsigned` | no listing, or a listing without a signature; tags shown are the registry's own and carry no digests |
+| `INVALID: <reason>` | unknown signer, bad signature (tampered), wrong repository, malformed |
+| `EXPIRED` | correctly signed but past `expires_at`; treat as stale |
+
+`--require-verified` makes `tags` exit non-zero unless `verified`. Mirror
+operators publish with `entangle plugins mirror-sign` (refuses a key that is
+trusted as a publisher on that machine).
+
+---
+
+## 14. Observability: metrics, tracing, `entangle diag mesh`
+
+Everything here is **off by default** and costs nothing until enabled. The
+daemon owns one metrics registry, which the kernel, broker, scheduler and
+mesh code record into; the scrape endpoint and `entangle metrics` both render
+it.
+
+### 14a. Metrics
+
+```toml
+[metrics]
+enabled = true
+listen = "127.0.0.1:9464"
+# allow_non_loopback = true   # only to expose it deliberately
+```
+
+`GET /metrics` returns the Prometheus text format 0.0.4
+(`Content-Type: text/plain; version=0.0.4; charset=utf-8`). `HEAD /metrics` is
+allowed, any other method on it is `405`, any other path is `404`.
+
+The endpoint has **no authentication**. It therefore refuses to start on a
+non-loopback address unless `allow_non_loopback = true`
+(`ENTANGLE-E0656`); if you do open it, firewall it. It serves one request per
+connection, gives clients 5 s to send their request head and 15 s in total,
+and serves at most 32 connections at once (extras are closed).
+`listen` must be an IP literal and port (`localhost` is not accepted).
+
+`entangle metrics` prints the same text by asking the running daemon over the
+RPC socket, so it works with `[metrics] enabled = false`. If the daemon is not
+running it fails with `daemon not running at ~/.entangle/sock`.
+
+Prometheus scrape job:
+
+```yaml
+scrape_configs:
+  - job_name: entangled
+    static_configs: [{ targets: ["127.0.0.1:9464"] }]
+```
+
+#### Metric catalogue
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `entangle_plugin_invocations_total` | counter | `plugin`, `outcome` (`ok`/`error`) | Plugin invocations through the kernel. Calls for an id that is not loaded count under `plugin="unknown"`. |
+| `entangle_plugin_invocation_duration_seconds` | histogram | `plugin` | Wall-clock duration of each invocation. |
+| `entangle_plugin_errors_total` | counter | `plugin`, `class` | Failed invocations by error-code class: `E05xx` is `ENTANGLE-E05..`, `none` if the error carries no code. |
+| `entangle_plugins_loaded` | gauge | — | Plugins currently loaded. |
+| `entangle_plugin_uptime_seconds` | gauge | `plugin` | Seconds since each loaded plugin was loaded (series vanish on unload). |
+| `entangle_capability_grants_total` | counter | `capability` | Broker grants. Emitted by `Broker::grant`; plugin `capability.fetch` is not yet routed through the broker, so a plugin call does not move this series yet. |
+| `entangle_capability_denials_total` | counter | `capability`, `reason` (`not_declared`, `biscuit_invalid`) | Broker denials (same caveat as grants). |
+| `entangle_biscuit_verification_seconds` | histogram | `outcome` (`ok`/`denied`) | Latency of cross-node biscuit verification. |
+| `entangle_rpc_requests_total` | counter | `method`, `outcome` (`ok`/`error`) | RPC requests. |
+| `entangle_rpc_request_duration_seconds` | histogram | `method` | RPC handling time. |
+| `entangle_remote_dispatch_total` | counter | `outcome` | Tasks this node sent to a peer: `ok`, `transport_error`, `output_too_large`, `error`, or `rejected_<code>` for a peer's refusal (`rejected_not_authorized`, `rejected_plugin_not_loaded`, ...). |
+| `entangle_remote_serve_total` | counter | `outcome` | Frames this node answered for peers: `ok`, `ack`, or the refusal code (`not-authorized`, `plugin-not-loaded`, ...). |
+| `entangle_integrity_verdicts_total` | counter | `policy`, `outcome` | One per `compute/dispatch`: `policy` is `none`, `deterministic`, `semantic-equivalent`, `trusted-executor` or `attested`; `outcome` is `accepted`, `rejected` (integrity refusal), `output_size_exceeded` or `failed` (placement/transport/execution). |
+| `entangle_integrity_output_size_exceeded_total` | counter | — | Replica outputs over `max_output_bytes` (the `OutputSizeExceededWarning` events, `ENTANGLE-E0300`). |
+| `entangle_reputation_peers` | gauge | `policy`, `tier` (`trusted`/`good`/`probation`/`excluded`) | How many observed peers sit in each reputation tier. |
+| `entangle_mesh_peers` | gauge | `state` (`trusted`, `observer`, `revoked`, `sighted`) | Peer-store (one per trust level) and mDNS counts. `sighted` is unauthenticated and exists only with `mesh.local`. |
+| `entangle_scheduler_inflight_tasks` | gauge | — | Tasks inside the dispatcher right now. The dispatcher places and runs immediately and has **no queue**, so this is the saturation signal. |
+| `entangle_scheduler_workers` | gauge | — | Live workers in the scheduler pool. |
+| `entangle_mesh_tailscale_state` | gauge | `state` (`active`, `stopped`, `uninstalled`, `unknown`) | One-hot: 1 for the tailnet state the liveness poller last confirmed (`unknown` until the first poll). **Absent unless `mesh.tailscale` is running.** |
+| `entangle_build_info` | gauge | `version` | Always 1. |
+| `entangle_daemon_uptime_seconds` | gauge | — | Seconds since the daemon started. |
+| `entangle_telemetry_spans_dropped_total`, `..._spans_exported_total`, `..._export_failures_total` | counter | — | OTLP exporter health (§14b); present only with `[telemetry.otlp]` on. |
+| `entangle_metrics_dropped_series_total` | counter | — | Appears only if a metric family hit its label-set cap (a bug indicator). |
+
+#### Label cardinality
+
+No label carries a peer id or free text. `capability` is the capability
+*kind* (`compute.cpu`, `storage.share`, `custom`, ...), never a share or
+custom name. `method` is normalised to the RPC methods the daemon implements
+(everything else is `unknown`). `class`, `policy`, `tier`, `state` and
+`outcome` draw from the closed sets above. The one open-ended label is
+`plugin`: each distinct plugin id gets its own series for the **first 64**
+ids the daemon sees; later ids fold into `plugin="other"`. As a backstop every
+family holds at most 512 label sets (excess samples are dropped and counted in
+`entangle_metrics_dropped_series_total`). Counters for a plugin that has been
+unloaded stay until the daemon restarts; its `plugin_uptime_seconds` series
+disappears at once.
+
+### 14b. Tracing (OTLP/HTTP)
+
+```toml
+[telemetry.otlp]
+enabled = true
+endpoint = "http://localhost:4318"   # spans go to <endpoint>/v1/traces
+service_name = "entangled"
+```
+
+The daemon exports `tracing` spans as OTLP/HTTP **JSON** (`POST
+<endpoint>/v1/traces`, `Content-Type: application/json`; `resourceSpans` →
+`scopeSpans` → `spans`, hex `traceId`/`spanId`/`parentSpanId`, unix-nanosecond
+timestamps as strings). Point it at a local OpenTelemetry Collector or agent
+with the OTLP **HTTP** receiver (port 4318; port 4317 is gRPC, which is not
+spoken). The exporter has no TLS client, so `https://` endpoints are refused
+at startup (`ENTANGLE-E0651`): terminate TLS in the collector/agent.
+
+A collector fragment:
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:4318
+```
+
+Delivery: spans queue (2048) and ship in batches of up to 256 or every 5 s; a
+full queue drops the new span and counts it (never blocks the daemon). Each
+request has a 10 s timeout. `429`, `502`, `503`, `504` and connection
+failures are retried with exponential backoff (250 ms doubling to 10 s,
+`Retry-After` honoured, 3 retries); any other `4xx` or `5xx` is permanent and
+the batch is dropped (the OTLP/HTTP retry rules). On shutdown
+the queue is flushed, bounded: each remaining batch is sent once (no retries)
+and the exporter gives up one request timeout (10 s) after the stop began,
+counting what is still unsent as dropped, so an unreachable collector delays
+the daemon's exit by at most about 11 s. Failures are visible as
+`entangle_telemetry_*` metrics.
+
+Spans (from `entangle*` targets, `INFO` and above, independent of
+`RUST_LOG`): `rpc.request`, `task.dispatch`, `plugin.invoke`,
+`remote.dispatch` (client) and `remote.task.execute` (server). `WARN`/`ERROR`
+events inside a span are attached to it; an `ERROR` marks the span failed.
+
+**Across the mesh.** When a remote dispatch happens inside a recorded span,
+the task frame carries a W3C `traceparent` (an optional trailing extension on
+the scheduler wire v2 task frame). The worker's `remote.task.execute` span
+joins that trace, so one trace shows the submitter's `remote.dispatch` and the
+worker's execution (and its `plugin.invoke`) as parent and child. The worker
+treats the value as untrusted: it only chooses which trace the span belongs
+to; authorization is decided before and independently from the transport-
+authenticated peer id, and a malformed value is ignored. With export off no
+extension is sent, so frames are byte-identical to before. A peer built before
+this extension answers it `MalformedRequest`; the dispatcher then resends the
+same task without it and stops attaching it for that peer until restart.
+
+### 14c. `entangle diag mesh`
+
+```text
+$ entangle diag mesh --probe
+Mesh diagnostics for laptop (3f9c…)
+
+Transports
+  configured: local, iroh, tailscale
+  running:    local, iroh
+  ! tailscale is configured but not running (see the daemon log for why)
+
+Local endpoints
+  iroh        3f9c…@192.168.1.20:41641
+
+Trusted peers (2)
+  desk  7a21…  [trusted]
+    mdns       192.168.1.31:7001   sighted 4s ago (1 address; unauthenticated, passive)
+    iroh       192.168.1.31:41641  address book ([scheduler] peers)  rtt 3.2 ms
+  ghost  c0de…  [trusted]
+    no path: no transport currently knows how to reach this peer
+    hint: is the peer on the same LAN with mDNS allowed?; add its address under [scheduler] peers
+
+Probe: 1 of 2 trusted peer(s) answered
+```
+
+`--json` prints the daemon's structured report (the `diag/mesh` RPC result).
+The report lists configured vs running transports, this node's endpoint
+addresses, the tailnet state (state, reason, time in state, candidate count)
+when `mesh.tailscale` runs, and for every **trusted** (non-revoked) peer each
+path a transport currently knows: an mDNS sighting, an iroh address-book entry
+(`[scheduler] peers`), a tailscale candidate. Untrusted mDNS sightings are only
+counted.
+
+`--probe` (with `--timeout-ms`, default 3000, at most 30000) measures a round
+trip per path, through the daemon, concurrently. The iroh probe is a scheduler
+control frame about a task that does not exist: the peer authenticates us,
+checks its allowlist and answers `unknown task` without running anything, so
+an answer proves dial + handshake + authorization. A peer that answers
+`not authorized` is shown as reached with that error: the network path is fine
+but *it* does not trust this node. tailscale paths are probed with one request
+over the tailnet session. mDNS sightings are passive and have no round trip.
+
+---
+
+## 15. Streaming tasks (`entangle compute stream`)
 
 Spec §7.1. A streaming task runs a `stream-plugin` component (export
 `start-stream`, imports `yield-chunk` / `next-chunk`) on **one** executor and

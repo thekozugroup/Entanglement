@@ -250,6 +250,8 @@ pub struct IntegrityVerifier {
     metrics: Arc<MetricRegistry>,
     reputation: Arc<ReputationStore>,
     local_peer: PeerId,
+    /// Telemetry sink for oversized-output counts (set once by the daemon).
+    telemetry: std::sync::OnceLock<entangle_observability::Registry>,
 }
 
 impl IntegrityVerifier {
@@ -275,7 +277,14 @@ impl IntegrityVerifier {
             metrics,
             reputation,
             local_peer,
+            telemetry: std::sync::OnceLock::new(),
         }
+    }
+
+    /// Count oversized replica outputs (INV-INT-2) into `registry`. Only the
+    /// first call has an effect.
+    pub fn set_telemetry(&self, registry: entangle_observability::Registry) {
+        let _ = self.telemetry.set(registry);
     }
 
     /// The verified metric components this node can run.
@@ -380,6 +389,9 @@ impl IntegrityVerifier {
                     actual,
                 }
                 .emit();
+                if let Some(reg) = self.telemetry.get() {
+                    entangle_observability::catalog::output_size_exceeded(reg);
+                }
                 if r.remote {
                     self.reputation
                         .penalize(&r.peer, kind, ReputationReason::OversizedOutput);

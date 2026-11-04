@@ -29,6 +29,101 @@ pub struct Config {
     /// written by an older CLI — which omits this section entirely — leaves
     /// the daemon single-machine, exactly as before.
     pub scheduler: SchedulerConfig,
+    /// Prometheus `/metrics` endpoint (daemon-only section; off by default).
+    pub metrics: MetricsSection,
+    /// Tracing export (daemon-only section; off by default).
+    pub telemetry: TelemetrySection,
+}
+
+/// `[metrics]` — the Prometheus scrape endpoint (spec §9.6).
+///
+/// ```toml
+/// [metrics]
+/// enabled = true
+/// listen = "127.0.0.1:9464"
+/// # allow_non_loopback = true   # required for any non-loopback address
+/// ```
+///
+/// The endpoint is unauthenticated, so it is loopback-only unless the
+/// operator explicitly opts in with `allow_non_loopback = true` (and then
+/// should firewall it). `listen` must be an IP literal and port.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct MetricsSection {
+    /// Serve `GET /metrics`. Off by default.
+    pub enabled: bool,
+    /// `ip:port` to listen on.
+    pub listen: String,
+    /// Permit a non-loopback `listen` address.
+    pub allow_non_loopback: bool,
+}
+
+impl Default for MetricsSection {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            listen: crate::metrics_server::DEFAULT_LISTEN.to_owned(),
+            allow_non_loopback: false,
+        }
+    }
+}
+
+/// `[telemetry]` — tracing export.
+///
+/// ```toml
+/// [telemetry.otlp]
+/// enabled = true
+/// endpoint = "http://localhost:4318"   # OTLP/HTTP (JSON); 4317 is gRPC
+/// service_name = "entangled"
+/// ```
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct TelemetrySection {
+    /// OTLP/HTTP trace exporter.
+    pub otlp: OtlpSection,
+}
+
+/// `[telemetry.otlp]` — see [`TelemetrySection`].
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct OtlpSection {
+    /// Export spans. Off by default.
+    pub enabled: bool,
+    /// OTLP/HTTP base endpoint; spans go to `<endpoint>/v1/traces`.
+    pub endpoint: String,
+    /// `service.name` resource attribute.
+    pub service_name: String,
+}
+
+impl Default for OtlpSection {
+    fn default() -> Self {
+        let d = entangle_observability::OtelConfig::default();
+        Self {
+            enabled: false,
+            endpoint: d.endpoint,
+            service_name: d.service_name,
+        }
+    }
+}
+
+impl TelemetrySection {
+    /// The exporter configuration, or `None` when export is off. Validates
+    /// the endpoint and service name (`ENTANGLE-E0651`/`E0652`) so a typo
+    /// stops the daemon at startup.
+    pub fn otel_config(
+        &self,
+    ) -> Result<Option<entangle_observability::OtelConfig>, entangle_observability::OtelError> {
+        if !self.otlp.enabled {
+            return Ok(None);
+        }
+        let cfg = entangle_observability::OtelConfig {
+            endpoint: self.otlp.endpoint.clone(),
+            service_name: self.otlp.service_name.clone(),
+            ..Default::default()
+        };
+        entangle_observability::otel::validate(&cfg)?;
+        Ok(Some(cfg))
+    }
 }
 
 /// Cross-node scheduler settings (daemon-only).
@@ -157,13 +252,23 @@ impl Default for TailscaleSection {
 pub struct SecurityConfig {
     /// Maximum tier plugins may declare (1..=5). Defaults to tier 5 (native),
     /// matching the CLI default.
+    ///
+    /// This is the "one config line" that disables native plugins globally:
+    /// `max_tier_allowed = 4` refuses every tier-5 plugin, `3` refuses every
+    /// native (tier 4–5) plugin (spec §9.4.1).
     pub max_tier_allowed: Tier,
+    /// Run native (tier 4–5) plugins even on a host with **no** OS sandbox
+    /// primitive (no Landlock, bubblewrap, or Seatbelt). Default `false`:
+    /// such a plugin is refused with `ENTANGLE-E0700`. Has no effect on a host
+    /// that has a primitive — the sandbox is then always engaged.
+    pub allow_unsandboxed_native: bool,
 }
 
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
             max_tier_allowed: Tier::Native,
+            allow_unsandboxed_native: false,
         }
     }
 }
@@ -184,6 +289,25 @@ pub struct RuntimeConfig {
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self { bus_capacity: 1024 }
+    }
+}
+
+/// Build the runtime [`KernelConfig`](entangle_runtime::KernelConfig) the
+/// daemon uses from a parsed config and the config directory (`~/.entangle`).
+///
+/// Native plugins store their scopes under `<config_dir>/data` and are staged
+/// for execution under `<config_dir>/native` (both created on demand, 0700).
+pub fn kernel_config(cfg: &Config, config_dir: &std::path::Path) -> entangle_runtime::KernelConfig {
+    entangle_runtime::KernelConfig {
+        max_tier_allowed: cfg.security.max_tier_allowed,
+        multi_node: cfg.mesh.multi_node,
+        bus_capacity: cfg.runtime.bus_capacity,
+        native: entangle_runtime::NativeConfig {
+            allow_unsandboxed: cfg.security.allow_unsandboxed_native,
+            data_dir: Some(config_dir.join("data")),
+            staging_dir: Some(config_dir.join("native")),
+            ..entangle_runtime::NativeConfig::default()
+        },
     }
 }
 
@@ -274,6 +398,28 @@ max_tier_allowed = 2
     }
 
     #[test]
+    fn unsandboxed_native_opt_out_is_off_unless_set() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert!(!cfg.security.allow_unsandboxed_native);
+        let cfg: Config = toml::from_str("[security]\nallow_unsandboxed_native = true\n").unwrap();
+        assert!(cfg.security.allow_unsandboxed_native);
+        let k = kernel_config(&cfg, std::path::Path::new("/home/u/.entangle"));
+        assert!(k.native.allow_unsandboxed);
+        assert_eq!(
+            k.native.data_dir.as_deref(),
+            Some(std::path::Path::new("/home/u/.entangle/data"))
+        );
+    }
+
+    /// README: tier-5 "can be disabled globally with one config line".
+    #[test]
+    fn one_line_disables_tier_five() {
+        let cfg: Config = toml::from_str("[security]\nmax_tier_allowed = 4\n").unwrap();
+        let k = kernel_config(&cfg, std::path::Path::new("/x"));
+        assert_eq!(k.max_tier_allowed, Tier::Privileged);
+    }
+
+    #[test]
     fn empty_config_uses_defaults() {
         let cfg: Config = toml::from_str("").expect("empty config parses");
         assert_eq!(cfg.security.max_tier_allowed, Tier::Native);
@@ -345,6 +491,52 @@ max_tier_allowed = 2
         let built =
             crate::tailscale::build_config(&cfg.mesh, entangle_peers::PeerStore::new()).unwrap();
         assert!(built.bind_ip.is_unspecified());
+    }
+
+    #[test]
+    fn metrics_and_telemetry_default_off_and_existing_configs_stay_valid() {
+        // The CLI-written fixture has neither section.
+        let cfg: Config = toml::from_str(CLI_WRITTEN_CONFIG).unwrap();
+        assert!(!cfg.metrics.enabled);
+        assert_eq!(cfg.metrics.listen, "127.0.0.1:9464");
+        assert!(!cfg.metrics.allow_non_loopback);
+        assert!(!cfg.telemetry.otlp.enabled);
+        assert_eq!(cfg.telemetry.otlp.endpoint, "http://localhost:4318");
+        assert_eq!(cfg.telemetry.otlp.service_name, "entangled");
+        assert!(cfg.telemetry.otel_config().unwrap().is_none());
+    }
+
+    #[test]
+    fn metrics_and_otlp_sections_parse_and_reject_unknown_keys() {
+        let cfg: Config = toml::from_str(
+            "[metrics]\nenabled = true\nlisten = \"0.0.0.0:9\"\nallow_non_loopback = true\n\
+             [telemetry.otlp]\nenabled = true\nendpoint = \"http://c:4318\"\nservice_name = \"n\"\n",
+        )
+        .unwrap();
+        assert!(cfg.metrics.enabled && cfg.metrics.allow_non_loopback);
+        let otel = cfg.telemetry.otel_config().unwrap().unwrap();
+        assert_eq!(
+            (otel.endpoint.as_str(), otel.service_name.as_str()),
+            ("http://c:4318", "n")
+        );
+        assert!(toml::from_str::<Config>("[metrics]\nbogus = 1\n").is_err());
+        assert!(toml::from_str::<Config>("[telemetry.otlp]\nbogus = 1\n").is_err());
+        // Round trip keeps both sections.
+        let again: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(again.metrics, cfg.metrics);
+        assert_eq!(again.telemetry, cfg.telemetry);
+    }
+
+    #[test]
+    fn enabled_otlp_with_a_bad_endpoint_is_an_error_but_disabled_is_not() {
+        let bad: Config =
+            toml::from_str("[telemetry.otlp]\nenabled = true\nendpoint = \"localhost:4317\"\n")
+                .unwrap();
+        let err = bad.telemetry.otel_config().unwrap_err();
+        assert!(err.to_string().contains("ENTANGLE-E0651"), "{err}");
+        let off: Config =
+            toml::from_str("[telemetry.otlp]\nenabled = false\nendpoint = \"nonsense\"\n").unwrap();
+        assert!(off.telemetry.otel_config().unwrap().is_none());
     }
 
     #[test]

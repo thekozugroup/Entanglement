@@ -29,7 +29,7 @@ entangle-mesh-local     = { workspace = true }
 entangle-mesh-iroh      = { workspace = true }
 entangle-mesh-tailscale = { workspace = true }
 async-trait = { workspace = true }
-entangle-observability  = { workspace = true }
+entangle-observability  = { workspace = true, features = ["otlp"] }
 clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
@@ -40,8 +40,15 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 toml = { workspace = true }
 directories = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+http-body-util = { workspace = true }
+bytes = { workspace = true }
 
 [dev-dependencies]
+hyper = { workspace = true, features = ["client", "http1"] }
 tokio = { workspace = true, features = ["full"] }
 tempfile = { workspace = true }
 entangle-signing = { workspace = true }

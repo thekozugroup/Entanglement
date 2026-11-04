@@ -53,4 +53,8 @@ pub enum RuntimeError {
     /// An integrity-policy check failed (spec §7.5).
     #[error("integrity: {0}")]
     Integrity(#[from] crate::integrity::IntegrityError),
+
+    /// A native (tier 4–5) plugin could not be sandboxed, staged, or run.
+    #[error("native: {0}")]
+    Native(#[from] crate::native::NativeError),
 }

@@ -14,6 +14,8 @@
 //! - [`LoadedStreamPlugin`] — a compiled `stream-plugin` component (spec
 //!   §7.1) and the [`StreamPort`] its chunks flow through.
 //! - [`CompiledPlugin`] — either kind, classified by the world it exports.
+//! - [`check_runtime_kind`] — magic-byte check that an artifact is the runtime
+//!   kind its manifest declares (ATC-MAN-3).
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -23,6 +25,7 @@ pub mod engine;
 pub mod errors;
 pub mod metric;
 pub mod plugin;
+pub mod runtime_kind;
 pub mod state;
 pub mod stream;
 
@@ -30,6 +33,7 @@ pub use engine::HostEngine;
 pub use errors::HostError;
 pub use metric::LoadedMetric;
 pub use plugin::{CompiledPlugin, LoadedPlugin, PluginRunResult};
+pub use runtime_kind::{check_runtime_kind, ArtifactKind, DeclaredRuntime};
 pub use state::HostState;
 pub use stream::{
     stream_port, ChunkAck, ChunkResult, LoadedStreamPlugin, PluginChunk, StreamInput, StreamPort,

@@ -1519,6 +1519,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bytes",
  "clap",
  "directories",
  "entangle-broker",
@@ -1535,13 +1536,18 @@ dependencies = [
  "entangle-types",
  "flate2",
  "hex",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.18",
  "tokio",
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1567,6 +1573,7 @@ dependencies = [
  "biscuit-auth",
  "entangle-biscuits",
  "entangle-manifest",
+ "entangle-observability",
  "entangle-peers",
  "entangle-signing",
  "entangle-types",
@@ -1594,6 +1601,7 @@ dependencies = [
  "entangle-mesh-iroh",
  "entangle-mesh-tailscale",
  "entangle-observability",
+ "entangle-oci",
  "entangle-pairing",
  "entangle-peers",
  "entangle-rpc",
@@ -1717,21 +1725,47 @@ dependencies = [
 name = "entangle-observability"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "is-terminal",
  "parking_lot",
+ "serde_json",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
 name = "entangle-oci"
 version = "0.1.0"
 dependencies = [
- "anyhow",
+ "base64 0.22.1",
+ "bytes",
+ "entangle-oci",
  "entangle-signing",
  "entangle-types",
+ "hex",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rustls",
+ "rustls-native-certs",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
  "thiserror 2.0.18",
+ "tokio",
+ "tokio-rustls",
+ "toml 0.8.23",
+ "tracing",
+ "url",
+ "webpki-roots",
+ "zstd",
 ]
 
 [[package]]
@@ -1795,6 +1829,8 @@ dependencies = [
  "entangle-host",
  "entangle-ipc",
  "entangle-manifest",
+ "entangle-observability",
+ "entangle-sandbox",
  "entangle-signing",
  "entangle-types",
  "hex",
@@ -1809,6 +1845,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "entangle-sandbox"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "entangle-scheduler"
 version = "0.1.0"
 dependencies = [
@@ -1817,6 +1864,7 @@ dependencies = [
  "entangle-host",
  "entangle-ipc",
  "entangle-mesh-iroh",
+ "entangle-observability",
  "entangle-runtime",
  "entangle-signing",
  "entangle-types",

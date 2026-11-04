@@ -238,3 +238,14 @@ async fn manual_two_instances_see_each_other() {
     assert!(saw_b_from_a, "node-a did not see node-b within 5 s");
     assert!(saw_a_from_b, "node-b did not see node-a within 5 s");
 }
+
+/// `peer_count` agrees with `snapshot_peers().len()` without cloning the table.
+#[tokio::test]
+async fn peer_count_matches_snapshot_len() {
+    let Ok(d) = Discovery::new(make_config(&KEY_A, 7001, "count")) else {
+        return; // mDNS daemon cannot bind in this sandbox
+    };
+    assert_eq!(d.peer_count().await, d.snapshot_peers().await.len());
+    assert_eq!(d.peer_count().await, 0);
+    let _ = d.shutdown();
+}

@@ -1,6 +1,6 @@
 [package]
 name = "entangle-oci"
-description = "Phase-2 OCI distribution: fetch and verify plugins from OCI registries (stub)"
+description = "OCI registry distribution: pull, publish and verify Entanglement plugins; signed mirror listings"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,8 +12,36 @@ rust-version.workspace = true
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
+[features]
+# In-process mock registry (`entangle_oci::testing`) for tests, here and in entangle-cli.
+testing = []
+
 [dependencies]
 entangle-types = { workspace = true }
 entangle-signing = { workspace = true }
-anyhow = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+toml = { workspace = true }
+hex = { workspace = true }
+base64 = { workspace = true }
+sha2 = { workspace = true }
+bytes = { workspace = true }
+tokio = { workspace = true, features = ["net", "time", "io-util", "rt", "sync", "macros"] }
+hyper = { workspace = true, features = ["client", "server", "http1"] }
+hyper-util = { workspace = true }
+http-body-util = { workspace = true }
+url = { workspace = true }
+zstd = { workspace = true }
+rustls = { workspace = true }
+tokio-rustls = { workspace = true }
+webpki-roots = { workspace = true }
+rustls-native-certs = { workspace = true }
+
+[dev-dependencies]
+# Self dev-dependency: turns on the mock registry for this crate's own tests
+# even under a plain `cargo test -p entangle-oci`.
+entangle-oci = { path = ".", features = ["testing"] }
+tokio = { workspace = true, features = ["full"] }
+tempfile = { workspace = true }

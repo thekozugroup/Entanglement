@@ -4,18 +4,25 @@ use crate::{
     errors::RuntimeError,
     lifecycle::{LifecycleEvent, LifecyclePhase},
     loader::PluginPackage,
+    native::{NativeConfig, NativePlugin},
 };
-use entangle_broker::{Broker, BrokerPolicy};
-use entangle_host::{CompiledPlugin, HostEngine, StreamPort, StreamRunResult};
+use entangle_broker::{Broker, BrokerError, BrokerPolicy};
+use entangle_host::{
+    check_runtime_kind, CompiledPlugin, DeclaredRuntime, HostEngine, StreamPort, StreamRunResult,
+};
 use entangle_ipc::{Bus, Envelope, Topic};
+use entangle_manifest::Runtime;
 use entangle_manifest::{loader::LoadError, validate::validate, ValidatedManifest};
+use entangle_observability::catalog::{self, names, PluginLabels};
+use entangle_observability::Registry;
 use entangle_signing::{verify_artifact, Keyring, SignatureBundle, VerificationError};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
+use tracing::Instrument as _;
 
 /// The topic every [`LifecycleEvent`] is published on.
 const LIFECYCLE_TOPIC: &str = "runtime.plugin.lifecycle";
@@ -30,6 +37,9 @@ pub struct KernelConfig {
     pub multi_node: bool,
     /// Capacity of the lifecycle event bus (number of buffered envelopes).
     pub bus_capacity: usize,
+    /// Native (tier 4–5) plugin settings: sandbox opt-out, storage root,
+    /// limits (spec §3.4).
+    pub native: NativeConfig,
 }
 
 impl Default for KernelConfig {
@@ -38,6 +48,7 @@ impl Default for KernelConfig {
             max_tier_allowed: Tier::Native,
             multi_node: false,
             bus_capacity: 1024,
+            native: NativeConfig::default(),
         }
     }
 }
@@ -46,7 +57,38 @@ impl Default for KernelConfig {
 
 struct LoadedRecord {
     effective_tier: Tier,
-    plugin: CompiledPlugin,
+    plugin: PluginImpl,
+}
+
+/// How a loaded plugin executes.
+#[derive(Clone)]
+enum PluginImpl {
+    /// Wasm component in the shared Wasmtime engine, of either
+    /// `entangle:plugin` world (one-shot `run` or `start-stream`).
+    Wasm(CompiledPlugin),
+    /// Native executable in a sandboxed subprocess (see [`crate::native`]).
+    /// Native plugins are one-shot only.
+    Native(Arc<NativePlugin>),
+}
+
+impl PluginImpl {
+    /// The `entangle:plugin` world this plugin implements: `"plugin"` or
+    /// `"stream-plugin"`.
+    fn world(&self) -> &'static str {
+        match self {
+            Self::Wasm(p) => p.world(),
+            Self::Native(_) => "plugin",
+        }
+    }
+}
+
+/// The kernel's metric state (see [`Kernel::with_metrics`]).
+struct KernelMetrics {
+    registry: Registry,
+    /// Bounds the `plugin` label (see [`PluginLabels`]).
+    labels: PluginLabels,
+    /// Load time of every loaded plugin, read by the scrape-time collector.
+    loaded_at: Arc<Mutex<HashMap<String, Instant>>>,
 }
 
 // ── Kernel ───────────────────────────────────────────────────────────────────
@@ -57,7 +99,6 @@ struct LoadedRecord {
 /// IPC bus. Call [`Kernel::load_plugin_from_dir`] to run the full five-step
 /// load pipeline (spec §3).
 pub struct Kernel {
-    #[allow(dead_code)] // retained for future daemon config queries
     config: KernelConfig,
     engine: HostEngine,
     broker: Broker,
@@ -67,6 +108,8 @@ pub struct Kernel {
     /// The single topic every lifecycle event is published on. Built once so
     /// `emit` does not re-parse and re-validate the same literal each time.
     lifecycle_topic: Topic,
+    /// Metrics sink; `None` until [`Kernel::with_metrics`].
+    metrics: Option<KernelMetrics>,
 }
 
 impl Kernel {
@@ -78,6 +121,14 @@ impl Kernel {
             peer_allowlist_populated: false,
         };
         let engine = HostEngine::new().map_err(entangle_host::HostError::LinkerSetup)?;
+        // Staged native binaries left behind by a process that died without
+        // unloading (SIGKILL, OOM kill) would otherwise accumulate across
+        // restarts. Only copies no live process holds are removed, so a
+        // running daemon sharing this root keeps its own. The system temp
+        // dir (no root configured) is left to the OS's tmp cleaning.
+        if let Some(root) = &config.native.staging_dir {
+            crate::native::sweep_stale_staging(root);
+        }
         Ok(Self {
             bus: Bus::new(config.bus_capacity),
             lifecycle_topic: Topic::new(LIFECYCLE_TOPIC).expect("static topic is valid"),
@@ -86,7 +137,56 @@ impl Kernel {
             keyring: Arc::new(RwLock::new(keyring)),
             plugins: RwLock::new(HashMap::new()),
             config,
+            metrics: None,
         })
+    }
+
+    /// Record this kernel's activity into `registry`.
+    ///
+    /// Records plugin invocations (count, duration, errors by code class),
+    /// capability grants and denials (through the broker), the loaded-plugin
+    /// count and per-plugin uptime. The `plugin` label is bounded: the first
+    /// [`catalog::PLUGIN_LABEL_LIMIT`] distinct plugin ids get their own
+    /// series, later ones fold into `other`.
+    #[must_use]
+    pub fn with_metrics(self, registry: Registry) -> Self {
+        let labels = PluginLabels::new();
+        let loaded_at: Arc<Mutex<HashMap<String, Instant>>> = Arc::default();
+        {
+            let (labels, loaded_at) = (labels.clone(), Arc::clone(&loaded_at));
+            registry.register_collector(move |r| {
+                let loaded = loaded_at.lock();
+                r.set_gauge(
+                    names::PLUGINS_LOADED,
+                    "Plugins currently loaded",
+                    &[],
+                    loaded.len() as f64,
+                );
+                // Rebuild so series for unloaded plugins disappear.
+                r.clear_family(names::PLUGIN_UPTIME);
+                for (id, since) in loaded.iter() {
+                    let label = labels.label(id);
+                    if label == catalog::OTHER_PLUGIN {
+                        continue;
+                    }
+                    r.set_gauge(
+                        names::PLUGIN_UPTIME,
+                        "Seconds since the plugin was loaded",
+                        &[("plugin", &label)],
+                        since.elapsed().as_secs_f64(),
+                    );
+                }
+            });
+        }
+        Self {
+            broker: self.broker.with_metrics(registry.clone()),
+            metrics: Some(KernelMetrics {
+                registry,
+                labels,
+                loaded_at,
+            }),
+            ..self
+        }
     }
 
     /// Access the capability broker.
@@ -108,14 +208,18 @@ impl Kernel {
     ///
     /// Steps:
     /// 1. Parse and validate the manifest (`entangle.toml`) from the exact
-    ///    bytes covered by the signature, and refuse duplicate plugin ids
-    ///    up front.
+    ///    bytes covered by the signature, refuse a tier above
+    ///    `max_tier_allowed` (ATC-MAN-4) and duplicate plugin ids up front.
     /// 2. Verify the signature bundle over the artifact **and** manifest
     ///    bytes against the trusted keyring, then bind the verified signer
-    ///    to the publisher named in the manifest.
+    ///    to the publisher named in the manifest. Check the artifact's magic
+    ///    bytes against the declared runtime (ATC-MAN-3).
     /// 3. Register the plugin with the capability broker.
-    /// 4. Compile the artifact with the host engine (rolling back the broker
-    ///    registration on failure — no partial state remains).
+    /// 4. Wasm: compile the artifact with the host engine. Native: grant the
+    ///    declared capabilities through the broker, plan the OS sandbox
+    ///    (refusing when none is available), and stage the verified bytes
+    ///    (see [`crate::native`]). On failure the broker registration — and
+    ///    with it every grant — is rolled back; no partial state remains.
     /// 5. Emit lifecycle events on the IPC bus after each step.
     ///
     /// Returns the [`PluginId`] on success, or the first error encountered.
@@ -133,6 +237,16 @@ impl Kernel {
         let manifest = parse_manifest(&pkg.manifest_bytes)?;
         let plugin_id = manifest.plugin_id.clone();
         let effective_tier = manifest.effective_tier;
+
+        // Tier ceiling FIRST (spec §9.4.1, ATC-MAN-4): a plugin above
+        // `max_tier_allowed` is refused before any signature work, broker
+        // registration, capability grant, or file write. Refusing on an
+        // as-yet-unverified manifest is safe — refusal never grants anything —
+        // and the broker re-checks the verified manifest at registration.
+        self.broker
+            .policy()
+            .check_plugin_load(effective_tier)
+            .map_err(BrokerError::from)?;
 
         // Duplicate check FIRST — before any broker or host state exists, so
         // a rejected re-load leaves the running plugin fully intact.
@@ -202,24 +316,42 @@ impl Kernel {
             LifecyclePhase::SignatureVerified,
         );
 
+        // ── Step 2c: Runtime kind (ATC-MAN-3) ────────────────────────────────
+        // The verified bytes must be what the manifest says they are.
+        let runtime = manifest.runtime;
+        let declared = match runtime {
+            Runtime::Wasm => DeclaredRuntime::Wasm,
+            Runtime::Native => DeclaredRuntime::Native,
+        };
+        check_runtime_kind(declared, &pkg.bytes)?;
+        let declared_caps = manifest.capabilities.clone();
+
         // ── Step 3: Broker ───────────────────────────────────────────────────
         // register_plugin takes ownership of ValidatedManifest (not Clone).
         self.broker.register_plugin(manifest)?;
         self.emit(&plugin_id, effective_tier, LifecyclePhase::Registered);
 
-        // ── Step 4: Host ─────────────────────────────────────────────────────
-        // On failure, roll back the broker registration so no partial state
-        // remains from this load attempt.
-        let plugin = match CompiledPlugin::from_bytes(
-            &self.engine,
-            &pkg.bytes,
-            plugin_id.clone(),
-            effective_tier,
-        ) {
+        // ── Step 4: Host / native sandbox ────────────────────────────────────
+        // On failure, roll back the broker registration (which also releases
+        // any grants, audited) so no partial state remains.
+        let plugin = match runtime {
+            Runtime::Wasm => CompiledPlugin::from_bytes(
+                &self.engine,
+                &pkg.bytes,
+                plugin_id.clone(),
+                effective_tier,
+            )
+            .map(PluginImpl::Wasm)
+            .map_err(RuntimeError::from),
+            Runtime::Native => self
+                .prepare_native(&plugin_id, &pkg, &declared_caps)
+                .map(|n| PluginImpl::Native(Arc::new(n))),
+        };
+        let plugin = match plugin {
             Ok(p) => p,
             Err(e) => {
                 let _ = self.broker.unregister_plugin(&plugin_id);
-                return Err(e.into());
+                return Err(e);
             }
         };
         self.emit(&plugin_id, effective_tier, LifecyclePhase::Loaded);
@@ -237,6 +369,11 @@ impl Kernel {
                     effective_tier,
                     plugin,
                 });
+                if let Some(m) = &self.metrics {
+                    m.loaded_at
+                        .lock()
+                        .insert(plugin_id.to_string(), Instant::now());
+                }
             }
         }
 
@@ -254,22 +391,99 @@ impl Kernel {
         input: &[u8],
         timeout_ms: u64,
     ) -> Result<Vec<u8>, RuntimeError> {
+        let started = Instant::now();
+        let span = tracing::info_span!(
+            "plugin.invoke",
+            plugin = %plugin_id,
+            input_bytes = input.len() as u64,
+        );
+        let result = self
+            .invoke_inner(plugin_id, input, timeout_ms)
+            .instrument(span)
+            .await;
+        if let Some(m) = &self.metrics {
+            // A call for an id that is not loaded must not mint a label
+            // value: it is filed under `unknown`.
+            let label = match &result {
+                Err(RuntimeError::NotLoaded(_)) => "unknown".to_owned(),
+                _ => m.labels.label(&plugin_id.to_string()),
+            };
+            let error = result.as_ref().err().map(ToString::to_string);
+            catalog::plugin_invocation(
+                &m.registry,
+                &label,
+                error.as_deref(),
+                started.elapsed().as_secs_f64(),
+            );
+        }
+        result
+    }
+
+    async fn invoke_inner(
+        &self,
+        plugin_id: &PluginId,
+        input: &[u8],
+        timeout_ms: u64,
+    ) -> Result<Vec<u8>, RuntimeError> {
         // Acquire the read lock, clone what we need, then release it before
         // the async call so we don't hold a lock across an .await point.
         let (plugin, effective_tier) = self.record(plugin_id)?;
-        let CompiledPlugin::OneShot(plugin) = plugin else {
+        if let PluginImpl::Wasm(CompiledPlugin::Stream(_)) = plugin {
             return Err(RuntimeError::WrongWorld {
                 plugin: plugin_id.clone(),
                 expected: "plugin",
                 actual: plugin.world(),
             });
-        };
+        }
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
-        let result = plugin.run_one_shot(&self.engine, input, timeout_ms).await;
+        let result = match plugin {
+            PluginImpl::Wasm(CompiledPlugin::OneShot(p)) => p
+                .run_one_shot(&self.engine, input, timeout_ms)
+                .await
+                .map(|r| r.output)
+                .map_err(RuntimeError::from),
+            PluginImpl::Wasm(CompiledPlugin::Stream(_)) => {
+                unreachable!("stream plugins are refused above")
+            }
+            PluginImpl::Native(n) => n
+                .invoke(input, timeout_ms)
+                .await
+                .map_err(RuntimeError::from),
+        };
         self.emit(plugin_id, effective_tier, LifecyclePhase::Idled);
 
-        Ok(result?.output)
+        result
+    }
+
+    /// The sandbox plan a loaded native plugin runs under (`None` for wasm
+    /// plugins and unknown ids).
+    pub fn native_sandbox(&self, plugin_id: &PluginId) -> Option<entangle_sandbox::Plan> {
+        match &self.plugins.read().get(plugin_id)?.plugin {
+            PluginImpl::Native(n) => Some(n.plan().clone()),
+            PluginImpl::Wasm(_) => None,
+        }
+    }
+
+    /// Grant every declared capability through the broker (audited), derive
+    /// the sandbox from the grants, and stage the verified binary.
+    fn prepare_native(
+        &self,
+        plugin_id: &PluginId,
+        pkg: &PluginPackage,
+        declared: &[entangle_types::capability::CapabilityKind],
+    ) -> Result<NativePlugin, RuntimeError> {
+        let grants = declared
+            .iter()
+            .map(|cap| self.broker.grant(plugin_id, cap))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(NativePlugin::prepare(
+            plugin_id,
+            &pkg.bytes,
+            Some(&pkg.dir),
+            &grants,
+            &self.config.native,
+        )?)
     }
 
     /// Run a loaded `stream-plugin` component's `start-stream(input)` with
@@ -287,7 +501,7 @@ impl Kernel {
         timeout_ms: u64,
     ) -> Result<StreamRunResult, RuntimeError> {
         let (plugin, effective_tier) = self.record(plugin_id)?;
-        let CompiledPlugin::Stream(plugin) = plugin else {
+        let PluginImpl::Wasm(CompiledPlugin::Stream(plugin)) = plugin else {
             return Err(RuntimeError::WrongWorld {
                 plugin: plugin_id.clone(),
                 expected: "stream-plugin",
@@ -325,9 +539,9 @@ impl Kernel {
             .map(|record| record.plugin.world())
     }
 
-    /// Clone a loaded plugin's compiled component and tier, releasing the
+    /// Clone a loaded plugin's implementation and tier, releasing the
     /// lock before any `.await`.
-    fn record(&self, plugin_id: &PluginId) -> Result<(CompiledPlugin, Tier), RuntimeError> {
+    fn record(&self, plugin_id: &PluginId) -> Result<(PluginImpl, Tier), RuntimeError> {
         let plugins = self.plugins.read();
         let record = plugins
             .get(plugin_id)
@@ -414,6 +628,9 @@ impl Kernel {
             .write()
             .remove(plugin)
             .ok_or_else(|| RuntimeError::NotLoaded(plugin.clone()))?;
+        if let Some(m) = &self.metrics {
+            m.loaded_at.lock().remove(&plugin.to_string());
+        }
         self.broker.unregister_plugin(plugin)?;
         self.emit(plugin, record.effective_tier, LifecyclePhase::Unloaded);
         Ok(())

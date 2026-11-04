@@ -172,6 +172,18 @@ impl Client {
             .await
     }
 
+    /// `metrics/export` — the daemon's Prometheus exposition text.
+    pub async fn metrics_export(&self) -> Result<MetricsExportResult, RpcError> {
+        self.call(method::METRICS_EXPORT, serde_json::Value::Null)
+            .await
+    }
+
+    /// `diag/mesh` — mesh triage report; with `probe`, also measures a round
+    /// trip to each trusted peer (each bounded by `probe_timeout_ms`).
+    pub async fn diag_mesh(&self, params: DiagMeshParams) -> Result<DiagMeshResult, RpcError> {
+        self.call(method::DIAG_MESH, params).await
+    }
+
     /// `compute/dispatch` — dispatch a one-shot task via the scheduler.
     pub async fn compute_dispatch(
         &self,

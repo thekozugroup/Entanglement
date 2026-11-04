@@ -1,0 +1,37 @@
+[package]
+name = "entangle-sandbox"
+description = "OS-sandbox engagement (Landlock/seccomp/namespaces, bubblewrap, Seatbelt) and subprocess supervisor for tier-5 native plugins"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true, features = ["process", "io-util", "time", "rt", "macros", "sync"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["process", "io-util", "time", "rt", "rt-multi-thread", "macros", "sync", "net"] }
+tempfile = { workspace = true }
+
+# Test helper spawned *inside* the sandbox by this crate's integration tests:
+# it speaks the native-plugin frame protocol and performs the probe named in
+# its request (read a file, open a TCP connection, sleep, emit oversized
+# output, ...), reporting the raw errno. It is a real dynamically linked Rust
+# program, so the tests also prove the system-path allowlist is sufficient to
+# exec one. Never installed or shipped.
+[[bin]]
+name = "entangle-sandbox-testchild"
+path = "src/bin/testchild.rs"
+test = false
+doc = false
