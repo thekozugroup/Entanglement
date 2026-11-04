@@ -977,9 +977,11 @@ audited and counted the same way.
   link-local space is LAN. Neither are CGNAT, multicast, broadcast,
   documentation or other special-purpose ranges. IPv4-mapped and NAT64 IPv6 forms are judged by the IPv4 address
   they carry. Plugins never listen. `net.wan` host names are resolved by the
-  daemon when an invocation starts (bounded at 5 s; a name that does not
-  resolve is simply unreachable for that invocation, with a warning in the
-  log), and the invocation may connect to exactly those addresses. This is
+  daemon when an invocation starts — each distinct name once, all at the
+  same time, bounded at 5 s and at half the invocation's timeout (a name
+  that does not resolve in time is simply unreachable for that invocation,
+  with a warning in the log, instead of the invocation timing out) — and the
+  invocation may connect to exactly those addresses. This is
   done at instantiation rather than by checking the guest's own lookups at
   connect time because the socket check only ever sees an address, and the
   guest controls the name-to-address mapping it would present; pinning also

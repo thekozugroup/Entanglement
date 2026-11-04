@@ -168,7 +168,19 @@ impl LoadedPlugin {
         limits: ResourceLimits,
     ) -> Result<PluginRunResult, HostError> {
         let backstop = Duration::from_millis(timeout_ms.saturating_add(TIMEOUT_BACKSTOP_SLACK_MS));
-        let grants = match tokio::time::timeout(backstop, self.realise_capabilities()).await {
+        // Resolving the net.wan allowlist may take at most half the
+        // invocation: a slow resolver leaves names unreachable rather than
+        // using up the budget and surfacing as a plugin timeout.
+        let dns_budget = Duration::from_millis(timeout_ms / 2);
+        let realise = async {
+            match &self.caps {
+                Some(ctx) => {
+                    crate::capability::realise_within(ctx, &self.plugin_id, dns_budget).await
+                }
+                None => Ok(WasiGrants::default()),
+            }
+        };
+        let grants = match tokio::time::timeout(backstop, realise).await {
             Ok(grants) => grants?,
             Err(_elapsed) => return Err(HostError::Timeout(timeout_ms)),
         };

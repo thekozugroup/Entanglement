@@ -35,8 +35,11 @@
 //! connect time instead would mean trusting the guest's name-to-address
 //! mapping, which it controls; pinning at instantiation also makes DNS
 //! rebinding during an invocation useless. Because every invocation is a
-//! fresh instance, the pin is at most one invocation old. A name that does
-//! not resolve (within [`DNS_TIMEOUT`]) contributes no address.
+//! fresh instance, the pin is at most one invocation old. Each distinct name
+//! is looked up once, all concurrently; a name that does not resolve within
+//! [`DNS_TIMEOUT`] — or, for an invocation, within half its timeout —
+//! contributes no address (it is unreachable for that instance, with a
+//! warning in the log) rather than holding the invocation up.
 //!
 //! The guest's own lookups are answered from the same pin
 //! ([`WasiGrants::pinned_names`]), never by asking the system resolver
@@ -266,10 +269,23 @@ impl NetLiveness {
 }
 
 /// Derive the WASI context for `plugin` from its live broker grants: create
-/// the storage directories, resolve the `net.wan` allowlist.
+/// the storage directories, resolve the `net.wan` allowlist (each name
+/// within [`DNS_TIMEOUT`]).
 pub async fn realise(ctx: &CapabilityContext, plugin: &PluginId) -> Result<WasiGrants, HostError> {
+    realise_within(ctx, plugin, DNS_TIMEOUT).await
+}
+
+/// [`realise`] with the `net.wan` names resolved within `dns_budget`
+/// (never more than [`DNS_TIMEOUT`]); a name not resolved in time is
+/// unreachable for the instance. An invocation passes a share of its own
+/// timeout, so a slow resolver cannot use up the invocation.
+pub async fn realise_within(
+    ctx: &CapabilityContext,
+    plugin: &PluginId,
+    dns_budget: Duration,
+) -> Result<WasiGrants, HostError> {
     let grants = ctx.broker.snapshot_grants(plugin);
-    realise_grants(ctx, plugin, &grants).await
+    realise_grants_within(ctx, plugin, &grants, dns_budget).await
 }
 
 /// [`realise`] for an explicit grant list (every entry must be a broker
@@ -278,6 +294,17 @@ pub async fn realise_grants(
     ctx: &CapabilityContext,
     plugin: &PluginId,
     grants: &[GrantedCapability],
+) -> Result<WasiGrants, HostError> {
+    realise_grants_within(ctx, plugin, grants, DNS_TIMEOUT).await
+}
+
+/// [`realise_grants`] with the `net.wan` names resolved within
+/// `dns_budget` (see [`realise_within`]).
+pub async fn realise_grants_within(
+    ctx: &CapabilityContext,
+    plugin: &PluginId,
+    grants: &[GrantedCapability],
+    dns_budget: Duration,
 ) -> Result<WasiGrants, HostError> {
     let mut out = WasiGrants {
         net: NetRules {
@@ -328,7 +355,15 @@ pub async fn realise_grants(
             CapabilityKind::NetWan { hosts } => {
                 out.net.wan = true;
                 out.wan_grants.push(g.grant_id);
-                wan_hosts.extend(hosts.iter().cloned());
+                // Every grant of the capability carries the same manifest
+                // allowlist; keep each entry once however many grants the
+                // plugin holds (standing, plus handles fetched by running
+                // invocations).
+                for h in hosts {
+                    if !wan_hosts.contains(h) {
+                        wan_hosts.push(h.clone());
+                    }
+                }
             }
             CapabilityKind::ComputeCpu
             | CapabilityKind::ComputeGpu
@@ -339,7 +374,7 @@ pub async fn realise_grants(
             | CapabilityKind::Custom(_) => {}
         }
     }
-    let (targets, pinned) = resolve_wan(ctx, plugin, &wan_hosts).await;
+    let (targets, pinned) = resolve_wan(ctx, plugin, &wan_hosts, dns_budget.min(DNS_TIMEOUT)).await;
     out.net.wan_targets = targets;
     out.pinned_names = pinned;
     Ok(out)
@@ -383,18 +418,56 @@ fn add_preopen(
     Ok(())
 }
 
+/// The form a `net.wan` host name is pinned and looked up under.
+fn pin_key(name: &str) -> String {
+    name.trim_end_matches('.').to_ascii_lowercase()
+}
+
 /// Resolve the `net.wan` allowlist to exact addresses (see the module docs),
 /// and record each host name's addresses for the guest's own lookups.
-/// Wildcards cannot be realised in wasm (they are a tier-4 authority and
-/// wasm plugins are tier 1–3) and contribute nothing.
+/// Each distinct name is looked up once, all of them concurrently, each
+/// within `budget`. Wildcards cannot be realised in wasm (they are a tier-4
+/// authority and wasm plugins are tier 1–3) and contribute nothing.
 async fn resolve_wan(
     ctx: &CapabilityContext,
     plugin: &PluginId,
     hosts: &[entangle_types::capability::NetHost],
+    budget: Duration,
 ) -> (Vec<WanTarget>, Vec<PinnedName>) {
+    let mut lookups = tokio::task::JoinSet::new();
+    let mut asked: Vec<String> = Vec::new();
+    for h in hosts {
+        if h.is_wildcard() || h.ip().is_some() {
+            continue;
+        }
+        let key = pin_key(h.host());
+        if asked.contains(&key) {
+            continue;
+        }
+        asked.push(key.clone());
+        let resolve = ctx.resolve;
+        lookups.spawn(async move {
+            let answer = tokio::time::timeout(budget, resolve(key.clone())).await;
+            (key, answer)
+        });
+    }
+    let mut answers: std::collections::HashMap<String, Result<Vec<IpAddr>, String>> =
+        std::collections::HashMap::new();
+    while let Some(joined) = lookups.join_next().await {
+        // A lookup task that panicked leaves its name unanswered (below).
+        if let Ok((key, answer)) = joined {
+            let answer = match answer {
+                Ok(Ok(addrs)) => Ok(addrs.into_iter().map(crate::net::canonical).collect()),
+                Ok(Err(e)) => Err(e.to_string()),
+                Err(_elapsed) => Err(format!("no answer within {budget:?}")),
+            };
+            answers.insert(key, answer);
+        }
+    }
+
     let mut pinned: Vec<PinnedName> = Vec::new();
     let mut pin = |name: &str, addrs: &[IpAddr]| {
-        let name = name.trim_end_matches('.').to_ascii_lowercase();
+        let name = pin_key(name);
         let entry = match pinned.iter_mut().find(|p| p.name == name) {
             Some(p) => p,
             None => {
@@ -429,10 +502,12 @@ async fn resolve_wan(
             });
             continue;
         }
-        let lookup = (ctx.resolve)(h.host().to_owned());
-        match tokio::time::timeout(DNS_TIMEOUT, lookup).await {
-            Ok(Ok(addrs)) => {
-                let addrs: Vec<IpAddr> = addrs.into_iter().map(crate::net::canonical).collect();
+        let answer = answers
+            .get(&pin_key(h.host()))
+            .cloned()
+            .unwrap_or_else(|| Err("the lookup failed".to_owned()));
+        match answer {
+            Ok(addrs) => {
                 pin(h.host(), &addrs);
                 for a in addrs {
                     push(WanTarget {
@@ -441,13 +516,9 @@ async fn resolve_wan(
                     });
                 }
             }
-            Ok(Err(e)) => {
+            Err(e) => {
                 pin(h.host(), &[]);
                 tracing::warn!(plugin = %plugin, host = %h, error = %e, "net.wan host did not resolve; unreachable this invocation");
-            }
-            Err(_) => {
-                pin(h.host(), &[]);
-                tracing::warn!(plugin = %plugin, host = %h, "net.wan host resolution timed out; unreachable this invocation");
             }
         }
     }

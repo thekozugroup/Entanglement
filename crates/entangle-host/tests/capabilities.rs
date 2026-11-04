@@ -912,6 +912,106 @@ async fn name_lookups_answer_only_allowlisted_names_from_the_pin() {
     expect(&script, &got, &["err:", "err:"]);
 }
 
+/// Lookups made by [`counting_resolver`].
+static COUNTED_LOOKUPS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Test resolver: counts its lookups; every name is `127.0.0.1`.
+fn counting_resolver(
+    _name: String,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<Vec<IpAddr>>> + Send>> {
+    COUNTED_LOOKUPS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    Box::pin(async { Ok(vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]) })
+}
+
+/// Test resolver: every lookup takes 400 ms.
+fn slow_resolver(
+    _name: String,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<Vec<IpAddr>>> + Send>> {
+    Box::pin(async {
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        Ok(vec![IpAddr::V4(Ipv4Addr::LOCALHOST)])
+    })
+}
+
+/// Test resolver: never answers (a stalled upstream resolver).
+fn stalled_resolver(
+    _name: String,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<Vec<IpAddr>>> + Send>> {
+    Box::pin(std::future::pending())
+}
+
+/// Each distinct allowlisted name is looked up once per instance, however
+/// many entries name it (several ports) and however many outstanding
+/// `net.wan` grants — standing or fetched by running invocations — the
+/// plugin holds.
+#[tokio::test(flavor = "multi_thread")]
+async fn each_allowlisted_name_is_resolved_once() {
+    let h = Setup {
+        resolver: Some(counting_resolver),
+        ..Setup::new(
+            "dedup",
+            r#""net.wan" = { hosts = ["a.entangle.test:443", "a.entangle.test:80", "b.entangle.test"] }"#,
+        )
+    }
+    .harness();
+    for _ in 0..5 {
+        h.broker.grant_by_key(&h.id, "net.wan").unwrap();
+    }
+    assert_eq!(h.broker.snapshot_grants(&h.id).len(), 6);
+    COUNTED_LOOKUPS.store(0, std::sync::atomic::Ordering::SeqCst);
+    let grants = h.plugin.realise_capabilities().await.unwrap();
+    assert_eq!(
+        COUNTED_LOOKUPS.load(std::sync::atomic::Ordering::SeqCst),
+        2,
+        "one lookup per distinct name"
+    );
+    let mut names: Vec<_> = grants.pinned_names.iter().map(|p| p.name.as_str()).collect();
+    names.sort_unstable();
+    assert_eq!(names, ["a.entangle.test", "b.entangle.test"]);
+    assert_eq!(grants.net.wan_targets.len(), 3, "{:?}", grants.net.wan_targets);
+}
+
+/// Allowlisted names are resolved concurrently, and resolution may take at
+/// most half the invocation's timeout: a slow resolver delays the guest by
+/// one lookup, not one per name, and a stalled one leaves its names
+/// unreachable for the invocation instead of using up the whole budget and
+/// surfacing as a plugin timeout.
+#[tokio::test(flavor = "multi_thread")]
+async fn wan_resolution_is_concurrent_and_bounded_by_the_invocation() {
+    let caps = r#""net.wan" = { hosts = ["a.entangle.test:443", "b.entangle.test:443", "c.entangle.test:443", "d.entangle.test:443"] }"#;
+    let h = Setup {
+        resolver: Some(slow_resolver),
+        ..Setup::new("slow-dns", caps)
+    }
+    .harness();
+    let started = std::time::Instant::now();
+    let out = h
+        .plugin
+        .run_one_shot(&h.engine, b"resolve a.entangle.test\ninfo\n", 1_000)
+        .await
+        .expect("four 400 ms lookups fit a 1 s invocation when made together");
+    assert!(started.elapsed() < std::time::Duration::from_millis(1_000));
+    let text = String::from_utf8(out.output).unwrap();
+    assert!(text.starts_with("ok:127.0.0.1\nok:"), "{text}");
+
+    let h = Setup {
+        resolver: Some(stalled_resolver),
+        ..Setup::new("stalled-dns", caps)
+    }
+    .harness();
+    let started = std::time::Instant::now();
+    let out = h
+        .plugin
+        .run_one_shot(&h.engine, b"resolve a.entangle.test\ninfo\n", 1_000)
+        .await
+        .expect("a stalled resolver does not time the plugin out");
+    assert!(started.elapsed() < std::time::Duration::from_millis(1_000));
+    let text = String::from_utf8(out.output).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    assert!(lines[0].starts_with("err:"), "{text}");
+    assert!(lines[1].starts_with("ok:"), "{text}");
+}
+
 // ── capability.fetch ───────────────────────────────────────────────────────
 
 /// `fetch` returns a handle only for a capability the manifest declares and
