@@ -46,8 +46,13 @@ use sha2::{Digest as _, Sha256};
 /// (2024-01-01T00:00:00Z).
 pub const REPRODUCIBLE_EPOCH: u64 = 1_704_067_200;
 
-/// Directory names never hashed into a source digest.
-const DIGEST_SKIP_DIRS: &[&str] = &["target", "dist", ".git", ".hg", ".svn"];
+/// Directory names never hashed into a source digest, at any depth.
+const DIGEST_SKIP_DIRS: &[&str] = &[".git", ".hg", ".svn"];
+
+/// Directory names skipped only directly below the digest root: cargo's
+/// default target dir and `plugins build`'s default output dir. Deeper down
+/// these names are ordinary source directories (`src/dist/mod.rs`).
+const DIGEST_SKIP_ROOT_DIRS: &[&str] = &["target", "dist"];
 
 /// `created_at` for signature bundles: `SOURCE_DATE_EPOCH` if set and valid,
 /// else [`REPRODUCIBLE_EPOCH`].
@@ -422,6 +427,12 @@ fn is_package_output_dir(dir: &Path) -> bool {
     .any(|a| dir.join(format!("{a}.sig")).is_file())
 }
 
+/// `true` for a cargo target directory (cargo writes `CACHEDIR.TAG` into
+/// every target dir it creates), wherever it is and whatever its name.
+fn is_cargo_target_dir(dir: &Path) -> bool {
+    dir.join("CACHEDIR.TAG").is_file()
+}
+
 fn collect_files(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
     for entry in std::fs::read_dir(dir).with_context(|| format!("reading {}", dir.display()))? {
         let entry = entry?;
@@ -429,7 +440,9 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> 
         let ty = entry.file_type()?;
         if ty.is_dir() {
             let name = entry.file_name();
-            if DIGEST_SKIP_DIRS.iter().any(|s| name == *s) || is_package_output_dir(&path) {
+            let skip_name = DIGEST_SKIP_DIRS.iter().any(|s| name == *s)
+                || (dir == root && DIGEST_SKIP_ROOT_DIRS.iter().any(|s| name == *s));
+            if skip_name || is_package_output_dir(&path) || is_cargo_target_dir(&path) {
                 continue;
             }
             collect_files(root, &path, out)?;
@@ -441,8 +454,9 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> 
 }
 
 /// SHA-256 over a source tree: for every regular file (sorted by
-/// `/`-separated relative path; `target/`, `dist/`, VCS dirs and package
-/// output directories skipped) `path \0 len(u64 LE) content`. Independent of mtimes, permissions, owners
+/// `/`-separated relative path; top-level `target/` and `dist/`, VCS dirs,
+/// cargo target dirs and package output directories skipped)
+/// `path \0 len(u64 LE) content`. Independent of mtimes, permissions, owners
 /// and the checkout location.
 pub fn source_digest(dir: &Path) -> Result<String> {
     let mut files = Vec::new();
@@ -898,6 +912,33 @@ mod tests {
         assert_eq!(source_digest(d.path()).unwrap(), base);
         std::fs::write(d.path().join("src/lib.rs"), "b").unwrap();
         assert_ne!(source_digest(d.path()).unwrap(), base);
+    }
+
+    #[test]
+    fn source_digest_covers_nested_dirs_named_target_or_dist() {
+        let d = tempfile::tempdir().unwrap();
+        write(&d.path().join("src/lib.rs"), "mod dist; mod target;");
+        write(&d.path().join("src/dist/mod.rs"), "a");
+        write(&d.path().join("src/target/mod.rs"), "a");
+        let base = source_digest(d.path()).unwrap();
+        write(&d.path().join("src/dist/mod.rs"), "b");
+        let edited = source_digest(d.path()).unwrap();
+        assert_ne!(edited, base, "src/dist/mod.rs is source");
+        write(&d.path().join("src/target/mod.rs"), "b");
+        assert_ne!(
+            source_digest(d.path()).unwrap(),
+            edited,
+            "src/target/mod.rs is source"
+        );
+
+        // A nested cargo target dir (CACHEDIR.TAG) is still build output.
+        let before = source_digest(d.path()).unwrap();
+        write(
+            &d.path().join("sub/target/CACHEDIR.TAG"),
+            "Signature: 8a477f597d28d172789f06886806bc55",
+        );
+        write(&d.path().join("sub/target/release/junk"), "x");
+        assert_eq!(source_digest(d.path()).unwrap(), before);
     }
 
     #[test]
