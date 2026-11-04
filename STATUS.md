@@ -65,7 +65,7 @@ failed on a fresh checkout because the key was gitignored.
 | `entangle-oci` | OCI registry client (token and basic auth, digest and size checks), push and pull, signed mirror listings |
 | `entangle-peers` | Persistent peer allowlist (`~/.entangle/peers.toml`) |
 | `entangle-pairing` | 6-digit code and fingerprint mutual-TOFU state machine |
-| `entangle-biscuits` | biscuit-auth wrapper, bridge attenuation, cumulative byte budget (`E0425`) |
+| `entangle-biscuits` | biscuit-auth wrapper, bridge attenuation, cumulative byte budget (`E0425`); verified by the broker, but no remote path presents a token yet |
 | `entangle-scheduler` | Worker pool, placement, dispatcher, multi-transport links, integrity validation and reputation, streaming task model |
 | `entangle-agent-host` | MCP config adapters (claude-code, codex, opencode), per-session gateway HTTP server |
 | `entangle-observability` | Tracing bootstrap, metrics registry and catalogue, OTLP/HTTP JSON exporter, trace context |
@@ -126,15 +126,15 @@ These are implemented on branches that fork from `080ab0b` and are not merged.
 (`main` itself is still at `43cdef5`, the baseline; none of the work in this
 file is on `main`.)
 
-| Item | Branch | State in this tree |
+| Item | Status | State in this tree |
 |---|---|---|
-| Layer-2 1% replay spot-check | `wip/followups-sched` | Not available |
-| Per-peer transport routing for `entangle compute stream` | `wip/followups-sched` | Dials Iroh only |
-| Streaming invocation metrics | `wip/followups-sched` | Not available |
-| `entangle backup` / `restore` | `wip/followups-ops` | Not available |
-| `plugins enable` and `plugins disable`; daemon honours `[plugins] disabled` | `wip/followups-ops` | `set-max-tier` and `config reload` write `[plugins] disabled`; the daemon parses it but nothing reads it |
-| `entangle release verify --tag` | `wip/followups-ops` | Not available |
-| HTTP downstream servers in the MCP gateway | `wip/followups-ops` | `url` entries are refused with `ENTANGLE-E0664` |
+| Layer-2 1% replay spot-check | In progress | Not available |
+| Per-peer transport routing for `entangle compute stream` | In progress | Dials Iroh only |
+| Streaming invocation metrics | In progress | Not available |
+| `entangle backup` / `restore` | In progress | Not available |
+| `plugins enable` and `plugins disable`; daemon honours `[plugins] disabled` | In progress | `set-max-tier` and `config reload` write `[plugins] disabled`; the daemon parses it but nothing reads it |
+| `entangle release verify --tag` | In progress | Not available |
+| HTTP downstream servers in the MCP gateway | In progress | `url` entries are refused with `ENTANGLE-E0664` |
 
 ## Release pipeline
 

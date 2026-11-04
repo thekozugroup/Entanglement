@@ -8,7 +8,7 @@ Plugins ship as signed `.wasm` components or `.tar.zst` packages. Each declares 
 
 Tier-5 native plugins run as supervised subprocesses. On Linux they are confined with Landlock, a user and network namespace (where unprivileged user namespaces work), a seccomp filter, `no_new_privs` and rlimits. Bubblewrap and macOS Seatbelt profiles are generated and unit-tested. A Seatbelt test that runs `sandbox-exec` compiles only on macOS (the CI macos-14 job). Neither path has been run on a real bubblewrap or macOS host in this work. The daemon refuses to install a plugin above `[security] max_tier_allowed`. `entangle security set-max-tier` changes the ceiling; lowering it unloads the plugins above the new ceiling.
 
-Three transports can be mixed per device: `mesh.local` (mDNS on the LAN), `mesh.iroh` (QUIC with NAT traversal) and `mesh.tailscale` (a mutually authenticated channel over an existing tailnet). The scheduler picks a transport per peer in the order local, tailscale (only while the tailnet is active), iroh, and moves to the next only when connecting fails or times out. Cross-device authorization uses biscuit-auth tokens that can only be narrowed.
+Three transports can be mixed per device: `mesh.local` (mDNS on the LAN), `mesh.iroh` (QUIC with NAT traversal) and `mesh.tailscale` (a mutually authenticated channel over an existing tailnet). The scheduler picks a transport per peer in the order local, tailscale (only while the tailnet is active), iroh, and moves to the next only when connecting fails or times out. Remote tasks and streams are accepted only from peers in `~/.entangle/peers.toml`, identified by the transport's authenticated key. The broker can verify biscuit-auth capability tokens (which can only be narrowed), but no remote path presents one yet.
 
 Work can be run on a remote peer as a one-shot task or as a stream of signed chunks with credit-based flow control. Results can be checked with integrity policies: `Deterministic` (hash quorum across distinct workers), `SemanticEquivalent` (a signed metric plugin compares outputs) and `TrustedExecutor`. `Attested` (TEE) is not implemented.
 
@@ -82,8 +82,8 @@ Not available yet:
 - `Attested` integrity (needs TEE hardware; returns `ENTANGLE-E0304`).
 - Native Windows (Phase 5). On Windows only WSL2 is targeted; no CI job runs on Windows or WSL2.
 - `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
-- On the unmerged branch `wip/followups-sched`, not in this tree: the Layer-2 1% replay spot-check, per-peer transport routing for `entangle compute stream` (here it dials Iroh only), streaming invocation metrics.
-- On the unmerged branch `wip/followups-ops`, not in this tree: `entangle backup` / `restore`; `plugins enable|disable` and a daemon that reads `[plugins] disabled` (here `set-max-tier` writes that list and nothing reads it); `entangle release verify --tag`; HTTP downstream servers in the MCP gateway.
+- In progress, not in this tree yet: the Layer-2 1% replay spot-check, per-peer transport routing for `entangle compute stream` (here it dials Iroh only), streaming invocation metrics.
+- In progress, not in this tree yet: `entangle backup` / `restore`; `plugins enable|disable` and a daemon that reads `[plugins] disabled` (here `set-max-tier` writes that list and nothing reads it); `entangle release verify --tag`; HTTP downstream servers in the MCP gateway.
 
 Full list with reasons: [`STATUS.md`](./STATUS.md). Changes: [`CHANGELOG.md`](./CHANGELOG.md).
 

@@ -81,6 +81,7 @@ Tests
 - Pairing: `PairingListener::wait()` could hang past the code's expiry when a dialer withheld QUIC stream credit, so `entangle pair --responder` kept its endpoint and mDNS beacon up past the advertised expiry.
 
 ### Deferred
+- Biscuit capability tokens on remote paths (spec §6.6): remote tasks and streams are gated by the peer allowlist only; the broker can verify tokens but nothing presents one yet.
 
 - `Attested` integrity: needs TEE hardware; returns `ENTANGLE-E0304`.
 - Native Windows (Phase 5).
@@ -92,8 +93,8 @@ Tests
 - `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
 - Bus-factor check fails by design (one holder per role).
 - No published release; `install.sh` and Homebrew need a `v0.1.0` tag.
-- On the unmerged branch `wip/followups-sched`: Layer-2 1% replay spot-check; per-peer transport routing for `compute stream`; streaming invocation metrics.
-- On the unmerged branch `wip/followups-ops`: `entangle backup` / `restore`; `plugins enable|disable` and a daemon that reads `[plugins] disabled`; `release verify --tag`; HTTP downstream servers in the gateway.
+- In progress, not in this tree yet: Layer-2 1% replay spot-check; per-peer transport routing for `compute stream`; streaming invocation metrics.
+- In progress, not in this tree yet: `entangle backup` / `restore`; `plugins enable|disable` and a daemon that reads `[plugins] disabled`; `release verify --tag`; HTTP downstream servers in the gateway.
 
 ### Earlier, before `43cdef5`
 
