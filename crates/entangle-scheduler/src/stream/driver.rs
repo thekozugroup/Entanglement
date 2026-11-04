@@ -196,9 +196,16 @@ pub struct ExecutorReport {
 ///
 /// `port` is the driver end of the plugin's [`entangle_host::StreamPort`];
 /// `plugin` is the plugin's execution (e.g. `Kernel::invoke_stream`),
-/// resolving to `Err(text)` if it failed. The plugin future is polled here
-/// and dropped — cancelling the guest — when the stream closes early.
-/// `events` (optional) receives every [`StreamEvent`] as it happens.
+/// resolving to `Err(text)` if it failed.
+///
+/// The plugin runs on **its own task**, not inside this loop: a guest that
+/// computes for a long time between two `yield-chunk` calls (an LLM's
+/// prompt processing, say) holds a worker thread, but never this loop — so
+/// heartbeats are still answered, and credit, stall and deadline timers
+/// still run, while it computes. The task is aborted when the stream
+/// closes early (the guest's next host call fails first: its port is
+/// dropped). `events` (optional) receives every [`StreamEvent`] as it
+/// happens.
 pub async fn drive_executor<P>(
     machine: ExecutorMachine,
     io: FramedStream,
@@ -207,7 +214,7 @@ pub async fn drive_executor<P>(
     events: Option<mpsc::UnboundedSender<StreamEvent>>,
 ) -> ExecutorReport
 where
-    P: Future<Output = Result<(), String>> + Send,
+    P: Future<Output = Result<(), String>> + Send + 'static,
 {
     let (send, recv) = io.split();
     drive_executor_halves(machine, send, recv, port, plugin, events).await
@@ -223,8 +230,9 @@ pub async fn drive_executor_halves<P>(
     events: Option<mpsc::UnboundedSender<StreamEvent>>,
 ) -> ExecutorReport
 where
-    P: Future<Output = Result<(), String>> + Send,
+    P: Future<Output = Result<(), String>> + Send + 'static,
 {
+    let plugin = spawn_plugin(plugin);
     let (rx, caps, reader) = spawn_reader(recv, m.frame_cap());
     let mut reading = Reading {
         rx,
@@ -243,6 +251,13 @@ where
 
     loop {
         let now = Instant::now();
+        // Timers first. The select below is biased towards inbound frames,
+        // so a submitter that keeps the reader busy must not be able to
+        // postpone the wall-clock deadline, the stall timers or the
+        // heartbeat by flooding (say) zero-credit frames.
+        if m.poll_timeout().is_some_and(|at| at <= now) {
+            m.on_timeout(now);
+        }
         // A chunk the plugin is blocked on: send it if there is credit now.
         if let Some(chunk) = pending.take() {
             let PluginChunk { bytes, ack } = chunk;
@@ -367,6 +382,31 @@ fn move_frames_executor(m: &mut ExecutorMachine, out: &mut Outbound) {
             Err(e) => {
                 m.fail(StreamError::Transport(e.to_string()));
             }
+        }
+    }
+}
+
+/// Aborts the plugin task when the driver lets go of it.
+struct AbortOnDrop(JoinHandle<Result<(), String>>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Run `plugin` on its own task; the returned future resolves with its
+/// result and aborts the task if dropped first.
+fn spawn_plugin<P>(plugin: P) -> impl Future<Output = Result<(), String>> + Send
+where
+    P: Future<Output = Result<(), String>> + Send + 'static,
+{
+    let mut task = AbortOnDrop(tokio::spawn(plugin));
+    async move {
+        match (&mut task.0).await {
+            Ok(result) => result,
+            Err(e) if e.is_cancelled() => Err("the plugin task was cancelled".to_owned()),
+            Err(e) => Err(format!("the plugin task panicked: {e}")),
         }
     }
 }
@@ -688,6 +728,12 @@ async fn drive_submitter(
     let mut cmds_open = true;
 
     loop {
+        // Timers first (see the executor loop): a flooding executor cannot
+        // postpone the deadline or the heartbeat.
+        let now = Instant::now();
+        if m.poll_timeout().is_some_and(|at| at <= now) {
+            m.on_timeout(now);
+        }
         if let Some(tx) = pending_next.take() {
             match m.next_chunk() {
                 ChunkPoll::Pending => pending_next = Some(tx),

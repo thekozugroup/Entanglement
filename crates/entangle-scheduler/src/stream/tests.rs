@@ -1004,3 +1004,79 @@ fn grant_threshold_is_half_the_window_but_at_least_one() {
     assert_eq!(grant_threshold(16), 8);
     assert_eq!(grant_threshold(33), 16);
 }
+
+// ── async drivers ───────────────────────────────────────────────────────────
+
+/// A guest that computes for many heartbeat intervals before its first
+/// `yield-chunk` (an LLM processing a long prompt) must not get its stream
+/// declared lost: the plugin runs on its own task, so the executor's loop
+/// keeps answering pings while the guest holds its thread.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn heartbeats_are_answered_while_the_plugin_computes() {
+    use entangle_host::{stream_port, OUTPUT_HANDLE};
+    use entangle_mesh_iroh::{duplex_pair, DEFAULT_DUPLEX_BUFFER, MAX_FRAME_BYTES};
+
+    let exec = exec_key();
+    let sub = IdentityKeyPair::from_seed(&[9; 32]);
+    let task = task_with(ChannelSpec {
+        heartbeat_ms: 50,
+        ..channel()
+    });
+    let (sub_io, mut exec_io) = duplex_pair(
+        *sub.public().as_bytes(),
+        *exec.public().as_bytes(),
+        MAX_FRAME_BYTES,
+        DEFAULT_DUPLEX_BUFFER,
+    );
+
+    let handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    // The executor side, as `StreamServer::handle` sets it up after the gate.
+    let open = match exec_io.recv().await.unwrap() {
+        Some(bytes) => match decode_frame(&bytes, Side::Submitter).unwrap() {
+            Frame::Open(open) => open,
+            other => panic!("expected Open, got {}", other.name()),
+        },
+        None => panic!("no Open frame"),
+    };
+    let env = PolicyEnvelope::open(open.policy, open.policy_hash).unwrap();
+    let ceilings = StreamCeilings {
+        min_heartbeat_ms: 10,
+        ..StreamCeilings::default()
+    };
+    let limits = ceilings.accept(&open.channel, open.timeout_ms).unwrap();
+    assert_eq!(limits.heartbeat, Duration::from_millis(50));
+    let machine = ExecutorMachine::new(
+        ExecutorConfig {
+            task_id: task.id,
+            policy_hash: env.hash(),
+            limits,
+            local_peer: PeerId::from_public_key_bytes(exec.public().as_bytes()),
+        },
+        ChunkSigner::new(exec, open.task_id, env.hash()),
+        Instant::now(),
+    );
+    let (mut port, driver_port) = stream_port(1);
+    let plugin = async move {
+        // 8 heartbeat intervals without a host call, holding the thread.
+        std::thread::sleep(Duration::from_millis(400));
+        port.yield_chunk(OUTPUT_HANDLE, b"done".to_vec()).await
+    };
+    let executor = tokio::spawn(driver::drive_executor(
+        machine,
+        exec_io,
+        driver_port,
+        plugin,
+        None,
+    ));
+
+    let result = tokio::time::timeout(Duration::from_secs(10), handle.collect())
+        .await
+        .expect("the stream finishes");
+    assert!(result.is_complete(), "{:?}", result.outcome);
+    assert_eq!(result.bytes(), b"done");
+    let report = tokio::time::timeout(Duration::from_secs(10), executor)
+        .await
+        .expect("the executor finishes")
+        .unwrap();
+    assert_eq!(report.outcome, Ok(()));
+}

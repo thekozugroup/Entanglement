@@ -288,10 +288,13 @@ impl StreamServer {
                 message: message.to_owned(),
             });
         }
-        let _in_flight = InFlightGuard {
+        // The slot is held by this call *and* by the plugin's task, so it is
+        // freed only once the stream has closed and the guest is gone (an
+        // aborted guest stops at its next host call or its epoch deadline).
+        let in_flight = Arc::new(InFlightGuard {
             table: Arc::clone(&self.in_flight),
             key,
-        };
+        });
 
         let task_id = TaskId::from_bytes(open.task_id);
         tracing::info!(
@@ -322,7 +325,9 @@ impl StreamServer {
         let kernel = Arc::clone(&self.kernel);
         let input = open.input;
         let timeout_ms = u64::try_from(limits.timeout.as_millis()).unwrap_or(u64::MAX);
+        let slot = Arc::clone(&in_flight);
         let plugin_run = async move {
+            let _slot = slot;
             kernel
                 .invoke_stream(&plugin, &input, port, timeout_ms)
                 .await
@@ -340,7 +345,10 @@ impl StreamServer {
             });
             etx
         });
-        Ok(drive_executor_halves(machine, send, recv, driver_port, plugin_run, events).await)
+        let report =
+            drive_executor_halves(machine, send, recv, driver_port, plugin_run, events).await;
+        drop(in_flight);
+        Ok(report)
     }
 }
 
