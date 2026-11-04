@@ -22,6 +22,9 @@ entangle-peers     = { path = "../entangle-peers" }
 entangle-mesh-tailscale = { workspace = true }
 entangle-pairing   = { path = "../entangle-pairing" }
 entangle-scheduler     = { path = "../entangle-scheduler" }
+# `compute stream` dials the executor itself (see cmd/compute_stream.rs).
+# Already in the graph via entangle-scheduler: no new build cost.
+entangle-mesh-iroh     = { workspace = true }
 entangle-observability = { workspace = true }
 entangle-agent-host    = { path = "../entangle-agent-host" }
 camino            = { workspace = true }

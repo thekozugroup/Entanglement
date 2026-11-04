@@ -3,6 +3,7 @@
 pub mod agent;
 pub mod catalog;
 pub mod compute;
+pub mod compute_stream;
 pub mod doctor;
 pub mod init;
 pub mod keyring;
