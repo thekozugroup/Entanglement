@@ -1658,6 +1658,7 @@ dependencies = [
  "directories",
  "entangle-agent-host",
  "entangle-bin",
+ "entangle-biscuits",
  "entangle-broker",
  "entangle-manifest",
  "entangle-mesh-iroh",
