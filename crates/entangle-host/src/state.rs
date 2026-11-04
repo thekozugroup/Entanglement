@@ -1,9 +1,12 @@
 //! [`HostState`] — per-plugin store data carrying WASI context and observability buffers.
 
+use crate::capability::{CapTable, CapabilityContext, WasiGrants};
+use crate::errors::HostError;
+use crate::net::Via;
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 use wasmtime::component::ResourceTable;
 use wasmtime::{StoreLimits, StoreLimitsBuilder};
-use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
+use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
 /// Default cap on the size a single guest linear memory may grow to (256 MiB).
 pub const DEFAULT_MEMORY_LIMIT_BYTES: usize = 256 * 1024 * 1024;
@@ -79,9 +82,11 @@ impl ResourceLimits {
 /// Implements [`WasiView`] so that `wasmtime_wasi::p2::add_to_linker_async`
 /// can wire up the WASI 0.2 host implementations.
 ///
-/// The WASI context is intentionally minimal: no filesystem preopens, no
-/// environment variables, no network sockets. The capability broker
-/// will extend the context per-plugin based on the granted tier and manifest.
+/// The WASI context is minimal unless the broker granted more: no
+/// environment variables, no arguments, stdin closed, stderr inherited. A
+/// [`WasiGrants`] (derived from broker grants, see [`crate::capability`])
+/// adds exactly its preopens and socket rules; without one there are no
+/// filesystem preopens and TCP, UDP and DNS are disabled.
 pub struct HostState {
     /// The plugin this store belongs to.
     pub plugin_id: PluginId,
@@ -99,6 +104,8 @@ pub struct HostState {
     log_bytes: usize,
     /// Whether the log buffer has been truncated (marker already emitted).
     log_truncated: bool,
+    /// `capability.fetch` handles held by this instance.
+    pub(crate) caps: CapTable,
     table: ResourceTable,
     wasi: WasiCtx,
 }
@@ -115,12 +122,103 @@ impl HostState {
 
     /// Create a new [`HostState`] with a minimal WASI context and explicit
     /// per-invocation [`ResourceLimits`].
+    ///
+    /// No preopens, no network, and no capability broker: every
+    /// `capability.fetch` is refused.
     pub fn with_limits(plugin_id: PluginId, effective_tier: Tier, limits: ResourceLimits) -> Self {
         let mut builder = WasiCtxBuilder::new();
         // Inherit the host stderr so plugin panics/traps surface in logs.
-        // No filesystem, no network preopens — broker will add them per-capability.
         builder.inherit_stderr();
+        // No network: no TCP, no UDP, no DNS (addresses are denied by
+        // default too; this makes the refusal explicit).
+        builder
+            .allow_tcp(false)
+            .allow_udp(false)
+            .allow_ip_name_lookup(false);
+        Self::from_parts(plugin_id, effective_tier, limits, builder.build(), None)
+    }
+
+    /// Create a [`HostState`] whose WASI context realises `grants` (see
+    /// [`crate::capability::realise`]) and whose `capability.fetch` decides
+    /// through `ctx`'s broker.
+    ///
+    /// Fails with [`HostError::StorageScope`] if a granted directory cannot
+    /// be opened.
+    pub fn with_capabilities(
+        plugin_id: PluginId,
+        effective_tier: Tier,
+        limits: ResourceLimits,
+        grants: &WasiGrants,
+        ctx: Option<CapabilityContext>,
+    ) -> Result<Self, HostError> {
+        let mut builder = WasiCtxBuilder::new();
+        builder.inherit_stderr();
+        for p in &grants.preopens {
+            let (dir, file) = if p.writable {
+                (DirPerms::all(), FilePerms::all())
+            } else {
+                (DirPerms::READ, FilePerms::READ)
+            };
+            builder
+                .preopened_dir(&p.host, &p.guest, dir, file)
+                .map_err(|e| HostError::StorageScope {
+                    path: p.host.clone(),
+                    source: std::io::Error::other(e.to_string()),
+                })?;
+        }
+        let net = grants.net.clone();
+        let any = net.any();
+        builder
+            .allow_tcp(any)
+            .allow_udp(any)
+            .allow_ip_name_lookup(any);
+        if any {
+            // Every socket use is checked against the rules AND against the
+            // broker: a grant revoked mid-invocation stops working at once.
+            let live = ctx.as_ref().map(|c| {
+                (
+                    std::sync::Arc::clone(c.broker()),
+                    plugin_id.clone(),
+                    grants.lan_grants.clone(),
+                    grants.wan_grants.clone(),
+                )
+            });
+            let plugin = plugin_id.clone();
+            builder.socket_addr_check(move |addr, use_| {
+                let is_live = |gids: &[u64]| match &live {
+                    Some((broker, plugin, _, _)) => gids.iter().any(|g| broker.is_live(plugin, *g)),
+                    None => true,
+                };
+                let allowed = match net.check(addr, use_) {
+                    None => false,
+                    Some(Via::LocalBind) => true,
+                    Some(Via::Lan) => live.as_ref().is_none_or(|(_, _, lan, _)| is_live(lan)),
+                    Some(Via::Wan) => live.as_ref().is_none_or(|(_, _, _, wan)| is_live(wan)),
+                };
+                if !allowed {
+                    tracing::debug!(plugin = %plugin, %addr, use_ = ?use_, "socket address refused");
+                }
+                Box::pin(async move { allowed })
+            });
+        }
+        Ok(Self::from_parts(
+            plugin_id,
+            effective_tier,
+            limits,
+            builder.build(),
+            ctx,
+        ))
+    }
+
+    fn from_parts(
+        plugin_id: PluginId,
+        effective_tier: Tier,
+        limits: ResourceLimits,
+        wasi: WasiCtx,
+        ctx: Option<CapabilityContext>,
+    ) -> Self {
         Self {
+            caps: CapTable::new(ctx, plugin_id.clone()),
             plugin_id,
             effective_tier,
             log_buffer: Vec::new(),
@@ -128,7 +226,7 @@ impl HostState {
             log_bytes: 0,
             log_truncated: false,
             table: ResourceTable::new(),
-            wasi: builder.build(),
+            wasi,
         }
     }
 

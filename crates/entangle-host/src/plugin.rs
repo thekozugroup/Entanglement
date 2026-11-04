@@ -1,6 +1,7 @@
 //! [`LoadedPlugin`] — a compiled + ready-to-instantiate WebAssembly component.
 
 use crate::bindings::PluginPre;
+use crate::capability::{CapabilityContext, WasiGrants};
 use crate::engine::{HostEngine, EPOCH_TICK_MS};
 use crate::errors::HostError;
 use crate::state::{HostState, ResourceLimits};
@@ -28,6 +29,8 @@ pub struct LoadedPlugin {
     pre: PluginPre<HostState>,
     plugin_id: PluginId,
     effective_tier: Tier,
+    /// Broker + storage root; `None` = no capabilities at all.
+    caps: Option<CapabilityContext>,
 }
 
 impl Clone for LoadedPlugin {
@@ -37,6 +40,7 @@ impl Clone for LoadedPlugin {
             pre: self.pre.clone(),
             plugin_id: self.plugin_id.clone(),
             effective_tier: self.effective_tier,
+            caps: self.caps.clone(),
         }
     }
 }
@@ -85,7 +89,34 @@ impl LoadedPlugin {
             pre,
             plugin_id,
             effective_tier,
+            caps: None,
         })
+    }
+
+    /// Decide `capability.fetch` through `ctx`'s broker and realise the
+    /// plugin's broker grants in every instance's WASI context (see
+    /// [`crate::capability`]). Without this, an instance has no preopens, no
+    /// network, and every fetch is refused.
+    #[must_use]
+    pub fn with_capabilities(mut self, ctx: CapabilityContext) -> Self {
+        self.caps = Some(ctx);
+        self
+    }
+
+    /// The capability context, if one is attached.
+    pub fn capabilities(&self) -> Option<&CapabilityContext> {
+        self.caps.as_ref()
+    }
+
+    /// What the plugin's current broker grants realise (creating its storage
+    /// directories). The kernel calls this at load so a grant that cannot be
+    /// realised fails the load rather than every invocation; each
+    /// invocation realises again, so it sees grants as they are then.
+    pub async fn realise_capabilities(&self) -> Result<WasiGrants, HostError> {
+        match &self.caps {
+            Some(ctx) => crate::capability::realise(ctx, &self.plugin_id).await,
+            None => Ok(WasiGrants::default()),
+        }
     }
 
     /// Instantiate the component and call its `run` export with `input`,
@@ -119,6 +150,12 @@ impl LoadedPlugin {
     ///
     /// Both paths surface as [`HostError::Timeout`].
     ///
+    /// # Capabilities
+    /// The instance's WASI context is built from the plugin's broker grants
+    /// as they stand now ([`LoadedPlugin::realise_capabilities`]); handles
+    /// the guest fetched and did not release are released when the instance
+    /// ends.
+    ///
     /// # Resource caps
     /// `limits` is enforced via the store's resource limiter; exceeding it
     /// (memory/table growth, or instance/table/memory counts) fails the
@@ -130,10 +167,19 @@ impl LoadedPlugin {
         timeout_ms: u64,
         limits: ResourceLimits,
     ) -> Result<PluginRunResult, HostError> {
-        let mut store = Store::new(
-            engine.engine(),
-            HostState::with_limits(self.plugin_id.clone(), self.effective_tier, limits),
-        );
+        let backstop = Duration::from_millis(timeout_ms.saturating_add(TIMEOUT_BACKSTOP_SLACK_MS));
+        let grants = match tokio::time::timeout(backstop, self.realise_capabilities()).await {
+            Ok(grants) => grants?,
+            Err(_elapsed) => return Err(HostError::Timeout(timeout_ms)),
+        };
+        let state = HostState::with_capabilities(
+            self.plugin_id.clone(),
+            self.effective_tier,
+            limits,
+            &grants,
+            self.caps.clone(),
+        )?;
+        let mut store = Store::new(engine.engine(), state);
         // Enforce memory/table/instance caps on everything this store
         // allocates, including instantiation-time initial memories.
         store.limiter(|s| &mut s.limits);
@@ -156,7 +202,6 @@ impl LoadedPlugin {
                 .map_err(|e| classify_call_error(e.into(), timeout_ms))
         };
 
-        let backstop = Duration::from_millis(timeout_ms.saturating_add(TIMEOUT_BACKSTOP_SLACK_MS));
         let call_result = match tokio::time::timeout(backstop, invoke).await {
             Ok(result) => result?,
             Err(_elapsed) => return Err(HostError::Timeout(timeout_ms)),
