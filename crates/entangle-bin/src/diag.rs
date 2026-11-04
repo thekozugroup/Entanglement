@@ -225,11 +225,7 @@ pub async fn mesh_report(
                     let link = TailscaleLink::new(ts.transport.clone(), ts.liveness.clone());
                     let cand = cand.clone();
                     probes.spawn(async move {
-                        (
-                            pi,
-                            pi_path,
-                            probe_tailscale(&link, cand, timeout).await,
-                        )
+                        (pi, pi_path, probe_tailscale(&link, cand, timeout).await)
                     });
                 }
             }

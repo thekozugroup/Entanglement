@@ -276,7 +276,11 @@ mod tests {
             .unwrap();
         assert_eq!(route.public_key, trusted_key);
         assert_eq!(route.addr.to_string(), "192.168.1.31:41641");
-        assert_eq!(route.extra_addrs.len(), 1, "every resolved address is a hint");
+        assert_eq!(
+            route.extra_addrs.len(),
+            1,
+            "every resolved address is a hint"
+        );
 
         // Revocation and disappearance remove the route.
         store
@@ -305,7 +309,10 @@ mod tests {
 
     #[test]
     fn no_running_transport_means_no_router() {
-        assert!(build_router(PeerId::from_public_key_bytes(&[1; 32]), RouterInputs::default())
-            .is_none());
+        assert!(build_router(
+            PeerId::from_public_key_bytes(&[1; 32]),
+            RouterInputs::default()
+        )
+        .is_none());
     }
 }

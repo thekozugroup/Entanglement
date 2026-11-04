@@ -678,21 +678,36 @@ max_tier_allowed = 2
             [K::Local, K::Tailscale, K::Iroh]
         );
         let written = toml::to_string_pretty(&plain).unwrap();
-        assert!(!written.contains("preferred") && !written.contains("overrides"), "{written}");
+        assert!(
+            !written.contains("preferred") && !written.contains("overrides"),
+            "{written}"
+        );
     }
 
     #[test]
     fn bad_transport_choices_fail_when_the_file_is_loaded() {
         let peer = "7a21c0de7a21c0de7a21c0de7a21c0de";
         for (bad, needle) in [
-            ("[mesh]\npreferred = \"wifi\"\n".to_owned(), "ENTANGLE-E0434"),
-            (format!("[mesh.overrides]\n\"{peer}\" = \"udp\"\n"), "ENTANGLE-E0434"),
-            (format!("[mesh.overrides]\n\"{peer}\" = []\n"), "ENTANGLE-E0435"),
+            (
+                "[mesh]\npreferred = \"wifi\"\n".to_owned(),
+                "ENTANGLE-E0434",
+            ),
+            (
+                format!("[mesh.overrides]\n\"{peer}\" = \"udp\"\n"),
+                "ENTANGLE-E0434",
+            ),
+            (
+                format!("[mesh.overrides]\n\"{peer}\" = []\n"),
+                "ENTANGLE-E0435",
+            ),
             (
                 format!("[mesh.overrides]\n\"{peer}\" = [\"iroh\", \"iroh\"]\n"),
                 "ENTANGLE-E0435",
             ),
-            ("[mesh.overrides]\n\"bob\" = \"iroh\"\n".to_owned(), "ENTANGLE-E0435"),
+            (
+                "[mesh.overrides]\n\"bob\" = \"iroh\"\n".to_owned(),
+                "ENTANGLE-E0435",
+            ),
         ] {
             let err = toml::from_str::<Config>(&bad).expect_err(&bad);
             assert!(err.to_string().contains(needle), "{bad}: {err}");
