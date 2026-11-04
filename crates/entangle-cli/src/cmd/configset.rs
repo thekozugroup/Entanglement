@@ -191,6 +191,36 @@ pub const KEYS: &[KeySpec] = &[
         "lifecycle event bus capacity",
     ),
     plain(
+        "runtime.aot_cache",
+        &["runtime"],
+        "aot_cache",
+        Kind::Bool,
+        Applies::CliNowDaemonRestart,
+        "keep compiled wasm components in ~/.entangle/aot (default true)",
+    ),
+    plain(
+        "runtime.aot_cache_max_mb",
+        &["runtime"],
+        "aot_cache_max_mb",
+        Kind::Int {
+            min: 0,
+            max: 1 << 30,
+        },
+        R,
+        "AOT cache size cap in MiB; the maintenance loop evicts least recently used entries above it (default 512)",
+    ),
+    plain(
+        "runtime.aot_cache_max_unused_days",
+        &["runtime"],
+        "aot_cache_max_unused_days",
+        Kind::Int {
+            min: 0,
+            max: 36_500,
+        },
+        R,
+        "AOT cache entries unused this many days are removed (default 30)",
+    ),
+    plain(
         "mesh.transports",
         &["mesh"],
         "transports",
