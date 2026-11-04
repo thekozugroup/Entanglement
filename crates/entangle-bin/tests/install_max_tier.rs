@@ -244,3 +244,49 @@ async fn a_plugin_at_the_ceiling_installs() {
     .await;
     assert_eq!(resp["result"]["plugin_id"], serde_json::json!(id), "{resp}");
 }
+
+/// `[plugins] disabled` is honoured by the daemon's `plugins/load`, and the
+/// daemon re-reads `config.toml` on every load, so `entangle plugins
+/// enable/disable` needs no restart. Goes through the RPC handler: removing
+/// the refresh from it fails this test.
+#[tokio::test(flavor = "multi_thread")]
+async fn plugins_load_rereads_the_disabled_list_from_config() {
+    let tmp = tempfile::tempdir().unwrap();
+    let kp = IdentityKeyPair::generate();
+    let pkg = tmp.path().join("pkg");
+    let id = write_package(
+        &pkg,
+        &kp,
+        2,
+        "wasm",
+        &hello_pong(),
+        "plugin.wasm",
+        "\"compute.cpu\" = {}",
+    );
+    // The daemon starts with an empty list but knows its config path.
+    let mut d = daemon(tmp.path(), "[security]\nmax_tier_allowed = 2\n", &kp);
+    let cfg_path = tmp.path().join(".entangle/config.toml");
+    d.state = Arc::new(
+        Arc::try_unwrap(d.state)
+            .map_err(|_| "unique")
+            .unwrap()
+            .with_config_path(cfg_path.clone()),
+    );
+    let load = serde_json::json!({ "dir": pkg.display().to_string() });
+
+    // `plugins disable` while the daemon runs: the next load is refused.
+    std::fs::write(
+        &cfg_path,
+        format!("[security]\nmax_tier_allowed = 2\n[plugins]\ndisabled = [\"{id}\"]\n"),
+    )
+    .unwrap();
+    let resp = rpc(&d, "plugins/load", load.clone()).await;
+    let msg = resp["error"]["message"].as_str().unwrap_or_default();
+    assert!(msg.contains("ENTANGLE-E0759"), "{resp}");
+    assert!(d.state.kernel.list_plugins().is_empty());
+
+    // `plugins enable`: the very next load succeeds, no restart.
+    std::fs::write(&cfg_path, "[security]\nmax_tier_allowed = 2\n").unwrap();
+    let resp = rpc(&d, "plugins/load", load).await;
+    assert_eq!(resp["result"]["plugin_id"], serde_json::json!(id), "{resp}");
+}
