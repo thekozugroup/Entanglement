@@ -15,7 +15,15 @@
 //!   membership alone, and a tailnet node that relays a connection can
 //!   neither read nor inject;
 //! * discovery enumerates online tailnet peers and probes them with the
-//!   handshake (see `MeshTailscale::discover`).
+//!   handshake (see `MeshTailscale::discover`);
+//! * [`protocol`] multiplexes sub-protocols over one listener, the tailnet
+//!   equivalent of an ALPN (spec §6.7): a connection names its protocol
+//!   (`entangle/scheduler/1`, `entangle/stream/1`) in its first sealed
+//!   record ([`MeshTailscale::connect_protocol`],
+//!   [`MeshTailscale::serve_protocols`]);
+//! * [`stream`] turns a connection into a long-lived bidirectional framed
+//!   stream ([`SealedStream`]) with the same caps-before-allocation rule as
+//!   the request path.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -31,11 +39,16 @@ mod error;
 mod framing;
 mod handshake;
 pub mod liveness;
+pub mod protocol;
 pub mod status;
+pub mod stream;
 mod transport;
 
 #[cfg(test)]
 mod transport_tests;
+
+#[cfg(test)]
+mod stream_tests;
 
 pub use error::MeshTailscaleError;
 pub use liveness::{
@@ -45,8 +58,10 @@ pub use liveness::{
 pub use status::{
     CliStatusSource, Observation, StatusSource, TailnetNode, TailnetState, TailscaleStatus,
 };
+pub use stream::{SealedRecv, SealedSend, SealedStream, FRAGMENT_BYTES};
 pub use transport::{
-    MeshConn, MeshRequest, MeshTailscale, PeerAllowlist, RequestHandler, StaticAllowlist,
+    MeshConn, MeshRequest, MeshTailscale, PeerAllowlist, ProtocolHandler, RequestHandler,
+    RequestProtocol, StaticAllowlist,
 };
 
 /// Default TCP port for Entanglement over the tailnet.

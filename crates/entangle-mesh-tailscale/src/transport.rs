@@ -16,7 +16,12 @@ use tracing::{debug, warn};
 use crate::error::MeshTailscaleError;
 use crate::framing::{read_sealed, read_sealed_opt, write_sealed, Opener, Sealer};
 use crate::handshake::{client_handshake, server_handshake, Admission, Refusal, Remote, Session};
+use crate::protocol::{
+    decode_answer, decode_select, encode_answer, encode_select, validate_name, SELECT_MAX,
+    STATUS_NOT_SERVED, STATUS_SERVED,
+};
 use crate::status::TailscaleStatus;
+use crate::stream::SealedStream;
 use crate::{AclMode, MeshTailscaleConfig, TailscalePeer};
 
 /// Maximum simultaneous in-flight inbound handshakes. Excess connections are
@@ -68,7 +73,7 @@ struct ConnCounts {
     per_peer: HashMap<PeerId, usize>,
 }
 
-struct ConnSlot {
+pub(crate) struct ConnSlot {
     table: Arc<ConnTable>,
     peer: PeerId,
 }
@@ -154,11 +159,57 @@ impl PeerAllowlist for StaticAllowlist {
     }
 }
 
-/// Handler for inbound requests, used by [`MeshTailscale::serve`].
+/// Handler for inbound requests, used by [`MeshTailscale::serve`] and
+/// [`RequestProtocol`].
 #[async_trait::async_trait]
 pub trait RequestHandler: Send + Sync + 'static {
     /// Produce the response for `payload` sent by the authenticated `peer`.
     async fn handle(&self, peer: PeerId, payload: Vec<u8>) -> Vec<u8>;
+}
+
+/// Serves connections that selected one sub-protocol (see
+/// [`MeshTailscale::serve_protocols`]).
+#[async_trait::async_trait]
+pub trait ProtocolHandler: Send + Sync + 'static {
+    /// Serve `conn` until it ends. The protocol is already selected
+    /// ([`MeshConn::protocol`]); the remote identity is authenticated and,
+    /// in `entangle-on-top` mode, was allowed by the allowlist.
+    async fn serve(&self, conn: MeshConn);
+}
+
+/// A [`ProtocolHandler`] for request/response protocols: every frame on the
+/// connection is a request answered by the [`RequestHandler`], exactly as
+/// [`MeshTailscale::serve`] answers them.
+#[derive(Debug)]
+pub struct RequestProtocol<H>(pub Arc<H>);
+
+#[async_trait::async_trait]
+impl<H: RequestHandler> ProtocolHandler for RequestProtocol<H> {
+    async fn serve(&self, mut conn: MeshConn) {
+        serve_requests(&mut conn, self.0.as_ref()).await;
+    }
+}
+
+/// Answer requests on `conn` with `handler` until the peer closes, the
+/// connection idles out or a request fails.
+async fn serve_requests<H: RequestHandler + ?Sized>(conn: &mut MeshConn, handler: &H) {
+    loop {
+        match conn.accept_request().await {
+            Ok(Some(req)) => {
+                let peer = req.peer();
+                let resp = handler.handle(peer, req.payload().to_vec()).await;
+                if let Err(e) = req.respond(&resp).await {
+                    debug!(%peer, error = %e, "mesh.tailscale response failed");
+                    return;
+                }
+            }
+            Ok(None) => return,
+            Err(e) => {
+                debug!(error = %e, "mesh.tailscale inbound connection ended");
+                return;
+            }
+        }
+    }
 }
 
 struct Inner {
@@ -288,6 +339,24 @@ impl MeshTailscale {
         }
     }
 
+    /// Dial `peer`, complete the handshake, and select the sub-protocol
+    /// `protocol` (e.g. `entangle/scheduler/1`; see the `protocol` module).
+    ///
+    /// Every failure here happens before any application data is sent: a
+    /// peer that does not serve `protocol` (or predates protocol selection)
+    /// fails with [`MeshTailscaleError::Handshake`], as do the handshake's
+    /// own refusals.
+    pub async fn connect_protocol(
+        &self,
+        peer: &TailscalePeer,
+        protocol: &[u8],
+    ) -> Result<MeshConn, MeshTailscaleError> {
+        validate_name(protocol)?;
+        let mut conn = self.connect(peer).await?;
+        conn.select_protocol(protocol).await?;
+        Ok(conn)
+    }
+
     /// Connect, send one request, return the response, close.
     pub async fn request(
         &self,
@@ -306,6 +375,10 @@ impl MeshTailscale {
 
     /// Accept connections until shutdown, answering every request with
     /// `handler`. Each connection runs on its own task.
+    ///
+    /// Every frame is a request: this is the protocol-less mode. A node
+    /// serving more than one sub-protocol uses
+    /// [`MeshTailscale::serve_protocols`] instead.
     pub async fn serve<H: RequestHandler>(&self, handler: Arc<H>) {
         let mut shutdown = self.inner.shutdown_tx.subscribe();
         loop {
@@ -317,29 +390,68 @@ impl MeshTailscale {
             let handler = Arc::clone(&handler);
             let mut shutdown = self.inner.shutdown_tx.subscribe();
             tokio::spawn(async move {
-                loop {
-                    let req = tokio::select! {
-                        r = conn.accept_request() => r,
-                        _ = shutdown.changed() => return,
-                    };
-                    match req {
-                        Ok(Some(req)) => {
-                            let peer = req.peer();
-                            let resp = handler.handle(peer, req.payload().to_vec()).await;
-                            if let Err(e) = req.respond(&resp).await {
-                                debug!(%peer, error = %e, "mesh.tailscale response failed");
-                                return;
-                            }
-                        }
-                        Ok(None) => return,
-                        Err(e) => {
-                            debug!(error = %e, "mesh.tailscale inbound connection ended");
-                            return;
-                        }
-                    }
+                tokio::select! {
+                    () = serve_requests(&mut conn, handler.as_ref()) => {}
+                    _ = shutdown.changed() => {}
                 }
             });
         }
+    }
+
+    /// Accept connections until shutdown and hand each to the handler of
+    /// the sub-protocol it selects (see the `protocol` module: the tailnet
+    /// equivalent of an ALPN). Each connection runs on its own task.
+    ///
+    /// A connection that selects a protocol not in `handlers`, sends
+    /// something other than a selection, or selects nothing within the
+    /// handshake timeout is closed; nothing it sent reaches a handler. In
+    /// `entangle-on-top` mode the allowlist is consulted again before the
+    /// selection is even parsed.
+    pub async fn serve_protocols(&self, handlers: Vec<(Vec<u8>, Arc<dyn ProtocolHandler>)>) {
+        let handlers = Arc::new(handlers);
+        let mut shutdown = self.inner.shutdown_tx.subscribe();
+        loop {
+            let conn = tokio::select! {
+                c = self.accept() => c,
+                _ = shutdown.changed() => None,
+            };
+            let Some(mut conn) = conn else { break };
+            let handlers = Arc::clone(&handlers);
+            let mut shutdown = self.inner.shutdown_tx.subscribe();
+            tokio::spawn(async move {
+                let names: Vec<&[u8]> = handlers.iter().map(|(n, _)| n.as_slice()).collect();
+                let selected = tokio::select! {
+                    r = conn.accept_protocol(&names) => r,
+                    _ = shutdown.changed() => return,
+                };
+                let name = match selected {
+                    Ok(name) => name,
+                    Err(e) => {
+                        debug!(peer = %conn.remote_peer_id(), error = %e, "mesh.tailscale: no protocol selected");
+                        return;
+                    }
+                };
+                let Some((_, handler)) = handlers.iter().find(|(n, _)| *n == name) else {
+                    return;
+                };
+                let handler = Arc::clone(handler);
+                tokio::select! {
+                    () = handler.serve(conn) => {}
+                    _ = shutdown.changed() => {}
+                }
+            });
+        }
+    }
+
+    /// Resolves once [`MeshTailscale::shutdown`] has been called.
+    pub async fn wait_shutdown(&self) {
+        let mut rx = self.inner.shutdown_tx.subscribe();
+        // `send_replace`-free: `shutdown` sends `true` once; a receiver that
+        // subscribed afterwards sees it as the current value.
+        if *rx.borrow_and_update() {
+            return;
+        }
+        let _ = rx.wait_for(|down| *down).await;
     }
 
     /// Stop accepting and signal serving tasks to finish.
@@ -467,6 +579,15 @@ impl MeshTailscale {
             .lock()
             .map(|mut c| std::mem::take(&mut *c).len())
             .unwrap_or(0)
+    }
+
+    /// The candidate for `peer` from the last discovery round, if any.
+    pub fn candidate(&self, peer: &PeerId) -> Option<TailscalePeer> {
+        self.inner
+            .candidates
+            .lock()
+            .ok()
+            .and_then(|c| c.get(peer).cloned())
     }
 
     /// Candidates found by the last [`MeshTailscale::discover`] round.
@@ -603,8 +724,12 @@ pub struct MeshConn {
     sealer: Sealer,
     opener: Opener,
     /// Held by server-side connections: counts against the connection caps
-    /// until this connection is dropped.
-    _slot: Option<ConnSlot>,
+    /// until this connection (or the stream it became) is dropped.
+    slot: Option<ConnSlot>,
+    /// The sub-protocol selected on this connection, if any.
+    protocol: Option<Vec<u8>>,
+    /// Deadline for the protocol-selection exchange.
+    setup_timeout: Duration,
     /// Set while an operation is in flight and left set if it does not
     /// complete; see the type docs.
     poisoned: bool,
@@ -630,7 +755,9 @@ impl MeshConn {
             remote,
             sealer: session.sealer,
             opener: session.opener,
-            _slot: slot,
+            slot,
+            protocol: None,
+            setup_timeout: cfg.handshake_timeout,
             poisoned: false,
             allowlist,
             max_frame_bytes: cfg.max_frame_bytes,
@@ -647,6 +774,174 @@ impl MeshConn {
     /// The authenticated Ed25519 public key of the remote end.
     pub fn remote_public_key(&self) -> [u8; 32] {
         self.remote.public_key
+    }
+
+    /// The sub-protocol selected on this connection
+    /// ([`MeshTailscale::connect_protocol`] / [`MeshConn::accept_protocol`]),
+    /// or `None` for a protocol-less connection.
+    pub fn protocol(&self) -> Option<&[u8]> {
+        self.protocol.as_deref()
+    }
+
+    /// Client side: name `protocol` and wait for the server to accept it.
+    pub(crate) async fn select_protocol(
+        &mut self,
+        protocol: &[u8],
+    ) -> Result<(), MeshTailscaleError> {
+        self.begin()?;
+        let limit = self.setup_timeout;
+        let peer = self.remote.peer_id;
+        let (stream, sealer, opener) = (&mut self.stream, &mut self.sealer, &mut self.opener);
+        let exchange = async {
+            write_sealed(stream, sealer, &encode_select(protocol), SELECT_MAX).await?;
+            read_sealed(stream, opener, SELECT_MAX).await
+        };
+        let name = String::from_utf8_lossy(protocol);
+        let answer = match timeout(limit, exchange).await {
+            Ok(Ok(answer)) => answer,
+            Ok(Err(MeshTailscaleError::FrameTooLarge { .. })) => {
+                return Err(MeshTailscaleError::Handshake(format!(
+                    "peer {peer} answered the {name} selection with a reply that is not a \
+                     protocol answer (a build without protocol selection?)"
+                )))
+            }
+            Ok(Err(e)) => {
+                return Err(MeshTailscaleError::Handshake(format!(
+                    "selecting {name} with peer {peer}: {e}"
+                )))
+            }
+            Err(_) => {
+                return Err(MeshTailscaleError::Handshake(format!(
+                    "peer {peer} did not answer the {name} selection within {}ms",
+                    limit.as_millis()
+                )))
+            }
+        };
+        match decode_answer(&answer) {
+            Some(STATUS_SERVED) => {
+                self.protocol = Some(protocol.to_vec());
+                self.poisoned = false;
+                Ok(())
+            }
+            Some(_) => Err(MeshTailscaleError::Handshake(format!(
+                "peer {peer} does not serve {name} over mesh.tailscale"
+            ))),
+            None => Err(MeshTailscaleError::Handshake(format!(
+                "peer {peer} answered the {name} selection with a reply that is not a protocol \
+                 answer (a build without protocol selection?)"
+            ))),
+        }
+    }
+
+    /// Server side: read the client's protocol selection and accept it if it
+    /// names one of `served`, returning the name.
+    ///
+    /// The selection is read under a small fixed cap (checked against the
+    /// declared length before allocation) and the handshake timeout. In
+    /// `entangle-on-top` mode the allowlist is consulted before the record
+    /// is parsed. On any failure the connection stays unusable: the caller
+    /// drops it. An unserved protocol is answered "not served" first, so
+    /// the client can tell that apart from a network failure.
+    pub async fn accept_protocol(
+        &mut self,
+        served: &[&[u8]],
+    ) -> Result<Vec<u8>, MeshTailscaleError> {
+        self.begin()?;
+        let limit = self.setup_timeout;
+        let read = timeout(
+            limit,
+            read_sealed_opt(&mut self.stream, &mut self.opener, SELECT_MAX),
+        )
+        .await;
+        let record = match read {
+            Err(_) => {
+                return Err(MeshTailscaleError::Protocol(format!(
+                    "no protocol selection within {}ms",
+                    limit.as_millis()
+                )))
+            }
+            Ok(Err(e)) => return Err(e),
+            Ok(Ok(None)) => {
+                return Err(MeshTailscaleError::Stream(
+                    "peer closed the connection before selecting a protocol".into(),
+                ))
+            }
+            Ok(Ok(Some(record))) => record,
+        };
+        if let Some(list) = &self.allowlist {
+            if !list.is_allowed(&self.remote.peer_id) {
+                return Err(MeshTailscaleError::PeerNotAllowed(self.remote.peer_id));
+            }
+        }
+        let Some(name) = decode_select(&record) else {
+            return Err(MeshTailscaleError::Protocol(
+                "the first record is not a protocol selection".into(),
+            ));
+        };
+        let max = self.max_frame_bytes;
+        if !served.contains(&name) {
+            let what = String::from_utf8_lossy(name).into_owned();
+            let _ = timeout(
+                limit,
+                write_sealed(
+                    &mut self.stream,
+                    &mut self.sealer,
+                    &encode_answer(STATUS_NOT_SERVED),
+                    max,
+                ),
+            )
+            .await;
+            return Err(MeshTailscaleError::Protocol(format!(
+                "peer asked for {what:?}, which is not served here"
+            )));
+        }
+        let name = name.to_vec();
+        match timeout(
+            limit,
+            write_sealed(
+                &mut self.stream,
+                &mut self.sealer,
+                &encode_answer(STATUS_SERVED),
+                max,
+            ),
+        )
+        .await
+        {
+            Ok(r) => r?,
+            Err(_) => return Err(MeshTailscaleError::request_timeout(limit)),
+        }
+        self.protocol = Some(name.clone());
+        self.poisoned = false;
+        Ok(name)
+    }
+
+    /// Turn the connection into a long-lived bidirectional framed stream
+    /// (see [`SealedStream`]). Fails on a connection an earlier exchange
+    /// left unusable.
+    ///
+    /// The stream keeps the connection's frame cap, its allowlist re-check
+    /// (server side, `entangle-on-top`) and its place in the server's
+    /// connection limits until both halves are dropped.
+    pub fn into_stream(self) -> Result<SealedStream, MeshTailscaleError> {
+        if self.poisoned {
+            return Err(MeshTailscaleError::Stream(
+                "connection is unusable after an earlier failed, timed-out or cancelled \
+                 exchange; open a new one"
+                    .into(),
+            ));
+        }
+        let (read, write) = self.stream.into_split();
+        Ok(SealedStream::assemble(
+            read,
+            write,
+            self.sealer,
+            self.opener,
+            self.remote.public_key,
+            self.remote.peer_id,
+            self.allowlist,
+            self.slot,
+            self.max_frame_bytes,
+        ))
     }
 
     fn begin(&mut self) -> Result<(), MeshTailscaleError> {
