@@ -523,8 +523,14 @@ fn atc_rel_1_release_workflow_signs_only_tag_runs_and_verifies_with_the_pinned_i
     let run = verify["run"].as_str().unwrap();
     assert!(run.contains("--certificate-identity-regexp \"${identity_re}\""));
     // The env the step declares, filled as GitHub would for the fixture's tag.
-    assert_eq!(verify["env"]["REPO"].as_str(), Some("${{ github.repository }}"));
-    assert_eq!(verify["env"]["REF_NAME"].as_str(), Some("${{ github.ref_name }}"));
+    assert_eq!(
+        verify["env"]["REPO"].as_str(),
+        Some("${{ github.repository }}")
+    );
+    assert_eq!(
+        verify["env"]["REF_NAME"].as_str(),
+        Some("${{ github.ref_name }}")
+    );
 
     let dir = TempDir::new().unwrap();
     let bin = dir.path().join("bin");

@@ -154,7 +154,21 @@ fn tampered_and_truncated_archives_are_rejected_without_writing() {
     let bytes = std::fs::read(&ar).unwrap();
 
     // Header (magic, version, salt, nonce), body and tag, one byte each.
-    for idx in [0, 9, 30, 50, 63, bytes.len() / 2, bytes.len() - 1] {
+    // 11..23 is the Argon2 parameter block (m, t, p): flipped here too.
+    for idx in [
+        0,
+        9,
+        10,
+        11,
+        12,
+        18,
+        22,
+        30,
+        50,
+        63,
+        bytes.len() / 2,
+        bytes.len() - 1,
+    ] {
         let mut bad = bytes.clone();
         bad[idx] ^= 0x80;
         let p = work.path().join(format!("bad{idx}.bak"));
@@ -176,6 +190,47 @@ fn tampered_and_truncated_archives_are_rejected_without_writing() {
     restore(TempDir::new().unwrap().path(), &p, &pass, &[])
         .failure()
         .stderr(predicate::str::contains("ENTANGLE-E0861"));
+}
+
+/// A hostile KDF parameter block is refused by the bounds check before any
+/// key derivation runs (no 1 GiB+ allocation); an in-range change is caught by
+/// the authenticated header instead.
+#[test]
+fn oversized_kdf_parameters_are_refused_before_the_kdf_runs() {
+    let old = TempDir::new().unwrap();
+    populate(old.path());
+    let work = TempDir::new().unwrap();
+    let pass = passfile(work.path(), "correct horse battery");
+    let ar = work.path().join("node.bak");
+    backup(old.path(), &ar, &pass, &[]).success();
+    let bytes = std::fs::read(&ar).unwrap();
+
+    // (offset of the big-endian u32, name): m_cost, t_cost, lanes.
+    for (off, name) in [(11, "m_cost"), (15, "t_cost"), (19, "lanes")] {
+        let mut bad = bytes.clone();
+        bad[off..off + 4].copy_from_slice(&0x7fff_ffffu32.to_be_bytes());
+        let p = work.path().join(format!("huge-{name}.bak"));
+        std::fs::write(&p, bad).unwrap();
+        let new = TempDir::new().unwrap();
+        let started = std::time::Instant::now();
+        restore(new.path(), &p, &pass, &[]).failure().stderr(
+            predicate::str::contains("ENTANGLE-E0861")
+                .and(predicate::str::contains("out of range")),
+        );
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "{name}: the bound must trip before the KDF"
+        );
+        assert!(!new.path().join(".entangle").exists(), "{name}");
+    }
+    // In range but not what was sealed: the header is authenticated.
+    let mut bad = bytes.clone();
+    bad[18] = bad[18].wrapping_sub(1); // t_cost one lower
+    let p = work.path().join("t-minus-one.bak");
+    std::fs::write(&p, bad).unwrap();
+    restore(TempDir::new().unwrap().path(), &p, &pass, &[])
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0862"));
 }
 
 #[test]
