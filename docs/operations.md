@@ -1259,8 +1259,11 @@ is fed by the same span pipeline as the OTLP exporter, so both can run) indexed
 by trace id and by task id. `trace/get` returns the spans of one task
 (`task_id` is on `task.dispatch`, `remote.dispatch` and `remote.task.execute`)
 or of one trace id; `entangle trace task <id> [--json]` prints the span tree
-with duration, kind, status (`ERROR: …` for a failed span; warnings inside a
-span are listed under it) and the key attributes. A task can have more than
+with duration, kind, status (`ERROR: …` for a failed span: `task.dispatch`,
+`remote.dispatch`, `remote.task.execute` and `plugin.invoke` carry the error
+their call ended with; warnings inside a span, including what a plugin printed
+at `warn` or `error`, are listed under it but do not fail it) and the key
+attributes. A task can have more than
 one trace (its dispatch, and a Layer-2 spot-check re-run, which is a root of its
 own and carries `task_id`); all are printed.
 

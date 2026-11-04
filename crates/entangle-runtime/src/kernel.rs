@@ -1226,11 +1226,18 @@ impl Kernel {
             plugin = %plugin_id,
             world = "plugin",
             input_bytes = input.len() as u64,
+            otel.status_code = tracing::field::Empty,
+            otel.status_message = tracing::field::Empty,
         );
         let result = self
             .invoke_inner(plugin_id, input, timeout_ms)
-            .instrument(span)
+            .instrument(span.clone())
             .await;
+        // The call's result, not what the plugin printed, is the span's status.
+        if let Err(e) = &result {
+            entangle_observability::context::record_error(&span, &e.to_string());
+        }
+        drop(span);
         if let Some(m) = &self.metrics {
             // A call for an id that is not loaded must not mint a label
             // value: it is filed under `unknown`.
@@ -1465,6 +1472,8 @@ impl Kernel {
             plugin = %plugin_id,
             world = "stream-plugin",
             input_bytes = input.len() as u64,
+            otel.status_code = tracing::field::Empty,
+            otel.status_message = tracing::field::Empty,
         );
         // Records the outcome on every path, including the future being
         // dropped mid-stream (`cancelled`).
@@ -1480,9 +1489,16 @@ impl Kernel {
         let teardown = port.teardown_signal();
         let result = self
             .invoke_stream_inner(plugin_id, input, port, timeout_ms)
-            .instrument(span)
+            .instrument(span.clone())
             .await;
-        recorder.finish(&result, teardown.torn_down());
+        let torn_down = teardown.torn_down();
+        // A failure caused by the executor tearing the stream down is not the
+        // plugin's: only its own failures mark the span.
+        if let (Err(e), false) = (&result, torn_down) {
+            entangle_observability::context::record_error(&span, &e.to_string());
+        }
+        drop(span);
+        recorder.finish(&result, torn_down);
         result
     }
 

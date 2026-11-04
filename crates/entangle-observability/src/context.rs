@@ -464,6 +464,10 @@ where
         if *event.metadata().level() > Level::WARN {
             return;
         }
+        // Text a plugin printed (at whatever level it chose) is listed under
+        // the span, but it is not the call's outcome: it cannot fail the
+        // span. The outcome is recorded with [`record_error`].
+        let plugin_output = is_plugin_output(event.metadata().target());
         let Some(span) = ctx.event_span(event) else {
             return;
         };
@@ -478,6 +482,7 @@ where
             .clone()
             .unwrap_or_else(|| event.metadata().name().to_owned());
         if *event.metadata().level() == Level::ERROR
+            && !plugin_output
             && !matches!(state.status, SpanStatus::Error(_))
         {
             state.status = SpanStatus::Error(clip(message.clone()));
@@ -512,6 +517,26 @@ where
             status: state.status,
         });
     }
+}
+
+/// Whether events of `target` carry text a plugin printed: the `tracing`
+/// targets of wasm plugin output ([`crate::logs::PLUGIN_OUTPUT_TARGET`]) and
+/// native plugin stderr ([`crate::logs::NATIVE_OUTPUT_TARGET`]).
+pub fn is_plugin_output(target: &str) -> bool {
+    target == crate::logs::PLUGIN_OUTPUT_TARGET || target == crate::logs::NATIVE_OUTPUT_TARGET
+}
+
+/// Mark `span` failed: OTel status `ERROR`, with `message` (the error) as
+/// the status message.
+///
+/// `tracing` records only fields a span declared, so the span must be
+/// created with both pseudo-fields empty:
+/// `otel.status_code = tracing::field::Empty, otel.status_message = tracing::field::Empty`.
+/// Call it with the operation's actual result; a successful operation keeps
+/// status `Unset` (the OTel convention for instrumentation).
+pub fn record_error(span: &tracing::Span, message: &str) {
+    span.record("otel.status_code", "ERROR");
+    span.record("otel.status_message", message);
 }
 
 // ── propagation helpers ──────────────────────────────────────────────────────
@@ -745,6 +770,50 @@ mod tests {
             s.events[0].attributes,
             vec![("code".to_owned(), AttrValue::Int(7))]
         );
+    }
+
+    /// Text a plugin printed (its guest `log` import at level `error`, a
+    /// native plugin's stderr) is not the outcome of the call it ran in: it
+    /// is listed under the span but cannot mark the span failed.
+    #[test]
+    fn plugin_output_at_error_level_does_not_set_the_span_status() {
+        let (_, spans) = with_layer(|| {
+            let span = info_span!("plugin.invoke");
+            let _g = span.enter();
+            tracing::error!(target: "entangle::plugin", plugin = "p", stream = "log", "disk full");
+            tracing::error!(target: "entangle::native", plugin = "p", "native says no");
+        });
+        let s = &spans[0];
+        assert_eq!(s.status, SpanStatus::Unset);
+        let names: Vec<_> = s.events.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["disk full", "native says no"]);
+    }
+
+    #[test]
+    fn record_error_fails_the_span_with_the_outcome_over_an_earlier_error_event() {
+        let (_, spans) = with_layer(|| {
+            let span = info_span!(
+                "plugin.invoke",
+                otel.status_code = tracing::field::Empty,
+                otel.status_message = tracing::field::Empty,
+            );
+            span.in_scope(|| tracing::error!("an earlier problem"));
+            record_error(&span, "ENTANGLE-E0000: the call failed");
+            let ok = info_span!(
+                "ok",
+                otel.status_code = tracing::field::Empty,
+                otel.status_message = tracing::field::Empty,
+            );
+            drop(ok);
+        });
+        let failed = spans.iter().find(|s| s.name == "plugin.invoke").unwrap();
+        assert_eq!(
+            failed.status,
+            SpanStatus::Error("ENTANGLE-E0000: the call failed".into())
+        );
+        assert!(failed.attributes.is_empty(), "{:?}", failed.attributes);
+        let ok = spans.iter().find(|s| s.name == "ok").unwrap();
+        assert_eq!(ok.status, SpanStatus::Unset);
     }
 
     #[test]

@@ -762,3 +762,171 @@ async fn the_trace_count_cap_comes_from_config_and_holds() {
     assert_eq!(store.by_task(&format!("{:032x}", 49)).len(), 1);
     assert!(store.by_task(&format!("{:032x}", 39)).is_empty());
 }
+
+// ── a failed task: the spans that failed say so ──────────────────────────────
+
+fn stress_wasm() -> Vec<u8> {
+    std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-host/tests/fixtures/stress.wasm"
+    ))
+    .expect("stress.wasm fixture")
+}
+
+/// A signed tier-1 wasm package named `name` in `dir`.
+fn write_named_package(dir: &Path, kp: &IdentityKeyPair, name: &str, wasm: &[u8]) -> PluginId {
+    let id = format!("{}/{name}@0.1.0", kp.fingerprint_hex());
+    let manifest = format!(
+        "[plugin]\nid = \"{id}\"\nversion = \"0.1.0\"\ntier = 1\nruntime = \"wasm\"\ndescription = \"trace\"\n"
+    );
+    std::fs::write(dir.join("entangle.toml"), manifest.as_bytes()).unwrap();
+    std::fs::write(dir.join("plugin.wasm"), wasm).unwrap();
+    std::fs::write(
+        dir.join("plugin.wasm.sig"),
+        toml::to_string(&sign_artifact(wasm, manifest.as_bytes(), kp))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+    id.parse().unwrap()
+}
+
+/// `stress.wasm` answers `spin:<not a number>` with `invalid-input`.
+fn failing_task(plugin: &PluginId) -> OneShotTask {
+    OneShotTask {
+        id: uuid::Uuid::new_v4(),
+        plugin: plugin.clone(),
+        input: b"spin:not-a-number".to_vec(),
+        max_input_bytes: OneShotTask::DEFAULT_MAX_INPUT_BYTES,
+        max_output_bytes: OneShotTask::DEFAULT_MAX_OUTPUT_BYTES,
+        resources: ResourceSpec::default(),
+        integrity: IntegrityPolicy::None,
+        timeout_ms: 10_000,
+    }
+}
+
+async fn trace_of(state: &Arc<DaemonState>, task_id: &str) -> Vec<SpanWire> {
+    let v = rpc(state, "trace/get", serde_json::json!({ "id": task_id })).await;
+    assert!(v.get("error").is_none(), "{v}");
+    let t: TraceGetResult = serde_json::from_value(v["result"].clone()).unwrap();
+    assert_eq!(t.traces.len(), 1, "{t:?}");
+    t.traces.into_iter().next().unwrap().spans
+}
+
+fn the_span<'a>(spans: &'a [SpanWire], name: &str) -> &'a SpanWire {
+    let m: Vec<&SpanWire> = spans.iter().filter(|s| s.name == name).collect();
+    assert_eq!(m.len(), 1, "{name}: {spans:?}");
+    m[0]
+}
+
+fn assert_failed(s: &SpanWire) {
+    assert_eq!(s.status, "error", "{} should be failed: {s:?}", s.name);
+    assert!(
+        s.status_message.as_deref().is_some_and(|m| !m.is_empty()),
+        "{} says why it failed: {s:?}",
+        s.name
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failed_local_task_shows_error_on_its_dispatch_and_invoke_spans() {
+    let publisher = IdentityKeyPair::generate();
+    let kernel = Arc::new(Kernel::new(KernelConfig::default(), keyring_for(&publisher)).unwrap());
+    let dir = tempfile::tempdir().unwrap();
+    let plugin = write_named_package(dir.path(), &publisher, "trace-fails-local", &stress_wasm());
+    kernel.load_plugin_from_dir(dir.path()).await.unwrap();
+    let pool = WorkerPool::new();
+    let local = PeerId::from_public_key_bytes(IdentityKeyPair::generate().public().as_bytes());
+    let dispatcher = Arc::new(Dispatcher::new(pool.clone(), kernel.clone(), local));
+    let state = state_for(kernel, Dispatcher::clone(&dispatcher), pool);
+
+    let task = failing_task(&plugin);
+    let task_id = task.id.to_string();
+    let err = dispatcher
+        .dispatch_one_shot(task)
+        .await
+        .expect_err("the plugin rejects its input");
+    let spans = trace_of(&state, &task_id).await;
+    let (dispatch, invoke) = (
+        the_span(&spans, "task.dispatch"),
+        the_span(&spans, "plugin.invoke"),
+    );
+    assert_failed(invoke);
+    assert_failed(dispatch);
+    assert!(
+        dispatch
+            .status_message
+            .as_deref()
+            .is_some_and(|m| m.contains(&err.to_string()[..12])),
+        "the dispatch error is {err}: {dispatch:?}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failed_remote_task_shows_error_on_each_span_of_its_tree() {
+    let publisher = IdentityKeyPair::generate();
+    let a_id = IdentityKeyPair::generate();
+    let b_id = IdentityKeyPair::generate();
+    let kernel_a = Arc::new(Kernel::new(KernelConfig::default(), keyring_for(&publisher)).unwrap());
+    let kernel_b = Arc::new(Kernel::new(KernelConfig::default(), keyring_for(&publisher)).unwrap());
+    let ta = Arc::new(MeshIroh::start(loopback_config(), &a_id).await.unwrap());
+    let tb = Arc::new(MeshIroh::start(loopback_config(), &b_id).await.unwrap());
+    let (a_peer, b_peer) = (ta.local_peer_id(), tb.local_peer_id());
+
+    let dir = tempfile::tempdir().unwrap();
+    let plugin = write_named_package(dir.path(), &publisher, "trace-fails-remote", &stress_wasm());
+    kernel_b.load_plugin_from_dir(dir.path()).await.unwrap();
+    let server = Arc::new(RemoteTaskServer::new(
+        kernel_b.clone(),
+        Arc::new(StaticAllowlist::new().allow(a_peer)),
+        Arc::new(CapabilityGate::for_identity(&b_id).unwrap()),
+    ));
+    tokio::spawn(entangle_scheduler::serve_tasks(tb.clone(), server));
+    let pool = WorkerPool::new();
+    pool.upsert(WorkerInfo {
+        peer_id: b_peer,
+        display_name: "worker".into(),
+        cpu_cores: 16.0,
+        memory_bytes: 64 << 30,
+        gpu: None,
+        npu: None,
+        network_bandwidth_bps: 1_000_000_000,
+        rtt_ms: 1,
+        load: 0.0,
+        cost: 1.0,
+    });
+    let directory = PeerDirectory::new();
+    let addr = tb
+        .local_addrs()
+        .into_iter()
+        .find(|a| a.ip().is_loopback())
+        .unwrap();
+    directory.insert(IrohPeer::new(tb.local_public_key(), addr));
+    let tokens = StaticTokens::new();
+    tokens.paired_with(&b_id, a_peer).unwrap();
+    let dispatcher = Arc::new(
+        Dispatcher::new(pool.clone(), kernel_a.clone(), a_peer)
+            .with_strict_remote(true)
+            .with_remote(Arc::new(
+                RemoteDispatch::new(ta.clone() as Arc<dyn MeshTransport>, Arc::new(directory))
+                    .with_capability_tokens(Arc::new(tokens)),
+            )),
+    );
+    let state = state_for(kernel_a, Dispatcher::clone(&dispatcher), pool);
+
+    let task = failing_task(&plugin);
+    let task_id = task.id.to_string();
+    tokio::time::timeout(Duration::from_secs(30), dispatcher.dispatch_one_shot(task))
+        .await
+        .expect("dispatch finished")
+        .expect_err("the worker's plugin rejects its input");
+    let spans = trace_of(&state, &task_id).await;
+    for name in [
+        "task.dispatch",
+        "remote.dispatch",
+        "remote.task.execute",
+        "plugin.invoke",
+    ] {
+        assert_failed(the_span(&spans, name));
+    }
+}

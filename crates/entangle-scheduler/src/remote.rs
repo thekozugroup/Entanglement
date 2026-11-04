@@ -308,6 +308,8 @@ impl RemoteDispatch {
             peer = %peer,
             plugin = %task.plugin,
             transport = tracing::field::Empty,
+            otel.status_code = tracing::field::Empty,
+            otel.status_message = tracing::field::Empty,
         );
         let (response, kind) = self
             .dispatch_traced(task, peer, envelope)
@@ -332,6 +334,9 @@ impl RemoteDispatch {
                 message,
             }),
         });
+        if let Err(e) = &result {
+            entangle_observability::context::record_error(&span, &e.to_string());
+        }
         (result, kind)
     }
 
@@ -1085,11 +1090,20 @@ impl RemoteTaskServer {
             peer = %from,
             plugin = %request.plugin,
             transport = transport.as_str(),
+            otel.status_code = tracing::field::Empty,
+            otel.status_message = tracing::field::Empty,
         );
         if let Some(tp) = request.traceparent.as_deref() {
             entangle_observability::context::set_remote_parent(&span, tp);
         }
-        self.run_task_inner(from, request).instrument(span).await
+        let response = self
+            .run_task_inner(from, request)
+            .instrument(span.clone())
+            .await;
+        if let RemoteOutcome::Err { code, message } = &response.outcome {
+            entangle_observability::context::record_error(&span, &format!("{code}: {message}"));
+        }
+        response
     }
 
     async fn run_task_inner(&self, from: PeerId, request: RemoteTaskRequest) -> RemoteTaskResponse {
