@@ -63,7 +63,7 @@ Tests
 
 - `entangle-mesh-tailscale` and `entangle-oci` are implemented (they were scaffolds).
 - The workspace has 27 members (was 26).
-- STATUS.md, README.md, tutorial and architecture status text updated to match the code.
+- STATUS.md, README.md, tutorial, install guide and architecture status text updated to match the code.
 
 ### Fixed
 
