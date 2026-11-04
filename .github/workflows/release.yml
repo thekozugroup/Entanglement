@@ -20,10 +20,32 @@ env:
 # removes that vector. Dependabot (github-actions ecosystem) forwards the pins.
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
+  # Job 0: governance gate (ATC-BUS-2, spec 12.1): a release may only be cut
+  # when the newest note in docs/governance/rotations.md is at most 35 days old.
+  # ─────────────────────────────────────────────────────────────────────────────
+  rotation_note_fresh:
+    name: rotation_note_fresh
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch (no version tags)
+        with:
+          toolchain: "1.91"
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: tools/xtask
+
+      - name: Newest rotation note must be within 35 days
+        run: cargo xtask rotation-note-check
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Job 1: Build + package on each platform
   # ─────────────────────────────────────────────────────────────────────────────
   build:
     name: Build (${{ matrix.target }})
+    needs: rotation_note_fresh
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -203,6 +225,22 @@ jobs:
               --bundle "${bundle}" \
               "${tarball}"
             echo "Signed ${tarball} -> ${bundle}"
+          done
+
+      # Real cosign is exercised here (ATC-REL-1). The unit tests for
+      # `entangle release verify` use a fake cosign that only checks the
+      # argument vector; this step proves the same invocation is accepted by
+      # the real binary against the real Rekor entry.
+      - name: Verify each bundle with cosign (same flags as `entangle release verify`)
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          for tarball in entanglement-*.tar.gz; do
+            cosign verify-blob \
+              --bundle "${tarball}.sigstore" \
+              --certificate-identity-regexp "https://github.com/${REPO}/.+" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "${tarball}"
           done
 
       - name: Upload sigstore bundles

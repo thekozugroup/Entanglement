@@ -27,6 +27,8 @@
 //! is consistent with what xtask already does (it shells out to `cargo` and
 //! `rustup`) and keeps `cargo xtask` free of heavy runtime dependencies.
 
+mod governance;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -59,6 +61,44 @@ enum Task {
         #[command(subcommand)]
         action: ExampleAction,
     },
+    /// ATC-BUS-1: every role has >= 2 active holders (>= 1 merge in 60 days).
+    /// Exits non-zero on a violation.
+    #[command(name = "bus-factor")]
+    BusFactor {
+        /// Roles file.
+        #[arg(long, default_value = "docs/maintainers/roles.toml")]
+        roles: PathBuf,
+        /// Git repository to read merges from.
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+        /// Override "now" (unix seconds), for tests.
+        #[arg(long)]
+        now: Option<i64>,
+        /// Write the P0 issue body here when there is a violation.
+        #[arg(long)]
+        report: Option<PathBuf>,
+    },
+    /// ATC-BUS-2: the newest note in docs/governance/rotations.md must be at
+    /// most 35 days old. Exits non-zero otherwise.
+    #[command(name = "rotation-note-check")]
+    RotationNoteCheck {
+        /// Rotations file.
+        #[arg(long, default_value = "docs/governance/rotations.md")]
+        file: PathBuf,
+        /// Maximum age in days.
+        #[arg(long, default_value_t = governance::ROTATION_MAX_AGE_DAYS)]
+        max_age_days: i64,
+        /// Override today's date (YYYY-MM-DD), for tests.
+        #[arg(long)]
+        today: Option<String>,
+    },
+}
+
+fn unix_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 #[derive(Subcommand)]
@@ -97,6 +137,44 @@ fn main() -> Result<()> {
         Task::HashIt {
             action: ExampleAction::Build { key },
         } => build_plugin(&example_dir("hash-it"), key),
+        Task::BusFactor {
+            roles,
+            repo,
+            now,
+            report,
+        } => {
+            let violations = governance::bus_factor(&governance::BusFactorOptions {
+                roles_file: &roles,
+                repo: &repo,
+                now_unix: now.unwrap_or_else(unix_now),
+                report: report.as_deref(),
+            })?;
+            if violations.is_empty() {
+                println!("bus factor OK: every role has >= 2 active holders");
+                Ok(())
+            } else {
+                for v in &violations {
+                    eprintln!("VIOLATION {v}");
+                }
+                bail!("bus factor violated for {} role(s)", violations.len())
+            }
+        }
+        Task::RotationNoteCheck {
+            file,
+            max_age_days,
+            today,
+        } => {
+            let text = std::fs::read_to_string(&file)
+                .with_context(|| format!("reading {}", file.display()))?;
+            let today_days = match today {
+                Some(t) => governance::parse_date(&t)
+                    .with_context(|| format!("--today {t:?} is not YYYY-MM-DD"))?,
+                None => unix_now().div_euclid(86_400),
+            };
+            let msg = governance::rotation_note_check(&text, today_days, max_age_days)?;
+            println!("rotation notes OK: {msg}");
+            Ok(())
+        }
     }
 }
 

@@ -65,6 +65,9 @@ pub enum PluginsCmd {
         /// Overwrite files that already exist.
         #[arg(long)]
         force: bool,
+        /// Skip `cargo generate-lockfile` (builds need a Cargo.lock; create one yourself).
+        #[arg(long)]
+        no_lockfile: bool,
     },
     /// Build and sign a plugin project into `<dir>/dist/`.
     ///
@@ -293,7 +296,9 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             description,
             sdk,
             force,
+            no_lockfile,
         } => crate::cmd::scaffold::run(crate::cmd::scaffold::NewOptions {
+            no_lockfile,
             name,
             path,
             tier: tier.unwrap_or(if native { 5 } else { 1 }),

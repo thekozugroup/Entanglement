@@ -7215,6 +7215,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "tempfile",
+ "toml 0.8.23",
 ]
 
 [[package]]
