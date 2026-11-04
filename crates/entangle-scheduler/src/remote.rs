@@ -29,6 +29,17 @@
 //! * an id absent from the allowlist, or present but revoked, gets
 //!   [`RemoteErrorCode::NotAuthorized`] and nothing else happens.
 //!
+//! A task frame from an allowlisted peer must then carry a capability token
+//! ([`crate::capability`]): an attenuation of the `mesh.peer` token this
+//! node issued to that peer while pairing, bound to this request, expiring
+//! within 60 s, with a fresh nonce. [`CapabilityGate`] verifies it — root
+//! this node's key, holder the transport-authenticated caller, binding,
+//! nonce, revocation set — before anything else runs; a missing token is
+//! [`RemoteErrorCode::CapabilityRequired`] and a bad one
+//! [`RemoteErrorCode::CapabilityRejected`]. Control frames carry no token:
+//! they only address the caller's own in-flight tasks and never execute
+//! anything.
+//!
 //! On top of that the executor clamps what an authorized peer can ask for:
 //! the timeout is capped ([`MAX_REMOTE_TASK_TIMEOUT_MS`]) so a caller cannot
 //! pin a worker indefinitely, input and output sizes are capped, and the task
@@ -76,6 +87,7 @@ use entangle_types::task::{IntegrityPolicy, OneShotTask, TaskId};
 use parking_lot::{Mutex, RwLock};
 use tracing::Instrument as _;
 
+use crate::capability::{present_to, task_binding, CapabilityGate, CapabilityTokens, GatePath};
 use crate::dispatcher::DispatchError;
 use crate::transport::{
     AttemptCell, Connecting, DialTarget, IrohLink, Link, LinkError, RouteError, TransportKind,
@@ -164,6 +176,9 @@ pub struct RemoteDispatch {
     /// `MalformedRequest` (a pre-extension build): we stop attaching it for
     /// them.
     no_trace_extension: Arc<Mutex<HashSet<PeerId>>>,
+    /// Where the token to present to each peer comes from; `None` falls back
+    /// to the router's ([`TransportRouter::capability_tokens`]).
+    tokens: Option<Arc<dyn CapabilityTokens>>,
 }
 
 impl std::fmt::Debug for RemoteDispatch {
@@ -196,7 +211,21 @@ impl RemoteDispatch {
             router,
             overhead: DEFAULT_REMOTE_OVERHEAD,
             no_trace_extension: Arc::default(),
+            tokens: None,
         }
+    }
+
+    /// Present tokens from `tokens` (instead of the router's) on every task
+    /// frame: each request carries a fresh per-request attenuation of the
+    /// token held for its peer (see [`crate::capability`]).
+    #[must_use]
+    pub fn with_capability_tokens(mut self, tokens: Arc<dyn CapabilityTokens>) -> Self {
+        self.tokens = Some(tokens);
+        self
+    }
+
+    fn token_source(&self) -> Option<&Arc<dyn CapabilityTokens>> {
+        self.tokens.as_ref().or(self.router.capability_tokens())
     }
 
     /// Override the slack added to the task timeout when forming the deadline.
@@ -326,7 +355,14 @@ impl RemoteDispatch {
             entangle_observability::context::current_traceparent()
         };
         let body = RemoteTaskRequest::sealed(task, envelope);
-        let request = RemoteRequest::task(body.clone().with_traceparent(traceparent.clone()));
+        // Each frame gets its own attenuation (fresh nonce): a resend is a
+        // new request as far as the executor's replay cache is concerned.
+        let binding = task_binding(&body);
+        let request = RemoteRequest::task(
+            body.clone()
+                .with_traceparent(traceparent.clone())
+                .with_capability(present_to(self.token_source(), &peer, binding)),
+        );
         let (response, kind) = self
             .round_trip(peer, &request, budget, task.max_output_bytes, None)
             .await;
@@ -346,6 +382,7 @@ impl RemoteDispatch {
         }
         tracing::debug!(%peer, "peer rejected the traceparent extension; resending without it");
         self.no_trace_extension.lock().insert(peer);
+        let body = body.with_capability(present_to(self.token_source(), &peer, binding));
         self.round_trip(
             peer,
             &RemoteRequest::task(body),
@@ -709,6 +746,7 @@ impl Drop for InFlightGuard {
 pub struct RemoteTaskServer {
     kernel: Arc<Kernel>,
     allowlist: Arc<dyn PeerAllowlist>,
+    gate: Arc<CapabilityGate>,
     local_peer_id: PeerId,
     max_timeout_ms: u64,
     max_input_bytes: u64,
@@ -723,6 +761,7 @@ impl std::fmt::Debug for RemoteTaskServer {
         f.debug_struct("RemoteTaskServer")
             .field("local_peer_id", &self.local_peer_id)
             .field("allowlist", &self.allowlist)
+            .field("requires_tokens", &self.gate.requires_tokens())
             .field("max_timeout_ms", &self.max_timeout_ms)
             .field("max_input_bytes", &self.max_input_bytes)
             .field("max_output_bytes", &self.max_output_bytes)
@@ -732,16 +771,19 @@ impl std::fmt::Debug for RemoteTaskServer {
 }
 
 impl RemoteTaskServer {
-    /// Serve `kernel` to the peers `allowlist` authorizes.
+    /// Serve `kernel` to the peers `allowlist` authorizes, each request
+    /// also authorised by a capability token that `gate` verifies (the
+    /// gate's key is this node's identity; its peer id is this node's).
     pub fn new(
         kernel: Arc<Kernel>,
         allowlist: Arc<dyn PeerAllowlist>,
-        local_peer_id: PeerId,
+        gate: Arc<CapabilityGate>,
     ) -> Self {
         Self {
             kernel,
             allowlist,
-            local_peer_id,
+            local_peer_id: gate.local_peer_id(),
+            gate,
             max_timeout_ms: MAX_REMOTE_TASK_TIMEOUT_MS,
             max_input_bytes: OneShotTask::DEFAULT_MAX_INPUT_BYTES,
             max_output_bytes: OneShotTask::DEFAULT_MAX_OUTPUT_BYTES,
@@ -904,7 +946,25 @@ impl RemoteTaskServer {
         };
 
         match request.frame {
-            RequestFrame::Task(task) => self.run_task(from, task, transport).await,
+            RequestFrame::Task(task) => {
+                // ── THE CAPABILITY GATE ──────────────────────────────────
+                // After the allowlist and the decode, before any work: the
+                // token must be this node's, issued to `from`, bound to this
+                // request, fresh and unrevoked.
+                let binding = task_binding(&task);
+                if let Err(refusal) =
+                    self.gate
+                        .check(from, task.capability.as_deref(), binding, GatePath::Task)
+                {
+                    let code = if refusal.is_missing() {
+                        RemoteErrorCode::CapabilityRequired
+                    } else {
+                        RemoteErrorCode::CapabilityRejected
+                    };
+                    return RemoteTaskResponse::err(code, refusal.error.to_string());
+                }
+                self.run_task(from, task, transport).await
+            }
             RequestFrame::Control(control) => self.control(from, control),
         }
     }
@@ -1423,7 +1483,13 @@ mod tests {
             )
             .expect("kernel"),
         );
-        let server = RemoteTaskServer::new(kernel, Arc::new(StaticAllowlist::new()), peer(0))
+        let gate = || {
+            Arc::new(
+                CapabilityGate::for_identity(&entangle_signing::IdentityKeyPair::generate())
+                    .expect("gate"),
+            )
+        };
+        let server = RemoteTaskServer::new(kernel, Arc::new(StaticAllowlist::new()), gate())
             .with_max_timeout_ms(u64::MAX)
             .with_max_bytes(u64::MAX, u64::MAX);
         assert_eq!(server.max_timeout_ms, MAX_REMOTE_TASK_TIMEOUT_MS);
@@ -1442,7 +1508,7 @@ mod tests {
                 .expect("kernel"),
             ),
             Arc::new(StaticAllowlist::new()),
-            peer(0),
+            gate(),
         )
         .with_max_timeout_ms(250)
         .with_max_bytes(64, 128);

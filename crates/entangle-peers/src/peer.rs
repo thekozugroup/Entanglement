@@ -89,6 +89,16 @@ impl TrustedPeer {
         hex::decode(self.capability_token.as_deref()?).ok()
     }
 
+    /// The token to present to this peer and the key it is rooted at (the
+    /// peer's own): `None` when the peer is revoked, holds no token, or its
+    /// record does not decode.
+    pub fn presentable_token(&self) -> Option<(Vec<u8>, [u8; 32])> {
+        if self.trust == TrustLevel::Revoked {
+            return None;
+        }
+        Some((self.capability_token_bytes()?, self.public_key_bytes()?))
+    }
+
     /// The revocation ids of the token this node issued, decoded. Entries
     /// that are not valid hex are skipped.
     pub fn issued_revocation_ids(&self) -> Vec<Vec<u8>> {

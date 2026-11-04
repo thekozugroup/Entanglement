@@ -29,6 +29,16 @@
 //!   executor observed. v1 peers are refused with
 //!   [`WireError::UnsupportedVersion`] / [`RemoteErrorCode::UnsupportedVersion`].
 //!
+//! ## Extension blocks (still v2)
+//!
+//! A task frame may be followed by tagged extension blocks, each at most
+//! once, in any order: [`TRACE_EXTENSION_TAG`] (the submitter's
+//! `traceparent`) and [`CAPABILITY_EXTENSION_TAG`] (the per-request
+//! capability token, see [`crate::capability`]). A frame without them is
+//! byte-for-byte a plain v2 frame, so nodes that predate a block keep
+//! talking to nodes that do not send it; a node that predates a block
+//! refuses a frame carrying it as malformed (trailing bytes).
+//!
 //! # Untrusted input
 //!
 //! Every byte handled here arrives from a remote peer. The decoders therefore
@@ -65,6 +75,11 @@ use crate::work_unit::{PolicyEnvelope, PolicyHash, MAX_POLICY_BYTES};
 /// retries once without it when the peer answers `MalformedRequest` (see
 /// `RemoteDispatch`).
 pub const TRACE_EXTENSION_TAG: u8 = 0xE1;
+
+/// First byte of the optional capability-token extension block of a task
+/// frame: the tag followed by the postcard encoding of the token bytes (at
+/// most [`crate::capability::MAX_TOKEN_BYTES`]).
+pub const CAPABILITY_EXTENSION_TAG: u8 = 0xE2;
 
 /// Current envelope version. Bump on any change to the field layout of
 /// [`RemoteRequest`] or [`RemoteTaskResponse`].
@@ -202,6 +217,16 @@ pub struct RemoteTaskRequest {
     /// span belongs to, never for authorization or any other decision.
     #[serde(skip)]
     pub traceparent: Option<String>,
+    /// The per-request capability token: an attenuation of the `mesh.peer`
+    /// token the executor issued to this submitter, bound to this request
+    /// ([`crate::capability::task_binding`]).
+    ///
+    /// **Not part of the postcard envelope** (`serde(skip)`): it travels as
+    /// the [`CAPABILITY_EXTENSION_TAG`] block, so a frame without it is a
+    /// plain v2 frame. The executor verifies it after its peer allowlist and
+    /// before anything else ([`crate::capability::CapabilityGate`]).
+    #[serde(skip)]
+    pub capability: Option<Vec<u8>>,
 }
 
 impl RemoteTaskRequest {
@@ -217,6 +242,7 @@ impl RemoteTaskRequest {
             policy: envelope.canonical().to_vec(),
             policy_hash: envelope.hash(),
             traceparent: None,
+            capability: None,
         }
     }
 
@@ -224,6 +250,13 @@ impl RemoteTaskRequest {
     #[must_use]
     pub fn with_traceparent(mut self, traceparent: Option<String>) -> Self {
         self.traceparent = traceparent;
+        self
+    }
+
+    /// Attach a per-request capability token.
+    #[must_use]
+    pub fn with_capability(mut self, capability: Option<Vec<u8>>) -> Self {
+        self.capability = capability;
         self
     }
 }
@@ -338,6 +371,14 @@ pub enum RemoteErrorCode {
     /// The caller already has a task with this id in flight on this node.
     /// **No work was done.**
     DuplicateTask,
+    /// The task frame carried no capability token and the executor requires
+    /// one (`ENTANGLE-E0450`; re-pair with `entangle pair`). **No work was
+    /// done.**
+    CapabilityRequired,
+    /// The task frame's capability token was refused (`ENTANGLE-E0451`–
+    /// `E0463`, `E0412`; the message says which check failed). **No work
+    /// was done.**
+    CapabilityRejected,
 }
 
 impl RemoteErrorCode {
@@ -356,6 +397,8 @@ impl RemoteErrorCode {
             Self::PolicyMutation => "policy-mutation",
             Self::UnknownTask => "unknown-task",
             Self::DuplicateTask => "duplicate-task",
+            Self::CapabilityRequired => "capability-required",
+            Self::CapabilityRejected => "capability-rejected",
         }
     }
 }
@@ -418,23 +461,35 @@ pub enum WireError {
 /// Encode a request, refusing anything that could not be sent as one frame.
 pub fn encode_request(req: &RemoteRequest) -> Result<Vec<u8>, WireError> {
     let mut bytes = encode(req)?;
-    if let RequestFrame::Task(RemoteTaskRequest {
-        traceparent: Some(tp),
-        ..
-    }) = &req.frame
-    {
-        if tp.len() <= entangle_observability::context::MAX_TRACEPARENT_LEN {
-            bytes.push(TRACE_EXTENSION_TAG);
+    if let RequestFrame::Task(task) = &req.frame {
+        if let Some(tp) = &task.traceparent {
+            if tp.len() <= entangle_observability::context::MAX_TRACEPARENT_LEN {
+                bytes.push(TRACE_EXTENSION_TAG);
+                bytes.extend(
+                    postcard::to_allocvec(tp)
+                        .map_err(|e| WireError::Malformed(format!("encode: {e}")))?,
+                );
+            }
+        }
+        if let Some(token) = &task.capability {
+            if token.len() > crate::capability::MAX_TOKEN_BYTES {
+                return Err(WireError::Malformed(format!(
+                    "capability token of {} bytes exceeds the {}-byte cap",
+                    token.len(),
+                    crate::capability::MAX_TOKEN_BYTES
+                )));
+            }
+            bytes.push(CAPABILITY_EXTENSION_TAG);
             bytes.extend(
-                postcard::to_allocvec(tp)
+                postcard::to_allocvec(token)
                     .map_err(|e| WireError::Malformed(format!("encode: {e}")))?,
             );
-            if bytes.len() > MAX_FRAME_BYTES {
-                return Err(WireError::FrameTooLarge {
-                    actual: bytes.len(),
-                    max: MAX_FRAME_BYTES,
-                });
-            }
+        }
+        if bytes.len() > MAX_FRAME_BYTES {
+            return Err(WireError::FrameTooLarge {
+                actual: bytes.len(),
+                max: MAX_FRAME_BYTES,
+            });
         }
     }
     Ok(bytes)
@@ -466,21 +521,43 @@ fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, WireError> {
 /// ([`crate::work_unit::verify_envelope`]), so it can answer with a typed
 /// code.
 pub fn decode_request(bytes: &[u8]) -> Result<RemoteRequest, WireError> {
-    let (mut req, rest) = decode_prefix::<RemoteRequest>(bytes)?;
-    match (&mut req.frame, rest) {
-        (_, []) => {}
-        // The one permitted extension: a task frame's `traceparent`. Anything
-        // else after the envelope is still a smuggling channel.
-        (RequestFrame::Task(task), [TRACE_EXTENSION_TAG, ext @ ..]) => {
-            let (tp, after) = postcard::take_from_bytes::<String>(ext)
-                .map_err(|e| WireError::Malformed(format!("trace extension: {e}")))?;
-            reject_trailing(after)?;
-            if tp.len() > entangle_observability::context::MAX_TRACEPARENT_LEN {
-                return Err(WireError::Malformed("trace extension too long".into()));
+    let (mut req, mut rest) = decode_prefix::<RemoteRequest>(bytes)?;
+    // The permitted extensions: a task frame's `traceparent` and capability
+    // token, each at most once. Anything else after the envelope is still a
+    // smuggling channel.
+    while !rest.is_empty() {
+        let RequestFrame::Task(task) = &mut req.frame else {
+            reject_trailing(rest)?;
+            break;
+        };
+        match rest {
+            [TRACE_EXTENSION_TAG, ext @ ..] if task.traceparent.is_none() => {
+                let (tp, after) = postcard::take_from_bytes::<String>(ext)
+                    .map_err(|e| WireError::Malformed(format!("trace extension: {e}")))?;
+                if tp.len() > entangle_observability::context::MAX_TRACEPARENT_LEN {
+                    return Err(WireError::Malformed("trace extension too long".into()));
+                }
+                task.traceparent = Some(tp);
+                rest = after;
             }
-            task.traceparent = Some(tp);
+            [CAPABILITY_EXTENSION_TAG, ext @ ..] if task.capability.is_none() => {
+                // Refuse an oversized token from its length prefix, before
+                // copying it out.
+                let (len, _) = postcard::take_from_bytes::<u32>(ext)
+                    .map_err(|e| WireError::Malformed(format!("capability extension: {e}")))?;
+                if len as usize > crate::capability::MAX_TOKEN_BYTES {
+                    return Err(WireError::Malformed(format!(
+                        "capability token of {len} bytes exceeds the {}-byte cap",
+                        crate::capability::MAX_TOKEN_BYTES
+                    )));
+                }
+                let (token, after) = postcard::take_from_bytes::<Vec<u8>>(ext)
+                    .map_err(|e| WireError::Malformed(format!("capability extension: {e}")))?;
+                task.capability = Some(token);
+                rest = after;
+            }
+            _ => reject_trailing(rest)?,
         }
-        (_, rest) => reject_trailing(rest)?,
     }
     if let RequestFrame::Task(task) = &req.frame {
         let actual = task.input.len() as u64;
@@ -643,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    fn only_the_trace_extension_may_follow_the_envelope() {
+    fn only_the_known_extensions_may_follow_the_envelope() {
         let task = sample_task();
         let envelope = PolicyEnvelope::seal(&task.integrity).expect("seal");
         let with_tp = RemoteRequest::task(
@@ -653,9 +730,10 @@ mod tests {
         let plain_len = postcard::to_allocvec(&with_tp).expect("plain").len();
 
         // Unknown tag, junk after the extension, a truncated extension, an
-        // over-long one: all malformed.
+        // over-long one: all malformed. (0xE1 is the trace block, 0xE2 the
+        // capability block; 0xE3 is unassigned.)
         let mut unknown_tag = good.clone();
-        unknown_tag[plain_len] = 0xE2;
+        unknown_tag[plain_len] = 0xE3;
         let mut junk_after = good.clone();
         junk_after.push(0);
         let truncated = good[..good.len() - 3].to_vec();
@@ -679,6 +757,83 @@ mod tests {
         let mut bytes = encode_request(&control).expect("encode");
         bytes.push(TRACE_EXTENSION_TAG);
         bytes.extend(postcard::to_allocvec(TP).expect("encode"));
+        assert!(matches!(
+            decode_request(&bytes),
+            Err(WireError::Malformed(_))
+        ));
+    }
+
+    #[test]
+    fn a_capability_token_travels_as_an_extension_with_or_without_a_traceparent() {
+        let plain = encode_request(&sample_request()).unwrap();
+        for tp in [None, Some(TP.to_owned())] {
+            let mut req = sample_request();
+            if let RequestFrame::Task(t) = &mut req.frame {
+                t.traceparent = tp.clone();
+                t.capability = Some(vec![9; 300]);
+            }
+            let bytes = encode_request(&req).unwrap();
+            assert_eq!(
+                &bytes[..plain.len()],
+                &plain[..],
+                "the envelope is unchanged"
+            );
+            let back = decode_request(&bytes).unwrap();
+            assert_eq!(
+                task_body(&back).capability.as_deref(),
+                Some(&[9u8; 300][..])
+            );
+            assert_eq!(task_body(&back).traceparent, tp);
+        }
+        // Either order decodes; a repeated block does not.
+        let mut swapped = plain.clone();
+        swapped.push(CAPABILITY_EXTENSION_TAG);
+        swapped.extend(postcard::to_allocvec(&vec![1u8, 2]).unwrap());
+        swapped.push(TRACE_EXTENSION_TAG);
+        swapped.extend(postcard::to_allocvec(&TP.to_owned()).unwrap());
+        let back = decode_request(&swapped).unwrap();
+        assert_eq!(task_body(&back).capability.as_deref(), Some(&[1u8, 2][..]));
+        let mut twice = plain.clone();
+        for _ in 0..2 {
+            twice.push(CAPABILITY_EXTENSION_TAG);
+            twice.extend(postcard::to_allocvec(&vec![1u8]).unwrap());
+        }
+        assert!(matches!(
+            decode_request(&twice),
+            Err(WireError::Malformed(_))
+        ));
+    }
+
+    #[test]
+    fn an_oversized_capability_token_is_refused_both_ways() {
+        let mut req = sample_request();
+        if let RequestFrame::Task(t) = &mut req.frame {
+            t.capability = Some(vec![0; crate::capability::MAX_TOKEN_BYTES + 1]);
+        }
+        assert!(matches!(encode_request(&req), Err(WireError::Malformed(_))));
+        let mut bytes = encode_request(&sample_request()).unwrap();
+        bytes.push(CAPABILITY_EXTENSION_TAG);
+        bytes.extend(
+            postcard::to_allocvec(&vec![0u8; crate::capability::MAX_TOKEN_BYTES + 1]).unwrap(),
+        );
+        assert!(matches!(
+            decode_request(&bytes),
+            Err(WireError::Malformed(_))
+        ));
+    }
+
+    #[test]
+    fn a_control_frame_takes_no_extension() {
+        let mut bytes = encode_request(&RemoteRequest::control(ControlFrame {
+            task_id: [1; 16],
+            action: ControlAction::SetPolicy {
+                policy: vec![],
+                policy_hash: PolicyHash([0; 32]),
+            },
+        }))
+        .unwrap();
+        bytes.push(CAPABILITY_EXTENSION_TAG);
+        bytes.extend(postcard::to_allocvec(&vec![1u8]).unwrap());
         assert!(matches!(
             decode_request(&bytes),
             Err(WireError::Malformed(_))
@@ -946,6 +1101,8 @@ mod tests {
             RemoteErrorCode::PolicyMutation,
             RemoteErrorCode::UnknownTask,
             RemoteErrorCode::DuplicateTask,
+            RemoteErrorCode::CapabilityRequired,
+            RemoteErrorCode::CapabilityRejected,
         ];
         let mut labels: Vec<&str> = all.iter().map(|c| c.as_str()).collect();
         labels.sort_unstable();

@@ -31,15 +31,28 @@
 //! Anything else — unknown peer, revoked peer, empty store — is refused
 //! before the request payload is even parsed. A node that has paired with
 //! nobody executes work for nobody.
+//!
+//! # The capability gate
+//!
+//! An allowlisted peer's request must then carry a capability token
+//! ([`entangle_scheduler::capability`]): the `mesh.peer` biscuit this node
+//! minted for it while pairing, attenuated per request. [`capability_gate`]
+//! builds the daemon's verifier — rooted at the daemon identity, consulting
+//! the revocation set in `~/.entangle/revoked-tokens.toml`
+//! ([`StoreRevocations`]) — and [`PeerStoreTokens`] is where outbound
+//! requests find the token to present to each peer (the one it minted for
+//! this node, stored in `peers.toml`).
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use entangle_biscuits::templates::RevocationList;
 use entangle_mesh_iroh::{
     parse_node_addr, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER, ALPN_STREAM,
 };
-use entangle_peers::{PeerStore, TrustLevel};
+use entangle_peers::{PeerStore, RevocationStore, TrustLevel};
 use entangle_runtime::Kernel;
+use entangle_scheduler::capability::{CapabilityGate, CapabilityTokens, HeldToken};
 use entangle_scheduler::{PeerAllowlist, PeerDirectory, RemoteTaskServer, StreamServer};
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
@@ -87,6 +100,97 @@ impl PeerAllowlist for PeerStoreAllowlist {
     }
 }
 
+/// Outbound tokens from the peer store: for each peer, the `mesh.peer`
+/// token it minted for this node while pairing (`capability_token` in
+/// `peers.toml`). A revoked peer, or one paired before tokens existed, has
+/// none.
+#[derive(Clone)]
+pub struct PeerStoreTokens {
+    store: PeerStore,
+}
+
+impl PeerStoreTokens {
+    /// Present tokens from `store`.
+    pub fn new(store: PeerStore) -> Self {
+        Self { store }
+    }
+}
+
+impl std::fmt::Debug for PeerStoreTokens {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PeerStoreTokens")
+            .field("peers", &self.store.len())
+            .finish()
+    }
+}
+
+impl CapabilityTokens for PeerStoreTokens {
+    fn token_for(&self, peer: &PeerId) -> Option<HeldToken> {
+        let (token, issuer_public_key) = self.store.get(peer)?.presentable_token()?;
+        Some(HeldToken {
+            token,
+            issuer_public_key,
+        })
+    }
+}
+
+/// The persisted revocation set as the gate's [`RevocationList`]: re-read
+/// when the file changes (so `entangle peers remove` takes effect without a
+/// restart); an unreadable file refuses every token.
+#[derive(Debug, Clone)]
+pub struct StoreRevocations(pub Arc<RevocationStore>);
+
+impl RevocationList for StoreRevocations {
+    fn any_revoked(&self, ids: &[Vec<u8>]) -> Result<bool, String> {
+        self.0.any_revoked(ids).map_err(|e| e.to_string())
+    }
+}
+
+/// The daemon's capability gate: tokens rooted at `identity`, checked
+/// against `revocations`, required unless `require_tokens` is `false`
+/// (`[trust] require_capability_tokens`), counted into `metrics`.
+///
+/// With `require_tokens = false` this logs the startup warning, naming the
+/// trusted peers this node holds no token for.
+pub fn capability_gate(
+    identity: &IdentityKeyPair,
+    require_tokens: bool,
+    revocations: Arc<RevocationStore>,
+    store: &PeerStore,
+    metrics: Option<entangle_observability::Registry>,
+) -> anyhow::Result<Arc<CapabilityGate>> {
+    if let Err(e) = revocations.len() {
+        tracing::error!(
+            error = %e,
+            path = ?revocations.path(),
+            "the capability-token revocation set cannot be read: every remote request will be \
+             refused (ENTANGLE-E0463) until it is fixed"
+        );
+    }
+    if !require_tokens {
+        let tokenless: Vec<String> = store
+            .list()
+            .into_iter()
+            .filter(|p| p.trust != TrustLevel::Revoked && !p.has_capability_token())
+            .map(|p| p.peer_id.to_hex())
+            .collect();
+        tracing::warn!(
+            tokenless_peers = ?tokenless,
+            "[trust] require_capability_tokens = false: remote tasks and streams from allowlisted \
+             peers are accepted WITHOUT a capability token (each one is counted). Re-pair every \
+             peer with `entangle pair`, then remove this setting"
+        );
+    }
+    let mut gate = CapabilityGate::for_identity(identity)
+        .map_err(|e| anyhow::anyhow!("building the capability gate: {e}"))?
+        .require_tokens(require_tokens)
+        .with_revocations(Arc::new(StoreRevocations(revocations)));
+    if let Some(registry) = metrics {
+        gate = gate.with_metrics(registry);
+    }
+    Ok(Arc::new(gate))
+}
+
 /// Start the QUIC endpoint that carries scheduler traffic.
 ///
 /// Bound to `cfg.bind` and speaking [`ALPN_SCHEDULER`], plus
@@ -123,7 +227,8 @@ pub async fn start_scheduler_transport(
     Ok(Arc::new(transport))
 }
 
-/// Serve scheduler work on `transport` for peers `store` authorizes.
+/// Serve scheduler work on `transport` for peers `store` authorizes and
+/// whose capability tokens `gate` accepts.
 ///
 /// Returns the join handle of the accept loop. The loop exits when the
 /// transport is shut down.
@@ -131,9 +236,9 @@ pub fn spawn_task_server(
     transport: Arc<MeshIroh>,
     kernel: Arc<Kernel>,
     store: PeerStore,
-    local_peer_id: PeerId,
+    gate: Arc<CapabilityGate>,
 ) -> tokio::task::JoinHandle<()> {
-    spawn_task_server_with_metrics(transport, kernel, store, local_peer_id, None)
+    spawn_task_server_with_metrics(transport, kernel, store, gate, None)
 }
 
 /// [`spawn_task_server`] that also counts every answered frame into
@@ -142,7 +247,7 @@ pub fn spawn_task_server_with_metrics(
     transport: Arc<MeshIroh>,
     kernel: Arc<Kernel>,
     store: PeerStore,
-    local_peer_id: PeerId,
+    gate: Arc<CapabilityGate>,
     metrics: Option<entangle_observability::Registry>,
 ) -> tokio::task::JoinHandle<()> {
     let allowlist = Arc::new(PeerStoreAllowlist::new(store));
@@ -150,7 +255,7 @@ pub fn spawn_task_server_with_metrics(
         trusted_peers = ?allowlist,
         "serving scheduler tasks for trusted peers",
     );
-    let mut server = RemoteTaskServer::new(kernel, allowlist, local_peer_id);
+    let mut server = RemoteTaskServer::new(kernel, allowlist, gate);
     if let Some(registry) = metrics {
         server = server.with_metrics(registry);
     }
@@ -170,13 +275,15 @@ pub fn spawn_stream_server(
     kernel: Arc<Kernel>,
     store: PeerStore,
     identity: IdentityKeyPair,
+    gate: Arc<CapabilityGate>,
 ) -> tokio::task::JoinHandle<()> {
     let allowlist = Arc::new(PeerStoreAllowlist::new(store));
     tracing::info!(
         trusted_peers = ?allowlist,
         "serving streaming tasks for trusted peers",
     );
-    let server = Arc::new(StreamServer::new(kernel, allowlist, identity));
+    let server =
+        Arc::new(StreamServer::new(kernel, allowlist, identity).with_capability_gate(gate));
     tokio::spawn(entangle_scheduler::serve_streams(transport, server))
 }
 

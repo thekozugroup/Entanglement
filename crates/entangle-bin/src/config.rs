@@ -38,6 +38,39 @@ pub struct Config {
     pub metrics: MetricsSection,
     /// Tracing export (daemon-only section; off by default).
     pub telemetry: TelemetrySection,
+    /// Trust policy for remote requests (daemon-only section).
+    pub trust: TrustSection,
+}
+
+/// `[trust]` — how this node authorises work peers send it.
+///
+/// ```toml
+/// [trust]
+/// require_capability_tokens = true   # default; `false` only while migrating
+/// ```
+///
+/// With `true` (the default, fail closed), every remote task frame and
+/// stream `Open` must carry a valid per-request capability token (spec
+/// §6.1.1, §6.3 step 4) on top of passing the peer allowlist; a request
+/// without one is refused with `ENTANGLE-E0450`, which tells the sender to
+/// re-pair. With `false`, a request **without** a token from an allowlisted
+/// peer is accepted — the daemon warns at startup and counts each one
+/// (`entangle_remote_capability_checks_total{outcome="tokenless_accepted"}`)
+/// — so peers paired before tokens existed keep working until they re-pair;
+/// a request that **does** carry a token is still fully verified.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct TrustSection {
+    /// Refuse remote requests that carry no capability token.
+    pub require_capability_tokens: bool,
+}
+
+impl Default for TrustSection {
+    fn default() -> Self {
+        Self {
+            require_capability_tokens: true,
+        }
+    }
 }
 
 /// `[wrappers]` section (CLI-owned; accepted so the daemon still starts).
@@ -846,5 +879,20 @@ max_tier_allowed = 2
         let cfg = load_config(&dir.path().join("config.toml")).unwrap();
         assert_eq!(cfg.security.max_tier_allowed, Tier::Native);
         assert!(!cfg.mesh.multi_node);
+    }
+    #[test]
+    fn trust_requires_capability_tokens_unless_told_otherwise() {
+        let cfg: Config = toml::from_str("").expect("empty config");
+        assert!(
+            cfg.trust.require_capability_tokens,
+            "fail closed by default"
+        );
+        let cfg: Config = toml::from_str("[trust]\nrequire_capability_tokens = false\n")
+            .expect("migration setting");
+        assert!(!cfg.trust.require_capability_tokens);
+        assert!(
+            toml::from_str::<Config>("[trust]\nrequire_tokens = false\n").is_err(),
+            "a typo is a startup error, not a silently ignored setting"
+        );
     }
 }

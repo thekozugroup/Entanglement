@@ -24,6 +24,9 @@ entangle-mesh-iroh = { workspace = true }
 # daemon dependency.
 entangle-mesh-tailscale = { workspace = true }
 entangle-signing   = { workspace = true }
+# Capability tokens on the remote paths (`capability`): a light crate,
+# already in the daemon graph through the broker.
+entangle-biscuits  = { workspace = true }
 parking_lot        = { workspace = true }
 blake3             = { workspace = true }
 hex                = { workspace = true }

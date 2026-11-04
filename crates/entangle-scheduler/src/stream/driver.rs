@@ -545,6 +545,11 @@ pub struct StreamOptions {
     pub reputation: Option<Arc<ReputationStore>>,
     /// Receives every [`StreamEvent`] as it happens.
     pub events: Option<mpsc::UnboundedSender<StreamEvent>>,
+    /// Where the capability token to present to the executor comes from:
+    /// the `Open` frame carries a per-request attenuation of the token held
+    /// for it (see [`crate::capability`]). `None` sends no token (an
+    /// executor that requires one refuses the stream).
+    pub capability: Option<std::sync::Arc<dyn crate::capability::CapabilityTokens>>,
 }
 
 /// What a submitter stream did, for the partial-result policy and audit.
@@ -628,7 +633,7 @@ impl StreamHandle {
         let executor = io.remote_peer_id();
         let executor_key = io.remote_public_key();
         let (send, recv, conn) = io.into_parts();
-        let machine =
+        let mut machine =
             match SubmitterMachine::new(task, executor_key, options.submitter, Instant::now()) {
                 Ok(m) => m,
                 Err(e) => {
@@ -638,6 +643,13 @@ impl StreamHandle {
                     return Err(e);
                 }
             };
+        if let Some(token) = crate::capability::present_to(
+            options.capability.as_ref(),
+            &executor,
+            machine.capability_binding(),
+        ) {
+            machine.attach_capability(token);
+        }
         let (cmds, cmd_rx) = mpsc::channel(8);
         let join = tokio::spawn(drive_submitter(
             machine, send, recv, cmd_rx, options, executor,

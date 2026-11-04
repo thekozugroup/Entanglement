@@ -402,6 +402,9 @@ pub struct RouterInputs {
     pub policy: RoutePolicy,
     /// Where stream opens are counted.
     pub metrics: Option<entangle_observability::Registry>,
+    /// The capability tokens to present to peers (task frames and stream
+    /// `Open`s), see [`crate::capability`].
+    pub capability_tokens: Option<Arc<dyn crate::capability::CapabilityTokens>>,
 }
 
 /// The outbound router for `inputs`, or `None` when no transport is running
@@ -412,6 +415,9 @@ pub fn build_router(local_peer_id: PeerId, inputs: RouterInputs) -> Option<Trans
     let mut router = TransportRouter::new(local_peer_id).with_policy(inputs.policy);
     if let Some(registry) = inputs.metrics {
         router = router.with_metrics(registry);
+    }
+    if let Some(tokens) = inputs.capability_tokens {
+        router = router.with_capability_tokens(tokens);
     }
     let mut any = false;
     if let Some(iroh) = &inputs.iroh {
@@ -504,6 +510,8 @@ pub struct TransportRouter {
     connect_backoff: Duration,
     /// When each (peer, transport) last failed to connect.
     connect_failures: Mutex<HashMap<(PeerId, TransportKind), tokio::time::Instant>>,
+    /// The capability tokens presented on task frames and stream `Open`s.
+    capability_tokens: Option<Arc<dyn crate::capability::CapabilityTokens>>,
 }
 
 impl std::fmt::Debug for TransportRouter {
@@ -529,7 +537,26 @@ impl TransportRouter {
             connect_timeout: DEFAULT_ATTEMPT_CONNECT_TIMEOUT,
             connect_backoff: DEFAULT_CONNECT_BACKOFF,
             connect_failures: Mutex::new(HashMap::new()),
+            capability_tokens: None,
         }
+    }
+
+    /// Present capability tokens from `tokens`: every stream `Open` this
+    /// router carries, and every task frame a
+    /// [`RemoteDispatch`](crate::RemoteDispatch) over it sends, carries a
+    /// per-request attenuation of the token held for its peer.
+    #[must_use]
+    pub fn with_capability_tokens(
+        mut self,
+        tokens: Arc<dyn crate::capability::CapabilityTokens>,
+    ) -> Self {
+        self.capability_tokens = Some(tokens);
+        self
+    }
+
+    /// The token source, if any.
+    pub fn capability_tokens(&self) -> Option<&Arc<dyn crate::capability::CapabilityTokens>> {
+        self.capability_tokens.as_ref()
     }
 
     /// Add a transport.
@@ -834,8 +861,11 @@ impl TransportRouter {
         &self,
         peer: PeerId,
         task: &StreamingTask,
-        options: StreamOptions,
+        mut options: StreamOptions,
     ) -> Result<StreamHandle, StreamError> {
+        if options.capability.is_none() {
+            options.capability = self.capability_tokens.clone();
+        }
         validate_submit(task)?;
         check_executor_allowed(&task.integrity, &peer)?;
         let (candidates, skipped) = self.candidates(&peer, None);

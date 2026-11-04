@@ -8,15 +8,22 @@
 //!    [`PeerAllowlist`] admits it, the stream gets one `Error {
 //!    NotAuthorized }` frame and is closed — the `Open` frame is never even
 //!    read.
-//! 2. **Capacity.** At most [`StreamCeilings::max_concurrent_streams`] at
-//!    once; one stream per `(peer, task id)`.
-//! 3. **The envelope.** The `Open` frame is read under a cap of the input
-//!    ceiling plus envelope overhead (checked from the frame header, before
-//!    allocation) and a deadline; then version, structure, the policy hash
+//! 2. **The `Open` frame** is read under a cap of the input ceiling plus
+//!    envelope overhead (checked from the frame header, before allocation)
+//!    and a deadline, then decoded (version, structure).
+//! 3. **The capability token**, before anything else is looked at: the
+//!    `Open` must carry an attenuation of the `mesh.peer` token this node
+//!    issued to the peer, bound to this `Open`, fresh and unrevoked
+//!    ([`CapabilityGate`], see [`crate::capability`]); otherwise one `Error
+//!    { CapabilityRequired | CapabilityRejected }` frame, and the plugin is
+//!    never looked up.
+//! 4. **The envelope**: the policy hash
 //!    (INV-INT-1), the integrity policy (streams take only `TrustedExecutor`
 //!    — which must name this node — or `None`), the input size, and the
 //!    plugin (loaded here, as a stream plugin).
-//! 4. **Clamping.** Every requested limit is lowered to this node's
+//! 5. **Capacity.** At most [`StreamCeilings::max_concurrent_streams`] at
+//!    once; one stream per `(peer, task id)`.
+//! 6. **Clamping.** Every requested limit is lowered to this node's
 //!    [`StreamCeilings`]; the `Accepted` frame tells the submitter what
 //!    applies.
 //!
@@ -46,6 +53,7 @@ use super::validate::{
     check_executor_allowed, check_stream_integrity, validate_submit, StreamCeilings,
 };
 use super::{StreamEvent, STREAM_TRACE_TARGET};
+use crate::capability::{stream_binding, CapabilityGate, GatePath};
 use crate::remote::PeerAllowlist;
 use crate::transport::{FrameError, FrameSend, StreamIo};
 use crate::work_unit::PolicyEnvelope;
@@ -81,6 +89,9 @@ impl Drop for InFlightGuard {
 pub struct StreamServer {
     kernel: Arc<Kernel>,
     allowlist: Arc<dyn PeerAllowlist>,
+    /// `None` when no gate rooted at `identity` could be built: every stream
+    /// is then refused (fail closed).
+    gate: Option<Arc<CapabilityGate>>,
     identity: IdentityKeyPair,
     local_peer_id: PeerId,
     ceilings: StreamCeilings,
@@ -93,6 +104,10 @@ impl std::fmt::Debug for StreamServer {
         f.debug_struct("StreamServer")
             .field("local_peer_id", &self.local_peer_id)
             .field("allowlist", &self.allowlist)
+            .field(
+                "requires_tokens",
+                &self.gate.as_ref().map(|g| g.requires_tokens()),
+            )
             .field("ceilings", &self.ceilings)
             .field("in_flight", &self.in_flight.lock().len())
             .finish_non_exhaustive()
@@ -103,21 +118,48 @@ impl StreamServer {
     /// Serve `kernel`'s stream plugins to the peers `allowlist` admits,
     /// signing chunks with `identity` — which must be this node's transport
     /// identity, or submitters cannot verify a single chunk.
+    ///
+    /// Every `Open` must also carry a capability token rooted at `identity`
+    /// (a default [`CapabilityGate`] requiring tokens); share one gate with
+    /// the task server through [`StreamServer::with_capability_gate`].
     pub fn new(
         kernel: Arc<Kernel>,
         allowlist: Arc<dyn PeerAllowlist>,
         identity: IdentityKeyPair,
     ) -> Self {
         let local_peer_id = PeerId::from_public_key_bytes(identity.public().as_bytes());
+        let gate = match CapabilityGate::for_identity(&identity) {
+            Ok(g) => Some(Arc::new(g)),
+            Err(e) => {
+                tracing::error!(target: STREAM_TRACE_TARGET, error = %e, "no capability gate for this identity; every stream will be refused");
+                None
+            }
+        };
         Self {
             kernel,
             allowlist,
+            gate,
             identity,
             local_peer_id,
             ceilings: StreamCeilings::default(),
             in_flight: Arc::new(Mutex::new(HashSet::new())),
             events: None,
         }
+    }
+
+    /// Verify capability tokens with `gate` (e.g. the one the task server
+    /// uses, so both share a replay cache and revocation set). The gate must
+    /// be rooted at this server's identity; one that is not makes every
+    /// stream refused (fail closed) and is logged.
+    #[must_use]
+    pub fn with_capability_gate(mut self, gate: Arc<CapabilityGate>) -> Self {
+        if gate.local_public_key() == self.identity.public().as_bytes() {
+            self.gate = Some(gate);
+        } else {
+            tracing::error!(target: STREAM_TRACE_TARGET, "capability gate is rooted at another identity; every stream will be refused");
+            self.gate = None;
+        }
+        self
     }
 
     /// Tighten the ceilings (they are clamped: see
@@ -231,6 +273,39 @@ impl StreamServer {
 
         // What every chunk signature will commit the output to.
         let request = request_digest(&open);
+
+        // ── THE CAPABILITY GATE ──────────────────────────────────────────
+        // Before the policy, the plugin or any slot is looked at: the token
+        // must be this node's, issued to `peer`, bound to this `Open`, fresh
+        // and unrevoked.
+        let binding = stream_binding(&open.task_id, &open.policy_hash, &request);
+        let admitted = match &self.gate {
+            Some(gate) => gate
+                .check(peer, open.capability.as_deref(), binding, GatePath::Stream)
+                .map_err(|refusal| {
+                    let reason = if refusal.is_missing() {
+                        Reason::CapabilityRequired
+                    } else {
+                        Reason::CapabilityRejected
+                    };
+                    (reason, refusal.error.to_string())
+                }),
+            None => Err((
+                Reason::CapabilityRejected,
+                "this node has no capability verifier for its identity".to_owned(),
+            )),
+        };
+        if let Err((reason, message)) = admitted {
+            drop(open.input);
+            tracing::warn!(target: STREAM_TRACE_TARGET, %peer, transport = transport.as_str(), %reason, "refused a stream: {message}");
+            refuse(&mut send, reason, &message).await;
+            return Err(StreamError::PeerAborted {
+                by: Side::Executor,
+                reason,
+                message,
+            });
+        }
+
         // INV-INT-1: verify the policy envelope before any work happens.
         let envelope = match PolicyEnvelope::open(open.policy, open.policy_hash) {
             Ok(env) => env,

@@ -119,6 +119,18 @@ impl RevocationStore {
         Ok(store)
     }
 
+    /// The set persisted at `path`, loaded lazily: nothing is read until the
+    /// first query, and a file that cannot be read then makes that query
+    /// (and every one after it, until the file is fixed) an error. For a
+    /// long-running reader that must start even when the file is damaged and
+    /// fail closed per query instead.
+    pub fn at(path: impl AsRef<Path>) -> Self {
+        Self {
+            path: Some(path.as_ref().to_path_buf()),
+            cache: RwLock::new(Cache::default()),
+        }
+    }
+
     /// The backing file, if persistent.
     pub fn path(&self) -> Option<&Path> {
         self.path.as_deref()
@@ -385,6 +397,16 @@ mod tests {
             "bad hex fails closed"
         );
         assert!(RevocationStore::open(&path).is_err());
+        let lazy = RevocationStore::at(&path);
+        assert!(
+            lazy.any_revoked(&[vec![1]]).is_err(),
+            "a lazy reader fails per query"
+        );
+        std::fs::remove_file(&path).unwrap();
+        assert!(
+            !lazy.any_revoked(&[vec![1]]).unwrap(),
+            "and recovers once the file is gone"
+        );
     }
 
     #[test]

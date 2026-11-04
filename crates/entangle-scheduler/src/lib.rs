@@ -35,11 +35,14 @@
 //!
 //! Symmetrically, a node executes work *for* others only if it is running a
 //! [`RemoteTaskServer`], and then only for peers its [`PeerAllowlist`]
-//! authorizes. Nothing here executes anything for an unauthenticated peer.
+//! authorizes **and** that present a capability token it issued to them
+//! ([`capability`]: a `mesh.peer` biscuit, attenuated per request).
+//! Nothing here executes anything for an unauthenticated peer.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod capability;
 pub mod dispatcher;
 pub mod errors;
 pub mod integrity;
@@ -53,6 +56,7 @@ pub mod wire;
 pub mod work_unit;
 pub mod worker;
 
+pub use capability::{CapabilityGate, CapabilityTokens, HeldToken, StaticTokens};
 pub use dispatcher::{DispatchError, DispatchResult, Dispatcher};
 pub use integrity::{
     IntegrityVerifier, OutputSizeExceededWarning, ReplicaReport, ReplicaStatus, TELEMETRY_TARGET,

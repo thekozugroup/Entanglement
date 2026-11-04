@@ -224,6 +224,7 @@ impl SubmitterMachine {
             partial_result: task.partial_result.into(),
             policy: envelope.canonical().to_vec(),
             policy_hash: envelope.hash(),
+            capability: None,
         };
         let request = request_digest(&open);
         let mut machine = Self {
@@ -264,6 +265,21 @@ impl SubmitterMachine {
         };
         machine.outbox.push_back(Frame::Open(open));
         Ok(machine)
+    }
+
+    /// What a capability token for this stream must be bound to:
+    /// [`crate::capability::stream_binding`] of its task id, sealed policy
+    /// hash and [`request_digest`].
+    pub fn capability_binding(&self) -> [u8; 32] {
+        crate::capability::stream_binding(self.task_id.as_bytes(), &self.policy_hash, &self.request)
+    }
+
+    /// Put the per-request capability token on the queued `Open` frame.
+    /// Does nothing once the `Open` has been sent.
+    pub fn attach_capability(&mut self, token: Vec<u8>) {
+        if let Some(Frame::Open(open)) = self.outbox.front_mut() {
+            open.capability = Some(token);
+        }
     }
 
     /// Current state.
