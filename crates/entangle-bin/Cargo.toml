@@ -18,6 +18,7 @@ path = "src/main.rs"
 
 [dependencies]
 entangle-types      = { workspace = true }
+entangle-core       = { workspace = true }
 entangle-rpc        = { path = "../entangle-rpc" }
 entangle-runtime    = { workspace = true }
 entangle-signing    = { workspace = true }
@@ -48,6 +49,7 @@ hyper = { workspace = true }
 hyper-util = { workspace = true }
 http-body-util = { workspace = true }
 bytes = { workspace = true }
+parking_lot = { workspace = true }
 
 [dev-dependencies]
 hyper = { workspace = true, features = ["client", "http1"] }

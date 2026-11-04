@@ -15,14 +15,37 @@ pub enum LifecyclePhase {
     SignatureVerified,
     /// The plugin was registered with the capability broker.
     Registered,
-    /// The plugin artifact was compiled and loaded by the host engine.
+    /// The plugin artifact was compiled and loaded by the host engine. An
+    /// eager plugin (the default, `[lifecycle] activation = "eager"`) is
+    /// instantiated and ready; a lazy one is verified (its component
+    /// compiled once, which also fills the AOT cache) but holds no instance
+    /// until its first call ([`LifecyclePhase::Instantiated`]).
     Loaded,
-    /// The plugin has been activated (future use).
+    /// A call or stream is starting on the plugin (published once per
+    /// invocation, before the plugin's code runs).
     Activated,
-    /// The plugin has been idled (future use).
+    /// The call or stream that published the matching
+    /// [`LifecyclePhase::Activated`] has ended (returned, failed, or was
+    /// dropped).
     Idled,
-    /// The plugin was unloaded and de-registered.
+    /// The plugin was unloaded and de-registered. After a hot reload this is
+    /// published for the replaced version once its calls and streams have
+    /// drained.
     Unloaded,
+    /// The plugin's instance was created on demand: the first call of a lazy
+    /// plugin, or the first call after an idle teardown. Published before
+    /// that call's [`LifecyclePhase::Activated`]. (An eager plugin's instance
+    /// is created at load and covered by [`LifecyclePhase::Loaded`].)
+    Instantiated,
+    /// The plugin's instance was dropped because no call or stream used it
+    /// for its `[lifecycle] idle-timeout-secs`. The plugin stays loaded; the
+    /// next call publishes [`LifecyclePhase::Instantiated`] again.
+    TornDown,
+    /// This version's `migrate` hook succeeded and the hot reload it ran
+    /// for replaced the previous version: published for the new version once
+    /// the swap committed, just before its [`LifecyclePhase::Loaded`] (never
+    /// for a reload that was refused, and not for one without a hook).
+    Migrated,
 }
 
 /// A lifecycle transition event emitted on the IPC bus.

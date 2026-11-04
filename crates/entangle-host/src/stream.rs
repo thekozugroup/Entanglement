@@ -284,6 +284,8 @@ pub struct LoadedStreamPlugin {
     effective_tier: Tier,
     /// Broker + storage root; `None` = no capabilities at all.
     caps: Option<CapabilityContext>,
+    /// The optional hot-reload `migrate` export (see [`crate::migrate`]).
+    migrate: Option<crate::migrate::MigratePre>,
 }
 
 impl std::fmt::Debug for LoadedStreamPlugin {
@@ -322,6 +324,7 @@ impl LoadedStreamPlugin {
         plugin_id: PluginId,
         effective_tier: Tier,
     ) -> Result<Self, HostError> {
+        let migrate = crate::migrate::hook_pre(&instance_pre)?;
         let pre = bindings::StreamPluginPre::new(instance_pre)
             .map_err(|e| HostError::Instantiate(e.into()))?;
         Ok(Self {
@@ -329,7 +332,12 @@ impl LoadedStreamPlugin {
             plugin_id,
             effective_tier,
             caps: None,
+            migrate,
         })
+    }
+
+    pub(crate) fn migrate_pre(&self) -> Option<&crate::migrate::MigratePre> {
+        self.migrate.as_ref()
     }
 
     /// Decide `capability.fetch` through `ctx`'s broker and realise the

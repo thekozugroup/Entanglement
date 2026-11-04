@@ -23,7 +23,8 @@ pub enum LoadError {
     Validation(#[from] ValidationError),
 }
 
-/// Read, parse, and validate the `entangle.toml` at `path`.
+/// Read, parse, and validate the `entangle.toml` at `path`, including its
+/// `[lifecycle]` table (see [`crate::lifecycle`]).
 ///
 /// This is the primary entry point for consuming a manifest file.
 ///
@@ -35,6 +36,9 @@ pub fn load_manifest(path: &Path) -> Result<ValidatedManifest, LoadError> {
     let text = std::fs::read_to_string(path)?;
     let raw: Manifest = toml::from_str(&text)?;
     let validated = validate(raw)?;
+    // `[lifecycle]` is not part of the raw `Manifest`; validate it from the
+    // same text, exactly as the kernel does at load (`ENTANGLE-E0780`).
+    crate::lifecycle::parse(&text, validated.runtime)?;
     Ok(validated)
 }
 
@@ -77,5 +81,24 @@ target = "wasm32-wasip2"
         // effective_tier = max(declared=Networked(3), implied=Sandboxed(2)) = Networked.
         use entangle_types::tier::Tier;
         assert_eq!(vm.effective_tier, Tier::Networked);
+    }
+
+    /// `[lifecycle]` is validated too: a manifest the kernel would refuse
+    /// (`ENTANGLE-E0780`) does not load here either.
+    #[test]
+    fn load_manifest_refuses_an_invalid_lifecycle() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("entangle.toml");
+        let head = "[plugin]\nid = \"aabbccddeeff00112233445566778899/n@0.1.0\"\n\
+                    version = \"0.1.0\"\ntier = 5\nruntime = \"native\"\n";
+        std::fs::write(
+            &path,
+            format!("{head}\n[lifecycle]\nactivation = \"lazy\"\n"),
+        )
+        .unwrap();
+        let err = load_manifest(&path).expect_err("native + lazy");
+        assert!(err.to_string().contains("ENTANGLE-E0780"), "{err}");
+        std::fs::write(&path, head).unwrap();
+        load_manifest(&path).expect("no [lifecycle]: the default");
     }
 }

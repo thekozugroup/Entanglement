@@ -43,7 +43,7 @@ failed on a fresh checkout because the key was gitignored.
 
 ## Crates
 
-27 workspace members: 26 crates under `crates/` and `tools/xtask`.
+28 workspace members: 27 crates under `crates/` and `tools/xtask`.
 
 | Crate | Purpose |
 |-------|---------|
@@ -55,7 +55,8 @@ failed on a fresh checkout because the key was gitignored.
 | `entangle-host` | Wasmtime + WASI 0.2 host; `capability.fetch`, WASI preopens, socket rules with pinned DNS |
 | `entangle-broker` | Capability broker: deny by default, audit log, grants and live revocation, `CrossNodePolicy` |
 | `entangle-ipc` | In-process pub/sub bus (broadcast channels, topic globs) |
-| `entangle-core` | Shared kernel utilities |
+| `entangle-core` | Shared kernel utilities; fault isolation (panic hook, core-task supervisor) |
+| `entangle-aot` | On-disk AOT compilation cache for wasm components (keyed MAC per entry, safe fallback to compiling, GC); the only crate that loads precompiled code, hence its own `unsafe` boundary |
 | `entangle-runtime` | Kernel: manifest, signature, broker, host; integrity validation; metric loader; native plugin launch |
 | `entangle-sandbox` | OS sandbox for tier-5 plugins: Landlock, user and net namespace, seccomp, `no_new_privs`, rlimits, process groups; bubblewrap and Seatbelt profile generation; subprocess supervisor |
 | `entangle-rpc` | Typed JSON-RPC 2.0 client for the daemon socket |
@@ -88,6 +89,7 @@ deployment in this environment.
 - **Identity and config:** `entangle init`; format-preserving config edits; `entangle backup --to` / `restore --from` write and read a passphrase-encrypted archive (Argon2id, XChaCha20-Poly1305) of the identity, keyring and paired peers, optionally `config.toml`. Restore refuses to replace an existing identity without `--force`, copies what it replaces aside, and changes nothing if it fails part-way.
 - **Plugins:** `plugins new|build|load|unload|invoke|list|install`; `keyring`; signed `.tar.zst` packages; `plugins verify --rebuild` compares a rebuild with the package.
 - **Capability grants (wasm):** `capability.fetch` through the broker; WASI preopens `/data`, `/shared`, `/shares/<n>`; `net.lan` and `net.wan` socket rules with pinned DNS (loopback, own-host and cloud-metadata addresses refused); live revocation; operator `deny_capabilities`; `entangle perms list|revoke`. Stream plugins get the same grants.
+- **Runtime lifecycle:** a panic in core daemon code, or a core task (RPC server, maintenance loop, mesh task and stream servers) ending, exits `entangled` with status 70 and one `ENTANGLE-E0787` line so the service manager restarts it (systemd unit and a launchd plist in `packaging/`); a panic inside one plugin call fails that call (`E0788`) and the daemon keeps running. Loaded plugins are recorded in `~/.entangle/plugins.state.toml` and reloaded at start through the full load path (signature, keyring, ceiling, `[plugins] disabled`); a package changed while the daemon was down is not reloaded. Compiled components are cached in `~/.entangle/aot` (keyed MAC per entry; any mismatch recompiles). Manifest `[lifecycle]` gives lazy activation and idle teardown. Loading a new version of a loaded plugin hot-reloads it: in-flight calls and streams finish on the old version, new calls go to the new one, an optional `migrate` export runs first, and more capabilities, a higher tier or a downgrade need `--accept-new-capabilities` / `--allow-downgrade`.
 - **Tier-5 native plugins:** run under the Linux sandbox. The runtime-kind check (ATC-MAN-3) and the install-time tier ceiling check (ATC-MAN-4, no state change on refusal) are tested. `[security] allow_unsandboxed_native` exists.
 - **Max tier and wrapper:** `entangle security set-max-tier` and `entangle config reload` apply a new ceiling to the running daemon. Lowering it drains in-flight calls and streams of the affected plugins before unloading them, and adds them to `[plugins] disabled` in `config.toml`. The daemon (re-reading the list before each load) and the CLI's local kernel refuse to load a plugin on that list, including metric plugins; `entangle plugins enable <id>` and `disable <id>` edit the list, and `enable` is refused above the ceiling. Audit codes: `W0214`, `I0215`, `I0216`, `I0217`. `entangle config validate` only checks the file. `config reload` applies only `max_tier_allowed`; other settings need a restart. `entangle wrapper enable`, `disable`, `status`, `repair`; `doctor` detects shadowing.
 - **Pairing:** 6-digit code over the network. On acceptance each side mints a `mesh.peer` capability token for the other and both store the token they received; a pairing that fails after the exchange revokes the token it sent. A race where the responder closed the connection before its last frame was delivered is fixed (36 of 100 runs failed under load before, 0 of 100 after).
@@ -109,7 +111,8 @@ deployment in this environment.
 | Native Windows | Not started (Phase 5); WSL2 only | AppContainer and Job Objects do not give the same rigor as Landlock/Seatbelt without further work |
 | bubblewrap and Seatbelt paths | Profiles generated and unit-tested; not run on a real bubblewrap or macOS host in this work. `crates/entangle-sandbox/tests/seatbelt_smoke.rs` runs `sandbox-exec` and compiles only on macOS (CI macos-14 test job); no result from it is recorded here | No macOS or bubblewrap host was used in this work |
 | Cross-host reproducibility, real cosign | Run only in CI workflows | `reproducibility.yml` needs macos-14, ubuntu-22.04 and ubuntu-24.04 runners; real cosign runs in `release.yml` on a `v*.*.*` tag or manual dispatch, and no tag exists |
-| Capability revocation | Lasts until the plugin is reloaded | `deny_capabilities` is the permanent setting |
+| Capability revocation | Lasts until the plugin is loaded again; daemon restarts re-apply it | `deny_capabilities` is the permanent setting |
+| Runtime lifecycle gaps | Panics on Tokio's blocking pool (for example inside WASI filesystem calls) exit the daemon instead of failing the call; the `mesh.tailscale` accept loops are covered by the panic hook but not supervised; the WIT `init` / `activate` / `idle` / `shutdown` exports are not implemented; after a hot reload, calls addressed to the old version's id run the new version | Not implemented |
 | OCI mirror listings | Listings expire (`expires_at`), but an older listing that has not expired is accepted in place of a newer one | No record of the newest listing seen; rollback protection not implemented |
 | OCI client TLS | No test performs a TLS handshake (one unit test covers the TLS server name of an IP literal) | Not written |
 | Native plugin limits | No `RLIMIT_NPROC`, `RLIMIT_FSIZE` or cgroups | Not implemented; a plugin can fork or fill its writable directory |

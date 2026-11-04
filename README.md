@@ -31,7 +31,7 @@ For a hands-on tour from `entangle init` through plugin invocation and peer pair
 
 ## Stack
 
-- Rust workspace: 27 members (26 crates under `crates/` plus `tools/xtask`). See [`STATUS.md`](./STATUS.md) for each crate.
+- Rust workspace: 28 members (27 crates under `crates/` plus `tools/xtask`). See [`STATUS.md`](./STATUS.md) for each crate.
 - Wasmtime + WASI 0.2 component model.
 - Transports: mDNS-SD on the LAN, Iroh QUIC (identity-bound), Tailscale (X25519 + Ed25519 key exchange, ChaCha20-Poly1305 frames, tailnet-only sources).
 - Ed25519 publisher signing + BLAKE3 artifact hashing.
@@ -75,7 +75,7 @@ troubleshooting: [`docs/install.md`](./docs/install.md).
 
 Pre-release. No version is tagged or published. Measured on commit `080ab0b`: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings` and `RUSTDOCFLAGS=-D warnings cargo doc` are clean, and `cargo test --workspace` reports 1552 passed, 0 failed, 10 ignored. All 35 acceptance IDs in architecture.md §16 are covered by live tests.
 
-Works now: local plugin hosting and invocation; pairing over the network; remote one-shot tasks over Iroh and Tailscale; streaming tasks over Iroh and Tailscale (`entangle compute stream` picks the transport per peer like dispatch does); integrity policies other than `Attested`, with Layer-2 replay spot-checks; the MCP gateway (stdio and HTTP downstream servers) and `entangle agent run`; encrypted identity backup and restore; `plugins enable|disable`; tier-5 sandboxing on Linux; OCI publish and pull; metrics and traces.
+Works now: local plugin hosting and invocation; pairing over the network; remote one-shot tasks over Iroh and Tailscale; streaming tasks over Iroh and Tailscale (`entangle compute stream` picks the transport per peer like dispatch does); integrity policies other than `Attested`, with Layer-2 replay spot-checks; the MCP gateway (stdio and HTTP downstream servers) and `entangle agent run`; encrypted identity backup and restore; `plugins enable|disable`; plugins reloaded after a daemon restart, hot reload with drain-and-swap, lazy activation and an AOT compilation cache; tier-5 sandboxing on Linux; OCI publish and pull; metrics and traces.
 
 Not available yet:
 

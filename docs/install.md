@@ -462,7 +462,7 @@ with a screen reader and with stdin piped) and honours `NO_COLOR`. Choosing
 `mesh.tailscale` checks `tailscale` first (installed, at least 1.62.0, logged
 in, online; several profiles need confirming) and fails with a specific exit
 code otherwise. `init` never changes your firewall: it prints the ports to
-open. See [operations.md §23](operations.md#23-first-run-entangle-init) for
+open. See [operations.md §27](operations.md#27-first-run-entangle-init) for
 every flag and exit code.
 
 `init` creates `~/.entangle/` at mode 0700 containing:

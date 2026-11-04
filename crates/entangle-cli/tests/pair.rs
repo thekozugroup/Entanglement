@@ -755,7 +755,7 @@ fn print_code_shows_sha256_and_qr_then_expires_with_a_remedy() {
     assert!(stderr.contains("Pairing code:"), "{stderr}");
     let qr_rows = stderr.lines().filter(|l| l.contains('█')).count();
     assert!(qr_rows > 10, "a QR code is drawn:\n{stderr}");
-    assert!(stderr.contains("ENTANGLE-E0786: code expired"), "{stderr}");
+    assert!(stderr.contains("ENTANGLE-E0886: code expired"), "{stderr}");
     assert!(stderr.contains("entangle pair --print-code"), "{stderr}");
 
     let log = std::fs::read_to_string(work.path().join("pairing-attempts.json")).unwrap();
@@ -799,7 +799,7 @@ fn unreachable_device_lists_what_was_tried_and_diag_pair_shows_it() {
         .failure();
     let stderr = String::from_utf8_lossy(&a.get_output().stderr).into_owned();
     for needle in [
-        "ENTANGLE-E0788",
+        "ENTANGLE-E0888",
         "Transports tried:",
         "mesh.iroh (QUIC)",
         &dead.to_string(),
@@ -895,6 +895,6 @@ fn manual_request_past_its_expiry_says_the_code_expired() {
         ])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("ENTANGLE-E0786: code expired"))
+        .stderr(predicate::str::contains("ENTANGLE-E0886: code expired"))
         .stderr(predicate::str::contains("entangle pair --manual"));
 }

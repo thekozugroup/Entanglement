@@ -1,0 +1,33 @@
+[package]
+name = "entangle-aot"
+description = "On-disk AOT compilation cache for Wasm components: keyed-MAC verified entries, safe fallback, GC"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+entangle-observability = { workspace = true }
+wasmtime = { workspace = true }
+blake3 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+# Per-node cache key.
+rand_core = { workspace = true, features = ["getrandom"] }
+
+[target.'cfg(unix)'.dependencies]
+# O_NOFOLLOW for entry files.
+libc = { workspace = true }
+# geteuid() without `unsafe` (already built with this feature).
+rustix = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+wat = "1"

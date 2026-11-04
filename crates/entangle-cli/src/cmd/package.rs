@@ -135,9 +135,10 @@ pub fn plugin_name_from_id(id: &str) -> &str {
 /// * `fingerprint_hex` — 32 lowercase hex chars from [`IdentityKeyPair::fingerprint_hex`].
 ///
 /// The returned manifest is guaranteed to have passed
-/// [`entangle_manifest::validate`], so tier/capability violations
-/// (`ENTANGLE-E0042`) and malformed ids (`ENTANGLE-E0201`) surface at build
-/// time rather than at load time on someone else's machine.
+/// [`entangle_manifest::validate`] and [`entangle_manifest::lifecycle::parse`],
+/// so tier/capability violations (`ENTANGLE-E0042`), malformed ids
+/// (`ENTANGLE-E0201`) and an invalid `[lifecycle]` table (`ENTANGLE-E0780`)
+/// surface at build time rather than at load time on someone else's machine.
 pub fn render_dist_manifest(source: &str, fingerprint_hex: &str) -> Result<RenderedManifest> {
     let mut doc: toml::Value =
         toml::from_str(source).context("parsing entangle.toml (source manifest)")?;
@@ -200,6 +201,11 @@ pub fn render_dist_manifest(source: &str, fingerprint_hex: &str) -> Result<Rende
     let validated = entangle_manifest::validate::validate(parsed)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("the rendered entangle.toml is not a valid plugin manifest")?;
+    // `[lifecycle]` is read from the text, not the raw `Manifest`: validate
+    // it here too, as the kernel will (`ENTANGLE-E0780`).
+    entangle_manifest::lifecycle::parse(&rendered, validated.runtime)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("the rendered entangle.toml has an invalid [lifecycle] table")?;
 
     // Belt and braces: the kernel parses the id back out of the manifest, so a
     // regression here is a load-time ENTANGLE-E0201 for every consumer.
@@ -947,6 +953,38 @@ target = "wasm32-wasip2"
             source(1, "", "PUBLISHER_PLACEHOLDER/my-plugin@0.1.0")
         );
         render_dist_manifest(&ok, FP).expect("matching signer must be accepted");
+    }
+
+    /// An invalid `[lifecycle]` table fails the build (`ENTANGLE-E0780`)
+    /// instead of being signed and shipped, then refused by every consumer's
+    /// `plugins load`.
+    #[test]
+    fn invalid_lifecycle_fails_at_build_time() {
+        let native = "[plugin]\nid = \"PUBLISHER_PLACEHOLDER/n@0.1.0\"\nversion = \"0.1.0\"\n\
+                      tier = 5\nruntime = \"native\"\n\n[lifecycle]\nactivation = \"lazy\"\n";
+        let err = render_dist_manifest(native, FP).expect_err("native + lazy must fail");
+        assert!(format!("{err:#}").contains("ENTANGLE-E0780"), "{err:#}");
+
+        let zero = format!(
+            "{}\n[lifecycle]\nidle-timeout-secs = 0\n",
+            source(1, "", "PUBLISHER_PLACEHOLDER/my-plugin@0.1.0")
+        );
+        let err = render_dist_manifest(&zero, FP).expect_err("a zero idle timeout must fail");
+        assert!(format!("{err:#}").contains("ENTANGLE-E0780"), "{err:#}");
+
+        let unknown = format!(
+            "{}\n[lifecycle]\nactivaton = \"lazy\"\n",
+            source(1, "", "PUBLISHER_PLACEHOLDER/my-plugin@0.1.0")
+        );
+        render_dist_manifest(&unknown, FP).expect_err("a misspelt key must fail");
+
+        // A valid table is kept in the signed bytes.
+        let lazy = format!(
+            "{}\n[lifecycle]\nactivation = \"lazy\"\nidle-timeout-secs = 300\n",
+            source(1, "", "PUBLISHER_PLACEHOLDER/my-plugin@0.1.0")
+        );
+        let r = render_dist_manifest(&lazy, FP).unwrap();
+        assert!(r.toml.contains("activation = \"lazy\""), "{}", r.toml);
     }
 
     #[test]

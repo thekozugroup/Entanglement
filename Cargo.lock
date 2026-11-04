@@ -1539,6 +1539,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "entangle-aot"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "entangle-observability",
+ "hex",
+ "libc",
+ "rand_core 0.6.4",
+ "rustix 1.1.4",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "wasmtime",
+ "wat",
+]
+
+[[package]]
 name = "entangle-atc-matrix"
 version = "0.1.0"
 dependencies = [
@@ -1577,6 +1594,7 @@ dependencies = [
  "directories",
  "entangle-biscuits",
  "entangle-broker",
+ "entangle-core",
  "entangle-manifest",
  "entangle-mesh-iroh",
  "entangle-mesh-local",
@@ -1593,6 +1611,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "parking_lot",
  "serde",
  "serde_json",
  "tempfile",
@@ -1627,6 +1646,7 @@ dependencies = [
  "async-trait",
  "biscuit-auth",
  "entangle-biscuits",
+ "entangle-core",
  "entangle-manifest",
  "entangle-observability",
  "entangle-peers",
@@ -1697,6 +1717,7 @@ dependencies = [
  "anyhow",
  "entangle-types",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
 ]
 
@@ -1705,7 +1726,9 @@ name = "entangle-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "entangle-aot",
  "entangle-broker",
+ "entangle-core",
  "entangle-manifest",
  "entangle-observability",
  "entangle-types",
@@ -1899,6 +1922,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blake3",
+ "entangle-aot",
  "entangle-broker",
  "entangle-core",
  "entangle-host",

@@ -218,7 +218,7 @@ mod tests {
             .check_supported()
             .unwrap_err();
         let text = err.to_string();
-        assert!(text.starts_with("ENTANGLE-E0791"), "{text}");
+        assert!(text.starts_with("ENTANGLE-E0891"), "{text}");
         assert!(text.contains("1.58.2") && text.contains("1.62.0"), "{text}");
         assert!(
             text.contains("entangle config set mesh.tailscale.enabled false"),
@@ -241,7 +241,7 @@ mod tests {
         ] {
             let text = check_versions(cli, daemon).unwrap_err().to_string();
             assert!(
-                text.starts_with("ENTANGLE-E0791") && text.contains("1.50.0"),
+                text.starts_with("ENTANGLE-E0891") && text.contains("1.50.0"),
                 "{text}"
             );
         }
@@ -249,7 +249,7 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(
-            text.starts_with("ENTANGLE-E0793")
+            text.starts_with("ENTANGLE-E0893")
                 && text.contains("unknown command")
                 && text.contains("1.62.0"),
             "{text}"

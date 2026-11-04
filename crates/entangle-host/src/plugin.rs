@@ -116,6 +116,8 @@ pub struct LoadedPlugin {
     effective_tier: Tier,
     /// Broker + storage root; `None` = no capabilities at all.
     caps: Option<CapabilityContext>,
+    /// The optional hot-reload `migrate` export (see [`crate::migrate`]).
+    migrate: Option<crate::migrate::MigratePre>,
 }
 
 impl std::fmt::Debug for LoadedPlugin {
@@ -135,6 +137,7 @@ impl Clone for LoadedPlugin {
             plugin_id: self.plugin_id.clone(),
             effective_tier: self.effective_tier,
             caps: self.caps.clone(),
+            migrate: self.migrate.clone(),
         }
     }
 }
@@ -186,12 +189,14 @@ impl LoadedPlugin {
         plugin_id: PluginId,
         effective_tier: Tier,
     ) -> Result<Self, HostError> {
+        let migrate = crate::migrate::hook_pre(&instance_pre)?;
         let pre = PluginPre::new(instance_pre).map_err(|e| HostError::Instantiate(e.into()))?;
         Ok(Self {
             pre,
             plugin_id,
             effective_tier,
             caps: None,
+            migrate,
         })
     }
 
@@ -374,11 +379,43 @@ impl CompiledPlugin {
         plugin_id: PluginId,
         effective_tier: Tier,
     ) -> Result<Self, HostError> {
+        Self::from_bytes_cached(engine, bytes, plugin_id, effective_tier, None).map(|(p, _)| p)
+    }
+
+    /// As [`CompiledPlugin::from_bytes`], compiling through the AOT cache
+    /// when one is given: a verified cache entry for these bytes and this
+    /// engine is deserialized instead of compiled, and a compiled component
+    /// is stored for next time (see `entangle_aot`). Returns how the cache
+    /// answered (`None` without a cache).
+    pub fn from_bytes_cached(
+        engine: &HostEngine,
+        bytes: &[u8],
+        plugin_id: PluginId,
+        effective_tier: Tier,
+        cache: Option<&entangle_aot::AotCache>,
+    ) -> Result<(Self, Option<entangle_aot::Lookup>), HostError> {
         crate::runtime_kind::check_runtime_kind(crate::runtime_kind::DeclaredRuntime::Wasm, bytes)?;
-        let component = Component::from_binary(engine.engine(), bytes)?;
+        let (component, lookup) = match cache {
+            Some(cache) => {
+                let (c, l) = cache.load_or_compile(engine.engine(), bytes)?;
+                (c, Some(l))
+            }
+            None => (Component::from_binary(engine.engine(), bytes)?, None),
+        };
+        Self::from_component(engine, &component, plugin_id, effective_tier).map(|p| (p, lookup))
+    }
+
+    /// Classify an already compiled component by the world it exports (see
+    /// [`CompiledPlugin::from_bytes`]).
+    pub fn from_component(
+        engine: &HostEngine,
+        component: &Component,
+        plugin_id: PluginId,
+        effective_tier: Tier,
+    ) -> Result<Self, HostError> {
         let instance_pre = engine
             .linker()
-            .instantiate_pre(&component)
+            .instantiate_pre(component)
             .map_err(|e| HostError::Instantiate(e.into()))?;
         let one_shot = match LoadedPlugin::from_instance_pre(
             instance_pre.clone(),
@@ -435,6 +472,47 @@ impl CompiledPlugin {
             Self::OneShot(_) => "plugin",
             Self::Stream(_) => "stream-plugin",
         }
+    }
+
+    /// Whether the component exports the hot-reload `migrate` hook.
+    pub fn has_migrate_hook(&self) -> bool {
+        self.migrate_pre().is_some()
+    }
+
+    fn migrate_pre(&self) -> Option<&crate::migrate::MigratePre> {
+        match self {
+            Self::OneShot(p) => p.migrate.as_ref(),
+            Self::Stream(p) => p.migrate_pre(),
+        }
+    }
+
+    /// Run the component's `migrate(from_version)` hook in a fresh instance
+    /// with its capability grants (see [`crate::migrate`]), bounded by
+    /// `timeout_ms` like a call. [`crate::MigrateOutcome::NoHook`] when it
+    /// exports none.
+    pub async fn run_migrate(
+        &self,
+        engine: &HostEngine,
+        from_version: &str,
+        timeout_ms: u64,
+    ) -> Result<crate::MigrateOutcome, HostError> {
+        let Some(pre) = self.migrate_pre() else {
+            return Ok(crate::MigrateOutcome::NoHook);
+        };
+        let (plugin_id, tier) = match self {
+            Self::OneShot(p) => (p.plugin_id(), p.effective_tier()),
+            Self::Stream(p) => (p.plugin_id(), p.effective_tier()),
+        };
+        crate::migrate::run(
+            pre,
+            engine,
+            plugin_id,
+            tier,
+            self.capabilities(),
+            from_version,
+            timeout_ms,
+        )
+        .await
     }
 }
 

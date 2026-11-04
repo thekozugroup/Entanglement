@@ -48,7 +48,7 @@ fn gen_writes_a_private_pem_and_its_public_half_and_never_overwrites() {
         .args(["keys", "gen", "--label", "alice"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("ENTANGLE-E0785"))
+        .stderr(predicate::str::contains("ENTANGLE-E0885"))
         .stderr(predicate::str::contains("refusing to overwrite"));
     assert_eq!(std::fs::read_to_string(dir.join("alice.key")).unwrap(), pem);
     // Not trusted unless asked.
@@ -78,6 +78,6 @@ fn a_label_that_is_not_a_safe_file_name_is_refused() {
         .args(["keys", "gen", "--label", "../escape"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("ENTANGLE-E0785"));
+        .stderr(predicate::str::contains("ENTANGLE-E0885"));
     assert!(!home.path().join(".entangle").exists());
 }

@@ -100,6 +100,10 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let otel_exporter =
         entangle_observability::init_with_otel("info,tokio=warn,wasmtime=warn", otel_cfg.as_ref())
             .context("starting the OTLP trace exporter")?;
+    // Fault isolation (spec §2.1): from here on a panic outside a contained
+    // plugin call logs one `ENTANGLE-E0787` line and exits with status 70
+    // (`EXIT_CORE_FAULT`) so the service manager restarts the daemon.
+    entangle_core::fault::install_panic_hook();
     let registry = entangle_observability::Registry::new();
     if let Some(exporter) = &otel_exporter {
         exporter.attach_metrics(&registry);
@@ -207,9 +211,15 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     } else {
         None
     };
+    // The daemon's long-lived core tasks: any one ending while the daemon
+    // runs (returning or panicking) is a fault and exits with status 70
+    // rather than leaving a half-working daemon (spec §2.1).
+    let mut supervisor = entangle_core::fault::Supervisor::new();
     if let (Some(transport), Some(servers)) = (&scheduler_mesh, &servers) {
         // entangle/scheduler/1 and entangle/stream/1 on the same endpoint.
-        entangle_bin::mesh::serve_on_iroh(transport, servers);
+        for task in entangle_bin::mesh::serve_on_iroh(transport, servers) {
+            supervisor.watch("scheduler-server", task);
+        }
     }
 
     // ── 3b'. Optional `mesh.tailscale` transport + liveness poller ────────────
@@ -364,6 +374,14 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
             .await
             .context("starting the metrics endpoint")?;
 
+    // ── 3e'. Plugin state (spec §2.1): reload what was loaded before the
+    // daemon stopped, through the normal load path, before serving RPC.
+    let plugin_state = Arc::new(entangle_bin::plugin_state::PluginStateStore::new(
+        config_dir.join(entangle_bin::plugin_state::STATE_FILE),
+    ));
+    entangle_bin::plugin_state::restore(&kernel, &plugin_state, Some(&registry)).await;
+    daemon_state = daemon_state.with_plugin_state(plugin_state);
+
     daemon_state = daemon_state.with_config_path(config_path.clone());
     daemon_state = daemon_state.with_diag(entangle_bin::state::MeshDiagSources {
         configured_transports: cfg.mesh.transports.clone(),
@@ -389,31 +407,37 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
     // ── 5. Spawn maintenance loop ─────────────────────────────────────────────
-    let maint =
-        MaintenanceLoop::new(Default::default()).with_worker_pool(state.worker_pool.clone());
-    let maint_task = tokio::spawn(maint.run(shutdown_rx.clone()));
+    let maint = MaintenanceLoop::new(Default::default())
+        .with_worker_pool(state.worker_pool.clone())
+        .with_aot_cache(state.kernel.aot_cache());
+    supervisor.spawn("maintenance", maint.run(shutdown_rx.clone()));
 
     // ── 6. Bind socket and spawn RPC accept loop ──────────────────────────────
     let socket_path_clone = socket_path.clone();
     let state_clone = state.clone();
-    let rpc_task = tokio::spawn(async move {
+    entangle_core::fault::remove_on_fault_exit(socket_path.clone());
+    supervisor.spawn("rpc-server", async move {
         if let Err(e) = server::serve(socket_path_clone, state_clone).await {
             tracing::error!(error = %e, "RPC server fatal error");
         }
     });
 
-    // ── 7. Block on shutdown signal ───────────────────────────────────────────
-    wait_for_shutdown().await;
+    // ── 7. Block on shutdown signal (or a core task ending) ──────────────────
+    tokio::select! {
+        () = wait_for_shutdown() => {}
+        // Exits with status 70, removing the socket (registered above; the
+        // next start would replace a stale one anyway).
+        ended = supervisor.next_ended() => ended.exit(),
+    }
 
     tracing::info!("shutting down entangled");
 
     // Signal the maintenance loop (and any other watchers) to stop.
     shutdown_tx.send(true).ok();
 
-    // Abort the accept loop; in-flight client tasks will finish naturally.
-    rpc_task.abort();
-    let _ = rpc_task.await;
-    let _ = maint_task.await;
+    // Stop the core tasks: the accept loop is aborted (in-flight client
+    // tasks finish naturally), the maintenance loop has been told to stop.
+    supervisor.shutdown().await;
 
     // Close the scheduler endpoint, flushing connection-close frames so peers
     // see a deliberate shutdown rather than a timeout. This also terminates
@@ -437,8 +461,9 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         }
     }
 
-    // Remove the socket file on clean shutdown.
-    let _ = std::fs::remove_file(&socket_path);
+    // Remove the socket file on clean shutdown (only a socket: a path the
+    // RPC server refused to replace is not ours to delete).
+    let _ = entangle_core::fault::remove_if_socket(&socket_path);
 
     tracing::info!("entangled stopped");
     // Last: deliver the final span batches. `shutdown` blocks for at most the

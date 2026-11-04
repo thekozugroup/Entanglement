@@ -22,7 +22,7 @@
 //! - `perms/list`   → params `{ "plugin_id"?: "<id>" }` → `PermsListResult`: each
 //!   plugin's declared capabilities and their grant state (granted / denied /
 //!   revoked / not-granted)
-//! - `perms/revoke` → params `{ "plugin_id", "capability" }` → `{ "withdrawn": [ids] }`
+//! - `perms/revoke` → params `{ "plugin_id", "capability" }` → `{ "withdrawn": [ids], "plugin_id" }`
 //!
 //! Every request is counted in `entangle_rpc_requests_total{method,outcome}`
 //! and timed in `entangle_rpc_request_duration_seconds{method}`; the `method`
@@ -168,6 +168,8 @@ fn is_error_response(resp: &str, id_json: &str) -> bool {
 }
 
 async fn route(req: Req, state: &Arc<DaemonState>) -> String {
+    // Debug-build fault point: a panic in the RPC server (spec §2.1).
+    entangle_core::fault::inject("rpc");
     match req.method.as_str() {
         m if m == method::VERSION => handle_version(req.id),
         m if m == method::TIME => handle_time(req.id),
@@ -251,14 +253,24 @@ async fn handle_plugins_load(
     };
     let dir = std::path::PathBuf::from(&p.dir);
     state.refresh_disabled_plugins();
-    match state.kernel.load_plugin_from_dir(&dir).await {
-        // Wire contract: `{ "plugin_id": "<id>" }`, not a bare string.
-        Ok(plugin_id) => ok_resp(
-            id,
-            PluginsLoadResult {
-                plugin_id: plugin_id.to_string(),
-            },
-        ),
+    let opts = entangle_runtime::LoadOptions {
+        accept_new_capabilities: p.accept_new_capabilities,
+        allow_downgrade: p.allow_downgrade,
+    };
+    match state.kernel.load_plugin(&dir, opts).await {
+        // Wire contract: `{ "plugin_id": "<id>" }`, not a bare string; a hot
+        // reload adds `replaced` (and `migrated`).
+        Ok(outcome) => {
+            state.persist_plugins();
+            ok_resp(
+                id,
+                PluginsLoadResult {
+                    plugin_id: outcome.plugin_id.to_string(),
+                    migrated: outcome.replaced.as_ref().is_some_and(|r| r.migrated),
+                    replaced: outcome.replaced.map(|r| r.previous.to_string()),
+                },
+            )
+        }
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
 }
@@ -279,7 +291,23 @@ async fn handle_plugins_unload(
         Err(e) => return error_resp(id, -32602, format!("invalid plugin id: {e}")),
     };
     match state.kernel.unload(&plugin_id).await {
-        Ok(()) => ok_resp(id, serde_json::Value::Null),
+        Ok(()) => {
+            state.persist_plugins();
+            ok_resp(id, serde_json::Value::Null)
+        }
+        // An entry that failed to restore at startup is not loaded; unloading
+        // its id forgets it (see `plugin_state`).
+        Err(entangle_runtime::RuntimeError::NotLoaded(_))
+            if state
+                .plugin_state
+                .as_ref()
+                .is_some_and(|s| s.has_failed_entry(&plugin_id)) =>
+        {
+            if let Some(store) = &state.plugin_state {
+                store.record(&state.kernel, Some(&plugin_id));
+            }
+            ok_resp(id, serde_json::Value::Null)
+        }
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
 }
@@ -389,14 +417,19 @@ async fn handle_security_apply(
         .apply_max_tier(new, p.unload, confirmed.as_deref())
         .await
     {
-        Ok(o) => ok_resp(
-            id,
-            MaxTierApplied {
-                old: o.old as u8,
-                new: o.new as u8,
-                unloaded: o.unloaded.iter().map(|p| p.to_string()).collect(),
-            },
-        ),
+        Ok(o) => {
+            if !o.unloaded.is_empty() {
+                state.persist_plugins();
+            }
+            ok_resp(
+                id,
+                MaxTierApplied {
+                    old: o.old as u8,
+                    new: o.new as u8,
+                    unloaded: o.unloaded.iter().map(|p| p.to_string()).collect(),
+                },
+            )
+        }
         Err(MaxTierRefusal::NeedsUnload(affected)) => error_resp(
             id,
             -32001,
@@ -480,7 +513,17 @@ fn handle_perms_revoke(
         Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
     };
     match crate::perms::revoke(&state.kernel, &p.plugin_id, &p.capability) {
-        Ok(withdrawn) => ok_resp(id, PermsRevokeResult { withdrawn }),
+        Ok(revoked) => {
+            // A revocation survives a restart (`plugin_state`).
+            state.persist_plugins();
+            ok_resp(
+                id,
+                PermsRevokeResult {
+                    withdrawn: revoked.withdrawn,
+                    plugin_id: Some(revoked.plugin.to_string()),
+                },
+            )
+        }
         Err(e) => perms_error(id, e),
     }
 }
@@ -515,8 +558,9 @@ async fn handle_compute_dispatch(
         Err(e) => return error_resp(id, -32602, format!("invalid plugin id: {e}")),
     };
 
-    // Verify the plugin is loaded before dispatching.
-    if !state.kernel.list_plugins().contains(&plugin_id) {
+    // Verify the plugin is loaded before dispatching (an id replaced by a
+    // hot reload counts: its calls run on the version that replaced it).
+    if state.kernel.resolve(&plugin_id).is_none() {
         return error_resp(id, -32000, "plugin not loaded");
     }
 

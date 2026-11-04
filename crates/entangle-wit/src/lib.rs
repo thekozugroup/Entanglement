@@ -38,8 +38,22 @@ pub const METRIC_INTERFACE: &str = "entangle:integrity/metric@0.1.0";
 /// World a metric component targets (in [`INTEGRITY_WIT_PACKAGE`]).
 pub const METRIC_WORLD: &str = "metric-plugin";
 
+/// The world holding only the optional hot-reload `migrate` export (spec
+/// §3.3); see [`MIGRATABLE_WORLDS`].
+pub const MIGRATE_HOOK_WORLD: &str = "migrate-hook";
+
+/// The `plugin` / `stream-plugin` worlds plus the `migrate` export, for
+/// components that implement the hot-reload hook.
+pub const MIGRATABLE_WORLDS: &[&str] = &["migratable-plugin", "migratable-stream-plugin"];
+
 /// Available world names components can target, across both packages.
-pub const WORLDS: &[&str] = &["plugin", "stream-plugin", METRIC_WORLD];
+pub const WORLDS: &[&str] = &[
+    "plugin",
+    "stream-plugin",
+    "migratable-plugin",
+    "migratable-stream-plugin",
+    METRIC_WORLD,
+];
 
 /// Default world for the §9.3 hello-world walkthrough.
 pub const DEFAULT_WORLD: &str = "plugin";
@@ -94,6 +108,9 @@ pub fn world(name: &str) -> Option<&'static str> {
     match name {
         "plugin" => Some("plugin"),
         "stream-plugin" | "stream_plugin" => Some("stream-plugin"),
+        "migratable-plugin" | "migratable_plugin" => Some("migratable-plugin"),
+        "migratable-stream-plugin" | "migratable_stream_plugin" => Some("migratable-stream-plugin"),
+        "migrate-hook" | "migrate_hook" => Some(MIGRATE_HOOK_WORLD),
         "metric-plugin" | "metric_plugin" => Some(METRIC_WORLD),
         _ => None,
     }

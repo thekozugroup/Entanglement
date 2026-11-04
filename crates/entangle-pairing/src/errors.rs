@@ -13,10 +13,10 @@ pub enum PairingError {
     /// Ed25519 signature check failed.
     #[error("verify: signature does not match expected key")]
     VerifyFailed,
-    /// `ENTANGLE-E0786` — the pairing exchange timestamp is stale: the code
+    /// `ENTANGLE-E0886` — the pairing exchange timestamp is stale: the code
     /// expired (spec §6.3 failure modes).
     #[error(
-        "ENTANGLE-E0786: code expired (the exchange is {0}s old); ask the device that showed the \
+        "ENTANGLE-E0886: code expired (the exchange is {0}s old); ask the device that showed the \
          code to run `entangle pair` again for a new one"
     )]
     Expired(u64),

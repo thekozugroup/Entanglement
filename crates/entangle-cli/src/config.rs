@@ -71,6 +71,20 @@ pub fn device_label() -> String {
     node_label().unwrap_or_else(host_name)
 }
 
+/// `[runtime] aot_cache` from the config file at `path` (default `true`).
+///
+/// `[runtime]` is the daemon's section and deliberately not part of the
+/// CLI's [`Config`] (the CLI never writes it); the `--allow-local` kernel
+/// only reads this one key, so it shares the daemon's AOT cache unless the
+/// operator turned it off.
+pub fn runtime_aot_cache(path: &Path) -> bool {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| text.parse::<toml::Table>().ok())
+        .and_then(|t| t.get("runtime")?.get("aot_cache")?.as_bool())
+        .unwrap_or(true)
+}
+
 /// `[wrappers]` section.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WrappersConfig {
@@ -228,6 +242,8 @@ pub fn kernel_config() -> anyhow::Result<entangle_runtime::KernelConfig> {
         max_tier_allowed: max_tier_allowed()?,
         denied_capabilities,
         disabled_plugins: cfg.plugins.disabled.clone(),
+        aot_cache: runtime_aot_cache(&config_path())
+            .then(|| entangle_runtime::AotCacheConfig::new(dir.join("aot"))),
         native: entangle_runtime::NativeConfig {
             allow_unsandboxed: cfg.security.allow_unsandboxed_native,
             data_dir: Some(dir.join("data")),
@@ -236,4 +252,22 @@ pub fn kernel_config() -> anyhow::Result<entangle_runtime::KernelConfig> {
         },
         ..entangle_runtime::KernelConfig::default()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_local_kernel_reads_only_runtime_aot_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        assert!(runtime_aot_cache(&path), "absent file: on");
+        std::fs::write(&path, "[runtime]\nbus_capacity = 64\n").unwrap();
+        assert!(runtime_aot_cache(&path), "absent key: on");
+        std::fs::write(&path, "[runtime]\naot_cache = false\n").unwrap();
+        assert!(!runtime_aot_cache(&path));
+        // The CLI's own schema ignores the daemon's section.
+        assert!(load(&path).is_ok());
+    }
 }

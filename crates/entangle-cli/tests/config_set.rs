@@ -103,10 +103,10 @@ fn refused_edits_leave_the_file_byte_for_byte_unchanged() {
     let home = TempDir::new().unwrap();
     write_cfg(&home, HAND_EDITED);
     for (args, code) in [
-        (vec!["mesh.tailscale.port", "99999"], "ENTANGLE-E0781"),
-        (vec!["security.max_tier_allowed", "9"], "ENTANGLE-E0781"),
-        (vec!["mesh.tailscale.prot", "1"], "ENTANGLE-E0780"),
-        (vec!["mesh.overrides.bob", "iroh"], "ENTANGLE-E0782"),
+        (vec!["mesh.tailscale.port", "99999"], "ENTANGLE-E0881"),
+        (vec!["security.max_tier_allowed", "9"], "ENTANGLE-E0881"),
+        (vec!["mesh.tailscale.prot", "1"], "ENTANGLE-E0880"),
+        (vec!["mesh.overrides.bob", "iroh"], "ENTANGLE-E0882"),
         // multi-node with no paired peer: the daemon would not start.
         (vec!["mesh.multi_node", "true"], "ENTANGLE-E0050"),
     ] {
@@ -133,7 +133,7 @@ fn metrics_listen_is_validated_when_enabled() {
         .args(["config", "set", "metrics.enabled", "true"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("ENTANGLE-E0782"))
+        .stderr(predicate::str::contains("ENTANGLE-E0882"))
         .stderr(predicate::str::contains("E0656"));
     assert_eq!(
         std::fs::read_to_string(cfg_path(&home)).unwrap(),
@@ -315,7 +315,7 @@ fn diag_pair_names_a_check_that_catches_what_the_daemon_refuses() {
         .args(["config", "validate"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("ENTANGLE-E0782"))
+        .stderr(predicate::str::contains("ENTANGLE-E0882"))
         .stderr(predicate::str::contains("data_dir"));
     write_cfg(&home, "[node]\nlabel = \"studio\"\n");
     entangle(&home)

@@ -27,10 +27,11 @@
 //! | E0720–E0739 | Native-plugin supervisor (see `entangle-sandbox`) |
 //! | E0740–E0749 | Native-plugin runtime glue (see `entangle-runtime::native`) |
 //! | E0750–E0779 | Operator safety UX: shell wrappers, `max_tier_allowed` lowering (see `entangle-cli` `cmd::wrapper`, `cmd::security`; `entangle-bin` RPC `security/*`) |
-//! | E0780–E0799 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0791 is the 1.62.0 Tailscale version floor and E0793 a Tailscale version that cannot be read, both also enforced by the daemon; `entangle_mesh_tailscale::MeshTailscaleError::UnsupportedVersion` / `VersionUnknown`), `keys gen`, pairing UX (`entangle_pairing::PairingError`), `install` / `uninstall` / `agent host cleanup` (see `entangle-cli` `cmd::configset`, `cmd::init`, `cmd::keys`, `cmd::pair`, `cmd::install`) |
+//! | E0780–E0799 | Runtime lifecycle: manifest `[lifecycle]`, hot reload, plugin-state restore, AOT compilation cache, fault isolation (`entangle-manifest`, `entangle-runtime`, `entangle-aot`, `entangle-bin`, `entangle-core::fault`; E0780–E0791 in use) |
 //! | E0800–E0829 | OCI registry distribution and mirror listings (see `entangle-oci`; E0800–E0819 in use) |
 //! | E0830–E0859 | Packaging reproducibility, release verification, release-key ceremony (E0830–E0839 packaging in `entangle-cli` `cmd::package`; E0840–E0849 release signatures in `entangle-signing::release` and `entangle-cli` `cmd::release`; E0850–E0859 Shamir sharing in `entangle-signing::shamir`) |
 //! | E0860–E0879 | Operator backup / restore archive (`entangle-cli` `cmd::backup`; E0860–E0867 in use) |
+//! | E0880–E0899 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0891 is the 1.62.0 Tailscale version floor and E0893 a Tailscale version that cannot be read, both also enforced by the daemon; `entangle_mesh_tailscale::MeshTailscaleError::UnsupportedVersion` / `VersionUnknown`), `keys gen`, pairing UX (`entangle_pairing::PairingError`), `install` / `uninstall` / `agent host cleanup` (see `entangle-cli` `cmd::configset`, `cmd::init`, `cmd::keys`, `cmd::pair`, `cmd::install`) |
 //! | E0900       | I/O                            |
 //! | E9999       | Internal / unexpected          |
 //!

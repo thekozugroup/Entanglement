@@ -30,6 +30,15 @@ pub struct PluginsListResult {
 pub struct PluginsLoadParams {
     /// Path to the directory containing the plugin artefact.
     pub dir: String,
+    /// Hot reload: accept a new version that declares capabilities the
+    /// loaded version does not, or a higher tier (`--accept-new-capabilities`).
+    /// Absent (older clients): `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub accept_new_capabilities: bool,
+    /// Hot reload: accept a version lower than the loaded one
+    /// (`--allow-downgrade`). Absent: `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub allow_downgrade: bool,
 }
 
 /// Result of the `plugins/load` RPC method.
@@ -37,6 +46,13 @@ pub struct PluginsLoadParams {
 pub struct PluginsLoadResult {
     /// Id assigned to the newly loaded plugin.
     pub plugin_id: String,
+    /// When the load hot-reloaded another version of the plugin: that
+    /// version's id (it drains in the background).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaced: Option<String>,
+    /// Whether the new version's `migrate` hook ran (only with `replaced`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub migrated: bool,
 }
 
 /// Parameters for the `plugins/unload` RPC method.
@@ -419,6 +435,11 @@ pub struct PermsRevokeResult {
     /// Broker grant ids withdrawn by this call (empty when it was already
     /// revoked).
     pub withdrawn: Vec<u64>,
+    /// The plugin the capability was revoked from: the id requested, or —
+    /// when that id was replaced by a hot reload — the version answering for
+    /// it now. Absent from daemons that predate it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin_id: Option<String>,
 }
 
 /// Method name constants — kept in sync between client and server.

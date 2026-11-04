@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd LaunchAgent for the entangled daemon (macOS), the counterpart of
+  packaging/entangled.service on Linux.
+
+  Install (per user; the daemon resolves its state from $HOME/.entangle, so it
+  runs as you, with your home directory):
+
+    sudo install -m0755 entangled /usr/local/bin/entangled
+    mkdir -p ~/Library/LaunchAgents ~/Library/Logs
+    sed "s#__HOME__#$HOME#g" packaging/io.github.thekozugroup.entangled.plist \
+      > ~/Library/LaunchAgents/io.github.thekozugroup.entangled.plist
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.thekozugroup.entangled.plist
+
+  Stop / remove:
+
+    launchctl bootout gui/$(id -u)/io.github.thekozugroup.entangled
+
+  Restart policy: KeepAlive/SuccessfulExit=false restarts the daemon only when
+  it exits with a non-zero status, mirroring systemd's Restart=on-failure. A
+  core fault (a panic outside a contained plugin call, or a core task ending)
+  exits with status 70 and is restarted after ThrottleInterval seconds; a
+  clean stop (SIGTERM, status 0) is not. See docs/operations.md §22.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>io.github.thekozugroup.entangled</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/entangled</string>
+        <string>run</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__HOME__</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart on a non-zero exit only (Restart=on-failure). -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Wait at least this many seconds between restarts (RestartSec=5). -->
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+
+    <!-- Seconds launchd waits after SIGTERM before SIGKILL (TimeoutStopSec=15). -->
+    <key>ExitTimeOut</key>
+    <integer>15</integer>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <!-- 0077: files the daemon creates are private to the user. -->
+    <key>Umask</key>
+    <integer>63</integer>
+
+    <!-- Structured JSON log lines (stderr is not a terminal under launchd). -->
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/entangled.log</string>
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/entangled.log</string>
+</dict>
+</plist>

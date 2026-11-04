@@ -62,6 +62,28 @@ What the unit sets up:
 The `entangle` CLI is a separate, per-user client — the unit runs only the
 daemon.
 
+### 1a'. launchd (macOS)
+
+LaunchAgent: [`../packaging/io.github.thekozugroup.entangled.plist`](../packaging/io.github.thekozugroup.entangled.plist).
+It runs `entangled run` as the logged-in user (the daemon reads
+`$HOME/.entangle`, like the CLI), restarts it on a **non-zero** exit only
+(`KeepAlive` → `SuccessfulExit = false`, the counterpart of systemd's
+`Restart=on-failure`), at most every 5 s (`ThrottleInterval`), and writes the
+JSON log lines to `~/Library/Logs/entangled.log`. Install steps are in the
+plist's header comment:
+
+```bash
+sudo install -m0755 entangled /usr/local/bin/entangled
+mkdir -p ~/Library/LaunchAgents ~/Library/Logs
+sed "s#__HOME__#$HOME#g" packaging/io.github.thekozugroup.entangled.plist \
+  > ~/Library/LaunchAgents/io.github.thekozugroup.entangled.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.thekozugroup.entangled.plist
+```
+
+(`brew services start entangle` uses the Homebrew formula's own service
+definition instead, which restarts on every exit.) What a restart means for
+in-flight work is in §22.
+
 ### 1b. Docker / docker-compose
 
 See [`../docker/README.md`](../docker/README.md) for build/run commands and
@@ -105,7 +127,7 @@ error, not a silently-ignored setting (`crates/entangle-bin/src/config.rs`).
 
 ```toml
 [node]
-label = "alice-laptop"     # default: absent (the host name is used); see §23
+label = "alice-laptop"     # default: absent (the host name is used); see §27
 
 [runtime]
 bus_capacity = 1024        # default 1024
@@ -146,6 +168,8 @@ service_name = "entangled"
 |---|---|---|---|---|
 | `[node]` | `label` | string | absent | The human-readable device label (`entangle init` asks for it): shown to the other device when pairing (spec §6.3 step 2), advertised over mDNS and reported by `entangle diag mesh`. Absent: the host name. At most 64 bytes, not blank, no control characters. The spec's `[node] data_dir` and `identity` are **not supported** (every file lives under `~/.entangle`, §3) and fail the load with a message saying so. |
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
+| `[runtime]` | `aot_cache` | bool | `true` | Keep compiled wasm components in `~/.entangle/aot` so a later load (or a restart) skips compilation (§24). `false` compiles every load. Also honoured by the CLI's `--allow-local` kernel (which shares the directory). |
+| `[runtime]` | `aot_cache_max_mb`, `aot_cache_max_unused_days` | integer, integer | `512`, `30` | AOT cache limits: the maintenance loop removes entries unused this many days, then the least recently used above the size cap (§24). Daemon-only. |
 | `[mesh]` | `transports` | array of strings | `[]` | Active mesh transports: `"local"` (mDNS on `_entangle._udp.local`; LAN dialling also needs `"iroh"`), `"iroh"` (the scheduler endpoint, `[scheduler]`), `"tailscale"` (also needs `[mesh.tailscale] enabled = true`, §10). See §20 for how a transport is chosen per peer. |
 | `[mesh]` | `preferred` | string | absent | Daemon-only. `"local"`, `"tailscale"` or `"iroh"`: tried first for every peer; the others stay fallbacks in the spec order (§20). Anything else fails the load (`ENTANGLE-E0434`). |
 | `[mesh.overrides]` | `"<peer-id>"` | string or array of strings | none | Daemon-only. Per peer (32-hex peer id): one transport forces it, a list gives the exact order; no fallback outside it (§20). A bad id, an empty list or a repeated transport fails the load (`ENTANGLE-E0435`). |
@@ -161,7 +185,7 @@ service_name = "entangled"
 
 Notes:
 
-- Change any key with `entangle config set <key> <value>` (§22): it checks
+- Change any key with `entangle config set <key> <value>` (§26): it checks
   the value and the whole edited file the way the daemon loads it before
   writing anything, and says whether the change applies on `entangle config
   reload` or at the next daemon start. `entangle config get` lists every key
@@ -212,9 +236,11 @@ world-writable path like `/tmp`).
 | `~/.entangle/peers.toml` | Persistent trusted-peer allowlist (pairing results). | `0600` | Written atomically via a mode-`0600` sibling temp file + rename. |
 | `~/.entangle/sock` | The daemon's Unix-domain RPC socket. | `0600` | The server **forces** mode `0600` after bind and **refuses to serve** if any group/other bit remains; every accepted connection is additionally checked against the socket owner's uid via `SO_PEERCRED` (defense-in-depth beyond the mode bit). |
 | `~/.entangle/cache/`, `~/.entangle/logs/` | Plugin artifact cache; daemon logs. | — | Managed by the built-in maintenance loop (§7). |
-| `~/.entangle/publishers/` | Publisher keypairs from `entangle keys gen` (`<label>.key` PEM, `<label>.pub` hex), §27. | `0700` dir, `0600` keys | Created with the mode applied at creation; an existing key is never overwritten. |
-| `~/.entangle/pairing-attempts.json` | The last 20 `entangle pair` attempts (what was tried, the outcome; no codes or tokens), read by `entangle diag pair` (§24). | `0600` | Written atomically by `entangle pair`. |
-| `~/.entangle/agent-host/install-checksums.json` | SHA-256 of your own agent config files at `entangle install`, verified by `entangle uninstall` (§26). | `0600` | Written atomically by `entangle install`. |
+| `~/.entangle/aot/` | AOT compilation cache: `cache.key` (32-byte per-node MAC key), `<key>.cwasm` (compiled component) + `<key>.meta` (sidecar with its keyed MAC). See §24. | `0700` directory, `0600` files | Created that way by the daemon; a directory or key file with group/other bits or another owner disables the cache (`ENTANGLE-E0786`); an entry file with them is refused and deleted. |
+| `~/.entangle/plugins.state.toml` | Plugins loaded at shutdown, reloaded at the next start (§23). | `0600` | Written atomically (temp file + rename) with mode `0600` on every load, unload and reload. |
+| `~/.entangle/publishers/` | Publisher keypairs from `entangle keys gen` (`<label>.key` PEM, `<label>.pub` hex), §31. | `0700` dir, `0600` keys | Created with the mode applied at creation; an existing key is never overwritten. |
+| `~/.entangle/pairing-attempts.json` | The last 20 `entangle pair` attempts (what was tried, the outcome; no codes or tokens), read by `entangle diag pair` (§28). | `0600` | Written atomically by `entangle pair`. |
+| `~/.entangle/agent-host/install-checksums.json` | SHA-256 of your own agent config files at `entangle install`, verified by `entangle uninstall` (§30). | `0600` | Written atomically by `entangle install`. |
 | `~/.entangle/data/` | Plugin storage: `plugins/<publisher>/<name>/` (each plugin's private directory, wasm `/data` or native `$ENTANGLE_DATA_DIR`), `shared/`, `shares/<name>/`. See §18. | `0700` on every directory the daemon creates | Created on demand when a storage grant is realised, without following symbolic links. |
 
 `entangle doctor` (see §4) is the fastest way to audit all of the above at
@@ -333,7 +359,8 @@ canonical range table, maintained in
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
-| E0780–E0799 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0791: the 1.62.0 Tailscale floor, E0793: a Tailscale version that cannot be read; both also enforced by the daemon), `keys gen`, pairing UX, `install` / `uninstall` / `agent host cleanup` — see §22–§27 |
+| E0780–E0799 | Runtime lifecycle — see §22–§25: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788); a reload refused because another version of the plugin was loaded or unloaded meanwhile (E0789, retry); a load of a version that is still draining after being replaced or unloaded (E0790, retry once its calls and streams end); a recorded package that changed, refused at restore before anything of it is loaded (E0791, reported through E0784) |
+| E0880–E0899 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0891: the 1.62.0 Tailscale floor, E0893: a Tailscale version that cannot be read; both also enforced by the daemon), `keys gen`, pairing UX, `install` / `uninstall` / `agent host cleanup` — see §26–§31 |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -365,20 +392,20 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0758` | Daemon refused `security/apply-max-tier`: a plugin above the new ceiling was not on the list the operator confirmed (loaded while the prompt waited); nothing changed, re-run to see the current list (§16). |
 | `ENTANGLE-E0759` | A plugin id listed in `[plugins] disabled` was refused at load; run `entangle plugins enable <id>` (§16). |
 | `ENTANGLE-E0760` | `entangle plugins enable` refused: the plugin's tier is above the current `max_tier_allowed`; raise the ceiling first (§16). |
-| `ENTANGLE-E0780` | `entangle config set/get/unset`: unknown key (the message lists the keys of that section), or a key managed by another command (`wrappers.install`, `plugins.disabled`) (§22). |
-| `ENTANGLE-E0781` | `entangle config set`: the value does not have the key's type (out of range, not a transport, not an address, ...); nothing was written (§22). |
-| `ENTANGLE-E0782` | `entangle config set/unset`: the edited file would be refused by the daemon (its parser, the start-up checks of `[metrics]`, `[telemetry.otlp]`, `[mesh]` routing and `[mesh.tailscale]`, or `multi_node = true` with no paired peer, `ENTANGLE-E0050`); nothing was written (§22). |
-| `ENTANGLE-E0783` | `entangle init` / `install`: input ended before a question was answered; use `--headless` and flags (§23). |
-| `ENTANGLE-E0784` | `entangle init`: a bad flag (unknown `--transport`, invalid `--label`), or the active Tailscale profile is not the one confirmed with `--tailscale-profile` / at the prompt (exit 64) (§23). |
-| `ENTANGLE-E0785` | `entangle keys gen`: the label is not a safe file name, or a key with that label exists (never overwritten) (§27). |
-| `ENTANGLE-E0786` | Pairing: the code expired; the message names the command that shows a new one (§24). |
-| `ENTANGLE-E0787` | Pairing: fingerprint mismatch — a hard error; nothing is stored. See [Fingerprint mismatch](#fingerprint-mismatch). |
-| `ENTANGLE-E0788` | Pairing: the other device could not be reached; the message lists each transport tried and why it failed, and suggests `entangle diag pair` (§24). |
-| `ENTANGLE-E0789` | `entangle init`: the tailnet is not usable for `mesh.tailscale` — binary not found (exit 64), not logged in or stopped (65), running but offline (75) (§23). |
-| `ENTANGLE-E0790` | `entangle uninstall --purge` refused: not confirmed, the daemon is running, or the directory does not look like Entanglement's (§26). |
-| `ENTANGLE-E0791` | The host `tailscale` (the CLI or tailscaled) is older than 1.62.0: `entangle init` refuses to enable `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §23). |
-| `ENTANGLE-E0792` | `entangle uninstall`: the install checksum record is unreadable (§26). |
-| `ENTANGLE-E0793` | Neither `tailscale version` nor tailscaled's status reports a version, so the 1.62.0 floor cannot be checked: `entangle init` refuses `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §23). |
+| `ENTANGLE-E0880` | `entangle config set/get/unset`: unknown key (the message lists the keys of that section), or a key managed by another command (`wrappers.install`, `plugins.disabled`) (§26). |
+| `ENTANGLE-E0881` | `entangle config set`: the value does not have the key's type (out of range, not a transport, not an address, ...); nothing was written (§26). |
+| `ENTANGLE-E0882` | `entangle config set/unset`: the edited file would be refused by the daemon (its parser, the start-up checks of `[metrics]`, `[telemetry.otlp]`, `[mesh]` routing and `[mesh.tailscale]`, or `multi_node = true` with no paired peer, `ENTANGLE-E0050`); nothing was written (§26). |
+| `ENTANGLE-E0883` | `entangle init` / `install`: input ended before a question was answered; use `--headless` and flags (§27). |
+| `ENTANGLE-E0884` | `entangle init`: a bad flag (unknown `--transport`, invalid `--label`), or the active Tailscale profile is not the one confirmed with `--tailscale-profile` / at the prompt (exit 64) (§27). |
+| `ENTANGLE-E0885` | `entangle keys gen`: the label is not a safe file name, or a key with that label exists (never overwritten) (§31). |
+| `ENTANGLE-E0886` | Pairing: the code expired; the message names the command that shows a new one (§28). |
+| `ENTANGLE-E0887` | Pairing: fingerprint mismatch — a hard error; nothing is stored. See [Fingerprint mismatch](#fingerprint-mismatch). |
+| `ENTANGLE-E0888` | Pairing: the other device could not be reached; the message lists each transport tried and why it failed, and suggests `entangle diag pair` (§28). |
+| `ENTANGLE-E0889` | `entangle init`: the tailnet is not usable for `mesh.tailscale` — binary not found (exit 64), not logged in or stopped (65), running but offline (75) (§27). |
+| `ENTANGLE-E0890` | `entangle uninstall --purge` refused: not confirmed, the daemon is running, or the directory does not look like Entanglement's (§30). |
+| `ENTANGLE-E0891` | The host `tailscale` (the CLI or tailscaled) is older than 1.62.0: `entangle init` refuses to enable `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §27). |
+| `ENTANGLE-E0892` | `entangle uninstall`: the install checksum record is unreadable (§30). |
+| `ENTANGLE-E0893` | Neither `tailscale version` nor tailscaled's status reports a version, so the 1.62.0 floor cannot be checked: `entangle init` refuses `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §27). |
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§16). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§16). |
 | `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§16). |
@@ -545,14 +572,14 @@ only when **both** `[mesh.tailscale] enabled = true` and `"tailscale"` in
 at startup and `entangle doctor` shows the transport as inert.
 `entangle config set mesh.tailscale.enabled true` sets both (and `false`
 clears both); `entangle init --transport tailscale` does too, after checking
-the tailnet (§23).
+the tailnet (§27).
 
 **Minimum Tailscale version: 1.62.0** (spec §11 #17). At boot the daemon runs
 `tailscale version` and reads the `Version` tailscaled reports in `tailscale
 status --json`, and does not start the transport when either is older
-(`ENTANGLE-E0791` in the log; the rest of the daemon runs). When the CLI
+(`ENTANGLE-E0891` in the log; the rest of the daemon runs). When the CLI
 cannot report its version, tailscaled's is used; when neither can be read the
-transport is not started either (`ENTANGLE-E0793`). Only a `tailscale` binary
+transport is not started either (`ENTANGLE-E0893`). Only a `tailscale` binary
 that is missing altogether does not block the start (the liveness state then
 says `uninstalled` / `stopped`). Every liveness transition logs the
 version `tailscaled` reports (`tailscale_version=...`) and warns when it is
@@ -1043,6 +1070,13 @@ scrape_configs:
 | `entangle_daemon_uptime_seconds` | gauge | — | Seconds since the daemon started. |
 | `entangle_telemetry_spans_dropped_total`, `..._spans_exported_total`, `..._export_failures_total` | counter | — | OTLP exporter health (§14b); present only with `[telemetry.otlp]` on. |
 | `entangle_metrics_dropped_series_total` | counter | — | Appears only if a metric family hit its label-set cap (a bug indicator). |
+| `entangle_aot_cache_hits_total`, `entangle_aot_cache_misses_total` | counter | — | Wasm component loads answered from the AOT cache, and loads that compiled (§24). |
+| `entangle_aot_cache_rejections_total` | counter | `reason` (`permissions`, `header`, `version`, `mac`, `deserialize`, `io`) | AOT cache entries refused and deleted (`ENTANGLE-E0785`); the component was compiled instead. |
+| `entangle_aot_cache_evictions_total` | counter | `reason` (`age`, `size`, `orphan`) | Entries removed by the maintenance loop's GC. |
+| `entangle_aot_cache_bytes` | gauge | — | Bytes the AOT cache holds on disk (exact after each GC). |
+| `entangle_plugin_restores_total` | counter | `outcome` (`restored`, `failed`, `disabled`) | Entries of the plugin-state file reloaded at daemon start (§23). |
+| `entangle_plugin_reloads_total` | counter | `outcome` (`swapped`, `refused`, `migrate_failed`) | Hot reloads of a loaded plugin to another version (§25). |
+| `entangle_plugin_idle_teardowns_total` | counter | `plugin` | Idle plugin instances dropped after their `idle-timeout-secs` (§25). |
 
 #### Label cardinality
 
@@ -1050,7 +1084,7 @@ No label carries a peer id or free text. `capability` is the capability
 *kind* (`compute.cpu`, `storage.share`, `custom`, ...), never a share or
 custom name. `method` is normalised to the RPC methods the daemon implements
 (everything else is `unknown`). `class`, `policy`, `tier`, `state` and
-`outcome` draw from the closed sets above, and `transport` from `local`,
+`outcome` (and `reason`) draw from the closed sets above, and `transport` from `local`,
 `tailscale`, `iroh`, `none`. The one open-ended label is
 `plugin`: each distinct plugin id gets its own series for the **first 64**
 ids the daemon sees; later ids fold into `plugin="other"`. As a backstop every
@@ -1186,7 +1220,7 @@ boundary**: `command claude` or `\claude` bypasses it.
 
 `entangle install` asks whether to install it (spec §8.3 item 2; `--wrapper`
 installs without asking, `--no-wrapper` records the opt-out) and respects a
-choice already recorded in `[wrappers] install` (§26).
+choice already recorded in `[wrappers] install` (§30).
 
 ```bash
 entangle wrapper enable     # install into ~/.bashrc, ~/.zshrc, ~/.config/fish/conf.d/entangle.fish
@@ -1603,9 +1637,9 @@ aabbccddeeff00112233445566778899/fetcher@0.3.1 (tier 3)
 
 $ entangle perms revoke aabbccddeeff00112233445566778899/fetcher@0.3.1 storage.local
 storage.local revoked from aabbccddeeff00112233445566778899/fetcher@0.3.1; withdrew grant(s) 7
-Not persistent: the plugin gets this capability back when it is unloaded and
-loaded again or when the daemon restarts. To keep a capability away for good,
-add it to [security] deny_capabilities.
+It survives a daemon restart, but the plugin gets this capability back when it is
+unloaded and loaded again, or reloaded to another version. To keep a capability away
+for good, add it to [security] deny_capabilities.
 ```
 
 `entangle perms list [<plugin>] --json` prints the `perms/list` RPC result:
@@ -1627,9 +1661,10 @@ it loads, so a native plugin with a revoked capability is refused outright
 below a loaded plugin's tier (§16) has the same effect on all of its grants
 at once while it drains — the per-grant tier check (`ENTANGLE-E0127`)
 always reads the ceiling in force — and its unload then releases them. A
-revocation is held in the daemon's memory: it lasts until the plugin is unloaded and loaded again or
-the daemon restarts; to keep a capability away from every
-plugin, use `deny_capabilities` instead.
+revocation lasts until the plugin is unloaded and loaded again, or hot-reloaded
+to another version (§25); the plugin-state file (§23) records it, so it is
+applied again when a restarted daemon restores the plugin. To keep a
+capability away from every plugin, use `deny_capabilities` instead.
 
 Every grant, denial, release and revocation is recorded in the broker's
 audit log with the plugin, the capability and its parameters, the reason and
@@ -1908,7 +1943,279 @@ that file.
 
 ---
 
-## 22. Changing settings: `entangle config set|get|unset`
+## 22. Fault isolation and restarts
+
+A bug in the daemon's own code must not leave a half-working daemon behind
+(spec §2.1). `entangled` therefore turns every **core fault** into a clean
+process exit with a distinct status, and lets the service manager restart it:
+
+| Exit status | Meaning |
+|---|---|
+| `0` | Clean stop (SIGTERM / SIGINT). Not restarted by `Restart=on-failure` or the launchd plist. |
+| `1` | Startup error: bad `config.toml`, unreadable keyring or identity, the multi-node peer check (§5), an unusable `[metrics]` section. Restarted, and fails again until fixed. |
+| `70` | **Core fault** (`EX_SOFTWARE`): a panic outside a contained plugin call, or a supervised core task that ended while the daemon was running. Restarted. |
+
+Before exiting with 70 the daemon writes **one** structured error line at
+target `entangle::telemetry` with `code = "ENTANGLE-E0787"`, `exit_code`,
+and either the panic's `location`, `thread` and message (`panic`), or the
+`task` that ended:
+
+```json
+{"level":"ERROR","target":"entangle::telemetry","fields":{"code":"ENTANGLE-E0787","contained":false,"exit_code":70,"location":"crates/entangle-bin/src/maintenance.rs:113:9","thread":"tokio-rt-worker","panic":"...","message":"ENTANGLE-E0787: panic in core code; exiting so the service manager restarts the daemon"}}
+```
+
+**Which paths exit and which contain.**
+
+| Where the panic happens | Outcome |
+|---|---|
+| RPC server (accept loop, request handling), maintenance loop, scheduler task and stream servers (`mesh.iroh`, `mesh.tailscale`), mDNS discovery, metrics endpoint, plugin load / unload / reload, any other daemon thread | Exit 70 (`ENTANGLE-E0787`). |
+| Capability broker: granting or releasing a capability (`Broker::grant`, `grant_by_key`, `release`), even when reached from a plugin's `capability.fetch` inside a plugin call | Exit 70. These are critical sections: unwinding halfway could leave the grant table inconsistent, so they are never contained. |
+| Host code reached from inside one plugin call — a wasm one-shot `run` or `start-stream` (instantiation, guest code, the host imports it calls on the polling thread), or a native plugin's supervised invocation — started through `Kernel::invoke` / `invoke_stream` (`plugins/invoke`, `compute/dispatch`, `compute stream`, work served to mesh peers) | **Contained**: logged once at `entangle::telemetry` with `code = "ENTANGLE-E0788"`, `contained = true`; that call fails with `ENTANGLE-E0788`; its store and instance are discarded; the plugin stays loaded; the daemon keeps serving. |
+| Host work a plugin call hands to another thread (WASI filesystem operations run on tokio's blocking pool) or spawns as its own task | Exit 70: the containment marker is per thread and per poll. |
+| Metric components run by the submitter's verifier (`SemanticEquivalent`) | Exit 70 (not a `Kernel::invoke` call). |
+| Wasm traps, timeouts, resource-limit hits, a plugin returning an error | Not panics: the call returns its error as before. |
+
+**Supervised core tasks.** The RPC server, the maintenance loop and the
+`mesh.iroh` task and stream servers run under a supervisor: if one returns
+(for example, the RPC socket cannot be bound) while the daemon is running, the
+daemon logs `ENTANGLE-E0787` with the task's name and exits 70. The
+`mesh.tailscale` accept loops are covered by the panic hook only.
+
+**The tradeoff (spec §2.1).** A core fault restarts the whole daemon: calls
+and streams in flight on this node are lost (their callers see the
+connection close and may retry), mesh peers see this node disappear and
+re-appear, and plugins come back as described in §23. State on disk —
+identity, keyring, peers, plugin data, the AOT cache — is untouched. The
+daemon is one process by design; this is the price of that simplicity.
+
+**Fault injection (debug builds only).** Tests arm named fault points with
+`ENTANGLE_FAULT_INJECT=<point>[,<point>…]`: `maintenance` (panic in the
+maintenance loop), `maintenance-return` (it returns early), `rpc` (panic
+handling a request), `broker` (panic in `grant_by_key`), `host-call` (panic in
+the `host-info` import). The hook exists only when `debug_assertions` are on;
+in a release build the variable has no effect.
+
+---
+
+## 23. Plugins after a restart (the plugin-state file)
+
+A restarted daemon — after an upgrade, a reboot, or a core-fault exit (§22) —
+loads the plugins that were loaded before it stopped (spec §2.1). The daemon
+records them in `~/.entangle/plugins.state.toml` (mode `0600`, replaced
+atomically) after every `plugins load` (including hot reloads, §25),
+`plugins unload`, `perms revoke` and tier-ceiling change:
+
+```toml
+format = 1
+
+[[plugin]]
+id = "aabbccddeeff00112233445566778899/fetcher@0.3.1"
+dir = "/home/op/plugins/fetcher" # the package's real absolute path (a relative
+                                # `plugins load` directory is resolved by the CLI)
+artifact_digest = "5f0c…"      # BLAKE3 of the verified plugin.wasm / plugin.bin
+manifest_digest = "a91e…"      # BLAKE3 of the verified entangle.toml
+tier = 3
+granted = ["storage.local"]
+denied = ["net.wan"]            # by [security] deny_capabilities
+revoked = []                    # by `entangle perms revoke`
+```
+
+At startup, before the RPC socket opens, each entry is loaded again **through
+the normal load path**: signature and keyring, the tier ceiling, `[plugins]
+disabled`, the runtime-kind check and the capability policy all run as for
+`entangle plugins load`. Then:
+
+- **A package that changed** while the daemon was down (another id, artifact
+  or manifest in that directory than the digests recorded) is refused before
+  anything of it is loaded — nothing registered, granted, compiled or
+  migrated, and no other version of a plugin restored earlier is replaced —
+  and not restored: those bytes were never loaded by the operator. Load it
+  explicitly with `entangle plugins load <dir>`.
+- **Revocations** recorded in `revoked` are applied again as soon as the
+  plugin's grants exist, before it can be called (a native plugin's sandbox
+  is derived without them, so it restores usable).
+- **An entry that cannot be restored** — its signature no longer verifies, its
+  publisher left the keyring, it is above the ceiling, `[plugins] disabled`
+  names it, its directory is gone — is skipped with one structured warning at
+  target `entangle::telemetry` with `code = "ENTANGLE-E0784"`, the plugin id,
+  the directory and the reason, and counted in
+  `entangle_plugin_restores_total{outcome="failed"|"disabled"}`
+  (`"restored"` for the others). It **stays in the file** with `failed =
+  "<reason>"`, so it is visible and is retried at every start (fix the
+  keyring, `entangle plugins enable` it, …). `entangle plugins unload <id>`
+  removes such an entry; loading the plugin again replaces it.
+
+A plugin disabled with `entangle plugins disable` while the daemon is stopped
+is therefore not reloaded, and comes back at the first start after it is
+enabled again. An unreadable state file restores nothing (`ENTANGLE-E0784`)
+and is rewritten on the next change. In-flight calls and streams are not
+part of the state: they are lost with the old process (§22).
+
+---
+
+## 24. AOT compilation cache
+
+Compiling a wasm component with Cranelift is the slow part of loading a
+plugin. The daemon keeps each compiled component in `~/.entangle/aot`
+(`[runtime] aot_cache = true`, the default), so loading the same package
+again — after an unload, a hot reload back, or a daemon restart — skips
+compilation.
+
+**Key.** An entry is keyed by BLAKE3 of the component bytes, the Wasmtime
+version, Wasmtime's engine compatibility hash (target triple, compiler flags,
+tunables, enabled wasm features — everything about the engine configuration
+that affects code generation) and the host architecture/OS. A new daemon
+build with another Wasmtime version or engine configuration simply misses and
+recompiles; GC removes the old entries later.
+
+**Trust.** Loading a compiled artifact skips Wasmtime's validation, so the
+daemon only loads entries it wrote itself:
+
+- the directory must be owned by the daemon's user with mode `0700`, and the
+  per-node key `cache.key` (32 random bytes) must be a `0600` regular file;
+  otherwise the cache is not used at all and the daemon logs
+  `ENTANGLE-E0786` and compiles everything (fix with `chmod 700
+  ~/.entangle/aot && chmod 600 ~/.entangle/aot/cache.key`, or delete the
+  directory);
+- every entry has a sidecar `<key>.meta` with a keyed BLAKE3 MAC over its
+  header and the artifact bytes under `cache.key`; the artifact is read into
+  memory, checked, and only then handed to Wasmtime;
+- an entry that is a symbolic link, has group/other bits or another owner, a
+  malformed sidecar, another Wasmtime version, a MAC that does not verify, or
+  that Wasmtime refuses is **deleted**, logged (`ENTANGLE-E0785`, with the
+  reason), counted in `entangle_aot_cache_rejections_total{reason}` and the
+  component compiled as if there were no cache. A bad entry never fails a
+  load.
+
+**GC.** The maintenance loop (at startup and every hour) removes entries not
+used for `aot_cache_max_unused_days` (default 30; a hit refreshes an entry's
+last use), then the least recently used entries until the cache is under
+`aot_cache_max_mb` (default 512 MiB), and partial writes older than an hour.
+Deleting `~/.entangle/aot` while the daemon is stopped is always safe; the
+next start creates a new key and cache.
+
+Metrics: `entangle_aot_cache_hits_total`, `..._misses_total`,
+`..._rejections_total{reason}`, `..._evictions_total{reason}`,
+`entangle_aot_cache_bytes` (§14a).
+
+---
+
+## 25. Plugin lifecycle: lazy activation, idle teardown, hot reload
+
+### `[lifecycle]` in `entangle.toml`
+
+```toml
+[lifecycle]
+activation = "lazy"        # "eager" (default) | "lazy"
+idle-timeout-secs = 300    # optional, 1..=604800
+```
+
+A loaded wasm plugin keeps an **instance** resident between calls: its
+compiled component, pre-instantiated against the host's imports, with its
+capability grants attached. (Every call and stream still runs in a fresh
+Wasmtime store created from it, so no guest memory survives between calls
+either way.)
+
+- **`eager`** (the default, and how every plugin behaved before this table
+  existed): the instance is created when the plugin loads.
+- **`lazy`**: loading verifies everything — signature, ceiling, runtime kind,
+  grants — and compiles the component once (which also fills the AOT cache,
+  §24), but keeps no instance; the first call or stream creates it.
+- **`idle-timeout-secs`**: when no call or stream has used the plugin for
+  this long, its instance is dropped (the plugin stays loaded and listed);
+  the next call creates it again, from the verified bytes kept in memory and
+  normally from the AOT cache. A call or stream in progress keeps the plugin
+  active: a long stream is never torn down under its plugin.
+
+Native (tier 4–5) plugins start a fresh sandboxed process per call and have
+no resident instance; a native manifest asking for `lazy` or an idle timeout
+is refused (`ENTANGLE-E0780`), as is a timeout of 0 or above 7 days.
+
+Lifecycle events (the kernel's bus, topic `runtime.plugin.lifecycle`):
+`Loaded` when the plugin loads; `Instantiated` when an instance is created on
+demand (first call of a lazy plugin, first call after a teardown), before that
+call's `Activated`; `Activated` / `Idled` around every call and stream;
+`TornDown` when an idle instance is dropped; `Migrated` and `Unloaded` around
+a hot reload (below). Teardowns are counted in
+`entangle_plugin_idle_teardowns_total{plugin}`.
+
+### Hot reload
+
+Loading a **new version** of a loaded plugin (same publisher and name, another
+version) replaces it without stopping it:
+
+```bash
+entangle plugins load ./fetcher-0.4.0                      # same or fewer capabilities
+entangle plugins load ./fetcher-0.4.0 --accept-new-capabilities
+entangle plugins load ./fetcher-0.3.0 --allow-downgrade
+```
+
+1. The new version is verified completely while the old one keeps serving.
+2. **Consent.** If it declares any capability the loaded version does not
+   (with exactly the same parameters — widening `hosts` or `ro` → `rw`
+   counts), or has a higher effective tier, the reload is refused with
+   `ENTANGLE-E0781` and the diff, unless `--accept-new-capabilities` is given
+   (spec §4.4.1 case B: every upgrade re-asks):
+
+   ```
+   ENTANGLE-E0781: reloading …/fetcher@0.3.1 as …/fetcher@0.4.0 needs consent: the new
+   version declares more than the loaded one; re-run with --accept-new-capabilities to accept:
+     + net.wan (hosts=api.example.com:443)
+     - storage.share.photos (mode=ro)
+     tier 2 -> 3
+   ```
+
+   Dropping capabilities or lowering the tier needs no flag. A **lower
+   version** is refused with `ENTANGLE-E0782` unless `--allow-downgrade`.
+3. **`migrate`.** If the new component exports the optional `migrate` hook
+   (WIT world `migrate-hook`; `migratable-plugin` / `migratable-stream-plugin`
+   are the plugin worlds with it), the daemon calls
+   `migrate("<old version>")` in a fresh instance of the **new** version, with
+   its grants (so it can convert its `/data` — both versions share the
+   plugin's storage directory), bounded to 30 s. `err`, a trap or a timeout
+   refuses the reload with `ENTANGLE-E0783`; the old version keeps running
+   and nothing of the new one remains except what the hook already wrote
+   before failing (a hook should leave the data usable by the old version
+   when it fails). Without the hook the reload is a plain
+   drain-and-swap.
+4. **Swap.** In one step the new version takes over: every new call and
+   stream — including ones addressed to the old version's id, so existing
+   clients keep working — runs on the new version (`plugins list` shows only
+   the new id). Calls and streams already running on the old version finish
+   there.
+5. **Drain.** The old version is unloaded exactly as by `plugins unload` once
+   its last call or stream has ended (streams are drained, not cut), then its
+   grants are released and `Unloaded` is published for it. The
+   `plugins load` reply does not wait for this.
+
+Loads and unloads of the same plugin are serialised: a second
+`plugins load` waits for the first to swap (or fail) and is then checked
+against, and migrates from, the version the first installed (a lower one is
+then refused as a downgrade, before its hook). A tier-ceiling lowering waits
+for reloads under way. Every refusal therefore comes before the `migrate`
+hook: a hook runs only for a version that then goes live, and `Migrated` is
+published after the swap. `ENTANGLE-E0789` remains as a last line of defence
+(retry it). The old version keeps serving while the hook runs, and its calls
+and streams already running finish during the drain, writing in its own
+format: a `migrate` hook must be idempotent and tolerate data the old
+version writes meanwhile.
+
+Loading the version that is already loaded is refused as before
+(`plugin already loaded`); unload it first or bump the version. Loading a
+version that was just replaced or unloaded (a rollback with
+`--allow-downgrade`) while its calls or streams are still running waits up to
+2 s for them, then is refused with `ENTANGLE-E0790` (`<id> is still
+draining`): retry once they have ended. Unloading the
+current version also ends the forwarding of the old ids. A capability revoked
+on the old version is not carried over to the new one. Reloads are counted in
+`entangle_plugin_reloads_total{outcome="swapped"|"refused"|"migrate_failed"}`
+and recorded in the plugin-state file (§23). `entangle plugins install`
+upgrades go through the same checks; when one is refused for consent, load
+the installed directory with `--accept-new-capabilities`.
+
+---
+
+## 26. Changing settings: `entangle config set|get|unset`
 
 ```bash
 entangle config get                                  # every key, its value, [*] = set in the file
@@ -1932,15 +2239,15 @@ both.
 
 Before anything is written, `config set` checks:
 
-1. the key exists (`ENTANGLE-E0780` lists the keys of that section);
+1. the key exists (`ENTANGLE-E0880` lists the keys of that section);
 2. the value has the key's type: booleans are `true`/`false`, integers are
    range-checked (`mesh.tailscale.port` 0–65535, `security.max_tier_allowed`
-   1–5), transports must be `local`, `iroh` or `tailscale` (`ENTANGLE-E0781`);
+   1–5), transports must be `local`, `iroh` or `tailscale` (`ENTANGLE-E0881`);
 3. the whole edited file, exactly as the daemon loads it: its parser (every
    `deny_unknown_fields` section and field validator) and its start-up checks
    (`[telemetry.otlp]`, an enabled `[metrics]` address, `[mesh] preferred` /
    `[mesh.overrides]`, `[mesh.tailscale]`), plus the multi-node rule: `[mesh]
-   multi_node = true` needs a paired peer (`ENTANGLE-E0782`, naming
+   multi_node = true` needs a paired peer (`ENTANGLE-E0882`, naming
    `ENTANGLE-E0050`).
 
 The write is atomic and format-preserving: comments, key order and every
@@ -1956,11 +2263,11 @@ when it restarts. Every other key takes effect when the daemon restarts.
 `entangle config get` shows this per key (`[reload]`, `[restart]`).
 
 After a transport is enabled on a node with no paired device, `config set`
-prints the pairing commands (§24).
+prints the pairing commands (§28).
 
 ---
 
-## 23. First run: `entangle init`
+## 27. First run: `entangle init`
 
 `entangle init` sets up `~/.entangle`: the Ed25519 identity, `config.toml`,
 an empty `peers.toml` and `keyring.toml` (spec §9.2). With all four present it
@@ -2008,11 +2315,11 @@ these checks, each with its message and exit code (spec §9.1.1):
 
 | Condition | Exit |
 |---|---|
-| `tailscale` not found | 64 (`ENTANGLE-E0789`) |
-| `tailscale version`, or the `Version` tailscaled reports, older than 1.62.0 | 69 (`ENTANGLE-E0791`) |
-| neither version can be read | 69 (`ENTANGLE-E0793`) |
-| `BackendState` `NeedsLogin`, or stopped | 65 (`ENTANGLE-E0789`): run `tailscale up` |
-| running but this node offline | 75 (`ENTANGLE-E0789`): wait and retry |
+| `tailscale` not found | 64 (`ENTANGLE-E0889`) |
+| `tailscale version`, or the `Version` tailscaled reports, older than 1.62.0 | 69 (`ENTANGLE-E0891`) |
+| neither version can be read | 69 (`ENTANGLE-E0893`) |
+| `BackendState` `NeedsLogin`, or stopped | 65 (`ENTANGLE-E0889`): run `tailscale up` |
+| running but this node offline | 75 (`ENTANGLE-E0889`): wait and retry |
 | several login profiles (`tailscale switch --list`) | interactive: warns and asks to continue with the active one; headless: 64 unless `--tailscale-profile <tailnet|account|id>` names the active profile (a different one is 64 with the `tailscale switch` to run) |
 
 Nothing is written when a check fails. On success it prints which binary it
@@ -2047,7 +2354,7 @@ Colour (headings, `warning:`) is used only on a terminal, never with
 
 ---
 
-## 24. Pairing
+## 28. Pairing
 
 ```bash
 entangle pair --print-code       # this device shows a code and waits (same as --responder)
@@ -2068,12 +2375,12 @@ before confirming.
 
 **Failure modes** (spec §6.3), each with a stable code:
 
-- *Code expired* (`ENTANGLE-E0786`): the device that showed it says no device
+- *Code expired* (`ENTANGLE-E0886`): the device that showed it says no device
   paired in time; the device that typed it says "code expired; ask <device> to
   run `entangle pair --print-code` again". Both name the command that makes a
   new code.
-- *Fingerprint mismatch* (`ENTANGLE-E0787`): see below.
-- *No reachability* (`ENTANGLE-E0788`): the error lists each transport tried —
+- *Fingerprint mismatch* (`ENTANGLE-E0887`): see below.
+- *No reachability* (`ENTANGLE-E0888`): the error lists each transport tried —
   the mDNS browse (`mesh.local`), the QUIC dial (`mesh.iroh`, direct UDP and,
   unless disabled, relay fallback) with its addresses — and why each failed,
   says that the tailnet is not searched (pass the tailnet address the other
@@ -2089,7 +2396,7 @@ skips the browse, `--bind` the endpoint address, `--json` for scripts).
 
 ### Fingerprint mismatch
 
-`ENTANGLE-E0787` means the identity at the other end of the pairing is not
+`ENTANGLE-E0887` means the identity at the other end of the pairing is not
 the one it should be. It is raised when:
 
 - the device that answered authenticated with a different key from the one
@@ -2121,7 +2428,7 @@ the attempt is revoked.
 
 ---
 
-## 25. Reachability per peer: `entangle mesh routes`
+## 29. Reachability per peer: `entangle mesh routes`
 
 ```bash
 entangle mesh routes            # table
@@ -2152,7 +2459,7 @@ from `peers.toml` and reachability is shown as unknown.
 
 ---
 
-## 26. Install, uninstall and leftover agent sessions
+## 30. Install, uninstall and leftover agent sessions
 
 ```bash
 entangle install [--wrapper | --no-wrapper] [--headless]
@@ -2200,14 +2507,14 @@ removed, never through a symbolic link; your own configs are never touched.
    the error names the real directory, to delete yourself) — both before
    anything else is changed. It reminds you to `entangle backup` first, and deletes the directory only when you type
    `purge` (a `y`, or `yes |`, is not enough) or pass `--yes`
-   (`ENTANGLE-E0790` otherwise).
+   (`ENTANGLE-E0890` otherwise).
 
 It does not remove the `entangle` / `entangled` binaries or a service unit;
 see [install.md](install.md#uninstall).
 
 ---
 
-## 27. Publisher keys: `entangle keys gen`
+## 31. Publisher keys: `entangle keys gen`
 
 ```bash
 entangle keys gen --label alice            # ~/.entangle/publishers/alice.key + alice.pub
@@ -2220,6 +2527,6 @@ can be kept offline or shared between build machines. It is an
 `identity.key`: sign with `entangle plugins build --key
 ~/.entangle/publishers/alice.key`. The private key is created with mode
 `0600` (the directory `0700`); an existing key with that label is never
-overwritten (`ENTANGLE-E0785`). The command prints the public key
+overwritten (`ENTANGLE-E0885`). The command prints the public key
 (`ed25519:<hex>`) and the fingerprint `entangle keyring list` shows; on
 another machine trust it with `entangle keyring add <hex> --name alice`.

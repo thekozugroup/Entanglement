@@ -207,7 +207,7 @@ fn purge_needs_the_typed_word_or_yes() {
         .write_stdin("y\n")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("ENTANGLE-E0790"));
+        .stderr(predicate::str::contains("ENTANGLE-E0890"));
     assert!(env.dot().join("identity.key").exists());
     env.cmd()
         .args(["uninstall", "--purge"])
@@ -332,7 +332,7 @@ fn purge_refuses_a_symlinked_entangle_dir_and_names_its_target() {
     );
     assert!(!out.status.success(), "{stdout}{stderr}");
     assert!(
-        stderr.contains("ENTANGLE-E0790")
+        stderr.contains("ENTANGLE-E0890")
             && stderr.contains("symbolic link")
             && stderr.contains(&std::fs::canonicalize(&real).unwrap().display().to_string()),
         "{stderr}"
@@ -445,7 +445,7 @@ fn purge_is_refused_while_the_daemon_is_running() {
         .args(["uninstall", "--purge", "--yes"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("ENTANGLE-E0790"))
+        .stderr(predicate::str::contains("ENTANGLE-E0890"))
         .stderr(predicate::str::contains("the daemon is running"));
     server.join().unwrap();
     assert!(env.dot().join("identity.key").exists(), "nothing deleted");

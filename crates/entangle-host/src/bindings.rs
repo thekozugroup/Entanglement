@@ -94,6 +94,9 @@ impl entangle::plugin::capability::Host for HostState {
 
 impl entangle::plugin::host_info::Host for HostState {
     async fn get(&mut self) -> entangle::plugin::host_info::Info {
+        // Debug-build fault point: a panic in a host call the kernel
+        // contains (spec §2.1; see `entangle_core::fault`).
+        entangle_core::fault::inject("host-call");
         entangle::plugin::host_info::Info {
             daemon_version: env!("CARGO_PKG_VERSION").into(),
             plugin_id: format!(

@@ -143,7 +143,7 @@ fn load_checksums() -> Result<Option<ChecksumRecord>> {
     match std::fs::read(&path) {
         Ok(b) => Ok(Some(serde_json::from_slice(&b).with_context(|| {
             format!(
-                "ENTANGLE-E0792: {} is not a checksum record",
+                "ENTANGLE-E0892: {} is not a checksum record",
                 path.display()
             )
         })?)),
@@ -457,7 +457,7 @@ fn purge_target() -> Result<PathBuf> {
             |p| p.display().to_string(),
         );
         bail!(
-            "ENTANGLE-E0790: refusing to purge {}: it is a symbolic link to {real}, and deleting \
+            "ENTANGLE-E0890: refusing to purge {}: it is a symbolic link to {real}, and deleting \
              it would remove only the link, leaving the identity key, paired peers and keyrings \
              there. Back up first with `entangle backup`, then delete {real} and the link \
              yourself. Nothing was changed.",
@@ -470,7 +470,7 @@ fn purge_target() -> Result<PathBuf> {
         .is_some_and(|n| n == ".entangle" || n == "entangle");
     if !named_ours || dir.parent().is_none() || home.as_deref() == Some(dir.as_path()) {
         bail!(
-            "ENTANGLE-E0790: refusing to purge {}: it does not look like Entanglement's data \
+            "ENTANGLE-E0890: refusing to purge {}: it does not look like Entanglement's data \
              directory",
             dir.display()
         );
@@ -495,7 +495,7 @@ pub async fn run_uninstall(a: UninstallArgs) -> Result<i32> {
     let st = Style::stdout();
     if a.purge && daemon_running().await {
         bail!(
-            "ENTANGLE-E0790: the daemon is running; stop it first (e.g. `systemctl stop \
+            "ENTANGLE-E0890: the daemon is running; stop it first (e.g. `systemctl stop \
              entangled`), then re-run `entangle uninstall --purge`. Nothing was changed."
         );
     }
@@ -586,7 +586,7 @@ pub async fn run_uninstall(a: UninstallArgs) -> Result<i32> {
                     .unwrap_or(false);
             if !confirmed {
                 bail!(
-                    "ENTANGLE-E0790: purge not confirmed; {} was kept (the wrappers and session \
+                    "ENTANGLE-E0890: purge not confirmed; {} was kept (the wrappers and session \
                      directories above were removed)",
                     target.display()
                 );

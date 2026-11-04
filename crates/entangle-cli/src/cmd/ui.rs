@@ -110,7 +110,7 @@ impl Prompter {
             // Terminate the prompt line so later output starts cleanly.
             writeln!(self.out)?;
             bail!(
-                "ENTANGLE-E0783: input ended before the question was answered; run the \
+                "ENTANGLE-E0883: input ended before the question was answered; run the \
                  non-interactive form instead (e.g. `entangle init --headless ...`)"
             );
         }

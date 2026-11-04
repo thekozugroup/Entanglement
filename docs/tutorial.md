@@ -525,10 +525,10 @@ not walked through here. Commands and flags are in
 | Metrics, traces, `entangle diag mesh` | operations.md |
 | Backup and restore (`entangle backup`, `entangle restore`) | operations.md §7 |
 | `entangle plugins enable` and `disable` | operations.md |
-| `entangle config set|get|unset` | operations.md §22 |
-| Which transport reaches each peer (`entangle mesh routes`) | operations.md §25 |
-| `entangle install`, `entangle uninstall`, `entangle agent host cleanup` | operations.md §26 |
-| Publisher keys (`entangle keys gen`) | operations.md §27 |
+| `entangle config set|get|unset` | operations.md §26 |
+| Which transport reaches each peer (`entangle mesh routes`) | operations.md §29 |
+| `entangle install`, `entangle uninstall`, `entangle agent host cleanup` | operations.md §30 |
+| Publisher keys (`entangle keys gen`) | operations.md §31 |
 
 Not implemented: `Attested` integrity (needs TEE hardware), native Windows,
 `entangle logs`, `entangle upgrade`, `entangle trace task`.

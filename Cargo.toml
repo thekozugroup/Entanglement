@@ -28,6 +28,7 @@ members = [
     "crates/entangle-agent-host",
     "crates/entangle-bench",
     "crates/entangle-sandbox",
+    "crates/entangle-aot",
 ]
 exclude = [
     "examples/*",
@@ -192,6 +193,7 @@ entangle-biscuits = { path = "crates/entangle-biscuits" }
 entangle-scheduler = { path = "crates/entangle-scheduler" }
 entangle-observability = { path = "crates/entangle-observability", default-features = false }
 entangle-sandbox = { path = "crates/entangle-sandbox" }
+entangle-aot = { path = "crates/entangle-aot" }
 
 [profile.release]
 opt-level = 3

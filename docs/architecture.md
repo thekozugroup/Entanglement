@@ -94,6 +94,19 @@ A panic in the capability broker would kill the daemon. commits:
 
 - We accept the tradeoff that a core panic = brief unavailability, in exchange for the operational simplicity of one binary. Documented honestly in §11 and the operator runbook.
 
+> **Implementation note (fault isolation).** The broker is a library the
+> request-serving tasks call synchronously, not a task of its own, so the
+> isolation boundary is drawn differently: `entangled` installs a process
+> panic hook (`entangle_core::fault`) under which a panic anywhere outside a
+> contained plugin call logs one `ENTANGLE-E0787` line and exits with status
+> 70; the broker's grant-table updates are critical sections that always
+> exit; one plugin call (`Kernel::invoke` / `invoke_stream`) is contained
+> (`ENTANGLE-E0788`: that call fails, the daemon keeps running); and the
+> long-lived core tasks (RPC server, maintenance loop, scheduler servers) run
+> under a supervisor that exits with status 70 when one ends. Plugin state is
+> reconstructed from `~/.entangle/plugins.state.toml` through the full load
+> path. See `docs/operations.md` §22–§23.
+
 ### 2.2 What's deliberately NOT in the core
 
 - HTTP server/client, telemetry exporter, config-reload watcher → plugins *(deviation: the Prometheus endpoint and the OTLP exporter ship built in — `entangle-observability`, `entangle-bin` — see §9.6)*
@@ -155,6 +168,19 @@ Every plugin imports `entangle:plugin/lifecycle@0.1.0` plus its declared capabil
 ### 3.3 Lifecycle
 
 Standard lifecycle — install → load → validate → verify → pre-compile → instantiate → init → activate ↔ idle → shutdown → unload. Hot-reload uses an explicit `migrate` hook OR drains then swaps; if the plugin holds long-lived stateful handles (e.g. iroh-blobs streams) it MUST implement `migrate` or the kernel refuses hot-reload and downgrades to drain-and-swap (closing streams cleanly).
+
+> **Implementation note (hot reload).** Every call and stream runs in its own
+> Wasmtime store, so there is no in-memory state to hand over: the optional
+> `migrate(from-version: string) -> result<_, string>` export (WIT world
+> `migrate-hook`) runs once on the **new** version, with its grants, before
+> the swap — typically to convert the plugin's storage — and a failure keeps
+> the old version. The kernel never refuses a reload for lack of the hook: it
+> drains, letting the old version's calls and streams finish rather than
+> closing them, while new calls (also those addressed to the old version's
+> id) go to the new version. The `init` / `activate` / `idle` / `shutdown`
+> lifecycle exports are not implemented; "instantiate" and "activate ↔ idle"
+> are the kernel's `[lifecycle]` handling (§4.4). See `docs/operations.md`
+> §25.
 
 ### 3.4 Tier-5 escape hatch: subprocess plugins
 
@@ -283,6 +309,14 @@ ed25519 = "...sig over manifest+component..."
 > accepted unenforced; CPU and memory are bounded by the host's resource
 > limits. A `net.wan` without `hosts`, or with a `*` entry, is a WAN egress
 > wildcard and implies tier 4 (§4.2).
+
+> **Implementation note (`[lifecycle]`).** `activation` defaults to `"eager"`
+> (the spec gives no default; eager is how plugins loaded before the table
+> existed behave). The "instance" that lazy activation defers and
+> `idle-timeout-secs` drops is the compiled, pre-instantiated component; a
+> lazy plugin is still fully verified, and compiled once, at load. Both apply
+> to wasm plugins only: a native plugin asking for them is refused
+> (`ENTANGLE-E0780`).
 
 #### 4.4.1 `tier` vs `implied_tier` — two worked examples
 
@@ -986,7 +1020,7 @@ User runs: entangle agent run claude-code
 
    The same shim is installed for `codex`, `aider`, and other supported agent hosts (per §8.3.1).
 
-2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`. *(Implementation status: `entangle install` asks this question; `--wrapper` / `--no-wrapper` answer it and win over a choice recorded in `[wrappers] install` (`--no-wrapper` also removes an installed shim); without a flag the recorded choice is respected (deviation: `--headless` with neither flag installs nothing). The shell-history note of item 3 is not implemented. See docs/operations.md §15, §26.)*
+2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`. *(Implementation status: `entangle install` asks this question; `--wrapper` / `--no-wrapper` answer it and win over a choice recorded in `[wrappers] install` (`--no-wrapper` also removes an installed shim); without a flag the recorded choice is respected (deviation: `--headless` with neither flag installs nothing). The shell-history note of item 3 is not implemented. See docs/operations.md §15, §30.)*
 
 3. **Doctor check.** `entangle doctor` validates the wrapper is in place AND not shadowed:
    - If the wrapper block is missing from the user's rc files → warning with `entangle wrapper enable`.
@@ -1069,7 +1103,7 @@ This is the recommended path for users who already have a tailnet — including 
 
 #### 9.1.1 `entangle init --transport tailscale` failure modes
 
-*Implementation note: implemented by `entangle init --transport tailscale` (and by the interactive wizard when `mesh.tailscale` is chosen), with these messages and exit codes; profiles are read from `tailscale switch --list`, and `--headless` refuses several profiles (exit 64) unless `--tailscale-profile` names the active one. Added: a `tailscale` older than 1.62.0 (§11 #17) exits 69 with `ENTANGLE-E0791` (the CLI's version and the one tailscaled reports in `status --json` are both checked), and one whose version cannot be read at all exits 69 with `ENTANGLE-E0793`. The MagicDNS row is not checked (the transport works without MagicDNS, §6.1.1). The daemon reports the liveness states of §6.1.1 (`entangle diag mesh`, `entangle_mesh_tailscale_state`).*
+*Implementation note: implemented by `entangle init --transport tailscale` (and by the interactive wizard when `mesh.tailscale` is chosen), with these messages and exit codes; profiles are read from `tailscale switch --list`, and `--headless` refuses several profiles (exit 64) unless `--tailscale-profile` names the active one. Added: a `tailscale` older than 1.62.0 (§11 #17) exits 69 with `ENTANGLE-E0891` (the CLI's version and the one tailscaled reports in `status --json` are both checked), and one whose version cannot be read at all exits 69 with `ENTANGLE-E0893`. The MagicDNS row is not checked (the transport works without MagicDNS, §6.1.1). The daemon reports the liveness states of §6.1.1 (`entangle diag mesh`, `entangle_mesh_tailscale_state`).*
 
 The Tailscale path is one command on the happy path and a careful ladder of error messages otherwise. Each failure mode has a precise message, a clear remedy, and an exit code. Mirrors §6.3's pairing UX commitment. | Detected condition | Message | Exit code |
 |---|---|---|
@@ -1520,7 +1554,7 @@ Apache-2.0 OR MIT (dual). Closes. ---
 
 ## 10. Crate Layout
 
-*Implementation note: the tree below is the design. The workspace as built has the 26 crates under `crates/` plus `tools/xtask`, listed in STATUS.md. None of the `entangle-plugin-*`, `entangle-agent-host-<agent>`, `entangle-metric-*`, `entangle-sdk-rust`, `entangle-https-fetch`, `entangle-i18n` or `cargo-entangle` crates exist. The transports, scheduler, observability and MCP gateway are ordinary crates, not plugins; the claude-code, codex and opencode adapters are modules of `entangle-agent-host`; the metric plugins are `plugins/metric-bleu-4` and `plugins/metric-numerical-l2-relative`.*
+*Implementation note: the tree below is the design. The workspace as built has the 27 crates under `crates/` plus `tools/xtask`, listed in STATUS.md; the 27th, `entangle-aot` (the plugin AOT compilation cache, §2.1/§9.5), is a separate crate because it holds the one `unsafe` call Wasmtime requires to load a compiled artifact (`Component::deserialize`), which `entangle-host`'s `forbid(unsafe_code)` keeps out. None of the `entangle-plugin-*`, `entangle-agent-host-<agent>`, `entangle-metric-*`, `entangle-sdk-rust`, `entangle-https-fetch`, `entangle-i18n` or `cargo-entangle` crates exist. The transports, scheduler, observability and MCP gateway are ordinary crates, not plugins; the claude-code, codex and opencode adapters are modules of `entangle-agent-host`; the metric plugins are `plugins/metric-bleu-4` and `plugins/metric-numerical-l2-relative`.*
 
 Workspace re-shaped to honor the smaller-core decision  and the `entangle-*` crates.io prefix policy 1.1). **Every** first-party crate uses the `entangle-` prefix; no plugin crate names collide with the unprefixed `entangle` Bitcoin-Stratum crate. ```
 entanglement/                                    # the project (GitHub: thekozugroup/entanglement)

@@ -118,6 +118,12 @@ pub enum ValidationError {
     /// TOML deserialisation failed.
     #[error("toml parse: {0}")]
     Toml(#[from] toml::de::Error),
+
+    /// ENTANGLE-E0780: the `[lifecycle]` table has a value out of range, or
+    /// asks a native plugin for lazy activation or an idle timeout (see
+    /// [`crate::lifecycle`]).
+    #[error("ENTANGLE-E0780: invalid [lifecycle]: {0}")]
+    InvalidLifecycle(String),
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────

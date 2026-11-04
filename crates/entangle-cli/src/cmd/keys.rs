@@ -75,7 +75,7 @@ fn check_label(label: &str) -> Result<()> {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
     if !ok {
         bail!(
-            "ENTANGLE-E0785: invalid key label {label:?}: use 1-64 letters, digits, `.`, `_` or \
+            "ENTANGLE-E0885: invalid key label {label:?}: use 1-64 letters, digits, `.`, `_` or \
              `-`, not starting with `.` or `-`"
         );
     }
@@ -124,7 +124,7 @@ fn gen(label: &str, trust: bool, dir: Option<PathBuf>) -> Result<()> {
     for p in [&key_path, &pub_path] {
         if std::fs::symlink_metadata(p).is_ok() {
             bail!(
-                "ENTANGLE-E0785: {} already exists; refusing to overwrite a publisher key \
+                "ENTANGLE-E0885: {} already exists; refusing to overwrite a publisher key \
                  (choose another --label, or move the old key away first)",
                 p.display()
             );
@@ -185,7 +185,7 @@ mod tests {
         }
         for bad in ["", ".hidden", "-x", "a/b", "..", "a b", &"x".repeat(65)] {
             let err = check_label(bad).unwrap_err().to_string();
-            assert!(err.contains("ENTANGLE-E0785"), "{bad}: {err}");
+            assert!(err.contains("ENTANGLE-E0885"), "{bad}: {err}");
         }
     }
 }

@@ -220,10 +220,10 @@ pub enum PairingNetError {
     /// know the code that was typed — i.e. the wrong device, or the wrong code.
     #[error("verification failed: the other device could not prove it knows this code")]
     VerifyFailed,
-    /// `ENTANGLE-E0786` — the local session ran out of time: the code
+    /// `ENTANGLE-E0886` — the local session ran out of time: the code
     /// expired.
     #[error(
-        "ENTANGLE-E0786: the pairing session expired; run `entangle pair` again for a new code"
+        "ENTANGLE-E0886: the pairing session expired; run `entangle pair` again for a new code"
     )]
     Expired,
     /// The host stopped listening without pairing.

@@ -252,6 +252,16 @@ The catalog is resolved exactly as `plugins install` resolves it:
     Load {
         /// Path to the plugin directory.
         dir: String,
+        /// When this is a new version of a loaded plugin (hot reload): accept
+        /// that it declares capabilities the loaded version does not, or a
+        /// higher tier. Without it such a reload is refused and the
+        /// capability diff is printed.
+        #[arg(long)]
+        accept_new_capabilities: bool,
+        /// When this is a lower version of a loaded plugin: accept the
+        /// downgrade.
+        #[arg(long)]
+        allow_downgrade: bool,
     },
     /// Allow a disabled plugin to load again (removes it from `[plugins] disabled`).
     ///
@@ -431,7 +441,20 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
         } => crate::cmd::oci::mirror_sign(&reference, &key, ttl_days, insecure_registry).await,
         PluginsCmd::Available { catalog, json } => crate::cmd::catalog::available(catalog, json),
         PluginsCmd::List { json } => list(json).await,
-        PluginsCmd::Load { dir } => load(dir).await,
+        PluginsCmd::Load {
+            dir,
+            accept_new_capabilities,
+            allow_downgrade,
+        } => {
+            load(
+                dir,
+                entangle_runtime::LoadOptions {
+                    accept_new_capabilities,
+                    allow_downgrade,
+                },
+            )
+            .await
+        }
         PluginsCmd::Unload { plugin_id } => unload(plugin_id).await,
         PluginsCmd::Invoke {
             plugin_id,
@@ -671,16 +694,26 @@ async fn list_local(json: bool) -> anyhow::Result<()> {
 // load
 // ---------------------------------------------------------------------------
 
-async fn load(dir: String) -> anyhow::Result<()> {
+async fn load(dir: String, opts: entangle_runtime::LoadOptions) -> anyhow::Result<()> {
     let client = rpc_client();
-    match client.plugins_load(&dir).await {
+    match client
+        .plugins_load_with(&dir, opts.accept_new_capabilities, opts.allow_downgrade)
+        .await
+    {
         Ok(r) => {
-            println!("loaded {}", r.plugin_id);
+            match &r.replaced {
+                Some(old) => println!(
+                    "reloaded {} (replaced {old}{}; it drains in the background)",
+                    r.plugin_id,
+                    if r.migrated { ", migrate hook ran" } else { "" }
+                ),
+                None => println!("loaded {}", r.plugin_id),
+            }
             Ok(())
         }
         Err(RpcError::DaemonNotRunning(_)) => {
             if allow_local() {
-                load_local(dir).await
+                load_local(dir, opts).await
             } else {
                 Err(daemon_not_running_error())
             }
@@ -767,9 +800,9 @@ fn enable_plugin(raw: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn load_local(dir: String) -> anyhow::Result<()> {
+async fn load_local(dir: String, opts: entangle_runtime::LoadOptions) -> anyhow::Result<()> {
     let kernel = build_kernel()?;
-    let id = kernel.load_plugin_from_dir(Path::new(&dir)).await?;
+    let id = kernel.load_plugin(Path::new(&dir), opts).await?.plugin_id;
     println!("loaded {id}");
     Ok(())
 }

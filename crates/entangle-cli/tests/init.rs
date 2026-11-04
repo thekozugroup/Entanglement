@@ -261,7 +261,7 @@ fn tailscale_failure_modes_exit_with_the_spec_codes_and_write_nothing() {
             75,
             "authenticated but offline",
         ),
-        (ACTIVE, "1.58.0", 69, "ENTANGLE-E0791"),
+        (ACTIVE, "1.58.0", 69, "ENTANGLE-E0891"),
     ];
     for (status, version, code, needle) in cases {
         let fake = FakeTailscale::new(status, version, ONE_PROFILE);
@@ -301,17 +301,17 @@ fn the_version_floor_does_not_fail_open() {
     let cases = [
         (
             FakeTailscale::new(&old_daemon, "1.76.1", ONE_PROFILE).version_fails(),
-            "ENTANGLE-E0791",
+            "ENTANGLE-E0891",
             "1.50.0",
         ),
         (
             FakeTailscale::new(&no_version, "1.76.1", ONE_PROFILE).version_fails(),
-            "ENTANGLE-E0793",
+            "ENTANGLE-E0893",
             "1.62.0",
         ),
         (
             FakeTailscale::new(&old_daemon, "1.76.1", ONE_PROFILE),
-            "ENTANGLE-E0791",
+            "ENTANGLE-E0891",
             "1.50.0",
         ),
     ];
@@ -638,7 +638,7 @@ fn bad_flags_are_usage_errors() {
         .args(["init", "--headless", "--transport", "wifi"])
         .assert()
         .code(64)
-        .stderr(predicate::str::contains("ENTANGLE-E0784"));
+        .stderr(predicate::str::contains("ENTANGLE-E0884"));
     entangle(&tmp)
         .args([
             "init",

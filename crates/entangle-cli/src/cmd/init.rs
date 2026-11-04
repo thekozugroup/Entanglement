@@ -19,8 +19,8 @@
 //!
 //! Choosing `mesh.tailscale` runs the §9.1.1 checks, each failure with its
 //! message and exit code: binary missing (64), older than 1.62.0 (69,
-//! `ENTANGLE-E0791`; the CLI's version and tailscaled's are both checked),
-//! version unknown (69, `ENTANGLE-E0793`), not logged in or stopped (65),
+//! `ENTANGLE-E0891`; the CLI's version and tailscaled's are both checked),
+//! version unknown (69, `ENTANGLE-E0893`), not logged in or stopped (65),
 //! running but offline (75), several login profiles not confirmed (64).
 
 use crate::cmd::ui::{Prompter, Style};
@@ -149,7 +149,7 @@ const DEFAULT_MAX_TIER: u8 = 5;
 
 fn check_label(label: &str) -> anyhow::Result<()> {
     entangle_bin::config::check_label(label)
-        .map_err(|e| fail(EXIT_USAGE, format!("ENTANGLE-E0784: invalid --label: {e}")))
+        .map_err(|e| fail(EXIT_USAGE, format!("ENTANGLE-E0884: invalid --label: {e}")))
 }
 
 fn parse_transports(raw: &[String]) -> anyhow::Result<Vec<String>> {
@@ -160,7 +160,7 @@ fn parse_transports(raw: &[String]) -> anyhow::Result<Vec<String>> {
             return Err(fail(
                 EXIT_USAGE,
                 format!(
-                    "ENTANGLE-E0784: unknown transport `{t}` in --transport (expected local, iroh \
+                    "ENTANGLE-E0884: unknown transport `{t}` in --transport (expected local, iroh \
                      or tailscale)"
                 ),
             ));
@@ -289,7 +289,7 @@ impl TsReport {
         {
             return Some(fail(
                 EXIT_USAGE,
-                "ENTANGLE-E0789: tailscale binary not found.\n  Install: \
+                "ENTANGLE-E0889: tailscale binary not found.\n  Install: \
                  https://tailscale.com/download\n  Or: rerun with --transport local,iroh",
             ));
         }
@@ -305,19 +305,19 @@ impl TsReport {
             TailnetState::Stopped { reason } if reason == "NeedsLogin" => Some(fail(
                 EXIT_TAILNET,
                 format!(
-                    "ENTANGLE-E0789: tailnet not authenticated.\n  Run 'tailscale up' then \
+                    "ENTANGLE-E0889: tailnet not authenticated.\n  Run 'tailscale up' then \
                      retry.\n  {SKIP}"
                 ),
             )),
             TailnetState::Stopped { reason } if reason == "Self offline" => Some(fail(
                 EXIT_TEMPFAIL,
-                "ENTANGLE-E0789: tailnet authenticated but offline. Wait a few seconds and \
+                "ENTANGLE-E0889: tailnet authenticated but offline. Wait a few seconds and \
                  retry, or check 'tailscale netcheck'.",
             )),
             TailnetState::Stopped { reason } => Some(fail(
                 EXIT_TAILNET,
                 format!(
-                    "ENTANGLE-E0789: tailnet stopped ({reason}). Run 'tailscale up' to \
+                    "ENTANGLE-E0889: tailnet stopped ({reason}). Run 'tailscale up' to \
                      resume.\n  {SKIP}"
                 ),
             )),
@@ -340,7 +340,7 @@ fn confirm_profile(
             Some(p) => Err(fail(
                 EXIT_USAGE,
                 format!(
-                    "ENTANGLE-E0784: the active Tailscale profile is '{}' ({}), not '{want}'. \
+                    "ENTANGLE-E0884: the active Tailscale profile is '{}' ({}), not '{want}'. \
                      Run 'tailscale switch {want}' and retry.",
                     p.tailnet, p.account
                 ),
@@ -370,14 +370,14 @@ fn confirm_profile(
             } else {
                 Err(fail(
                     EXIT_USAGE,
-                    "ENTANGLE-E0784: stopped: the active Tailscale profile was not confirmed",
+                    "ENTANGLE-E0884: stopped: the active Tailscale profile was not confirmed",
                 ))
             }
         }
         None => Err(fail(
             EXIT_USAGE,
             format!(
-                "ENTANGLE-E0784: multiple Tailscale profiles; active: '{}' ({}). Pass \
+                "ENTANGLE-E0884: multiple Tailscale profiles; active: '{}' ({}). Pass \
                  --tailscale-profile {} to confirm it (or 'tailscale switch <profile>' first).",
                 p.tailnet, p.account, p.tailnet
             ),

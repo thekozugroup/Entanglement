@@ -12,6 +12,8 @@
 //! - [`diag`] — the `diag/mesh` triage report.
 //! - [`metrics_server`] — the Prometheus `/metrics` scrape endpoint.
 //! - [`perms`] — `perms/list` and `perms/revoke`: plugins' capability grants.
+//! - [`plugin_state`] — the plugin-state file: loaded plugins come back
+//!   after a restart (spec §2.1).
 //! - [`maintenance`] — built-in tier-2 maintenance loop (log rotation, GC, nags).
 //! - [`mesh`] — multi-transport scheduling: shared task/stream servers,
 //!   the per-peer transport router, mDNS sightings as `local` routes.
@@ -31,6 +33,7 @@ pub mod mesh;
 pub mod methods;
 pub mod metrics_server;
 pub mod perms;
+pub mod plugin_state;
 pub mod remote;
 pub mod server;
 pub mod state;

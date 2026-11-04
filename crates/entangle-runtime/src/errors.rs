@@ -64,4 +64,89 @@ pub enum RuntimeError {
     /// A native (tier 4–5) plugin could not be sandboxed, staged, or run.
     #[error("native: {0}")]
     Native(#[from] crate::native::NativeError),
+
+    /// A hot reload would widen what the plugin may do and the operator has
+    /// not accepted that (spec §4.4.1 case B).
+    #[error(
+        "ENTANGLE-E0781: reloading {} as {} needs consent: the new version declares more \
+         than the loaded one; re-run with --accept-new-capabilities to accept:\n{}",
+        .0.from, .0.to, .0.diff
+    )]
+    ReloadNeedsConsent(Box<crate::kernel::ConsentRequired>),
+
+    /// A hot reload to a lower version, not explicitly allowed.
+    #[error(
+        "ENTANGLE-E0782: reloading {from} as {to} is a downgrade; re-run with \
+         --allow-downgrade to accept"
+    )]
+    ReloadDowngrade {
+        /// The loaded version.
+        from: Box<PluginId>,
+        /// The lower version offered.
+        to: Box<PluginId>,
+    },
+
+    /// The new version's `migrate` hook failed: the reload was refused and
+    /// the loaded version keeps running.
+    #[error("ENTANGLE-E0783: the migrate hook of {to} failed ({message}); {from} keeps running")]
+    MigrateFailed {
+        /// The version that keeps running.
+        from: Box<PluginId>,
+        /// The version whose hook failed.
+        to: Box<PluginId>,
+        /// What the hook (or the host) reported.
+        message: String,
+    },
+
+    /// Another version of the plugin was loaded, reloaded or unloaded while
+    /// this one was being verified: nothing changed (the new version was
+    /// rolled back); retry.
+    #[error(
+        "ENTANGLE-E0789: another version of {0} was loaded or unloaded while this one was \
+         being verified; nothing changed, retry"
+    )]
+    ReloadRaced(Box<PluginId>),
+
+    /// This exact version was replaced by a hot reload, or unloaded, and
+    /// calls or streams that started on it are still running: it stays
+    /// registered (holding its grants) until they end, so it cannot be
+    /// loaded again yet.
+    #[error(
+        "ENTANGLE-E0790: {0} is still draining: calls or streams that started on it before it \
+         was replaced or unloaded are still running; retry once they end"
+    )]
+    StillDraining(Box<PluginId>),
+
+    /// The package is not the one the load expected
+    /// (`Kernel::load_plugin_expecting`: another plugin id, or other
+    /// artifact or manifest bytes than recorded); nothing of it was loaded.
+    #[error(
+        "ENTANGLE-E0791: the package in {} is not the one recorded for {expected} (it holds \
+         {found}{}); it was not loaded",
+        dir.display(),
+        if expected == found { " with different bytes" } else { "" }
+    )]
+    PackageChanged {
+        /// The package directory.
+        dir: std::path::PathBuf,
+        /// The plugin expected there.
+        expected: Box<PluginId>,
+        /// The plugin its manifest declares.
+        found: Box<PluginId>,
+    },
+
+    /// Host code panicked during this plugin call and the panic was
+    /// contained (spec §2.1): the call's instance is discarded, the plugin
+    /// stays loaded and the daemon keeps running. See
+    /// `entangle_core::fault`.
+    #[error(
+        "ENTANGLE-E0788: plugin {plugin} call panicked inside the host and was contained \
+         (the call failed; the daemon keeps running): {message}"
+    )]
+    HostPanicked {
+        /// The plugin whose call panicked.
+        plugin: PluginId,
+        /// The panic message.
+        message: String,
+    },
 }

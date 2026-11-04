@@ -428,7 +428,7 @@ pub struct Resolved {
     pub override_peer: Option<String>,
 }
 
-/// Look up `key`. Unknown keys fail with `ENTANGLE-E0780`, naming the keys
+/// Look up `key`. Unknown keys fail with `ENTANGLE-E0880`, naming the keys
 /// of the same section.
 pub fn resolve(key: &str) -> Result<Resolved> {
     let key = key.trim();
@@ -441,7 +441,7 @@ pub fn resolve(key: &str) -> Result<Resolved> {
     }
     if let Some(peer) = key.strip_prefix(OVERRIDES_PREFIX) {
         if peer.is_empty() || peer.contains('.') {
-            bail!("ENTANGLE-E0780: `{key}`: expected mesh.overrides.<peer-id-hex>");
+            bail!("ENTANGLE-E0880: `{key}`: expected mesh.overrides.<peer-id-hex>");
         }
         return Ok(Resolved {
             key: key.to_owned(),
@@ -470,7 +470,7 @@ pub fn resolve(key: &str) -> Result<Resolved> {
     } else {
         format!("keys in [{section}]: {}", near.join(", "))
     };
-    bail!("ENTANGLE-E0780: unknown config key `{key}`; {hint}")
+    bail!("ENTANGLE-E0880: unknown config key `{key}`; {hint}")
 }
 
 impl Resolved {
@@ -485,7 +485,7 @@ impl Resolved {
 
 fn bad_value(key: &str, raw: &str, kind: Kind, why: impl std::fmt::Display) -> anyhow::Error {
     anyhow::anyhow!(
-        "ENTANGLE-E0781: `{raw}` is not a valid value for {key}: {why} (expected {})",
+        "ENTANGLE-E0881: `{raw}` is not a valid value for {key}: {why} (expected {})",
         kind.describe()
     )
 }
@@ -687,7 +687,7 @@ pub fn apply_set(doc: &mut ConfigDoc, r: &Resolved, raw: &str) -> Result<Edit> {
     let mut edit = Edit::default();
     if let Some(cmd) = r.spec.managed_by {
         bail!(
-            "ENTANGLE-E0780: {} is managed by `{cmd}`, which keeps the rest of its state in \
+            "ENTANGLE-E0880: {} is managed by `{cmd}`, which keeps the rest of its state in \
              step; use that instead",
             r.key
         );
@@ -765,7 +765,7 @@ fn set_member(doc: &mut ConfigDoc, transport: &str, on: bool) -> Result<()> {
 pub fn apply_unset(doc: &mut ConfigDoc, r: &Resolved) -> Result<Edit> {
     if let Some(cmd) = r.spec.managed_by {
         bail!(
-            "ENTANGLE-E0780: {} is managed by `{cmd}`; use that instead",
+            "ENTANGLE-E0880: {} is managed by `{cmd}`; use that instead",
             r.key
         );
     }
@@ -793,16 +793,16 @@ pub fn validate_as_daemon(
 ) -> Result<entangle_bin::config::Config> {
     let cfg: entangle_bin::config::Config = toml::from_str(text).map_err(|e| {
         anyhow::anyhow!(
-            "ENTANGLE-E0782: the daemon would refuse this config.toml: {}",
+            "ENTANGLE-E0882: the daemon would refuse this config.toml: {}",
             e.to_string().trim_end()
         )
     })?;
     cfg.validate().map_err(|e| {
-        anyhow::anyhow!("ENTANGLE-E0782: the daemon would refuse this config.toml: {e:#}")
+        anyhow::anyhow!("ENTANGLE-E0882: the daemon would refuse this config.toml: {e:#}")
     })?;
     if cfg.mesh.multi_node && !has_trusted_peer(peers) {
         bail!(
-            "ENTANGLE-E0782: [mesh] multi_node = true needs at least one paired peer, and \
+            "ENTANGLE-E0882: [mesh] multi_node = true needs at least one paired peer, and \
              {} has none: the daemon would refuse to start (ENTANGLE-E0050). Pair a device \
              first (`entangle pair --print-code` here, `entangle pair <code>` there), then set it",
             peers.display()
@@ -1084,11 +1084,11 @@ mod tests {
             ("node.label", "  "),
         ] {
             let err = set_text("", key, raw).unwrap_err().to_string();
-            assert!(err.contains("ENTANGLE-E0781"), "{key}={raw}: {err}");
+            assert!(err.contains("ENTANGLE-E0881"), "{key}={raw}: {err}");
         }
         let err = resolve("mesh.tailscale.prot").unwrap_err().to_string();
         assert!(
-            err.contains("ENTANGLE-E0780") && err.contains("mesh.tailscale.port"),
+            err.contains("ENTANGLE-E0880") && err.contains("mesh.tailscale.port"),
             "{err}"
         );
         let err = set_text("", "wrappers.install", "true")
@@ -1116,7 +1116,7 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(
-            err.contains("ENTANGLE-E0782") && err.contains("E0435"),
+            err.contains("ENTANGLE-E0882") && err.contains("E0435"),
             "{err}"
         );
     }

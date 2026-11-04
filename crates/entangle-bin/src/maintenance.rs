@@ -69,6 +69,9 @@ pub struct MaintenanceLoop {
     /// Scheduler worker pool to prune; `None` when no pool is attached
     /// (e.g. unit tests exercising only the filesystem tasks).
     worker_pool: Option<WorkerPool>,
+    /// The kernel's AOT compilation cache, garbage-collected at startup and
+    /// on every tick (spec §9.5 "AOT cache GC").
+    aot_cache: Option<std::sync::Arc<entangle_runtime::AotCache>>,
 }
 
 impl MaintenanceLoop {
@@ -77,6 +80,32 @@ impl MaintenanceLoop {
         Self {
             config,
             worker_pool: None,
+            aot_cache: None,
+        }
+    }
+
+    /// Garbage-collect `cache` at startup and on every tick: entries unused
+    /// for its `max_unused`, then the least recently used above its
+    /// `max_bytes` (see `entangle_aot::AotCache::gc`).
+    #[must_use]
+    pub fn with_aot_cache(
+        mut self,
+        cache: Option<std::sync::Arc<entangle_runtime::AotCache>>,
+    ) -> Self {
+        self.aot_cache = cache;
+        self
+    }
+
+    /// One AOT cache GC pass, off the async worker threads. `None` without
+    /// a cache.
+    pub async fn gc_aot_cache(&self) -> Option<entangle_runtime::AotGcReport> {
+        let cache = self.aot_cache.clone()?;
+        match tokio::task::spawn_blocking(move || cache.gc()).await {
+            Ok(report) => Some(report),
+            Err(e) => {
+                error!(error = %e, "maintenance: AOT cache GC task failed");
+                None
+            }
         }
     }
 
@@ -109,11 +138,19 @@ impl MaintenanceLoop {
         ));
         evict_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
+        // Debug-build fault points (spec §2.1): a panic in, or an early
+        // return of, this supervised core task.
+        entangle_core::fault::inject("maintenance");
+        if entangle_core::fault::injected("maintenance-return") {
+            return;
+        }
+
         // Run a startup pass immediately for cache GC — do this before the
         // first interval tick so stale blobs are purged on restart.
         if let Err(e) = self.gc_stale_cache().await {
             error!(error = %e, "maintenance: stale cache GC failed at startup");
         }
+        self.gc_aot_cache().await;
 
         loop {
             tokio::select! {
@@ -130,6 +167,7 @@ impl MaintenanceLoop {
                     if let Err(e) = self.gc_stale_cache().await {
                         error!(error = %e, "maintenance: stale cache GC failed on tick");
                     }
+                    self.gc_aot_cache().await;
                 }
                 _ = evict_tick.tick() => {
                     self.evict_stale_workers();

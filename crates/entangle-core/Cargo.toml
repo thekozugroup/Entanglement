@@ -17,3 +17,8 @@ entangle-types = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+# Supervisor (JoinSet). Already in the graph with these features.
+tokio = { workspace = true, features = ["rt", "macros"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "time"] }

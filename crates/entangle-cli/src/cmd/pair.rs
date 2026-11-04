@@ -586,7 +586,7 @@ async fn run_responder(args: PairArgs) -> anyhow::Result<()> {
             listener.shutdown().await;
             let err = match &e {
                 PairingMeshError::Timeout(after) => anyhow::anyhow!(
-                    "ENTANGLE-E0786: code expired: no device paired within {}s. Run `entangle \
+                    "ENTANGLE-E0886: code expired: no device paired within {}s. Run `entangle \
                      pair --print-code` again for a new code (and `entangle pair <code>` on the \
                      other device); `entangle diag pair` shows what pairing can use here.",
                     after.as_secs()
@@ -663,7 +663,7 @@ async fn run_responder(args: PairArgs) -> anyhow::Result<()> {
 /// Spec §6.3: a hard error, with a link to what it means.
 fn fingerprint_mismatch(detail: &str) -> anyhow::Error {
     anyhow::anyhow!(
-        "ENTANGLE-E0787: fingerprint mismatch: {detail}. Nothing was stored. This can mean \
+        "ENTANGLE-E0887: fingerprint mismatch: {detail}. Nothing was stored. This can mean \
          someone on the network is impersonating the other device (a man-in-the-middle on the \
          rendezvous); do not retry blindly. What it means and what to do: {FINGERPRINT_MISMATCH_DOCS}"
     )
@@ -676,7 +676,7 @@ fn fingerprint_mismatch(detail: &str) -> anyhow::Error {
 /// Spec §6.3 "No reachability": which transports were tried and why each
 /// failed, what was not tried, and `entangle diag pair`.
 fn unreachable(tried: &[Tried], why: &str) -> anyhow::Error {
-    let mut msg = format!("ENTANGLE-E0788: {why}\nTransports tried:\n");
+    let mut msg = format!("ENTANGLE-E0888: {why}\nTransports tried:\n");
     for t in tried {
         msg.push_str(&format!(
             "  - {}: {} -> {}\n",
@@ -835,7 +835,7 @@ fn dial_error(
         PairingMeshError::Net(PairingNetError::Rejected(RejectReason::Expired)) => {
             tried.push(Tried::new(QUIC, dial_target, "reached; code expired"));
             anyhow::anyhow!(
-                "ENTANGLE-E0786: code expired; ask {target_name} to run `entangle pair \
+                "ENTANGLE-E0886: code expired; ask {target_name} to run `entangle pair \
                  --print-code` again, then enter the new code"
             )
         }
@@ -1193,7 +1193,7 @@ fn run_manual_responder(args: PairArgs) -> anyhow::Result<()> {
     // Check expiry.
     if now_secs().saturating_sub(request.created_at_secs) > EXPIRY_SECS {
         bail!(
-            "ENTANGLE-E0786: code expired (the REQUEST blob is over 5 minutes old); ask the \
+            "ENTANGLE-E0886: code expired (the REQUEST blob is over 5 minutes old); ask the \
              device that showed the code to run `entangle pair --manual` again"
         );
     }
@@ -1342,7 +1342,7 @@ mod tests {
         )
         .to_string();
         assert!(
-            expired.starts_with("ENTANGLE-E0786: code expired; ask studio"),
+            expired.starts_with("ENTANGLE-E0886: code expired; ask studio"),
             "{expired}"
         );
         assert!(expired.contains("entangle pair --print-code"), "{expired}");
@@ -1357,7 +1357,7 @@ mod tests {
             )
         );
         assert!(
-            mismatch.starts_with("ENTANGLE-E0787: fingerprint mismatch"),
+            mismatch.starts_with("ENTANGLE-E0887: fingerprint mismatch"),
             "{mismatch}"
         );
         assert!(
@@ -1390,7 +1390,7 @@ mod tests {
         ];
         let text = unreachable(&tried, "could not reach studio.").to_string();
         for needle in [
-            "ENTANGLE-E0788",
+            "ENTANGLE-E0888",
             "mesh.local (mDNS): devices in pairing mode -> none answered",
             "mesh.iroh (QUIC): 10.0.0.2:5000 -> failed: timed out",
             "mesh.tailscale",

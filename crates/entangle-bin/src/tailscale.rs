@@ -270,13 +270,13 @@ pub fn spawn_state_metrics(
 
 /// The boot-time version check (spec §11 #17): refuse to enable the
 /// transport on a `tailscale` older than
-/// [`entangle_mesh_tailscale::MIN_SUPPORTED_VERSION`] (`ENTANGLE-E0791`).
+/// [`entangle_mesh_tailscale::MIN_SUPPORTED_VERSION`] (`ENTANGLE-E0891`).
 ///
 /// Both versions that can be read are held to the floor: the CLI's
 /// (`tailscale version`) and tailscaled's (`Version` in `status --json`,
 /// whose output the transport trusts). When the CLI is there but cannot say
 /// its version, tailscaled's stands in; with neither the transport is
-/// refused (`ENTANGLE-E0793`) rather than started unchecked
+/// refused (`ENTANGLE-E0893`) rather than started unchecked
 /// ([`entangle_mesh_tailscale::check_versions`]). A CLI that does not exist
 /// at all does not block the start — the liveness poller then reports the
 /// tailnet as `uninstalled` (or `stopped`, when tailscaled's socket exists),
@@ -468,7 +468,7 @@ mod version_tests {
         .expect("an old tailscale is refused");
         let text = format!("{err:#}");
         assert!(
-            text.contains("ENTANGLE-E0791") && text.contains("1.58.2"),
+            text.contains("ENTANGLE-E0891") && text.contains("1.58.2"),
             "{text}"
         );
 
@@ -514,14 +514,14 @@ mod version_tests {
         let old = mesh_with(mute_cli(dir.path(), "old", Some(&running("1.50.0-t1"))));
         let text = format!("{:#}", check_version(&old).await.unwrap_err());
         assert!(
-            text.contains("ENTANGLE-E0791") && text.contains("1.50.0"),
+            text.contains("ENTANGLE-E0891") && text.contains("1.50.0"),
             "{text}"
         );
 
         let unknown = mesh_with(mute_cli(dir.path(), "unknown", None));
         let text = format!("{:#}", check_version(&unknown).await.unwrap_err());
         assert!(
-            text.contains("ENTANGLE-E0793") && text.contains("1.62.0"),
+            text.contains("ENTANGLE-E0893") && text.contains("1.62.0"),
             "{text}"
         );
 
@@ -546,7 +546,7 @@ mod version_tests {
         let split = mesh_with(path.display().to_string());
         let text = format!("{:#}", check_version(&split).await.unwrap_err());
         assert!(
-            text.contains("ENTANGLE-E0791") && text.contains("1.50.0"),
+            text.contains("ENTANGLE-E0891") && text.contains("1.50.0"),
             "{text}"
         );
     }

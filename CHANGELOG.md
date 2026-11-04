@@ -38,6 +38,13 @@ Plugins and sandboxing
 - `entangle perms list|revoke`.
 - Catalog plugins and the `native-echo` example.
 
+Runtime lifecycle
+- Fault isolation (spec §2.1): panic hook and core-task supervisor exit `entangled` with status 70 (`ENTANGLE-E0787`); a panic in one plugin call is contained (`E0788`); launchd plist next to the systemd unit.
+- Plugin state survives restarts: `~/.entangle/plugins.state.toml`, restored through the full load path (`E0784`, `E0791`).
+- New crate `entangle-aot`: on-disk AOT compilation cache with a keyed MAC per entry, GC in the maintenance loop, `[runtime] aot_cache*` settings (`E0785`, `E0786`).
+- Manifest `[lifecycle]`: `activation = "eager"|"lazy"`, `idle-timeout-secs` (`E0780`).
+- Hot reload with drain-and-swap, an optional `migrate` export, and consent for capability or tier increases and downgrades (`--accept-new-capabilities`, `--allow-downgrade`; `E0781`..`E0783`, `E0789`, `E0790`).
+
 Operations
 - `entangle security set-max-tier`, `entangle config reload|validate`; lowering the ceiling drains in-flight calls and streams before unloading and records the unloaded plugins in `[plugins] disabled`; audit codes `W0214`, `I0215`, `I0216`, `I0217`.
 - `entangle wrapper enable|disable|status|repair`; `doctor` detects shadowing; format-preserving config writer.
@@ -93,7 +100,8 @@ Tests
 - Native Windows (Phase 5).
 - bubblewrap and Seatbelt paths have not been run on a real host in this work (a Seatbelt test that runs `sandbox-exec` compiles only on macOS).
 - Cross-host reproducibility and real cosign run only in CI; cosign identity is not pinned to the specific tag.
-- Capability revocations last until the plugin is reloaded.
+- Capability revocations last until the plugin is loaded again (daemon restarts re-apply them).
+- Runtime lifecycle: panics on Tokio's blocking pool exit the daemon; `mesh.tailscale` accept loops are not supervised; WIT `init`/`activate`/`idle`/`shutdown` exports; an old version's id runs the new version after a hot reload.
 - OCI listing rollback protection (listings expire, but an older unexpired listing is accepted); a TLS handshake test for the OCI client.
 - `RLIMIT_NPROC`, `RLIMIT_FSIZE`, cgroups and a per-host `net.wan` allowlist for native plugins.
 - `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
