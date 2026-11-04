@@ -392,17 +392,17 @@ impl RemoteDispatch {
         // connection tasks and spans while dialling, and a child span that
         // outlives the request would keep this request's span — and every
         // ancestor — open, delaying its export until the connection ends.
+        // The task is still owned by this call: it is aborted when the budget
+        // runs out *and* when this future is dropped (a cancelled dispatch),
+        // exactly as an inline `await` would have been.
         let io = {
             let transport = Arc::clone(&self.transport);
             let (addr, frame) = (addr.clone(), frame.clone());
-            tokio::spawn(async move { transport.request(&addr, &frame).await })
+            AbortOnDrop(tokio::spawn(async move {
+                transport.request(&addr, &frame).await
+            }))
         };
-        let abort = io.abort_handle();
-        let answer = tokio::time::timeout(budget, io).await;
-        if answer.is_err() {
-            abort.abort();
-        }
-        let answer = match answer {
+        let answer = match tokio::time::timeout(budget, io).await {
             Ok(Ok(result)) => Ok(result),
             Ok(Err(join)) => {
                 return Err(DispatchError::RemoteTransport {
@@ -455,6 +455,29 @@ impl RemoteDispatch {
                 reason: other.to_string(),
             },
         })
+    }
+}
+
+/// A spawned task that is aborted when this handle is dropped, so the task
+/// cannot outlive the future that awaits it. (A plain `JoinHandle` detaches
+/// its task on drop.)
+struct AbortOnDrop<T>(tokio::task::JoinHandle<T>);
+
+impl<T> Drop for AbortOnDrop<T> {
+    fn drop(&mut self) {
+        // A no-op once the task has finished.
+        self.0.abort();
+    }
+}
+
+impl<T> std::future::Future for AbortOnDrop<T> {
+    type Output = Result<T, tokio::task::JoinError>;
+
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        std::pin::Pin::new(&mut self.0).poll(cx)
     }
 }
 
@@ -1093,6 +1116,93 @@ mod tests {
             matches!(err, DispatchError::RemoteTransport { .. }),
             "{err:?}"
         );
+    }
+
+    /// Sends on its channel when dropped.
+    struct SignalOnDrop(Option<tokio::sync::oneshot::Sender<()>>);
+
+    impl Drop for SignalOnDrop {
+        fn drop(&mut self) {
+            if let Some(tx) = self.0.take() {
+                let _ = tx.send(());
+            }
+        }
+    }
+
+    /// A transport whose requests never answer. It reports when a request
+    /// starts and when that request's future is dropped (cancelled).
+    struct Hanging {
+        started: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+        dropped: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    }
+
+    impl std::fmt::Debug for Hanging {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("Hanging")
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl MeshTransport for Hanging {
+        fn local_peer_id(&self) -> PeerId {
+            peer(0)
+        }
+        fn local_public_key(&self) -> [u8; 32] {
+            [0; 32]
+        }
+        fn local_addrs(&self) -> Vec<std::net::SocketAddr> {
+            Vec::new()
+        }
+        async fn connect(&self, _peer: &IrohPeer) -> Result<MeshConn, MeshIrohError> {
+            Err(MeshIrohError::Stream(
+                "hanging transport does not dial".into(),
+            ))
+        }
+        async fn request(
+            &self,
+            _peer: &IrohPeer,
+            _payload: &[u8],
+        ) -> Result<Vec<u8>, MeshIrohError> {
+            let _cancelled = SignalOnDrop(self.dropped.lock().take());
+            if let Some(tx) = self.started.lock().take() {
+                let _ = tx.send(());
+            }
+            std::future::pending().await
+        }
+        async fn accept(&self) -> Result<Option<MeshConn>, MeshIrohError> {
+            Ok(None)
+        }
+        async fn shutdown(&self) {}
+    }
+
+    /// Dropping a dispatch (the RPC caller went away, an outer timeout
+    /// fired) cancels its transport request, as awaiting the request inline
+    /// did; it must not leave the request running detached until the peer
+    /// answers.
+    #[tokio::test]
+    async fn dropping_a_dispatch_cancels_its_transport_request() {
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (dropped_tx, dropped_rx) = tokio::sync::oneshot::channel();
+        let transport = Hanging {
+            started: Mutex::new(Some(started_tx)),
+            dropped: Mutex::new(Some(dropped_tx)),
+        };
+        let target = IrohPeer::new([7u8; 32], "127.0.0.1:9".parse().expect("addr"));
+        let directory = PeerDirectory::new();
+        directory.insert(target.clone());
+        let client = RemoteDispatch::new(Arc::new(transport), Arc::new(directory));
+        let (task, env) = small_task();
+        let mut dispatch =
+            Box::pin(async move { client.dispatch_sealed(&task, target.peer_id, &env).await });
+        tokio::select! {
+            r = &mut dispatch => panic!("a hanging transport cannot answer: {r:?}"),
+            r = started_rx => r.expect("the transport request started"),
+        }
+        drop(dispatch);
+        tokio::time::timeout(Duration::from_secs(5), dropped_rx)
+            .await
+            .expect("dropping the dispatch must cancel its transport request")
+            .expect("the request future signalled its drop");
     }
 
     #[test]
