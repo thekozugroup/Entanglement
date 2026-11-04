@@ -8,7 +8,8 @@
 //!   separator line that [`install`] itself appended at end of file, is
 //!   removed again by [`remove`] so enable-then-disable restores the file);
 //! * [`install`] is idempotent;
-//! * LF and CRLF files keep their line ending;
+//! * LF and CRLF files keep their line ending (a file with only some CRLF
+//!   lines gets an LF block, which is what the shell parses);
 //! * damaged (unterminated, stray, nested) or duplicated blocks are detected
 //!   by [`inspect`] and rewritten by [`repair`].
 //!
@@ -233,8 +234,12 @@ fn scan(ls: &[Line<'_>]) -> Scan {
     Scan { regions, stray }
 }
 
+/// Line ending for the block: CRLF only when *every* line of the file ends in
+/// CRLF. A mostly-LF file with a stray CRLF line (a pasted snippet) is an LF
+/// file to the shell, which would reject `claude() {` + `\r` as a syntax error.
 fn eol_of(text: &str) -> &'static str {
-    if text.contains("\r\n") {
+    let crlf = text.matches("\r\n").count();
+    if crlf > 0 && crlf == text.matches('\n').count() {
         "\r\n"
     } else {
         "\n"
@@ -624,6 +629,26 @@ mod tests {
         let b = posix();
         assert!(!repair(&format!("{b}\n"), &b).changed);
         assert!(repair("x\n", &b).changed);
+    }
+
+    /// A file with one stray CRLF line (a pasted snippet) is still an LF file
+    /// to bash: the block must not get `\r` line endings, or `claude() {\r`
+    /// is a syntax error and the shim never loads.
+    #[test]
+    fn mixed_line_endings_get_an_lf_block() {
+        let b = posix();
+        let rc = "export A=1\n# pasted\r\nexport B=2\n";
+        let on = install(rc, &b).unwrap().text;
+        assert!(on.starts_with(rc), "{on:?}");
+        assert!(!on[rc.len()..].contains('\r'), "{on:?}");
+        assert_eq!(remove(&on, &b).text, rc);
+        // Repair and refresh of a stale block follow the same rule.
+        let stale = render(Dialect::Posix, &hosts()[..1]);
+        let rc2 = format!("x\r\ny\n\n{stale}\n");
+        let fixed = install(&rc2, &b).unwrap().text;
+        assert!(!fixed["x\r\n".len()..].contains('\r'), "{fixed:?}");
+        let dup = format!("x\r\ny\n{b}\n{b}\n");
+        assert!(!repair(&dup, &b).text["x\r\n".len()..].contains('\r'));
     }
 
     #[test]

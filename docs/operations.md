@@ -757,7 +757,8 @@ What it does and does not touch:
   "outdated" in `status`; `enable` refreshes it.
 - Nothing outside the markers is changed. Enable is idempotent; `disable` after
   `enable` restores the file byte-for-byte. LF and CRLF files keep their line
-  endings, file permissions are kept, a symlinked rc file (dotfile managers) is
+  endings (a mostly-LF file with a few pasted CRLF lines gets an LF block,
+  since the shell would reject `claude() {` followed by `\r`), file permissions are kept, a symlinked rc file (dotfile managers) is
   edited through the link, and every write is atomic (temp file + rename).
 - bash and zsh get POSIX-function syntax (so `sh` can source it too); fish gets
   a fish `function`. An `alias claude=...` defined earlier in the rc file is
