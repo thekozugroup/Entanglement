@@ -2,13 +2,13 @@ A Rust runtime that turns the devices you already own into one cooperative compu
 
 ## How it works
 
-Every device runs the same daemon (`entangled`). `entangle init` generates an Ed25519 identity, writes a config file and prints a fingerprint. A second device pairs with a 6-digit code and mutual trust-on-first-use. There is no central server, no account and no telemetry by default.
+Every device runs the same daemon (`entangled`). `entangle init` generates an Ed25519 identity, writes a config file and prints a fingerprint. A second device pairs with a 6-digit code and mutual trust-on-first-use. Identity and trust need no central server and no account. Trace export is off by default. `mesh.iroh` can fall back to iroh's public relay servers; `[scheduler] relay = false` turns that off.
 
 Plugins ship as signed `.wasm` components or `.tar.zst` packages. Each declares a permission tier (1 = pure sandbox, 5 = native subprocess) and a capability set. The capability broker denies by default. Wasm plugins can be granted brokered fetch, filesystem preopens (`/data`, `/shared`, `/shares/<n>`) and LAN/WAN sockets; grants can be listed and revoked while the plugin runs.
 
-Tier-5 native plugins run as supervised subprocesses. On Linux they are confined with Landlock, a user and network namespace, a seccomp socket-family filter, `no_new_privs` and rlimits. Bubblewrap and macOS Seatbelt profiles are generated and unit-tested, but have not been run on a real bubblewrap or macOS host. The daemon refuses to install a plugin above `[security] max_tier_allowed`, and `entangle security set-max-tier` lowers it and unloads plugins above it.
+Tier-5 native plugins run as supervised subprocesses. On Linux they are confined with Landlock, a user and network namespace (where unprivileged user namespaces work), a seccomp filter, `no_new_privs` and rlimits. Bubblewrap and macOS Seatbelt profiles are generated and unit-tested. A Seatbelt test that runs `sandbox-exec` compiles only on macOS (the CI macos-14 job). Neither path has been run on a real bubblewrap or macOS host in this work. The daemon refuses to install a plugin above `[security] max_tier_allowed`. `entangle security set-max-tier` changes the ceiling; lowering it unloads the plugins above the new ceiling.
 
-Three transports can be mixed per device: `mesh.local` (mDNS on the LAN), `mesh.iroh` (QUIC with NAT traversal) and `mesh.tailscale` (a mutually authenticated channel over an existing tailnet). The scheduler picks a transport per peer in the order local, tailscale (only while the tailnet is active), iroh, and falls back only when a connect fails. Cross-device authorization uses biscuit-auth tokens that can only be narrowed.
+Three transports can be mixed per device: `mesh.local` (mDNS on the LAN), `mesh.iroh` (QUIC with NAT traversal) and `mesh.tailscale` (a mutually authenticated channel over an existing tailnet). The scheduler picks a transport per peer in the order local, tailscale (only while the tailnet is active), iroh, and moves to the next only when connecting fails or times out. Cross-device authorization uses biscuit-auth tokens that can only be narrowed.
 
 Work can be run on a remote peer as a one-shot task or as a stream of signed chunks with credit-based flow control. Results can be checked with integrity policies: `Deterministic` (hash quorum across distinct workers), `SemanticEquivalent` (a signed metric plugin compares outputs) and `TrustedExecutor`. `Attested` (TEE) is not implemented.
 
@@ -75,14 +75,15 @@ troubleshooting: [`docs/install.md`](./docs/install.md).
 
 Pre-release. No version is tagged or published. Measured on commit `080ab0b`: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings` and `RUSTDOCFLAGS=-D warnings cargo doc` are clean, and `cargo test --workspace` reports 1552 passed, 0 failed, 10 ignored. All 35 acceptance IDs in architecture.md §16 are covered by live tests.
 
-Works now: local plugin hosting and invocation; pairing over the network; remote one-shot and streaming tasks over Iroh and Tailscale; integrity policies other than `Attested`; the MCP gateway (stdio downstream servers) and `entangle agent run`; tier-5 sandboxing on Linux; OCI publish and pull; metrics and traces.
+Works now: local plugin hosting and invocation; pairing over the network; remote one-shot tasks over Iroh and Tailscale; streaming tasks (the daemon serves them over Iroh and Tailscale, `entangle compute stream` dials over Iroh only); integrity policies other than `Attested`; the MCP gateway (stdio downstream servers) and `entangle agent run`; tier-5 sandboxing on Linux; OCI publish and pull; metrics and traces.
 
 Not available yet:
 
 - `Attested` integrity (needs TEE hardware; returns `ENTANGLE-E0304`).
-- Native Windows (Phase 5). Windows is supported through WSL2 only.
+- Native Windows (Phase 5). On Windows only WSL2 is targeted; no CI job runs on Windows or WSL2.
 - `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
-- On parallel branches, not on main: the Layer-2 1% replay spot-check, per-peer transport routing for `entangle compute stream` (it dials Iroh only), streaming invocation metrics, `entangle backup` / `restore`, `[plugins] disabled` with `plugins enable|disable`, `entangle release verify --tag`, HTTP downstream servers in the MCP gateway.
+- On the unmerged branch `wip/followups-sched`, not in this tree: the Layer-2 1% replay spot-check, per-peer transport routing for `entangle compute stream` (here it dials Iroh only), streaming invocation metrics.
+- On the unmerged branch `wip/followups-ops`, not in this tree: `entangle backup` / `restore`; `plugins enable|disable` and a daemon that reads `[plugins] disabled` (here `set-max-tier` writes that list and nothing reads it); `entangle release verify --tag`; HTTP downstream servers in the MCP gateway.
 
 Full list with reasons: [`STATUS.md`](./STATUS.md). Changes: [`CHANGELOG.md`](./CHANGELOG.md).
 
@@ -100,34 +101,34 @@ entangle plugins invoke <fingerprint_from_above>/hello-world@0.1.0 --input world
 
 ## More commands
 
-Details and flags are in [`docs/operations.md`](./docs/operations.md).
+Details and flags are in [`docs/operations.md`](./docs/operations.md); `agent run` is in [`docs/agents.md`](./docs/agents.md).
 
 | Command | Purpose |
 |---|---|
 | `entangle agent run <agent>` | Run claude-code, codex or opencode with its MCP servers routed through a per-session gateway (bearer auth, allow/deny policy, audit). `--trust-project-servers` skips the prompt for servers defined in the project's own config. |
 | `entangle wrapper enable\|disable\|status\|repair` | Manage the shell shim that warns when an agent host runs outside Entanglement. |
-| `entangle security set-max-tier <N>` | Lower `max_tier_allowed` and unload plugins above it. |
-| `entangle config reload\|validate` | Apply or check `config.toml` changes. |
+| `entangle security set-max-tier <N>` | Set `max_tier_allowed`. Lowering it unloads the plugins above the new ceiling, after a prompt or with `--force-unload`. |
+| `entangle config reload\|validate` | `reload` applies an edited `max_tier_allowed` to the running daemon; other settings need a daemon restart. `validate` checks `config.toml`. |
 | `entangle perms list\|revoke` | List a loaded plugin's capability grants; revoke one until the plugin is reloaded. |
 | `entangle plugins publish\|tags` | Push a signed package to an OCI registry; list tags and check the signed mirror listing. `plugins install oci://...` pulls one. |
 | `entangle plugins verify --rebuild` | Rebuild a package from source and compare it with the built one. |
-| `entangle release verify` | Check a release artifact against the Ed25519 release key and a cosign bundle. `release key split\|combine` does Shamir 2-of-3. |
+| `entangle release verify` | Check a release artifact against the Ed25519 release key and a cosign bundle. `release key split\|combine` does Shamir secret sharing (2-of-3 by default). |
 | `entangle compute dispatch` | One-shot task with `--integrity none\|deterministic\|semantic-equivalent\|trusted-executor`. |
-| `entangle compute stream` | Run a streaming task on a trusted peer and write chunks to stdout. |
+| `entangle compute stream` | Run a streaming task on a trusted peer over `mesh.iroh` and write chunks to stdout. |
 | `entangle diag mesh [--probe]` | Show transports, endpoints and how each trusted peer is reachable. |
 | `entangle metrics` | Print the daemon's Prometheus metrics over RPC. |
 
 ## Roadmap
 
-The phase numbers below are the project's own labels, not the numbering in architecture.md §12.
+The phase numbers below are this README's own. They differ from the phases in architecture.md §12. "Implemented" means the code is in this tree; nothing is released.
 
 | Phase | Theme | Status |
 |-------|-------|--------|
-| 1     | Core runtime, WASM host, signing, manifest, UDS RPC, mDNS LAN, pairing, biscuit tokens, local scheduler, agent-host config adapter | Shipped |
-| 2     | Cross-node dispatch over Iroh; automatic pairing | Shipped |
-| 2b    | `mesh.tailscale`, multi-transport scheduling, MCP gateway HTTP server, tier-5 OS sandboxing, capability grants, Prometheus and OTLP export | Shipped, with the gaps listed in STATUS.md (sandbox paths other than Linux Landlock/seccomp never run on a real host; gateway proxies stdio downstream servers only) |
-| 3     | Integrity policies: `Deterministic`, `SemanticEquivalent` | Shipped. `Attested` is not implemented (needs TEE hardware). Layer-2 1% replay spot-check is on a branch, not main |
-| 4     | Streaming tasks with chunk signing | Streaming shipped over Iroh and Tailscale. `compute stream` dials Iroh only; streaming metrics are on a branch. Speculative execution, straggler mitigation and reputation gossip are not implemented (reputation is a local per-peer score) |
+| 1     | Core runtime, WASM host, signing, manifest, UDS RPC, mDNS LAN, pairing, biscuit tokens, local scheduler, agent-host config adapter | Implemented |
+| 2     | Cross-node dispatch over Iroh; automatic pairing | Implemented |
+| 2b    | `mesh.tailscale`, multi-transport scheduling, MCP gateway HTTP server, tier-5 OS sandboxing, capability grants, Prometheus and OTLP export | Implemented, with the gaps listed in STATUS.md (sandbox paths other than Linux Landlock/seccomp never run on a real host; gateway proxies stdio downstream servers only) |
+| 3     | Integrity policies: `Deterministic`, `SemanticEquivalent` | Implemented. `Attested` is not implemented (needs TEE hardware). The Layer-2 1% replay spot-check is on an unmerged branch |
+| 4     | Streaming tasks with chunk signing | Implemented. The daemon serves streams over Iroh and Tailscale; `compute stream` dials Iroh only; streaming metrics are on an unmerged branch. Speculative execution, straggler mitigation and reputation gossip are not implemented (reputation is a local per-peer, per-policy score) |
 | 1.5   | Distribution: OCI registry, reproducible packages, release verification, install script, Homebrew | Code and CI workflows exist. No release is published; `install.sh` and Homebrew need a `v0.1.0` tag. Cross-host reproducibility and real cosign run only in CI. Bus-factor check fails by design (one holder per role) |
 | 5     | Native Windows AppContainer; Aider and Cursor adapters; plugin marketplace | Not started |
 
