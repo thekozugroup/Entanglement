@@ -29,9 +29,9 @@
 //! The build runs with `CARGO_ENCODED_RUSTFLAGS` (user flags from
 //! `CARGO_ENCODED_RUSTFLAGS` or `RUSTFLAGS`, then the remap flags), which
 //! replaces (cargo semantics) any `build.rustflags` from `.cargo/config.toml`;
-//! the reproducible build owns the flag set. `provenance.json` is not covered by the publisher signature
-//! (which binds artifact and manifest); `verify --rebuild` is what validates
-//! it.
+//! the reproducible build owns the flag set. `provenance.json` is not covered
+//! by the publisher signature (which binds artifact and manifest);
+//! `verify --rebuild` is what validates it.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
