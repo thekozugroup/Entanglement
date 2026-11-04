@@ -11,8 +11,9 @@
 //!   behind (a session killed with SIGKILL cannot remove its own); `--all`
 //!   removes every one, in use or not. It only ever deletes `sess-*`
 //!   directories under the sessions root, never a user config.
-//! * **uninstall** removes the wrapper shims (`entangle wrapper disable`),
-//!   runs `agent host cleanup --all`, and checks the recorded checksums,
+//! * **uninstall** removes the wrapper shims from every rc file (and records
+//!   the opt-out when config.toml can be edited; exit 1 if a block could not
+//!   be removed), runs `agent host cleanup --all`, and checks the recorded checksums,
 //!   reporting every agent config that changed since install. Identity, peers
 //!   and data stay unless `--purge`, which asks the operator to type `purge`
 //!   (or takes `--yes`) and refuses while the daemon is running.
@@ -481,17 +482,30 @@ pub async fn run_uninstall(a: UninstallArgs) -> Result<i32> {
     }
 
     println!("{}", st.bold("[1/4] Shell wrappers"));
-    // `wrapper disable` records the opt-out in config.toml; with no
-    // ~/.entangle at all, only the rc blocks are removed (uninstall must not
-    // create the directory it is cleaning up).
-    let removed = if config::entangle_dir().exists() {
-        crate::cmd::wrapper::disable()
-    } else {
-        crate::cmd::wrapper::remove_blocks()
-    };
-    if let Err(e) = removed {
-        eprintln!("{} {e:#}", Style::stderr().warning());
+    // The rc blocks are always removed: they are what Entanglement wrote
+    // into the user's shell files. Recording the opt-out in config.toml is
+    // best effort (a config.toml that cannot be edited must not keep the
+    // shims in place), and is skipped with no ~/.entangle at all (uninstall
+    // must not create the directory it is cleaning up).
+    if config::entangle_dir().exists() {
+        match crate::cmd::wrapper::record_opt_out() {
+            Ok(()) => println!(
+                "Recorded [wrappers] install = false in {}.",
+                config::config_path().display()
+            ),
+            Err(e) => eprintln!(
+                "{} could not record [wrappers] install = false: {e:#}",
+                Style::stderr().warning()
+            ),
+        }
     }
+    let rc_failed = match crate::cmd::wrapper::remove_blocks() {
+        Ok(()) => false,
+        Err(e) => {
+            eprintln!("{} {e:#}", Style::stderr().warning());
+            true
+        }
+    };
 
     println!("\n{}", st.bold("[2/4] Agent session directories"));
     let root = crate::cmd::agent::sessions_root();
@@ -571,6 +585,17 @@ pub async fn run_uninstall(a: UninstallArgs) -> Result<i32> {
         "\nThe `entangle` and `entangled` binaries (and any service unit) are not removed by \
          this command; see docs/install.md, \"Uninstall\"."
     );
+    if rc_failed {
+        eprintln!(
+            "{} the shell wrapper block is still in at least one rc file (see above): fix the \
+             file and run `entangle wrapper disable`, or delete the lines from `{}` to `{}` \
+             yourself",
+            Style::stderr().error(),
+            crate::cmd::rcblock::BEGIN,
+            crate::cmd::rcblock::END
+        );
+        return Ok(1);
+    }
     Ok(0)
 }
 

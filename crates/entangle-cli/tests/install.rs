@@ -231,3 +231,63 @@ fn uninstall_without_an_install_creates_nothing() {
         .stdout(predicate::str::contains("No checksums were recorded"));
     assert!(!env.dot().exists(), "~/.entangle must not be created");
 }
+
+/// The rc blocks are removed even when config.toml cannot be edited (an
+/// inline `wrappers = { ... }` table, or a file that is not TOML): recording
+/// the opt-out is best effort, removing what Entanglement wrote is not.
+#[test]
+fn uninstall_removes_the_wrappers_even_when_config_toml_cannot_be_edited() {
+    for broken in [
+        "wrappers = { install = true }\n",
+        "[mesh\ntransports = [\"local\"]\n",
+    ] {
+        let env = Env::new();
+        env.cmd().args(["init", "--headless"]).assert().success();
+        env.cmd().args(["wrapper", "enable"]).assert().success();
+        let bashrc = env.home.path().join(".bashrc");
+        assert!(std::fs::read_to_string(&bashrc)
+            .unwrap()
+            .contains(">>> entangle wrapper >>>"));
+        std::fs::write(env.dot().join("config.toml"), broken).unwrap();
+
+        let out = env
+            .cmd()
+            .args(["uninstall", "--purge", "--yes"])
+            .assert()
+            .success()
+            .get_output()
+            .clone();
+        for rc in [".bashrc", ".zshrc"] {
+            let text = std::fs::read_to_string(env.home.path().join(rc)).unwrap_or_default();
+            assert!(
+                !text.contains(">>> entangle wrapper >>>"),
+                "{broken:?}: the block stays in {rc}:\n{text}"
+            );
+        }
+        assert!(!env
+            .home
+            .path()
+            .join(".config/fish/conf.d/entangle.fish")
+            .exists());
+        assert!(!env.dot().exists(), "--purge still deletes ~/.entangle");
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            stderr.contains("could not record [wrappers] install = false"),
+            "{stderr}"
+        );
+    }
+
+    // An rc file the block cannot be removed from fails the command.
+    let env = Env::new();
+    env.cmd().args(["init", "--headless"]).assert().success();
+    env.cmd().args(["wrapper", "enable"]).assert().success();
+    std::fs::write(env.home.path().join(".zshrc"), b"\xff\xfe not utf-8\n").unwrap();
+    env.cmd()
+        .arg("uninstall")
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("still in at least one rc file"));
+    assert!(!std::fs::read_to_string(env.home.path().join(".bashrc"))
+        .unwrap()
+        .contains(">>> entangle wrapper >>>"));
+}

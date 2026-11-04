@@ -2163,8 +2163,10 @@ removed, never through a symbolic link; your own configs are never touched.
 
 **`entangle uninstall`**:
 
-1. removes the shell wrappers (`entangle wrapper disable`, which records the
-   opt-out);
+1. removes the shell wrapper block from every rc file, and records the
+   opt-out (`[wrappers] install = false`) when config.toml can be edited — a
+   config.toml it cannot edit only gives a warning, the blocks are removed
+   anyway; a block that cannot be removed makes the command exit 1;
 2. runs `entangle agent host cleanup --all`;
 3. compares each recorded agent config with its install checksum and reports
    it as unchanged, CHANGED, REMOVED or CREATED since install (Entanglement
