@@ -593,7 +593,30 @@ async fn run_responder(args: PairArgs) -> anyhow::Result<()> {
         }
     };
 
-    report_pairing(&paired, listener.local_fingerprint(), &public_key);
+    // "Their SHA-256" is the other device's key, as the exchange
+    // authenticated it — never this device's own.
+    let their_key = match their_key(&paired) {
+        Ok(k) => k,
+        Err(e) => {
+            listener.shutdown().await;
+            revoke_issued(
+                &args,
+                paired.peer_id,
+                &paired.issued_revocation_ids,
+                "pairing failed",
+            );
+            record_attempt(
+                &args,
+                "show-code",
+                "failed",
+                None,
+                Some(format!("{e:#}")),
+                tried,
+            );
+            return Err(e);
+        }
+    };
+    report_pairing(&paired, listener.local_fingerprint(), &their_key);
     listener.shutdown().await;
     let peer = Some(format!(
         "{} ({})",
@@ -742,8 +765,22 @@ async fn run_initiator(args: PairArgs) -> anyhow::Result<()> {
         }
     };
 
-    let their_key = decode_pubkey(&paired.pubkey_hex);
-    report_pairing(&paired, local_fingerprint, &their_key.unwrap_or_default());
+    let their_key = match their_key(&paired) {
+        Ok(k) => k,
+        Err(e) => {
+            revoke_issued(&args, target_id, &issued_ids, "pairing failed");
+            record_attempt(
+                &args,
+                "enter-code",
+                "failed",
+                Some(target_name),
+                Some(format!("{e:#}")),
+                tried,
+            );
+            return Err(e);
+        }
+    };
+    report_pairing(&paired, local_fingerprint, &their_key);
     let peer = Some(format!(
         "{} ({})",
         paired.display_name,
@@ -803,6 +840,18 @@ fn dial_error(
 
 fn decode_pubkey(hex_key: &str) -> Option<[u8; 32]> {
     hex::decode(hex_key).ok()?.try_into().ok()
+}
+
+/// The other device's raw public key from a completed exchange. An
+/// undecodable key is an error, never a placeholder: the SHA-256 shown from
+/// it is what the user compares (spec §6.3).
+fn their_key(paired: &PairedPeer) -> anyhow::Result<[u8; 32]> {
+    decode_pubkey(&paired.pubkey_hex).ok_or_else(|| {
+        anyhow::anyhow!(
+            "the other device's public key is not 32 bytes of hex ({:?}); nothing was stored",
+            paired.pubkey_hex
+        )
+    })
 }
 
 /// Print both fingerprints. The user compares them against the other screen —
@@ -1352,5 +1401,24 @@ mod tests {
             )
         );
         assert!(crate::cmd::qr::QrCode::encode(payload.as_bytes()).is_some());
+    }
+
+    /// The key behind "Their SHA-256" is the other device's, decoded from
+    /// the exchange; an undecodable one is an error, not a zero key.
+    #[test]
+    fn their_key_is_the_paired_devices_key_or_an_error() {
+        let key = [9u8; 32];
+        let mut paired = PairedPeer {
+            peer_id: PeerId::from_public_key_bytes(&key),
+            pubkey_hex: hex::encode(key),
+            display_name: "laptop".into(),
+            fingerprint: ShortFingerprint::from_public_key(&key),
+            capability_token: None,
+            issued_revocation_ids: Vec::new(),
+        };
+        assert_eq!(their_key(&paired).unwrap(), key);
+        paired.pubkey_hex = "zz".into();
+        let err = their_key(&paired).unwrap_err().to_string();
+        assert!(err.contains("nothing was stored"), "{err}");
     }
 }

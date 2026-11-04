@@ -33,10 +33,12 @@ fn binary() -> PathBuf {
     assert_cmd::cargo::cargo_bin("entangle")
 }
 
-/// What the responder printed: the code to type, and its dialable address.
+/// What the responder printed: the code to type, its dialable address and
+/// its own full fingerprint (the `SHA-256:` line of the code screen).
 struct Responder {
     code: String,
     node_addr: String,
+    sha256: String,
     child: std::process::Child,
     stderr: BufReader<std::process::ChildStderr>,
 }
@@ -67,18 +69,21 @@ fn start_responder(home: &TempDir, peers: &Path, identity: &Path) -> Responder {
         .expect("responder must start");
 
     let mut stderr = BufReader::new(child.stderr.take().expect("piped stderr"));
-    let (mut code, mut node_addr) = (None, None);
+    let (mut code, mut node_addr, mut sha256) = (None, None, None);
     let mut transcript = String::new();
     let mut line = String::new();
     // The banner is printed as soon as the endpoint is bound, before the
     // process blocks waiting for a dial.
-    while code.is_none() || node_addr.is_none() {
+    while code.is_none() || node_addr.is_none() || sha256.is_none() {
         line.clear();
         let read = stderr.read_line(&mut line).expect("read responder stderr");
         assert!(read > 0, "responder exited early:\n{transcript}");
         transcript.push_str(&line);
         if let Some(rest) = line.trim().strip_prefix("Pairing code:") {
             code = rest.split_whitespace().next().map(str::to_string);
+        }
+        if let Some(rest) = line.trim().strip_prefix("SHA-256:") {
+            sha256 = Some(rest.trim().to_string());
         }
         if let Some(rest) = line
             .trim()
@@ -91,6 +96,7 @@ fn start_responder(home: &TempDir, peers: &Path, identity: &Path) -> Responder {
     Responder {
         code: code.expect("a code"),
         node_addr: node_addr.expect("a node address"),
+        sha256: sha256.expect("a SHA-256 line"),
         child,
         stderr,
     }
@@ -212,6 +218,95 @@ fn pair_over_the_network_stores_both_peers() {
     // the other, exchanged them, and stored the one they received — and each
     // recorded the revocation ids of the one it issued.
     assert_tokens_exchanged(&i_peers, &i_key, &r_peers, &r_key);
+}
+
+/// The value after `label` on the line that starts with it.
+fn line_value<'a>(text: &'a str, label: &str) -> Option<&'a str> {
+    text.lines()
+        .find_map(|l| l.trim().strip_prefix(label))
+        .map(str::trim)
+}
+
+/// `SHA256:<hex>` of a raw public key, computed here independently of the
+/// CLI: the SHA-256 digest of the 32 key bytes.
+fn sha256_of_key(pubkey_hex: &str) -> String {
+    use sha2::Digest as _;
+    let key = hex::decode(pubkey_hex).expect("hex public key");
+    assert_eq!(key.len(), 32, "an Ed25519 public key");
+    format!("SHA256:{}", hex::encode(sha2::Sha256::digest(&key)))
+}
+
+/// Spec §6.3 / §9.4.2: after the exchange each device shows the *other*
+/// device's full fingerprint as "Their SHA-256" — on the device that shows
+/// the code too, where it must be the device that typed it, never itself.
+#[test]
+fn each_side_shows_the_other_devices_sha256() {
+    let r_home = TempDir::new().unwrap();
+    let i_home = TempDir::new().unwrap();
+    let work = TempDir::new().unwrap();
+    let r_peers = work.path().join("r-peers.toml");
+    let i_peers = work.path().join("i-peers.toml");
+    let r_key = work.path().join("r-identity.key");
+    let i_key = work.path().join("i-identity.key");
+
+    let responder = start_responder(&r_home, &r_peers, &r_key);
+    let responder_sha = responder.sha256.clone();
+    let responder_pubkey = responder
+        .node_addr
+        .split('@')
+        .next()
+        .expect("long address is <pubkey>@<addr>")
+        .to_string();
+    assert_eq!(
+        responder_sha,
+        sha256_of_key(&responder_pubkey),
+        "the code screen shows this device's own SHA-256"
+    );
+
+    let out = entangle(&i_home)
+        .args([
+            "pair",
+            &responder.code,
+            "--display-name",
+            "laptop",
+            "--peer",
+            &responder.node_addr,
+            "--yes",
+            "--no-mdns",
+            "--bind",
+            "127.0.0.1:0",
+            "--peers-file",
+            i_peers.to_str().unwrap(),
+            "--identity-file",
+            i_key.to_str().unwrap(),
+        ])
+        .timeout(Duration::from_secs(60))
+        .assert()
+        .success()
+        .get_output()
+        .stderr
+        .clone();
+    let i_stderr = String::from_utf8_lossy(&out).into_owned();
+    let (ok, r_tail) = responder.finish();
+    assert!(ok, "responder must exit cleanly; tail:\n{r_tail}");
+
+    // The initiator's key, as the responder authenticated and stored it.
+    let r_store = entangle_peers::PeerStore::open(&r_peers).unwrap();
+    let stored = r_store.list();
+    assert_eq!(stored.len(), 1, "the responder stored the initiator");
+    let initiator_sha = sha256_of_key(&stored[0].public_key_hex);
+    assert_ne!(initiator_sha, responder_sha);
+
+    assert_eq!(
+        line_value(&i_stderr, "Their SHA-256:"),
+        Some(responder_sha.as_str()),
+        "the typing device shows the code screen's SHA-256:\n{i_stderr}"
+    );
+    assert_eq!(
+        line_value(&r_tail, "Their SHA-256:"),
+        Some(initiator_sha.as_str()),
+        "the code-showing device shows the typing device's SHA-256, not its own:\n{r_tail}"
+    );
 }
 
 /// Both peer lists hold exactly the other device, with a `mesh.peer` token
