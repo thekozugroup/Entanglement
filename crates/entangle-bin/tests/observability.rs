@@ -548,27 +548,27 @@ async fn routes_and_methods() {
 /// Every method the daemon routes is counted under its own `method` label,
 /// not folded into `unknown` (the label set is a separate list in the
 /// observability catalogue, so a newly routed method must be added there).
+/// The routed set is `method::ALL`, checked below against every method
+/// constant `entangle-rpc` defines, so `perms/*`, `security/*` and any later
+/// method cannot be left out of the catalogue unnoticed.
 #[tokio::test(flavor = "multi_thread")]
 async fn every_routed_rpc_method_has_its_own_metric_label() {
+    use entangle_observability::catalog::RPC_METHODS;
     use entangle_rpc::methods::method;
     let registry = Registry::new();
     let state = make_state(Keyring::new(), &registry, PeerStore::new());
-    let routed = [
-        method::VERSION,
-        method::TIME,
-        method::PLUGINS_LIST,
-        method::PLUGINS_LOAD,
-        method::PLUGINS_UNLOAD,
-        method::PLUGINS_INVOKE,
-        method::MESH_PEERS,
-        method::MESH_STATUS,
-        method::COMPUTE_DISPATCH,
-        method::METRICS_EXPORT,
-        method::DIAG_MESH,
-        method::SECURITY_PLAN_MAX_TIER,
-        method::SECURITY_APPLY_MAX_TIER,
-        method::SECURITY_CANCEL_MAX_TIER,
-    ];
+    let routed = method::ALL;
+    for m in [method::PERMS_LIST, method::PERMS_REVOKE] {
+        assert!(routed.contains(&m), "{m} is not in method::ALL");
+    }
+    let mut catalogued: Vec<&str> = RPC_METHODS.to_vec();
+    let mut all: Vec<&str> = routed.to_vec();
+    catalogued.sort_unstable();
+    all.sort_unstable();
+    assert_eq!(
+        catalogued, all,
+        "observability's RPC_METHODS must list exactly the routed methods"
+    );
     for (i, m) in routed.iter().enumerate() {
         // Parameters do not matter: an invalid-params error is still counted
         // under the method's own label.
@@ -1011,4 +1011,32 @@ async fn the_total_connection_timeout_reaps_a_stalled_client() {
     );
     assert!(b.is_empty(), "no response is owed to an unfinished request");
     server.shutdown().await;
+}
+
+/// `method::ALL` lists every method constant `entangle-rpc` defines (a
+/// scan of its source), so a new method cannot be routed without also
+/// being in the set the label test above walks.
+#[test]
+fn method_all_lists_every_method_constant() {
+    let src = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-rpc/src/methods.rs"
+    ))
+    .expect("read entangle-rpc/src/methods.rs");
+    let module = src
+        .split("pub mod method {")
+        .nth(1)
+        .expect("the `method` module");
+    let defined: Vec<&str> = module
+        .lines()
+        .filter_map(|l| l.trim().strip_prefix("pub const "))
+        .filter(|l| l.contains(": &str = \""))
+        .filter_map(|l| l.split('"').nth(1))
+        .collect();
+    assert!(defined.len() >= 16, "{defined:?}");
+    let all = entangle_rpc::methods::method::ALL;
+    for m in &defined {
+        assert!(all.contains(m), "{m} is missing from method::ALL");
+    }
+    assert_eq!(all.len(), defined.len(), "{all:?} vs {defined:?}");
 }

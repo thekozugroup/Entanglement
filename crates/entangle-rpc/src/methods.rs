@@ -424,6 +424,28 @@ pub mod method {
     pub const PERMS_LIST: &str = "perms/list";
     /// `perms/revoke` — revoke a loaded plugin's capability (spec §4.6).
     pub const PERMS_REVOKE: &str = "perms/revoke";
+
+    /// Every method above: the set the daemon routes, and the set its
+    /// `entangle_rpc_requests_total{method}` label may take (the
+    /// observability catalogue's `RPC_METHODS` must list exactly these).
+    pub const ALL: &[&str] = &[
+        VERSION,
+        TIME,
+        PLUGINS_LIST,
+        PLUGINS_LOAD,
+        PLUGINS_UNLOAD,
+        PLUGINS_INVOKE,
+        MESH_PEERS,
+        MESH_STATUS,
+        COMPUTE_DISPATCH,
+        SECURITY_PLAN_MAX_TIER,
+        SECURITY_APPLY_MAX_TIER,
+        SECURITY_CANCEL_MAX_TIER,
+        METRICS_EXPORT,
+        DIAG_MESH,
+        PERMS_LIST,
+        PERMS_REVOKE,
+    ];
 }
 
 /// Parameters of `security/plan-max-tier` and `security/cancel-max-tier`.
