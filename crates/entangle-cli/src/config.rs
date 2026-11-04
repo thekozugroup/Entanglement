@@ -182,6 +182,7 @@ pub fn kernel_config() -> anyhow::Result<entangle_runtime::KernelConfig> {
     Ok(entangle_runtime::KernelConfig {
         max_tier_allowed: max_tier_allowed()?,
         denied_capabilities,
+        disabled_plugins: cfg.plugins.disabled.clone(),
         native: entangle_runtime::NativeConfig {
             allow_unsandboxed: cfg.security.allow_unsandboxed_native,
             data_dir: Some(dir.join("data")),

@@ -49,6 +49,11 @@ pub struct KernelConfig {
     /// whatever a manifest declares (spec §4.5). A plugin declaring one still
     /// loads, without it.
     pub denied_capabilities: Vec<CapabilityPattern>,
+    /// `[plugins] disabled`: plugin ids (`<publisher>/<name>@<version>`) the
+    /// kernel refuses to load (`ENTANGLE-E0759`), e.g. those unloaded by a
+    /// `max_tier_allowed` lowering. Updatable at run time with
+    /// [`Kernel::set_disabled_plugins`].
+    pub disabled_plugins: Vec<String>,
 }
 
 impl Default for KernelConfig {
@@ -59,6 +64,7 @@ impl Default for KernelConfig {
             bus_capacity: 1024,
             native: NativeConfig::default(),
             denied_capabilities: Vec::new(),
+            disabled_plugins: Vec::new(),
         }
     }
 }
@@ -173,6 +179,8 @@ pub struct Kernel {
     lifecycle_topic: Topic,
     /// Metrics sink; `None` until [`Kernel::with_metrics`].
     metrics: Option<KernelMetrics>,
+    /// Plugin ids refused at load (`[plugins] disabled`).
+    disabled: RwLock<std::collections::HashSet<String>>,
 }
 
 impl Kernel {
@@ -200,9 +208,22 @@ impl Kernel {
             engine,
             keyring: Arc::new(RwLock::new(keyring)),
             plugins: RwLock::new(HashMap::new()),
+            disabled: RwLock::new(config.disabled_plugins.iter().cloned().collect()),
             config,
             metrics: None,
         })
+    }
+
+    /// Replace the set of plugin ids refused at load (`[plugins] disabled`).
+    ///
+    /// Already-loaded plugins are not unloaded; this only gates later loads.
+    pub fn set_disabled_plugins(&self, ids: impl IntoIterator<Item = String>) {
+        *self.disabled.write() = ids.into_iter().collect();
+    }
+
+    /// Whether `[plugins] disabled` currently names `id`.
+    pub fn is_plugin_disabled(&self, id: &PluginId) -> bool {
+        self.disabled.read().contains(&id.to_string())
     }
 
     /// Record this kernel's activity into `registry`.
@@ -340,6 +361,12 @@ impl Kernel {
         let manifest = parse_manifest(&pkg.manifest_bytes)?;
         let plugin_id = manifest.plugin_id.clone();
         let effective_tier = manifest.effective_tier;
+
+        // Operator-disabled plugins (`[plugins] disabled`) never load, whatever
+        // their signature says; refusing needs no verified manifest.
+        if self.is_plugin_disabled(&plugin_id) {
+            return Err(RuntimeError::PluginDisabled(plugin_id));
+        }
 
         // Tier ceiling FIRST (spec §9.4.1, ATC-MAN-4): a plugin above
         // `max_tier_allowed` is refused before any signature work, broker

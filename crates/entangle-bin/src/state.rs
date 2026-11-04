@@ -72,6 +72,9 @@ pub struct DaemonState {
     pub diag: MeshDiagSources,
     /// When the daemon started (for uptime).
     pub started_at: Instant,
+    /// The config.toml whose `[plugins] disabled` list is re-read before each
+    /// plugin load; `None` (tests) keeps the kernel's startup list.
+    pub config_path: Option<std::path::PathBuf>,
 }
 
 impl DaemonState {
@@ -101,7 +104,15 @@ impl DaemonState {
             metrics: Registry::new(),
             diag: MeshDiagSources::default(),
             started_at: Instant::now(),
+            config_path: None,
         }
+    }
+
+    /// Re-read `[plugins] disabled` from `path` before every plugin load.
+    #[must_use]
+    pub fn with_config_path(mut self, path: std::path::PathBuf) -> Self {
+        self.config_path = Some(path);
+        self
     }
 
     /// Use `registry` as the daemon's metrics registry. It should be the same
@@ -110,6 +121,22 @@ impl DaemonState {
     pub fn with_metrics(mut self, registry: Registry) -> Self {
         self.metrics = registry;
         self
+    }
+
+    /// Sync the kernel's disabled-plugin list with config.toml (see
+    /// [`DaemonState::with_config_path`]). An unreadable or invalid file keeps
+    /// the previous list: a broken edit never re-enables a disabled plugin.
+    pub fn refresh_disabled_plugins(&self) {
+        let Some(path) = &self.config_path else {
+            return;
+        };
+        match crate::config::load_config(path) {
+            Ok(cfg) => self.kernel.set_disabled_plugins(cfg.plugins.disabled),
+            Err(e) => tracing::warn!(
+                path = %path.display(), error = %e,
+                "cannot re-read [plugins] disabled; keeping the previous list"
+            ),
+        }
     }
 
     /// Describe the mesh setup for `diag/mesh`.

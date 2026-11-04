@@ -250,6 +250,7 @@ async fn handle_plugins_load(
         Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
     };
     let dir = std::path::PathBuf::from(&p.dir);
+    state.refresh_disabled_plugins();
     match state.kernel.load_plugin_from_dir(&dir).await {
         // Wire contract: `{ "plugin_id": "<id>" }`, not a bare string.
         Ok(plugin_id) => ok_resp(

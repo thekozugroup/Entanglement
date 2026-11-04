@@ -344,6 +344,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
             .await
             .context("starting the metrics endpoint")?;
 
+    daemon_state = daemon_state.with_config_path(config_path.clone());
     daemon_state = daemon_state.with_diag(entangle_bin::state::MeshDiagSources {
         configured_transports: cfg.mesh.transports.clone(),
         iroh: scheduler_mesh.clone(),

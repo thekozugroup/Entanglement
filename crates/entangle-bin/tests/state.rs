@@ -214,3 +214,33 @@ async fn mesh_status_trusted_peer_count() {
         "no transport configured → empty transport list"
     );
 }
+
+/// The daemon re-reads `[plugins] disabled` before each load, so
+/// `entangle plugins enable` needs no restart; a broken edit never re-enables.
+#[test]
+fn daemon_refreshes_plugins_disabled_from_config() {
+    let state = default_state();
+    let kernel = state.kernel.clone();
+    let id: entangle_types::plugin_id::PluginId = format!("{}/x@0.1.0", "aa".repeat(16))
+        .parse()
+        .expect("plugin id");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.toml");
+    std::fs::write(&path, format!("[plugins]\ndisabled = [\"{id}\"]\n")).unwrap();
+    let state = Arc::try_unwrap(state)
+        .map_err(|_| "unique")
+        .expect("unique state")
+        .with_config_path(path.clone());
+
+    state.refresh_disabled_plugins();
+    assert!(kernel.is_plugin_disabled(&id));
+    std::fs::write(&path, "[plugins]\ndisabled = [").unwrap();
+    state.refresh_disabled_plugins();
+    assert!(
+        kernel.is_plugin_disabled(&id),
+        "a broken file keeps the list"
+    );
+    std::fs::write(&path, "[plugins]\ndisabled = []\n").unwrap();
+    state.refresh_disabled_plugins();
+    assert!(!kernel.is_plugin_disabled(&id));
+}

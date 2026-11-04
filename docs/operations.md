@@ -148,7 +148,7 @@ service_name = "entangled"
 | `[security]` | `allow_unsandboxed_native` | bool | `false` | Run native (tier 4–5) plugins on a host that has **no** OS sandbox primitive. Off: such plugins are refused with `ENTANGLE-E0700`. No effect on hosts that have one — the sandbox is then always engaged. See §12. |
 | `[security]` | `deny_capabilities` | array of strings | `[]` | Capabilities the broker never grants to any plugin, whatever its manifest declares (spec §4.5): exact keys (`"net.wan"`, `"storage.share.photos"`, `"custom.telemetry"`), family prefixes (`"net.*"`, `"storage.*"`, `"storage.share.*"`, `"compute.*"`, `"custom.*"`) or `"*"`. A plugin that declares a denied capability **still loads, without it**; see §18. An invalid pattern (e.g. `"net.wann"`) is a startup error, `ENTANGLE-E0126`. Omitted from the file the CLI writes when empty. |
 | `[wrappers]` | `install` | bool | `false` | Opt-in record for the shell shim. `entangle wrapper enable` sets `true`, `disable` sets `false`; setting `false` by hand silences an installed shim at once (it checks this key whenever an agent host is launched outside a session). The daemon ignores it. See §15. |
-| `[plugins]` | `disabled` | array of strings | `[]` | Plugin ids unloaded by a tier-ceiling lowering. See §16 for what honours it today. |
+| `[plugins]` | `disabled` | array of strings | `[]` | Plugin ids the kernel refuses to load (`ENTANGLE-E0759`): written by a tier-ceiling lowering (§16) and by `entangle plugins disable <id>`; `entangle plugins enable <id>` removes an id. Honoured by the daemon (re-read before every `plugins load`, no restart needed) and by the CLI's `--allow-local` kernel. |
 
 Notes:
 
@@ -343,6 +343,8 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0756` | A shell rc file could not be read or written (or `$HOME` is unset, or the file is not UTF-8) (§15). |
 | `ENTANGLE-E0757` | `entangle wrapper repair` while wrappers are not enabled (§15). |
 | `ENTANGLE-E0758` | Daemon refused `security/apply-max-tier`: a plugin above the new ceiling was not on the list the operator confirmed (loaded while the prompt waited); nothing changed, re-run to see the current list (§16). |
+| `ENTANGLE-E0759` | A plugin id listed in `[plugins] disabled` was refused at load; run `entangle plugins enable <id>` (§16). |
+| `ENTANGLE-E0760` | `entangle plugins enable` refused: the plugin's tier is above the current `max_tier_allowed`; raise the ceiling first (§16). |
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§16). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§16). |
 | `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§16). |
@@ -1213,11 +1215,27 @@ log finds them), and the durable
 operator trail `~/.entangle/audit.log` (JSON lines, mode 0600), which survives
 daemon restarts and exists even when the daemon is down.
 
-**Disabled plugins and restarts.** The daemon does not load plugins at startup
-(they are loaded on request and the loaded set is not persisted), so no
-unloaded plugin can come back on restart; `[plugins] disabled` records the
-decision for the operator and for a future startup loader, but nothing consumes
-it yet. Re-load the plugin explicitly once you raise the ceiling.
+**Disabled plugins.** `[plugins] disabled` is enforced: the kernel (the
+daemon's and the `--allow-local` one) refuses to load a listed plugin id with
+`ENTANGLE-E0759: plugin <id> is disabled ... run `entangle plugins enable <id>``,
+before any signature work. The daemon re-reads the list from `config.toml`
+before every `plugins load`, so the commands below take effect without a
+restart; an unreadable `config.toml` keeps the previous list (a broken edit
+never re-enables a plugin).
+
+```bash
+entangle plugins disable <id>   # add to [plugins] disabled (a loaded copy keeps running until `plugins unload`)
+entangle plugins enable  <id>   # remove it again
+```
+
+Both edit `config.toml` in place, keeping comments and other sections.
+`enable` is refused with `ENTANGLE-E0760` when the plugin's tier (read from its
+installed manifest under `~/.entangle/plugins/`, or from the tier recorded in
+`audit.log` when the lowering disabled it) is above the current
+`max_tier_allowed`; raise the ceiling first. A plugin whose tier cannot be
+found on disk is enabled, and the load re-checks the ceiling
+(`ENTANGLE-E0043`). The daemon does not load plugins at startup, so re-load an
+enabled plugin explicitly.
 
 The Wasm runtime is capped at tier 3, so in practice the plugins a lowering to
 3 affects are native (tier 4–5) plugins; a lowering to 1 or 2 can also affect

@@ -51,10 +51,10 @@ pub struct WrappersSection {
 /// `[plugins]` section.
 ///
 /// `disabled` is written by the max-tier lowering workflow (spec §9.4.1
-/// step 4). The daemon does not load plugins at startup (they are loaded on
-/// request over RPC and nothing persists the loaded set), so this list is
-/// operator-visible state that a future startup loader must honour; today
-/// "disabled plugins do not come back" holds because nothing brings them back.
+/// step 4) and by `entangle plugins disable`. The kernel refuses to load a
+/// listed id (`ENTANGLE-E0759`); the daemon re-reads this list before each
+/// `plugins/load`, so `entangle plugins enable <id>` takes effect without a
+/// restart.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PluginsSection {
@@ -460,6 +460,7 @@ pub fn kernel_config(cfg: &Config, config_dir: &std::path::Path) -> entangle_run
         multi_node: cfg.mesh.multi_node,
         bus_capacity: cfg.runtime.bus_capacity,
         denied_capabilities: cfg.security.deny_capabilities.clone(),
+        disabled_plugins: cfg.plugins.disabled.clone(),
         native: entangle_runtime::NativeConfig {
             allow_unsandboxed: cfg.security.allow_unsandboxed_native,
             data_dir: Some(config_dir.join("data")),
