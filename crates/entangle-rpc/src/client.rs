@@ -268,6 +268,21 @@ impl Client {
         self.call(method::DIAG_MESH, params).await
     }
 
+    /// `logs/read` — read or long-poll a plugin's or subsystem's log buffer.
+    ///
+    /// With `after` and `wait_ms` set the call can stay open for up to
+    /// `wait_ms` (the daemon caps it at [`crate::methods::LOGS_MAX_WAIT_MS`]),
+    /// so the client's own read timeout, if any, must exceed that.
+    pub async fn logs_read(&self, params: LogsReadParams) -> Result<LogsReadResult, RpcError> {
+        self.call(method::LOGS_READ, params).await
+    }
+
+    /// `trace/get` — the spans the daemon recorded for a task or trace id.
+    pub async fn trace_get(&self, id: &str) -> Result<TraceGetResult, RpcError> {
+        self.call(method::TRACE_GET, TraceGetParams { id: id.to_owned() })
+            .await
+    }
+
     /// `compute/dispatch` — dispatch a one-shot task via the scheduler.
     pub async fn compute_dispatch(
         &self,

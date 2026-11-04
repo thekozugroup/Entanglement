@@ -23,6 +23,8 @@
 //!   plugin's declared capabilities and their grant state (granted / denied /
 //!   revoked / not-granted)
 //! - `perms/revoke` → params `{ "plugin_id", "capability" }` → `{ "withdrawn": [ids], "plugin_id" }`
+//! - `logs/read`    → params `LogsReadParams` → `LogsReadResult` (see [`crate::obs`])
+//! - `trace/get`    → params `TraceGetParams` → `TraceGetResult` (see [`crate::obs`])
 //!
 //! Every request is counted in `entangle_rpc_requests_total{method,outcome}`
 //! and timed in `entangle_rpc_request_duration_seconds{method}`; the `method`
@@ -198,6 +200,10 @@ async fn route(req: Req, state: &Arc<DaemonState>) -> String {
         m if m == method::DIAG_MESH => handle_diag_mesh(req.id, req.params, state).await,
         m if m == method::PERMS_LIST => handle_perms_list(req.id, req.params, state),
         m if m == method::PERMS_REVOKE => handle_perms_revoke(req.id, req.params, state),
+        m if m == method::LOGS_READ => {
+            crate::obs::handle_logs_read(req.id, req.params, state).await
+        }
+        m if m == method::TRACE_GET => crate::obs::handle_trace_get(req.id, req.params, state),
         _ => error_resp(req.id, -32601, format!("method not found: {}", req.method)),
     }
 }
@@ -631,8 +637,13 @@ async fn handle_compute_dispatch(
     // Use the shared Dispatcher — no ephemeral construction per call.
     let dispatcher = state.dispatcher.clone();
 
+    let task_id = task.id;
     match dispatcher.dispatch_one_shot(task).await {
-        Ok(result) => ok_resp(id, compute_result(result)),
+        Ok(result) => {
+            let mut wire = compute_result(result);
+            wire.task_id = Some(task_id.to_string());
+            ok_resp(id, wire)
+        }
         Err(e) => error_resp(id, -32000, format!("dispatch error: {e}")),
     }
 }
@@ -689,6 +700,7 @@ pub(crate) fn compute_result(result: entangle_scheduler::DispatchResult) -> Comp
         score: result.chosen.score,
         reason: result.chosen.reason,
         output: result.output,
+        task_id: None,
         policy_hash: Some(result.policy_hash.to_hex()),
         replicas: result
             .replicas

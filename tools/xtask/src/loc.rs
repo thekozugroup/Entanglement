@@ -85,7 +85,8 @@ impl Report {
 
     /// Human-readable breakdown.
     pub fn render(&self) -> String {
-        let mut s = String::from("trust footprint (L1+L2, non-blank non-comment non-test Rust lines)\n");
+        let mut s =
+            String::from("trust footprint (L1+L2, non-blank non-comment non-test Rust lines)\n");
         for c in &self.crates {
             match c.lines {
                 Some(n) => s.push_str(&format!("  {:<36} {:>7}\n", c.dir, n)),
@@ -107,7 +108,10 @@ pub fn run(root: &Path, cfg: &Config) -> Result<Report> {
     for dir in &cfg.crates {
         let src = root.join(dir).join("src");
         if !src.is_dir() {
-            bail!("{} has no src/ directory (listed in `crates`)", root.join(dir).display());
+            bail!(
+                "{} has no src/ directory (listed in `crates`)",
+                root.join(dir).display()
+            );
         }
         let n = count_dir(&src)?;
         total += n;
@@ -146,8 +150,8 @@ fn count_dir(dir: &Path) -> Result<usize> {
                 total += count_dir(&p)?;
             }
         } else if p.extension().and_then(|e| e.to_str()) == Some("rs") && name != "tests.rs" {
-            let text = std::fs::read_to_string(&p)
-                .with_context(|| format!("reading {}", p.display()))?;
+            let text =
+                std::fs::read_to_string(&p).with_context(|| format!("reading {}", p.display()))?;
             total += count_source(&text);
         }
     }
@@ -167,7 +171,13 @@ fn sanitize(src: &str) -> String {
     let mut out = String::with_capacity(src.len());
     let mut i = 0;
     let blank = |c: char| if c == '\n' { '\n' } else { ' ' };
-    let defang = |c: char| if matches!(c, '{' | '}' | ';' | '#') { '_' } else { c };
+    let defang = |c: char| {
+        if matches!(c, '{' | '}' | ';' | '#') {
+            '_'
+        } else {
+            c
+        }
+    };
     while i < b.len() {
         let c = b[i];
         let next = b.get(i + 1).copied();

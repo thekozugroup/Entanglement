@@ -85,7 +85,8 @@ impl ResourceLimits {
 /// can wire up the WASI 0.2 host implementations.
 ///
 /// The WASI context is minimal unless the broker granted more: no
-/// environment variables, no arguments, stdin closed, stderr inherited. A
+/// environment variables, no arguments, stdin closed, stdout and stderr captured
+/// as log events (see [`crate::output`]). A
 /// [`WasiGrants`] (derived from broker grants, see [`crate::capability`])
 /// adds exactly its preopens and socket rules; without one there are no
 /// filesystem preopens and TCP, UDP and DNS are disabled.
@@ -124,7 +125,7 @@ impl HostState {
     /// Create a new [`HostState`] with a minimal WASI context and the default
     /// [`ResourceLimits`].
     ///
-    /// Only stderr is inherited; there are no filesystem preopens, environment
+    /// Stdout and stderr become log events; there are no filesystem preopens, environment
     /// variables, or pre-opened sockets by default.
     pub fn new(plugin_id: PluginId, effective_tier: Tier) -> Self {
         Self::with_limits(plugin_id, effective_tier, ResourceLimits::default())
@@ -137,8 +138,10 @@ impl HostState {
     /// `capability.fetch` is refused.
     pub fn with_limits(plugin_id: PluginId, effective_tier: Tier, limits: ResourceLimits) -> Self {
         let mut builder = WasiCtxBuilder::new();
-        // Inherit the host stderr so plugin panics/traps surface in logs.
-        builder.inherit_stderr();
+        // Plugin stdout/stderr become log events for this plugin (see
+        // `crate::output`), visible with `entangle logs <plugin-id>`.
+        let (out, err) = crate::output::CapturedOutput::pair(&plugin_id);
+        builder.stdout(out).stderr(err);
         // No network: no TCP, no UDP, no DNS (addresses are denied by
         // default too; this makes the refusal explicit).
         builder
@@ -170,7 +173,8 @@ impl HostState {
         ctx: Option<CapabilityContext>,
     ) -> Result<Self, HostError> {
         let mut builder = WasiCtxBuilder::new();
-        builder.inherit_stderr();
+        let (out, err) = crate::output::CapturedOutput::pair(&plugin_id);
+        builder.stdout(out).stderr(err);
         for p in &grants.preopens {
             let (dir, file) = if p.writable {
                 (DirPerms::all(), FilePerms::all())
@@ -282,6 +286,7 @@ impl HostState {
             return;
         }
         self.log_bytes += message.len();
+        crate::output::emit_line(&self.plugin_id, level, "log", &message);
         self.log_buffer.push((level.to_string(), message));
     }
 }

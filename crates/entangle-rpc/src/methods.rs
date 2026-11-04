@@ -198,6 +198,10 @@ pub struct ComputeDispatchResult {
     pub reason: String,
     /// Raw output bytes returned by the plugin.
     pub output: Vec<u8>,
+    /// The task's id (a UUID): what `entangle trace task <id>` takes. Absent
+    /// from daemons that predate it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
     /// Hex SHA-256 of the canonical integrity policy the task was dispatched
     /// under (INV-INT-1). Absent from daemons that predate it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -479,6 +483,11 @@ pub mod method {
     pub const PERMS_LIST: &str = "perms/list";
     /// `perms/revoke` — revoke a loaded plugin's capability (spec §4.6).
     pub const PERMS_REVOKE: &str = "perms/revoke";
+    /// `logs/read` — read (and, with `wait_ms`, long-poll) a plugin's or
+    /// subsystem's in-memory log buffer (spec §9.6).
+    pub const LOGS_READ: &str = "logs/read";
+    /// `trace/get` — the recorded spans of one task or trace (spec §9.6).
+    pub const TRACE_GET: &str = "trace/get";
 
     /// Every method above: the set the daemon routes, and the set its
     /// `entangle_rpc_requests_total{method}` label may take (the
@@ -500,6 +509,8 @@ pub mod method {
         DIAG_MESH,
         PERMS_LIST,
         PERMS_REVOKE,
+        LOGS_READ,
+        TRACE_GET,
     ];
 }
 
@@ -560,4 +571,156 @@ pub struct MaxTierApplied {
     pub new: u8,
     /// Ids of the plugins unloaded to honour it.
     pub unloaded: Vec<String>,
+}
+
+// ── logs/read ───────────────────────────────────────────────────────────────
+
+/// Longest long-poll the daemon honours, in milliseconds. A larger
+/// `wait_ms` is clamped to this.
+pub const LOGS_MAX_WAIT_MS: u64 = 30_000;
+
+/// Parameters of `logs/read`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LogsReadParams {
+    /// A subsystem (`scheduler`, `mesh`, `gateway`, `daemon`), a full plugin
+    /// id, or a plugin name that matches exactly one plugin.
+    pub source: String,
+    /// Absent: the newest matching lines (tail). Present: matching lines with
+    /// a sequence number greater than this (the previous page's
+    /// `next_cursor`), oldest first.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<u64>,
+    /// Minimum level: `trace`, `debug`, `info`, `warn` or `error`. Absent: all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level: Option<String>,
+    /// Keep lines whose event name equals this (`StalledEvent`) or whose
+    /// message, target or a field value contains it (case-insensitive).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter: Option<String>,
+    /// Keep lines at most this many milliseconds old.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since_ms: Option<u64>,
+    /// At most this many lines (default 200, at most 1000).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+    /// With `after`: when nothing newer matches, hold the request open up to
+    /// this many milliseconds (at most [`LOGS_MAX_WAIT_MS`]) for a line that
+    /// does. Zero or absent: answer at once.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wait_ms: Option<u64>,
+}
+
+/// One log line on the wire.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LogLineWire {
+    /// Sequence number (the cursor unit).
+    pub seq: u64,
+    /// Milliseconds since the Unix epoch.
+    pub unix_ms: u64,
+    /// `trace`, `debug`, `info`, `warn` or `error`.
+    pub level: String,
+    /// The `tracing` target.
+    pub target: String,
+    /// The event name (`StalledEvent`), when it has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event: Option<String>,
+    /// The message (secrets redacted).
+    pub message: String,
+    /// Other fields, in order (secrets redacted).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fields: Vec<(String, String)>,
+}
+
+/// Result of `logs/read`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogsReadResult {
+    /// The resolved source: a subsystem name or a full plugin id.
+    pub source: String,
+    /// Matching lines, oldest first.
+    pub lines: Vec<LogLineWire>,
+    /// Pass as `after` in the next call.
+    pub next_cursor: u64,
+    /// More matching lines are waiting than fit in this page.
+    #[serde(default)]
+    pub more: bool,
+    /// Lines between the caller's cursor and the oldest line still buffered
+    /// were evicted before they could be read.
+    #[serde(default)]
+    pub truncated: bool,
+}
+
+// ── trace/get ───────────────────────────────────────────────────────────────
+
+/// Parameters of `trace/get`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceGetParams {
+    /// A task id (UUID, any spelling) or a 32-hex-digit trace id.
+    pub id: String,
+}
+
+/// An event recorded on a span.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SpanEventWire {
+    /// Milliseconds since the Unix epoch.
+    pub unix_ms: u64,
+    /// The event message.
+    pub name: String,
+    /// The event's fields.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attributes: Vec<(String, String)>,
+}
+
+/// One recorded span.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SpanWire {
+    /// 16 hex digits.
+    pub span_id: String,
+    /// The parent's span id, when it has one (it may be on another node, or
+    /// not finished yet).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_span_id: Option<String>,
+    /// The span name (`task.dispatch`, `remote.dispatch`, `plugin.invoke`, ...).
+    pub name: String,
+    /// `internal`, `server` or `client`.
+    pub kind: String,
+    /// Start, in nanoseconds since the Unix epoch.
+    pub start_unix_nanos: u64,
+    /// Duration in microseconds.
+    pub duration_us: u64,
+    /// `unset`, `ok` or `error`.
+    pub status: String,
+    /// The error message when `status` is `error`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status_message: Option<String>,
+    /// Recorded fields (secrets redacted).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attributes: Vec<(String, String)>,
+    /// Warnings and errors recorded inside the span.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub events: Vec<SpanEventWire>,
+}
+
+/// One trace.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceWire {
+    /// 32 hex digits.
+    pub trace_id: String,
+    /// Spans, ordered by start time.
+    pub spans: Vec<SpanWire>,
+    /// Spans of this trace the store had no room for.
+    #[serde(default)]
+    pub dropped_spans: u64,
+    /// Parts of this trace that live on other nodes, in words.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub remote_hints: Vec<String>,
+}
+
+/// Result of `trace/get`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceGetResult {
+    /// The id as asked for.
+    pub id: String,
+    /// Every held trace that mentions it (a task can have more than one:
+    /// its dispatch, and a later spot-check re-run), the fullest first.
+    pub traces: Vec<TraceWire>,
 }

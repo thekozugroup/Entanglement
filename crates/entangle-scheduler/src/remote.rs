@@ -304,6 +304,7 @@ impl RemoteDispatch {
         let span = tracing::info_span!(
             "remote.dispatch",
             otel.kind = "client",
+            task_id = %task.id,
             peer = %peer,
             plugin = %task.plugin,
             transport = tracing::field::Empty,
@@ -1080,6 +1081,7 @@ impl RemoteTaskServer {
         let span = tracing::info_span!(
             "remote.task.execute",
             otel.kind = "server",
+            task_id = %uuid::Uuid::from_bytes(request.task_id),
             peer = %from,
             plugin = %request.plugin,
             transport = transport.as_str(),

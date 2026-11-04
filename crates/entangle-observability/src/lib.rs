@@ -20,6 +20,7 @@
 
 pub mod catalog;
 pub mod context;
+pub mod error;
 pub mod logs;
 pub mod metrics;
 #[cfg(feature = "otlp")]
@@ -27,6 +28,7 @@ pub mod otel;
 pub mod redact;
 pub mod traces;
 
+pub use error::QueryError;
 pub use metrics::Registry;
 #[cfg(feature = "otlp")]
 pub use otel::{OtelConfig, OtelError, OtelExporter};

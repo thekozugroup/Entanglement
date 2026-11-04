@@ -5,6 +5,8 @@
 use entangle_mesh_iroh::MeshIroh;
 use entangle_mesh_local::Discovery;
 use entangle_mesh_tailscale::{LivenessSnapshot, MeshTailscale};
+use entangle_observability::logs::LogHub;
+use entangle_observability::traces::TraceStore;
 use entangle_observability::Registry;
 use entangle_peers::PeerStore;
 use entangle_runtime::Kernel;
@@ -78,6 +80,12 @@ pub struct DaemonState {
     /// The plugin-state file rewritten after every change to the loaded
     /// set (spec §2.1); `None` (tests) persists nothing.
     pub plugin_state: Option<Arc<crate::plugin_state::PluginStateStore>>,
+    /// The log ring buffers behind `logs/read`. A private, unfed hub unless
+    /// [`DaemonState::with_observability`] attaches the one the tracing
+    /// subscriber feeds.
+    pub logs: LogHub,
+    /// The span store behind `trace/get` (same remark as `logs`).
+    pub traces: TraceStore,
 }
 
 impl DaemonState {
@@ -109,7 +117,18 @@ impl DaemonState {
             started_at: Instant::now(),
             config_path: None,
             plugin_state: None,
+            logs: LogHub::default(),
+            traces: TraceStore::default(),
         }
+    }
+
+    /// Serve `logs/read` and `trace/get` from the buffers the daemon's
+    /// `tracing` subscriber feeds (see `entangle_observability::init_daemon`).
+    #[must_use]
+    pub fn with_observability(mut self, logs: LogHub, traces: TraceStore) -> Self {
+        self.logs = logs;
+        self.traces = traces;
+        self
     }
 
     /// Record the loaded plugins in `store` after every change (see

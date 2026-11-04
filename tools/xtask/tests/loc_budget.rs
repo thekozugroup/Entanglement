@@ -19,7 +19,11 @@ fn fixture(budget: usize) -> TempDir {
         "crates/a/src/lib.rs",
         "//! doc\n\nfn one() {\n    let _ = 1;\n}\n\n#[cfg(test)]\nmod tests {\n    fn t() {}\n}\n",
     );
-    write(d.path(), "crates/a/tests/it.rs", "fn big() {}\n".repeat(50).as_str());
+    write(
+        d.path(),
+        "crates/a/tests/it.rs",
+        "fn big() {}\n".repeat(50).as_str(),
+    );
     // b: 2 counted lines (mod decl + nested module file); tests.rs is skipped.
     write(d.path(), "crates/b/src/lib.rs", "pub mod m;\n");
     write(d.path(), "crates/b/src/m.rs", "pub fn f() {}\n");
@@ -49,10 +53,20 @@ fn within_budget_passes_and_prints_breakdown() {
     let d = fixture(5);
     let out = run(&d);
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(out.status.success(), "{stdout}{}", String::from_utf8_lossy(&out.stderr));
-    assert!(stdout.contains("crates/a") && stdout.contains("crates/b"), "{stdout}");
+    assert!(
+        out.status.success(),
+        "{stdout}{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        stdout.contains("crates/a") && stdout.contains("crates/b"),
+        "{stdout}"
+    );
     assert!(stdout.contains("absent"), "{stdout}");
-    assert!(stdout.contains("TOTAL") && stdout.contains(" 5 "), "{stdout}");
+    assert!(
+        stdout.contains("TOTAL") && stdout.contains(" 5 "),
+        "{stdout}"
+    );
 }
 
 #[test]

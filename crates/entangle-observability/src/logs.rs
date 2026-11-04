@@ -35,6 +35,7 @@
 //! [`LogHub::subscribe`] wakes it when something new arrives (the daemon's
 //! long-poll `logs/read` is built on that).
 
+use crate::error::QueryError;
 use crate::redact;
 use parking_lot::Mutex;
 use std::collections::{HashMap, VecDeque};
@@ -548,6 +549,51 @@ fn push_ring(ring: &mut Ring, line: LogLine, cap: usize) {
     ring.lines.push_back(line);
 }
 
+/// Resolve what an operator typed to a log source: a subsystem name, a full
+/// plugin id, or a plugin name (`hello-world`, or `hello-world@0.1.0`) that
+/// matches exactly one of `known_plugins`.
+pub fn resolve_source(
+    name: &str,
+    known_plugins: impl IntoIterator<Item = String>,
+) -> Result<LogSource, QueryError> {
+    if let Some(s) = Subsystem::from_name(name) {
+        return Ok(LogSource::Subsystem(s));
+    }
+    let mut known: Vec<String> = known_plugins.into_iter().collect();
+    known.sort();
+    known.dedup();
+    if known.iter().any(|k| k == name) {
+        return Ok(LogSource::Plugin(name.to_owned()));
+    }
+    let matches: Vec<&String> = known
+        .iter()
+        .filter(|k| {
+            let rest = k.split_once('/').map_or(k.as_str(), |(_, r)| r);
+            rest == name || rest.split('@').next() == Some(name)
+        })
+        .collect();
+    match matches.as_slice() {
+        [one] => Ok(LogSource::Plugin((*one).clone())),
+        [] => Err(QueryError::UnknownLogSource {
+            name: name.to_owned(),
+            subsystems: Subsystem::ALL.map(Subsystem::name).join(", "),
+            plugins: if known.is_empty() {
+                "none".to_owned()
+            } else {
+                known.join(", ")
+            },
+        }),
+        many => Err(QueryError::AmbiguousPlugin {
+            name: name.to_owned(),
+            matches: many
+                .iter()
+                .map(|m| m.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+        }),
+    }
+}
+
 // ── the tracing layer ────────────────────────────────────────────────────────
 
 /// Whether the layer should see an event or span with this metadata:
@@ -878,6 +924,43 @@ mod tests {
             page.lines.len(),
             2,
             "bad-key line still lands in a subsystem"
+        );
+    }
+
+    #[test]
+    fn source_resolution() {
+        let known = || {
+            [
+                "aa/hello@0.1.0".to_owned(),
+                "bb/hello@0.2.0".to_owned(),
+                "aa/solo@1.0.0".to_owned(),
+            ]
+        };
+        assert_eq!(
+            resolve_source("scheduler", known()).unwrap(),
+            LogSource::Subsystem(Subsystem::Scheduler)
+        );
+        assert_eq!(
+            resolve_source("solo", known()).unwrap(),
+            LogSource::Plugin("aa/solo@1.0.0".into())
+        );
+        assert_eq!(
+            resolve_source("solo@1.0.0", known()).unwrap(),
+            LogSource::Plugin("aa/solo@1.0.0".into())
+        );
+        assert_eq!(
+            resolve_source("bb/hello@0.2.0", known()).unwrap(),
+            LogSource::Plugin("bb/hello@0.2.0".into())
+        );
+        let e = resolve_source("hello", known()).unwrap_err().to_string();
+        assert!(
+            e.starts_with("ENTANGLE-E0681") && e.contains("aa/hello@0.1.0"),
+            "{e}"
+        );
+        let e = resolve_source("nope", known()).unwrap_err().to_string();
+        assert!(
+            e.starts_with("ENTANGLE-E0680") && e.contains("scheduler, mesh, gateway, daemon"),
+            "{e}"
         );
     }
 

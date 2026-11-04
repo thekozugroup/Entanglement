@@ -35,6 +35,7 @@ const ERROR_SOURCES: &[&str] = &[
     "../entangle-oci/src/error.rs",
     "../entangle-sandbox/src/error.rs",
     "../entangle-runtime/src/native.rs",
+    "../entangle-observability/src/error.rs",
 ];
 
 /// The `ENTANGLE-` prefix a stable code always carries.

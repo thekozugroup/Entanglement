@@ -298,6 +298,8 @@ fn compute_result(result: DispatchResult) -> ComputeDispatchResult {
         score: result.chosen.score,
         reason: result.chosen.reason,
         output: result.output,
+        // A local (daemonless) dispatch keeps no trace store to look up.
+        task_id: None,
         policy_hash: Some(result.policy_hash.to_hex()),
         replicas: result
             .replicas
@@ -325,6 +327,7 @@ fn print_dispatch_output(r: &ComputeDispatchResult, json: bool) -> anyhow::Resul
             // UTF-8 text when the output is text, else null; always base64.
             "output": std::str::from_utf8(&r.output).ok(),
             "output_base64": BASE64.encode(&r.output),
+            "task_id": r.task_id,
             "policy_hash": r.policy_hash,
             "replicas": r.replicas,
             "pair_agreement": r.pair_agreement,
@@ -335,6 +338,9 @@ fn print_dispatch_output(r: &ComputeDispatchResult, json: bool) -> anyhow::Resul
     }
     println!("Chosen: {} (score={:.2})", r.chosen_peer, r.score);
     println!("Reason: {}", r.reason);
+    if let Some(t) = &r.task_id {
+        println!("Task: {t}  (entangle trace task {t})");
+    }
     match std::str::from_utf8(&r.output) {
         Ok(s) if !s.contains('\x00') => println!("Output: {s}"),
         _ => println!("Output: {}", BASE64.encode(&r.output)),

@@ -385,6 +385,8 @@ impl Dispatcher {
         let kind = task.integrity.kind();
         let span = tracing::info_span!(
             "task.dispatch",
+            // What `entangle trace task <id>` looks a trace up by.
+            task_id = %task.id,
             plugin = %task.plugin,
             policy = %kind,
             input_bytes = task.input.len() as u64,

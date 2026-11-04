@@ -200,6 +200,8 @@ pub const RPC_METHODS: &[&str] = &[
     "security/cancel-max-tier",
     "perms/list",
     "perms/revoke",
+    "logs/read",
+    "trace/get",
 ];
 
 /// A bounded interner for plugin-id label values.

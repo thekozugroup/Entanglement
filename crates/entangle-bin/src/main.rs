@@ -97,9 +97,23 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         .telemetry
         .otel_config()
         .context("[telemetry.otlp] is invalid")?;
-    let otel_exporter =
-        entangle_observability::init_with_otel("info,tokio=warn,wasmtime=warn", otel_cfg.as_ref())
-            .context("starting the OTLP trace exporter")?;
+    // The buffers behind `entangle logs` / `entangle trace task` exist from
+    // the first log line on, and are fed whether or not OTLP export is on.
+    let log_hub = entangle_observability::logs::LogHub::new(
+        cfg.logs
+            .log_config()
+            .map_err(anyhow::Error::msg)
+            .context("[logs] is invalid")?,
+    );
+    let trace_store =
+        entangle_observability::traces::TraceStore::new(cfg.telemetry.trace_store.trace_config());
+    let otel_exporter = entangle_observability::init_daemon(
+        "info,tokio=warn,wasmtime=warn",
+        otel_cfg.as_ref(),
+        &log_hub,
+        &trace_store,
+    )
+    .context("starting the OTLP trace exporter")?;
     // Fault isolation (spec §2.1): from here on a panic outside a contained
     // plugin call logs one `ENTANGLE-E0787` line and exits with status 70
     // (`EXIT_CORE_FAULT`) so the service manager restarts the daemon.
@@ -377,6 +391,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     ));
     entangle_bin::plugin_state::restore(&kernel, &plugin_state, Some(&registry)).await;
     daemon_state = daemon_state.with_plugin_state(plugin_state);
+    daemon_state = daemon_state.with_observability(log_hub, trace_store);
 
     daemon_state = daemon_state.with_config_path(config_path.clone());
     daemon_state = daemon_state.with_diag(entangle_bin::state::MeshDiagSources {
