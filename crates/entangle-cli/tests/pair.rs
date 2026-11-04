@@ -319,6 +319,24 @@ fn pair_over_the_network_rejects_a_wrong_code() {
         !i_peers.exists(),
         "a failed pairing must not write a peer store"
     );
+    // The initiator's capability token went out with its proof; the pairing
+    // failed, so it is revoked locally (it must stay dead even if that device
+    // is ever put on the allowlist by hand).
+    let revoked = entangle_peers::RevocationStore::open(work.path().join("revoked-tokens.toml"))
+        .expect("revocation set readable")
+        .list()
+        .expect("revocation set lists");
+    let responder_id = {
+        let key: [u8; 32] = hex::decode(responder.node_addr.split('@').next().unwrap())
+            .unwrap()
+            .try_into()
+            .unwrap();
+        entangle_types::peer_id::PeerId::from_public_key_bytes(&key).to_hex()
+    };
+    assert!(
+        !revoked.is_empty() && revoked.iter().all(|r| r.peer_id == responder_id),
+        "the token sent to the responder must be revoked: {revoked:?}"
+    );
 
     // The responder is still waiting; kill it and confirm it stored nothing.
     let _ = responder.child.kill();
