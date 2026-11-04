@@ -7,16 +7,24 @@
 //!
 //! * a **field name** that says what it holds (`token`, `secret`,
 //!   `passphrase`, `password`, `authorization`, `bearer`, `api_key`,
-//!   `cookie`, `credential`, `biscuit`, `private`, `pairing_code`, ...) has
+//!   `cookie`, `credential`, `biscuit`, `private`, `pairing_code`, `seed`,
+//!   ...), or names a key (`key`, `signing_key`, `privkey`: a `_`-separated
+//!   part ending in `key`, unless another part says it is public material or
+//!   an identifier: `public_key`, `pubkey`, `key_fingerprint`, `key_id`), has
 //!   its whole value replaced;
 //! * in **free text** (messages, stdout/stderr lines a plugin printed, field
 //!   values), `Bearer <x>`, `Basic <x>`, `name=value` / `name: value` /
 //!   `"name":"value"` pairs for the same names, the userinfo of a URL, PEM
 //!   private-key blocks and long base64url runs that mix upper and lower
-//!   case (the shape of a biscuit capability token) are replaced.
+//!   case (the shape of a biscuit capability token) are replaced. A value in
+//!   a Debug or JSON shape — `Some("…")`, `Secret(…)`, `Token { … }`,
+//!   `[10, 125, …]` — is replaced through its matching close bracket. A long
+//!   hex run right after a sensitive word (`gateway token 3f2a…`, the shape
+//!   of this code base's capability and bearer tokens) is replaced too.
 //!
 //! Hex digests (a BLAKE3 hash, a key fingerprint) are lowercase-only and are
-//! deliberately kept: operators need them to correlate.
+//! deliberately kept when no sensitive word introduces them: operators need
+//! them to correlate.
 
 use std::borrow::Cow;
 
@@ -42,7 +50,17 @@ const SENSITIVE_NAMES: &[&str] = &[
     "pairing_code",
     "pair_code",
     "passcode",
+    "seed",
 ];
+
+/// Parts of a `..key` name (split on `_`) that make it public material or an
+/// identifier rather than a secret key.
+const PUBLIC_KEY_PARTS: &[&str] = &["public", "pub", "pubkey", "publickey", "fingerprint", "id"];
+
+/// Shortest hex run treated as a secret when a sensitive word introduces it
+/// (capability tokens are hex-encoded protobuf; gateway bearer tokens are 64
+/// hex digits).
+const MIN_HEX_SECRET: usize = 32;
 
 /// Shortest base64url run (letters, digits, `-`, `_`, `+`, `/`, `=`) that is
 /// treated as a token when it mixes upper and lower case letters.
@@ -57,7 +75,20 @@ pub fn is_sensitive_name(name: &str) -> bool {
             c => c.to_ascii_lowercase(),
         })
         .collect();
-    SENSITIVE_NAMES.iter().any(|s| n.contains(s))
+    SENSITIVE_NAMES.iter().any(|s| n.contains(s)) || names_a_secret_key(&n)
+}
+
+/// `key`, `signing_key`, `privkey` — but not `public_key`, `pubkey`,
+/// `key_fingerprint`, `key_id`, `keyring`. `n` is already normalised.
+fn names_a_secret_key(n: &str) -> bool {
+    let mut keyish = false;
+    for part in n.split('_').filter(|p| !p.is_empty()) {
+        if PUBLIC_KEY_PARTS.contains(&part) {
+            return false;
+        }
+        keyish |= part.ends_with("key");
+    }
+    keyish
 }
 
 /// The value to keep for field `name` holding `value`: the whole value is
@@ -80,6 +111,7 @@ pub fn redact_text(text: &str) -> Cow<'_, str> {
     let mut hide = vec![false; chars.len()];
     mark_bearer(&chars, &mut hide);
     mark_named_values(&chars, &mut hide);
+    mark_hex_after_secret_word(&chars, &mut hide);
     mark_url_userinfo(&chars, &mut hide);
     mark_token_runs(&chars, &mut hide);
     if !hide.iter().any(|h| *h) {
@@ -181,6 +213,14 @@ fn mark_named_values(chars: &[char], hide: &mut [bool]) {
                 }
                 _ => None,
             };
+            // `Some("…")`, `Secret(…)`, `[10, 125, …]`: the whole value.
+            if quote.is_none() {
+                if let Some(close) = bracketed_value_end(chars, j) {
+                    mark(hide, j, close);
+                    i = close.max(i + 1);
+                    continue;
+                }
+            }
             let start = j;
             let mut end = j;
             while end < chars.len() {
@@ -215,6 +255,95 @@ fn mark_named_values(chars: &[char], hide: &mut [bool]) {
         } else {
             i = name_end;
         }
+    }
+}
+
+/// When the value at `at` has a Debug or JSON shape — `Some(…)`,
+/// `Secret(…)`, `Token { … }`, `[…]`, `(…)`, `{…}` — the index just past its
+/// matching close bracket, or the end of `chars` when it is never closed (a
+/// clipped line: everything after the name is hidden).
+fn bracketed_value_end(chars: &[char], at: usize) -> Option<usize> {
+    let mut k = at;
+    while k < chars.len() && (chars[k].is_ascii_alphanumeric() || chars[k] == '_') {
+        k += 1;
+    }
+    let open = match chars.get(k) {
+        Some('(' | '[' | '{') => k,
+        // `Token { … }`
+        Some(' ') if k > at => {
+            let mut m = k;
+            while chars.get(m) == Some(&' ') {
+                m += 1;
+            }
+            if chars.get(m) != Some(&'{') {
+                return None;
+            }
+            m
+        }
+        _ => return None,
+    };
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut i = open;
+    while i < chars.len() {
+        let c = chars[i];
+        if in_string {
+            match c {
+                '\\' => i += 1,
+                '"' => in_string = false,
+                _ => {}
+            }
+        } else {
+            match c {
+                '"' => in_string = true,
+                '(' | '[' | '{' => depth += 1,
+                ')' | ']' | '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(i + 1);
+                    }
+                }
+                _ => {}
+            }
+        }
+        i += 1;
+    }
+    Some(chars.len())
+}
+
+/// `gateway token 3f2a…`, `bearer token: 3f2a…`: a hex run of at least
+/// [`MIN_HEX_SECRET`] digits right after a sensitive word, with only a few
+/// separators (spaces, `:`, `=`, quotes, `(`) between.
+fn mark_hex_after_secret_word(chars: &[char], hide: &mut [bool]) {
+    let mut i = 0;
+    while i < chars.len() {
+        if !is_ident(chars[i]) || (i > 0 && is_ident(chars[i - 1])) {
+            i += 1;
+            continue;
+        }
+        let mut end = i;
+        while end < chars.len() && is_ident(chars[end]) {
+            end += 1;
+        }
+        let word: String = chars[i..end].iter().collect();
+        if is_sensitive_name(&word) {
+            let mut j = end;
+            while j < chars.len()
+                && j - end < 4
+                && (chars[j] == ' ' || matches!(chars[j], ':' | '=' | '"' | '\'' | '('))
+            {
+                j += 1;
+            }
+            let start = j;
+            while j < chars.len() && chars[j].is_ascii_hexdigit() {
+                j += 1;
+            }
+            let whole_run = j == chars.len() || !is_ident(chars[j]);
+            if j - start >= MIN_HEX_SECRET && whole_run {
+                mark(hide, start, j);
+            }
+        }
+        i = end;
     }
 }
 
@@ -351,6 +480,78 @@ mod tests {
         assert_eq!(redact_text(hash), hash);
         let fp = "aabbccddeeff00112233445566778899/hello@0.1.0";
         assert_eq!(redact_text(fp), fp);
+    }
+
+    /// The hex shape of this code base's textual secrets: capability tokens
+    /// (`grant::to_hex`) and gateway bearer tokens (64 hex).
+    const HEX_TOKEN: &str = "0a7d0a1308f1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091";
+
+    #[test]
+    fn debug_shaped_values_after_a_sensitive_name_are_hidden_whole() {
+        for text in [
+            format!(r#"Peer {{ name: "laptop", capability_token: Some("{HEX_TOKEN}") }}"#),
+            format!(r#"Accept {{ capability_token_hex: Some("{HEX_TOKEN}"), peer: 1 }}"#),
+            format!("token=Secret(\"{HEX_TOKEN}\") rest"),
+            format!("token: Some(Token {{ bytes: \"{HEX_TOKEN}\", n: (1, 2) }})"),
+        ] {
+            let out = redact_text(&text);
+            assert!(!out.contains(&HEX_TOKEN[..12]), "{text} -> {out}");
+            assert!(out.contains(REDACTED), "{out}");
+        }
+        let bytes = "Cfg { api_key: Some([10, 125, 33, 47]), n: 2 }";
+        assert_eq!(redact_text(bytes), "Cfg { api_key: [REDACTED], n: 2 }");
+        // What follows the value is kept.
+        assert_eq!(
+            redact_text(r#"Peer { name: "laptop", capability_token: Some("abc"), port: 7 }"#),
+            r#"Peer { name: "laptop", capability_token: [REDACTED], port: 7 }"#
+        );
+        // An unclosed value hides everything after the name.
+        assert_eq!(
+            redact_text("password: Some(\"hunter2"),
+            "password: [REDACTED]"
+        );
+    }
+
+    #[test]
+    fn hex_tokens_after_a_secret_word_and_key_or_seed_names_are_hidden() {
+        for text in [
+            format!("gateway token {HEX_TOKEN}"),
+            format!("issued bearer token: {HEX_TOKEN} to client"),
+            format!("signing_key={HEX_TOKEN}"),
+            format!("seed: {HEX_TOKEN}"),
+            format!("{{\"secret_key\":\"{HEX_TOKEN}\"}}"),
+        ] {
+            let out = redact_text(&text);
+            assert!(!out.contains(&HEX_TOKEN[..12]), "{text} -> {out}");
+        }
+        for n in [
+            "signing_key",
+            "key",
+            "secretKey",
+            "seed",
+            "rng_seed",
+            "privkey",
+        ] {
+            assert!(is_sensitive_name(n), "{n}");
+        }
+        // Public material and identifiers of keys stay readable.
+        for n in [
+            "public_key",
+            "public_key_hex",
+            "pubkey",
+            "key_fingerprint",
+            "key_id",
+            "keyring",
+        ] {
+            assert!(!is_sensitive_name(n), "{n}");
+        }
+        // A digest that no secret word introduces is still kept.
+        let digest = format!("artifact blake3 {HEX_TOKEN} verified");
+        assert_eq!(redact_text(&digest), digest);
+        assert_eq!(
+            redact_text(&format!("public_key={HEX_TOKEN}")),
+            format!("public_key={HEX_TOKEN}")
+        );
     }
 
     #[test]

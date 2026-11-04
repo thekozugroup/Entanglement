@@ -1228,11 +1228,15 @@ capture_level = "info"    # trace | debug | info | warn | error
 * A response is at most 1000 lines and about 256 KiB.
 * **Secrets are redacted before they are stored**: a field whose name says
   `token`, `secret`, `passphrase`, `password`, `authorization`, `bearer`,
-  `api_key`, `cookie`, `credential`, `biscuit`, `private` or a pairing code has
-  its whole value replaced by `[REDACTED]`; in text (messages, plugin output)
-  `Bearer <x>`, `name=value` pairs for those names (the first word of the
-  value), URL userinfo, PEM private keys and long mixed-case base64url runs
-  (the shape of a capability token) are replaced. Hex digests are kept. This is
+  `api_key`, `cookie`, `credential`, `biscuit`, `private`, `seed` or a pairing
+  code, or names a key (`key`, `signing_key`; not `public_key`, `pubkey`,
+  `key_fingerprint`, `key_id`), has its whole value replaced by `[REDACTED]`;
+  in text (messages, plugin output) `Bearer <x>`, `name=value` pairs for those
+  names (the first word of the value, or the whole of a Debug/JSON-shaped
+  value such as `Some("…")`, `Secret(…)` or `[10, 125, …]`), a hex run of 32
+  or more digits right after one of those words (`gateway token 3f2a…`), URL
+  userinfo, PEM private keys and long mixed-case base64url runs (the shape of
+  a capability token) are replaced. Other hex digests are kept. This is
   pattern-based: a plugin that prints a secret in some other shape prints it.
   Do not rely on it as the only control.
 * Output of an invocation that failed before returning is still logged for a
