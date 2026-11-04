@@ -333,6 +333,22 @@ fn atc_bus_2_rejects_missing_notes_and_future_dates() {
     assert!(String::from_utf8_lossy(&future.stderr).contains("in the future"));
 }
 
+/// The check counts days in UTC, but a maintainer east of UTC dates a note
+/// with their local date, which can be one day ahead of UTC (up to UTC+14).
+/// That must not block a release; two days ahead is still rejected.
+#[test]
+fn atc_bus_2_accepts_a_note_dated_one_day_ahead_of_utc() {
+    let out = rotation("## 2026-06-21 - written in UTC+9\n", "2026-06-20");
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let out = rotation("## 2026-06-22 - two days ahead\n", "2026-06-20");
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("in the future"));
+}
+
 #[test]
 fn atc_bus_2_missing_file_fails() {
     let out = xtask()

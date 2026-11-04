@@ -21,8 +21,9 @@ maximum date), heading starts with an ISO date:
 - **Author:** handle
 ```
 
-Only headings of the form `## YYYY-MM-DD` count as notes. Do not date a note in
-the future: the check rejects it.
+Only headings of the form `## YYYY-MM-DD` count as notes. The check counts days
+in UTC; a note dated one day after the UTC date (your local date east of UTC)
+is accepted, anything further in the future is rejected.
 
 ## Notes
 

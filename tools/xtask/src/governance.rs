@@ -349,20 +349,27 @@ pub fn note_dates(text: &str) -> Vec<(String, i64)> {
         .collect()
 }
 
-/// Check rotation-note freshness. `today` is days since the epoch.
-/// `Ok(message)` when fresh; `Err` with the reason when not.
+/// How far ahead of the UTC date a note may be dated: a maintainer east of
+/// UTC (up to UTC+14) who writes their local date can be one day ahead.
+pub const MAX_FUTURE_SKEW_DAYS: i64 = 1;
+
+/// Check rotation-note freshness. `today` is days since the epoch (UTC).
+/// `Ok(message)` when fresh; `Err` with the reason when not. A note dated up
+/// to [`MAX_FUTURE_SKEW_DAYS`] after `today` counts as today's.
 pub fn rotation_note_check(text: &str, today: i64, max_age_days: i64) -> Result<String> {
     let notes = note_dates(text);
     let Some((date, days)) = notes.iter().max_by_key(|(_, d)| *d) else {
         bail!("no rotation notes found (expected headings like `## 2026-01-31 - title`)");
     };
     let age = today - days;
-    if age < 0 {
+    if age < -MAX_FUTURE_SKEW_DAYS {
         bail!(
-            "newest rotation note is dated {date}, in the future ({} day(s) ahead)",
+            "newest rotation note is dated {date}, in the future ({} day(s) ahead of the UTC \
+             date; at most {MAX_FUTURE_SKEW_DAYS} is allowed for time zones ahead of UTC)",
             -age
         );
     }
+    let age = age.max(0);
     if age > max_age_days {
         bail!(
             "newest rotation note is {date}, {age} days old; the limit is {max_age_days} days. \
