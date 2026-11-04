@@ -218,7 +218,7 @@ fn sanitize(src: &str) -> String {
             while i < b.len() {
                 if b[i] == '"' && (0..hashes).all(|k| b.get(i + 1 + k) == Some(&'#')) {
                     out.push('"');
-                    out.extend(std::iter::repeat('#').take(hashes));
+                    out.extend(std::iter::repeat_n('#', hashes));
                     i += 1 + hashes;
                     break;
                 }
@@ -246,11 +246,10 @@ fn sanitize(src: &str) -> String {
             }
         } else if c == '\'' {
             // char literal or lifetime
-            let is_char = match (next, b.get(i + 2)) {
-                (Some('\\'), _) => true,
-                (Some(_), Some('\'')) => true,
-                _ => false,
-            };
+            let is_char = matches!(
+                (next, b.get(i + 2)),
+                (Some('\\'), _) | (Some(_), Some('\''))
+            );
             if is_char {
                 out.push('\'');
                 i += 1;

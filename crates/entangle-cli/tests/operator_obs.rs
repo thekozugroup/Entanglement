@@ -329,9 +329,8 @@ async fn a_dispatch_prints_its_task_id_and_trace_task_shows_the_tree() {
 
     let o = f.run(&["trace", "task", &task, "--json"]).await;
     let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
-    assert_eq!(
+    assert!(
         v["traces"][0]["spans"].as_array().unwrap().len() >= 2,
-        true,
         "{v}"
     );
 

@@ -300,15 +300,12 @@ impl SpanSink for TraceStore {
             .filter(|t| !t.is_empty() && t.len() <= 64);
         let mut g = self.inner.lock();
         let trace_id = span.trace_id;
-        if !g.traces.contains_key(&trace_id) {
-            g.traces.insert(
-                trace_id,
-                Entry {
-                    spans: Vec::new(),
-                    tasks: Vec::new(),
-                    dropped: 0,
-                },
-            );
+        if let std::collections::hash_map::Entry::Vacant(v) = g.traces.entry(trace_id) {
+            v.insert(Entry {
+                spans: Vec::new(),
+                tasks: Vec::new(),
+                dropped: 0,
+            });
             g.order.push_back(trace_id);
         }
         let full = g
