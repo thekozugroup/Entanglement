@@ -55,10 +55,15 @@ pub fn grant_info(status: &CapabilityStatus) -> CapabilityGrantInfo {
     }
 }
 
-/// `perms/list`: one plugin (`Some(id)`) or every loaded plugin.
+/// `perms/list`: one plugin (`Some(id)`) or every loaded plugin. An id
+/// replaced by a hot reload reports the version answering for it now (its
+/// `plugin_id` says which), where calls to that id run.
 pub fn list(kernel: &Kernel, plugin: Option<&str>) -> Result<PermsListResult, PermsError> {
     let mut ids = match plugin {
-        Some(s) => vec![parse_id(s)?],
+        Some(s) => {
+            let id = parse_id(s)?;
+            vec![kernel.resolve(&id).unwrap_or(id)]
+        }
         None => kernel.list_plugins(),
     };
     ids.sort_by_key(ToString::to_string);
@@ -83,13 +88,33 @@ pub fn list(kernel: &Kernel, plugin: Option<&str>) -> Result<PermsListResult, Pe
     Ok(PermsListResult { plugins })
 }
 
-/// `perms/revoke`: withdraw `capability` (a manifest key) from `plugin`.
-pub fn revoke(kernel: &Kernel, plugin: &str, capability: &str) -> Result<Vec<u64>, PermsError> {
+/// What [`revoke`] did.
+#[derive(Debug)]
+pub struct Revoked {
+    /// The plugin the capability was revoked from: `plugin` itself, or the
+    /// version that replaced it by a hot reload and answers for its id (see
+    /// [`Kernel::revoke_capability`]).
+    pub plugin: PluginId,
+    /// Broker grant ids withdrawn.
+    pub withdrawn: Vec<u64>,
+}
+
+/// `perms/revoke`: withdraw `capability` (a manifest key) from `plugin`, or
+/// — for an id replaced by a hot reload — from the version answering for it.
+pub fn revoke(kernel: &Kernel, plugin: &str, capability: &str) -> Result<Revoked, PermsError> {
     let id = parse_id(plugin)?;
-    if kernel.capability_report(&id).is_none() {
-        return Err(PermsError::NotLoaded(id.to_string()));
-    }
-    kernel
+    let target = match kernel.resolve(&id) {
+        Some(current) => current,
+        // Not answering calls, but still registered: a replaced version
+        // whose calls and streams are draining.
+        None if kernel.capability_report(&id).is_some() => id.clone(),
+        None => return Err(PermsError::NotLoaded(id.to_string())),
+    };
+    let withdrawn = kernel
         .revoke_capability(&id, capability)
-        .map_err(|e| PermsError::Broker(e.to_string()))
+        .map_err(|e| PermsError::Broker(e.to_string()))?;
+    Ok(Revoked {
+        plugin: target,
+        withdrawn,
+    })
 }

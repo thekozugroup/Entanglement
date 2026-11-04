@@ -72,6 +72,15 @@ pub async fn run(args: PermsArgs) -> anyhow::Result<()> {
                 .perms_revoke(&plugin, &capability)
                 .await
                 .map_err(not_running)?;
+            // The daemon revokes through a replaced version's id on the
+            // version answering for it: name that one.
+            let revoked_from = match r.plugin_id.as_deref() {
+                Some(current) if current != plugin => {
+                    format!("{current} (which answers for {plugin} since a hot reload)")
+                }
+                _ => plugin.clone(),
+            };
+            let plugin = revoked_from;
             if r.withdrawn.is_empty() {
                 println!("{capability} revoked from {plugin} (no grant was outstanding)");
             } else {

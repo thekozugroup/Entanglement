@@ -504,12 +504,36 @@ impl Kernel {
     /// from the next invocation for wasm storage. A native plugin whose
     /// sandbox was derived from a revoked grant is refused
     /// (`ENTANGLE-E0125`) until it is reloaded. Returns the grants withdrawn.
+    ///
+    /// `plugin` may name a version replaced by a hot reload (see
+    /// [`Kernel::resolve`]): the capability is then revoked from the version
+    /// answering for that id — where calls and streams addressed to it run —
+    /// and from the replaced version too while its calls and streams drain.
+    /// It is an error only when neither declares it.
     pub fn revoke_capability(
         &self,
         plugin: &PluginId,
         key: &str,
     ) -> Result<Vec<GrantId>, RuntimeError> {
-        Ok(self.broker.revoke(plugin, key)?)
+        let current = match self.resolve(plugin) {
+            Some(current) if current != *plugin => current,
+            // Loaded under this id, or not loaded at all (the broker says
+            // which, e.g. a version still draining).
+            _ => return Ok(self.broker.revoke(plugin, key)?),
+        };
+        let on_current = self.broker.revoke(&current, key);
+        let on_replaced = self
+            .broker
+            .capability_report(plugin)
+            .map(|_| self.broker.revoke(plugin, key));
+        match (on_current, on_replaced) {
+            (Ok(mut a), Some(Ok(b))) => {
+                a.extend(b);
+                Ok(a)
+            }
+            (Ok(a), _) | (Err(_), Some(Ok(a))) => Ok(a),
+            (Err(e), _) => Err(e.into()),
+        }
     }
 
     /// Access the lifecycle IPC bus.

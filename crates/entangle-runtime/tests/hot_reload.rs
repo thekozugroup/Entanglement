@@ -573,3 +573,90 @@ async fn an_old_id_is_loaded_for_every_check_after_a_reload() {
     assert_eq!(f.kernel.plugin_world(&v1), None);
     assert_eq!(f.kernel.resolve(&v1), None);
 }
+
+/// Revoking a capability from a replaced version's id withdraws it where
+/// calls to that id run now — the new version — and from the replaced
+/// version's calls and streams still draining, instead of only from the
+/// draining registration while every new call through the id keeps it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn revoking_through_a_replaced_id_reaches_the_version_answering_for_it() {
+    use entangle_broker::GrantState;
+    let f = Fixture::new();
+    let caps = "\"storage.local\" = { mode = \"rw\" }";
+    let (v1, v2) = (f.id("streamer", "1.0.0"), f.id("streamer", "1.1.0"));
+    f.kernel
+        .load_plugin_from_dir(&f.package("streamer", "1.0.0", STREAM_PROBE, 1, caps))
+        .await
+        .unwrap();
+    // A stream on 1.0.0 keeps it draining after the reload.
+    let (port, mut old) = entangle_host::stream_port(1);
+    let (k, id) = (f.kernel.clone(), v1.clone());
+    let old_stream =
+        tokio::spawn(async move { k.invoke_stream(&id, b"ls /\n", port, 30_000).await });
+    old.chunks.recv().await.expect("first chunk").ack.sent();
+    let outcome = f
+        .kernel
+        .load_plugin(
+            &f.package("streamer", "1.1.0", STREAM_PROBE, 1, caps),
+            LoadOptions::default(),
+        )
+        .await
+        .unwrap();
+    let replaced = outcome.replaced.unwrap();
+
+    f.kernel
+        .revoke_capability(&v1, "storage.local")
+        .expect("revoking through the replaced id");
+    let state = |id: &PluginId| {
+        f.kernel
+            .capability_report(id)
+            .unwrap()
+            .into_iter()
+            .find(|s| s.capability.key() == "storage.local")
+            .unwrap()
+            .state
+    };
+    assert_eq!(
+        state(&v2),
+        GrantState::Revoked,
+        "the version answering for 1.0.0"
+    );
+
+    // A new stream addressed to the old id runs on 1.1.0, without it.
+    let (port, mut new) = entangle_host::stream_port(1);
+    let (k, id) = (f.kernel.clone(), v1.clone());
+    let new_stream = tokio::spawn(async move {
+        k.invoke_stream(&id, b"fetch storage-local\n", port, 30_000)
+            .await
+    });
+    let chunk = new.chunks.recv().await.expect("new stream chunk");
+    assert_eq!(String::from_utf8_lossy(&chunk.bytes), "err:revoked:");
+    chunk.ack.sent();
+    new.input
+        .send(entangle_host::StreamInput::End)
+        .await
+        .unwrap();
+    new_stream.await.unwrap().unwrap();
+
+    // The draining stream on 1.0.0 lost it too.
+    old.input
+        .send(entangle_host::StreamInput::Chunk(
+            b"fetch storage-local\n".to_vec(),
+        ))
+        .await
+        .unwrap();
+    let chunk = old.chunks.recv().await.expect("old stream chunk");
+    assert_eq!(String::from_utf8_lossy(&chunk.bytes), "err:revoked:");
+    chunk.ack.sent();
+    old.input
+        .send(entangle_host::StreamInput::End)
+        .await
+        .unwrap();
+    old_stream.await.unwrap().unwrap();
+    drained(replaced.drained).await;
+
+    // Once 1.0.0 is gone, its id still reaches 1.1.0.
+    f.kernel
+        .revoke_capability(&v1, "storage.local")
+        .expect("revoking through the replaced id after the drain");
+}

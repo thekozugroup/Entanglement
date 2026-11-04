@@ -435,6 +435,11 @@ pub struct PermsRevokeResult {
     /// Broker grant ids withdrawn by this call (empty when it was already
     /// revoked).
     pub withdrawn: Vec<u64>,
+    /// The plugin the capability was revoked from: the id requested, or —
+    /// when that id was replaced by a hot reload — the version answering for
+    /// it now. Absent from daemons that predate it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin_id: Option<String>,
 }
 
 /// Method name constants — kept in sync between client and server.

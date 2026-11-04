@@ -22,7 +22,7 @@
 //! - `perms/list`   → params `{ "plugin_id"?: "<id>" }` → `PermsListResult`: each
 //!   plugin's declared capabilities and their grant state (granted / denied /
 //!   revoked / not-granted)
-//! - `perms/revoke` → params `{ "plugin_id", "capability" }` → `{ "withdrawn": [ids] }`
+//! - `perms/revoke` → params `{ "plugin_id", "capability" }` → `{ "withdrawn": [ids], "plugin_id" }`
 //!
 //! Every request is counted in `entangle_rpc_requests_total{method,outcome}`
 //! and timed in `entangle_rpc_request_duration_seconds{method}`; the `method`
@@ -513,10 +513,16 @@ fn handle_perms_revoke(
         Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
     };
     match crate::perms::revoke(&state.kernel, &p.plugin_id, &p.capability) {
-        Ok(withdrawn) => {
+        Ok(revoked) => {
             // A revocation survives a restart (`plugin_state`).
             state.persist_plugins();
-            ok_resp(id, PermsRevokeResult { withdrawn })
+            ok_resp(
+                id,
+                PermsRevokeResult {
+                    withdrawn: revoked.withdrawn,
+                    plugin_id: Some(revoked.plugin.to_string()),
+                },
+            )
         }
         Err(e) => perms_error(id, e),
     }

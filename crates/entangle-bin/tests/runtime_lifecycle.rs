@@ -506,6 +506,54 @@ mod restart {
         assert!(output(&r).contains(&v2_id), "{r}");
     }
 
+    /// `perms revoke` and `perms list` naming a version replaced by a hot
+    /// reload act on the version that answers for that id now (and say so),
+    /// the same way calls to it are routed — not "not loaded" while calls to
+    /// that id still run, with the capability.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn perms_through_a_replaced_id_reach_the_version_answering_for_it() {
+        let node = Node::new();
+        let caps = "\"storage.local\" = { mode = \"rw\" }";
+        let (v1, v1_id) = node.package("probe", "0.1.0", PROBE, 1, caps);
+        let (v2, v2_id) = node.package("probe", "0.2.0", PROBE, 1, caps);
+        let reg = Registry::new();
+        let (d, _) = node.start(&reg).await;
+        for dir in [&v1, &v2] {
+            let r = rpc(&d, "plugins/load", serde_json::json!({ "dir": dir })).await;
+            assert!(r["error"].is_null(), "{r}");
+        }
+        // 0.1.0 had nothing running: wait for its drain to finish.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while d.kernel.broker().registered_tiers().len() != 1 {
+            assert!(std::time::Instant::now() < deadline, "0.1.0 never drained");
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        let listed = rpc(&d, "perms/list", serde_json::json!({ "plugin_id": v1_id })).await;
+        assert!(listed["error"].is_null(), "{listed}");
+        assert_eq!(
+            listed["result"]["plugins"][0]["plugin_id"],
+            serde_json::json!(v2_id),
+            "{listed}"
+        );
+
+        let r = rpc(
+            &d,
+            "perms/revoke",
+            serde_json::json!({ "plugin_id": v1_id, "capability": "storage.local" }),
+        )
+        .await;
+        assert!(r["error"].is_null(), "{r}");
+        assert_eq!(r["result"]["plugin_id"], serde_json::json!(v2_id), "{r}");
+        // Calls through the old id run on 0.2.0, which no longer has it.
+        let out = output(&invoke(&d, &v1_id, b"fetch storage-local\n").await);
+        assert_eq!(out, "err:revoked:\n");
+        // And it is recorded against 0.2.0, so it survives a restart.
+        let file = PluginStateFile::read(&node.state_file()).unwrap();
+        let entry = file.plugins.iter().find(|e| e.id == v2_id).unwrap();
+        assert_eq!(entry.revoked, ["storage.local"]);
+    }
+
     /// Captures formatted log lines (JSON) for assertions.
     #[derive(Clone, Default)]
     struct LogCapture(Arc<std::sync::Mutex<Vec<u8>>>);
