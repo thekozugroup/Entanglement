@@ -574,7 +574,7 @@ async fn load_racing_a_ceiling_lowering_never_lands_above_it() {
     // while the kernel is still compiling it.
     wait_for_phase(&mut sub, LifecyclePhase::Registered).await;
     let outcome = kernel
-        .apply_max_tier(Tier::Sandboxed, true)
+        .apply_max_tier(Tier::Sandboxed, true, None)
         .await
         .expect("unload authorised");
     let loaded = load.await.expect("load task");
@@ -625,7 +625,7 @@ async fn lowering_drains_in_flight_invocations_before_unloading() {
     wait_for_phase(&mut sub, LifecyclePhase::Activated).await;
 
     let outcome = kernel
-        .apply_max_tier(Tier::Sandboxed, true)
+        .apply_max_tier(Tier::Sandboxed, true, None)
         .await
         .expect("unload authorised");
     // apply_max_tier records W0214 only after the drain, so by the time it
@@ -664,7 +664,7 @@ async fn raising_the_ceiling_is_audited() {
     let before = kernel.broker().audit_log().snapshot().len();
 
     kernel
-        .apply_max_tier(Tier::Native, false)
+        .apply_max_tier(Tier::Native, false, None)
         .await
         .expect("raising needs no confirmation");
     let events = kernel.broker().audit_log().snapshot();
@@ -678,7 +678,7 @@ async fn raising_the_ceiling_is_audited() {
 
     // Re-applying the same ceiling changes nothing and audits nothing.
     kernel
-        .apply_max_tier(Tier::Native, false)
+        .apply_max_tier(Tier::Native, false, None)
         .await
         .expect("no-op");
     assert_eq!(kernel.broker().audit_log().snapshot().len(), before + 1);

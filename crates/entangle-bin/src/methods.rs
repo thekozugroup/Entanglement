@@ -22,6 +22,7 @@ use entangle_rpc::methods::{
     PluginsInvokeParams, PluginsInvokeResult, PluginsListResult, PluginsLoadParams,
     PluginsLoadResult, PluginsUnloadParams,
 };
+use entangle_runtime::MaxTierRefusal;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -297,7 +298,25 @@ async fn handle_security_apply(
         Ok(t) => t,
         Err(resp) => return resp,
     };
-    match state.kernel.apply_max_tier(new, p.unload).await {
+    let confirmed: Option<Vec<entangle_types::plugin_id::PluginId>> = match p
+        .confirmed
+        .map(|ids| ids.iter().map(|s| s.parse()).collect::<Result<Vec<_>, _>>())
+        .transpose()
+    {
+        Ok(c) => c,
+        Err(e) => return error_resp(id, -32602, format!("invalid confirmed plugin id: {e}")),
+    };
+    let ids = |v: &[entangle_runtime::LoadedPluginInfo]| {
+        v.iter()
+            .map(|a| a.plugin.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    match state
+        .kernel
+        .apply_max_tier(new, p.unload, confirmed.as_deref())
+        .await
+    {
         Ok(o) => ok_resp(
             id,
             MaxTierApplied {
@@ -306,18 +325,26 @@ async fn handle_security_apply(
                 unloaded: o.unloaded.iter().map(|p| p.to_string()).collect(),
             },
         ),
-        Err(affected) => error_resp(
+        Err(MaxTierRefusal::NeedsUnload(affected)) => error_resp(
             id,
             -32001,
             format!(
                 "ENTANGLE-E0750: lowering max_tier_allowed to {} would unload {} plugin(s): {}",
                 p.max_tier,
                 affected.len(),
-                affected
-                    .iter()
-                    .map(|a| a.plugin.to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                ids(&affected)
+            ),
+        ),
+        Err(MaxTierRefusal::Unconfirmed(unseen)) => error_resp(
+            id,
+            -32001,
+            format!(
+                "ENTANGLE-E0758: lowering max_tier_allowed to {} would also unload {} plugin(s) \
+                 that were not on the confirmed list (loaded since it was shown): {}; nothing \
+                 was changed",
+                p.max_tier,
+                unseen.len(),
+                ids(&unseen)
             ),
         ),
     }

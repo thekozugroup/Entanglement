@@ -180,15 +180,22 @@ impl Client {
     }
 
     /// `security/apply-max-tier` — apply a new ceiling at runtime; with
-    /// `unload`, plugins above it are unloaded and audited.
+    /// `unload`, plugins above it are unloaded and audited. `confirmed`
+    /// restricts the unload to the plugins the operator agreed to (see
+    /// [`MaxTierApplyParams::confirmed`]).
     pub async fn security_apply_max_tier(
         &self,
         max_tier: u8,
         unload: bool,
+        confirmed: Option<Vec<String>>,
     ) -> Result<MaxTierApplied, RpcError> {
         self.call(
             method::SECURITY_APPLY_MAX_TIER,
-            MaxTierApplyParams { max_tier, unload },
+            MaxTierApplyParams {
+                max_tier,
+                unload,
+                confirmed,
+            },
         )
         .await
     }

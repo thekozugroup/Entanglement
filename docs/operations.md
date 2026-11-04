@@ -312,6 +312,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0754` | `config.toml` could not be edited (not valid TOML, or a section has the wrong shape). |
 | `ENTANGLE-E0756` | A shell rc file could not be read or written (or `$HOME` is unset, or the file is not UTF-8) (§14). |
 | `ENTANGLE-E0757` | `entangle wrapper repair` while wrappers are not enabled (§14). |
+| `ENTANGLE-E0758` | Daemon refused `security/apply-max-tier`: a plugin above the new ceiling was not on the list the operator confirmed (loaded while the prompt waited); nothing changed, re-run to see the current list (§15). |
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§15). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§15). |
 | `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§15). |
@@ -843,6 +844,11 @@ Decision [u/c]:
   through the kernel, which releases its broker grants. Afterwards a load above
   the ceiling fails with `ENTANGLE-E0043`. The plugin ids are added to
   `[plugins] disabled` in `config.toml`.
+- An answer at the prompt covers exactly the plugins listed. If another
+  plugin above the new ceiling was loaded while the prompt waited, the daemon
+  refuses with `ENTANGLE-E0758` and nothing changes; re-run to see the current
+  list. (`--force-unload` consents in advance to whatever is above the ceiling
+  when it is applied; each such plugin still gets its own `ENTANGLE-W0214`.)
 - **Cancel** (`c`, or end of input): nothing is unloaded. For `config reload`
   your edit of `config.toml` is reverted to the daemon's ceiling; for
   `set-max-tier` the file was never changed. The command exits 1 so scripts

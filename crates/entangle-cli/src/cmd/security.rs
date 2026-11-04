@@ -357,7 +357,7 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
     let current = plan.current;
     if plan.affected.is_empty() {
         let applied = client
-            .security_apply_max_tier(new, false)
+            .security_apply_max_tier(new, false, None)
             .await
             .context("applying the new ceiling to the daemon")?;
         if mode == Mode::SetMaxTier {
@@ -382,8 +382,18 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
         return Ok(0);
     }
 
-    // Lowering over loaded plugins: never silent.
+    // Lowering over loaded plugins: never silent. An answer at the prompt
+    // covers exactly the plugins listed there; the daemon refuses
+    // (ENTANGLE-E0758) to unload any other one, e.g. one loaded while the
+    // prompt waited. `--force-unload` consents in advance to whatever is above
+    // the ceiling when it is applied (still listed and audited per plugin).
     let unattended = flags.force_unload || flags.yes;
+    let confirmed = (!unattended).then(|| {
+        plan.affected
+            .iter()
+            .map(|a| a.plugin_id.clone())
+            .collect::<Vec<_>>()
+    });
     let decision = if unattended {
         eprintln!(
             "Lowering [security] max_tier_allowed from {current} to {new}: unloading and disabling {} plugin{} above the new ceiling:\n{}",
@@ -441,9 +451,12 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
         }
         Decision::Unload => {
             let applied = client
-                .security_apply_max_tier(new, true)
+                .security_apply_max_tier(new, true, confirmed)
                 .await
-                .context("applying the new ceiling to the daemon")?;
+                .context(
+                    "applying the new ceiling to the daemon (nothing was changed; re-run to see \
+                     the plugins it affects now)",
+                )?;
             // Per-plugin W0214 (loud, stderr + durable audit), then I0215.
             let tiers: std::collections::HashMap<_, _> = plan
                 .affected

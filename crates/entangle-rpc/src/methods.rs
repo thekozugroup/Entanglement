@@ -285,6 +285,13 @@ pub struct MaxTierApplyParams {
     /// Unload plugins above the new ceiling. When `false` and any exist, the
     /// call fails and changes nothing — the daemon never unloads silently.
     pub unload: bool,
+    /// The plugin ids the operator was shown and agreed to unload. When set,
+    /// any other plugin above the new ceiling (e.g. loaded while the prompt
+    /// waited) makes the call fail with `ENTANGLE-E0758`, changing nothing.
+    /// Absent: every plugin above the ceiling may be unloaded
+    /// (`--force-unload`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirmed: Option<Vec<String>>,
 }
 
 /// Result of `security/apply-max-tier`.

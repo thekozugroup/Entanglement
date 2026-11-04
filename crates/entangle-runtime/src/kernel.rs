@@ -84,6 +84,18 @@ pub struct MaxTierOutcome {
     pub unloaded: Vec<PluginId>,
 }
 
+/// Why [`Kernel::apply_max_tier`] refused to lower the ceiling. Nothing was
+/// changed in either case.
+#[derive(Clone, Debug)]
+pub enum MaxTierRefusal {
+    /// Lowering would unload these plugins and unloading was not authorised.
+    NeedsUnload(Vec<LoadedPluginInfo>),
+    /// Unloading was authorised for a confirmed list of plugins, but these
+    /// plugins above the new ceiling are not on it (typically loaded after
+    /// the operator saw the list). They are never unloaded unseen.
+    Unconfirmed(Vec<LoadedPluginInfo>),
+}
+
 /// How a loaded plugin executes.
 #[derive(Clone)]
 enum PluginImpl {
@@ -545,7 +557,10 @@ impl Kernel {
     /// Raising (or keeping) the ceiling unloads nothing. Lowering it unloads
     /// every plugin above the new ceiling **only if `unload` is true**;
     /// otherwise, when the delta set is non-empty, nothing changes and the
-    /// affected plugins are returned in `Err` so the caller can prompt. The
+    /// affected plugins are returned in [`MaxTierRefusal::NeedsUnload`] so the
+    /// caller can prompt. With `confirmed` (the list the operator was shown
+    /// and agreed to), a delta set containing any other plugin is refused
+    /// with [`MaxTierRefusal::Unconfirmed`] and nothing changes. The
     /// unload goes through [`Kernel::unload`], which drains invocations
     /// already running and then releases the broker grants; only then is the
     /// plugin's `ENTANGLE-W0214` audit event recorded (one per plugin),
@@ -556,7 +571,8 @@ impl Kernel {
         &self,
         new: Tier,
         unload: bool,
-    ) -> Result<MaxTierOutcome, Vec<LoadedPluginInfo>> {
+        confirmed: Option<&[PluginId]>,
+    ) -> Result<MaxTierOutcome, MaxTierRefusal> {
         // The delta set and the ceiling change are one step under the
         // `plugins` write lock, which a load also holds when it re-checks the
         // ceiling and records the plugin: a load in flight either landed
@@ -571,7 +587,17 @@ impl Kernel {
                 Vec::new()
             };
             if !affected.is_empty() && !unload {
-                return Err(affected);
+                return Err(MaxTierRefusal::NeedsUnload(affected));
+            }
+            if let Some(confirmed) = confirmed {
+                let unseen: Vec<LoadedPluginInfo> = affected
+                    .iter()
+                    .filter(|a| !confirmed.contains(&a.plugin))
+                    .cloned()
+                    .collect();
+                if !unseen.is_empty() {
+                    return Err(MaxTierRefusal::Unconfirmed(unseen));
+                }
             }
             self.broker.set_max_tier_allowed(new);
             (old, affected)

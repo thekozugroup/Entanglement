@@ -90,6 +90,8 @@ fn package(root: &Path, kp: &IdentityKeyPair, name: &str, tier: u8) -> (PathBuf,
 
 struct Fixture {
     _tmp: TempDir,
+    /// The trusted publisher key the fixture's packages are signed with.
+    kp: IdentityKeyPair,
     home: PathBuf,
     state: Arc<DaemonState>,
     pkgs: std::collections::BTreeMap<&'static str, (PathBuf, String)>,
@@ -156,6 +158,7 @@ impl Fixture {
         }
         Self {
             _tmp: tmp,
+            kp,
             home,
             state,
             pkgs,
@@ -242,6 +245,74 @@ fn run_on_tty(home: &Path, args: &[&str], input: &str) -> (i32, String) {
     let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
     text.push_str(&String::from_utf8_lossy(&out.stderr));
     (out.status.code().unwrap_or(-1), text.replace('\r', ""))
+}
+
+/// Like [`run_on_tty`], but waits until the prompt is on screen, runs
+/// `at_prompt` (while the CLI waits for the answer), and only then types
+/// `input`.
+fn run_on_tty_at_prompt(
+    home: &Path,
+    args: &[&str],
+    at_prompt: impl FnOnce(),
+    input: &str,
+) -> (i32, String) {
+    use std::io::{Read as _, Write as _};
+    let mut cmdline = format!("'{}'", entangle_bin().display());
+    for a in args {
+        cmdline.push_str(&format!(" '{a}'"));
+    }
+    let mut child = Command::new("script")
+        .args(["-qec", &cmdline, "/dev/null"])
+        .env("HOME", home)
+        .env_remove("XDG_CONFIG_HOME")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("`script` (util-linux) is required for the pty tests");
+    let mut stdin = child.stdin.take().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+    let screen = Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
+    let reader = {
+        let screen = screen.clone();
+        std::thread::spawn(move || {
+            let mut chunk = [0u8; 4096];
+            while let Ok(n) = stdout.read(&mut chunk) {
+                if n == 0 {
+                    break;
+                }
+                screen.lock().unwrap().extend_from_slice(&chunk[..n]);
+            }
+        })
+    };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    loop {
+        let shown = String::from_utf8_lossy(&screen.lock().unwrap()).into_owned();
+        if shown.contains("Decision [u/c]:") {
+            break;
+        }
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            panic!("the prompt never appeared: {shown}");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    at_prompt();
+    stdin.write_all(input.as_bytes()).unwrap();
+    stdin.flush().unwrap();
+    let status = child.wait().unwrap();
+    drop(stdin);
+    reader.join().unwrap();
+    let mut err = String::new();
+    child
+        .stderr
+        .take()
+        .unwrap()
+        .read_to_string(&mut err)
+        .unwrap();
+    let mut text = String::from_utf8_lossy(&screen.lock().unwrap()).into_owned();
+    text.push_str(&err);
+    (status.code().unwrap_or(-1), text.replace('\r', ""))
 }
 
 fn have_script() -> bool {
@@ -582,6 +653,47 @@ async fn atc_max_3_cancel_reverts_edit() {
     let ev = f.audit_broker(AuditKind::CeilingLoweringCancelled);
     assert_eq!(ev.len(), 1);
     assert_eq!(ev[0].code(), Some("ENTANGLE-I0216"));
+    assert!(f.audit_file("ENTANGLE-W0214").is_empty());
+}
+
+/// Spec §9.4.1: the operator is prompted "with the list" and nothing is
+/// unloaded silently. A plugin loaded while the prompt waits for an answer
+/// was not on the list the operator confirmed: the daemon refuses
+/// (ENTANGLE-E0758) instead of unloading it unseen, and nothing changes.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn plugin_loaded_while_prompting_is_not_unloaded_unconfirmed() {
+    let f = Fixture::new("", true).await;
+    let (late_dir, late_id) = package(f._tmp.path(), &f.kp, "late-gpu", 4);
+    let before = f.config();
+    let home = f.home.clone();
+    let state = f.state.clone();
+    let rt = tokio::runtime::Handle::current();
+    let (code, out) = tokio::task::spawn_blocking(move || {
+        run_on_tty_at_prompt(
+            &home,
+            &["security", "set-max-tier", "3"],
+            || {
+                rt.block_on(state.kernel.load_plugin_from_dir(&late_dir))
+                    .expect("late load");
+            },
+            "u\n",
+        )
+    })
+    .await
+    .unwrap();
+
+    assert!(
+        !out.contains(&format!("unloaded and disabled {late_id}")),
+        "a plugin the operator never saw was unloaded: {out}"
+    );
+    assert_eq!(code, 1, "{out}");
+    assert!(
+        out.contains("ENTANGLE-E0758") && out.contains(&late_id),
+        "{out}"
+    );
+    assert_eq!(f.loaded().len(), 4, "nothing was unloaded");
+    assert_eq!(f.state.kernel.max_tier_allowed() as u8, 5);
+    assert_eq!(f.config(), before);
     assert!(f.audit_file("ENTANGLE-W0214").is_empty());
 }
 
