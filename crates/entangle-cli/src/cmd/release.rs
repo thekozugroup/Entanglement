@@ -9,7 +9,9 @@
 //!    `--release-key`; and
 //! 2. a cosign bundle (`<artifact>.sigstore`) accepted by
 //!    `cosign verify-blob --bundle <bundle> --certificate-identity-regexp <re>
-//!    --certificate-oidc-issuer <issuer> <artifact>`.
+//!    --certificate-oidc-issuer <issuer> <blob>`, where `<blob>` is a private
+//!    copy of the very bytes the Ed25519 check verified (the artifact is read
+//!    once).
 //!
 //! Both checks always run and every failure is reported; either failing fails
 //! the command. A missing `cosign` binary is an error (`ENTANGLE-E0845`),
@@ -237,7 +239,10 @@ fn check_ed25519(opts: &VerifyOptions, artifact: &[u8]) -> Result<String> {
     ))
 }
 
-fn check_cosign(opts: &VerifyOptions) -> Result<()> {
+/// Run cosign over `blob`: a private copy of exactly the bytes the Ed25519
+/// check verified, never the artifact path (which could be re-read with
+/// different contents).
+fn check_cosign(opts: &VerifyOptions, blob: &Path) -> Result<()> {
     let out = Command::new(&opts.cosign)
         .arg("verify-blob")
         .arg("--bundle")
@@ -246,7 +251,7 @@ fn check_cosign(opts: &VerifyOptions) -> Result<()> {
         .arg(&opts.certificate_identity_regexp)
         .arg("--certificate-oidc-issuer")
         .arg(&opts.certificate_oidc_issuer)
-        .arg(&opts.artifact)
+        .arg(blob)
         .output();
     match out {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => bail!(
@@ -265,11 +270,24 @@ fn check_cosign(opts: &VerifyOptions) -> Result<()> {
 }
 
 /// Verify both signatures. Both checks run; any failure fails the call.
+///
+/// The artifact is read once. The Ed25519 check runs over those bytes and
+/// cosign is handed a copy of the same bytes in a private (0700) temp
+/// directory, so a PASS means one byte string carries both signatures even if
+/// the file at the artifact path changes during verification.
 pub fn verify(opts: &VerifyOptions) -> Result<()> {
     let artifact = std::fs::read(&opts.artifact)
         .with_context(|| format!("reading {}", opts.artifact.display()))?;
+    let private = tempfile::TempDir::new().context("creating a private temp dir")?;
+    let name = opts
+        .artifact
+        .file_name()
+        .map(Path::new)
+        .unwrap_or_else(|| Path::new("artifact"));
+    let blob = private.path().join(name);
+    write_secret_new(&blob, &artifact)?;
     let ed = check_ed25519(opts, &artifact);
-    let cs = check_cosign(opts);
+    let cs = check_cosign(opts, &blob);
     match (&ed, &cs) {
         (Ok(signer), Ok(())) => {
             println!("ed25519: OK, signed by release key {signer}");

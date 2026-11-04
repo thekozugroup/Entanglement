@@ -5,7 +5,8 @@
 //! `cosign` script** that exits 0 only when it receives exactly the argument
 //! vector `entangle release verify` is specified to send:
 //! `verify-blob --bundle <bundle> --certificate-identity-regexp <re>
-//! --certificate-oidc-issuer <issuer> <artifact>`. Real cosign, against a real
+//! --certificate-oidc-issuer <issuer> <blob>`, where `<blob>` holds the
+//! bytes its bundle covers (by default the artifact's). Real cosign, against a real
 //! Rekor entry, is exercised by the `sigstore-attest` job of
 //! `.github/workflows/release.yml`, which runs the same flags.
 
@@ -38,7 +39,12 @@ echo "$@" > "$COSIGN_ARGS_LOG"
 [ "$2" = "--bundle" ] && [ "$3" = "$EXPECT_BUNDLE" ] || { echo "bad bundle" >&2; exit 65; }
 [ "$4" = "--certificate-identity-regexp" ] && [ "$5" = "$EXPECT_ID" ] || { echo "bad identity" >&2; exit 66; }
 [ "$6" = "--certificate-oidc-issuer" ] && [ "$7" = "$EXPECT_ISSUER" ] || { echo "bad issuer" >&2; exit 67; }
-[ "$8" = "$EXPECT_ARTIFACT" ] && [ "$#" -eq 8 ] || { echo "bad artifact/arity" >&2; exit 68; }
+[ "$#" -eq 8 ] || { echo "bad arity" >&2; exit 68; }
+# A concurrent writer replacing the artifact at its path between the
+# Ed25519 read and this one (the TOCTOU window).
+[ -z "$SWAP_ARTIFACT_WITH" ] || cp "$SWAP_ARTIFACT_WITH" "$EXPECT_ARTIFACT"
+# The bundle covers EXPECT_BLOB's bytes (default: the artifact's).
+cmp -s "$8" "${EXPECT_BLOB:-$EXPECT_ARTIFACT}" || { echo "blob does not match the bundle" >&2; exit 69; }
 exit "${COSIGN_EXIT:-0}"
 "#,
     )
@@ -139,16 +145,32 @@ fn atc_rel_1_dual_sig_pass() {
         .stdout(predicate::str::contains("ed25519: OK"))
         .stdout(predicate::str::contains("cosign:  OK"))
         .stdout(predicate::str::contains("PASS"));
-    // The fake cosign saw exactly the specified invocation.
+    // The fake cosign saw exactly the specified invocation. The blob is a
+    // private copy of the artifact's bytes (the fake compared its content),
+    // not the artifact path, which could be re-read with other contents.
     let args = std::fs::read_to_string(log).unwrap();
+    let (head, blob) = args.trim().rsplit_once(' ').unwrap();
     assert_eq!(
-        args.trim(),
+        head,
         format!(
             "verify-blob --bundle {}.sigstore --certificate-identity-regexp {ID_RE} \
-             --certificate-oidc-issuer {ISSUER} {}",
-            f.artifact.display(),
+             --certificate-oidc-issuer {ISSUER}",
             f.artifact.display()
         )
+    );
+    assert_ne!(
+        Path::new(blob),
+        f.artifact,
+        "cosign must not re-read the artifact path"
+    );
+    assert!(Path::new(blob).is_absolute(), "{blob}");
+    assert!(
+        blob.ends_with("/entanglement-v1.0.0-rc1-x86_64.tar.gz"),
+        "{blob}"
+    );
+    assert!(
+        !Path::new(blob).exists(),
+        "the private copy is removed afterwards"
     );
 }
 
@@ -208,6 +230,27 @@ fn atc_rel_1_tampered_artifact_fails() {
     c.assert()
         .failure()
         .stderr(predicate::str::contains("ENTANGLE-E0842"));
+}
+
+/// Both signatures must cover one byte string. An artifact replaced at its
+/// path between the Ed25519 check and the cosign check (a FIFO, a symlink
+/// swap, a network filesystem) must not combine a release-key signature over
+/// one file with a cosign bundle over another.
+#[test]
+fn atc_rel_1_both_checks_cover_the_same_bytes() {
+    let f = fixture();
+    f.trust_as_release_key();
+    // `legit`: what the cosign bundle covers. The artifact on disk (signed
+    // with the release key) is different.
+    let legit = f.home.path().join("legit.tar.gz");
+    std::fs::write(&legit, b"legitimate release tarball").unwrap();
+    let (mut c, _) = f.verify(&[]);
+    c.env("EXPECT_BLOB", &legit)
+        .env("SWAP_ARTIFACT_WITH", &legit)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("PASS").not())
+        .stderr(predicate::str::contains("ENTANGLE-E0846"));
 }
 
 #[test]
