@@ -12,7 +12,7 @@
 //! `entangle_host::net`). Tests that need a reachable "LAN" or "public" host
 //! therefore install the documented test hook
 //! [`CapabilityContext::with_address_classifier`], which only re-labels
-//! specific loopback addresses (`127.0.0.1` as LAN, `127.0.0.2` as public);
+//! specific loopback addresses (`127.0.0.1` as LAN, `127.0.0.2` or `::1` as public);
 //! the grant rules themselves are the production ones, and
 //! [`loopback_is_never_reachable_under_production_rules`] checks that without
 //! the hook the same grant reaches nothing on loopback.
@@ -34,12 +34,14 @@ const PROBE: &[u8] = include_bytes!("fixtures/caps-probe.wasm");
 const PUB: &str = "aabbccddeeff00112233445566778899";
 const SECRET: &str = "top-secret-outside-the-sandbox";
 
-/// Test classifier: `127.0.0.1` stands in for a LAN host, `127.0.0.2` for a
-/// public one; every other address is classified as in production.
+/// Test classifier: `127.0.0.1` stands in for a LAN host, `127.0.0.2` or
+/// `::1` (see [`public_ip`]) for a public one; every other address is
+/// classified as in production.
 fn lan_and_public_on_loopback(ip: IpAddr) -> AddrClass {
     match ip {
         IpAddr::V4(v4) if v4 == Ipv4Addr::new(127, 0, 0, 1) => AddrClass::Lan,
         IpAddr::V4(v4) if v4 == Ipv4Addr::new(127, 0, 0, 2) => AddrClass::Wan,
+        IpAddr::V6(v6) if v6 == std::net::Ipv6Addr::LOCALHOST => AddrClass::Wan,
         other => classify(other),
     }
 }
@@ -269,6 +271,18 @@ struct Listener {
     accepted: Arc<std::sync::atomic::AtomicUsize>,
 }
 
+/// The loopback address that stands in for a public host. Linux answers on
+/// all of `127.0.0.0/8`; macOS configures only `127.0.0.1` on `lo0` (so
+/// `127.0.0.2` cannot be bound there) but has `::1`. Probe in that order.
+async fn public_ip() -> String {
+    for ip in ["127.0.0.2", "::1"] {
+        if tokio::net::TcpListener::bind((ip, 0)).await.is_ok() {
+            return ip.to_string();
+        }
+    }
+    panic!("neither 127.0.0.2 nor ::1 can be bound: no stand-in for a public host");
+}
+
 async fn listener(ip: &str, greeting: &'static str) -> Listener {
     let l = tokio::net::TcpListener::bind((ip, 0)).await.expect("bind");
     let addr = l.local_addr().unwrap();
@@ -436,10 +450,26 @@ async fn storage_local_rw_works_and_every_escape_fails() {
         std::os::unix::fs::symlink(&outside, data.join("host-dir")).unwrap();
     }
 
+    // A secret at every ancestor of /data, so that each `..` climb has
+    // something to read if the preopen leaked: <root>/data/plugins/<PUB>
+    // (`/data/..`), <root>/data/plugins (`/data/../..`) and <root>/data.
+    let mut ancestors = Vec::new();
+    let mut up = data.parent();
+    while let Some(dir) = up {
+        if dir == root {
+            break;
+        }
+        std::fs::write(dir.join("secret.txt"), SECRET).unwrap();
+        ancestors.push(dir.join("secret.txt"));
+        up = dir.parent();
+    }
+    assert!(ancestors.len() >= 3, "{ancestors:?}");
     let secret = root.join("secret.txt");
     let script = format!(
         "read {secret}\n\
          read /data/../secret.txt\n\
+         read /data/../../secret.txt\n\
+         read /data/../../../secret.txt\n\
          read /data/../../../../secret.txt\n\
          read ../secret.txt\n\
          read secret.txt\n\
@@ -617,8 +647,12 @@ async fn unrealisable_storage_grants_fail_closed() {
 #[tokio::test(flavor = "multi_thread")]
 async fn net_lan_allows_lan_hosts_but_not_public_ones() {
     let lan = listener("127.0.0.1", "hello-lan").await;
-    let public = listener("127.0.0.2", "hello-public").await;
+    let public_ip = public_ip().await;
+    let public = listener(&public_ip, "hello-public").await;
     let udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let public_udp = tokio::net::UdpSocket::bind((public_ip.as_str(), 0))
+        .await
+        .unwrap();
     let h = Setup {
         classify: Some(lan_and_public_on_loopback),
         ..Setup::new("lan", r#""net.lan" = {}"#)
@@ -629,9 +663,9 @@ async fn net_lan_allows_lan_hosts_but_not_public_ones() {
         "connect {lan}\n\
          connect {public}\n\
          connect 8.8.8.8:53\n\
-         connect [::1]:{lan_port}\n\
+         connect [::ffff:127.0.0.1]:{lan_port}\n\
          udp {udp}\n\
-         udp 127.0.0.2:{udp_port}\n\
+         udp {public_udp}\n\
          resolve localhost\n\
          listen 127.0.0.1:0\n\
          listen 0.0.0.0:0\n",
@@ -639,7 +673,7 @@ async fn net_lan_allows_lan_hosts_but_not_public_ones() {
         public = public.addr,
         lan_port = lan.addr.port(),
         udp = udp.local_addr().unwrap(),
-        udp_port = udp.local_addr().unwrap().port(),
+        public_udp = public_udp.local_addr().unwrap(),
     );
     let got = h.run(&script).await;
     expect(
@@ -665,6 +699,16 @@ async fn net_lan_allows_lan_hosts_but_not_public_ones() {
         .expect("datagram arrives")
         .unwrap();
     assert_eq!(&buf[..n], b"ping");
+    // The datagram sent to the public address must never have been delivered.
+    assert!(
+        tokio::time::timeout(
+            std::time::Duration::from_millis(300),
+            public_udp.recv_from(&mut buf)
+        )
+        .await
+        .is_err(),
+        "a datagram reached the public UDP receiver"
+    );
 }
 
 /// Without the test hook, loopback is neither LAN nor WAN: the same grants
@@ -799,13 +843,11 @@ async fn net_lan_does_not_reach_the_hosts_own_addresses() {
 /// port of the same host, not another public host, not a LAN host.
 #[tokio::test(flavor = "multi_thread")]
 async fn net_wan_allows_only_the_allowlisted_host_and_port() {
-    let allowed = listener("127.0.0.2", "hello-allowed").await;
-    let other_port = listener("127.0.0.2", "hello-other-port").await;
+    let public_ip = public_ip().await;
+    let allowed = listener(&public_ip, "hello-allowed").await;
+    let other_port = listener(&public_ip, "hello-other-port").await;
     let lan = listener("127.0.0.1", "hello-lan").await;
-    let caps = format!(
-        r#""net.wan" = {{ hosts = ["127.0.0.2:{}"] }}"#,
-        allowed.addr.port()
-    );
+    let caps = format!(r#""net.wan" = {{ hosts = ["{}"] }}"#, allowed.addr);
     let h = Setup {
         classify: Some(lan_and_public_on_loopback),
         ..Setup::new("wan", &caps)
