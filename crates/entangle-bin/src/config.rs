@@ -325,6 +325,7 @@ impl TelemetrySection {
 /// speculation_factor = 3.0          # median: ... after this multiple of the plugin's median
 /// speculation_min_samples = 5       # median: durations needed first
 /// speculation_floor_ms = 1000       # median: never earlier than this
+/// rtt_probe_interval_secs = 60      # measured worker RTT for placement; 0 disables
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -371,6 +372,11 @@ pub struct SchedulerConfig {
     pub speculation_min_samples: usize,
     /// `median`: the earliest a backup may start (ms).
     pub speculation_floor_ms: u64,
+    /// Seconds between rounds of round-trip-time probes to the live workers
+    /// (spec §7.3: placement's link quality is measured locally); at most 16
+    /// workers per round, 4 at a time. `0` disables the probes: placement
+    /// then uses the advertised constants (5 ms LAN, 20 ms tailnet).
+    pub rtt_probe_interval_secs: u64,
 }
 
 /// `[scheduler] speculation`.
@@ -399,6 +405,7 @@ impl Default for SchedulerConfig {
             speculation_factor: 3.0,
             speculation_min_samples: 5,
             speculation_floor_ms: 1_000,
+            rtt_probe_interval_secs: 60,
         }
     }
 }

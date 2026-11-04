@@ -17,7 +17,7 @@ use entangle_runtime::Kernel;
 use entangle_scheduler::{Dispatcher, PeerDirectory, RemoteDispatch, WorkerInfo, WorkerPool};
 use entangle_signing::{IdentityKeyPair, Keyring};
 use entangle_types::peer_id::PeerId;
-use entangle_types::resource::GpuRequirement;
+use entangle_types::resource::{GpuRequirement, NpuRequirement};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -294,6 +294,20 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         entangle_bin::mesh::warn_unavailable_choices(&cfg.mesh, &running);
         dispatcher =
             dispatcher.with_remote(Arc::new(RemoteDispatch::with_router(Arc::new(router))));
+    }
+    // Measure the round trip to every live worker for placement (spec §7.3),
+    // a bounded number per round.
+    if let Some(remote) = dispatcher.remote() {
+        if cfg.scheduler.rtt_probe_interval_secs > 0 {
+            let prober = entangle_scheduler::RttProber::new(
+                Arc::clone(remote),
+                worker_pool.clone(),
+                dispatcher.worker_ttl,
+            );
+            tokio::spawn(prober.run(std::time::Duration::from_secs(
+                cfg.scheduler.rtt_probe_interval_secs,
+            )));
+        }
     }
     let dispatcher = Arc::new(dispatcher);
 
@@ -637,9 +651,18 @@ fn worker_info_from_sighting(p: &PeerSeen) -> Option<WorkerInfo> {
             vram_min_bytes: hw.gpu_vram_bytes,
             backend,
         }),
-        npu: None, // Phase 2: NPU advertisement
+        // The NPU the peer advertised (`npu_vendor` in its mDNS record).
+        npu: hw
+            .npu_vendor
+            .as_ref()
+            .filter(|v| !v.is_empty())
+            .map(|vendor| NpuRequirement {
+                vendor: vendor.clone(),
+            }),
         network_bandwidth_bps: hw.network_bandwidth_bps,
-        rtt_ms: 5, // Phase 1 estimate; real RTT in Phase 2
+        // A LAN estimate. The pool replaces it with the round trip the RTT
+        // prober measured, while that measurement is recent (spec §7.3).
+        rtt_ms: 5,
         load: 0.0,
         cost: 1.0,
     })
@@ -767,5 +790,43 @@ mod identity_tests {
         let path = dir.path().join("identity.key");
         std::fs::write(&path, b"not a pem").unwrap();
         assert!(ensure_identity(&path).is_err());
+    }
+
+    /// A sighting's advertised NPU reaches the worker pool (spec §7.2), and
+    /// a measured RTT replaces the LAN constant (§7.3).
+    #[test]
+    fn a_sighting_carries_its_npu_and_the_pool_its_measured_rtt() {
+        let peer_id = PeerId::from_public_key_bytes(&[0x33; 32]);
+        let mut seen = PeerSeen {
+            peer_id,
+            display_name: "desk".into(),
+            addresses: vec![],
+            port: 0,
+            version: "0".into(),
+            hardware: Some(HardwareAdvert {
+                cpu_cores: 8.0,
+                memory_bytes: 1 << 30,
+                gpu_backend: None,
+                gpu_vram_bytes: 0,
+                network_bandwidth_bps: 0,
+                npu_vendor: Some("apple".into()),
+            }),
+            public_key: None,
+            mesh_port: None,
+            last_seen: std::time::SystemTime::now(),
+        };
+        let info = worker_info_from_sighting(&seen).expect("hardware advertised");
+        assert_eq!(info.npu.as_ref().map(|n| n.vendor.as_str()), Some("apple"));
+        assert_eq!(info.rtt_ms, 5);
+        if let Some(hw) = seen.hardware.as_mut() {
+            hw.npu_vendor = None;
+        }
+        assert!(worker_info_from_sighting(&seen).unwrap().npu.is_none());
+
+        let pool = WorkerPool::new();
+        pool.upsert(info.clone());
+        pool.set_measured_rtt(&peer_id, Duration::from_millis(37));
+        pool.upsert(info);
+        assert_eq!(pool.live(Duration::MAX)[0].rtt_ms, 37);
     }
 }

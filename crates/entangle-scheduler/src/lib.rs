@@ -14,6 +14,8 @@
 //!   validation, the output-size short-circuit (INV-INT-2), hash quorum and
 //!   `SemanticEquivalent` metric verification (spec §7.5).
 //! * [`reputation`] — per-peer, per-policy-variant correctness reputation.
+//! * [`rtt`] — measured round-trip times to workers for placement
+//!   ([`RttProber`]).
 //! * [`retry`] — failure handling (spec §7.6): the precise rule for what is
 //!   retried and where, and speculative backup copies of stragglers.
 //! * [`spot_check`] — the Layer-2 spot-check (spec §7.5): a sample of
@@ -55,6 +57,7 @@ pub mod placement;
 pub mod remote;
 pub mod reputation;
 pub mod retry;
+pub mod rtt;
 pub mod spot_check;
 pub mod stream;
 pub mod submit;
@@ -75,6 +78,7 @@ pub use remote::{
 };
 pub use reputation::{ReputationReason, ReputationStore, ReputationTier};
 pub use retry::{DurationHistory, RetryCause, SpeculationConfig};
+pub use rtt::RttProber;
 pub use submit::{SubmitError, Workload};
 pub use spot_check::{
     SpotCheck, SpotCheckConfig, SpotCheckHandle, SpotCheckRecord, SpotCheckVerdict, SpotChecker,
