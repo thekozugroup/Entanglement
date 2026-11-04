@@ -61,33 +61,84 @@ pub fn signing_epoch() -> u64 {
 // Cargo.lock requirement (ATC-PKG-3)
 // ---------------------------------------------------------------------------
 
-/// Fail with `ENTANGLE-E0830` ("Cargo.lock missing") unless the project has a
-/// lockfile. Pure filesystem check: no cargo invocation, no network, nothing
-/// written.
+/// Fail with `ENTANGLE-E0830` ("Cargo.lock missing") unless the lockfile that
+/// cargo would use for `project` exists: the one at its workspace root
+/// ([`workspace_root`]). Pure filesystem check: no cargo invocation, no
+/// network, nothing written.
 pub fn require_lockfile(project: &Path) -> Result<()> {
-    if project.join("Cargo.lock").is_file() {
+    let project = std::fs::canonicalize(project)
+        .with_context(|| format!("resolving {}", project.display()))?;
+    let root = workspace_root(&project);
+    if root.join("Cargo.lock").is_file() {
         return Ok(());
-    }
-    // A workspace member keeps its lockfile at the workspace root.
-    for anc in project.ancestors().skip(1) {
-        let manifest = anc.join("Cargo.toml");
-        if let Ok(text) = std::fs::read_to_string(&manifest) {
-            if text.lines().any(|l| l.trim() == "[workspace]") {
-                if anc.join("Cargo.lock").is_file() {
-                    return Ok(());
-                }
-                break;
-            }
-        }
     }
     bail!(
         "ENTANGLE-E0830: Cargo.lock missing in {}.\n\
          A reproducible package needs pinned dependencies. Create and commit one with\n  \
          (cd {} && cargo generate-lockfile)\n\
          and build again. Nothing was fetched or written.",
-        project.display(),
-        project.display()
+        root.display(),
+        root.display()
     )
+}
+
+fn read_manifest(dir: &Path) -> Option<toml::Table> {
+    let text = std::fs::read_to_string(dir.join("Cargo.toml")).ok()?;
+    toml::from_str(&text).ok()
+}
+
+/// `true` when the `[workspace]` table `ws` of the manifest in `root`
+/// excludes the package in `project`: some `exclude` entry is a path prefix
+/// of it and no `members` entry is (cargo's `WorkspaceRootConfig::is_excluded`,
+/// which compares the entries as literal paths, globs unexpanded).
+fn excludes(root: &Path, ws: &toml::Table, project: &Path) -> bool {
+    let prefixes = |key: &str| -> Vec<PathBuf> {
+        ws.get(key)
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.as_str())
+            .map(|p| root.join(p))
+            .collect()
+    };
+    let excluded = prefixes("exclude").iter().any(|p| project.starts_with(p));
+    let member = prefixes("members").iter().any(|p| project.starts_with(p));
+    excluded && !member
+}
+
+/// The workspace root cargo uses for the package in `project` (an absolute,
+/// canonical directory), found from the manifests alone the way cargo finds
+/// it: the project itself when its manifest has a `[workspace]` table; the
+/// directory named by `package.workspace` when that is set; otherwise the
+/// nearest ancestor whose manifest has a `[workspace]` table that does not
+/// exclude the project; otherwise the project itself.
+pub fn workspace_root(project: &Path) -> PathBuf {
+    let Some(own) = read_manifest(project) else {
+        return project.to_path_buf();
+    };
+    if own.contains_key("workspace") {
+        return project.to_path_buf();
+    }
+    if let Some(p) = own
+        .get("package")
+        .and_then(|p| p.get("workspace"))
+        .and_then(|w| w.as_str())
+    {
+        let root = project.join(p);
+        return std::fs::canonicalize(&root).unwrap_or(root);
+    }
+    for anc in project.ancestors().skip(1) {
+        let Some(ws) = read_manifest(anc).and_then(|mut m| match m.remove("workspace") {
+            Some(toml::Value::Table(t)) => Some(t),
+            _ => None,
+        }) else {
+            continue;
+        };
+        if !excludes(anc, &ws, project) {
+            return anc.to_path_buf();
+        }
+    }
+    project.to_path_buf()
 }
 
 // ---------------------------------------------------------------------------
@@ -728,6 +779,57 @@ mod tests {
         assert!(e.contains("ENTANGLE-E0830"), "{e}");
         std::fs::write(d.path().join("Cargo.lock"), "").unwrap();
         assert!(require_lockfile(d.path()).is_ok());
+    }
+
+    fn write(p: &Path, text: &str) {
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, text).unwrap();
+    }
+
+    const PKG: &str = "[package]\nname = \"p\"\nversion = \"0.1.0\"\n";
+
+    #[test]
+    fn lockfile_is_required_at_the_workspace_root_cargo_would_use() {
+        let d = tempfile::tempdir().unwrap();
+        let ws = d.path();
+        write(
+            &ws.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"member\"]\nexclude = [\"excluded\", \"own\"]\n",
+        );
+        write(&ws.join("Cargo.lock"), "");
+
+        // A member uses the outer lockfile.
+        write(&ws.join("member/Cargo.toml"), PKG);
+        require_lockfile(&ws.join("member")).unwrap();
+
+        // Its own [workspace]: it is the root, the outer lockfile is not its.
+        write(&ws.join("own/Cargo.toml"), &format!("{PKG}\n[workspace]\n"));
+        let e = require_lockfile(&ws.join("own")).unwrap_err().to_string();
+        assert!(e.contains("ENTANGLE-E0830"), "{e}");
+        write(&ws.join("own/Cargo.lock"), "");
+        require_lockfile(&ws.join("own")).unwrap();
+
+        // Excluded and no [workspace] of its own: cargo keeps looking upward,
+        // finds nothing, and the package is its own root.
+        write(&ws.join("excluded/Cargo.toml"), PKG);
+        let e = require_lockfile(&ws.join("excluded"))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("ENTANGLE-E0830"), "{e}");
+
+        // `package.workspace` names the root explicitly; the ancestor walk
+        // (which would find `ws`) does not apply.
+        write(&ws.join("other/Cargo.toml"), "[workspace]\n");
+        write(
+            &ws.join("elsewhere/pointed/Cargo.toml"),
+            "[package]\nname = \"q\"\nversion = \"0.1.0\"\nworkspace = \"../../other\"\n",
+        );
+        let e = require_lockfile(&ws.join("elsewhere/pointed"))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("ENTANGLE-E0830"), "{e}");
+        write(&ws.join("other/Cargo.lock"), "");
+        require_lockfile(&ws.join("elsewhere/pointed")).unwrap();
     }
 
     #[test]

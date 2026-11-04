@@ -384,6 +384,47 @@ fn atc_pkg_3_no_lockfile_rejected() {
     assert!(!project.join("dist").exists());
 }
 
+/// A project that is its own workspace root (its manifest has `[workspace]`,
+/// like every scaffolded plugin) needs its own `Cargo.lock`, even when it sits
+/// below another workspace that has one; so does a project that the outer
+/// workspace excludes. Both the absolute and the relative spelling of the path
+/// must be checked against the project, not the caller's directory.
+#[test]
+fn atc_pkg_3_no_lockfile_rejected_inside_another_workspace() {
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+    let ws = root.path().join("ws");
+    std::fs::create_dir_all(&ws).unwrap();
+    std::fs::write(
+        ws.join("Cargo.toml"),
+        "[workspace]\nexclude = [\"plugin\"]\n",
+    )
+    .unwrap();
+    std::fs::write(ws.join("Cargo.lock"), "version = 4\n").unwrap();
+    let project = tiny_plugin(&ws, "plugin", None, TINY_LIB);
+    std::fs::remove_file(project.join("Cargo.lock")).unwrap();
+
+    for (cwd, arg) in [
+        (repo_root(), project.clone()),
+        (ws.clone(), PathBuf::from("plugin")),
+    ] {
+        entangle(home.path())
+            .current_dir(&cwd)
+            .env("CARGO_NET_OFFLINE", "true")
+            .env_remove("CARGO_TARGET_DIR")
+            .args(["plugins", "build"])
+            .arg(&arg)
+            .arg("--key")
+            .arg(key())
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("Cargo.lock missing"));
+    }
+    assert!(!project.join("Cargo.lock").exists());
+    assert!(!project.join("target").exists());
+    assert!(!project.join("dist").exists());
+}
+
 // ---------------------------------------------------------------------------
 // ATC-PKG-4
 // ---------------------------------------------------------------------------
