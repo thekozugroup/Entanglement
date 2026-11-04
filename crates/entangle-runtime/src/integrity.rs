@@ -196,6 +196,27 @@ pub enum IntegrityError {
         /// That agreement count (other replicas within threshold).
         agreements: usize,
     },
+    /// ENTANGLE-E0319: a Layer-2 spot-check (§7.5) re-ran an already
+    /// accepted task on another executor and the result did not match the
+    /// accepted output — an attestation failure. Detective, not preventive:
+    /// it is recorded and the remote replicas that produced the accepted
+    /// output lose reputation, but the result already returned stands.
+    #[error(
+        "ENTANGLE-E0319: spot-check of accepted task {task} failed attestation: the re-run on \
+         {checker} {detail}; the {agreed} remote replica(s) behind the accepted output lose \
+         reputation (the result already returned is not changed)"
+    )]
+    SpotCheckMismatch {
+        /// The task id.
+        task: String,
+        /// Hex peer id of the executor that re-ran it.
+        checker: String,
+        /// What differed (the output hash, or the metric distance).
+        detail: String,
+        /// How many remote replicas had produced or agreed with the
+        /// accepted output (and are penalised).
+        agreed: usize,
+    },
 }
 
 /// The output of one replica invocation together with its BLAKE3 digest.

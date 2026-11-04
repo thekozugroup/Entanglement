@@ -192,6 +192,14 @@ pub struct ComputeDispatchResult {
     /// For semantic-equivalent: `[agreeing pairs, pairs compared]`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pair_agreement: Option<(usize, usize)>,
+    /// What the daemon decided about the Layer-2 spot-check of this result
+    /// (spec §7.5): `scheduled` (re-running in the background; the verdict
+    /// goes to the daemon's log and metrics, never back into this result),
+    /// `not-sampled`, `skipped-saturated`, `skipped-no-checker`,
+    /// `exempt-policy`, `exempt-reproduced-locally` or `disabled`. Absent
+    /// from daemons that predate spot-checks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_check: Option<String>,
 }
 
 /// One replica of a `compute/dispatch` task, as audited by the submitter.

@@ -23,14 +23,20 @@
 //! | `atc_int_2_metric_signed_outside_the_submitter_keyring_is_refused` | ATC-INT-2 |
 //! | `atc_int_3_policy_mutation_mid_flight_is_rejected` | ATC-INT-3 |
 //! | `atc_int_5_oversized_output_short_circuits_before_the_metric` | ATC-INT-5 |
+//!
+//! The file also covers the Layer-2 spot-check (§7.5, no §16 ID): colluding
+//! replicas caught and downranked, honest replicas confirmed, `p = 0`, and
+//! the concurrency bound.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use entangle_mesh_iroh::{IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER};
+use entangle_observability::{catalog::names, Registry};
 use entangle_runtime::{IntegrityError, Kernel, KernelConfig, LifecyclePhase};
 use entangle_scheduler::reputation::INITIAL_SCORE;
+use entangle_scheduler::spot_check::{Exemption, SkipReason, ATTESTATION_FAILURE_EVENT};
 use entangle_scheduler::wire::{
     decode_request, decode_response, encode_request, encode_response, ControlFrame,
     RemoteErrorCode, RemoteOutcome, RemoteRequest, RemoteTaskRequest, RemoteTaskResponse,
@@ -39,7 +45,8 @@ use entangle_scheduler::wire::{
 use entangle_scheduler::work_unit::{policy_hash, PolicyEnvelope, PolicyHash};
 use entangle_scheduler::{
     DispatchError, Dispatcher, OutputSizeExceededWarning, PeerDirectory, RemoteDispatch,
-    RemoteTaskServer, ReplicaStatus, StaticAllowlist, WorkerInfo, WorkerPool,
+    RemoteTaskServer, ReplicaStatus, SpotCheck, SpotCheckConfig, SpotCheckVerdict, StaticAllowlist,
+    WorkerInfo, WorkerPool, TELEMETRY_TARGET,
 };
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::errors::EntangleError;
@@ -1316,4 +1323,560 @@ fn a_disabled_metric_plugin_is_refused_at_load() {
         .load_from_dir(dir.path())
         .expect("loads once re-enabled");
     assert_eq!(loaded.plugin, id);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Layer 2 — deterministic-replay spot-checks (spec §7.5)
+// ═════════════════════════════════════════════════════════════════════════════
+
+impl Node {
+    /// Like [`Node::serve_rogue`], but every answer waits until `gate` is
+    /// open — a worker the test keeps busy for as long as it likes.
+    fn serve_rogue_gated<F>(&self, gate: tokio::sync::watch::Receiver<bool>, answer: F)
+    where
+        F: Fn(&RemoteTaskRequest) -> RemoteTaskResponse + Send + Sync + 'static,
+    {
+        let answer = Arc::new(answer);
+        tokio::spawn(entangle_mesh_iroh::serve(
+            Arc::clone(&self.transport),
+            move |_peer, bytes| {
+                let answer = Arc::clone(&answer);
+                let mut gate = gate.clone();
+                async move {
+                    let _ = gate.wait_for(|open| *open).await;
+                    let resp = match decode_request(&bytes) {
+                        Ok(RemoteRequest {
+                            frame: RequestFrame::Task(task),
+                            ..
+                        }) => answer(&task),
+                        _ => RemoteTaskResponse::err(RemoteErrorCode::MalformedRequest, "rogue"),
+                    };
+                    encode_response(&resp).unwrap_or_default()
+                }
+            },
+        ));
+    }
+}
+
+/// [`submitter_dispatcher`] with an explicit `load` per worker, so the test
+/// decides who ranks first (replica targets) and who is left over (the
+/// spot-check's remote executor), with metrics and spot-checks on.
+fn spot_checked_dispatcher(
+    submitter: &Node,
+    workers: &[(&Node, f32)],
+    spot: SpotCheckConfig,
+    registry: &Registry,
+) -> Dispatcher {
+    let pool = WorkerPool::new();
+    let directory = PeerDirectory::new();
+    for (w, load) in workers {
+        pool.upsert(WorkerInfo {
+            load: *load,
+            ..worker_info(w.peer_id)
+        });
+        directory.insert(w.address());
+    }
+    let client = Arc::new(RemoteDispatch::new(
+        Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
+        Arc::new(directory),
+    ));
+    Dispatcher::new(pool, Arc::clone(&submitter.kernel), submitter.peer_id)
+        .with_strict_remote(true)
+        .with_remote(client)
+        .with_metrics(registry.clone())
+        .with_spot_checks(spot)
+}
+
+const ALWAYS: SpotCheckConfig = SpotCheckConfig {
+    probability: 1.0,
+    max_concurrent: 4,
+};
+
+/// Two workers that collude: whatever arrives, both answer `lie`.
+async fn colluders(publisher: &IdentityKeyPair, lie: &'static [u8]) -> Vec<Node> {
+    let mut out = Vec::new();
+    for _ in 0..2 {
+        let liar = Node::start(publisher).await;
+        liar.serve_rogue(move |req| RemoteTaskResponse::ok(lie.to_vec(), req.policy_hash));
+        out.push(liar);
+    }
+    out
+}
+
+/// Captured `SpotCheckAttestationFailure` events for `task`.
+fn attestation_failures(store: &Mutex<Vec<Captured>>, task: uuid::Uuid) -> Vec<Captured> {
+    let id = task.to_string();
+    store
+        .lock()
+        .iter()
+        .filter(|e| {
+            e.target == TELEMETRY_TARGET
+                && e.fields.get("event").map(String::as_str) == Some(ATTESTATION_FAILURE_EVENT)
+                && e.fields.get("task_id") == Some(&id)
+        })
+        .cloned()
+        .collect()
+}
+
+fn sorted(mut peers: Vec<PeerId>) -> Vec<PeerId> {
+    peers.sort();
+    peers
+}
+
+/// Two colluding workers return the same wrong bytes, so
+/// `Deterministic { replicas: 2 }` accepts them. The forced spot-check
+/// (p = 1) re-runs the task on the submitter's own kernel — the only
+/// executor that ran no replica — sees another BLAKE3, and downranks both
+/// liars for `Deterministic` (only): a `SpotCheckAttestationFailure` event,
+/// the `mismatch` counter and an audit record. The result the caller already
+/// has is not changed: the check is detective, not preventive.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_spot_check_catches_colluding_replicas_and_downranks_them() {
+    let trace = captured();
+    let publisher = IdentityKeyPair::generate();
+    let mut submitter = Node::start(&publisher).await;
+    let plugin = submitter.load(&publisher, "hello", &hello_pong()).await;
+    let mut local_bus = submitter.kernel.bus().subscribe();
+    let liars = colluders(&publisher, b"Hello, liar!").await;
+    let registry = Registry::new();
+    let dispatcher = spot_checked_dispatcher(
+        &submitter,
+        &[(&liars[0], 0.0), (&liars[1], 0.0)],
+        ALWAYS,
+        &registry,
+    );
+
+    let t = task(
+        plugin,
+        b"world",
+        IntegrityPolicy::Deterministic { replicas: 2 },
+    );
+    let task_id = t.id;
+    let result = deadline("colluding replicas", dispatcher.dispatch_one_shot(t))
+        .await
+        .expect("the colluding pair is a hash majority");
+    // Detective, not preventive: the caller got the accepted (wrong) output.
+    assert_eq!(result.output, b"Hello, liar!");
+    assert_eq!(
+        sorted(result.replicas.iter().map(|r| r.peer).collect()),
+        sorted(liars.iter().map(|l| l.peer_id).collect()),
+    );
+    let handle = result
+        .spot_check
+        .handle()
+        .expect("p = 1: every accepted Deterministic task is spot-checked")
+        .clone();
+    let record = deadline("spot-check verdict", handle.outcome())
+        .await
+        .expect("the spot-check finishes");
+
+    assert_eq!(record.task_id, task_id);
+    assert_eq!(record.checker, submitter.peer_id, "no other worker is free");
+    assert!(!record.checker_remote);
+    assert_eq!(
+        record.accepted_blake3,
+        *blake3::hash(b"Hello, liar!").as_bytes()
+    );
+    assert_eq!(
+        record.rerun_blake3,
+        Some(*blake3::hash(b"Hello, world!").as_bytes())
+    );
+    match &record.verdict {
+        SpotCheckVerdict::Mismatch(e) => {
+            assert!(e.to_string().contains("ENTANGLE-E0319"), "{e}");
+        }
+        other => panic!("expected an attestation failure, got {other:?}"),
+    }
+    let liar_ids = sorted(liars.iter().map(|l| l.peer_id).collect());
+    assert_eq!(sorted(record.implicated.clone()), liar_ids);
+    assert_eq!(sorted(record.penalised.clone()), liar_ids);
+
+    let rep = dispatcher.verifier().reputation();
+    for liar in &liars {
+        let kind = PolicyKind::Deterministic;
+        assert!(rep.get(&liar.peer_id, kind) < INITIAL_SCORE);
+        let rec = rep.record(&liar.peer_id, kind);
+        assert_eq!(
+            (rec.correct, rec.total),
+            (1, 2),
+            "credited when accepted, then downranked by the spot-check"
+        );
+        assert_eq!(
+            rep.get(&liar.peer_id, PolicyKind::SemanticEquivalent),
+            INITIAL_SCORE,
+            "reputation is per policy variant"
+        );
+    }
+    // The re-run happened here, exactly once.
+    assert_eq!(activations(&drain(&mut local_bus).await), 1);
+
+    let events = attestation_failures(&trace, task_id);
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert!(
+        events[0]
+            .fields
+            .get("error")
+            .is_some_and(|e| e.contains("ENTANGLE-E0319")),
+        "{events:?}"
+    );
+    assert_eq!(
+        registry.value(
+            names::SPOT_CHECKS,
+            &[("policy", "deterministic"), ("outcome", "mismatch")]
+        ),
+        Some(1.0)
+    );
+    let spot = dispatcher.spot_checks().expect("configured");
+    assert_eq!(spot.stats().mismatched, 1);
+    assert!(spot.recent().iter().any(|r| r.task_id == task_id));
+}
+
+/// `SemanticEquivalent`: two colluders agree (identical bytes) on a wrong
+/// answer. The spot-check runs on a third, honest worker — ranked below the
+/// replica targets and not one of them — and the submitter's metric puts
+/// its output far from the accepted one: both colluders lose
+/// `SemanticEquivalent` standing; the honest checker's standing is
+/// untouched.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_semantic_spot_check_on_another_worker_downranks_the_agreeing_liars() {
+    let trace = captured();
+    let publisher = IdentityKeyPair::generate();
+    let submitter = Node::start(&publisher).await;
+    let liars = colluders(&publisher, b"Something else entirely, said with confidence").await;
+    let mut honest = Node::start(&publisher).await;
+    let plugin = honest.load(&publisher, "hello", &hello_pong()).await;
+    honest.serve_for(submitter.peer_id);
+    let mut honest_bus = honest.kernel.bus().subscribe();
+    let registry = Registry::new();
+    let dispatcher = spot_checked_dispatcher(
+        &submitter,
+        &[(&liars[0], 0.0), (&liars[1], 0.0), (&honest, 0.9)],
+        ALWAYS,
+        &registry,
+    );
+    let (metric, _pkg) = load_bleu(&dispatcher, &publisher);
+    let policy = IntegrityPolicy::SemanticEquivalent {
+        replicas: 2,
+        quorum: 1,
+        metric: metric.clone(),
+        threshold: 0.25,
+    };
+
+    let t = task(plugin, b"world", policy);
+    let task_id = t.id;
+    let result = deadline("semantic colluders", dispatcher.dispatch_one_shot(t))
+        .await
+        .expect("the colluding pair agrees with itself");
+    assert_eq!(
+        result.output,
+        b"Something else entirely, said with confidence"
+    );
+    assert!(result.replicas.iter().all(|r| r.peer != honest.peer_id));
+    let record = deadline(
+        "spot-check verdict",
+        result.spot_check.handle().expect("scheduled").outcome(),
+    )
+    .await
+    .expect("the spot-check finishes");
+
+    assert_eq!(record.checker, honest.peer_id);
+    assert!(record.checker_remote);
+    let distance = record.distance.expect("the metric compared the re-run");
+    assert!(distance >= 0.25, "{distance}");
+    assert!(
+        matches!(record.verdict, SpotCheckVerdict::Mismatch(_)),
+        "{:?}",
+        record.verdict
+    );
+    let liar_ids = sorted(liars.iter().map(|l| l.peer_id).collect());
+    assert_eq!(sorted(record.penalised.clone()), liar_ids);
+    let rep = dispatcher.verifier().reputation();
+    for liar in &liars {
+        assert!(rep.get(&liar.peer_id, PolicyKind::SemanticEquivalent) < INITIAL_SCORE);
+        assert_eq!(
+            rep.get(&liar.peer_id, PolicyKind::Deterministic),
+            INITIAL_SCORE
+        );
+    }
+    assert_eq!(
+        rep.record(&honest.peer_id, PolicyKind::SemanticEquivalent)
+            .total,
+        0,
+        "the checker is neither credited nor blamed"
+    );
+    // One metric instantiation for the replica pair, one for the re-run —
+    // both on the submitter.
+    assert_eq!(dispatcher.verifier().metrics().instantiations(&metric), 2);
+    assert_eq!(activations(&drain(&mut honest_bus).await), 1);
+    assert_eq!(attestation_failures(&trace, task_id).len(), 1);
+    assert_eq!(
+        registry.value(
+            names::SPOT_CHECKS,
+            &[("policy", "semantic-equivalent"), ("outcome", "mismatch")]
+        ),
+        Some(1.0)
+    );
+}
+
+/// Honest replicas pass their spot-checks: the re-run reproduces the
+/// accepted output, nobody is penalised, no attestation event fires. A
+/// byte-identical `SemanticEquivalent` re-run needs no metric. Exempt tasks
+/// are never re-run: a `None` policy, and a task whose accepted output this
+/// node's own kernel already produced.
+#[tokio::test(flavor = "multi_thread")]
+async fn spot_checks_of_honest_replicas_confirm_and_penalise_nobody() {
+    let trace = captured();
+    let publisher = IdentityKeyPair::generate();
+    let mut submitter = Node::start(&publisher).await;
+    let plugin = submitter.load(&publisher, "hello", &hello_pong()).await;
+    let mut workers = Vec::new();
+    for _ in 0..2 {
+        let mut w = Node::start(&publisher).await;
+        w.load(&publisher, "hello", &hello_pong()).await;
+        w.serve_for(submitter.peer_id);
+        workers.push(w);
+    }
+    let registry = Registry::new();
+    let dispatcher = spot_checked_dispatcher(
+        &submitter,
+        &[(&workers[0], 0.0), (&workers[1], 0.0)],
+        ALWAYS,
+        &registry,
+    );
+    let (metric, _pkg) = load_bleu(&dispatcher, &publisher);
+
+    // Deterministic: re-run on the submitter, byte-identical.
+    let t = task(
+        plugin.clone(),
+        b"world",
+        IntegrityPolicy::Deterministic { replicas: 2 },
+    );
+    let task_id = t.id;
+    let result = deadline("honest deterministic", dispatcher.dispatch_one_shot(t))
+        .await
+        .expect("accepted");
+    let record = deadline(
+        "verdict",
+        result.spot_check.handle().expect("scheduled").outcome(),
+    )
+    .await
+    .expect("finishes");
+    assert!(
+        matches!(record.verdict, SpotCheckVerdict::Confirmed),
+        "{:?}",
+        record.verdict
+    );
+    assert_eq!(record.rerun_blake3, Some(record.accepted_blake3));
+    assert!(record.penalised.is_empty());
+
+    // SemanticEquivalent: identical bytes, so no metric is needed.
+    let policy = IntegrityPolicy::SemanticEquivalent {
+        replicas: 2,
+        quorum: 1,
+        metric: metric.clone(),
+        threshold: 0.25,
+    };
+    let result = deadline(
+        "honest semantic",
+        dispatcher.dispatch_one_shot(task(plugin.clone(), b"world", policy)),
+    )
+    .await
+    .expect("accepted");
+    let record = deadline(
+        "verdict",
+        result.spot_check.handle().expect("scheduled").outcome(),
+    )
+    .await
+    .expect("finishes");
+    assert!(matches!(record.verdict, SpotCheckVerdict::Confirmed));
+    assert_eq!(record.distance, None, "identical bytes need no metric");
+    assert_eq!(
+        dispatcher.verifier().metrics().instantiations(&metric),
+        1,
+        "only the replica pair was compared"
+    );
+
+    let rep = dispatcher.verifier().reputation();
+    for w in &workers {
+        for kind in [PolicyKind::Deterministic, PolicyKind::SemanticEquivalent] {
+            assert_eq!(rep.get(&w.peer_id, kind), INITIAL_SCORE);
+            let rec = rep.record(&w.peer_id, kind);
+            assert_eq!((rec.correct, rec.total), (1, 1), "{kind}");
+        }
+    }
+    assert!(attestation_failures(&trace, task_id).is_empty());
+    assert_eq!(
+        registry.value(
+            names::SPOT_CHECKS,
+            &[("policy", "deterministic"), ("outcome", "confirmed")]
+        ),
+        Some(1.0)
+    );
+    assert_eq!(
+        registry.value(
+            names::SPOT_CHECKS,
+            &[("policy", "semantic-equivalent"), ("outcome", "confirmed")]
+        ),
+        Some(1.0)
+    );
+
+    // Exempt: the spec leaves `None` (and `TrustedExecutor`) alone...
+    let result = deadline(
+        "policy none",
+        dispatcher.dispatch_one_shot(task(plugin.clone(), b"world", IntegrityPolicy::None)),
+    )
+    .await
+    .expect("accepted");
+    assert!(
+        matches!(result.spot_check, SpotCheck::Exempt(Exemption::Policy)),
+        "{:?}",
+        result.spot_check
+    );
+    // ...and an output this node already reproduced has nothing to attest:
+    // three replicas, two remote and one on the submitter's own kernel.
+    let result = deadline(
+        "deterministic x3 with a local replica",
+        dispatcher.dispatch_one_shot(task(
+            plugin,
+            b"world",
+            IntegrityPolicy::Deterministic { replicas: 3 },
+        )),
+    )
+    .await
+    .expect("accepted");
+    assert!(result.replicas.iter().any(|r| !r.remote));
+    assert_eq!(result.spot_check.label(), "exempt-reproduced-locally");
+    assert_eq!(dispatcher.spot_checks().unwrap().stats().scheduled, 2);
+}
+
+/// `probability = 0` never re-runs anything, however often the colluders
+/// win: no penalty, no execution on the would-be checker.
+#[tokio::test(flavor = "multi_thread")]
+async fn spot_checks_never_run_at_probability_zero() {
+    let publisher = IdentityKeyPair::generate();
+    let mut submitter = Node::start(&publisher).await;
+    let plugin = submitter.load(&publisher, "hello", &hello_pong()).await;
+    let mut local_bus = submitter.kernel.bus().subscribe();
+    let liars = colluders(&publisher, b"Hello, liar!").await;
+    let registry = Registry::new();
+    let dispatcher = spot_checked_dispatcher(
+        &submitter,
+        &[(&liars[0], 0.0), (&liars[1], 0.0)],
+        SpotCheckConfig::with_probability(0.0),
+        &registry,
+    );
+    for _ in 0..5 {
+        let result = deadline(
+            "colluders, p = 0",
+            dispatcher.dispatch_one_shot(task(
+                plugin.clone(),
+                b"world",
+                IntegrityPolicy::Deterministic { replicas: 2 },
+            )),
+        )
+        .await
+        .expect("accepted");
+        assert!(
+            matches!(result.spot_check, SpotCheck::Disabled),
+            "{:?}",
+            result.spot_check
+        );
+    }
+    let rep = dispatcher.verifier().reputation();
+    for liar in &liars {
+        let rec = rep.record(&liar.peer_id, PolicyKind::Deterministic);
+        assert_eq!((rec.correct, rec.total), (5, 5));
+    }
+    assert!(
+        drain_for(&mut local_bus, QUIET_NEGATIVE).await.is_empty(),
+        "nothing was re-run on the submitter"
+    );
+    assert_eq!(
+        dispatcher.spot_checks().unwrap().stats(),
+        Default::default()
+    );
+    assert_eq!(dispatcher.spot_checks().unwrap().in_flight(), 0);
+}
+
+/// Spot-checks are bounded: with `max_concurrent = 1` and the one running
+/// check held on a slow executor, the next sampled task is skipped and
+/// counted, not queued. Releasing the executor lets the first check finish.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_saturated_spot_checker_skips_and_counts() {
+    let publisher = IdentityKeyPair::generate();
+    let submitter = Node::start(&publisher).await;
+    let producers = colluders(&publisher, b"Hello, world!").await;
+    let (open, gate) = tokio::sync::watch::channel(false);
+    let checker = Node::start(&publisher).await;
+    checker.serve_rogue_gated(gate, |req| {
+        RemoteTaskResponse::ok(b"Hello, world!".to_vec(), req.policy_hash)
+    });
+    let plugin: PluginId = format!("{}/hello@0.1.0", publisher.fingerprint_hex())
+        .parse()
+        .unwrap();
+    let registry = Registry::new();
+    let dispatcher = spot_checked_dispatcher(
+        &submitter,
+        &[(&producers[0], 0.0), (&producers[1], 0.0), (&checker, 0.9)],
+        SpotCheckConfig {
+            probability: 1.0,
+            max_concurrent: 1,
+        },
+        &registry,
+    );
+    let det = || {
+        task(
+            plugin.clone(),
+            b"world",
+            IntegrityPolicy::Deterministic { replicas: 2 },
+        )
+    };
+
+    let first = deadline("first", dispatcher.dispatch_one_shot(det()))
+        .await
+        .expect("accepted");
+    let held = first
+        .spot_check
+        .handle()
+        .expect("the first check takes the only slot")
+        .clone();
+    let spot = dispatcher.spot_checks().unwrap();
+    assert_eq!(spot.in_flight(), 1);
+    let _ = registry.render();
+    assert_eq!(registry.value(names::SPOT_CHECKS_INFLIGHT, &[]), Some(1.0));
+
+    let second = deadline("second", dispatcher.dispatch_one_shot(det()))
+        .await
+        .expect("accepted");
+    assert!(
+        matches!(second.spot_check, SpotCheck::Skipped(SkipReason::Saturated)),
+        "{:?}",
+        second.spot_check
+    );
+    assert_eq!(second.spot_check.label(), "skipped-saturated");
+    assert_eq!(
+        registry.value(
+            names::SPOT_CHECKS,
+            &[
+                ("policy", "deterministic"),
+                ("outcome", "skipped_saturated")
+            ]
+        ),
+        Some(1.0)
+    );
+    assert_eq!(spot.stats().skipped_saturated, 1);
+    assert!(held.try_outcome().is_none(), "still held on the checker");
+
+    open.send_replace(true);
+    let record = deadline("released check", held.outcome())
+        .await
+        .expect("finishes once the checker answers");
+    assert_eq!(record.checker, checker.peer_id);
+    assert!(matches!(record.verdict, SpotCheckVerdict::Confirmed));
+    assert_eq!(spot.in_flight(), 0);
+    let stats = spot.stats();
+    assert_eq!(
+        (stats.scheduled, stats.confirmed, stats.skipped_saturated),
+        (1, 1, 1)
+    );
 }

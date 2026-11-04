@@ -440,11 +440,31 @@ fn compute_stream_needs_a_paired_peer_or_allow_local() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("not trusted"));
-    // A bare peer id needs an address in [scheduler] peers.
+    // A bare peer id is refused the same way when it is not paired...
     entangle(&tmp)
         .args(["compute", "stream", PLUGIN, "--peer", &"cd".repeat(16)])
         .assert()
         .failure()
+        .stderr(predicate::str::contains("not trusted"));
+    // ...and, once paired, needs a transport that knows it: with no long
+    // address, no [scheduler] peers entry and neither `local` nor
+    // mesh.tailscale enabled, nothing can carry the stream.
+    let paired = entangle_signing::IdentityKeyPair::generate();
+    let paired_id =
+        entangle_types::peer_id::PeerId::from_public_key_bytes(paired.public().as_bytes());
+    entangle_peers::PeerStore::open(tmp.path().join(".entangle/peers.toml"))
+        .unwrap()
+        .add(entangle_peers::TrustedPeer::new(
+            paired_id,
+            hex::encode(paired.public().as_bytes()),
+            "desk".into(),
+        ))
+        .unwrap();
+    entangle(&tmp)
+        .args(["compute", "stream", PLUGIN, "--peer", &paired_id.to_hex()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("no transport can reach peer"))
         .stderr(predicate::str::contains("[scheduler] peers"));
 }
 

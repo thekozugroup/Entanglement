@@ -36,3 +36,6 @@ toml = { workspace = true }
 tokio = { workspace = true, features = ["sync", "time", "rt", "rt-multi-thread", "macros"] }
 tempfile = { workspace = true }
 wat = "1"
+# Span capture in `tests/stream_observability.rs` (already in the graph via
+# entangle-observability).
+tracing-subscriber = { workspace = true }

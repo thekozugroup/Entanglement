@@ -23,8 +23,9 @@
 //!
 //! What lowers a score, and why, is a [`ReputationReason`]: an oversized
 //! output (INV-INT-2), a policy-hash echo that does not match (INV-INT-1), a
-//! replica that disagreed with the accepted quorum, or an output the metric
-//! could not compare with any other replica's.
+//! replica that disagreed with the accepted quorum, an output the metric
+//! could not compare with any other replica's, or an accepted output that a
+//! Layer-2 spot-check failed to reproduce ([`crate::spot_check`]).
 //!
 //! The store is in-memory and per-node: it records this submitter's own
 //! observations and is never gossiped.
@@ -104,6 +105,10 @@ pub enum ReputationReason {
     /// As a stream executor, it broke the stream protocol: data without
     /// credit, or a frame invalid in the stream's state.
     StreamProtocolViolation,
+    /// Its replica produced (or agreed with) an accepted output that a
+    /// Layer-2 spot-check re-run on another executor did not reproduce
+    /// (spec §7.5, `ENTANGLE-E0319`): an attestation failure.
+    SpotCheckMismatch,
 }
 
 impl ReputationReason {
@@ -116,6 +121,7 @@ impl ReputationReason {
             Self::IncomparableOutput => "incomparable-output",
             Self::BadChunkSignature => "bad-chunk-signature",
             Self::StreamProtocolViolation => "stream-protocol-violation",
+            Self::SpotCheckMismatch => "spot-check-mismatch",
         }
     }
 }

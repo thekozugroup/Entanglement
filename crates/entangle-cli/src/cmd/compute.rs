@@ -312,6 +312,7 @@ fn compute_result(result: DispatchResult) -> ComputeDispatchResult {
             })
             .collect(),
         pair_agreement: result.pair_agreement,
+        spot_check: Some(result.spot_check.label().to_owned()),
     }
 }
 
@@ -327,6 +328,7 @@ fn print_dispatch_output(r: &ComputeDispatchResult, json: bool) -> anyhow::Resul
             "policy_hash": r.policy_hash,
             "replicas": r.replicas,
             "pair_agreement": r.pair_agreement,
+            "spot_check": r.spot_check,
         });
         println!("{}", serde_json::to_string(&body)?);
         return Ok(());

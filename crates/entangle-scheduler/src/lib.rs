@@ -14,6 +14,10 @@
 //!   validation, the output-size short-circuit (INV-INT-2), hash quorum and
 //!   `SemanticEquivalent` metric verification (spec §7.5).
 //! * [`reputation`] — per-peer, per-policy-variant correctness reputation.
+//! * [`spot_check`] — the Layer-2 spot-check (spec §7.5): a sample of
+//!   accepted `Deterministic` / `SemanticEquivalent` tasks re-run on another
+//!   executor after the result is returned; a mismatch downranks the
+//!   replicas behind the accepted output.
 //! * [`stream`] — streaming tasks (spec §7.1): the `entangle/stream/1`
 //!   protocol, credit flow control, heartbeats, chunk signing, and the
 //!   [`StreamServer`] executor.
@@ -42,6 +46,7 @@ pub mod integrity;
 pub mod placement;
 pub mod remote;
 pub mod reputation;
+pub mod spot_check;
 pub mod stream;
 pub mod transport;
 pub mod wire;
@@ -58,6 +63,9 @@ pub use remote::{
     RemoteReplica, RemoteTaskServer, StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
 };
 pub use reputation::{ReputationReason, ReputationStore, ReputationTier};
+pub use spot_check::{
+    SpotCheck, SpotCheckConfig, SpotCheckHandle, SpotCheckRecord, SpotCheckVerdict, SpotChecker,
+};
 pub use stream::{
     open_stream, serve_streams, validate_submit as validate_stream_submit, StreamError,
     StreamHandle, StreamServer,

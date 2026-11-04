@@ -168,6 +168,8 @@ impl TelemetrySection {
 /// [scheduler]
 /// bind = "0.0.0.0:0"
 /// peers = ["<pubkey-hex>@192.0.2.7:41641"]
+/// spot_check_probability = 0.01     # Layer-2 spot-checks (spec §7.5); 0 disables
+/// spot_check_max_concurrent = 4
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -184,6 +186,17 @@ pub struct SchedulerConfig {
     /// Whether to allow relay fallback when hole-punching fails. Disable for
     /// a LAN-only deployment that must never touch third-party relays.
     pub relay: bool,
+    /// Layer-2 spot-checks (spec §7.5): the probability, in `[0, 1]`, that an
+    /// accepted `Deterministic` or `SemanticEquivalent` task is re-run on an
+    /// executor that produced none of its replicas and compared with the
+    /// accepted output. Default `0.01` (the spec's 1 %); `0` disables them,
+    /// `1` checks every eligible task. Validated when the file is loaded.
+    #[serde(deserialize_with = "de_probability")]
+    pub spot_check_probability: f64,
+    /// Most spot-checks running at once (at least 1); a sampled task that
+    /// finds them all busy is skipped and counted, never queued.
+    #[serde(deserialize_with = "de_concurrency")]
+    pub spot_check_max_concurrent: usize,
 }
 
 impl Default for SchedulerConfig {
@@ -192,8 +205,41 @@ impl Default for SchedulerConfig {
             bind: "0.0.0.0:0".to_owned(),
             peers: Vec::new(),
             relay: true,
+            spot_check_probability: entangle_scheduler::spot_check::DEFAULT_PROBABILITY,
+            spot_check_max_concurrent: entangle_scheduler::spot_check::DEFAULT_MAX_CONCURRENT,
         }
     }
+}
+
+impl SchedulerConfig {
+    /// The dispatcher's spot-check settings.
+    pub fn spot_checks(&self) -> entangle_scheduler::SpotCheckConfig {
+        entangle_scheduler::SpotCheckConfig {
+            probability: self.spot_check_probability,
+            max_concurrent: self.spot_check_max_concurrent,
+        }
+    }
+}
+
+fn de_probability<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
+    let p = f64::deserialize(d)?;
+    if !(0.0..=1.0).contains(&p) {
+        return Err(serde::de::Error::custom(format!(
+            "[scheduler] spot_check_probability must be between 0 and 1, got {p}"
+        )));
+    }
+    Ok(p)
+}
+
+fn de_concurrency<'de, D: serde::Deserializer<'de>>(d: D) -> Result<usize, D::Error> {
+    let n = usize::deserialize(d)?;
+    if n == 0 {
+        return Err(serde::de::Error::custom(
+            "[scheduler] spot_check_max_concurrent must be at least 1 (set \
+             spot_check_probability = 0 to disable spot-checks)",
+        ));
+    }
+    Ok(n)
 }
 
 /// Mesh-layer configuration.
@@ -283,7 +329,8 @@ fn de_overrides<'de, D: serde::Deserializer<'de>>(
     Ok(map)
 }
 
-/// Parse one `[mesh.overrides]` entry.
+/// Parse one `[mesh.overrides]` entry (the scheduler library's validation,
+/// shared with `entangle compute stream`).
 fn parse_override(
     key: &str,
     value: &TransportOverride,
@@ -294,26 +341,7 @@ fn parse_override(
     ),
     entangle_scheduler::RouteError,
 > {
-    use entangle_scheduler::{RouteError, TransportKind};
-    let bad = |reason: String| RouteError::BadOverride {
-        key: key.to_owned(),
-        reason,
-    };
-    let peer = entangle_types::peer_id::PeerId::from_hex(key)
-        .map_err(|e| bad(format!("not a peer id ({e})")))?;
-    let names = value.names();
-    if names.is_empty() {
-        return Err(bad("the transport list is empty".into()));
-    }
-    let mut kinds = Vec::with_capacity(names.len());
-    for name in names {
-        let kind: TransportKind = name.parse()?;
-        if kinds.contains(&kind) {
-            return Err(bad(format!("{name:?} is listed twice")));
-        }
-        kinds.push(kind);
-    }
-    Ok((peer, kinds))
+    entangle_scheduler::RoutePolicy::parse_override(key, &value.names())
 }
 
 impl MeshConfig {
@@ -602,6 +630,42 @@ max_tier_allowed = 2
         // The old (pre-WP5) daemon-only knob locations also fail loudly.
         assert!(toml::from_str::<Config>("[runtime]\nmulti_node = true\n").is_err());
         assert!(toml::from_str::<Config>("[runtime]\nmax_tier = \"native\"\n").is_err());
+    }
+
+    #[test]
+    fn spot_check_settings_default_to_the_spec_rate_and_are_validated() {
+        let cfg: Config = toml::from_str("").unwrap();
+        let spot = cfg.scheduler.spot_checks();
+        assert_eq!(spot.probability, 0.01, "spec §7.5: 1 % of accepted tasks");
+        assert_eq!(
+            spot.max_concurrent,
+            entangle_scheduler::spot_check::DEFAULT_MAX_CONCURRENT
+        );
+        let cfg: Config = toml::from_str(
+            "[scheduler]\nspot_check_probability = 1\nspot_check_max_concurrent = 2\n",
+        )
+        .unwrap();
+        assert_eq!(
+            (
+                cfg.scheduler.spot_check_probability,
+                cfg.scheduler.spot_check_max_concurrent
+            ),
+            (1.0, 2)
+        );
+        let off: Config = toml::from_str("[scheduler]\nspot_check_probability = 0.0\n").unwrap();
+        assert_eq!(off.scheduler.spot_checks().probability, 0.0);
+        for bad in [
+            "spot_check_probability = 1.5",
+            "spot_check_probability = -0.1",
+            "spot_check_probability = nan",
+            "spot_check_max_concurrent = 0",
+        ] {
+            let err = toml::from_str::<Config>(&format!("[scheduler]\n{bad}\n")).expect_err(bad);
+            assert!(err.to_string().contains("spot_check"), "{bad}: {err}");
+        }
+        // A round trip keeps the settings.
+        let again: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
+        assert_eq!(again.scheduler.spot_check_max_concurrent, 2);
     }
 
     #[test]

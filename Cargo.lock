@@ -1659,6 +1659,7 @@ dependencies = [
  "entangle-broker",
  "entangle-manifest",
  "entangle-mesh-iroh",
+ "entangle-mesh-local",
  "entangle-mesh-tailscale",
  "entangle-observability",
  "entangle-oci",
@@ -1911,6 +1912,7 @@ dependencies = [
  "tokio",
  "toml 0.8.23",
  "tracing",
+ "tracing-subscriber",
  "wat",
 ]
 

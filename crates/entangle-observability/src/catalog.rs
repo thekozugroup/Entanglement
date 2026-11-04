@@ -37,6 +37,11 @@ pub const LATENCY_BUCKETS: &[f64] = &[
     5.0, 10.0, 30.0, 60.0,
 ];
 
+/// Duration buckets (seconds) for streams, 10 ms to the 1 h stream ceiling.
+pub const STREAM_BUCKETS: &[f64] = &[
+    0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 30.0, 60.0, 300.0, 900.0, 1800.0, 3600.0,
+];
+
 /// Latency buckets (seconds) for sub-millisecond crypto checks.
 pub const FAST_BUCKETS: &[f64] = &[
     0.00001, 0.00005, 0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.05, 0.25,
@@ -55,8 +60,14 @@ pub mod names {
     pub const PLUGIN_INVOCATIONS: &str = "entangle_plugin_invocations_total";
     /// Plugin invocation wall-clock duration, by `plugin`.
     pub const PLUGIN_DURATION: &str = "entangle_plugin_invocation_duration_seconds";
-    /// Failed plugin invocations, by `plugin` and error-code `class`.
+    /// Failed plugin invocations (one-shot calls and streams), by `plugin`
+    /// and error-code `class`.
     pub const PLUGIN_ERRORS: &str = "entangle_plugin_errors_total";
+    /// Stream-plugin invocations (one per stream), by `plugin` and
+    /// `outcome` (`ok`, `error`, `cancelled`).
+    pub const PLUGIN_STREAMS: &str = "entangle_plugin_streams_total";
+    /// Stream-plugin invocation wall-clock duration, by `plugin`.
+    pub const PLUGIN_STREAM_DURATION: &str = "entangle_plugin_stream_duration_seconds";
     /// Currently loaded plugins.
     pub const PLUGINS_LOADED: &str = "entangle_plugins_loaded";
     /// Seconds since each loaded plugin was loaded, by `plugin`.
@@ -81,6 +92,11 @@ pub mod names {
     pub const INTEGRITY_VERDICTS: &str = "entangle_integrity_verdicts_total";
     /// Replica outputs over `max_output_bytes` (INV-INT-2).
     pub const OUTPUT_SIZE_EXCEEDED: &str = "entangle_integrity_output_size_exceeded_total";
+    /// Layer-2 spot-checks of accepted tasks, by `policy` and `outcome`
+    /// ([`SPOT_CHECK_OUTCOMES`](super::SPOT_CHECK_OUTCOMES)).
+    pub const SPOT_CHECKS: &str = "entangle_integrity_spot_checks_total";
+    /// Layer-2 spot-checks running right now.
+    pub const SPOT_CHECKS_INFLIGHT: &str = "entangle_integrity_spot_checks_inflight";
     /// Peers per reputation `tier`, by `policy`.
     pub const REPUTATION_PEERS: &str = "entangle_reputation_peers";
     /// Mesh peers, by `state`.
@@ -214,6 +230,55 @@ pub fn plugin_invocation(reg: &Registry, plugin: &str, error: Option<&str>, seco
     }
 }
 
+/// How a stream-plugin invocation ended: the plugin returned (`Ok`), failed
+/// (`Err` with its message), or its stream was torn down before it returned
+/// (`Cancelled`: the submitter cancelled, the peer was lost, a size cap or
+/// the timeout closed the stream).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StreamEnd<'a> {
+    /// The plugin's `start-stream` returned.
+    Ok,
+    /// The plugin failed; the error message (its code class is recorded).
+    Err(&'a str),
+    /// The invocation was dropped before the plugin returned.
+    Cancelled,
+}
+
+/// A stream-plugin invocation ended. Counted in its own families
+/// ([`names::PLUGIN_STREAMS`], [`names::PLUGIN_STREAM_DURATION`], whose
+/// buckets reach the one-hour stream ceiling) so long streams do not skew
+/// the one-shot latency histogram; failures share
+/// [`names::PLUGIN_ERRORS`] (a plugin id implements exactly one world, so
+/// the `plugin` label already tells them apart).
+pub fn plugin_stream(reg: &Registry, plugin: &str, end: StreamEnd<'_>, seconds: f64) {
+    let outcome = match end {
+        StreamEnd::Ok => "ok",
+        StreamEnd::Err(_) => "error",
+        StreamEnd::Cancelled => "cancelled",
+    };
+    reg.inc_counter(
+        names::PLUGIN_STREAMS,
+        "Stream-plugin invocations by plugin and outcome",
+        &[("plugin", plugin), ("outcome", outcome)],
+        1.0,
+    );
+    reg.observe_histogram(
+        names::PLUGIN_STREAM_DURATION,
+        "Stream-plugin invocation wall-clock duration in seconds",
+        &[("plugin", plugin)],
+        STREAM_BUCKETS,
+        seconds,
+    );
+    if let StreamEnd::Err(message) = end {
+        reg.inc_counter(
+            names::PLUGIN_ERRORS,
+            "Failed plugin invocations by plugin and error-code class",
+            &[("plugin", plugin), ("class", &code_class(message))],
+            1.0,
+        );
+    }
+}
+
 /// A capability was granted.
 pub fn capability_grant(reg: &Registry, capability: &str) {
     reg.inc_counter(
@@ -335,6 +400,37 @@ pub fn output_size_exceeded(reg: &Registry) {
     );
 }
 
+/// The values of the `outcome` label of
+/// [`names::SPOT_CHECKS`]: a finished re-run that reproduced the accepted
+/// output (`confirmed`) or did not (`mismatch`, an attestation failure), one
+/// that produced nothing comparable (`inconclusive`), and a sampled task
+/// that was not re-run because the concurrency bound was reached
+/// (`skipped_saturated`) or no other executor could run it
+/// (`skipped_no_checker`).
+pub const SPOT_CHECK_OUTCOMES: [&str; 5] = [
+    "confirmed",
+    "mismatch",
+    "inconclusive",
+    "skipped_saturated",
+    "skipped_no_checker",
+];
+
+/// A Layer-2 spot-check of a `policy` task ended with `outcome` (one of
+/// [`SPOT_CHECK_OUTCOMES`]; anything else is filed as `inconclusive`).
+pub fn spot_check(reg: &Registry, policy: &str, outcome: &str) {
+    let outcome = SPOT_CHECK_OUTCOMES
+        .iter()
+        .copied()
+        .find(|o| *o == outcome)
+        .unwrap_or("inconclusive");
+    reg.inc_counter(
+        names::SPOT_CHECKS,
+        "Layer-2 spot-checks of accepted tasks by policy kind and outcome",
+        &[("policy", policy), ("outcome", outcome)],
+        1.0,
+    );
+}
+
 /// Set the one-hot tailnet state gauge. `active` is one of
 /// [`TAILSCALE_STATES`]; every other state is set to 0.
 ///
@@ -418,6 +514,63 @@ mod tests {
                 &[("method", "plugins/list"), ("outcome", "ok")]
             ),
             Some(1.0)
+        );
+    }
+
+    #[test]
+    fn spot_check_outcomes_are_a_closed_set() {
+        let r = Registry::new();
+        spot_check(&r, "deterministic", "mismatch");
+        spot_check(&r, "deterministic", "made-up");
+        assert_eq!(
+            r.value(
+                names::SPOT_CHECKS,
+                &[("policy", "deterministic"), ("outcome", "mismatch")]
+            ),
+            Some(1.0)
+        );
+        assert_eq!(
+            r.value(
+                names::SPOT_CHECKS,
+                &[("policy", "deterministic"), ("outcome", "inconclusive")]
+            ),
+            Some(1.0),
+            "an unknown outcome folds into inconclusive"
+        );
+    }
+
+    #[test]
+    fn stream_invocations_have_their_own_families() {
+        let r = Registry::new();
+        plugin_stream(&r, "p", StreamEnd::Ok, 2.0);
+        plugin_stream(&r, "p", StreamEnd::Cancelled, 0.5);
+        plugin_stream(&r, "p", StreamEnd::Err("ENTANGLE-E0511: revoked"), 0.1);
+        for outcome in ["ok", "cancelled", "error"] {
+            assert_eq!(
+                r.value(
+                    names::PLUGIN_STREAMS,
+                    &[("plugin", "p"), ("outcome", outcome)]
+                ),
+                Some(1.0),
+                "{outcome}"
+            );
+        }
+        assert_eq!(
+            r.value(names::PLUGIN_STREAM_DURATION, &[("plugin", "p")]),
+            Some(3.0),
+            "three observations"
+        );
+        assert_eq!(
+            r.value(names::PLUGIN_ERRORS, &[("plugin", "p"), ("class", "E05xx")]),
+            Some(1.0)
+        );
+        // The one-shot families are untouched.
+        assert_eq!(
+            r.value(
+                names::PLUGIN_INVOCATIONS,
+                &[("plugin", "p"), ("outcome", "ok")]
+            ),
+            None
         );
     }
 

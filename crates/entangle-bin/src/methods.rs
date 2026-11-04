@@ -659,6 +659,7 @@ pub(crate) fn compute_result(result: entangle_scheduler::DispatchResult) -> Comp
             })
             .collect(),
         pair_agreement: result.pair_agreement,
+        spot_check: Some(result.spot_check.label().to_owned()),
     }
 }
 

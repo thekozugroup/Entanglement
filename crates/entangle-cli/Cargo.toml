@@ -21,6 +21,9 @@ entangle-manifest  = { workspace = true }
 entangle-rpc       = { path = "../entangle-rpc" }
 entangle-peers     = { path = "../entangle-peers" }
 entangle-mesh-tailscale = { workspace = true }
+# `compute stream`: the LAN sighting for a `local` route (already in the
+# graph via entangle-bin).
+entangle-mesh-local = { workspace = true }
 entangle-pairing   = { path = "../entangle-pairing" }
 entangle-scheduler     = { path = "../entangle-scheduler" }
 # `compute stream` dials the executor itself (see cmd/compute_stream.rs).

@@ -124,6 +124,10 @@ install = false            # written by `entangle wrapper enable|disable` (§15)
 [plugins]
 disabled = []              # written by a `max_tier_allowed` lowering (§16)
 
+[scheduler]                # daemon-only; see §11, §20
+spot_check_probability = 0.01     # default 0.01 (spec §7.5: 1 %); 0 disables
+spot_check_max_concurrent = 4     # default 4
+
 [metrics]                  # daemon-only; see §14
 enabled = false            # default: false
 listen = "127.0.0.1:9464"  # default
@@ -142,6 +146,7 @@ service_name = "entangled"
 | `[mesh]` | `preferred` | string | absent | Daemon-only. `"local"`, `"tailscale"` or `"iroh"`: tried first for every peer; the others stay fallbacks in the spec order (§20). Anything else fails the load (`ENTANGLE-E0434`). |
 | `[mesh.overrides]` | `"<peer-id>"` | string or array of strings | none | Daemon-only. Per peer (32-hex peer id): one transport forces it, a list gives the exact order; no fallback outside it (§20). A bad id, an empty list or a repeated transport fails the load (`ENTANGLE-E0435`). |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
+| `[scheduler]` | `spot_check_probability`, `spot_check_max_concurrent` | float in 0..=1, integer ≥ 1 | `0.01`, `4` | Daemon-only. Layer-2 spot-checks of accepted `deterministic` / `semantic-equivalent` tasks (§11): the share re-run on another executor, and how many may run at once. `0` disables them; out-of-range values fail the load. (`bind`, `peers`, `relay` configure the iroh scheduler endpoint, §20.) |
 | `[metrics]` | `enabled`, `listen`, `allow_non_loopback` | bool, `ip:port`, bool | `false`, `127.0.0.1:9464`, `false` | Prometheus scrape endpoint (§14). A non-loopback `listen` is refused (`ENTANGLE-E0656`) unless `allow_non_loopback = true`. |
 | `[telemetry.otlp]` | `enabled`, `endpoint`, `service_name` | bool, URL, string | `false`, `http://localhost:4318`, `entangled` | OTLP/HTTP trace export (§14). `endpoint` must be `http://`; `4318` is OTLP/HTTP (`4317` is gRPC, which is not spoken). |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
@@ -306,7 +311,8 @@ canonical range table, maintained in
 | E0200–E0203 | Manifest / plugin id validation; malformed (E0202) or unknown (E0203) capability parameters |
 | E0300–E0301 | Task execution (output-size limit, timeout) |
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
-| E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum (`entangle-runtime::IntegrityError`; see §11) |
+| E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum, Layer-2 spot-check attestation failure (E0319) (`entangle-runtime::IntegrityError`; see §11) |
+| E0350–E0399 | Streaming tasks (`entangle_scheduler::stream::StreamError`; see §17): integrity policy not usable for a stream (E0350), invalid task field or limit (E0351), chunk signature or sequence rejected (E0352), `max_total_bytes` (E0353) or `max_chunk_bytes` (E0354) exceeded, credit violation (E0355), peer lost after missed heartbeats (E0356), submitter unresponsive (E0357), cancelled (E0358), protocol violation (E0359), unsupported stream wire version (E0360), the other end closed the stream and said why (E0361), bad end-of-stream frame (E0362), transport failure under the stream (E0363; carries any E0430–E0435 routing error), wall-clock timeout (E0364), input over `max_input_bytes` (E0365), operation on a closed stream (E0366), executor observed another policy hash (E0367), executor outside the `TrustedExecutor` allowlist (E0368), plugin failure (E0369), policy envelope rejected (E0370), chunk-count allowance exceeded (E0371) |
 | E0430–E0449 | Scheduler transport selection (`entangle_scheduler::transport::RouteError`; see §20): no route to the peer on any usable transport (E0430), every candidate failed to connect (E0431), a transport failed after the request was sent and it was not retried (E0432), a frame over the transport cap (E0433), an unknown transport name in `[mesh] preferred` / `[mesh.overrides]` (E0434), an unusable `[mesh.overrides]` entry (E0435) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
 | E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component; `E0511` an invocation or stream stopped because a network grant it relied on was revoked (or the plugin unloaded, or the tier ceiling lowered below it) while it ran (`entangle-host`) |
@@ -649,15 +655,58 @@ network, 256 MiB memory, 10 s per comparison) — workers never load it.
 | `ENTANGLE-E0315` | A worker reported running under a different policy hash (INV-INT-1). The peer loses reputation. | Investigate the peer. |
 | `ENTANGLE-E0316` | A control frame tried to change the policy of an in-flight task; the worker refused (the policy is immutable for a task's lifetime). | Submit a new task instead. |
 | `ENTANGLE-E0318` | Two groups of replicas agree internally, equally well, but contradict each other, so there is no single answer to return. Nobody loses reputation. | Re-run with more replicas or a higher `--quorum`; if it recurs with the same peers, investigate them. |
+| `ENTANGLE-E0319` | Not returned to the caller: logged (`SpotCheckAttestationFailure`) when a Layer-2 spot-check's re-run did not reproduce an output that was already accepted and returned (see below). The replicas behind that output lose reputation. | Treat results those peers returned as suspect; investigate them. Repeated failures exclude them from placement for that policy. |
 
 Every successful dispatch reports the task's `policy_hash` (SHA-256 of the
 canonical policy encoding) and, with `--json`, one record per replica: peer,
 local/remote, status (`canonical`, `agreed`, `disagreed`, `failed`) and the
 policy hash that replica observed.
 
-Not implemented yet: the Layer 2 spot-check (re-running about 1% of
-accepted tasks under deterministic replay, spec §7.5). `Deterministic` and
-`SemanticEquivalent` verify only the replicas of each task as it runs.
+### Spot-checks (Layer 2)
+
+Replication only compares the replicas of one task with each other, so
+replicas that collude — return the same wrong answer — win their vote. The
+Layer-2 spot-check (spec §7.5) is the counterweight. After a
+`deterministic` or `semantic-equivalent` task is **accepted** and its result
+returned, the daemon re-runs it, with probability
+`[scheduler] spot_check_probability` (default `0.01`, i.e. 1 %), on an
+executor that ran none of its replicas: the best-placed trusted peer whose
+reputation for that policy is not excluded, else this node's own kernel if it
+has the plugin loaded (else the check is skipped). The re-run is compared
+with the accepted output on this node, as replicas are: byte-identical
+(BLAKE3) for `deterministic`, metric distance `< --threshold` for
+`semantic-equivalent`.
+
+* **Match**: nothing happens (counted as `confirmed`).
+* **Mismatch** — an attestation failure, `ENTANGLE-E0319`: every remote
+  replica that produced or agreed with the accepted output loses reputation
+  for that policy (reason `spot-check-mismatch`), a
+  `SpotCheckAttestationFailure` warning is logged at target
+  `entangle::telemetry` (task id, plugin, policy hash, checker, both BLAKE3
+  digests, the metric distance, the penalised peers) and counted as
+  `mismatch`.
+* **Inconclusive**: the re-run failed, timed out, was oversized or echoed
+  another policy hash, or the metric could not compare it. Nobody behind the
+  accepted output is blamed (a remote checker that broke the size or
+  policy-hash guard loses standing itself).
+
+It is **detective, not preventive**: the check starts after the caller has
+its result and never changes it. A wrong answer that colluders got accepted
+is not recalled; what changes is that they are caught at the sampling rate
+and, after a few failures, excluded from placement for that policy (§11
+reputation tiers). If a single task must not be wrong, ask for more replicas.
+
+Not checked: `none`, `trusted-executor` (spec §7.5 exempts them) and tasks
+whose accepted output this node's own kernel already produced or agreed with
+(a local replica). At most `spot_check_max_concurrent` (default 4) run at
+once; a sampled task that finds them all busy is skipped and counted
+(`skipped_saturated`), never queued. `compute dispatch --json` reports the
+decision as `spot_check`: `scheduled`, `not-sampled`, `skipped-saturated`,
+`skipped-no-checker`, `exempt-policy`, `exempt-reproduced-locally` or
+`disabled`; the verdict itself goes to the log and the
+`entangle_integrity_spot_checks_total` metric (§14a), never back into the
+result. Set `spot_check_probability = 0` to turn spot-checks off (every
+spot-check is one more execution of the task on someone's machine).
 
 Scheduler wire version: v2 (task frames carry the policy and its hash). A
 node running an older build answers `unsupported-version`; upgrade both ends.
@@ -888,7 +937,9 @@ scrape_configs:
 |---|---|---|---|
 | `entangle_plugin_invocations_total` | counter | `plugin`, `outcome` (`ok`/`error`) | Plugin invocations through the kernel. Calls for an id that is not loaded count under `plugin="unknown"`. |
 | `entangle_plugin_invocation_duration_seconds` | histogram | `plugin` | Wall-clock duration of each invocation. |
-| `entangle_plugin_errors_total` | counter | `plugin`, `class` | Failed invocations by error-code class: `E05xx` is `ENTANGLE-E05..`, `none` if the error carries no code. |
+| `entangle_plugin_errors_total` | counter | `plugin`, `class` | Failed invocations (one-shot calls and streams) by error-code class: `E05xx` is `ENTANGLE-E05..`, `none` if the error carries no code. |
+| `entangle_plugin_streams_total` | counter | `plugin`, `outcome` (`ok`/`error`/`cancelled`) | Stream-plugin invocations through the kernel, one per stream (§17). `cancelled`: the stream was torn down (cancel, peer lost, a size cap, the timeout) before the plugin returned. Streams are not counted in `entangle_plugin_invocations_total`. |
+| `entangle_plugin_stream_duration_seconds` | histogram | `plugin` | Wall-clock duration of each stream; buckets reach the 1 h stream ceiling. |
 | `entangle_plugins_loaded` | gauge | — | Plugins currently loaded. |
 | `entangle_plugin_uptime_seconds` | gauge | `plugin` | Seconds since each loaded plugin was loaded (series vanish on unload). |
 | `entangle_capability_grants_total` | counter | `capability` | Broker grants: one per declared capability when a plugin loads (its standing grant), plus one per successful plugin `capability.fetch`. |
@@ -900,6 +951,8 @@ scrape_configs:
 | `entangle_remote_serve_total` | counter | `outcome`, `transport` | Frames this node answered for peers: `ok`, `ack`, or the refusal code (`not-authorized`, `plugin-not-loaded`, ...). `transport` is the one the frame arrived on: `iroh` (which includes LAN dialling, `local` on the sender's side) or `tailscale`. |
 | `entangle_remote_stream_opens_total` | counter | `outcome` (`ok`, `transport_error`, `no_route`), `transport` | Streams this node opened to peers through the transport router (§20). |
 | `entangle_integrity_verdicts_total` | counter | `policy`, `outcome` | One per `compute/dispatch`: `policy` is `none`, `deterministic`, `semantic-equivalent`, `trusted-executor` or `attested`; `outcome` is `accepted`, `rejected` (integrity refusal), `output_size_exceeded` or `failed` (placement/transport/execution). |
+| `entangle_integrity_spot_checks_total` | counter | `policy`, `outcome` (`confirmed`, `mismatch`, `inconclusive`, `skipped_saturated`, `skipped_no_checker`) | Layer-2 spot-checks (§11): finished re-runs by verdict (`mismatch` is an attestation failure, `ENTANGLE-E0319`), and sampled tasks that were not re-run. |
+| `entangle_integrity_spot_checks_inflight` | gauge | — | Spot-checks running right now (at most `[scheduler] spot_check_max_concurrent`). |
 | `entangle_integrity_output_size_exceeded_total` | counter | — | Replica outputs over `max_output_bytes` (the `OutputSizeExceededWarning` events, `ENTANGLE-E0300`). |
 | `entangle_reputation_peers` | gauge | `policy`, `tier` (`trusted`/`good`/`probation`/`excluded`) | How many observed peers sit in each reputation tier. |
 | `entangle_mesh_peers` | gauge | `state` (`trusted`, `observer`, `revoked`, `sighted`) | Peer-store (one per trust level) and mDNS counts. `sighted` is unauthenticated and exists only with `mesh.local`. |
@@ -966,7 +1019,9 @@ the daemon's exit by at most about 11 s. Failures are visible as
 `entangle_telemetry_*` metrics.
 
 Spans (from `entangle*` targets, `INFO` and above, independent of
-`RUST_LOG`): `rpc.request`, `task.dispatch`, `plugin.invoke`,
+`RUST_LOG`): `rpc.request`, `task.dispatch`, `plugin.invoke` (one-shot calls
+and streams alike, told apart by its `world` attribute: `plugin` or
+`stream-plugin`),
 `remote.dispatch` (client) and `remote.task.execute` (server); the last two
 carry a `transport` attribute (`local`, `tailscale`, `iroh`, `none`). `WARN`/`ERROR`
 events inside a span are attached to it; an `ERROR` marks the span failed.
@@ -1294,11 +1349,32 @@ streams at once.
 `compute stream` does not go through the daemon: it *is* the submitter. It
 dials the executor itself with this node's identity (`~/.entangle/identity.key`,
 so the executor's allowlist entry for this node covers it), grants credit as
-stdout drains, and verifies every chunk's signature against the key the QUIC
-handshake proved for the executor. It dials over iroh only (the long address
-from `--peer` or `[scheduler] peers`); choosing among transports per peer
-(§20) is what the scheduler library's transport router does, and it is not
-wired into this command yet.
+stdout drains, and verifies every chunk's signature against the key the
+transport authenticated for the executor (the QUIC handshake, or the
+tailnet's signed key exchange).
+
+It picks the transport exactly as the daemon's dispatcher does (§20), from
+the same `config.toml`: `local`, then `tailscale`, then `iroh`, with
+`[mesh] preferred` first and a `[mesh.overrides]` entry as the exact list
+for that peer; a candidate that fails to connect falls back to the next, and
+nothing is retried once the stream's `Open` frame may have reached the peer.
+Being its own process, it starts only what that order can use for the peer:
+
+* `local` (`"local"` in `[mesh] transports`): it listens on mDNS for up to
+  1.5 s for the peer's LAN sighting (which the peer's daemon announces only
+  when it runs both `"local"` and `"iroh"`);
+* `tailscale` (`[mesh.tailscale] enabled` and `"tailscale"` listed): one
+  `tailscale status` and one discovery round on `[mesh.tailscale] port`
+  (at most 8 s), from a client-only tailnet transport whose listener is
+  bound to loopback and serves nothing;
+* `iroh`: when the peer has a long address — `--peer <key>@host:port` or its
+  `[scheduler] peers` entry — whether or not `"iroh"` is listed, as before.
+
+`--peer` may therefore be a bare peer id that only the tailnet or the LAN
+knows. With `--json` the final status object names the `transport` that
+carried the stream. When nothing can reach the peer the command fails with
+the router's `ENTANGLE-E0430` / `E0431` (inside `ENTANGLE-E0363`), followed by
+why a wanted transport did not start (e.g. `tailscale status` failed).
 
 ```bash
 # On a paired peer, by long address or by peer id ([scheduler] peers gives the address):
@@ -1623,6 +1699,9 @@ When no candidate exists the dispatch fails at once with `ENTANGLE-E0430`
 (naming, per transport, why it had none); when every candidate failed to
 connect, with `ENTANGLE-E0431` (naming each attempt). Both arrive inside
 `ENTANGLE-E0402` (`compute/dispatch`) or `ENTANGLE-E0363` (streams).
+
+`entangle compute stream` builds its router with the same code from the
+same settings (§17), so a stream it opens follows these rules too.
 
 The transport that carried the last successful request or stream to a peer
 is recorded (in memory, per peer), logged at info when it changes

@@ -10,7 +10,7 @@
 //! | E0200–E0203 | Manifest / plugin id; capability parameters (E0202 malformed, E0203 unknown; see `entangle-manifest`) |
 //! | E0300–E0301 | Task execution                 |
 //! | E0302–E0305 | Integrity policy (see `entangle-runtime`) |
-//! | E0306–E0349 | Integrity verification: metrics, policy envelope, quorum (`entangle_runtime::IntegrityError`; E0306–E0318 in use) |
+//! | E0306–E0349 | Integrity verification: metrics, policy envelope, quorum, Layer-2 spot-check attestation failure (`entangle_runtime::IntegrityError`; E0306–E0319 in use) |
 //! | E0350–E0399 | Streaming tasks: submit-time validation, credit, heartbeat, chunk signing, size caps (`entangle_scheduler::stream::StreamError`; E0350–E0371 in use) |
 //! | E0430–E0449 | Scheduler transport selection: no route, every candidate unreachable, failure after send, frame cap, transport-name and per-peer override config (`entangle_scheduler::transport::RouteError`; E0430–E0435 in use) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |

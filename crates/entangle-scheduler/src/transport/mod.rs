@@ -336,6 +336,103 @@ impl RoutePolicy {
     pub fn has_override(&self, peer: &PeerId) -> bool {
         self.overrides.contains_key(peer)
     }
+
+    /// Parse one `[mesh.overrides]` entry: `key` must be a peer id (hex) and
+    /// `names` a non-empty list of distinct transport names. This is the
+    /// validation the daemon applies when it loads `config.toml`
+    /// (`ENTANGLE-E0434` for an unknown name, `ENTANGLE-E0435` otherwise).
+    pub fn parse_override(
+        key: &str,
+        names: &[&str],
+    ) -> Result<(PeerId, Vec<TransportKind>), RouteError> {
+        let bad = |reason: String| RouteError::BadOverride {
+            key: key.to_owned(),
+            reason,
+        };
+        let peer = PeerId::from_hex(key).map_err(|e| bad(format!("not a peer id ({e})")))?;
+        if names.is_empty() {
+            return Err(bad("the transport list is empty".into()));
+        }
+        let mut kinds = Vec::with_capacity(names.len());
+        for name in names {
+            let kind: TransportKind = name.parse()?;
+            if kinds.contains(&kind) {
+                return Err(bad(format!("{name:?} is listed twice")));
+            }
+            kinds.push(kind);
+        }
+        Ok((peer, kinds))
+    }
+
+    /// The policy `[mesh] preferred` and `[mesh.overrides]` describe, given
+    /// as transport names: `preferred` must name a transport, and each
+    /// override passes [`RoutePolicy::parse_override`].
+    pub fn from_names<'a>(
+        preferred: Option<&str>,
+        overrides: impl IntoIterator<Item = (&'a str, Vec<&'a str>)>,
+    ) -> Result<Self, RouteError> {
+        let preferred = preferred.map(str::parse::<TransportKind>).transpose()?;
+        let mut policy = Self::new().with_preferred(preferred);
+        for (key, names) in overrides {
+            let (peer, kinds) = Self::parse_override(key, &names)?;
+            policy = policy.with_override(peer, kinds);
+        }
+        Ok(policy)
+    }
+}
+
+/// What [`build_router`] wires together. Every part is optional: a link
+/// exists only for a transport that is running. The daemon and
+/// `entangle compute stream` build their routers through this one function,
+/// so both pick transports the same way.
+#[derive(Default)]
+pub struct RouterInputs {
+    /// The iroh endpoint (carries `local` and `iroh`).
+    pub iroh: Option<Arc<entangle_mesh_iroh::MeshIroh>>,
+    /// `[scheduler] peers`, for the `iroh` link.
+    pub iroh_directory: Option<crate::remote::PeerDirectory>,
+    /// Trusted mDNS sightings, for the `local` link (`mesh.local` running).
+    pub local_sightings: Option<crate::remote::PeerDirectory>,
+    /// The tailnet transport and its liveness.
+    pub tailscale: Option<(
+        entangle_mesh_tailscale::MeshTailscale,
+        tokio::sync::watch::Receiver<entangle_mesh_tailscale::LivenessSnapshot>,
+    )>,
+    /// `[mesh] preferred` / `[mesh.overrides]`.
+    pub policy: RoutePolicy,
+    /// Where stream opens are counted.
+    pub metrics: Option<entangle_observability::Registry>,
+}
+
+/// The outbound router for `inputs`, or `None` when no transport is running
+/// (a dispatcher then stays local-only). The `local` link exists only with
+/// the iroh endpoint (LAN addresses are dialled over it).
+pub fn build_router(local_peer_id: PeerId, inputs: RouterInputs) -> Option<TransportRouter> {
+    use entangle_mesh_iroh::MeshTransport;
+    let mut router = TransportRouter::new(local_peer_id).with_policy(inputs.policy);
+    if let Some(registry) = inputs.metrics {
+        router = router.with_metrics(registry);
+    }
+    let mut any = false;
+    if let Some(iroh) = &inputs.iroh {
+        let dyn_transport = Arc::clone(iroh) as Arc<dyn MeshTransport>;
+        if let Some(sightings) = inputs.local_sightings {
+            router = router.with_link(Arc::new(
+                IrohLink::local(Arc::clone(&dyn_transport), Arc::new(sightings))
+                    .with_streams(Arc::clone(iroh)),
+            ));
+        }
+        let book = inputs.iroh_directory.unwrap_or_default();
+        router = router.with_link(Arc::new(
+            IrohLink::new(dyn_transport, Arc::new(book)).with_streams(Arc::clone(iroh)),
+        ));
+        any = true;
+    }
+    if let Some((transport, liveness)) = inputs.tailscale {
+        router = router.with_link(Arc::new(TailscaleLink::new(transport, liveness)));
+        any = true;
+    }
+    any.then_some(router)
 }
 
 /// The transport that last carried traffic to a peer (the "chosen
