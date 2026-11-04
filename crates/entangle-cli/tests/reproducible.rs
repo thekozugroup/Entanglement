@@ -764,7 +764,11 @@ fn atc_pkg_3_no_lockfile_rejected() {
         .assert()
         .failure()
         .code(predicate::ne(0))
-        .stderr(predicate::str::contains("Cargo.lock missing"));
+        .stderr(predicate::str::contains("Cargo.lock missing"))
+        // The stable error code, on the same message.
+        .stderr(predicate::str::contains(
+            "ENTANGLE-E0830: Cargo.lock missing",
+        ));
 
     // Nothing written: no lockfile generated, no build output, no package.
     assert!(!project.join("Cargo.lock").exists());
@@ -807,7 +811,11 @@ fn atc_pkg_3_no_lockfile_rejected_inside_another_workspace() {
             .arg(key())
             .assert()
             .failure()
-            .stderr(predicate::str::contains("Cargo.lock missing"));
+            .code(predicate::ne(0))
+            .stderr(predicate::str::contains("Cargo.lock missing"))
+            .stderr(predicate::str::contains(
+                "ENTANGLE-E0830: Cargo.lock missing",
+            ));
     }
     assert!(!project.join("Cargo.lock").exists());
     assert!(!project.join("target").exists());
