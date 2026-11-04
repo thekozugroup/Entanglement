@@ -39,7 +39,7 @@ use crate::{
     reputation::ReputationReason,
     spot_check::{
         Exemption, SkipReason, SpotCheck, SpotCheckConfig, SpotCheckHandle, SpotCheckRecord,
-        SpotCheckVerdict, SpotChecker,
+        SpotCheckVerdict, SpotChecker, MAX_EXECUTORS,
     },
     wire::RemoteErrorCode,
     work_unit::{PolicyEnvelope, PolicyHash},
@@ -741,11 +741,8 @@ impl Dispatcher {
             });
         drop(local_outputs);
         let replicas: Vec<PeerId> = reports.iter().map(|r| r.peer).collect();
-        let executor = match &seed {
-            Some(rerun) => Some((rerun.executor, rerun.remote)),
-            None => self.spot_check_executor(task, kind, &replicas),
-        };
-        let Some((executor, remote)) = executor else {
+        let executors = self.spot_check_executors(task, kind, &replicas);
+        if seed.is_none() && executors.is_empty() {
             checker.note_no_checker();
             self.count_spot_check(kind, "skipped_no_checker");
             tracing::info!(
@@ -759,7 +756,7 @@ impl Dispatcher {
                  can run it"
             );
             return SpotCheck::Skipped(SkipReason::NoChecker);
-        };
+        }
         let Some(permit) = checker.try_begin() else {
             self.count_spot_check(kind, "skipped_saturated");
             tracing::info!(
@@ -790,8 +787,9 @@ impl Dispatcher {
             task_id = %task.id,
             plugin = %task.plugin,
             policy = %kind,
-            checker = %executor,
-            checker_remote = remote,
+            // Known once an executor has produced the re-run.
+            checker = tracing::field::Empty,
+            checker_remote = tracing::field::Empty,
         );
         let this = self.clone();
         let checker = Arc::clone(checker);
@@ -802,10 +800,8 @@ impl Dispatcher {
                 // Held for the re-run and comparison: the concurrency bound.
                 let slot = permit;
                 let record = Arc::new(
-                    this.run_spot_check(
-                        &task, &envelope, accepted, executor, remote, seed, implicated,
-                    )
-                    .await,
+                    this.run_spot_check(&task, &envelope, accepted, executors, seed, implicated)
+                        .await,
                 );
                 // The slot is free before the verdict is visible, so a
                 // caller woken by it sees the check as no longer running.
@@ -821,79 +817,102 @@ impl Dispatcher {
         SpotCheck::Scheduled(handle)
     }
 
-    /// Who re-runs a spot-checked task: the best-ranked live remote worker
-    /// that ran none of its `replicas` and is not excluded for `kind`, else
-    /// this node's kernel if it has the plugin loaded (and is not itself
-    /// among the replicas), else nobody.
-    fn spot_check_executor(
+    /// Who may re-run a spot-checked task, in the order they are asked: the
+    /// live remote workers that ran none of its `replicas` and are not
+    /// excluded for `kind`, best-ranked first, then this node's kernel if it
+    /// has the plugin loaded (and is not itself among the replicas) — at
+    /// most [`MAX_EXECUTORS`]. Empty: nobody.
+    fn spot_check_executors(
         &self,
         task: &OneShotTask,
         kind: PolicyKind,
         replicas: &[PeerId],
-    ) -> Option<(PeerId, bool)> {
+    ) -> Vec<(PeerId, bool)> {
+        let mut out = Vec::new();
         if self.remote.is_some() {
             let live = self.workers.live(self.worker_ttl);
             if let Ok(ranked) = rank(&live, &task.resources) {
-                let remote = ranked.into_iter().find(|c| {
-                    c.peer_id != self.local_peer_id
-                        && !replicas.contains(&c.peer_id)
-                        && self.verifier.reputation().is_eligible(&c.peer_id, kind)
-                });
-                if let Some(choice) = remote {
-                    return Some((choice.peer_id, true));
-                }
+                out.extend(
+                    ranked
+                        .into_iter()
+                        .filter(|c| {
+                            c.peer_id != self.local_peer_id
+                                && !replicas.contains(&c.peer_id)
+                                && self.verifier.reputation().is_eligible(&c.peer_id, kind)
+                        })
+                        .map(|c| (c.peer_id, true)),
+                );
             }
         }
-        let local_can_run = !replicas.contains(&self.local_peer_id)
-            && self.kernel.plugin_world(&task.plugin) == Some("plugin");
-        local_can_run.then_some((self.local_peer_id, false))
+        if !replicas.contains(&self.local_peer_id)
+            && self.kernel.plugin_world(&task.plugin) == Some("plugin")
+        {
+            out.push((self.local_peer_id, false));
+        }
+        out.truncate(MAX_EXECUTORS);
+        out
     }
 
-    /// Re-run `task` on `executor` — or take `seed`, a re-run already in
-    /// hand — and compare with the accepted output. Penalises the
-    /// `implicated` replicas on a mismatch, and a remote executor that
-    /// breaks the size or policy-hash guard.
-    #[allow(clippy::too_many_arguments)]
+    /// Re-run `task` — or take `seed`, a re-run already in hand — and
+    /// compare with the accepted output. The `executors` are asked in turn
+    /// until one produces a comparable output (one that cannot run the task
+    /// does not end the check). Penalises the `implicated` replicas on a
+    /// mismatch, and a remote executor that breaks the size or policy-hash
+    /// guard.
     async fn run_spot_check(
         &self,
         task: &OneShotTask,
         envelope: &PolicyEnvelope,
         accepted: Accepted,
-        executor: PeerId,
-        remote: bool,
+        executors: Vec<(PeerId, bool)>,
         seed: Option<Rerun>,
         implicated: Vec<PeerId>,
     ) -> SpotCheckRecord {
         let kind = envelope.policy().kind();
         let reputation = self.verifier.reputation();
+        let (first, first_remote) = seed
+            .as_ref()
+            .map(|r| (r.executor, r.remote))
+            .or_else(|| executors.first().copied())
+            .unwrap_or((self.local_peer_id, false));
         let mut record = SpotCheckRecord {
             task_id: task.id,
             plugin: task.plugin.clone(),
             policy: kind,
             policy_hash: envelope.hash(),
-            checker: executor,
-            checker_remote: remote,
+            checker: first,
+            checker_remote: first_remote,
             accepted_blake3: accepted.blake3,
             rerun_blake3: None,
             distance: None,
             implicated,
             penalised: Vec::new(),
             reused_replica: seed.is_some(),
+            unavailable: Vec::new(),
             verdict: SpotCheckVerdict::Confirmed,
         };
+        let mut executors = executors.into_iter();
         let out = match seed {
             Some(rerun) => rerun,
             None => match self
-                .rerun(task, envelope, executor, remote, &mut record)
+                .next_rerun(task, envelope, &mut executors, &mut record)
                 .await
             {
-                Ok(rerun) => rerun,
-                Err(why) => {
-                    record.verdict = SpotCheckVerdict::Inconclusive(why);
+                Some(rerun) => rerun,
+                None => {
+                    record.verdict = SpotCheckVerdict::Inconclusive(format!(
+                        "no executor produced a comparable re-run ({})",
+                        describe_unavailable(&record.unavailable)
+                    ));
                     return record;
                 }
             },
         };
+        record.checker = out.executor;
+        record.checker_remote = out.remote;
+        let span = tracing::Span::current();
+        span.record("checker", tracing::field::display(out.executor));
+        span.record("checker_remote", out.remote);
         let rerun_blake3 = out.blake3;
         record.rerun_blake3 = Some(rerun_blake3);
         let mismatch = match envelope.policy() {
@@ -944,12 +963,40 @@ impl Dispatcher {
             record.penalised = record.implicated.clone();
             record.verdict = SpotCheckVerdict::Mismatch(IntegrityError::SpotCheckMismatch {
                 task: task.id.to_string(),
-                checker: executor.to_hex(),
+                checker: out.executor.to_hex(),
                 detail,
                 agreed: record.implicated.len(),
             });
         }
         record
+    }
+
+    /// Ask `executors` in turn to re-run `task` until one produces a
+    /// comparable output; each that does not is listed in
+    /// `record.unavailable` with why. `None` when none of them did.
+    async fn next_rerun(
+        &self,
+        task: &OneShotTask,
+        envelope: &PolicyEnvelope,
+        executors: &mut impl Iterator<Item = (PeerId, bool)>,
+        record: &mut SpotCheckRecord,
+    ) -> Option<Rerun> {
+        for (executor, remote) in executors.by_ref() {
+            match self.rerun(task, envelope, executor, remote, record).await {
+                Ok(rerun) => return Some(rerun),
+                Err(why) => {
+                    tracing::debug!(
+                        %executor,
+                        why = %why,
+                        "spot-check executor produced nothing comparable; trying the next"
+                    );
+                    record.checker = executor;
+                    record.checker_remote = remote;
+                    record.unavailable.push((executor, why));
+                }
+            }
+        }
+        None
     }
 
     /// Run `task` once more on `executor` and pass the result through the
@@ -1082,6 +1129,18 @@ impl Dispatcher {
             outcome,
         }
     }
+}
+
+/// `unavailable` as one line for a verdict.
+fn describe_unavailable(unavailable: &[(PeerId, String)]) -> String {
+    if unavailable.is_empty() {
+        return "none was available".to_owned();
+    }
+    unavailable
+        .iter()
+        .map(|(peer, why)| format!("{peer}: {why}"))
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 /// One spot-check re-run that produced a comparable output.

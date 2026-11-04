@@ -2009,3 +2009,65 @@ async fn an_outvoted_local_replica_is_the_spot_check_of_the_majority() {
         "the replica was the only execution here"
     );
 }
+
+/// A checker that cannot run the task does not end the spot-check: the
+/// next eligible executor re-runs it. Workers do not advertise which plugins
+/// they hold, so a live worker without the plugin is the ordinary case —
+/// here it ranks better than the one that has it, yet every sampled task is
+/// still attested.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_spot_check_moves_on_when_its_checker_cannot_run_the_task() {
+    let publisher = IdentityKeyPair::generate();
+    let submitter = Node::start(&publisher).await;
+    let mut producer = Node::start(&publisher).await;
+    let plugin = producer.load(&publisher, "hello", &hello_pong()).await;
+    producer.serve_for(submitter.peer_id);
+    let without = Node::start(&publisher).await;
+    without.serve_for(submitter.peer_id);
+    let mut with = Node::start(&publisher).await;
+    with.load(&publisher, "hello", &hello_pong()).await;
+    with.serve_for(submitter.peer_id);
+    let registry = Registry::new();
+    let dispatcher = spot_checked_dispatcher(
+        &submitter,
+        &[(&producer, 0.0), (&without, 0.5), (&with, 0.9)],
+        ALWAYS,
+        &registry,
+    );
+
+    for round in 0..3 {
+        let result = deadline(
+            "deterministic task",
+            dispatcher.dispatch_one_shot(task(
+                plugin.clone(),
+                b"world",
+                IntegrityPolicy::Deterministic { replicas: 1 },
+            )),
+        )
+        .await
+        .expect("accepted");
+        assert_eq!(result.replicas[0].peer, producer.peer_id);
+        let record = deadline(
+            "spot-check verdict",
+            result.spot_check.handle().expect("scheduled").outcome(),
+        )
+        .await
+        .expect("the spot-check finishes");
+        assert!(
+            matches!(record.verdict, SpotCheckVerdict::Confirmed),
+            "round {round}: {:?}",
+            record.verdict
+        );
+        assert_eq!(record.checker, with.peer_id, "round {round}");
+        assert!(
+            record
+                .unavailable
+                .iter()
+                .all(|(peer, _)| *peer == without.peer_id),
+            "round {round}: {:?}",
+            record.unavailable
+        );
+        assert!(record.penalised.is_empty(), "{:?}", record.penalised);
+    }
+    assert_eq!(dispatcher.spot_checks().unwrap().stats().inconclusive, 0);
+}

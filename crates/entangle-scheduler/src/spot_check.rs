@@ -17,6 +17,12 @@
 //! * failing that, this node's own kernel, if it has the plugin loaded;
 //! * failing that, nobody: the check is skipped (`skipped_no_checker`).
 //!
+//! An executor whose re-run produces nothing comparable — workers do not
+//! advertise their plugins, so one that does not have it is an ordinary
+//! case; or it is unreachable, or breaks a guard — does not end the check:
+//! the next one in that order is asked, up to [`MAX_EXECUTORS`]
+//! ([`SpotCheckRecord::unavailable`] lists who was skipped and why).
+//!
 //! The re-run passes the same guards as a replica (output size, then the
 //! echoed policy hash) and is then compared with the accepted output — on
 //! the submitter, as always:
@@ -95,6 +101,12 @@ pub const DEFAULT_MAX_CONCURRENT: usize = 4;
 
 /// How many finished spot-checks [`SpotChecker::recent`] keeps.
 pub const AUDIT_CAPACITY: usize = 256;
+
+/// Most executors one spot-check asks to re-run its task: one that cannot
+/// produce a comparable re-run (the plugin is not installed there, it is
+/// unreachable, it broke a guard) is followed by the next eligible one, up
+/// to this many, so a single unusable checker cannot switch Layer 2 off.
+pub const MAX_EXECUTORS: usize = 4;
 
 /// The `event` field of the warning emitted for an attestation failure.
 pub const ATTESTATION_FAILURE_EVENT: &str = "SpotCheckAttestationFailure";
@@ -287,6 +299,11 @@ pub struct SpotCheckRecord {
     /// produced — this node's kernel, outvoted at acceptance — so nothing
     /// ran again.
     pub reused_replica: bool,
+    /// Executors asked to re-run the task before `checker` that produced
+    /// nothing comparable (the re-run failed — e.g. the plugin is not
+    /// installed there — was oversized, or echoed another policy hash),
+    /// with why. The check moved on to the next eligible executor.
+    pub unavailable: Vec<(PeerId, String)>,
     /// The verdict.
     pub verdict: SpotCheckVerdict,
 }
@@ -552,6 +569,7 @@ mod tests {
             implicated: Vec::new(),
             penalised: Vec::new(),
             reused_replica: false,
+            unavailable: Vec::new(),
             verdict,
         })
     }
