@@ -29,13 +29,17 @@ failed on a fresh checkout because the key was gitignored.
 - Enforcement: `crates/entangle-atc-matrix/tests/matrix.rs`, test
   `atc_matrix_full_coverage`, is a normal (not ignored) test. It scans
   `crates/`, `plugins/` and `tools/` for functions named `atc_<group>_<n>_...`.
-  It fails if a §16 ID has no live test, has only ignored tests, has a body that
-  calls `unimplemented!` or `todo!`, or if a test name is malformed.
+  It fails if a §16 ID has no live test or only ignored or stubbed tests, if
+  any `atc_*` test body calls `unimplemented!` or `todo!`, or if an `atc_*`
+  test name does not have the `ATC-<GROUP>-<N>` shape.
 - An audit compared each test with the GIVEN/WHEN/THEN of its ID and
   strengthened 9 of them.
-- Some IDs are implemented by tests that only run in CI (cross-host
-  reproducibility, real cosign). The matrix counts a live test; it does not
-  prove the CI job passed.
+- For two IDs the local test checks less than the ID states. The ATC-PKG-2
+  test checks the workflow file; the three-host build runs only in
+  `reproducibility.yml`. The ATC-REL-1 tests use a fake `cosign` script; real
+  cosign runs only in the `sigstore-attest` job of `release.yml`, which runs
+  on a `v*.*.*` tag push or a manual dispatch. The matrix counts live tests;
+  it does not show that a CI job passed.
 
 ## Crates
 
@@ -46,7 +50,7 @@ failed on a fresh checkout because the key was gitignored.
 | `entangle-types` | Tier, PluginId, PeerId, Task, IntegrityPolicy, resource types, error codes |
 | `entangle-manifest` | `entangle.toml` schema and tier/capability validation |
 | `entangle-signing` | Ed25519 publisher signing, BLAKE3 hashing, keyring, Shamir split/combine |
-| `entangle-wit` | WIT package `entangle:plugin@0.1.0`, including the `entangle:integrity/metric` interface |
+| `entangle-wit` | WIT packages `entangle:plugin@0.1.0` and `entangle:integrity@0.1.0` (the `metric` interface) |
 | `entangle-sdk` | Guest-side helpers and the `entangle_plugin!` macro |
 | `entangle-host` | Wasmtime + WASI 0.2 host; `capability.fetch`, WASI preopens, socket rules with pinned DNS |
 | `entangle-broker` | Capability broker: deny by default, audit log, grants and live revocation, `CrossNodePolicy` |
@@ -69,7 +73,7 @@ failed on a fresh checkout because the key was gitignored.
 | `entangle-cli` (`entangle`) | Operator CLI |
 | `entangle-bin` (`entangled`) | Daemon: UDS RPC, scheduler serving over Iroh and Tailscale, `/metrics`, maintenance loop |
 | `entangle-bench` | Criterion benchmarks |
-| `tools/xtask` | `cargo xtask hello-world build`, `hash-it build`, `bus-factor`, `rotation-note-check` |
+| `tools/xtask` | `cargo xtask plugin build <DIR>`, `hello-world build`, `hash-it build`, `bus-factor`, `rotation-note-check` |
 
 Plugins in the repository: `examples/` has `hello-world`, `hash-it` and
 `native-echo` (tier 5). `plugins/` has `compress`, `csv-stats`, `image-resize`,
@@ -85,16 +89,16 @@ deployment in this environment.
 - **Plugins:** `plugins new|build|load|unload|invoke|list|install`; `keyring`; signed `.tar.zst` packages; `plugins verify --rebuild` compares a rebuild with the package.
 - **Capability grants (wasm):** `capability.fetch` through the broker; WASI preopens `/data`, `/shared`, `/shares/<n>`; `net.lan` and `net.wan` socket rules with pinned DNS (loopback, own-host and cloud-metadata addresses refused); live revocation; operator `deny_capabilities`; `entangle perms list|revoke`. Stream plugins get the same grants.
 - **Tier-5 native plugins:** run under the Linux sandbox. The runtime-kind check (ATC-MAN-3) and the install-time tier ceiling check (ATC-MAN-4, no state change on refusal) are tested. `[security] allow_unsandboxed_native` exists.
-- **Max tier and wrapper:** `entangle security set-max-tier`, `entangle config reload` and `config validate` drain in-flight calls and streams and use audit codes `W0214`, `I0215`, `I0216`, `I0217`. `entangle wrapper enable`, `disable`, `status`, `repair`; `doctor` detects shadowing.
+- **Max tier and wrapper:** `entangle security set-max-tier` and `entangle config reload` apply a new ceiling to the running daemon. Lowering it drains in-flight calls and streams of the affected plugins before unloading them, and adds them to `[plugins] disabled` in `config.toml` (the daemon parses that list but does not read it, because it loads no plugins at startup). Audit codes: `W0214`, `I0215`, `I0216`, `I0217`. `entangle config validate` only checks the file. `config reload` applies only `max_tier_allowed`; other settings need a restart. `entangle wrapper enable`, `disable`, `status`, `repair`; `doctor` detects shadowing.
 - **Pairing:** 6-digit code over the network. A race where the responder closed the connection before its last frame was delivered is fixed (36 of 100 runs failed under load before, 0 of 100 after).
 - **Transports:** `mesh.local`, `mesh.iroh`, `mesh.tailscale`. Per peer the scheduler tries local, then tailscale (only when active), then iroh; `[mesh] preferred` and `[mesh.overrides]` change the order. It falls back only when a connect fails. The transport label appears in metrics and `diag`.
 - **Remote one-shot tasks:** `entangle compute dispatch`, gated on the peer allowlist.
 - **Integrity:** `Deterministic` (majority hash quorum across distinct workers), `SemanticEquivalent` (signed metric component, metric runs on the verifier, output-size guard before the metric loads), `TrustedExecutor`, policy hash envelope (`INV-INT-1`), `PolicyMutation` rejection, per-peer per-policy reputation (EWMA).
-- **Streaming tasks:** credit flow control, heartbeat with `PeerLost` after three missed pongs, signed chunks bound to the request, total-byte and chunk-count caps, partial-result policies, ALPN `entangle/stream/1` over Iroh and Tailscale, `entangle compute stream`.
+- **Streaming tasks:** credit flow control, heartbeat with `PeerLost` after three missed pongs, signed chunks bound to the request, total-byte and chunk-count caps, partial-result policies. The daemon serves ALPN `entangle/stream/1` over Iroh and Tailscale. `entangle compute stream` dials over Iroh only.
 - **Agents:** `entangle agent run` for claude-code, codex and opencode with a session-scoped config; the gateway authenticates a bearer token, applies allow/deny policy, writes an audit record, and starts stdio downstream servers with connection and size limits. Servers from the project's own config need consent (`--trust-project-servers`).
 - **Observability:** `/metrics` (disabled by default, loopback by default), `entangle metrics`, OTLP/HTTP JSON traces (`http://` endpoints only), `traceparent` on the scheduler wire, `entangle diag mesh [--probe]`.
-- **Distribution:** `plugins publish|tags|install oci://...`; signed mirror listings with separate mirror keys (ATC-MIR-1/2); reproducible archives and provenance; `Cargo.lock` is required.
-- **Release tooling:** `entangle release verify` (Ed25519 release key and cosign), `release key split|combine` (Shamir 2-of-3), `cargo xtask bus-factor`, `cargo xtask rotation-note-check`, `.github/workflows/reproducibility.yml`. CI builds for `wasm32-wasip2` in the test job.
+- **Distribution:** `plugins publish|tags|install oci://...`; `plugins mirror-sign` writes signed mirror listings (they expire, 7 days by default) with separate mirror keys (ATC-MIR-1/2); reproducible archives and provenance; `Cargo.lock` is required.
+- **Release tooling:** `entangle release verify` (Ed25519 release key and cosign), `release key split|combine` (Shamir secret sharing, 2-of-3 by default), `cargo xtask bus-factor`, `cargo xtask rotation-note-check`, `.github/workflows/reproducibility.yml`. CI builds for `wasm32-wasip2` in the test job.
 
 ## Not done / deferred
 
@@ -102,12 +106,12 @@ deployment in this environment.
 |---|---|---|
 | `Attested` integrity | Returns `ENTANGLE-E0304` | Needs TEE hardware (SEV-SNP, TDX, Apple); none is available to test |
 | Native Windows | Not started (Phase 5); WSL2 only | AppContainer and Job Objects do not give the same rigor as Landlock/Seatbelt without further work |
-| bubblewrap and Seatbelt paths | Profiles generated and unit-tested; never run on a real bubblewrap or macOS host | No macOS or bubblewrap host was used in this work |
-| Cross-host reproducibility, real cosign | Run only in CI workflows | Need macOS-14 and several Ubuntu runners and the cosign binary |
-| cosign identity | Pinned to `release.yml` on any `v<semver>` tag, not to the tag being verified | `release verify --tag` is on a branch, not main |
+| bubblewrap and Seatbelt paths | Profiles generated and unit-tested; not run on a real bubblewrap or macOS host in this work. `crates/entangle-sandbox/tests/seatbelt_smoke.rs` runs `sandbox-exec` and compiles only on macOS (CI macos-14 test job); no result from it is recorded here | No macOS or bubblewrap host was used in this work |
+| Cross-host reproducibility, real cosign | Run only in CI workflows | `reproducibility.yml` needs macos-14, ubuntu-22.04 and ubuntu-24.04 runners; real cosign runs in `release.yml` on a `v*.*.*` tag or manual dispatch, and no tag exists |
+| cosign identity | Pinned to `release.yml` on any `v<semver>` tag, not to the tag being verified | `release verify --tag` is on an unmerged branch |
 | Capability revocation | Lasts until the plugin is reloaded | `deny_capabilities` is the permanent setting |
-| OCI mirror listings | No replay protection | Not implemented |
-| OCI client TLS | Paths untested | No test exercises TLS |
+| OCI mirror listings | Listings expire (`expires_at`), but an older listing that has not expired is accepted in place of a newer one | No record of the newest listing seen; rollback protection not implemented |
+| OCI client TLS | No test performs a TLS handshake (one unit test covers the TLS server name of an IP literal) | Not written |
 | Native plugin limits | No `RLIMIT_NPROC`, `RLIMIT_FSIZE` or cgroups | Not implemented; a plugin can fork or fill its writable directory |
 | `net.wan` for native plugins | No per-host allowlist | Not implemented |
 | `entangle install`, first-run wrapper prompt | Command does not exist | Not implemented; `entangle quickstart` and `plugins install NAME` exist |
@@ -116,21 +120,25 @@ deployment in this environment.
 | Published release | None | `install.sh` and the Homebrew formula need a `v0.1.0` tag |
 | Speculative execution, straggler mitigation, reputation gossip | Not implemented | Not started |
 
-### On branches, not on main
+### On unmerged branches, not in this tree
 
-| Item | Note |
-|---|---|
-| Layer-2 1% replay spot-check | Not available |
-| Per-peer transport routing for `entangle compute stream` | On main it dials Iroh only |
-| Streaming invocation metrics | Not available |
-| `entangle backup` / `restore` | Not available |
-| `[plugins] disabled`, `plugins enable` and `plugins disable` | The key parses; the daemon does not read it |
-| `entangle release verify --tag` | Not available |
-| HTTP downstream servers in the MCP gateway | `url` entries are refused with `ENTANGLE-E0664` |
+These are implemented on branches that fork from `080ab0b` and are not merged.
+(`main` itself is still at `43cdef5`, the baseline; none of the work in this
+file is on `main`.)
+
+| Item | Branch | State in this tree |
+|---|---|---|
+| Layer-2 1% replay spot-check | `wip/followups-sched` | Not available |
+| Per-peer transport routing for `entangle compute stream` | `wip/followups-sched` | Dials Iroh only |
+| Streaming invocation metrics | `wip/followups-sched` | Not available |
+| `entangle backup` / `restore` | `wip/followups-ops` | Not available |
+| `plugins enable` and `plugins disable`; daemon honours `[plugins] disabled` | `wip/followups-ops` | `set-max-tier` and `config reload` write `[plugins] disabled`; the daemon parses it but nothing reads it |
+| `entangle release verify --tag` | `wip/followups-ops` | Not available |
+| HTTP downstream servers in the MCP gateway | `wip/followups-ops` | `url` entries are refused with `ENTANGLE-E0664` |
 
 ## Release pipeline
 
-- `.github/workflows/ci.yml` — fmt, clippy, tests (Linux and macOS, with the `wasm32-wasip2` target), docs, cargo-deny.
+- `.github/workflows/ci.yml` — fmt, clippy, tests (ubuntu-24.04 and macos-14, with the `wasm32-wasip2` target), hello-world wasm build, metric-plugin and fixture rebuilds, docs, cargo-deny, Docker smoke build.
 - `.github/workflows/release.yml` — matrix build, provenance, cosign, GitHub Release.
 - `.github/workflows/reproducibility.yml` — ATC-PKG-1 and ATC-PKG-2.
 - `.github/workflows/bus-factor.yml` — weekly bus-factor check (currently failing by design).
