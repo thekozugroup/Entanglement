@@ -277,7 +277,11 @@ fn the_submitter_refuses_a_chunk_the_executor_had_no_credit_for() {
 
 #[test]
 fn pings_flow_while_data_credit_is_zero() {
-    let mut p = pair();
+    // A stall timeout longer than the observation window, so only a missed
+    // heartbeat (not the credit timer) could close the stream.
+    let mut ch = channel();
+    ch.credit_exhaustion_timeout_ms = 60_000;
+    let mut p = pair_with(&task_with(ch), StreamCeilings::default());
     for i in 0..4u8 {
         p.send(&[i]);
     }
