@@ -30,7 +30,7 @@
 //! accepted output loses reputation for that policy variant
 //! ([`ReputationReason::SpotCheckMismatch`](crate::ReputationReason::SpotCheckMismatch)),
 //! a `SpotCheckAttestationFailure` warning is emitted at
-//! [`TELEMETRY_TARGET`](crate::TELEMETRY_TARGET), the
+//! [`TELEMETRY_TARGET`], the
 //! `entangle_integrity_spot_checks_total{outcome="mismatch"}` counter goes
 //! up, and the record is kept in the dispatcher's audit log
 //! ([`SpotChecker::recent`]).

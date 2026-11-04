@@ -84,7 +84,7 @@ pub enum DispatchError {
     /// The produced output exceeded the task's declared `max_output_bytes`.
     ///
     /// Reuses the canonical `ENTANGLE-E0300`
-    /// [`EntangleError::OutputSizeExceeded`](entangle_types::errors::EntangleError::OutputSizeExceeded)
+    /// [`EntangleError::OutputSizeExceeded`]
     /// semantics.
     #[error("{0}")]
     OutputSizeExceeded(entangle_types::errors::EntangleError),

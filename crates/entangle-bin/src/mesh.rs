@@ -7,7 +7,7 @@
 //!   ([`scheduler_servers`]) behind the peer-store allowlist, served on the
 //!   iroh endpoint (per ALPN) and on the tailnet listener (per selected
 //!   sub-protocol), so in-flight tables and stream limits span transports;
-//! * **outbound** — a [`TransportRouter`] ([`build_router`]) with a link
+//! * **outbound** — a [`TransportRouter`](entangle_scheduler::TransportRouter) ([`build_router`]) with a link
 //!   per transport: `local` (mDNS sightings dialled over the iroh endpoint),
 //!   `tailscale` (tailnet discovery candidates, while the tailnet is
 //!   active) and `iroh` (`[scheduler] peers`), ordered by `[mesh]
