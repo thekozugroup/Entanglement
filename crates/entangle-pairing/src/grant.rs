@@ -3,12 +3,13 @@
 //! `mesh.peer` to each other and persist them").
 //!
 //! Each side mints a token rooted at **its own** identity key and issued to
-//! the other device ([`issue`]), and sends it inside the exchange it already
-//! signs: the side that verifies the other's proof of the code first puts its
-//! token in its reply, the other side in the frame that answers it. Each side
-//! checks the token it receives ([`check`]): it must verify under the other
-//! device's (transport- or signature-authenticated) key, name this device as
-//! its holder, grant `mesh.peer`, carry no expiry it has already passed and
+//! the other device ([`issue`](crate::grant::issue)), and sends it inside the
+//! exchange it already signs: the side that verifies the other's proof of the
+//! code first puts its token in its reply, the other side in the frame that
+//! answers it. Each side checks the token it receives
+//! ([`check`](crate::grant::check)): it must verify under the other device's
+//! (transport- or signature-authenticated) key, name this device as its
+//! holder, grant `mesh.peer`, carry no expiry it has already passed and
 //! nothing but the authority block. That token is what this device presents
 //! to the other one with every remote request; the revocation ids of the
 //! token it issued are what `entangle peers remove` revokes.
