@@ -22,6 +22,7 @@ use entangle_scheduler::{
     Dispatcher, PeerDirectory, RemoteDispatch, RemoteTaskServer, StaticAllowlist, WorkerInfo,
     WorkerPool,
 };
+use entangle_scheduler::capability::{CapabilityGate, StaticTokens};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::peer_id::PeerId;
 use entangle_types::plugin_id::PluginId;
@@ -135,6 +136,7 @@ fn loopback_config() -> MeshIrohConfig {
 }
 
 struct Node {
+    identity: IdentityKeyPair,
     peer_id: PeerId,
     kernel: Arc<Kernel>,
     transport: Arc<MeshIroh>,
@@ -148,6 +150,7 @@ impl Node {
         let transport = Arc::new(MeshIroh::start(loopback_config(), &identity).await.unwrap());
         Self {
             peer_id: transport.local_peer_id(),
+            identity,
             kernel,
             transport,
         }
@@ -167,7 +170,7 @@ impl Node {
         let server = Arc::new(RemoteTaskServer::new(
             Arc::clone(&self.kernel),
             Arc::new(allowlist),
-            self.peer_id,
+            Arc::new(CapabilityGate::for_identity(&self.identity).unwrap()),
         ));
         tokio::spawn(entangle_scheduler::serve_tasks(
             Arc::clone(&self.transport),
@@ -177,6 +180,12 @@ impl Node {
 }
 
 fn dispatcher_for(local: &Node, remote: &Node) -> Dispatcher {
+    dispatcher_with(local, remote, true)
+}
+
+/// `local`'s dispatcher to `remote`, holding the token `remote` issued it
+/// when `paired` (a peer built before capability tokens issued none).
+fn dispatcher_with(local: &Node, remote: &Node, paired: bool) -> Dispatcher {
     let pool = WorkerPool::new();
     pool.upsert(WorkerInfo {
         peer_id: remote.peer_id,
@@ -194,10 +203,20 @@ fn dispatcher_for(local: &Node, remote: &Node) -> Dispatcher {
     directory.insert(remote.address());
     Dispatcher::new(pool, Arc::clone(&local.kernel), local.peer_id)
         .with_strict_remote(true)
-        .with_remote(Arc::new(RemoteDispatch::new(
-            Arc::clone(&local.transport) as Arc<dyn MeshTransport>,
-            Arc::new(directory),
-        )))
+        .with_remote(Arc::new(
+            RemoteDispatch::new(
+                Arc::clone(&local.transport) as Arc<dyn MeshTransport>,
+                Arc::new(directory),
+            )
+            .with_capability_tokens({
+                // What pairing leaves `local` holding: the token `remote` minted for it.
+                let tokens = StaticTokens::new();
+                if paired {
+                    tokens.paired_with(&remote.identity, local.peer_id).unwrap();
+                }
+                Arc::new(tokens)
+            }),
+        ))
 }
 
 fn task_for(plugin: PluginId, input: &[u8]) -> OneShotTask {
@@ -354,7 +373,8 @@ async fn a_pre_extension_peer_still_interoperates() {
         },
     ));
 
-    let dispatcher = dispatcher_for(&a, &legacy);
+    // A pre-extension peer predates capability tokens too: it issued none.
+    let dispatcher = dispatcher_with(&a, &legacy, false);
     let plugin: PluginId = "0123456789abcdef0123456789abcdef/legacy@1.0.0"
         .parse()
         .unwrap();

@@ -1031,6 +1031,7 @@ mod tests {
         /// tailnet listener (both on loopback), for `submitter` only.
         struct Executor {
             peer_id: PeerId,
+            key: IdentityKeyPair,
             iroh: Arc<MeshIroh>,
             tailnet: MeshTailscale,
             plugin: PluginId,
@@ -1090,6 +1091,7 @@ mod tests {
                 ));
                 Self {
                     peer_id: peer_of(&key),
+                    key,
                     iroh,
                     tailnet,
                     plugin,
@@ -1132,7 +1134,11 @@ mod tests {
             exec: &Executor,
         ) -> Result<(String, Option<TransportKind>), String> {
             let address = exec.long_address();
-            let router = stream_router(local, routing, Some(&address), dialers)
+            // What pairing leaves this node holding: the token the executor
+            // minted for it.
+            let tokens = StaticTokens::new();
+            tokens.paired_with(&exec.key, local).unwrap();
+            let router = stream_router(local, routing, Some(&address), dialers, tokens)
                 .expect("at least one transport is running");
             let task = StreamingTask::with_defaults(exec.plugin.clone(), b"one\ntwo\n".to_vec());
             let (mut handle, transport) =
