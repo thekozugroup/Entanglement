@@ -3,6 +3,7 @@
 //! Both commands are driven as real processes (`cargo xtask ...` equals the
 //! `xtask` binary) against fixture git repositories and files in temp dirs.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
@@ -319,6 +320,145 @@ fn atc_bus_1_ignores_non_merge_commits() {
     }
     let roles = roles_file(repo.path(), TWO_HOLDERS);
     assert!(!bus_factor(repo.path(), &roles, None).status.success());
+}
+
+/// The roles of INV-BUS-1, `{core-runtime, mesh, agent, security, release}`
+/// (spec §12.1 and ATC-BUS-1), as the roster names them.
+const SPEC_ROLES: [&str; 5] = [
+    "core-runtime-lead",
+    "mesh-lead",
+    "agent-lead",
+    "security-lead",
+    "release-lead",
+];
+
+/// `[role.<name>] holders` of a roles file.
+fn declared_holders(roles_toml: &str) -> Vec<(String, Vec<String>)> {
+    let doc: toml::Table = toml::from_str(roles_toml).unwrap();
+    doc["role"]
+        .as_table()
+        .expect("[role.*] tables")
+        .iter()
+        .map(|(role, body)| {
+            let holders = body["holders"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{role}: holders is not a list"))
+                .iter()
+                .map(|h| h.as_str().unwrap().to_owned())
+                .collect();
+            (role.clone(), holders)
+        })
+        .collect()
+}
+
+/// Every spec role is required by the xtask itself, whatever the roster
+/// says: a roster that omits any one of the five fails for exactly that role,
+/// as a role with no holder.
+#[test]
+fn atc_bus_1_every_spec_role_is_required_even_when_the_roster_omits_it() {
+    let repo = fixture_repo(&[
+        ("alice", "alice@example.com", NOW - DAY),
+        ("bob", "bob@example.com", NOW - DAY),
+    ]);
+    let full = roles_file(repo.path(), TWO_HOLDERS);
+    let out = bus_factor(repo.path(), &full, None);
+    assert!(
+        out.status.success(),
+        "the full roster passes: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    for missing in SPEC_ROLES {
+        let roster: String = SPEC_ROLES
+            .iter()
+            .filter(|r| **r != missing)
+            .map(|r| format!("[role.{r}]\nholders = [\"alice\", \"bob\"]\n"))
+            .collect();
+        let roles = roles_file(repo.path(), &roster);
+        let out = bus_factor(repo.path(), &roles, None);
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(!out.status.success(), "omitting {missing} must fail");
+        assert!(
+            stderr.contains(&format!(
+                "VIOLATION {missing}: 0 active holder(s) of 0 declared"
+            )),
+            "{stderr}"
+        );
+        let violations = stderr
+            .lines()
+            .filter(|l| l.starts_with("VIOLATION "))
+            .count();
+        assert_eq!(violations, 1, "only {missing} is in violation: {stderr}");
+    }
+}
+
+/// The shipped roster `docs/maintainers/roles.toml` declares exactly the five
+/// spec roles, each with a holder, and every holder is a code owner in the
+/// shipped `.github/CODEOWNERS` (the roster is CODEOWNERS-enforced, §12.1).
+#[test]
+fn atc_bus_1_shipped_roster_declares_exactly_the_spec_roles_held_by_code_owners() {
+    let text = std::fs::read_to_string(repo_root().join("docs/maintainers/roles.toml")).unwrap();
+    let roles = declared_holders(&text);
+    let names: BTreeSet<&str> = roles.iter().map(|(r, _)| r.as_str()).collect();
+    assert_eq!(names, BTreeSet::from(SPEC_ROLES), "roles.toml roles");
+
+    let codeowners = std::fs::read_to_string(repo_root().join(".github/CODEOWNERS")).unwrap();
+    let owners: BTreeSet<String> = codeowners
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .flat_map(|l| l.split_whitespace().skip(1))
+        .take_while(|o| !o.starts_with('#'))
+        .filter_map(|o| o.strip_prefix('@'))
+        .map(str::to_lowercase)
+        .collect();
+    assert!(!owners.is_empty(), "CODEOWNERS names no owner");
+    for (role, holders) in &roles {
+        assert!(!holders.is_empty(), "{role} has no declared holder");
+        for h in holders {
+            assert!(
+                owners.contains(&h.to_lowercase()),
+                "{role} holder {h} is not a code owner in .github/CODEOWNERS ({owners:?})"
+            );
+        }
+    }
+}
+
+/// GIVEN the git log and roster at HEAD: invoked as the workflow invokes it
+/// (from the repository root, default `--roles` and `--repo`), the check
+/// evaluates the shipped roster against this repository's history, reports
+/// each spec role with its declared holder count, and fails for any role with
+/// fewer than two declared holders.
+#[test]
+fn atc_bus_1_default_invocation_checks_the_shipped_roster_at_head() {
+    let text = std::fs::read_to_string(repo_root().join("docs/maintainers/roles.toml")).unwrap();
+    let roles = declared_holders(&text);
+    let out = xtask()
+        .current_dir(repo_root())
+        .arg("bus-factor")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let mut short = false;
+    for role in SPEC_ROLES {
+        let declared = roles
+            .iter()
+            .find(|(r, _)| r == role)
+            .map_or(0, |(_, h)| h.len());
+        let line = stdout
+            .lines()
+            .find(|l| l.split_whitespace().next() == Some(role))
+            .unwrap_or_else(|| panic!("no line for {role}:\n{stdout}\n{stderr}"));
+        assert!(line.contains(&format!(" of {declared} declared")), "{line}");
+        if declared < 2 {
+            short = true;
+            assert!(line.ends_with("(VIOLATION)"), "{line}");
+            assert!(stderr.contains(&format!("VIOLATION {role}: ")), "{stderr}");
+        }
+    }
+    if short {
+        assert!(!out.status.success(), "{stdout}\n{stderr}");
+    }
 }
 
 #[test]
