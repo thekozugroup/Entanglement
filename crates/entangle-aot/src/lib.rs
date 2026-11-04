@@ -851,7 +851,18 @@ fn publish_key(dir: &Path, path: &Path, key: &[u8; 32]) -> std::io::Result<()> {
         std::fs::hard_link(&tmp, path)
     })();
     let _ = std::fs::remove_file(&tmp);
-    result
+    match result {
+        Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => {
+            // A file system without hard links (some network and FAT
+            // mounts): create the key in place, exclusively, as before. A
+            // crash mid-write there leaves a short key, regenerated at the
+            // next open.
+            let mut f = opts.open(path)?;
+            f.write_all(key)?;
+            f.sync_all()
+        }
+        other => other,
+    }
 }
 
 /// Write `bytes` to `dest` via a private temporary file in `dir`.
