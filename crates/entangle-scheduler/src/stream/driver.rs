@@ -534,6 +534,70 @@ fn close_text(error: Option<&StreamError>) -> String {
 
 // ── submitter ───────────────────────────────────────────────────────────────
 
+/// What the scheduler does when the submitter observes a stall (spec
+/// §7.1: "Scheduler may: (a) preempt and reassign, (b) extend the timeout
+/// via a control frame, or (c) cancel the task").
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum StallReaction {
+    /// Nothing: the executor's own timers run their course (a credit stall
+    /// is cancelled as submitter-unresponsive after twice the
+    /// credit-exhaustion timeout). The default, and how streams behaved
+    /// before stall reactions existed.
+    #[default]
+    Wait,
+    /// Cancel the stream: `Stalled → Cancelled` by the scheduler
+    /// ([`StreamError::Preempted`]).
+    Preempt,
+    /// Extend the executor's stall timeout by `by` with an `Extend` control
+    /// frame, at most `times` times per stream; after that, wait.
+    Extend {
+        /// Asked for per extension (the executor grants at most its
+        /// credit-exhaustion timeout per frame).
+        by: Duration,
+        /// Extensions per stream.
+        times: u32,
+    },
+    /// Cancel the stream and restart it on another executor — the restart
+    /// is done by a [`SupervisedStream`](super::SupervisedStream) under
+    /// the task's retry policy; a bare [`StreamHandle`] just preempts.
+    PreemptAndReassign,
+}
+
+impl StallReaction {
+    /// The `outcome` label this reaction is counted under
+    /// (`entangle_scheduler_streams_stalled_total`).
+    pub const fn outcome(self) -> &'static str {
+        match self {
+            Self::Wait => "waited",
+            Self::Preempt => "preempted",
+            Self::Extend { .. } => "extended",
+            Self::PreemptAndReassign => "reassigned",
+        }
+    }
+}
+
+/// How a submitter stream reacts to stalls and blames stalling executors.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct StallPolicy {
+    /// What to do about a stall.
+    pub reaction: StallReaction,
+    /// An executor's producer stalls (it held credit and sent nothing)
+    /// within [`STALL_WINDOW`](crate::reputation::STALL_WINDOW) at which
+    /// it loses reputation for stalling repeatedly (default 2). A stall
+    /// after at least half of the task's `expected_output_bytes` costs
+    /// reputation regardless.
+    pub repeat_blame: u32,
+}
+
+impl Default for StallPolicy {
+    fn default() -> Self {
+        Self {
+            reaction: StallReaction::Wait,
+            repeat_blame: 2,
+        }
+    }
+}
+
 /// Options for a submitter stream beyond the machine's own.
 #[derive(Clone, Debug, Default)]
 pub struct StreamOptions {
@@ -550,6 +614,11 @@ pub struct StreamOptions {
     /// for it (see [`crate::capability`]). `None` sends no token (an
     /// executor that requires one refuses the stream).
     pub capability: Option<std::sync::Arc<dyn crate::capability::CapabilityTokens>>,
+    /// What to do about stalls, and when a stalling executor is blamed.
+    pub stall: StallPolicy,
+    /// Counts stalls by what was done about them
+    /// (`entangle_scheduler_streams_stalled_total{outcome}`).
+    pub metrics: Option<entangle_observability::Registry>,
 }
 
 /// What a submitter stream did, for the partial-result policy and audit.
@@ -824,6 +893,55 @@ fn placeholder_finished(task_id: TaskId, executor: PeerId) -> Finished {
     }
 }
 
+/// Apply `options.stall` to a stall the submitter machine reported: blame
+/// the executor when it is at fault, react, and count the outcome.
+fn react_to_stall(
+    m: &mut SubmitterMachine,
+    report: &super::StallReport,
+    options: &StreamOptions,
+    extensions: &mut u32,
+    executor: PeerId,
+) {
+    // Blame (spec §7.1): only a producer stall is the executor's doing — a
+    // credit stall is this end not consuming.
+    if report.kind == super::StallKind::Producer {
+        if let Some(store) = &options.reputation {
+            let late = m
+                .expected_output_bytes()
+                .is_some_and(|expected| expected > 0 && report.bytes.saturating_mul(2) >= expected);
+            let recent = store.note_stall(&executor, Instant::now());
+            let repeated = recent.max(report.count as usize) >= options.stall.repeat_blame.max(1) as usize;
+            if late || repeated {
+                let score = store.penalize(&executor, m.policy_kind(), ReputationReason::StalledStream);
+                tracing::warn!(
+                    target: super::STREAM_TRACE_TARGET,
+                    peer = %executor,
+                    late,
+                    recent_stalls = recent,
+                    score,
+                    "stream executor penalized for stalling"
+                );
+            }
+        }
+    }
+    let reaction = match options.stall.reaction {
+        StallReaction::Extend { times, .. } if *extensions >= times => StallReaction::Wait,
+        other => other,
+    };
+    match reaction {
+        StallReaction::Wait => {}
+        StallReaction::Preempt => m.preempt(report.kind, report.waited, false),
+        StallReaction::PreemptAndReassign => m.preempt(report.kind, report.waited, true),
+        StallReaction::Extend { by, .. } => {
+            *extensions += 1;
+            m.extend_stall(by, Instant::now());
+        }
+    }
+    if let Some(reg) = &options.metrics {
+        entangle_observability::catalog::stream_stalled(reg, reaction.outcome());
+    }
+}
+
 /// Which `ReputationReason` an executor-attributable error earns.
 fn penalty(error: &StreamError) -> Option<ReputationReason> {
     match error {
@@ -864,6 +982,7 @@ async fn drive_submitter(
     let mut pending_input: Option<(Vec<u8>, Reply)> = None;
     let mut pending_finish: Option<Reply> = None;
     let mut cmds_open = true;
+    let mut extensions: u32 = 0;
 
     loop {
         // Timers first (see the executor loop): a flooding executor cannot
@@ -910,8 +1029,17 @@ async fn drive_submitter(
             }
         }
         while let Some(event) = m.poll_event() {
+            if let StreamEvent::StallDetected(report) = &event {
+                react_to_stall(&mut m, report, &options, &mut extensions, executor);
+            }
             if let Some(tx) = &options.events {
                 let _ = tx.send(event);
+            }
+        }
+        // A reaction may have queued an `Extend` or a `Cancel`.
+        while let Some(frame) = m.poll_transmit() {
+            if let Err(e) = out.push(frame) {
+                m.fail(StreamError::Transport(e.to_string()));
             }
         }
         if m.is_terminal() {

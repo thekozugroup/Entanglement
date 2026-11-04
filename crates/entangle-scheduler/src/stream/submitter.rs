@@ -46,7 +46,7 @@ use super::signing::{
     request_digest, transcript_next, transcript_start, ChunkVerifier, SignedChunk,
 };
 use super::validate::{check_executor_allowed, chunk_allowance, validate_submit};
-use super::{grant_threshold, StreamEvent};
+use super::{grant_threshold, StallKind, StallReport, StreamEvent};
 use crate::work_unit::PolicyHash;
 
 /// Default time an executor has to answer `Open` with `Accepted`.
@@ -140,6 +140,11 @@ pub struct SubmitterOptions {
     pub open_timeout: Duration,
     /// Slack beyond the task timeout before the submitter gives up.
     pub deadline_slack: Duration,
+    /// Report a [`StallKind::Producer`] stall when the executor, holding
+    /// output credit, has sent nothing (no chunk, no `End`) for this long.
+    /// `None` (the default): never — a plugin may legitimately think for a
+    /// long time between two chunks.
+    pub stall_after: Option<Duration>,
 }
 
 impl Default for SubmitterOptions {
@@ -147,6 +152,7 @@ impl Default for SubmitterOptions {
         Self {
             open_timeout: DEFAULT_OPEN_TIMEOUT,
             deadline_slack: DEFAULT_DEADLINE_SLACK,
+            stall_after: None,
         }
     }
 }
@@ -193,6 +199,20 @@ pub struct SubmitterMachine {
     outbox: VecDeque<Frame>,
     events: VecDeque<StreamEvent>,
     error: Option<StreamError>,
+    // stalls (see `StallKind`)
+    stall_after: Option<Duration>,
+    /// The credit-exhaustion timeout in force (the smaller of the declared
+    /// one and the executor's).
+    credit_timeout: Duration,
+    /// When the stream last moved: `Accepted`, a chunk, or an extension.
+    last_progress: Instant,
+    /// Since when the executor has had no output credit.
+    zero_credit_since: Option<Instant>,
+    /// The stall being reported, until the stream moves again.
+    stalled: Option<StallKind>,
+    /// Stalls so far.
+    stalls: u32,
+    expected_output_bytes: Option<u64>,
 }
 
 impl SubmitterMachine {
@@ -262,9 +282,126 @@ impl SubmitterMachine {
             outbox: VecDeque::new(),
             events: VecDeque::new(),
             error: None,
+            stall_after: options.stall_after,
+            credit_timeout: Duration::from_millis(declared.credit_exhaustion_timeout_ms),
+            last_progress: now,
+            zero_credit_since: None,
+            stalled: None,
+            stalls: 0,
+            expected_output_bytes: task.expected_output_bytes,
         };
         machine.outbox.push_back(Frame::Open(open));
         Ok(machine)
+    }
+
+    /// The output the task expects, if it said (`StreamingTask::
+    /// expected_output_bytes`).
+    pub const fn expected_output_bytes(&self) -> Option<u64> {
+        self.expected_output_bytes
+    }
+
+    /// Stalls observed so far.
+    pub const fn stalls(&self) -> u32 {
+        self.stalls
+    }
+
+    /// The stall being reported, if the stream has not moved since.
+    pub const fn stalled(&self) -> Option<StallKind> {
+        self.stalled
+    }
+
+    /// Output credits the executor holds, as this end accounts them.
+    fn executor_credit(&self) -> u64 {
+        (u64::from(self.eff.credit_window) + self.granted).saturating_sub(self.received)
+    }
+
+    /// Ask the executor to extend its stall timeout by `by` (an `Extend`
+    /// frame), and give the stream as long again before this end reports
+    /// the next stall. No-op unless the stream is active.
+    pub fn extend_stall(&mut self, by: Duration, now: Instant) {
+        if self.state != SubmitterState::Active {
+            return;
+        }
+        self.outbox.push_back(Frame::Extend {
+            ms: u64::try_from(by.as_millis()).unwrap_or(u64::MAX),
+        });
+        self.stalled = None;
+        self.last_progress = now;
+        if self.zero_credit_since.is_some() {
+            self.zero_credit_since = Some(now);
+        }
+    }
+
+    /// The scheduler preempts the stream (spec §7.1 `Stalled → Cancelled`):
+    /// queue `Cancel` and close with [`StreamError::Preempted`].
+    pub fn preempt(&mut self, kind: StallKind, waited: Duration, reassign: bool) {
+        if !self.is_terminal() {
+            self.outbox.push_back(Frame::Cancel {
+                reason: Reason::Cancelled,
+            });
+            self.close(StreamError::Preempted {
+                kind,
+                waited_ms: u64::try_from(waited.as_millis()).unwrap_or(u64::MAX),
+                reassign,
+            });
+        }
+    }
+
+    /// When the current stall timers fire, if any.
+    fn stall_deadline(&self) -> Option<Instant> {
+        if self.state != SubmitterState::Active || self.stalled.is_some() {
+            return None;
+        }
+        let credit = self.zero_credit_since.map(|z| z + self.credit_timeout);
+        let producer = self
+            .stall_after
+            .filter(|_| self.executor_credit() > 0)
+            .map(|after| self.last_progress + after);
+        match (credit, producer) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        }
+    }
+
+    /// Report a stall due at `now`, once per episode.
+    fn check_stall(&mut self, now: Instant) {
+        if self.state != SubmitterState::Active || self.stalled.is_some() {
+            return;
+        }
+        let credit = self
+            .zero_credit_since
+            .filter(|z| now >= *z + self.credit_timeout)
+            .map(|z| (StallKind::Credit, now.saturating_duration_since(z)));
+        let producer = self
+            .stall_after
+            .filter(|after| self.executor_credit() > 0 && now >= self.last_progress + *after)
+            .map(|_| (StallKind::Producer, now.saturating_duration_since(self.last_progress)));
+        if let Some((kind, waited)) = credit.or(producer) {
+            self.stalled = Some(kind);
+            self.stalls += 1;
+            let report = StallReport {
+                task_id: self.task_id,
+                executor: PeerId::from_public_key_bytes(&self.executor_key),
+                kind,
+                chunks: self.received,
+                bytes: self.received_bytes,
+                waited,
+                count: self.stalls,
+            };
+            tracing::warn!(
+                target: super::STREAM_TRACE_TARGET,
+                event = "StalledEvent",
+                observed_by = "submitter",
+                task = %report.task_id,
+                peer_id = %report.executor,
+                stall = kind.as_str(),
+                chunks = report.chunks,
+                bytes = report.bytes,
+                waited_ms = waited.as_millis() as u64,
+                "stream stalled"
+            );
+            self.events.push_back(StreamEvent::StallDetected(report));
+        }
     }
 
     /// What a capability token for this stream must be bound to:
@@ -370,7 +507,17 @@ impl SubmitterMachine {
                 Ok(())
             }
             (SubmitterState::Opening, Frame::Accepted(a)) => self.on_accepted(a, now),
-            (SubmitterState::Active, Frame::Chunk(c)) => self.on_chunk(c),
+            (SubmitterState::Active, Frame::Chunk(c)) => {
+                self.on_chunk(c)?;
+                self.last_progress = now;
+                if self.stalled == Some(StallKind::Producer) {
+                    self.stalled = None;
+                }
+                if self.executor_credit() == 0 && self.zero_credit_since.is_none() {
+                    self.zero_credit_since = Some(now);
+                }
+                Ok(())
+            }
             (SubmitterState::Active, Frame::End(e)) => self.on_end(e),
             (SubmitterState::Active, Frame::Credit { n }) => {
                 let balance = u64::from(self.in_credit) + u64::from(n);
@@ -464,6 +611,11 @@ impl SubmitterMachine {
                     self.outbox.push_back(Frame::Credit { n });
                     self.granted += u64::from(n);
                     self.ungranted = 0;
+                    // The executor has credit again.
+                    self.zero_credit_since = None;
+                    if self.stalled == Some(StallKind::Credit) {
+                        self.stalled = None;
+                    }
                 }
             }
             return ChunkPoll::Chunk(chunk);
@@ -579,11 +731,13 @@ impl SubmitterMachine {
     pub fn poll_timeout(&self) -> Option<Instant> {
         match self.state {
             SubmitterState::Opening => Some(self.open_deadline.min(self.deadline)),
-            SubmitterState::Active => Some(
-                self.heartbeat
+            SubmitterState::Active => {
+                let next = self
+                    .heartbeat
                     .as_ref()
-                    .map_or(self.deadline, |hb| hb.deadline().min(self.deadline)),
-            ),
+                    .map_or(self.deadline, |hb| hb.deadline().min(self.deadline));
+                Some(self.stall_deadline().map_or(next, |s| s.min(next)))
+            }
             SubmitterState::Ended | SubmitterState::Closed(_) => None,
         }
     }
@@ -606,6 +760,7 @@ impl SubmitterMachine {
             });
             return;
         }
+        self.check_stall(now);
         let beat = self.heartbeat.as_mut().and_then(|hb| hb.on_tick(now));
         match beat {
             Some(Beat::Ping { seq, ts_ms }) => self.outbox.push_back(Frame::Ping { seq, ts_ms }),
@@ -675,6 +830,12 @@ impl SubmitterMachine {
         };
         self.in_credit = a.input_window;
         self.state = SubmitterState::Active;
+        self.credit_timeout = Duration::from_millis(
+            self.declared
+                .credit_exhaustion_timeout_ms
+                .min(a.channel.credit_exhaustion_timeout_ms),
+        );
+        self.last_progress = now;
         let mut hb = Heartbeat::new(
             Duration::from_millis(u64::from(self.declared.heartbeat_ms)),
             now,

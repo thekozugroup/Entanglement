@@ -44,6 +44,7 @@ pub mod partial;
 pub mod server;
 pub mod signing;
 pub mod submitter;
+pub mod supervise;
 pub mod validate;
 
 use std::time::{Duration, Instant};
@@ -51,7 +52,11 @@ use std::time::{Duration, Instant};
 use entangle_types::peer_id::PeerId;
 use entangle_types::task::TaskId;
 
-pub use driver::{drive_executor, ExecutorReport, StreamHandle, StreamOptions, SubmitterReport};
+pub use driver::{
+    drive_executor, ExecutorReport, StallPolicy, StallReaction, StreamHandle, StreamOptions,
+    SubmitterReport,
+};
+pub use supervise::{StreamOpener, SupervisedChunk, SupervisedPoll, SupervisedStream};
 pub use error::{Reason, Side, StreamError};
 pub use executor::{ExecutorConfig, ExecutorMachine, ExecutorState, InputPoll, SendOutcome};
 pub use frame::{Frame, Signature64, STREAM_WIRE_VERSION};
@@ -93,6 +98,55 @@ pub struct StalledEvent {
     pub at: Instant,
 }
 
+/// What kind of stall the submitter observed (see
+/// [`SubmitterMachine`](submitter::SubmitterMachine)).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum StallKind {
+    /// The executor has had no output credit for the credit-exhaustion
+    /// timeout (spec §7.1 `Active → Stalled`): the consumer is not taking
+    /// chunks. The executor sees the same stall from its side.
+    Credit,
+    /// The executor had credit and sent nothing — no chunk, no `End` — for
+    /// the submitter's stall window: the executor stopped producing.
+    Producer,
+}
+
+impl StallKind {
+    /// Stable label: `credit`, `producer`.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Credit => "credit",
+            Self::Producer => "producer",
+        }
+    }
+}
+
+impl std::fmt::Display for StallKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// A stall the submitter observed (spec §7.1: "the scheduler may preempt
+/// and reassign, extend the timeout via a control frame, or cancel").
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StallReport {
+    /// The task.
+    pub task_id: TaskId,
+    /// The executor.
+    pub executor: PeerId,
+    /// Which stall.
+    pub kind: StallKind,
+    /// Chunks received before the stall.
+    pub chunks: u64,
+    /// Bytes received before the stall.
+    pub bytes: u64,
+    /// How long nothing moved.
+    pub waited: Duration,
+    /// Stalls of this stream so far, this one included.
+    pub count: u32,
+}
+
 /// Something a stream end reports while it runs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StreamEvent {
@@ -105,6 +159,8 @@ pub enum StreamEvent {
         /// How long it was stalled.
         after: Duration,
     },
+    /// The submitter observed a stall (only a submitter reports this).
+    StallDetected(StallReport),
     /// The stream ended or closed.
     Closed {
         /// The task.

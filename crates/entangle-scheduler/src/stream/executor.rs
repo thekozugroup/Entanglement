@@ -135,7 +135,21 @@ pub struct ExecutorMachine {
     outbox: VecDeque<Frame>,
     events: VecDeque<StreamEvent>,
     error: Option<StreamError>,
+    /// A stall extension the submitter asked for (`Extend`): the stream is
+    /// not cancelled as unresponsive before this.
+    extended_until: Option<Instant>,
+    /// `Extend` frames honoured so far.
+    extensions: u32,
 }
+
+/// The most `Extend` frames an executor honours per stream; later ones are
+/// ignored (the stall then runs its course). The wall-clock deadline bounds
+/// a stream regardless.
+pub const MAX_STALL_EXTENSIONS: u32 = 16;
+
+/// The longest one `Extend` frame pushes a stall's cancellation out (the
+/// spec's default credit-exhaustion timeout, 30 minutes).
+pub const MAX_STALL_EXTENSION: Duration = Duration::from_secs(30 * 60);
 
 impl ExecutorMachine {
     /// Start a stream at `now`: queues the `Accepted` frame and the first
@@ -161,6 +175,8 @@ impl ExecutorMachine {
             outbox: VecDeque::new(),
             events: VecDeque::new(),
             error: None,
+            extended_until: None,
+            extensions: 0,
         };
         machine.outbox.push_back(Frame::Accepted(AcceptedFrame {
             observed_policy_hash: config.policy_hash,
@@ -348,6 +364,25 @@ impl ExecutorMachine {
                 });
                 Ok(())
             }
+            Frame::Extend { ms } => {
+                // At most `MAX_STALL_EXTENSION` per frame, and a bounded
+                // number of frames: a submitter cannot pin this executor
+                // indefinitely (and the wall-clock deadline holds).
+                if self.extensions < MAX_STALL_EXTENSIONS {
+                    self.extensions += 1;
+                    let by = Duration::from_millis(ms).min(MAX_STALL_EXTENSION);
+                    let until = now + by;
+                    self.extended_until = Some(self.extended_until.map_or(until, |u| u.max(until)));
+                    tracing::info!(
+                        target: super::STREAM_TRACE_TARGET,
+                        task = %self.task_id,
+                        by_ms = by.as_millis() as u64,
+                        extensions = self.extensions,
+                        "stall timeout extended by the submitter"
+                    );
+                }
+                Ok(())
+            }
             Frame::Error { reason, message } => {
                 self.close(StreamError::PeerAborted {
                     by: Side::Submitter,
@@ -486,7 +521,7 @@ impl ExecutorMachine {
                 }
             }
             (ExecutorState::Stalled { since }, zero) => {
-                if now >= since + self.limits.credit_timeout {
+                if now >= self.unresponsive_at(since) {
                     let waited = zero
                         .map(|z| now.saturating_duration_since(z))
                         .unwrap_or(Duration::ZERO);
@@ -536,9 +571,17 @@ impl ExecutorMachine {
             ExecutorState::Active if self.out_credit == 0 => self
                 .credit_zero_since
                 .map(|z| z + self.limits.credit_timeout),
-            ExecutorState::Stalled { since } => Some(since + self.limits.credit_timeout),
+            ExecutorState::Stalled { since } => Some(self.unresponsive_at(since)),
             _ => None,
         }
+    }
+
+    /// When a stream stalled since `since` is cancelled as unresponsive:
+    /// one credit-exhaustion timeout later, or at the end of the
+    /// submitter's extension.
+    fn unresponsive_at(&self, since: Instant) -> Instant {
+        let at = since + self.limits.credit_timeout;
+        self.extended_until.map_or(at, |u| u.max(at))
     }
 
     fn closed_error(&self) -> Option<StreamError> {
@@ -585,6 +628,8 @@ impl ExecutorMachine {
         self.credit_zero_since = None;
         if let ExecutorState::Stalled { since } = self.state {
             self.state = ExecutorState::Active;
+            // A later stall starts from a clean slate.
+            self.extended_until = None;
             self.events.push_back(StreamEvent::Resumed {
                 task_id: self.task_id,
                 after: now.saturating_duration_since(since),

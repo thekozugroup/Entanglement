@@ -317,6 +317,16 @@ pub enum Frame {
         /// Why.
         reason: Reason,
     },
+    /// Submitter → executor: the scheduler extends a stalled stream's
+    /// stall timeout by `ms` (spec §7.1: "extend the timeout via a control
+    /// frame"). The executor pushes its `Stalled → Cancelled` deadline out
+    /// by at most 30 minutes per frame, and honours a bounded number of
+    /// them; the stream's wall-clock deadline still applies. An executor that predates the frame refuses it as a
+    /// protocol violation.
+    Extend {
+        /// Milliseconds asked for.
+        ms: u64,
+    },
 }
 
 impl Frame {
@@ -334,6 +344,7 @@ impl Frame {
             Self::End(_) => "End",
             Self::Error { .. } => "Error",
             Self::Cancel { .. } => "Cancel",
+            Self::Extend { .. } => "Extend",
         }
     }
 
@@ -353,6 +364,7 @@ impl Frame {
                 | Self::Ping { .. }
                 | Self::Pong { .. }
                 | Self::Credit { .. }
+                | Self::Extend { .. }
         )
     }
 

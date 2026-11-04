@@ -121,7 +121,8 @@ impl std::fmt::Display for Side {
 
 /// Everything that can go wrong with a streaming task.
 ///
-/// Codes `ENTANGLE-E0350`–`E0399` belong to this enum (see the range table in
+/// Codes `ENTANGLE-E0350`–`E0399` belong to this enum, and `E0474`–`E0476`
+/// of the scheduler failure-handling range (see the range table in
 /// `entangle_types::errors`).
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
@@ -317,6 +318,34 @@ pub enum StreamError {
         /// The allowance in force.
         limit: u64,
     },
+
+    /// `ENTANGLE-E0474` — the scheduler preempted a stalled stream (spec
+    /// §7.1 `Stalled → Cancelled` by `scheduler.preempt()`); with
+    /// `reassign`, to restart it on another executor.
+    #[error(
+        "ENTANGLE-E0474: stream preempted by the scheduler: the {kind} stalled for \
+         {waited_ms}ms{}",
+        if *reassign { "; reassigning it to another executor" } else { "" }
+    )]
+    Preempted {
+        /// Which stall (`credit`: the consumer took nothing; `producer`:
+        /// the executor sent nothing).
+        kind: super::StallKind,
+        /// How long nothing moved.
+        waited_ms: u64,
+        /// Whether the scheduler restarts it elsewhere.
+        reassign: bool,
+    },
+
+    /// `ENTANGLE-E0475` — a supervised stream ran out of executors or
+    /// attempts; `last` is why its last attempt failed.
+    #[error("ENTANGLE-E0475: stream failed after {attempts} attempt(s): {last}")]
+    AttemptsExhausted {
+        /// Attempts made.
+        attempts: u32,
+        /// The last attempt's error.
+        last: Box<StreamError>,
+    },
 }
 
 impl StreamError {
@@ -343,6 +372,10 @@ impl StreamError {
             Self::Timeout { .. } => Reason::Timeout,
             Self::PolicyHashMismatch { .. } | Self::Policy(_) => Reason::PolicyHashMismatch,
             Self::Plugin(_) => Reason::PluginFailed,
+            // On the wire a preemption is a plain cancel (every executor
+            // knows it).
+            Self::Preempted { .. } => Reason::Cancelled,
+            Self::AttemptsExhausted { last, .. } => last.reason(),
         }
     }
 
@@ -371,6 +404,8 @@ impl StreamError {
             Self::Plugin(_) => "ENTANGLE-E0369",
             Self::Policy(_) => "ENTANGLE-E0370",
             Self::TooManyChunks { .. } => "ENTANGLE-E0371",
+            Self::Preempted { .. } => "ENTANGLE-E0474",
+            Self::AttemptsExhausted { .. } => "ENTANGLE-E0475",
         }
     }
 }
@@ -441,6 +476,15 @@ mod tests {
             StreamError::Plugin("x".into()),
             StreamError::Policy("x".into()),
             StreamError::TooManyChunks { limit: 1 },
+            StreamError::Preempted {
+                kind: super::super::StallKind::Producer,
+                waited_ms: 5,
+                reassign: true,
+            },
+            StreamError::AttemptsExhausted {
+                attempts: 2,
+                last: Box::new(StreamError::PeerLost { missed: 3 }),
+            },
         ]
     }
 
@@ -459,9 +503,10 @@ mod tests {
         codes.sort_unstable();
         codes.dedup();
         assert_eq!(codes.len(), n, "duplicate stream error code");
-        assert!(codes
-            .iter()
-            .all(|c| ("ENTANGLE-E0350"..="ENTANGLE-E0399").contains(c)));
+        // E0350–E0399 for the protocol; E0474–E0476 (the scheduler
+        // failure-handling range) for preemption and supervised restarts.
+        assert!(codes.iter().all(|c| ("ENTANGLE-E0350"..="ENTANGLE-E0399").contains(c)
+            || ("ENTANGLE-E0474"..="ENTANGLE-E0476").contains(c)));
     }
 
     #[test]
