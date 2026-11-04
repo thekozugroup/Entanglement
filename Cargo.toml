@@ -99,7 +99,8 @@ hex = "0.4"
 tempfile = "3"
 # `entangle backup` archive: Argon2id KDF + XChaCha20-Poly1305 AEAD (RustCrypto,
 # MIT/Apache-2.0). aead 0.5 is already in the lock file.
-argon2 = "0.5"
+# `zeroize`: `Block: Zeroize`, so the KDF work area can be wiped (backup.rs).
+argon2 = { version = "0.5", features = ["zeroize"] }
 chacha20poly1305 = "0.10"
 zeroize = "1"
 

@@ -194,15 +194,26 @@ impl ArchiveFile {
         std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(self.modified_unix?))
     }
 
-    fn bytes(&self) -> Result<Vec<u8>> {
+    fn bytes(&self) -> Result<Zeroizing<Vec<u8>>> {
         base64::engine::general_purpose::STANDARD
             .decode(&self.data)
+            .map(Zeroizing::new)
             .map_err(|e| anyhow!("ENTANGLE-E0863: {} is not valid base64: {e}", self.name))
     }
 }
 
-/// The decrypted contents of an archive.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// The base64 holds the identity's private key: wiped when dropped.
+impl Drop for ArchiveFile {
+    fn drop(&mut self) {
+        zeroize::Zeroize::zeroize(&mut self.data);
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for ArchiveFile {}
+
+/// The decrypted contents of an archive. Not `Clone`: it holds the identity
+/// key, and every copy is one more buffer to wipe.
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Contents {
     /// Payload schema version (1).
     pub format: u32,
@@ -218,8 +229,12 @@ fn derive_key(pass: &[u8], salt: &[u8], p: KdfParams) -> Result<Zeroizing<[u8; 3
     let params = Params::new(p.m_cost, p.t_cost, p.lanes, Some(32))
         .map_err(|e| anyhow!("ENTANGLE-E0861: invalid KDF parameters: {e}"))?;
     let mut key = Zeroizing::new([0u8; 32]);
-    Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
-        .hash_password_into(pass, salt, key.as_mut())
+    let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    // Our own work area (`hash_password_into` frees its own unwiped): it is
+    // derived from the passphrase, so it is wiped when dropped.
+    let mut blocks = Zeroizing::new(vec![argon2::Block::default(); argon.params().block_count()]);
+    argon
+        .hash_password_into_with_memory(pass, salt, key.as_mut(), blocks.as_mut_slice())
         .map_err(|e| anyhow!("ENTANGLE-E0861: key derivation failed: {e}"))?;
     Ok(key)
 }
@@ -228,9 +243,29 @@ fn cipher_for(key: &[u8; 32]) -> Result<XChaCha20Poly1305> {
     XChaCha20Poly1305::new_from_slice(key).map_err(|_| anyhow!("ENTANGLE-E0862: bad key length"))
 }
 
+/// The payload serialized into a buffer of exactly its size: a buffer grown
+/// while serializing would leave freed, unwiped copies of the plaintext.
+fn plaintext(contents: &Contents) -> Result<Zeroizing<Vec<u8>>> {
+    struct Count(usize);
+    impl std::io::Write for Count {
+        fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+            self.0 += b.len();
+            Ok(b.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut n = Count(0);
+    serde_json::to_writer(&mut n, contents)?;
+    let mut buf = Zeroizing::new(Vec::with_capacity(n.0));
+    serde_json::to_writer(&mut *buf, contents)?;
+    Ok(buf)
+}
+
 /// Encrypt `contents` under `passphrase` into the archive byte format.
 pub fn seal(contents: &Contents, passphrase: &str, kdf: KdfParams) -> Result<Vec<u8>> {
-    let plain = Zeroizing::new(serde_json::to_vec(contents)?);
+    let plain = plaintext(contents)?;
     let mut salt = [0u8; SALT_LEN];
     let mut nonce = [0u8; NONCE_LEN];
     rand_core::OsRng.fill_bytes(&mut salt);
@@ -497,9 +532,11 @@ fn create_private_dir(dir: &Path) -> std::io::Result<()> {
     b.create(dir)
 }
 
-fn read_optional(path: &Path) -> Result<Option<Vec<u8>>> {
+/// The file's bytes (wiped when dropped: these are the identity key and its
+/// trust state), or `None` if it does not exist.
+fn read_optional(path: &Path) -> Result<Option<Zeroizing<Vec<u8>>>> {
     match std::fs::read(path) {
-        Ok(b) => Ok(Some(b)),
+        Ok(b) => Ok(Some(Zeroizing::new(b))),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e).with_context(|| format!("reading {}", path.display())),
     }
@@ -580,11 +617,14 @@ pub async fn run_backup(args: BackupArgs) -> Result<()> {
 struct Change {
     name: &'static str,
     /// New bytes, or `None` to remove a stale file the archive does not have.
-    new: Option<Vec<u8>>,
+    new: Option<Zeroizing<Vec<u8>>>,
     /// The new file's recorded time (see `ArchiveFile::modified_unix`).
     time: Option<std::time::SystemTime>,
-    existing: Option<Vec<u8>>,
+    existing: Option<Zeroizing<Vec<u8>>>,
 }
+
+// Both byte buffers are `Zeroizing`.
+impl zeroize::ZeroizeOnDrop for Change {}
 
 fn plan(dir: &Path, c: &Contents) -> Result<Vec<Change>> {
     let mut out = Vec::new();
@@ -981,6 +1021,28 @@ mod tests {
             .duration_since(then)
             .unwrap_or_else(|e| e.duration());
         assert!(off < std::time::Duration::from_secs(2), "off by {off:?}");
+    }
+
+    /// The identity key passes through several buffers on its way into or
+    /// out of an archive; each is wiped when dropped, not just the
+    /// passphrase, the key and the decrypted payload.
+    #[test]
+    fn secret_buffers_are_wiped_on_drop() {
+        fn wiped_on_drop<T: zeroize::ZeroizeOnDrop>() {}
+        fn wipeable<T: zeroize::Zeroize>() {}
+        // The base64 of each file, as decoded from or encoded into the payload.
+        wiped_on_drop::<ArchiveFile>();
+        // What `restore` holds of each file, new and replaced.
+        wiped_on_drop::<Change>();
+        // Argon2's work area (64 MiB derived from the passphrase), wiped
+        // through argon2's `zeroize` feature.
+        wipeable::<argon2::Block>();
+        // The serialized payload is written into a buffer of exactly its
+        // size: a growing buffer would leave freed, unwiped copies of it.
+        let t = tempfile::tempdir().unwrap();
+        let plain = plaintext(&sample(t.path())).unwrap();
+        assert_eq!(plain.capacity(), plain.len());
+        assert!(serde_json::from_slice::<Contents>(&plain).is_ok());
     }
 
     #[test]
