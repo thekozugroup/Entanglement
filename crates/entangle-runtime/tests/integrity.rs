@@ -169,22 +169,24 @@ fn trusted_executor_allowlist_passes_when_local_peer_in_list() {
         .expect("local peer in allowlist should pass");
 }
 
-// ── §16 ATC-INT-4 ─────────────────────────────────────────────────────────────
+// ── TrustedExecutor allowlist ─────────────────────────────────────────────────
 
-/// §16 ATC-INT-4 — `TrustedExecutor` rejects when `local_peer` is not in the allowlist.
+/// `TrustedExecutor` rejects when `local_peer` is not in the allowlist.
+/// (Formerly filed under ATC-INT-4, which is the streaming submit-time check:
+/// `crates/entangle-scheduler/tests/stream_atc.rs`.)
 #[test]
-fn atc_int_4_trusted_executor_rejects_when_local_peer_not_in_list() {
+fn trusted_executor_rejects_when_local_peer_not_in_list() {
     let local_peer = peer_from_seed(0x04);
     let other_peer = peer_from_seed(0xff);
     let policy = IntegrityPolicy::TrustedExecutor {
         allowlist: vec![other_peer],
     };
     let err = entangle_runtime::check_trusted_executor(&policy, &local_peer)
-        .expect_err("ATC-INT-4: local peer absent from allowlist should be refused");
+        .expect_err("local peer absent from allowlist should be refused");
 
     assert!(
         matches!(err, IntegrityError::TrustedExecutorRefused(_)),
-        "ATC-INT-4: expected TrustedExecutorRefused, got: {err}"
+        "expected TrustedExecutorRefused, got: {err}"
     );
 }
 
@@ -263,11 +265,13 @@ async fn attested_message_names_tee_attestation() {
     assert!(!msg.contains("Phase 1"), "stale scaffold wording: {msg}");
 }
 
-// ── §16 ATC-INT-6 ─────────────────────────────────────────────────────────────
+// ── Attested ──────────────────────────────────────────────────────────────────
 
-/// §16 ATC-INT-6 — `Attested` returns `NotImplemented` in Phase 1.
+/// `Attested` returns `NotImplemented` in Phase 1. (Formerly filed under
+/// ATC-INT-6, which is the streaming total-byte cap:
+/// `crates/entangle-scheduler/tests/stream_atc.rs`.)
 #[tokio::test(flavor = "multi_thread")]
-async fn atc_int_6_attested_returns_not_implemented() {
+async fn attested_returns_not_implemented() {
     let keyring = Keyring::new();
     let kernel = Kernel::new(KernelConfig::default(), keyring).unwrap();
     let local_peer = peer_from_seed(0x06);
@@ -287,18 +291,18 @@ async fn atc_int_6_attested_returns_not_implemented() {
     let err = kernel
         .invoke_with_integrity(&task, local_peer)
         .await
-        .expect_err("ATC-INT-6: Attested must return NotImplemented");
+        .expect_err("Attested must return NotImplemented");
 
     assert!(
         matches!(
             err,
             RuntimeError::Integrity(IntegrityError::NotImplemented("Attested"))
         ),
-        "ATC-INT-6: expected Integrity(NotImplemented(\"Attested\")), got: {err}"
+        "expected Integrity(NotImplemented(\"Attested\")), got: {err}"
     );
 
     assert!(
         err.to_string().contains("ENTANGLE-E0304"),
-        "ATC-INT-6: error message must include stable ENTANGLE-E0304 code; got: {err}"
+        "error message must include stable ENTANGLE-E0304 code; got: {err}"
     );
 }
