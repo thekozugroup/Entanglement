@@ -400,7 +400,9 @@ async fn a_spot_check_frame_is_not_linked_to_the_task_it_checks() {
 
     // The checker records what each task frame tells it, and answers right.
     let checker = Node::start(&publisher).await;
-    let frames: Arc<Mutex<Vec<([u8; 16], Option<String>)>>> = Arc::default();
+    /// `(task_id, traceparent)` of each task frame the checker received.
+    type Seen = Vec<([u8; 16], Option<String>)>;
+    let frames: Arc<Mutex<Seen>> = Arc::default();
     let seen = Arc::clone(&frames);
     tokio::spawn(entangle_mesh_iroh::serve(
         Arc::clone(&checker.transport),
