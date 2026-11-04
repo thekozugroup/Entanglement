@@ -4,6 +4,12 @@
 //! configured and running transports, the addresses it can be reached at, the
 //! tailnet state, and for every trusted peer each path a transport knows.
 //! `--probe` additionally measures a round trip to each trusted peer.
+//!
+//! `entangle diag pair` needs no daemon: it checks what `entangle pair` can
+//! use on this host (spec §6.3 "No reachability … suggests `entangle diag
+//! pair`") — mDNS browsing, a QUIC endpoint and its relay setting, the
+//! tailnet, the configured transports — and shows the last pairing
+//! attempts.
 
 use clap::{Args, Subcommand};
 use entangle_rpc::methods::{DiagMeshParams, DiagMeshResult};
@@ -34,6 +40,22 @@ pub enum DiagCmd {
         #[arg(long, default_value_t = 3000)]
         timeout_ms: u64,
     },
+    /// What pairing can use on this host: mDNS, QUIC endpoint and relay,
+    /// tailnet, configured transports, and the last pairing attempts.
+    Pair {
+        /// Emit machine-readable JSON instead of the text report.
+        #[arg(long)]
+        json: bool,
+        /// Seconds to browse mDNS for devices in pairing mode.
+        #[arg(long, default_value_t = 2)]
+        mdns_secs: u64,
+        /// Skip the mDNS check.
+        #[arg(long)]
+        no_mdns: bool,
+        /// Bind the test QUIC endpoint here (default 0.0.0.0:0, as `entangle pair`).
+        #[arg(long, value_name = "ADDR")]
+        bind: Option<String>,
+    },
 }
 
 pub async fn run(args: DiagArgs) -> anyhow::Result<()> {
@@ -43,6 +65,12 @@ pub async fn run(args: DiagArgs) -> anyhow::Result<()> {
             probe,
             timeout_ms,
         } => mesh(json, probe, timeout_ms).await,
+        DiagCmd::Pair {
+            json,
+            mdns_secs,
+            no_mdns,
+            bind,
+        } => crate::cmd::diagpair::run(json, mdns_secs, no_mdns, bind.as_deref()).await,
     }
 }
 

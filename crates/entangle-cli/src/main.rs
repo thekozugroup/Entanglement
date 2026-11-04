@@ -122,7 +122,7 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Plugins' capability grants: list them, revoke one (spec §4.6).
     #[command(subcommand_required = true)]
     Perms(PermsArgs),
-    /// Operator triage reports (`diag mesh`).
+    /// Operator triage reports (`diag mesh`, `diag pair`).
     #[command(subcommand_required = true)]
     Diag(DiagArgs),
     /// Print the running daemon's metrics in the Prometheus text format.

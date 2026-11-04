@@ -567,3 +567,194 @@ fn pair_help_shows_network_flags() {
         .stdout(predicate::str::contains("--yes"))
         .stdout(predicate::str::contains("--timeout"));
 }
+
+// ---------------------------------------------------------------------------
+// 4. Pairing UX (spec §6.3 failure modes, §9.4.2).
+// ---------------------------------------------------------------------------
+
+/// `--print-code` shows the code, the short and the full SHA-256
+/// fingerprint and a QR code; when nobody pairs in time it says the code
+/// expired and how to get a new one, and records the attempt for
+/// `entangle diag pair`.
+#[test]
+fn print_code_shows_sha256_and_qr_then_expires_with_a_remedy() {
+    let home = TempDir::new().unwrap();
+    let work = TempDir::new().unwrap();
+    let peers = work.path().join("peers.toml");
+    let out = StdCommand::new(binary())
+        .args([
+            "pair",
+            "--print-code",
+            "--display-name",
+            "studio",
+            "--bind",
+            "127.0.0.1:0",
+            "--no-mdns",
+            "--timeout",
+            "10",
+            "--peers-file",
+            peers.to_str().unwrap(),
+            "--identity-file",
+            work.path().join("id.key").to_str().unwrap(),
+        ])
+        .env("HOME", home.path())
+        .env_remove("TERM")
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success());
+    let sha = stderr
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("SHA-256:"))
+        .unwrap_or_else(|| panic!("no SHA-256 line:\n{stderr}"))
+        .trim();
+    assert!(
+        sha.starts_with("SHA256:") && sha.len() == 7 + 64,
+        "full hex fingerprint: {sha}"
+    );
+    assert!(stderr.contains("Pairing code:"), "{stderr}");
+    let qr_rows = stderr.lines().filter(|l| l.contains('█')).count();
+    assert!(qr_rows > 10, "a QR code is drawn:\n{stderr}");
+    assert!(stderr.contains("ENTANGLE-E0786: code expired"), "{stderr}");
+    assert!(stderr.contains("entangle pair --print-code"), "{stderr}");
+
+    let log = std::fs::read_to_string(work.path().join("pairing-attempts.json")).unwrap();
+    assert!(
+        log.contains("\"show-code\"") && log.contains("\"failed\""),
+        "{log}"
+    );
+}
+
+/// No reachability: the error lists each transport tried and why it failed,
+/// names what was not tried, and points at `entangle diag pair`, which then
+/// shows the attempt.
+#[test]
+fn unreachable_device_lists_what_was_tried_and_diag_pair_shows_it() {
+    let home = TempDir::new().unwrap();
+    let peers = home.path().join(".entangle/peers.toml");
+    std::fs::create_dir_all(peers.parent().unwrap()).unwrap();
+    // A key nobody listens for, on a loopback port nothing serves.
+    let ghost = hex::encode(
+        entangle_signing::IdentityKeyPair::generate()
+            .public()
+            .as_bytes(),
+    );
+    let sock = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+    let dead = sock.local_addr().unwrap();
+    drop(sock);
+    let a = entangle(&home)
+        .args([
+            "pair",
+            "--peer",
+            &format!("{ghost}@{dead}"),
+            "--code",
+            "123-456",
+            "--yes",
+            "--no-mdns",
+            "--bind",
+            "127.0.0.1:0",
+        ])
+        .timeout(Duration::from_secs(90))
+        .assert()
+        .failure();
+    let stderr = String::from_utf8_lossy(&a.get_output().stderr).into_owned();
+    for needle in [
+        "ENTANGLE-E0788",
+        "Transports tried:",
+        "mesh.iroh (QUIC)",
+        &dead.to_string(),
+        "mesh.tailscale",
+        "entangle diag pair",
+    ] {
+        assert!(stderr.contains(needle), "missing {needle:?}:\n{stderr}");
+    }
+
+    let a = entangle(&home)
+        .args([
+            "diag",
+            "pair",
+            "--json",
+            "--no-mdns",
+            "--bind",
+            "127.0.0.1:0",
+        ])
+        .env("PATH", "/nonexistent")
+        .timeout(Duration::from_secs(60))
+        .assert()
+        .success();
+    let report: serde_json::Value = serde_json::from_slice(&a.get_output().stdout).unwrap();
+    assert_eq!(report["quic"]["status"], "ok", "{report:#}");
+    assert_eq!(report["mdns"]["status"], "skipped");
+    assert_eq!(report["tailscale"]["state"], "uninstalled");
+    let last = &report["last_attempts"][0];
+    assert_eq!(last["role"], "enter-code", "{report:#}");
+    assert_eq!(last["outcome"], "failed");
+    assert!(
+        last["tried"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["transport"] == "mesh.iroh (QUIC)"),
+        "{report:#}"
+    );
+    assert!(
+        report["hints"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|h| h.as_str().unwrap().contains("last pairing attempt failed")),
+        "{report:#}"
+    );
+
+    // The text form says the same.
+    entangle(&home)
+        .args(["diag", "pair", "--no-mdns", "--bind", "127.0.0.1:0"])
+        .env("PATH", "/nonexistent")
+        .timeout(Duration::from_secs(60))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Last pairing attempts"))
+        .stdout(predicate::str::contains("enter-code"))
+        .stdout(predicate::str::contains("QUIC endpoint"));
+}
+
+/// The copy-paste channel's expiry says so with a stable code and the remedy.
+#[test]
+fn manual_request_past_its_expiry_says_the_code_expired() {
+    use base64::Engine as _;
+    let home = TempDir::new().unwrap();
+    let work = TempDir::new().unwrap();
+    let kp = entangle_signing::IdentityKeyPair::generate();
+    let key = *kp.public().as_bytes();
+    let code: entangle_pairing::PairingCode = "123-456".parse().unwrap();
+    let request = entangle_pairing::PairingRequest {
+        initiator_peer_id: entangle_types::peer_id::PeerId::from_public_key_bytes(&key),
+        initiator_pubkey_hex: hex::encode(key),
+        initiator_display_name: "old".into(),
+        code_commit: entangle_pairing::make_code_commit(code, &key),
+        nonce: [0; 32],
+        created_at_secs: 1,
+    };
+    let blob = format!(
+        "ENT-REQ-{}",
+        base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(serde_json::to_vec(&request).unwrap())
+    );
+    let req = work.path().join("req.blob");
+    std::fs::write(&req, blob).unwrap();
+    entangle(&home)
+        .args([
+            "pair",
+            "--responder",
+            "--request-file",
+            req.to_str().unwrap(),
+            "--code",
+            "123-456",
+            "--peers-file",
+            work.path().join("peers.toml").to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0786: code expired"))
+        .stderr(predicate::str::contains("entangle pair --manual"));
+}
