@@ -1,8 +1,10 @@
-# Entanglement Phase 1 Tutorial
+# Entanglement Tutorial
 
-This tutorial walks through the complete Phase 1 happy path: installing the
+This tutorial walks through the single-machine happy path: installing the
 daemon, initializing your identity, building a plugin, loading it, invoking it,
-and pairing a second device. Every command is shown with expected output.
+and pairing a second device. Features beyond that (remote tasks, streaming,
+agents, tier-5 plugins, OCI) are listed in section 12 and documented in
+[operations.md](operations.md). Every command is shown with expected output.
 
 Cross-references to deeper theory live in [docs/architecture.md](architecture.md).
 
@@ -300,7 +302,7 @@ entangle plugins invoke a3f9c7d1/hash-it@0.1.0 --input "world"
 
 The daemon keeps the plugin registry in memory for the life of its process.
 Persisting the registry across `entangled` restarts (so plugins reload
-automatically on the next `entangled run`) is not implemented yet — Phase 2.
+automatically on the next `entangled run`) is not implemented.
 Stopping the daemon (`Ctrl-C`) is graceful, but you currently need to
 `entangle plugins load` again after a restart.
 
@@ -348,15 +350,28 @@ checks green.
 Pairing establishes mutual trust-on-first-use (TOFU) between two devices: each
 side records the other's Ed25519 public key and display name in
 `~/.entangle/peers.toml`, gated by a 6-digit code (read aloud / typed
-out-of-band) plus a fingerprint comparison. The exchange happens over a
-manual copy-paste channel in Phase 1. There is **no** `--respond`, `--accept`,
-or `--finalize` flag, and the blobs are not colon-separated — see
-`crates/entangle-cli/src/cmd/pair.rs` for the real implementation.
+out-of-band) plus a fingerprint comparison.
 
-### 11.1 Initiator (device A)
+There are two channels:
+
+- **Over the network (default).** On device B run `entangle pair --responder`.
+  It binds a QUIC endpoint, announces itself over mDNS and shows a 6-digit
+  code. On device A run `entangle pair`, pick device B from the list (or pass
+  `--peer <pubkey-hex>@<host>:<port>`), type the code, compare the two
+  fingerprints and confirm. Neither side needs a running daemon.
+- **Copy-paste (`--manual`).** Three text blobs are carried between the devices
+  by hand. Use it on air-gapped hosts or where neither mDNS nor QUIC can
+  cross. Any `--*-file` blob option also selects it.
+
+Sections 11.1 to 11.5 show the copy-paste channel. The network channel stores
+the same result. There is **no** `--respond`, `--accept` or `--finalize` flag,
+and the blobs are not colon-separated; see
+`crates/entangle-cli/src/cmd/pair.rs` for the implementation.
+
+### 11.1 Initiator (device A), copy-paste
 
 ```bash
-entangle pair
+entangle pair --manual
 ```
 
 Output:
@@ -382,7 +397,7 @@ AirDrop, a shared file).
 ### 11.2 Responder (device B)
 
 ```bash
-entangle pair --responder
+entangle pair --responder --manual
 ```
 
 Output:
@@ -459,28 +474,31 @@ terminals on the same machine without hand-copying blobs:
 | `--emit-accept-file <PATH>` | responder | write the ACCEPT blob to a file instead of stdout |
 | `--consume-finalize-file <PATH>` | responder | read the FINALIZE blob from a file instead of stdin |
 
-The blob exchange itself stays manual (copy-paste, a shared file, or a QR
-code you generate yourself) — automatic pairing over the mesh transports is
-Phase 2. See [architecture.md §8](architecture.md#8-pairing) for the
+In the copy-paste channel the blob exchange is manual (copy-paste, a shared
+file, or a QR code you generate yourself). See [architecture.md §8](architecture.md#8-pairing) for the
 protocol's threat model.
 
 ---
 
-## 12. What Is NOT in Phase 1
+## 12. Beyond this tutorial
 
-Phase 1 covers local single-machine operation. The following are explicitly out
-of scope and will ship in later phases:
+This tutorial covers one machine plus pairing. The features below exist but are
+not walked through here. Commands and flags are in
+[operations.md](operations.md); gaps are in [STATUS.md](../STATUS.md).
 
-| Feature | Spec section | Target phase |
-|---------|-------------|--------------|
-| Mesh transport over iroh (NAT-traversing P2P) | architecture.md §10 mesh.iroh | Phase 2 |
-| Mesh transport over Tailscale | architecture.md §10 mesh.tailscale | Phase 2 |
-| Distributed compute over real remote workers | architecture.md §11 | Phase 2 |
-| MCP gateway server for agent-host integration | architecture.md §12 | Phase 2 |
-| Plugin registry (publish / discover / update) | architecture.md §13 | Phase 3 |
-| Audit log streaming to external SIEM | architecture.md §14 | Phase 3 |
-| Multi-tenant broker (serve multiple users) | architecture.md §15 | Phase 3 |
-| Hardware attestation (TPM, Secure Enclave) | architecture.md §16 | Phase 4 |
+| Feature | Where to read |
+|---------|---------------|
+| Remote one-shot and streaming tasks (`entangle compute dispatch`, `compute stream`) over `mesh.iroh` and `mesh.tailscale` | operations.md |
+| Integrity policies (`deterministic`, `semantic-equivalent`, `trusted-executor`) | operations.md, architecture.md §7.5 |
+| MCP gateway and `entangle agent run` | operations.md, [agents.md](agents.md) |
+| Tier-5 native plugins and the Linux sandbox | architecture.md §3.4, operations.md |
+| Capability grants (`entangle perms`) and `entangle security set-max-tier` | operations.md |
+| OCI publish and pull (`plugins publish`, `plugins install oci://...`) | operations.md |
+| Metrics, traces, `entangle diag mesh` | operations.md |
+
+Not implemented: `Attested` integrity (needs TEE hardware), native Windows,
+`entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
+Not on main yet: `entangle backup` / `restore`, plugin enable/disable.
 
 If you encounter an error code not listed in this tutorial, check the full
 error reference in [architecture.md §appendix-errors](architecture.md#appendix-errors).
@@ -504,7 +522,8 @@ error reference in [architecture.md §appendix-errors](architecture.md#appendix-
 | `entangle doctor` | Health check |
 | `entangle pair` | Begin device pairing (initiator) |
 | `entangle pair --responder` | Respond to a pairing request |
+| `entangle pair --manual` | Pair by copy-paste blobs instead of the network |
 
 ---
 
-*Entanglement Phase 1 — see [architecture.md](architecture.md) for deeper reference.*
+*Entanglement — see [architecture.md](architecture.md) for deeper reference.*
