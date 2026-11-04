@@ -226,16 +226,14 @@ impl MaintenanceLoop {
         Ok(())
     }
 
-    /// Emit a warning when the identity key file is older than `key_rotation_warn_days`.
+    /// Emit a warning when the identity key file is older than
+    /// `key_rotation_warn_days` (see [`key_age`]).
     pub async fn warn_key_rotation(&self) -> std::io::Result<()> {
         if !self.config.identity_path.exists() {
             return Ok(());
         }
         let metadata = std::fs::metadata(&self.config.identity_path)?;
-        if let Ok(created) = metadata.created() {
-            let age = SystemTime::now()
-                .duration_since(created)
-                .unwrap_or(Duration::ZERO);
+        if let Some(age) = key_age(&metadata, SystemTime::now()) {
             let days = age.as_secs() / 86400;
             if days >= self.config.key_rotation_warn_days {
                 warn!(
@@ -275,6 +273,19 @@ impl MaintenanceLoop {
 ///
 /// On success the original uncompressed file is removed.
 /// On any error the original file is left intact so log data is not lost.
+/// Age of the identity key file at `now`, from the older of its creation
+/// and modification times. `entangle restore` writes a new file (a new
+/// creation time) but gives it the archived key's original time as its
+/// modification time, so a restored old key still counts as old; a rotated
+/// key is a new file, new on both counts.
+pub fn key_age(metadata: &std::fs::Metadata, now: SystemTime) -> Option<Duration> {
+    let oldest = [metadata.created().ok(), metadata.modified().ok()]
+        .into_iter()
+        .flatten()
+        .min()?;
+    Some(now.duration_since(oldest).unwrap_or(Duration::ZERO))
+}
+
 fn gzip_in_place(path: &Path) -> std::io::Result<()> {
     use flate2::write::GzEncoder;
     use flate2::Compression;
@@ -459,6 +470,22 @@ mod tests {
         let cfg = cfg_for(&tmp);
         let loop_ = MaintenanceLoop::new(cfg);
         loop_.warn_key_rotation().await.unwrap();
+    }
+
+    #[test]
+    fn key_age_counts_from_the_older_file_time() {
+        let tmp = TempDir::new().unwrap();
+        let p = tmp.path().join("identity.key");
+        std::fs::write(&p, b"key").unwrap();
+        let then = SystemTime::now() - Duration::from_secs(400 * 86_400);
+        std::fs::File::options()
+            .write(true)
+            .open(&p)
+            .unwrap()
+            .set_modified(then)
+            .unwrap();
+        let age = key_age(&std::fs::metadata(&p).unwrap(), SystemTime::now()).unwrap();
+        assert!(age.as_secs() / 86_400 >= 400, "{age:?}");
     }
 
     // -- evict_stale_workers ---------------------------------------------------

@@ -393,7 +393,10 @@ sources the command fails instead of hanging. The archive is written with mode
 A successful backup touches `~/.entangle/.identity_backed_up`, which silences
 the maintenance loop's "identity has no backup" warning
 (`crates/entangle-bin/src/maintenance.rs`, `warn_backup`). The loop also warns
-once the key is older than `key_rotation_warn_days` (default 365 days).
+once the key is older than `key_rotation_warn_days` (default 365 days),
+counting from the older of the file's creation and modification times; the
+archive records that time and `restore` puts it back as the restored file's
+modification time, so a restored key keeps its age.
 
 Keep the passphrase separate from the archive: without it the archive cannot
 be opened, and there is no recovery.

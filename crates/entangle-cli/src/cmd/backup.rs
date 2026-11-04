@@ -157,6 +157,13 @@ pub struct ArchiveFile {
     pub name: String,
     /// Base64 of the file bytes.
     data: String,
+    /// The file's time (seconds since the Unix epoch): the older of its
+    /// creation and modification times. `restore` gives the restored file
+    /// this modification time, so the maintenance loop's key-age check
+    /// (which uses the older of the two) still sees a restored old identity
+    /// key as old. Absent in archives written before it was recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    modified_unix: Option<u64>,
 }
 
 impl ArchiveFile {
@@ -165,7 +172,26 @@ impl ArchiveFile {
         Self {
             name: name.to_string(),
             data: base64::engine::general_purpose::STANDARD.encode(bytes),
+            modified_unix: None,
         }
+    }
+
+    /// Record the time of the file at `path` (see `modified_unix`).
+    fn with_time_of(mut self, path: &Path) -> Self {
+        self.modified_unix = std::fs::metadata(path).ok().and_then(|m| {
+            [m.created().ok(), m.modified().ok()]
+                .into_iter()
+                .flatten()
+                .min()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+        });
+        self
+    }
+
+    /// The recorded time, if any (and representable).
+    fn time(&self) -> Option<std::time::SystemTime> {
+        std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(self.modified_unix?))
     }
 
     fn bytes(&self) -> Result<Vec<u8>> {
@@ -405,7 +431,7 @@ fn warn_if_group_readable(path: &Path) {
 /// place). An existing file is replaced, never written through, so a stale
 /// looser mode cannot survive.
 fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let tmp = stage_private(path, bytes)?;
+    let tmp = stage_private(path, bytes, None)?;
     let result = std::fs::rename(&tmp, path);
     if result.is_err() {
         let _ = std::fs::remove_file(&tmp);
@@ -414,9 +440,14 @@ fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 }
 
 /// Write `bytes` to a new temporary file next to `path` (mode 0600 from
-/// creation, fsynced) and return its path; renaming it over `path` is left
-/// to the caller. Nothing is left behind on failure.
-fn stage_private(path: &Path, bytes: &[u8]) -> std::io::Result<PathBuf> {
+/// creation, modification time `mtime` when given, fsynced) and return its
+/// path; renaming it over `path` is left to the caller. Nothing is left
+/// behind on failure.
+fn stage_private(
+    path: &Path,
+    bytes: &[u8],
+    mtime: Option<std::time::SystemTime>,
+) -> std::io::Result<PathBuf> {
     let parent = path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -439,6 +470,10 @@ fn stage_private(path: &Path, bytes: &[u8]) -> std::io::Result<PathBuf> {
         }
         let mut f = opts.open(&tmp)?;
         f.write_all(bytes)?;
+        if let Some(t) = mtime {
+            // Best effort: only the key-age warning depends on it.
+            let _ = f.set_modified(t);
+        }
         f.sync_all()
     })();
     match result {
@@ -493,14 +528,14 @@ pub fn collect(dir: &Path, include_config: bool) -> Result<Contents> {
         .map_err(|_| anyhow!("ENTANGLE-E0866: identity.key is not UTF-8"))?;
     let kp = IdentityKeyPair::from_pem(pem)
         .map_err(|e| anyhow!("ENTANGLE-E0866: identity.key is unreadable: {e}"))?;
-    let mut files = vec![ArchiveFile::new(IDENTITY, &id_bytes)];
+    let mut files = vec![ArchiveFile::new(IDENTITY, &id_bytes).with_time_of(&dir.join(IDENTITY))];
     let mut names = vec![KEYRING, RELEASE_KEYRING, PEERS];
     if include_config {
         names.push(CONFIG);
     }
     for name in names {
         if let Some(b) = read_optional(&dir.join(name))? {
-            files.push(ArchiveFile::new(name, &b));
+            files.push(ArchiveFile::new(name, &b).with_time_of(&dir.join(name)));
         }
     }
     Ok(Contents {
@@ -546,16 +581,20 @@ struct Change {
     name: &'static str,
     /// New bytes, or `None` to remove a stale file the archive does not have.
     new: Option<Vec<u8>>,
+    /// The new file's recorded time (see `ArchiveFile::modified_unix`).
+    time: Option<std::time::SystemTime>,
     existing: Option<Vec<u8>>,
 }
 
 fn plan(dir: &Path, c: &Contents) -> Result<Vec<Change>> {
     let mut out = Vec::new();
     for name in MANAGED.iter().copied().chain([CONFIG]) {
-        let new = match c.files.iter().find(|f| f.name == name) {
+        let file = c.files.iter().find(|f| f.name == name);
+        let new = match file {
             Some(f) => Some(f.bytes()?),
             None => None,
         };
+        let time = file.and_then(ArchiveFile::time);
         let existing = read_optional(&dir.join(name))?;
         // config.toml is only touched when the archive carries it.
         if name == CONFIG && new.is_none() {
@@ -567,6 +606,7 @@ fn plan(dir: &Path, c: &Contents) -> Result<Vec<Change>> {
         out.push(Change {
             name,
             new,
+            time,
             existing,
         });
     }
@@ -649,7 +689,7 @@ fn apply_with(
     for c in &changes {
         let path = dir.join(c.name);
         let tmp = match &c.new {
-            Some(bytes) => match stage_private(&path, bytes) {
+            Some(bytes) => match stage_private(&path, bytes, c.time) {
                 Ok(t) => Some(t),
                 Err(e) => {
                     discard(&staged);
@@ -913,6 +953,34 @@ mod tests {
             .filter(|n| n.contains(".tmp-"))
             .collect();
         assert!(tmp.is_empty(), "{tmp:?}");
+    }
+
+    /// The maintenance loop warns once the identity key is older than
+    /// `key_rotation_warn_days`, measured from the file's times. A restore
+    /// brings back the same old key, so it must not look new afterwards.
+    #[test]
+    fn restore_keeps_the_identity_keys_age() {
+        let src = tempfile::tempdir().unwrap();
+        let _ = sample(src.path());
+        let then = std::time::SystemTime::now() - std::time::Duration::from_secs(400 * 86_400);
+        std::fs::File::options()
+            .write(true)
+            .open(src.path().join(IDENTITY))
+            .unwrap()
+            .set_modified(then)
+            .unwrap();
+        let c = collect(src.path(), false).unwrap();
+        let back = open(&seal(&c, "correct horse", CHEAP).unwrap(), "correct horse").unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        apply(dst.path(), &back, false).unwrap();
+        let restored = std::fs::metadata(dst.path().join(IDENTITY))
+            .unwrap()
+            .modified()
+            .unwrap();
+        let off = restored
+            .duration_since(then)
+            .unwrap_or_else(|e| e.duration());
+        assert!(off < std::time::Duration::from_secs(2), "off by {off:?}");
     }
 
     #[test]
