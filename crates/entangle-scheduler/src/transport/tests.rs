@@ -299,7 +299,9 @@ async fn a_candidate_that_never_connects_does_not_hold_the_request() {
     assert_eq!((local.calls(), ts.calls()), (1, 1));
 
     // With a budget, the candidates with a fallback share what is left of
-    // it: here half of 1 s, well inside the 5 s cap.
+    // it: here half of 1 s, well inside the 5 s cap. (A fresh router: this
+    // one now tries the silent candidate last.)
+    let r = router(&[Scripted::silent(TransportKind::Local, p), ts.clone()]);
     let started = tokio::time::Instant::now();
     let (_, kind) = tokio::time::timeout(
         Duration::from_secs(1),
@@ -352,6 +354,93 @@ async fn a_candidate_that_never_connects_does_not_hold_the_request() {
         "{err}"
     );
     assert_eq!((local.calls(), ts.calls()), (1, 1));
+}
+
+/// A candidate that just failed to connect is not dialled first again on
+/// the next request: it moves behind the others for a while, so a dead
+/// route does not stall every request to that peer.
+#[tokio::test]
+async fn a_transport_that_just_failed_to_connect_is_tried_last_for_a_while() {
+    let p = peer(1);
+    let local = Scripted::new(TransportKind::Local, p, || {
+        Err(LinkError::Connect("connection refused".into()))
+    });
+    let ts = Scripted::answering(TransportKind::Tailscale, p);
+    let r = router(&[local.clone(), ts.clone()]);
+    assert_eq!(
+        r.request(p, b"x", None).await.unwrap().1,
+        TransportKind::Tailscale
+    );
+    assert_eq!((local.calls(), ts.calls()), (1, 1));
+    assert_eq!(
+        r.request(p, b"x", None).await.unwrap().1,
+        TransportKind::Tailscale
+    );
+    assert_eq!(
+        (local.calls(), ts.calls()),
+        (1, 2),
+        "the candidate that just failed to connect is not dialled first again"
+    );
+    let order = |r: &TransportRouter| {
+        r.plan(&p)
+            .candidates
+            .iter()
+            .map(|c| c.transport)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(order(&r), [TransportKind::Tailscale, TransportKind::Local]);
+
+    // Demoted, not dropped: when the others fail it is still tried, and a
+    // success over it restores its place. Local fails its first dial only;
+    // tailscale answers its first request only.
+    let first_fails = |kind: TransportKind, fail_first: bool| {
+        let calls = AtomicUsize::new(0);
+        Scripted::new(kind, p, move || {
+            let first = calls.fetch_add(1, Ordering::SeqCst) == 0;
+            if first == fail_first {
+                Err(LinkError::Connect("no route to host".into()))
+            } else {
+                Ok(kind.as_str().as_bytes().to_vec())
+            }
+        })
+    };
+    let local = first_fails(TransportKind::Local, true);
+    let ts = first_fails(TransportKind::Tailscale, false);
+    let r = router(&[local.clone(), ts.clone()]);
+    assert_eq!(
+        r.request(p, b"x", None).await.unwrap().1,
+        TransportKind::Tailscale
+    );
+    assert_eq!(order(&r), [TransportKind::Tailscale, TransportKind::Local]);
+    assert_eq!(
+        r.request(p, b"x", None).await.unwrap().1,
+        TransportKind::Local,
+        "tailscale failed; the demoted local route is still tried"
+    );
+    assert_eq!((local.calls(), ts.calls()), (2, 2));
+    assert_eq!(order(&r), [TransportKind::Local, TransportKind::Tailscale]);
+    let ts = Scripted::answering(TransportKind::Tailscale, p);
+
+    // The back-off runs out.
+    let local = Scripted::new(TransportKind::Local, p, || {
+        Err(LinkError::Connect("refused".into()))
+    });
+    let r = router(&[local.clone(), ts.clone()]).with_connect_backoff(Duration::from_millis(50));
+    r.request(p, b"x", None).await.unwrap();
+    assert_eq!(order(&r), [TransportKind::Tailscale, TransportKind::Local]);
+    tokio::time::sleep(Duration::from_millis(80)).await;
+    assert_eq!(order(&r), [TransportKind::Local, TransportKind::Tailscale]);
+
+    // A diagnostic attempt pinned to one transport (`only`) neither
+    // demotes nor is demoted.
+    let r = router(&[local.clone(), ts.clone()]);
+    let before = local.calls();
+    assert!(r
+        .request(p, b"x", Some(TransportKind::Local))
+        .await
+        .is_err());
+    assert_eq!(local.calls(), before + 1);
+    assert_eq!(order(&r), [TransportKind::Local, TransportKind::Tailscale]);
 }
 
 /// The connect deadline bounds connection setup only: an attempt whose link

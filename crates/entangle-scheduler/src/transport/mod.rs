@@ -33,6 +33,12 @@
 //!   budget before the later transports are tried. A link reports when its
 //!   connection is set up ([`Connecting`]); the deadline never cuts short a
 //!   request already sent;
+//! * a candidate that failed to connect (or ran out its connect deadline)
+//!   moves behind the peer's other candidates for a while
+//!   ([`TransportRouter::with_connect_backoff`]), so a dead route is not
+//!   dialled first, and waited on, by every request. It is demoted, not
+//!   dropped: it is still tried when the others fail, and a success over it
+//!   restores its place;
 //! * anything after that — an application-level answer, even a refusal, or
 //!   a transport failure once the request may have been delivered — is
 //!   final: it is never retried on another transport, so a request is
@@ -233,6 +239,10 @@ impl Connecting {
 /// [`TransportRouter::with_connect_timeout`].
 pub const DEFAULT_ATTEMPT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// How long a candidate that failed to connect stays behind the peer's
+/// other candidates; see [`TransportRouter::with_connect_backoff`].
+pub const DEFAULT_CONNECT_BACKOFF: Duration = Duration::from_secs(30);
+
 /// One transport, as the router uses it. See the module docs.
 #[async_trait::async_trait]
 pub trait Link: std::fmt::Debug + Send + Sync {
@@ -392,6 +402,9 @@ pub struct TransportRouter {
     records: Mutex<HashMap<PeerId, RouteRecord>>,
     metrics: Option<entangle_observability::Registry>,
     connect_timeout: Duration,
+    connect_backoff: Duration,
+    /// When each (peer, transport) last failed to connect.
+    connect_failures: Mutex<HashMap<(PeerId, TransportKind), tokio::time::Instant>>,
 }
 
 impl std::fmt::Debug for TransportRouter {
@@ -415,6 +428,8 @@ impl TransportRouter {
             records: Mutex::new(HashMap::new()),
             metrics: None,
             connect_timeout: DEFAULT_ATTEMPT_CONNECT_TIMEOUT,
+            connect_backoff: DEFAULT_CONNECT_BACKOFF,
+            connect_failures: Mutex::new(HashMap::new()),
         }
     }
 
@@ -449,6 +464,16 @@ impl TransportRouter {
     #[must_use]
     pub const fn with_connect_timeout(mut self, timeout: Duration) -> Self {
         self.connect_timeout = timeout;
+        self
+    }
+
+    /// How long a candidate that failed to connect to a peer (or ran out
+    /// its connect deadline) is tried after that peer's other candidates
+    /// (default [`DEFAULT_CONNECT_BACKOFF`]). Attempts restricted to one
+    /// transport (`only`: diagnostics) neither cause nor see the demotion.
+    #[must_use]
+    pub const fn with_connect_backoff(mut self, backoff: Duration) -> Self {
+        self.connect_backoff = backoff;
         self
     }
 
@@ -527,6 +552,15 @@ impl TransportRouter {
                 });
             }
         }
+        if only.is_none() {
+            // Stable: the demoted keep their relative order, after the rest.
+            let failed = self.recently_failed(peer);
+            if !failed.is_empty() {
+                out.sort_by_key(|(link, _): &(Arc<dyn Link>, DialTarget)| {
+                    failed.contains(&link.kind())
+                });
+            }
+        }
         if only.is_none() && self.policy.has_override(peer) {
             for link in &self.links {
                 let kind = link.kind();
@@ -539,6 +573,42 @@ impl TransportRouter {
             }
         }
         (out, skipped)
+    }
+
+    /// The transports that failed to connect to `peer` within the back-off.
+    fn recently_failed(&self, peer: &PeerId) -> Vec<TransportKind> {
+        let failures = self.connect_failures.lock();
+        TransportKind::NEGOTIATION_ORDER
+            .into_iter()
+            .filter(|kind| {
+                failures
+                    .get(&(*peer, *kind))
+                    .is_some_and(|at| at.elapsed() < self.connect_backoff)
+            })
+            .collect()
+    }
+
+    /// Note a connect failure, or (`failed == false`) a success that
+    /// clears one. Restricted (`only`) attempts are diagnostics and leave
+    /// the routing memory alone.
+    fn note_connect(
+        &self,
+        peer: PeerId,
+        kind: TransportKind,
+        failed: bool,
+        only: Option<TransportKind>,
+    ) {
+        if only.is_some() {
+            return;
+        }
+        let mut failures = self.connect_failures.lock();
+        if failed {
+            let backoff = self.connect_backoff;
+            failures.retain(|_, at| at.elapsed() < backoff);
+            failures.insert((peer, kind), tokio::time::Instant::now());
+        } else {
+            failures.remove(&(peer, kind));
+        }
     }
 
     fn record(&self, peer: PeerId, kind: TransportKind, target: &DialTarget) {
@@ -607,11 +677,13 @@ impl TransportRouter {
             let sent = link.request(&target, payload, &connecting);
             match within_setup(sent, &connecting, limit).await {
                 Ok(answer) => {
+                    self.note_connect(peer, kind, false, only);
                     self.record(peer, kind, &target);
                     return Ok((answer, kind));
                 }
                 Err(LinkError::Connect(why)) => {
                     tracing::debug!(%peer, transport = kind.as_str(), error = %why, "mesh: connect failed, trying the next transport");
+                    self.note_connect(peer, kind, true, only);
                     failures.push((kind, why));
                 }
                 Err(LinkError::FrameTooLarge { declared, max }) => {
@@ -674,12 +746,14 @@ impl TransportRouter {
                             io.remote_peer_id()
                         )));
                     }
+                    self.note_connect(peer, kind, false, None);
                     self.record(peer, kind, &target);
                     self.count_stream("ok", Some(kind));
                     return StreamHandle::start(io, task, options);
                 }
                 Err(LinkError::Connect(why)) => {
                     tracing::debug!(%peer, transport = kind.as_str(), error = %why, "mesh: stream connect failed, trying the next transport");
+                    self.note_connect(peer, kind, true, None);
                     failures.push((kind, why));
                 }
                 Err(LinkError::FrameTooLarge { declared, max }) => {

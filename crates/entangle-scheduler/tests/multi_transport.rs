@@ -666,6 +666,17 @@ async fn a_silent_lan_candidate_gives_way_to_the_tailnet_within_the_budget() {
     assert_eq!(out.unwrap(), b"Hello, lan-gone!");
     assert_eq!(kind, Some(TransportKind::Tailscale));
     assert_eq!(b.served("ok", "tailscale"), 1.0);
+
+    // The next dispatch does not wait on the dead LAN route again.
+    let started = std::time::Instant::now();
+    let (out, kind) = run(&client, &task, b.peer_id).await;
+    assert_eq!(out.unwrap(), b"Hello, lan-gone!");
+    assert_eq!(kind, Some(TransportKind::Tailscale));
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "the second dispatch dialled the silent LAN address first again ({:?})",
+        started.elapsed()
+    );
     drop(blackhole);
 }
 

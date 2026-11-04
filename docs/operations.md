@@ -1466,6 +1466,14 @@ budget before the later transports get a turn. The last candidate is bound
 only by its transport's own timeouts and the request's budget. The deadline
 covers connection setup only: a request already sent runs to its end.
 
+A transport that failed to connect to a peer (refused, unreachable, or out
+of its deadline) is then tried **after** that peer's other candidates for
+30 s, so a dead route is not waited on by every request; `entangle diag
+mesh` shows it at the end of the `route:` order meanwhile. It is demoted,
+not dropped: it is still tried when the others fail, and the first success
+over it restores its place. `--probe` attempts neither demote a transport
+nor skip a demoted one.
+
 Everything after the connection is up is final:
 
 * an answer from the peer — success, or a refusal such as `not-authorized`
