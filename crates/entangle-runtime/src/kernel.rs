@@ -393,6 +393,42 @@ impl Drop for PluginLock {
 /// The kernel's set of draining versions (its `draining` field).
 type Draining = Arc<Mutex<HashMap<PluginId, tokio::sync::watch::Receiver<bool>>>>;
 
+/// A version marked draining (see [`Kernel::mark_draining`]): removed from
+/// the set — and its watch set to `true` — by [`DrainingMark::finish`] once
+/// it is unregistered; dropped unfinished (a cancelled unload), it is only
+/// removed.
+struct DrainingMark {
+    draining: Draining,
+    id: PluginId,
+    tx: Option<tokio::sync::watch::Sender<bool>>,
+}
+
+impl DrainingMark {
+    /// The version is unregistered: waiting loads may go ahead.
+    fn finish(mut self) {
+        self.draining.lock().remove(&self.id);
+        if let Some(tx) = self.tx.take() {
+            let _ = tx.send(true);
+        }
+    }
+
+    /// Turns `true` on [`DrainingMark::finish`].
+    fn watch(&self) -> tokio::sync::watch::Receiver<bool> {
+        self.tx
+            .as_ref()
+            .map(tokio::sync::watch::Sender::subscribe)
+            .unwrap_or_else(|| tokio::sync::watch::channel(true).1)
+    }
+}
+
+impl Drop for DrainingMark {
+    fn drop(&mut self) {
+        if self.tx.is_some() {
+            self.draining.lock().remove(&self.id);
+        }
+    }
+}
+
 /// How long a load of a version that is still draining waits for the drain
 /// to end before it is refused (`ENTANGLE-E0790`).
 const DRAINING_WAIT: std::time::Duration = std::time::Duration::from_secs(2);
@@ -1143,21 +1179,34 @@ impl Kernel {
         if let Some(m) = &self.metrics {
             m.loaded_at.lock().remove(&id.to_string());
         }
-        let (tx, rx) = tokio::sync::watch::channel(false);
-        self.draining.lock().insert(id.clone(), rx.clone());
+        // Called while the reload still holds the plugin lock: a load of
+        // this id waits for the drain from the moment it is possible.
+        let mark = self.mark_draining(&id);
+        let rx = mark.watch();
         let broker = Arc::clone(&self.broker);
         let events = self.events.clone();
-        let draining = Arc::clone(&self.draining);
         tokio::spawn(async move {
             let _drained = record.inflight.write().await;
             if let Err(e) = broker.unregister_plugin(&id) {
                 tracing::warn!(plugin = %id, error = %e, "replaced plugin version was already unregistered");
             }
-            draining.lock().remove(&id);
+            mark.finish();
             events.emit(&id, record.effective_tier, LifecyclePhase::Unloaded);
-            let _ = tx.send(true);
         });
         rx
+    }
+
+    /// Mark `id` draining: out of `plugins` but still registered with the
+    /// broker until its calls and streams end. A load of it waits for (or is
+    /// refused during) the drain instead of racing the registration.
+    fn mark_draining(&self, id: &PluginId) -> DrainingMark {
+        let (tx, rx) = tokio::sync::watch::channel(false);
+        self.draining.lock().insert(id.clone(), rx);
+        DrainingMark {
+            draining: Arc::clone(&self.draining),
+            id: id.clone(),
+            tx: Some(tx),
+        }
     }
 
     /// Invoke a loaded plugin's `run` export with `input` bytes; returns the
@@ -1686,14 +1735,17 @@ impl Kernel {
         // (it would swap against a version that is gone); the drain below
         // runs without the lock.
         let plugin_lock = self.lock_plugin(plugin).await;
-        let record = {
+        let (record, mark) = {
             let mut plugins = self.plugins.write();
             let record = plugins
                 .remove(plugin)
                 .ok_or_else(|| RuntimeError::NotLoaded(plugin.clone()))?;
             // Replaced versions answered through this one: no longer.
             self.aliases.write().retain(|_, current| current != plugin);
-            record
+            // Draining from before the plugin lock is released: a load of
+            // this id waits for the drain rather than racing the broker
+            // registration still held.
+            (record, self.mark_draining(plugin))
         };
         drop(plugin_lock);
         if let Some(m) = &self.metrics {
@@ -1702,12 +1754,9 @@ impl Kernel {
         if let PluginImpl::Wasm(slot) = &record.plugin {
             slot.retire();
         }
-        let (tx, rx) = tokio::sync::watch::channel(false);
-        self.draining.lock().insert(plugin.clone(), rx);
         let _drained = record.inflight.write().await;
         let unregistered = self.broker.unregister_plugin(plugin);
-        self.draining.lock().remove(plugin);
-        let _ = tx.send(true);
+        mark.finish();
         unregistered?;
         self.emit(plugin, record.effective_tier, LifecyclePhase::Unloaded);
         Ok(())

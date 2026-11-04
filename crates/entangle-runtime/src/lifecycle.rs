@@ -41,9 +41,10 @@ pub enum LifecyclePhase {
     /// for its `[lifecycle] idle-timeout-secs`. The plugin stays loaded; the
     /// next call publishes [`LifecyclePhase::Instantiated`] again.
     TornDown,
-    /// A hot reload is replacing this version (published for the new
-    /// version, before its [`LifecyclePhase::Loaded`]): its `migrate` hook,
-    /// if it exports one, has succeeded.
+    /// This version's `migrate` hook succeeded and the hot reload it ran
+    /// for replaced the previous version: published for the new version once
+    /// the swap committed, just before its [`LifecyclePhase::Loaded`] (never
+    /// for a reload that was refused, and not for one without a hook).
     Migrated,
 }
 
