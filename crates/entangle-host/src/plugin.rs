@@ -6,6 +6,7 @@ use crate::engine::{HostEngine, EPOCH_TICK_MS};
 use crate::errors::HostError;
 use crate::state::{HostState, ResourceLimits};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
+use std::future::Future;
 use std::time::{Duration, Instant};
 use wasmtime::component::Component;
 use wasmtime::{Store, Trap, UpdateDeadline};
@@ -14,11 +15,91 @@ use wasmtime::{Store, Trap, UpdateDeadline};
 /// timeout. The (precise) epoch deadline normally fires first; the backstop
 /// only catches guests parked in host futures where no wasm executes and the
 /// epoch deadline can never trap.
-const TIMEOUT_BACKSTOP_SLACK_MS: u64 = 250;
+pub(crate) const TIMEOUT_BACKSTOP_SLACK_MS: u64 = 250;
 
 /// Epoch ticks between the checks a networked instance makes, while it runs
 /// wasm code, that its network grants are still live (50 ms).
-const REVOCATION_CHECK_TICKS: u64 = 5;
+pub(crate) const REVOCATION_CHECK_TICKS: u64 = 5;
+
+/// The tokio backstop for an invocation of `timeout_ms`.
+pub(crate) fn backstop(timeout_ms: u64) -> Duration {
+    Duration::from_millis(timeout_ms.saturating_add(TIMEOUT_BACKSTOP_SLACK_MS))
+}
+
+/// What a new instance of `plugin` realises from its broker grants as they
+/// stand now ([`WasiGrants::default`] — nothing — without a capability
+/// context), bounded by the invocation's backstop. Resolving the `net.wan`
+/// allowlist may take at most half the invocation: a slow resolver leaves
+/// names unreachable rather than using up the budget and surfacing as a
+/// plugin timeout. Shared by one-shot and streaming invocations, so both
+/// worlds get exactly the same preopens, socket rules and pinned names.
+pub(crate) async fn instance_grants(
+    caps: Option<&CapabilityContext>,
+    plugin: &PluginId,
+    timeout_ms: u64,
+) -> Result<WasiGrants, HostError> {
+    let dns_budget = Duration::from_millis(timeout_ms / 2);
+    let realise = async {
+        match caps {
+            Some(ctx) => crate::capability::realise_within(ctx, plugin, dns_budget).await,
+            None => Ok(WasiGrants::default()),
+        }
+    };
+    match tokio::time::timeout(backstop(timeout_ms), realise).await {
+        Ok(grants) => grants,
+        Err(_elapsed) => Err(HostError::Timeout(timeout_ms)),
+    }
+}
+
+/// The grants behind an instance's network access, if it has any: their
+/// withdrawal stops the invocation (see `crate::capability`).
+pub(crate) fn net_watch(
+    caps: Option<&CapabilityContext>,
+    plugin: &PluginId,
+    grants: &WasiGrants,
+) -> Option<NetLiveness> {
+    caps.map(|ctx| NetLiveness::new(ctx, plugin, grants))
+        .filter(NetLiveness::has_net)
+}
+
+/// Await `call` — an instance's instantiate + export call under its tokio
+/// backstop — and, for a networked instance, stop it as soon as the grants
+/// `watch` holds are withdrawn ([`HostError::CapabilityRevoked`]).
+///
+/// While the guest waits on the host (a socket read, a poll, a stream
+/// chunk) its epoch callback cannot run, so the grants are watched
+/// alongside; while it runs wasm code the epoch callback interrupts it, which
+/// surfaces as a timeout and is told apart here.
+pub(crate) async fn run_watched<T>(
+    call: impl Future<Output = Result<Result<T, HostError>, tokio::time::error::Elapsed>>,
+    watch: Option<&NetLiveness>,
+    timeout_ms: u64,
+) -> Result<T, HostError> {
+    let outcome = match watch {
+        None => call.await,
+        Some(watch) => tokio::select! {
+            outcome = call => outcome,
+            capability = watch.wait_withdrawn() => {
+                return Err(HostError::CapabilityRevoked {
+                    capability: capability.to_owned(),
+                });
+            }
+        },
+    };
+    match outcome {
+        Ok(Ok(result)) => Ok(result),
+        // The epoch callback interrupts a busy guest the same way for a
+        // timeout and a withdrawal: tell them apart.
+        Ok(Err(HostError::Timeout(t))) => Err(match watch.and_then(NetLiveness::withdrawn) {
+            Some(capability) => HostError::CapabilityRevoked {
+                capability: capability.to_owned(),
+            },
+            None => HostError::Timeout(t),
+        }),
+        Ok(Err(e)) => Err(e),
+        Err(_elapsed) => Err(HostError::Timeout(timeout_ms)),
+    }
+}
 
 /// A WebAssembly component that has been compiled and is ready to instantiate.
 ///
@@ -188,23 +269,7 @@ impl LoadedPlugin {
         timeout_ms: u64,
         limits: ResourceLimits,
     ) -> Result<PluginRunResult, HostError> {
-        let backstop = Duration::from_millis(timeout_ms.saturating_add(TIMEOUT_BACKSTOP_SLACK_MS));
-        // Resolving the net.wan allowlist may take at most half the
-        // invocation: a slow resolver leaves names unreachable rather than
-        // using up the budget and surfacing as a plugin timeout.
-        let dns_budget = Duration::from_millis(timeout_ms / 2);
-        let realise = async {
-            match &self.caps {
-                Some(ctx) => {
-                    crate::capability::realise_within(ctx, &self.plugin_id, dns_budget).await
-                }
-                None => Ok(WasiGrants::default()),
-            }
-        };
-        let grants = match tokio::time::timeout(backstop, realise).await {
-            Ok(grants) => grants?,
-            Err(_elapsed) => return Err(HostError::Timeout(timeout_ms)),
-        };
+        let grants = instance_grants(self.caps.as_ref(), &self.plugin_id, timeout_ms).await?;
         let state = HostState::with_capabilities(
             self.plugin_id.clone(),
             self.effective_tier,
@@ -212,13 +277,7 @@ impl LoadedPlugin {
             &grants,
             self.caps.clone(),
         )?;
-        // The grants behind the instance's network access, if it has any:
-        // their withdrawal stops the invocation (see `crate::capability`).
-        let watch = self
-            .caps
-            .as_ref()
-            .map(|ctx| NetLiveness::new(ctx, &self.plugin_id, &grants))
-            .filter(NetLiveness::has_net);
+        let watch = net_watch(self.caps.as_ref(), &self.plugin_id, &grants);
         let mut store = Store::new(engine.engine(), state);
         // Enforce memory/table/instance caps on everything this store
         // allocates, including instantiation-time initial memories.
@@ -268,35 +327,8 @@ impl LoadedPlugin {
                 .map_err(|e| classify_call_error(e.into(), timeout_ms))
         };
 
-        let call = tokio::time::timeout(backstop, invoke);
-        let outcome = match &watch {
-            None => call.await,
-            // While the guest waits on the host (a socket read, a poll), the
-            // epoch callback cannot run: watch the grants alongside.
-            Some(watch) => tokio::select! {
-                outcome = call => outcome,
-                capability = watch.wait_withdrawn() => {
-                    return Err(HostError::CapabilityRevoked {
-                        capability: capability.to_owned(),
-                    });
-                }
-            },
-        };
-        let call_result = match outcome {
-            Ok(Ok(result)) => result,
-            // The epoch callback interrupts a busy guest the same way for a
-            // timeout and a withdrawal: tell them apart.
-            Ok(Err(HostError::Timeout(t))) => {
-                return Err(match watch.as_ref().and_then(NetLiveness::withdrawn) {
-                    Some(capability) => HostError::CapabilityRevoked {
-                        capability: capability.to_owned(),
-                    },
-                    None => HostError::Timeout(t),
-                });
-            }
-            Ok(Err(e)) => return Err(e),
-            Err(_elapsed) => return Err(HostError::Timeout(timeout_ms)),
-        };
+        let call = tokio::time::timeout(backstop(timeout_ms), invoke);
+        let call_result = run_watched(call, watch.as_ref(), timeout_ms).await?;
 
         // Map inner plugin-error to HostError.
         let output = call_result.map_err(|plugin_err| {
@@ -366,6 +398,34 @@ impl CompiledPlugin {
                 "component exports neither the `plugin` world ({one_shot}) nor the \
                  `stream-plugin` world ({stream})"
             ))),
+        }
+    }
+
+    /// Attach `ctx` whichever world the component implements: a stream
+    /// plugin's instances realise exactly the grants a one-shot plugin's do
+    /// (see [`LoadedPlugin::with_capabilities`]).
+    #[must_use]
+    pub fn with_capabilities(self, ctx: CapabilityContext) -> Self {
+        match self {
+            Self::OneShot(p) => Self::OneShot(p.with_capabilities(ctx)),
+            Self::Stream(p) => Self::Stream(p.with_capabilities(ctx)),
+        }
+    }
+
+    /// The capability context, if one is attached.
+    pub fn capabilities(&self) -> Option<&CapabilityContext> {
+        match self {
+            Self::OneShot(p) => p.capabilities(),
+            Self::Stream(p) => p.capabilities(),
+        }
+    }
+
+    /// What the plugin's current broker grants realise; see
+    /// [`LoadedPlugin::realise_capabilities`].
+    pub async fn realise_capabilities(&self) -> Result<WasiGrants, HostError> {
+        match self {
+            Self::OneShot(p) => p.realise_capabilities().await,
+            Self::Stream(p) => p.realise_capabilities().await,
         }
     }
 

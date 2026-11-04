@@ -601,9 +601,10 @@ impl Kernel {
         Ok(resolution.granted)
     }
 
-    /// Compile the component, attach the broker and storage root, and
-    /// realise the standing grants once so an unrealisable grant (no storage
-    /// root, a symlinked scope) fails the load instead of every invocation.
+    /// Compile the component (of either `entangle:plugin` world), attach the
+    /// broker and storage root, and realise the standing grants once so an
+    /// unrealisable grant (no storage root, a symlinked scope) fails the load
+    /// instead of every invocation or stream.
     async fn prepare_wasm(
         &self,
         plugin_id: &PluginId,
@@ -614,21 +615,17 @@ impl Kernel {
         if let Some(root) = &self.config.native.data_dir {
             ctx = ctx.with_storage_root(root);
         }
-        let plugin = match CompiledPlugin::from_bytes(
+        // Either world: a stream plugin's instances realise exactly the
+        // grants a one-shot plugin's do (preopens, socket rules, pinned
+        // names, live revocation).
+        let plugin = CompiledPlugin::from_bytes(
             &self.engine,
             &pkg.bytes,
             plugin_id.clone(),
             effective_tier,
-        )? {
-            CompiledPlugin::OneShot(p) => {
-                let p = p.with_capabilities(ctx);
-                p.realise_capabilities().await?;
-                CompiledPlugin::OneShot(p)
-            }
-            // Stream plugins run without capabilities (no preopens, no
-            // network, every fetch refused).
-            stream @ CompiledPlugin::Stream(_) => stream,
-        };
+        )?
+        .with_capabilities(ctx);
+        plugin.realise_capabilities().await?;
         Ok(PluginImpl::Wasm(plugin))
     }
 
@@ -654,8 +651,10 @@ impl Kernel {
     ///
     /// Chunks the plugin yields, and input it reads, flow through `port`;
     /// the caller drives the other end. Bounded by `timeout_ms` exactly as a
-    /// one-shot invocation is. A one-shot plugin is
-    /// [`RuntimeError::WrongWorld`].
+    /// one-shot invocation is, and given exactly its capabilities: the
+    /// stream's instance realises the plugin's broker grants as they stand
+    /// when it starts, and a network grant withdrawn while it runs stops it
+    /// (`ENTANGLE-E0511`). A one-shot plugin is [`RuntimeError::WrongWorld`].
     pub async fn invoke_stream(
         &self,
         plugin_id: &PluginId,

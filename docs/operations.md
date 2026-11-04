@@ -1140,7 +1140,11 @@ one long address covers both. The gate is the same peer store: only peers
 paired with `entangle mesh trust` (and not revoked) may open a stream, and an
 unpaired peer is refused before anything it sent is decoded. Load the stream
 plugin like any other (`entangle plugins load <dir>`); a one-shot plugin
-cannot be streamed, and a stream plugin cannot be `invoke`d. Unloading a
+cannot be streamed, and a stream plugin cannot be `invoke`d. Its declared
+capabilities are decided and realised exactly as for a one-shot wasm plugin
+(§18): the same `/data`, `/shared` and `/shares/<n>` preopens, socket rules
+and pinned `net.wan` names, and `entangle perms list` / `revoke` apply — a
+revoked network capability stops a running stream (`ENTANGLE-E0511`). Unloading a
 stream plugin, or lowering the tier ceiling below its tier (§16), waits for
 its active streams to end before releasing its grants, exactly as for
 one-shot invocations.
@@ -1226,7 +1230,9 @@ Each is granted unless the operator's policy refuses it:
 
 These load-time grants are what both runtimes build the sandbox from: the
 OS-sandbox profile for native plugins (§12), the WASI context for wasm
-plugins (below). The manifest is never read directly for this. Each
+plugins (below) — one-shot and stream plugins (§17) alike: each stream's
+instance is built from the plugin's grants as they stand when the stream
+starts, exactly as each one-shot invocation's is. The manifest is never read directly for this. Each
 `capability.fetch` a plugin makes at run time is a further broker decision,
 audited and counted the same way.
 
@@ -1312,8 +1318,8 @@ grant plus any handle a running invocation holds; `denied` with the `reason`;
 A revocation takes effect at once for `capability.fetch` (`revoked`,
 `ENTANGLE-E0125`) and for a wasm plugin's network access: new sockets and
 name lookups re-confirm that the grant behind them is still live, and an
-invocation running with a `net.lan` / `net.wan` grant that is revoked is
-stopped (`ENTANGLE-E0511`, within about 50 ms), which closes every
+invocation (or stream) running with a `net.lan` / `net.wan` grant that is
+revoked is stopped (`ENTANGLE-E0511`, within about 50 ms), which closes every
 connection it had open — an established connection never outlives the
 grant. Storage is revoked from the next invocation (an invocation already
 running keeps its open directory until it ends). A native plugin's OS-sandbox profile is fixed when

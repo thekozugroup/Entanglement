@@ -1,0 +1,20 @@
+[workspace]
+[package]
+name = "stream-caps-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+# A `stream-plugin` component: the SDK binds only the `plugin` world, so the
+# bindings come from wit-bindgen directly (as for plugins/stream-lines).
+[dependencies]
+wit-bindgen = { version = "0.57", default-features = false, features = ["macros"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

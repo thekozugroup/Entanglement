@@ -220,7 +220,12 @@ network capability stops any invocation running with it
 gracefully when a capability is missing.
 
 What a wasm plugin can reach is derived from the broker's grants alone —
-nothing else is ambient:
+nothing else is ambient. This holds for both worlds: a `stream-plugin`
+component's stream gets exactly the directories, network rules, name
+lookups and `capability.fetch` answers a one-shot invocation of the same
+plugin would get, built from the grants as they stand when the stream starts,
+and a revoked network capability stops a running stream the same way
+(`ENTANGLE-E0511`):
 
 **Storage.** `storage.local` (plugin scope) appears in the guest as the
 directory **`/data`**: your plugin's private directory on the host, kept

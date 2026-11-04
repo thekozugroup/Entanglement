@@ -99,6 +99,7 @@ jobs:
             plugins/metric-bleu-4
             plugins/metric-numerical-l2-relative
             crates/entangle-host/fixtures-src/caps-probe
+            crates/entangle-host/fixtures-src/stream-caps-probe
       - name: Native math tests
         run: |
           for d in metric-bleu-4 metric-numerical-l2-relative; do
@@ -114,6 +115,11 @@ jobs:
           crates/entangle-host/fixtures-src/caps-probe/build.sh
           git diff --exit-code --stat -- crates/entangle-host/tests/fixtures/caps-probe.wasm \
             || { echo "committed caps-probe.wasm differs from a rebuild: run fixtures-src/caps-probe/build.sh and commit"; exit 1; }
+      - name: Rebuild stream-caps-probe and compare with the committed blob
+        run: |
+          crates/entangle-host/fixtures-src/stream-caps-probe/build.sh
+          git diff --exit-code --stat -- crates/entangle-host/tests/fixtures/stream-caps-probe.wasm \
+            || { echo "committed stream-caps-probe.wasm differs from a rebuild: run fixtures-src/stream-caps-probe/build.sh and commit"; exit 1; }
 
   deny:
     name: cargo-deny

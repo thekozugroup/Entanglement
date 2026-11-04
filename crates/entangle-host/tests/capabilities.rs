@@ -16,10 +16,21 @@
 //! the grant rules themselves are the production ones, and
 //! [`loopback_is_never_reachable_under_production_rules`] checks that without
 //! the hook the same grant reaches nothing on loopback.
+//!
+//! # Streaming invocations
+//! The `stream-caps-probe` fixture (source: `fixtures-src/stream-caps-probe/`)
+//! is the `stream-plugin`-world twin of `caps-probe`: it yields one chunk per
+//! command. The tests at the end run the same scripts through both and
+//! require identical answers — a stream gets exactly the grants a one-shot
+//! call gets — and check that live revocation stops a stream.
 
 use entangle_broker::{AuditEvent, Broker, BrokerPolicy, CapabilityPattern};
 use entangle_host::net::{classify, AddrClass, NetRules, Via, WanTarget};
-use entangle_host::{CapabilityContext, HostEngine, HostError, LoadedPlugin};
+use entangle_host::state::ResourceLimits;
+use entangle_host::{
+    stream_port, CapabilityContext, HostEngine, HostError, LoadedPlugin, LoadedStreamPlugin,
+    StreamInput, StreamPortDriver,
+};
 use entangle_manifest::{schema::Manifest, validate::validate, ValidatedManifest};
 use entangle_observability::catalog::names;
 use entangle_observability::Registry;
@@ -1361,4 +1372,244 @@ async fn udp_receives_only_from_sources_the_grants_allow() {
     responder.await.unwrap();
     let want = format!("ok:{peer_addr}:reply");
     expect(&script, &got, &[want.as_str()]);
+}
+
+// ── streaming invocations (`stream-plugin` world) ───────────────────────────
+
+const STREAM_PROBE: &[u8] = include_bytes!("fixtures/stream-caps-probe.wasm");
+
+impl Harness {
+    /// The `stream-caps-probe` fixture under this harness's plugin id and
+    /// tier, with the same capability context as its one-shot probe.
+    fn stream_plugin(&self) -> LoadedStreamPlugin {
+        let p = LoadedStreamPlugin::from_bytes(
+            &self.engine,
+            STREAM_PROBE,
+            self.id.clone(),
+            self.plugin.effective_tier(),
+        )
+        .expect("compile the stream probe");
+        match self.plugin.capabilities() {
+            Some(ctx) => p.with_capabilities(ctx.clone()),
+            None => p,
+        }
+    }
+
+    /// Run `script` through the one-shot probe and, as one stream, through
+    /// the stream probe; the answers must be identical.
+    async fn run_both(&self, script: &str) -> Vec<String> {
+        let one_shot = self.run(script).await;
+        let streamed = run_stream_script(&self.engine, &self.stream_plugin(), script).await;
+        assert_eq!(
+            streamed, one_shot,
+            "a stream must get exactly the grants a one-shot call gets\n{script}"
+        );
+        streamed
+    }
+}
+
+/// Receive the stream's next chunk (acknowledged as sent) as text.
+async fn next_result(driver: &mut StreamPortDriver) -> String {
+    let chunk = tokio::time::timeout(std::time::Duration::from_secs(30), driver.chunks.recv())
+        .await
+        .expect("a chunk within 30 s")
+        .expect("the stream yields a result");
+    chunk.ack.sent();
+    String::from_utf8(chunk.bytes).expect("utf-8 chunk")
+}
+
+/// Run `script` as a single stream: one result chunk per command, then end
+/// the input so the plugin returns.
+async fn run_stream_script(
+    engine: &HostEngine,
+    plugin: &LoadedStreamPlugin,
+    script: &str,
+) -> Vec<String> {
+    let steps = script.lines().filter(|l| !l.trim().is_empty()).count();
+    let (port, mut driver) = stream_port(1);
+    let run = plugin.run_stream(
+        engine,
+        script.as_bytes(),
+        port,
+        30_000,
+        ResourceLimits::default(),
+    );
+    let collect = async {
+        let mut out = Vec::with_capacity(steps);
+        for _ in 0..steps {
+            out.push(next_result(&mut driver).await);
+        }
+        driver
+            .input
+            .send(StreamInput::End)
+            .await
+            .expect("the plugin reads its input");
+        out
+    };
+    let (ran, out) = tokio::join!(run, collect);
+    ran.expect("the stream runs to completion");
+    out
+}
+
+/// A stream plugin's instance realises its storage grants exactly as a
+/// one-shot instance does (`/data` read-write, nothing else preopened), and
+/// its `capability.fetch` is decided by the same broker. Without a
+/// capability context a stream has nothing.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_stream_gets_the_storage_grants_and_fetches_of_a_one_shot_call() {
+    let h = Setup {
+        tier: 1,
+        ..Setup::new("stream-storage", r#""storage.local" = { mode = "rw" }"#)
+    }
+    .harness();
+    let script = "write /data/s.txt streamed\n\
+                  read /data/s.txt\n\
+                  ls /data\n\
+                  read /etc/passwd\n\
+                  write /shared/x no\n\
+                  fetch storage-local\n\
+                  fetch net-wan\n";
+    let got = h.run_both(script).await;
+    expect(
+        script,
+        &got,
+        &[
+            "ok",
+            "ok:streamed",
+            "ok:s.txt",
+            "err:",
+            "err:",
+            "ok:",
+            "err:not-granted:",
+        ],
+    );
+    assert_eq!(
+        std::fs::read_to_string(h.data_dir().join("s.txt")).unwrap(),
+        "streamed"
+    );
+
+    // No capability context: no preopen, every fetch refused.
+    let bare = LoadedStreamPlugin::from_bytes(
+        &h.engine,
+        STREAM_PROBE,
+        h.id.clone(),
+        entangle_types::tier::Tier::Sandboxed,
+    )
+    .unwrap();
+    assert!(bare.capabilities().is_none());
+    let script = "read /data/s.txt\nfetch storage-local\n";
+    let got = run_stream_script(&h.engine, &bare, script).await;
+    expect(script, &got, &["err:", "err:not-granted:"]);
+}
+
+/// The socket rules and the pinned `net.wan` names of a stream are those of
+/// a one-shot instance: the allowlisted name resolves to its pinned address
+/// and is reachable on its port, nothing else resolves or connects, and the
+/// plugin cannot listen.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_stream_gets_the_socket_rules_and_pinned_names_of_a_one_shot_call() {
+    let svc = listener("127.0.0.1", "hello-svc").await;
+    let other = listener("127.0.0.1", "hello-other").await;
+    let caps = format!(r#""net.wan" = {{ hosts = ["{SVC}:{}"] }}"#, svc.addr.port());
+    let h = Setup {
+        classify: Some(public_on_loopback),
+        resolver: Some(svc_on_loopback),
+        ..Setup::new("stream-wan", &caps)
+    }
+    .harness();
+    let script = format!(
+        "resolve {SVC}\n\
+         connect {SVC}:{port}\n\
+         connect {other}\n\
+         resolve localhost\n\
+         resolve exfil-0123abcd.example.com\n\
+         listen 0.0.0.0:0\n\
+         fetch net-wan\n",
+        port = svc.addr.port(),
+        other = other.addr,
+    );
+    let got = h.run_both(&script).await;
+    expect(
+        &script,
+        &got,
+        &[
+            "ok:127.0.0.1",
+            "ok:hello-svc",
+            "err:",
+            "err:",
+            "err:",
+            "err:",
+            "ok:",
+        ],
+    );
+    assert_eq!(svc.accepted(), 2, "one connection per run");
+    assert_eq!(other.accepted(), 0);
+}
+
+/// A connection a stream opened does not outlive the grant it rests on:
+/// revoking `net.lan` stops the stream (`ENTANGLE-E0511`) whether the
+/// plugin is parked in `next-chunk` waiting for input or blocked reading
+/// the connection, and its port closes.
+#[tokio::test(flavor = "multi_thread")]
+async fn revoking_a_net_grant_stops_a_stream_in_flight() {
+    // Greets, then keeps every connection open without writing again.
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = l.local_addr().unwrap();
+    tokio::spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((mut s, _)) = l.accept().await {
+            let _ = s.write_all(b"hi-held").await;
+            held.push(s);
+        }
+    });
+
+    for blocked_on_socket in [false, true] {
+        let h = Setup {
+            classify: Some(lan_everywhere),
+            ..Setup::new("stream-revoke", r#""net.lan" = {}"#)
+        }
+        .harness();
+        let plugin = h.stream_plugin();
+        let (port, mut driver) = stream_port(1);
+        let script = format!("hold {addr}\n");
+        let run = plugin.run_stream(
+            &h.engine,
+            script.as_bytes(),
+            port,
+            30_000,
+            ResourceLimits::default(),
+        );
+        let drive = async {
+            assert_eq!(next_result(&mut driver).await, "ok:hi-held");
+            if blocked_on_socket {
+                // The plugin now waits for the server, which never writes.
+                driver
+                    .input
+                    .send(StreamInput::Chunk(b"again\n".to_vec()))
+                    .await
+                    .expect("the plugin reads its input");
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            }
+            let started = std::time::Instant::now();
+            h.broker.revoke(&h.id, "net.lan").unwrap();
+            // The port closes once the stream is stopped.
+            let closed = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                while driver.chunks.recv().await.is_some() {}
+            })
+            .await;
+            assert!(closed.is_ok(), "the stream outlived the revocation");
+            started.elapsed()
+        };
+        let (ran, took) = tokio::join!(run, drive);
+        let err = ran.expect_err("the stream must be stopped by the revocation");
+        assert!(
+            matches!(err, HostError::CapabilityRevoked { ref capability } if capability == "net.lan"),
+            "{err}"
+        );
+        assert!(err.to_string().starts_with("ENTANGLE-E0511"), "{err}");
+        assert!(
+            took < std::time::Duration::from_secs(5),
+            "stopped at the revocation, not at the end: {took:?}"
+        );
+    }
 }
