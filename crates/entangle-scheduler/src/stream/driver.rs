@@ -406,10 +406,13 @@ pub struct SubmitterReport {
     pub executor: PeerId,
 }
 
+/// Where the driver answers a command that can fail.
+type Reply = oneshot::Sender<Result<(), StreamError>>;
+
 enum Cmd {
     Next(oneshot::Sender<ChunkPoll>),
-    Input(Vec<u8>, oneshot::Sender<Result<(), StreamError>>),
-    FinishInput(oneshot::Sender<Result<(), StreamError>>),
+    Input(Vec<u8>, Reply),
+    FinishInput(Reply),
     Cancel,
 }
 
@@ -547,18 +550,16 @@ impl StreamHandle {
     /// partial-result policy applied.
     pub async fn collect(mut self) -> StreamResult {
         let mut chunks = Vec::new();
-        loop {
-            match self.next().await {
-                ChunkPoll::Chunk(chunk) => chunks.push(chunk),
-                ChunkPoll::Ended(_) | ChunkPoll::Closed(_) | ChunkPoll::Pending => break,
-            }
+        while let ChunkPoll::Chunk(chunk) = self.next().await {
+            chunks.push(chunk);
         }
         let report = self.finish().await;
         finalize(report.policy, report.outcome, chunks, report.context)
     }
 
-    /// Wait for the stream to end and return its report. Chunks not yet
-    /// taken with [`StreamHandle::next`] are discarded.
+    /// End the stream and return its report: once it has ended this just
+    /// collects the report; a stream still running is cancelled first.
+    /// Chunks not yet taken with [`StreamHandle::next`] are discarded.
     pub async fn finish(mut self) -> SubmitterReport {
         self.join_driver().await;
         if let Some(conn) = self.conn.take() {
@@ -682,8 +683,8 @@ async fn drive_submitter(
     let (wtx, writer) = spawn_writer(send);
     let mut out = Outbound::default();
     let mut pending_next: Option<oneshot::Sender<ChunkPoll>> = None;
-    let mut pending_input: Option<(Vec<u8>, oneshot::Sender<Result<(), StreamError>>)> = None;
-    let mut pending_finish: Option<oneshot::Sender<Result<(), StreamError>>> = None;
+    let mut pending_input: Option<(Vec<u8>, Reply)> = None;
+    let mut pending_finish: Option<Reply> = None;
     let mut cmds_open = true;
 
     loop {

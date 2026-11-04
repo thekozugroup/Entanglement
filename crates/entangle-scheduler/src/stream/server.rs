@@ -52,9 +52,12 @@ use crate::work_unit::PolicyEnvelope;
 /// How long an authorized peer has to send its `Open` frame.
 pub const OPEN_READ_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Streams running on this executor: `(authenticated submitter, task id)`.
+type InFlight = Arc<Mutex<HashSet<(PeerId, [u8; 16])>>>;
+
 /// Removes an in-flight entry when its stream ends, however it ends.
 struct InFlightGuard {
-    table: Arc<Mutex<HashSet<(PeerId, [u8; 16])>>>,
+    table: InFlight,
     key: (PeerId, [u8; 16]),
 }
 
@@ -74,7 +77,7 @@ pub struct StreamServer {
     identity: IdentityKeyPair,
     local_peer_id: PeerId,
     ceilings: StreamCeilings,
-    in_flight: Arc<Mutex<HashSet<(PeerId, [u8; 16])>>>,
+    in_flight: InFlight,
     events: Option<mpsc::UnboundedSender<(PeerId, StreamEvent)>>,
 }
 
