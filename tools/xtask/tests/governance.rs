@@ -12,8 +12,21 @@ use tempfile::TempDir;
 const NOW: i64 = 1_782_777_600;
 const DAY: i64 = 86_400;
 
+/// Make `cmd` ignore the caller's git configuration (hooks, signature
+/// policies, `user.useConfigOnly`, ...) so fixtures behave the same
+/// everywhere.
+fn isolate_git(cmd: &mut Command) {
+    cmd.env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_SYSTEM", "/dev/null")
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE");
+}
+
 fn xtask() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_xtask"))
+    let mut c = Command::new(env!("CARGO_BIN_EXE_xtask"));
+    isolate_git(&mut c);
+    c
 }
 
 fn repo_root() -> PathBuf {
@@ -25,7 +38,9 @@ fn repo_root() -> PathBuf {
 }
 
 fn git(dir: &Path, args: &[&str], env: &[(&str, String)]) {
-    let out = Command::new("git")
+    let mut cmd = Command::new("git");
+    isolate_git(&mut cmd);
+    let out = cmd
         .arg("-C")
         .arg(dir)
         .args([
@@ -33,6 +48,12 @@ fn git(dir: &Path, args: &[&str], env: &[(&str, String)]) {
             "commit.gpgsign=false",
             "-c",
             "init.defaultBranch=main",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "merge.verifySignatures=false",
+            "-c",
+            "user.useConfigOnly=false",
         ])
         .args(args)
         .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
@@ -230,6 +251,52 @@ fn atc_bus_1_maps_authors_by_noreply_address_and_identity_table() {
         "{}",
         String::from_utf8_lossy(&out.stderr)
     );
+}
+
+/// Non-holders never count, however active: a role with one declared holder
+/// stays in violation although another author merges every day.
+#[test]
+fn atc_bus_1_non_holders_do_not_count_toward_a_role() {
+    let repo = fixture_repo(&[
+        ("alice", "alice@example.com", NOW - DAY),
+        ("mallory", "mallory@example.com", NOW - DAY),
+        ("mallory", "mallory@example.com", NOW - 2 * DAY),
+    ]);
+    let roles = roles_file(
+        repo.path(),
+        &TWO_HOLDERS.replace(
+            "[role.mesh-lead]\nholders = [\"alice\", \"bob\"]",
+            "[role.mesh-lead]\nholders = [\"alice\"]",
+        ),
+    );
+    let out = bus_factor(repo.path(), &roles, None);
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("VIOLATION mesh-lead: 1 active"), "{stderr}");
+    // bob is declared but never merged: every other role sees one active
+    // holder (alice) too, and mallory is not counted for any of them.
+    assert!(!stderr.contains("2 active"), "{stderr}");
+}
+
+/// The window is inclusive: a merge exactly 60 days old is still active, one
+/// second older is not.
+#[test]
+fn atc_bus_1_sixty_day_boundary_is_inclusive() {
+    let at = |bob_age: i64| {
+        let repo = fixture_repo(&[
+            ("alice", "alice@example.com", NOW - DAY),
+            ("bob", "bob@example.com", NOW - bob_age),
+        ]);
+        let roles = roles_file(repo.path(), TWO_HOLDERS);
+        bus_factor(repo.path(), &roles, None)
+    };
+    let exact = at(60 * DAY);
+    assert!(
+        exact.status.success(),
+        "{}",
+        String::from_utf8_lossy(&exact.stderr)
+    );
+    assert!(!at(60 * DAY + 1).status.success());
 }
 
 #[test]

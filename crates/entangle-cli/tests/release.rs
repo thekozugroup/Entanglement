@@ -28,15 +28,41 @@ fn entangle(home: &Path) -> Command {
     c
 }
 
-/// Fake cosign that validates its arguments and records them.
+/// Path of the fake cosign script, written once per test process.
+///
+/// Writing an executable per test would leave a window in which another test
+/// thread forks while the script's write descriptor is still open, and a
+/// later `exec` of it fails with "Text file busy" (ETXTBSY). Initialising it
+/// once, before any test can spawn a process, closes that window.
+fn fake_cosign_script() -> &'static Path {
+    static SCRIPT: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    SCRIPT.get_or_init(|| {
+        let dir = TempDir::new().unwrap();
+        let bin = dir.path().join("cosign");
+        write_fake_cosign(&bin);
+        // Keep the directory for the life of the process.
+        std::mem::forget(dir);
+        bin
+    })
+}
+
+/// Fake cosign on `dir`'s PATH entry (a symlink to the shared script).
 fn fake_cosign(dir: &Path) -> PathBuf {
-    let bin = dir.join("cosign");
+    let link = dir.join("cosign");
+    std::os::unix::fs::symlink(fake_cosign_script(), &link).unwrap();
+    link
+}
+
+/// Fake cosign that validates its arguments and records them.
+fn write_fake_cosign(bin: &Path) {
     std::fs::write(
-        &bin,
+        bin,
         r#"#!/bin/sh
 echo "$@" > "$COSIGN_ARGS_LOG"
 [ "$1" = "verify-blob" ] || { echo "bad subcommand" >&2; exit 64; }
 [ "$2" = "--bundle" ] && [ "$3" = "$EXPECT_BUNDLE" ] || { echo "bad bundle" >&2; exit 65; }
+# Like the real cosign, refuse a bundle that does not exist.
+[ -f "$3" ] || { echo "bundle not found" >&2; exit 71; }
 [ "$4" = "--certificate-identity-regexp" ] || { echo "bad identity flag" >&2; exit 66; }
 [ -z "$EXPECT_ID" ] || [ "$5" = "$EXPECT_ID" ] || { echo "bad identity" >&2; exit 66; }
 # The bundle's certificate identity (SAN) must match the regexp. cosign
@@ -54,8 +80,7 @@ exit "${COSIGN_EXIT:-0}"
 "#,
     )
     .unwrap();
-    std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
-    bin
+    std::fs::set_permissions(bin, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
 struct Fixture {
@@ -235,6 +260,50 @@ fn atc_rel_1_tampered_artifact_fails() {
     c.assert()
         .failure()
         .stderr(predicate::str::contains("ENTANGLE-E0842"));
+}
+
+/// Either signature missing or malformed fails verification, and the other
+/// half passing does not rescue it.
+#[test]
+fn atc_rel_1_missing_or_malformed_signature_files_fail() {
+    // Missing .ed25519 sidecar: cosign alone is not enough.
+    let f = fixture();
+    f.trust_as_release_key();
+    std::fs::remove_file(sidecar(&f.artifact, "ed25519")).unwrap();
+    let (mut c, _) = f.verify(&[]);
+    c.assert()
+        .failure()
+        .stdout(predicate::str::contains("PASS").not())
+        .stderr(predicate::str::contains("ENTANGLE-E0841"));
+
+    // Unparseable .ed25519 sidecar.
+    let f = fixture();
+    f.trust_as_release_key();
+    std::fs::write(sidecar(&f.artifact, "ed25519"), "this is not toml {{{").unwrap();
+    let (mut c, _) = f.verify(&[]);
+    c.assert()
+        .failure()
+        .stdout(predicate::str::contains("PASS").not())
+        .stderr(predicate::str::contains("ENTANGLE-E0841"));
+
+    // Empty .ed25519 sidecar.
+    let f = fixture();
+    f.trust_as_release_key();
+    std::fs::write(sidecar(&f.artifact, "ed25519"), "").unwrap();
+    let (mut c, _) = f.verify(&[]);
+    c.assert()
+        .failure()
+        .stdout(predicate::str::contains("PASS").not());
+
+    // Missing .sigstore bundle: the Ed25519 half passing is not enough.
+    let f = fixture();
+    f.trust_as_release_key();
+    std::fs::remove_file(sidecar(&f.artifact, "sigstore")).unwrap();
+    let (mut c, _) = f.verify(&[]);
+    c.assert()
+        .failure()
+        .stdout(predicate::str::contains("PASS").not())
+        .stderr(predicate::str::contains("ENTANGLE-E0846"));
 }
 
 /// Both signatures must cover one byte string. An artifact replaced at its

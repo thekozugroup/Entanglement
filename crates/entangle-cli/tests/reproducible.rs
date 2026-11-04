@@ -561,6 +561,49 @@ fn atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests() {
     assert!(c.contains("sort -u"), "{c}");
     assert!(c.contains("-ne 3"), "must require all three hosts: {c}");
 
+    // The wiring between the jobs: each host runs the binary it just built,
+    // writes its digest to sha256.txt, uploads exactly that file under a
+    // per-host name, and the compare job downloads those same artifacts.
+    let steps = |job: &str| jobs[job]["steps"].as_sequence().unwrap().clone();
+    let run_of = |job: &str| -> String {
+        steps(job)
+            .iter()
+            .filter_map(|s| s["run"].as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let matrix_run = run_of("cross_host_matrix");
+    assert!(matrix_run.contains("target/release/entangle plugins build"));
+    assert!(matrix_run.contains("> sha256.txt"), "{matrix_run}");
+    assert!(
+        matrix_run.contains("--locked"),
+        "the CLI itself is built locked: {matrix_run}"
+    );
+    let upload = steps("cross_host_matrix")
+        .into_iter()
+        .find(|s| {
+            s["uses"]
+                .as_str()
+                .is_some_and(|u| u.contains("upload-artifact"))
+        })
+        .expect("upload step");
+    assert_eq!(upload["with"]["path"].as_str(), Some("sha256.txt"));
+    assert_eq!(
+        upload["with"]["name"].as_str(),
+        Some("sha256-${{ matrix.os }}")
+    );
+    let download = steps("compare")
+        .into_iter()
+        .find(|s| {
+            s["uses"]
+                .as_str()
+                .is_some_and(|u| u.contains("download-artifact"))
+        })
+        .expect("download step");
+    assert_eq!(download["with"]["pattern"].as_str(), Some("sha256-*"));
+    let compare_run = run_of("compare");
+    assert!(compare_run.contains("sha256-*/sha256.txt"), "{compare_run}");
+
     // ATC-PKG-1's serial double build lives in the same workflow.
     assert!(jobs["serial_double_build"].is_mapping());
     // The signing key it references must exist and parse.
@@ -768,6 +811,108 @@ fn atc_pkg_4_rebuild_verify_pass_and_fail() {
         .failure()
         .stdout(predicate::str::contains("FAIL: plugin.wasm differs"))
         .stdout(predicate::str::contains("first differing byte at offset"));
+}
+
+/// The digest `plugins build` prints is the SHA-256 of the archive on disk:
+/// CI and release notes quote it.
+#[test]
+fn plugins_build_prints_the_sha256_of_the_archive() {
+    use sha2::{Digest as _, Sha256};
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
+    let out = entangle(home.path())
+        .env_remove("CARGO_TARGET_DIR")
+        .args(["plugins", "build"])
+        .arg(&project)
+        .arg("--key")
+        .arg(key())
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let archive = project.join("dist/tiny-0.1.0.tar.zst");
+    let want = hex::encode(Sha256::digest(std::fs::read(&archive).unwrap()));
+    assert!(
+        stdout.contains(&format!("package sha256: {want}")),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains(&format!("tiny-0.1.0.tar.zst (sha256 {want})")),
+        "{stdout}"
+    );
+}
+
+/// A different git commit with identical source is reported, not failed: the
+/// source digest already pins the content.
+#[test]
+fn rebuild_verify_reports_a_git_commit_mismatch_without_failing() {
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&project)
+            .args(["-c", "user.name=t", "-c", "user.email=t@example.com"])
+            .args([
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+            ])
+            .args(args)
+            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_SYSTEM", "/dev/null")
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}: {out:?}");
+    };
+    git(&["init", "-q"]);
+    // Keep build outputs out of the commit; they are not source anyway.
+    std::fs::write(project.join(".gitignore"), "target/\ndist/\n").unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "one"]);
+    let archive = build_tiny(home.path(), &project);
+    let files = entangle_oci::unpack(&std::fs::read(&archive).unwrap()).unwrap();
+    let prov: serde_json::Value = serde_json::from_slice(&files.provenance.unwrap()).unwrap();
+    let recorded = prov["git_commit"]
+        .as_str()
+        .expect("commit recorded")
+        .to_owned();
+
+    // Same commit: passes and names it.
+    trust_fixture_key(home.path());
+    verify_rebuild(home.path(), &archive, &project)
+        .success()
+        .stdout(predicate::str::contains(&format!("git commit {recorded}")));
+
+    // A later commit with identical content: still passes, with a note.
+    git(&["commit", "-q", "--allow-empty", "-m", "two"]);
+    verify_rebuild(home.path(), &archive, &project)
+        .success()
+        .stdout(predicate::str::contains("PASS"))
+        .stdout(predicate::str::contains(&format!(
+            "recorded git commit {recorded}"
+        )));
+}
+
+/// Tampering with the manifest or the signature inside the archive is caught,
+/// not just the wasm.
+#[test]
+fn rebuild_verify_rejects_a_tampered_manifest() {
+    let home = TempDir::new().unwrap();
+    trust_fixture_key(home.path());
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
+    let archive = build_tiny(home.path(), &project);
+    let evil = repack_with(&archive, |f| {
+        f.manifest.extend_from_slice(b"\n# tampered\n");
+    });
+    verify_rebuild(home.path(), &evil, &project)
+        .failure()
+        .stdout(predicate::str::contains("PASS").not())
+        .stdout(predicate::str::contains("FAIL: "));
 }
 
 #[test]
