@@ -8,7 +8,8 @@
 //! --certificate-oidc-issuer <issuer> <blob>`, where `<blob>` holds the
 //! bytes its bundle covers (by default the artifact's). Real cosign, against a real
 //! Rekor entry, is exercised by the `sigstore-attest` job of
-//! `.github/workflows/release.yml`, which runs the same flags.
+//! `.github/workflows/release.yml`, which runs the same flags and pins the
+//! same identity (checked by the workflow test below).
 
 #![cfg(unix)]
 
@@ -22,9 +23,6 @@ use tempfile::TempDir;
 /// The identity `entangle release verify` pins for the fixture's artifact
 /// (`entanglement-v1.0.0-rc1-...`): that one tag, nothing else.
 const ID_RE: &str = r"^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/v1\.0\.0-rc1$";
-/// The any-`v*`-tag identity the release workflow itself verifies with
-/// (it runs on the tag it just signed).
-const WORKFLOW_ID_RE: &str = r"^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$";
 const ISSUER: &str = "https://token.actions.githubusercontent.com";
 
 fn entangle(home: &Path) -> Command {
@@ -485,15 +483,22 @@ fn atc_rel_1_tag_flag_and_inference() {
     let (mut c, _) = f.verify(&["--tag", "v1.0.0-rc1"]);
     c.assert().success();
     // An explicit identity regexp replaces the pinning (and excludes --tag).
-    let (mut c, _) = f.verify(&["--certificate-identity-regexp", "x", "--tag", "v1.0.0-rc1"]);
-    c.assert().failure();
+    // Rejected by argument validation (clap), before cosign is ever run.
+    let (mut c, log) = f.verify(&["--certificate-identity-regexp", "x", "--tag", "v1.0.0-rc1"]);
+    let _ = std::fs::remove_file(&log); // left by the earlier runs of this test
+    c.assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+    assert!(!log.exists(), "cosign must not have been invoked");
 }
 
 /// The cosign half is only an independent control if its identity is narrow:
-/// the release workflow, on a `v*` tag. The workflow signs only on tag runs
-/// and verifies with the same identity `entangle release verify` defaults to.
+/// the release workflow, on the one tag ref. The workflow signs only on tag
+/// runs and verifies with the identity `entangle release verify` pins for that
+/// tag: the test runs the workflow's own verify step with a fake `cosign` and
+/// compares the identity regexp it passes with the CLI's (`ID_RE`).
 #[test]
-fn atc_rel_1_release_workflow_signs_only_tag_runs_with_the_default_identity() {
+fn atc_rel_1_release_workflow_signs_only_tag_runs_and_verifies_with_the_pinned_identity() {
     let text = std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.github/workflows/release.yml"),
     )
@@ -515,18 +520,39 @@ fn atc_rel_1_release_workflow_signs_only_tag_runs_with_the_default_identity() {
                 .is_some_and(|r| r.contains("cosign verify-blob"))
         })
         .expect("a cosign verify-blob step");
-    assert_eq!(
-        verify["env"]["IDENTITY_RE"].as_str(),
-        Some(
-            WORKFLOW_ID_RE
-                .replace("thekozugroup/Entanglement", "${{ github.repository }}")
-                .as_str()
+    let run = verify["run"].as_str().unwrap();
+    assert!(run.contains("--certificate-identity-regexp \"${identity_re}\""));
+    // The env the step declares, filled as GitHub would for the fixture's tag.
+    assert_eq!(verify["env"]["REPO"].as_str(), Some("${{ github.repository }}"));
+    assert_eq!(verify["env"]["REF_NAME"].as_str(), Some("${{ github.ref_name }}"));
+
+    let dir = TempDir::new().unwrap();
+    let bin = dir.path().join("bin");
+    std::fs::create_dir(&bin).unwrap();
+    let cosign = bin.join("cosign");
+    std::fs::write(
+        &cosign,
+        "#!/bin/sh\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = --certificate-identity-regexp ]; then printf '%s' \"$2\" > \"$OUT\"; fi\n  shift\ndone\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&cosign, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::write(dir.path().join("entanglement-v1.0.0-rc1-x.tar.gz"), b"x").unwrap();
+    let out = dir.path().join("identity");
+    let status = std::process::Command::new("bash")
+        .arg("-ec")
+        .arg(run)
+        .current_dir(dir.path())
+        .env(
+            "PATH",
+            format!("{}:{}", bin.display(), std::env::var("PATH").unwrap()),
         )
-    );
-    assert!(verify["run"]
-        .as_str()
-        .unwrap()
-        .contains("--certificate-identity-regexp \"${IDENTITY_RE}\""));
+        .env("REPO", "thekozugroup/Entanglement")
+        .env("REF_NAME", "v1.0.0-rc1")
+        .env("OUT", &out)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(std::fs::read_to_string(&out).unwrap(), ID_RE);
 }
 
 // ---------------------------------------------------------------------------
