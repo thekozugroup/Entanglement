@@ -79,6 +79,32 @@ impl TailscaleVersion {
     }
 }
 
+/// Hold every version that could be read against [`MIN_SUPPORTED_VERSION`]
+/// (spec §11 #17): `cli` from `tailscale version` (or why it could not be
+/// read) and `daemon` from tailscaled's status JSON (`Version`). Any one
+/// below the floor is refused ([`MeshTailscaleError::UnsupportedVersion`]),
+/// and so is having neither ([`MeshTailscaleError::VersionUnknown`]): the
+/// check fails closed. Returns the version to report (the CLI's, else
+/// tailscaled's).
+///
+/// [`MeshTailscaleError::UnsupportedVersion`]: crate::MeshTailscaleError::UnsupportedVersion
+/// [`MeshTailscaleError::VersionUnknown`]: crate::MeshTailscaleError::VersionUnknown
+pub fn check_versions(
+    cli: Result<TailscaleVersion, String>,
+    daemon: Option<TailscaleVersion>,
+) -> Result<TailscaleVersion, crate::MeshTailscaleError> {
+    let cli_version = cli.as_ref().ok().copied();
+    for v in [cli_version, daemon].into_iter().flatten() {
+        v.check_supported()?;
+    }
+    cli_version.or(daemon).ok_or_else(|| {
+        crate::MeshTailscaleError::VersionUnknown(format!(
+            "`tailscale version`: {}; tailscaled's status reported none",
+            cli.err().unwrap_or_default()
+        ))
+    })
+}
+
 impl fmt::Display for TailscaleVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
@@ -196,6 +222,36 @@ mod tests {
         assert!(text.contains("1.58.2") && text.contains("1.62.0"), "{text}");
         assert!(
             text.contains("entangle config set mesh.tailscale.enabled false"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn every_known_version_is_held_to_the_floor_and_none_is_refused() {
+        let v = TailscaleVersion::new;
+        let ok = v(1, 76, 1);
+        let old = v(1, 50, 0);
+        assert_eq!(check_versions(Ok(ok), None).unwrap(), ok);
+        assert_eq!(check_versions(Ok(ok), Some(ok)).unwrap(), ok);
+        assert_eq!(check_versions(Err("exit 1".into()), Some(ok)).unwrap(), ok);
+        for (cli, daemon) in [
+            (Ok(old), None),
+            (Ok(ok), Some(old)),
+            (Err("exit 1".into()), Some(old)),
+        ] {
+            let text = check_versions(cli, daemon).unwrap_err().to_string();
+            assert!(
+                text.starts_with("ENTANGLE-E0791") && text.contains("1.50.0"),
+                "{text}"
+            );
+        }
+        let text = check_versions(Err("exit 1: unknown command".into()), None)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            text.starts_with("ENTANGLE-E0793")
+                && text.contains("unknown command")
+                && text.contains("1.62.0"),
             "{text}"
         );
     }

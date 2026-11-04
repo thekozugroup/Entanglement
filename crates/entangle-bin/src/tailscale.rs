@@ -272,10 +272,16 @@ pub fn spawn_state_metrics(
 /// transport on a `tailscale` older than
 /// [`entangle_mesh_tailscale::MIN_SUPPORTED_VERSION`] (`ENTANGLE-E0791`).
 ///
-/// A CLI that is missing or cannot report its version does not block the
-/// start — the liveness poller then reports the tailnet as `uninstalled` or
-/// `stopped`, and logs the daemon's version on every transition once one is
-/// seen — but it is logged. Returns the version when it was read.
+/// Both versions that can be read are held to the floor: the CLI's
+/// (`tailscale version`) and tailscaled's (`Version` in `status --json`,
+/// whose output the transport trusts). When the CLI is there but cannot say
+/// its version, tailscaled's stands in; with neither the transport is
+/// refused (`ENTANGLE-E0793`) rather than started unchecked
+/// ([`entangle_mesh_tailscale::check_versions`]). A CLI that does not exist
+/// at all does not block the start — the liveness poller then reports the
+/// tailnet as `uninstalled` (or `stopped`, when tailscaled's socket exists),
+/// and there is no status JSON to trust — but it is logged. Returns the
+/// version when one was read.
 pub async fn check_version(
     mesh: &MeshConfig,
 ) -> anyhow::Result<Option<entangle_mesh_tailscale::TailscaleVersion>> {
@@ -285,23 +291,40 @@ pub async fn check_version(
         } else {
             mesh.tailscale.tailscale_cli.as_str()
         });
-    match source.fetch_version().await {
-        Ok(v) => {
-            v.check_supported()?;
-            tracing::info!(tailscale_version = %v, cli = source.cli(), "mesh.tailscale: host tailscale version");
-            Ok(Some(v))
+    let cli = match source.fetch_version().await {
+        Ok(v) => Ok(v),
+        Err(entangle_mesh_tailscale::MeshTailscaleError::NotInstalled) => {
+            tracing::warn!(
+                cli = source.cli(),
+                minimum = %entangle_mesh_tailscale::MIN_SUPPORTED_VERSION,
+                "mesh.tailscale: the tailscale CLI was not found; its version is checked again \
+                 at every liveness transition"
+            );
+            return Ok(None);
         }
         Err(e) => {
             tracing::warn!(
                 error = %e,
                 cli = source.cli(),
-                minimum = %entangle_mesh_tailscale::MIN_SUPPORTED_VERSION,
-                "mesh.tailscale: could not read the tailscale version; it is checked again \
-                 at every liveness transition"
+                "mesh.tailscale: could not read the CLI's version; checking tailscaled's"
             );
-            Ok(None)
+            Err(e.to_string())
         }
-    }
+    };
+    // tailscaled may be down at boot: then only the CLI's version is known.
+    let daemon = source
+        .fetch_status()
+        .await
+        .ok()
+        .and_then(|s| s.parsed_version());
+    let v = entangle_mesh_tailscale::check_versions(cli, daemon)?;
+    tracing::info!(
+        tailscale_version = %v,
+        tailscaled_version = ?daemon.map(|d| d.to_string()),
+        cli = source.cli(),
+        "mesh.tailscale: host tailscale version"
+    );
+    Ok(Some(v))
 }
 
 /// Start the transport, serving loop, liveness poller and discovery task.
@@ -457,6 +480,75 @@ mod version_tests {
         // Missing CLI: not a refusal (the poller reports `uninstalled`).
         let missing = mesh_with("/nonexistent/tailscale".into());
         assert_eq!(check_version(&missing).await.unwrap(), None);
+    }
+
+    /// A CLI whose `version` fails; `status --json` prints `status`, or
+    /// fails too when it is `None`.
+    fn mute_cli(dir: &std::path::Path, name: &str, status: Option<&str>) -> String {
+        let path = dir.join(name);
+        let status_arm = match status {
+            Some(json) => format!("status) echo '{json}' ;;"),
+            None => "status) exit 1 ;;".to_owned(),
+        };
+        std::fs::write(
+            &path,
+            format!(
+                "#!/bin/sh\ncase \"$1\" in version) echo 'unknown command' >&2; exit 1 ;; \
+                 {status_arm} *) exit 1 ;; esac\n"
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        path.display().to_string()
+    }
+
+    /// The floor does not fail open: when `tailscale version` cannot say its
+    /// version, tailscaled's (`status --json` `Version`) is checked instead,
+    /// and with neither the transport is refused; a tailscaled below the
+    /// floor is refused even when the CLI is new enough.
+    #[tokio::test]
+    async fn boot_does_not_start_on_an_unknown_or_old_tailscaled() {
+        let dir = tempfile::tempdir().unwrap();
+        let running = |v: &str| format!("{{\"Version\":\"{v}\",\"BackendState\":\"Running\"}}");
+
+        let old = mesh_with(mute_cli(dir.path(), "old", Some(&running("1.50.0-t1"))));
+        let text = format!("{:#}", check_version(&old).await.unwrap_err());
+        assert!(
+            text.contains("ENTANGLE-E0791") && text.contains("1.50.0"),
+            "{text}"
+        );
+
+        let unknown = mesh_with(mute_cli(dir.path(), "unknown", None));
+        let text = format!("{:#}", check_version(&unknown).await.unwrap_err());
+        assert!(
+            text.contains("ENTANGLE-E0793") && text.contains("1.62.0"),
+            "{text}"
+        );
+
+        let new = mesh_with(mute_cli(dir.path(), "new", Some(&running("1.76.1-t1"))));
+        assert_eq!(
+            check_version(&new).await.unwrap(),
+            Some(entangle_mesh_tailscale::TailscaleVersion::new(1, 76, 1))
+        );
+
+        // A new CLI in front of an old tailscaled.
+        let path = dir.path().join("split");
+        std::fs::write(
+            &path,
+            format!(
+                "#!/bin/sh\ncase \"$1\" in version) echo 1.76.1 ;; status) echo '{}' ;; \
+                 *) exit 1 ;; esac\n",
+                running("1.50.0")
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let split = mesh_with(path.display().to_string());
+        let text = format!("{:#}", check_version(&split).await.unwrap_err());
+        assert!(
+            text.contains("ENTANGLE-E0791") && text.contains("1.50.0"),
+            "{text}"
+        );
     }
 }
 

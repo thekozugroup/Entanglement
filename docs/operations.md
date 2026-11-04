@@ -333,7 +333,7 @@ canonical range table, maintained in
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
-| E0780–E0799 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0791: the 1.62.0 Tailscale floor, also enforced by the daemon), `keys gen`, pairing UX, `install` / `uninstall` / `agent host cleanup` — see §22–§27 |
+| E0780–E0799 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0791: the 1.62.0 Tailscale floor, E0793: a Tailscale version that cannot be read; both also enforced by the daemon), `keys gen`, pairing UX, `install` / `uninstall` / `agent host cleanup` — see §22–§27 |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -376,8 +376,9 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0788` | Pairing: the other device could not be reached; the message lists each transport tried and why it failed, and suggests `entangle diag pair` (§24). |
 | `ENTANGLE-E0789` | `entangle init`: the tailnet is not usable for `mesh.tailscale` — binary not found (exit 64), not logged in or stopped (65), running but offline (75) (§23). |
 | `ENTANGLE-E0790` | `entangle uninstall --purge` refused: not confirmed, the daemon is running, or the directory does not look like Entanglement's (§26). |
-| `ENTANGLE-E0791` | The host `tailscale` is older than 1.62.0: `entangle init` refuses to enable `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §23). |
+| `ENTANGLE-E0791` | The host `tailscale` (the CLI or tailscaled) is older than 1.62.0: `entangle init` refuses to enable `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §23). |
 | `ENTANGLE-E0792` | `entangle uninstall`: the install checksum record is unreadable (§26). |
+| `ENTANGLE-E0793` | Neither `tailscale version` nor tailscaled's status reports a version, so the 1.62.0 floor cannot be checked: `entangle init` refuses `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §23). |
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§16). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§16). |
 | `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§16). |
@@ -547,10 +548,13 @@ clears both); `entangle init --transport tailscale` does too, after checking
 the tailnet (§23).
 
 **Minimum Tailscale version: 1.62.0** (spec §11 #17). At boot the daemon runs
-`tailscale version` and does not start the transport on an older binary
-(`ENTANGLE-E0791` in the log; the rest of the daemon runs). A binary that is
-missing or cannot report its version does not block the start (the liveness
-state then says `uninstalled` / `stopped`). Every liveness transition logs the
+`tailscale version` and reads the `Version` tailscaled reports in `tailscale
+status --json`, and does not start the transport when either is older
+(`ENTANGLE-E0791` in the log; the rest of the daemon runs). When the CLI
+cannot report its version, tailscaled's is used; when neither can be read the
+transport is not started either (`ENTANGLE-E0793`). Only a `tailscale` binary
+that is missing altogether does not block the start (the liveness state then
+says `uninstalled` / `stopped`). Every liveness transition logs the
 version `tailscaled` reports (`tailscale_version=...`) and warns when it is
 below the floor.
 
@@ -1995,7 +1999,8 @@ these checks, each with its message and exit code (spec §9.1.1):
 | Condition | Exit |
 |---|---|
 | `tailscale` not found | 64 (`ENTANGLE-E0789`) |
-| `tailscale version` older than 1.62.0 | 69 (`ENTANGLE-E0791`) |
+| `tailscale version`, or the `Version` tailscaled reports, older than 1.62.0 | 69 (`ENTANGLE-E0791`) |
+| neither version can be read | 69 (`ENTANGLE-E0793`) |
 | `BackendState` `NeedsLogin`, or stopped | 65 (`ENTANGLE-E0789`): run `tailscale up` |
 | running but this node offline | 75 (`ENTANGLE-E0789`): wait and retry |
 | several login profiles (`tailscale switch --list`) | interactive: warns and asks to continue with the active one; headless: 64 unless `--tailscale-profile <tailnet|account|id>` names the active profile (a different one is 64 with the `tailscale switch` to run) |

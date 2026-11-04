@@ -4,8 +4,9 @@
 //! `E0640–E0649` block. `E0640` and `E0641` were minted by the Phase-1
 //! scaffold and keep their meaning; `E0642`–`E0649` belong to the real
 //! transport. That block is full, so the version floor
-//! ([`MeshTailscaleError::UnsupportedVersion`]) takes `ENTANGLE-E0791` from
-//! the operator-flows block (`E0780–E0799`), which `entangle init` shares.
+//! ([`MeshTailscaleError::UnsupportedVersion`]) takes `ENTANGLE-E0791`, and
+//! an unknown version ([`MeshTailscaleError::VersionUnknown`]) `ENTANGLE-E0793`,
+//! from the operator-flows block (`E0780–E0799`), which `entangle init` shares.
 
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -89,11 +90,23 @@ pub enum MeshTailscaleError {
          `entangle config set mesh.tailscale.enabled false`"
     )]
     UnsupportedVersion {
-        /// The version `tailscale version` reported.
+        /// The version `tailscale version` (or tailscaled's status JSON)
+        /// reported.
         found: crate::TailscaleVersion,
         /// The minimum this build supports.
         minimum: crate::TailscaleVersion,
     },
+
+    /// `ENTANGLE-E0793` — neither `tailscale version` nor tailscaled's
+    /// status JSON gave a version, so the floor of spec §11 #17 cannot be
+    /// checked; the transport is refused rather than trusted unchecked.
+    #[error(
+        "ENTANGLE-E0793: could not determine the tailscale version ({0}), so the supported \
+         minimum {min} cannot be checked; check `tailscale version` and `tailscale status \
+         --json`, or drop the transport with `entangle config set mesh.tailscale.enabled false`",
+        min = crate::MIN_SUPPORTED_VERSION
+    )]
+    VersionUnknown(String),
 }
 
 impl MeshTailscaleError {
@@ -111,6 +124,7 @@ impl MeshTailscaleError {
             Self::PeerNotAllowed(_) => "ENTANGLE-E0648",
             Self::Status(_) => "ENTANGLE-E0649",
             Self::UnsupportedVersion { .. } => "ENTANGLE-E0791",
+            Self::VersionUnknown(_) => "ENTANGLE-E0793",
         }
     }
 
@@ -149,6 +163,7 @@ mod tests {
                 found: crate::TailscaleVersion::new(1, 50, 0),
                 minimum: crate::MIN_SUPPORTED_VERSION,
             },
+            MeshTailscaleError::VersionUnknown("x".into()),
         ]
     }
 

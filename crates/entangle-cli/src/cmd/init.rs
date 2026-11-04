@@ -19,8 +19,9 @@
 //!
 //! Choosing `mesh.tailscale` runs the §9.1.1 checks, each failure with its
 //! message and exit code: binary missing (64), older than 1.62.0 (69,
-//! `ENTANGLE-E0791`), not logged in or stopped (65), running but offline
-//! (75), several login profiles not confirmed (64).
+//! `ENTANGLE-E0791`; the CLI's version and tailscaled's are both checked),
+//! version unknown (69, `ENTANGLE-E0793`), not logged in or stopped (65),
+//! running but offline (75), several login profiles not confirmed (64).
 
 use crate::cmd::ui::{Prompter, Style};
 use crate::config::{self, entangle_dir};
@@ -234,11 +235,27 @@ impl TsReport {
             .map_or_else(|| self.cli.clone(), |p| p.display().to_string())
     }
 
+    /// tailscaled's version, from the status JSON.
+    fn daemon_version(&self) -> Option<TailscaleVersion> {
+        self.status
+            .as_ref()
+            .and_then(TailscaleStatus::parsed_version)
+    }
+
+    /// The version to show: the CLI's, else tailscaled's.
+    fn known_version(&self) -> Option<TailscaleVersion> {
+        self.version
+            .as_ref()
+            .ok()
+            .copied()
+            .or_else(|| self.daemon_version())
+    }
+
     /// One line: version, binary and state.
     pub fn summary(&self) -> String {
-        let version = match &self.version {
-            Ok(v) => format!("tailscale {v}"),
-            Err(_) => "tailscale".to_owned(),
+        let version = match self.known_version() {
+            Some(v) => format!("tailscale {v}"),
+            None => "tailscale".to_owned(),
         };
         match &self.state {
             TailnetState::Active => format!(
@@ -265,10 +282,12 @@ impl TsReport {
                  https://tailscale.com/download\n  Or: rerun with --transport local,iroh",
             ));
         }
-        if let Ok(v) = self.version {
-            if let Err(e) = v.check_supported() {
-                return Some(fail(EXIT_UNAVAILABLE, e.to_string()));
-            }
+        // Spec §11 #17, failing closed: the CLI's version and tailscaled's
+        // are both held to the floor, and an unknown one is refused.
+        if let Err(e) =
+            entangle_mesh_tailscale::check_versions(self.version.clone(), self.daemon_version())
+        {
+            return Some(fail(EXIT_UNAVAILABLE, e.to_string()));
         }
         match &self.state {
             TailnetState::Active | TailnetState::Uninstalled => None,
@@ -595,9 +614,8 @@ fn print_tailscale_notes(report: &TsReport) {
     let tailnet = report.tailnet();
     println!("\n{}", st.bold("Tailscale"));
     let version = report
-        .version
-        .as_ref()
-        .map_or_else(|_| "unknown version".to_owned(), ToString::to_string);
+        .known_version()
+        .map_or_else(|| "unknown version".to_owned(), |v| v.to_string());
     println!(
         "Entanglement trusts the local Tailscale binary ({}, version {version}) for peer \
          discovery.",

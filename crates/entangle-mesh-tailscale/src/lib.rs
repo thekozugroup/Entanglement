@@ -67,7 +67,9 @@ pub use transport::{
     MeshConn, MeshRequest, MeshTailscale, PeerAllowlist, ProtocolHandler, RequestHandler,
     RequestProtocol, StaticAllowlist,
 };
-pub use version::{parse_profiles, TailscaleProfile, TailscaleVersion, MIN_SUPPORTED_VERSION};
+pub use version::{
+    check_versions, parse_profiles, TailscaleProfile, TailscaleVersion, MIN_SUPPORTED_VERSION,
+};
 
 /// Default TCP port for Entanglement over the tailnet.
 pub const DEFAULT_PORT: u16 = 41643;

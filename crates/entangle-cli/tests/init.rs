@@ -117,7 +117,8 @@ impl FakeTailscale {
         let script = dir.path().join("tailscale");
         std::fs::write(
             &script,
-            "#!/bin/sh\nd=$(dirname \"$0\")\ncase \"$1\" in\n  version) cat \"$d/version\" ;;\n  \
+            "#!/bin/sh\nd=$(dirname \"$0\")\ncase \"$1\" in\n  version) [ -f \"$d/version-fails\" ] && \
+             { echo 'tailscale: unknown command' >&2; exit 1; }; cat \"$d/version\" ;;\n  \
              status) cat \"$d/status.json\" ;;\n  switch) cat \"$d/profiles\" ;;\n  *) exit 2 ;;\nesac\n",
         )
         .unwrap();
@@ -134,6 +135,12 @@ impl FakeTailscale {
 
     fn path(&self) -> String {
         format!("{}:/usr/bin:/bin", self.dir.path().display())
+    }
+
+    /// From now on `tailscale version` fails (exit 1, no version printed).
+    fn version_fails(self) -> Self {
+        std::fs::write(self.dir.path().join("version-fails"), "").unwrap();
+        self
     }
 }
 
@@ -278,6 +285,62 @@ fn tailscale_failure_modes_exit_with_the_spec_codes_and_write_nothing() {
         .code(64)
         .stderr(predicate::str::contains("tailscale binary not found"))
         .stderr(predicate::str::contains("--transport local,iroh"));
+}
+
+/// Spec §11 #17: the 1.62.0 floor holds when `tailscale version` cannot
+/// say its version — tailscaled's own (`Version` in `status --json`) is
+/// checked instead, and with no version at all the transport is refused —
+/// and a tailscaled older than the floor is refused even when the CLI is
+/// new enough.
+#[test]
+fn the_version_floor_does_not_fail_open() {
+    let _g = FAKE.lock().unwrap_or_else(|e| e.into_inner());
+    let old_daemon = ACTIVE.replace("1.76.1-t1", "1.50.0-t1");
+    let no_version = ACTIVE.replace("\"Version\":\"1.76.1-t1\",", "");
+    assert_ne!(no_version, ACTIVE);
+    let cases = [
+        (
+            FakeTailscale::new(&old_daemon, "1.76.1", ONE_PROFILE).version_fails(),
+            "ENTANGLE-E0791",
+            "1.50.0",
+        ),
+        (
+            FakeTailscale::new(&no_version, "1.76.1", ONE_PROFILE).version_fails(),
+            "ENTANGLE-E0793",
+            "1.62.0",
+        ),
+        (
+            FakeTailscale::new(&old_daemon, "1.76.1", ONE_PROFILE),
+            "ENTANGLE-E0791",
+            "1.50.0",
+        ),
+    ];
+    for (fake, code, needle) in cases {
+        let tmp = TempDir::new().unwrap();
+        let a = entangle(&tmp)
+            .env("PATH", fake.path())
+            .args(["init", "--headless", "--transport", "tailscale"])
+            .assert()
+            .code(69);
+        let out = output_of(&a);
+        assert!(out.contains(code) && out.contains(needle), "{code}:\n{out}");
+        assert!(!entangle_dir(&tmp).exists(), "{code}: files were written");
+    }
+
+    // tailscaled's version stands in for the CLI's when it is new enough.
+    let fake = FakeTailscale::new(ACTIVE, "1.76.1", ONE_PROFILE).version_fails();
+    let tmp = TempDir::new().unwrap();
+    let a = entangle(&tmp)
+        .env("PATH", fake.path())
+        .args(["init", "--headless", "--transport", "tailscale"])
+        .assert()
+        .success();
+    assert!(
+        output_of(&a).contains("version 1.76.1"),
+        "{}",
+        output_of(&a)
+    );
+    assert!(entangle_bin::tailscale::enabled(&daemon_config(&tmp).mesh));
 }
 
 #[test]
