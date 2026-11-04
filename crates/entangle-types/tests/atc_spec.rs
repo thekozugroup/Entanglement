@@ -5,8 +5,10 @@
 //! on types. They do NOT enforce scheduling, Wasm instantiation, or
 //! reputation tracking — those are Phase 3+ (entangle-plugin-scheduler).
 //!
-//! ATC IDs whose full contracts require the scheduler are marked
-//! `#[ignore]` with a pointer to the spec section and future crate.
+//! ATC IDs whose full contracts require the scheduler are implemented in the
+//! scheduler's own tests (e.g. `crates/entangle-scheduler/tests/stream_atc.rs`
+//! for ATC-INT-4/-6 and ATC-STR-1/-2/-3); the few operational ones left are
+//! marked `#[ignore]` with a pointer to where they are verified.
 
 use entangle_types::{
     errors::EntangleError,
@@ -125,13 +127,15 @@ fn integrity_policy_none_toml_round_trip() {
 }
 
 // ---------------------------------------------------------------------------
-// ATC-INT-4 (types-tier) — SemanticEquivalent threshold carries any f32
+// SemanticEquivalent threshold carries any f64
 // ---------------------------------------------------------------------------
 
-/// §16 ATC-INT-4 (types-tier) — The type permits threshold values outside
-/// [0.0, 1.0]; validation is the scheduler's responsibility, not the type's.
+/// The type permits threshold values outside [0.0, 1.0]; validation is the
+/// scheduler's responsibility, not the type's. (Formerly filed under
+/// ATC-INT-4, which is the streaming submit-time check:
+/// `crates/entangle-scheduler/tests/stream_atc.rs`.)
 #[test]
-fn atc_int_4_semantic_equivalent_threshold_not_clamped_at_type_level() {
+fn semantic_equivalent_threshold_not_clamped_at_type_level() {
     let over = semantic_equivalent(1.5);
     let under = semantic_equivalent(-0.1);
     // The type accepts these values — enforcement is the scheduler's job.
@@ -150,16 +154,16 @@ fn atc_int_4_semantic_equivalent_threshold_not_clamped_at_type_level() {
 }
 
 // ---------------------------------------------------------------------------
-// ATC-STR-1 (types-tier) — ChannelSpec defaults: 1 MiB chunk, 256 MiB total
+// ChannelSpec defaults: 1 MiB chunk, 256 MiB total, 30 min credit timeout
 // ---------------------------------------------------------------------------
 
-/// §16 ATC-STR-1 (types-tier) — ChannelSpec default max_chunk_bytes = 1 MiB
-/// and max_total_bytes = 256 MiB per spec §7.1.
+/// ChannelSpec default max_chunk_bytes = 1 MiB, max_total_bytes = 256 MiB
+/// and credit-exhaustion timeout = 30 minutes per spec §7.1.
 ///
 /// Runtime enforcement (stall, TotalBytesExceeded) is ATC-STR-1 / ATC-INT-6
-/// proper in entangle-plugin-scheduler (Phase 3).
+/// in `crates/entangle-scheduler/tests/stream_atc.rs`.
 #[test]
-fn atc_str_1_channel_spec_defaults_match_spec() {
+fn channel_spec_defaults_match_spec() {
     let ch = ChannelSpec::default();
     assert_eq!(
         ch.max_chunk_bytes,
@@ -173,16 +177,17 @@ fn atc_str_1_channel_spec_defaults_match_spec() {
     );
     assert_eq!(ch.credit_window, 16);
     assert_eq!(ch.heartbeat_ms, 5_000);
+    assert_eq!(ch.credit_exhaustion_timeout_ms, 30 * 60 * 1_000);
 }
 
 // ---------------------------------------------------------------------------
-// ATC-STR-2 (types-tier) — PartialResultPolicy serializes as kebab-case
+// PartialResultPolicy serializes as kebab-case
 // ---------------------------------------------------------------------------
 
-/// §16 ATC-STR-2 (types-tier) — PartialResultPolicy variants serialize as
-/// kebab-case strings per serde attribute.
+/// PartialResultPolicy variants serialize as kebab-case strings per serde
+/// attribute.
 #[test]
-fn atc_str_2_partial_result_policy_kebab_case_serde() {
+fn partial_result_policy_kebab_case_serde() {
     let cases = [
         (PartialResultPolicy::Discard, "\"discard\""),
         (PartialResultPolicy::Keep, "\"keep\""),
@@ -234,58 +239,6 @@ fn atc_out_1_output_size_exceeded_display_format() {
 // ---------------------------------------------------------------------------
 // Placeholder / deferred ATC IDs — require Phase 3+ runtime code
 // ---------------------------------------------------------------------------
-
-/// §16 ATC-INT-4 (scheduler-tier) — StreamingTask + Deterministic rejected at submit-time.
-///
-/// Requires InvalidIntegrityForStreaming error in entangle-plugin-scheduler.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/submit_validation.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler submit-time validation"]
-fn atc_int_4_streaming_deterministic_rejected_at_submit() {
-    unimplemented!("§16 ATC-INT-4 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-INT-6 — StreamingTask total-byte cap enforced at runtime.
-///
-/// Requires scheduler stream tracking and Reason::TotalBytesExceeded teardown.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/stream_total_bytes.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler stream byte tracking"]
-fn atc_int_6_streaming_total_bytes_cap_enforced() {
-    unimplemented!("§16 ATC-INT-6 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-STR-1 (scheduler-tier) — credit-exhaustion stall within timeout.
-///
-/// Deferred to: crates/entangle-plugin-scheduler/tests/stream_stall.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler credit/stall machinery"]
-fn atc_str_1_credit_exhaustion_stalls_at_timeout() {
-    unimplemented!("§16 ATC-STR-1 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-STR-2 (scheduler-tier) — three missed heartbeat pings close channel.
-///
-/// Deferred to: crates/entangle-plugin-scheduler/tests/stream_heartbeat.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler heartbeat ping/pong machinery"]
-fn atc_str_2_three_missed_pings_close_channel() {
-    unimplemented!("§16 ATC-STR-2 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-STR-3 — forged chunk signature rejected.
-///
-/// Deferred to: crates/entangle-plugin-scheduler/tests/stream_signing.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler chunk signing verification"]
-fn atc_str_3_forged_chunk_rejected() {
-    unimplemented!("§16 ATC-STR-3 — see crates/entangle-plugin-scheduler Phase 3")
-}
 
 /// §16 ATC-BUS-1, ATC-BUS-2 — bus / rotation governance invariants.
 ///
