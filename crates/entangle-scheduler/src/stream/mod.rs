@@ -99,7 +99,7 @@ pub struct StalledEvent {
 }
 
 /// What kind of stall the submitter observed (see
-/// [`SubmitterMachine`](submitter::SubmitterMachine)).
+/// [`SubmitterMachine`]).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum StallKind {
     /// The executor has had no output credit for the credit-exhaustion
