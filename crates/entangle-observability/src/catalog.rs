@@ -133,6 +133,94 @@ pub mod names {
     pub const PLUGIN_RELOADS: &str = "entangle_plugin_reloads_total";
     /// Idle plugin instances torn down after their `idle-timeout-secs`.
     pub const PLUGIN_IDLE_TEARDOWNS: &str = "entangle_plugin_idle_teardowns_total";
+    /// Task attempts the scheduler retried, by `kind` ([`RETRY_KINDS`](super::RETRY_KINDS))
+    /// and `cause` ([`RETRY_CAUSES`](super::RETRY_CAUSES)).
+    pub const SCHEDULER_RETRIES: &str = "entangle_scheduler_retries_total";
+    /// Speculative (backup) copies of slow tasks, by `event`
+    /// ([`SPECULATIVE_EVENTS`](super::SPECULATIVE_EVENTS)).
+    pub const SCHEDULER_SPECULATIVE: &str = "entangle_scheduler_speculative_total";
+    /// Stalled streams, by what the scheduler did about them: `outcome`
+    /// ([`STALL_OUTCOMES`](super::STALL_OUTCOMES)). Never labelled by peer.
+    pub const STREAMS_STALLED: &str = "entangle_scheduler_streams_stalled_total";
+}
+
+/// The values of the `kind` label of [`names::SCHEDULER_RETRIES`]: a
+/// one-shot task or a stream.
+pub const RETRY_KINDS: [&str; 2] = ["one_shot", "stream"];
+
+/// The values of the `cause` label of [`names::SCHEDULER_RETRIES`]: the
+/// transport failed after the request was sent and before any answer (the
+/// worker crashed or the connection was lost: `lost_after_send`), the peer
+/// could not be reached at all (`unreachable`), or a stalled stream was
+/// preempted and reassigned (`stalled`). Anything else folds into `other`.
+pub const RETRY_CAUSES: [&str; 3] = ["lost_after_send", "unreachable", "stalled"];
+
+/// The values of the `event` label of [`names::SCHEDULER_SPECULATIVE`]: a
+/// backup copy was started (`launched`), its result was the one used
+/// (`won`), the original's was (`lost`), and a copy still running when the
+/// other won was cancelled (`cancelled`, either copy).
+pub const SPECULATIVE_EVENTS: [&str; 4] = ["launched", "won", "lost", "cancelled"];
+
+/// The values of the `outcome` label of [`names::STREAMS_STALLED`]: the
+/// scheduler cancelled the stalled stream (`preempted`), extended its stall
+/// timeout through a control frame (`extended`), cancelled it and restarted
+/// it on another executor (`reassigned`), or left it to the executor's own
+/// timers (`waited`).
+pub const STALL_OUTCOMES: [&str; 4] = ["preempted", "extended", "reassigned", "waited"];
+
+/// The scheduler retried a `kind` task (`one_shot` or `stream`) after a
+/// failure with `cause` (see [`RETRY_CAUSES`]; unknown values fold into
+/// `other`).
+pub fn scheduler_retry(reg: &Registry, kind: &str, cause: &str) {
+    let kind = RETRY_KINDS
+        .iter()
+        .copied()
+        .find(|k| *k == kind)
+        .unwrap_or("other");
+    let cause = RETRY_CAUSES
+        .iter()
+        .copied()
+        .find(|c| *c == cause)
+        .unwrap_or("other");
+    reg.inc_counter(
+        names::SCHEDULER_RETRIES,
+        "Task attempts retried after a worker crash, a lost peer or a lost connection, by \
+         task kind and cause",
+        &[("kind", kind), ("cause", cause)],
+        1.0,
+    );
+}
+
+/// A speculative copy `event` happened (see [`SPECULATIVE_EVENTS`];
+/// unknown values fold into `other`).
+pub fn scheduler_speculative(reg: &Registry, event: &str) {
+    let event = SPECULATIVE_EVENTS
+        .iter()
+        .copied()
+        .find(|e| *e == event)
+        .unwrap_or("other");
+    reg.inc_counter(
+        names::SCHEDULER_SPECULATIVE,
+        "Speculative backup copies of slow tasks, by event",
+        &[("event", event)],
+        1.0,
+    );
+}
+
+/// A stalled stream was handled with `outcome` (see [`STALL_OUTCOMES`];
+/// unknown values fold into `other`).
+pub fn stream_stalled(reg: &Registry, outcome: &str) {
+    let outcome = STALL_OUTCOMES
+        .iter()
+        .copied()
+        .find(|o| *o == outcome)
+        .unwrap_or("other");
+    reg.inc_counter(
+        names::STREAMS_STALLED,
+        "Stalled streams by what the scheduler did about them",
+        &[("outcome", outcome)],
+        1.0,
+    );
 }
 
 /// The values of the `transport` label: the three mesh transports, and
@@ -735,6 +823,41 @@ mod tests {
             ),
             Some(1.0)
         );
+    }
+
+    #[test]
+    fn scheduler_failure_labels_are_closed_sets() {
+        let r = Registry::new();
+        scheduler_retry(&r, "one_shot", "lost_after_send");
+        scheduler_retry(&r, "stream", "peer 0123abcd");
+        scheduler_speculative(&r, "launched");
+        scheduler_speculative(&r, "made-up");
+        stream_stalled(&r, "preempted");
+        stream_stalled(&r, "peer_id=abc");
+        assert_eq!(
+            r.value(
+                names::SCHEDULER_RETRIES,
+                &[("kind", "one_shot"), ("cause", "lost_after_send")]
+            ),
+            Some(1.0)
+        );
+        assert_eq!(
+            r.value(
+                names::SCHEDULER_RETRIES,
+                &[("kind", "stream"), ("cause", "other")]
+            ),
+            Some(1.0)
+        );
+        assert_eq!(
+            r.value(names::SCHEDULER_SPECULATIVE, &[("event", "other")]),
+            Some(1.0)
+        );
+        assert_eq!(
+            r.value(names::STREAMS_STALLED, &[("outcome", "other")]),
+            Some(1.0)
+        );
+        let text = r.render();
+        assert!(!text.contains("0123abcd") && !text.contains("peer_id"), "{text}");
     }
 
     #[test]

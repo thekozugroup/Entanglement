@@ -14,6 +14,8 @@
 //!   validation, the output-size short-circuit (INV-INT-2), hash quorum and
 //!   `SemanticEquivalent` metric verification (spec §7.5).
 //! * [`reputation`] — per-peer, per-policy-variant correctness reputation.
+//! * [`retry`] — failure handling (spec §7.6): the precise rule for what is
+//!   retried and where, and speculative backup copies of stragglers.
 //! * [`spot_check`] — the Layer-2 spot-check (spec §7.5): a sample of
 //!   accepted `Deterministic` / `SemanticEquivalent` tasks re-run on another
 //!   executor after the result is returned; a mismatch downranks the
@@ -49,6 +51,7 @@ pub mod integrity;
 pub mod placement;
 pub mod remote;
 pub mod reputation;
+pub mod retry;
 pub mod spot_check;
 pub mod stream;
 pub mod transport;
@@ -57,16 +60,17 @@ pub mod work_unit;
 pub mod worker;
 
 pub use capability::{CapabilityGate, CapabilityTokens, HeldToken, StaticTokens};
-pub use dispatcher::{DispatchError, DispatchResult, Dispatcher};
+pub use dispatcher::{Attempt, AttemptKind, AttemptOutcome, DispatchError, DispatchResult, Dispatcher};
 pub use integrity::{
     IntegrityVerifier, OutputSizeExceededWarning, ReplicaReport, ReplicaStatus, TELEMETRY_TARGET,
 };
 pub use placement::{choose, rank, PlacementChoice, PlacementError};
 pub use remote::{
     send_control_over, serve_tasks, PeerAddressBook, PeerAllowlist, PeerDirectory, RemoteDispatch,
-    RemoteReplica, RemoteTaskServer, StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
+    RemoteAttempt, RemoteReplica, RemoteTaskServer, StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
 };
 pub use reputation::{ReputationReason, ReputationStore, ReputationTier};
+pub use retry::{DurationHistory, RetryCause, SpeculationConfig};
 pub use spot_check::{
     SpotCheck, SpotCheckConfig, SpotCheckHandle, SpotCheckRecord, SpotCheckVerdict, SpotChecker,
     TieBreak,

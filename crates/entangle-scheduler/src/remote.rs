@@ -92,6 +92,7 @@ use tracing::Instrument as _;
 
 use crate::capability::{present_to, task_binding, CapabilityGate, CapabilityTokens, GatePath};
 use crate::dispatcher::DispatchError;
+use crate::retry::RetryCause;
 use crate::transport::{
     AttemptCell, DialTarget, IrohLink, Link, LinkError, Outbound, RouteError, TransportKind,
     TransportRouter,
@@ -301,6 +302,19 @@ impl RemoteDispatch {
         peer: PeerId,
         envelope: &PolicyEnvelope,
     ) -> (Result<RemoteReplica, DispatchError>, Option<TransportKind>) {
+        let attempt = self.dispatch_attempt(task, peer, envelope).await;
+        (attempt.result, attempt.transport)
+    }
+
+    /// One attempt at running `task` on `peer`: the result, the transport
+    /// that carried it, and — when it failed in a way that says nothing
+    /// about the task — why it may be retried (see [`crate::retry`]).
+    pub async fn dispatch_attempt(
+        &self,
+        task: &OneShotTask,
+        peer: PeerId,
+        envelope: &PolicyEnvelope,
+    ) -> RemoteAttempt {
         let span = tracing::info_span!(
             "remote.dispatch",
             otel.kind = "client",
@@ -308,7 +322,11 @@ impl RemoteDispatch {
             plugin = %task.plugin,
             transport = tracing::field::Empty,
         );
-        let (response, kind) = self
+        let RoundTrip {
+            response,
+            transport: kind,
+            cause,
+        } = self
             .dispatch_traced(task, peer, envelope)
             .instrument(span.clone())
             .await;
@@ -331,7 +349,28 @@ impl RemoteDispatch {
                 message,
             }),
         });
-        (result, kind)
+        // Only a failure is retryable.
+        let cause = if result.is_err() { cause } else { None };
+        RemoteAttempt {
+            result,
+            transport: kind,
+            cause,
+        }
+    }
+
+    /// Ask `peer` to stop executing this node's task `task_id` (a
+    /// [`ControlAction::Cancel`] frame), bounded by `timeout`. `Ok` when
+    /// the peer stopped it; [`RemoteErrorCode::UnknownTask`] when it was no
+    /// longer running there.
+    pub async fn send_cancel(
+        &self,
+        peer: PeerId,
+        task_id: TaskId,
+        timeout: Duration,
+    ) -> Result<(), DispatchError> {
+        self.send_control(peer, ControlFrame::cancel(task_id), timeout)
+            .await
+            .map(|_| ())
     }
 
     /// Send the task frame, carrying the current span's `traceparent` when a
@@ -347,10 +386,7 @@ impl RemoteDispatch {
         task: &OneShotTask,
         peer: PeerId,
         envelope: &PolicyEnvelope,
-    ) -> (
-        Result<RemoteTaskResponse, DispatchError>,
-        Option<TransportKind>,
-    ) {
+    ) -> RoundTrip {
         let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
         let traceparent = if self.no_trace_extension.lock().contains(&peer) {
             None
@@ -365,7 +401,7 @@ impl RemoteDispatch {
         // the executor's replay cache is concerned.
         let binding = task_binding(&body);
         let request = RemoteRequest::task(body.clone().with_traceparent(traceparent.clone()));
-        let (response, kind) = self
+        let first = self
             .round_trip(
                 peer,
                 &request,
@@ -377,7 +413,7 @@ impl RemoteDispatch {
             .await;
         let rejected_extension = traceparent.is_some()
             && matches!(
-                &response,
+                &first.response,
                 Ok(RemoteTaskResponse {
                     outcome: RemoteOutcome::Err {
                         code: RemoteErrorCode::MalformedRequest,
@@ -387,7 +423,7 @@ impl RemoteDispatch {
                 })
             );
         if !rejected_extension {
-            return (response, kind);
+            return first;
         }
         tracing::debug!(%peer, "peer rejected the traceparent extension; resending without it");
         self.no_trace_extension.lock().insert(peer);
@@ -397,7 +433,7 @@ impl RemoteDispatch {
             Some(binding),
             budget,
             task.max_output_bytes,
-            kind,
+            first.transport,
         )
         .await
     }
@@ -429,10 +465,10 @@ impl RemoteDispatch {
         only: Option<TransportKind>,
     ) -> Result<PolicyHash, DispatchError> {
         let task_id = TaskId::from_bytes(frame.task_id);
-        let (response, _) = self
+        let trip = self
             .round_trip(peer, &RemoteRequest::control(frame), None, timeout, 0, only)
             .await;
-        control_outcome(peer, task_id, response?)
+        control_outcome(peer, task_id, trip.response?)
     }
 
     /// Encode, send, and decode one request under `budget`. A task frame
@@ -448,10 +484,7 @@ impl RemoteDispatch {
         budget: Duration,
         max_output_bytes: u64,
         only: Option<TransportKind>,
-    ) -> (
-        Result<RemoteTaskResponse, DispatchError>,
-        Option<TransportKind>,
-    ) {
+    ) -> RoundTrip {
         let tokens = capability.and_then(|binding| {
             self.token_source()
                 .filter(|source| source.token_for(&peer).is_some())
@@ -460,11 +493,12 @@ impl RemoteDispatch {
         let frame = match TaskFrame::new(request, peer, tokens) {
             Ok(f) => Arc::new(f),
             Err(e) => {
-                return (
-                    Err(DispatchError::RemoteTransport {
+                return RoundTrip::failed(
+                    DispatchError::RemoteTransport {
                         peer,
                         reason: format!("encoding request: {e}"),
-                    }),
+                    },
+                    None,
                     None,
                 )
             }
@@ -508,25 +542,29 @@ impl RemoteDispatch {
         let answer = match tokio::time::timeout(budget, io).await {
             Ok(Ok(result)) => result,
             Ok(Err(join)) => {
-                return (
-                    Err(DispatchError::RemoteTransport {
+                return RoundTrip::failed(
+                    DispatchError::RemoteTransport {
                         peer,
                         reason: format!("transport task failed: {join}"),
-                    }),
+                    },
                     attempt.get(),
+                    None,
                 )
             }
+            // The task ran into its own timeout (plus the overhead): never
+            // retryable — it would only run into it again.
             Err(_elapsed) => {
-                return (
-                    Err(DispatchError::RemoteTransport {
+                return RoundTrip::failed(
+                    DispatchError::RemoteTransport {
                         peer,
                         reason: format!(
                             "no answer within {}ms (request budget including {}ms overhead)",
                             budget.as_millis(),
                             self.overhead.as_millis()
                         ),
-                    }),
+                    },
                     attempt.get(),
+                    None,
                 )
             }
         };
@@ -538,15 +576,25 @@ impl RemoteDispatch {
                 // request fit under that cap.
                 if let RouteError::FrameTooLarge { declared, max, .. } = &e {
                     if is_task && frame.sent_len() <= *max && *declared > max_output_bytes {
-                        return (Err(oversized(*declared)), kind);
+                        return RoundTrip::failed(oversized(*declared), kind, None);
                     }
                 }
-                return (
-                    Err(DispatchError::RemoteTransport {
+                // The precise retry rule (see `crate::retry`): lost after
+                // the request was sent, or the peer could not be reached.
+                let cause = match &e {
+                    RouteError::Failed { .. } => Some(RetryCause::LostAfterSend),
+                    RouteError::Unreachable { .. } | RouteError::NoRoute { .. } => {
+                        Some(RetryCause::Unreachable)
+                    }
+                    _ => None,
+                };
+                return RoundTrip::failed(
+                    DispatchError::RemoteTransport {
                         peer,
                         reason: e.to_string(),
-                    }),
+                    },
                     kind,
+                    cause.filter(|_| is_task),
                 );
             }
         };
@@ -567,8 +615,46 @@ impl RemoteDispatch {
                 reason: other.to_string(),
             },
         });
-        (decoded, Some(kind))
+        RoundTrip {
+            response: decoded,
+            transport: Some(kind),
+            cause: None,
+        }
     }
+}
+
+/// What one request/response exchange came to.
+struct RoundTrip {
+    response: Result<RemoteTaskResponse, DispatchError>,
+    transport: Option<TransportKind>,
+    /// Set only for a failure that may be retried.
+    cause: Option<RetryCause>,
+}
+
+impl RoundTrip {
+    fn failed(
+        error: DispatchError,
+        transport: Option<TransportKind>,
+        cause: Option<RetryCause>,
+    ) -> Self {
+        Self {
+            response: Err(error),
+            transport,
+            cause,
+        }
+    }
+}
+
+/// One attempt at a remote task ([`RemoteDispatch::dispatch_attempt`]).
+#[derive(Debug)]
+pub struct RemoteAttempt {
+    /// The output, or why there is none.
+    pub result: Result<RemoteReplica, DispatchError>,
+    /// The transport that carried it (or was being tried), if any.
+    pub transport: Option<TransportKind>,
+    /// Why the failure may be retried; `None` for a success and for every
+    /// failure the rule in [`crate::retry`] does not retry.
+    pub cause: Option<RetryCause>,
 }
 
 /// One request as it goes out on each attempt: encoded once without a
@@ -814,8 +900,8 @@ impl PeerAllowlist for StaticAllowlist {
 pub const MAX_REMOTE_TASK_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
 
 /// In-flight tasks on an executor: `(authenticated caller, task id)` → the
-/// policy hash the task was accepted with.
-type InFlight = Arc<Mutex<HashMap<(PeerId, [u8; 16]), PolicyHash>>>;
+/// policy hash the task was accepted with, and the signal that cancels it.
+type InFlight = Arc<Mutex<HashMap<(PeerId, [u8; 16]), (PolicyHash, Arc<tokio::sync::Notify>)>>>;
 
 /// Removes an in-flight entry when the execution finishes, however it ends.
 struct InFlightGuard {
@@ -899,7 +985,7 @@ impl RemoteTaskServer {
         self.in_flight
             .lock()
             .get(&(*caller, *task_id.as_bytes()))
-            .copied()
+            .map(|(hash, _)| *hash)
     }
 
     /// Number of tasks executing here right now, across all callers.
@@ -1143,6 +1229,7 @@ impl RemoteTaskServer {
         // Register as in flight. One frame, one execution: a second frame
         // with the same id while this one runs is refused, not run twice.
         let key = (from, request.task_id);
+        let cancel = Arc::new(tokio::sync::Notify::new());
         {
             let mut table = self.in_flight.lock();
             if table.contains_key(&key) {
@@ -1151,7 +1238,7 @@ impl RemoteTaskServer {
                     "a task with this id from this peer is already executing here",
                 );
             }
-            table.insert(key, envelope.hash());
+            table.insert(key, (envelope.hash(), Arc::clone(&cancel)));
         }
         let _in_flight = InFlightGuard {
             table: Arc::clone(&self.in_flight),
@@ -1176,6 +1263,8 @@ impl RemoteTaskServer {
             // only to be verified (INV-INT-1) and audited.
             integrity: IntegrityPolicy::None,
             timeout_ms,
+            // Retrying is the submitter's decision; one frame is one run.
+            retry: entangle_types::task::RetryPolicy::never(),
         };
 
         // Audit: which policy (and, for SemanticEquivalent, which metric) the
@@ -1196,15 +1285,23 @@ impl RemoteTaskServer {
             "scheduler: executing task for remote peer"
         );
 
-        let result = self
-            .kernel
-            .invoke_with_integrity(&task, self.local_peer_id)
-            .await;
+        // A `Cancel` control frame from the caller stops the run at its
+        // next await point (a wasm guest yields at every epoch tick).
+        let result = tokio::select! {
+            result = self.kernel.invoke_with_integrity(&task, self.local_peer_id) => result,
+            () = cancel.notified() => {
+                tracing::info!(peer = %from, plugin = %task.plugin, "scheduler: task cancelled by the submitter");
+                return RemoteTaskResponse::err(
+                    RemoteErrorCode::Cancelled,
+                    "the submitter cancelled the task",
+                );
+            }
+        };
 
         // INV-INT-1, second check: re-hash the bytes we hold and compare
         // with what we registered before echoing it back.
         let observed = envelope.recompute_hash();
-        let registered = self.in_flight.lock().get(&key).copied();
+        let registered = self.in_flight.lock().get(&key).map(|(hash, _)| *hash);
         if registered != Some(observed) || observed != envelope.hash() {
             tracing::error!(peer = %from, "scheduler: policy envelope changed during execution");
             return RemoteTaskResponse::err(
@@ -1237,17 +1334,42 @@ impl RemoteTaskServer {
 
     /// Answer a control frame from `from`. Never executes anything.
     fn control(&self, from: PeerId, frame: ControlFrame) -> RemoteTaskResponse {
-        let ControlAction::SetPolicy {
-            policy,
-            policy_hash,
-        } = frame.action;
+        let (policy, policy_hash) = match frame.action {
+            ControlAction::SetPolicy {
+                policy,
+                policy_hash,
+            } => (policy, policy_hash),
+            ControlAction::Cancel => {
+                let entry = self
+                    .in_flight
+                    .lock()
+                    .get(&(from, frame.task_id))
+                    .map(|(hash, cancel)| (*hash, Arc::clone(cancel)));
+                return match entry {
+                    Some((hash, cancel)) => {
+                        // `notify_one` keeps the permit if the run has not
+                        // reached its wait yet.
+                        cancel.notify_one();
+                        RemoteTaskResponse::ack(frame.task_id, hash)
+                    }
+                    None => RemoteTaskResponse::err(
+                        RemoteErrorCode::UnknownTask,
+                        "no task with this id from this peer is executing here",
+                    ),
+                };
+            }
+        };
         if hash_canonical(&policy) != policy_hash {
             return RemoteTaskResponse::err(
                 RemoteErrorCode::MalformedRequest,
                 "control frame's policy_hash is not SHA-256 of its policy bytes",
             );
         }
-        let current = self.in_flight.lock().get(&(from, frame.task_id)).copied();
+        let current = self
+            .in_flight
+            .lock()
+            .get(&(from, frame.task_id))
+            .map(|(hash, _)| *hash);
         match current {
             None => RemoteTaskResponse::err(
                 RemoteErrorCode::UnknownTask,

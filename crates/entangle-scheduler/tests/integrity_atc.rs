@@ -398,6 +398,7 @@ fn task(plugin: PluginId, input: &[u8], integrity: IntegrityPolicy) -> OneShotTa
         resources: ResourceSpec::default(),
         integrity,
         timeout_ms: 20_000,
+        retry: Default::default(),
     }
 }
 

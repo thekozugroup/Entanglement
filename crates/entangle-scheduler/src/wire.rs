@@ -165,9 +165,27 @@ pub enum ControlAction {
         /// `SHA-256(policy)`.
         policy_hash: PolicyHash,
     },
+    /// Stop executing the task: the submitter no longer needs its result
+    /// (another copy already answered — speculative execution, spec §7.6).
+    ///
+    /// Answered with [`RemoteOutcome::Ack`] when the task was executing
+    /// here (it is stopped at its next await point and its own frame is
+    /// answered [`RemoteErrorCode::Cancelled`]), and with
+    /// [`RemoteErrorCode::UnknownTask`] when it was not (already finished,
+    /// or never arrived). Like every control frame it only ever addresses
+    /// the sending peer's own tasks and never executes anything.
+    Cancel,
 }
 
 impl ControlFrame {
+    /// A `Cancel` frame for `task_id`.
+    pub fn cancel(task_id: TaskId) -> Self {
+        Self {
+            task_id: *task_id.as_bytes(),
+            action: ControlAction::Cancel,
+        }
+    }
+
     /// A `SetPolicy` frame for `task_id` proposing `envelope`'s policy.
     pub fn set_policy(task_id: TaskId, envelope: &PolicyEnvelope) -> Self {
         Self {
@@ -384,6 +402,9 @@ pub enum RemoteErrorCode {
     /// `E0463`, `E0412`; the message says which check failed). **No work
     /// was done.**
     CapabilityRejected,
+    /// The submitter cancelled the task with a [`ControlAction::Cancel`]
+    /// frame while it ran; it produced no output.
+    Cancelled,
 }
 
 impl RemoteErrorCode {
@@ -404,6 +425,7 @@ impl RemoteErrorCode {
             Self::DuplicateTask => "duplicate-task",
             Self::CapabilityRequired => "capability-required",
             Self::CapabilityRejected => "capability-rejected",
+            Self::Cancelled => "cancelled",
         }
     }
 }
