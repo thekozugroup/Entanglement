@@ -300,9 +300,13 @@ fn run_wizard() -> anyhow::Result<WizardAnswers> {
     println!();
     println!("[2/4] Choose mesh transports to enable. Multiple separated by commas.");
     println!("      Choices:");
-    println!("        local       LAN-only mDNS discovery (Phase 1, recommended)");
-    println!("        iroh        QUIC mesh with NAT hole-punching (Phase 2, scaffolded)");
-    println!("        tailscale   Use your existing tailnet (Phase 2, scaffolded)");
+    println!("        local       LAN-only mDNS discovery (recommended)");
+    println!(
+        "        iroh        QUIC mesh with NAT hole-punching (peers listed in [scheduler] peers)"
+    );
+    println!(
+        "        tailscale   Use your existing tailnet (also set [mesh.tailscale] enabled = true)"
+    );
     println!("      Default: local");
     let transport_input: String = Input::new()
         .with_prompt("     ")

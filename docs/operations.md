@@ -153,7 +153,7 @@ service_name = "entangled"
 | `[security]` | `allow_unsandboxed_native` | bool | `false` | Run native (tier 4–5) plugins on a host that has **no** OS sandbox primitive. Off: such plugins are refused with `ENTANGLE-E0700`. No effect on hosts that have one — the sandbox is then always engaged. See §12. |
 | `[security]` | `deny_capabilities` | array of strings | `[]` | Capabilities the broker never grants to any plugin, whatever its manifest declares (spec §4.5): exact keys (`"net.wan"`, `"storage.share.photos"`, `"custom.telemetry"`), family prefixes (`"net.*"`, `"storage.*"`, `"storage.share.*"`, `"compute.*"`, `"custom.*"`) or `"*"`. A plugin that declares a denied capability **still loads, without it**; see §18. An invalid pattern (e.g. `"net.wann"`) is a startup error, `ENTANGLE-E0126`. Omitted from the file the CLI writes when empty. |
 | `[wrappers]` | `install` | bool | `false` | Opt-in record for the shell shim. `entangle wrapper enable` sets `true`, `disable` sets `false`; setting `false` by hand silences an installed shim at once (it checks this key whenever an agent host is launched outside a session). The daemon ignores it. See §15. |
-| `[plugins]` | `disabled` | array of strings | `[]` | Plugin ids unloaded by a tier-ceiling lowering. See §16 for what honours it today. |
+| `[plugins]` | `disabled` | array of strings | `[]` | Plugin ids the kernel refuses to load (`ENTANGLE-E0759`): written by a tier-ceiling lowering (§16) and by `entangle plugins disable <id>`; `entangle plugins enable <id>` removes an id. Honoured by the daemon (re-read before every `plugins load`, no restart needed) and by the CLI's `--allow-local` kernel. |
 
 Notes:
 
@@ -337,7 +337,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0401` | Task input exceeds the dispatcher's configured `max_input_bytes`. |
 | `ENTANGLE-E0410`–`E0413` | Biscuit-auth parse / mint / verify / malformed-claim failures. |
 | `ENTANGLE-E0420`–`E0425` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch (E0420–E0424); E0425 is a relay whose cumulative `total_bytes_cap` budget is exhausted. |
-| `ENTANGLE-E0620`–`E0624`, `E0660`–`E0670` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
+| `ENTANGLE-E0620`–`E0624`, `E0660`–`E0671` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
 | `ENTANGLE-E0630`, `E0640` | Retired `NotImplemented` codes for `mesh.iroh` and `mesh.tailscale`; both transports are implemented. |
 | `ENTANGLE-E0651`–`E0654` | OTLP trace export: invalid `[telemetry.otlp]` endpoint (E0651; `https://` is not supported), empty `service_name` (E0652), an out-of-range exporter setting (E0653), the export thread could not start (E0654). `E0650` is retired. See §14. |
 | `ENTANGLE-E0655`–`E0657` | Metrics endpoint: `[metrics] listen` is not an `ip:port` (E0655), a non-loopback `listen` without `allow_non_loopback = true` (E0656), the socket could not be bound (E0657). See §14. |
@@ -349,6 +349,8 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0756` | A shell rc file could not be read or written (or `$HOME` is unset, or the file is not UTF-8) (§15). |
 | `ENTANGLE-E0757` | `entangle wrapper repair` while wrappers are not enabled (§15). |
 | `ENTANGLE-E0758` | Daemon refused `security/apply-max-tier`: a plugin above the new ceiling was not on the list the operator confirmed (loaded while the prompt waited); nothing changed, re-run to see the current list (§16). |
+| `ENTANGLE-E0759` | A plugin id listed in `[plugins] disabled` was refused at load; run `entangle plugins enable <id>` (§16). |
+| `ENTANGLE-E0760` | `entangle plugins enable` refused: the plugin's tier is above the current `max_tier_allowed`; raise the ceiling first (§16). |
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§16). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§16). |
 | `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§16). |
@@ -363,7 +365,7 @@ grep -rn "ENTANGLE-E<code>" crates/*/src/
 
 ---
 
-## 7. Backup / restore of `identity.key`
+## 7. Backup / restore
 
 `identity.key` is the node's Ed25519 private key. **The daemon's `peer_id` —
 and every existing pairing — is derived from its public key.** There is no
@@ -376,49 +378,83 @@ recovery path for a lost key:
 
 ### Backup
 
-There is no dedicated `entangle backup` command in Phase 1 — back it up like
-any other secret file:
-
 ```bash
-cp ~/.entangle/identity.key /secure/offline/location/identity.key.bak
-chmod 600 /secure/offline/location/identity.key.bak
+entangle backup --to /secure/offline/node.entangle-backup            # prompts twice
+entangle backup --to node.bak --include-config --passphrase-file ~/.bk-pass
+ENTANGLE_BACKUP_PASSPHRASE=... entangle backup --to node.bak          # automation
 ```
 
-After backing it up, touch the sentinel the built-in maintenance loop checks
-for, so it stops nagging in the logs:
+The archive holds `identity.key`, `keyring.toml`, `release-keyring.toml` and
+`peers.toml` (whichever exist) and, with `--include-config`, `config.toml`.
+Plugin data under `~/.entangle/data` is **not** archived (a deviation from
+architecture.md §9.6; back that directory up with your usual file backup). It
+is encrypted with a passphrase: Argon2id (64 MiB, 3 passes, 1 lane; above the
+OWASP minimum) derives a key for XChaCha20-Poly1305, and the format header
+(magic, version, KDF parameters, salt, nonce) is authenticated as associated
+data, so changing any byte of the file makes it unreadable. The passphrase
+comes from `--passphrase-file <file>` (first line), else from
+`ENTANGLE_BACKUP_PASSPHRASE` when it is set (even at a terminal; the command
+says so on stderr), else from a TTY prompt (asked twice); at least 8
+characters. It is never accepted on the command line. Without a TTY and without one of those
+sources the command fails instead of hanging. The archive is written with mode
+`0600`, atomically; an existing `--to` file is only replaced with `--force`.
+A successful backup touches `~/.entangle/.identity_backed_up`, which silences
+the maintenance loop's "identity has no backup" warning
+(`crates/entangle-bin/src/maintenance.rs`, `warn_backup`). The loop also warns
+once the key is older than `key_rotation_warn_days` (default 365 days),
+counting from the older of the file's creation and modification times; the
+archive records that time and `restore` puts it back as the restored file's
+modification time, so a restored key keeps its age.
 
-```bash
-touch ~/.entangle/.identity_backed_up
-```
+Keep the passphrase separate from the archive: without it the archive cannot
+be opened, and there is no recovery.
 
-(`crates/entangle-bin/src/maintenance.rs`'s `warn_backup` check emits a
-`maintenance: identity has no backup sentinel …` warning on every tick while
-that sentinel file is absent. It does not track *how stale* your backup is —
-only whether one was ever acknowledged — so re-touch it after any deliberate
-key rotation, but there's no automated re-check on a schedule.)
+### Restore (new device or disaster)
 
-The maintenance loop also warns (does not fail) once the key is older than
-`key_rotation_warn_days` (default 365 days), as a rotation reminder.
-
-### Restore
-
-Stop the daemon, place the backed-up PEM at `~/.entangle/identity.key` with
-mode `0600`, and restart:
+Stop the daemon, then:
 
 ```bash
 systemctl stop entangled          # or: docker stop entangled
-cp /secure/offline/location/identity.key.bak ~/.entangle/identity.key
-chmod 600 ~/.entangle/identity.key
+entangle restore --from /secure/offline/node.entangle-backup
 systemctl start entangled         # or: docker start entangled
 ```
 
-`entangle init` also supports importing a PEM interactively (option `i` in
-the wizard, or non-interactively by pre-placing the file): if an identity
-already exists and differs from the one being imported, it requires explicit
-confirmation, takes an automatic `identity.key.bak-<unix_ts>` copy (mode
-`0600`) of the *old* key before overwriting, and offers to clear
-`peers.toml` (since the old pairings are now stale against the new key).
-Importing a byte-identical key is a no-op.
+The passphrase is read like for `backup` (once). Decryption and validation
+happen entirely before anything is written, so a wrong passphrase, a modified
+or truncated archive, or an archive that is not a backup leaves the target
+untouched. Restored files get mode `0600` (`~/.entangle/` `0700` if it had to
+be created). The restored node has the same `peer_id`, the same keyring and
+the same peer list, and every biscuit issued earlier stays valid, since
+biscuits are bound to keys, not to the device.
+
+If this device already has an identity, keyring or peer list that differs from
+the archive, `restore` refuses (`ENTANGLE-E0864`). With `--force` it first
+copies every file it is about to replace into
+`~/.entangle/restore-backup-<unix_ts>/` (mode `0700`, files `0600`), then
+writes the archive's files: each is first written to a temporary file
+next to its target and only then renamed into place, so a write failure
+(full disk, file-size limit) changes nothing, and if a rename fails the files
+already replaced are put back; the error (`ENTANGLE-E0867`) says which
+happened and where the copies are. Managed files the archive does not contain
+(for example `peers.toml` when the source had no pairings) are moved to that
+directory too, because they would be stale against the restored identity.
+`config.toml` is touched only when the archive contains it.
+
+| Code | Meaning |
+|------|---------|
+| `ENTANGLE-E0860` | No usable passphrase (no TTY and no file/env, empty, too short, prompts differ) |
+| `ENTANGLE-E0861` | Not a backup, unsupported version, truncated, or KDF parameters out of range |
+| `ENTANGLE-E0862` | Wrong passphrase, or the archive was modified |
+| `ENTANGLE-E0863` | Decrypted payload is invalid (bad identity, unexpected file, malformed TOML) |
+| `ENTANGLE-E0864` | Restore would overwrite existing state; pass `--force` |
+| `ENTANGLE-E0865` | `backup --to` path exists; pass `--force` |
+| `ENTANGLE-E0866` | No readable `identity.key` to back up |
+| `ENTANGLE-E0867` | I/O error while writing |
+
+`entangle init` can also import a bare PEM (option `i` in the wizard): if an
+identity already exists and differs it requires confirmation, takes an
+automatic `identity.key.bak-<unix_ts>` copy (mode `0600`) and offers to clear
+`peers.toml`. `entangle restore` is the way to move a whole node.
 
 ---
 
@@ -459,7 +495,7 @@ Docker, `docker logs -f entangled` shows the same JSON stream; pass
 | Daemon fails to start with a TOML parse error mentioning an unknown field | A typo'd config key, or a key left over from an old schema (e.g. `[runtime] multi_node` or `[runtime] max_tier`, which moved to `[mesh]`/`[security]`) | Fix or remove the offending key — `deny_unknown_fields` means every section rejects keys it doesn't recognize. Cross-check against the schema table in §2. |
 | Daemon fails to start: "cannot resolve a private socket path" / "cannot resolve the config directory" | `$HOME` is unset (common in minimal container/service environments) and no absolute `$XDG_RUNTIME_DIR` is set either | Set `HOME` explicitly (systemd: `Environment=HOME=...`; Docker: `ENV HOME=...`, already done in the shipped image). The code deliberately refuses to fall back to a world-writable path like `/tmp`. |
 | Daemon logs "socket … is group/world accessible; refusing to serve" | Something (or someone) loosened the permissions on an existing socket path before bind, or a very permissive umask affected the parent dir | Remove the stale socket / fix the parent directory to `0700`, then restart. The server will not serve on a socket it can't restrict to `0600`. |
-| `entangle`/`entangled` fail identity checks with "PEM parse failed" / corrupt key | `identity.key` truncated, corrupted, or edited by hand | Restore from backup (§7); if none exists, `entangle init` can generate a fresh identity — but every existing pairing must be redone via `entangle pair`. |
+| `entangle`/`entangled` fail identity checks with "PEM parse failed" / corrupt key | `identity.key` truncated, corrupted, or edited by hand | Restore from backup (§7, `entangle restore`); if none exists, `entangle init` can generate a fresh identity — but every existing pairing must be redone via `entangle pair`. |
 | `entangle doctor`'s `identity-perms` or `dir-perms` check warns | File/dir permissions loosened outside the tool (e.g. by a backup/restore process, or an `umask` override) | `chmod 600 ~/.entangle/identity.key` / `chmod 700 ~/.entangle` as suggested in the check's own output. |
 | `entangled status` fails / hangs | Daemon not running, socket path mismatch, or daemon wedged | Check `systemctl status entangled` / `docker ps`; confirm the socket path matches (`--socket` override vs. default `$HOME/.entangle/sock`); check logs for the last activity before it stopped responding. |
 | Native plugin refused with `ENTANGLE-E0700` / `E0701` | No sandbox primitive on this host (E0700), or one exists but cannot take the network away (E0701) | Run `entangle doctor` (§12). Enable Landlock / install bubblewrap; or grant the plugin `net.*`; or, knowingly, set `allow_unsandboxed_native = true`. |
@@ -1279,11 +1315,29 @@ log finds them), and the durable
 operator trail `~/.entangle/audit.log` (JSON lines, mode 0600), which survives
 daemon restarts and exists even when the daemon is down.
 
-**Disabled plugins and restarts.** The daemon does not load plugins at startup
-(they are loaded on request and the loaded set is not persisted), so no
-unloaded plugin can come back on restart; `[plugins] disabled` records the
-decision for the operator and for a future startup loader, but nothing consumes
-it yet. Re-load the plugin explicitly once you raise the ceiling.
+**Disabled plugins.** `[plugins] disabled` is enforced: the kernel (the
+daemon's and the `--allow-local` one) refuses to load a listed plugin id with
+`ENTANGLE-E0759: plugin <id> is disabled ... run `entangle plugins enable <id>``,
+before any signature work. A `SemanticEquivalent` metric package is a plugin
+too: the daemon refuses to load a listed metric id (`ENTANGLE-E0310` wrapping
+`ENTANGLE-E0759`) when a task names it with `--metric-dir`. The daemon
+re-reads the list from `config.toml` before every `plugins load` and every
+metric load, so the commands below take effect without a restart; an unreadable `config.toml` keeps the previous list (a broken edit
+never re-enables a plugin).
+
+```bash
+entangle plugins disable <id>   # add to [plugins] disabled (a loaded copy keeps running until `plugins unload`)
+entangle plugins enable  <id>   # remove it again
+```
+
+Both edit `config.toml` in place, keeping comments and other sections.
+`enable` is refused with `ENTANGLE-E0760` when the plugin's tier (read from its
+installed manifest under `~/.entangle/plugins/`, or from the tier recorded in
+`audit.log` when the lowering disabled it) is above the current
+`max_tier_allowed`; raise the ceiling first. A plugin whose tier cannot be
+found on disk is enabled, and the load re-checks the ceiling
+(`ENTANGLE-E0043`). The daemon does not load plugins at startup, so re-load an
+enabled plugin explicitly.
 
 The Wasm runtime is capped at tier 3, so in practice the plugins a lowering to
 3 affects are native (tier 4–5) plugins; a lowering to 1 or 2 can also affect
@@ -1567,7 +1621,8 @@ source produce the same bytes: absolute paths are remapped out of the wasm
 
 ```text
 entangle release key add <release-public-key-hex> --name release-2026   # release keyring
-entangle release verify entanglement-v1.0.0-<target>.tar.gz
+entangle release verify entanglement-v1.0.0-<target>.tar.gz          # tag read from the file name
+entangle release verify download.tar.gz --tag v1.0.0               # or given explicitly
 ```
 
 Needs `<artifact>.ed25519` (from `entangle release sign`) and the cosign bundle
@@ -1575,10 +1630,18 @@ Needs `<artifact>.ed25519` (from `entangle release sign`) and the cosign bundle
 keyring is `~/.entangle/release-keyring.toml`, separate from the publisher keyring
 (`--release-key <hex>` trusts a single key instead). `cosign` must be on `PATH` (or
 `--cosign <path>`); if it is missing the command fails with `ENTANGLE-E0845`.
-`--certificate-identity-regexp` / `--certificate-oidc-issuer` default to the values used by
-`.github/workflows/release.yml`: the identity must be that workflow file of this repository
-run on a `v*` tag (anchored; other workflows, branch, pull-request and dispatch runs are
-rejected), and the workflow signs only on tag runs. The key ceremony (2-of-3 Shamir split with
+The cosign certificate identity is pinned to **one release**: the release workflow of this
+repository run on exactly `refs/tags/<tag>`, with `<tag>` from `--tag vX.Y.Z` or, when
+omitted, from an `entanglement-<tag>-<target>.tar.gz` file name. If neither is available the
+command refuses (`ENTANGLE-E0847`); a `--tag` that is not a `vX.Y.Z[-pre]` tag is refused
+the same way, and one that contradicts a release-style file name is refused
+(`ENTANGLE-E0848`). This is what stops a rollback: an older release (valid signatures and
+all) renamed to a newer version was minted by the older tag's run and fails the newer
+tag's identity (`ENTANGLE-E0846`). The identity is anchored and the tag's dots escaped, so
+no other tag, branch, pull-request or dispatch run, workflow or repository matches.
+`--certificate-identity-regexp` replaces the pinning outright (for forks with their own
+release workflow; it excludes `--tag`), and `--certificate-oidc-issuer` defaults to GitHub
+Actions. `.github/workflows/release.yml` signs only tag runs. The key ceremony (2-of-3 Shamir split with
 `entangle release key split|combine`) is in `docs/governance/key-ceremony.md`.
 
 ### 18.3 Governance checks

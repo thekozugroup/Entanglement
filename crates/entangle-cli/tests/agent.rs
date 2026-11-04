@@ -623,11 +623,16 @@ fn agent_run_policy_flags_reach_the_gateway_end_to_end() {
 
 #[test]
 fn agent_run_warns_about_remote_http_servers() {
+    // The gateway now proxies remote servers; it warns at start only about
+    // one it will refuse (here: plain http to a non-loopback host), naming
+    // the server and the URL.
     let dir = TempDir::new().unwrap();
     let cfg = dir.path().join("mcp.json");
     fs::write(
         &cfg,
-        r#"{"mcpServers":{"remote":{"type":"http","url":"https://mcp.example.com/x"}}}"#,
+        r#"{"mcpServers":{
+            "remote":{"type":"http","url":"http://mcp.example.com/x"},
+            "fine":{"type":"http","url":"https://mcp.example.com/y"}}}"#,
     )
     .unwrap();
     let agent = dir.path().join("agent.sh");
@@ -642,8 +647,11 @@ fn agent_run_warns_about_remote_http_servers() {
         .assert()
         .success()
         .stderr(
-            predicate::str::contains("remote").and(predicate::str::contains("mcp.example.com/x")),
-        );
+            predicate::str::contains("'remote'")
+                .and(predicate::str::contains("ENTANGLE-E0664"))
+                .and(predicate::str::contains("mcp.example.com/x")),
+        )
+        .stderr(predicate::str::contains("'fine'").not());
 }
 
 #[test]
@@ -675,4 +683,84 @@ fn agent_list_shows_adapters() {
         .stdout(predicate::str::contains("claude-code"))
         .stdout(predicate::str::contains("codex"))
         .stdout(predicate::str::contains("opencode"));
+}
+
+/// A Claude Code `"type": "sse"` server (the deprecated HTTP+SSE transport)
+/// is refused by the gateway; `agent run` says so at start instead of every
+/// request failing later.
+#[test]
+fn agent_run_warns_that_a_legacy_sse_server_is_refused() {
+    let dir = TempDir::new().unwrap();
+    let cfg = dir.path().join("mcp.json");
+    fs::write(
+        &cfg,
+        r#"{"mcpServers":{"old":{"type":"sse","url":"https://mcp.example.com/sse"}}}"#,
+    )
+    .unwrap();
+    let agent = dir.path().join("fake-claude.sh");
+    fs::write(&agent, RECORDING_AGENT).unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    entangle()
+        .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+        .env("RECORD", dir.path().join("record"))
+        .args(["agent", "run", "claude-code", "--config"])
+        .arg(&cfg)
+        .arg("--bin")
+        .arg(&agent)
+        .assert()
+        .code(7)
+        .stderr(predicate::str::contains("'old'"))
+        .stderr(predicate::str::contains("ENTANGLE-E0664"))
+        .stderr(predicate::str::contains("\"sse\""));
+}
+
+/// A remote server in a project's `.mcp.json` is a host chosen by whoever
+/// wrote the repository: the gateway connects to it as soon as the agent
+/// does, and its tool descriptions and results reach the model. It needs
+/// consent like a project stdio server, with or without headers.
+#[test]
+fn agent_run_refuses_project_remote_servers_without_consent() {
+    let dir = TempDir::new().unwrap();
+    let project = dir.path().join("cloned-repo");
+    fs::create_dir(&project).unwrap();
+    fs::write(
+        project.join(".mcp.json"),
+        r#"{"mcpServers":{"helper":{"type":"http","url":"https://attacker.example/mcp?k=v"}}}"#,
+    )
+    .unwrap();
+    let agent = dir.path().join("fake-claude.sh");
+    fs::write(&agent, RECORDING_AGENT).unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    let record = dir.path().join("record");
+    let sessions = dir.path().join("sessions");
+    entangle()
+        .current_dir(&project)
+        .env("ENTANGLE_SESSIONS_DIR", &sessions)
+        .env("RECORD", &record)
+        .args(["agent", "run", "claude-code", "--bin"])
+        .arg(&agent)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--trust-project-servers"))
+        .stderr(predicate::str::contains("\"helper\""))
+        .stderr(predicate::str::contains("https://attacker.example/mcp"))
+        .stderr(predicate::str::contains("k=v").not());
+    assert!(!record.exists(), "the agent must not start");
+
+    // With consent the session starts.
+    entangle()
+        .current_dir(&project)
+        .env("ENTANGLE_SESSIONS_DIR", &sessions)
+        .env("RECORD", &record)
+        .args([
+            "agent",
+            "run",
+            "claude-code",
+            "--trust-project-servers",
+            "--bin",
+        ])
+        .arg(&agent)
+        .assert()
+        .code(7);
+    assert!(record.exists());
 }

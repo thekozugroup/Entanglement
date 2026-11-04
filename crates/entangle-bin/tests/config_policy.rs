@@ -141,3 +141,13 @@ fn cli_written_config_parses_in_daemon_with_all_fields_preserved() {
     assert_eq!(kc.max_tier_allowed, Tier::Networked);
     assert!(kc.multi_node);
 }
+
+/// `[plugins] disabled` reaches the kernel config the daemon builds.
+#[test]
+fn plugins_disabled_reaches_the_kernel_config() {
+    let cfg: Config = toml::from_str("[plugins]\ndisabled = [\"aa/x@0.1.0\"]\n").unwrap();
+    assert_eq!(
+        kernel_config_from(&cfg).disabled_plugins,
+        vec!["aa/x@0.1.0".to_owned()]
+    );
+}

@@ -156,6 +156,28 @@ impl AgentSession {
             .collect()
     }
 
+    /// The project config's remote (HTTP) servers, with or without headers.
+    /// Each is a host chosen by whoever wrote the repository: the gateway
+    /// connects to it when the agent first does, and its tool descriptions
+    /// and results reach the model, which can send it repository content as
+    /// tool arguments. The agent would ask before using a project's servers,
+    /// but in a session it only sees gateway URLs, so the caller must get
+    /// the user's consent for these too. Headers make it worse: the gateway
+    /// expands environment references in them (`${VAR}`, `env_http_headers`,
+    /// `bearer_token_env_var`) and sends the values to that host. Legacy SSE
+    /// servers are not listed: the gateway refuses them without contact.
+    /// Empty when the config was named explicitly.
+    pub fn project_http_servers(&self) -> BTreeMap<&str, &McpServerSpec> {
+        if !self.project_scoped {
+            return BTreeMap::new();
+        }
+        self.servers
+            .iter()
+            .filter(|(_, s)| matches!(s, McpServerSpec::Http { .. }))
+            .map(|(n, s)| (n.as_str(), s))
+            .collect()
+    }
+
     /// Servers the agent would also load from configs other than
     /// [`source_path`](Self::source_path), mapped to the declaring file. The
     /// session config overrides them so they cannot bypass the gateway, and

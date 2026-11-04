@@ -266,6 +266,20 @@ impl IntegrityVerifier {
         )
     }
 
+    /// A verifier for `local_peer` whose metric trust root is `kernel`'s
+    /// keyring and whose metric registry refuses the plugin ids `kernel` has
+    /// disabled (`[plugins] disabled`, kept in step with the kernel).
+    pub fn for_kernel(kernel: &entangle_runtime::Kernel, local_peer: PeerId) -> Self {
+        Self::with_parts(
+            Arc::new(
+                MetricRegistry::new(kernel.keyring(), local_peer.to_hex())
+                    .with_disabled_plugins(kernel.disabled_plugins()),
+            ),
+            Arc::new(ReputationStore::new()),
+            local_peer,
+        )
+    }
+
     /// Assemble from existing parts (e.g. a reputation store shared with
     /// other components).
     pub fn with_parts(

@@ -17,6 +17,7 @@ mod identity;
 
 use cmd::{
     agent::AgentArgs,
+    backup::{BackupArgs, RestoreArgs},
     compute::ComputeArgs,
     diag::DiagArgs,
     init::InitArgs,
@@ -70,6 +71,10 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     Quickstart(QuickstartArgs),
     /// Generate identity, write ~/.entangle/identity.key and config.toml.
     Init(InitArgs),
+    /// Export identity, keyrings and paired peers to a passphrase-encrypted archive.
+    Backup(BackupArgs),
+    /// Import an archive written by `entangle backup` (e.g. on a new device).
+    Restore(RestoreArgs),
     /// Print detailed version information (CLI, runtime, toolchain, daemon).
     Version,
     /// Run health checks: identity, config, keyring, daemon reachability.
@@ -169,6 +174,8 @@ async fn run() -> anyhow::Result<()> {
     match cli.cmd {
         Cmd::Quickstart(a) => cmd::quickstart::run(a).await,
         Cmd::Init(a) => cmd::init::run(a).await,
+        Cmd::Backup(a) => cmd::backup::run_backup(a).await,
+        Cmd::Restore(a) => cmd::backup::run_restore(a).await,
         Cmd::Version => cmd::version::run().await,
         Cmd::Doctor => cmd::doctor::run().await,
         Cmd::Keyring(a) => cmd::keyring::run(a).await,

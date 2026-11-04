@@ -29,6 +29,13 @@ pub enum RuntimeError {
     #[error("plugin already loaded: {0}")]
     AlreadyLoaded(PluginId),
 
+    /// The operator disabled this plugin id (`[plugins] disabled` in config.toml).
+    #[error(
+        "ENTANGLE-E0759: plugin {0} is disabled in config.toml ([plugins] disabled); \
+         run `entangle plugins enable {0}` to allow it to load again"
+    )]
+    PluginDisabled(PluginId),
+
     /// No plugin with this id is currently loaded.
     #[error("plugin not loaded: {0}")]
     NotLoaded(PluginId),

@@ -236,15 +236,19 @@ jobs:
       # `entangle release verify` use a fake cosign that only checks the
       # argument vector; this step proves the same invocation is accepted by
       # the real binary against the real Rekor entry.
-      - name: Verify each bundle with cosign (same flags as `entangle release verify`)
+      - name: Verify each bundle with cosign (same flags and identity as `entangle release verify`)
         env:
-          # The CLI's default identity, with this repository substituted.
-          IDENTITY_RE: '^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
+          # The CLI's identity for this tag: the release workflow on exactly
+          # this tag ref (dots escaped), anchored at both ends.
+          tag_re=$(printf '%s' "${REF_NAME}" | sed 's/\./\\./g')
+          identity_re=$(printf '^https://github\\.com/%s/\\.github/workflows/release\\.yml@refs/tags/%s$' "${REPO}" "${tag_re}")
           for tarball in entanglement-*.tar.gz; do
             cosign verify-blob \
               --bundle "${tarball}.sigstore" \
-              --certificate-identity-regexp "${IDENTITY_RE}" \
+              --certificate-identity-regexp "${identity_re}" \
               --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
               "${tarball}"
           done

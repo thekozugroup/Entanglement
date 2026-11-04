@@ -253,6 +253,20 @@ The catalog is resolved exactly as `plugins install` resolves it:
         /// Path to the plugin directory.
         dir: String,
     },
+    /// Allow a disabled plugin to load again (removes it from `[plugins] disabled`).
+    ///
+    /// Refused when the plugin's tier is above the current `max_tier_allowed`.
+    Enable {
+        /// Plugin ID in `<publisher>/<name>@<version>` format.
+        plugin_id: String,
+    },
+    /// Refuse to load a plugin: adds it to `[plugins] disabled` in config.toml.
+    ///
+    /// A copy that is already loaded keeps running until `plugins unload`.
+    Disable {
+        /// Plugin ID in `<publisher>/<name>@<version>` format.
+        plugin_id: String,
+    },
     /// Unload a plugin by its ID.
     Unload {
         /// Plugin ID in `<publisher>/<name>@<version>` format.
@@ -308,6 +322,8 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             sdk,
             force,
         }),
+        PluginsCmd::Enable { plugin_id } => enable_plugin(&plugin_id),
+        PluginsCmd::Disable { plugin_id } => disable_plugin(&plugin_id),
         PluginsCmd::Build {
             dir,
             key,
@@ -671,6 +687,84 @@ async fn load(dir: String) -> anyhow::Result<()> {
         }
         Err(e) => Err(e.into()),
     }
+}
+
+// ---------------------------------------------------------------------------
+// enable / disable (`[plugins] disabled` in config.toml)
+// ---------------------------------------------------------------------------
+
+fn parse_plugin_id(raw: &str) -> anyhow::Result<PluginId> {
+    PluginId::from_str(raw).map_err(|e| {
+        anyhow::anyhow!("invalid plugin id {raw:?} (expected <publisher>/<name>@<version>): {e}")
+    })
+}
+
+fn disable_plugin(raw: &str) -> anyhow::Result<()> {
+    let id = parse_plugin_id(raw)?.to_string();
+    let path = config::config_path();
+    let mut doc = crate::configedit::ConfigDoc::load(&path)?;
+    let listed = doc.get_str_array("plugins", "disabled").contains(&id);
+    if listed {
+        println!("{id} is already disabled");
+        return Ok(());
+    }
+    doc.add_to_str_array("plugins", "disabled", &id)?;
+    doc.save(&path)?;
+    println!(
+        "disabled {id}: it will not load (ENTANGLE-E0759) until `entangle plugins enable {id}`.\n\
+         A copy that is already loaded keeps running until `entangle plugins unload {id}`."
+    );
+    Ok(())
+}
+
+/// The tier of `id` from what is on disk: an installed package manifest under
+/// `~/.entangle/plugins`, else the tier recorded in the audit line written
+/// when a ceiling lowering disabled it.
+fn known_tier(id: &PluginId) -> Option<u8> {
+    let root = config::entangle_dir().join("plugins");
+    for entry in std::fs::read_dir(&root).into_iter().flatten().flatten() {
+        for manifest in [
+            entry.path().join("entangle.toml"),
+            entry.path().join("dist").join("entangle.toml"),
+        ] {
+            if let Ok(vm) = entangle_manifest::load_manifest(&manifest) {
+                if vm.plugin_id.to_string() == id.to_string() {
+                    return Some(u8::from(vm.effective_tier));
+                }
+            }
+        }
+    }
+    let log = std::fs::read_to_string(config::entangle_dir().join("audit.log")).ok()?;
+    log.lines()
+        .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .filter(|v| v["code"] == "ENTANGLE-W0214" && v["plugin"] == id.to_string().as_str())
+        .filter_map(|v| v["tier"].as_u64())
+        .next_back()
+        .and_then(|t| u8::try_from(t).ok())
+}
+
+fn enable_plugin(raw: &str) -> anyhow::Result<()> {
+    let pid = parse_plugin_id(raw)?;
+    let id = pid.to_string();
+    let ceiling = u8::from(config::max_tier_allowed()?);
+    if let Some(tier) = known_tier(&pid) {
+        if tier > ceiling {
+            anyhow::bail!(
+                "ENTANGLE-E0760: not enabling {id}: it needs tier {tier} but \
+                 [security] max_tier_allowed is {ceiling}. Raise the ceiling first \
+                 (`entangle security set-max-tier {tier}`), then enable it."
+            );
+        }
+    }
+    let path = config::config_path();
+    let mut doc = crate::configedit::ConfigDoc::load(&path)?;
+    if !doc.remove_from_str_array("plugins", "disabled", &id)? {
+        println!("{id} is not disabled");
+        return Ok(());
+    }
+    doc.save(&path)?;
+    println!("enabled {id}; load it with `entangle plugins load <dir>`");
+    Ok(())
 }
 
 async fn load_local(dir: String) -> anyhow::Result<()> {

@@ -250,6 +250,60 @@ async fn tier_above_ceiling_blocks_load() {
     );
 }
 
+/// `[plugins] disabled`: a listed id is refused with E0759 naming the
+/// `entangle plugins enable` remedy, nothing is registered, and removing it
+/// from the list (what `plugins enable` + the daemon's re-read does) lets the
+/// same package load.
+#[tokio::test(flavor = "multi_thread")]
+async fn disabled_plugin_is_refused_until_reenabled() {
+    let keypair = IdentityKeyPair::generate();
+    let wasm = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-host/tests/fixtures/hello-pong.wasm"
+    ))
+    .expect("hello-pong fixture");
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_plugin_package(dir.path(), &keypair, &wasm, 1);
+
+    // Learn the id with a throwaway kernel.
+    let probe = Kernel::new(KernelConfig::default(), keyring_for(&keypair)).expect("kernel");
+    let id = probe
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect("probe load");
+
+    let kernel = Kernel::new(
+        KernelConfig {
+            disabled_plugins: vec![id.to_string()],
+            ..KernelConfig::default()
+        },
+        keyring_for(&keypair),
+    )
+    .expect("kernel");
+    let err = kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect_err("disabled plugin must not load");
+    assert!(
+        matches!(err, crate::RuntimeError::PluginDisabled(_)),
+        "{err}"
+    );
+    let msg = err.to_string();
+    assert!(msg.contains("ENTANGLE-E0759"), "{msg}");
+    assert!(
+        msg.contains(&format!("entangle plugins enable {id}")),
+        "{msg}"
+    );
+    assert!(kernel.list_plugins().is_empty(), "nothing registered");
+
+    kernel.set_disabled_plugins(Vec::new());
+    let loaded = kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .expect("load after enable");
+    assert_eq!(loaded, id);
+}
+
 /// 6. invoke emits Activated then Idled around the plugin call.
 #[tokio::test(flavor = "multi_thread")]
 async fn invoke_plugin_emits_activated_and_idled() {

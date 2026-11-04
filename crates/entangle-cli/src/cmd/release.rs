@@ -15,7 +15,10 @@
 //!
 //! Both checks always run and every failure is reported; either failing fails
 //! the command. A missing `cosign` binary is an error (`ENTANGLE-E0845`),
-//! never a pass. The defaults for identity and issuer match the keyless
+//! never a pass. The certificate identity is pinned to the release workflow run
+//! on `refs/tags/<tag>` (`--tag`, or the tag in the artifact file name; E0847 when
+//! neither is available, E0848 when they disagree), so a renamed older release is
+//! rejected. The defaults for identity and issuer match the keyless
 //! signing in `.github/workflows/release.yml`.
 //!
 //! # `release key split` / `combine` (ATC-REL-2)
@@ -32,15 +35,108 @@ use entangle_signing::{IdentityKeyPair, IdentityPublicKey, Keyring, TrustEntry};
 
 use crate::config;
 
-/// Default cosign certificate identity: the release workflow
-/// (`.github/workflows/release.yml`) of this repository, run on a `v*` tag.
+/// The certificate identity (SAN) of a release signed for `tag`: the release
+/// workflow (`.github/workflows/release.yml`) of this repository, run on
+/// exactly `refs/tags/<tag>`.
 ///
 /// Anchored at both ends (cosign searches the regexp unanchored) and pinned to
-/// the workflow file and a tag ref, so a bundle minted by another workflow, a
-/// branch, pull-request or dispatch run, or another repository is rejected:
-/// any writer can start those runs, and the cosign half is meant to be a
-/// control independent of the release key.
-pub const DEFAULT_CERT_IDENTITY_REGEXP: &str = r"^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$";
+/// the workflow file and the one tag ref. Pinning the tag (not just "some
+/// `v*` tag") is what stops a rollback: an old release's bundle, renamed to a
+/// newer version, was minted by `refs/tags/<old>` and fails against the newer
+/// tag. A bundle from another workflow, branch, pull-request or dispatch run,
+/// or another repository is rejected too.
+pub fn identity_regexp_for_tag(tag: &str) -> String {
+    format!(
+        r"^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/{}$",
+        tag.replace('.', r"\.")
+    )
+}
+
+/// Whether `tag` has the release tag shape `vX.Y.Z[-prerelease]`, with a
+/// prerelease limited to `[0-9A-Za-z.]` (what `release.yml` accepts). Only
+/// such strings are ever put into the identity regexp.
+fn valid_tag(tag: &str) -> bool {
+    parse_tag_prefix(tag).is_some_and(|(t, rest)| t.len() == tag.len() && rest.is_empty())
+}
+
+/// Parse `vX.Y.Z[-pre]` at the start of `s`; returns the tag and the rest.
+/// A `-pre` that is really the start of the target triple (`-x86_64-...`,
+/// `-aarch64-...`) is not taken as a prerelease.
+fn parse_tag_prefix(s: &str) -> Option<(&str, &str)> {
+    let b = s.as_bytes();
+    if b.first() != Some(&b'v') {
+        return None;
+    }
+    let mut i = 1;
+    for part in 0..3 {
+        let start = i;
+        while i < b.len() && b[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == start {
+            return None;
+        }
+        if part < 2 {
+            if b.get(i) != Some(&b'.') {
+                return None;
+            }
+            i += 1;
+        }
+    }
+    let core_end = i;
+    if b.get(i) == Some(&b'-') {
+        let start = i + 1;
+        let mut j = start;
+        while j < b.len() && (b[j].is_ascii_alphanumeric() || b[j] == b'.') {
+            j += 1;
+        }
+        let pre = &s[start..j];
+        let is_arch = ["x86", "aarch64", "arm", "riscv", "i686", "universal"]
+            .iter()
+            .any(|a| pre.starts_with(a));
+        if j > start && !is_arch {
+            return Some((&s[..j], &s[j..]));
+        }
+    }
+    Some((&s[..core_end], &s[core_end..]))
+}
+
+/// The tag in a release asset name `entanglement-<tag>-<target>[...]`.
+pub fn tag_from_artifact_name(name: &str) -> Option<&str> {
+    let rest = name.strip_prefix("entanglement-")?;
+    let (tag, after) = parse_tag_prefix(rest)?;
+    // A target must follow, so `entanglement-v1.0.0.tar.gz` is not a match.
+    after.strip_prefix('-').filter(|t| !t.is_empty())?;
+    Some(tag)
+}
+
+/// Decide the release tag to pin: `--tag`, or the one in the file name. A
+/// `--tag` that disagrees with a release-style file name is refused.
+fn resolve_tag(artifact: &Path, explicit: Option<&str>) -> Result<String> {
+    let inferred = artifact
+        .file_name()
+        .and_then(|n| n.to_str())
+        .and_then(tag_from_artifact_name);
+    match (explicit, inferred) {
+        (Some(t), _) if !valid_tag(t) => bail!(
+            "ENTANGLE-E0847: --tag {t:?} is not a release tag (expected vX.Y.Z or vX.Y.Z-rc1)"
+        ),
+        (Some(t), Some(i)) if t != i => bail!(
+            "ENTANGLE-E0848: --tag {t} does not match the release in the file name ({i}): \
+             a renamed older release? Verify the file you downloaded under its own name, \
+             or fix --tag."
+        ),
+        (Some(t), _) => Ok(t.to_owned()),
+        (None, Some(i)) => Ok(i.to_owned()),
+        (None, None) => bail!(
+            "ENTANGLE-E0847: cannot tell which release {} is: its name does not follow \
+             entanglement-<tag>-<target>.tar.gz. Pass --tag vX.Y.Z (the certificate identity \
+             is pinned to that tag so an older release cannot pass as a newer one).",
+            artifact.display()
+        ),
+    }
+}
+
 /// Default cosign OIDC issuer (GitHub Actions).
 pub const DEFAULT_CERT_OIDC_ISSUER: &str = "https://token.actions.githubusercontent.com";
 
@@ -72,9 +168,22 @@ pub enum ReleaseCmd {
         /// The cosign binary.
         #[arg(long, default_value = "cosign")]
         cosign: PathBuf,
-        /// `--certificate-identity-regexp` passed to cosign.
-        #[arg(long, default_value = DEFAULT_CERT_IDENTITY_REGEXP)]
-        certificate_identity_regexp: String,
+        /// The release being verified, `vX.Y.Z`. The cosign certificate
+        /// identity is pinned to this tag's run of release.yml
+        /// (`@refs/tags/<tag>`), so an older release renamed to a newer
+        /// version fails. Inferred from an `entanglement-<tag>-<target>.tar.gz`
+        /// file name when omitted.
+        #[arg(
+            long,
+            value_name = "vX.Y.Z",
+            conflicts_with = "certificate_identity_regexp"
+        )]
+        tag: Option<String>,
+        /// Override the `--certificate-identity-regexp` passed to cosign
+        /// (replaces the tag pinning; only for forks with their own release
+        /// workflow).
+        #[arg(long)]
+        certificate_identity_regexp: Option<String>,
         /// `--certificate-oidc-issuer` passed to cosign.
         #[arg(long, default_value = DEFAULT_CERT_OIDC_ISSUER)]
         certificate_oidc_issuer: String,
@@ -150,18 +259,25 @@ pub async fn run(args: ReleaseArgs) -> Result<()> {
             release_key,
             release_keyring,
             cosign,
+            tag,
             certificate_identity_regexp,
             certificate_oidc_issuer,
-        } => verify(&VerifyOptions {
-            signature: signature.unwrap_or_else(|| sidecar(&artifact, "ed25519")),
-            bundle: bundle.unwrap_or_else(|| sidecar(&artifact, "sigstore")),
-            artifact,
-            release_key,
-            release_keyring: release_keyring.unwrap_or_else(config::release_keyring_path),
-            cosign,
-            certificate_identity_regexp,
-            certificate_oidc_issuer,
-        }),
+        } => {
+            let certificate_identity_regexp = match certificate_identity_regexp {
+                Some(re) => re,
+                None => identity_regexp_for_tag(&resolve_tag(&artifact, tag.as_deref())?),
+            };
+            verify(&VerifyOptions {
+                signature: signature.unwrap_or_else(|| sidecar(&artifact, "ed25519")),
+                bundle: bundle.unwrap_or_else(|| sidecar(&artifact, "sigstore")),
+                artifact,
+                release_key,
+                release_keyring: release_keyring.unwrap_or_else(config::release_keyring_path),
+                cosign,
+                certificate_identity_regexp,
+                certificate_oidc_issuer,
+            })
+        }
         ReleaseCmd::Sign { artifact, key, out } => sign(&artifact, &key, out),
         ReleaseCmd::Key { cmd } => match cmd {
             KeyCmd::Generate { out } => generate(&out),
@@ -456,4 +572,57 @@ fn combine_key(files: &[PathBuf], out: &Path) -> Result<()> {
         println!("key fingerprint: {}", kp.fingerprint_hex());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tag_is_read_from_release_asset_names() {
+        for (name, tag) in [
+            (
+                "entanglement-v1.0.0-x86_64-unknown-linux-gnu.tar.gz",
+                "v1.0.0",
+            ),
+            ("entanglement-v1.2.3-aarch64-apple-darwin.tar.gz", "v1.2.3"),
+            (
+                "entanglement-v12.34.56-x86_64-apple-darwin.tar.gz",
+                "v12.34.56",
+            ),
+            (
+                "entanglement-v1.0.0-rc1-x86_64-unknown-linux-gnu.tar.gz",
+                "v1.0.0-rc1",
+            ),
+            (
+                "entanglement-v1.0.0-beta.2-aarch64-unknown-linux-gnu.tar.gz",
+                "v1.0.0-beta.2",
+            ),
+            ("entanglement-v1.0.0-rc1-x86_64.tar.gz", "v1.0.0-rc1"),
+        ] {
+            assert_eq!(tag_from_artifact_name(name), Some(tag), "{name}");
+        }
+        for name in [
+            "download.tar.gz",
+            "entanglement-dev-x86_64.tar.gz",
+            "entanglement-v1.0.tar.gz",
+            "entanglement-v1.0.0.tar.gz",
+            "entanglement-v1.0.0-",
+            "other-v1.0.0-x86_64.tar.gz",
+            "entanglement-1.0.0-x86_64.tar.gz",
+        ] {
+            assert_eq!(tag_from_artifact_name(name), None, "{name}");
+        }
+    }
+
+    #[test]
+    fn identity_is_anchored_and_escaped() {
+        let re = identity_regexp_for_tag("v1.0.0-rc1");
+        assert!(
+            re.starts_with('^') && re.ends_with("@refs/tags/v1\\.0\\.0-rc1$"),
+            "{re}"
+        );
+        assert!(valid_tag("v1.0.0") && valid_tag("v1.0.0-rc.1"));
+        assert!(!valid_tag("v1.0.0-") && !valid_tag("v1.0.0 ") && !valid_tag("v1.0.0|v2"));
+    }
 }

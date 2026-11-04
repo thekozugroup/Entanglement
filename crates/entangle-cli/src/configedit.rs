@@ -110,7 +110,6 @@ impl ConfigDoc {
     }
 
     /// Strings in the array `section.key` (empty when absent).
-    #[cfg(test)]
     pub fn get_str_array(&self, section: &str, key: &str) -> Vec<String> {
         self.doc
             .get(section)
@@ -138,6 +137,24 @@ impl ConfigDoc {
             arr.push(item);
         }
         Ok(())
+    }
+
+    /// Remove `item` from the string array `section.key`; returns whether it
+    /// was there. Other elements, comments and an empty leftover array are
+    /// kept as they are.
+    pub fn remove_from_str_array(&mut self, section: &str, key: &str, item: &str) -> Result<bool> {
+        let Some(table) = self.doc.get_mut(section).and_then(Item::as_table_mut) else {
+            return Ok(false);
+        };
+        let Some(item_ref) = table.get_mut(key) else {
+            return Ok(false);
+        };
+        let arr = item_ref.as_array_mut().ok_or_else(|| {
+            anyhow::anyhow!("ENTANGLE-E0754: [{section}] {key} in config.toml is not an array")
+        })?;
+        let before = arr.len();
+        arr.retain(|v| v.as_str() != Some(item));
+        Ok(arr.len() != before)
     }
 }
 

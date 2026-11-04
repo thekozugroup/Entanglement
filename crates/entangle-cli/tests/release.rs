@@ -8,7 +8,8 @@
 //! --certificate-oidc-issuer <issuer> <blob>`, where `<blob>` holds the
 //! bytes its bundle covers (by default the artifact's). Real cosign, against a real
 //! Rekor entry, is exercised by the `sigstore-attest` job of
-//! `.github/workflows/release.yml`, which runs the same flags.
+//! `.github/workflows/release.yml`, which runs the same flags and pins the
+//! same identity (checked by the workflow test below).
 
 #![cfg(unix)]
 
@@ -19,7 +20,9 @@ use assert_cmd::Command;
 use predicates::prelude::*;
 use tempfile::TempDir;
 
-const ID_RE: &str = r"^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$";
+/// The identity `entangle release verify` pins for the fixture's artifact
+/// (`entanglement-v1.0.0-rc1-...`): that one tag, nothing else.
+const ID_RE: &str = r"^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/v1\.0\.0-rc1$";
 const ISSUER: &str = "https://token.actions.githubusercontent.com";
 
 fn entangle(home: &Path) -> Command {
@@ -378,11 +381,12 @@ fn atc_rel_1_release_workflow_runs_real_cosign_with_the_same_flags() {
 }
 
 /// With the default identity, only a bundle signed by the release workflow on
-/// a `v*` tag is accepted: not another workflow, not a branch, pull-request or
-/// dispatch run of release.yml (which any writer can start, with that
-/// branch's copy of the file), not another repository.
+/// the artifact's own tag is accepted: not another workflow, not a branch,
+/// pull-request or dispatch run of release.yml (which any writer can start,
+/// with that branch's copy of the file), not another repository, and not
+/// another release's tag run (rollback).
 #[test]
-fn atc_rel_1_default_identity_accepts_only_tag_runs_of_the_release_workflow() {
+fn atc_rel_1_default_identity_accepts_only_the_artifacts_own_tag_run() {
     let f = fixture();
     f.trust_as_release_key();
     let wf = "https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@";
@@ -390,25 +394,26 @@ fn atc_rel_1_default_identity_accepts_only_tag_runs_of_the_release_workflow() {
         let (mut c, _) = f.verify(&[]);
         c.env_remove("EXPECT_ID").env("CERT_SAN", san).assert()
     };
-    for ok in [
-        "refs/tags/v1.0.0",
-        "refs/tags/v1.0.0-rc1",
-        "refs/tags/v12.3.45",
-    ] {
-        run(&format!("{wf}{ok}"))
-            .success()
-            .stdout(predicate::str::contains("PASS"));
-    }
+    run(&format!("{wf}refs/tags/v1.0.0-rc1"))
+        .success()
+        .stdout(predicate::str::contains("PASS"));
     for bad in [
+        // Other releases (an older bundle renamed to this version).
+        format!("{wf}refs/tags/v1.0.0"),
+        format!("{wf}refs/tags/v0.9.0"),
+        format!("{wf}refs/tags/v2.0.0-rc1"),
+        format!("{wf}refs/tags/v1.0.0-rc10"),
+        format!("{wf}refs/tags/v1x0x0-rc1"),
+        format!("{wf}refs/tags/v1.0.0-rc1.1"),
+        // Not a tag run of the release workflow.
         format!("{wf}refs/heads/main"),
-        format!("{wf}refs/heads/x"),
         format!("{wf}refs/pull/7/merge"),
-        format!("{wf}refs/tags/v1.0.0/x"),
-        "https://github.com/thekozugroup/Entanglement/.github/workflows/other.yml@refs/tags/v1.0.0"
+        format!("{wf}refs/tags/v1.0.0-rc1/x"),
+        "https://github.com/thekozugroup/Entanglement/.github/workflows/other.yml@refs/tags/v1.0.0-rc1"
             .to_owned(),
-        "https://github.com/thekozugroup/Entanglement2/.github/workflows/release.yml@refs/tags/v1.0.0"
+        "https://github.com/thekozugroup/Entanglement2/.github/workflows/release.yml@refs/tags/v1.0.0-rc1"
             .to_owned(),
-        format!("https://evil.example/{wf}refs/tags/v1.0.0"),
+        format!("https://evil.example/{wf}refs/tags/v1.0.0-rc1"),
     ] {
         run(&bad)
             .failure()
@@ -417,11 +422,83 @@ fn atc_rel_1_default_identity_accepts_only_tag_runs_of_the_release_workflow() {
     }
 }
 
-/// The cosign half is only an independent control if its identity is narrow:
-/// the release workflow, on a `v*` tag. The workflow signs only on tag runs
-/// and verifies with the same identity `entangle release verify` defaults to.
+/// `--tag` pins the identity when the file name does not carry the release;
+/// a name that does must agree with it, and with neither the command refuses
+/// instead of falling back to "any tag".
 #[test]
-fn atc_rel_1_release_workflow_signs_only_tag_runs_with_the_default_identity() {
+fn atc_rel_1_tag_flag_and_inference() {
+    let f = fixture();
+    f.trust_as_release_key();
+    let wf = "https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@";
+
+    // A file renamed away from the release naming: --tag is required.
+    let plain = f.home.path().join("download.tar.gz");
+    std::fs::copy(&f.artifact, &plain).unwrap();
+    std::fs::copy(sidecar(&f.artifact, "ed25519"), sidecar(&plain, "ed25519")).unwrap();
+    std::fs::copy(
+        sidecar(&f.artifact, "sigstore"),
+        sidecar(&plain, "sigstore"),
+    )
+    .unwrap();
+    let verify_plain = |extra: &[&str], san: &str| {
+        let mut c = entangle(f.home.path());
+        let path = format!(
+            "{}:{}",
+            f.bin_dir.path().display(),
+            std::env::var("PATH").unwrap_or_default()
+        );
+        c.env("PATH", path)
+            .env("COSIGN_ARGS_LOG", f.home.path().join("log2"))
+            .env("EXPECT_BUNDLE", sidecar(&plain, "sigstore"))
+            .env("EXPECT_ISSUER", ISSUER)
+            .env("EXPECT_ARTIFACT", &plain)
+            .env("CERT_SAN", san)
+            .args(["release", "verify"])
+            .arg(&plain)
+            .args(extra)
+            .assert()
+    };
+    verify_plain(&[], &format!("{wf}refs/tags/v1.2.3"))
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0847").and(predicate::str::contains("--tag")))
+        .stdout(predicate::str::contains("PASS").not());
+    verify_plain(&["--tag", "v1.2.3"], &format!("{wf}refs/tags/v1.2.3"))
+        .success()
+        .stdout(predicate::str::contains("PASS"));
+    // The renamed-older-release attack: the bundle is from v1.2.2's run.
+    verify_plain(&["--tag", "v1.2.3"], &format!("{wf}refs/tags/v1.2.2"))
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0846"));
+    for bad in ["1.2.3", "v1.2", "v1.2.3/x", ".*", "v1.2.3$|x"] {
+        verify_plain(&["--tag", bad], &format!("{wf}refs/tags/v1.2.3"))
+            .failure()
+            .stderr(predicate::str::contains("ENTANGLE-E0847"));
+    }
+    // --tag may not contradict a release-style name.
+    let (mut c, _) = f.verify(&["--tag", "v9.9.9"]);
+    c.assert()
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0848"))
+        .stdout(predicate::str::contains("PASS").not());
+    let (mut c, _) = f.verify(&["--tag", "v1.0.0-rc1"]);
+    c.assert().success();
+    // An explicit identity regexp replaces the pinning (and excludes --tag).
+    // Rejected by argument validation (clap), before cosign is ever run.
+    let (mut c, log) = f.verify(&["--certificate-identity-regexp", "x", "--tag", "v1.0.0-rc1"]);
+    let _ = std::fs::remove_file(&log); // left by the earlier runs of this test
+    c.assert()
+        .failure()
+        .stderr(predicate::str::contains("cannot be used with"));
+    assert!(!log.exists(), "cosign must not have been invoked");
+}
+
+/// The cosign half is only an independent control if its identity is narrow:
+/// the release workflow, on the one tag ref. The workflow signs only on tag
+/// runs and verifies with the identity `entangle release verify` pins for that
+/// tag: the test runs the workflow's own verify step with a fake `cosign` and
+/// compares the identity regexp it passes with the CLI's (`ID_RE`).
+#[test]
+fn atc_rel_1_release_workflow_signs_only_tag_runs_and_verifies_with_the_pinned_identity() {
     let text = std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.github/workflows/release.yml"),
     )
@@ -443,18 +520,45 @@ fn atc_rel_1_release_workflow_signs_only_tag_runs_with_the_default_identity() {
                 .is_some_and(|r| r.contains("cosign verify-blob"))
         })
         .expect("a cosign verify-blob step");
+    let run = verify["run"].as_str().unwrap();
+    assert!(run.contains("--certificate-identity-regexp \"${identity_re}\""));
+    // The env the step declares, filled as GitHub would for the fixture's tag.
     assert_eq!(
-        verify["env"]["IDENTITY_RE"].as_str(),
-        Some(
-            ID_RE
-                .replace("thekozugroup/Entanglement", "${{ github.repository }}")
-                .as_str()
-        )
+        verify["env"]["REPO"].as_str(),
+        Some("${{ github.repository }}")
     );
-    assert!(verify["run"]
-        .as_str()
-        .unwrap()
-        .contains("--certificate-identity-regexp \"${IDENTITY_RE}\""));
+    assert_eq!(
+        verify["env"]["REF_NAME"].as_str(),
+        Some("${{ github.ref_name }}")
+    );
+
+    let dir = TempDir::new().unwrap();
+    let bin = dir.path().join("bin");
+    std::fs::create_dir(&bin).unwrap();
+    let cosign = bin.join("cosign");
+    std::fs::write(
+        &cosign,
+        "#!/bin/sh\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = --certificate-identity-regexp ]; then printf '%s' \"$2\" > \"$OUT\"; fi\n  shift\ndone\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&cosign, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::write(dir.path().join("entanglement-v1.0.0-rc1-x.tar.gz"), b"x").unwrap();
+    let out = dir.path().join("identity");
+    let status = std::process::Command::new("bash")
+        .arg("-ec")
+        .arg(run)
+        .current_dir(dir.path())
+        .env(
+            "PATH",
+            format!("{}:{}", bin.display(), std::env::var("PATH").unwrap()),
+        )
+        .env("REPO", "thekozugroup/Entanglement")
+        .env("REF_NAME", "v1.0.0-rc1")
+        .env("OUT", &out)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(std::fs::read_to_string(&out).unwrap(), ID_RE);
 }
 
 // ---------------------------------------------------------------------------
@@ -533,7 +637,7 @@ fn atc_rel_2_two_of_three() {
     .env("EXPECT_ARTIFACT", &art2)
     .args(["release", "verify"])
     .arg(&art2)
-    .args(["--release-key", &f.pubkey])
+    .args(["--release-key", &f.pubkey, "--tag", "v1.0.0-rc1"])
     .assert()
     .success();
 }

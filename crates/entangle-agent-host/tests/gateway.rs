@@ -243,6 +243,7 @@ async fn fixture_full(
         "remote".to_string(),
         McpServerSpec::Http {
             url: "http://example.invalid/mcp".into(),
+            headers: BTreeMap::new(),
         },
     );
     let gw = Gateway::new(GatewayConfig {
@@ -1062,7 +1063,7 @@ async fn unknown_server_and_bad_routes() {
 }
 
 #[tokio::test]
-async fn http_downstream_reports_unsupported() {
+async fn http_downstream_with_a_non_https_url_is_refused() {
     let f = fixture().await;
     let (st, v) = rpc(
         &f,

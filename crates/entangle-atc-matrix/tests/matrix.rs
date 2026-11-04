@@ -6,7 +6,7 @@
 //! `atc_<group>_<n>_` (snake case of the ID, e.g. `atc_int_5_oversized_...`
 //! implements ATC-INT-5).
 //!
-//! This runner scans every `.rs` file under `crates/` and `plugins/` and
+//! This runner scans every `.rs` file under `crates/`, `plugins/` and `tools/` and
 //! classifies **each occurrence** of an ID:
 //!
 //! * **live** — an ordinary test;

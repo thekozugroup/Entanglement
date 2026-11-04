@@ -2477,3 +2477,45 @@ async fn a_semantic_outlier_rerun_alone_blames_nobody() {
         );
     }
 }
+
+/// `[plugins] disabled` refuses a listed plugin id at load, and a metric is
+/// a signed plugin package too: the submitter's metric registry refuses a
+/// disabled metric (E0759 inside the E0310 load error), and loads it again
+/// once it is re-enabled.
+#[test]
+fn a_disabled_metric_plugin_is_refused_at_load() {
+    let publisher = IdentityKeyPair::generate();
+    let kernel =
+        Arc::new(Kernel::new(KernelConfig::default(), keyring_for(&publisher)).expect("kernel"));
+    let dispatcher = Dispatcher::new(
+        WorkerPool::new(),
+        Arc::clone(&kernel),
+        PeerId::from_public_key_bytes(&[7; 32]),
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let id = write_package(dir.path(), &publisher, "metric-bleu-4", 2, &bleu_metric());
+    kernel.set_disabled_plugins([id.to_string()]);
+    let err = dispatcher
+        .verifier()
+        .metrics()
+        .load_from_dir(dir.path())
+        .expect_err("a disabled metric must not load");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("ENTANGLE-E0759") && msg.contains(&format!("entangle plugins enable {id}")),
+        "{msg}"
+    );
+    assert!(dispatcher
+        .verifier()
+        .metrics()
+        .find_by_plugin(&id)
+        .is_none());
+
+    kernel.set_disabled_plugins(Vec::new());
+    let loaded = dispatcher
+        .verifier()
+        .metrics()
+        .load_from_dir(dir.path())
+        .expect("loads once re-enabled");
+    assert_eq!(loaded.plugin, id);
+}

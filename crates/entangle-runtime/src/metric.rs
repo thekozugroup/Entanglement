@@ -21,6 +21,7 @@
 //! the task, never the metric (§7.5 Rule 3, verifier-locality).
 
 use crate::integrity::IntegrityError;
+use crate::kernel::DisabledPlugins;
 use crate::loader::PluginPackage;
 use entangle_host::metric::DEFAULT_METRIC_TIMEOUT_MS;
 use entangle_host::state::ResourceLimits;
@@ -68,6 +69,9 @@ pub struct MetricRegistry {
     metrics: RwLock<HashMap<[u8; 32], MetricEntry>>,
     timeout_ms: u64,
     limits: ResourceLimits,
+    /// `[plugins] disabled`: metric packages with a listed id are refused
+    /// at load, like any plugin.
+    disabled: DisabledPlugins,
 }
 
 impl std::fmt::Debug for MetricRegistry {
@@ -96,7 +100,18 @@ impl MetricRegistry {
                 memory_bytes: DEFAULT_METRIC_MEMORY_BYTES,
                 ..ResourceLimits::default()
             },
+            disabled: DisabledPlugins::default(),
         }
+    }
+
+    /// Refuse metric packages whose plugin id is in `disabled` (normally
+    /// [`crate::Kernel::disabled_plugins`], so the node's `[plugins]
+    /// disabled` list applies to metrics as to every other plugin). Metrics
+    /// already loaded stay loaded, as plugins do in the kernel.
+    #[must_use]
+    pub fn with_disabled_plugins(mut self, disabled: DisabledPlugins) -> Self {
+        self.disabled = disabled;
+        self
     }
 
     /// Override the per-comparison wall-clock budget and memory ceiling.
@@ -132,7 +147,8 @@ impl MetricRegistry {
     /// Load and verify a metric package from memory.
     ///
     /// `label` names the source in errors. The checks, in order: manifest
-    /// parses and validates; the plugin is `runtime = "wasm"`, declares at most
+    /// parses and validates; the plugin id is not disabled
+    /// ([`MetricRegistry::with_disabled_plugins`]); the plugin is `runtime = "wasm"`, declares at most
     /// tier 2 and no capabilities (a metric gets none); the signature verifies
     /// against this node's keyring (an unknown signer is
     /// [`IntegrityError::MetricNotInKeyring`]); the signer is the publisher the
@@ -157,6 +173,11 @@ impl MetricRegistry {
             toml::from_str(text).map_err(|e| load_err(format!("manifest: {e}")))?;
         let manifest_v = validate(raw).map_err(|e| load_err(format!("manifest: {e}")))?;
         let plugin_id = manifest_v.plugin_id.clone();
+        if self.disabled.contains(&plugin_id) {
+            return Err(load_err(
+                crate::RuntimeError::PluginDisabled(plugin_id).to_string(),
+            ));
+        }
         if manifest_v.runtime != Runtime::Wasm {
             return Err(load_err(format!(
                 "{plugin_id} is not a wasm component; metrics run in the wasm sandbox"

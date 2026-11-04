@@ -213,9 +213,11 @@ impl Dispatcher {
     /// execute on the chosen peer.
     ///
     /// The integrity verifier trusts metrics signed by keys on the kernel's
-    /// keyring; replace it with [`Dispatcher::with_verifier`].
+    /// keyring and refuses metric packages the kernel has disabled
+    /// ([`IntegrityVerifier::for_kernel`]); replace it with
+    /// [`Dispatcher::with_verifier`].
     pub fn new(workers: WorkerPool, kernel: Arc<Kernel>, local_peer_id: PeerId) -> Self {
-        let verifier = Arc::new(IntegrityVerifier::new(kernel.keyring(), local_peer_id));
+        let verifier = Arc::new(IntegrityVerifier::for_kernel(&kernel, local_peer_id));
         Self {
             workers,
             kernel,

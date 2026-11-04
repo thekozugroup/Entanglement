@@ -62,12 +62,14 @@ Use `--config <path>` to read the MCP config from a non-default file and
 
 Claude Code's default config is the `.mcp.json` in the current directory,
 which ships with whatever repository you are in. Claude Code itself asks
-before starting a project's servers, but in a session it only sees gateway
-URLs, and it is the gateway that starts the servers' commands. So when the
-config comes from the current directory (not from `--config`),
-`entangle agent run` first lists every stdio server it declares (name,
-command, arguments, and the *names* of its environment variables, never
-their values) and then:
+before using a project's servers, but in a session it only sees gateway
+URLs, and it is the gateway that starts the servers' commands and connects
+to the remote ones. So when the config comes from the current directory
+(not from `--config`), `entangle agent run` first lists every stdio server
+it declares (name, command, arguments, and the *names* of its environment
+variables, never their values) and every remote HTTP server, with or
+without headers (name, URL without query or credentials, header *names*),
+and then:
 
 * starts the session if `--trust-project-servers` was given;
 * otherwise, when stdin is a terminal, asks `Start these servers? [y/N]`
@@ -152,8 +154,55 @@ itself sets `type`, `command` and `"enabled": true` win over the override.
 * Each stdio server runs in its own process group (unix); stopping it kills
   the whole group, so the real server behind a wrapper such as `npx` or
   `uvx` is stopped too.
-* Downstream **HTTP** (`url`) servers are not proxied; calls fail with
-  `ENTANGLE-E0664` and `entangle agent run` prints a warning at start.
+* Downstream **HTTP** (`url`) servers are proxied over MCP Streamable HTTP:
+  - each message is `POST`ed to the server's URL with the headers from your own
+    agent config (Claude Code `headers`, Codex `http_headers` /
+    `env_http_headers` / `bearer_token_env_var`, OpenCode `headers`; `${VAR}`,
+    `${VAR:-default}` and `{env:VAR}` references are expanded from your
+    environment). The gateway's bearer token is never sent downstream, and the
+    headers never reach the agent: the rewritten session config only holds the
+    gateway URL and token. `Host`, `Accept`, any `Content-*` or `Mcp-*`
+    name and the hop-by-hop names (`Connection`, `Keep-Alive`,
+    `Proxy-Connection`, `Proxy-Authenticate`, `Proxy-Authorization`, `TE`,
+    `Trailer`, `Transfer-Encoding`, `Upgrade`) cannot be configured
+    (`ENTANGLE-E0664`); a configured `User-Agent` replaces the gateway's;
+  - replies may be `application/json` (an object or a batch) or
+    `text/event-stream`: events are read until the response to the request id
+    arrives, other server notifications are dropped, and a server `ping`
+    request is answered (anything else with `-32601`) by a separate `POST`;
+  - the gateway handshakes once per route (the agent's `initialize` is cached,
+    the gateway sends its own `notifications/initialized`, and handshakes
+    itself if the agent skipped `initialize`), keeps the `Mcp-Session-Id` the
+    server assigns and sends it, with `MCP-Protocol-Version`, on every later
+    request; the id is also returned in the `Mcp-Session-Id` header of the
+    gateway's replies. If the server forgets the session (404) that request
+    fails (`ENTANGLE-E0671`) and the next one starts a fresh session; at
+    shutdown the gateway sends `DELETE` to end it. Every client of a route
+    shares that one session, so, as for stdio, request ids are remapped to
+    gateway-unique ones (the agent gets its own id back) and an agent's
+    `notifications/cancelled` is translated to the downstream id (dropped
+    when no single in-flight request matches). A request that times out is
+    cancelled downstream with `notifications/cancelled`, since a closed
+    connection is not a cancellation in Streamable HTTP;
+  - policy, `after_tool` and audit hooks are the same as for stdio; the
+    request timeout (E0663) covers connecting, the TLS handshake, sending and
+    reading the whole reply, and a JSON body or SSE event over the downstream
+    message cap (64 MiB by default) fails with E0663;
+  - only `https://` URLs, except loopback hosts (`http://127.0.0.1:…`,
+    `http://localhost:…`, `http://[::1]:…`, re-checked against the connected
+    address); a URL with embedded credentials or any other scheme is refused
+    with `ENTANGLE-E0664` without being contacted (`entangle agent run` warns
+    about it at start). So is a Claude Code `"type": "sse"` server: the
+    deprecated HTTP+SSE transport is not proxied, point the entry at the
+    server's Streamable HTTP endpoint (`"type": "http"`). Redirects are never followed, so configured headers
+    cannot be handed to another host; a non-2xx status, an unexpected
+    content-type or invalid JSON is `ENTANGLE-E0671`. Each request opens its own
+    connection (`Connection: close`);
+  - for a **project** config (not `--config`), every HTTP server is listed in
+    the consent prompt too (URL without query, header *names*): it is a host
+    chosen by the repository, whose tool descriptions and results reach the
+    agent, and the environment references in its headers would send your
+    variables there.
 * Connections: at most 128 open at once (further ones wait unaccepted);
   a connection that has not sent a complete request head after 30 s, or
   has been idle that long between keep-alive requests, is closed.
@@ -188,7 +237,9 @@ itself sets `type`, `command` and `"enabled": true` win over the override.
 emitted. In use: E0621 bind, E0622 non-loopback refused, E0623 empty token,
 E0624 zero `max_in_flight`, E0625 invalid policy pattern, E0660 original
 config modified, E0661-E0668
-JSON-RPC/HTTP failures listed above, E0669 session not activated, E0670 auth.
+JSON-RPC/HTTP failures listed above, E0669 session not activated, E0670 auth,
+E0671 HTTP downstream status/protocol failure. E0664 now means an HTTP
+downstream URL or header was refused (it used to mean "HTTP unsupported").
 
 Running the agent directly (without `entangle agent run`) bypasses all of this
 by design.
