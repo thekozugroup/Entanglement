@@ -1,0 +1,407 @@
+//! ATC-PKG-1..4: reproducible packaging, cross-host workflow, lockfile
+//! requirement, provenance and rebuild verification.
+//!
+//! These compile the real `examples/hello-world` plugin to wasm, so they need
+//! the `wasm32-wasip2` target (installed in the CI `test` job) and a reachable
+//! registry or a warm cargo cache. The builds are serialised by a process-wide
+//! lock: each is ~150 MB of target directory and one core-minute.
+//!
+//! Each build runs from a **separate copy** of the project in a fresh temp dir
+//! with its own `CARGO_TARGET_DIR`, so the absolute project path, the target
+//! path and the temp locations all differ between builds. Byte-identical
+//! output therefore proves path remapping, not just cache reuse.
+
+#![cfg(unix)]
+
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+use assert_cmd::Command;
+use predicates::prelude::*;
+use tempfile::TempDir;
+
+static BUILD_LOCK: Mutex<()> = Mutex::new(());
+
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .unwrap()
+        .to_path_buf()
+}
+
+fn key() -> PathBuf {
+    repo_root().join("tests/fixtures/repro-ci-key.pem")
+}
+
+/// `entangle` with an isolated `$HOME` but the real cargo / rustup homes, so
+/// the toolchain and the registry cache keep working.
+fn entangle(home: &Path) -> Command {
+    let real_home = std::env::var_os("HOME").map(PathBuf::from);
+    let mut c = Command::cargo_bin("entangle").unwrap();
+    c.env("HOME", home);
+    if std::env::var_os("CARGO_HOME").is_none() {
+        if let Some(h) = &real_home {
+            c.env("CARGO_HOME", h.join(".cargo"));
+        }
+    }
+    if std::env::var_os("RUSTUP_HOME").is_none() {
+        if let Some(h) = &real_home {
+            c.env("RUSTUP_HOME", h.join(".rustup"));
+        }
+    }
+    c.env_remove("SOURCE_DATE_EPOCH");
+    c
+}
+
+fn copy_dir(src: &Path, dst: &Path) {
+    std::fs::create_dir_all(dst).unwrap();
+    for e in std::fs::read_dir(src).unwrap() {
+        let e = e.unwrap();
+        let name = e.file_name();
+        if name == "target" || name == "dist" {
+            continue;
+        }
+        let (from, to) = (e.path(), dst.join(&name));
+        if e.file_type().unwrap().is_dir() {
+            copy_dir(&from, &to);
+        } else {
+            std::fs::copy(&from, &to).unwrap();
+        }
+    }
+}
+
+/// A private copy of hello-world whose SDK path dependency is absolute.
+fn hello_copy(parent: &Path) -> PathBuf {
+    let dst = parent.join("hello-world");
+    copy_dir(&repo_root().join("examples/hello-world"), &dst);
+    let manifest = dst.join("Cargo.toml");
+    let text = std::fs::read_to_string(&manifest).unwrap();
+    let sdk = repo_root().join("crates/entangle-sdk");
+    let text = text.replace("../../crates/entangle-sdk", &sdk.display().to_string());
+    std::fs::write(&manifest, text).unwrap();
+    dst
+}
+
+struct Built {
+    _root: TempDir,
+    project: PathBuf,
+    out: PathBuf,
+    archive: PathBuf,
+}
+
+fn build_hello(home: &Path) -> Built {
+    let _g = BUILD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let root = TempDir::new().unwrap();
+    let project = hello_copy(root.path());
+    let out = root.path().join("out");
+    entangle(home)
+        .env("CARGO_TARGET_DIR", root.path().join("target"))
+        .args(["plugins", "build"])
+        .arg(&project)
+        .arg("--key")
+        .arg(key())
+        .arg("--out")
+        .arg(&out)
+        .assert()
+        .success();
+    let archive = out.join("hello-world-0.1.0.tar.zst");
+    assert!(archive.is_file(), "no archive in {}", out.display());
+    Built {
+        _root: root,
+        project,
+        out,
+        archive,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ATC-PKG-1
+// ---------------------------------------------------------------------------
+
+#[test]
+fn atc_pkg_1_two_builds_are_byte_identical() {
+    let home = TempDir::new().unwrap();
+    let a = build_hello(home.path());
+    let b = build_hello(home.path());
+    assert_ne!(a.project, b.project, "builds must run from different paths");
+
+    let (ba, bb) = (
+        std::fs::read(&a.archive).unwrap(),
+        std::fs::read(&b.archive).unwrap(),
+    );
+    assert!(!ba.is_empty());
+    assert_eq!(ba, bb, "package archives differ between two builds");
+
+    // Everything the archive is made of is identical too, so a mismatch
+    // would be pinpointed rather than just "the archive differs".
+    for f in ["plugin.wasm", "entangle.toml", "plugin.wasm.sig", "provenance.json"] {
+        assert_eq!(
+            std::fs::read(a.out.join(f)).unwrap(),
+            std::fs::read(b.out.join(f)).unwrap(),
+            "{f} differs"
+        );
+    }
+
+    // No build-machine path leaked into the wasm.
+    let wasm = std::fs::read(a.out.join("plugin.wasm")).unwrap();
+    for needle in [
+        a.project.display().to_string(),
+        b.project.display().to_string(),
+        repo_root().display().to_string(),
+    ] {
+        assert!(
+            !wasm.windows(needle.len()).any(|w| w == needle.as_bytes()),
+            "wasm embeds the absolute path {needle}"
+        );
+    }
+
+    // The signature bundle's timestamp is the fixed epoch, not the wall clock.
+    let sig = std::fs::read_to_string(a.out.join("plugin.wasm.sig")).unwrap();
+    assert!(sig.contains("created_at = 1704067200"), "{sig}");
+}
+
+/// `SOURCE_DATE_EPOCH` is honoured for the signature timestamp, and changing
+/// it changes only the signature bundle (and so the archive), not the wasm.
+#[test]
+fn atc_pkg_1_source_date_epoch_controls_the_signature_timestamp() {
+    let home = TempDir::new().unwrap();
+    let _g = BUILD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let root = TempDir::new().unwrap();
+    let project = hello_copy(root.path());
+    let wasm = root.path().join("fixed.wasm");
+    std::fs::write(&wasm, b"\0asm\x01\0\0\0").unwrap();
+    let mut sigs = Vec::new();
+    for epoch in ["1000000000", "1000000000", "1000000001"] {
+        let out = root.path().join(format!("out-{epoch}-{}", sigs.len()));
+        entangle(home.path())
+            .env("SOURCE_DATE_EPOCH", epoch)
+            .args(["plugins", "build"])
+            .arg(&project)
+            .arg("--key")
+            .arg(key())
+            .arg("--wasm")
+            .arg(&wasm)
+            .arg("--out")
+            .arg(&out)
+            .assert()
+            .success();
+        sigs.push(std::fs::read_to_string(out.join("plugin.wasm.sig")).unwrap());
+    }
+    assert!(sigs[0].contains("created_at = 1000000000"));
+    assert_eq!(sigs[0], sigs[1], "same epoch, same bundle");
+    assert_ne!(sigs[0], sigs[2]);
+}
+
+// ---------------------------------------------------------------------------
+// ATC-PKG-2 (structural: one process cannot run three hosts)
+// ---------------------------------------------------------------------------
+
+/// Structural check of `.github/workflows/reproducibility.yml`.
+///
+/// This cannot run the build on macOS-14, Ubuntu-22.04 and Ubuntu-24.04 from a
+/// single test process; the cross-host comparison itself only happens when the
+/// workflow runs in CI. What this test pins is that the workflow exists, builds
+/// hello-world on exactly those three hosts with the pinned toolchain, uploads
+/// each host's SHA-256, and has a final job that fails unless all three match.
+#[test]
+fn atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests() {
+    let text =
+        std::fs::read_to_string(repo_root().join(".github/workflows/reproducibility.yml")).unwrap();
+    let doc: serde_yaml::Value = serde_yaml::from_str(&text).unwrap();
+    let jobs = &doc["jobs"];
+
+    let matrix = &jobs["cross_host_matrix"]["strategy"]["matrix"]["os"];
+    let mut oses: Vec<&str> = matrix
+        .as_sequence()
+        .expect("matrix.os is a list")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    oses.sort_unstable();
+    assert_eq!(oses, ["macos-14", "ubuntu-22.04", "ubuntu-24.04"]);
+
+    let build = serde_yaml::to_string(&jobs["cross_host_matrix"]).unwrap();
+    assert!(build.contains("examples/hello-world"), "{build}");
+    assert!(build.contains("plugins build"), "{build}");
+    assert!(build.contains("toolchain: '1.91'") || build.contains("toolchain: \"1.91\""), "{build}");
+    assert!(build.contains("wasm32-wasip2"), "{build}");
+    assert!(build.contains("sha256"), "{build}");
+    assert!(build.contains("upload-artifact"), "{build}");
+
+    let compare = &jobs["compare"];
+    assert_eq!(compare["needs"].as_str(), Some("cross_host_matrix"));
+    let c = serde_yaml::to_string(compare).unwrap();
+    assert!(c.contains("download-artifact"), "{c}");
+    assert!(c.contains("exit 1"), "the comparison must be able to fail: {c}");
+    assert!(c.contains("sort -u"), "{c}");
+    assert!(c.contains("-ne 3"), "must require all three hosts: {c}");
+
+    // ATC-PKG-1's serial double build lives in the same workflow.
+    assert!(jobs["serial_double_build"].is_mapping());
+    // The signing key it references must exist and parse.
+    assert!(text.contains("tests/fixtures/repro-ci-key.pem"));
+    let pem = std::fs::read_to_string(key()).unwrap();
+    entangle_signing::IdentityKeyPair::from_pem(&pem).expect("fixture key parses");
+}
+
+// ---------------------------------------------------------------------------
+// ATC-PKG-3
+// ---------------------------------------------------------------------------
+
+#[test]
+fn atc_pkg_3_no_lockfile_rejected() {
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+    let project = hello_copy(root.path());
+    std::fs::remove_file(project.join("Cargo.lock")).unwrap();
+    let out = root.path().join("out");
+
+    entangle(home.path())
+        // A registry that cannot be reached: the check must fire before any
+        // fetch is attempted.
+        .env("CARGO_NET_OFFLINE", "true")
+        .args(["plugins", "build"])
+        .arg(&project)
+        .arg("--key")
+        .arg(key())
+        .arg("--out")
+        .arg(&out)
+        .assert()
+        .failure()
+        .code(predicate::ne(0))
+        .stderr(predicate::str::contains("Cargo.lock missing"));
+
+    // Nothing written: no lockfile generated, no build output, no package.
+    assert!(!project.join("Cargo.lock").exists());
+    assert!(!project.join("target").exists());
+    assert!(!out.exists());
+    assert!(!project.join("dist").exists());
+}
+
+// ---------------------------------------------------------------------------
+// ATC-PKG-4
+// ---------------------------------------------------------------------------
+
+fn repack_with(archive: &Path, edit: impl FnOnce(&mut entangle_oci::PackageFiles)) -> PathBuf {
+    let mut files = entangle_oci::unpack(&std::fs::read(archive).unwrap()).unwrap();
+    edit(&mut files);
+    let out = archive.with_file_name("tampered.tar.zst");
+    std::fs::write(&out, entangle_oci::pack(&files).unwrap()).unwrap();
+    out
+}
+
+#[test]
+fn atc_pkg_4_rebuild_verify_pass_and_fail() {
+    let home = TempDir::new().unwrap();
+    let built = build_hello(home.path());
+
+    // The package records its provenance.
+    let files = entangle_oci::unpack(&std::fs::read(&built.archive).unwrap()).unwrap();
+    let prov: serde_json::Value = serde_json::from_slice(&files.provenance.unwrap()).unwrap();
+    assert!(prov["source_digest"].as_str().unwrap().starts_with("sha256:"));
+    assert!(prov["build"]["toolchain"].as_str().unwrap().starts_with("rustc 1."));
+    assert!(prov["build"]["rustflags"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f.as_str().unwrap().contains("--remap-path-prefix")));
+    assert!(prov["build"]["cargo_args"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|a| a == "--locked"));
+    assert!(prov.get("git_commit").is_some());
+    let text = prov.to_string();
+    assert!(
+        !text.contains(&built.project.display().to_string()),
+        "provenance must not contain absolute paths: {text}"
+    );
+
+    let _g = BUILD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+
+    // Happy path: rebuild from the source reproduces the package.
+    entangle(home.path())
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&built.archive)
+        .arg("--source")
+        .arg(&built.project)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("PASS"));
+
+    // The output directory verifies the same way as the archive.
+    entangle(home.path())
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&built.out)
+        .arg("--source")
+        .arg(&built.project)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("PASS"));
+
+    // A tampered wasm is caught after the rebuild, with the first difference.
+    let evil = repack_with(&built.archive, |f| {
+        let n = f.wasm.len() - 1;
+        f.wasm[n] ^= 0xFF;
+    });
+    entangle(home.path())
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&evil)
+        .arg("--source")
+        .arg(&built.project)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("FAIL: plugin.wasm differs"))
+        .stdout(predicate::str::contains("first differing byte at offset"));
+}
+
+#[test]
+fn atc_pkg_4_rebuild_verify_fails_on_changed_source_and_toolchain_without_building() {
+    let home = TempDir::new().unwrap();
+    let built = build_hello(home.path());
+
+    // Source changed after the package was built.
+    let edited = built.project.with_file_name("hello-edited");
+    copy_dir(&built.project, &edited);
+    let lib = edited.join("src/lib.rs");
+    let mut src = std::fs::read_to_string(&lib).unwrap();
+    src.push_str("\n// edited after packaging\n");
+    std::fs::write(&lib, src).unwrap();
+    entangle(home.path())
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&built.archive)
+        .arg("--source")
+        .arg(&edited)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("FAIL: source digest differs"));
+
+    // Recorded toolchain differs from the local one.
+    let other = repack_with(&built.archive, |f| {
+        let mut v: serde_json::Value =
+            serde_json::from_slice(f.provenance.as_ref().unwrap()).unwrap();
+        v["build"]["toolchain"] = "rustc 0.0.1 (deadbeef)".into();
+        f.provenance = Some(serde_json::to_vec_pretty(&v).unwrap());
+    });
+    entangle(home.path())
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&other)
+        .arg("--source")
+        .arg(&built.project)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("FAIL: toolchain differs"))
+        .stdout(predicate::str::contains("rustc 0.0.1 (deadbeef)"));
+
+    // A package without provenance cannot be rebuild-verified.
+    let bare = repack_with(&built.archive, |f| f.provenance = None);
+    entangle(home.path())
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&bare)
+        .arg("--source")
+        .arg(&built.project)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("FAIL: ENTANGLE-E0831"));
+}

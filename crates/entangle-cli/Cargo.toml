@@ -52,6 +52,7 @@ tempfile          = { workspace = true }
 rustix            = { workspace = true }
 
 [dev-dependencies]
+serde_yaml        = { workspace = true }
 entangle-oci      = { workspace = true, features = ["testing"] }
 tokio             = { workspace = true, features = ["full"] }
 assert_cmd        = "2"
