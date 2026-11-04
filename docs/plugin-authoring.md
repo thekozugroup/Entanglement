@@ -323,7 +323,7 @@ than 4 MiB) and pushes the manifest. Credentials come from
 `ENTANGLE_OCI_TOKEN`, or `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD`,
 together with `ENTANGLE_OCI_REGISTRY=<host[:port]>` naming the one registry
 they are for, or from `~/.entangle/oci-auth.toml` (see `docs/operations.md`
-section 12). Consumers run:
+section 13). Consumers run:
 
 ```sh
 entangle keyring add <YOUR_PUBLIC_KEY_HEX> --name you   # once
