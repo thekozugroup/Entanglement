@@ -32,7 +32,9 @@
 //!   stale or spoofed LAN address, a blackholed port — cannot use up the
 //!   budget before the later transports are tried. A link reports when its
 //!   connection is set up ([`Connecting`]); the deadline never cuts short a
-//!   request already sent;
+//!   request already sent. It only makes room for the later candidates: if
+//!   they all fail too, a candidate it cut short is tried again without
+//!   one, as the last candidate would have been;
 //! * a candidate that failed to connect (or ran out its connect deadline)
 //!   moves behind the peer's other candidates for a while
 //!   ([`TransportRouter::with_connect_backoff`]), so a dead route is not
@@ -63,7 +65,7 @@ mod links;
 mod serve;
 mod stream_io;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
@@ -666,16 +668,32 @@ impl TransportRouter {
                 detail: render_skipped(&skipped),
             });
         }
-        let count = candidates.len();
+        let mut queue = queue(candidates);
         let mut failures = Vec::new();
-        for (index, (link, target)) in candidates.into_iter().enumerate() {
+        while let Some(next) = queue.pop_front() {
+            let (link, target) = (next.link, next.target);
             let kind = link.kind();
             attempt.set(kind);
             let left = budget.map(|b| b.saturating_sub(started.elapsed()));
-            let limit = self.connect_limit(index, count, left);
+            let limit = self.connect_limit(next.retry, &queue, left);
             let connecting = Connecting::default();
             let sent = link.request(&target, payload, &connecting);
-            match within_setup(sent, &connecting, limit).await {
+            let result = match within_setup(sent, &connecting, limit).await {
+                Attempted::Done(result) => result,
+                Attempted::Cut(limit) => {
+                    let why = format!("not connected within {}ms", limit.as_millis());
+                    tracing::debug!(%peer, transport = kind.as_str(), error = %why, "mesh: connect deadline passed, trying the next transport");
+                    self.note_connect(peer, kind, true, only);
+                    failures.push((kind, why));
+                    queue.push_back(Next {
+                        link,
+                        target,
+                        retry: true,
+                    });
+                    continue;
+                }
+            };
+            match result {
                 Ok(answer) => {
                     self.note_connect(peer, kind, false, only);
                     self.record(peer, kind, &target);
@@ -730,13 +748,29 @@ impl TransportRouter {
                 .to_string(),
             ));
         }
-        let count = candidates.len();
+        let mut queue = queue(candidates);
         let mut failures = Vec::new();
-        for (index, (link, target)) in candidates.into_iter().enumerate() {
+        while let Some(next) = queue.pop_front() {
+            let (link, target) = (next.link, next.target);
             let kind = link.kind();
-            let limit = self.connect_limit(index, count, None);
+            let limit = self.connect_limit(next.retry, &queue, None);
             let opening = link.open_stream(&target);
-            match within_setup(opening, &Connecting::default(), limit).await {
+            let result = match within_setup(opening, &Connecting::default(), limit).await {
+                Attempted::Done(result) => result,
+                Attempted::Cut(limit) => {
+                    let why = format!("not connected within {}ms", limit.as_millis());
+                    tracing::debug!(%peer, transport = kind.as_str(), error = %why, "mesh: stream connect deadline passed, trying the next transport");
+                    self.note_connect(peer, kind, true, None);
+                    failures.push((kind, why));
+                    queue.push_back(Next {
+                        link,
+                        target,
+                        retry: true,
+                    });
+                    continue;
+                }
+            };
+            match result {
                 Ok(io) => {
                     if io.remote_peer_id() != peer {
                         // Links pin the dialled key; this is a backstop.
@@ -786,20 +820,22 @@ impl TransportRouter {
         Err(StreamError::Transport(err.to_string()))
     }
 
-    /// The connect deadline of candidate `index` of `count`: none for the
-    /// last; otherwise the router's cap, or an even share of `left` (what
-    /// remains of the caller's budget) among the candidates still to try,
-    /// whichever is shorter.
+    /// The connect deadline of the next attempt, with `queue` still to
+    /// try after it: none for the last first-time candidate or for a
+    /// second try; otherwise the router's cap, or an even share of `left`
+    /// (what remains of the caller's budget) among the first-time
+    /// candidates still to try, whichever is shorter.
     fn connect_limit(
         &self,
-        index: usize,
-        count: usize,
+        retry: bool,
+        queue: &VecDeque<Next>,
         left: Option<Duration>,
     ) -> Option<Duration> {
-        let still_to_try = count.saturating_sub(index);
-        if still_to_try <= 1 {
+        let after = queue.iter().filter(|n| !n.retry).count();
+        if retry || after == 0 {
             return None;
         }
+        let still_to_try = after.saturating_add(1);
         let share = left.map_or(self.connect_timeout, |left| {
             left / u32::try_from(still_to_try).unwrap_or(u32::MAX)
         });
@@ -817,6 +853,35 @@ impl TransportRouter {
     }
 }
 
+/// One candidate in the order it will be tried.
+struct Next {
+    link: Arc<dyn Link>,
+    target: DialTarget,
+    /// A second try of a candidate the connect deadline cut short: it runs
+    /// without one, after every first-time candidate.
+    retry: bool,
+}
+
+fn queue(candidates: Vec<(Arc<dyn Link>, DialTarget)>) -> VecDeque<Next> {
+    candidates
+        .into_iter()
+        .map(|(link, target)| Next {
+            link,
+            target,
+            retry: false,
+        })
+        .collect()
+}
+
+/// How one attempt ended.
+enum Attempted<T> {
+    /// The link's own result.
+    Done(Result<T, LinkError>),
+    /// The connect deadline (given here) passed before the link connected;
+    /// nothing was sent.
+    Cut(Duration),
+}
+
 /// Run one attempt, giving up at `limit` unless the link has reported its
 /// connection set up by then: nothing was sent, so the next candidate may be
 /// tried. Once set up, the attempt runs to its end.
@@ -824,22 +889,19 @@ async fn within_setup<T>(
     attempt: impl Future<Output = Result<T, LinkError>>,
     connecting: &Connecting,
     limit: Option<Duration>,
-) -> Result<T, LinkError> {
+) -> Attempted<T> {
     let Some(limit) = limit else {
-        return attempt.await;
+        return Attempted::Done(attempt.await);
     };
     tokio::pin!(attempt);
     tokio::select! {
         biased;
-        result = &mut attempt => result,
+        result = &mut attempt => Attempted::Done(result),
         () = tokio::time::sleep(limit) => {
             if connecting.is_connected() {
-                attempt.await
+                Attempted::Done(attempt.await)
             } else {
-                Err(LinkError::Connect(format!(
-                    "not connected within {}ms",
-                    limit.as_millis()
-                )))
+                Attempted::Cut(limit)
             }
         }
     }

@@ -1469,9 +1469,11 @@ even share of what is left of the request's budget when that is shorter
 first). A dial that has not connected by then — a LAN sighting left behind
 when the peer moved, a spoofed one, a blackholed port — is abandoned
 (nothing was sent) and the next candidate tried, so it cannot use up the
-budget before the later transports get a turn. The last candidate is bound
-only by its transport's own timeouts and the request's budget. The deadline
-covers connection setup only: a request already sent runs to its end.
+budget before the later transports get a turn. If those fail too, a
+candidate it cut short (slow, not refused — e.g. a relayed iroh dial) is
+tried once more without a deadline. The last candidate is bound only by its
+transport's own timeouts and the request's budget. The deadline covers
+connection setup only: a request already sent runs to its end.
 
 A transport that failed to connect to a peer (refused, unreachable, or out
 of its deadline) is then tried **after** that peer's other candidates for

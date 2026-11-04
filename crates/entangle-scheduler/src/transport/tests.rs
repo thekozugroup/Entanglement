@@ -5,7 +5,9 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use entangle_mesh_iroh::IrohPeer;
+use entangle_mesh_iroh::{
+    duplex_pair, FramedStream, IrohPeer, DEFAULT_DUPLEX_BUFFER, MAX_FRAME_BYTES,
+};
 use entangle_mesh_tailscale::TailscalePeer;
 
 use super::*;
@@ -31,7 +33,11 @@ struct Scripted {
     silent: bool,
     /// Connects at once, then takes this long to answer (a running task).
     runs_for: Option<Duration>,
+    /// Takes this long to connect (a relayed dial), then answers.
+    connects_after: Option<Duration>,
     calls: AtomicUsize,
+    /// The far ends of the streams it opened, kept open.
+    far_ends: Mutex<Vec<FramedStream>>,
 }
 
 impl std::fmt::Debug for Scripted {
@@ -53,7 +59,16 @@ impl Scripted {
             script: Box::new(script),
             silent: false,
             runs_for: None,
+            connects_after: None,
             calls: AtomicUsize::new(0),
+            far_ends: Mutex::new(Vec::new()),
+        })
+    }
+
+    fn connecting_after(kind: TransportKind, knows: PeerId, time: Duration) -> Arc<Self> {
+        Arc::new(Self {
+            connects_after: Some(time),
+            ..Arc::into_inner(Self::answering(kind, knows)).unwrap()
         })
     }
 
@@ -120,18 +135,31 @@ impl Link for Scripted {
         if self.silent {
             std::future::pending::<()>().await;
         }
+        if let Some(time) = self.connects_after {
+            tokio::time::sleep(time).await;
+            connecting.connected();
+        }
         if let Some(time) = self.runs_for {
             connecting.connected();
             tokio::time::sleep(time).await;
         }
         (self.script)()
     }
-    async fn open_stream(&self, _target: &DialTarget) -> Result<StreamIo, LinkError> {
+    /// Opens an in-memory stream to the target's key, or fails as the
+    /// script fails.
+    async fn open_stream(&self, target: &DialTarget) -> Result<StreamIo, LinkError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         if self.silent {
             std::future::pending::<()>().await;
         }
-        Err(LinkError::Connect("scripted links carry no streams".into()))
+        (self.script)()?;
+        let key = match target {
+            DialTarget::Iroh(p) => p.public_key,
+            DialTarget::Tailscale(p) => p.public_key,
+        };
+        let (ours, theirs) = duplex_pair(peer_key(0), key, MAX_FRAME_BYTES, DEFAULT_DUPLEX_BUFFER);
+        self.far_ends.lock().push(theirs);
+        Ok(StreamIo::from(ours).with_transport(self.kind))
     }
 }
 
@@ -342,16 +370,17 @@ async fn a_candidate_that_never_connects_does_not_hold_the_request() {
         Vec::new(),
     );
     task.integrity = entangle_types::task::IntegrityPolicy::TrustedExecutor { allowlist: vec![p] };
-    let err = tokio::time::timeout(
+    let handle = tokio::time::timeout(
         Duration::from_secs(5),
         r.open_stream(p, &task, StreamOptions::default()),
     )
     .await
     .expect("a silent first candidate held the stream open past its connect deadline")
-    .unwrap_err();
-    assert!(
-        err.to_string().contains("local: not connected within 50ms"),
-        "{err}"
+    .unwrap();
+    assert_eq!(handle.executor(), p);
+    assert_eq!(
+        r.last_route(&p).map(|rec| rec.transport),
+        Some(TransportKind::Tailscale)
     );
     assert_eq!((local.calls(), ts.calls()), (1, 1));
 }
@@ -441,6 +470,41 @@ async fn a_transport_that_just_failed_to_connect_is_tried_last_for_a_while() {
         .is_err());
     assert_eq!(local.calls(), before + 1);
     assert_eq!(order(&r), [TransportKind::Local, TransportKind::Tailscale]);
+}
+
+/// The connect deadline only makes room for the next candidate. When every
+/// other candidate fails, one it cut short — slow to connect, not refused,
+/// e.g. a relayed iroh dial — gets the rest of the budget, as the last
+/// candidate would have; it is not given up on.
+#[tokio::test]
+async fn a_slow_candidate_cut_at_its_deadline_is_tried_again_when_the_rest_fail() {
+    let p = peer(1);
+    let slow = Scripted::connecting_after(TransportKind::Iroh, p, Duration::from_millis(300));
+    let refused = Scripted::new(TransportKind::Local, p, || {
+        Err(LinkError::Connect("connection refused".into()))
+    });
+    let r = router(&[slow.clone(), refused.clone()])
+        .with_policy(RoutePolicy::new().with_preferred(Some(TransportKind::Iroh)))
+        .with_connect_timeout(Duration::from_millis(100));
+    let (answer, kind) = r.request(p, b"x", None).await.unwrap();
+    assert_eq!(
+        (answer.as_slice(), kind),
+        (&b"iroh"[..], TransportKind::Iroh)
+    );
+    assert_eq!((slow.calls(), refused.calls()), (2, 1));
+
+    // But a candidate the deadline cut short is not retried while another
+    // first-time candidate is still to be tried, nor when one answered.
+    let slow = Scripted::connecting_after(TransportKind::Iroh, p, Duration::from_millis(300));
+    let ts = Scripted::answering(TransportKind::Tailscale, p);
+    let r = router(&[slow.clone(), ts.clone()])
+        .with_policy(RoutePolicy::new().with_preferred(Some(TransportKind::Iroh)))
+        .with_connect_timeout(Duration::from_millis(100));
+    assert_eq!(
+        r.request(p, b"x", None).await.unwrap().1,
+        TransportKind::Tailscale
+    );
+    assert_eq!((slow.calls(), ts.calls()), (1, 1));
 }
 
 /// The connect deadline bounds connection setup only: an attempt whose link
