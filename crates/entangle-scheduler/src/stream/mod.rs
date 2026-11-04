@@ -58,7 +58,7 @@ pub use frame::{Frame, Signature64, STREAM_WIRE_VERSION};
 pub use heartbeat::{Heartbeat, MISSED_PONGS_LIMIT};
 pub use partial::{finalize, RetainedChunk, StreamContext, StreamOutcome, StreamResult};
 pub use server::{open_stream, serve_streams, StreamServer};
-pub use signing::{verify_transcript, ChunkSigner, ChunkVerifier, SignedChunk};
+pub use signing::{request_digest, verify_transcript, ChunkSigner, ChunkVerifier, SignedChunk};
 pub use submitter::{
     ChunkPoll, EndSummary, InputSend, SubmitterMachine, SubmitterOptions, SubmitterState,
     VerifiedChunk,

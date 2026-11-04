@@ -14,7 +14,7 @@ use super::frame::{
     decode_frame, encode_frame, AcceptedFrame, ChunkFrame, EndFrame, Frame, InputFrame,
     Signature64, CHUNK_FRAME_OVERHEAD, CONTROL_FRAME_MAX,
 };
-use super::signing::{transcript_next, transcript_start};
+use super::signing::{request_digest, transcript_next, transcript_start};
 use super::*;
 use crate::work_unit::PolicyEnvelope;
 
@@ -73,10 +73,11 @@ fn pair_with(task: &StreamingTask, ceilings: StreamCeilings) -> Pair {
         ExecutorConfig {
             task_id: task.id,
             policy_hash: env.hash(),
+            request: request_digest(&open),
             limits,
             local_peer: PeerId::from_public_key_bytes(key.public().as_bytes()),
         },
-        ChunkSigner::new(key, open.task_id, env.hash()),
+        ChunkSigner::new(key, open.task_id, env.hash(), request_digest(&open)),
         t0,
     );
     let mut p = Pair {
@@ -166,7 +167,12 @@ impl Pair {
 
     /// A chunk frame signed by `key` for this stream.
     fn chunk_signed_by(&self, key: &IdentityKeyPair, seq: u64, bytes: &[u8]) -> Frame {
-        let signer = ChunkSigner::new(key.clone(), self.task_bytes(), self.exec.policy_hash());
+        let signer = ChunkSigner::new(
+            key.clone(),
+            self.task_bytes(),
+            self.exec.policy_hash(),
+            self.sub.request_digest(),
+        );
         Frame::Chunk(ChunkFrame {
             seq,
             bytes: bytes.to_vec(),
@@ -363,7 +369,12 @@ fn end_frame(
     transcript: [u8; 32],
     key: &IdentityKeyPair,
 ) -> Frame {
-    let signer = ChunkSigner::new(key.clone(), p.task_bytes(), p.exec.policy_hash());
+    let signer = ChunkSigner::new(
+        key.clone(),
+        p.task_bytes(),
+        p.exec.policy_hash(),
+        p.sub.request_digest(),
+    );
     Frame::End(EndFrame {
         chunks,
         bytes,
@@ -429,10 +440,51 @@ fn end_with_a_wrong_transcript_or_signature_is_rejected() {
     }
 }
 
+/// A signed chunk (and End) commits to the request that produced it — the
+/// plugin, its input, the requested limits — not only to the task id the
+/// submitter picked: output of one request cannot be passed off as another
+/// request's under a reused task id and policy.
+#[test]
+fn signatures_are_bound_to_the_request_not_just_the_task_id() {
+    let request_a = task_with(channel());
+    let mut request_b = request_a.clone();
+    request_b.input = b"an innocuous prompt".to_vec();
+    assert_eq!(request_a.id, request_b.id);
+
+    let mut a = pair_with(&request_a, StreamCeilings::default());
+    let mut b = pair_with(&request_b, StreamCeilings::default());
+    a.send(b"output of request A");
+    let chunk = a.exec.poll_transmit().unwrap();
+    assert!(
+        matches!(
+            b.sub.on_frame(chunk, b.now),
+            Err(StreamError::BadChunkSignature { seq: 0, .. })
+        ),
+        "a chunk produced for request A verified as request B's output"
+    );
+
+    // The same holds for the End of an empty stream.
+    let mut a = pair_with(&request_a, StreamCeilings::default());
+    let mut b = pair_with(&request_b, StreamCeilings::default());
+    a.exec.finish(a.now).unwrap();
+    let end = drain_exec(&mut a.exec)
+        .into_iter()
+        .find(|f| matches!(f, Frame::End(_)))
+        .unwrap();
+    assert!(
+        matches!(b.sub.on_frame(end, b.now), Err(StreamError::BadEnd(_))),
+        "request A's End verified for request B"
+    );
+}
+
 #[test]
 fn transcript_matches_an_independent_recomputation() {
     let (p, t) = two_chunk_pair();
-    let h = transcript_start(&p.task_bytes(), &p.exec.policy_hash());
+    let h = transcript_start(
+        &p.task_bytes(),
+        &p.exec.policy_hash(),
+        &p.sub.request_digest(),
+    );
     let h = transcript_next(&h, 0, blake3::hash(b"ab").as_bytes());
     let h = transcript_next(&h, 1, blake3::hash(b"cde").as_bytes());
     assert_eq!(h, t);
@@ -851,7 +903,12 @@ fn an_executor_that_raises_a_limit_gains_nothing() {
     .unwrap();
     // The submitter's own 64-byte cap still applies.
     assert_eq!(sub.frame_cap(), CONTROL_FRAME_MAX);
-    let signer = ChunkSigner::new(exec_key(), open.task_id, open.policy_hash);
+    let signer = ChunkSigner::new(
+        exec_key(),
+        open.task_id,
+        open.policy_hash,
+        request_digest(&open),
+    );
     let big = vec![0u8; 65];
     let err = sub
         .on_frame(
@@ -968,6 +1025,7 @@ fn interrupted_chunks() -> (Vec<VerifiedChunk>, StreamContext) {
     let ctx = StreamContext {
         task_id: p.exec.task_id(),
         policy_hash: p.exec.policy_hash(),
+        request_digest: p.sub.request_digest(),
         executor_key: *exec_key().public().as_bytes(),
         received_chunks: 2,
         received_bytes: 8,
@@ -1011,6 +1069,7 @@ fn keep_signed_returns_an_attributable_partial_transcript() {
         ctx.executor_key,
         *ctx.task_id.as_bytes(),
         ctx.policy_hash,
+        ctx.request_digest,
         &signed,
     )
     .expect("a third party can re-verify the partial result");
@@ -1085,6 +1144,7 @@ async fn heartbeats_are_answered_while_the_plugin_computes() {
         },
         None => panic!("no Open frame"),
     };
+    let request = request_digest(&open);
     let env = PolicyEnvelope::open(open.policy, open.policy_hash).unwrap();
     let ceilings = StreamCeilings {
         min_heartbeat_ms: 10,
@@ -1096,10 +1156,11 @@ async fn heartbeats_are_answered_while_the_plugin_computes() {
         ExecutorConfig {
             task_id: task.id,
             policy_hash: env.hash(),
+            request,
             limits,
             local_peer: PeerId::from_public_key_bytes(exec.public().as_bytes()),
         },
-        ChunkSigner::new(exec, open.task_id, env.hash()),
+        ChunkSigner::new(exec, open.task_id, env.hash(), request),
         Instant::now(),
     );
     let (mut port, driver_port) = stream_port(1);
@@ -1158,16 +1219,18 @@ async fn driven_pair(
         },
         None => panic!("no Open frame"),
     };
+    let request = request_digest(&open);
     let env = PolicyEnvelope::open(open.policy, open.policy_hash).unwrap();
     let limits = ceilings.accept(&open.channel, open.timeout_ms).unwrap();
     let machine = ExecutorMachine::new(
         ExecutorConfig {
             task_id: task.id,
             policy_hash: env.hash(),
+            request,
             limits,
             local_peer: PeerId::from_public_key_bytes(exec.public().as_bytes()),
         },
-        ChunkSigner::new(exec, open.task_id, env.hash()),
+        ChunkSigner::new(exec, open.task_id, env.hash(), request),
         Instant::now(),
     );
     (handle, machine, exec_io)
@@ -1291,10 +1354,11 @@ fn executor_with(limits: StreamLimits) -> ExecutorMachine {
         ExecutorConfig {
             task_id,
             policy_hash: env.hash(),
+            request: [0; 32],
             limits,
             local_peer: PeerId::from_public_key_bytes(exec_key().public().as_bytes()),
         },
-        ChunkSigner::new(exec_key(), *task_id.as_bytes(), env.hash()),
+        ChunkSigner::new(exec_key(), *task_id.as_bytes(), env.hash(), [0; 32]),
         Instant::now(),
     )
 }

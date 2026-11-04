@@ -27,10 +27,10 @@ use entangle_scheduler::stream::frame::{
     decode_frame, encode_frame, AcceptedFrame, ChunkFrame, Frame, OpenFrame, CHUNK_FRAME_OVERHEAD,
 };
 use entangle_scheduler::stream::{
-    open_stream, validate_submit, verify_transcript, ChunkPoll, ChunkSigner, ChunkVerifier,
-    ExecutorConfig, ExecutorMachine, ExecutorState, Reason, SendOutcome, Side, StalledEvent,
-    StreamCeilings, StreamError, StreamEvent, StreamHandle, StreamOptions, StreamOutcome,
-    StreamServer, SubmitterMachine, SubmitterOptions, SubmitterState,
+    open_stream, request_digest, validate_submit, verify_transcript, ChunkPoll, ChunkSigner,
+    ChunkVerifier, ExecutorConfig, ExecutorMachine, ExecutorState, Reason, SendOutcome, Side,
+    StalledEvent, StreamCeilings, StreamError, StreamEvent, StreamHandle, StreamOptions,
+    StreamOutcome, StreamServer, SubmitterMachine, SubmitterOptions, SubmitterState,
 };
 use entangle_scheduler::work_unit::PolicyEnvelope;
 use entangle_scheduler::{ReputationStore, StaticAllowlist};
@@ -252,10 +252,11 @@ impl Sim {
             ExecutorConfig {
                 task_id: task.id,
                 policy_hash: env.hash(),
+                request: request_digest(&open),
                 limits,
                 local_peer: peer_of(&key),
             },
-            ChunkSigner::new(key, open.task_id, env.hash()),
+            ChunkSigner::new(key, open.task_id, env.hash(), request_digest(&open)),
             t0,
         );
         let mut sim = Self {
@@ -592,7 +593,12 @@ impl RawPeer {
             timeout_ms: open.timeout_ms,
         }))
         .await;
-        let signer = ChunkSigner::new(key.clone(), open.task_id, open.policy_hash);
+        let signer = ChunkSigner::new(
+            key.clone(),
+            open.task_id,
+            open.policy_hash,
+            request_digest(&open),
+        );
         (open, signer)
     }
 
@@ -1028,8 +1034,18 @@ async fn atc_str_3_forged_chunk_rejected() {
     let result = deadline("collect", handle.collect()).await;
     assert!(result.is_complete(), "{:?}", result.outcome);
     assert_eq!(result.executor_key, pub_of(&n));
-    let verifier = ChunkVerifier::new(pub_of(&n), *task.id.as_bytes(), result.policy_hash);
-    let impostor = ChunkVerifier::new(pub_of(&n_prime), *task.id.as_bytes(), result.policy_hash);
+    let verifier = ChunkVerifier::new(
+        pub_of(&n),
+        *task.id.as_bytes(),
+        result.policy_hash,
+        result.request_digest,
+    );
+    let impostor = ChunkVerifier::new(
+        pub_of(&n_prime),
+        *task.id.as_bytes(),
+        result.policy_hash,
+        result.request_digest,
+    );
     for chunk in &result.chunks {
         let sig = chunk.signature.expect("complete streams keep signatures");
         let h = *blake3::hash(&chunk.bytes).as_bytes();
@@ -1039,7 +1055,14 @@ async fn atc_str_3_forged_chunk_rejected() {
         assert!(impostor.verify_chunk(chunk.seq, &h, &sig).is_err());
     }
     let signed = result.signed_chunks().unwrap();
-    verify_transcript(pub_of(&n), *task.id.as_bytes(), result.policy_hash, &signed).unwrap();
+    verify_transcript(
+        pub_of(&n),
+        *task.id.as_bytes(),
+        result.policy_hash,
+        result.request_digest,
+        &signed,
+    )
+    .unwrap();
     assert_eq!(
         deadline("executor", served).await.unwrap().unwrap().outcome,
         Ok(())
@@ -1052,7 +1075,12 @@ async fn atc_str_3_forged_chunk_rejected() {
     let (sub_io, mut raw) = raw_pair(&n);
     let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
     let (open, genuine) = raw.accept(&n).await;
-    let forger = ChunkSigner::new(n_prime.clone(), open.task_id, open.policy_hash);
+    let forger = ChunkSigner::new(
+        n_prime.clone(),
+        open.task_id,
+        open.policy_hash,
+        request_digest(&open),
+    );
     raw.send_frame(&signed_chunk(&genuine, 0, b"real".to_vec()))
         .await;
     raw.send_frame(&signed_chunk(&forger, 1, b"fake".to_vec()))
@@ -1433,6 +1461,7 @@ async fn stream_lines_end_to_end_over_two_loopback_iroh_nodes() {
         b.local_public_key(),
         *task.id.as_bytes(),
         report.context.policy_hash,
+        report.context.request_digest,
         &signed,
     )
     .expect("the transcript verifies against node B's public key");

@@ -724,8 +724,11 @@ struct SignedChunk {
     ts: Instant,
     executor_node_id: NodeId,
     // Signature over "entangle/stream/chunk/v1" || 0x00 || task_id || policy_hash
-    //   || seq (u64 BE) || BLAKE3(bytes)  — domain-separated, bound to the
-    //   task's policy hash (INV-INT-1); no timestamp: ordering is the seq.
+    //   || request_digest || seq (u64 BE) || BLAKE3(bytes)  — domain-separated,
+    //   bound to the task's policy hash (INV-INT-1) and to the request itself
+    //   (request_digest: BLAKE3 over the Open frame's plugin, BLAKE3(input)
+    //   and requested limits; a reused task_id cannot relabel output); no
+    //   timestamp: ordering is the seq.
     // Verified by submitter on each chunk against the executor's
     // transport-authenticated key; chunks chain into a BLAKE3 transcript
     // hash that the executor's signed End frame commits to. signature: Ed25519Sig,

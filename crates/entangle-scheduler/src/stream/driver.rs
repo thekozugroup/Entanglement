@@ -736,6 +736,7 @@ fn placeholder_finished(task_id: TaskId, executor: PeerId) -> Finished {
             context: StreamContext {
                 task_id,
                 policy_hash: crate::work_unit::PolicyHash([0; 32]),
+                request_digest: [0; 32],
                 executor_key: [0; 32],
                 received_chunks: 0,
                 received_bytes: 0,
@@ -965,6 +966,7 @@ async fn drive_submitter(
             context: StreamContext {
                 task_id: m.task_id(),
                 policy_hash: m.policy_hash(),
+                request_digest: m.request_digest(),
                 executor_key: m.executor_key(),
                 received_chunks: m.chunks_received(),
                 received_bytes: m.bytes_received(),

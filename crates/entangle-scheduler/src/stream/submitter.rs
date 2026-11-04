@@ -40,7 +40,9 @@ use super::frame::{
     CHUNK_FRAME_OVERHEAD, CONTROL_FRAME_MAX,
 };
 use super::heartbeat::{Beat, Heartbeat};
-use super::signing::{transcript_next, transcript_start, ChunkVerifier, SignedChunk};
+use super::signing::{
+    request_digest, transcript_next, transcript_start, ChunkVerifier, SignedChunk,
+};
 use super::validate::{check_executor_allowed, chunk_allowance, validate_submit};
 use super::{grant_threshold, StreamEvent};
 use crate::work_unit::PolicyHash;
@@ -160,6 +162,7 @@ struct Effective {
 pub struct SubmitterMachine {
     task_id: TaskId,
     policy_hash: PolicyHash,
+    request: [u8; 32],
     policy_kind: entangle_types::task::PolicyKind,
     partial: PartialResultPolicy,
     declared: WireChannel,
@@ -209,9 +212,22 @@ impl SubmitterMachine {
         )?;
         let task_bytes = *task.id.as_bytes();
         let declared = WireChannel::from(&task.channel);
+        let open = OpenFrame {
+            task_id: task_bytes,
+            plugin: task.plugin.to_string(),
+            input: task.input.clone(),
+            max_input_bytes: task.max_input_bytes,
+            timeout_ms: task.timeout_ms,
+            channel: declared,
+            partial_result: task.partial_result.into(),
+            policy: envelope.canonical().to_vec(),
+            policy_hash: envelope.hash(),
+        };
+        let request = request_digest(&open);
         let mut machine = Self {
             task_id: task.id,
             policy_hash: envelope.hash(),
+            request,
             policy_kind: task.integrity.kind(),
             partial: task.partial_result,
             declared,
@@ -221,7 +237,7 @@ impl SubmitterMachine {
                 credit_window: declared.credit_window,
                 input_window: 0,
             },
-            verifier: ChunkVerifier::new(executor_key, task_bytes, envelope.hash()),
+            verifier: ChunkVerifier::new(executor_key, task_bytes, envelope.hash(), request),
             executor_key,
             state: SubmitterState::Opening,
             opened: now,
@@ -233,7 +249,7 @@ impl SubmitterMachine {
             received_bytes: 0,
             granted: 0,
             ungranted: 0,
-            transcript: transcript_start(&task_bytes, &envelope.hash()),
+            transcript: transcript_start(&task_bytes, &envelope.hash(), &request),
             buffer: VecDeque::new(),
             end: None,
             in_credit: 0,
@@ -244,17 +260,7 @@ impl SubmitterMachine {
             events: VecDeque::new(),
             error: None,
         };
-        machine.outbox.push_back(Frame::Open(OpenFrame {
-            task_id: task_bytes,
-            plugin: task.plugin.to_string(),
-            input: task.input.clone(),
-            max_input_bytes: task.max_input_bytes,
-            timeout_ms: task.timeout_ms,
-            channel: declared,
-            partial_result: task.partial_result.into(),
-            policy: envelope.canonical().to_vec(),
-            policy_hash: envelope.hash(),
-        }));
+        machine.outbox.push_back(Frame::Open(open));
         Ok(machine)
     }
 
@@ -284,6 +290,12 @@ impl SubmitterMachine {
     /// The sealed policy hash.
     pub const fn policy_hash(&self) -> PolicyHash {
         self.policy_hash
+    }
+
+    /// [`request_digest`] of the `Open` frame this stream sent: what every
+    /// chunk and `End` signature commits to.
+    pub const fn request_digest(&self) -> [u8; 32] {
+        self.request
     }
 
     /// The task's integrity policy variant (for reputation bookkeeping).

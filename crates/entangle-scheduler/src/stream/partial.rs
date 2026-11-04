@@ -60,6 +60,9 @@ pub struct StreamResult {
     pub task_id: TaskId,
     /// The policy hash it ran under.
     pub policy_hash: PolicyHash,
+    /// [`super::signing::request_digest`] of the stream's `Open`: the
+    /// request the signatures bind the output to.
+    pub request_digest: [u8; 32],
     /// The executor's transport-authenticated key: what the signatures
     /// verify against.
     pub executor_key: [u8; 32],
@@ -103,6 +106,8 @@ pub struct StreamContext {
     pub task_id: TaskId,
     /// The policy hash it ran under.
     pub policy_hash: PolicyHash,
+    /// [`super::signing::request_digest`] of the stream's `Open`.
+    pub request_digest: [u8; 32],
     /// The executor's transport-authenticated key.
     pub executor_key: [u8; 32],
     /// Chunks received before the end.
@@ -146,6 +151,7 @@ pub fn finalize(
                 ctx.executor_key,
                 *ctx.task_id.as_bytes(),
                 ctx.policy_hash,
+                ctx.request_digest,
                 &transcript,
             ) {
                 Ok(_) => signed(chunks),
@@ -169,6 +175,7 @@ pub fn finalize(
         received_bytes: ctx.received_bytes,
         task_id: ctx.task_id,
         policy_hash: ctx.policy_hash,
+        request_digest: ctx.request_digest,
         executor_key: ctx.executor_key,
     }
 }

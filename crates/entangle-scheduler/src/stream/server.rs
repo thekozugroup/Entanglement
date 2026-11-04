@@ -41,7 +41,7 @@ use super::driver::{drive_executor_halves, ExecutorReport, StreamHandle, StreamO
 use super::error::{Reason, Side, StreamError};
 use super::executor::{ExecutorConfig, ExecutorMachine};
 use super::frame::{decode_frame, encode_frame, Frame, OPEN_FRAME_OVERHEAD};
-use super::signing::ChunkSigner;
+use super::signing::{request_digest, ChunkSigner};
 use super::validate::{
     check_executor_allowed, check_stream_integrity, validate_submit, StreamCeilings,
 };
@@ -223,6 +223,8 @@ impl StreamServer {
             }
         };
 
+        // What every chunk signature will commit the output to.
+        let request = request_digest(&open);
         // INV-INT-1: verify the policy envelope before any work happens.
         let envelope = match PolicyEnvelope::open(open.policy, open.policy_hash) {
             Ok(env) => env,
@@ -326,10 +328,16 @@ impl StreamServer {
             ExecutorConfig {
                 task_id,
                 policy_hash: envelope.hash(),
+                request,
                 limits,
                 local_peer: self.local_peer_id,
             },
-            ChunkSigner::new(self.identity.clone(), open.task_id, envelope.hash()),
+            ChunkSigner::new(
+                self.identity.clone(),
+                open.task_id,
+                envelope.hash(),
+                request,
+            ),
             Instant::now(),
         );
         let (port, driver_port) = stream_port(1);

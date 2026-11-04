@@ -94,6 +94,9 @@ pub struct ExecutorConfig {
     pub task_id: TaskId,
     /// The policy hash it was verified under.
     pub policy_hash: PolicyHash,
+    /// [`super::signing::request_digest`] of the task's `Open` frame: what
+    /// every signature commits the output to.
+    pub request: [u8; 32],
     /// The effective limits (after the executor's clamp).
     pub limits: StreamLimits,
     /// This executor's peer id (for `StalledEvent`).
@@ -152,7 +155,7 @@ impl ExecutorMachine {
             credit_zero_since: None,
             next_seq: 0,
             bytes_sent: 0,
-            transcript: transcript_start(&task_bytes, &config.policy_hash),
+            transcript: transcript_start(&task_bytes, &config.policy_hash, &config.request),
             heartbeat: Heartbeat::new(limits.heartbeat, now),
             input: InputState::default(),
             outbox: VecDeque::new(),
