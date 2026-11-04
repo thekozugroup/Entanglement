@@ -56,6 +56,8 @@ enum Mode {
     Broken,
     /// A stream that ends without the answer.
     SseNoAnswer,
+    /// `initialize` is accepted but never answered.
+    HangInit,
 }
 
 #[derive(Clone, Debug)]
@@ -180,6 +182,10 @@ async fn handle(
         return Ok(full(202, None, None, ""));
     }
     let ok = |result: Value| json!({"jsonrpc": "2.0", "id": id, "result": result});
+    let hang_init = matches!(*mode.lock(), Mode::HangInit);
+    if rpc_method == "initialize" && hang_init {
+        tokio::time::sleep(Duration::from_secs(3600)).await;
+    }
     Ok(match rpc_method {
         "initialize" => json_resp(
             &ok(
@@ -194,7 +200,7 @@ async fn handle(
                 "text": body["params"]["arguments"]["text"]}]}));
             let m = mode.lock().clone();
             match m {
-                Mode::Json => json_resp(&answer, None),
+                Mode::Json | Mode::HangInit => json_resp(&answer, None),
                 Mode::Batch => json_resp(&json!([{"jsonrpc":"2.0","method":"x"}, answer]), None),
                 Mode::Slow(d) => {
                     tokio::time::sleep(d).await;
@@ -313,13 +319,16 @@ struct Reply {
 }
 
 async fn post(f: &Fixture, msg: &Value) -> Reply {
+    post_to(f.gw.addr, &f.token, msg).await
+}
+
+async fn post_to(addr: SocketAddr, token: &str, msg: &Value) -> Reply {
     let body = msg.to_string();
-    let mut s = TcpStream::connect(f.gw.addr).await.unwrap();
+    let mut s = TcpStream::connect(addr).await.unwrap();
     let req = format!(
         "POST /mcp/remote HTTP/1.1\r\nHost: x\r\nConnection: close\r\nContent-Type: application/json\r\n\
-         Content-Length: {}\r\nAuthorization: Bearer {}\r\n\r\n{body}",
+         Content-Length: {}\r\nAuthorization: Bearer {token}\r\n\r\n{body}",
         body.len(),
-        f.token
     );
     s.write_all(req.as_bytes()).await.unwrap();
     let mut buf = Vec::new();
@@ -834,6 +843,46 @@ async fn shutdown_ends_the_session_with_a_delete() {
             && s.headers.get("mcp-session-id").map(String::as_str) == Some("sess-1")
     });
     assert!(deleted);
+}
+
+/// Shutdown does not wait out the request timeout of a handshake that is
+/// stuck (the server accepted `initialize` but never answers): in-flight
+/// HTTP exchanges are abandoned, as killing a stdio server ends its
+/// requests, so `GatewayHandle::shutdown` returns promptly.
+#[tokio::test]
+async fn shutdown_does_not_wait_for_a_stuck_handshake() {
+    let f = fixture_with(&[], Duration::from_secs(60), 1 << 20, Policy::default()).await;
+    f.mock.set(Mode::HangInit);
+    let (addr, token) = (f.gw.addr, f.token.clone());
+    // A client whose first request starts the handshake (its connection is
+    // dropped by the shutdown, so its reply is not looked at).
+    let client = tokio::spawn(async move {
+        let body = json!({"jsonrpc":"2.0","id":1,"method":"tools/list"}).to_string();
+        let mut s = TcpStream::connect(addr).await.unwrap();
+        let req = format!(
+            "POST /mcp/remote HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\
+             Content-Length: {}\r\nAuthorization: Bearer {token}\r\n\r\n{body}",
+            body.len()
+        );
+        s.write_all(req.as_bytes()).await.unwrap();
+        let mut buf = Vec::new();
+        let _ = s.read_to_end(&mut buf).await;
+    });
+    for _ in 0..200 {
+        if !f.mock.posts().is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(f.mock.posts().len(), 1, "the handshake has started");
+    let t = std::time::Instant::now();
+    f.gw.shutdown().await;
+    assert!(
+        t.elapsed() < Duration::from_secs(5),
+        "shutdown took {:?}",
+        t.elapsed()
+    );
+    client.abort();
 }
 
 /// The `DELETE` is a request after initialization like any other, so it

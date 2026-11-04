@@ -68,7 +68,9 @@
 //!   `notifications/cancelled` is translated, exactly as for stdio; a
 //!   request that times out is cancelled downstream with
 //!   `notifications/cancelled` (a dropped connection is not a cancellation
-//!   in Streamable HTTP). `tools/call` goes through the same policy,
+//!   in Streamable HTTP). At shutdown in-flight exchanges are abandoned
+//!   (they fail like requests to a killed stdio server) and the session
+//!   is ended with a `DELETE`. `tools/call` goes through the same policy,
 //!   audit and `after_tool` hooks as for stdio, and the request timeout and
 //!   the downstream message cap apply to the whole exchange. Only `https`
 //!   URLs are used, except loopback hosts (`http://127.0.0.1:…`,
@@ -1047,7 +1049,14 @@ struct HttpRoute {
     next_id: AtomicU64,
     /// See [`InflightIds`].
     inflight: InflightIds,
+    /// Set at shutdown: in-flight exchanges are abandoned (they fail with
+    /// "closed", as requests to a killed stdio server do).
+    closing: watch::Sender<bool>,
 }
+
+/// How long shutdown waits for an HTTP route's session state before giving
+/// up on the `DELETE`.
+const SHUTDOWN_LOCK_WAIT: Duration = Duration::from_secs(1);
 
 #[derive(Default)]
 struct HttpState {
@@ -1062,6 +1071,21 @@ impl HttpRoute {
     /// A fresh downstream request id.
     fn next_id(&self) -> u64 {
         self.next_id.fetch_add(1, Ordering::Relaxed)
+    }
+
+    /// Run `fut` unless the route is (or starts) shutting down; `None` when
+    /// it was abandoned.
+    async fn unless_closing<T>(&self, fut: impl std::future::Future<Output = T>) -> Option<T> {
+        let mut closing = self.closing.subscribe();
+        if *closing.borrow_and_update() {
+            return None;
+        }
+        tokio::select! {
+            v = fut => Some(v),
+            // (The `Ref` returned by `wait_for` is not `Send`, so drop it
+            // inside the inner future.)
+            () = async { let _ = closing.wait_for(|c| *c).await; } => None,
+        }
     }
 
     fn new(spec: &McpServerSpec) -> Option<Self> {
@@ -1080,6 +1104,7 @@ impl HttpRoute {
             public_session: Mutex::new(None),
             next_id: AtomicU64::new(1),
             inflight: InflightIds::default(),
+            closing: watch::channel(false).0,
         })
     }
 }
@@ -1310,9 +1335,15 @@ impl Downstream {
     }
 
     async fn http_shutdown(&self, route: &HttpRoute) {
-        let st = {
-            let mut st = route.state.lock().await;
-            std::mem::take(&mut *st)
+        // Abandon in-flight exchanges first: a handshake holds the state lock
+        // for up to two request timeouts, and every request task holds an
+        // in-flight permit that `GatewayHandle::shutdown` waits for.
+        route.closing.send_replace(true);
+        // The abandoned handshake releases the lock as soon as its task runs;
+        // the bound only guards against that not happening.
+        let st = match tokio::time::timeout(SHUTDOWN_LOCK_WAIT, route.state.lock()).await {
+            Ok(mut st) => std::mem::take(&mut *st),
+            Err(_) => HttpState::default(),
         };
         *route.public_session.lock() = None;
         if let (Some(id), Ok(target)) = (st.session_id, &route.target) {
@@ -1408,7 +1439,10 @@ impl Downstream {
 
     async fn call(&self, msg: Value) -> Result<Value, DsError> {
         if let Some(route) = &self.http {
-            return self.http_call(route, msg).await;
+            return route
+                .unless_closing(self.http_call(route, msg))
+                .await
+                .unwrap_or(Err(DsError::Closed));
         }
         let is_init = msg.get("method").and_then(Value::as_str) == Some("initialize");
         if is_init {
@@ -1435,7 +1469,7 @@ impl Downstream {
 
     async fn notify(&self, msg: &Value) {
         if let Some(route) = &self.http {
-            self.http_notify(route, msg).await;
+            route.unless_closing(self.http_notify(route, msg)).await;
             return;
         }
         let p = {
@@ -1987,8 +2021,10 @@ impl GatewayHandle {
     }
 
     /// Stop accepting, drop open connections, kill every downstream
-    /// process (waiting for it to exit), then wait (up to 5 s) for requests
-    /// still being processed to write their audit records.
+    /// process (waiting for it to exit) and abandon the in-flight exchanges
+    /// of HTTP routes (ending their sessions with a `DELETE`, bounded to a
+    /// few seconds), then wait (up to 5 s) for requests still being
+    /// processed to write their audit records.
     pub async fn shutdown(mut self) {
         let _ = self.stop.send(true);
         if let Some(t) = self.task.take() {
