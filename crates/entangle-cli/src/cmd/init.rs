@@ -50,7 +50,8 @@ pub struct InitArgs {
 
     /// Ask nothing: every choice comes from the flags below or defaults
     /// (label = host name, transports = local, max tier = 5, new identity).
-    /// Existing files are left in place.
+    /// Existing files are left in place; an existing config.toml gets only
+    /// what the flags set.
     #[arg(long)]
     pub headless: bool,
 
@@ -125,16 +126,26 @@ enum IdentityAction {
     Import(String),
 }
 
+/// What to write. A `None` setting was not chosen (no flag, and no question
+/// asked because config.toml already exists): the file keeps its value, and
+/// a new file gets the default.
 struct WizardAnswers {
-    label: String,
-    transports: Vec<String>,
-    max_tier: u8,
+    /// `[node] label`.
+    label: Option<String>,
+    /// `[mesh] transports` (and `[mesh.tailscale]` to match).
+    transports: Option<Vec<String>>,
+    /// `[security] max_tier_allowed`.
+    max_tier: Option<u8>,
     action: IdentityAction,
     /// Detection result, when tailscale was chosen.
     tailscale: Option<TsReport>,
     /// Ask to pair at the end (interactive only).
     offer_pairing: bool,
 }
+
+/// Defaults for a new config.toml (spec §9.2 headless defaults).
+const DEFAULT_TRANSPORTS: &[&str] = &["local"];
+const DEFAULT_MAX_TIER: u8 = 5;
 
 fn check_label(label: &str) -> anyhow::Result<()> {
     entangle_bin::config::check_label(label)
@@ -378,7 +389,21 @@ fn confirm_profile(
 // Interactive wizard
 // ---------------------------------------------------------------------------
 
-async fn run_wizard(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
+/// Transports from `--single-node` / `--transport`, if either was given.
+fn flagged_transports(args: &InitArgs) -> anyhow::Result<Option<Vec<String>>> {
+    if args.single_node {
+        Ok(Some(Vec::new()))
+    } else if !args.transport.is_empty() {
+        parse_transports(&args.transport).map(Some)
+    } else {
+        Ok(None)
+    }
+}
+
+/// `existing`: config.toml is already there. Its questions are then not
+/// asked — the file keeps its settings, flags still apply — and only the
+/// identity question remains.
+async fn run_wizard(args: &InitArgs, existing: bool) -> anyhow::Result<WizardAnswers> {
     let st = Style::stdout();
     let mut p = Prompter::new();
     let hostname = config::host_name();
@@ -390,76 +415,108 @@ async fn run_wizard(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
     );
     println!("Each question shows its default in brackets; press Enter to accept it.");
 
-    // [1/5] label
-    println!("\n{}", st.bold("[1/5] Device label"));
-    println!("Shown to the devices you pair with, next to this device's fingerprint.");
-    let label = match &args.label {
-        Some(l) => l.clone(),
-        None => loop {
-            let l = p.text("Label", &hostname)?;
-            match entangle_bin::config::check_label(&l) {
-                Ok(()) => break l,
-                Err(e) => println!("  {e}"),
-            }
-        },
-    };
-    check_label(&label)?;
-
-    // [2/5] single-node or not, and transports
-    println!("\n{}", st.bold("[2/5] Other devices"));
     let mut tailscale = None;
-    let transports = if args.single_node {
-        println!("Single-node (--single-node): no transports.");
-        Vec::new()
-    } else if !args.transport.is_empty() {
-        let t = parse_transports(&args.transport)?;
-        println!("Transports (--transport): {}", t.join(", "));
-        t
-    } else if !p.confirm(
-        "Will this daemon ever talk to another Entanglement node?",
-        false,
-    )? {
+    let (label, transports, max_tier) = if existing {
         println!(
-            "Single-node: no transports. Later: `entangle config set mesh.local.enabled true` \
-             (or mesh.iroh / mesh.tailscale), then pair with `entangle pair`."
+            "\n{} already exists, so init keeps its settings and does not ask about them; \
+             --label, --transport, --single-node and --max-tier are applied to it. Change a \
+             setting with `entangle config set <key> <value>` (`entangle config get` lists them).",
+            config::config_path().display()
         );
-        Vec::new()
+        let label = args.label.clone();
+        if let Some(l) = &label {
+            check_label(l)?;
+        }
+        (label, flagged_transports(args)?, args.max_tier)
     } else {
-        println!("\n{}", st.bold("[3/5] Transports"));
-        println!("Checking for Tailscale (`tailscale status --json`)...");
-        let report = detect_tailscale("tailscale").await;
-        println!("  {}", report.summary());
-        let mut chosen = Vec::new();
-        if report.state != TailnetState::Uninstalled
-            && p.confirm(
-                "Use mesh.tailscale (reach your devices over your tailnet)?",
-                report.active(),
-            )?
-        {
-            // The §9.1.1 checks right away, while the tailnet is the topic.
-            if let Some(e) = report.failure() {
-                return Err(e);
+        // [1/5] label
+        println!("\n{}", st.bold("[1/5] Device label"));
+        println!("Shown to the devices you pair with, next to this device's fingerprint.");
+        let label = match &args.label {
+            Some(l) => l.clone(),
+            None => loop {
+                let l = p.text("Label", &hostname)?;
+                match entangle_bin::config::check_label(&l) {
+                    Ok(()) => break l,
+                    Err(e) => println!("  {e}"),
+                }
+            },
+        };
+        check_label(&label)?;
+
+        // [2/5] single-node or not, and transports
+        println!("\n{}", st.bold("[2/5] Other devices"));
+        let transports = if let Some(t) = flagged_transports(args)? {
+            if t.is_empty() {
+                println!("Single-node (--single-node): no transports.");
+            } else {
+                println!("Transports (--transport): {}", t.join(", "));
             }
-            confirm_profile(&report, args.tailscale_profile.as_deref(), Some(&mut p))?;
-            chosen.push("tailscale".to_owned());
-            tailscale = Some(report);
-        }
-        if p.confirm("Use mesh.local (find devices on this LAN over mDNS)?", true)? {
-            chosen.push("local".to_owned());
-        }
-        if p.confirm(
-            "Use mesh.iroh (QUIC across networks with NAT traversal; also carries work to LAN \
-             peers found by mesh.local)?",
-            chosen.iter().any(|t| t == "local"),
+            t
+        } else if !p.confirm(
+            "Will this daemon ever talk to another Entanglement node?",
+            false,
         )? {
-            chosen.push("iroh".to_owned());
-        }
-        if chosen.is_empty() {
-            println!("No transport chosen: this node is single-node.");
-        }
-        chosen
+            println!(
+                "Single-node: no transports. Later: `entangle config set mesh.local.enabled \
+                 true` (or mesh.iroh / mesh.tailscale), then pair with `entangle pair`."
+            );
+            Vec::new()
+        } else {
+            println!("\n{}", st.bold("[3/5] Transports"));
+            println!("Checking for Tailscale (`tailscale status --json`)...");
+            let report = detect_tailscale("tailscale").await;
+            println!("  {}", report.summary());
+            let mut chosen = Vec::new();
+            if report.state != TailnetState::Uninstalled
+                && p.confirm(
+                    "Use mesh.tailscale (reach your devices over your tailnet)?",
+                    report.active(),
+                )?
+            {
+                // The §9.1.1 checks right away, while the tailnet is the topic.
+                if let Some(e) = report.failure() {
+                    return Err(e);
+                }
+                confirm_profile(&report, args.tailscale_profile.as_deref(), Some(&mut p))?;
+                chosen.push("tailscale".to_owned());
+                tailscale = Some(report);
+            }
+            if p.confirm("Use mesh.local (find devices on this LAN over mDNS)?", true)? {
+                chosen.push("local".to_owned());
+            }
+            if p.confirm(
+                "Use mesh.iroh (QUIC across networks with NAT traversal; also carries work to \
+                 LAN peers found by mesh.local)?",
+                chosen.iter().any(|t| t == "local"),
+            )? {
+                chosen.push("iroh".to_owned());
+            }
+            if chosen.is_empty() {
+                println!("No transport chosen: this node is single-node.");
+            }
+            chosen
+        };
+
+        // [4/5] tier ceiling
+        println!("\n{}", st.bold("[4/5] Plugin tier ceiling"));
+        println!("1-5; 5 allows native subprocess plugins, 3 forbids every native plugin.");
+        let max_tier = match args.max_tier {
+            Some(t) => t,
+            None => loop {
+                let raw = p.text("max_tier_allowed", "5")?;
+                match raw.parse::<u8>() {
+                    Ok(n) if (1..=5).contains(&n) => break n,
+                    _ => println!("  Please answer a number from 1 to 5."),
+                }
+            },
+        };
+        (Some(label), Some(transports), Some(max_tier))
     };
-    if tailscale.is_none() && transports.iter().any(|t| t == "tailscale") {
+    let chosen_tailscale = transports
+        .as_ref()
+        .is_some_and(|t| t.iter().any(|x| x == "tailscale"));
+    if tailscale.is_none() && chosen_tailscale {
         // Chosen with --transport: check it the same way.
         let report = detect_tailscale("tailscale").await;
         println!("  {}", report.summary());
@@ -470,22 +527,15 @@ async fn run_wizard(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
         tailscale = Some(report);
     }
 
-    // [4/5] tier ceiling
-    println!("\n{}", st.bold("[4/5] Plugin tier ceiling"));
-    println!("1-5; 5 allows native subprocess plugins, 3 forbids every native plugin.");
-    let max_tier = match args.max_tier {
-        Some(t) => t,
-        None => loop {
-            let raw = p.text("max_tier_allowed", "5")?;
-            match raw.parse::<u8>() {
-                Ok(n) if (1..=5).contains(&n) => break n,
-                _ => println!("  Please answer a number from 1 to 5."),
-            }
-        },
-    };
-
     // [5/5] identity
-    println!("\n{}", st.bold("[5/5] Identity key"));
+    println!(
+        "\n{}",
+        st.bold(if existing {
+            "Identity key"
+        } else {
+            "[5/5] Identity key"
+        })
+    );
     let action = if config::identity_path().exists() {
         println!(
             "An identity already exists at {}.",
@@ -510,7 +560,7 @@ async fn run_wizard(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
 
     Ok(WizardAnswers {
         label,
-        offer_pairing: !transports.is_empty(),
+        offer_pairing: true,
         transports,
         max_tier,
         action,
@@ -518,17 +568,26 @@ async fn run_wizard(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
     })
 }
 
-async fn headless_answers(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
-    let label = args.label.clone().unwrap_or_else(config::host_name);
-    check_label(&label)?;
-    let transports = if args.single_node {
-        Vec::new()
-    } else if args.transport.is_empty() {
-        vec!["local".to_owned()]
-    } else {
-        parse_transports(&args.transport)?
+/// `existing`: config.toml is already there, so only what a flag sets is
+/// written; otherwise every setting gets its default.
+async fn headless_answers(args: &InitArgs, existing: bool) -> anyhow::Result<WizardAnswers> {
+    let label = match &args.label {
+        Some(l) => Some(l.clone()),
+        None if existing => None,
+        None => Some(config::host_name()),
     };
-    let tailscale = if transports.iter().any(|t| t == "tailscale") {
+    if let Some(l) = &label {
+        check_label(l)?;
+    }
+    let transports = match flagged_transports(args)? {
+        Some(t) => Some(t),
+        None if existing => None,
+        None => Some(DEFAULT_TRANSPORTS.iter().map(|t| (*t).to_owned()).collect()),
+    };
+    let tailscale = if transports
+        .as_ref()
+        .is_some_and(|t| t.iter().any(|x| x == "tailscale"))
+    {
         let report = detect_tailscale("tailscale").await;
         if let Some(e) = report.failure() {
             return Err(e);
@@ -541,7 +600,7 @@ async fn headless_answers(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
     Ok(WizardAnswers {
         label,
         transports,
-        max_tier: args.max_tier.unwrap_or(5),
+        max_tier: args.max_tier.or((!existing).then_some(DEFAULT_MAX_TIER)),
         action: IdentityAction::Generate,
         tailscale,
         offer_pairing: false,
@@ -552,37 +611,104 @@ async fn headless_answers(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
 // Writing
 // ---------------------------------------------------------------------------
 
+/// Write the chosen settings into `doc`; returns the keys set.
+fn apply_answers(doc: &mut ConfigDoc, a: &WizardAnswers) -> anyhow::Result<Vec<&'static str>> {
+    let mut keys = Vec::new();
+    if let Some(label) = &a.label {
+        doc.set_at(&["node"], "label", Value::from(label.as_str()))?;
+        keys.push("node.label");
+    }
+    if let Some(transports) = &a.transports {
+        let mut list = Array::new();
+        for t in transports {
+            list.push(t.as_str());
+        }
+        doc.set_at(&["mesh"], "transports", Value::Array(list))?;
+        keys.push("mesh.transports");
+        if transports.iter().any(|t| t == "tailscale") {
+            doc.set_at(&["mesh", "tailscale"], "enabled", Value::from(true))?;
+            // A mode already chosen in the file stays.
+            if doc.get_at(&["mesh", "tailscale"], "acl-mode").is_none() {
+                doc.set_at(
+                    &["mesh", "tailscale"],
+                    "acl-mode",
+                    Value::from("entangle-on-top"),
+                )?;
+            }
+            keys.push("mesh.tailscale.enabled");
+        } else if doc
+            .get_at(&["mesh", "tailscale"], "enabled")
+            .and_then(toml_edit::Item::as_bool)
+            == Some(true)
+        {
+            // Off with the transport, as `config set mesh.tailscale.enabled
+            // false` does: an enabled table outside `transports` is inert.
+            doc.set_at(&["mesh", "tailscale"], "enabled", Value::from(false))?;
+            keys.push("mesh.tailscale.enabled");
+        }
+    }
+    if let Some(tier) = a.max_tier {
+        doc.set_at(
+            &["security"],
+            "max_tier_allowed",
+            Value::from(i64::from(tier)),
+        )?;
+        keys.push("security.max_tier_allowed");
+    }
+    Ok(keys)
+}
+
 /// The config.toml `init` writes, validated as the daemon loads it.
 fn initial_config(a: &WizardAnswers, peers: &Path) -> anyhow::Result<ConfigDoc> {
     let mut doc = ConfigDoc::parse(
         "# Entanglement configuration, written by `entangle init`.\n\
          # Change it with `entangle config set <key> <value>` (`entangle config get` lists the keys).\n\n",
     )?;
-    doc.set_at(&["node"], "label", Value::from(a.label.as_str()))?;
-    let mut list = Array::new();
-    for t in &a.transports {
-        list.push(t.as_str());
-    }
-    doc.set_at(&["mesh"], "transports", Value::Array(list))?;
+    apply_answers(&mut doc, a)?;
     // Never multi-node with an empty allowlist (spec §9.2, §11 #16): it is
     // switched on only once a device is paired.
     doc.set_at(&["mesh"], "multi_node", Value::from(false))?;
-    if a.transports.iter().any(|t| t == "tailscale") {
-        doc.set_at(&["mesh", "tailscale"], "enabled", Value::from(true))?;
-        doc.set_at(
-            &["mesh", "tailscale"],
-            "acl-mode",
-            Value::from("entangle-on-top"),
-        )?;
-    }
-    doc.set_at(
-        &["security"],
-        "max_tier_allowed",
-        Value::from(i64::from(a.max_tier)),
-    )?;
     crate::cmd::configset::validate_as_daemon(&doc.to_text(), peers)
         .context("the config.toml init would write")?;
     Ok(doc)
+}
+
+/// The settings chosen with flags, applied to an existing config.toml and
+/// validated as the daemon loads it. `None` when there is nothing to change.
+fn edited_config(
+    a: &WizardAnswers,
+    cfg_path: &Path,
+    peers: &Path,
+) -> anyhow::Result<Option<(ConfigDoc, Vec<&'static str>)>> {
+    if a.label.is_none() && a.transports.is_none() && a.max_tier.is_none() {
+        return Ok(None);
+    }
+    let mut doc = ConfigDoc::load(cfg_path)?;
+    let before = doc.to_text();
+    let keys = apply_answers(&mut doc, a)?;
+    crate::cmd::configset::validate_as_daemon(&doc.to_text(), peers)
+        .with_context(|| format!("the changes init would make to {}", cfg_path.display()))?;
+    Ok((doc.to_text() != before).then_some((doc, keys)))
+}
+
+/// The transports the daemon would run from config.toml as it is on disk
+/// (`tailscale` only when `[mesh.tailscale] enabled` too); `None` when the
+/// daemon could not read the file.
+fn configured_transports(cfg_path: &Path) -> Option<Vec<String>> {
+    let text = match std::fs::read_to_string(cfg_path) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(_) => return None,
+    };
+    let cfg: entangle_bin::config::Config = toml::from_str(&text).ok()?;
+    let tailscale_on = cfg.mesh.tailscale.enabled;
+    Some(
+        cfg.mesh
+            .transports
+            .into_iter()
+            .filter(|t| t != "tailscale" || tailscale_on)
+            .collect(),
+    )
 }
 
 /// What to open in a host firewall, per transport. Init never changes a
@@ -714,16 +840,19 @@ pub(crate) async fn ensure_initialised(
         return Ok(());
     }
 
-    // Every question (and every tailnet check) before anything is written.
+    // Every question (and every tailnet check), and the config.toml to
+    // write checked as the daemon loads it, before anything is written. An
+    // existing config.toml gets only what was chosen with flags.
+    let existing = cfg_path.exists();
     let answers = if args.headless() {
-        headless_answers(&args).await?
+        headless_answers(&args, existing).await?
     } else {
-        run_wizard(&args).await?
+        run_wizard(&args, existing).await?
     };
-    let doc = if cfg_path.exists() {
-        None
+    let doc = if existing {
+        edited_config(&answers, &cfg_path, &peers_path)?.map(|(doc, keys)| (doc, Some(keys)))
     } else {
-        Some(initial_config(&answers, &peers_path)?)
+        Some((initial_config(&answers, &peers_path)?, None))
     };
 
     create_entangle_dir(&dir)?;
@@ -752,9 +881,13 @@ pub(crate) async fn ensure_initialised(
 
     // --- config.toml ---
     match doc {
-        Some(doc) => {
+        Some((doc, None)) => {
             doc.save(&cfg_path)?;
             println!("  Wrote {}", cfg_path.display());
+        }
+        Some((doc, Some(keys))) => {
+            doc.save(&cfg_path)?;
+            println!("  Updated {} ({})", cfg_path.display(), keys.join(", "));
         }
         None => println!("  Kept existing {}", cfg_path.display()),
     }
@@ -775,12 +908,21 @@ pub(crate) async fn ensure_initialised(
         println!("  Kept existing {}", kr_path.display());
     }
 
+    // The notes are about what config.toml now holds, not what was asked.
+    let transports = configured_transports(&cfg_path).unwrap_or_else(|| {
+        println!(
+            "{} the daemon cannot read {}; check it with `entangle config validate`",
+            Style::stdout().warning(),
+            cfg_path.display()
+        );
+        Vec::new()
+    });
     if let Some(report) = &answers.tailscale {
         print_tailscale_notes(report);
     }
-    print_firewall_notes(&answers.transports);
+    print_firewall_notes(&transports);
 
-    if !answers.transports.is_empty() {
+    if !transports.is_empty() {
         println!("\n{}", Style::stdout().bold("Pairing"));
         let has_peer = entangle_peers::PeerStore::open(&peers_path)
             .map(|s| !s.is_empty())
@@ -790,7 +932,7 @@ pub(crate) async fn ensure_initialised(
         } else if answers.offer_pairing
             && Prompter::new().confirm("Pair another device now?", true)?
         {
-            match crate::cmd::pair::pair_from_wizard(&answers.label).await {
+            match crate::cmd::pair::pair_from_wizard(&config::device_label()).await {
                 Ok(()) => enable_multi_node(&cfg_path, &peers_path)?,
                 Err(e) => {
                     println!(
@@ -1020,11 +1162,18 @@ fn fmt_fingerprint(raw: &str) -> String {
 fn create_entangle_dir(dir: &Path) -> std::io::Result<()> {
     #[cfg(unix)]
     {
-        use std::os::unix::fs::DirBuilderExt;
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
         std::fs::DirBuilder::new()
             .recursive(true)
             .mode(0o700)
-            .create(dir)
+            .create(dir)?;
+        // Another command (`entangle config set`, `wrapper enable`) may have
+        // created it at the umask: it holds the private key, so tighten it.
+        let mode = std::fs::metadata(dir)?.permissions().mode();
+        if mode & 0o077 != 0 {
+            std::fs::set_permissions(dir, std::fs::Permissions::from_mode(mode & !0o077))?;
+        }
+        Ok(())
     }
     #[cfg(not(unix))]
     {

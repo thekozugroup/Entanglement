@@ -513,6 +513,104 @@ fn the_wizard_can_replace_an_existing_identity_with_a_backup() {
     );
 }
 
+/// config.toml often exists before init (`entangle config set`, `wrapper
+/// enable`, `security set-max-tier` create it). The flags given to init
+/// are written into it (validated as the daemon loads it), defaults are not,
+/// and the notes printed are only for transports the file really has. A
+/// ~/.entangle created loosely by another command is tightened to 0700.
+#[test]
+fn init_applies_its_flags_to_an_existing_config_and_notes_only_what_is_there() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let tmp = TempDir::new().unwrap();
+    entangle(&tmp)
+        .args(["config", "set", "node.label", "studio"])
+        .assert()
+        .success();
+    let a = entangle(&tmp)
+        .args([
+            "init",
+            "--headless",
+            "--max-tier",
+            "3",
+            "--transport",
+            "local,iroh",
+            "--label",
+            "lab",
+        ])
+        .assert()
+        .success();
+    let out = output_of(&a);
+    let cfg = daemon_config(&tmp);
+    assert_eq!(cfg.node_label(), Some("lab"), "{out}");
+    assert_eq!(cfg.mesh.transports, ["local", "iroh"], "{out}");
+    assert_eq!(
+        cfg.security.max_tier_allowed,
+        entangle_types::tier::Tier::Networked,
+        "{out}"
+    );
+    assert!(!cfg.mesh.multi_node);
+    assert!(out.contains("Updated"), "{out}");
+    assert!(out.contains("UDP 5353"), "{out}");
+    let mode = std::fs::metadata(entangle_dir(&tmp))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o777, 0o700, "{mode:o}");
+
+    // No flags: nothing in the file changes (no default transport is
+    // added), and no firewall or pairing notes for transports it lacks.
+    let tmp = TempDir::new().unwrap();
+    entangle(&tmp)
+        .args(["config", "set", "security.max_tier_allowed", "4"])
+        .assert()
+        .success();
+    let before = std::fs::read_to_string(entangle_dir(&tmp).join("config.toml")).unwrap();
+    let a = entangle(&tmp)
+        .args(["init", "--headless"])
+        .assert()
+        .success();
+    let out = output_of(&a);
+    assert_eq!(
+        std::fs::read_to_string(entangle_dir(&tmp).join("config.toml")).unwrap(),
+        before,
+        "{out}"
+    );
+    assert!(out.contains("Kept existing"), "{out}");
+    assert!(
+        !out.contains("Firewall") && !out.contains("Pairing"),
+        "notes for transports config.toml does not have:\n{out}"
+    );
+}
+
+/// Interactively, an existing config.toml is kept and its questions are
+/// not asked (their answers would have nowhere to go but over the file):
+/// only the identity question remains, and the output says how to change a
+/// setting.
+#[test]
+fn the_wizard_keeps_an_existing_config_and_asks_only_for_the_identity() {
+    let tmp = TempDir::new().unwrap();
+    entangle(&tmp)
+        .args(["config", "set", "security.max_tier_allowed", "3"])
+        .assert()
+        .success();
+    let before = std::fs::read_to_string(entangle_dir(&tmp).join("config.toml")).unwrap();
+    let a = entangle(&tmp)
+        .env("TERM", "dumb")
+        .arg("init")
+        .write_stdin("\n")
+        .assert()
+        .success();
+    let out = output_of(&a);
+    assert!(!out.contains("Label ["), "{out}");
+    assert!(!out.contains("max_tier_allowed ["), "{out}");
+    assert!(out.contains("entangle config set"), "{out}");
+    assert_eq!(
+        std::fs::read_to_string(entangle_dir(&tmp).join("config.toml")).unwrap(),
+        before
+    );
+    assert!(entangle_dir(&tmp).join("identity.key").exists());
+}
+
 /// NO_COLOR wins over CLICOLOR_FORCE (spec §9.4.2).
 #[test]
 fn no_color_is_honoured() {

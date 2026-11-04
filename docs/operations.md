@@ -1966,6 +1966,14 @@ prints the pairing commands (§24).
 an empty `peers.toml` and `keyring.toml` (spec §9.2). With all four present it
 changes nothing.
 
+When `config.toml` already exists (`entangle config set`, `entangle wrapper
+enable` and `entangle security set-max-tier` create it), init keeps its
+settings: the wizard does not ask about them, and only what `--label`,
+`--transport` / `--single-node` and `--max-tier` set is written into it
+(checked as the daemon loads it first; defaults are not). The firewall and
+pairing notes describe the transports the file then holds. A `~/.entangle`
+another command created with group or other permissions is tightened to 0700.
+
 **Interactive** (the default) it asks, one plain line each (`question
 [default]:`, Enter takes the default; no cursor movement or menus, so it works
 the same under a screen reader, on `TERM=dumb` and with stdin piped):
