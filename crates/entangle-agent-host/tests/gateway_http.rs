@@ -63,6 +63,7 @@ enum Mode {
 #[derive(Clone, Debug)]
 struct Seen {
     method: String,
+    path: String,
     headers: BTreeMap<String, String>,
     body: Value,
 }
@@ -153,6 +154,7 @@ async fn handle(
     mode: Arc<Mutex<Mode>>,
 ) -> Result<Resp, Infallible> {
     let method = req.method().to_string();
+    let path = req.uri().path().to_string();
     // A header sent twice shows as its values joined with ", ".
     let mut headers: BTreeMap<String, String> = BTreeMap::new();
     for (k, v) in req.headers() {
@@ -169,6 +171,7 @@ async fn handle(
     let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     seen.lock().push(Seen {
         method: method.clone(),
+        path,
         headers: headers.clone(),
         body: body.clone(),
     });
@@ -217,7 +220,8 @@ async fn handle(
                 Mode::Gone => full(404, None, None, "no such session"),
                 Mode::Redirect => Response::builder()
                     .status(302)
-                    .header("location", "http://169.254.169.254/steal")
+                    // Same origin, so a followed redirect is visible to the mock.
+                    .header("location", format!("http://{}/steal", headers["host"]))
                     .body(http_body_util::Either::Left(Full::new(Bytes::new())))
                     .unwrap(),
                 Mode::Broken => full(500, None, None, "boom"),
@@ -665,6 +669,13 @@ async fn errors_and_redirects_are_reported_not_followed() {
     assert!(
         msg.contains("ENTANGLE-E0671") && msg.contains("302"),
         "{msg}"
+    );
+    // The redirect target was never requested, so the configured
+    // Authorization header went nowhere else.
+    assert!(
+        f.mock.seen.lock().iter().all(|s| s.path != "/steal"),
+        "a redirect was followed: {:?}",
+        f.mock.seen.lock()
     );
     f.mock.set(Mode::Broken);
     let r = post(&f, &call(3, "x")).await;
