@@ -306,6 +306,28 @@ automatically on the next `entangled run`) is not implemented.
 Stopping the daemon (`Ctrl-C`) is graceful, but you currently need to
 `entangle plugins load` again after a restart.
 
+### 9.1 Logs and traces
+
+With the daemon running, `entangle logs` reads what a plugin printed and what
+the daemon said about it, and `entangle trace task` shows where a dispatched
+task spent its time:
+
+```bash
+entangle logs hash-it --follow          # a plugin's output and daemon messages about it (Ctrl-C to stop)
+entangle logs scheduler --filter StalledEvent
+entangle logs daemon --level warn --since 10m
+
+entangle compute dispatch a3f9c7d1/hash-it@0.1.0 --input "world"
+# → ...
+# → Task: 6f9619ff-8b86-d011-b42d-00c04fc964ff  (entangle trace task 6f96...)
+entangle trace task 6f9619ff-8b86-d011-b42d-00c04fc964ff
+```
+
+Both read bounded in-memory buffers inside the daemon: they start empty when
+it starts, hold only recent lines and spans, and need no collector. Secrets
+are redacted before they are stored. Details and limits:
+[operations.md §14d and §14e](operations.md#14d-entangle-logs).
+
 ---
 
 ## 10. Doctor
@@ -495,12 +517,12 @@ not walked through here. Commands and flags are in
 | Tier-5 native plugins and the Linux sandbox | architecture.md §3.4, operations.md |
 | Capability grants (`entangle perms`) and `entangle security set-max-tier` | operations.md |
 | OCI publish and pull (`plugins publish`, `plugins install oci://...`) | operations.md |
-| Metrics, traces, `entangle diag mesh` | operations.md |
+| Metrics, traces, `entangle logs`, `entangle trace task`, `entangle diag mesh` | operations.md §14 |
 | Backup and restore (`entangle backup`, `entangle restore`) | operations.md §7 |
 | `entangle plugins enable` and `disable` | operations.md |
 
 Not implemented: `Attested` integrity (needs TEE hardware), native Windows,
-`entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
+`entangle install`, `entangle upgrade`.
 
 If you encounter an error code not listed in this tutorial, check the full
 error reference in [operations.md §6](operations.md#6-reading-entangle-exxxx-error-codes).
@@ -522,6 +544,8 @@ error reference in [operations.md §6](operations.md#6-reading-entangle-exxxx-er
 | `entangle plugins invoke <id> --input <s>` | Call a plugin |
 | `entangled run` | Start the background daemon |
 | `entangle doctor` | Health check |
+| `entangle logs <plugin\|scheduler\|mesh\|gateway\|daemon> [--follow]` | Read the daemon's log buffers |
+| `entangle trace task <id>` | Show a dispatched task's span tree |
 | `entangle pair` | Begin device pairing (initiator) |
 | `entangle pair --responder` | Respond to a pairing request |
 | `entangle pair --manual` | Pair by copy-paste blobs instead of the network |

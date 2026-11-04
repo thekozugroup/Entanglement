@@ -349,6 +349,7 @@ canonical range table, maintained in
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
 | E0780–E0799 | Runtime lifecycle — see §22–§25: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788); a reload refused because another version of the plugin was loaded or unloaded meanwhile (E0789, retry); a load of a version that is still draining after being replaced or unloaded (E0790, retry once its calls and streams end); a recorded package that changed, refused at restore before anything of it is loaded (E0791, reported through E0784) |
 | E0900 | I/O |
+| E0920–E0939 | Operator log and trace stores (`entangle_observability::QueryError`, `entangle logs`, `entangle trace task`; see §14d, §14e): unknown log source (E0920), a plugin name matching several plugins (E0921), an invalid log query parameter (E0922), no spans recorded for a task or trace id (E0923), an id that is neither a task UUID nor a trace id (E0924) |
 | E9999 | Internal / unexpected |
 
 A handful of other crates layer additional codes into gaps in that range for
@@ -958,7 +959,7 @@ trusted as a publisher on that machine).
 
 ---
 
-## 14. Observability: metrics, tracing, `entangle diag mesh`
+## 14. Observability: metrics, tracing, logs, `entangle trace task`, `entangle diag mesh`
 
 Everything here is **off by default** and costs nothing until enabled. The
 daemon owns one metrics registry, which the kernel, broker, scheduler and
@@ -1168,6 +1169,117 @@ node runs the iroh endpoint; other sightings are passive and have no round
 trip.
 
 ---
+
+### 14d. `entangle logs`
+
+```text
+$ entangle logs scheduler --filter StalledEvent
+2026-11-04T15:56:34.719Z WARN  entangle::scheduler::stream [StalledEvent] stream stalled: no credit from the submitter task=6f96… peer_id=3f9c… waited_ms=5001
+$ entangle logs hello-world --follow
+```
+
+`entangle logs <source> [--follow] [--filter <text>] [--level <lvl>] [--since <dur>] [--tail N] [--json]`
+reads the daemon's in-memory log buffers over the `logs/read` RPC (spec §9.6).
+`<source>` is `scheduler`, `mesh`, `gateway`, `daemon`, or a plugin: its full
+id (`<publisher>/<name>@<version>`) or its name when only one loaded plugin
+has it (`ENTANGLE-E0921` lists the candidates otherwise; an unknown source is
+`ENTANGLE-E0920`, which names the valid ones).
+
+What is buffered: every event from an `entangle*` target at or above
+`capture_level`, whatever `RUST_LOG` says (a quiet console does not blind the
+buffers).
+
+* **Per subsystem**, chosen from the event's target: `scheduler`
+  (`entangle_scheduler*`, `entangle::scheduler*`, the daemon's remote serving),
+  `mesh` (mesh transports, discovery, pairing, peers), `gateway` (agent host
+  and MCP gateway), `daemon` (everything else: kernel, host, broker, RPC).
+* **Per plugin**: output the plugin printed, and events that name it. A wasm
+  plugin's `log` import, its WASI stdout and its stderr are captured line by
+  line (each instance: at most 1000 lines and 256 KiB, lines cut at 4 KiB, one
+  truncation warning); a native plugin's stderr is forwarded as it runs.
+  Plugin output is filed under that plugin only; the kernel's own events about
+  the plugin (a capability it was denied, its sandbox) appear in both its log
+  and `daemon`.
+
+`--filter X` keeps a line when its event name equals `X` (the scheduler names
+its events: `StalledEvent`, `SpotCheckSkipped`, `ReputationPenalty`,
+`MetricComparisonFailed`) or its message, target or a field value contains
+`X`, case-insensitively. `--level` is a minimum. `--since 10m` accepts `ms`,
+`s`, `m`, `h`, `d`. Without `--follow` the newest `--tail` (default 100)
+matching lines are printed oldest first. `--json` prints one JSON object per
+line (`seq`, `unix_ms`, `level`, `target`, `event`, `message`, `fields`).
+
+`--follow` long-polls: each `logs/read` call carries the previous page's
+`next_cursor` and `wait_ms` (the daemon holds the request up to 25 s, never
+more than 30 s, until a matching line arrives). Ctrl-C ends it with status 0.
+If lines were evicted before they were read, a notice is printed on stderr.
+
+Bounds and limits:
+
+```toml
+[logs]
+lines_per_source = 1000   # per plugin and per subsystem; 16..=100000
+max_plugin_sources = 128  # plugin buffers at once; the one written longest ago is dropped
+capture_level = "info"    # trace | debug | info | warn | error
+```
+
+* Memory only: the buffers start empty at daemon start and are not written to
+  disk. A plugin flooding its buffer evicts only its own lines.
+* A response is at most 1000 lines and about 256 KiB.
+* **Secrets are redacted before they are stored**: a field whose name says
+  `token`, `secret`, `passphrase`, `password`, `authorization`, `bearer`,
+  `api_key`, `cookie`, `credential`, `biscuit`, `private` or a pairing code has
+  its whole value replaced by `[REDACTED]`; in text (messages, plugin output)
+  `Bearer <x>`, `name=value` pairs for those names (the first word of the
+  value), URL userinfo, PEM private keys and long mixed-case base64url runs
+  (the shape of a capability token) are replaced. Hex digests are kept. This is
+  pattern-based: a plugin that prints a secret in some other shape prints it.
+  Do not rely on it as the only control.
+* Output of an invocation that failed before returning is still logged for a
+  wasm plugin's `log` calls; stdout and stderr lines are logged as they are
+  written.
+
+### 14e. `entangle trace task`
+
+```text
+$ entangle compute dispatch 3f…/hello@0.1.0 --input world
+Chosen: …
+Task: 6f9619ff-8b86-d011-b42d-00c04fc964ff  (entangle trace task 6f9619ff-…)
+$ entangle trace task 6f9619ff-8b86-d011-b42d-00c04fc964ff
+Trace 4bf92f3577b34da6a3ce929d0e0e4736  (4 spans)  for 6f9619ff-…
+rpc.request  2.8ms  server  method=compute/dispatch
+└─ task.dispatch  2.4ms  task_id=6f96…  plugin=3f…/hello@0.1.0  policy=none  input_bytes=5
+   └─ remote.dispatch  2.2ms  client  task_id=6f96…  peer=7a21…  transport=iroh
+      └─ remote.task.execute  1.1ms  server  task_id=6f96…  peer=3f9c…
+note: spans for work on peer 7a21… are held by that node
+```
+
+The daemon keeps a bounded **in-memory span store** (no collector needed; it
+is fed by the same span pipeline as the OTLP exporter, so both can run) indexed
+by trace id and by task id. `trace/get` returns the spans of one task
+(`task_id` is on `task.dispatch`, `remote.dispatch` and `remote.task.execute`)
+or of one trace id; `entangle trace task <id> [--json]` prints the span tree
+with duration, kind, status (`ERROR: …` for a failed span; warnings inside a
+span are listed under it) and the key attributes. A task can have more than
+one trace (its dispatch, and a Layer-2 spot-check re-run, which is a root of its
+own and carries `task_id`); all are printed.
+
+```toml
+[telemetry.trace_store]
+max_spans = 10000   # 64..=1000000; oldest traces are evicted whole
+```
+
+Limits: spans of `entangle*` targets at `INFO` and above only; at most 2000
+traces, `max_spans` spans in total and 512 per trace (more are counted and
+reported); span attributes are redacted like log fields; the store is memory
+only and starts empty at daemon start. Each node records only its own spans:
+for work a peer executed you see this node's `remote.dispatch`, and the output
+says that the peer's spans are held by that node (run `entangle trace task` on
+the peer; the worker records the same task id and joins the same trace id
+through the `traceparent`). A trace is shown as the store has it: a span that
+has not finished yet is not in it. An id the store does not hold is
+`ENTANGLE-E0923`; a string that is neither a UUID nor 32 hex digits is
+`ENTANGLE-E0924`.
 
 ## 15. Shell wrappers: warning when an agent host runs outside Entanglement
 
