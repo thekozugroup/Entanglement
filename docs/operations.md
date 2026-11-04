@@ -760,7 +760,12 @@ What it does and does not touch:
   endings, file permissions are kept, a symlinked rc file (dotfile managers) is
   edited through the link, and every write is atomic (temp file + rename).
 - bash and zsh get POSIX-function syntax (so `sh` can source it too); fish gets
-  a fish `function`. `~/.zshrc` and the fish snippet are written even if you do
+  a fish `function`. An `alias claude=...` defined earlier in the rc file is
+  set aside while the function is defined and restored right after it (bash
+  and zsh would otherwise expand it inside the definition, a syntax error that
+  also skips the rest of the file), so `alias claude='claude --flag'` keeps
+  working and still goes through the shim; an alias that points elsewhere
+  (`alias claude=claude-beta`) bypasses it, and doctor reports that. `~/.zshrc` and the fish snippet are written even if you do
   not use those shells. `XDG_CONFIG_HOME` is honoured for the fish path.
 - **Login shells.** bash reads `~/.bashrc` only in interactive non-login shells;
   on macOS Terminal (login shells) add `source ~/.bashrc` to `~/.bash_profile`.

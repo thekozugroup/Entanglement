@@ -79,10 +79,28 @@ pub fn render(dialect: Dialect, hosts: &[Host]) -> String {
     out.push_str(
         "# boundary: `command <bin>` or `\\<bin>` bypasses it). Edits here are overwritten.\n",
     );
+    if dialect == Dialect::Posix && !hosts.is_empty() {
+        // bash and zsh alias-expand the first word of `name() {`: an earlier
+        // `alias claude='claude --flag'` would turn the definition into a
+        // syntax error that also stops the rest of the rc file. The alias is
+        // set aside while the function is defined and restored after it, so
+        // `claude` still expands to the user's alias and then reaches the
+        // function. (POSIX syntax on purpose: a `function` keyword would break
+        // `sh` sourcing the file.)
+        out.push_str(
+            "# An alias of the same name is set aside while each function is defined.\n",
+        );
+    }
     for h in hosts {
         let w = warning_lines(h);
         match dialect {
             Dialect::Posix => {
+                // Must stay a separate line before the definition: aliases are
+                // expanded when a command is read, not when it runs.
+                out.push_str(&format!(
+                    "if alias {0} >/dev/null 2>&1; then __entangle_alias=$(alias {0}); unalias {0}; else __entangle_alias=; fi\n",
+                    h.binary
+                ));
                 out.push_str(&format!("{}() {{\n", h.binary));
                 out.push_str("  if [ -z \"${ENTANGLE_SESSION_ID:-}\" ]; then\n");
                 out.push_str(&format!(
@@ -95,6 +113,10 @@ pub fn render(dialect: Dialect, hosts: &[Host]) -> String {
                 out.push_str("  fi\n");
                 out.push_str(&format!("  command {} \"$@\"\n", h.binary));
                 out.push_str("}\n");
+                // bash prints `alias name='...'`, zsh and dash `name='...'`.
+                out.push_str(
+                    "if [ -n \"$__entangle_alias\" ]; then eval \"alias ${__entangle_alias#alias }\"; fi\n",
+                );
             }
             Dialect::Fish => {
                 out.push_str(&format!(
@@ -114,6 +136,9 @@ pub fn render(dialect: Dialect, hosts: &[Host]) -> String {
                 out.push_str("end\n");
             }
         }
+    }
+    if dialect == Dialect::Posix && !hosts.is_empty() {
+        out.push_str("unset __entangle_alias\n");
     }
     out.push_str(END);
     out

@@ -408,7 +408,7 @@ pub fn parse_probe(output: &str, bins: &[String]) -> Vec<(String, Resolution)> {
     out
 }
 
-fn classify(_bin: &str, body: &[&str]) -> Resolution {
+fn classify(bin: &str, body: &[&str]) -> Resolution {
     let first = body
         .iter()
         .find(|l| !l.trim().is_empty())
@@ -416,21 +416,35 @@ fn classify(_bin: &str, body: &[&str]) -> Resolution {
         .unwrap_or("");
     let first = first.trim();
     let rest = &first[first.find(" is ").map_or(0, |i| i + 4)..];
-    if first.contains(" is a function") || first.contains(" is a shell function") {
+    // `typeset -f <bin>` printed our function somewhere in the body.
+    let shim_defined = || {
         let all = body.join("\n");
-        if all.contains("ENTANGLE_SESSION_ID") && all.contains("outside Entanglement session") {
+        all.contains("ENTANGLE_SESSION_ID") && all.contains("outside Entanglement session")
+    };
+    if first.contains(" is a function") || first.contains(" is a shell function") {
+        if shim_defined() {
             return Resolution::Wrapper;
         }
         let from = first.split(" from ").nth(1).map(|s| s.trim().to_owned());
         return Resolution::OtherFunction { from };
     }
-    if first.contains(" is aliased to ") {
+    let alias = if first.contains(" is aliased to ") {
         let a = first.split(" is aliased to ").nth(1).unwrap_or("");
-        return Resolution::Alias(a.trim_matches(|c| c == '`' || c == '\'').to_owned());
-    }
-    if first.contains(" is an alias for ") {
-        let a = first.split(" is an alias for ").nth(1).unwrap_or("");
-        return Resolution::Alias(a.to_owned());
+        Some(a.trim_matches(|c| c == '`' || c == '\'').to_owned())
+    } else if first.contains(" is an alias for ") {
+        Some(first.split(" is an alias for ").nth(1).unwrap_or("").to_owned())
+    } else {
+        None
+    };
+    if let Some(a) = alias {
+        // `alias claude='claude --flag'` expands to the same name, which the
+        // shell then resolves to our function (an alias is not re-expanded
+        // inside its own expansion; `\claude` only skips alias lookup).
+        let head = a.split_whitespace().next().unwrap_or("");
+        if head.trim_start_matches('\\') == bin && shim_defined() {
+            return Resolution::Wrapper;
+        }
+        return Resolution::Alias(a);
     }
     if let Some(p) = rest
         .strip_prefix("hashed (")
@@ -527,6 +541,18 @@ mod tests {
         assert_eq!(
             probe("claude is an alias for /opt/x"),
             Resolution::Alias("/opt/x".into())
+        );
+        // An alias to the same name reaches the shim function.
+        assert_eq!(
+            probe(&format!(
+                "claude is aliased to `claude --fast'\nclaude () {{ {shim}; }}"
+            )),
+            Resolution::Wrapper
+        );
+        assert_eq!(
+            probe("claude is aliased to `claude --fast'"),
+            Resolution::Alias("claude --fast".into()),
+            "no shim function behind it"
         );
         assert_eq!(
             probe("claude is /usr/local/bin/claude"),

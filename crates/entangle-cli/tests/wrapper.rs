@@ -216,6 +216,61 @@ fn wrp_1_zsh_and_fish_blocks_when_those_shells_exist() {
     assert!(!fish.contains("() {"));
 }
 
+/// An `alias claude=...` defined earlier in the rc file (a common setup) must
+/// not break the shim: interactive bash alias-expands the first word of
+/// `claude() {`, which is a syntax error that also stops every later line of
+/// the rc file from running. The alias is kept and still goes through the
+/// shim; a one-word alias must not turn into a function of another name.
+#[test]
+fn wrp_1_existing_alias_before_the_block_keeps_rc_file_working() {
+    let e = Env::new();
+    exe(&e.bin.join("codex-beta"), "echo \"real codex-beta $*\"");
+    std::fs::write(
+        e.home.join(".bashrc"),
+        "alias claude='claude --dangerously-skip-permissions'\nalias codex=codex-beta\n",
+    )
+    .unwrap();
+    e.ok(&["init", "--non-interactive"]);
+    e.ok(&["wrapper", "enable"]);
+    let rc = e.rc();
+    std::fs::write(e.home.join(".bashrc"), format!("{rc}export LATER=1\n")).unwrap();
+
+    let o = e.bash(
+        "echo LATER=$LATER; claude x; type -t codex-beta; alias claude",
+        None,
+    );
+    let err = stderr(&o);
+    assert!(!err.contains("syntax error"), "{err}");
+    let out = stdout(&o);
+    assert!(out.contains("LATER=1\n"), "rest of the rc file ran: {out}{err}");
+    assert!(
+        out.contains("real claude --dangerously-skip-permissions x\n"),
+        "the user's alias is kept: {out}"
+    );
+    assert!(
+        err.contains("claude launched outside Entanglement session"),
+        "and still goes through the shim: {err}"
+    );
+    assert!(
+        out.contains("\nfile\n"),
+        "`codex-beta` is still the binary, not a shim function: {out}"
+    );
+    assert!(
+        out.contains("alias claude='claude --dangerously-skip-permissions'"),
+        "{out}"
+    );
+
+    // Doctor: an alias that expands to the wrapped name is not a shadow; one
+    // that points elsewhere (codex -> codex-beta) is.
+    let o = doctor(&e);
+    let out = stdout(&o);
+    assert!(!out.contains("'claude' is shadowed"), "{out}");
+    assert!(
+        out.contains("'codex' is shadowed by alias 'codex-beta'"),
+        "{out}"
+    );
+}
+
 /// Enable is idempotent and never disturbs the user's own rc content.
 #[test]
 fn enable_is_idempotent_and_preserves_user_content() {
@@ -510,3 +565,4 @@ fn doctor_skips_shadow_check_for_unsupported_shell() {
         stdout(&o)
     );
 }
+
