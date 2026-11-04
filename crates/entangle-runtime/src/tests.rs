@@ -593,3 +593,60 @@ async fn load_racing_a_ceiling_lowering_never_lands_above_it() {
         "no broker registration may outlive the refused or unloaded plugin"
     );
 }
+
+/// The `stress.wasm` fixture: input `spin:<ms>` busy-loops that long.
+fn stress_wasm() -> Vec<u8> {
+    std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-host/tests/fixtures/stress.wasm"
+    ))
+    .expect("stress.wasm fixture not found — run fixtures-src/stress/build.sh")
+}
+
+/// Spec §9.4.1 step 4: each plugin above a lowered ceiling is drained —
+/// invocations already running complete — and only then unloaded and
+/// reported (ENTANGLE-W0214). `apply_max_tier` must not return, and must not
+/// audit the plugin as unloaded, while an invocation of it is still running.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn lowering_drains_in_flight_invocations_before_unloading() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_plugin_package(dir.path(), &keypair, &stress_wasm(), 3);
+    let kernel =
+        std::sync::Arc::new(Kernel::new(KernelConfig::default(), keyring).expect("kernel"));
+    let id = kernel.load_plugin_from_dir(dir.path()).await.expect("load");
+
+    let mut sub = kernel.bus().subscribe();
+    let (k, pid) = (kernel.clone(), id.clone());
+    let started = std::time::Instant::now();
+    // The guest busy-loops for 1500 ms of wall-clock time once it runs.
+    let invocation = tokio::spawn(async move { k.invoke(&pid, b"spin:1500", 30_000).await });
+    wait_for_phase(&mut sub, LifecyclePhase::Activated).await;
+
+    let outcome = kernel
+        .apply_max_tier(Tier::Sandboxed, true)
+        .await
+        .expect("unload authorised");
+    // apply_max_tier records W0214 only after the drain, so by the time it
+    // returns the 1500 ms invocation has run to completion.
+    assert!(
+        started.elapsed() >= Duration::from_millis(1400),
+        "apply_max_tier returned (and audited the plugin unloaded) after {:?}, while its \
+         1500 ms invocation was still running",
+        started.elapsed()
+    );
+    let result = invocation.await.expect("invocation task");
+    assert!(
+        result.is_ok(),
+        "the drained invocation completes: {result:?}"
+    );
+    assert_eq!(outcome.unloaded, vec![id.clone()]);
+    assert!(kernel
+        .broker()
+        .audit_log()
+        .snapshot()
+        .iter()
+        .any(|e| e.code() == Some("ENTANGLE-W0214")));
+    assert!(kernel.list_plugins().is_empty());
+}

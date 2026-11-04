@@ -54,6 +54,10 @@ struct LoadedRecord {
     effective_tier: Tier,
     plugin: PluginImpl,
     loaded_at: std::time::Instant,
+    /// Held shared by every running invocation (taken while the record is
+    /// still in the map); [`Kernel::unload`] takes it exclusively after
+    /// removing the record, i.e. waits for those invocations to finish.
+    inflight: Arc<tokio::sync::RwLock<()>>,
 }
 
 /// A loaded plugin as reported by the lowering workflow ([`Kernel::plugins_above`]).
@@ -331,6 +335,7 @@ impl Kernel {
                         effective_tier,
                         plugin,
                         loaded_at: std::time::Instant::now(),
+                        inflight: Arc::new(tokio::sync::RwLock::new(())),
                     });
                 }
             }
@@ -353,12 +358,21 @@ impl Kernel {
     ) -> Result<Vec<u8>, RuntimeError> {
         // Acquire the read lock, clone what we need, then release it before
         // the async call so we don't hold a lock across an .await point.
-        let (plugin, effective_tier) = {
+        // The in-flight token is taken while the record is still in the map,
+        // so an unload that removes the record afterwards waits for this
+        // invocation (it never fails here: unload only waits for the token
+        // after the record is gone).
+        let (plugin, effective_tier, _inflight) = {
             let plugins = self.plugins.read();
             let record = plugins
                 .get(plugin_id)
                 .ok_or_else(|| RuntimeError::NotLoaded(plugin_id.clone()))?;
-            (record.plugin.clone(), record.effective_tier)
+            let token = record
+                .inflight
+                .clone()
+                .try_read_owned()
+                .map_err(|_| RuntimeError::NotLoaded(plugin_id.clone()))?;
+            (record.plugin.clone(), record.effective_tier, token)
         };
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
@@ -478,15 +492,21 @@ impl Kernel {
         }
     }
 
-    /// Unload a currently-loaded plugin.
+    /// Unload a currently-loaded plugin, draining it first.
     ///
-    /// De-registers from the broker and emits a [`LifecyclePhase::Unloaded`] event.
+    /// From the moment this is called new invocations fail with
+    /// [`RuntimeError::NotLoaded`]; invocations already running are waited
+    /// for (each is bounded by its own timeout), so the plugin's broker
+    /// grants are not released while its code still runs (spec §9.4.1 step 4:
+    /// "gracefully drained, then unloaded"). Then de-registers from the
+    /// broker and emits a [`LifecyclePhase::Unloaded`] event.
     pub async fn unload(&self, plugin: &PluginId) -> Result<(), RuntimeError> {
         let record = self
             .plugins
             .write()
             .remove(plugin)
             .ok_or_else(|| RuntimeError::NotLoaded(plugin.clone()))?;
+        let _drained = record.inflight.write().await;
         self.broker.unregister_plugin(plugin)?;
         self.emit(plugin, record.effective_tier, LifecyclePhase::Unloaded);
         Ok(())
@@ -526,8 +546,9 @@ impl Kernel {
     /// every plugin above the new ceiling **only if `unload` is true**;
     /// otherwise, when the delta set is non-empty, nothing changes and the
     /// affected plugins are returned in `Err` so the caller can prompt. The
-    /// unload goes through [`Kernel::unload`], which releases the broker
-    /// grants, and one `ENTANGLE-W0214` audit event is recorded per plugin,
+    /// unload goes through [`Kernel::unload`], which drains invocations
+    /// already running and then releases the broker grants; only then is the
+    /// plugin's `ENTANGLE-W0214` audit event recorded (one per plugin),
     /// then an `ENTANGLE-I0215` summary. Afterwards loads above the ceiling
     /// fail with `ENTANGLE-E0043`.
     pub async fn apply_max_tier(
