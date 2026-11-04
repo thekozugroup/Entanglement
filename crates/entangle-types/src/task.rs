@@ -201,7 +201,7 @@ fn metric_ref_or_hint<'de, D: serde::Deserializer<'de>>(d: D) -> Result<MetricRe
                  artifact_blake3 = \"<64 hex>\" }}, not the name {name:?}: this policy changed \
                  shape and now also needs `replicas` and `quorum` (agreeing pairs); load the \
                  signed metric package on the submitter and reference it exactly \
-                 (docs/operations.md section 10)"
+                 (docs/operations.md section 11)"
             )))
         }
 
