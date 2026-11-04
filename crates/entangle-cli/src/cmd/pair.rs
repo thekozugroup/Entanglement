@@ -83,8 +83,22 @@ pub struct PairArgs {
     pub responder: bool,
 
     /// Show a pairing code on this device and wait for the other device to
-    /// type it (`entangle pair <code>` there). Same as --responder.
-    #[arg(long, conflicts_with = "responder")]
+    /// type it (`entangle pair <code>` there). Same as --responder, over the
+    /// network only: on the copy-paste channel the device that runs
+    /// `entangle pair --manual` without --responder shows the code.
+    #[arg(
+        long,
+        conflicts_with_all = [
+            "responder",
+            "manual",
+            "emit_request_file",
+            "consume_accept_file",
+            "emit_finalize_file",
+            "request_file",
+            "emit_accept_file",
+            "consume_finalize_file",
+        ]
+    )]
     pub print_code: bool,
 
     /// Human-readable display name for this device (default: hostname).

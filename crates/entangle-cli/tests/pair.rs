@@ -631,6 +631,40 @@ fn manual_flag_selects_the_blob_channel() {
         .stderr(predicate::str::contains("blob"));
 }
 
+/// `--print-code` shows a code and waits on the network. On the copy-paste
+/// channel the code is shown by the side that runs without `--responder`,
+/// so `--print-code` with `--manual` (or a blob file option) is refused as a
+/// usage error instead of running the side that asks for a REQUEST blob.
+#[test]
+fn print_code_is_refused_on_the_manual_channel() {
+    let home = TempDir::new().unwrap();
+    let work = TempDir::new().unwrap();
+    let peers = work.path().join("peers.toml");
+    let req = work.path().join("req.txt");
+    for extra in [
+        vec!["--manual"],
+        vec!["--request-file", req.to_str().unwrap()],
+    ] {
+        let mut args = vec![
+            "pair",
+            "--print-code",
+            "--peers-file",
+            peers.to_str().unwrap(),
+        ];
+        args.extend(extra.iter().copied());
+        let out = entangle(&home)
+            .args(&args)
+            .write_stdin("\n")
+            .assert()
+            .code(2)
+            .get_output()
+            .clone();
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(!stderr.contains("REQUEST"), "{extra:?}:\n{stderr}");
+        assert!(stderr.contains("--print-code"), "{extra:?}:\n{stderr}");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // 3. Help text.
 // ---------------------------------------------------------------------------
