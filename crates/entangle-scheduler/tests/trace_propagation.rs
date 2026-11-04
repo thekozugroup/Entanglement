@@ -461,12 +461,22 @@ async fn a_spot_check_frame_is_not_linked_to_the_task_it_checks() {
         });
         directory.insert(node.address());
     }
+    // What pairing leaves the submitter holding: a token from each worker.
+    let tokens = StaticTokens::new();
+    for node in [&producer, &checker] {
+        tokens
+            .paired_with(&node.identity, submitter.peer_id)
+            .unwrap();
+    }
     let dispatcher = Dispatcher::new(pool, Arc::clone(&submitter.kernel), submitter.peer_id)
         .with_strict_remote(true)
-        .with_remote(Arc::new(RemoteDispatch::new(
-            Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
-            Arc::new(directory),
-        )))
+        .with_remote(Arc::new(
+            RemoteDispatch::new(
+                Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
+                Arc::new(directory),
+            )
+            .with_capability_tokens(Arc::new(tokens)),
+        ))
         .with_spot_checks(entangle_scheduler::SpotCheckConfig::with_probability(1.0));
 
     let mut task = task_for(plugin.clone(), b"trace");
