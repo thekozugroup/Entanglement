@@ -69,7 +69,8 @@ pub struct RcFile {
     pub shell: &'static str,
 }
 
-/// The rc files managed on this machine (`$HOME`-relative).
+/// The rc files managed on this machine (`$HOME`-relative; the zsh one is
+/// `$ZDOTDIR/.zshrc` when `ZDOTDIR` is set).
 pub fn rc_files() -> Result<Vec<RcFile>> {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
@@ -79,6 +80,17 @@ pub fn rc_files() -> Result<Vec<RcFile>> {
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
         .unwrap_or_else(|| home.join(".config"));
+    // zsh reads $ZDOTDIR/.zshrc instead of ~/.zshrc when ZDOTDIR is set
+    // (typically exported from ~/.zshenv, so it is in the environment of
+    // every command run from zsh). A relative ZDOTDIR is ignored, as zsh's
+    // meaning for it depends on the shell's working directory.
+    let (zlabel, zshrc) = match std::env::var_os("ZDOTDIR")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+    {
+        Some(z) => ("$ZDOTDIR/.zshrc", z.join(".zshrc")),
+        None => ("~/.zshrc", home.join(".zshrc")),
+    };
     Ok(vec![
         RcFile {
             label: "~/.bashrc",
@@ -87,8 +99,8 @@ pub fn rc_files() -> Result<Vec<RcFile>> {
             shell: "bash",
         },
         RcFile {
-            label: "~/.zshrc",
-            path: home.join(".zshrc"),
+            label: zlabel,
+            path: zshrc,
             dialect: Dialect::Posix,
             shell: "zsh",
         },

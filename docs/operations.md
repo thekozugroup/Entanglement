@@ -769,7 +769,9 @@ What it does and does not touch:
   also skips the rest of the file), so `alias claude='claude --flag'` keeps
   working and still goes through the shim; an alias that points elsewhere
   (`alias claude=claude-beta`) bypasses it, and doctor reports that. `~/.zshrc` and the fish snippet are written even if you do
-  not use those shells. `XDG_CONFIG_HOME` is honoured for the fish path.
+  not use those shells. `XDG_CONFIG_HOME` is honoured for the fish path, and
+  `ZDOTDIR` (absolute) for the zsh one: the block then goes to
+  `$ZDOTDIR/.zshrc`, the file zsh actually reads.
 - **Login shells.** bash reads `~/.bashrc` only in interactive non-login shells;
   on macOS Terminal (login shells) add `source ~/.bashrc` to `~/.bash_profile`.
 - `enable`/`disable` record `[wrappers] install` in `config.toml` with a

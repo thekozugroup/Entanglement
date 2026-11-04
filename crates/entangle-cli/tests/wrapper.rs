@@ -59,6 +59,9 @@ impl Env {
             .args(args)
             .env("HOME", &self.home)
             .env_remove("XDG_CONFIG_HOME")
+            // The zsh rc file follows ZDOTDIR: never let the test runner's
+            // own ZDOTDIR point it outside the temporary $HOME.
+            .env_remove("ZDOTDIR")
             .stdin(Stdio::null())
             .output()
             .unwrap()
@@ -658,4 +661,36 @@ fn doctor_warns_when_the_probe_shell_answers_nothing() {
         line.contains("claude"),
         "names what was not checked: {line}"
     );
+}
+
+/// zsh reads `$ZDOTDIR/.zshrc` when ZDOTDIR is set (commonly exported from
+/// ~/.zshenv): the zsh block goes there, not into a ~/.zshrc zsh never reads.
+#[test]
+fn zsh_block_follows_zdotdir() {
+    let e = Env::new();
+    let zdot = e.home.join(".config/zsh");
+    let run = |args: &[&str]| {
+        let o = Command::new(entangle_bin())
+            .args(args)
+            .env("HOME", &e.home)
+            .env_remove("XDG_CONFIG_HOME")
+            .env("ZDOTDIR", &zdot)
+            .stdin(Stdio::null())
+            .output()
+            .unwrap();
+        assert!(o.status.success(), "{args:?}: {}", stderr(&o));
+        stdout(&o)
+    };
+    run(&["wrapper", "enable"]);
+    let zshrc = std::fs::read_to_string(zdot.join(".zshrc")).unwrap_or_default();
+    assert!(zshrc.contains("# >>> entangle wrapper >>>"), "{zshrc:?}");
+    assert!(
+        !e.home.join(".zshrc").exists(),
+        "a ~/.zshrc zsh does not read was written"
+    );
+    let status = run(&["wrapper", "status"]);
+    assert!(status.contains("$ZDOTDIR/.zshrc"), "{status}");
+    run(&["wrapper", "disable"]);
+    let zshrc = std::fs::read_to_string(zdot.join(".zshrc")).unwrap_or_default();
+    assert!(!zshrc.contains("entangle wrapper"), "{zshrc:?}");
 }
