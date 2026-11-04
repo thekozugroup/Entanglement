@@ -76,6 +76,42 @@ pub enum AuditEvent {
         /// Wall-clock time of the release.
         at: SystemTime,
     },
+    /// `ENTANGLE-W0214` — a plugin was unloaded and disabled because the
+    /// operator lowered `[security] max_tier_allowed` below its tier
+    /// (spec §9.4.1, lowering workflow step 4). One event per plugin.
+    PluginDisabledByCeiling {
+        /// The unloaded plugin.
+        plugin: PluginId,
+        /// The plugin's effective tier.
+        tier: Tier,
+        /// The ceiling before the change.
+        old_ceiling: Tier,
+        /// The ceiling now in force.
+        new_ceiling: Tier,
+        /// Wall-clock time of the unload.
+        at: SystemTime,
+    },
+    /// `ENTANGLE-I0215` — summary written after a ceiling was lowered.
+    CeilingLowered {
+        /// The ceiling before the change.
+        old_ceiling: Tier,
+        /// The ceiling now in force.
+        new_ceiling: Tier,
+        /// How many plugins were unloaded to honour it.
+        unloaded: u32,
+        /// Wall-clock time of the change.
+        at: SystemTime,
+    },
+    /// `ENTANGLE-I0216` — the operator cancelled a ceiling lowering; the
+    /// previous ceiling stays in force.
+    CeilingLoweringCancelled {
+        /// The ceiling that remains in force.
+        current: Tier,
+        /// The ceiling the operator asked for and then cancelled.
+        requested: Tier,
+        /// Wall-clock time of the cancellation.
+        at: SystemTime,
+    },
 }
 
 /// Discriminator for filtering [`AuditEvent`]s.
@@ -91,6 +127,12 @@ pub enum AuditKind {
     CapabilityDenied,
     /// Matches [`AuditEvent::CapabilityReleased`].
     CapabilityReleased,
+    /// Matches [`AuditEvent::PluginDisabledByCeiling`] (`ENTANGLE-W0214`).
+    PluginDisabledByCeiling,
+    /// Matches [`AuditEvent::CeilingLowered`] (`ENTANGLE-I0215`).
+    CeilingLowered,
+    /// Matches [`AuditEvent::CeilingLoweringCancelled`] (`ENTANGLE-I0216`).
+    CeilingLoweringCancelled,
 }
 
 impl AuditEvent {
@@ -102,6 +144,20 @@ impl AuditEvent {
             AuditEvent::CapabilityGranted { .. } => AuditKind::CapabilityGranted,
             AuditEvent::CapabilityDenied { .. } => AuditKind::CapabilityDenied,
             AuditEvent::CapabilityReleased { .. } => AuditKind::CapabilityReleased,
+            AuditEvent::PluginDisabledByCeiling { .. } => AuditKind::PluginDisabledByCeiling,
+            AuditEvent::CeilingLowered { .. } => AuditKind::CeilingLowered,
+            AuditEvent::CeilingLoweringCancelled { .. } => AuditKind::CeilingLoweringCancelled,
+        }
+    }
+
+    /// Stable `ENTANGLE-W/I` code for operator-facing events, if this event
+    /// has one (the ceiling-lowering family, spec §9.4.1).
+    pub fn code(&self) -> Option<&'static str> {
+        match self {
+            AuditEvent::PluginDisabledByCeiling { .. } => Some("ENTANGLE-W0214"),
+            AuditEvent::CeilingLowered { .. } => Some("ENTANGLE-I0215"),
+            AuditEvent::CeilingLoweringCancelled { .. } => Some("ENTANGLE-I0216"),
+            _ => None,
         }
     }
 
@@ -113,6 +169,9 @@ impl AuditEvent {
             AuditEvent::CapabilityGranted { at, .. } => at,
             AuditEvent::CapabilityDenied { at, .. } => at,
             AuditEvent::CapabilityReleased { at, .. } => at,
+            AuditEvent::PluginDisabledByCeiling { at, .. } => at,
+            AuditEvent::CeilingLowered { at, .. } => at,
+            AuditEvent::CeilingLoweringCancelled { at, .. } => at,
         }
     }
 }

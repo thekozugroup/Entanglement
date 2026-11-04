@@ -235,4 +235,65 @@ pub mod method {
     pub const MESH_STATUS: &str = "mesh/status";
     /// `compute/dispatch` — dispatch a one-shot task via the scheduler.
     pub const COMPUTE_DISPATCH: &str = "compute/dispatch";
+    /// `security/plan-max-tier` — list the loaded plugins a new
+    /// `[security] max_tier_allowed` would affect, changing nothing.
+    pub const SECURITY_PLAN_MAX_TIER: &str = "security/plan-max-tier";
+    /// `security/apply-max-tier` — apply a new tier ceiling at runtime,
+    /// unloading plugins above it when asked to.
+    pub const SECURITY_APPLY_MAX_TIER: &str = "security/apply-max-tier";
+    /// `security/cancel-max-tier` — record that the operator cancelled a
+    /// ceiling lowering (`ENTANGLE-I0216`).
+    pub const SECURITY_CANCEL_MAX_TIER: &str = "security/cancel-max-tier";
+}
+
+/// Parameters of `security/plan-max-tier` and `security/cancel-max-tier`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MaxTierParams {
+    /// The requested ceiling (1..=5).
+    pub max_tier: u8,
+}
+
+/// One loaded plugin a lowered ceiling would unload.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AffectedPlugin {
+    /// Plugin id.
+    pub plugin_id: String,
+    /// Its effective tier (1..=5).
+    pub tier: u8,
+    /// True for a native subprocess, false for a Wasm component.
+    pub native: bool,
+    /// Seconds since it was loaded.
+    pub uptime_secs: u64,
+}
+
+/// Result of `security/plan-max-tier`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MaxTierPlan {
+    /// The ceiling currently in force.
+    pub current: u8,
+    /// The requested ceiling.
+    pub requested: u8,
+    /// Loaded plugins above the requested ceiling (empty when raising).
+    pub affected: Vec<AffectedPlugin>,
+}
+
+/// Parameters of `security/apply-max-tier`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MaxTierApplyParams {
+    /// The new ceiling (1..=5).
+    pub max_tier: u8,
+    /// Unload plugins above the new ceiling. When `false` and any exist, the
+    /// call fails and changes nothing — the daemon never unloads silently.
+    pub unload: bool,
+}
+
+/// Result of `security/apply-max-tier`.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MaxTierApplied {
+    /// Ceiling before the call.
+    pub old: u8,
+    /// Ceiling now in force.
+    pub new: u8,
+    /// Ids of the plugins unloaded to honour it.
+    pub unloaded: Vec<String>,
 }

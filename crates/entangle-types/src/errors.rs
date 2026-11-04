@@ -21,6 +21,7 @@
 //! | E0700–E0719 | OS-sandbox engagement (see `entangle-sandbox`) |
 //! | E0720–E0739 | Native-plugin supervisor (see `entangle-sandbox`) |
 //! | E0740–E0749 | Native-plugin runtime glue (see `entangle-runtime::native`) |
+//! | E0750–E0779 | Operator safety UX: shell wrappers, `max_tier_allowed` lowering (see `entangle-cli` `cmd::wrapper`, `cmd::security`; `entangle-bin` RPC `security/*`) |
 //! | E0800–E0829 | OCI registry distribution and mirror listings (see `entangle-oci`; E0800–E0819 in use) |
 //! | E0900       | I/O                            |
 //! | E9999       | Internal / unexpected          |

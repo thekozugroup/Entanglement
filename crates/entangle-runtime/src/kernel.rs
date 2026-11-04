@@ -53,6 +53,31 @@ impl Default for KernelConfig {
 struct LoadedRecord {
     effective_tier: Tier,
     plugin: PluginImpl,
+    loaded_at: std::time::Instant,
+}
+
+/// A loaded plugin as reported by the lowering workflow ([`Kernel::plugins_above`]).
+#[derive(Clone, Debug)]
+pub struct LoadedPluginInfo {
+    /// The plugin.
+    pub plugin: PluginId,
+    /// Its effective tier.
+    pub tier: Tier,
+    /// True for a native subprocess, false for a Wasm component.
+    pub native: bool,
+    /// Time since it was loaded.
+    pub uptime: std::time::Duration,
+}
+
+/// Result of [`Kernel::apply_max_tier`].
+#[derive(Clone, Debug)]
+pub struct MaxTierOutcome {
+    /// Ceiling before the call.
+    pub old: Tier,
+    /// Ceiling now in force.
+    pub new: Tier,
+    /// Plugins that were unloaded to honour it.
+    pub unloaded: Vec<PluginId>,
 }
 
 /// How a loaded plugin executes.
@@ -290,6 +315,7 @@ impl Kernel {
                 slot.insert(LoadedRecord {
                     effective_tier,
                     plugin,
+                    loaded_at: std::time::Instant::now(),
                 });
             }
         }
@@ -447,6 +473,99 @@ impl Kernel {
         self.broker.unregister_plugin(plugin)?;
         self.emit(plugin, record.effective_tier, LifecyclePhase::Unloaded);
         Ok(())
+    }
+
+    /// The tier ceiling currently in force (may differ from the configured
+    /// one after [`Kernel::apply_max_tier`]).
+    pub fn max_tier_allowed(&self) -> Tier {
+        self.broker.policy().max_tier_allowed
+    }
+
+    /// Loaded plugins whose effective tier exceeds `ceiling` — the delta set
+    /// of the lowering workflow (spec §9.4.1) — with their tier and whether
+    /// they are native subprocesses, sorted by plugin id.
+    pub fn plugins_above(&self, ceiling: Tier) -> Vec<LoadedPluginInfo> {
+        let plugins = self.plugins.read();
+        let mut v: Vec<LoadedPluginInfo> = plugins
+            .iter()
+            .filter(|(_, r)| r.effective_tier > ceiling)
+            .map(|(id, r)| LoadedPluginInfo {
+                plugin: id.clone(),
+                tier: r.effective_tier,
+                native: matches!(r.plugin, PluginImpl::Native(_)),
+                uptime: r.loaded_at.elapsed(),
+            })
+            .collect();
+        v.sort_by_key(|i| i.plugin.to_string());
+        v
+    }
+
+    /// Apply a new tier ceiling at runtime (spec §9.4.1).
+    ///
+    /// Raising (or keeping) the ceiling unloads nothing. Lowering it unloads
+    /// every plugin above the new ceiling **only if `unload` is true**;
+    /// otherwise, when the delta set is non-empty, nothing changes and the
+    /// affected plugins are returned in `Err` so the caller can prompt. The
+    /// unload goes through [`Kernel::unload`], which releases the broker
+    /// grants, and one `ENTANGLE-W0214` audit event is recorded per plugin,
+    /// then an `ENTANGLE-I0215` summary. Afterwards loads above the ceiling
+    /// fail with `ENTANGLE-E0043`.
+    pub async fn apply_max_tier(
+        &self,
+        new: Tier,
+        unload: bool,
+    ) -> Result<MaxTierOutcome, Vec<LoadedPluginInfo>> {
+        let old = self.max_tier_allowed();
+        let affected = if new < old {
+            self.plugins_above(new)
+        } else {
+            Vec::new()
+        };
+        if !affected.is_empty() && !unload {
+            return Err(affected);
+        }
+        // Ceiling first: a load racing with the unloads below is refused
+        // instead of slipping in above the new ceiling.
+        self.broker.set_max_tier_allowed(new);
+        let mut unloaded = Vec::new();
+        for info in &affected {
+            // A concurrent unload by the operator is fine: the plugin is gone
+            // either way, and is still reported as affected.
+            let _ = self.unload(&info.plugin).await;
+            self.broker
+                .audit_log()
+                .record(entangle_broker::AuditEvent::PluginDisabledByCeiling {
+                    plugin: info.plugin.clone(),
+                    tier: info.tier,
+                    old_ceiling: old,
+                    new_ceiling: new,
+                    at: std::time::SystemTime::now(),
+                });
+            unloaded.push(info.plugin.clone());
+        }
+        if new < old {
+            self.broker
+                .audit_log()
+                .record(entangle_broker::AuditEvent::CeilingLowered {
+                    old_ceiling: old,
+                    new_ceiling: new,
+                    unloaded: unloaded.len() as u32,
+                    at: std::time::SystemTime::now(),
+                });
+        }
+        Ok(MaxTierOutcome { old, new, unloaded })
+    }
+
+    /// Record that the operator cancelled a ceiling lowering
+    /// (`ENTANGLE-I0216`); the ceiling is unchanged.
+    pub fn record_lowering_cancelled(&self, requested: Tier) {
+        self.broker
+            .audit_log()
+            .record(entangle_broker::AuditEvent::CeilingLoweringCancelled {
+                current: self.max_tier_allowed(),
+                requested,
+                at: std::time::SystemTime::now(),
+            });
     }
 
     /// Return the ids of all currently loaded plugins, sorted by their

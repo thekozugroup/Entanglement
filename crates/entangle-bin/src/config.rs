@@ -29,6 +29,33 @@ pub struct Config {
     /// written by an older CLI — which omits this section entirely — leaves
     /// the daemon single-machine, exactly as before.
     pub scheduler: SchedulerConfig,
+    /// `[wrappers]` — written by `entangle wrapper enable|disable`; the
+    /// daemon ignores it (it is the shell shim's opt-in record).
+    pub wrappers: WrappersSection,
+    /// `[plugins]` — operator state about plugins (see [`PluginsSection`]).
+    pub plugins: PluginsSection,
+}
+
+/// `[wrappers]` section (CLI-owned; accepted so the daemon still starts).
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct WrappersSection {
+    /// Opt-in record for the shell shim (spec §8.3 item 2).
+    pub install: bool,
+}
+
+/// `[plugins]` section.
+///
+/// `disabled` is written by the max-tier lowering workflow (spec §9.4.1
+/// step 4). The daemon does not load plugins at startup (they are loaded on
+/// request over RPC and nothing persists the loaded set), so this list is
+/// operator-visible state that a future startup loader must honour; today
+/// "disabled plugins do not come back" holds because nothing brings them back.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PluginsSection {
+    /// Plugin ids unloaded and disabled by a tier-ceiling lowering.
+    pub disabled: Vec<String>,
 }
 
 /// Cross-node scheduler settings (daemon-only).
@@ -396,6 +423,20 @@ max_tier_allowed = 2
         let built =
             crate::tailscale::build_config(&cfg.mesh, entangle_peers::PeerStore::new()).unwrap();
         assert!(built.bind_ip.is_unspecified());
+    }
+
+    #[test]
+    fn cli_owned_wrappers_and_plugins_sections_are_accepted() {
+        // `entangle wrapper enable` and the max-tier lowering workflow write
+        // these; a daemon that rejected them would refuse to start.
+        let cfg: Config =
+            toml::from_str("[wrappers]\ninstall = true\n[plugins]\ndisabled = [\"ab/x@0.1.0\"]\n")
+                .unwrap();
+        assert!(cfg.wrappers.install);
+        assert_eq!(cfg.plugins.disabled, vec!["ab/x@0.1.0".to_owned()]);
+        let cfg: Config = toml::from_str("").unwrap();
+        assert!(!cfg.wrappers.install && cfg.plugins.disabled.is_empty());
+        assert!(toml::from_str::<Config>("[wrappers]\nbogus = 1\n").is_err());
     }
 
     #[test]
