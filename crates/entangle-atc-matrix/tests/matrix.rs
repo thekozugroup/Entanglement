@@ -203,7 +203,6 @@ fn is_extension(id: &str) -> bool {
 }
 
 #[test]
-#[ignore = "gating is switched on once every §16 stream has landed"]
 fn atc_matrix_full_coverage() {
     let root = workspace_root();
     let spec_path = root.join(SPEC_REL);
