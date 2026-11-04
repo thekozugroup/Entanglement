@@ -1519,6 +1519,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bytes",
  "clap",
  "directories",
  "entangle-broker",
@@ -1535,13 +1536,18 @@ dependencies = [
  "entangle-types",
  "flate2",
  "hex",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "serde",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.18",
  "tokio",
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1567,6 +1573,7 @@ dependencies = [
  "biscuit-auth",
  "entangle-biscuits",
  "entangle-manifest",
+ "entangle-observability",
  "entangle-peers",
  "entangle-signing",
  "entangle-types",
@@ -1717,11 +1724,18 @@ dependencies = [
 name = "entangle-observability"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "is-terminal",
  "parking_lot",
+ "serde_json",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1814,6 +1828,7 @@ dependencies = [
  "entangle-host",
  "entangle-ipc",
  "entangle-manifest",
+ "entangle-observability",
  "entangle-sandbox",
  "entangle-signing",
  "entangle-types",
@@ -1848,6 +1863,7 @@ dependencies = [
  "entangle-host",
  "entangle-ipc",
  "entangle-mesh-iroh",
+ "entangle-observability",
  "entangle-runtime",
  "entangle-signing",
  "entangle-types",
