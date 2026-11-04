@@ -566,3 +566,93 @@ async fn an_abandoned_framed_stream_is_reset_not_finished() {
     }
     conn.close();
 }
+
+// ---------------------------------------------------------------------------
+// The side that answers last lets the peer close first.
+// ---------------------------------------------------------------------------
+
+/// A server that has written the last frame of an exchange must not close
+/// before the requester has read it: a QUIC close discards whatever the peer
+/// has not yet handed to its application. `close_when_peer_done` holds the
+/// connection until the requester — which reads last — closes it, so the
+/// server can then shut its endpoint down at once without losing the answer,
+/// even to a requester that is slow to read it.
+#[tokio::test]
+async fn close_when_peer_done_waits_for_a_slow_reader_to_close() {
+    let (id_a, id_b) = (IdentityKeyPair::generate(), IdentityKeyPair::generate());
+    let a = start(&id_a).await;
+    let b = start(&id_b).await;
+    let b_peer = peer_of(&b);
+    let read_it = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    let flag = Arc::clone(&read_it);
+    let server = tokio::spawn(async move {
+        let conn = b.accept().await.unwrap().expect("a connection");
+        let req = conn.accept_request().await.unwrap().expect("a request");
+        req.respond(b"last word").await.unwrap();
+        let peer_closed = conn.close_when_peer_done(Duration::from_secs(10)).await;
+        let read_before_close = flag.load(std::sync::atomic::Ordering::SeqCst);
+        // The abrupt teardown a process exiting right after would do.
+        b.shutdown().await;
+        (peer_closed, read_before_close)
+    });
+
+    let conn = deadline("connect", a.connect(&b_peer)).await.unwrap();
+    // A raw stream speaks the request framing but lets the read lag the write.
+    let mut io = deadline("open stream", conn.open_stream()).await.unwrap();
+    io.send(b"question").await.unwrap();
+    io.finish().await.unwrap();
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let answer = deadline("read the answer", io.recv()).await;
+    read_it.store(true, std::sync::atomic::Ordering::SeqCst);
+    conn.close();
+
+    let (peer_closed, read_before_close) = deadline("server", server).await.unwrap();
+    assert_eq!(answer.unwrap().as_deref(), Some(&b"last word"[..]));
+    assert!(
+        peer_closed,
+        "the requester closed, so the server must say so"
+    );
+    assert!(
+        read_before_close,
+        "close_when_peer_done returned before the requester had read the answer"
+    );
+    a.shutdown().await;
+}
+
+/// A peer that never closes cannot pin the connection: past `grace` the
+/// server closes anyway, reports that the peer did not, and the peer sees the
+/// connection end.
+#[tokio::test]
+async fn close_when_peer_done_gives_up_after_the_grace() {
+    let (id_a, id_b) = (IdentityKeyPair::generate(), IdentityKeyPair::generate());
+    let a = start(&id_a).await;
+    let b = start(&id_b).await;
+    let b_peer = peer_of(&b);
+
+    let server = tokio::spawn(async move {
+        let conn = b.accept().await.unwrap().expect("a connection");
+        let req = conn.accept_request().await.unwrap().expect("a request");
+        req.respond(b"answer").await.unwrap();
+        let started = std::time::Instant::now();
+        let peer_closed = conn.close_when_peer_done(Duration::from_millis(300)).await;
+        (peer_closed, started.elapsed(), b)
+    });
+
+    let conn = deadline("connect", a.connect(&b_peer)).await.unwrap();
+    let answer = deadline("request", conn.request(b"question"))
+        .await
+        .unwrap();
+    assert_eq!(answer, b"answer");
+    // Deliberately keep the connection open.
+    let (peer_closed, waited, b) = deadline("server", server).await.unwrap();
+    assert!(!peer_closed, "the requester never closed");
+    assert!(
+        waited >= Duration::from_millis(300),
+        "returned after {waited:?}, before the grace ran out"
+    );
+    // The server's close reaches the requester.
+    deadline("requester sees the close", conn.closed()).await;
+    a.shutdown().await;
+    b.shutdown().await;
+}
