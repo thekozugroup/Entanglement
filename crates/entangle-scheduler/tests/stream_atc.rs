@@ -1480,7 +1480,7 @@ async fn a_cancelled_stream_is_counted_as_cancelled_not_as_a_plugin_error() {
     task.channel.credit_window = 2;
     let (sub_io, exec_io) = duplex(&submitter, &executor);
     let served = tokio::spawn(async move { srv.handle(exec_io).await });
-    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    let mut handle = StreamHandle::start(sub_io, &task, paired(&executor, &submitter)).unwrap();
     assert!(matches!(
         deadline("first", handle.next()).await,
         ChunkPoll::Chunk(_)
