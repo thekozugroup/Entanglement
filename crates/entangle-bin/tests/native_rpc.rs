@@ -187,7 +187,7 @@ async fn a_restored_native_plugin_runs_without_a_recorded_revocation() {
 
     let state = daemon();
     let report = restore(&state.kernel, state.plugin_state.as_ref().unwrap(), None).await;
-    assert_eq!(report.restored, [id.clone()], "{report:?}");
+    assert_eq!(report.restored, std::slice::from_ref(&id), "{report:?}");
     let input: Vec<u8> = b"after a restart".to_vec();
     let out = rpc(
         &state,

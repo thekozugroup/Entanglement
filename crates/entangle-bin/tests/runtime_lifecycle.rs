@@ -582,7 +582,7 @@ mod restart {
 
         let reg = Registry::new();
         let (d, report) = node.start(&reg).await;
-        assert_eq!(report.restored, [a_id.clone()], "{report:?}");
+        assert_eq!(report.restored, std::slice::from_ref(&a_id), "{report:?}");
         assert_eq!(report.failed.len(), 1, "{report:?}");
         assert_eq!(report.failed[0].0, b_id);
         assert!(
