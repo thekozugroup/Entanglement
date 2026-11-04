@@ -304,16 +304,16 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
 }
 
 /// A project's own MCP config (e.g. `.mcp.json` in the current directory)
-/// ships with the repository, so its stdio servers are commands chosen by
-/// whoever wrote the repository. The agent would ask before starting them,
-/// but in a session it only sees gateway URLs and the gateway starts them,
-/// so ask here: list each one and require `--trust-project-servers` or a
-/// `y` at a terminal prompt (default No). Env var values are never printed.
-/// A config named with `--config` is the user's own choice and is not
-/// reported here.
+/// ships with the repository, so its stdio servers are commands, and its
+/// remote servers hosts, chosen by whoever wrote the repository. The agent
+/// would ask before using them, but in a session it only sees gateway URLs
+/// and the gateway starts or contacts them, so ask here: list each one and
+/// require `--trust-project-servers` or a `y` at a terminal prompt (default
+/// No). Env var and header values are never printed. A config named with
+/// `--config` is the user's own choice and is not reported here.
 fn confirm_project_servers(session: &AgentSession, trusted: bool) -> Result<()> {
     let servers = session.project_stdio_servers();
-    let remote = session.project_http_servers_with_headers();
+    let remote = session.project_http_servers();
     if servers.is_empty() && remote.is_empty() {
         return Ok(());
     }
@@ -340,17 +340,23 @@ fn confirm_project_servers(session: &AgentSession, trusted: bool) -> Result<()> 
     }
     if !remote.is_empty() {
         eprintln!(
-            "The project config {path} declares {} remote MCP server(s) the gateway would send \
-             request headers to (environment references in them are expanded from your \
-             environment):",
+            "The project config {path} declares {} remote MCP server(s) the gateway would \
+             connect to (their tools and results reach the agent):",
             remote.len()
         );
         for (name, spec) in &remote {
             if let McpServerSpec::Http { url, headers } = spec {
                 // Names only, never values; the URL without query or credentials.
                 let shown = entangle_agent_host::gateway::display_url(url);
-                let names: Vec<&String> = headers.keys().collect();
-                eprintln!("  {name:?}: url {shown:?}, headers {names:?}");
+                if headers.is_empty() {
+                    eprintln!("  {name:?}: url {shown:?}");
+                } else {
+                    let names: Vec<&String> = headers.keys().collect();
+                    eprintln!(
+                        "  {name:?}: url {shown:?}, sends headers {names:?} (environment \
+                         references in them are expanded from your environment)"
+                    );
+                }
             }
         }
     }

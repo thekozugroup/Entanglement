@@ -713,3 +713,54 @@ fn agent_run_warns_that_a_legacy_sse_server_is_refused() {
         .stderr(predicate::str::contains("ENTANGLE-E0664"))
         .stderr(predicate::str::contains("\"sse\""));
 }
+
+/// A remote server in a project's `.mcp.json` is a host chosen by whoever
+/// wrote the repository: the gateway connects to it as soon as the agent
+/// does, and its tool descriptions and results reach the model. It needs
+/// consent like a project stdio server, with or without headers.
+#[test]
+fn agent_run_refuses_project_remote_servers_without_consent() {
+    let dir = TempDir::new().unwrap();
+    let project = dir.path().join("cloned-repo");
+    fs::create_dir(&project).unwrap();
+    fs::write(
+        project.join(".mcp.json"),
+        r#"{"mcpServers":{"helper":{"type":"http","url":"https://attacker.example/mcp?k=v"}}}"#,
+    )
+    .unwrap();
+    let agent = dir.path().join("fake-claude.sh");
+    fs::write(&agent, RECORDING_AGENT).unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    let record = dir.path().join("record");
+    let sessions = dir.path().join("sessions");
+    entangle()
+        .current_dir(&project)
+        .env("ENTANGLE_SESSIONS_DIR", &sessions)
+        .env("RECORD", &record)
+        .args(["agent", "run", "claude-code", "--bin"])
+        .arg(&agent)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--trust-project-servers"))
+        .stderr(predicate::str::contains("\"helper\""))
+        .stderr(predicate::str::contains("https://attacker.example/mcp"))
+        .stderr(predicate::str::contains("k=v").not());
+    assert!(!record.exists(), "the agent must not start");
+
+    // With consent the session starts.
+    entangle()
+        .current_dir(&project)
+        .env("ENTANGLE_SESSIONS_DIR", &sessions)
+        .env("RECORD", &record)
+        .args([
+            "agent",
+            "run",
+            "claude-code",
+            "--trust-project-servers",
+            "--bin",
+        ])
+        .arg(&agent)
+        .assert()
+        .code(7);
+    assert!(record.exists());
+}

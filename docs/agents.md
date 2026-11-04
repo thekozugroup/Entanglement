@@ -62,12 +62,14 @@ Use `--config <path>` to read the MCP config from a non-default file and
 
 Claude Code's default config is the `.mcp.json` in the current directory,
 which ships with whatever repository you are in. Claude Code itself asks
-before starting a project's servers, but in a session it only sees gateway
-URLs, and it is the gateway that starts the servers' commands. So when the
-config comes from the current directory (not from `--config`),
-`entangle agent run` first lists every stdio server it declares, and every HTTP server with request headers (name,
-command, arguments, and the *names* of its environment variables, never
-their values) and then:
+before using a project's servers, but in a session it only sees gateway
+URLs, and it is the gateway that starts the servers' commands and connects
+to the remote ones. So when the config comes from the current directory
+(not from `--config`), `entangle agent run` first lists every stdio server
+it declares (name, command, arguments, and the *names* of its environment
+variables, never their values) and every remote HTTP server, with or
+without headers (name, URL without query or credentials, header *names*),
+and then:
 
 * starts the session if `--trust-project-servers` was given;
 * otherwise, when stdin is a terminal, asks `Start these servers? [y/N]`
@@ -196,10 +198,11 @@ itself sets `type`, `command` and `"enabled": true` win over the override.
     cannot be handed to another host; a non-2xx status, an unexpected
     content-type or invalid JSON is `ENTANGLE-E0671`. Each request opens its own
     connection (`Connection: close`);
-  - for a **project** config (not `--config`), HTTP servers that carry headers
-    are listed in the consent prompt too (URL without query, header *names*),
-    because their environment references would otherwise send your variables
-    to a host chosen by the repository.
+  - for a **project** config (not `--config`), every HTTP server is listed in
+    the consent prompt too (URL without query, header *names*): it is a host
+    chosen by the repository, whose tool descriptions and results reach the
+    agent, and the environment references in its headers would send your
+    variables there.
 * Connections: at most 128 open at once (further ones wait unaccepted);
   a connection that has not sent a complete request head after 30 s, or
   has been idle that long between keep-alive requests, is closed.
