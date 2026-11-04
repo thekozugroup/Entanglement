@@ -42,6 +42,7 @@
 //! is returned first and never changed by the check
 //! ([`DispatchResult::spot_check`] says what was decided).
 
+use crate::retry::{DurationHistory, RetryCause, SpeculationConfig};
 use crate::{
     integrity::{
         canonical_operands, replica_count, IntegrityVerifier, OutputSizeExceededWarning,
@@ -58,7 +59,6 @@ use crate::{
     work_unit::{PolicyEnvelope, PolicyHash},
     worker::{WorkerInfo, WorkerPool},
 };
-use crate::retry::{DurationHistory, RetryCause, SpeculationConfig};
 use entangle_observability::{catalog, Registry};
 use entangle_runtime::{IntegrityError, Kernel};
 use entangle_types::{
@@ -795,20 +795,23 @@ impl Dispatcher {
             let this = self.clone();
             let peer = target.peer_id;
             let span = tracing::Span::current();
-            set.spawn(async move {
-                let slot = if peer == this.local_peer_id {
-                    let started = Instant::now();
-                    let replica = this.local_replica(&task, &envelope).await;
-                    let attempt = local_attempt(idx, &replica, task.id, started.elapsed());
-                    SlotResult {
-                        replica,
-                        attempts: vec![attempt],
-                    }
-                } else {
-                    this.run_slot(ctx, idx, peer).await
-                };
-                (idx, slot)
-            }.instrument(span));
+            set.spawn(
+                async move {
+                    let slot = if peer == this.local_peer_id {
+                        let started = Instant::now();
+                        let replica = this.local_replica(&task, &envelope).await;
+                        let attempt = local_attempt(idx, &replica, task.id, started.elapsed());
+                        SlotResult {
+                            replica,
+                            attempts: vec![attempt],
+                        }
+                    } else {
+                        this.run_slot(ctx, idx, peer).await
+                    };
+                    (idx, slot)
+                }
+                .instrument(span),
+            );
         }
         let mut slots: Vec<Option<SlotResult>> = (0..targets.len()).map(|_| None).collect();
         while let Some(joined) = set.join_next().await {
@@ -1125,22 +1128,25 @@ impl Dispatcher {
         // its `remote.dispatch` span (and the worker's) stays in the
         // submitter's trace.
         let span = tracing::Span::current();
-        let handle = set.spawn(async move {
-            let started = Instant::now();
-            let attempt_task;
-            let task: &OneShotTask = if task_id == ctx.task.id {
-                &ctx.task
-            } else {
-                attempt_task = OneShotTask {
-                    id: task_id,
-                    timeout_ms,
-                    ..(*ctx.task).clone()
+        let handle = set.spawn(
+            async move {
+                let started = Instant::now();
+                let attempt_task;
+                let task: &OneShotTask = if task_id == ctx.task.id {
+                    &ctx.task
+                } else {
+                    attempt_task = OneShotTask {
+                        id: task_id,
+                        timeout_ms,
+                        ..(*ctx.task).clone()
+                    };
+                    &attempt_task
                 };
-                &attempt_task
-            };
-            let (replica, cause) = this.remote_attempt(task, peer, &ctx.envelope).await;
-            (replica, cause, started.elapsed())
-        }.instrument(span));
+                let (replica, cause) = this.remote_attempt(task, peer, &ctx.envelope).await;
+                (replica, cause, started.elapsed())
+            }
+            .instrument(span),
+        );
         running.insert(
             handle.id(),
             Running {
@@ -1199,9 +1205,7 @@ impl Dispatcher {
         ranked
             .into_iter()
             .map(|c| c.peer_id)
-            .filter(|p| {
-                *p != self.local_peer_id && self.verifier.reputation().is_eligible(p, kind)
-            })
+            .filter(|p| *p != self.local_peer_id && self.verifier.reputation().is_eligible(p, kind))
             .collect()
     }
 

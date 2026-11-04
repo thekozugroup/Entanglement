@@ -175,6 +175,8 @@ service_name = "entangled"
 | `[mesh.overrides]` | `"<peer-id>"` | string or array of strings | none | Daemon-only. Per peer (32-hex peer id): one transport forces it, a list gives the exact order; no fallback outside it (§20). A bad id, an empty list or a repeated transport fails the load (`ENTANGLE-E0435`). |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
 | `[scheduler]` | `spot_check_probability`, `spot_check_max_concurrent` | float in 0..=1, integer 1..=1024 | `0.01`, `4` | Daemon-only. Layer-2 spot-checks of accepted `deterministic` / `semantic-equivalent` tasks (§11): the share re-run on another executor, and how many may run at once. `0` disables them; out-of-range values fail the load. (`bind`, `peers`, `relay` configure the iroh scheduler endpoint, §20.) |
+| `[scheduler]` | `speculation`, `speculation_delay_ms`, `speculation_factor`, `speculation_min_samples`, `speculation_floor_ms` | `"off"`/`"fixed"`/`"median"`, integer ≥ 1, float > 1, integer, integer | `"off"`, `10000`, `3.0`, `5`, `1000` | Daemon-only. Speculative backup copies of slow remote attempts (§11, *Failure handling*): `fixed` starts a backup once an attempt has run `speculation_delay_ms`; `median` once it has run `speculation_factor` × the median of that plugin's last 32 successful attempts on this node (after `speculation_min_samples`, never before `speculation_floor_ms`). **Off by default**: a backup is a second execution on another machine. |
+| `[scheduler]` | `rtt_probe_interval_secs` | integer | `60` | Daemon-only. Seconds between rounds of round-trip-time probes to live workers (at most 16 per round, 4 at a time, 2 s each); placement uses the measured RTT for 10 minutes, else the advertised constant (5 ms LAN, 20 ms tailnet). `0` disables the probes. |
 | `[metrics]` | `enabled`, `listen`, `allow_non_loopback` | bool, `ip:port`, bool | `false`, `127.0.0.1:9464`, `false` | Prometheus scrape endpoint (§14). A non-loopback `listen` is refused (`ENTANGLE-E0656`) unless `allow_non_loopback = true`. |
 | `[telemetry.otlp]` | `enabled`, `endpoint`, `service_name` | bool, URL, string | `false`, `http://localhost:4318`, `entangled` | OTLP/HTTP trace export (§14). `endpoint` must be `http://`; `4318` is OTLP/HTTP (`4317` is gRPC, which is not spoken). |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
@@ -351,6 +353,7 @@ canonical range table, maintained in
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
 | E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum, Layer-2 spot-check attestation failure (E0319) (`entangle-runtime::IntegrityError`; see §11) |
 | E0350–E0399 | Streaming tasks (`entangle_scheduler::stream::StreamError`; see §17): integrity policy not usable for a stream (E0350), invalid task field or limit (E0351), chunk signature or sequence rejected (E0352), `max_total_bytes` (E0353) or `max_chunk_bytes` (E0354) exceeded, credit violation (E0355), peer lost after missed heartbeats (E0356), submitter unresponsive (E0357), cancelled (E0358), protocol violation (E0359), unsupported stream wire version (E0360), the other end closed the stream and said why (E0361), bad end-of-stream frame (E0362), transport failure under the stream (E0363; carries an E0430–E0433 routing error; E0434/E0435 are config errors raised before any stream exists), wall-clock timeout (E0364), input over `max_input_bytes` (E0365), operation on a closed stream (E0366), executor observed another policy hash (E0367), executor outside the `TrustedExecutor` allowlist (E0368), plugin failure (E0369), policy envelope rejected (E0370), chunk-count allowance exceeded (E0371) |
+| E0470–E0489 | Scheduler failure handling and submit-time checks (see §11, §17): a `Deterministic` task for a plugin whose manifest declares non-determinism (E0470; also answered by an executor as `nondeterministic`), an unknown `--workload` (E0471), workload `a` without the executors to trust (E0472), a one-shot-only workload used for a stream (E0473), a stalled stream preempted by the scheduler (E0474), a supervised stream that ran out of attempts (E0475, carrying the last attempt's error) |
 | E0430–E0449 | Scheduler transport selection (`entangle_scheduler::transport::RouteError`; see §20): no route to the peer on any usable transport (E0430), every candidate failed to connect (E0431), a transport failed after the request was sent and it was not retried (E0432), a frame over the transport cap (E0433), an unknown transport name in `[mesh] preferred` / `[mesh.overrides]` (E0434), an unusable `[mesh.overrides]` entry (E0435) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
 | E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component; `E0511` an invocation or stream stopped because a network grant it relied on was revoked (or the plugin unloaded, or the tier ceiling lowered below it) while it ran (`entangle-host`) |
@@ -820,6 +823,101 @@ node running an older build answers `unsupported-version`; upgrade both ends.
 
 ---
 
+### Failure handling: retries and speculative copies
+
+Spec §7.6. Every remote replica of a task runs as a *slot* that can retry and
+back up:
+
+* **What is retried** — only a failure that says nothing about the task: the
+  transport failed **after the request was sent and before any answer**
+  (`ENTANGLE-E0432`: the worker crashed or the connection was lost), or the
+  worker **could not be reached** (`E0430`, `E0431`). An answer from the worker
+  (a plugin error, a plugin that is not loaded, a policy, capability-token or
+  allowlist refusal), an integrity failure (oversized output, policy-hash
+  mismatch) and a **timeout** (the task ran into its own `timeout_ms`) are
+  final.
+* **Where** — another eligible live worker, best placement score first,
+  never one that holds a replica of the same task and never one this replica
+  already tried. A single-replica task lost after send may go back to the
+  same worker when there is no other (it may have restarted); an unreachable
+  worker is never retried.
+* **How often** — the task's retry policy (`--max-attempts`, default 3
+  attempts in all; waits of 200 ms doubling to 5 s) and its deadline: no
+  retry starts after `timeout_ms` from the first attempt, and a retry gets
+  the time that is left. A retry is a new request: a fresh task id and a
+  fresh per-attempt capability token.
+* **Speculative copies** (`[scheduler] speculation`, off by default) — a
+  remote attempt still running past the threshold gets one backup copy on
+  another eligible worker (same rules). The first **valid** result (within
+  `max_output_bytes`, echoing the dispatched policy hash) wins; the other copy
+  is cancelled: its request is dropped and a `Cancel` control frame tells its
+  worker, which stops the run at its next await point (a wasm guest busy in a
+  host-call-free loop runs to the end of it) and frees its slot. For a
+  replicated policy the backup only ever **replaces** the slow replica — the
+  result still has exactly `N` replicas.
+
+Every attempt is in the result (`attempts` in `compute dispatch --json`, and
+one `Attempt:` line each in text mode when there was more than one) and
+counted in `entangle_scheduler_retries_total` /
+`entangle_scheduler_speculative_total` (§14a).
+
+### Submit-time determinism check
+
+A plugin declares non-determinism in its manifest:
+
+```toml
+[plugin]
+pure = false                              # two runs on one input may differ
+nondeterministic = ["clock", "entropy"]   # or "network", "gpu-float"
+```
+
+A `net.lan` / `net.wan` capability counts too. A `deterministic` task for
+such a plugin is refused **before anything is placed** with
+`ENTANGLE-E0470`, which names the reasons and points at
+`--integrity semantic-equivalent`. The submitter checks the manifest its own
+kernel loaded (read back and checked against the digest recorded at load);
+an executor checks its own copy again before running a `deterministic`
+replica and answers `nondeterministic` (with the same E0470 text) — so a
+submitter without the plugin is refused too. Both keys are optional;
+without them nothing is assumed.
+
+### Workload presets
+
+`--workload` applies the spec's reference workloads (§7.0) to `compute
+dispatch` and `compute stream`; any explicit flag overrides the preset:
+
+| Workload | `compute dispatch` | `compute stream` |
+|---|---|---|
+| `a` — LLM offload to your own machine | `trusted-executor` over the `--allow` ids (`ENTANGLE-E0472` without), `max_output_bytes` 1 MiB | `trusted-executor` over `--allow` (else the `--peer`), `max_total_bytes` 64 MiB, credit window 32, partial output kept |
+| `b` — batch on a trusted home mesh | `deterministic`, 1 replica | refused (`E0473`) |
+| `b-federated` — batch on a federated mesh | `deterministic`, 3 replicas (quorum 2) | refused |
+| `c` — test-suite runs | `deterministic`, 1 replica, 3 attempts | refused |
+
+The library equivalent is `entangle_scheduler::Workload::apply_one_shot` /
+`apply_stream`.
+
+### `TrustedExecutor`: the executed component
+
+A `trusted-executor` task records the BLAKE3 digest of the component that
+produced its output (`executed_component` in `--json`, `Component:` in text
+mode): this node's own loaded artifact when it ran the task, otherwise the
+digest the executor reports (the task frame asks for it with an optional
+extension; an executor that predates it gets the frame again without, and
+no digest is recorded). It is the executor's claim, attributable to it
+through the authenticated transport, not independently verified.
+`require_attested_inputs` (spec §7.5) is **not implemented**: it needs
+attestation hardware.
+
+### Stdlib metrics
+
+| Metric | Package | Distance |
+|---|---|---|
+| BLEU-4 | `plugins/metric-bleu-4` | `1 − BLEU-4` over whitespace tokens |
+| Relative L2 | `plugins/metric-numerical-l2-relative` | `‖a − b‖ / max(‖a‖, ‖b‖)` over numeric vectors |
+| Embedding cosine | `plugins/metric-embedding-cosine` | `1 − cos` of a pinned feature-hashing embedding (words and character trigrams) for text, of the vectors themselves for numeric outputs; a threshold around `0.3` accepts paraphrases. Not a neural sentence model (see its README). |
+
+`image-ssim` (spec §7.5) is not provided.
+
 ## 12. Native (tier 4–5) plugins and the OS sandbox
 
 A native plugin is a host executable (`runtime = "native"`, packaged as
@@ -1065,6 +1163,9 @@ scrape_configs:
 | `entangle_mesh_peers` | gauge | `state` (`trusted`, `observer`, `revoked`, `sighted`) | Peer-store (one per trust level) and mDNS counts. `sighted` is unauthenticated and exists only with `mesh.local`. |
 | `entangle_scheduler_inflight_tasks` | gauge | — | Tasks inside the dispatcher right now. The dispatcher places and runs immediately and has **no queue**, so this is the saturation signal. |
 | `entangle_scheduler_workers` | gauge | — | Live workers in the scheduler pool. |
+| `entangle_scheduler_retries_total` | counter | `kind` (`one_shot`, `stream`), `cause` (`lost_after_send`, `unreachable`, `stalled`) | Attempts the scheduler retried (§11 *Failure handling*, §17): the transport failed after the request was sent (worker crash, lost connection), the worker could not be reached, or a stalled stream was preempted to be reassigned. |
+| `entangle_scheduler_speculative_total` | counter | `event` (`launched`, `won`, `lost`, `cancelled`) | Speculative backup copies of slow attempts: started, whose result was used (`won`) or not (`lost`), and copies cancelled because the other copy answered first. |
+| `entangle_scheduler_streams_stalled_total` | counter | `outcome` (`preempted`, `extended`, `reassigned`, `waited`) | Stalls a submitter observed on its streams, by what the scheduler did (§17). Never labelled by peer. |
 | `entangle_mesh_tailscale_state` | gauge | `state` (`active`, `stopped`, `uninstalled`, `unknown`) | One-hot: 1 for the tailnet state the liveness poller last confirmed (`unknown` until the first poll). **Absent unless `mesh.tailscale` is running.** |
 | `entangle_build_info` | gauge | `version` | Always 1. |
 | `entangle_daemon_uptime_seconds` | gauge | — | Seconds since the daemon started. |
@@ -1535,6 +1636,53 @@ credit-exhaustion timeout (30 min by default) the executor logs a
 `StalledEvent` (`RUST_LOG=entangle::scheduler::stream=warn`; the event is
 named `StalledEvent` in the log line) and waits as long again before giving
 up. Reading again before then resumes the stream.
+
+### Stalls: what the scheduler does about them
+
+The submitter observes two kinds of stall (library: `SubmitterMachine`,
+`StreamOptions::stall`):
+
+* a **credit stall** — the executor has had no output credit for the
+  credit-exhaustion timeout (this end is not consuming); the executor sees
+  the same stall from its side;
+* a **producer stall** — the executor holds credit and has sent nothing for
+  `SubmitterOptions::stall_after` (off unless set).
+
+Each is logged (`StalledEvent` with `observed_by=submitter`) and handled by
+the stream's `StallReaction`: `Wait` (the default: the executor's own timers
+run, as before), `Preempt` (cancel it: `ENTANGLE-E0474`), `Extend { by,
+times }` (an `Extend` control frame pushes the executor's
+unresponsive-cancellation out, by at most 30 min per frame and 16 frames per
+stream; the wall-clock timeout still holds; an executor that predates the
+frame closes the stream as a protocol violation) or `PreemptAndReassign`
+(cancel it and restart it on another executor, below). Each is counted in
+`entangle_scheduler_streams_stalled_total{outcome}`.
+
+**Stall blame.** A producer stall after at least half of the task's
+`expected_output_bytes`, or an executor's second producer stall within an
+hour, costs it reputation (`stalled-stream`). A credit stall never does: it
+is the consumer's doing.
+
+### Restarting a stream (`StreamingTask.retry`)
+
+A `SupervisedStream` (library) runs a stream over candidate executors. When
+an attempt is lost (transport failure, `peer-lost`), its executor cannot be
+reached, or a stall is preempted to be reassigned, the stream restarts **from
+its initial input** on the next candidate — a new stream with a fresh task id
+and capability token — within the task's retry policy and deadline. Anything
+else (a plugin error, a refusal, a bad signature, a timeout, a plain cancel)
+is final.
+
+* Before the consumer received any chunk, the restart is transparent.
+* After chunks were delivered, the stream restarts only when the task opts in
+  (`restart_after_delivery`); the restart produces the whole output again
+  from sequence 0 under a new **epoch** (every chunk carries its epoch), so a
+  consumer discards what it holds from the earlier epoch instead of appending
+  duplicates. Without the opt-in the consumer keeps what it got and sees the
+  failure.
+* A supervised stream carries only its initial input (its input is finished
+  when each attempt opens): a restart could not replay further input.
+  `entangle compute stream` uses a single executor and does not restart.
 
 ---
 

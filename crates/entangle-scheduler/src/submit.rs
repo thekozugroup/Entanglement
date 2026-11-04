@@ -294,6 +294,9 @@ mod tests {
             reasons: "pure = false".into(),
         }
         .to_string();
-        assert!(e.starts_with("ENTANGLE-E0470") && e.contains("SemanticEquivalent"), "{e}");
+        assert!(
+            e.starts_with("ENTANGLE-E0470") && e.contains("SemanticEquivalent"),
+            "{e}"
+        );
     }
 }

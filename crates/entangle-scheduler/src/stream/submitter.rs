@@ -375,7 +375,12 @@ impl SubmitterMachine {
         let producer = self
             .stall_after
             .filter(|after| self.executor_credit() > 0 && now >= self.last_progress + *after)
-            .map(|_| (StallKind::Producer, now.saturating_duration_since(self.last_progress)));
+            .map(|_| {
+                (
+                    StallKind::Producer,
+                    now.saturating_duration_since(self.last_progress),
+                )
+            });
         if let Some((kind, waited)) = credit.or(producer) {
             self.stalled = Some(kind);
             self.stalls += 1;

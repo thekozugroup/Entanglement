@@ -654,7 +654,8 @@ fn apply_flags(a: &StreamArgs, task: &mut StreamingTask) -> anyhow::Result<()> {
             .allow
             .iter()
             .map(|h| {
-                PeerId::from_hex(h).map_err(|e| anyhow::anyhow!("invalid --allow peer id '{h}': {e}"))
+                PeerId::from_hex(h)
+                    .map_err(|e| anyhow::anyhow!("invalid --allow peer id '{h}': {e}"))
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
         if executors.is_empty() {
@@ -1006,7 +1007,12 @@ mod tests {
         a.peer = Some(me.to_hex());
         let mut task = StreamingTask::with_defaults(plugin.clone(), vec![]);
         apply_flags(&a, &mut task).unwrap();
-        assert_eq!(task.integrity, IntegrityPolicy::TrustedExecutor { allowlist: vec![me] });
+        assert_eq!(
+            task.integrity,
+            IntegrityPolicy::TrustedExecutor {
+                allowlist: vec![me]
+            }
+        );
         assert_eq!(task.channel.max_total_bytes, 64 * 1024 * 1024);
         assert_eq!(task.channel.credit_window, 32);
         assert_eq!(task.partial_result, PartialResultPolicy::Keep);

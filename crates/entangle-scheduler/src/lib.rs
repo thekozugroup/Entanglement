@@ -67,19 +67,20 @@ pub mod work_unit;
 pub mod worker;
 
 pub use capability::{CapabilityGate, CapabilityTokens, HeldToken, StaticTokens};
-pub use dispatcher::{Attempt, AttemptKind, AttemptOutcome, DispatchError, DispatchResult, Dispatcher};
+pub use dispatcher::{
+    Attempt, AttemptKind, AttemptOutcome, DispatchError, DispatchResult, Dispatcher,
+};
 pub use integrity::{
     IntegrityVerifier, OutputSizeExceededWarning, ReplicaReport, ReplicaStatus, TELEMETRY_TARGET,
 };
 pub use placement::{choose, rank, PlacementChoice, PlacementError};
 pub use remote::{
-    send_control_over, serve_tasks, PeerAddressBook, PeerAllowlist, PeerDirectory, RemoteDispatch,
-    RemoteAttempt, RemoteReplica, RemoteTaskServer, StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
+    send_control_over, serve_tasks, PeerAddressBook, PeerAllowlist, PeerDirectory, RemoteAttempt,
+    RemoteDispatch, RemoteReplica, RemoteTaskServer, StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
 };
 pub use reputation::{ReputationReason, ReputationStore, ReputationTier};
 pub use retry::{DurationHistory, RetryCause, SpeculationConfig};
 pub use rtt::RttProber;
-pub use submit::{SubmitError, Workload};
 pub use spot_check::{
     SpotCheck, SpotCheckConfig, SpotCheckHandle, SpotCheckRecord, SpotCheckVerdict, SpotChecker,
     TieBreak,
@@ -88,6 +89,7 @@ pub use stream::{
     open_stream, serve_streams, validate_submit as validate_stream_submit, StreamError,
     StreamHandle, StreamServer,
 };
+pub use submit::{SubmitError, Workload};
 pub use transport::{
     serve_tailscale, IrohLink, RouteError, RoutePolicy, StreamIo, TailscaleLink, TransportKind,
     TransportRouter,

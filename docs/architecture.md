@@ -772,7 +772,7 @@ Stalled -- task_timeout * 2 (no recovery) -> Cancelled
 Active|Stalled -- 3 missed pings -------> Closed { reason: PeerLost }
 ```
 
-**StalledEvent surface.** Operators see stalled streams in `entangle logs scheduler --filter StalledEvent` and as the Prometheus counter `entangle_scheduler_streams_stalled_total{peer_id="..."}`. **Partial-result attribution — chunk signing.** Every `Chunk` frame is signed by the executor with their `peer_id`'s Ed25519 key:
+**StalledEvent surface.** Operators see stalled streams in `entangle logs scheduler --filter StalledEvent` and as the Prometheus counter `entangle_scheduler_streams_stalled_total{peer_id="..."}`. [Implementation: the counter is labelled by what the scheduler did — `{outcome="preempted"|"extended"|"reassigned"|"waited"}` — never by peer id, which would make its cardinality unbounded; the peer is in the `StalledEvent` log line. The submitter also reports a *producer* stall (credit held, nothing sent), which is what stall blame counts.] **Partial-result attribution — chunk signing.** Every `Chunk` frame is signed by the executor with their `peer_id`'s Ed25519 key:
 
 ```rust
 struct SignedChunk {
@@ -820,6 +820,11 @@ enum IntegrityPolicy {
   /// task's component manifest declares `pure: false` or uses non-deterministic
   /// host functions (system.entropy, system.clock with sub-second resolution, GPU
   /// floating-point kernels not flagged `bit-stable`).
+  /// [Implementation: non-determinism is declared in the manifest as
+  /// `[plugin] pure = false` and/or `nondeterministic = ["clock" | "entropy" |
+  /// "network" | "gpu-float"]`, and implied by a `net.lan` / `net.wan`
+  /// capability; the submitter checks the copy its kernel loaded and each
+  /// executor its own (`ENTANGLE-E0470`).]
   /// [Implementation: `Deterministic { replicas }` — the quorum is not a field;
   /// it is always a strict majority, replicas / 2 + 1, which gives the stated
   /// tolerance and the `{ 3, 2 }` default.] Deterministic { replication: u8, quorum: u8 },
@@ -850,7 +855,11 @@ enum IntegrityPolicy {
   /// Single-source from a NodeId the submitter has out-of-band reason to trust
   /// (their own desktop, a server they admin, a paired family device). No
   /// replication; correctness rests on the allowlist. The work unit's signed
-  /// component CID is recorded with the result for after-the-fact audit. TrustedExecutor {
+  /// component CID is recorded with the result for after-the-fact audit.
+  /// [Implementation: the result records the BLAKE3 digest of the component
+  /// artifact the executor reports having run (plugins are addressed by id,
+  /// not shipped by CID); `require_attested_inputs` is not implemented — it
+  /// needs attestation hardware.] TrustedExecutor {
     allowlist: Vec<NodeId>,   // candidate executors; scheduler picks one
     require_attested_inputs: bool,  // require Ed25519-signed input refs
   },
@@ -889,7 +898,7 @@ The threat model (§11) names them separately. **SemanticEquivalent metric TCB �
 | Metric crate | Computes | When to use |
 |---|---|---|
 | `entangle-metric-bleu-4` | BLEU-4 over token streams | Generic NLG eval. |
-| `entangle-metric-embedding-cosine` | Cosine over a pinned sentence-embedding model | Semantic equivalence of free-text outputs. |
+| `entangle-metric-embedding-cosine` | Cosine over a pinned sentence-embedding model | Semantic equivalence of free-text outputs. [Implementation: the pinned model is a self-contained feature-hashing embedding (words and character trigrams into 512 signed buckets), not a neural sentence-embedding model; numeric outputs are compared as embeddings directly.] |
 | `entangle-metric-numerical-l2-relative` | Relative L2 over numeric tensors | Numerical workloads (matrix multiply, simulation). |
 | `entangle-metric-image-ssim` | SSIM over images | Vision pipelines; fixed reference impl. |
 

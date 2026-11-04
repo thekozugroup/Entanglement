@@ -69,7 +69,10 @@ fn keyring_for(publisher: &IdentityKeyPair) -> Keyring {
 /// A kernel with `wasm` loaded as `<publisher>/demo@0.1.0`. Two kernels
 /// loading different components under the same id model two workers that
 /// run the same task at very different speeds.
-async fn kernel_with(publisher: &IdentityKeyPair, wasm: &str) -> (Arc<Kernel>, PluginId, tempfile::TempDir) {
+async fn kernel_with(
+    publisher: &IdentityKeyPair,
+    wasm: &str,
+) -> (Arc<Kernel>, PluginId, tempfile::TempDir) {
     kernel_with_manifest(publisher, wasm, "").await
 }
 
@@ -79,7 +82,8 @@ async fn kernel_with_manifest(
     wasm: &str,
     extra: &str,
 ) -> (Arc<Kernel>, PluginId, tempfile::TempDir) {
-    let kernel = Arc::new(Kernel::new(KernelConfig::default(), keyring_for(publisher)).expect("kernel"));
+    let kernel =
+        Arc::new(Kernel::new(KernelConfig::default(), keyring_for(publisher)).expect("kernel"));
     let dir = tempfile::tempdir().expect("tempdir");
     let id = format!("{}/demo@0.1.0", publisher.fingerprint_hex());
     let manifest = format!(
@@ -167,7 +171,11 @@ impl Link for Workers {
         outbound: &Outbound<'_>,
     ) -> Result<Vec<u8>, LinkError> {
         let peer = target.peer_id();
-        let behaviour = *self.behaviour.lock().get(&peer).unwrap_or(&Behaviour::Normal);
+        let behaviour = *self
+            .behaviour
+            .lock()
+            .get(&peer)
+            .unwrap_or(&Behaviour::Normal);
         if behaviour == Behaviour::Unreachable {
             return Err(LinkError::Connect("connection refused".into()));
         }
@@ -184,10 +192,14 @@ impl Link for Workers {
         match behaviour {
             Behaviour::CrashOnce if kind == "task" => {
                 self.set(peer, Behaviour::Normal);
-                return Err(LinkError::Transport("connection lost: worker crashed".into()));
+                return Err(LinkError::Transport(
+                    "connection lost: worker crashed".into(),
+                ));
             }
             Behaviour::CrashAlways if kind == "task" => {
-                return Err(LinkError::Transport("connection lost: worker crashed".into()));
+                return Err(LinkError::Transport(
+                    "connection lost: worker crashed".into(),
+                ));
             }
             Behaviour::Late(d) if kind == "task" => tokio::time::sleep(d).await,
             _ => {}
@@ -373,7 +385,11 @@ async fn a_worker_crash_mid_task_is_retried_on_another_worker() {
         .expect("the retry on the healthy worker must succeed");
     assert_eq!(result.output, b"Hello, world!");
     assert_eq!(result.chosen.peer_id, b, "the healthy worker produced it");
-    assert!(result.chosen.reason.contains("failed over"), "{}", result.chosen.reason);
+    assert!(
+        result.chosen.reason.contains("failed over"),
+        "{}",
+        result.chosen.reason
+    );
 
     assert_eq!(result.attempts.len(), 2, "{:?}", result.attempts);
     let (first, retry) = (&result.attempts[0], &result.attempts[1]);
@@ -401,9 +417,12 @@ async fn a_crash_with_no_other_worker_retries_the_same_worker() {
     let a = c.peers[0];
     c.workers.set(a, Behaviour::CrashOnce);
     let d = c.dispatcher(&tokens, SpeculationConfig::Off);
-    let result = deadline("dispatch", d.dispatch_one_shot(c.task(b"again", IntegrityPolicy::None)))
-        .await
-        .expect("the restarted worker answers the retry");
+    let result = deadline(
+        "dispatch",
+        d.dispatch_one_shot(c.task(b"again", IntegrityPolicy::None)),
+    )
+    .await
+    .expect("the restarted worker answers the retry");
     assert_eq!(result.output, b"Hello, again!");
     assert_eq!(result.attempts.len(), 2);
     assert!(result.attempts.iter().all(|x| x.peer == a));
@@ -418,9 +437,12 @@ async fn an_unreachable_worker_fails_over_but_is_never_retried_in_place() {
     let (a, b) = (c.peers[0], c.peers[1]);
     c.workers.set(a, Behaviour::Unreachable);
     let d = c.dispatcher(&tokens, SpeculationConfig::Off);
-    let ok = deadline("dispatch", d.dispatch_one_shot(c.task(b"x", IntegrityPolicy::None)))
-        .await
-        .expect("fails over");
+    let ok = deadline(
+        "dispatch",
+        d.dispatch_one_shot(c.task(b"x", IntegrityPolicy::None)),
+    )
+    .await
+    .expect("fails over");
     assert_eq!(ok.chosen.peer_id, b);
     assert_eq!(
         ok.attempts[1].kind,
@@ -430,10 +452,19 @@ async fn an_unreachable_worker_fails_over_but_is_never_retried_in_place() {
 
     // Only the unreachable worker left eligible: one attempt, no retry.
     c.workers.set(b, Behaviour::Unreachable);
-    let err = deadline("dispatch", d.dispatch_one_shot(c.task(b"y", IntegrityPolicy::TrustedExecutor { allowlist: vec![a] })))
-        .await
-        .expect_err("nothing reachable");
-    assert!(matches!(err, DispatchError::RemoteTransport { .. }), "{err:?}");
+    let err = deadline(
+        "dispatch",
+        d.dispatch_one_shot(c.task(
+            b"y",
+            IntegrityPolicy::TrustedExecutor { allowlist: vec![a] },
+        )),
+    )
+    .await
+    .expect_err("nothing reachable");
+    assert!(
+        matches!(err, DispatchError::RemoteTransport { .. }),
+        "{err:?}"
+    );
     assert_eq!(c.retries("unreachable"), 1.0, "not retried in place");
 }
 
@@ -447,10 +478,20 @@ async fn plugin_errors_token_refusals_and_timeouts_are_not_retried() {
 
     // Plugin not loaded on the chosen worker: an answer, final.
     let mut task = c.task(b"x", IntegrityPolicy::None);
-    task.plugin = format!("{}/missing@0.1.0", c.plugin.publisher).parse().unwrap();
-    let err = deadline("dispatch", d.dispatch_one_shot(task)).await.unwrap_err();
+    task.plugin = format!("{}/missing@0.1.0", c.plugin.publisher)
+        .parse()
+        .unwrap();
+    let err = deadline("dispatch", d.dispatch_one_shot(task))
+        .await
+        .unwrap_err();
     assert!(
-        matches!(err, DispatchError::RemoteRejected { code: RemoteErrorCode::PluginNotLoaded, .. }),
+        matches!(
+            err,
+            DispatchError::RemoteRejected {
+                code: RemoteErrorCode::PluginNotLoaded,
+                ..
+            }
+        ),
         "{err:?}"
     );
     assert_eq!(c.workers.frames_to(b, "task"), 0, "not retried elsewhere");
@@ -458,11 +499,20 @@ async fn plugin_errors_token_refusals_and_timeouts_are_not_retried() {
     // No token for the chosen worker: refused before any work, final.
     let partial = StaticTokens::new();
     let d2 = c.dispatcher(&partial, SpeculationConfig::Off);
-    let err = deadline("dispatch", d2.dispatch_one_shot(c.task(b"x", IntegrityPolicy::None)))
-        .await
-        .unwrap_err();
+    let err = deadline(
+        "dispatch",
+        d2.dispatch_one_shot(c.task(b"x", IntegrityPolicy::None)),
+    )
+    .await
+    .unwrap_err();
     assert!(
-        matches!(err, DispatchError::RemoteRejected { code: RemoteErrorCode::CapabilityRequired, .. }),
+        matches!(
+            err,
+            DispatchError::RemoteRejected {
+                code: RemoteErrorCode::CapabilityRequired,
+                ..
+            }
+        ),
         "{err:?}"
     );
     assert_eq!(c.workers.frames_to(b, "task"), 0);
@@ -480,12 +530,18 @@ async fn plugin_errors_token_refusals_and_timeouts_are_not_retried() {
         ));
     let mut task = c.task(b"slow", IntegrityPolicy::None);
     task.timeout_ms = 200;
-    let err = deadline("dispatch", d3.dispatch_one_shot(task)).await.unwrap_err();
+    let err = deadline("dispatch", d3.dispatch_one_shot(task))
+        .await
+        .unwrap_err();
     assert!(
         matches!(&err, DispatchError::RemoteTransport { reason, .. } if reason.contains("no answer within")),
         "{err:?}"
     );
-    assert_eq!(c.workers.frames_to(b, "task"), 0, "a timeout is not retried");
+    assert_eq!(
+        c.workers.frames_to(b, "task"),
+        0,
+        "a timeout is not retried"
+    );
     assert_eq!(c.retries("lost_after_send") + c.retries("unreachable"), 0.0);
 }
 
@@ -505,16 +561,30 @@ async fn no_retry_starts_after_the_task_deadline() {
         max_backoff_ms: 5_000,
     };
     let started = Instant::now();
-    let err = deadline("dispatch", d.dispatch_one_shot(task)).await.unwrap_err();
-    assert!(matches!(err, DispatchError::RemoteTransport { .. }), "{err:?}");
-    assert!(started.elapsed() < Duration::from_secs(2), "{:?}", started.elapsed());
+    let err = deadline("dispatch", d.dispatch_one_shot(task))
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, DispatchError::RemoteTransport { .. }),
+        "{err:?}"
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "{:?}",
+        started.elapsed()
+    );
     assert_eq!(c.workers.frames_to(c.peers[1], "task"), 0);
 
     // And `max_attempts = 1` never retries.
     let mut task = c.task(b"x", IntegrityPolicy::None);
     task.retry = RetryPolicy::never();
-    let err = deadline("dispatch", d.dispatch_one_shot(task)).await.unwrap_err();
-    assert!(matches!(err, DispatchError::RemoteTransport { .. }), "{err:?}");
+    let err = deadline("dispatch", d.dispatch_one_shot(task))
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, DispatchError::RemoteTransport { .. }),
+        "{err:?}"
+    );
     assert_eq!(c.workers.frames_to(c.peers[1], "task"), 0);
 }
 
@@ -538,7 +608,11 @@ async fn a_replica_retry_never_goes_to_a_worker_holding_a_replica() {
     assert_eq!(result.replicas.len(), 2, "no vote added");
     let peers: Vec<PeerId> = result.replicas.iter().map(|r| r.peer).collect();
     assert!(peers.contains(&b) && peers.contains(&z), "{peers:?}");
-    assert_eq!(c.workers.frames_to(b, "task"), 1, "b ran exactly its own replica");
+    assert_eq!(
+        c.workers.frames_to(b, "task"),
+        1,
+        "b ran exactly its own replica"
+    );
     assert_eq!(c.workers.frames_to(z, "task"), 1);
     let retry = result
         .attempts
@@ -560,8 +634,16 @@ async fn a_replica_retry_never_goes_to_a_worker_holding_a_replica() {
     .await
     .expect_err("one replica cannot make a quorum of two");
     assert!(err.to_string().contains("ENTANGLE-E0402"), "{err}");
-    assert_eq!(c.workers.frames_to(b, "task"), 1, "b was never given a second replica");
-    assert_eq!(c.workers.frames_to(a, "task"), 1, "a replicated retry never returns to a");
+    assert_eq!(
+        c.workers.frames_to(b, "task"),
+        1,
+        "b was never given a second replica"
+    );
+    assert_eq!(
+        c.workers.frames_to(a, "task"),
+        1,
+        "a replicated retry never returns to a"
+    );
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -593,7 +675,10 @@ async fn a_straggler_gets_a_backup_and_the_first_valid_result_wins() {
     .await
     .expect("the backup answers");
     let took = started.elapsed();
-    assert_eq!(result.output, b"Hello, spin:3000!", "the fast worker's answer");
+    assert_eq!(
+        result.output, b"Hello, spin:3000!",
+        "the fast worker's answer"
+    );
     assert_eq!(result.chosen.peer_id, fast);
     assert!(took < Duration::from_millis(2_500), "{took:?}");
     assert!(took >= Duration::from_millis(200), "{took:?}");
@@ -619,7 +704,11 @@ async fn a_straggler_gets_a_backup_and_the_first_valid_result_wins() {
     })
     .await;
     assert_eq!(c.workers.frames_to(slow, "cancel"), 1);
-    assert_eq!(c.workers.frames_to(fast, "cancel"), 0, "the winner is not cancelled");
+    assert_eq!(
+        c.workers.frames_to(fast, "cancel"),
+        0,
+        "the winner is not cancelled"
+    );
 }
 
 /// A fast first attempt never gets a backup; with speculation off a slow
@@ -628,9 +717,12 @@ async fn a_straggler_gets_a_backup_and_the_first_valid_result_wins() {
 async fn no_backup_below_the_threshold_or_with_speculation_off() {
     let (c, tokens) = cluster_with_tokens(&[HELLO_PONG_WASM, HELLO_PONG_WASM]).await;
     let d = c.dispatcher(&tokens, SpeculationConfig::After(Duration::from_secs(5)));
-    let r = deadline("dispatch", d.dispatch_one_shot(c.task(b"q", IntegrityPolicy::None)))
-        .await
-        .unwrap();
+    let r = deadline(
+        "dispatch",
+        d.dispatch_one_shot(c.task(b"q", IntegrityPolicy::None)),
+    )
+    .await
+    .unwrap();
     assert_eq!(r.attempts.len(), 1);
     assert_eq!(c.speculative("launched"), 0.0);
     assert!(
@@ -638,11 +730,15 @@ async fn no_backup_below_the_threshold_or_with_speculation_off() {
         "a successful attempt's duration is recorded for the median threshold"
     );
 
-    c.workers.set(c.peers[0], Behaviour::Late(Duration::from_millis(400)));
+    c.workers
+        .set(c.peers[0], Behaviour::Late(Duration::from_millis(400)));
     let off = c.dispatcher(&tokens, SpeculationConfig::Off);
-    let r = deadline("dispatch", off.dispatch_one_shot(c.task(b"q", IntegrityPolicy::None)))
-        .await
-        .unwrap();
+    let r = deadline(
+        "dispatch",
+        off.dispatch_one_shot(c.task(b"q", IntegrityPolicy::None)),
+    )
+    .await
+    .unwrap();
     assert_eq!(r.attempts.len(), 1);
     assert_eq!(c.workers.frames_to(c.peers[1], "task"), 0);
 }
@@ -652,8 +748,7 @@ async fn no_backup_below_the_threshold_or_with_speculation_off() {
 /// slow replica instead of adding a vote.
 #[tokio::test(flavor = "multi_thread")]
 async fn a_replica_backup_replaces_the_slow_replica_on_a_distinct_worker() {
-    let (c, tokens) =
-        cluster_with_tokens(&[STRESS_WASM, HELLO_PONG_WASM, HELLO_PONG_WASM]).await;
+    let (c, tokens) = cluster_with_tokens(&[STRESS_WASM, HELLO_PONG_WASM, HELLO_PONG_WASM]).await;
     let (slow, b, z) = (c.peers[0], c.peers[1], c.peers[2]);
     let d = c.dispatcher(
         &tokens,
@@ -669,7 +764,11 @@ async fn a_replica_backup_replaces_the_slow_replica_on_a_distinct_worker() {
     assert_eq!(result.replicas.len(), 2, "a backup never adds a vote");
     let peers: Vec<PeerId> = result.replicas.iter().map(|r| r.peer).collect();
     assert_eq!(peers, vec![z, b], "slot 0 moved from the slow worker to z");
-    assert_eq!(c.workers.frames_to(b, "task"), 1, "no backup on the other replica's worker");
+    assert_eq!(
+        c.workers.frames_to(b, "task"),
+        1,
+        "no backup on the other replica's worker"
+    );
     let backup = result
         .attempts
         .iter()
@@ -710,10 +809,16 @@ async fn a_trusted_executor_result_records_the_executed_component() {
     assert_eq!(trusted.executed_component, Some(expected));
     assert_eq!(trusted.replicas[0].component, Some(expected));
 
-    let plain = deadline("dispatch", d.dispatch_one_shot(c.task(b"x", IntegrityPolicy::None)))
-        .await
-        .unwrap();
-    assert_eq!(plain.executed_component, None, "not asked outside TrustedExecutor");
+    let plain = deadline(
+        "dispatch",
+        d.dispatch_one_shot(c.task(b"x", IntegrityPolicy::None)),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        plain.executed_component, None,
+        "not asked outside TrustedExecutor"
+    );
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -741,9 +846,14 @@ async fn deterministic_is_refused_for_a_plugin_that_declares_nondeterminism() {
     let text = err.to_string();
     assert!(matches!(err, DispatchError::Submit(_)), "{err:?}");
     assert!(text.starts_with("ENTANGLE-E0470"), "{text}");
-    assert!(text.contains("pure = false") && text.contains("SemanticEquivalent"), "{text}");
+    assert!(
+        text.contains("pure = false") && text.contains("SemanticEquivalent"),
+        "{text}"
+    );
     task.integrity = IntegrityPolicy::None;
-    let ok = deadline("dispatch", local.dispatch_one_shot(task)).await.unwrap();
+    let ok = deadline("dispatch", local.dispatch_one_shot(task))
+        .await
+        .unwrap();
     assert_eq!(ok.output, b"Hello, x!");
     assert_eq!(
         ok.executed_component,
@@ -756,7 +866,9 @@ async fn deterministic_is_refused_for_a_plugin_that_declares_nondeterminism() {
     let d = c.dispatcher(&tokens, SpeculationConfig::Off);
     let mut task = c.task(b"x", IntegrityPolicy::Deterministic { replicas: 1 });
     task.plugin = c.plugin.clone();
-    let err = deadline("dispatch", d.dispatch_one_shot(task)).await.unwrap_err();
+    let err = deadline("dispatch", d.dispatch_one_shot(task))
+        .await
+        .unwrap_err();
     match &err {
         DispatchError::RemoteRejected { code, message, .. } => {
             assert_eq!(*code, RemoteErrorCode::Nondeterministic);
@@ -764,11 +876,18 @@ async fn deterministic_is_refused_for_a_plugin_that_declares_nondeterminism() {
         }
         other => panic!("expected the executor's refusal, got {other:?}"),
     }
-    assert_eq!(c.workers.frames_to(c.peers[1], "task"), 0, "not retried elsewhere");
+    assert_eq!(
+        c.workers.frames_to(c.peers[1], "task"),
+        0,
+        "not retried elsewhere"
+    );
 }
 
 /// Two workers whose plugin manifest carries `extra`.
-async fn cluster_with_declared(publisher: &IdentityKeyPair, extra: &str) -> (Cluster, StaticTokens) {
+async fn cluster_with_declared(
+    publisher: &IdentityKeyPair,
+    extra: &str,
+) -> (Cluster, StaticTokens) {
     let submitter = PeerId::from_public_key_bytes(&[43; 32]);
     let mut identities = Vec::new();
     let mut workers = HashMap::new();
@@ -788,7 +907,13 @@ async fn cluster_with_declared(publisher: &IdentityKeyPair, extra: &str) -> (Clu
             Arc::new(StaticAllowlist::new().allow(submitter)),
             Arc::new(CapabilityGate::for_identity(&identity).expect("gate")),
         ));
-        workers.insert(peer, Worker { key, server: Arc::clone(&server) });
+        workers.insert(
+            peer,
+            Worker {
+                key,
+                server: Arc::clone(&server),
+            },
+        );
         peers.push(peer);
         servers.push(server);
         identities.push(identity);

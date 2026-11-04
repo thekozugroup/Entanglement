@@ -315,9 +315,9 @@ impl SupervisedStream {
             if let Some((cause, error)) = &after {
                 let made = self.attempts.len();
                 let now = Instant::now();
-                let Some(target) = target.filter(|_| {
-                    made < usize::from(policy.attempts()) && now < self.deadline
-                }) else {
+                let Some(target) =
+                    target.filter(|_| made < usize::from(policy.attempts()) && now < self.deadline)
+                else {
                     return Err(self.exhausted(error.clone()));
                 };
                 if let Some(last) = self.attempts.last_mut() {
@@ -402,9 +402,7 @@ impl SupervisedStream {
 /// module docs).
 pub fn restart_cause(error: &StreamError) -> Option<RetryCause> {
     match error {
-        StreamError::Transport(_) | StreamError::PeerLost { .. } => {
-            Some(RetryCause::LostAfterSend)
-        }
+        StreamError::Transport(_) | StreamError::PeerLost { .. } => Some(RetryCause::LostAfterSend),
         StreamError::Preempted { reassign: true, .. } => Some(RetryCause::Stalled),
         _ => None,
     }

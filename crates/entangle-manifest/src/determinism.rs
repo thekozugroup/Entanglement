@@ -78,7 +78,9 @@ mod tests {
     #[test]
     fn nondeterminism_comes_from_pure_declared_functions_and_network() {
         assert!(nondeterminism(&manifest("", "")).unwrap().is_empty());
-        assert!(nondeterminism(&manifest("pure = true", "")).unwrap().is_empty());
+        assert!(nondeterminism(&manifest("pure = true", ""))
+            .unwrap()
+            .is_empty());
         assert_eq!(
             nondeterminism(&manifest("pure = false", "")).unwrap(),
             vec!["pure = false"]

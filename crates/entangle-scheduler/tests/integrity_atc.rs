@@ -1242,7 +1242,11 @@ async fn stdlib_metric_components_match_their_documented_math() {
         fixture("tests/fixtures/metric-embedding-cosine.wasm"),
     );
     let near = registry
-        .compare(&cosine, b"The cat sat on the mat.", b"the cats sat on a mat")
+        .compare(
+            &cosine,
+            b"The cat sat on the mat.",
+            b"the cats sat on a mat",
+        )
         .await
         .unwrap();
     let far = registry
@@ -1262,7 +1266,10 @@ async fn stdlib_metric_components_match_their_documented_math() {
             .unwrap(),
         0.0
     );
-    let d = registry.compare(&cosine, b"[3, 4]", b"[4, 3]").await.unwrap();
+    let d = registry
+        .compare(&cosine, b"[3, 4]", b"[4, 3]")
+        .await
+        .unwrap();
     assert!((d - 0.04).abs() < 1e-12, "{d}");
     assert_eq!(
         registry

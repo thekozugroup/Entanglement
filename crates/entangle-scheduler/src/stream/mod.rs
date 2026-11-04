@@ -56,7 +56,6 @@ pub use driver::{
     drive_executor, ExecutorReport, StallPolicy, StallReaction, StreamHandle, StreamOptions,
     SubmitterReport,
 };
-pub use supervise::{StreamOpener, SupervisedChunk, SupervisedPoll, SupervisedStream};
 pub use error::{Reason, Side, StreamError};
 pub use executor::{ExecutorConfig, ExecutorMachine, ExecutorState, InputPoll, SendOutcome};
 pub use frame::{Frame, Signature64, STREAM_WIRE_VERSION};
@@ -68,6 +67,7 @@ pub use submitter::{
     ChunkPoll, EndSummary, InputSend, SubmitterMachine, SubmitterOptions, SubmitterState,
     VerifiedChunk,
 };
+pub use supervise::{StreamOpener, SupervisedChunk, SupervisedPoll, SupervisedStream};
 pub use validate::{
     check_executor_allowed, check_stream_integrity, chunk_allowance, validate_submit,
     StreamCeilings, StreamLimits, MAX_STREAM_TIMEOUT_MS, MIN_CHUNK_ALLOWANCE,

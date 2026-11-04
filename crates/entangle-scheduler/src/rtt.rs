@@ -191,7 +191,10 @@ mod tests {
             let k = (0..=255u8)
                 .map(key)
                 .find(|k| PeerId::from_public_key_bytes(k) == *peer)?;
-            Some(DialTarget::Iroh(IrohPeer::new(k, "127.0.0.1:9".parse().ok()?)))
+            Some(DialTarget::Iroh(IrohPeer::new(
+                k,
+                "127.0.0.1:9".parse().ok()?,
+            )))
         }
         async fn request(
             &self,
@@ -242,8 +245,8 @@ mod tests {
             (near, Duration::from_millis(5)),
             (far, Duration::from_millis(120)),
         ]));
-        let router = TransportRouter::new(PeerId::from_public_key_bytes(&key(9)))
-            .with_link(Arc::new(link));
+        let router =
+            TransportRouter::new(PeerId::from_public_key_bytes(&key(9))).with_link(Arc::new(link));
         let pool = WorkerPool::new();
         for p in [near, far, dead] {
             pool.upsert(worker(p, 5));
@@ -262,7 +265,11 @@ mod tests {
         };
         assert!(rtt(near).is_some_and(|ms| ms < 100), "{:?}", rtt(near));
         assert!(rtt(far).is_some_and(|ms| ms >= 120), "{:?}", rtt(far));
-        assert_eq!(rtt(dead), Some(5), "no answer: the advertised constant stays");
+        assert_eq!(
+            rtt(dead),
+            Some(5),
+            "no answer: the advertised constant stays"
+        );
         assert_eq!(pool.measured_rtt(&dead), None);
 
         // Bounded: one worker per round, the least recently probed first.

@@ -17,7 +17,9 @@ use entangle_observability::catalog::names;
 use entangle_observability::Registry;
 use entangle_runtime::{Kernel, KernelConfig};
 use entangle_scheduler::capability::{CapabilityTokens, StaticTokens};
-use entangle_scheduler::stream::frame::{decode_frame, encode_frame, AcceptedFrame, ChunkFrame, Frame};
+use entangle_scheduler::stream::frame::{
+    decode_frame, encode_frame, AcceptedFrame, ChunkFrame, Frame,
+};
 use entangle_scheduler::stream::{
     request_digest, ChunkPoll, ChunkSigner, Reason, Side, StallKind, StallPolicy, StallReaction,
     StreamCeilings, StreamError, StreamHandle, StreamOpener, StreamOptions, StreamServer,
@@ -132,7 +134,9 @@ impl StreamOpener for Opener {
     ) -> Result<StreamHandle, StreamError> {
         let ex = self.executors.get(&executor).expect("known executor");
         if let Behaviour::Unreachable = ex.behaviour {
-            self.opens.lock().push((executor, *task.id.as_bytes(), false));
+            self.opens
+                .lock()
+                .push((executor, *task.id.as_bytes(), false));
             return Err(StreamError::Transport("connection refused".into()));
         }
         let (sub_io, exec_io) = duplex_pair(
@@ -142,7 +146,9 @@ impl StreamOpener for Opener {
             64 * 1024,
         );
         let had_token = options.capability.is_some();
-        self.opens.lock().push((executor, *task.id.as_bytes(), had_token));
+        self.opens
+            .lock()
+            .push((executor, *task.id.as_bytes(), had_token));
         match ex.behaviour {
             Behaviour::Healthy => {
                 let server = StreamServer::new(
@@ -175,7 +181,9 @@ impl StreamOpener for Opener {
 /// drop the stream (`stall = false`) or keep it open answering pings and
 /// sending nothing (`stall = true`).
 async fn scripted(mut io: FramedStream, key: IdentityKeyPair, n: u64, stall: bool) {
-    let Ok(Some(bytes)) = io.recv().await else { return };
+    let Ok(Some(bytes)) = io.recv().await else {
+        return;
+    };
     let Ok(Frame::Open(open)) = decode_frame(&bytes, Side::Submitter) else {
         return;
     };
@@ -204,7 +212,9 @@ async fn scripted(mut io: FramedStream, key: IdentityKeyPair, n: u64, stall: boo
     }
     while let Ok(Some(bytes)) = io.recv().await {
         if let Ok(Frame::Ping { seq, ts_ms }) = decode_frame(&bytes, Side::Submitter) {
-            let _ = io.send(&encode_frame(&Frame::Pong { seq, ts_ms }).unwrap()).await;
+            let _ = io
+                .send(&encode_frame(&Frame::Pong { seq, ts_ms }).unwrap())
+                .await;
         }
     }
 }
@@ -322,7 +332,11 @@ async fn a_stream_lost_before_any_chunk_restarts_on_another_executor() {
     assert_eq!(text, lines(5).into_bytes());
     assert!(chunks.iter().all(|(epoch, _)| *epoch == 0));
     match end {
-        SupervisedPoll::Ended { epoch, executor, end } => {
+        SupervisedPoll::Ended {
+            epoch,
+            executor,
+            end,
+        } => {
             assert_eq!(epoch, 0);
             assert_eq!(executor, s.peers[1]);
             assert_eq!(end.chunks, 5);
@@ -366,7 +380,10 @@ async fn a_restart_after_delivery_needs_opt_in_and_marks_a_new_epoch() {
     assert_eq!(chunks.len(), 2);
     match end {
         SupervisedPoll::Closed(e) => {
-            assert!(matches!(e, StreamError::Transport(_) | StreamError::PeerLost { .. }), "{e}")
+            assert!(
+                matches!(e, StreamError::Transport(_) | StreamError::PeerLost { .. }),
+                "{e}"
+            )
         }
         other => panic!("expected the failure, got {other:?}"),
     }
@@ -385,7 +402,10 @@ async fn a_restart_after_delivery_needs_opt_in_and_marks_a_new_epoch() {
             other => break other,
         }
     };
-    assert!(matches!(end, SupervisedPoll::Ended { epoch: 1, .. }), "{end:?}");
+    assert!(
+        matches!(end, SupervisedPoll::Ended { epoch: 1, .. }),
+        "{end:?}"
+    );
     let epoch0: Vec<_> = got.iter().filter(|c| c.0 == 0).collect();
     let epoch1: Vec<_> = got.iter().filter(|c| c.0 == 1).collect();
     assert_eq!(epoch0.len(), 2);
@@ -448,7 +468,13 @@ async fn a_producer_stall_is_preempted_or_reassigned() {
     let (chunks, end) = drain(&mut stream).await;
     assert!(chunks.is_empty());
     match end {
-        SupervisedPoll::Closed(e @ StreamError::Preempted { kind: StallKind::Producer, reassign: false, .. }) => {
+        SupervisedPoll::Closed(
+            e @ StreamError::Preempted {
+                kind: StallKind::Producer,
+                reassign: false,
+                ..
+            },
+        ) => {
             assert!(e.to_string().starts_with("ENTANGLE-E0474"), "{e}");
         }
         other => panic!("expected a preemption, got {other:?}"),
@@ -504,7 +530,13 @@ async fn a_credit_stall_is_extended_through_a_control_frame() {
     }
     let e = closed.expect("closed");
     assert!(
-        matches!(&e, StreamError::PeerAborted { reason: Reason::SubmitterUnresponsive, .. }),
+        matches!(
+            &e,
+            StreamError::PeerAborted {
+                reason: Reason::SubmitterUnresponsive,
+                ..
+            }
+        ),
         "{e}"
     );
     assert_eq!(stalls(&reg, "waited"), 1.0);
@@ -570,7 +602,10 @@ async fn stalling_late_or_repeatedly_costs_reputation() {
     let mut stream = s.supervise(task, options.clone()).await;
     let (chunks, end) = drain(&mut stream).await;
     assert_eq!(chunks.len(), 3);
-    assert!(matches!(end, SupervisedPoll::Closed(StreamError::Preempted { .. })), "{end:?}");
+    assert!(
+        matches!(end, SupervisedPoll::Closed(StreamError::Preempted { .. })),
+        "{end:?}"
+    );
     let record = store.record(&late, PolicyKind::None);
     assert_eq!((record.total, record.correct), (1, 0), "penalised once");
 
@@ -592,7 +627,11 @@ async fn stalling_late_or_repeatedly_costs_reputation() {
         let record = store.record(&early, PolicyKind::None);
         match round {
             0 => assert_eq!(record.total, 0, "an early first stall is not blamed"),
-            _ => assert_eq!((record.total, record.correct), (1, 0), "a repeated stall is"),
+            _ => assert_eq!(
+                (record.total, record.correct),
+                (1, 0),
+                "a repeated stall is"
+            ),
         }
     }
     let _ = ReputationReason::StalledStream.as_str();

@@ -731,9 +731,9 @@ pub fn decode_response(
         }
         // The executed-component block: exactly 32 bytes, at most once.
         if let [COMPONENT_EXTENSION_TAG, after @ ..] = rest {
-            let (digest, after) = after.split_at_checked(32).ok_or_else(|| {
-                WireError::Malformed("truncated executed-component block".into())
-            })?;
+            let (digest, after) = after
+                .split_at_checked(32)
+                .ok_or_else(|| WireError::Malformed("truncated executed-component block".into()))?;
             let mut component = [0u8; 32];
             component.copy_from_slice(digest);
             resp.component = Some(component);
@@ -814,7 +814,11 @@ mod component_tests {
         ))
         .expect("encode");
         assert_eq!(asking.len(), plain.len() + 1);
-        assert_eq!(asking[..plain.len()], plain[..], "an extension follows the v2 frame");
+        assert_eq!(
+            asking[..plain.len()],
+            plain[..],
+            "an extension follows the v2 frame"
+        );
         let RequestFrame::Task(t) = decode_request(&asking).expect("decode").frame else {
             panic!("task frame")
         };
@@ -833,14 +837,17 @@ mod component_tests {
             decode_response(&bytes[..bytes.len() - 1], 16).is_err(),
             "a truncated digest is malformed"
         );
-        let refusal = RemoteTaskResponse::err(RemoteErrorCode::Execution, "no")
-            .with_component(Some([7; 32]));
+        let refusal =
+            RemoteTaskResponse::err(RemoteErrorCode::Execution, "no").with_component(Some([7; 32]));
         let bytes = encode_response(&refusal).expect("encode");
         assert_eq!(decode_response(&bytes, 16).expect("decode").component, None);
         let mut smuggled = bytes.clone();
         smuggled.push(COMPONENT_EXTENSION_TAG);
         smuggled.extend_from_slice(&[7; 32]);
-        assert!(decode_response(&smuggled, 16).is_err(), "only after an Ok outcome");
+        assert!(
+            decode_response(&smuggled, 16).is_err(),
+            "only after an Ok outcome"
+        );
     }
 }
 

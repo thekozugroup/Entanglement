@@ -241,7 +241,10 @@ fn parse_workload(a: &DispatchArgs) -> anyhow::Result<Option<Workload>> {
 
 /// The integrity policy to send: `--integrity` when given (explicit flags
 /// override the preset), else the `--workload` preset's, else `none`.
-fn resolve_integrity(a: &DispatchArgs, workload: Option<Workload>) -> anyhow::Result<ComputeIntegrity> {
+fn resolve_integrity(
+    a: &DispatchArgs,
+    workload: Option<Workload>,
+) -> anyhow::Result<ComputeIntegrity> {
     match (a.integrity.as_deref(), workload) {
         (None, Some(w)) => {
             if !stray_semantic_flags(a).is_empty() {
@@ -256,9 +259,11 @@ fn resolve_integrity(a: &DispatchArgs, workload: Option<Workload>) -> anyhow::Re
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
             Ok(match w.integrity(&executors)? {
-                IntegrityPolicy::TrustedExecutor { allowlist } => ComputeIntegrity::TrustedExecutor {
-                    allowlist: allowlist.iter().map(PeerId::to_hex).collect(),
-                },
+                IntegrityPolicy::TrustedExecutor { allowlist } => {
+                    ComputeIntegrity::TrustedExecutor {
+                        allowlist: allowlist.iter().map(PeerId::to_hex).collect(),
+                    }
+                }
                 IntegrityPolicy::Deterministic { replicas } => {
                     ComputeIntegrity::Deterministic { replicas }
                 }
@@ -366,7 +371,9 @@ fn parse_integrity(a: &DispatchArgs) -> anyhow::Result<ComputeIntegrity> {
 }
 
 /// The scheduler's attempt records in RPC form.
-fn rpc_attempts(attempts: &[entangle_scheduler::Attempt]) -> Vec<entangle_rpc::methods::ComputeAttempt> {
+fn rpc_attempts(
+    attempts: &[entangle_scheduler::Attempt],
+) -> Vec<entangle_rpc::methods::ComputeAttempt> {
     attempts
         .iter()
         .map(|a| entangle_rpc::methods::ComputeAttempt {
@@ -703,7 +710,10 @@ mod tests {
             assert_eq!(resolve_max_output_bytes(&a, w), None);
         }
         let c = args(&["--workload", "c"]);
-        assert_eq!(resolve_max_attempts(&c, parse_workload(&c).unwrap()), Some(3));
+        assert_eq!(
+            resolve_max_attempts(&c, parse_workload(&c).unwrap()),
+            Some(3)
+        );
         let err = parse_workload(&args(&["--workload", "z"])).unwrap_err();
         assert!(err.to_string().contains("ENTANGLE-E0471"), "{err}");
     }
@@ -727,14 +737,24 @@ mod tests {
         assert_eq!(resolve_integrity(&a, w).unwrap(), ComputeIntegrity::None);
         assert_eq!(resolve_max_output_bytes(&a, w), Some(77));
         assert_eq!(resolve_max_attempts(&a, w), Some(1));
-        let b = args(&["--workload", "b", "--integrity", "deterministic", "--replicas", "5"]);
+        let b = args(&[
+            "--workload",
+            "b",
+            "--integrity",
+            "deterministic",
+            "--replicas",
+            "5",
+        ]);
         assert_eq!(
             resolve_integrity(&b, parse_workload(&b).unwrap()).unwrap(),
             ComputeIntegrity::Deterministic { replicas: 5 }
         );
         // No preset, no --integrity: none, as before.
         let plain = args(&[]);
-        assert_eq!(resolve_integrity(&plain, None).unwrap(), ComputeIntegrity::None);
+        assert_eq!(
+            resolve_integrity(&plain, None).unwrap(),
+            ComputeIntegrity::None
+        );
     }
 
     #[test]

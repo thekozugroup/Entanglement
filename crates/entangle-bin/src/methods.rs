@@ -691,7 +691,9 @@ async fn resolve_metric(
 }
 
 /// The scheduler's attempt records in RPC form.
-fn rpc_attempts(attempts: &[entangle_scheduler::Attempt]) -> Vec<entangle_rpc::methods::ComputeAttempt> {
+fn rpc_attempts(
+    attempts: &[entangle_scheduler::Attempt],
+) -> Vec<entangle_rpc::methods::ComputeAttempt> {
     attempts
         .iter()
         .map(|a| entangle_rpc::methods::ComputeAttempt {

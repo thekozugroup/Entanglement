@@ -857,7 +857,10 @@ mod tests {
             Some(1.0)
         );
         let text = r.render();
-        assert!(!text.contains("0123abcd") && !text.contains("peer_id"), "{text}");
+        assert!(
+            !text.contains("0123abcd") && !text.contains("peer_id"),
+            "{text}"
+        );
     }
 
     #[test]

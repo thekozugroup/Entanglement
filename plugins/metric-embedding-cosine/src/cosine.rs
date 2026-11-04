@@ -208,7 +208,10 @@ mod tests {
     fn vectors_compare_by_cosine() {
         assert!(distance(b"[1, 0]", b"[0, 1]") - 1.0 < 1e-12);
         assert!((distance(b"[1, 0]", b"[-1, 0]") - 2.0).abs() < 1e-12);
-        assert!(distance(b"[1, 2, 3]", b"2 4 6").abs() < 1e-12, "scale-invariant");
+        assert!(
+            distance(b"[1, 2, 3]", b"2 4 6").abs() < 1e-12,
+            "scale-invariant"
+        );
         let d = distance(b"[3, 4]", b"[4, 3]");
         assert!((d - (1.0 - 24.0 / 25.0)).abs() < 1e-12, "{d}");
         assert!(distance(b"[1e308, 1e308]", b"[1e308, 1e308]").abs() < 1e-12);

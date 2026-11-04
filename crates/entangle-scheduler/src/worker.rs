@@ -229,7 +229,9 @@ impl WorkerPool {
         let mut guard = self.inner.write();
         let before = guard.len();
         guard.retain(|_, (_, ts)| now.duration_since(*ts) < ttl);
-        self.measured.write().retain(|peer, _| guard.contains_key(peer));
+        self.measured
+            .write()
+            .retain(|peer, _| guard.contains_key(peer));
         before - guard.len()
     }
 }
@@ -242,7 +244,10 @@ mod tests {
     fn a_measured_rtt_overrides_the_advertised_constant_until_cleared() {
         let pool = WorkerPool::new();
         let p = make_peer(9);
-        assert!(!pool.set_measured_rtt(&p, Duration::from_millis(40)), "not a member");
+        assert!(
+            !pool.set_measured_rtt(&p, Duration::from_millis(40)),
+            "not a member"
+        );
         let mut advert = make_worker(p);
         advert.rtt_ms = 5;
         pool.upsert(advert.clone());
@@ -254,7 +259,11 @@ mod tests {
         assert_eq!(pool.measured_rtt(&p), Some(40));
         pool.clear_measured_rtt(&p);
         pool.upsert(advert);
-        assert_eq!(pool.live(Duration::MAX)[0].rtt_ms, 5, "back to the advertised value");
+        assert_eq!(
+            pool.live(Duration::MAX)[0].rtt_ms,
+            5,
+            "back to the advertised value"
+        );
         // Leaving the pool forgets the measurement.
         pool.set_measured_rtt(&p, Duration::from_millis(7));
         pool.remove(&p);

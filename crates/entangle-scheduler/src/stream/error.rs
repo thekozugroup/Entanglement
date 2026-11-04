@@ -505,8 +505,10 @@ mod tests {
         assert_eq!(codes.len(), n, "duplicate stream error code");
         // E0350–E0399 for the protocol; E0474–E0476 (the scheduler
         // failure-handling range) for preemption and supervised restarts.
-        assert!(codes.iter().all(|c| ("ENTANGLE-E0350"..="ENTANGLE-E0399").contains(c)
-            || ("ENTANGLE-E0474"..="ENTANGLE-E0476").contains(c)));
+        assert!(codes
+            .iter()
+            .all(|c| ("ENTANGLE-E0350"..="ENTANGLE-E0399").contains(c)
+                || ("ENTANGLE-E0474"..="ENTANGLE-E0476").contains(c)));
     }
 
     #[test]

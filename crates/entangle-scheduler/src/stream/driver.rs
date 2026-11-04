@@ -910,9 +910,11 @@ fn react_to_stall(
                 .expected_output_bytes()
                 .is_some_and(|expected| expected > 0 && report.bytes.saturating_mul(2) >= expected);
             let recent = store.note_stall(&executor, Instant::now());
-            let repeated = recent.max(report.count as usize) >= options.stall.repeat_blame.max(1) as usize;
+            let repeated =
+                recent.max(report.count as usize) >= options.stall.repeat_blame.max(1) as usize;
             if late || repeated {
-                let score = store.penalize(&executor, m.policy_kind(), ReputationReason::StalledStream);
+                let score =
+                    store.penalize(&executor, m.policy_kind(), ReputationReason::StalledStream);
                 tracing::warn!(
                     target: super::STREAM_TRACE_TARGET,
                     peer = %executor,

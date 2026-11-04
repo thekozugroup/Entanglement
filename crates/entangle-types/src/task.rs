@@ -578,7 +578,13 @@ mod tests {
         let back: OneShotTask = serde_json::from_value(json).unwrap();
         assert_eq!(back.retry, RetryPolicy::default());
         let partial: RetryPolicy = serde_json::from_str(r#"{"max_attempts":1}"#).unwrap();
-        assert_eq!(partial, RetryPolicy { max_attempts: 1, ..RetryPolicy::default() });
+        assert_eq!(
+            partial,
+            RetryPolicy {
+                max_attempts: 1,
+                ..RetryPolicy::default()
+            }
+        );
 
         let stream = StreamingTask::with_defaults(plugin, b"p".to_vec());
         let mut json = serde_json::to_value(&stream).unwrap();
