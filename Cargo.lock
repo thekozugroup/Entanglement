@@ -1591,6 +1591,7 @@ dependencies = [
  "directories",
  "entangle-agent-host",
  "entangle-manifest",
+ "entangle-mesh-iroh",
  "entangle-mesh-tailscale",
  "entangle-observability",
  "entangle-pairing",
