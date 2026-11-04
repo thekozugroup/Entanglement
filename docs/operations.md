@@ -62,6 +62,28 @@ What the unit sets up:
 The `entangle` CLI is a separate, per-user client — the unit runs only the
 daemon.
 
+### 1a'. launchd (macOS)
+
+LaunchAgent: [`../packaging/io.github.thekozugroup.entangled.plist`](../packaging/io.github.thekozugroup.entangled.plist).
+It runs `entangled run` as the logged-in user (the daemon reads
+`$HOME/.entangle`, like the CLI), restarts it on a **non-zero** exit only
+(`KeepAlive` → `SuccessfulExit = false`, the counterpart of systemd's
+`Restart=on-failure`), at most every 5 s (`ThrottleInterval`), and writes the
+JSON log lines to `~/Library/Logs/entangled.log`. Install steps are in the
+plist's header comment:
+
+```bash
+sudo install -m0755 entangled /usr/local/bin/entangled
+mkdir -p ~/Library/LaunchAgents ~/Library/Logs
+sed "s#__HOME__#$HOME#g" packaging/io.github.thekozugroup.entangled.plist \
+  > ~/Library/LaunchAgents/io.github.thekozugroup.entangled.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.thekozugroup.entangled.plist
+```
+
+(`brew services start entangle` uses the Homebrew formula's own service
+definition instead, which restarts on every exit.) What a restart means for
+in-flight work is in §21.
+
 ### 1b. Docker / docker-compose
 
 See [`../docker/README.md`](../docker/README.md) for build/run commands and
@@ -321,6 +343,7 @@ canonical range table, maintained in
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
+| E0780–E0799 | Runtime lifecycle — see §21–§24: a core fault that exits the daemon (E0787), a contained panic in a plugin call (E0788) |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -1770,3 +1793,58 @@ the task or stream server.
 | `... does not serve entangle/scheduler/1 over mesh.tailscale` | The peer's tailnet listener predates this release (it answered without protocol selection). Upgrade it; until then the router falls back to the next transport. |
 | Traffic uses a slower transport than expected | Check the `route:` line in `entangle diag mesh` (order, skips, last used) and `[mesh] preferred` / `[mesh.overrides]`. A connect failure on the first candidate (e.g. a stale tailnet address) silently falls back; `RUST_LOG=entangle_scheduler=debug` logs each failed attempt. |
 | `ENTANGLE-E0432` | The connection broke after the request was sent; the task may or may not have run on the peer, so it was not retried. Re-submit if the task is idempotent. |
+
+---
+
+## 21. Fault isolation and restarts
+
+A bug in the daemon's own code must not leave a half-working daemon behind
+(spec §2.1). `entangled` therefore turns every **core fault** into a clean
+process exit with a distinct status, and lets the service manager restart it:
+
+| Exit status | Meaning |
+|---|---|
+| `0` | Clean stop (SIGTERM / SIGINT). Not restarted by `Restart=on-failure` or the launchd plist. |
+| `1` | Startup error: bad `config.toml`, unreadable keyring or identity, the multi-node peer check (§5), an unusable `[metrics]` section. Restarted, and fails again until fixed. |
+| `70` | **Core fault** (`EX_SOFTWARE`): a panic outside a contained plugin call, or a supervised core task that ended while the daemon was running. Restarted. |
+
+Before exiting with 70 the daemon writes **one** structured error line at
+target `entangle::telemetry` with `code = "ENTANGLE-E0787"`, `exit_code`,
+and either the panic's `location`, `thread` and message (`panic`), or the
+`task` that ended:
+
+```json
+{"level":"ERROR","target":"entangle::telemetry","fields":{"code":"ENTANGLE-E0787","contained":false,"exit_code":70,"location":"crates/entangle-bin/src/maintenance.rs:113:9","thread":"tokio-rt-worker","panic":"...","message":"ENTANGLE-E0787: panic in core code; exiting so the service manager restarts the daemon"}}
+```
+
+**Which paths exit and which contain.**
+
+| Where the panic happens | Outcome |
+|---|---|
+| RPC server (accept loop, request handling), maintenance loop, scheduler task and stream servers (`mesh.iroh`, `mesh.tailscale`), mDNS discovery, metrics endpoint, plugin load / unload / reload, any other daemon thread | Exit 70 (`ENTANGLE-E0787`). |
+| Capability broker: granting or releasing a capability (`Broker::grant`, `grant_by_key`, `release`), even when reached from a plugin's `capability.fetch` inside a plugin call | Exit 70. These are critical sections: unwinding halfway could leave the grant table inconsistent, so they are never contained. |
+| Host code reached from inside one plugin call — a wasm one-shot `run` or `start-stream` (instantiation, guest code, the host imports it calls on the polling thread), or a native plugin's supervised invocation — started through `Kernel::invoke` / `invoke_stream` (`plugins/invoke`, `compute/dispatch`, `compute stream`, work served to mesh peers) | **Contained**: logged once at `entangle::telemetry` with `code = "ENTANGLE-E0788"`, `contained = true`; that call fails with `ENTANGLE-E0788`; its store and instance are discarded; the plugin stays loaded; the daemon keeps serving. |
+| Host work a plugin call hands to another thread (WASI filesystem operations run on tokio's blocking pool) or spawns as its own task | Exit 70: the containment marker is per thread and per poll. |
+| Metric components run by the submitter's verifier (`SemanticEquivalent`) | Exit 70 (not a `Kernel::invoke` call). |
+| Wasm traps, timeouts, resource-limit hits, a plugin returning an error | Not panics: the call returns its error as before. |
+
+**Supervised core tasks.** The RPC server, the maintenance loop and the
+`mesh.iroh` task and stream servers run under a supervisor: if one returns
+(for example, the RPC socket cannot be bound) while the daemon is running, the
+daemon logs `ENTANGLE-E0787` with the task's name and exits 70. The
+`mesh.tailscale` accept loops are covered by the panic hook only.
+
+**The tradeoff (spec §2.1).** A core fault restarts the whole daemon: calls
+and streams in flight on this node are lost (their callers see the
+connection close and may retry), mesh peers see this node disappear and
+re-appear, and plugins come back as described in §22. State on disk —
+identity, keyring, peers, plugin data, the AOT cache — is untouched. The
+daemon is one process by design; this is the price of that simplicity.
+
+**Fault injection (debug builds only).** Tests arm named fault points with
+`ENTANGLE_FAULT_INJECT=<point>[,<point>…]`: `maintenance` (panic in the
+maintenance loop), `maintenance-return` (it returns early), `rpc` (panic
+handling a request), `broker` (panic in `grant_by_key`), `host-call` (panic in
+the `host-info` import). The hook exists only when `debug_assertions` are on;
+in a release build the variable has no effect.
+

@@ -13,6 +13,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
+# Critical sections (fault isolation, spec §2.1).
+entangle-core = { workspace = true }
 entangle-observability = { workspace = true }
 entangle-types = { workspace = true }
 entangle-manifest = { workspace = true }

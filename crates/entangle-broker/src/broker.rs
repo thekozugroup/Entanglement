@@ -349,6 +349,9 @@ impl Broker {
         plugin: &PluginId,
         requested: &CapabilityKind,
     ) -> Result<GrantedCapability, BrokerError> {
+        // A panic while the grant table is being updated could leave it
+        // half-written: never contained, even inside a plugin call (§2.1).
+        let _critical = entangle_core::fault::critical_section();
         // The decision — and *only* the decision — happens under the registry
         // lock. Rendering the capability name, building the audit event and
         // appending it to the audit log all happen afterwards, so no broker
@@ -380,6 +383,10 @@ impl Broker {
         plugin: &PluginId,
         key: &str,
     ) -> Result<GrantedCapability, BrokerError> {
+        let _critical = entangle_core::fault::critical_section();
+        // Debug-build fault point: a broker panic reached from a plugin's
+        // `capability.fetch` (inside a contained plugin call) still exits.
+        entangle_core::fault::inject("broker");
         let (declared, at) = {
             let plugins = self.plugins.read();
             let record = plugins
@@ -701,6 +708,7 @@ impl Broker {
     ///
     /// Silently succeeds if the grant ID is not found (idempotent release).
     pub fn release(&self, plugin: &PluginId, grant_id: GrantId) -> Result<(), BrokerError> {
+        let _critical = entangle_core::fault::critical_section();
         // As in `grant`: mutate under the locks, audit after releasing them.
         let removed = {
             let plugins = self.plugins.read();

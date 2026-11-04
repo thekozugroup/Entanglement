@@ -168,6 +168,8 @@ fn is_error_response(resp: &str, id_json: &str) -> bool {
 }
 
 async fn route(req: Req, state: &Arc<DaemonState>) -> String {
+    // Debug-build fault point: a panic in the RPC server (spec §2.1).
+    entangle_core::fault::inject("rpc");
     match req.method.as_str() {
         m if m == method::VERSION => handle_version(req.id),
         m if m == method::TIME => handle_time(req.id),

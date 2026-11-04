@@ -64,4 +64,19 @@ pub enum RuntimeError {
     /// A native (tier 4–5) plugin could not be sandboxed, staged, or run.
     #[error("native: {0}")]
     Native(#[from] crate::native::NativeError),
+
+    /// Host code panicked during this plugin call and the panic was
+    /// contained (spec §2.1): the call's instance is discarded, the plugin
+    /// stays loaded and the daemon keeps running. See
+    /// `entangle_core::fault`.
+    #[error(
+        "ENTANGLE-E0788: plugin {plugin} call panicked inside the host and was contained \
+         (the call failed; the daemon keeps running): {message}"
+    )]
+    HostPanicked {
+        /// The plugin whose call panicked.
+        plugin: PluginId,
+        /// The panic message.
+        message: String,
+    },
 }

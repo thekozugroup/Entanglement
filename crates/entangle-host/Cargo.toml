@@ -14,6 +14,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 entangle-broker = { workspace = true }
+# Fault points (debug builds only; spec §2.1).
+entangle-core = { workspace = true }
 entangle-types = { workspace = true }
 entangle-wit = { workspace = true }
 wasmtime = { workspace = true }

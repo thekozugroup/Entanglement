@@ -109,6 +109,13 @@ impl MaintenanceLoop {
         ));
         evict_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
+        // Debug-build fault points (spec §2.1): a panic in, or an early
+        // return of, this supervised core task.
+        entangle_core::fault::inject("maintenance");
+        if entangle_core::fault::injected("maintenance-return") {
+            return;
+        }
+
         // Run a startup pass immediately for cache GC — do this before the
         // first interval tick so stale blobs are purged on restart.
         if let Err(e) = self.gc_stale_cache().await {

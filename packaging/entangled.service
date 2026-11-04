@@ -34,6 +34,10 @@ StateDirectory=entangle
 StateDirectoryMode=0700
 
 ExecStart=/usr/local/bin/entangled run
+# A core fault (a panic outside a contained plugin call, or a core task that
+# ends) exits with status 70 and is restarted; a clean stop exits 0 and is not.
+# See docs/operations.md §21. The macOS counterpart is
+# packaging/io.github.thekozugroup.entangled.plist.
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=15

@@ -1576,6 +1576,7 @@ dependencies = [
  "clap",
  "directories",
  "entangle-broker",
+ "entangle-core",
  "entangle-manifest",
  "entangle-mesh-iroh",
  "entangle-mesh-local",
@@ -1625,6 +1626,7 @@ dependencies = [
  "async-trait",
  "biscuit-auth",
  "entangle-biscuits",
+ "entangle-core",
  "entangle-manifest",
  "entangle-observability",
  "entangle-peers",
@@ -1694,6 +1696,7 @@ dependencies = [
  "anyhow",
  "entangle-types",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
 ]
 
@@ -1703,6 +1706,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "entangle-broker",
+ "entangle-core",
  "entangle-manifest",
  "entangle-observability",
  "entangle-types",

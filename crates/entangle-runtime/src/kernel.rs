@@ -618,20 +618,34 @@ impl Kernel {
         }
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
-        let result = match plugin {
-            PluginImpl::Wasm(CompiledPlugin::OneShot(p)) => p
-                .run_one_shot(&self.engine, input, timeout_ms)
-                .await
-                .map(|r| r.output)
-                .map_err(RuntimeError::from),
-            PluginImpl::Wasm(CompiledPlugin::Stream(_)) => {
-                unreachable!("stream plugins are refused above")
+        // The plugin call is contained (spec §2.1, `entangle_core::fault`):
+        // a panic in host code it reaches — outside the broker's critical
+        // sections — fails this call, whose store and instance are discarded
+        // with it, instead of ending the daemon.
+        let call = async {
+            match plugin {
+                PluginImpl::Wasm(CompiledPlugin::OneShot(p)) => p
+                    .run_one_shot(&self.engine, input, timeout_ms)
+                    .await
+                    .map(|r| r.output)
+                    .map_err(RuntimeError::from),
+                PluginImpl::Wasm(CompiledPlugin::Stream(_)) => {
+                    unreachable!("stream plugins are refused above")
+                }
+                PluginImpl::Native(n) => n
+                    .invoke(input, timeout_ms)
+                    .await
+                    .map_err(RuntimeError::from),
             }
-            PluginImpl::Native(n) => n
-                .invoke(input, timeout_ms)
-                .await
-                .map_err(RuntimeError::from),
         };
+        let result = entangle_core::fault::contain(call)
+            .await
+            .unwrap_or_else(|p| {
+                Err(RuntimeError::HostPanicked {
+                    plugin: plugin_id.clone(),
+                    message: p.message,
+                })
+            });
         self.emit(plugin_id, effective_tier, LifecyclePhase::Idled);
 
         result
@@ -789,15 +803,19 @@ impl Kernel {
             plugin_id,
             effective_tier,
         };
-        let result = plugin
-            .run_stream(
-                &self.engine,
-                input,
-                port,
-                timeout_ms,
-                entangle_host::state::ResourceLimits::default(),
-            )
-            .await;
+        // Contained exactly like a one-shot call (spec §2.1).
+        let result = entangle_core::fault::contain(plugin.run_stream(
+            &self.engine,
+            input,
+            port,
+            timeout_ms,
+            entangle_host::state::ResourceLimits::default(),
+        ))
+        .await
+        .map_err(|p| RuntimeError::HostPanicked {
+            plugin: plugin_id.clone(),
+            message: p.message,
+        })?;
         Ok(result?)
     }
 
