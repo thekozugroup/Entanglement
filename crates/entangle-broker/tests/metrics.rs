@@ -145,12 +145,44 @@ fn biscuit_verification_latency_is_recorded_for_both_outcomes() {
 }
 
 #[test]
-fn a_broker_without_metrics_records_nothing() {
+fn a_broker_without_metrics_behaves_like_an_instrumented_one() {
+    // Control: an instrumented broker records exactly one grant.
     let registry = Registry::new();
-    let broker = Broker::new(BrokerPolicy::default());
+    let metered = Broker::new(BrokerPolicy::default()).with_metrics(registry.clone());
+    let plain = Broker::new(BrokerPolicy::default());
     let m = manifest("quiet", &["compute.cpu"]);
     let id = m.plugin_id.clone();
-    broker.register_plugin(m).unwrap();
-    broker.grant(&id, &CapabilityKind::ComputeCpu).unwrap();
-    assert_eq!(registry.render(), "");
+    metered.register_plugin(m).unwrap();
+    plain
+        .register_plugin(manifest("quiet", &["compute.cpu"]))
+        .unwrap();
+
+    let a = metered.grant(&id, &CapabilityKind::ComputeCpu);
+    let b = plain.grant(&id, &CapabilityKind::ComputeCpu);
+    assert!(
+        a.is_ok() && b.is_ok(),
+        "same outcome with or without metrics"
+    );
+    assert_eq!(
+        registry.value(names::CAPABILITY_GRANTS, &[("capability", "compute.cpu")]),
+        Some(1.0),
+        "the instrumented broker did record; the plain one has no registry to write to"
+    );
+    // A denial path on the plain broker must also work without a registry.
+    let other = manifest("other", &[]);
+    let oid = other.plugin_id.clone();
+    plain.register_plugin(other).unwrap();
+    assert!(plain.grant(&oid, &CapabilityKind::ComputeCpu).is_err());
+    // The plain broker's activity never reached the instrumented one's registry.
+    assert_eq!(
+        registry.value(names::CAPABILITY_GRANTS, &[("capability", "compute.cpu")]),
+        Some(1.0)
+    );
+    assert_eq!(
+        registry.value(
+            names::CAPABILITY_DENIALS,
+            &[("capability", "compute.cpu"), ("reason", "not_declared")]
+        ),
+        None
+    );
 }

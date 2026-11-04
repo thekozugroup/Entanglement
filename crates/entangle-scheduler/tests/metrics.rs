@@ -116,11 +116,17 @@ async fn oversized_outputs_and_reputation_tiers_are_exposed() {
     }
     let text = registry.render();
     assert!(
-        text.contains("entangle_reputation_peers{policy=\"none\",tier=\"good\"} 1")
-            || text.contains("entangle_reputation_peers{policy=\"none\",tier=\"probation\"} 1")
-            || text.contains("entangle_reputation_peers{policy=\"none\",tier=\"excluded\"} 1"),
+        text.contains("entangle_reputation_peers{policy=\"none\",tier=\"good\"} 1"),
         "{text}"
     );
+    for tier in ["probation", "excluded"] {
+        assert!(
+            !text.contains(&format!(
+                "entangle_reputation_peers{{policy=\"none\",tier=\"{tier}\"}} 1"
+            )),
+            "{text}"
+        );
+    }
     assert!(
         text.contains("entangle_reputation_peers{policy=\"deterministic\",tier=\"excluded\"} 1"),
         "{text}"

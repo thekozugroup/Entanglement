@@ -586,8 +586,8 @@ scrape_configs:
 | `entangle_plugin_errors_total` | counter | `plugin`, `class` | Failed invocations by error-code class: `E05xx` is `ENTANGLE-E05..`, `none` if the error carries no code. |
 | `entangle_plugins_loaded` | gauge | — | Plugins currently loaded. |
 | `entangle_plugin_uptime_seconds` | gauge | `plugin` | Seconds since each loaded plugin was loaded (series vanish on unload). |
-| `entangle_capability_grants_total` | counter | `capability` | Broker grants. |
-| `entangle_capability_denials_total` | counter | `capability`, `reason` (`not_declared`, `biscuit_invalid`) | Broker denials. |
+| `entangle_capability_grants_total` | counter | `capability` | Broker grants. Emitted by `Broker::grant`; plugin `capability.fetch` is not yet routed through the broker, so a plugin call does not move this series yet. |
+| `entangle_capability_denials_total` | counter | `capability`, `reason` (`not_declared`, `biscuit_invalid`) | Broker denials (same caveat as grants). |
 | `entangle_biscuit_verification_seconds` | histogram | `outcome` (`ok`/`denied`) | Latency of cross-node biscuit verification. |
 | `entangle_rpc_requests_total` | counter | `method`, `outcome` (`ok`/`error`) | RPC requests. |
 | `entangle_rpc_request_duration_seconds` | histogram | `method` | RPC handling time. |

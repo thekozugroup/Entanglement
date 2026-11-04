@@ -302,6 +302,10 @@ async fn scrape_after_real_activity_has_the_expected_families() {
         .await
         .expect("dispatch");
     let plugin_id = plugin.parse().unwrap();
+    // The runtime capability path (HostState::fetch) is still a deny-all stub
+    // that never reaches the broker, so a plugin call cannot produce a denial
+    // yet. Drive the broker directly to check the daemon's registry is the
+    // one attached to it; when `fetch` is wired, replace this with a plugin call.
     state
         .kernel
         .broker()
