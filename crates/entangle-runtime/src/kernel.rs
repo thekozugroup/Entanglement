@@ -723,7 +723,13 @@ impl Kernel {
         opts: LoadOptions,
         expected: Option<&ExpectedPackage>,
     ) -> Result<LoadOutcome, RuntimeError> {
-        let pkg = PluginPackage::from_directory(dir)?;
+        // The package's real, absolute path: what is recorded (and restored
+        // by the daemon after a restart, from whatever working directory)
+        // must not depend on this process's working directory or on `..`
+        // and symbolic links in the path given. A directory that does not
+        // resolve is reported by the read below.
+        let dir = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+        let pkg = PluginPackage::from_directory(&dir)?;
 
         // ── Step 1: Manifest ─────────────────────────────────────────────────
         // Parse from the in-memory bytes (the same bytes step 2 hashes), not

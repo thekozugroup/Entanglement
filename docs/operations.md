@@ -347,7 +347,7 @@ canonical range table, maintained in
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
-| E0780–E0799 | Runtime lifecycle — see §21–§24: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788); a reload refused because another version of the plugin was loaded or unloaded meanwhile (E0789, retry); a load of a version that is still draining after being replaced or unloaded (E0790, retry once its calls and streams end) |
+| E0780–E0799 | Runtime lifecycle — see §21–§24: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788); a reload refused because another version of the plugin was loaded or unloaded meanwhile (E0789, retry); a load of a version that is still draining after being replaced or unloaded (E0790, retry once its calls and streams end); a recorded package that changed, refused at restore before anything of it is loaded (E0791, reported through E0784) |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -1875,7 +1875,8 @@ format = 1
 
 [[plugin]]
 id = "aabbccddeeff00112233445566778899/fetcher@0.3.1"
-dir = "/home/op/plugins/fetcher"
+dir = "/home/op/plugins/fetcher" # the package's real absolute path (a relative
+                                # `plugins load` directory is resolved by the CLI)
 artifact_digest = "5f0c…"      # BLAKE3 of the verified plugin.wasm / plugin.bin
 manifest_digest = "a91e…"      # BLAKE3 of the verified entangle.toml
 tier = 3
