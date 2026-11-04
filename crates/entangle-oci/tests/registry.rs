@@ -628,3 +628,37 @@ async fn chunked_upload_honours_the_registrys_minimum_chunk_length() {
         );
     }
 }
+
+#[tokio::test]
+async fn failed_chunk_is_resumed_from_what_the_registry_holds() {
+    // A ~20 KB package in 1000-byte chunks; only the layer is big enough to
+    // be chunked, so every PATCH belongs to it.
+    let pkg = signed_package(&keypair(5), "resume", &wasm_bytes(20_000));
+    let chunks = pkg.len().div_ceil(1000);
+    // `stored`: the registry kept the chunk and only the answer was lost
+    // (a proxy's 504 after the backend appended it), so it must not be sent
+    // again; otherwise it must be.
+    for (stored, want_patches) in [(true, chunks), (false, chunks + 1)] {
+        let mock = plain().await;
+        mock.fail_method("PATCH", "/blobs/uploads/", &[504], stored);
+        let cfg = ClientConfig {
+            chunk_size: 1000,
+            ..ClientConfig::default()
+        };
+        let r = reference(&mock, "acme/resume:1");
+        push_artifact(&client_with(&mock, cfg), &r, &pkg)
+            .await
+            .unwrap_or_else(|e| panic!("stored={stored}: {e}"));
+        let patches = mock
+            .requests()
+            .iter()
+            .filter(|q| q.method == "PATCH")
+            .count();
+        assert_eq!(patches, want_patches, "stored={stored}");
+        assert_eq!(
+            pull_artifact(&client(&mock), &r).await.unwrap().package,
+            pkg,
+            "stored={stored}"
+        );
+    }
+}

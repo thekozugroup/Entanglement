@@ -85,6 +85,14 @@ pub struct LoggedRequest {
 /// `(content-type, bytes)`
 type StoredManifest = (String, Vec<u8>);
 
+/// See [`MockRegistry::fail_method`].
+struct MethodFault {
+    method: String,
+    needle: String,
+    statuses: VecDeque<u16>,
+    after_processing: bool,
+}
+
 #[derive(Default)]
 struct State {
     blobs: Mutex<HashMap<String, Vec<u8>>>,
@@ -95,6 +103,8 @@ struct State {
     uploads: Mutex<HashMap<String, Vec<u8>>>,
     log: Mutex<Vec<LoggedRequest>>,
     faults: Mutex<Vec<(String, VecDeque<u16>)>>,
+    /// `(method, needle, statuses, after_processing)`
+    method_faults: Mutex<Vec<MethodFault>>,
     tampered: Mutex<HashMap<String, Vec<u8>>>,
     endless: Mutex<HashMap<String, u64>>,
     streamed: AtomicU64,
@@ -207,6 +217,25 @@ impl MockRegistry {
     /// in order (e.g. `[503, 429]`), then behave normally.
     pub fn fail_next(&self, needle: &str, statuses: &[u16]) {
         lock(&self.state.faults).push((needle.to_owned(), statuses.iter().copied().collect()));
+    }
+
+    /// Answer the next `method` requests whose path contains `needle` with
+    /// `statuses` in order. With `after_processing` each request first takes
+    /// effect normally and only its answer is replaced, like a proxy that
+    /// times out (504) after the registry already acted.
+    pub fn fail_method(
+        &self,
+        method: &str,
+        needle: &str,
+        statuses: &[u16],
+        after_processing: bool,
+    ) {
+        lock(&self.state.method_faults).push(MethodFault {
+            method: method.to_owned(),
+            needle: needle.to_owned(),
+            statuses: statuses.iter().copied().collect(),
+            after_processing,
+        });
     }
 
     /// Serve `bytes` instead of the stored content for blob `digest` (the
@@ -348,6 +377,39 @@ async fn handle(
 }
 
 fn route(
+    state: &Arc<State>,
+    role: &'static str,
+    parts: &hyper::http::request::Parts,
+    path_q: &str,
+    authz: Option<&str>,
+    body: Bytes,
+) -> Response<Body_> {
+    let fault = (role == "registry")
+        .then(|| {
+            lock(&state.method_faults).iter_mut().find_map(|f| {
+                (f.method == parts.method.as_str() && path_q.contains(f.needle.as_str()))
+                    .then(|| f.statuses.pop_front().map(|c| (c, f.after_processing)))
+                    .flatten()
+            })
+        })
+        .flatten();
+    let injected = |code: u16| {
+        status(code)
+            .header("retry-after", "0")
+            .body(full("injected fault"))
+            .expect("response")
+    };
+    match fault {
+        Some((code, false)) => injected(code),
+        Some((code, true)) => {
+            drop(route_inner(state, role, parts, path_q, authz, body));
+            injected(code)
+        }
+        None => route_inner(state, role, parts, path_q, authz, body),
+    }
+}
+
+fn route_inner(
     state: &Arc<State>,
     role: &'static str,
     parts: &hyper::http::request::Parts,
@@ -603,6 +665,16 @@ fn uploads(
 ) -> Response<Body_> {
     let loc = |id: &str| format!("/v2/{repo}/blobs/uploads/{id}");
     match *method {
+        // Upload status. Like distribution's registry:2, the inclusive end of
+        // `Range` is reported as 0 for an empty session too.
+        Method::GET if !id.is_empty() => match lock(&state.uploads).get(id) {
+            None => status(404).body(full("")).expect("response"),
+            Some(buf) => status(204)
+                .header("location", loc(id))
+                .header("range", format!("0-{}", buf.len().saturating_sub(1)))
+                .body(full(""))
+                .expect("response"),
+        },
         Method::POST if id.is_empty() => {
             let id = format!("up{}", state.next_upload.fetch_add(1, Ordering::Relaxed));
             lock(&state.uploads).insert(id.clone(), Vec::new());

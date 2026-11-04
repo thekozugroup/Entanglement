@@ -571,7 +571,12 @@ own `host:port`, plus, for Basic credentials, the token endpoint (`realm`) that
 registry names in its Bearer challenge (standard token flow; that endpoint may
 be on another host, e.g. a separate auth service): blob redirects to a CDN on
 another host are followed without it. Redirects are capped at 5; only HTTP 429 and 5xx are retried (4 attempts,
-exponential backoff, `Retry-After` honoured up to 8 s).
+exponential backoff, `Retry-After` honoured up to 8 s). A chunk upload
+(`PATCH`) that fails that way is not resent blindly: the client asks the
+registry how much of the upload it holds (`GET` on the upload URL, `Range`
+header) and continues from there, since a proxy can answer 5xx after the
+registry already stored the chunk. Chunks are at least the registry's
+`OCI-Chunk-Min-Length`, when it advertises one.
 
 ### HTTPS and insecure registries
 

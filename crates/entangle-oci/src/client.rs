@@ -118,6 +118,9 @@ struct Req {
     scope: Option<String>,
     /// Explicit `Authorization` value, only sent to the original authority.
     explicit_auth: Option<String>,
+    /// Retry 429/5xx inside `execute`. Off for requests that are not
+    /// idempotent (a chunk PATCH): their caller decides how to recover.
+    retry: bool,
     what: String,
 }
 
@@ -130,6 +133,7 @@ impl Req {
             body: Bytes::new(),
             scope,
             explicit_auth: None,
+            retry: true,
             what: what.into(),
         }
     }
@@ -282,7 +286,7 @@ impl OciClient {
                         body = Bytes::new();
                     }
                 }
-                429 | 500..=599 => {
+                s if req.retry && is_retryable(s) => {
                     attempts += 1;
                     let retry_after = retry_after(resp.headers());
                     drop(resp);
@@ -293,18 +297,24 @@ impl OciClient {
                             status,
                         });
                     }
-                    let backoff = self
-                        .cfg
-                        .retry
-                        .base_delay
-                        .saturating_mul(1u32 << (attempts - 1).min(16));
-                    let delay = retry_after.unwrap_or(backoff).min(self.cfg.retry.max_delay);
+                    let delay = self.backoff(attempts, retry_after);
                     tracing::debug!(host = %here, status, attempt = attempts, ?delay, "retrying");
                     tokio::time::sleep(delay).await;
                 }
                 _ => return Ok(resp),
             }
         }
+    }
+
+    /// Delay before retry number `attempt` (1-based): exponential from
+    /// `base_delay`, or the server's `Retry-After`, capped at `max_delay`.
+    fn backoff(&self, attempt: u32, retry_after: Option<Duration>) -> Duration {
+        let exp = self
+            .cfg
+            .retry
+            .base_delay
+            .saturating_mul(1u32 << attempt.saturating_sub(1).min(16));
+        retry_after.unwrap_or(exp).min(self.cfg.retry.max_delay)
     }
 
     async fn answer_challenge(&self, www: Vec<Challenge>, scope: &str) -> Result<()> {
@@ -751,9 +761,13 @@ impl OciClient {
         let chunk = self.cfg.chunk_size.max(min_chunk).max(1);
         if data.len() > chunk {
             let mut offset = 0usize;
+            // Furthest offset the registry acknowledged, and failures since it
+            // last moved: bounds the retries however the registry answers.
+            let mut acked = 0usize;
+            let mut failures = 0u32;
             while offset < data.len() {
                 let end = (offset + chunk).min(data.len());
-                let req = Req::new(
+                let mut req = Req::new(
                     Method::PATCH,
                     location.clone(),
                     Some(scope.clone()),
@@ -762,10 +776,47 @@ impl OciClient {
                 .header("content-type", "application/octet-stream")
                 .header("content-range", format!("{offset}-{}", end - 1))
                 .body(Bytes::copy_from_slice(&data[offset..end]));
+                // Not retried blindly: a 5xx (e.g. a proxy's 504) can arrive
+                // after the registry already appended the chunk, and resending
+                // the same Content-Range is then answered 416.
+                req.retry = false;
                 let resp = self.execute(&req).await?;
+                let status = resp.status().as_u16();
+                if is_retryable(status) {
+                    let retry_after = retry_after(resp.headers());
+                    drop(resp);
+                    failures += 1;
+                    if failures >= self.cfg.retry.max_attempts {
+                        return Err(OciError::RetriesExhausted {
+                            host: authority(&location),
+                            attempts: failures,
+                            status,
+                        });
+                    }
+                    tokio::time::sleep(self.backoff(failures, retry_after)).await;
+                    // Resume from what the registry holds (OCI Distribution:
+                    // GET the upload URL, read `Range`). If it cannot say,
+                    // resend this chunk as before.
+                    if let Some((loc, held)) = self.upload_progress(&location, &scope, acked).await
+                    {
+                        if held > data.len() {
+                            return Err(OciError::Upload(format!(
+                                "registry reports {held} bytes received for a {}-byte blob",
+                                data.len()
+                            )));
+                        }
+                        location = loc;
+                        offset = held;
+                    }
+                    continue;
+                }
                 let resp = self.expect(resp, &[202], "PATCH blob chunk").await?;
                 location = self.location(&req.url, resp.headers())?;
                 offset = end;
+                if offset > acked {
+                    acked = offset;
+                    failures = 0;
+                }
             }
             location
                 .query_pairs_mut()
@@ -784,6 +835,38 @@ impl OciClient {
             self.expect(resp, &[201], "PUT blob").await?;
         }
         Ok(digest)
+    }
+
+    /// How many bytes of the upload session at `location` the registry holds,
+    /// and the URL to continue at; `None` if it cannot tell us.
+    ///
+    /// `acked` (bytes already acknowledged) disambiguates `Range: 0-0`, which
+    /// registry:2 reports both for an empty session and for one byte.
+    async fn upload_progress(
+        &self,
+        location: &Url,
+        scope: &str,
+        acked: usize,
+    ) -> Option<(Url, usize)> {
+        let req = Req::new(
+            Method::GET,
+            location.clone(),
+            Some(scope.to_owned()),
+            "GET upload status",
+        );
+        let resp = self.execute(&req).await.ok()?;
+        if !matches!(resp.status().as_u16(), 200 | 204) {
+            return None;
+        }
+        let range = resp.headers().get("range")?.to_str().ok()?;
+        let held = match parse_upload_range(range)? {
+            0 => acked.min(1),
+            last => last.checked_add(1)?,
+        };
+        let loc = self
+            .location(&req.url, resp.headers())
+            .unwrap_or_else(|_| location.clone());
+        Some((loc, held))
     }
 
     fn location(&self, current: &Url, headers: &HeaderMap) -> Result<Url> {
@@ -884,6 +967,19 @@ async fn read_limited(
             buf.extend_from_slice(&data);
         }
     }
+}
+
+fn is_retryable(status: u16) -> bool {
+    status == 429 || (500..=599).contains(&status)
+}
+
+/// The inclusive last byte of an upload-status `Range: 0-<last>` header.
+fn parse_upload_range(v: &str) -> Option<usize> {
+    let (start, last) = v.trim().trim_start_matches("bytes=").split_once('-')?;
+    if start.trim() != "0" {
+        return None;
+    }
+    last.trim().parse().ok()
 }
 
 fn retry_after(h: &HeaderMap) -> Option<Duration> {
@@ -1036,6 +1132,15 @@ mod tests {
         assert_eq!(c[0].scheme, "Bearer");
         assert_eq!(c[0].param("realm"), Some("https://auth.example/token"));
         assert_eq!(c[0].param("scope"), Some("repository:a/b:pull,push"));
+    }
+
+    #[test]
+    fn upload_range_is_parsed() {
+        assert_eq!(parse_upload_range("0-999"), Some(999));
+        assert_eq!(parse_upload_range("bytes=0-4"), Some(4));
+        assert_eq!(parse_upload_range("0-0"), Some(0));
+        assert_eq!(parse_upload_range("5-9"), None);
+        assert_eq!(parse_upload_range("junk"), None);
     }
 
     #[test]
