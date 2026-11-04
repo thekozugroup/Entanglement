@@ -1453,19 +1453,20 @@ Human-readable strings in the Entanglement CLI fall into two categories that  tr
 
 ### 9.6 Operator DX — logs, metrics, tracing, upgrade, backup
 
-**Phase-1 status.** What ships today: `entangle-observability`'s
-tracing-subscriber bootstrap (compact human-readable format on a TTY stderr,
-newline-delimited JSON off a TTY, level filter via `RUST_LOG`, default
-`info,tokio=warn,wasmtime=warn`); `entangle metrics`, which prints a
-Prometheus exposition-format string for the CLI process's own in-process
-counters (the daemon's own registry is not yet wired through RPC — Phase 2);
-and `entangle doctor`, which runs 13 structured health checks (identity,
-config, keyring, peers, daemon reachability, OS sandbox, disk space, clock
-skew, and more — see `crates/entangle-cli/src/cmd/doctor.rs`).
+**Status.** What ships today: `entangle-observability`'s tracing-subscriber
+bootstrap (compact human-readable format on a TTY stderr, newline-delimited
+JSON off a TTY, level filter via `RUST_LOG`, default
+`info,tokio=warn,wasmtime=warn`); the daemon's metrics registry, served on the
+optional `/metrics` endpoint and over the `metrics/export` RPC (which
+`entangle metrics` prints); the built-in OTLP/HTTP exporter; `entangle diag
+mesh`, a mesh reachability report backed by the `diag/mesh` RPC; and `entangle
+doctor`, which runs 13 structured health checks (identity, config, keyring,
+peers, daemon reachability, OS sandbox, disk space, clock skew, and more; see
+`crates/entangle-cli/src/cmd/doctor.rs`).
 
-Everything below is **Phase 2 / planned design**, not implemented in Phase 1:
-`entangle logs`, `entangle trace task`, `entangle upgrade`, `entangle
-backup`/`restore`, and `entangle diag mesh` do not exist yet.
+Everything else below is **planned design**, not implemented: `entangle logs`,
+`entangle trace task`, `entangle upgrade`, and `entangle backup`/`restore` do
+not exist yet.
 
 **Logs:** structured JSON to stderr by default. systemd captures via journald; macOS via `os_log`; Docker via stdout. Per-plugin log streams visible via `entangle logs <plugin-id> [--follow]`. Rotation handled by the host's logger or by the maintenance plugin. **Metrics:** the daemon serves a Prometheus `/metrics` endpoint (`[metrics] enabled = true`; loopback only unless `allow_non_loopback = true`). It is built into `entangled`, not a separate `observability` plugin. Standard metrics: capability grants and denials, plugin uptime, mesh peer count, scheduler in-flight tasks (the dispatcher has no queue to measure), biscuit verification latency, and `entangle_mesh_tailscale_state{state}`; `entangle metrics` prints the same text over RPC. Full catalogue: `docs/operations.md` §12. **Tracing:** an OTLP/HTTP exporter with JSON encoding, built in and optional (`[telemetry.otlp]`; `http://` endpoints only). Span propagation across the mesh uses a W3C `traceparent` carried as an optional extension of the one-shot task request on the scheduler ALPN (`entangle/scheduler/1`), not on every `entangle/*` ALPN. `entangle trace task <id>` is not implemented; read the trace in your collector. **Upgrade:** `entangle upgrade` updates the binary atomically (downloads to side path, swaps symlink, restarts via supervisor). Plugins re-instantiate. Mesh re-converges in <10s. Daemon downtime: typically 1–2s. **Backup:** `entangle backup --to <path>` packages identity + trust + paired peers + plugin data dirs (configurable include/exclude). Encrypted. `entangle restore --from` restores onto a fresh install. **Disaster recovery:** lost laptop → restore from backup on new device → mesh peers see the same NodeId via the restored identity; OR rotate identity (§6.5) and let peers migrate. `entangle diag mesh` checks reachability and prints a triage report.
 
