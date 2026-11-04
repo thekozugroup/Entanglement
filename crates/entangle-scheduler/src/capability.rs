@@ -20,15 +20,29 @@
 //!
 //! These are the fields that identify what is being asked and that the
 //! worker sees unchanged; the per-attempt `traceparent` is not bound (it
-//! grants nothing), nor is the token itself. Every transport the router can
-//! pick carries the same frame bytes, so the token travels on all of them.
+//! grants nothing), nor is the token itself.
+//!
+//! **When.** The attenuation is made per attempt, once the attempt's link
+//! has connected and immediately before the frame is written: a task
+//! frame's token is appended by the frame the router builds for that
+//! attempt ([`TransportRouter::request_tracked`]), a stream `Open`'s when
+//! the stream's link has opened it. Time spent dialling — including the
+//! router falling back from one transport to the next — never counts
+//! against the token's 60 s, and every attempt (a resend too) carries a
+//! fresh nonce. An attempt whose frame was sent is never retried elsewhere.
 //!
 //! # Worker side
 //!
 //! [`CapabilityGate`] runs after the peer allowlist and the frame decode,
 //! before any other work: [`RequestVerifier`] (root = this node's identity
 //! key, holder = the transport-authenticated peer, `mesh.peer`, expiry
-//! window, binding, nonce, revocation set, replay cache). A frame without a
+//! window, binding, nonce, revocation set, replay cache). The gate sees a
+//! token only once the whole frame is in, so a large frame earns a
+//! late-arrival grace measured on the bytes the transport received: one
+//! second per 256 KiB, at most 600 s
+//! ([`templates::late_arrival_grace_secs`]); its token is expired only once
+//! `now >= expires + grace`, and its nonce is remembered that much longer,
+//! so a replay inside the grace is still refused. A frame without a
 //! token is refused ([`RemoteErrorCode::CapabilityRequired`],
 //! `ENTANGLE-E0450`) unless `[trust] require_capability_tokens = false`, in
 //! which case it is accepted and counted (`tokenless_accepted`); a frame
@@ -37,6 +51,7 @@
 //! counted in `entangle_remote_capability_checks_total{path, outcome}` and
 //! `entangle_biscuit_verification_seconds{outcome}`.
 //!
+//! [`TransportRouter::request_tracked`]: crate::transport::TransportRouter::request_tracked
 //! [`RemoteErrorCode::CapabilityRequired`]: crate::wire::RemoteErrorCode::CapabilityRequired
 //! [`RemoteErrorCode::CapabilityRejected`]: crate::wire::RemoteErrorCode::CapabilityRejected
 
@@ -99,12 +114,7 @@ impl HeldToken {
     /// Attenuate for one request bound to `binding`, expiring
     /// [`REQUEST_TOKEN_TTL_SECS`] from now.
     pub fn present(&self, binding: [u8; 32]) -> Result<Vec<u8>, TokenError> {
-        templates::present_for_request(
-            &self.token,
-            &self.issuer_public_key,
-            binding,
-            token_clock(),
-        )
+        templates::present_for_request(&self.token, &self.issuer_public_key, binding, token_clock())
     }
 }
 
@@ -191,6 +201,9 @@ impl CapabilityTokens for StaticTokens {
 /// when there is no token source, no token for `peer`, or the stored token
 /// cannot be attenuated (logged: the request then goes without one, and a
 /// peer that requires tokens refuses it with an error naming the fix).
+///
+/// Its 60 s run from this call: call it for the attempt that sends the
+/// request, once that attempt's connection is set up.
 pub fn present_to(
     tokens: Option<&Arc<dyn CapabilityTokens>>,
     peer: &PeerId,
@@ -370,13 +383,17 @@ impl CapabilityGate {
 
     /// Check the `token` (if any) that `presenter` — the
     /// transport-authenticated peer — sent with a request on `path` whose
-    /// binding is `binding`.
+    /// binding is `binding`, in a frame of `received_frame_len` bytes: the
+    /// length the transport received, which earns the token its
+    /// late-arrival grace ([`templates::late_arrival_grace_secs`]). Never a
+    /// length the request itself declares.
     pub fn check(
         &self,
         presenter: PeerId,
         token: Option<&[u8]>,
         binding: [u8; 32],
         path: GatePath,
+        received_frame_len: usize,
     ) -> Result<Admission, Refusal> {
         let Some(token) = token else {
             if self.require {
@@ -390,9 +407,14 @@ impl CapabilityGate {
             return Ok(Admission::Tokenless);
         };
         let started = std::time::Instant::now();
-        let result = self
-            .verifier
-            .verify_at(token, presenter, binding, path.operation(), token_clock());
+        let result = self.verifier.verify_received_at(
+            token,
+            presenter,
+            binding,
+            path.operation(),
+            received_frame_len,
+            token_clock(),
+        );
         if let Some(reg) = &self.metrics {
             entangle_observability::catalog::biscuit_verification(
                 reg,
@@ -407,7 +429,14 @@ impl CapabilityGate {
             }
             Err(error) => {
                 self.count(path, error.label());
-                tracing::warn!(%presenter, path = path.as_str(), %error, "refused a remote request: capability token rejected");
+                tracing::warn!(
+                    %presenter,
+                    path = path.as_str(),
+                    %error,
+                    frame_bytes = received_frame_len,
+                    late_grace_secs = templates::late_arrival_grace_secs(received_frame_len),
+                    "refused a remote request: capability token rejected"
+                );
                 Err(Refusal { error })
             }
         }
@@ -493,19 +522,21 @@ mod tests {
         let on = CapabilityGate::for_identity(&worker)
             .unwrap()
             .with_metrics(reg.clone());
-        let refusal = on.check(peer, None, [0; 32], GatePath::Task).unwrap_err();
+        let refusal = on
+            .check(peer, None, [0; 32], GatePath::Task, 0)
+            .unwrap_err();
         assert!(refusal.is_missing());
         let off = CapabilityGate::for_identity(&worker)
             .unwrap()
             .require_tokens(false)
             .with_metrics(reg.clone());
         assert_eq!(
-            off.check(peer, None, [0; 32], GatePath::Stream),
+            off.check(peer, None, [0; 32], GatePath::Stream, 0),
             Ok(Admission::Tokenless)
         );
         // A token, when present, is verified even with the gate off.
         assert!(off
-            .check(peer, Some(&[1, 2, 3]), [0; 32], GatePath::Task)
+            .check(peer, Some(&[1, 2, 3]), [0; 32], GatePath::Task, 3)
             .is_err());
         let text = reg.render();
         assert!(text.contains("outcome=\"tokenless_accepted\""), "{text}");
@@ -529,11 +560,11 @@ mod tests {
         );
         let gate = CapabilityGate::for_identity(&worker).unwrap();
         assert!(matches!(
-            gate.check(me_id, Some(&token), [5; 32], GatePath::Task),
+            gate.check(me_id, Some(&token), [5; 32], GatePath::Task, token.len()),
             Ok(Admission::Verified(_))
         ));
         assert_eq!(
-            gate.check(me_id, Some(&token), [5; 32], GatePath::Task)
+            gate.check(me_id, Some(&token), [5; 32], GatePath::Task, token.len())
                 .unwrap_err()
                 .error,
             TokenError::Replayed

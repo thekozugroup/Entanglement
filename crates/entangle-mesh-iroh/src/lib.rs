@@ -244,26 +244,30 @@ pub trait MeshTransport: std::fmt::Debug + Send + Sync {
     /// [`MeshTransport::connect`] instead.
     async fn request(&self, peer: &IrohPeer, payload: &[u8]) -> Result<Vec<u8>, MeshIrohError>;
 
-    /// [`MeshTransport::request`], calling `connected` once the connection
-    /// is set up (dialled, handshake done, identity checked) and before the
-    /// request is sent.
+    /// [`MeshTransport::request`] with the payload built late: `frame` is
+    /// called exactly once, when the connection is set up (dialled,
+    /// handshake done, identity checked) and immediately before the request
+    /// is written, and what it returns is sent.
     ///
-    /// A caller can then bound connection setup on its own — give up on a
-    /// dial that has not connected by some deadline, knowing nothing was
-    /// sent — without cutting short a request that is already running.
+    /// Two things follow. A payload with something time-sensitive in it (a
+    /// capability token with a short expiry) is minted after the dial, so
+    /// the dial does not use up its lifetime. And the call to `frame` tells
+    /// the caller that setup is over: it can bound connection setup on its
+    /// own — give up on a dial that has not asked for its frame by some
+    /// deadline, knowing nothing was sent — without cutting short a request
+    /// that is already running.
     ///
-    /// The default calls `connected` first and then
-    /// [`MeshTransport::request`]: an implementation that cannot tell the
-    /// two phases apart reports the whole request as past setup, so a caller
-    /// never abandons a request it may already have sent.
-    async fn request_noting(
+    /// The default calls `frame` first and then [`MeshTransport::request`]:
+    /// an implementation that cannot tell the two phases apart reports the
+    /// whole request as past setup, so a caller never abandons a request it
+    /// may already have sent.
+    async fn request_with(
         &self,
         peer: &IrohPeer,
-        payload: &[u8],
-        connected: &(dyn Fn() + Send + Sync),
+        frame: &(dyn Fn() -> Vec<u8> + Send + Sync),
     ) -> Result<Vec<u8>, MeshIrohError> {
-        connected();
-        self.request(peer, payload).await
+        let payload = frame();
+        self.request(peer, &payload).await
     }
 
     /// Wait for the next inbound connection.

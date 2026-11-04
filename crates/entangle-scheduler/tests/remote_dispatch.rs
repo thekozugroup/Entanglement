@@ -1371,7 +1371,12 @@ const GRACE_BYTES_PER_SEC: usize = 256 * 1024;
 /// A task frame for `plugin` with `input_len` bytes of input, carrying a
 /// token that A presents for it but which expired `expired_secs_ago`
 /// seconds ago (a fresh nonce `nonce`), and that frame's grace.
-fn late_frame(p: &Pair, input_len: usize, expired_secs_ago: i64, nonce: u8) -> (RemoteRequest, i64) {
+fn late_frame(
+    p: &Pair,
+    input_len: usize,
+    expired_secs_ago: i64,
+    nonce: u8,
+) -> (RemoteRequest, i64) {
     let request = task_request(&p.plugin, &vec![b'a'; input_len]);
     let held = p.b.issue_to(&p.a);
     let token = attenuate_for_request(

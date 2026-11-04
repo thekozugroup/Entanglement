@@ -13,7 +13,8 @@
 //!    and a deadline, then decoded (version, structure).
 //! 3. **The capability token**, before anything else is looked at: the
 //!    `Open` must carry an attenuation of the `mesh.peer` token this node
-//!    issued to the peer, bound to this `Open`, fresh and unrevoked
+//!    issued to the peer, bound to this `Open`, fresh (give or take the
+//!    late-arrival grace the received `Open`'s size earns) and unrevoked
 //!    ([`CapabilityGate`], see [`crate::capability`]); otherwise one `Error
 //!    { CapabilityRequired | CapabilityRejected }` frame, and the plugin is
 //!    never looked up.
@@ -252,6 +253,9 @@ impl StreamServer {
             }
         };
 
+        // What the transport received: the size the token's late-arrival
+        // grace is measured on (never a length the frame declares).
+        let received_open_len = first.len();
         let decoded = decode_frame(&first, Side::Submitter);
         // The raw frame is no longer needed (the input lives on in `open`).
         drop(first);
@@ -281,7 +285,13 @@ impl StreamServer {
         let binding = stream_binding(&open.task_id, &open.policy_hash, &request);
         let admitted = match &self.gate {
             Some(gate) => gate
-                .check(peer, open.capability.as_deref(), binding, GatePath::Stream)
+                .check(
+                    peer,
+                    open.capability.as_deref(),
+                    binding,
+                    GatePath::Stream,
+                    received_open_len,
+                )
                 .map_err(|refusal| {
                     let reason = if refusal.is_missing() {
                         Reason::CapabilityRequired

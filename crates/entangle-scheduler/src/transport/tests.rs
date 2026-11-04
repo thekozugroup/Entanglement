@@ -36,6 +36,8 @@ struct Scripted {
     /// Takes this long to connect (a relayed dial), then answers.
     connects_after: Option<Duration>,
     calls: AtomicUsize,
+    /// The frames it was handed to send, in order.
+    sent: Mutex<Vec<Vec<u8>>>,
     /// The far ends of the streams it opened, kept open.
     far_ends: Mutex<Vec<FramedStream>>,
 }
@@ -61,6 +63,7 @@ impl Scripted {
             runs_for: None,
             connects_after: None,
             calls: AtomicUsize::new(0),
+            sent: Mutex::new(Vec::new()),
             far_ends: Mutex::new(Vec::new()),
         })
     }
@@ -128,8 +131,7 @@ impl Link for Scripted {
     async fn request(
         &self,
         _target: &DialTarget,
-        _payload: &[u8],
-        connecting: &Connecting,
+        outbound: &Outbound<'_>,
     ) -> Result<Vec<u8>, LinkError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         if self.silent {
@@ -137,13 +139,18 @@ impl Link for Scripted {
         }
         if let Some(time) = self.connects_after {
             tokio::time::sleep(time).await;
-            connecting.connected();
+        }
+        let result = (self.script)();
+        // A link that failed to connect never asks for the frame; one that
+        // connected asks for it before sending anything.
+        if !matches!(result, Err(LinkError::Connect(_))) {
+            let frame = outbound.frame();
+            self.sent.lock().push(frame);
         }
         if let Some(time) = self.runs_for {
-            connecting.connected();
             tokio::time::sleep(time).await;
         }
-        (self.script)()
+        result
     }
     /// Opens an in-memory stream to the target's key, or fails as the
     /// script fails.
@@ -335,7 +342,7 @@ async fn a_candidate_that_never_connects_does_not_hold_the_request() {
         Duration::from_secs(1),
         r.request_tracked(
             p,
-            b"x",
+            &|| b"x".to_vec(),
             None,
             &AttemptCell::default(),
             Some(Duration::from_secs(1)),
@@ -722,4 +729,72 @@ async fn an_unknown_peer_has_no_route_and_says_which_books_were_checked() {
     assert!(text.starts_with("ENTANGLE-E0430"), "{text}");
     assert!(text.contains("address book"), "{text}");
     assert!(text.contains("tailscale: not running"), "{text}");
+}
+
+/// A request's frame is built per attempt, by the attempt whose link
+/// connected, immediately before it is sent: candidates that failed to
+/// connect, or were cut at their connect deadline, never build one (so
+/// whatever is time-sensitive in it — a capability token — is not aged by
+/// the fallback), and every request that gets through builds a fresh one.
+#[tokio::test]
+async fn a_frame_is_built_only_for_the_attempt_that_connected() {
+    let p = peer(1);
+    let local = Scripted::silent(TransportKind::Local, p);
+    let ts = Scripted::new(TransportKind::Tailscale, p, || {
+        Err(LinkError::Connect("refused".into()))
+    });
+    let iroh = Scripted::answering(TransportKind::Iroh, p);
+    let r = router(&[local.clone(), ts.clone(), iroh.clone()])
+        .with_connect_timeout(Duration::from_millis(50));
+    let built = AtomicUsize::new(0);
+    let build = || {
+        let n = built.fetch_add(1, Ordering::SeqCst);
+        format!("attempt-frame-{n}").into_bytes()
+    };
+    let (answer, kind) = r
+        .request_tracked(p, &build, None, &AttemptCell::default(), None)
+        .await
+        .unwrap();
+    assert_eq!((&answer[..], kind), (&b"iroh"[..], TransportKind::Iroh));
+    assert_eq!((local.calls(), ts.calls(), iroh.calls()), (1, 1, 1));
+    assert_eq!(
+        built.load(Ordering::SeqCst),
+        1,
+        "only the attempt that connected built a frame"
+    );
+    assert_eq!(*iroh.sent.lock(), [b"attempt-frame-0".to_vec()]);
+    assert!(local.sent.lock().is_empty() && ts.sent.lock().is_empty());
+
+    // The next request builds its own frame.
+    r.request_tracked(p, &build, None, &AttemptCell::default(), None)
+        .await
+        .unwrap();
+    assert_eq!(built.load(Ordering::SeqCst), 2);
+    assert_eq!(iroh.sent.lock().last().unwrap(), b"attempt-frame-1");
+
+    // A candidate cut at its deadline and tried again builds its frame
+    // when it finally connects — after the others have failed.
+    let slow = Scripted::connecting_after(TransportKind::Local, p, Duration::from_millis(150));
+    let refusing = Scripted::new(TransportKind::Iroh, p, || {
+        Err(LinkError::Connect("refused".into()))
+    });
+    let r =
+        router(&[slow.clone(), refusing.clone()]).with_connect_timeout(Duration::from_millis(30));
+    let built = AtomicUsize::new(0);
+    let build = || {
+        built.fetch_add(1, Ordering::SeqCst);
+        b"late".to_vec()
+    };
+    let (_, kind) = r
+        .request_tracked(p, &build, None, &AttemptCell::default(), None)
+        .await
+        .unwrap();
+    assert_eq!(kind, TransportKind::Local);
+    assert_eq!(
+        (slow.calls(), refusing.calls()),
+        (2, 1),
+        "cut, then retried"
+    );
+    assert_eq!(built.load(Ordering::SeqCst), 1);
+    assert_eq!(*slow.sent.lock(), [b"late".to_vec()]);
 }

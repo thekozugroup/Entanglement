@@ -81,6 +81,11 @@ pub const TRACE_EXTENSION_TAG: u8 = 0xE1;
 /// most [`crate::capability::MAX_TOKEN_BYTES`]).
 pub const CAPABILITY_EXTENSION_TAG: u8 = 0xE2;
 
+/// The most bytes a capability-token extension block adds to a task frame:
+/// the tag, the token's length prefix (a postcard varint, at most 5 bytes)
+/// and a token of [`crate::capability::MAX_TOKEN_BYTES`].
+pub const MAX_CAPABILITY_EXTENSION_BYTES: usize = 1 + 5 + crate::capability::MAX_TOKEN_BYTES;
+
 /// Current envelope version. Bump on any change to the field layout of
 /// [`RemoteRequest`] or [`RemoteTaskResponse`].
 pub const WIRE_VERSION: u16 = 2;
@@ -472,18 +477,7 @@ pub fn encode_request(req: &RemoteRequest) -> Result<Vec<u8>, WireError> {
             }
         }
         if let Some(token) = &task.capability {
-            if token.len() > crate::capability::MAX_TOKEN_BYTES {
-                return Err(WireError::Malformed(format!(
-                    "capability token of {} bytes exceeds the {}-byte cap",
-                    token.len(),
-                    crate::capability::MAX_TOKEN_BYTES
-                )));
-            }
-            bytes.push(CAPABILITY_EXTENSION_TAG);
-            bytes.extend(
-                postcard::to_allocvec(token)
-                    .map_err(|e| WireError::Malformed(format!("encode: {e}")))?,
-            );
+            append_capability(&mut bytes, token)?;
         }
         if bytes.len() > MAX_FRAME_BYTES {
             return Err(WireError::FrameTooLarge {
@@ -493,6 +487,35 @@ pub fn encode_request(req: &RemoteRequest) -> Result<Vec<u8>, WireError> {
         }
     }
     Ok(bytes)
+}
+
+/// Append the capability-token extension block for `token` to `frame`, the
+/// [`encode_request`] encoding of a task frame that carries no token: the
+/// result is byte for byte what [`encode_request`] makes of the frame with
+/// the token (the block is always the last one). A submitter uses this to
+/// attach a token minted for the attempt that sends the frame. Refuses a
+/// token over [`crate::capability::MAX_TOKEN_BYTES`] and a result over the
+/// frame cap; `frame` is unchanged then.
+pub fn append_capability(frame: &mut Vec<u8>, token: &[u8]) -> Result<(), WireError> {
+    if token.len() > crate::capability::MAX_TOKEN_BYTES {
+        return Err(WireError::Malformed(format!(
+            "capability token of {} bytes exceeds the {}-byte cap",
+            token.len(),
+            crate::capability::MAX_TOKEN_BYTES
+        )));
+    }
+    let block =
+        postcard::to_allocvec(token).map_err(|e| WireError::Malformed(format!("encode: {e}")))?;
+    let actual = frame.len() + 1 + block.len();
+    if actual > MAX_FRAME_BYTES {
+        return Err(WireError::FrameTooLarge {
+            actual,
+            max: MAX_FRAME_BYTES,
+        });
+    }
+    frame.push(CAPABILITY_EXTENSION_TAG);
+    frame.extend(block);
+    Ok(())
 }
 
 /// Encode a response, refusing anything that could not be sent as one frame.
@@ -804,6 +827,45 @@ mod tests {
             decode_request(&twice),
             Err(WireError::Malformed(_))
         ));
+    }
+
+    /// A token appended to an encoded, tokenless frame (what a submitter
+    /// does per attempt) gives exactly the frame `encode_request` makes with
+    /// it, and the helper refuses what `encode_request` refuses.
+    #[test]
+    fn appending_a_token_matches_encoding_the_frame_with_it() {
+        let base = sample_request();
+        for tp in [None, Some(TP.to_owned())] {
+            let mut tokenless = base.clone();
+            if let RequestFrame::Task(t) = &mut tokenless.frame {
+                t.traceparent = tp.clone();
+            }
+            let mut with = tokenless.clone();
+            if let RequestFrame::Task(t) = &mut with.frame {
+                t.capability = Some(vec![7; 500]);
+            }
+            let mut appended = encode_request(&tokenless).unwrap();
+            let before = appended.len();
+            append_capability(&mut appended, &[7; 500]).unwrap();
+            assert_eq!(appended, encode_request(&with).unwrap());
+            assert!(appended.len() - before <= MAX_CAPABILITY_EXTENSION_BYTES);
+        }
+        let mut frame = encode_request(&base).unwrap();
+        let unchanged = frame.clone();
+        assert!(matches!(
+            append_capability(&mut frame, &vec![0; crate::capability::MAX_TOKEN_BYTES + 1]),
+            Err(WireError::Malformed(_))
+        ));
+        assert_eq!(
+            frame, unchanged,
+            "a refused token leaves the frame as it was"
+        );
+        let mut full = vec![0u8; MAX_FRAME_BYTES - 3];
+        assert!(matches!(
+            append_capability(&mut full, &[1; 8]),
+            Err(WireError::FrameTooLarge { .. })
+        ));
+        assert_eq!(full.len(), MAX_FRAME_BYTES - 3);
     }
 
     #[test]

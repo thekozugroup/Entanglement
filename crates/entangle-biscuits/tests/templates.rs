@@ -6,12 +6,11 @@ use std::sync::Arc;
 use biscuit_auth::builder::BlockBuilder;
 use biscuit_auth::Biscuit;
 use entangle_biscuits::templates::{
-    attenuate_agent_session, attenuate_for_request, attenuate_gpu_job, mint_mesh_peer,
-    present_for_request, root_keypair, root_public_key, verify_agent_session, verify_gpu_job,
-    verify_mesh_peer_grant, verify_request, Operation, ReplayCache, RequestCheck,
+    attenuate_agent_session, attenuate_for_request, attenuate_gpu_job, late_arrival_grace_secs,
+    mint_mesh_peer, present_for_request, root_keypair, root_public_key, verify_agent_session,
+    verify_gpu_job, verify_mesh_peer_grant, verify_request, Operation, ReplayCache, RequestCheck,
     RequestRestrictions, RequestVerifier, RevocationList, StaticRevocations, TokenError,
-    late_arrival_grace_secs, MAX_CLOCK_SKEW_SECS, MAX_LATE_ARRIVAL_GRACE_SECS,
-    REPLAY_GRACE_SECS, REQUEST_TOKEN_TTL_SECS,
+    MAX_CLOCK_SKEW_SECS, MAX_LATE_ARRIVAL_GRACE_SECS, REPLAY_GRACE_SECS, REQUEST_TOKEN_TTL_SECS,
 };
 use entangle_biscuits::BiscuitError;
 use entangle_signing::IdentityKeyPair;
@@ -604,9 +603,17 @@ const fn frame_of(secs: usize) -> usize {
 #[test]
 fn the_late_arrival_grace_is_one_second_per_256_kib_received_capped() {
     assert_eq!(late_arrival_grace_secs(0), 0);
-    assert_eq!(late_arrival_grace_secs(frame_of(1) - 1), 0, "under 256 KiB: none");
+    assert_eq!(
+        late_arrival_grace_secs(frame_of(1) - 1),
+        0,
+        "under 256 KiB: none"
+    );
     assert_eq!(late_arrival_grace_secs(frame_of(1)), 1);
-    assert_eq!(late_arrival_grace_secs(frame_of(2) - 1), 1, "integer division");
+    assert_eq!(
+        late_arrival_grace_secs(frame_of(2) - 1),
+        1,
+        "integer division"
+    );
     // The largest task frame (16 MiB of input plus 64 KiB of envelope).
     assert_eq!(late_arrival_grace_secs(16 * 1024 * 1024 + 64 * 1024), 64);
     assert_eq!(MAX_LATE_ARRIVAL_GRACE_SECS, 600);
@@ -634,7 +641,10 @@ fn a_large_frame_is_expired_only_once_its_grace_has_passed_too() {
     let ok = late(frame_of(8), NOW).unwrap();
     assert_eq!((ok.expires, ok.late_grace_secs), (NOW - 5, 8));
     assert_eq!(ok.accepted_until(), NOW + 3);
-    assert!(late(frame_of(8), NOW + 2).is_ok(), "the last second inside it");
+    assert!(
+        late(frame_of(8), NOW + 2).is_ok(),
+        "the last second inside it"
+    );
     // `now >= expires + grace`: expired, with the shared E0412 refusal.
     assert_eq!(
         late(frame_of(8), NOW + 3),
@@ -715,7 +725,9 @@ fn the_replay_cache_holds_a_late_nonce_for_its_grace_and_still_fails_closed() {
     let a = PeerId::from_public_key_bytes(&[1; 32]);
     let mut cache = ReplayCache::new(1, 1);
     // Accepted until NOW + 64 (expiry NOW, 64 s of grace).
-    cache.check_and_record([1; 16], a, NOW + 64, NOW + 10).unwrap();
+    cache
+        .check_and_record([1; 16], a, NOW + 64, NOW + 10)
+        .unwrap();
     // The cache is full for as long as that nonce is retained: a new token
     // is refused, never accepted unchecked.
     for now in [NOW + 11, NOW + 64, NOW + 64 + REPLAY_GRACE_SECS - 1] {
@@ -733,6 +745,8 @@ fn the_replay_cache_holds_a_late_nonce_for_its_grace_and_still_fails_closed() {
     }
     // Retention ends at accepted_until + REPLAY_GRACE_SECS.
     let after = NOW + 64 + REPLAY_GRACE_SECS;
-    cache.check_and_record([2; 16], a, after + 60, after).unwrap();
+    cache
+        .check_and_record([2; 16], a, after + 60, after)
+        .unwrap();
     assert_eq!(cache.len(), 1);
 }
