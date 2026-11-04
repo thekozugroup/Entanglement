@@ -3,10 +3,11 @@
 //!
 //! Each driver owns one stream and runs three things:
 //!
-//! * a **reader** task, reading one frame at a time under the per-frame cap
-//!   the machine computes ([`ExecutorMachine::frame_cap`] /
-//!   [`SubmitterMachine::frame_cap`]) — so an oversized chunk is refused from
-//!   its header, before allocation;
+//! * a **reader** task, reading one frame at a time under the per-frame caps
+//!   the machine computes ([`ExecutorMachine::data_frame_cap`] /
+//!   [`SubmitterMachine::data_frame_cap`] for chunk frames, the
+//!   control-frame bound for the rest) — so an oversized chunk is refused
+//!   from its header and kind, before its body is read or allocated;
 //! * a **writer** task behind two small bounded queues, so a peer that stops
 //!   reading blocks the writer, never the timers: heartbeats, stall
 //!   detection and the wall-clock deadline keep running. Heartbeat and
@@ -40,7 +41,10 @@ use tokio::task::JoinHandle;
 
 use super::error::{Reason, Side, StreamError};
 use super::executor::{ExecutorMachine, InputPoll, SendOutcome};
-use super::frame::{decode_frame, encode_frame_owned, Frame, CONTROL_FRAME_MAX};
+use super::frame::{
+    decode_frame, encode_frame_owned, is_data_frame_prefix, Frame, CONTROL_FRAME_MAX,
+    FRAME_KIND_PREFIX,
+};
 use super::partial::{finalize, StreamContext, StreamOutcome, StreamResult};
 use super::submitter::{ChunkPoll, InputSend, SubmitterMachine, SubmitterOptions, VerifiedChunk};
 use super::StreamEvent;
@@ -68,17 +72,24 @@ const IDLE: Duration = Duration::from_secs(3600);
 enum ReadItem {
     Frame(Vec<u8>),
     Eof,
+    /// A data frame (or one refused from its header alone) over its cap.
     TooLarge(u64),
+    /// A control frame over the control-frame bound.
+    ControlTooLarge(u64),
     Failed(String),
 }
 
-/// Read frames in lockstep with the loop: each read waits for the cap the
-/// loop computed **after** processing the previous frame, so the cap always
-/// reflects the bytes already received (a reader running one frame ahead
-/// would check the next header against a stale, larger budget).
+/// Read frames in lockstep with the loop: each read waits for the data-frame
+/// cap the loop computed **after** processing the previous frame, so the
+/// cap always reflects the bytes already received (a reader running one
+/// frame ahead would check the next header against a stale, larger budget).
+///
+/// A chunk / input frame is held to that cap, every other frame to
+/// [`CONTROL_FRAME_MAX`]; which one a frame is, the reader learns from the
+/// header and the two bytes after it, before reading the rest.
 fn spawn_reader(
     mut recv: FramedRecv,
-    first_cap: usize,
+    first_data_cap: usize,
 ) -> (
     mpsc::Receiver<ReadItem>,
     mpsc::Sender<usize>,
@@ -86,13 +97,33 @@ fn spawn_reader(
 ) {
     let (tx, rx) = mpsc::channel(1);
     let (cap_tx, mut cap_rx) = mpsc::channel::<usize>(1);
-    let _ = cap_tx.try_send(first_cap);
+    let _ = cap_tx.try_send(first_data_cap);
     let task = tokio::spawn(async move {
-        while let Some(cap) = cap_rx.recv().await {
-            let item = match recv.recv_capped(cap).await {
+        while let Some(data_cap) = cap_rx.recv().await {
+            // `None`: refused from the header, before the kind was seen.
+            let mut data_frame = None;
+            let read = recv
+                .recv_capped_by(
+                    data_cap.max(CONTROL_FRAME_MAX),
+                    FRAME_KIND_PREFIX,
+                    |prefix| {
+                        let data = is_data_frame_prefix(prefix);
+                        data_frame = Some(data);
+                        if data {
+                            data_cap
+                        } else {
+                            CONTROL_FRAME_MAX
+                        }
+                    },
+                )
+                .await;
+            let item = match read {
                 Ok(Some(bytes)) => ReadItem::Frame(bytes),
                 Ok(None) => ReadItem::Eof,
-                Err(MeshIrohError::FrameTooLarge { declared, .. }) => ReadItem::TooLarge(declared),
+                Err(MeshIrohError::FrameTooLarge { declared, .. }) => match data_frame {
+                    Some(false) => ReadItem::ControlTooLarge(declared),
+                    Some(true) | None => ReadItem::TooLarge(declared),
+                },
                 Err(e) => ReadItem::Failed(e.to_string()),
             };
             let last = !matches!(item, ReadItem::Frame(_));
@@ -274,7 +305,7 @@ where
     P: Future<Output = Result<(), String>> + Send + 'static,
 {
     let plugin = spawn_plugin(plugin);
-    let (rx, caps, reader) = spawn_reader(recv, m.frame_cap());
+    let (rx, caps, reader) = spawn_reader(recv, m.data_frame_cap());
     let mut reading = Reading {
         rx,
         caps,
@@ -365,9 +396,12 @@ where
                         Ok(frame) => { let _ = m.on_frame(frame, Instant::now()); }
                         Err(e) => { m.fail(e); }
                     }
-                    let _ = reading.caps.try_send(m.frame_cap());
+                    let _ = reading.caps.try_send(m.data_frame_cap());
                 }
                 Some(ReadItem::TooLarge(declared)) => { m.on_oversized_frame(declared); }
+                Some(ReadItem::ControlTooLarge(declared)) => {
+                    m.fail(oversized_control_frame(Side::Submitter, declared));
+                }
                 Some(ReadItem::Eof) => m.on_transport_lost("the submitter closed its side of the stream".into()),
                 Some(ReadItem::Failed(e)) => m.on_transport_lost(e),
                 None => m.on_transport_lost("stream reader stopped".into()),
@@ -470,6 +504,16 @@ where
             Err(e) if e.is_cancelled() => Err("the plugin task was cancelled".to_owned()),
             Err(e) => Err(format!("the plugin task panicked: {e}")),
         }
+    }
+}
+
+/// `by` sent a non-data frame over the control-frame bound.
+fn oversized_control_frame(by: Side, declared: u64) -> StreamError {
+    StreamError::Protocol {
+        by,
+        detail: format!(
+            "a {declared}-byte control frame exceeds the {CONTROL_FRAME_MAX}-byte bound"
+        ),
     }
 }
 
@@ -777,7 +821,7 @@ async fn drive_submitter(
     executor: PeerId,
 ) -> Finished {
     let (send, recv) = io.split();
-    let (rx, caps, reader) = spawn_reader(recv, m.frame_cap());
+    let (rx, caps, reader) = spawn_reader(recv, m.data_frame_cap());
     let mut reading = Reading {
         rx,
         caps,
@@ -856,9 +900,12 @@ async fn drive_submitter(
                         Ok(frame) => { let _ = m.on_frame(frame, Instant::now()); }
                         Err(e) => { m.fail(e); }
                     }
-                    let _ = reading.caps.try_send(m.frame_cap());
+                    let _ = reading.caps.try_send(m.data_frame_cap());
                 }
                 Some(ReadItem::TooLarge(declared)) => { m.on_oversized_frame(declared); }
+                Some(ReadItem::ControlTooLarge(declared)) => {
+                    m.fail(oversized_control_frame(Side::Executor, declared));
+                }
                 Some(ReadItem::Eof) => m.on_transport_lost("the executor closed its side of the stream".into()),
                 Some(ReadItem::Failed(e)) => m.on_transport_lost(e),
                 None => m.on_transport_lost("stream reader stopped".into()),

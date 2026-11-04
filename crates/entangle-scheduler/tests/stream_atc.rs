@@ -25,6 +25,7 @@ use entangle_mesh_iroh::{
 use entangle_runtime::{Kernel, KernelConfig};
 use entangle_scheduler::stream::frame::{
     decode_frame, encode_frame, AcceptedFrame, ChunkFrame, Frame, OpenFrame, CHUNK_FRAME_OVERHEAD,
+    CONTROL_FRAME_MAX,
 };
 use entangle_scheduler::stream::{
     open_stream, request_digest, validate_submit, verify_transcript, ChunkPoll, ChunkSigner,
@@ -564,6 +565,14 @@ impl RawPeer {
         self.io.write_all(&len.to_be_bytes()).await.unwrap();
     }
 
+    /// A frame header announcing `len` bytes, then just `prefix` of its
+    /// body.
+    async fn send_header_and_prefix(&mut self, len: u32, prefix: &[u8]) {
+        use tokio::io::AsyncWriteExt as _;
+        self.io.write_all(&len.to_be_bytes()).await.unwrap();
+        self.io.write_all(prefix).await.unwrap();
+    }
+
     /// The next frame from the framed end (sent by `from`), or `None` at its
     /// end of stream.
     async fn recv_frame(&mut self, from: Side) -> Option<Frame> {
@@ -697,6 +706,70 @@ async fn atc_int_6_submitter_tears_down_an_executor_that_does_not_self_close() {
         deadline("oversized chunk", handle.next()).await,
         ChunkPoll::Closed(StreamError::ChunkSizeExceeded { limit: 4096, .. })
     ));
+}
+
+/// ATC-INT-6 with its GIVEN as written, max_total_bytes = 1024: the chunk
+/// that would cross the cap is refused from its frame header (and the two
+/// bytes after it that say it is a chunk) although its frame is smaller
+/// than the largest control frame — its body is never read.
+#[tokio::test]
+async fn atc_int_6_crossing_chunk_refused_before_its_body_at_1024_bytes() {
+    let executor = IdentityKeyPair::generate();
+    let mut task = StreamingTask::with_defaults(plugin_id(), vec![]);
+    task.channel.max_total_bytes = 1024;
+
+    let (sub_io, mut raw) = raw_pair(&executor);
+    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    let (_open, signer) = raw.accept(&executor).await;
+    raw.send_frame(&signed_chunk(&signer, 0, vec![b'a'; 1000]))
+        .await;
+    // 1000 more bytes would make 2000; the frame is ~1.1 KiB, under the
+    // 2 KiB control-frame bound. Its header and kind, and nothing else.
+    let next = encode_frame(&signed_chunk(&signer, 1, vec![b'b'; 1000])).unwrap();
+    assert!(next.len() < CONTROL_FRAME_MAX, "{}", next.len());
+    raw.send_header_and_prefix(next.len() as u32, &next[..2])
+        .await;
+
+    match deadline("first chunk", handle.next()).await {
+        ChunkPoll::Chunk(c) => assert_eq!(c.bytes.len(), 1000),
+        other => panic!("expected the in-budget chunk, got {other:?}"),
+    }
+    match deadline("teardown", handle.next()).await {
+        ChunkPoll::Closed(StreamError::StreamBytesExceeded { limit, attempted }) => {
+            assert_eq!(limit, 1024);
+            assert!(attempted > 1024, "{attempted}");
+        }
+        other => panic!("expected StreamBytesExceeded from the header, got {other:?}"),
+    }
+    assert_eq!(
+        raw.error_reason(Side::Submitter).await,
+        Reason::TotalBytesExceeded
+    );
+}
+
+/// Only chunk frames get the chunk budget: any other frame is held to the
+/// control-frame bound, from its header and kind, even while the budget
+/// would allow a far larger chunk.
+#[tokio::test]
+async fn an_oversized_control_frame_is_refused_before_its_body() {
+    let executor = IdentityKeyPair::generate();
+    let mut task = StreamingTask::with_defaults(plugin_id(), vec![]);
+    task.channel.max_chunk_bytes = 64 * 1024;
+
+    let (sub_io, mut raw) = raw_pair(&executor);
+    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    raw.accept(&executor).await;
+    // A Pong announcing 8 KiB: within the chunk budget, over the bound.
+    let pong = encode_frame(&Frame::Pong { seq: 0, ts_ms: 0 }).unwrap();
+    raw.send_header_and_prefix(8 * 1024, &pong[..2]).await;
+
+    match deadline("teardown", handle.next()).await {
+        ChunkPoll::Closed(StreamError::Protocol {
+            by: Side::Executor,
+            detail,
+        }) => assert!(detail.contains("control frame"), "{detail}"),
+        other => panic!("expected a protocol error, got {other:?}"),
+    }
 }
 
 // ════════════════════════════════════════════════════════════════════════════

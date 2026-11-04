@@ -47,6 +47,32 @@ pub const CONTROL_FRAME_MAX: usize = 2 * 1024;
 /// Upper bound on what an `Open` frame carries besides the task input.
 pub const OPEN_FRAME_OVERHEAD: usize = MAX_POLICY_BYTES + 4 * 1024;
 
+/// How many leading bytes of an encoded frame [`is_data_frame_prefix`]
+/// needs: the version and the frame kind.
+pub const FRAME_KIND_PREFIX: usize = 2;
+
+/// Variant index of [`Frame::Chunk`] in the encoding.
+const CHUNK_KIND: u8 = 2;
+/// Variant index of [`Frame::Input`] in the encoding.
+const INPUT_KIND: u8 = 3;
+
+/// `true` when an encoded frame starting with `prefix` (its first
+/// [`FRAME_KIND_PREFIX`] bytes) is a `Chunk` or `Input` frame of the
+/// current wire version: a frame a stream's byte budget bounds, which a
+/// receiver can therefore refuse before reading its body even when it is
+/// smaller than [`CONTROL_FRAME_MAX`].
+///
+/// Postcard writes the version (`u16`) and then the [`Frame`] variant index
+/// as varints, each one byte while below 128 (checked by the tests against
+/// the real encoder). Anything else — another version, a truncated prefix —
+/// is not a data frame here, and decoding reports it.
+pub fn is_data_frame_prefix(prefix: &[u8]) -> bool {
+    matches!(
+        prefix,
+        [version, CHUNK_KIND | INPUT_KIND] if u16::from(*version) == STREAM_WIRE_VERSION
+    )
+}
+
 /// One frame on an `entangle/stream/1` stream.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StreamFrame {
@@ -458,6 +484,21 @@ mod tests {
                 other => assert!(len <= CONTROL_FRAME_MAX, "{} is {len}", other.name()),
             }
         }
+    }
+
+    #[test]
+    fn the_kind_prefix_identifies_data_frames_exactly() {
+        for f in samples() {
+            let bytes = encode_frame(&f).unwrap();
+            assert_eq!(
+                is_data_frame_prefix(&bytes[..FRAME_KIND_PREFIX]),
+                matches!(f, Frame::Chunk(_) | Frame::Input(_)),
+                "{}",
+                f.name()
+            );
+        }
+        assert!(!is_data_frame_prefix(&[1]), "a truncated prefix");
+        assert!(!is_data_frame_prefix(&[2, CHUNK_KIND]), "another version");
     }
 
     #[test]

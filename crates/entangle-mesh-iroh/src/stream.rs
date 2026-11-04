@@ -37,7 +37,7 @@ use iroh::endpoint::{RecvStream, SendStream, VarInt};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use crate::error::MeshIrohError;
-use crate::framing::{read_frame_or_eof, write_frame};
+use crate::framing::{read_frame_or_eof, read_frame_or_eof_classified, write_frame};
 
 /// A boxed async writer: an in-memory pipe or any other non-QUIC sink.
 type BoxedWrite = Box<dyn AsyncWrite + Send + Unpin>;
@@ -174,6 +174,32 @@ impl FramedRecv {
     /// oversized frame is refused from its header alone.
     pub async fn recv_capped(&mut self, cap: usize) -> Result<Option<Vec<u8>>, MeshIrohError> {
         read_frame_or_eof(&mut self.inner, cap.min(self.max_frame_bytes)).await
+    }
+
+    /// Read the next frame under a cap chosen by what the frame is: the
+    /// header is checked against `cap` (clamped to the stream's own cap),
+    /// then the first `peek` body bytes are read and `cap_for(prefix)` gives
+    /// the frame's actual cap, enforced before the rest of the body is read.
+    ///
+    /// Lets a protocol hold its data frames to a budget smaller than its
+    /// largest control frame (a chunk that would overrun the bytes left is
+    /// refused even when it is only a few hundred bytes long).
+    pub async fn recv_capped_by<F>(
+        &mut self,
+        cap: usize,
+        peek: usize,
+        cap_for: F,
+    ) -> Result<Option<Vec<u8>>, MeshIrohError>
+    where
+        F: FnOnce(&[u8]) -> usize,
+    {
+        read_frame_or_eof_classified(
+            &mut self.inner,
+            cap.min(self.max_frame_bytes),
+            peek,
+            cap_for,
+        )
+        .await
     }
 
     /// The stream's own per-frame cap.
@@ -341,6 +367,39 @@ mod tests {
         match b_recv.recv_capped(64).await {
             Err(MeshIrohError::FrameTooLarge { declared, max }) => {
                 assert_eq!((declared, max), (100, 64));
+            }
+            other => panic!("expected FrameTooLarge, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_classified_cap_refuses_a_frame_after_its_prefix() {
+        let (mut a, b) = duplex_pair([1; 32], [2; 32], 1024, DEFAULT_DUPLEX_BUFFER);
+        let (_b_send, mut b_recv) = b.split();
+        // Frames starting with `d` are held to 10 bytes, others to 100.
+        let cap = |prefix: &[u8]| {
+            if prefix.first() == Some(&b'd') {
+                10
+            } else {
+                100
+            }
+        };
+        a.send(b"control frame, more than ten bytes").await.unwrap();
+        a.send(b"d-ten-ok!!").await.unwrap();
+        // The over-cap data frame is refused after its first byte; the rest
+        // of its body is left unread.
+        a.send(b"d over the cap, never read").await.unwrap();
+        assert_eq!(
+            b_recv.recv_capped_by(1024, 1, cap).await.unwrap().unwrap(),
+            b"control frame, more than ten bytes"
+        );
+        assert_eq!(
+            b_recv.recv_capped_by(1024, 1, cap).await.unwrap().unwrap(),
+            b"d-ten-ok!!"
+        );
+        match b_recv.recv_capped_by(1024, 1, cap).await {
+            Err(MeshIrohError::FrameTooLarge { declared, max }) => {
+                assert_eq!((declared, max), (26, 10));
             }
             other => panic!("expected FrameTooLarge, got {other:?}"),
         }

@@ -363,7 +363,9 @@ impl ExecutorMachine {
     }
 
     /// The transport refused a frame from the submitter whose header declared
-    /// `declared` bytes, over the cap [`ExecutorMachine::frame_cap`] gave.
+    /// `declared` bytes: over [`ExecutorMachine::frame_cap`] from the header
+    /// alone, or over [`ExecutorMachine::data_frame_cap`] once its first
+    /// bytes showed it is an `Input` frame.
     pub fn on_oversized_frame(&mut self, declared: u64) -> StreamError {
         let chunk_cap = self.limits.max_chunk_bytes + CHUNK_FRAME_OVERHEAD as u64;
         let payload = declared.saturating_sub(CHUNK_FRAME_OVERHEAD as u64);
@@ -385,6 +387,15 @@ impl ExecutorMachine {
     /// enforce from the frame header: one chunk of at most the input budget
     /// left, or a control frame.
     pub fn frame_cap(&self) -> usize {
+        self.data_frame_cap().max(CONTROL_FRAME_MAX)
+    }
+
+    /// The largest `Input` frame the submitter may send next: one chunk of
+    /// at most the input budget left. Unlike [`ExecutorMachine::frame_cap`]
+    /// it is not raised to the control-frame bound, so the transport can
+    /// refuse a small input chunk that would overrun the budget as soon as
+    /// it sees the frame is one ([`super::frame::is_data_frame_prefix`]).
+    pub fn data_frame_cap(&self) -> usize {
         let left = self
             .limits
             .max_total_bytes
@@ -393,7 +404,6 @@ impl ExecutorMachine {
         usize::try_from(chunk)
             .unwrap_or(usize::MAX)
             .saturating_add(CHUNK_FRAME_OVERHEAD)
-            .max(CONTROL_FRAME_MAX)
     }
 
     /// The next input chunk for the plugin; consuming one grants the

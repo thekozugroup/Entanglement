@@ -106,6 +106,56 @@ pub(crate) async fn read_frame_or_eof<R>(
 where
     R: AsyncRead + Unpin,
 {
+    let Some(header) = read_header_or_eof(reader).await? else {
+        return Ok(None);
+    };
+    read_body(reader, header, max).await.map(Some)
+}
+
+/// Like [`read_frame_or_eof`], with a cap that depends on what the frame
+/// *is*: after the header passes `max`, the first `peek` body bytes (fewer
+/// if the frame is shorter) are read and `cap_for` decides the frame's
+/// actual cap from them. A frame over that cap is refused with
+/// [`MeshIrohError::FrameTooLarge`] (`max` = the cap `cap_for` chose)
+/// before the rest of its body is read or allocated.
+///
+/// For protocols whose small control frames and budgeted data frames share
+/// one stream: a data frame can be held to a budget smaller than the
+/// largest control frame.
+pub(crate) async fn read_frame_or_eof_classified<R, F>(
+    reader: &mut R,
+    max: usize,
+    peek: usize,
+    cap_for: F,
+) -> Result<Option<Vec<u8>>, MeshIrohError>
+where
+    R: AsyncRead + Unpin,
+    F: FnOnce(&[u8]) -> usize,
+{
+    let Some(header) = read_header_or_eof(reader).await? else {
+        return Ok(None);
+    };
+    let declared = check_header(header, max)?;
+    let mut body = Vec::new();
+    // Only the first `peek` bytes before `cap_for` has had its say.
+    read_until(reader, &mut body, peek.min(declared), declared).await?;
+    let cap = cap_for(&body).min(max);
+    if declared > cap {
+        return Err(MeshIrohError::FrameTooLarge {
+            declared: declared as u64,
+            max: cap,
+        });
+    }
+    read_until(reader, &mut body, declared, declared).await?;
+    Ok(Some(body))
+}
+
+/// Read a frame header, or `None` if the stream ended cleanly before it
+/// began. A stream that ends inside the header is [`MeshIrohError::Protocol`].
+async fn read_header_or_eof<R>(reader: &mut R) -> Result<Option<[u8; HEADER_BYTES]>, MeshIrohError>
+where
+    R: AsyncRead + Unpin,
+{
     let mut header = [0u8; HEADER_BYTES];
     let mut filled = 0;
     while filled < HEADER_BYTES {
@@ -123,7 +173,19 @@ where
         }
         filled += n;
     }
-    read_body(reader, header, max).await.map(Some)
+    Ok(Some(header))
+}
+
+/// The body length a frame header declares, if it is within `max`.
+fn check_header(header: [u8; HEADER_BYTES], max: usize) -> Result<usize, MeshIrohError> {
+    // Untrusted. Compare in u64 so the check is identical on 32- and 64-bit
+    // targets, and reject *before* allocating anything.
+    let declared = u64::from(u32::from_be_bytes(header));
+    if declared > max as u64 {
+        return Err(MeshIrohError::FrameTooLarge { declared, max });
+    }
+    // In bounds of `max`, which is a usize.
+    Ok(declared as usize)
 }
 
 /// Validate a frame header against `max`, then read its body in bounded steps.
@@ -135,33 +197,44 @@ async fn read_body<R>(
 where
     R: AsyncRead + Unpin,
 {
-    // Untrusted. Compare in u64 so the check is identical on 32- and 64-bit
-    // targets, and reject *before* allocating anything.
-    let declared = u64::from(u32::from_be_bytes(header));
-    if declared > max as u64 {
-        return Err(MeshIrohError::FrameTooLarge { declared, max });
-    }
-    let declared = declared as usize;
+    let declared = check_header(header, max)?;
+    let mut out = Vec::new();
+    read_until(reader, &mut out, declared, declared).await?;
+    Ok(out)
+}
 
-    let mut out = Vec::with_capacity(declared.min(READ_CHUNK_BYTES));
-    let mut scratch = vec![0u8; READ_CHUNK_BYTES];
-    let mut remaining = declared;
-    while remaining > 0 {
-        let want = remaining.min(READ_CHUNK_BYTES);
+/// Read body bytes of a `declared`-byte frame into `out` until it holds
+/// `until` of them, in [`READ_CHUNK_BYTES`] steps: `out` grows only as the
+/// bytes actually arrive, never by what the peer merely promised.
+async fn read_until<R>(
+    reader: &mut R,
+    out: &mut Vec<u8>,
+    until: usize,
+    declared: usize,
+) -> Result<(), MeshIrohError>
+where
+    R: AsyncRead + Unpin,
+{
+    if out.len() >= until {
+        return Ok(());
+    }
+    let mut scratch = vec![0u8; (until - out.len()).min(READ_CHUNK_BYTES)];
+    out.reserve(scratch.len());
+    while out.len() < until {
+        let got = out.len();
+        let want = (until - got).min(READ_CHUNK_BYTES);
         reader.read_exact(&mut scratch[..want]).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::UnexpectedEof {
                 MeshIrohError::Protocol(format!(
-                    "frame truncated: declared {declared} bytes, got {}",
-                    declared - remaining
+                    "frame truncated: declared {declared} bytes, got {got}"
                 ))
             } else {
                 MeshIrohError::Stream(format!("reading frame body: {e}"))
             }
         })?;
         out.extend_from_slice(&scratch[..want]);
-        remaining -= want;
     }
-    Ok(out)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -330,5 +403,109 @@ mod tests {
         let mut cursor = std::io::Cursor::new(wire);
         let err = read_frame(&mut cursor, big).await.expect_err("must error");
         assert!(matches!(err, MeshIrohError::Protocol(_)), "got {err}");
+    }
+
+    /// A reader that serves `bytes` and panics if asked for anything more.
+    struct ExactReader {
+        bytes: Vec<u8>,
+        pos: usize,
+    }
+
+    impl AsyncRead for ExactReader {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            assert!(
+                self.pos < self.bytes.len(),
+                "read past the bytes the frame's cap allows"
+            );
+            let n = buf.remaining().min(self.bytes.len() - self.pos);
+            let pos = self.pos;
+            buf.put_slice(&self.bytes[pos..pos + n]);
+            self.pos += n;
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    /// Frames whose body starts with `dd` are held to 10 bytes; others to
+    /// the reader's `max`.
+    fn data_cap(prefix: &[u8]) -> usize {
+        if prefix == b"dd" {
+            10
+        } else {
+            usize::MAX
+        }
+    }
+
+    #[tokio::test]
+    async fn a_classified_cap_refuses_a_frame_after_its_prefix_alone() {
+        // 100 bytes declared, only the 2-byte prefix on the wire: anything
+        // past it would panic the reader.
+        let mut wire = 100u32.to_be_bytes().to_vec();
+        wire.extend_from_slice(b"dd");
+        let mut reader = ExactReader {
+            bytes: wire,
+            pos: 0,
+        };
+        let err = read_frame_or_eof_classified(&mut reader, 1024, 2, data_cap)
+            .await
+            .expect_err("must reject");
+        match err {
+            MeshIrohError::FrameTooLarge { declared, max } => {
+                assert_eq!((declared, max), (100, 10));
+            }
+            other => panic!("expected FrameTooLarge, got {other}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_classified_read_returns_whole_frames_under_their_caps() {
+        let mut wire = Vec::new();
+        write_frame(&mut wire, b"control frame, long", 1024)
+            .await
+            .unwrap();
+        write_frame(&mut wire, b"dd-8-byte", 1024).await.unwrap();
+        // Shorter than the prefix: classified from what there is.
+        write_frame(&mut wire, b"d", 1024).await.unwrap();
+        let mut cursor = std::io::Cursor::new(wire);
+        for want in [&b"control frame, long"[..], b"dd-8-byte", b"d"] {
+            let got = read_frame_or_eof_classified(&mut cursor, 1024, 2, data_cap)
+                .await
+                .unwrap()
+                .expect("a frame");
+            assert_eq!(got, want);
+        }
+        assert!(
+            read_frame_or_eof_classified(&mut cursor, 1024, 2, data_cap)
+                .await
+                .unwrap()
+                .is_none(),
+            "a clean end between frames"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_classified_read_checks_the_header_cap_first() {
+        let mut reader = HeaderOnlyReader {
+            header: 2048u32.to_be_bytes(),
+            pos: 0,
+        };
+        let err = read_frame_or_eof_classified(&mut reader, 1024, 2, |_| {
+            panic!("the kind of an over-cap frame is never looked at")
+        })
+        .await
+        .expect_err("must reject");
+        assert!(
+            matches!(
+                err,
+                MeshIrohError::FrameTooLarge {
+                    declared: 2048,
+                    max: 1024
+                }
+            ),
+            "{err}"
+        );
     }
 }

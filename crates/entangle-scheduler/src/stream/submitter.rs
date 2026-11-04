@@ -12,8 +12,10 @@
 //!    submitter tracks the total itself (defense in depth): an executor that
 //!    does not self-close at the cap is torn down with
 //!    [`StreamError::StreamBytesExceeded`]. The transport has already
-//!    refused, from the frame header alone, any frame larger than
-//!    [`SubmitterMachine::frame_cap`], so no oversized chunk is ever
+//!    refused, from the frame header (and the two bytes after it that give
+//!    the frame's kind), any chunk frame larger than
+//!    [`SubmitterMachine::data_frame_cap`] and any other frame larger than
+//!    the control-frame bound, so no oversized chunk is ever read or
 //!    allocated;
 //! 2. **credit** — the executor had credit for it;
 //! 3. **sequence** — `seq` is exactly the next number (a replayed or
@@ -389,9 +391,11 @@ impl SubmitterMachine {
         }
     }
 
-    /// The transport refused a frame whose header declared `declared` bytes,
-    /// over [`SubmitterMachine::frame_cap`]: the executor tried to send a
-    /// chunk over a cap. Closes the stream; nothing was allocated for it.
+    /// The transport refused a frame whose header declared `declared` bytes:
+    /// over [`SubmitterMachine::frame_cap`] from the header alone, or over
+    /// [`SubmitterMachine::data_frame_cap`] once its first bytes showed it
+    /// is a chunk. The executor tried to send a chunk over a cap. Closes the
+    /// stream; nothing was allocated for the frame's body.
     pub fn on_oversized_frame(&mut self, declared: u64) -> StreamError {
         let chunk_cap = self.eff.max_chunk_bytes + CHUNK_FRAME_OVERHEAD as u64;
         let payload = declared.saturating_sub(CHUNK_FRAME_OVERHEAD as u64);
@@ -413,12 +417,21 @@ impl SubmitterMachine {
     /// transport from the frame header: one chunk of at most the budget left
     /// in `max_total_bytes`, or a control frame.
     pub fn frame_cap(&self) -> usize {
+        self.data_frame_cap().max(CONTROL_FRAME_MAX)
+    }
+
+    /// The largest `Chunk` frame the executor may send next: one chunk of at
+    /// most the budget left. Unlike [`SubmitterMachine::frame_cap`] it is
+    /// not raised to the control-frame bound, so the transport refuses a
+    /// small chunk that would cross `max_total_bytes` as soon as it sees the
+    /// frame is a chunk ([`super::frame::is_data_frame_prefix`]), before
+    /// reading its body.
+    pub fn data_frame_cap(&self) -> usize {
         let left = self.eff.max_total_bytes.saturating_sub(self.received_bytes);
         let chunk = self.eff.max_chunk_bytes.min(left);
         usize::try_from(chunk)
             .unwrap_or(usize::MAX)
             .saturating_add(CHUNK_FRAME_OVERHEAD)
-            .max(CONTROL_FRAME_MAX)
     }
 
     /// The next verified chunk for the application. Consuming one grants the
