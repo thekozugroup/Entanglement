@@ -445,6 +445,8 @@ On device B: `entangle pair 734-291`
 
 4. On accept, both sides mint long-lived biscuit tokens granting `mesh.peer` to each other and persist them.
 
+> **Implementation note (deviations).** The `mesh.peer` tokens minted here have no expiry: they live until revoked locally (`entangle peers remove`; §6.5 gossip is not implemented), not 24 h as §6.1.1 states. Per-request attenuations carry the 60 s expiry. Control frames carry no token, since they execute nothing; task frames and stream `Open`s do.
+
 5. Pairing is bidirectional and revocable: `entangle peers list`, `entangle peers remove <nodeid>`. **Failure modes (each with an explicit message):**
 
 - *Code expired*: B says "code expired; ask A to run `entangle pair` again."

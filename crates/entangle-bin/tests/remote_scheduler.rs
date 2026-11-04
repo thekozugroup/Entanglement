@@ -493,10 +493,13 @@ async fn the_daemon_serves_streams_behind_the_peer_store_gate() {
 
 // ── capability tokens and revocation, as the daemon wires them ─────────────
 
-/// `entangle peers remove` revokes the token the daemon issued to the peer;
-/// re-adding the peer by hand (`entangle mesh trust`) puts it back on the
-/// allowlist but does not revive that token — while the daemon runs, from
-/// the files the CLI writes.
+/// The daemon side of `entangle peers remove` / `entangle mesh trust`: the
+/// store operations the CLI calls (`remove_revoking`, `add_keeping_tokens`)
+/// revoke the token the daemon issued to the peer, and re-adding the peer
+/// puts it back on the allowlist without reviving that token — while the
+/// daemon runs, from the files they write. That the commands themselves call
+/// those operations is covered by `crates/entangle-cli/tests/mesh.rs`
+/// (`peers_remove_revokes_…`, `mesh_untrust_revokes_…`).
 #[tokio::test(flavor = "multi_thread")]
 async fn a_removed_then_re_added_peer_cannot_use_its_old_token() {
     let dir = tempfile::tempdir().unwrap();

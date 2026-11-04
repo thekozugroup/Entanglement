@@ -336,6 +336,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0400` | Cross-node dispatch attempted but the remote transport is not implemented (Phase 2 scaffold). |
 | `ENTANGLE-E0401` | Task input exceeds the dispatcher's configured `max_input_bytes`. |
 | `ENTANGLE-E0410`–`E0413` | Biscuit-auth parse / mint / verify / malformed-claim failures. |
+| `ENTANGLE-E0450`–`E0463` | Remote-request capability tokens (`mesh.peer`, see §21): E0450 no token while `[trust] require_capability_tokens = true` (re-pair with `entangle pair`); E0451 not a biscuit or too large; E0452 does not verify under this node's identity key; E0453 issued to another peer than the presenter; E0454 does not grant `mesh.peer`; E0455 per-request expiry missing or more than 60 s (+30 s skew) ahead; E0456 bound to another request; E0457 not exactly one nonce; E0458 replayed nonce; E0459 replay cache full (retry shortly); E0460 revoked on this node; E0461 a block holds content other than the accepted facts; E0462 a template restriction (`gpu_job`, `agent_session`) is not met; E0463 `revoked-tokens.toml` unreadable, so every token is refused. Expiry failures use `ENTANGLE-E0412`. |
 | `ENTANGLE-E0420`–`E0425` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch (E0420–E0424); E0425 is a relay whose cumulative `total_bytes_cap` budget is exhausted. |
 | `ENTANGLE-E0620`–`E0624`, `E0660`–`E0671` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
 | `ENTANGLE-E0630`, `E0640` | Retired `NotImplemented` codes for `mesh.iroh` and `mesh.tailscale`; both transports are implemented. |
@@ -424,8 +425,11 @@ happen entirely before anything is written, so a wrong passphrase, a modified
 or truncated archive, or an archive that is not a backup leaves the target
 untouched. Restored files get mode `0600` (`~/.entangle/` `0700` if it had to
 be created). The restored node has the same `peer_id`, the same keyring and
-the same peer list, and every biscuit issued earlier stays valid, since
-biscuits are bound to keys, not to the device.
+the same peer list (which holds each peer's `mesh.peer` token and the
+revocation ids of the tokens this node issued), the same
+`revoked-tokens.toml`, and every biscuit issued earlier stays valid, since
+biscuits are bound to keys, not to the device; a token revoked before the
+backup stays revoked after the restore.
 
 If this device already has an identity, keyring or peer list that differs from
 the archive, `restore` refuses (`ENTANGLE-E0864`). With `--force` it first
@@ -1733,3 +1737,53 @@ the task or stream server.
 | `... does not serve entangle/scheduler/1 over mesh.tailscale` | The peer's tailnet listener predates this release (it answered without protocol selection). Upgrade it; until then the router falls back to the next transport. |
 | Traffic uses a slower transport than expected | Check the `route:` line in `entangle diag mesh` (order, skips, last used) and `[mesh] preferred` / `[mesh.overrides]`. A connect failure on the first candidate (e.g. a stale tailnet address) silently falls back; `RUST_LOG=entangle_scheduler=debug` logs each failed attempt. |
 | `ENTANGLE-E0432` | The connection broke after the request was sent; the task may or may not have run on the peer, so it was not retried. Re-submit if the task is idempotent. |
+
+---
+
+## 21. Capability tokens for remote work (`mesh.peer`)
+
+Being on the peer allowlist is not enough to make this node run anything
+(spec §6.1.1): every remote task frame and every stream `Open` must also carry
+a biscuit capability token (spec §6.6). Control frames (cancel, heartbeat)
+carry none, since they never execute anything.
+
+**Pairing mints them.** `entangle pair` (spec §6.3 step 4) exchanges a
+`mesh.peer` token each way after both sides confirm: the peer holds a token
+rooted at *this* node's identity key naming it as holder, and this node holds
+one rooted at the peer's key. Both are stored in `~/.entangle/peers.toml`
+(the token this node presents, and the revocation ids of the token it
+issued). Per request the submitter attenuates its token: expiry at most 60 s
+ahead, a fresh nonce, and a binding to the exact frame. The worker checks
+root, holder, `mesh.peer` grant, expiry, binding, nonce (replays are refused),
+and the revocation set, and counts the outcome in
+`entangle_remote_capability_checks_total{path,outcome}` (§14a; `path` is
+`task` or `stream`, `outcome` a fixed set of labels, including
+`tokenless_accepted` while the gate is off).
+
+**Upgrading.** A peer paired before this release has no token, and a
+worker that requires tokens refuses its requests with `ENTANGLE-E0450`.
+Re-run `entangle pair` with each such peer; `entangle peers list` shows which
+peers hold no token. While you migrate, a worker can accept tokenless
+requests from allowlisted peers:
+
+```toml
+[trust]
+require_capability_tokens = false   # default: true. Allowlist-only; the daemon warns at startup
+```
+
+Set it back to `true` once every peer is re-paired.
+
+**Revoking.** `entangle peers remove <peer-id>` (and `mesh untrust` /
+`mesh revoke`) adds the revocation ids of the token this node issued to
+`~/.entangle/revoked-tokens.toml` (mode 0600). Revocation is local; it is not
+gossiped to other nodes. A later `entangle mesh trust` of the same peer puts it
+back on the allowlist but does not revive the old token; re-pair to issue a
+new one. If the file exists but cannot be read, every token is refused
+(`ENTANGLE-E0463`) until you fix it. `entangle backup` / `restore` carry the
+file.
+
+**Downgrades.** An older `entangle` binary reads `peers.toml` but drops the
+token fields of every record whenever it rewrites the file (any
+`mesh trust|untrust|revoke`). After running an old binary, re-pair the
+affected peers; the tokens this node issued can no longer be revoked from
+that file.

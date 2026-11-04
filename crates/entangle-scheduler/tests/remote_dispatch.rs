@@ -28,7 +28,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use entangle_biscuits::templates::{
-    attenuate_for_request, now_unix_secs, RequestRestrictions, StaticRevocations,
+    attenuate_for_request, attenuate_gpu_job, now_unix_secs, RequestRestrictions, StaticRevocations,
 };
 use entangle_mesh_iroh::{
     IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER, MAX_FRAME_BYTES,
@@ -1063,9 +1063,13 @@ macro_rules! assert_refused {
             }
             other => panic!("expected a {} refusal, got {other:?}", $code),
         }
-        if let Ok(Ok(env)) =
-            tokio::time::timeout(Duration::from_millis(300), $b_events.recv()).await
-        {
+        // No wait: the refusal is only returned after the worker has handled
+        // the frame, and a task that ran publishes its lifecycle events
+        // before its answer goes out. So anything B ran is already queued
+        // here, and a timing window (which a slow host could outrun) is not
+        // needed.
+        // (A zero timeout still polls the receiver once.)
+        if let Ok(Ok(env)) = tokio::time::timeout(Duration::ZERO, $b_events.recv()).await {
             panic!("node B ran {} for a refused token", env.payload.plugin);
         }
     }};
@@ -1199,6 +1203,29 @@ async fn a_token_minted_by_another_nodes_key_is_refused() {
         send_raw(&p.a, &p.b, &with_token(request, Some(forged))).await,
         RemoteErrorCode::CapabilityRejected,
         "ENTANGLE-E0452",
+        b_events
+    );
+}
+
+/// A token narrowed to `compute.gpu-job` is for GPU tasks only: on the task
+/// path (a task that asks for no GPU) it is refused with the template
+/// restriction code, before anything runs.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_gpu_job_token_is_refused_on_a_task_that_asks_for_no_gpu() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let request = task_request(&p.plugin, b"world");
+    let held = p.b.issue_to(&p.a);
+    let gpu = attenuate_gpu_job(&held.token, &held.issuer_public_key, None).unwrap();
+    let narrowed = HeldToken {
+        token: gpu,
+        issuer_public_key: held.issuer_public_key,
+    };
+    let presented = narrowed.present(binding_of(&request)).unwrap();
+    assert_refused!(
+        send_raw(&p.a, &p.b, &with_token(request, Some(presented))).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0462",
         b_events
     );
 }
