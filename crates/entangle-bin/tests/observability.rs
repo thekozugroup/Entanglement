@@ -892,3 +892,34 @@ async fn diag_mesh_reports_paths_and_probes_round_trips() {
 
     ts.shutdown().await;
 }
+
+/// `entangle_mesh_peers` counts every trust level separately: an Observer is
+/// not a Trusted peer (it cannot push tasks), and `diag mesh` agrees.
+#[tokio::test(flavor = "multi_thread")]
+async fn mesh_peer_gauge_separates_trusted_observer_and_revoked() {
+    let store = PeerStore::new();
+    for (seed, name) in [(1u8, "a"), (2, "b"), (3, "c")] {
+        let key = [seed; 32];
+        let id = PeerId::from_public_key_bytes(&key);
+        store
+            .add(TrustedPeer::new(id, hex::encode(key), name.into()))
+            .unwrap();
+    }
+    let id_of = |seed: u8| PeerId::from_public_key_bytes(&[seed; 32]);
+    store.revoke(&id_of(3)).unwrap();
+    // No public setter for Observer: rewrite the entry through the store.
+    let mut observer = store.get(&id_of(2)).unwrap();
+    observer.trust = entangle_peers::TrustLevel::Observer;
+    store.remove(&id_of(2)).unwrap();
+    store.add(observer).unwrap();
+
+    let registry = Registry::new();
+    let _state = make_state(Keyring::new(), &registry, store);
+    let (_, samples) = parse_exposition(&registry.render());
+    let n = |state: &str| {
+        find(&samples, "entangle_mesh_peers", &[("state", state)]).map(|s| s.value)
+    };
+    assert_eq!(n("trusted"), Some(1.0));
+    assert_eq!(n("observer"), Some(1.0));
+    assert_eq!(n("revoked"), Some(1.0));
+}

@@ -140,11 +140,15 @@ impl DaemonState {
                 started.elapsed().as_secs_f64(),
             );
             let all = peers.list();
-            let revoked = all.iter().filter(|p| p.trust == TrustLevel::Revoked).count();
-            for (state, n) in [("trusted", all.len() - revoked), ("revoked", revoked)] {
+            let count = |level: TrustLevel| all.iter().filter(|p| p.trust == level).count();
+            for (state, n) in [
+                ("trusted", count(TrustLevel::Trusted)),
+                ("observer", count(TrustLevel::Observer)),
+                ("revoked", count(TrustLevel::Revoked)),
+            ] {
                 r.set_gauge(
                     names::MESH_PEERS,
-                    "Mesh peers by state (trusted and revoked come from the peer store, sighted from mDNS)",
+                    "Mesh peers by state (trusted, observer and revoked come from the peer store, sighted from mDNS)",
                     &[("state", state)],
                     n as f64,
                 );

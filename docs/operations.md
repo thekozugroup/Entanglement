@@ -596,7 +596,7 @@ scrape_configs:
 | `entangle_integrity_verdicts_total` | counter | `policy`, `outcome` | One per `compute/dispatch`: `policy` is `none`, `deterministic`, `semantic-equivalent`, `trusted-executor` or `attested`; `outcome` is `accepted`, `rejected` (integrity refusal), `output_size_exceeded` or `failed` (placement/transport/execution). |
 | `entangle_integrity_output_size_exceeded_total` | counter | — | Replica outputs over `max_output_bytes` (the `OutputSizeExceededWarning` events, `ENTANGLE-E0300`). |
 | `entangle_reputation_peers` | gauge | `policy`, `tier` (`trusted`/`good`/`probation`/`excluded`) | How many observed peers sit in each reputation tier. |
-| `entangle_mesh_peers` | gauge | `state` (`trusted`, `revoked`, `sighted`) | Peer-store and mDNS counts. `sighted` is unauthenticated and exists only with `mesh.local`. |
+| `entangle_mesh_peers` | gauge | `state` (`trusted`, `observer`, `revoked`, `sighted`) | Peer-store (one per trust level) and mDNS counts. `sighted` is unauthenticated and exists only with `mesh.local`. |
 | `entangle_scheduler_inflight_tasks` | gauge | — | Tasks inside the dispatcher right now. The dispatcher places and runs immediately and has **no queue**, so this is the saturation signal. |
 | `entangle_scheduler_workers` | gauge | — | Live workers in the scheduler pool. |
 | `entangle_mesh_tailscale_state` | gauge | `state` (`active`, `stopped`, `uninstalled`, `unknown`) | One-hot: 1 for the tailnet state the liveness poller last confirmed (`unknown` until the first poll). **Absent unless `mesh.tailscale` is running.** |
