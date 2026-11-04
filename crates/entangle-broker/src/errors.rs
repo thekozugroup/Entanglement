@@ -69,18 +69,15 @@ pub enum BrokerError {
 
     /// ENTANGLE-E0124: the operator's `[security] deny_capabilities` policy
     /// refuses this capability (spec §4.5), whatever the manifest declares.
+    /// [`Refusal::detail`] is the deny pattern that matched.
     #[error(
-        "ENTANGLE-E0124: capability '{capability}' denied to plugin '{plugin}' by operator \
-         policy (deny_capabilities = {pattern:?})"
+        "ENTANGLE-E0124: capability '{}' denied to plugin '{}' by operator policy \
+         (deny_capabilities = {:?})",
+        .0.capability,
+        .0.plugin,
+        .0.detail
     )]
-    CapabilityDeniedByPolicy {
-        /// The requesting plugin.
-        plugin: PluginId,
-        /// The refused capability.
-        capability: String,
-        /// The deny pattern that matched.
-        pattern: String,
-    },
+    CapabilityDeniedByPolicy(Box<Refusal>),
 
     /// ENTANGLE-E0125: the capability was revoked from this plugin
     /// (`entangle perms revoke`, spec §4.6); it stays refused until the
@@ -95,16 +92,15 @@ pub enum BrokerError {
 
     /// ENTANGLE-E0127: the plugin's effective tier is above the daemon's
     /// `max_tier_allowed`, so none of its capabilities may be granted
-    /// (spec §4.5 "plugin tier within global cap?").
-    #[error("ENTANGLE-E0127: capability '{capability}' denied to plugin '{plugin}': {reason}")]
-    TierCeiling {
-        /// The requesting plugin.
-        plugin: PluginId,
-        /// The refused capability.
-        capability: String,
-        /// The ceiling violation.
-        reason: String,
-    },
+    /// (spec §4.5 "plugin tier within global cap?"). [`Refusal::detail`] is
+    /// the ceiling violation.
+    #[error(
+        "ENTANGLE-E0127: capability '{}' denied to plugin '{}': {}",
+        .0.capability,
+        .0.plugin,
+        .0.detail
+    )]
+    TierCeiling(Box<Refusal>),
 
     /// ENTANGLE-E0411: biscuit verification failed.
     ///
@@ -113,4 +109,17 @@ pub enum BrokerError {
     /// capability surface) do not satisfy the requirements.
     #[error("ENTANGLE-E0411: biscuit verification failed: {0}")]
     BiscuitVerify(String),
+}
+
+/// Details of a policy refusal ([`BrokerError::CapabilityDeniedByPolicy`],
+/// [`BrokerError::TierCeiling`]); boxed so `BrokerError` stays small enough
+/// to return by value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Refusal {
+    /// The requesting plugin.
+    pub plugin: PluginId,
+    /// The refused capability.
+    pub capability: String,
+    /// Why: the deny pattern that matched, or the ceiling violation.
+    pub detail: String,
 }

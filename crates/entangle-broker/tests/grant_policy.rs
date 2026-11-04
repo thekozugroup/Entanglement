@@ -131,12 +131,12 @@ fn family_patterns_deny_every_member() {
     broker.register_plugin(m).unwrap();
     let err = broker.grant(&id, &CapabilityKind::NetLan).unwrap_err();
     assert!(
-        matches!(&err, BrokerError::CapabilityDeniedByPolicy { pattern, .. } if pattern == "net.*"),
+        matches!(&err, BrokerError::CapabilityDeniedByPolicy(r) if r.detail == "net.*"),
         "{err}"
     );
     let err = broker.grant_by_key(&id, "net.wan").unwrap_err();
     assert!(
-        matches!(err, BrokerError::CapabilityDeniedByPolicy { .. }),
+        matches!(err, BrokerError::CapabilityDeniedByPolicy(_)),
         "{err}"
     );
     broker.grant(&id, &CapabilityKind::ComputeCpu).unwrap();

@@ -24,7 +24,7 @@
 
 use crate::{
     audit::{AuditEvent, AuditLog},
-    errors::BrokerError,
+    errors::{BrokerError, Refusal},
     policy::{BrokerPolicy, CrossNodePolicy},
 };
 use entangle_biscuits::verifier;
@@ -745,16 +745,18 @@ impl Denial {
         let plugin = plugin.clone();
         match self {
             Denial::NotDeclared => BrokerError::CapabilityNotDeclared { plugin, capability },
-            Denial::TierCeiling(reason) => BrokerError::TierCeiling {
+            Denial::TierCeiling(detail) => BrokerError::TierCeiling(Box::new(Refusal {
                 plugin,
                 capability,
-                reason,
-            },
-            Denial::OperatorPolicy(pattern) => BrokerError::CapabilityDeniedByPolicy {
-                plugin,
-                capability,
-                pattern,
-            },
+                detail,
+            })),
+            Denial::OperatorPolicy(detail) => {
+                BrokerError::CapabilityDeniedByPolicy(Box::new(Refusal {
+                    plugin,
+                    capability,
+                    detail,
+                }))
+            }
             Denial::Revoked => BrokerError::CapabilityRevoked { plugin, capability },
         }
     }

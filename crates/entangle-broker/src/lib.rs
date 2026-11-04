@@ -21,5 +21,5 @@ pub mod policy;
 
 pub use audit::{AuditEvent, AuditKind, AuditLog};
 pub use broker::{Broker, CapabilityStatus, GrantId, GrantState, GrantedCapability, Resolution};
-pub use errors::BrokerError;
+pub use errors::{BrokerError, Refusal};
 pub use policy::{BrokerPolicy, CapabilityPattern, CrossNodePolicy, PolicyError};
