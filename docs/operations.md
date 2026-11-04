@@ -114,6 +114,12 @@ multi_node = false         # default: false
 [security]
 max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
 allow_unsandboxed_native = false   # default: false
+
+[wrappers]
+install = false            # written by `entangle wrapper enable|disable` (§14)
+
+[plugins]
+disabled = []              # written by a `max_tier_allowed` lowering (§15)
 ```
 
 | Section | Key | Type | Default | Meaning |
@@ -123,6 +129,8 @@ allow_unsandboxed_native = false   # default: false
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
 | `[security]` | `allow_unsandboxed_native` | bool | `false` | Run native (tier 4–5) plugins on a host that has **no** OS sandbox primitive. Off: such plugins are refused with `ENTANGLE-E0700`. No effect on hosts that have one — the sandbox is then always engaged. See §12. |
+| `[wrappers]` | `install` | bool | `false` | Opt-in record for the shell shim. `entangle wrapper enable` sets `true`, `disable` sets `false`. The daemon ignores it. See §14. |
+| `[plugins]` | `disabled` | array of strings | `[]` | Plugin ids unloaded by a tier-ceiling lowering. See §15 for what honours it today. |
 
 Notes:
 
@@ -277,6 +285,7 @@ canonical range table, maintained in
 | E0700–E0719 | OS-sandbox engagement (`entangle-sandbox`) — see §12 |
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
+| E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §14, §15 |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -296,6 +305,16 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0620`–`E0624`, `E0660`–`E0670` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
 | `ENTANGLE-E0630`, `E0640` | Retired `NotImplemented` codes for `mesh.iroh` and `mesh.tailscale`; both transports are implemented. |
 | `ENTANGLE-E0650` | OpenTelemetry export not implemented yet. |
+| `ENTANGLE-E0750` | Daemon refused `security/apply-max-tier`: the new ceiling would unload plugins and the caller did not authorise unloading (§15). |
+| `ENTANGLE-E0751` | A shell rc file has a damaged or duplicated wrapper block; run `entangle wrapper repair` (§14). |
+| `ENTANGLE-E0752` | `max_tier_allowed` outside 1..=5 (argument or `config.toml`) (§15). |
+| `ENTANGLE-E0753` | Lowering `max_tier_allowed` over loaded plugins refused: no terminal and no `--force-unload` (§15). |
+| `ENTANGLE-E0754` | `config.toml` could not be edited (not valid TOML, or a section has the wrong shape). |
+| `ENTANGLE-E0756` | A shell rc file could not be read or written (or `$HOME` is unset, or the file is not UTF-8) (§14). |
+| `ENTANGLE-E0757` | `entangle wrapper repair` while wrappers are not enabled (§14). |
+| `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§15). |
+| `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§15). |
+| `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§15). |
 
 If you hit a code not listed above, the fastest way to find its exact meaning
 and the crate that owns it is:
@@ -711,3 +730,142 @@ verification status:
 `--require-verified` makes `tags` exit non-zero unless `verified`. Mirror
 operators publish with `entangle plugins mirror-sign` (refuses a key that is
 trusted as a publisher on that machine).
+
+---
+
+## 14. Shell wrappers: warning when an agent host runs outside Entanglement
+
+Running `claude`, `codex` or `opencode` directly bypasses Entanglement (that is
+by design, spec §8.3). The **wrapper** is an opt-in shell function that prints a
+warning to stderr when you do that by accident, then runs the real binary with
+the same arguments and exit status. It is a UX guardrail, **not a security
+boundary**: `command claude` or `\claude` bypasses it.
+
+```bash
+entangle wrapper enable     # install into ~/.bashrc, ~/.zshrc, ~/.config/fish/conf.d/entangle.fish
+entangle wrapper status     # per rc file: installed / outdated / no block / damaged / 2 blocks
+entangle wrapper repair     # rewrite a damaged or duplicated block into exactly one
+entangle wrapper disable    # remove the blocks and record [wrappers] install = false
+```
+
+What it does and does not touch:
+
+- One block per file between `# >>> entangle wrapper >>>` and
+  `# <<< entangle wrapper <<<`, defining one function for every host that
+  `entangle agent run` supports (`entangle agent list` shows the binary names;
+  today `claude`, `codex`, `opencode`). A host added in a later release shows as
+  "outdated" in `status`; `enable` refreshes it.
+- Nothing outside the markers is changed. Enable is idempotent; `disable` after
+  `enable` restores the file byte-for-byte. LF and CRLF files keep their line
+  endings, file permissions are kept, a symlinked rc file (dotfile managers) is
+  edited through the link, and every write is atomic (temp file + rename).
+- bash and zsh get POSIX-function syntax (so `sh` can source it too); fish gets
+  a fish `function`. `~/.zshrc` and the fish snippet are written even if you do
+  not use those shells. `XDG_CONFIG_HOME` is honoured for the fish path.
+- **Login shells.** bash reads `~/.bashrc` only in interactive non-login shells;
+  on macOS Terminal (login shells) add `source ~/.bashrc` to `~/.bash_profile`.
+- `enable`/`disable` record `[wrappers] install` in `config.toml` with a
+  format-preserving editor: comments, key order and sections the CLI does not
+  model (`[mesh.tailscale]`, `[metrics]`, `[telemetry]`) are left as they were.
+  Disabling is never silent: it prints what it did and the choice persists.
+- Inside an Entanglement session (`ENTANGLE_SESSION_ID` set) the shim is silent.
+
+### `entangle doctor` and the wrapper
+
+The `wrapper` row is skipped unless you opted in (`[wrappers] install = true`).
+When opted in:
+
+- block missing from an rc file, damaged, duplicated or outdated: **warning**
+  naming `entangle wrapper enable` / `repair`;
+- the name resolves to something other than the shim: **failure** (exit 1),
+  e.g. `'claude' is shadowed by /usr/local/bin/claude (PATH ahead of shell
+  function). Run 'entangle wrapper repair' or 'unalias claude'.` Other shadow
+  sources reported: an alias, or a different shell function (with the defining
+  file when zsh says).
+
+Shadowing is detected the way your shell sees it: doctor runs `$SHELL -i -c`
+(bash or zsh) with an empty stdin, loads your rc files, and asks `type <bin>`
+and `typeset -f <bin>`, under a timeout (8 s, `ENTANGLE_DOCTOR_PROBE_TIMEOUT_MS`
+to change). Limits:
+
+- only bash and zsh are probed; with another `$SHELL` (fish, sh, unset) the
+  check is skipped and says so;
+- the probe shell has no terminal, so an rc file that behaves differently
+  without a tty is probed in that mode, and one that blocks or reads stdin is
+  cut off by the timeout (reported as a warning, not a pass);
+- only what an *interactive* shell loads is seen; shadowing introduced only by a
+  login profile (`~/.bash_profile`, `~/.zprofile`) that the interactive shell
+  does not re-read is not;
+- it checks the shell you run doctor from, not every shell on the machine;
+- the "shell history shows recent unwrapped invocations" note from the spec is
+  not implemented.
+
+---
+
+## 15. Changing the tier ceiling safely (`max_tier_allowed`)
+
+`[security] max_tier_allowed` (1–5) caps the plugin tier the daemon will load
+(§2). Raising it is a config edit. **Lowering it below the tier of a loaded
+plugin is never silent**: the plugins that would stop are listed first.
+
+```bash
+entangle security set-max-tier 3                 # asks, at a terminal
+entangle security set-max-tier 3 --force-unload  # non-interactive, loud
+# or edit config.toml by hand, then:
+entangle config reload                           # same prompt; cancel reverts your edit
+entangle config validate                         # CI: exit 1 if the file would orphan plugins
+```
+
+At a terminal (stdin is a tty) you see:
+
+```
+Lowering [security] max_tier_allowed from 5 to 3 will affect 2 running plugins:
+
+  - <fp>/agent-host@0.1.0   (tier 5, native subprocess, 1h17m uptime)
+  - <fp>/cuda-runner@0.1.0  (tier 4, native subprocess, 22h uptime)
+
+Choose action:
+  [u] unload-and-disable  (default; plugins are stopped, marked disabled in config)
+  [c] cancel              (config reload aborted; max_tier_allowed unchanged)
+
+Decision [u/c]:
+```
+
+- **Unload-and-disable** (Enter or `u`): the daemon sets the new ceiling first
+  (so a racing load above it is refused), then unloads each affected plugin
+  through the kernel, which releases its broker grants. Afterwards a load above
+  the ceiling fails with `ENTANGLE-E0043`. The plugin ids are added to
+  `[plugins] disabled` in `config.toml`.
+- **Cancel** (`c`, or end of input): nothing is unloaded. For `config reload`
+  your edit of `config.toml` is reverted to the daemon's ceiling; for
+  `set-max-tier` the file was never changed. The command exits 1 so scripts
+  cannot mistake it for success.
+- **No terminal, no `--force-unload`**: refused with `ENTANGLE-E0753`, nothing
+  changes.
+- **`--force-unload`** (or `--yes`, which answers the prompt with its default):
+  unloads and disables without asking, but the affected list goes to **stderr**
+  and each plugin gets an `ENTANGLE-W0214` line. There is no flag that skips
+  the audit trail.
+- **Raising** (or lowering past every loaded plugin's tier) never unloads
+  anything.
+- The daemon is told over RPC (`security/plan-max-tier`, `security/apply-max-tier`,
+  `security/cancel-max-tier`); only the ceiling is applied at runtime, every
+  other config change needs a daemon restart. If the daemon is not running,
+  nothing is loaded (the daemon does not persist its loaded set), so only
+  `config.toml` changes and the CLI says so; the ceiling applies at next start.
+
+**Audit trail.** Each outcome is written in two places: the daemon's in-memory
+broker audit log (`ENTANGLE-W0214` per unloaded plugin, `ENTANGLE-I0215`
+summary, `ENTANGLE-I0216` on cancel — the same log that records grants and
+releases, also emitted to the `entangle::audit` tracing target), and the durable
+operator trail `~/.entangle/audit.log` (JSON lines, mode 0600), which survives
+daemon restarts and exists even when the daemon is down.
+
+**Disabled plugins and restarts.** The daemon does not load plugins at startup
+(they are loaded on request and the loaded set is not persisted), so no
+unloaded plugin can come back on restart; `[plugins] disabled` records the
+decision for the operator and for a future startup loader, but nothing consumes
+it yet. Re-load the plugin explicitly once you raise the ceiling.
+
+The Wasm runtime is capped at tier 3, so in practice the plugins a lowering to
+3 affects are native (tier 4–5) plugins.

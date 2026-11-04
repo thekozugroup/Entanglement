@@ -707,6 +707,158 @@ fn print_check(c: &CheckResult, color: bool) {
 }
 
 // ---------------------------------------------------------------------------
+// Wrapper check (spec §8.3 item 3)
+// ---------------------------------------------------------------------------
+
+/// How long the probe shell may take to start, load its rc files and answer
+/// (override: `ENTANGLE_DOCTOR_PROBE_TIMEOUT_MS`).
+fn wrapper_probe_timeout() -> std::time::Duration {
+    std::env::var("ENTANGLE_DOCTOR_PROBE_TIMEOUT_MS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .map(std::time::Duration::from_millis)
+        .unwrap_or(std::time::Duration::from_secs(8))
+}
+
+/// Is the shell shim in place and not shadowed?
+///
+/// Opt-in: skipped unless `[wrappers] install = true`. Block missing/damaged
+/// is a warning naming `entangle wrapper enable|repair`; shadowing (the
+/// user's own shell resolves the name to an alias, another function or a
+/// file) is a failure, so `entangle doctor` exits 1 (ATC-WRP-3).
+async fn check_wrappers() -> CheckResult {
+    use super::rcblock;
+    use super::wrapper::{self, Resolution};
+
+    const NAME: &str = "wrapper";
+    if !wrapper::wrappers_enabled() {
+        return CheckResult::skip(
+            NAME,
+            "not enabled (opt-in); `entangle wrapper enable` installs the warning shim",
+        );
+    }
+    let hosts = rcblock::hosts_from_adapters();
+    let rcs = match wrapper::rc_files() {
+        Ok(r) => r,
+        Err(e) => return CheckResult::warn(NAME, "cannot locate rc files", format!("{e:#}")),
+    };
+    let mut problems: Vec<String> = Vec::new();
+    let mut missing: Vec<&str> = Vec::new();
+    let mut statuses = Vec::new();
+    for rc in &rcs {
+        match wrapper::rc_status(rc, &hosts) {
+            Ok(st) => {
+                match &st {
+                    wrapper::RcStatus::Missing | wrapper::RcStatus::Absent => {
+                        missing.push(rc.label)
+                    }
+                    wrapper::RcStatus::Duplicated(_) | wrapper::RcStatus::Damaged(_) => {
+                        problems.push(format!("{}: {}", rc.label, st.describe()));
+                    }
+                    wrapper::RcStatus::Outdated => {
+                        problems.push(format!("{}: {}", rc.label, st.describe()));
+                    }
+                    wrapper::RcStatus::Installed => {}
+                }
+                statuses.push((rc, st));
+            }
+            Err(e) => problems.push(format!("{e:#}")),
+        }
+    }
+    if !missing.is_empty() {
+        problems.push(format!(
+            "wrapper block missing from {}; run `entangle wrapper enable`",
+            missing.join(", ")
+        ));
+    }
+
+    // Shadowing: ask the user's own shell how it resolves each name.
+    let mut shadows: Vec<String> = Vec::new();
+    let mut note = String::new();
+    let shell_path = std::env::var_os("SHELL").map(std::path::PathBuf::from);
+    let kind = shell_path
+        .as_ref()
+        .and_then(|p| p.file_name())
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let has_block = |shell: &str| {
+        statuses
+            .iter()
+            .any(|(rc, st)| rc.shell == shell && st.has_block())
+    };
+    if kind == "bash" || kind == "zsh" {
+        if has_block(&kind) {
+            let bins: Vec<String> = hosts.iter().map(|h| h.binary.clone()).collect();
+            let sp = shell_path.clone().unwrap_or_default();
+            match wrapper::probe_shell(&sp, &bins, wrapper_probe_timeout()).await {
+                Ok(res) => {
+                    for (bin, r) in res {
+                        let advice = format!("Run 'entangle wrapper repair' or 'unalias {bin}'.");
+                        match r {
+                            Resolution::Wrapper => {}
+                            Resolution::File(p) => shadows.push(format!(
+                                "'{bin}' is shadowed by {p} (PATH ahead of shell function). {advice}"
+                            )),
+                            Resolution::Alias(a) => shadows.push(format!(
+                                "'{bin}' is shadowed by alias '{a}'. {advice}"
+                            )),
+                            Resolution::OtherFunction { from } => shadows.push(format!(
+                                "'{bin}' is shadowed by a different shell function{}. {advice}",
+                                from.map(|f| format!(" defined in {f}")).unwrap_or_default()
+                            )),
+                            Resolution::NotFound => problems.push(format!(
+                                "'{bin}' is neither a function nor on PATH in a new {kind} shell \
+                                 (is the wrapper block sourced by interactive shells?)"
+                            )),
+                            Resolution::Other(l) => {
+                                problems.push(format!("'{bin}' resolves unexpectedly: {l}"));
+                            }
+                        }
+                    }
+                }
+                Err(e) => problems.push(format!(
+                    "shadow check could not run ({e:#}); the shell was not probed"
+                )),
+            }
+        } else {
+            note = format!("shadow check skipped: no wrapper block in {kind}'s rc file");
+        }
+    } else {
+        note = format!(
+            "shadow check skipped: $SHELL is {}; only bash and zsh are probed",
+            if kind.is_empty() {
+                "unset".to_owned()
+            } else {
+                kind.clone()
+            }
+        );
+    }
+
+    if !shadows.is_empty() {
+        let mut all = shadows;
+        all.extend(problems);
+        return CheckResult::fail(NAME, "shadowed", all.join("; "));
+    }
+    if !problems.is_empty() {
+        return CheckResult::warn(NAME, "needs attention", problems.join("; "));
+    }
+    let ok = format!(
+        "shim installed for {}{}",
+        hosts
+            .iter()
+            .map(|h| h.binary.as_str())
+            .collect::<Vec<_>>()
+            .join(", "),
+        if note.is_empty() {
+            String::new()
+        } else {
+            format!(" ({note})")
+        }
+    );
+    CheckResult::ok(NAME, ok)
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -734,6 +886,7 @@ pub async fn run() -> anyhow::Result<()> {
     results.push(check_disk_space());
     results.push(check_clock_skew(daemon_reachable).await);
     results.push(check_tailscale().await);
+    results.push(check_wrappers().await);
 
     for r in &results {
         print_check(r, color);

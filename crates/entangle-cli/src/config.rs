@@ -18,6 +18,42 @@ pub struct Config {
     pub mesh: MeshConfig,
     #[serde(default)]
     pub security: SecurityConfig,
+    /// `[wrappers]` — the opt-in shell shim (spec §8.3).
+    #[serde(default, skip_serializing_if = "WrappersConfig::is_default")]
+    pub wrappers: WrappersConfig,
+    /// `[plugins]` — operator state about plugins.
+    #[serde(default, skip_serializing_if = "PluginsConfig::is_default")]
+    pub plugins: PluginsConfig,
+}
+
+/// `[wrappers]` section.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WrappersConfig {
+    /// `true` once the operator ran `entangle wrapper enable`; `false` or
+    /// absent means not opted in (also what `entangle wrapper disable` records).
+    #[serde(default)]
+    pub install: bool,
+}
+
+impl WrappersConfig {
+    fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+/// `[plugins]` section.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PluginsConfig {
+    /// Plugin ids unloaded by a `max_tier_allowed` lowering (spec §9.4.1
+    /// step 4) and not to be loaded again until removed from this list.
+    #[serde(default)]
+    pub disabled: Vec<String>,
+}
+
+impl PluginsConfig {
+    fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
