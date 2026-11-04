@@ -475,16 +475,54 @@ impl Default for SecurityConfig {
 /// operator-facing knobs — the CLI writes `[mesh] multi_node` and
 /// `[security] max_tier_allowed`. Those sections are now authoritative; a
 /// leftover key here fails loudly thanks to `deny_unknown_fields`.
+///
+/// ```toml
+/// [runtime]
+/// aot_cache = true                 # default; false compiles every load
+/// aot_cache_max_mb = 512           # GC evicts least recently used above this
+/// aot_cache_max_unused_days = 30   # GC removes entries unused this long
+/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RuntimeConfig {
     /// Lifecycle event bus capacity (number of buffered envelopes).
     pub bus_capacity: usize,
+    /// Keep compiled wasm components in `~/.entangle/aot` (spec §3.3
+    /// "pre-compile"; see `entangle_aot`). Default `true`.
+    pub aot_cache: bool,
+    /// Size cap of the AOT cache in MiB (default 512).
+    pub aot_cache_max_mb: u64,
+    /// The maintenance loop removes AOT cache entries not used for this
+    /// many days (default 30).
+    pub aot_cache_max_unused_days: u64,
 }
 
 impl Default for RuntimeConfig {
     fn default() -> Self {
-        Self { bus_capacity: 1024 }
+        Self {
+            bus_capacity: 1024,
+            aot_cache: true,
+            aot_cache_max_mb: 512,
+            aot_cache_max_unused_days: 30,
+        }
+    }
+}
+
+impl RuntimeConfig {
+    /// The AOT cache settings for a daemon whose config directory is
+    /// `config_dir` (the cache lives in `<config_dir>/aot`), or `None` when
+    /// `aot_cache = false`.
+    pub fn aot_cache_config(
+        &self,
+        config_dir: &std::path::Path,
+    ) -> Option<entangle_runtime::AotCacheConfig> {
+        self.aot_cache.then(|| entangle_runtime::AotCacheConfig {
+            dir: config_dir.join("aot"),
+            max_bytes: self.aot_cache_max_mb.saturating_mul(1024 * 1024),
+            max_unused: std::time::Duration::from_secs(
+                self.aot_cache_max_unused_days.saturating_mul(24 * 3600),
+            ),
+        })
     }
 }
 
@@ -500,6 +538,7 @@ pub fn kernel_config(cfg: &Config, config_dir: &std::path::Path) -> entangle_run
         bus_capacity: cfg.runtime.bus_capacity,
         denied_capabilities: cfg.security.deny_capabilities.clone(),
         disabled_plugins: cfg.plugins.disabled.clone(),
+        aot_cache: cfg.runtime.aot_cache_config(config_dir),
         native: entangle_runtime::NativeConfig {
             allow_unsandboxed: cfg.security.allow_unsandboxed_native,
             data_dir: Some(config_dir.join("data")),

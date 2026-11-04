@@ -24,6 +24,20 @@ pub struct Config {
     /// `[plugins]` — operator state about plugins.
     #[serde(default, skip_serializing_if = "PluginsConfig::is_default")]
     pub plugins: PluginsConfig,
+    /// `[runtime]` — the daemon's section; the CLI reads only `aot_cache`
+    /// (for its `--allow-local` kernel) and never writes it.
+    #[serde(default, skip_serializing)]
+    pub runtime: RuntimeConfig,
+}
+
+/// The part of the daemon's `[runtime]` section the CLI's local kernel
+/// honours. Other keys (`bus_capacity`, the cache limits) are the daemon's.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
+pub struct RuntimeConfig {
+    /// `aot_cache` (default `true`): use `~/.entangle/aot`, shared with the
+    /// daemon, for compiled components.
+    #[serde(default)]
+    pub aot_cache: Option<bool>,
 }
 
 /// `[wrappers]` section.
@@ -183,6 +197,11 @@ pub fn kernel_config() -> anyhow::Result<entangle_runtime::KernelConfig> {
         max_tier_allowed: max_tier_allowed()?,
         denied_capabilities,
         disabled_plugins: cfg.plugins.disabled.clone(),
+        aot_cache: cfg
+            .runtime
+            .aot_cache
+            .unwrap_or(true)
+            .then(|| entangle_runtime::AotCacheConfig::new(dir.join("aot"))),
         native: entangle_runtime::NativeConfig {
             allow_unsandboxed: cfg.security.allow_unsandboxed_native,
             data_dir: Some(dir.join("data")),

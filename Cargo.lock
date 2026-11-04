@@ -1539,6 +1539,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "entangle-aot"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "entangle-observability",
+ "hex",
+ "libc",
+ "rand_core 0.6.4",
+ "rustix 1.1.4",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "wasmtime",
+ "wat",
+]
+
+[[package]]
 name = "entangle-atc-matrix"
 version = "0.1.0"
 dependencies = [
@@ -1705,6 +1722,7 @@ name = "entangle-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "entangle-aot",
  "entangle-broker",
  "entangle-core",
  "entangle-manifest",
@@ -1899,6 +1917,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blake3",
+ "entangle-aot",
  "entangle-broker",
  "entangle-core",
  "entangle-host",

@@ -36,6 +36,8 @@ pub mod os_sandbox;
 #[cfg(test)]
 mod tests;
 
+/// The on-disk AOT compilation cache ([`KernelConfig::aot_cache`]).
+pub use entangle_aot::{AotCache, AotCacheConfig, GcReport as AotGcReport};
 /// The `[security] deny_capabilities` pattern type ([`KernelConfig::denied_capabilities`]).
 pub use entangle_broker::CapabilityPattern;
 pub use errors::RuntimeError;

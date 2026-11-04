@@ -113,6 +113,22 @@ pub mod names {
     pub const OTLP_EXPORTED: &str = "entangle_telemetry_spans_exported_total";
     /// Span batches the OTLP exporter gave up on.
     pub const OTLP_FAILED_BATCHES: &str = "entangle_telemetry_export_failures_total";
+    /// Component loads answered from the AOT compilation cache.
+    pub const AOT_CACHE_HITS: &str = "entangle_aot_cache_hits_total";
+    /// Component loads the AOT cache had no entry for (compiled).
+    pub const AOT_CACHE_MISSES: &str = "entangle_aot_cache_misses_total";
+    /// AOT cache entries refused and deleted, by `reason`.
+    pub const AOT_CACHE_REJECTIONS: &str = "entangle_aot_cache_rejections_total";
+    /// AOT cache entries removed by garbage collection, by `reason`.
+    pub const AOT_CACHE_EVICTIONS: &str = "entangle_aot_cache_evictions_total";
+    /// Bytes the AOT cache holds on disk.
+    pub const AOT_CACHE_BYTES: &str = "entangle_aot_cache_bytes";
+    /// Plugin entries restored from the plugin-state file at startup, by `outcome`.
+    pub const PLUGIN_RESTORES: &str = "entangle_plugin_restores_total";
+    /// Plugin hot reloads, by `outcome`.
+    pub const PLUGIN_RELOADS: &str = "entangle_plugin_reloads_total";
+    /// Idle plugin instances torn down after their `idle-timeout-secs`.
+    pub const PLUGIN_IDLE_TEARDOWNS: &str = "entangle_plugin_idle_teardowns_total";
 }
 
 /// The values of the `transport` label: the three mesh transports, and
@@ -429,6 +445,135 @@ pub fn spot_check(reg: &Registry, policy: &str, outcome: &str) {
         names::SPOT_CHECKS,
         "Layer-2 spot-checks of accepted tasks by policy kind and outcome",
         &[("policy", policy), ("outcome", outcome)],
+        1.0,
+    );
+}
+
+/// The values of the `reason` label of [`names::AOT_CACHE_REJECTIONS`]:
+/// the entry or its directory had the wrong owner, mode or file type
+/// (`permissions`), its sidecar was malformed or did not describe it
+/// (`header`), it was written by another Wasmtime version (`version`), its
+/// MAC did not verify (`mac`), Wasmtime refused it (`deserialize`), or it
+/// could not be read (`io`).
+pub const AOT_REJECTION_REASONS: [&str; 6] = [
+    "permissions",
+    "header",
+    "version",
+    "mac",
+    "deserialize",
+    "io",
+];
+
+/// The values of the `reason` label of [`names::AOT_CACHE_EVICTIONS`]:
+/// unused longer than the configured age (`age`), over the size cap
+/// (`size`), or a partial write left behind (`orphan`).
+pub const AOT_EVICTION_REASONS: [&str; 3] = ["age", "size", "orphan"];
+
+/// An AOT cache lookup hit (`true`) or missed (`false`).
+pub fn aot_cache_lookup(reg: &Registry, hit: bool) {
+    if hit {
+        reg.inc_counter(
+            names::AOT_CACHE_HITS,
+            "Component loads answered from the AOT compilation cache",
+            &[],
+            1.0,
+        );
+    } else {
+        reg.inc_counter(
+            names::AOT_CACHE_MISSES,
+            "Component loads with no AOT cache entry (compiled)",
+            &[],
+            1.0,
+        );
+    }
+}
+
+/// An AOT cache entry was rejected (and deleted) for `reason` (one of
+/// [`AOT_REJECTION_REASONS`]; anything else is filed as `io`).
+pub fn aot_cache_rejection(reg: &Registry, reason: &str) {
+    let reason = AOT_REJECTION_REASONS
+        .iter()
+        .copied()
+        .find(|r| *r == reason)
+        .unwrap_or("io");
+    reg.inc_counter(
+        names::AOT_CACHE_REJECTIONS,
+        "AOT cache entries refused and deleted, by reason",
+        &[("reason", reason)],
+        1.0,
+    );
+}
+
+/// `n` AOT cache entries were evicted for `reason` (one of
+/// [`AOT_EVICTION_REASONS`]; anything else is filed as `orphan`).
+pub fn aot_cache_evictions(reg: &Registry, reason: &str, n: u64) {
+    let reason = AOT_EVICTION_REASONS
+        .iter()
+        .copied()
+        .find(|r| *r == reason)
+        .unwrap_or("orphan");
+    reg.inc_counter(
+        names::AOT_CACHE_EVICTIONS,
+        "AOT cache entries removed by garbage collection, by reason",
+        &[("reason", reason)],
+        n as f64,
+    );
+}
+
+/// Set the AOT cache size gauge.
+pub fn aot_cache_bytes(reg: &Registry, bytes: u64) {
+    reg.set_gauge(
+        names::AOT_CACHE_BYTES,
+        "Bytes the AOT compilation cache holds on disk",
+        &[],
+        bytes as f64,
+    );
+}
+
+/// The values of the `outcome` label of [`names::PLUGIN_RESTORES`].
+pub const RESTORE_OUTCOMES: [&str; 3] = ["restored", "failed", "disabled"];
+
+/// One plugin-state entry was restored at startup with `outcome` (one of
+/// [`RESTORE_OUTCOMES`]; anything else is filed as `failed`).
+pub fn plugin_restore(reg: &Registry, outcome: &str) {
+    let outcome = RESTORE_OUTCOMES
+        .iter()
+        .copied()
+        .find(|o| *o == outcome)
+        .unwrap_or("failed");
+    reg.inc_counter(
+        names::PLUGIN_RESTORES,
+        "Plugin-state entries reloaded at daemon start, by outcome",
+        &[("outcome", outcome)],
+        1.0,
+    );
+}
+
+/// The values of the `outcome` label of [`names::PLUGIN_RELOADS`].
+pub const RELOAD_OUTCOMES: [&str; 3] = ["swapped", "refused", "migrate_failed"];
+
+/// One hot reload ended with `outcome` (one of [`RELOAD_OUTCOMES`];
+/// anything else is filed as `refused`).
+pub fn plugin_reload(reg: &Registry, outcome: &str) {
+    let outcome = RELOAD_OUTCOMES
+        .iter()
+        .copied()
+        .find(|o| *o == outcome)
+        .unwrap_or("refused");
+    reg.inc_counter(
+        names::PLUGIN_RELOADS,
+        "Plugin hot reloads by outcome",
+        &[("outcome", outcome)],
+        1.0,
+    );
+}
+
+/// An idle plugin's instance was torn down.
+pub fn plugin_idle_teardown(reg: &Registry, plugin: &str) {
+    reg.inc_counter(
+        names::PLUGIN_IDLE_TEARDOWNS,
+        "Idle plugin instances torn down after their idle timeout",
+        &[("plugin", plugin)],
         1.0,
     );
 }

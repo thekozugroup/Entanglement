@@ -16,6 +16,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 entangle-broker = { workspace = true }
 # Fault points (debug builds only; spec §2.1).
 entangle-core = { workspace = true }
+# On-disk AOT compilation cache (spec §3.3 pre-compile).
+entangle-aot = { workspace = true }
 entangle-types = { workspace = true }
 entangle-wit = { workspace = true }
 wasmtime = { workspace = true }

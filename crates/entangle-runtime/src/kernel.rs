@@ -54,6 +54,12 @@ pub struct KernelConfig {
     /// `max_tier_allowed` lowering. Updatable at run time with
     /// [`Kernel::set_disabled_plugins`].
     pub disabled_plugins: Vec<String>,
+    /// The on-disk AOT compilation cache (`[runtime] aot_cache`; spec §3.3
+    /// "pre-compile"): wasm components are deserialized from a verified
+    /// entry instead of compiled when one exists. `None` (the default):
+    /// every load compiles. A cache directory that cannot be used is
+    /// logged (`ENTANGLE-E0786`) and the kernel runs without one.
+    pub aot_cache: Option<crate::AotCacheConfig>,
 }
 
 impl Default for KernelConfig {
@@ -65,6 +71,7 @@ impl Default for KernelConfig {
             native: NativeConfig::default(),
             denied_capabilities: Vec::new(),
             disabled_plugins: Vec::new(),
+            aot_cache: None,
         }
     }
 }
@@ -182,6 +189,8 @@ pub struct Kernel {
     /// Plugin ids refused at load (`[plugins] disabled`), shared with the
     /// metric registry (see [`Kernel::disabled_plugins`]).
     disabled: DisabledPlugins,
+    /// The AOT compilation cache, when configured and usable.
+    aot: Option<Arc<crate::AotCache>>,
 }
 
 /// The `[plugins] disabled` set: plugin ids refused at load. Cheap to clone;
@@ -226,7 +235,18 @@ impl Kernel {
         if let Some(root) = &config.native.staging_dir {
             crate::native::sweep_stale_staging(root);
         }
+        let aot = config
+            .aot_cache
+            .clone()
+            .and_then(|cfg| match crate::AotCache::open(cfg) {
+                Ok(cache) => Some(Arc::new(cache)),
+                Err(e) => {
+                    tracing::warn!(error = %e, "AOT compilation cache disabled; every load compiles");
+                    None
+                }
+            });
         Ok(Self {
+            aot,
             bus: Bus::new(config.bus_capacity),
             lifecycle_topic: Topic::new(LIFECYCLE_TOPIC).expect("static topic is valid"),
             broker: Arc::new(Broker::new(policy)),
@@ -267,6 +287,9 @@ impl Kernel {
     /// series, later ones fold into `other`.
     #[must_use]
     pub fn with_metrics(self, registry: Registry) -> Self {
+        if let Some(aot) = &self.aot {
+            aot.attach_metrics(registry.clone());
+        }
         let labels = PluginLabels::new();
         let loaded_at: Arc<Mutex<HashMap<String, Instant>>> = Arc::default();
         {
@@ -314,6 +337,12 @@ impl Kernel {
             }),
             ..self
         }
+    }
+
+    /// The AOT compilation cache in use, if any (the daemon's maintenance
+    /// loop garbage-collects it).
+    pub fn aot_cache(&self) -> Option<Arc<crate::AotCache>> {
+        self.aot.clone()
     }
 
     /// Access the capability broker.
@@ -692,13 +721,17 @@ impl Kernel {
         // Either world: a stream plugin's instances realise exactly the
         // grants a one-shot plugin's do (preopens, socket rules, pinned
         // names, live revocation).
-        let plugin = CompiledPlugin::from_bytes(
+        let (plugin, lookup) = CompiledPlugin::from_bytes_cached(
             &self.engine,
             &pkg.bytes,
             plugin_id.clone(),
             effective_tier,
-        )?
-        .with_capabilities(ctx);
+            self.aot.as_deref(),
+        )?;
+        if let Some(lookup) = lookup {
+            tracing::debug!(plugin = %plugin_id, ?lookup, "AOT cache");
+        }
+        let plugin = plugin.with_capabilities(ctx);
         plugin.realise_capabilities().await?;
         Ok(PluginImpl::Wasm(plugin))
     }

@@ -164,6 +164,8 @@ service_name = "entangled"
 | Section | Key | Type | Default | Meaning |
 |---|---|---|---|---|
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
+| `[runtime]` | `aot_cache` | bool | `true` | Keep compiled wasm components in `~/.entangle/aot` so a later load (or a restart) skips compilation (§23). `false` compiles every load. Also honoured by the CLI's `--allow-local` kernel (which shares the directory). |
+| `[runtime]` | `aot_cache_max_mb`, `aot_cache_max_unused_days` | integer, integer | `512`, `30` | AOT cache limits: the maintenance loop removes entries unused this many days, then the least recently used above the size cap (§23). Daemon-only. |
 | `[mesh]` | `transports` | array of strings | `[]` | Active mesh transports: `"local"` (mDNS on `_entangle._udp.local`; LAN dialling also needs `"iroh"`), `"iroh"` (the scheduler endpoint, `[scheduler]`), `"tailscale"` (also needs `[mesh.tailscale] enabled = true`, §10). See §20 for how a transport is chosen per peer. |
 | `[mesh]` | `preferred` | string | absent | Daemon-only. `"local"`, `"tailscale"` or `"iroh"`: tried first for every peer; the others stay fallbacks in the spec order (§20). Anything else fails the load (`ENTANGLE-E0434`). |
 | `[mesh.overrides]` | `"<peer-id>"` | string or array of strings | none | Daemon-only. Per peer (32-hex peer id): one transport forces it, a list gives the exact order; no fallback outside it (§20). A bad id, an empty list or a repeated transport fails the load (`ENTANGLE-E0435`). |
@@ -225,6 +227,8 @@ world-writable path like `/tmp`).
 | `~/.entangle/peers.toml` | Persistent trusted-peer allowlist (pairing results). | `0600` | Written atomically via a mode-`0600` sibling temp file + rename. |
 | `~/.entangle/sock` | The daemon's Unix-domain RPC socket. | `0600` | The server **forces** mode `0600` after bind and **refuses to serve** if any group/other bit remains; every accepted connection is additionally checked against the socket owner's uid via `SO_PEERCRED` (defense-in-depth beyond the mode bit). |
 | `~/.entangle/cache/`, `~/.entangle/logs/` | Plugin artifact cache; daemon logs. | — | Managed by the built-in maintenance loop (§7). |
+| `~/.entangle/aot/` | AOT compilation cache: `cache.key` (32-byte per-node MAC key), `<key>.cwasm` (compiled component) + `<key>.meta` (sidecar with its keyed MAC). See §23. | `0700` directory, `0600` files | Created that way by the daemon; a directory or key file with group/other bits or another owner disables the cache (`ENTANGLE-E0786`); an entry file with them is refused and deleted. |
+| `~/.entangle/plugins.state.toml` | Plugins loaded at shutdown, reloaded at the next start (§22). | `0600` | Written atomically (temp file + rename) with mode `0600` on every load, unload and reload. |
 | `~/.entangle/data/` | Plugin storage: `plugins/<publisher>/<name>/` (each plugin's private directory, wasm `/data` or native `$ENTANGLE_DATA_DIR`), `shared/`, `shares/<name>/`. See §18. | `0700` on every directory the daemon creates | Created on demand when a storage grant is realised, without following symbolic links. |
 
 `entangle doctor` (see §4) is the fastest way to audit all of the above at
@@ -343,7 +347,7 @@ canonical range table, maintained in
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
-| E0780–E0799 | Runtime lifecycle — see §21–§24: a core fault that exits the daemon (E0787), a contained panic in a plugin call (E0788) |
+| E0780–E0799 | Runtime lifecycle — see §21–§24: AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged), a core fault that exits the daemon (E0787), a contained panic in a plugin call (E0788) |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -1021,6 +1025,13 @@ scrape_configs:
 | `entangle_daemon_uptime_seconds` | gauge | — | Seconds since the daemon started. |
 | `entangle_telemetry_spans_dropped_total`, `..._spans_exported_total`, `..._export_failures_total` | counter | — | OTLP exporter health (§14b); present only with `[telemetry.otlp]` on. |
 | `entangle_metrics_dropped_series_total` | counter | — | Appears only if a metric family hit its label-set cap (a bug indicator). |
+| `entangle_aot_cache_hits_total`, `entangle_aot_cache_misses_total` | counter | — | Wasm component loads answered from the AOT cache, and loads that compiled (§23). |
+| `entangle_aot_cache_rejections_total` | counter | `reason` (`permissions`, `header`, `version`, `mac`, `deserialize`, `io`) | AOT cache entries refused and deleted (`ENTANGLE-E0785`); the component was compiled instead. |
+| `entangle_aot_cache_evictions_total` | counter | `reason` (`age`, `size`, `orphan`) | Entries removed by the maintenance loop's GC. |
+| `entangle_aot_cache_bytes` | gauge | — | Bytes the AOT cache holds on disk (exact after each GC). |
+| `entangle_plugin_restores_total` | counter | `outcome` (`restored`, `failed`, `disabled`) | Entries of the plugin-state file reloaded at daemon start (§22). |
+| `entangle_plugin_reloads_total` | counter | `outcome` (`swapped`, `refused`, `migrate_failed`) | Hot reloads of a loaded plugin to another version (§24). |
+| `entangle_plugin_idle_teardowns_total` | counter | `plugin` | Idle plugin instances dropped after their `idle-timeout-secs` (§24). |
 
 #### Label cardinality
 
@@ -1028,7 +1039,7 @@ No label carries a peer id or free text. `capability` is the capability
 *kind* (`compute.cpu`, `storage.share`, `custom`, ...), never a share or
 custom name. `method` is normalised to the RPC methods the daemon implements
 (everything else is `unknown`). `class`, `policy`, `tier`, `state` and
-`outcome` draw from the closed sets above, and `transport` from `local`,
+`outcome` (and `reason`) draw from the closed sets above, and `transport` from `local`,
 `tailscale`, `iroh`, `none`. The one open-ended label is
 `plugin`: each distinct plugin id gets its own series for the **first 64**
 ids the daemon sees; later ids fold into `plugin="other"`. As a backstop every
@@ -1847,4 +1858,51 @@ maintenance loop), `maintenance-return` (it returns early), `rpc` (panic
 handling a request), `broker` (panic in `grant_by_key`), `host-call` (panic in
 the `host-info` import). The hook exists only when `debug_assertions` are on;
 in a release build the variable has no effect.
+
+---
+
+## 23. AOT compilation cache
+
+Compiling a wasm component with Cranelift is the slow part of loading a
+plugin. The daemon keeps each compiled component in `~/.entangle/aot`
+(`[runtime] aot_cache = true`, the default), so loading the same package
+again — after an unload, a hot reload back, or a daemon restart — skips
+compilation.
+
+**Key.** An entry is keyed by BLAKE3 of the component bytes, the Wasmtime
+version, Wasmtime's engine compatibility hash (target triple, compiler flags,
+tunables, enabled wasm features — everything about the engine configuration
+that affects code generation) and the host architecture/OS. A new daemon
+build with another Wasmtime version or engine configuration simply misses and
+recompiles; GC removes the old entries later.
+
+**Trust.** Loading a compiled artifact skips Wasmtime's validation, so the
+daemon only loads entries it wrote itself:
+
+- the directory must be owned by the daemon's user with mode `0700`, and the
+  per-node key `cache.key` (32 random bytes) must be a `0600` regular file;
+  otherwise the cache is not used at all and the daemon logs
+  `ENTANGLE-E0786` and compiles everything (fix with `chmod 700
+  ~/.entangle/aot && chmod 600 ~/.entangle/aot/cache.key`, or delete the
+  directory);
+- every entry has a sidecar `<key>.meta` with a keyed BLAKE3 MAC over its
+  header and the artifact bytes under `cache.key`; the artifact is read into
+  memory, checked, and only then handed to Wasmtime;
+- an entry that is a symbolic link, has group/other bits or another owner, a
+  malformed sidecar, another Wasmtime version, a MAC that does not verify, or
+  that Wasmtime refuses is **deleted**, logged (`ENTANGLE-E0785`, with the
+  reason), counted in `entangle_aot_cache_rejections_total{reason}` and the
+  component compiled as if there were no cache. A bad entry never fails a
+  load.
+
+**GC.** The maintenance loop (at startup and every hour) removes entries not
+used for `aot_cache_max_unused_days` (default 30; a hit refreshes an entry's
+last use), then the least recently used entries until the cache is under
+`aot_cache_max_mb` (default 512 MiB), and partial writes older than an hour.
+Deleting `~/.entangle/aot` while the daemon is stopped is always safe; the
+next start creates a new key and cache.
+
+Metrics: `entangle_aot_cache_hits_total`, `..._misses_total`,
+`..._rejections_total{reason}`, `..._evictions_total{reason}`,
+`entangle_aot_cache_bytes` (§14a).
 

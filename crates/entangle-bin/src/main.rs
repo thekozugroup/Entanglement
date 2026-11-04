@@ -380,8 +380,9 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
     // ── 5. Spawn maintenance loop ─────────────────────────────────────────────
-    let maint =
-        MaintenanceLoop::new(Default::default()).with_worker_pool(state.worker_pool.clone());
+    let maint = MaintenanceLoop::new(Default::default())
+        .with_worker_pool(state.worker_pool.clone())
+        .with_aot_cache(state.kernel.aot_cache());
     supervisor.spawn("maintenance", maint.run(shutdown_rx.clone()));
 
     // ── 6. Bind socket and spawn RPC accept loop ──────────────────────────────
