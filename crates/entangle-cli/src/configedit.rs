@@ -16,6 +16,9 @@ use toml_edit::{value, Array, DocumentMut, Item, Table, Value};
 /// An editable, format-preserving view of a TOML document.
 pub struct ConfigDoc {
     doc: DocumentMut,
+    /// The input used CRLF line endings; `toml_edit` normalises them to LF
+    /// when printing, so they are restored in [`ConfigDoc::to_text`].
+    crlf: bool,
 }
 
 impl ConfigDoc {
@@ -24,7 +27,10 @@ impl ConfigDoc {
         let doc = text
             .parse::<DocumentMut>()
             .map_err(|e| anyhow::anyhow!("ENTANGLE-E0754: config.toml is not valid TOML: {e}"))?;
-        Ok(Self { doc })
+        Ok(Self {
+            doc,
+            crlf: text.contains("\r\n"),
+        })
     }
 
     /// Load `path`; an absent file is an empty document.
@@ -38,7 +44,12 @@ impl ConfigDoc {
 
     /// The document text, byte-identical outside the edited keys.
     pub fn to_text(&self) -> String {
-        self.doc.to_string()
+        let text = self.doc.to_string();
+        if self.crlf {
+            text.replace("\r\n", "\n").replace('\n', "\r\n")
+        } else {
+            text
+        }
     }
 
     /// Write atomically to `path` (see [`crate::fsutil::atomic_write`]).
