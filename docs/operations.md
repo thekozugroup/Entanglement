@@ -1237,7 +1237,9 @@ keyring is `~/.entangle/release-keyring.toml`, separate from the publisher keyri
 (`--release-key <hex>` trusts a single key instead). `cosign` must be on `PATH` (or
 `--cosign <path>`); if it is missing the command fails with `ENTANGLE-E0845`.
 `--certificate-identity-regexp` / `--certificate-oidc-issuer` default to the values used by
-`.github/workflows/release.yml`. The key ceremony (2-of-3 Shamir split with
+`.github/workflows/release.yml`: the identity must be that workflow file of this repository
+run on a `v*` tag (anchored; other workflows, branch, pull-request and dispatch runs are
+rejected), and the workflow signs only on tag runs. The key ceremony (2-of-3 Shamir split with
 `entangle release key split|combine`) is in `docs/governance/key-ceremony.md`.
 
 ### 18.3 Governance checks

@@ -19,7 +19,7 @@ use assert_cmd::Command;
 use predicates::prelude::*;
 use tempfile::TempDir;
 
-const ID_RE: &str = "https://github.com/thekozugroup/Entanglement/.+";
+const ID_RE: &str = r"^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$";
 const ISSUER: &str = "https://token.actions.githubusercontent.com";
 
 fn entangle(home: &Path) -> Command {
@@ -37,7 +37,12 @@ fn fake_cosign(dir: &Path) -> PathBuf {
 echo "$@" > "$COSIGN_ARGS_LOG"
 [ "$1" = "verify-blob" ] || { echo "bad subcommand" >&2; exit 64; }
 [ "$2" = "--bundle" ] && [ "$3" = "$EXPECT_BUNDLE" ] || { echo "bad bundle" >&2; exit 65; }
-[ "$4" = "--certificate-identity-regexp" ] && [ "$5" = "$EXPECT_ID" ] || { echo "bad identity" >&2; exit 66; }
+[ "$4" = "--certificate-identity-regexp" ] || { echo "bad identity flag" >&2; exit 66; }
+[ -z "$EXPECT_ID" ] || [ "$5" = "$EXPECT_ID" ] || { echo "bad identity" >&2; exit 66; }
+# The bundle's certificate identity (SAN) must match the regexp. cosign
+# searches it unanchored with Go's regexp.MatchString; POSIX ERE (grep -E)
+# agrees with RE2 on the patterns used here.
+[ -z "$CERT_SAN" ] || printf '%s\n' "$CERT_SAN" | grep -Eq -- "$5" || { echo "no identity matched" >&2; exit 70; }
 [ "$6" = "--certificate-oidc-issuer" ] && [ "$7" = "$EXPECT_ISSUER" ] || { echo "bad issuer" >&2; exit 67; }
 [ "$#" -eq 8 ] || { echo "bad arity" >&2; exit 68; }
 # A concurrent writer replacing the artifact at its path between the
@@ -301,6 +306,86 @@ fn atc_rel_1_release_workflow_runs_real_cosign_with_the_same_flags() {
     assert!(wf.contains("--certificate-identity-regexp"), "{wf}");
     assert!(wf.contains("--certificate-oidc-issuer"), "{wf}");
     assert!(wf.contains("--bundle"), "{wf}");
+}
+
+/// With the default identity, only a bundle signed by the release workflow on
+/// a `v*` tag is accepted: not another workflow, not a branch, pull-request or
+/// dispatch run of release.yml (which any writer can start, with that
+/// branch's copy of the file), not another repository.
+#[test]
+fn atc_rel_1_default_identity_accepts_only_tag_runs_of_the_release_workflow() {
+    let f = fixture();
+    f.trust_as_release_key();
+    let wf = "https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@";
+    let run = |san: &str| {
+        let (mut c, _) = f.verify(&[]);
+        c.env_remove("EXPECT_ID").env("CERT_SAN", san).assert()
+    };
+    for ok in [
+        "refs/tags/v1.0.0",
+        "refs/tags/v1.0.0-rc1",
+        "refs/tags/v12.3.45",
+    ] {
+        run(&format!("{wf}{ok}"))
+            .success()
+            .stdout(predicate::str::contains("PASS"));
+    }
+    for bad in [
+        format!("{wf}refs/heads/main"),
+        format!("{wf}refs/heads/x"),
+        format!("{wf}refs/pull/7/merge"),
+        format!("{wf}refs/tags/v1.0.0/x"),
+        "https://github.com/thekozugroup/Entanglement/.github/workflows/other.yml@refs/tags/v1.0.0"
+            .to_owned(),
+        "https://github.com/thekozugroup/Entanglement2/.github/workflows/release.yml@refs/tags/v1.0.0"
+            .to_owned(),
+        format!("https://evil.example/{wf}refs/tags/v1.0.0"),
+    ] {
+        run(&bad)
+            .failure()
+            .stdout(predicate::str::contains("PASS").not())
+            .stderr(predicate::str::contains("ENTANGLE-E0846"));
+    }
+}
+
+/// The cosign half is only an independent control if its identity is narrow:
+/// the release workflow, on a `v*` tag. The workflow signs only on tag runs
+/// and verifies with the same identity `entangle release verify` defaults to.
+#[test]
+fn atc_rel_1_release_workflow_signs_only_tag_runs_with_the_default_identity() {
+    let text = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.github/workflows/release.yml"),
+    )
+    .unwrap();
+    let doc: serde_yaml::Value = serde_yaml::from_str(&text).unwrap();
+    let job = &doc["jobs"]["sigstore-attest"];
+    assert_eq!(
+        job["if"].as_str(),
+        Some("startsWith(github.ref, 'refs/tags/v')"),
+        "sigstore-attest must not sign branch or dispatch runs"
+    );
+    let verify = job["steps"]
+        .as_sequence()
+        .unwrap()
+        .iter()
+        .find(|s| {
+            s["run"]
+                .as_str()
+                .is_some_and(|r| r.contains("cosign verify-blob"))
+        })
+        .expect("a cosign verify-blob step");
+    assert_eq!(
+        verify["env"]["IDENTITY_RE"].as_str(),
+        Some(
+            ID_RE
+                .replace("thekozugroup/Entanglement", "${{ github.repository }}")
+                .as_str()
+        )
+    );
+    assert!(verify["run"]
+        .as_str()
+        .unwrap()
+        .contains("--certificate-identity-regexp \"${IDENTITY_RE}\""));
 }
 
 // ---------------------------------------------------------------------------

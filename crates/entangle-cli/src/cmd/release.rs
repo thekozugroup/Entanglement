@@ -32,8 +32,15 @@ use entangle_signing::{IdentityKeyPair, IdentityPublicKey, Keyring, TrustEntry};
 
 use crate::config;
 
-/// Default cosign certificate identity (the release workflow's repository).
-pub const DEFAULT_CERT_IDENTITY_REGEXP: &str = "https://github.com/thekozugroup/Entanglement/.+";
+/// Default cosign certificate identity: the release workflow
+/// (`.github/workflows/release.yml`) of this repository, run on a `v*` tag.
+///
+/// Anchored at both ends (cosign searches the regexp unanchored) and pinned to
+/// the workflow file and a tag ref, so a bundle minted by another workflow, a
+/// branch, pull-request or dispatch run, or another repository is rejected:
+/// any writer can start those runs, and the cosign half is meant to be a
+/// control independent of the release key.
+pub const DEFAULT_CERT_IDENTITY_REGEXP: &str = r"^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$";
 /// Default cosign OIDC issuer (GitHub Actions).
 pub const DEFAULT_CERT_OIDC_ISSUER: &str = "https://token.actions.githubusercontent.com";
 

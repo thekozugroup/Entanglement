@@ -194,6 +194,11 @@ jobs:
     name: Sigstore / SLSA attestation
     needs: build
     runs-on: ubuntu-24.04
+    # Sign only tag runs: the Fulcio identity is release.yml@refs/tags/v...,
+    # which is what `entangle release verify` accepts by default. A dispatch
+    # or branch run (any writer can start one, with that branch's copy of
+    # this file) must not be able to mint an accepted cosign bundle.
+    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: read
       id-token: write       # required for keyless OIDC signing
@@ -233,12 +238,13 @@ jobs:
       # the real binary against the real Rekor entry.
       - name: Verify each bundle with cosign (same flags as `entangle release verify`)
         env:
-          REPO: ${{ github.repository }}
+          # The CLI's default identity, with this repository substituted.
+          IDENTITY_RE: '^https://github\.com/${{ github.repository }}/\.github/workflows/release\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
         run: |
           for tarball in entanglement-*.tar.gz; do
             cosign verify-blob \
               --bundle "${tarball}.sigstore" \
-              --certificate-identity-regexp "https://github.com/${REPO}/.+" \
+              --certificate-identity-regexp "${IDENTITY_RE}" \
               --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
               "${tarball}"
           done
