@@ -740,12 +740,15 @@ impl Dispatcher {
         let envelope = envelope.clone();
         tokio::spawn(
             async move {
-                // Held for the whole check: the concurrency bound.
-                let _slot = permit;
+                // Held for the re-run and comparison: the concurrency bound.
+                let slot = permit;
                 let record = Arc::new(
                     this.run_spot_check(&task, &envelope, accepted, executor, remote, implicated)
                         .await,
                 );
+                // The slot is free before the verdict is visible, so a
+                // caller woken by it sees the check as no longer running.
+                drop(slot);
                 record.emit_if_mismatch();
                 this.count_spot_check(kind, record.verdict.label());
                 tracing::debug!(verdict = record.verdict.label(), "spot-check finished");
