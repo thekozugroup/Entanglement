@@ -703,10 +703,7 @@ fn disable_plugin(raw: &str) -> anyhow::Result<()> {
     let id = parse_plugin_id(raw)?.to_string();
     let path = config::config_path();
     let mut doc = crate::configedit::ConfigDoc::load(&path)?;
-    let listed = doc
-        .get_str_array("plugins", "disabled")
-        .iter()
-        .any(|d| *d == id);
+    let listed = doc.get_str_array("plugins", "disabled").contains(&id);
     if listed {
         println!("{id} is already disabled");
         return Ok(());
@@ -742,7 +739,7 @@ fn known_tier(id: &PluginId) -> Option<u8> {
         .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
         .filter(|v| v["code"] == "ENTANGLE-W0214" && v["plugin"] == id.to_string().as_str())
         .filter_map(|v| v["tier"].as_u64())
-        .last()
+        .next_back()
         .and_then(|t| u8::try_from(t).ok())
 }
 
