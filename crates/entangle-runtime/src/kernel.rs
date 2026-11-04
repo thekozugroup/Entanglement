@@ -179,8 +179,33 @@ pub struct Kernel {
     lifecycle_topic: Topic,
     /// Metrics sink; `None` until [`Kernel::with_metrics`].
     metrics: Option<KernelMetrics>,
-    /// Plugin ids refused at load (`[plugins] disabled`).
-    disabled: RwLock<std::collections::HashSet<String>>,
+    /// Plugin ids refused at load (`[plugins] disabled`), shared with the
+    /// metric registry (see [`Kernel::disabled_plugins`]).
+    disabled: DisabledPlugins,
+}
+
+/// The `[plugins] disabled` set: plugin ids refused at load. Cheap to clone;
+/// clones share one set, so an update through
+/// [`Kernel::set_disabled_plugins`] reaches every holder (the kernel's own
+/// load path and the submitter's `MetricRegistry`).
+#[derive(Clone, Debug, Default)]
+pub struct DisabledPlugins(Arc<RwLock<std::collections::HashSet<String>>>);
+
+impl DisabledPlugins {
+    /// A set holding `ids`.
+    pub fn new(ids: impl IntoIterator<Item = String>) -> Self {
+        Self(Arc::new(RwLock::new(ids.into_iter().collect())))
+    }
+
+    /// Whether `id` is disabled.
+    pub fn contains(&self, id: &PluginId) -> bool {
+        self.0.read().contains(&id.to_string())
+    }
+
+    /// Replace the whole set.
+    pub fn replace(&self, ids: impl IntoIterator<Item = String>) {
+        *self.0.write() = ids.into_iter().collect();
+    }
 }
 
 impl Kernel {
@@ -208,7 +233,7 @@ impl Kernel {
             engine,
             keyring: Arc::new(RwLock::new(keyring)),
             plugins: RwLock::new(HashMap::new()),
-            disabled: RwLock::new(config.disabled_plugins.iter().cloned().collect()),
+            disabled: DisabledPlugins::new(config.disabled_plugins.iter().cloned()),
             config,
             metrics: None,
         })
@@ -218,12 +243,19 @@ impl Kernel {
     ///
     /// Already-loaded plugins are not unloaded; this only gates later loads.
     pub fn set_disabled_plugins(&self, ids: impl IntoIterator<Item = String>) {
-        *self.disabled.write() = ids.into_iter().collect();
+        self.disabled.replace(ids);
     }
 
     /// Whether `[plugins] disabled` currently names `id`.
     pub fn is_plugin_disabled(&self, id: &PluginId) -> bool {
-        self.disabled.read().contains(&id.to_string())
+        self.disabled.contains(id)
+    }
+
+    /// The live `[plugins] disabled` set, shared: later
+    /// [`Kernel::set_disabled_plugins`] calls are seen through it. Give it to
+    /// a [`crate::MetricRegistry`] so metric packages honour the list too.
+    pub fn disabled_plugins(&self) -> DisabledPlugins {
+        self.disabled.clone()
     }
 
     /// Record this kernel's activity into `registry`.

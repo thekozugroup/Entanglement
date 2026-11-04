@@ -1226,9 +1226,11 @@ daemon restarts and exists even when the daemon is down.
 **Disabled plugins.** `[plugins] disabled` is enforced: the kernel (the
 daemon's and the `--allow-local` one) refuses to load a listed plugin id with
 `ENTANGLE-E0759: plugin <id> is disabled ... run `entangle plugins enable <id>``,
-before any signature work. The daemon re-reads the list from `config.toml`
-before every `plugins load`, so the commands below take effect without a
-restart; an unreadable `config.toml` keeps the previous list (a broken edit
+before any signature work. A `SemanticEquivalent` metric package is a plugin
+too: the daemon refuses to load a listed metric id (`ENTANGLE-E0310` wrapping
+`ENTANGLE-E0759`) when a task names it with `--metric-dir`. The daemon
+re-reads the list from `config.toml` before every `plugins load` and every
+metric load, so the commands below take effect without a restart; an unreadable `config.toml` keeps the previous list (a broken edit
 never re-enables a plugin).
 
 ```bash

@@ -52,9 +52,10 @@ pub struct WrappersSection {
 ///
 /// `disabled` is written by the max-tier lowering workflow (spec §9.4.1
 /// step 4) and by `entangle plugins disable`. The kernel refuses to load a
-/// listed id (`ENTANGLE-E0759`); the daemon re-reads this list before each
-/// `plugins/load`, so `entangle plugins enable <id>` takes effect without a
-/// restart.
+/// listed id (`ENTANGLE-E0759`), and so does the submitter's metric registry
+/// for a metric package; the daemon re-reads this list before each
+/// `plugins/load` and metric load, so `entangle plugins enable <id>` takes
+/// effect without a restart.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PluginsSection {

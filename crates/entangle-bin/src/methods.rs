@@ -607,6 +607,9 @@ async fn resolve_metric(
     let registry = Arc::clone(state.dispatcher.verifier().metrics());
     let reference = match metric_dir {
         Some(dir) => {
+            // `[plugins] disabled` applies to metric packages too; pick up an
+            // `entangle plugins disable/enable` made since the last load.
+            state.refresh_disabled_plugins();
             let dir = std::path::PathBuf::from(dir);
             tokio::task::spawn_blocking(move || registry.load_from_dir(&dir))
                 .await
