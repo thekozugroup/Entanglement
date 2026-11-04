@@ -623,11 +623,16 @@ fn agent_run_policy_flags_reach_the_gateway_end_to_end() {
 
 #[test]
 fn agent_run_warns_about_remote_http_servers() {
+    // The gateway now proxies remote servers; it warns at start only about
+    // one it will refuse (here: plain http to a non-loopback host), naming
+    // the server and the URL.
     let dir = TempDir::new().unwrap();
     let cfg = dir.path().join("mcp.json");
     fs::write(
         &cfg,
-        r#"{"mcpServers":{"remote":{"type":"http","url":"https://mcp.example.com/x"}}}"#,
+        r#"{"mcpServers":{
+            "remote":{"type":"http","url":"http://mcp.example.com/x"},
+            "fine":{"type":"http","url":"https://mcp.example.com/y"}}}"#,
     )
     .unwrap();
     let agent = dir.path().join("agent.sh");
@@ -642,8 +647,11 @@ fn agent_run_warns_about_remote_http_servers() {
         .assert()
         .success()
         .stderr(
-            predicate::str::contains("remote").and(predicate::str::contains("mcp.example.com/x")),
-        );
+            predicate::str::contains("'remote'")
+                .and(predicate::str::contains("ENTANGLE-E0664"))
+                .and(predicate::str::contains("mcp.example.com/x")),
+        )
+        .stderr(predicate::str::contains("'fine'").not());
 }
 
 #[test]
