@@ -2,7 +2,10 @@
 //!
 //! See `docs/architecture.md` §6.4 (bridge attenuation) and §6.5 (revocation).
 //!
-//! Implements spec §6 (capability delegation) and §6.4 (bridge cap attenuation rules).
+//! Implements spec §6 (capability delegation), §6.4 (bridge cap attenuation
+//! rules) and §6.6 (curated templates, [`templates`]: `mesh.peer`,
+//! `compute.gpu-job`, `agent.session`, and the per-request token protocol that
+//! gates remote work).
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -12,6 +15,7 @@ pub mod claims;
 /// Error types for the `entangle-biscuits` crate.
 pub mod errors;
 pub mod mint;
+pub mod templates;
 pub mod verifier;
 
 pub use bridge::{
