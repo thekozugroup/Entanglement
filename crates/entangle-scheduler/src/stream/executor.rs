@@ -40,7 +40,7 @@ use super::frame::{
 };
 use super::heartbeat::{Beat, Heartbeat};
 use super::signing::{transcript_next, transcript_start, ChunkSigner};
-use super::validate::StreamLimits;
+use super::validate::{chunk_allowance, StreamLimits};
 use super::{grant_threshold, StalledEvent, StreamEvent};
 use crate::work_unit::PolicyHash;
 
@@ -221,7 +221,8 @@ impl ExecutorMachine {
     /// credit.
     ///
     /// A chunk over `max_chunk_bytes`, or one that would carry the stream
-    /// past `max_total_bytes`, is never sent: the stream closes with
+    /// past `max_total_bytes` or past its chunk allowance
+    /// ([`chunk_allowance`]), is never sent: the stream closes with
     /// `ChunkSizeExceeded` / `TotalBytesExceeded` and the error is returned.
     pub fn try_send_chunk(
         &mut self,
@@ -244,6 +245,10 @@ impl ExecutorMachine {
                 limit: self.limits.max_total_bytes,
                 attempted,
             }));
+        }
+        let allowance = chunk_allowance(self.limits.max_total_bytes);
+        if self.next_seq >= allowance {
+            return Err(self.fail(StreamError::TooManyChunks { limit: allowance }));
         }
         if self.out_credit == 0 {
             self.credit_zero_since.get_or_insert(now);

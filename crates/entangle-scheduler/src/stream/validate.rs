@@ -134,6 +134,29 @@ pub fn check_executor_allowed(
     }
 }
 
+/// The fewest chunks [`chunk_allowance`] ever allows.
+pub const MIN_CHUNK_ALLOWANCE: u64 = 1024;
+
+/// How many output chunks a stream with `max_total_bytes` may carry:
+/// `max_total_bytes / CHUNK_FRAME_OVERHEAD`, but at least
+/// [`MIN_CHUNK_ALLOWANCE`]. Both ends enforce it.
+///
+/// A chunk costs its receiver bookkeeping (sequence number, signature,
+/// allocation) however few bytes it carries, so `max_total_bytes` alone
+/// does not bound a consumer that keeps the chunks it receives: an executor
+/// could send millions of empty, validly signed chunks. Charging every chunk
+/// at least [`CHUNK_FRAME_OVERHEAD`] bytes of allowance keeps that
+/// bookkeeping within about `max_total_bytes` again. Token-sized chunks
+/// still get hundreds of thousands per stream (512 Ki at 64 MiB).
+pub const fn chunk_allowance(max_total_bytes: u64) -> u64 {
+    let derived = max_total_bytes / CHUNK_FRAME_OVERHEAD as u64;
+    if derived < MIN_CHUNK_ALLOWANCE {
+        MIN_CHUNK_ALLOWANCE
+    } else {
+        derived
+    }
+}
+
 /// The limits one stream runs under, after the executor's clamp.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct StreamLimits {

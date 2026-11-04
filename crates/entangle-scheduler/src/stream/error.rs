@@ -298,6 +298,17 @@ pub enum StreamError {
     /// opened (no canonical encoding, or a hash mismatch).
     #[error("ENTANGLE-E0370: streaming task policy envelope rejected: {0}")]
     Policy(String),
+
+    /// `ENTANGLE-E0371` — the stream would carry more chunks than its
+    /// `max_total_bytes` allows (see `validate::chunk_allowance`): every
+    /// chunk is charged against the byte budget too, however small.
+    #[error(
+        "ENTANGLE-E0371: stream exceeds its allowance of {limit} chunks for its max_total_bytes"
+    )]
+    TooManyChunks {
+        /// The allowance in force.
+        limit: u64,
+    },
 }
 
 impl StreamError {
@@ -310,7 +321,9 @@ impl StreamError {
             | Self::InputTooLarge { .. }
             | Self::ExecutorNotAllowed { .. } => Reason::InvalidTask,
             Self::BadChunkSignature { .. } | Self::BadEnd(_) => Reason::BadChunkSignature,
-            Self::StreamBytesExceeded { .. } => Reason::TotalBytesExceeded,
+            Self::StreamBytesExceeded { .. } | Self::TooManyChunks { .. } => {
+                Reason::TotalBytesExceeded
+            }
             Self::ChunkSizeExceeded { .. } => Reason::ChunkSizeExceeded,
             Self::CreditViolation { .. } => Reason::CreditViolation,
             Self::PeerLost { .. } | Self::Transport(_) => Reason::PeerLost,
@@ -349,6 +362,7 @@ impl StreamError {
             Self::ExecutorNotAllowed { .. } => "ENTANGLE-E0368",
             Self::Plugin(_) => "ENTANGLE-E0369",
             Self::Policy(_) => "ENTANGLE-E0370",
+            Self::TooManyChunks { .. } => "ENTANGLE-E0371",
         }
     }
 }
@@ -418,6 +432,7 @@ mod tests {
             StreamError::ExecutorNotAllowed { peer: "p".into() },
             StreamError::Plugin("x".into()),
             StreamError::Policy("x".into()),
+            StreamError::TooManyChunks { limit: 1 },
         ]
     }
 

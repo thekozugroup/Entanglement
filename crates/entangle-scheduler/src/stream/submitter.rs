@@ -5,8 +5,10 @@
 //!
 //! # What the submitter checks, per chunk, in this order
 //!
-//! 1. **size** — the chunk is at most `max_chunk_bytes`, and the stream's
-//!    cumulative bytes stay within `max_total_bytes` (ATC-INT-6). The
+//! 1. **size** — the chunk is at most `max_chunk_bytes`, the stream's
+//!    cumulative bytes stay within `max_total_bytes` (ATC-INT-6), and its
+//!    chunk count within the allowance those bytes buy
+//!    ([`chunk_allowance`]: a chunk costs bookkeeping however small). The
 //!    submitter tracks the total itself (defense in depth): an executor that
 //!    does not self-close at the cap is torn down with
 //!    [`StreamError::StreamBytesExceeded`]. The transport has already
@@ -39,7 +41,7 @@ use super::frame::{
 };
 use super::heartbeat::{Beat, Heartbeat};
 use super::signing::{transcript_next, transcript_start, ChunkVerifier, SignedChunk};
-use super::validate::{check_executor_allowed, validate_submit};
+use super::validate::{check_executor_allowed, chunk_allowance, validate_submit};
 use super::{grant_threshold, StreamEvent};
 use crate::work_unit::PolicyHash;
 
@@ -658,6 +660,10 @@ impl SubmitterMachine {
                 limit: self.eff.max_total_bytes,
                 attempted,
             }));
+        }
+        let allowance = chunk_allowance(self.eff.max_total_bytes);
+        if self.received >= allowance {
+            return Err(self.fail(StreamError::TooManyChunks { limit: allowance }));
         }
         // 2. credit.
         let allowed = u64::from(self.eff.credit_window) + self.granted;

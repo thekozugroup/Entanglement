@@ -585,6 +585,7 @@ interrupted stream either way. Ctrl-C cancels the stream on the executor.
 | `E0352` | `bad-chunk-signature` | A chunk did not verify against the executor's key, or arrived replayed / out of order. The stream aborts; the executor loses reputation. |
 | `E0353` | `total-bytes-exceeded` | The stream reached `max_total_bytes`. The executor stops itself; a submitter facing one that does not tears the stream down. |
 | `E0354` | `chunk-size-exceeded` | One chunk over `max_chunk_bytes`. |
+| `E0371` | `total-bytes-exceeded` | More chunks than `max_total_bytes` allows: every chunk counts as at least 128 bytes (with a floor of 1024 chunks), however small it is. |
 | `E0356` | `peer-lost` | Three heartbeats in a row went unanswered (15 s at the 5 s default). |
 | `E0357` | `submitter-unresponsive` | The executor had no credit for twice the credit-exhaustion timeout. |
 | `E0361` | (the peer's reason) | The other end closed the stream and said why. |

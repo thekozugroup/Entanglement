@@ -754,9 +754,9 @@ fn penalty(error: &StreamError) -> Option<ReputationReason> {
         StreamError::BadChunkSignature { .. } | StreamError::BadEnd(_) => {
             Some(ReputationReason::BadChunkSignature)
         }
-        StreamError::StreamBytesExceeded { .. } | StreamError::ChunkSizeExceeded { .. } => {
-            Some(ReputationReason::OversizedOutput)
-        }
+        StreamError::StreamBytesExceeded { .. }
+        | StreamError::ChunkSizeExceeded { .. }
+        | StreamError::TooManyChunks { .. } => Some(ReputationReason::OversizedOutput),
         StreamError::CreditViolation {
             by: Side::Executor, ..
         }

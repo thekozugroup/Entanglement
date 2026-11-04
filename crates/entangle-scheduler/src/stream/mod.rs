@@ -64,8 +64,9 @@ pub use submitter::{
     VerifiedChunk,
 };
 pub use validate::{
-    check_executor_allowed, check_stream_integrity, validate_submit, StreamCeilings, StreamLimits,
-    MAX_STREAM_TIMEOUT_MS, TRUSTED_EXECUTOR_HINT,
+    check_executor_allowed, check_stream_integrity, chunk_allowance, validate_submit,
+    StreamCeilings, StreamLimits, MAX_STREAM_TIMEOUT_MS, MIN_CHUNK_ALLOWANCE,
+    TRUSTED_EXECUTOR_HINT,
 };
 
 /// `tracing` target of stream lifecycle events (`StalledEvent` and friends).

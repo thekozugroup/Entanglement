@@ -744,6 +744,53 @@ fn an_oversized_frame_header_maps_to_the_cap_it_broke() {
     ));
 }
 
+/// A chunk costs the submitter bookkeeping whatever its size, so the number
+/// of chunks is capped too: `max_total_bytes` alone would let an executor
+/// stream millions of empty (or one-byte) chunks into a consumer that keeps
+/// them. An honest executor stops at the allowance; one that does not is
+/// torn down by the submitter.
+#[test]
+fn the_chunk_count_is_capped_on_both_ends() {
+    // 1 KiB of total budget allows the minimum allowance of chunks.
+    let allowance = 1024;
+
+    // Executor: empty chunks pass every byte check, but not the count.
+    let mut p = pair();
+    for _ in 0..allowance {
+        assert!(matches!(p.send(b""), SendOutcome::Sent { .. }));
+        p.pump();
+        assert!(matches!(p.consume(), ChunkPoll::Chunk(_)));
+        p.pump();
+    }
+    let err = p.exec.try_send_chunk(Vec::new(), p.now).unwrap_err();
+    assert_eq!(err.reason(), Reason::TotalBytesExceeded, "{err}");
+    p.pump();
+    assert!(matches!(
+        p.sub.error(),
+        Some(StreamError::PeerAborted {
+            reason: Reason::TotalBytesExceeded,
+            ..
+        })
+    ));
+
+    // Submitter: an executor that keeps going is refused at the allowance.
+    let mut p = pair();
+    let key = exec_key();
+    for seq in 0..allowance {
+        let chunk = p.chunk_signed_by(&key, seq, b"");
+        p.sub.on_frame(chunk, p.now).unwrap();
+        assert!(matches!(p.consume(), ChunkPoll::Chunk(_)));
+    }
+    let extra = p.chunk_signed_by(&key, allowance, b"");
+    let err = p.sub.on_frame(extra, p.now).unwrap_err();
+    assert_eq!(err.reason(), Reason::TotalBytesExceeded, "{err}");
+    assert_eq!(p.sub.chunks_received(), allowance);
+    assert_eq!(
+        last_error_reason(&drain_sub(&mut p.sub)),
+        Some(Reason::TotalBytesExceeded)
+    );
+}
+
 // ── accepted / limits ───────────────────────────────────────────────────────
 
 fn fresh_submitter(task: &StreamingTask) -> (SubmitterMachine, super::frame::OpenFrame) {
