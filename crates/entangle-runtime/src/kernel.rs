@@ -5,6 +5,7 @@ use crate::{
     lifecycle::{LifecycleEvent, LifecyclePhase},
     loader::PluginPackage,
     native::{NativeConfig, NativePlugin},
+    slot::{ActiveGuard, Events, WasmSlot},
 };
 use entangle_broker::{
     Broker, BrokerError, BrokerPolicy, CapabilityPattern, CapabilityStatus, GrantId,
@@ -13,7 +14,8 @@ use entangle_host::{
     check_runtime_kind, CapabilityContext, CompiledPlugin, DeclaredRuntime, HostEngine, StreamPort,
     StreamRunResult,
 };
-use entangle_ipc::{Bus, Envelope, Topic};
+use entangle_ipc::{Bus, Topic};
+use entangle_manifest::lifecycle::Lifecycle;
 use entangle_manifest::Runtime;
 use entangle_manifest::{loader::LoadError, validate::validate, ValidatedManifest};
 use entangle_observability::catalog::{self, names, PluginLabels};
@@ -24,7 +26,7 @@ use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime};
+use std::time::Instant;
 use tracing::Instrument as _;
 
 /// The topic every [`LifecycleEvent`] is published on.
@@ -92,6 +94,19 @@ struct LoadedRecord {
     /// still in the map); [`Kernel::unload`] takes it exclusively after
     /// removing the record, i.e. waits for those invocations to finish.
     inflight: Arc<tokio::sync::RwLock<()>>,
+    /// Where it was loaded from and what was verified.
+    source: PluginSource,
+}
+
+/// Where a loaded plugin came from (see [`Kernel::loaded_source`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PluginSource {
+    /// The package directory it was loaded from.
+    pub dir: std::path::PathBuf,
+    /// BLAKE3 (hex) of the verified artifact.
+    pub artifact_digest: String,
+    /// Its `[lifecycle]`.
+    pub lifecycle: Lifecycle,
 }
 
 /// A running invocation's (one-shot or stream) share of
@@ -138,8 +153,9 @@ pub enum MaxTierRefusal {
 #[derive(Clone)]
 enum PluginImpl {
     /// Wasm component in the shared Wasmtime engine, of either
-    /// `entangle:plugin` world (one-shot `run` or `start-stream`).
-    Wasm(CompiledPlugin),
+    /// `entangle:plugin` world (one-shot `run` or `start-stream`), behind
+    /// its instance slot (lazy activation, idle teardown).
+    Wasm(Arc<WasmSlot>),
     /// Native executable in a sandboxed subprocess (see [`crate::native`]).
     /// Native plugins are one-shot only.
     Native(Arc<NativePlugin>),
@@ -181,9 +197,10 @@ pub struct Kernel {
     keyring: Arc<RwLock<Keyring>>,
     plugins: RwLock<HashMap<PluginId, LoadedRecord>>,
     bus: Bus<LifecycleEvent>,
-    /// The single topic every lifecycle event is published on. Built once so
-    /// `emit` does not re-parse and re-validate the same literal each time.
-    lifecycle_topic: Topic,
+    /// Publishes on `bus`, on the single lifecycle topic (built once so
+    /// `emit` does not re-parse and re-validate the same literal each
+    /// time); cloned into idle reapers and drain tasks.
+    events: Events,
     /// Metrics sink; `None` until [`Kernel::with_metrics`].
     metrics: Option<KernelMetrics>,
     /// Plugin ids refused at load (`[plugins] disabled`), shared with the
@@ -245,10 +262,14 @@ impl Kernel {
                     None
                 }
             });
+        let bus = Bus::new(config.bus_capacity);
         Ok(Self {
             aot,
-            bus: Bus::new(config.bus_capacity),
-            lifecycle_topic: Topic::new(LIFECYCLE_TOPIC).expect("static topic is valid"),
+            events: Events::new(
+                bus.handle(),
+                Topic::new(LIFECYCLE_TOPIC).expect("static topic is valid"),
+            ),
+            bus,
             broker: Arc::new(Broker::new(policy)),
             engine,
             keyring: Arc::new(RwLock::new(keyring)),
@@ -419,7 +440,7 @@ impl Kernel {
         // ── Step 1: Manifest ─────────────────────────────────────────────────
         // Parse from the in-memory bytes (the same bytes step 2 hashes), not
         // from a second disk read that could observe a different file.
-        let manifest = parse_manifest(&pkg.manifest_bytes)?;
+        let (manifest, lifecycle) = parse_manifest(&pkg.manifest_bytes)?;
         let plugin_id = manifest.plugin_id.clone();
         let effective_tier = manifest.effective_tier;
 
@@ -527,7 +548,7 @@ impl Kernel {
             Err(e) => Err(e),
             Ok(grants) => match runtime {
                 Runtime::Wasm => self
-                    .prepare_wasm(&plugin_id, &pkg, effective_tier)
+                    .prepare_wasm(&plugin_id, &pkg, effective_tier, lifecycle)
                     .await
                     .map(|p| (p, Vec::new())),
                 Runtime::Native => self
@@ -569,12 +590,26 @@ impl Kernel {
                 }
                 std::collections::hash_map::Entry::Vacant(slot) => {
                     let loaded_at = Instant::now();
+                    if let PluginImpl::Wasm(wasm) = &plugin {
+                        crate::slot::spawn_idle_reaper(
+                            wasm,
+                            self.events.clone(),
+                            self.metrics.as_ref().map(|m| {
+                                (m.registry.clone(), m.labels.label(&plugin_id.to_string()))
+                            }),
+                        );
+                    }
                     slot.insert(LoadedRecord {
                         effective_tier,
                         plugin,
                         sandbox_grants,
                         loaded_at,
                         inflight: Arc::new(tokio::sync::RwLock::new(())),
+                        source: PluginSource {
+                            dir: pkg.dir.clone(),
+                            artifact_digest: blake3::hash(&pkg.bytes).to_hex().to_string(),
+                            lifecycle,
+                        },
                     });
                     if let Some(m) = &self.metrics {
                         m.loaded_at.lock().insert(plugin_id.to_string(), loaded_at);
@@ -638,13 +673,16 @@ impl Kernel {
         // The in-flight token is held until this invocation returns, so an
         // unload (or a ceiling lowering) drains it before unregistering.
         let (plugin, effective_tier, _inflight) = self.record(plugin_id)?;
-        if let PluginImpl::Wasm(CompiledPlugin::Stream(_)) = plugin {
+        if plugin.world() != "plugin" {
             return Err(RuntimeError::WrongWorld {
                 plugin: plugin_id.clone(),
                 expected: "plugin",
                 actual: plugin.world(),
             });
         }
+        // The instance (created now for a lazy or idled-out plugin, which
+        // publishes `Instantiated`), held active until the call ends.
+        let instance = self.instance(&plugin).await?;
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
         // The plugin call is contained (spec §2.1, `entangle_core::fault`):
@@ -652,19 +690,20 @@ impl Kernel {
         // sections — fails this call, whose store and instance are discarded
         // with it, instead of ending the daemon.
         let call = async {
-            match plugin {
-                PluginImpl::Wasm(CompiledPlugin::OneShot(p)) => p
+            match (plugin, instance) {
+                (_, Some((CompiledPlugin::OneShot(p), _active))) => p
                     .run_one_shot(&self.engine, input, timeout_ms)
                     .await
                     .map(|r| r.output)
                     .map_err(RuntimeError::from),
-                PluginImpl::Wasm(CompiledPlugin::Stream(_)) => {
+                (_, Some((CompiledPlugin::Stream(_), _))) => {
                     unreachable!("stream plugins are refused above")
                 }
-                PluginImpl::Native(n) => n
+                (PluginImpl::Native(n), None) => n
                     .invoke(input, timeout_ms)
                     .await
                     .map_err(RuntimeError::from),
+                (PluginImpl::Wasm(_), None) => unreachable!("a wasm plugin has an instance"),
             }
         };
         let result = entangle_core::fault::contain(call)
@@ -713,6 +752,7 @@ impl Kernel {
         plugin_id: &PluginId,
         pkg: &PluginPackage,
         effective_tier: Tier,
+        lifecycle: Lifecycle,
     ) -> Result<PluginImpl, RuntimeError> {
         let mut ctx = CapabilityContext::new(Arc::clone(&self.broker));
         if let Some(root) = &self.config.native.data_dir {
@@ -731,9 +771,34 @@ impl Kernel {
         if let Some(lookup) = lookup {
             tracing::debug!(plugin = %plugin_id, ?lookup, "AOT cache");
         }
-        let plugin = plugin.with_capabilities(ctx);
+        let plugin = plugin.with_capabilities(ctx.clone());
         plugin.realise_capabilities().await?;
-        Ok(PluginImpl::Wasm(plugin))
+        // Compiled either way, so a lazy plugin's component is known good
+        // (and in the AOT cache) at load; only an eager one keeps it
+        // resident (`[lifecycle]`, spec §4.4).
+        Ok(PluginImpl::Wasm(Arc::new(WasmSlot::new(
+            plugin,
+            ctx,
+            &pkg.bytes,
+            plugin_id.clone(),
+            effective_tier,
+            lifecycle,
+        ))))
+    }
+
+    /// The instance a call or stream of `plugin` runs on, with the guard
+    /// keeping it active (`None` for a native plugin, which has none).
+    async fn instance(
+        &self,
+        plugin: &PluginImpl,
+    ) -> Result<Option<(CompiledPlugin, ActiveGuard)>, RuntimeError> {
+        match plugin {
+            PluginImpl::Wasm(slot) => Ok(Some(
+                slot.acquire(&self.engine, self.aot.as_deref(), &self.events)
+                    .await?,
+            )),
+            PluginImpl::Native(_) => Ok(None),
+        }
     }
 
     /// Derive the sandbox from the standing grants and stage the verified
@@ -819,12 +884,17 @@ impl Kernel {
         // It is declared before the `Idled` guard, so it is released after
         // `Idled` is published.
         let (plugin, effective_tier, _inflight) = self.record(plugin_id)?;
-        let PluginImpl::Wasm(CompiledPlugin::Stream(plugin)) = plugin else {
+        if plugin.world() != "stream-plugin" {
             return Err(RuntimeError::WrongWorld {
                 plugin: plugin_id.clone(),
                 expected: "stream-plugin",
                 actual: plugin.world(),
             });
+        }
+        // Held for the whole stream: a plugin with a stream in progress is
+        // active and never torn down for idleness.
+        let Some((CompiledPlugin::Stream(plugin), _active)) = self.instance(&plugin).await? else {
+            unreachable!("a stream-plugin world plugin is a wasm stream component");
         };
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
@@ -859,6 +929,30 @@ impl Kernel {
             .read()
             .get(plugin_id)
             .map(|record| record.plugin.world())
+    }
+
+    /// Whether a loaded plugin has a resident instance: a wasm plugin
+    /// before its first call under lazy activation, or after an idle
+    /// teardown, has none (`[lifecycle]`, spec §4.4). Native plugins run a
+    /// fresh process per call and report `false`. `None` when not loaded.
+    pub fn is_instantiated(&self, plugin_id: &PluginId) -> Option<bool> {
+        self.plugins
+            .read()
+            .get(plugin_id)
+            .map(|record| match &record.plugin {
+                PluginImpl::Wasm(slot) => slot.is_instantiated(),
+                PluginImpl::Native(_) => false,
+            })
+    }
+
+    /// Where a loaded plugin was loaded from, the digest of its verified
+    /// artifact and its `[lifecycle]` (what the daemon's plugin-state file
+    /// records). `None` when not loaded.
+    pub fn loaded_source(&self, plugin_id: &PluginId) -> Option<PluginSource> {
+        self.plugins
+            .read()
+            .get(plugin_id)
+            .map(|record| record.source.clone())
     }
 
     /// Clone a loaded plugin's implementation and tier and take its
@@ -993,6 +1087,9 @@ impl Kernel {
             .ok_or_else(|| RuntimeError::NotLoaded(plugin.clone()))?;
         if let Some(m) = &self.metrics {
             m.loaded_at.lock().remove(&plugin.to_string());
+        }
+        if let PluginImpl::Wasm(slot) = &record.plugin {
+            slot.retire();
         }
         let _drained = record.inflight.write().await;
         self.broker.unregister_plugin(plugin)?;
@@ -1160,19 +1257,7 @@ impl Kernel {
         // event is best-effort *and* because a subscriber that attaches after
         // this check would not have received the envelope anyway:
         // `Bus::subscribe` only yields envelopes published after it returns.
-        if self.bus.subscriber_count() == 0 {
-            return;
-        }
-        let evt = LifecycleEvent {
-            plugin: plugin.clone(),
-            phase,
-            effective_tier,
-            at: SystemTime::now(),
-        };
-        // `lifecycle_topic` is built once in `Kernel::new`; re-parsing and
-        // re-validating the same static string on every event is not free.
-        let env = Envelope::new(self.lifecycle_topic.clone(), evt);
-        let _ = self.bus.publish(env);
+        self.events.emit(plugin, effective_tier, phase);
     }
 }
 
@@ -1182,7 +1267,7 @@ impl Kernel {
 ///
 /// The kernel deliberately parses the same in-memory bytes whose hash is
 /// checked against the signature bundle, instead of re-reading the file.
-fn parse_manifest(bytes: &[u8]) -> Result<ValidatedManifest, RuntimeError> {
+fn parse_manifest(bytes: &[u8]) -> Result<(ValidatedManifest, Lifecycle), RuntimeError> {
     let text = std::str::from_utf8(bytes).map_err(|_| {
         RuntimeError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
@@ -1191,7 +1276,9 @@ fn parse_manifest(bytes: &[u8]) -> Result<ValidatedManifest, RuntimeError> {
     })?;
     let raw: entangle_manifest::schema::Manifest =
         toml::from_str(text).map_err(|e| RuntimeError::Manifest(LoadError::Parse(e)))?;
-    Ok(validate(raw)?)
+    let manifest = validate(raw)?;
+    let lifecycle = entangle_manifest::lifecycle::parse(text, manifest.runtime)?;
+    Ok((manifest, lifecycle))
 }
 
 /// Records one stream-plugin invocation's metrics exactly once: from

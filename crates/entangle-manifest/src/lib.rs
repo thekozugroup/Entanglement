@@ -15,10 +15,12 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod lifecycle;
 pub mod loader;
 pub mod schema;
 pub mod validate;
 
+pub use lifecycle::{Activation, Lifecycle};
 pub use loader::load_manifest;
 pub use schema::{BuildSection, Manifest, PluginSection, Runtime, SignatureSection};
 pub use validate::{ValidatedManifest, ValidationError};

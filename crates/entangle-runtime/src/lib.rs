@@ -32,6 +32,7 @@ pub mod loader;
 pub mod metric;
 pub mod native;
 pub mod os_sandbox;
+mod slot;
 
 #[cfg(test)]
 mod tests;
@@ -40,10 +41,12 @@ mod tests;
 pub use entangle_aot::{AotCache, AotCacheConfig, GcReport as AotGcReport};
 /// The `[security] deny_capabilities` pattern type ([`KernelConfig::denied_capabilities`]).
 pub use entangle_broker::CapabilityPattern;
+pub use entangle_manifest::lifecycle::{Activation, Lifecycle};
 pub use errors::RuntimeError;
 pub use integrity::{check_trusted_executor, verify_deterministic, IntegrityError, ReplicaOutput};
 pub use kernel::{
     DisabledPlugins, Kernel, KernelConfig, LoadedPluginInfo, MaxTierOutcome, MaxTierRefusal,
+    PluginSource,
 };
 pub use lifecycle::{LifecycleEvent, LifecyclePhase};
 pub use loader::PluginPackage;
