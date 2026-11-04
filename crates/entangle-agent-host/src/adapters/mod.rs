@@ -95,7 +95,7 @@ pub trait Adapter: Send + Sync {
 }
 
 /// A downstream MCP server declared in an agent config.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum McpServerSpec {
     /// A stdio server the gateway launches itself.
     Stdio {
@@ -106,12 +106,35 @@ pub enum McpServerSpec {
         /// Extra environment variables.
         env: BTreeMap<String, String>,
     },
-    /// A remote HTTP server (`url`). The gateway reports these as
-    /// unsupported (error `ENTANGLE-E0664`).
+    /// A remote HTTP server (`url`), proxied by the gateway over MCP
+    /// Streamable HTTP (see [`crate::gateway`]).
     Http {
         /// The server URL.
         url: String,
+        /// Request headers from the user's config (`headers`, `http_headers`,
+        /// `env_http_headers`, `bearer_token_env_var`), environment references
+        /// already expanded. Credentials: never printed by `Debug`.
+        headers: BTreeMap<String, String>,
     },
+}
+
+impl std::fmt::Debug for McpServerSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stdio { command, args, env } => f
+                .debug_struct("Stdio")
+                .field("command", command)
+                .field("args", args)
+                .field("env", env)
+                .finish(),
+            // Header values are credentials: names only.
+            Self::Http { url, headers } => f
+                .debug_struct("Http")
+                .field("url", url)
+                .field("headers", &headers.keys().collect::<Vec<_>>())
+                .finish(),
+        }
+    }
 }
 
 /// How to start an agent against a session-scoped config.
@@ -197,9 +220,76 @@ pub(crate) fn parse_server_entry(v: &Value) -> Option<McpServerSpec> {
         }
         return Some(McpServerSpec::Stdio { command, args, env });
     }
-    obj.get("url")
+    let url = obj.get("url").and_then(Value::as_str)?.to_string();
+    let mut headers = BTreeMap::new();
+    // Claude Code `headers`, Codex `http_headers`: literal values, which may
+    // reference the environment.
+    for key in ["headers", "http_headers"] {
+        if let Some(Value::Object(m)) = obj.get(key) {
+            for (k, val) in m {
+                if let Some(s) = val.as_str() {
+                    headers.insert(k.clone(), expand_env(s));
+                }
+            }
+        }
+    }
+    // Codex `env_http_headers`: header name -> environment variable; a header
+    // whose variable is unset is left out, as Codex does.
+    if let Some(Value::Object(m)) = obj.get("env_http_headers") {
+        for (k, var) in m {
+            if let Some(v) = var.as_str().and_then(|v| std::env::var(v).ok()) {
+                headers.insert(k.clone(), v);
+            }
+        }
+    }
+    // Codex `bearer_token_env_var`.
+    if let Some(v) = obj
+        .get("bearer_token_env_var")
         .and_then(Value::as_str)
-        .map(|u| McpServerSpec::Http { url: u.to_string() })
+        .and_then(|v| std::env::var(v).ok())
+    {
+        headers.insert("Authorization".into(), format!("Bearer {v}"));
+    }
+    Some(McpServerSpec::Http { url, headers })
+}
+
+/// Expand `${VAR}`, `${VAR:-default}` (Claude Code) and `{env:VAR}`
+/// (OpenCode) references; an unset variable becomes the default or empty.
+pub(crate) fn expand_env(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find(['$', '{']) {
+        out.push_str(&rest[..i]);
+        let tail = &rest[i..];
+        let (open, close_prefix) = if tail.starts_with("${") {
+            ("${", false)
+        } else if tail.starts_with("{env:") {
+            ("{env:", true)
+        } else {
+            out.push_str(&tail[..1]);
+            rest = &tail[1..];
+            continue;
+        };
+        let inner = &tail[open.len()..];
+        match inner.find('}') {
+            Some(j) if j > 0 => {
+                let spec = &inner[..j];
+                let (name, default) = if close_prefix {
+                    (spec, "")
+                } else {
+                    spec.split_once(":-").unwrap_or((spec, ""))
+                };
+                out.push_str(&std::env::var(name).unwrap_or_else(|_| default.to_string()));
+                rest = &inner[j + 1..];
+            }
+            _ => {
+                out.push_str(open);
+                rest = inner;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 /// In-memory snapshot of an agent's original config file.
@@ -260,6 +350,47 @@ mod tests {
                 "missing adapter {n} in known_adapter_names: {names}"
             );
         }
+    }
+
+    #[test]
+    fn http_server_headers_are_read_and_env_references_expanded() {
+        std::env::set_var("ENTANGLE_TEST_HDR_TOKEN", "t0k");
+        std::env::set_var("ENTANGLE_TEST_HDR_KEY", "k3y");
+        let spec = |v: Value| parse_server_entry(&v).unwrap();
+        // Claude Code style.
+        let McpServerSpec::Http { url, headers } = spec(serde_json::json!({
+            "type": "http", "url": "https://x.example/mcp",
+            "headers": {
+                "Authorization": "Bearer ${ENTANGLE_TEST_HDR_TOKEN}",
+                "X-Region": "${ENTANGLE_TEST_HDR_UNSET:-eu}",
+                "X-Plain": "a$b{c}"
+            }
+        })) else {
+            panic!("expected http")
+        };
+        assert_eq!(url, "https://x.example/mcp");
+        assert_eq!(headers["Authorization"], "Bearer t0k");
+        assert_eq!(headers["X-Region"], "eu");
+        assert_eq!(headers["X-Plain"], "a$b{c}");
+        // Codex style.
+        let McpServerSpec::Http { headers, .. } = spec(serde_json::json!({
+            "url": "https://x.example/mcp",
+            "http_headers": {"X-A": "1"},
+            "env_http_headers": {"X-Key": "ENTANGLE_TEST_HDR_KEY", "X-Gone": "ENTANGLE_TEST_HDR_UNSET"},
+            "bearer_token_env_var": "ENTANGLE_TEST_HDR_TOKEN"
+        })) else {
+            panic!("expected http")
+        };
+        assert_eq!(headers["X-A"], "1");
+        assert_eq!(headers["X-Key"], "k3y");
+        assert!(!headers.contains_key("X-Gone"));
+        assert_eq!(headers["Authorization"], "Bearer t0k");
+        // Debug never prints a credential.
+        let dbg = format!(
+            "{:?}",
+            spec(serde_json::json!({"url": "https://x/m", "headers": {"A": "s3cret"}}))
+        );
+        assert!(dbg.contains("\"A\"") && !dbg.contains("s3cret"), "{dbg}");
     }
 
     #[test]

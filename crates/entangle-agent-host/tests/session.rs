@@ -405,7 +405,12 @@ fn opencode_servers_read_the_documented_mcp_schema() {
     assert_eq!(
         s.servers().get("search"),
         Some(&McpServerSpec::Http {
-            url: "https://search.example/mcp".into()
+            url: "https://search.example/mcp".into(),
+            headers: [(
+                "Authorization".to_string(),
+                "Bearer user-secret".to_string()
+            )]
+            .into(),
         })
     );
     assert!(

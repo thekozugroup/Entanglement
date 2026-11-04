@@ -11,6 +11,7 @@
 pub mod adapters;
 pub mod errors;
 pub mod gateway;
+mod http_downstream;
 pub mod session;
 
 pub use adapters::{

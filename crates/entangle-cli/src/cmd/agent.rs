@@ -248,11 +248,13 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
     }
     let servers = session.servers().clone();
     for (name, spec) in &servers {
-        if let McpServerSpec::Http { url } = spec {
-            eprintln!(
-                "warning: MCP server '{name}' is remote HTTP ({url}); the gateway does not proxy \
-                 HTTP servers, so it will be unavailable in this session"
-            );
+        if let McpServerSpec::Http { url, .. } = spec {
+            if let Err(why) = entangle_agent_host::gateway::check_http_downstream(url) {
+                eprintln!(
+                    "warning: MCP server '{name}' is remote HTTP but the gateway will refuse it \
+                     (ENTANGLE-E0664): {why}"
+                );
+            }
         }
     }
 
@@ -313,7 +315,8 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
 /// reported here.
 fn confirm_project_servers(session: &AgentSession, trusted: bool) -> Result<()> {
     let servers = session.project_stdio_servers();
-    if servers.is_empty() {
+    let remote = session.project_http_servers_with_headers();
+    if servers.is_empty() && remote.is_empty() {
         return Ok(());
     }
     let path = match std::env::current_dir() {
@@ -322,17 +325,35 @@ fn confirm_project_servers(session: &AgentSession, trusted: bool) -> Result<()> 
         }
         _ => session.source_path().to_string(),
     };
-    eprintln!(
-        "The project config {path} declares {} MCP server(s) that the gateway would start \
-         as commands on this machine:",
-        servers.len()
-    );
+    if !servers.is_empty() {
+        eprintln!(
+            "The project config {path} declares {} MCP server(s) that the gateway would start \
+             as commands on this machine:",
+            servers.len()
+        );
+    }
     for (name, spec) in &servers {
         if let McpServerSpec::Stdio { command, args, env } = spec {
             // Debug formatting quotes and escapes everything, so a name or
             // argument cannot hide itself with terminal control sequences.
             let env_names: Vec<&String> = env.keys().collect();
             eprintln!("  {name:?}: command {command:?}, args {args:?}, env vars {env_names:?}");
+        }
+    }
+    if !remote.is_empty() {
+        eprintln!(
+            "The project config {path} declares {} remote MCP server(s) the gateway would send \
+             request headers to (environment references in them are expanded from your \
+             environment):",
+            remote.len()
+        );
+        for (name, spec) in &remote {
+            if let McpServerSpec::Http { url, headers } = spec {
+                // Names only, never values; the URL without query or credentials.
+                let shown = entangle_agent_host::gateway::display_url(url);
+                let names: Vec<&String> = headers.keys().collect();
+                eprintln!("  {name:?}: url {shown:?}, headers {names:?}");
+            }
         }
     }
     if trusted {

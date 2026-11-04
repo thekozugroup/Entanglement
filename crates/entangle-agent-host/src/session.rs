@@ -156,6 +156,25 @@ impl AgentSession {
             .collect()
     }
 
+    /// The project config's HTTP servers that carry request headers. The
+    /// gateway expands environment references in those headers (`${VAR}`,
+    /// `env_http_headers`, `bearer_token_env_var`) and sends them to the
+    /// URL, so a project config could name a remote host and a variable
+    /// holding a secret: the caller must get the user's consent for them
+    /// too. Empty when the config was named explicitly.
+    pub fn project_http_servers_with_headers(&self) -> BTreeMap<&str, &McpServerSpec> {
+        if !self.project_scoped {
+            return BTreeMap::new();
+        }
+        self.servers
+            .iter()
+            .filter(
+                |(_, s)| matches!(s, McpServerSpec::Http { headers, .. } if !headers.is_empty()),
+            )
+            .map(|(n, s)| (n.as_str(), s))
+            .collect()
+    }
+
     /// Servers the agent would also load from configs other than
     /// [`source_path`](Self::source_path), mapped to the declaring file. The
     /// session config overrides them so they cannot bypass the gateway, and

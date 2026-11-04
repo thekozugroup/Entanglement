@@ -1523,13 +1523,18 @@ dependencies = [
  "parking_lot",
  "rand_core 0.6.4",
  "rustix 1.1.4",
+ "rustls",
+ "rustls-native-certs",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-rustls",
  "toml 0.8.23",
  "tracing",
+ "url",
+ "webpki-roots",
 ]
 
 [[package]]

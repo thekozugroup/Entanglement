@@ -50,8 +50,26 @@
 //!   client's `roots`, `sampling` and `elicitation` capabilities are removed
 //!   from the `initialize` forwarded downstream, since the server could not
 //!   use them through the gateway.
-//! * **HTTP downstream servers** (`url` entries) are *not* proxied: requests
-//!   to them fail with JSON-RPC error `ENTANGLE-E0664`.
+//! * **HTTP downstream servers** (`url` entries) are proxied over MCP
+//!   Streamable HTTP: each message is `POST`ed to the server's URL with the
+//!   headers from the user's own agent config (`headers`, `http_headers`,
+//!   `env_http_headers`, `bearer_token_env_var`, environment references
+//!   expanded) and **never** the gateway's bearer token. Replies may be
+//!   `application/json` or `text/event-stream` (events are read until the
+//!   response to the request id arrives). The gateway handshakes once per
+//!   route like it does for stdio (`initialize` cached, its own
+//!   `notifications/initialized`), keeps the `Mcp-Session-Id` the server
+//!   assigns and sends it, with `MCP-Protocol-Version`, on every later
+//!   request; the id is also returned to the client in the reply's
+//!   `Mcp-Session-Id` header. A server that forgets the session (404) fails
+//!   that request; the next one starts a new session. Request ids are the
+//!   client's (not remapped). `tools/call` goes through the same policy,
+//!   audit and `after_tool` hooks as for stdio, and the request timeout and
+//!   the downstream message cap apply to the whole exchange. Only `https`
+//!   URLs are used, except loopback hosts (`http://127.0.0.1:…`,
+//!   `http://localhost:…`); anything else is refused with `ENTANGLE-E0664`
+//!   without contacting it. Redirects are not followed. Other failures
+//!   (status, content-type, bad JSON) are `ENTANGLE-E0671`.
 //! * **Connections**: at most 128 open client connections (further ones
 //!   wait unaccepted); a connection that does not send a complete request
 //!   head within 30 s, or sits idle that long between keep-alive requests,
@@ -76,12 +94,14 @@
 //! * **Policy/audit**: see [`Policy`], [`GatewayHooks`], [`AuditRecord`].
 //!
 //! Stable codes used in HTTP/JSON-RPC bodies: E0661 policy denial, E0662
-//! downstream failed to start, E0663 downstream closed/timed out, E0664 HTTP
-//! downstream unsupported, E0665 too many requests in flight, E0666 malformed
+//! downstream failed to start, E0663 downstream closed/timed out/oversized,
+//! E0664 HTTP downstream URL or header refused, E0665 too many requests in flight, E0666 malformed
 //! JSON-RPC, E0667 body too large, E0668 unknown server/route, E0670 missing
-//! or invalid bearer token. (E0669 is `SessionError::NotActivated`.)
+//! or invalid bearer token, E0671 HTTP downstream protocol/status failure.
+//! (E0669 is `SessionError::NotActivated`.)
 
 use crate::adapters::McpServerSpec;
+use crate::http_downstream::{HttpError, HttpTarget};
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full, LengthLimitError, Limited};
 use hyper::{
@@ -218,6 +238,21 @@ pub enum GatewayError {
         /// What is wrong with it.
         reason: &'static str,
     },
+}
+
+/// Whether the gateway would use the HTTP downstream `url` (https, or plain
+/// http to a loopback host, no embedded credentials). The error is the
+/// reason, with no query string or credentials in it.
+pub fn check_http_downstream(url: &str) -> Result<(), String> {
+    crate::http_downstream::check_url(url)
+}
+
+/// `url` without credentials, query or fragment, for showing to the user.
+pub fn display_url(url: &str) -> String {
+    match url::Url::parse(url) {
+        Ok(u) => crate::http_downstream::redact_url(&u),
+        Err(_) => "<invalid URL>".to_string(),
+    }
 }
 
 /// Generate a fresh, opaque bearer token suitable for one MCP gateway session.
@@ -430,21 +465,33 @@ impl GatewayHooks for Policy {
 
 #[derive(Debug)]
 enum DsError {
+    /// HTTP downstream refused before contact (URL scheme, bad header).
     Unsupported(String),
     Spawn(String),
     Closed,
     Timeout,
+    /// HTTP downstream status/protocol failure.
+    Http(String),
+    /// A downstream message over the size cap.
+    Oversize(usize),
 }
 
 impl DsError {
     /// `(jsonrpc code, message)`.
     fn rpc(&self, server: &str) -> (i64, String) {
         match self {
-            Self::Unsupported(url) => (
+            Self::Unsupported(why) => (
                 -32004,
+                format!("ENTANGLE-E0664: HTTP downstream '{server}' refused: {why}"),
+            ),
+            Self::Http(why) => (
+                -32006,
+                format!("ENTANGLE-E0671: HTTP downstream '{server}': {why}"),
+            ),
+            Self::Oversize(max) => (
+                -32003,
                 format!(
-                    "ENTANGLE-E0664: downstream '{server}' is an HTTP MCP server ({url}); \
-                     the gateway only proxies stdio servers"
+                    "ENTANGLE-E0663: downstream '{server}' sent a message over the {max}-byte cap"
                 ),
             ),
             Self::Spawn(e) => (
@@ -934,6 +981,231 @@ struct Downstream {
     client_version: Mutex<Option<String>>,
     /// See [`Gateway::with_max_downstream_message_bytes`].
     max_message: usize,
+    /// State of an HTTP (`url`) route; `None` for stdio routes.
+    http: Option<HttpRoute>,
+}
+
+/// One HTTP downstream: the validated target (or why it was refused) and the
+/// session the gateway holds with it.
+struct HttpRoute {
+    target: Result<Arc<HttpTarget>, String>,
+    state: tokio::sync::Mutex<HttpState>,
+    /// Mirror of `HttpState::session_id` readable without the async lock,
+    /// for the reply header.
+    public_session: Mutex<Option<String>>,
+}
+
+#[derive(Default)]
+struct HttpState {
+    /// `initialize` result of the live session.
+    init_result: Option<Value>,
+    session_id: Option<String>,
+    /// Negotiated `protocolVersion`, sent as `MCP-Protocol-Version`.
+    protocol: Option<String>,
+}
+
+impl HttpRoute {
+    fn new(spec: &McpServerSpec) -> Option<Self> {
+        let McpServerSpec::Http { url, headers } = spec else {
+            return None;
+        };
+        let target = HttpTarget::new(url, headers)
+            .map(Arc::new)
+            .map_err(|e| match e {
+                HttpError::Refused(m) => m,
+                other => format!("{other:?}"),
+            });
+        Some(Self {
+            target,
+            state: tokio::sync::Mutex::new(HttpState::default()),
+            public_session: Mutex::new(None),
+        })
+    }
+}
+
+fn http_err(e: HttpError) -> DsError {
+    match e {
+        HttpError::Refused(m) => DsError::Unsupported(m),
+        HttpError::Failed(m) => DsError::Http(m),
+        HttpError::SessionExpired => DsError::Http(
+            "the server no longer knows this session (404); the next request starts a new one"
+                .into(),
+        ),
+        HttpError::Timeout => DsError::Timeout,
+        HttpError::TooLarge(n) => DsError::Oversize(n),
+        HttpError::Closed => DsError::Http("the event stream ended without a response".into()),
+    }
+}
+
+impl Downstream {
+    /// The `Mcp-Session-Id` to return to clients of an HTTP route.
+    fn http_session_id(&self) -> Option<String> {
+        self.http.as_ref()?.public_session.lock().clone()
+    }
+
+    /// Handshake with the HTTP server: `initialize` (the client's, or the
+    /// gateway's own), then `notifications/initialized`. On success the state
+    /// holds the session; returns the `initialize` reply when it is the
+    /// client's.
+    async fn http_handshake(
+        &self,
+        route: &HttpRoute,
+        target: &Arc<HttpTarget>,
+        st: &mut HttpState,
+        client_init: Option<&Value>,
+    ) -> Result<Option<Value>, DsError> {
+        let version = self
+            .client_version
+            .lock()
+            .clone()
+            .unwrap_or_else(|| DEFAULT_PROTOCOL_VERSION.to_string());
+        let init = client_init.map(without_unrelayable_capabilities).unwrap_or_else(|| {
+            json!({
+                "jsonrpc": "2.0", "id": 0, "method": "initialize",
+                "params": {
+                    "protocolVersion": version,
+                    "capabilities": {},
+                    "clientInfo": {"name": "entangle-gateway", "version": env!("CARGO_PKG_VERSION")}
+                }
+            })
+        });
+        let reply = target
+            .post(&init, None, None, self.timeout, self.max_message)
+            .await
+            .map_err(http_err)?;
+        let Some(resp) = reply.message else {
+            return Err(DsError::Http("initialize got no response".into()));
+        };
+        let Some(result) = resp.get("result").cloned() else {
+            // Refused (e.g. unsupported protocol version): no session.
+            if client_init.is_some() {
+                return Ok(Some(resp));
+            }
+            let why = resp
+                .pointer("/error/message")
+                .and_then(Value::as_str)
+                .unwrap_or("no result");
+            return Err(DsError::Http(format!("initialize was refused: {why}")));
+        };
+        let protocol = result
+            .get("protocolVersion")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        let note = json!({"jsonrpc": "2.0", "method": "notifications/initialized"});
+        target
+            .post(
+                &note,
+                reply.session_id.as_deref(),
+                protocol.as_deref(),
+                self.timeout,
+                self.max_message,
+            )
+            .await
+            .map_err(http_err)?;
+        st.init_result = Some(result);
+        st.session_id = reply.session_id.clone();
+        st.protocol = protocol;
+        *route.public_session.lock() = reply.session_id;
+        Ok(client_init.map(|_| resp))
+    }
+
+    async fn http_call(&self, route: &HttpRoute, msg: Value) -> Result<Value, DsError> {
+        let target = route
+            .target
+            .as_ref()
+            .map_err(|why| DsError::Unsupported(why.clone()))?;
+        let is_init = msg.get("method").and_then(Value::as_str) == Some("initialize");
+        if is_init {
+            if let Some(v) = msg
+                .pointer("/params/protocolVersion")
+                .and_then(Value::as_str)
+            {
+                *self.client_version.lock() = Some(v.to_string());
+            }
+        }
+        let (session, protocol) = {
+            let mut st = route.state.lock().await;
+            if st.init_result.is_none() {
+                // First contact (or after a lost session): handshake while
+                // holding the lock so nothing else reaches the server first.
+                let reply = self
+                    .http_handshake(route, target, &mut st, is_init.then_some(&msg))
+                    .await?;
+                if let Some(reply) = reply {
+                    return Ok(reply);
+                }
+            } else if is_init {
+                if let Some(cached) = st.init_result.clone() {
+                    return Ok(json!({"jsonrpc": "2.0", "id": msg.get("id"), "result": cached}));
+                }
+            }
+            (st.session_id.clone(), st.protocol.clone())
+        };
+        match target
+            .post(
+                &msg,
+                session.as_deref(),
+                protocol.as_deref(),
+                self.timeout,
+                self.max_message,
+            )
+            .await
+        {
+            Ok(r) => r
+                .message
+                .ok_or_else(|| DsError::Http("the server sent no response".into())),
+            Err(HttpError::SessionExpired) => {
+                let mut st = route.state.lock().await;
+                // Only if nobody has re-established a session meanwhile.
+                if st.session_id == session {
+                    *st = HttpState::default();
+                    *route.public_session.lock() = None;
+                }
+                Err(http_err(HttpError::SessionExpired))
+            }
+            Err(e) => Err(http_err(e)),
+        }
+    }
+
+    async fn http_notify(&self, route: &HttpRoute, msg: &Value) {
+        let Ok(target) = &route.target else { return };
+        let method = msg.get("method").and_then(Value::as_str);
+        let (session, protocol) = {
+            let st = route.state.lock().await;
+            if st.init_result.is_none() {
+                tracing::debug!(server = %self.name, "notification dropped: downstream not initialized");
+                return;
+            }
+            (st.session_id.clone(), st.protocol.clone())
+        };
+        // The gateway sent its own `notifications/initialized`.
+        if method == Some("notifications/initialized") {
+            return;
+        }
+        if let Err(e) = target
+            .post(
+                msg,
+                session.as_deref(),
+                protocol.as_deref(),
+                self.timeout,
+                self.max_message,
+            )
+            .await
+        {
+            tracing::debug!(server = %self.name, error = ?e, "notification post failed");
+        }
+    }
+
+    async fn http_shutdown(&self, route: &HttpRoute) {
+        let session = {
+            let mut st = route.state.lock().await;
+            std::mem::take(&mut *st).session_id
+        };
+        *route.public_session.lock() = None;
+        if let (Some(id), Ok(target)) = (session, &route.target) {
+            target.terminate(&id, Duration::from_secs(2)).await;
+        }
+    }
 }
 
 impl Downstream {
@@ -952,10 +1224,8 @@ impl Downstream {
         client_init: Option<&Value>,
     ) -> Result<(Arc<StdioProc>, Option<Value>), DsError> {
         let McpServerSpec::Stdio { command, args, env } = &self.spec else {
-            let McpServerSpec::Http { url } = &self.spec else {
-                return Err(DsError::Closed);
-            };
-            return Err(DsError::Unsupported(url.clone()));
+            // HTTP routes never get here (`call` branches first).
+            return Err(DsError::Closed);
         };
         let mut guard = self.proc.lock().await;
         if let Some(p) = &*guard {
@@ -1022,6 +1292,9 @@ impl Downstream {
     }
 
     async fn call(&self, msg: Value) -> Result<Value, DsError> {
+        if let Some(route) = &self.http {
+            return self.http_call(route, msg).await;
+        }
         let is_init = msg.get("method").and_then(Value::as_str) == Some("initialize");
         if is_init {
             if let Some(v) = msg
@@ -1046,6 +1319,10 @@ impl Downstream {
     }
 
     async fn notify(&self, msg: &Value) {
+        if let Some(route) = &self.http {
+            self.http_notify(route, msg).await;
+            return;
+        }
         let p = {
             let guard = self.proc.lock().await;
             match &*guard {
@@ -1082,6 +1359,10 @@ impl Downstream {
     }
 
     async fn shutdown(&self) {
+        if let Some(route) = &self.http {
+            self.http_shutdown(route).await;
+            return;
+        }
         if let Some(p) = self.proc.lock().await.take() {
             p.kill().await;
         }
@@ -1292,8 +1573,25 @@ async fn handle_inner(sh: Arc<Shared>, req: Request<Incoming>) -> Response<Full<
     }
 }
 
-/// Handle one parsed body (single message or batch).
+/// Handle one parsed body (single message or batch); an HTTP route's
+/// `Mcp-Session-Id` is returned in the reply header.
 async fn process(sh: &Shared, name: &str, ds: &Downstream, parsed: Value) -> Response<Full<Bytes>> {
+    let mut resp = process_messages(sh, name, ds, parsed).await;
+    if let Some(v) = ds
+        .http_session_id()
+        .and_then(|id| HeaderValue::from_str(&id).ok())
+    {
+        resp.headers_mut().insert("mcp-session-id", v);
+    }
+    resp
+}
+
+async fn process_messages(
+    sh: &Shared,
+    name: &str,
+    ds: &Downstream,
+    parsed: Value,
+) -> Response<Full<Bytes>> {
     match parsed {
         Value::Array(items) => {
             if items.is_empty() {
@@ -1753,6 +2051,7 @@ impl Gateway {
                         proc: tokio::sync::Mutex::new(None),
                         client_version: Mutex::new(None),
                         max_message: self.max_downstream_message,
+                        http: HttpRoute::new(spec),
                     }),
                 )
             })

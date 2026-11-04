@@ -331,7 +331,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0401` | Task input exceeds the dispatcher's configured `max_input_bytes`. |
 | `ENTANGLE-E0410`–`E0413` | Biscuit-auth parse / mint / verify / malformed-claim failures. |
 | `ENTANGLE-E0420`–`E0425` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch (E0420–E0424); E0425 is a relay whose cumulative `total_bytes_cap` budget is exhausted. |
-| `ENTANGLE-E0620`–`E0624`, `E0660`–`E0670` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
+| `ENTANGLE-E0620`–`E0624`, `E0660`–`E0671` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
 | `ENTANGLE-E0630`, `E0640` | Retired `NotImplemented` codes for `mesh.iroh` and `mesh.tailscale`; both transports are implemented. |
 | `ENTANGLE-E0651`–`E0654` | OTLP trace export: invalid `[telemetry.otlp]` endpoint (E0651; `https://` is not supported), empty `service_name` (E0652), an out-of-range exporter setting (E0653), the export thread could not start (E0654). `E0650` is retired. See §14. |
 | `ENTANGLE-E0655`–`E0657` | Metrics endpoint: `[metrics] listen` is not an `ip:port` (E0655), a non-loopback `listen` without `allow_non_loopback = true` (E0656), the socket could not be bound (E0657). See §14. |

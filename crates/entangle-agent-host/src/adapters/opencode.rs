@@ -331,9 +331,18 @@ fn parse_entry(v: &Value) -> Option<McpServerSpec> {
                 env,
             })
         }
-        "remote" => Some(McpServerSpec::Http {
-            url: substitute_env(obj.get("url")?.as_str()?),
-        }),
+        "remote" => {
+            let mut headers = BTreeMap::new();
+            if let Some(Value::Object(m)) = obj.get("headers") {
+                for (k, val) in m {
+                    headers.insert(k.clone(), substitute_env(val.as_str()?));
+                }
+            }
+            Some(McpServerSpec::Http {
+                url: substitute_env(obj.get("url")?.as_str()?),
+                headers,
+            })
+        }
         _ => None,
     }
 }
