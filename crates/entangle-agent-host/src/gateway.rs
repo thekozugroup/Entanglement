@@ -1310,13 +1310,15 @@ impl Downstream {
     }
 
     async fn http_shutdown(&self, route: &HttpRoute) {
-        let session = {
+        let st = {
             let mut st = route.state.lock().await;
-            std::mem::take(&mut *st).session_id
+            std::mem::take(&mut *st)
         };
         *route.public_session.lock() = None;
-        if let (Some(id), Ok(target)) = (session, &route.target) {
-            target.terminate(&id, Duration::from_secs(2)).await;
+        if let (Some(id), Ok(target)) = (st.session_id, &route.target) {
+            target
+                .terminate(&id, st.protocol.as_deref(), Duration::from_secs(2))
+                .await;
         }
     }
 }

@@ -835,3 +835,29 @@ async fn shutdown_ends_the_session_with_a_delete() {
     });
     assert!(deleted);
 }
+
+/// The `DELETE` is a request after initialization like any other, so it
+/// carries the negotiated `MCP-Protocol-Version` (required since
+/// 2025-06-18; a server enforcing it answers 400 and keeps the session).
+#[tokio::test]
+async fn the_session_delete_carries_the_protocol_version() {
+    let f = fixture().await;
+    post(&f, &init()).await;
+    let seen = f.mock.seen.clone();
+    f.gw.shutdown().await;
+    let seen = seen.lock();
+    let delete = seen
+        .iter()
+        .find(|s| s.method == "DELETE")
+        .expect("a DELETE");
+    assert_eq!(
+        delete
+            .headers
+            .get("mcp-protocol-version")
+            .map(String::as_str),
+        Some("2025-06-18"),
+        "{delete:?}"
+    );
+    // Configured headers go with it, the gateway token does not.
+    assert_eq!(delete.headers["authorization"], "Bearer downstream-secret");
+}

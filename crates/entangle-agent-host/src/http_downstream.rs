@@ -204,9 +204,16 @@ impl HttpTarget {
             .map_err(|_| HttpError::Timeout)?
     }
 
-    /// Best-effort `DELETE` ending `session` (MCP spec: clients SHOULD).
-    pub(crate) async fn terminate(self: &Arc<Self>, session: &str, timeout: Duration) {
-        let fut = self.send(Method::DELETE, None, Some(session), None, timeout);
+    /// Best-effort `DELETE` ending `session` (MCP spec: clients SHOULD),
+    /// with the negotiated `MCP-Protocol-Version` like every request after
+    /// initialization.
+    pub(crate) async fn terminate(
+        self: &Arc<Self>,
+        session: &str,
+        protocol: Option<&str>,
+        timeout: Duration,
+    ) {
+        let fut = self.send(Method::DELETE, None, Some(session), protocol, timeout);
         let _ = tokio::time::timeout(timeout, fut).await;
     }
 
