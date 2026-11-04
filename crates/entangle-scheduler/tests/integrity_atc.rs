@@ -2339,7 +2339,11 @@ async fn a_semantic_outlier_rerun_alone_blames_nobody() {
     let publisher = IdentityKeyPair::generate();
     let mut submitter = Node::start(&publisher).await;
     let plugin = submitter.load(&publisher, "hello", &hello_pong()).await;
-    let producers = colluders(&publisher, b"Hello there, world, and a fine day to you all!").await;
+    let producers = colluders(
+        &publisher,
+        b"Hello there, world, and a fine day to you all!",
+    )
+    .await;
     let registry = Registry::new();
     let dispatcher = spot_checked_dispatcher(
         &submitter,

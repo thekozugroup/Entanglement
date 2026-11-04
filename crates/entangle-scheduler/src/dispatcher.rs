@@ -50,7 +50,7 @@ use entangle_runtime::{IntegrityError, Kernel};
 use entangle_types::{
     errors::EntangleError,
     peer_id::PeerId,
-    task::{IntegrityPolicy, OneShotTask, PolicyKind},
+    task::{IntegrityPolicy, OneShotTask, PolicyKind, TaskId},
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -735,6 +735,7 @@ impl Dispatcher {
                 Some(Rerun {
                     executor: r.peer,
                     remote: false,
+                    task_id: None,
                     blake3: r.output_blake3?,
                     bytes,
                 })
@@ -782,7 +783,12 @@ impl Dispatcher {
             bytes: matches!(kind, PolicyKind::SemanticEquivalent).then(|| output.to_vec()),
         };
         let (tx, handle) = SpotCheckHandle::channel();
+        // The root of a trace of its own: a re-run frame carries the current
+        // trace context, and must not tell its executor which dispatch (and
+        // so which replicas) it checks. Linked here with `follows_from`, and
+        // by the `task_id` attribute, which stays on this node.
         let span = tracing::info_span!(
+            parent: None,
             "integrity.spot_check",
             task_id = %task.id,
             plugin = %task.plugin,
@@ -791,6 +797,7 @@ impl Dispatcher {
             checker = tracing::field::Empty,
             checker_remote = tracing::field::Empty,
         );
+        span.follows_from(tracing::Span::current().id());
         let this = self.clone();
         let checker = Arc::clone(checker);
         let task = task.clone();
@@ -906,6 +913,7 @@ impl Dispatcher {
             unavailable: Vec::new(),
             tie_breaker: None,
             credited: Vec::new(),
+            rerun_task_id: None,
             verdict: SpotCheckVerdict::Confirmed,
         };
         let mut executors = executors.into_iter();
@@ -931,6 +939,7 @@ impl Dispatcher {
         };
         record.checker = out.executor;
         record.checker_remote = out.remote;
+        record.rerun_task_id = out.task_id;
         let span = tracing::Span::current();
         span.record("checker", tracing::field::display(out.executor));
         span.record("checker_remote", out.remote);
@@ -1103,6 +1112,10 @@ impl Dispatcher {
     /// guards a replica passes (output size, then the echoed policy hash).
     /// `Err` (why) when it produced nothing comparable; a remote executor
     /// that broke a guard is penalised and listed in `record.penalised`.
+    ///
+    /// The re-run is sent under a **fresh task id**: with the checked task's
+    /// id a node linked to one of its replicas would know exactly which
+    /// frame re-checks which accepted task.
     async fn rerun(
         &self,
         task: &OneShotTask,
@@ -1113,6 +1126,10 @@ impl Dispatcher {
     ) -> Result<Rerun, String> {
         let kind = envelope.policy().kind();
         let reputation = self.verifier.reputation();
+        let task = &OneShotTask {
+            id: uuid::Uuid::new_v4(),
+            ..task.clone()
+        };
         let replica = if remote {
             self.remote_replica(task, executor, envelope).await
         } else {
@@ -1165,6 +1182,7 @@ impl Dispatcher {
         Ok(Rerun {
             executor,
             remote,
+            task_id: remote.then_some(task.id),
             blake3,
             // Only a metric needs the bytes.
             bytes: (kind == PolicyKind::SemanticEquivalent).then_some(out.bytes),
@@ -1249,6 +1267,9 @@ struct Rerun {
     executor: PeerId,
     /// Whether that is another node.
     remote: bool,
+    /// The (fresh) id it was sent to `executor` under; `None` when it ran
+    /// on this node.
+    task_id: Option<TaskId>,
     /// BLAKE3 of its output.
     blake3: [u8; 32],
     /// Its bytes, for a metric comparison (`SemanticEquivalent` only).

@@ -352,6 +352,11 @@ pub struct SpotCheckRecord {
     /// Who was credited (recorded correct) because the accepted output stood
     /// up to the check: the implicated replicas, on a confirmation.
     pub credited: Vec<PeerId>,
+    /// The id the checker's re-run was sent under, when it was sent to
+    /// another node: a fresh one per re-run, so no executor can link a re-run
+    /// to the task it checks (which goes in its own trace, too). `None` when
+    /// the re-run ran on this node or none was produced.
+    pub rerun_task_id: Option<TaskId>,
     /// The verdict.
     pub verdict: SpotCheckVerdict,
 }
@@ -658,6 +663,7 @@ mod tests {
             unavailable: Vec::new(),
             tie_breaker: None,
             credited: Vec::new(),
+            rerun_task_id: None,
             verdict,
         })
     }

@@ -376,3 +376,125 @@ async fn a_pre_extension_peer_still_interoperates() {
          dispatch go without it"
     );
 }
+
+/// A Layer-2 spot-check re-run cannot be linked to the task it checks: its
+/// frame carries a fresh task id, and its trace context is a trace of its
+/// own, not the dispatch's. Otherwise a party with a node among the replicas
+/// would know exactly which frames are spot-checks of which accepted task —
+/// what it needs to lie only when checking, or to confirm only its
+/// colluders' answers.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_spot_check_frame_is_not_linked_to_the_task_it_checks() {
+    spans();
+    let publisher = IdentityKeyPair::generate();
+    let submitter = Node::start(&publisher).await;
+    let producer = Node::start(&publisher).await;
+    let dir = tempfile::tempdir().unwrap();
+    let plugin = write_plugin_package(dir.path(), &publisher, &hello_pong_wasm());
+    producer
+        .kernel
+        .load_plugin_from_dir(dir.path())
+        .await
+        .unwrap();
+    producer.serve(StaticAllowlist::new().allow(submitter.peer_id));
+
+    // The checker records what each task frame tells it, and answers right.
+    let checker = Node::start(&publisher).await;
+    let frames: Arc<Mutex<Vec<([u8; 16], Option<String>)>>> = Arc::default();
+    let seen = Arc::clone(&frames);
+    tokio::spawn(entangle_mesh_iroh::serve(
+        Arc::clone(&checker.transport),
+        move |_peer, bytes: Vec<u8>| {
+            let seen = Arc::clone(&seen);
+            async move {
+                let resp = match entangle_scheduler::wire::decode_request(&bytes) {
+                    Ok(RemoteRequest {
+                        frame: RequestFrame::Task(task),
+                        ..
+                    }) => {
+                        seen.lock().push((task.task_id, task.traceparent.clone()));
+                        RemoteTaskResponse::ok(b"Hello, trace!".to_vec(), task.policy_hash)
+                    }
+                    _ => RemoteTaskResponse::err(RemoteErrorCode::MalformedRequest, "?"),
+                };
+                encode_response(&resp).unwrap()
+            }
+        },
+    ));
+
+    let pool = WorkerPool::new();
+    let directory = PeerDirectory::new();
+    for (node, load) in [(&producer, 0.0), (&checker, 0.5)] {
+        pool.upsert(WorkerInfo {
+            peer_id: node.peer_id,
+            display_name: "worker".into(),
+            cpu_cores: 16.0,
+            memory_bytes: 64 << 30,
+            gpu: None,
+            npu: None,
+            network_bandwidth_bps: 1_000_000_000,
+            rtt_ms: 1,
+            load,
+            cost: 1.0,
+        });
+        directory.insert(node.address());
+    }
+    let dispatcher = Dispatcher::new(pool, Arc::clone(&submitter.kernel), submitter.peer_id)
+        .with_strict_remote(true)
+        .with_remote(Arc::new(RemoteDispatch::new(
+            Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
+            Arc::new(directory),
+        )))
+        .with_spot_checks(entangle_scheduler::SpotCheckConfig::with_probability(1.0));
+
+    let mut task = task_for(plugin.clone(), b"trace");
+    task.integrity = IntegrityPolicy::Deterministic { replicas: 1 };
+    let task_id = task.id;
+    let result = deadline(
+        "dispatch",
+        dispatcher
+            .dispatch_one_shot(task)
+            .instrument(tracing::info_span!(target: "entangle_test", "test.spot")),
+    )
+    .await
+    .expect("accepted");
+    assert_eq!(result.replicas[0].peer, producer.peer_id);
+    let record = deadline(
+        "spot-check verdict",
+        result
+            .spot_check
+            .handle()
+            .expect("p = 1: scheduled")
+            .outcome(),
+    )
+    .await
+    .expect("finished");
+    assert_eq!(record.checker, checker.peer_id);
+    assert_eq!(record.task_id, task_id, "the audit names the checked task");
+
+    let frames = frames.lock().clone();
+    assert_eq!(frames.len(), 1, "one re-run reached the checker");
+    let (rerun_id, traceparent) = &frames[0];
+    assert_ne!(
+        rerun_id,
+        task_id.as_bytes(),
+        "the re-run must not carry the checked task's id"
+    );
+    assert_eq!(
+        record.rerun_task_id.map(|id| *id.as_bytes()),
+        Some(*rerun_id)
+    );
+    let plugin_s = plugin.to_string();
+    let dispatch = find("task.dispatch", Some(&plugin_s));
+    assert_eq!(dispatch.len(), 1);
+    let dispatch_trace = hex_string(&dispatch[0].trace_id);
+    let traceparent = traceparent
+        .as_deref()
+        .expect("tracing is on: the re-run is traced, in a trace of its own");
+    let rerun_trace = traceparent.split('-').nth(1).unwrap_or_default();
+    assert_eq!(rerun_trace.len(), 32, "{traceparent}");
+    assert_ne!(
+        rerun_trace, dispatch_trace,
+        "the re-run must not join the checked task's trace"
+    );
+}
