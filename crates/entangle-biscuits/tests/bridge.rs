@@ -130,6 +130,15 @@ fn atc_brg_2_missing_rate_limit_rejected() {
         matches!(err, BridgeError::AttenuationMissing("rate_limit_bps")),
         "expected AttenuationMissing(rate_limit_bps), got: {err}"
     );
+    let msg = err.to_string();
+    assert!(
+        msg.starts_with("ENTANGLE-E0420"),
+        "AttenuationMissing must carry ENTANGLE-E0420, got: {msg}"
+    );
+    assert!(
+        msg.contains("rate_limit_bps"),
+        "the message must name the missing fact, got: {msg}"
+    );
 }
 
 // ─── ATC-BRG-5 ───────────────────────────────────────────────────────────────
