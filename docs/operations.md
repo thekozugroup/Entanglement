@@ -948,7 +948,7 @@ audited and counted the same way.
 | `storage.local { scope = "plugin" }` | `/data` → `~/.entangle/data/plugins/<publisher>/<name>/`, read-write or read-only per `mode` |
 | `storage.local { scope = "shared" }` | `/shared` → `~/.entangle/data/shared/` |
 | `storage.share.<n>` | `/shares/<n>` → `~/.entangle/data/shares/<n>/` (`rw-scoped`: its `<publisher>/<name>/` subdirectory) |
-| `net.lan` | TCP/UDP to RFC 1918, link-local and unique-local IPv6 addresses; DNS |
+| `net.lan` | TCP/UDP to RFC 1918, link-local and unique-local IPv6 addresses (not the host's own, not cloud metadata endpoints); DNS |
 | `net.wan { hosts }` | TCP/UDP to exactly the listed host:port pairs; DNS |
 | anything else (`compute.*`, `custom.*`, …) | nothing in WASI; `capability.fetch` returns a handle |
 | no grant at all | no preopened directory, no TCP, no UDP, no DNS |
@@ -966,10 +966,16 @@ audited and counted the same way.
   point out of it — whether the guest or anyone else created them — fail.
   Back up or delete a plugin's data by copying or removing its directory
   while it is not running.
-- **Network rules.** Loopback (`127.0.0.0/8`, `::1`) is reachable through no
-  grant, so plugins cannot reach the daemon or other local services; neither
-  are CGNAT, multicast, broadcast, documentation or other special-purpose
-  ranges. IPv4-mapped and NAT64 IPv6 forms are judged by the IPv4 address
+- **Network rules.** The daemon's own host is reachable through no grant:
+  neither loopback (`127.0.0.0/8`, `::1`) nor any address assigned to one of
+  its interfaces (checked per connection by asking the kernel which source
+  address it would use), so a plugin cannot reach the daemon or other local
+  services even when they listen on every interface. Cloud instance-metadata
+  endpoints — `169.254.169.254` (AWS, GCP, Azure, …), AWS's `169.254.169.253`,
+  `169.254.169.123`, `169.254.170.2`, `169.254.170.23` and their
+  `fd00:ec2::…` IPv6 forms — are excluded from `net.lan` although the rest of
+  link-local space is LAN. Neither are CGNAT, multicast, broadcast,
+  documentation or other special-purpose ranges. IPv4-mapped and NAT64 IPv6 forms are judged by the IPv4 address
   they carry. Plugins never listen. `net.wan` host names are resolved by the
   daemon when an invocation starts (bounded at 5 s; a name that does not
   resolve is simply unreachable for that invocation, with a warning in the

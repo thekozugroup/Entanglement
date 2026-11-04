@@ -18,14 +18,14 @@
 //! the hook the same grant reaches nothing on loopback.
 
 use entangle_broker::{AuditEvent, Broker, BrokerPolicy, CapabilityPattern};
-use entangle_host::net::{classify, AddrClass};
+use entangle_host::net::{classify, AddrClass, NetRules, Via, WanTarget};
 use entangle_host::{CapabilityContext, HostEngine, HostError, LoadedPlugin};
 use entangle_manifest::{schema::Manifest, validate::validate, ValidatedManifest};
 use entangle_observability::catalog::names;
 use entangle_observability::Registry;
 use entangle_types::capability::{CapabilityKind, ShareMode};
 use entangle_types::plugin_id::PluginId;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
@@ -51,6 +51,22 @@ fn public_on_loopback(ip: IpAddr) -> AddrClass {
         IpAddr::V4(v4) if v4.is_loopback() => AddrClass::Wan,
         other => classify(other),
     }
+}
+
+/// Test classifier: every address is a LAN address — loopback included, so
+/// a `127.0.0.1` listener stands in for a LAN host.
+fn lan_everywhere(_: IpAddr) -> AddrClass {
+    AddrClass::Lan
+}
+
+/// One of this host's own non-loopback addresses, if it has one: the source
+/// address the kernel picks to reach a public address (a UDP `connect` sends
+/// nothing).
+fn own_address() -> Option<IpAddr> {
+    let s = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    s.connect("8.8.8.8:53").ok()?;
+    let ip = s.local_addr().ok()?.ip();
+    (!ip.is_loopback() && !ip.is_unspecified()).then_some(ip)
 }
 
 fn manifest(name: &str, tier: u8, caps: &str) -> ValidatedManifest {
@@ -648,6 +664,103 @@ async fn loopback_is_never_reachable_under_production_rules() {
     let got = h.run(&script).await;
     expect(&script, &got, &["err:", "err:", "err:"]);
     assert_eq!(l.accepted(), 0);
+}
+
+/// Cloud instance-metadata endpoints (which hand out the machine's cloud
+/// credentials) sit in link-local and unique-local space but are reachable
+/// through no grant; other link-local addresses stay LAN.
+#[test]
+fn cloud_metadata_endpoints_are_never_reachable() {
+    let metadata = [
+        "169.254.169.254",
+        "169.254.169.253",
+        "169.254.169.123",
+        "169.254.170.2",
+        "169.254.170.23",
+        "fd00:ec2::254",
+        "fd00:ec2::253",
+        "fd00:ec2::123",
+        "fd00:ec2::23",
+        "::ffff:169.254.169.254",
+    ];
+    for a in metadata {
+        let ip: IpAddr = a.parse().unwrap();
+        assert_eq!(classify(ip), AddrClass::Other, "{a}");
+        let rules = NetRules {
+            lan: true,
+            wan: true,
+            wan_targets: vec![WanTarget { ip, port: None }],
+            ..NetRules::default()
+        };
+        let to = SocketAddr::new(ip, 80);
+        for use_ in [
+            wasmtime_wasi::sockets::SocketAddrUse::TcpConnect,
+            wasmtime_wasi::sockets::SocketAddrUse::UdpOutgoingDatagram,
+        ] {
+            assert_eq!(rules.check(to, use_), None, "{a}");
+        }
+    }
+    assert_eq!(classify("169.254.10.10".parse().unwrap()), AddrClass::Lan);
+    assert_eq!(classify("fd00:ec2::1:1".parse().unwrap()), AddrClass::Lan);
+}
+
+/// A destination that is one of the daemon host's own addresses is
+/// reachable through no grant, whatever its address class: a service bound
+/// to every interface is not reachable through the host's LAN address any
+/// more than through loopback.
+#[test]
+fn the_hosts_own_addresses_are_never_reachable() {
+    let Some(me) = own_address() else {
+        eprintln!("skipped: this host has no non-loopback address");
+        return;
+    };
+    let connect = wasmtime_wasi::sockets::SocketAddrUse::TcpConnect;
+    let as_lan = NetRules {
+        lan: true,
+        classify: lan_everywhere,
+        ..NetRules::default()
+    };
+    assert_eq!(as_lan.check(SocketAddr::new(me, 8080), connect), None, "{me}");
+    let as_wan = NetRules {
+        wan: true,
+        wan_targets: vec![WanTarget { ip: me, port: None }],
+        classify: |_| AddrClass::Wan,
+        ..NetRules::default()
+    };
+    assert_eq!(as_wan.check(SocketAddr::new(me, 8080), connect), None, "{me}");
+    // Another address with the same rules is allowed: only the host's own
+    // addresses are refused.
+    let other: IpAddr = "198.51.100.7".parse().unwrap();
+    assert_ne!(other, me);
+    assert_eq!(
+        as_lan.check(SocketAddr::new(other, 8080), connect),
+        Some(Via::Lan)
+    );
+}
+
+/// End to end: a `net.lan` plugin cannot reach a service bound to every
+/// interface through the host's own address.
+#[tokio::test(flavor = "multi_thread")]
+async fn net_lan_does_not_reach_the_hosts_own_addresses() {
+    let Some(me) = own_address() else {
+        eprintln!("skipped: this host has no non-loopback address");
+        return;
+    };
+    let all = listener("0.0.0.0", "hello-all-interfaces").await;
+    let h = Setup {
+        classify: Some(lan_everywhere),
+        ..Setup::new("own-addr", r#""net.lan" = {}"#)
+    }
+    .harness();
+    let port = all.addr.port();
+    let script = format!(
+        "connect {mine}\n\
+         connect 127.0.0.1:{port}\n",
+        mine = SocketAddr::new(me, port),
+    );
+    let got = h.run(&script).await;
+    expect(&script, &got, &["err:", "ok:hello-all-interfaces"]);
+    assert_eq!(all.accepted(), 1, "only the stand-in LAN host was reached");
 }
 
 /// `net.wan` reaches exactly the allowlisted host:port pairs: not another

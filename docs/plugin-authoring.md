@@ -243,9 +243,11 @@ a `net.*` grant there is no TCP, no UDP and no DNS at all.
 
 - `net.lan` — connect (TCP) or send (UDP) to LAN addresses only: RFC 1918
   (`10/8`, `172.16/12`, `192.168/16`), link-local (`169.254/16`,
-  `fe80::/10`) and unique-local IPv6 (`fc00::/7`). **Loopback is never
-  reachable** — a plugin cannot talk to the daemon or other services on
-  `127.0.0.0/8` / `::1` through any grant.
+  `fe80::/10`) and unique-local IPv6 (`fc00::/7`). **The daemon's own host
+  is never reachable** — neither loopback (`127.0.0.0/8` / `::1`) nor any
+  address assigned to one of the host's interfaces, through any grant — and
+  neither are cloud instance-metadata endpoints (`169.254.169.254`,
+  `fd00:ec2::254` and their AWS siblings).
 - `net.wan` — connect to exactly the listed `host[:port]` entries. Host
   names are resolved **by the daemon when each invocation starts**, and the
   invocation may connect to exactly the addresses they resolved to (on the
