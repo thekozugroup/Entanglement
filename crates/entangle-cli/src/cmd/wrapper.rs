@@ -432,7 +432,13 @@ fn classify(bin: &str, body: &[&str]) -> Resolution {
         let a = first.split(" is aliased to ").nth(1).unwrap_or("");
         Some(a.trim_matches(|c| c == '`' || c == '\'').to_owned())
     } else if first.contains(" is an alias for ") {
-        Some(first.split(" is an alias for ").nth(1).unwrap_or("").to_owned())
+        Some(
+            first
+                .split(" is an alias for ")
+                .nth(1)
+                .unwrap_or("")
+                .to_owned(),
+        )
     } else {
         None
     };

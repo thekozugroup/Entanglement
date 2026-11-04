@@ -88,9 +88,7 @@ pub fn render(dialect: Dialect, hosts: &[Host]) -> String {
         // `claude` still expands to the user's alias and then reaches the
         // function. (POSIX syntax on purpose: a `function` keyword would break
         // `sh` sourcing the file.)
-        out.push_str(
-            "# An alias of the same name is set aside while each function is defined.\n",
-        );
+        out.push_str("# An alias of the same name is set aside while each function is defined.\n");
     }
     for h in hosts {
         let w = warning_lines(h);
@@ -696,7 +694,10 @@ mod tests {
         // User lines directly above the orphaned body are never taken, even
         // when they look like generated ones (`}`).
         let mine = "f() {\n  :\n}\n";
-        let on = install(mine, &b).unwrap().text.replace("\n\n# >>>", "\n# >>>");
+        let on = install(mine, &b)
+            .unwrap()
+            .text
+            .replace("\n\n# >>>", "\n# >>>");
         let cut = on.replace(&format!("{BEGIN}\n"), "");
         assert_eq!(remove(&cut, &b).text, mine);
         // Without the generated header above it, only the marker goes.

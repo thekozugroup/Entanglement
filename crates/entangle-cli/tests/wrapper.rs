@@ -242,7 +242,10 @@ fn wrp_1_existing_alias_before_the_block_keeps_rc_file_working() {
     let err = stderr(&o);
     assert!(!err.contains("syntax error"), "{err}");
     let out = stdout(&o);
-    assert!(out.contains("LATER=1\n"), "rest of the rc file ran: {out}{err}");
+    assert!(
+        out.contains("LATER=1\n"),
+        "rest of the rc file ran: {out}{err}"
+    );
     assert!(
         out.contains("real claude --dangerously-skip-permissions x\n"),
         "the user's alias is kept: {out}"
@@ -581,4 +584,3 @@ fn doctor_skips_shadow_check_for_unsupported_shell() {
         stdout(&o)
     );
 }
-
