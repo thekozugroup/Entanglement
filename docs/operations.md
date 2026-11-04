@@ -1203,8 +1203,8 @@ up. Reading again before then resumes the stream.
 `plugin.wasm.sig` and `provenance.json`, a deterministic archive
 `<dir>/dist/<name>-<version>.tar.zst` and prints its SHA-256. Two builds of the same
 source produce the same bytes: absolute paths are remapped out of the wasm
-(`--remap-path-prefix` for the project, path dependencies, `$CARGO_HOME`, `$RUSTUP_HOME`,
-the sysroot), the signature timestamp is `SOURCE_DATE_EPOCH` (default
+(`--remap-path-prefix` for the project, path dependencies, the cargo target directory,
+`$CARGO_HOME`, `$RUSTUP_HOME`, the sysroot), the signature timestamp is `SOURCE_DATE_EPOCH` (default
 2024-01-01T00:00:00Z), the tar is normalised and zstd uses fixed parameters.
 
 * The project **must** have a committed `Cargo.lock`; otherwise the build stops with

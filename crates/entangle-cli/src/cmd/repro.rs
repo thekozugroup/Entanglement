@@ -7,8 +7,9 @@
 //! * **What varies, and how it is pinned.**
 //!   - absolute build-machine paths embedded in the wasm (panic locations,
 //!     debug info): rustc is run with `--remap-path-prefix` for the project
-//!     directory, every path dependency, `$CARGO_HOME`, `$RUSTUP_HOME` and the
-//!     toolchain sysroot ([`remap_flags`]);
+//!     directory, every path dependency, the cargo target directory (build
+//!     script output), `$CARGO_HOME`, `$RUSTUP_HOME` and the toolchain
+//!     sysroot ([`remap_flags`]);
 //!   - `created_at` in the signature bundle: fixed to `SOURCE_DATE_EPOCH`, or
 //!     [`REPRODUCIBLE_EPOCH`] when unset ([`signing_epoch`]). Ed25519 signing
 //!     itself is deterministic, so with a fixed `created_at` the whole bundle
@@ -273,6 +274,7 @@ pub fn path_dependencies(manifest: &Path, cargo: &str) -> Result<Vec<(String, Pa
 fn remap_flags(
     project: &Path,
     deps: &[(String, PathBuf)],
+    target_dir: Option<&Path>,
     sysroot: Option<&Path>,
 ) -> Vec<(String, String)> {
     let mut v: Vec<(String, String)> = Vec::new();
@@ -297,6 +299,12 @@ fn remap_flags(
             dir,
             &format!("/entangle/deps/{name}"),
         );
+    }
+    // The target dir holds build-script output (`OUT_DIR`) that generated
+    // code `include!`s, so its path reaches panic locations. After `$PROJECT`:
+    // the default target dir is inside the project and must win.
+    if let Some(t) = target_dir {
+        add("$TARGET", t, "/entangle/target");
     }
     if let Some(s) = sysroot {
         add("$SYSROOT", s, "/entangle/sysroot");
@@ -352,8 +360,14 @@ fn sysroot(dir: &Path) -> Option<PathBuf> {
         .then(|| PathBuf::from(String::from_utf8_lossy(&out.stdout).trim()))
 }
 
-/// Assemble the recipe and the concrete RUSTFLAGS for building `manifest`.
-pub fn prepare_build(manifest: &Path, target: &str, cargo: &str) -> Result<PreparedBuild> {
+/// Assemble the recipe and the concrete rustc flags for building `manifest`
+/// into `target_dir` (cargo's effective target directory for this build).
+pub fn prepare_build(
+    manifest: &Path,
+    target: &str,
+    cargo: &str,
+    target_dir: &Path,
+) -> Result<PreparedBuild> {
     let project = manifest
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -362,7 +376,7 @@ pub fn prepare_build(manifest: &Path, target: &str, cargo: &str) -> Result<Prepa
         .with_context(|| format!("resolving {}", project.display()))?;
     let deps = path_dependencies(manifest, cargo)?;
     let sysroot = sysroot(&project);
-    let remaps = remap_flags(&project, &deps, sysroot.as_deref());
+    let remaps = remap_flags(&project, &deps, Some(target_dir), sysroot.as_deref());
 
     // User-provided flags are kept (and recorded) ahead of ours.
     let user = env_rustflags();
@@ -689,7 +703,9 @@ pub fn verify_rebuild(
             "package was assembled from a pre-built artifact (--wasm); there is no build recipe to rebuild".into(),
         ));
     };
-    let prepared = prepare_build(&manifest_path, target, &cargo_bin())?;
+    // Scratch target dir: the source tree is untouched.
+    let scratch = tempfile::tempdir().context("creating scratch target dir")?;
+    let prepared = prepare_build(&manifest_path, target, &cargo_bin(), scratch.path())?;
     if prepared.recipe.toolchain != recipe.toolchain {
         return Ok(Fail(format!(
             "toolchain differs: package built with {}, local is {}",
@@ -724,7 +740,6 @@ pub fn verify_rebuild(
             first_byte_difference(rendered.toml.as_bytes(), &files.manifest)
         )));
     }
-    let scratch = tempfile::tempdir().context("creating scratch target dir")?;
     let built = crate::cmd::package::build_wasm_in(&manifest_path, target, Some(scratch.path()))?;
     let wasm = std::fs::read(&built.wasm)?;
     if wasm != files.wasm {
@@ -859,7 +874,7 @@ mod tests {
     #[test]
     fn remap_flags_cover_project_and_homes_without_leaking_paths_in_the_logical_form() {
         let d = tempfile::tempdir().unwrap();
-        let flags = remap_flags(d.path(), &[], None);
+        let flags = remap_flags(d.path(), &[], None, None);
         assert!(flags
             .iter()
             .any(|(_, a)| a.contains(&d.path().display().to_string())));

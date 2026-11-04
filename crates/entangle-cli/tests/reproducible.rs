@@ -326,6 +326,60 @@ fn a_relative_project_path_builds_and_rebuild_verifies() {
         .stdout(predicate::str::contains("PASS"));
 }
 
+/// Code a build script generates into `OUT_DIR` and `include!`s carries its
+/// absolute `$TARGET/.../out/*.rs` path into panic locations. The target
+/// directory must be remapped like the project, or the rebuild (which uses a
+/// scratch target dir) never reproduces such a plugin, and a target dir
+/// outside the project leaks into the wasm.
+#[test]
+fn build_script_out_dir_paths_are_remapped_and_rebuild_verifies() {
+    const BUILD_RS: &str = r#"fn main() {
+    let out = std::env::var("OUT_DIR").unwrap();
+    std::fs::write(
+        format!("{out}/gen.rs"),
+        "pub fn gen(x: Option<u32>) -> u32 { x.expect(\"generated code\") }\n",
+    )
+    .unwrap();
+}
+"#;
+    const LIB_RS: &str = "include!(concat!(env!(\"OUT_DIR\"), \"/gen.rs\"));\n\
+        #[no_mangle]\npub extern \"C\" fn tiny(x: u32) -> u32 { gen(if x == 0 { None } else { Some(x) }) }\n";
+    let home = TempDir::new().unwrap();
+    trust_fixture_key(home.path());
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", Some(BUILD_RS), LIB_RS);
+
+    let archive = build_tiny(home.path(), &project);
+    let wasm = std::fs::read(project.join("dist/plugin.wasm")).unwrap();
+    assert!(
+        wasm.windows(6).any(|w| w == b"gen.rs"),
+        "fixture must embed the generated file's path"
+    );
+    verify_rebuild(home.path(), &archive, &project)
+        .success()
+        .stdout(predicate::str::contains("PASS"));
+
+    // A target directory outside the project does not leak either.
+    let target = root.path().join("elsewhere-target");
+    entangle(home.path())
+        .env("CARGO_TARGET_DIR", &target)
+        .args(["plugins", "build"])
+        .arg(&project)
+        .arg("--key")
+        .arg(key())
+        .arg("--out")
+        .arg(root.path().join("out2"))
+        .assert()
+        .success();
+    let wasm2 = std::fs::read(root.path().join("out2/plugin.wasm")).unwrap();
+    let needle = target.display().to_string();
+    assert!(
+        !wasm2.windows(needle.len()).any(|w| w == needle.as_bytes()),
+        "wasm embeds the target directory {needle}"
+    );
+    assert_eq!(wasm, wasm2, "target directory location changed the wasm");
+}
+
 // ---------------------------------------------------------------------------
 // ATC-PKG-2 (structural: one process cannot run three hosts)
 // ---------------------------------------------------------------------------

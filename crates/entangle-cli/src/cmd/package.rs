@@ -588,7 +588,15 @@ pub fn build_wasm_in(
         );
     }
 
-    let prepared = repro::prepare_build(cargo_manifest, target, &cargo_bin())?;
+    let target_root = match target_dir {
+        Some(td) => td.to_path_buf(),
+        None => info.target_dir.clone(),
+    };
+    // Exists before the flags are computed, so its canonical spelling is
+    // remapped too.
+    std::fs::create_dir_all(&target_root)
+        .with_context(|| format!("creating {}", target_root.display()))?;
+    let prepared = repro::prepare_build(cargo_manifest, target, &cargo_bin(), &target_root)?;
 
     // A release wasm build takes tens of seconds to minutes (and longer on the
     // first run, when the SDK and wit-bindgen have to be fetched and compiled).
@@ -631,10 +639,6 @@ pub fn build_wasm_in(
         bail!("cargo build --release --locked --target {target} failed");
     }
 
-    let target_root = match target_dir {
-        Some(td) => td.to_path_buf(),
-        None => info.target_dir.clone(),
-    };
     let wasm = target_root
         .join(target)
         .join("release")
