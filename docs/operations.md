@@ -347,7 +347,7 @@ canonical range table, maintained in
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
-| E0780–E0799 | Runtime lifecycle — see §21–§24: AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged), a core fault that exits the daemon (E0787), a contained panic in a plugin call (E0788) |
+| E0780–E0799 | Runtime lifecycle — see §21–§24: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788) |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -1588,9 +1588,9 @@ aabbccddeeff00112233445566778899/fetcher@0.3.1 (tier 3)
 
 $ entangle perms revoke aabbccddeeff00112233445566778899/fetcher@0.3.1 storage.local
 storage.local revoked from aabbccddeeff00112233445566778899/fetcher@0.3.1; withdrew grant(s) 7
-Not persistent: the plugin gets this capability back when it is unloaded and
-loaded again or when the daemon restarts. To keep a capability away for good,
-add it to [security] deny_capabilities.
+It survives a daemon restart, but the plugin gets this capability back when it is
+unloaded and loaded again, or reloaded to another version. To keep a capability away
+for good, add it to [security] deny_capabilities.
 ```
 
 `entangle perms list [<plugin>] --json` prints the `perms/list` RPC result:
@@ -1612,9 +1612,10 @@ it loads, so a native plugin with a revoked capability is refused outright
 below a loaded plugin's tier (§16) has the same effect on all of its grants
 at once while it drains — the per-grant tier check (`ENTANGLE-E0127`)
 always reads the ceiling in force — and its unload then releases them. A
-revocation is held in the daemon's memory: it lasts until the plugin is unloaded and loaded again or
-the daemon restarts; to keep a capability away from every
-plugin, use `deny_capabilities` instead.
+revocation lasts until the plugin is unloaded and loaded again, or hot-reloaded
+to another version (§24); the plugin-state file (§22) records it, so it is
+applied again when a restarted daemon restores the plugin. To keep a
+capability away from every plugin, use `deny_capabilities` instead.
 
 Every grant, denial, release and revocation is recorded in the broker's
 audit log with the plugin, the capability and its parameters, the reason and
@@ -1861,6 +1862,57 @@ in a release build the variable has no effect.
 
 ---
 
+## 22. Plugins after a restart (the plugin-state file)
+
+A restarted daemon — after an upgrade, a reboot, or a core-fault exit (§21) —
+loads the plugins that were loaded before it stopped (spec §2.1). The daemon
+records them in `~/.entangle/plugins.state.toml` (mode `0600`, replaced
+atomically) after every `plugins load` (including hot reloads, §24),
+`plugins unload`, `perms revoke` and tier-ceiling change:
+
+```toml
+format = 1
+
+[[plugin]]
+id = "aabbccddeeff00112233445566778899/fetcher@0.3.1"
+dir = "/home/op/plugins/fetcher"
+artifact_digest = "5f0c…"      # BLAKE3 of the verified plugin.wasm / plugin.bin
+manifest_digest = "a91e…"      # BLAKE3 of the verified entangle.toml
+tier = 3
+granted = ["storage.local"]
+denied = ["net.wan"]            # by [security] deny_capabilities
+revoked = []                    # by `entangle perms revoke`
+```
+
+At startup, before the RPC socket opens, each entry is loaded again **through
+the normal load path**: signature and keyring, the tier ceiling, `[plugins]
+disabled`, the runtime-kind check and the capability policy all run as for
+`entangle plugins load`. Then:
+
+- **A package that changed** while the daemon was down (another id, artifact
+  or manifest in that directory than the digests recorded) is unloaded again
+  and not restored: those bytes were never loaded by the operator. Load it
+  explicitly with `entangle plugins load <dir>`.
+- **Revocations** recorded in `revoked` are applied again.
+- **An entry that cannot be restored** — its signature no longer verifies, its
+  publisher left the keyring, it is above the ceiling, `[plugins] disabled`
+  names it, its directory is gone — is skipped with one structured warning at
+  target `entangle::telemetry` with `code = "ENTANGLE-E0784"`, the plugin id,
+  the directory and the reason, and counted in
+  `entangle_plugin_restores_total{outcome="failed"|"disabled"}`
+  (`"restored"` for the others). It **stays in the file** with `failed =
+  "<reason>"`, so it is visible and is retried at every start (fix the
+  keyring, `entangle plugins enable` it, …). `entangle plugins unload <id>`
+  removes such an entry; loading the plugin again replaces it.
+
+A plugin disabled with `entangle plugins disable` while the daemon is stopped
+is therefore not reloaded, and comes back at the first start after it is
+enabled again. An unreadable state file restores nothing (`ENTANGLE-E0784`)
+and is rewritten on the next change. In-flight calls and streams are not
+part of the state: they are lost with the old process (§21).
+
+---
+
 ## 23. AOT compilation cache
 
 Compiling a wasm component with Cranelift is the slow part of loading a
@@ -1905,4 +1957,101 @@ next start creates a new key and cache.
 Metrics: `entangle_aot_cache_hits_total`, `..._misses_total`,
 `..._rejections_total{reason}`, `..._evictions_total{reason}`,
 `entangle_aot_cache_bytes` (§14a).
+
+---
+
+## 24. Plugin lifecycle: lazy activation, idle teardown, hot reload
+
+### `[lifecycle]` in `entangle.toml`
+
+```toml
+[lifecycle]
+activation = "lazy"        # "eager" (default) | "lazy"
+idle-timeout-secs = 300    # optional, 1..=604800
+```
+
+A loaded wasm plugin keeps an **instance** resident between calls: its
+compiled component, pre-instantiated against the host's imports, with its
+capability grants attached. (Every call and stream still runs in a fresh
+Wasmtime store created from it, so no guest memory survives between calls
+either way.)
+
+- **`eager`** (the default, and how every plugin behaved before this table
+  existed): the instance is created when the plugin loads.
+- **`lazy`**: loading verifies everything — signature, ceiling, runtime kind,
+  grants — and compiles the component once (which also fills the AOT cache,
+  §23), but keeps no instance; the first call or stream creates it.
+- **`idle-timeout-secs`**: when no call or stream has used the plugin for
+  this long, its instance is dropped (the plugin stays loaded and listed);
+  the next call creates it again, from the verified bytes kept in memory and
+  normally from the AOT cache. A call or stream in progress keeps the plugin
+  active: a long stream is never torn down under its plugin.
+
+Native (tier 4–5) plugins start a fresh sandboxed process per call and have
+no resident instance; a native manifest asking for `lazy` or an idle timeout
+is refused (`ENTANGLE-E0780`), as is a timeout of 0 or above 7 days.
+
+Lifecycle events (the kernel's bus, topic `runtime.plugin.lifecycle`):
+`Loaded` when the plugin loads; `Instantiated` when an instance is created on
+demand (first call of a lazy plugin, first call after a teardown), before that
+call's `Activated`; `Activated` / `Idled` around every call and stream;
+`TornDown` when an idle instance is dropped; `Migrated` and `Unloaded` around
+a hot reload (below). Teardowns are counted in
+`entangle_plugin_idle_teardowns_total{plugin}`.
+
+### Hot reload
+
+Loading a **new version** of a loaded plugin (same publisher and name, another
+version) replaces it without stopping it:
+
+```bash
+entangle plugins load ./fetcher-0.4.0                      # same or fewer capabilities
+entangle plugins load ./fetcher-0.4.0 --accept-new-capabilities
+entangle plugins load ./fetcher-0.3.0 --allow-downgrade
+```
+
+1. The new version is verified completely while the old one keeps serving.
+2. **Consent.** If it declares any capability the loaded version does not
+   (with exactly the same parameters — widening `hosts` or `ro` → `rw`
+   counts), or has a higher effective tier, the reload is refused with
+   `ENTANGLE-E0781` and the diff, unless `--accept-new-capabilities` is given
+   (spec §4.4.1 case B: every upgrade re-asks):
+
+   ```
+   ENTANGLE-E0781: reloading …/fetcher@0.3.1 as …/fetcher@0.4.0 needs consent: the new
+   version declares more than the loaded one; re-run with --accept-new-capabilities to accept:
+     + net.wan (hosts=api.example.com:443)
+     - storage.share.photos (mode=ro)
+     tier 2 -> 3
+   ```
+
+   Dropping capabilities or lowering the tier needs no flag. A **lower
+   version** is refused with `ENTANGLE-E0782` unless `--allow-downgrade`.
+3. **`migrate`.** If the new component exports the optional `migrate` hook
+   (WIT world `migrate-hook`; `migratable-plugin` / `migratable-stream-plugin`
+   are the plugin worlds with it), the daemon calls
+   `migrate("<old version>")` in a fresh instance of the **new** version, with
+   its grants (so it can convert its `/data` — both versions share the
+   plugin's storage directory), bounded to 30 s. `err`, a trap or a timeout
+   refuses the reload with `ENTANGLE-E0783`; the old version keeps running
+   and nothing of the new one remains. Without the hook the reload is a plain
+   drain-and-swap.
+4. **Swap.** In one step the new version takes over: every new call and
+   stream — including ones addressed to the old version's id, so existing
+   clients keep working — runs on the new version (`plugins list` shows only
+   the new id). Calls and streams already running on the old version finish
+   there.
+5. **Drain.** The old version is unloaded exactly as by `plugins unload` once
+   its last call or stream has ended (streams are drained, not cut), then its
+   grants are released and `Unloaded` is published for it. The
+   `plugins load` reply does not wait for this.
+
+Loading the version that is already loaded is refused as before
+(`plugin already loaded`); unload it first or bump the version. Unloading the
+current version also ends the forwarding of the old ids. A capability revoked
+on the old version is not carried over to the new one. Reloads are counted in
+`entangle_plugin_reloads_total{outcome="swapped"|"refused"|"migrate_failed"}`
+and recorded in the plugin-state file (§22). `entangle plugins install`
+upgrades go through the same checks; when one is refused for consent, load
+the installed directory with `--accept-new-capabilities`.
 
