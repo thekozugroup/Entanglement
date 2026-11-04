@@ -329,3 +329,87 @@ fn gc_removes_unused_entries_then_the_oldest_above_the_cap() {
         Lookup::Hit
     );
 }
+
+/// A key file left short by a crash between creating and writing it (the
+/// old in-place write) must not disable the cache for good: it is
+/// regenerated, and the entries MAC'd under the lost key go with it.
+#[test]
+fn a_short_key_file_left_by_a_crash_is_regenerated() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("aot");
+    let engine = engine();
+    let bytes = component(11);
+    {
+        let cache = open(&dir, &Registry::new());
+        cache.load_or_compile(&engine, &bytes).unwrap();
+    }
+    let key = AotCache::entry_key(&engine, &bytes);
+    for short in [&[][..], &[7u8; 5][..]] {
+        std::fs::write(dir.join("cache.key"), short).unwrap();
+        std::fs::set_permissions(
+            dir.join("cache.key"),
+            std::fs::Permissions::from_mode(0o600),
+        )
+        .unwrap();
+        let cache = AotCache::open(AotCacheConfig::new(&dir))
+            .unwrap_or_else(|e| panic!("a {}-byte key file: {e}", short.len()));
+        assert_eq!(std::fs::metadata(dir.join("cache.key")).unwrap().len(), 32);
+        assert_eq!(mode(&dir.join("cache.key")), 0o600);
+        // Entries written under the lost key cannot be verified: gone.
+        assert!(!cache.artifact_path(&key).exists());
+        assert!(!cache.meta_path(&key).exists());
+        // And the cache works with the new key.
+        assert_eq!(
+            cache.load_or_compile(&engine, &bytes).unwrap().1,
+            Lookup::Miss
+        );
+        assert_eq!(
+            cache.load_or_compile(&engine, &bytes).unwrap().1,
+            Lookup::Hit
+        );
+    }
+}
+
+/// Several processes (the daemon and a `--allow-local` CLI kernel) opening a
+/// fresh cache at the same moment all get the cache, with one key: none of
+/// them sees a missing, partly written or already-created key.
+#[test]
+fn concurrent_first_opens_all_use_one_key() {
+    for _ in 0..5 {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("aot");
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+        let opened: Vec<_> = (0..8)
+            .map(|_| {
+                let (dir, barrier) = (dir.clone(), barrier.clone());
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    AotCache::open(AotCacheConfig::new(&dir))
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|t| t.join().unwrap())
+            .collect();
+        let caches: Vec<AotCache> = opened
+            .into_iter()
+            .map(|r| r.unwrap_or_else(|e| panic!("a concurrent first open failed: {e}")))
+            .collect();
+        // One key: what one of them stores, every other one trusts.
+        let engine = engine();
+        let bytes = component(12);
+        assert_eq!(
+            caches[0].load_or_compile(&engine, &bytes).unwrap().1,
+            Lookup::Miss
+        );
+        for c in &caches[1..] {
+            assert_eq!(c.load_or_compile(&engine, &bytes).unwrap().1, Lookup::Hit);
+        }
+        assert!(!std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .any(|e| e.file_name().to_string_lossy().starts_with(".tmp-")));
+    }
+}

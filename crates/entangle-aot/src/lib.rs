@@ -210,7 +210,7 @@ impl AotCache {
     pub fn open(cfg: AotCacheConfig) -> Result<Self, AotError> {
         let uid = current_uid();
         ensure_private_dir(&cfg.dir, uid)?;
-        let key = load_or_create_key(&cfg.dir.join(KEY_FILE), uid)?;
+        let (key, created) = load_or_create_key(&cfg.dir, &cfg.dir.join(KEY_FILE), uid)?;
         let cache = Self {
             cfg,
             key,
@@ -218,6 +218,18 @@ impl AotCache {
             metrics: std::sync::OnceLock::new(),
             bytes: AtomicU64::new(0),
         };
+        if created {
+            // Entries already here were MAC'd under a key that is gone (an
+            // unreadable key file regenerated, or one deleted by hand): none
+            // can be verified any more, so they are removed now instead of
+            // one refusal at a time. Partial writes (another process's, in
+            // flight) are left to GC.
+            for e in cache.scan() {
+                if !e.temp {
+                    cache.remove(&e);
+                }
+            }
+        }
         let bytes = cache.scan().iter().map(|e| e.bytes).sum();
         cache.bytes.store(bytes, Ordering::Relaxed);
         Ok(cache)
@@ -490,6 +502,7 @@ impl AotCache {
                     bytes: meta.len(),
                     last_used: modified,
                     orphan: true,
+                    temp: true,
                 });
                 continue;
             }
@@ -504,6 +517,7 @@ impl AotCache {
                 bytes: 0,
                 last_used: SystemTime::UNIX_EPOCH,
                 orphan: true,
+                temp: false,
             });
             e.files.push(entry.path());
             e.bytes += meta.len();
@@ -535,6 +549,8 @@ struct Scanned {
     bytes: u64,
     last_used: SystemTime,
     orphan: bool,
+    /// A partial write (temporary file), possibly still in progress.
+    temp: bool,
 }
 
 /// Deserialize `artifact`, which the caller has just verified.
@@ -716,48 +732,126 @@ fn ensure_private_dir(dir: &Path, uid: u32) -> Result<(), AotError> {
     Ok(())
 }
 
-/// Read the 32-byte cache key at `path`, or create it (`0600`, exclusive).
-fn load_or_create_key(path: &Path, uid: u32) -> Result<[u8; 32], AotError> {
+/// What [`read_key`] found.
+enum KeyFile {
+    /// A valid 32-byte key.
+    Valid([u8; 32]),
+    /// No key file.
+    Absent,
+    /// A private key file shorter than a key: what a crash between creating
+    /// and filling it (as earlier versions wrote it) leaves behind.
+    Short,
+}
+
+/// Read the cache key at `path` (a private regular file, see
+/// [`open_private`]).
+fn read_key(path: &Path, uid: u32) -> Result<KeyFile, AotError> {
     let unusable = |reason: String| AotError::Unusable {
         path: path.to_path_buf(),
         reason,
     };
-    match open_private(path, uid, false) {
-        Ok(mut f) => {
-            let mut key = [0u8; 32];
-            let mut rest = Vec::new();
-            f.read_exact(&mut key)
-                .map_err(|e| unusable(format!("cannot read the cache key: {e}")))?;
-            f.read_to_end(&mut rest)
-                .map_err(|e| unusable(format!("cannot read the cache key: {e}")))?;
-            if !rest.is_empty() {
-                return Err(unusable("the cache key is not 32 bytes".into()));
-            }
-            Ok(key)
+    let mut f = match open_private(path, uid, false) {
+        Ok(f) => f,
+        Err(OpenError::NotFound) => return Ok(KeyFile::Absent),
+        Err(OpenError::Rejected(r)) => {
+            return Err(unusable(format!(
+                "the cache key is not a private regular file ({})",
+                r.as_str()
+            )))
         }
-        Err(OpenError::Rejected(r)) => Err(unusable(format!(
-            "the cache key is not a private regular file ({})",
-            r.as_str()
-        ))),
-        Err(OpenError::NotFound) => {
-            let mut key = [0u8; 32];
-            rand_core::RngCore::fill_bytes(&mut rand_core::OsRng, &mut key);
-            let mut opts = std::fs::OpenOptions::new();
-            opts.write(true).create_new(true);
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::OpenOptionsExt;
-                opts.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    };
+    let mut bytes = Vec::with_capacity(33);
+    (&mut f)
+        .take(33)
+        .read_to_end(&mut bytes)
+        .map_err(|e| unusable(format!("cannot read the cache key: {e}")))?;
+    match <[u8; 32]>::try_from(bytes.as_slice()) {
+        Ok(key) => Ok(KeyFile::Valid(key)),
+        Err(_) if bytes.len() < 32 => Ok(KeyFile::Short),
+        Err(_) => Err(unusable("the cache key is not 32 bytes".into())),
+    }
+}
+
+/// Read the 32-byte cache key at `path` (in `dir`), or create it. Returns
+/// the key and whether this call created it (every existing entry is then
+/// unverifiable).
+///
+/// A new key is written whole to a private temporary file, synced, and only
+/// then hard-linked into place, which never replaces an existing file: a
+/// crash leaves either no key or a complete one (plus a temporary file GC
+/// removes), and of several processes opening a fresh cache at once exactly
+/// one key wins — the others find it and read it. A short key file (left by
+/// a crash of an earlier version, which wrote the key in place) is
+/// regenerated instead of disabling the cache for good. Two processes
+/// regenerating the same short file at the same moment can end up with
+/// different keys; each then refuses (and recompiles) the other's entries,
+/// which costs compile time but never trusts an unverified entry.
+fn load_or_create_key(dir: &Path, path: &Path, uid: u32) -> Result<([u8; 32], bool), AotError> {
+    let unusable = |reason: String| AotError::Unusable {
+        path: path.to_path_buf(),
+        reason,
+    };
+    // Bounded: each round either returns or saw the file change under it.
+    for _ in 0..4 {
+        match read_key(path, uid)? {
+            KeyFile::Valid(key) => return Ok((key, false)),
+            KeyFile::Short => {
+                tracing::warn!(
+                    path = %path.display(),
+                    "AOT cache key file is truncated (an interrupted first start); \
+                     regenerating it and dropping the entries it signed"
+                );
+                match std::fs::remove_file(path) {
+                    Ok(()) => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(e) => {
+                        return Err(unusable(format!(
+                            "cannot replace a truncated cache key: {e}"
+                        )))
+                    }
+                }
             }
-            let mut f = opts
-                .open(path)
-                .map_err(|e| unusable(format!("cannot create the cache key: {e}")))?;
-            f.write_all(&key)
-                .and_then(|()| f.sync_all())
-                .map_err(|e| unusable(format!("cannot write the cache key: {e}")))?;
-            Ok(key)
+            KeyFile::Absent => {}
+        }
+        let mut key = [0u8; 32];
+        rand_core::RngCore::fill_bytes(&mut rand_core::OsRng, &mut key);
+        match publish_key(dir, path, &key) {
+            Ok(()) => return Ok((key, true)),
+            // Another process created it first: use theirs.
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(unusable(format!("cannot create the cache key: {e}"))),
         }
     }
+    Err(unusable(
+        "the cache key keeps changing while it is read (another process is rewriting it)".into(),
+    ))
+}
+
+/// Put `key` at `path` without ever exposing a partial file or replacing an
+/// existing one (`AlreadyExists` then).
+fn publish_key(dir: &Path, path: &Path, key: &[u8; 32]) -> std::io::Result<()> {
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let tmp = dir.join(format!(
+        "{TMP_PREFIX}key-{}-{}",
+        std::process::id(),
+        SEQ.fetch_add(1, Ordering::Relaxed)
+    ));
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    let result = (|| {
+        let mut f = opts.open(&tmp)?;
+        f.write_all(key)?;
+        f.sync_all()?;
+        // `link` fails with `EEXIST` rather than replacing `path`.
+        std::fs::hard_link(&tmp, path)
+    })();
+    let _ = std::fs::remove_file(&tmp);
+    result
 }
 
 /// Write `bytes` to `dest` via a private temporary file in `dir`.
