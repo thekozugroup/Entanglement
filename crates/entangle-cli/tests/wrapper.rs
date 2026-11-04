@@ -584,3 +584,51 @@ fn doctor_skips_shadow_check_for_unsupported_shell() {
         stdout(&o)
     );
 }
+
+/// `entangle doctor &` from an interactive terminal: the shadow probe runs
+/// `$SHELL -i`, which, sharing doctor's process group and terminal, would
+/// stop the whole background job with SIGTTIN (so the probe timeout could
+/// never fire). The probe must run detached from the terminal and doctor must
+/// finish on its own.
+#[cfg(target_os = "linux")]
+#[test]
+fn doctor_as_a_background_job_is_not_stopped_by_the_probe() {
+    let e = Env::new();
+    e.ok(&["init", "--non-interactive"]);
+    e.ok(&["wrapper", "enable"]);
+    let out = e.home.join("doctor.out");
+    // A job-control shell on a pty (`script`): doctor runs as a background
+    // job, i.e. not in the terminal's foreground process group.
+    let job = format!(
+        "set -m; '{bin}' doctor >'{out}' 2>&1 & pid=$!; \
+         for i in $(seq 1 200); do \
+           if ! kill -0 $pid 2>/dev/null; then echo JOB-FINISHED; exit 0; fi; \
+           if grep -q '^State:[[:space:]]*T' /proc/$pid/status 2>/dev/null; then \
+             echo JOB-STOPPED; kill -KILL -- -$pid; exit 0; fi; \
+           sleep 0.1; \
+         done; echo JOB-TIMEOUT; kill -KILL -- -$pid",
+        bin = entangle_bin().display(),
+        out = out.display()
+    );
+    let o = Command::new("script")
+        .args(["-qec", &job, "/dev/null"])
+        .env_clear()
+        .env("HOME", &e.home)
+        .env("PATH", e.path())
+        .env("SHELL", "/bin/bash")
+        .env("ENTANGLE_DOCTOR_PROBE_TIMEOUT_MS", "5000")
+        .stdin(Stdio::null())
+        .output()
+        .expect("`script` (util-linux) is required for this test");
+    let transcript = String::from_utf8_lossy(&o.stdout).replace('\r', "");
+    let report = std::fs::read_to_string(&out).unwrap_or_default();
+    assert!(
+        transcript.contains("JOB-FINISHED"),
+        "doctor did not finish as a background job: {transcript}\n{report}"
+    );
+    let line = report
+        .lines()
+        .find(|l| l.contains(" wrapper "))
+        .unwrap_or_default();
+    assert!(line.contains("[ok]"), "{report}");
+}

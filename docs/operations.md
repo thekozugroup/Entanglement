@@ -798,9 +798,11 @@ to change). Limits:
 
 - only bash and zsh are probed; with another `$SHELL` (fish, sh, unset) the
   check is skipped and says so;
-- the probe shell has no terminal, so an rc file that behaves differently
-  without a tty is probed in that mode, and one that blocks or reads stdin is
-  cut off by the timeout (reported as a warning, not a pass);
+- the probe shell runs in its own session without a controlling terminal (so
+  it cannot stop `entangle doctor &` run as a background job), so an rc file
+  that behaves differently without a tty is probed in that mode, and one that
+  blocks or reads stdin is cut off by the timeout (reported as a warning, not
+  a pass);
 - only what an *interactive* shell loads is seen; shadowing introduced only by a
   login profile (`~/.bash_profile`, `~/.zprofile`) that the interactive shell
   does not re-read is not;

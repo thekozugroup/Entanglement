@@ -469,8 +469,10 @@ fn classify(bin: &str, body: &[&str]) -> Resolution {
 /// each name in `bins` resolves.
 ///
 /// Limits (documented in `docs/operations.md`): only bash and zsh are probed
-/// (fish is skipped); the shell runs `-i -c` with an empty stdin and no tty,
-/// so an rc file that behaves differently without a tty, or that blocks, is
+/// (fish is skipped); the shell runs `-i -c` with an empty stdin, in a new
+/// session without a controlling terminal (so it cannot stop a doctor run as
+/// a background job), so an rc file that behaves differently without a tty,
+/// or that blocks, is
 /// cut off by `timeout`; rc files that print or exec are tolerated but the
 /// result reflects a non-tty shell; shadowing introduced only by a *login*
 /// profile (`~/.bash_profile`, `~/.zprofile`) the interactive shell does not
@@ -495,13 +497,32 @@ pub async fn probe_shell(
             "echo {SENTINEL} BEGIN {b}; type {b}; typeset -f {b} 2>/dev/null; echo {SENTINEL} END {b}; "
         ));
     }
-    let child = tokio::process::Command::new(shell)
-        .args(["-i", "-c", &script])
+    let mut cmd = tokio::process::Command::new(shell);
+    cmd.args(["-i", "-c", &script])
         .env("ENTANGLE_DOCTOR_PROBE", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .kill_on_drop(true)
+        .kill_on_drop(true);
+    // An interactive shell opens /dev/tty for job control even with stdin
+    // redirected; when doctor is not in the terminal's foreground process
+    // group (`entangle doctor &`) it sends SIGTTIN to its whole process group
+    // -- doctor included, so the timeout below could never fire. In a new
+    // session the probe has no controlling terminal: it runs without job
+    // control and cannot signal doctor's group.
+    #[cfg(unix)]
+    // SAFETY: the closure runs in the forked child before exec. It only calls
+    // setsid(2) through rustix (a raw syscall, async-signal-safe, no
+    // allocation, no lock) and converts its result; it touches no state shared
+    // with the parent.
+    unsafe {
+        cmd.pre_exec(|| {
+            rustix::process::setsid()
+                .map(drop)
+                .map_err(std::io::Error::from)
+        });
+    }
+    let child = cmd
         .spawn()
         .with_context(|| format!("starting {}", shell.display()))?;
     let out = tokio::time::timeout(timeout, child.wait_with_output())
