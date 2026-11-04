@@ -1400,6 +1400,26 @@ mod tests {
         }
     }
 
+    /// Known answers computed outside the implementation: SHA-256 of 32
+    /// zero bytes and of the bytes 0..32.
+    #[test]
+    fn sha256_fingerprint_matches_known_vectors() {
+        assert_eq!(
+            sha256_fingerprint(&[0u8; 32]),
+            "SHA256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+        );
+        let mut seq = [0u8; 32];
+        for (i, b) in seq.iter_mut().enumerate() {
+            *b = i as u8;
+        }
+        let want = "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd";
+        assert_eq!(sha256_fingerprint(&seq), format!("SHA256:{want}"));
+        assert_eq!(
+            qr_payload("734-291".parse().unwrap(), &seq),
+            format!("entangle:pair?code=734291&sha256={want}")
+        );
+    }
+
     #[test]
     fn the_qr_payload_carries_the_code_and_the_full_fingerprint() {
         let key = [7u8; 32];

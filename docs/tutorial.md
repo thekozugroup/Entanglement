@@ -53,18 +53,31 @@ entangled 0.1.0
 entangle init --non-interactive
 ```
 
-Expected output:
+Expected output (paths and the fingerprint differ on your machine):
 
 ```
-Entanglement init
-  Generating Ed25519 identity key...
-  Writing ~/.entangle/identity.key
-  Writing ~/.entangle/config.toml
-  Writing ~/.entangle/keyring.toml
+Setting up identity...
+  Identity ready at ~/.entangle/identity.key (mode 0600)
+  Fingerprint: 0e88-c865-76c1-6122-71a2-96d9-101c-ce35
+  Write the fingerprint down: it identifies this device. Back the key up with `entangle backup`.
+  Wrote ~/.entangle/config.toml
+  Wrote ~/.entangle/peers.toml (empty)
+  Wrote ~/.entangle/keyring.toml (empty)
 
-Identity fingerprint: a3f9…c7d1   ← your public key, hex-encoded SHA-256
+Firewall
+init does not change your firewall. If one is on, allow:
+  mesh.local      UDP 5353 (mDNS multicast) on the LAN interface
+  ...
 
-Done. Run `entangle version` to verify.
+Pairing
+Daemon configured as single-node until a device is paired. Pair one:
+  entangle pair --print-code     # on this device
+  entangle pair <code>           # on the other device
+...
+
+Next steps:
+  - Start the daemon:        entangled run
+  ...
 ```
 
 `--non-interactive` (or `--headless`) skips the guided wizard (useful for

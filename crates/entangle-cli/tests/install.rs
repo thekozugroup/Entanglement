@@ -172,7 +172,10 @@ fn uninstall_cleans_up_and_reports_agent_configs_that_changed() {
         .success()
         .stdout(predicate::str::contains("CHANGED since install"))
         .stdout(predicate::str::contains(".codex/config.toml"))
-        .stdout(predicate::str::contains("unchanged"))
+        .stdout(
+            predicate::str::is_match(r"claude-code +\S*\.claude/settings\.json +unchanged")
+                .unwrap(),
+        )
         .stdout(predicate::str::contains("entangle uninstall --purge"));
     assert!(!session.exists(), "uninstall runs cleanup --all");
     assert!(!std::fs::read_to_string(env.home.path().join(".bashrc"))
@@ -186,6 +189,11 @@ fn uninstall_cleans_up_and_reports_agent_configs_that_changed() {
     assert_eq!(
         std::fs::read_to_string(env.home.path().join(".codex/config.toml")).unwrap(),
         "# edited\n"
+    );
+    // Neither agent config is rewritten by uninstall.
+    assert_eq!(
+        std::fs::read(env.home.path().join(".claude/settings.json")).unwrap(),
+        b"{\"mcpServers\":{}}\n"
     );
 }
 
@@ -409,4 +417,79 @@ fn claude_codes_own_app_state_is_not_reported_as_changed() {
             && l.trim_end().ends_with("unchanged")),
         "{stdout}"
     );
+}
+
+/// `--purge` is refused while a daemon answers on `~/.entangle/sock`, and
+/// nothing is deleted.
+#[test]
+fn purge_is_refused_while_the_daemon_is_running() {
+    use std::io::{BufRead, BufReader, Write};
+    let env = Env::new();
+    env.cmd().args(["init", "--headless"]).assert().success();
+    let listener = std::os::unix::net::UnixListener::bind(env.dot().join("sock")).unwrap();
+    let server = std::thread::spawn(move || {
+        // Answer whatever the CLI asks with a JSON-RPC error: a daemon that
+        // answers at all is a running daemon.
+        let (stream, _) = listener.accept().unwrap();
+        let mut line = String::new();
+        BufReader::new(&stream).read_line(&mut line).unwrap();
+        let req: serde_json::Value = serde_json::from_str(&line).unwrap();
+        let resp = serde_json::json!({
+            "jsonrpc": "2.0", "id": req["id"],
+            "error": {"code": -32601, "message": "stub"}
+        });
+        let mut w = &stream;
+        writeln!(w, "{resp}").unwrap();
+    });
+    env.cmd()
+        .args(["uninstall", "--purge", "--yes"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0790"))
+        .stderr(predicate::str::contains("the daemon is running"));
+    server.join().unwrap();
+    assert!(env.dot().join("identity.key").exists(), "nothing deleted");
+}
+
+/// `install --headless` with neither wrapper flag installs no wrappers and
+/// records no choice (documented in the architecture note to spec §8.3).
+#[test]
+fn headless_install_without_a_wrapper_flag_installs_no_wrappers() {
+    let env = Env::new();
+    env.cmd()
+        .args(["install", "--headless"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Skipped (--headless)"));
+    for rc in [".bashrc", ".zshrc", ".profile", ".bash_profile"] {
+        assert!(!env.home.path().join(rc).exists(), "{rc} was written");
+    }
+    assert!(!env
+        .home
+        .path()
+        .join(".config/fish/conf.d/entangle.fish")
+        .exists());
+}
+
+/// Answering "n" to the wrapper question writes no rc file and records the
+/// opt-out, so the next install does not ask again.
+#[test]
+fn declining_the_wrapper_question_records_the_opt_out() {
+    let env = Env::new();
+    env.cmd().args(["init", "--headless"]).assert().success();
+    env.cmd()
+        .arg("install")
+        .write_stdin("n\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Not installed (recorded"));
+    assert!(!env.home.path().join(".bashrc").exists());
+    let cfg = std::fs::read_to_string(env.dot().join("config.toml")).unwrap();
+    assert!(cfg.contains("[wrappers]\ninstall = false"), "{cfg}");
+    env.cmd()
+        .arg("install")
+        .write_stdin("")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Wrappers stay off: you opted out"));
 }

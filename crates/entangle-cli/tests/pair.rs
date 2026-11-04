@@ -741,6 +741,17 @@ fn print_code_shows_sha256_and_qr_then_expires_with_a_remedy() {
         sha.starts_with("SHA256:") && sha.len() == 7 + 64,
         "full hex fingerprint: {sha}"
     );
+    // The value is the SHA-256 of the identity file's raw public key,
+    // computed here independently of the CLI.
+    let identity = entangle_signing::IdentityKeyPair::from_pem(
+        &std::fs::read_to_string(work.path().join("id.key")).expect("identity written"),
+    )
+    .expect("identity parses");
+    assert_eq!(
+        sha,
+        sha256_of_key(&hex::encode(identity.public().as_bytes())),
+        "the printed SHA-256 is the digest of this device's public key"
+    );
     assert!(stderr.contains("Pairing code:"), "{stderr}");
     let qr_rows = stderr.lines().filter(|l| l.contains('█')).count();
     assert!(qr_rows > 10, "a QR code is drawn:\n{stderr}");
