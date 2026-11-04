@@ -33,9 +33,16 @@ pub struct RouteRow {
     pub display_name: String,
     /// Short fingerprint of its key, when known.
     pub fingerprint: Option<String>,
-    /// This node's transports that currently know a path to it (`local`,
-    /// `iroh`, `tailscale`); with `--probe`, only those that answered.
+    /// This node's transports that know a path to it **and** that the
+    /// router would use for it (`local`, `iroh`, `tailscale`); with
+    /// `--probe`, only those that answered.
     pub reachable: Vec<String>,
+    /// Transports with a path to it that the router will not use: a
+    /// passive mDNS sighting when this node has nothing that carries work
+    /// (no router), or a transport its `[mesh.overrides]` entry leaves out.
+    pub seen: Vec<String>,
+    /// Whether a per-peer `[mesh.overrides]` entry decides its route.
+    pub overridden: bool,
     /// The order the router would try (first = its pick).
     pub route: Vec<String>,
     /// Transports the router skips, each `transport: reason`.
@@ -71,15 +78,25 @@ pub struct RoutesReport {
 
 const ALL: [&str; 3] = ["local", "tailscale", "iroh"];
 
-/// Hints for a peer no running transport can reach.
+/// Hints for a peer no running transport can reach. `overridden`: its
+/// route is fixed by a `[mesh.overrides]` entry for `peer_id`.
 fn hints_for(
     name: &str,
+    peer_id: &str,
+    overridden: bool,
     configured: &[String],
     running: &[String],
     tailnet: Option<&str>,
 ) -> Vec<String> {
     let has = |list: &[String], t: &str| list.iter().any(|x| x == t);
     let mut out = Vec::new();
+    if overridden {
+        out.push(format!(
+            "{name}'s route is fixed by its [mesh.overrides] entry, which no running transport \
+             can satisfy now: `entangle config get mesh.overrides.{peer_id}` shows it, \
+             `entangle config unset mesh.overrides.{peer_id}` restores the default order"
+        ));
+    }
     for t in ALL {
         if !has(configured, t) {
             out.push(format!(
@@ -138,7 +155,18 @@ pub fn from_diag(r: &DiagMeshResult, keys: &HashMap<String, String>) -> RoutesRe
         .peers
         .iter()
         .map(|p| {
+            // Reachable means the router would use it (spec §6.4: evaluated
+            // against actual connectivity), not just that a path is known:
+            // with no router (no route plan) nothing carries work to the
+            // peer, and a transport outside its plan (an override, a down
+            // link) is only "seen".
+            let usable = |t: &str| {
+                p.route
+                    .as_ref()
+                    .is_some_and(|plan| plan.order.iter().any(|o| o == t))
+            };
             let mut reachable: Vec<String> = Vec::new();
+            let mut seen: Vec<String> = Vec::new();
             for path in &p.paths {
                 let t = if path.transport == "mdns" {
                     "local"
@@ -146,10 +174,15 @@ pub fn from_diag(r: &DiagMeshResult, keys: &HashMap<String, String>) -> RoutesRe
                     path.transport.as_str()
                 };
                 let answered = !r.probed || (path.rtt_ms.is_some() && path.probe_error.is_none());
-                if answered && !reachable.iter().any(|x| x == t) {
-                    reachable.push(t.to_owned());
+                if !answered {
+                    continue;
+                }
+                let list = if usable(t) { &mut reachable } else { &mut seen };
+                if !list.iter().any(|x| x == t) {
+                    list.push(t.to_owned());
                 }
             }
+            let overridden = p.route.as_ref().is_some_and(|r| r.overridden);
             let route = p.route.clone().unwrap_or_default();
             let name = if p.display_name.is_empty() {
                 p.peer_id.clone()
@@ -159,6 +192,8 @@ pub fn from_diag(r: &DiagMeshResult, keys: &HashMap<String, String>) -> RoutesRe
             let hints = if reachable.is_empty() {
                 hints_for(
                     &name,
+                    &p.peer_id,
+                    overridden,
                     &r.transports_configured,
                     &r.transports_active,
                     tailnet,
@@ -171,6 +206,8 @@ pub fn from_diag(r: &DiagMeshResult, keys: &HashMap<String, String>) -> RoutesRe
                 display_name: p.display_name.clone(),
                 fingerprint: fingerprint_of(keys, &p.peer_id),
                 reachable,
+                seen,
+                overridden,
                 picked: route.order.first().cloned(),
                 route: route.order,
                 skipped: route.skipped,
@@ -212,7 +249,7 @@ pub fn offline(
         .map(|p| {
             let id = p.peer_id.to_hex();
             let hints = if configured.is_empty() {
-                hints_for(&p.display_name, &configured, &[], None)
+                hints_for(&p.display_name, &id, false, &configured, &[], None)
             } else {
                 vec!["start the daemon (`entangled run`) to see which transports reach it".into()]
             };
@@ -221,6 +258,8 @@ pub fn offline(
                 peer_id: id,
                 display_name: p.display_name.clone(),
                 reachable: Vec::new(),
+                seen: Vec::new(),
+                overridden: false,
                 route: Vec::new(),
                 skipped: Vec::new(),
                 picked: None,
@@ -268,8 +307,10 @@ pub fn render_text(r: &RoutesReport) -> String {
         };
         let reach = if !r.daemon_running {
             "unknown (daemon not running)".to_owned()
-        } else if p.reachable.is_empty() {
+        } else if p.reachable.is_empty() && p.seen.is_empty() {
             "NOT REACHABLE".to_owned()
+        } else if p.reachable.is_empty() {
+            format!("NOT REACHABLE (seen: {})", p.seen.join(", "))
         } else {
             list(&p.reachable)
         };
@@ -324,6 +365,9 @@ pub fn render_text(r: &RoutesReport) -> String {
         let p = &r.peers[i - 1];
         if p.route.len() > 1 {
             let _ = writeln!(out, "    route: {}", p.route.join(" -> "));
+        }
+        if p.overridden {
+            let _ = writeln!(out, "    route set by [mesh.overrides]");
         }
         for s in &p.skipped {
             let _ = writeln!(out, "    skipped {s}");
@@ -507,6 +551,75 @@ mod tests {
         let json = serde_json::to_value(&r).unwrap();
         assert_eq!(json["peers"][0]["reachable"], serde_json::json!([]));
         assert!(json["bridging"].as_str().unwrap().contains("deferred"));
+    }
+
+    /// `[mesh] transports = ["local"]`: the daemon builds no router, so a
+    /// peer sighted over mDNS is seen but cannot be sent work. It is not
+    /// shown as reachable, and the hint that LAN work also needs mesh.iroh
+    /// is given (spec §6.4: evaluated against actual connectivity).
+    #[test]
+    fn a_passive_sighting_with_no_router_is_not_reachable() {
+        let mut d = sample(&["local"], &["local"]);
+        d.peers[0] = peer("bb22", "bob", vec![("mdns", None)], &[]);
+        d.peers[0].route = None;
+        let r = from_diag(&d, &HashMap::new());
+        let bob = &r.peers[0];
+        assert!(bob.reachable.is_empty(), "{:?}", bob.reachable);
+        assert_eq!(bob.seen, ["local"]);
+        assert!(
+            bob.hints
+                .iter()
+                .any(|h| h.contains("carrying work to a LAN peer also needs mesh.iroh")),
+            "{:?}",
+            bob.hints
+        );
+        let text = render_text(&r);
+        assert!(text.contains("NOT REACHABLE (seen: local)"), "{text}");
+        assert!(
+            text.contains(
+                "if bob uses mesh.iroh, enable it here: entangle config set mesh.iroh.enabled true"
+            ),
+            "{text}"
+        );
+    }
+
+    /// A `[mesh.overrides]` entry the paths do not satisfy: the router has
+    /// no candidate, so the peer is not reachable whatever mDNS or the
+    /// address book know, and the override is named with the commands that
+    /// show and remove it.
+    #[test]
+    fn an_override_with_no_candidate_is_not_reachable_and_is_named() {
+        let mut d = sample(
+            &["local", "iroh", "tailscale"],
+            &["local", "iroh", "tailscale"],
+        );
+        d.peers[0] = peer("bb22", "bob", vec![("mdns", None), ("iroh", None)], &[]);
+        if let Some(route) = d.peers[0].route.as_mut() {
+            route.overridden = true;
+            route.skipped = vec![
+                "tailscale: no tailnet candidate".into(),
+                "local: not in this peer's [mesh.overrides] entry".into(),
+                "iroh: not in this peer's [mesh.overrides] entry".into(),
+            ];
+        }
+        let r = from_diag(&d, &HashMap::new());
+        let bob = &r.peers[0];
+        assert!(bob.reachable.is_empty(), "{:?}", bob.reachable);
+        assert_eq!(bob.seen, ["local", "iroh"]);
+        assert!(bob.overridden);
+        assert!(
+            bob.hints.iter().any(|h| h.contains("[mesh.overrides]")
+                && h.contains("entangle config unset mesh.overrides.bb22")),
+            "{:?}",
+            bob.hints
+        );
+        let text = render_text(&r);
+        assert!(text.contains("NOT REACHABLE (seen: local, iroh)"), "{text}");
+        assert!(text.contains("route set by [mesh.overrides]"), "{text}");
+        assert_eq!(
+            serde_json::to_value(&r).unwrap()["peers"][0]["overridden"],
+            serde_json::json!(true)
+        );
     }
 
     #[test]

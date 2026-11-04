@@ -2119,11 +2119,17 @@ entangle mesh routes --probe    # count only paths that answer a round trip
 entangle mesh routes --json
 ```
 
-For each trusted peer: the transports of this node that currently know a
-path to it (from the daemon's `diag/mesh` report: an mDNS sighting counts as
-`local`, an address-book entry as `iroh`, a tailnet candidate as
-`tailscale`), the transport the router tries first and the order, the
-transport last used, and — when none can reach it — a prescriptive hint: the
+For each trusted peer: the transports of this node that can carry work to it
+— a known path (from the daemon's `diag/mesh` report: an mDNS sighting counts
+as `local`, an address-book entry as `iroh`, a tailnet candidate as
+`tailscale`) that the router would also use. A path the router would not use
+is shown as `NOT REACHABLE (seen: ...)`: an mDNS sighting when this node has no
+transport that carries work (`mesh.local` alone needs `mesh.iroh` for that),
+or a transport the peer's `[mesh.overrides]` entry leaves out (the row then
+says `route set by [mesh.overrides]`, and the hint names `entangle config get`
+/ `unset mesh.overrides.<peer-id>`). Also: the transport the router tries
+first and the order, the transport last used, and — when none can reach it —
+a prescriptive hint: the
 literal `entangle config set mesh.<transport>.enabled true` for each transport
 this node lacks, a configured transport that is not running, a stopped
 tailnet (`tailscale up`), the `[scheduler] peers` address `mesh.iroh` needs,
