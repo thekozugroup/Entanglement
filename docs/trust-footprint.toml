@@ -22,6 +22,15 @@ crates = [
     "crates/entangle-signing",
     "crates/entangle-oci",
     "crates/entangle-ipc",
+    # Not in the spec's §10 list, but in this workspace they carry L1/L2 work
+    # the spec assigns to `entangle-core` and `entangle-host`: the kernel
+    # (manifest, signature, broker and host wiring), the AOT cache that loads
+    # precompiled code, the tier-5 OS sandbox, and capability-token
+    # verification on remote paths. Counting them is the stricter reading.
+    "crates/entangle-runtime",
+    "crates/entangle-aot",
+    "crates/entangle-sandbox",
+    "crates/entangle-biscuits",
 ]
 
 # Named by the spec's §10 list but not a crate in this workspace yet (the

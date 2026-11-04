@@ -1601,7 +1601,7 @@ entanglement/                                    # the project (GitHub: thekozug
     └── legal/name-audit.md                 # rerun yearly (§0.1.1)
 ```
 
-The trust-footprint CI check enforces that `entangle-core` + `entangle-broker` + `entangle-manifest` + `entangle-signing` + `entangle-oci` + `entangle-https-fetch` + `entangle-host` + `entangle-ipc` total < 25k LOC excluding tests. Anything above that is reviewed. The `entangle-mesh-tailscale` plugin sits in the L3 plugin layer (not L2 trusted libraries) and shells out to the host `tailscale` binary; it does not increase the trust-footprint LOC.
+The trust-footprint CI check enforces that `entangle-core` + `entangle-broker` + `entangle-manifest` + `entangle-signing` + `entangle-oci` + `entangle-https-fetch` + `entangle-host` + `entangle-ipc` total < 25k LOC excluding tests. Anything above that is reviewed. The `entangle-mesh-tailscale` plugin sits in the L3 plugin layer (not L2 trusted libraries) and shells out to the host `tailscale` binary; it does not increase the trust-footprint LOC. *Implementation note: `cargo xtask loc-budget` (CI job `trust-footprint`, crate list in `docs/trust-footprint.toml`) counts the crates named here that exist (`entangle-https-fetch` does not; HTTPS fetching lives in `entangle-oci`) plus `entangle-runtime`, `entangle-aot`, `entangle-sandbox` and `entangle-biscuits`, which carry the kernel, precompiled-code loading, tier-5 sandbox and token-verification work this design assigns to `entangle-core` and `entangle-host`. Non-blank, non-comment Rust lines outside tests; about 15.9k at the time of writing.*
 
 ### 10.1 Trust footprint with transitive dependencies
 

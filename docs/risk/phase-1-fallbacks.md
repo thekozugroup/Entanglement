@@ -136,5 +136,5 @@ be scheduled or cut for a 1.0.
 
 | Check | State | Notes |
 |---|---|---|
-| L1+L2 trust footprint under 25k LOC (§2.3, §10) | Implemented | `cargo xtask loc-budget` (`docs/trust-footprint.toml`), CI job `trust-footprint`. Measured on this branch: 8 558 non-blank, non-comment, non-test lines across `entangle-core`, `-host`, `-broker`, `-manifest`, `-signing`, `-oci`, `-ipc`. |
+| L1+L2 trust footprint under 25k LOC (§2.3, §10) | Implemented | `cargo xtask loc-budget` (`docs/trust-footprint.toml`), CI job `trust-footprint`. Measured: 15 854 non-blank, non-comment, non-test lines across `entangle-core`, `-host`, `-broker`, `-manifest`, `-signing`, `-oci`, `-ipc`, plus `-runtime`, `-aot`, `-sandbox` and `-biscuits`, which carry kernel work the spec assigns to `entangle-core`/`entangle-host`. |
 | Bus factor ≥ 2 per role (§12.1) | Deferred | Check exists and fails: one holder per role. |
