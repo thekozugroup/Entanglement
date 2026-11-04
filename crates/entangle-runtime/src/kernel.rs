@@ -301,24 +301,41 @@ impl Kernel {
                 return Err(e);
             }
         };
-        self.emit(&plugin_id, effective_tier, LifecyclePhase::Loaded);
 
         // ── Bookkeeping ───────────────────────────────────────────────────────
         // A concurrent load of the same id would have failed at broker
         // registration (insert-only), so the slot is expected to be vacant;
         // never overwrite an existing record.
-        match self.plugins.write().entry(plugin_id.clone()) {
-            std::collections::hash_map::Entry::Occupied(_) => {
-                return Err(RuntimeError::AlreadyLoaded(plugin_id));
+        //
+        // The ceiling is checked again here, under the `plugins` write lock
+        // that `apply_max_tier` holds while it lowers the ceiling and computes
+        // the delta set: the checks above ran under the ceiling in force at
+        // that time, and a lowering in between (while the component compiled
+        // or the native binary was staged) neither saw this plugin, which is
+        // not in `plugins` yet, nor refused it. Under the lock either the
+        // lowering already happened (refused here) or it happens after the
+        // insert (it then sees and unloads the plugin).
+        {
+            let mut plugins = self.plugins.write();
+            if let Err(e) = self.broker.policy().check_plugin_load(effective_tier) {
+                drop(plugins);
+                let _ = self.broker.unregister_plugin(&plugin_id);
+                return Err(BrokerError::from(e).into());
             }
-            std::collections::hash_map::Entry::Vacant(slot) => {
-                slot.insert(LoadedRecord {
-                    effective_tier,
-                    plugin,
-                    loaded_at: std::time::Instant::now(),
-                });
+            match plugins.entry(plugin_id.clone()) {
+                std::collections::hash_map::Entry::Occupied(_) => {
+                    return Err(RuntimeError::AlreadyLoaded(plugin_id));
+                }
+                std::collections::hash_map::Entry::Vacant(slot) => {
+                    slot.insert(LoadedRecord {
+                        effective_tier,
+                        plugin,
+                        loaded_at: std::time::Instant::now(),
+                    });
+                }
             }
         }
+        self.emit(&plugin_id, effective_tier, LifecyclePhase::Loaded);
 
         Ok(plugin_id)
     }
@@ -485,7 +502,10 @@ impl Kernel {
     /// of the lowering workflow (spec §9.4.1) — with their tier and whether
     /// they are native subprocesses, sorted by plugin id.
     pub fn plugins_above(&self, ceiling: Tier) -> Vec<LoadedPluginInfo> {
-        let plugins = self.plugins.read();
+        Self::above(&self.plugins.read(), ceiling)
+    }
+
+    fn above(plugins: &HashMap<PluginId, LoadedRecord>, ceiling: Tier) -> Vec<LoadedPluginInfo> {
         let mut v: Vec<LoadedPluginInfo> = plugins
             .iter()
             .filter(|(_, r)| r.effective_tier > ceiling)
@@ -515,18 +535,25 @@ impl Kernel {
         new: Tier,
         unload: bool,
     ) -> Result<MaxTierOutcome, Vec<LoadedPluginInfo>> {
-        let old = self.max_tier_allowed();
-        let affected = if new < old {
-            self.plugins_above(new)
-        } else {
-            Vec::new()
+        // The delta set and the ceiling change are one step under the
+        // `plugins` write lock, which a load also holds when it re-checks the
+        // ceiling and records the plugin: a load in flight either landed
+        // before (it is in the delta set and unloaded below) or lands after
+        // (it is refused with ENTANGLE-E0043). Concurrent calls serialise here.
+        let (old, affected) = {
+            let plugins = self.plugins.write();
+            let old = self.max_tier_allowed();
+            let affected = if new < old {
+                Self::above(&plugins, new)
+            } else {
+                Vec::new()
+            };
+            if !affected.is_empty() && !unload {
+                return Err(affected);
+            }
+            self.broker.set_max_tier_allowed(new);
+            (old, affected)
         };
-        if !affected.is_empty() && !unload {
-            return Err(affected);
-        }
-        // Ceiling first: a load racing with the unloads below is refused
-        // instead of slipping in above the new ceiling.
-        self.broker.set_max_tier_allowed(new);
         let mut unloaded = Vec::new();
         for info in &affected {
             // A concurrent unload by the operator is fine: the plugin is gone

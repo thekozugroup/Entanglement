@@ -533,3 +533,63 @@ async fn compile_failure_rolls_back_broker_registration() {
     // ...and the kernel holds no record either.
     assert!(kernel.list_plugins().is_empty());
 }
+
+// ── max_tier_allowed lowering (spec §9.4.1) ──────────────────────────────────
+
+/// Wait for the lifecycle event `phase` on `sub`.
+async fn wait_for_phase(
+    sub: &mut entangle_ipc::bus::Subscriber<crate::LifecycleEvent>,
+    phase: LifecyclePhase,
+) {
+    loop {
+        let env = tokio::time::timeout(Duration::from_secs(30), sub.recv())
+            .await
+            .expect("lifecycle event within 30s")
+            .expect("recv ok");
+        if env.payload.phase == phase {
+            return;
+        }
+    }
+}
+
+/// A load that the broker registered under the old ceiling but that has not
+/// yet been recorded as loaded (here: while its component compiles) must not
+/// end up loaded above a ceiling lowered in that window. Either the lowering
+/// sees and unloads it, or the load is refused with ENTANGLE-E0043.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn load_racing_a_ceiling_lowering_never_lands_above_it() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_plugin_package(dir.path(), &keypair, &loadable_wasm(), 3);
+
+    let kernel =
+        std::sync::Arc::new(Kernel::new(KernelConfig::default(), keyring).expect("kernel"));
+    let mut sub = kernel.bus().subscribe();
+    let k = kernel.clone();
+    let path = dir.path().to_path_buf();
+    let load = tokio::spawn(async move { k.load_plugin_from_dir(&path).await });
+
+    // Lower the ceiling as soon as the broker has registered the plugin, i.e.
+    // while the kernel is still compiling it.
+    wait_for_phase(&mut sub, LifecyclePhase::Registered).await;
+    let outcome = kernel
+        .apply_max_tier(Tier::Sandboxed, true)
+        .await
+        .expect("unload authorised");
+    let loaded = load.await.expect("load task");
+
+    assert_eq!(kernel.max_tier_allowed(), Tier::Sandboxed);
+    assert!(
+        kernel.plugins_above(Tier::Sandboxed).is_empty(),
+        "a tier-3 plugin is loaded under ceiling 2 (load result {loaded:?}, outcome {outcome:?})"
+    );
+    match loaded {
+        Ok(id) => assert!(outcome.unloaded.contains(&id), "{outcome:?}"),
+        Err(e) => assert!(e.to_string().contains("ENTANGLE-E0043"), "{e}"),
+    }
+    assert!(
+        kernel.broker().registered_tiers().is_empty(),
+        "no broker registration may outlive the refused or unloaded plugin"
+    );
+}
