@@ -330,3 +330,50 @@ fn purge_refuses_a_symlinked_entangle_dir_and_names_its_target() {
         "{stderr}"
     );
 }
+
+/// An explicit `--no-wrapper` wins over an opt-in recorded earlier: it
+/// writes no rc file, removes a shim already there and records the opt-out
+/// (spec §8.3 item 2).
+#[test]
+fn no_wrapper_wins_over_a_recorded_opt_in() {
+    let env = Env::new();
+    env.cmd().args(["init", "--headless"]).assert().success();
+    env.cmd().args(["wrapper", "enable"]).assert().success();
+    env.cmd().args(["wrapper", "disable"]).assert().success();
+    // Opted in by hand, with no shim installed.
+    let cfg = env.dot().join("config.toml");
+    let text = std::fs::read_to_string(&cfg).unwrap();
+    std::fs::write(
+        &cfg,
+        text.replace("[wrappers]\ninstall = false", "[wrappers]\ninstall = true"),
+    )
+    .unwrap();
+    let fish = env.home.path().join(".config/fish/conf.d/entangle.fish");
+    let has_block = |rc: &str| {
+        std::fs::read_to_string(env.home.path().join(rc))
+            .unwrap_or_default()
+            .contains(">>> entangle wrapper >>>")
+    };
+    env.cmd()
+        .args(["install", "--headless", "--no-wrapper"])
+        .assert()
+        .success();
+    assert!(
+        !has_block(".bashrc") && !has_block(".zshrc") && !fish.exists(),
+        "--no-wrapper installed the shim"
+    );
+    assert!(std::fs::read_to_string(&cfg)
+        .unwrap()
+        .contains("[wrappers]\ninstall = false"));
+
+    // And a shim installed earlier is removed.
+    env.cmd().args(["wrapper", "enable"]).assert().success();
+    assert!(has_block(".bashrc"));
+    env.cmd()
+        .args(["install", "--no-wrapper"])
+        .write_stdin("")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--no-wrapper"));
+    assert!(!has_block(".bashrc") && !has_block(".zshrc") && !fish.exists());
+}

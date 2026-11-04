@@ -2141,9 +2141,10 @@ entangle uninstall [--purge [--yes]]
 
 **`entangle install`** is the first-run path (spec §8.3): it runs `entangle
 init` when this device is not initialized (interactive, or `--headless`), asks
-whether to install the shell wrappers (§15; `--wrapper` / `--no-wrapper`; a
-choice already recorded in `[wrappers] install` is respected, and with
-`--headless` and no flag nothing is installed), and records a SHA-256 checksum
+whether to install the shell wrappers (§15; `--wrapper` / `--no-wrapper`
+win over a choice recorded in `[wrappers] install`, and `--no-wrapper` also
+removes a shim installed earlier; without a flag the recorded choice is
+respected, and with `--headless` nothing is installed), and records a SHA-256 checksum
 of each agent config file Entanglement never modifies — your
 `~/.claude/settings.json` and `~/.claude.json`, `~/.codex/config.toml`, and
 OpenCode's global `opencode.json(c)` / `config.json` — in

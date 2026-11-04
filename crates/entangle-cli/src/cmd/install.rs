@@ -2,8 +2,9 @@
 //! (spec §8.3 "Cleanup-on-uninstall" and wrapper item 2, §9.2).
 //!
 //! * **install** is the first-run path: `entangle init` when this device has
-//!   no identity yet, the wrapper question (`--wrapper` / `--no-wrapper`; a
-//!   choice already recorded in `[wrappers] install` is respected), and a
+//!   no identity yet, the wrapper question (`--wrapper` / `--no-wrapper`,
+//!   which win over a choice recorded in `[wrappers] install`; without a
+//!   flag the recorded choice is respected), and a
 //!   SHA-256 checksum of every agent config file Entanglement will never
 //!   modify (the user's own claude-code, codex and opencode configs, from the
 //!   adapter registry), kept in `~/.entangle/agent-host/install-checksums.json`.
@@ -37,7 +38,8 @@ pub struct InstallArgs {
     /// Install the shell wrappers without asking.
     #[arg(long, conflicts_with = "no_wrapper")]
     pub wrapper: bool,
-    /// Do not install the shell wrappers (records the opt-out if none was recorded).
+    /// Do not install the shell wrappers: records the opt-out and removes a
+    /// shim installed earlier, whatever choice was recorded before.
     #[arg(long)]
     pub no_wrapper: bool,
     /// Ask nothing: `entangle init --headless` when there is no identity, and
@@ -384,6 +386,15 @@ pub async fn run_install(a: InstallArgs) -> Result<i32> {
         a.no_wrapper,
     ) {
         (_, true, _) => crate::cmd::wrapper::enable()?,
+        // An explicit flag wins over a recorded choice, both ways.
+        (_, _, true) => {
+            crate::cmd::wrapper::record_opt_out()?;
+            crate::cmd::wrapper::remove_blocks()?;
+            println!(
+                "Not installing wrappers (--no-wrapper; recorded [wrappers] install = false). \
+                 `entangle wrapper enable` turns them on."
+            );
+        }
         (Some(true), _, _) => {
             println!("You opted in earlier ([wrappers] install = true); refreshing the shim.");
             crate::cmd::wrapper::enable()?;
@@ -392,13 +403,6 @@ pub async fn run_install(a: InstallArgs) -> Result<i32> {
             "Wrappers stay off: you opted out ([wrappers] install = false). `entangle wrapper \
              enable` turns them on."
         ),
-        (None, _, true) => {
-            crate::cmd::wrapper::record_opt_out()?;
-            println!(
-                "Not installing wrappers (--no-wrapper; recorded [wrappers] install = false). \
-                 `entangle wrapper enable` turns them on."
-            );
-        }
         (None, _, false) if a.headless => println!(
             "Skipped (--headless): pass --wrapper to install them, or run `entangle wrapper \
              enable` later."
