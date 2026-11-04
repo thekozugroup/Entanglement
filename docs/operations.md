@@ -2173,8 +2173,10 @@ removed, never through a symbolic link; your own configs are never touched.
    never writes them, so a change was made by you or something else; the
    files are reported, never restored);
 4. keeps `~/.entangle` (identity, paired peers, keyrings, config, plugin data)
-   unless `--purge`. `--purge` refuses while the daemon is running, reminds you
-   to `entangle backup` first, and deletes the directory only when you type
+   unless `--purge`. `--purge` refuses while the daemon is running, and when
+   `~/.entangle` is a symbolic link (deleting it would remove only the link;
+   the error names the real directory, to delete yourself) — both before
+   anything else is changed. It reminds you to `entangle backup` first, and deletes the directory only when you type
    `purge` (a `y`, or `yes |`, is not enough) or pass `--yes`
    (`ENTANGLE-E0790` otherwise).
 

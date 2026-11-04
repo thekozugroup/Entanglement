@@ -291,3 +291,42 @@ fn uninstall_removes_the_wrappers_even_when_config_toml_cannot_be_edited() {
         .unwrap()
         .contains(">>> entangle wrapper >>>"));
 }
+
+/// `--purge` on a `~/.entangle` that is a symbolic link would delete only
+/// the link while the identity key stays at its target: it refuses, names
+/// the real directory, and changes nothing.
+#[cfg(unix)]
+#[test]
+fn purge_refuses_a_symlinked_entangle_dir_and_names_its_target() {
+    let env = Env::new();
+    let data = TempDir::new().unwrap();
+    let real = data.path().join("entangle-data");
+    std::fs::create_dir(&real).unwrap();
+    std::os::unix::fs::symlink(&real, env.dot()).unwrap();
+    env.cmd().args(["init", "--headless"]).assert().success();
+    assert!(real.join("identity.key").exists());
+
+    let out = env
+        .cmd()
+        .args(["uninstall", "--purge", "--yes"])
+        .assert()
+        .get_output()
+        .clone();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !stdout.contains("Deleted"),
+        "must not claim a deletion:\n{stdout}{stderr}"
+    );
+    assert!(
+        real.join("identity.key").exists() && std::fs::symlink_metadata(env.dot()).is_ok(),
+        "nothing is deleted"
+    );
+    assert!(!out.status.success(), "{stdout}{stderr}");
+    assert!(
+        stderr.contains("ENTANGLE-E0790")
+            && stderr.contains("symbolic link")
+            && stderr.contains(&std::fs::canonicalize(&real).unwrap().display().to_string()),
+        "{stderr}"
+    );
+}

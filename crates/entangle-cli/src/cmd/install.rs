@@ -442,9 +442,24 @@ pub async fn run_install(a: InstallArgs) -> Result<i32> {
 // ---------------------------------------------------------------------------
 
 /// The directory `--purge` deletes, refusing anything that is not clearly
-/// Entanglement's own (`.entangle` or the platform data directory).
+/// Entanglement's own (`.entangle` or the platform data directory), and a
+/// symbolic link: removing one deletes the link only, while the identity key
+/// and the rest stay at its target.
 fn purge_target() -> Result<PathBuf> {
     let dir = config::entangle_dir();
+    if std::fs::symlink_metadata(&dir).is_ok_and(|m| m.file_type().is_symlink()) {
+        let real = std::fs::canonicalize(&dir).map_or_else(
+            |_| "a target that does not exist".to_owned(),
+            |p| p.display().to_string(),
+        );
+        bail!(
+            "ENTANGLE-E0790: refusing to purge {}: it is a symbolic link to {real}, and deleting \
+             it would remove only the link, leaving the identity key, paired peers and keyrings \
+             there. Back up first with `entangle backup`, then delete {real} and the link \
+             yourself. Nothing was changed.",
+            dir.display()
+        );
+    }
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let named_ours = dir
         .file_name()
@@ -480,6 +495,9 @@ pub async fn run_uninstall(a: UninstallArgs) -> Result<i32> {
              entangled`), then re-run `entangle uninstall --purge`. Nothing was changed."
         );
     }
+    // Refuse a directory --purge would not really delete before changing
+    // anything else.
+    let purge_dir = if a.purge { Some(purge_target()?) } else { None };
 
     println!("{}", st.bold("[1/4] Shell wrappers"));
     // The rc blocks are always removed: they are what Entanglement wrote
@@ -548,14 +566,7 @@ pub async fn run_uninstall(a: UninstallArgs) -> Result<i32> {
 
     println!("\n{}", st.bold("[4/4] Identity and data"));
     let dir = config::entangle_dir();
-    if !a.purge {
-        println!(
-            "Kept {} (identity, paired peers, keyrings, config, plugin data). Delete it with \
-             `entangle uninstall --purge`.",
-            dir.display()
-        );
-    } else {
-        let target = purge_target()?;
+    if let Some(target) = purge_dir {
         if !target.exists() {
             println!("{} does not exist; nothing to purge.", target.display());
         } else {
@@ -580,6 +591,12 @@ pub async fn run_uninstall(a: UninstallArgs) -> Result<i32> {
                 .with_context(|| format!("deleting {}", target.display()))?;
             println!("Deleted {}.", target.display());
         }
+    } else {
+        println!(
+            "Kept {} (identity, paired peers, keyrings, config, plugin data). Delete it with \
+             `entangle uninstall --purge`.",
+            dir.display()
+        );
     }
     println!(
         "\nThe `entangle` and `entangled` binaries (and any service unit) are not removed by \
