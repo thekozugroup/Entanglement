@@ -23,7 +23,10 @@
 //!
 //! * `Deterministic`: byte-identical (BLAKE3);
 //! * `SemanticEquivalent`: the policy's metric distance between the
-//!   accepted output and the re-run's, which must be `< threshold`.
+//!   accepted output and the re-run's, which must be `< threshold`. The two
+//!   are compared in acceptance's canonical pair order (lower output BLAKE3
+//!   first, [`crate::integrity::canonical_operands`]), so an asymmetric
+//!   metric gives the distance acceptance would give the same pair.
 //!
 //! A mismatch is an **attestation failure** ([`SpotCheckVerdict::Mismatch`],
 //! `ENTANGLE-E0319`): every remote replica that produced or agreed with the

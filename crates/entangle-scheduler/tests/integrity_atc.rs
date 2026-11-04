@@ -1838,3 +1838,99 @@ async fn a_saturated_spot_checker_skips_and_counts() {
         (1, 1, 1)
     );
 }
+
+/// A worker that answers every task frame with `bytes`, echoing the policy
+/// hash it was sent: honest-looking, executing nothing.
+fn answers(node: &Node, bytes: &'static [u8]) {
+    node.serve_rogue(move |req| RemoteTaskResponse::ok(bytes.to_vec(), req.policy_hash));
+}
+
+/// A plugin id no test node loads: the workers that receive it are rogue
+/// servers that answer without executing anything.
+fn unloaded_plugin(publisher: &IdentityKeyPair) -> PluginId {
+    format!("{}/hello@0.1.0", publisher.fingerprint_hex())
+        .parse()
+        .unwrap()
+}
+
+/// The `SemanticEquivalent` spot-check compares the re-run with the
+/// accepted output in acceptance's canonical pair order — lower output
+/// BLAKE3 first — so an asymmetric metric gives the distance acceptance
+/// would compute for the same two outputs. BLEU's brevity penalty only
+/// punishes a short *candidate* (the first operand): a longer honest re-run
+/// whose hash sorts first is within the threshold in canonical order and
+/// outside it the other way round, and must be confirmed, not flagged.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_semantic_spot_check_compares_in_the_canonical_pair_order() {
+    const ACCEPTED: &[u8] = b"the cat sat on the mat";
+    let publisher = IdentityKeyPair::generate();
+    let submitter = Node::start(&publisher).await;
+    let producers = [Node::start(&publisher).await, Node::start(&publisher).await];
+    let checker = Node::start(&publisher).await;
+    let registry = Registry::new();
+    let dispatcher = spot_checked_dispatcher(
+        &submitter,
+        &[(&producers[0], 0.0), (&producers[1], 0.0), (&checker, 0.9)],
+        ALWAYS,
+        &registry,
+    );
+    let (metric, _pkg) = load_bleu(&dispatcher, &publisher);
+
+    // A longer re-run whose BLAKE3 sorts before the accepted output's. Its
+    // last token matches nothing in the accepted output, so the distances
+    // do not depend on which variant is picked.
+    let accepted_hash = *blake3::hash(ACCEPTED).as_bytes();
+    let rerun: &'static [u8] = (0..256)
+        .map(|i| format!("the cat sat on the mat this morning again{i}").into_bytes())
+        .find(|c| *blake3::hash(c).as_bytes() < accepted_hash)
+        .expect("one of 256 variants hashes below the accepted output")
+        .leak();
+    let metrics = dispatcher.verifier().metrics();
+    let canonical = metrics.compare(&metric, rerun, ACCEPTED).await.unwrap();
+    let reversed = metrics.compare(&metric, ACCEPTED, rerun).await.unwrap();
+    assert!(canonical < reversed, "{canonical} vs {reversed}");
+    let threshold = (canonical + reversed) / 2.0;
+
+    for p in &producers {
+        answers(p, ACCEPTED);
+    }
+    answers(&checker, rerun);
+    let policy = IntegrityPolicy::SemanticEquivalent {
+        replicas: 2,
+        quorum: 1,
+        metric: metric.clone(),
+        threshold,
+    };
+    let result = deadline(
+        "semantic task",
+        dispatcher.dispatch_one_shot(task(unloaded_plugin(&publisher), b"world", policy)),
+    )
+    .await
+    .expect("the two producers agree");
+    assert_eq!(result.output, ACCEPTED);
+    let record = deadline(
+        "spot-check verdict",
+        result.spot_check.handle().expect("scheduled").outcome(),
+    )
+    .await
+    .expect("the spot-check finishes");
+    assert_eq!(record.checker, checker.peer_id);
+    assert_eq!(
+        record.distance,
+        Some(canonical),
+        "the distance acceptance would compute"
+    );
+    assert!(
+        matches!(record.verdict, SpotCheckVerdict::Confirmed),
+        "{:?}",
+        record.verdict
+    );
+    assert!(record.penalised.is_empty(), "{:?}", record.penalised);
+    let rep = dispatcher.verifier().reputation();
+    for p in &producers {
+        assert_eq!(
+            rep.get(&p.peer_id, PolicyKind::SemanticEquivalent),
+            INITIAL_SCORE
+        );
+    }
+}

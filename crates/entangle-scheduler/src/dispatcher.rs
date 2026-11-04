@@ -31,8 +31,8 @@
 
 use crate::{
     integrity::{
-        replica_count, IntegrityVerifier, OutputSizeExceededWarning, ReplicaBytes, ReplicaReport,
-        ReplicaResult, ReplicaStatus,
+        canonical_operands, replica_count, IntegrityVerifier, OutputSizeExceededWarning,
+        ReplicaBytes, ReplicaReport, ReplicaResult, ReplicaStatus,
     },
     placement::{choose, rank, PlacementChoice, PlacementError},
     remote::RemoteDispatch,
@@ -880,12 +880,12 @@ impl Dispatcher {
                 metric, threshold, ..
             } if rerun_blake3 != accepted.blake3 => {
                 let accepted_bytes = accepted.bytes.as_deref().unwrap_or_default();
-                match self
-                    .verifier
-                    .metrics()
-                    .compare(metric, accepted_bytes, &out.bytes)
-                    .await
-                {
+                // In acceptance's pair order: a metric may be asymmetric.
+                let (a, b) = canonical_operands(
+                    (accepted_bytes, &accepted.blake3),
+                    (&out.bytes, &rerun_blake3),
+                );
+                match self.verifier.metrics().compare(metric, a, b).await {
                     Ok(d) => {
                         record.distance = Some(d);
                         (d >= *threshold).then(|| {
