@@ -570,6 +570,7 @@ pub fn build_wasm_in(
     target: &str,
     target_dir: Option<&Path>,
 ) -> Result<WasmBuild> {
+    let cargo_manifest = &absolute_manifest(cargo_manifest)?;
     // ATC-PKG-3: refuse before touching rustup, cargo, or the network.
     let project = cargo_manifest
         .parent()
@@ -652,6 +653,15 @@ pub fn build_wasm_in(
     })
 }
 
+/// `cargo_manifest` made absolute. cargo runs with the project as its
+/// working directory (so the project's rust-toolchain.toml and .cargo/config
+/// apply), and a relative `--manifest-path` would then resolve against the
+/// wrong directory.
+fn absolute_manifest(cargo_manifest: &Path) -> Result<PathBuf> {
+    std::path::absolute(cargo_manifest)
+        .with_context(|| format!("resolving {}", cargo_manifest.display()))
+}
+
 fn project_dir_for(cargo_manifest: &Path) -> PathBuf {
     cargo_manifest
         .parent()
@@ -662,6 +672,7 @@ fn project_dir_for(cargo_manifest: &Path) -> PathBuf {
 
 /// Compile a native plugin for the host and return the executable's path.
 fn build_native(cargo_manifest: &Path) -> Result<PathBuf> {
+    let cargo_manifest = &absolute_manifest(cargo_manifest)?;
     repro::require_lockfile(&project_dir_for(cargo_manifest))?;
     let info = cargo_metadata(cargo_manifest)?;
     let bin = match info.bins.as_slice() {

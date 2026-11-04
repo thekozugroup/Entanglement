@@ -292,6 +292,40 @@ fn a_project_path_with_a_space_builds_and_rebuild_verifies() {
         .stdout(predicate::str::contains("PASS"));
 }
 
+/// `entangle plugins build examples/hello-world` from the repository root is
+/// the documented invocation (and what reproducibility.yml runs): a relative
+/// project path must build, and rebuild-verify, like an absolute one.
+#[test]
+fn a_relative_project_path_builds_and_rebuild_verifies() {
+    let home = TempDir::new().unwrap();
+    trust_fixture_key(home.path());
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
+    entangle(home.path())
+        .current_dir(root.path())
+        .env_remove("CARGO_TARGET_DIR")
+        .args(["plugins", "build", "tiny", "--key"])
+        .arg(key())
+        .assert()
+        .success();
+    let archive = project.join("dist/tiny-0.1.0.tar.zst");
+    assert!(archive.is_file());
+    entangle(home.path())
+        .current_dir(root.path())
+        .env_remove("CARGO_TARGET_DIR")
+        .args([
+            "plugins",
+            "verify",
+            "--rebuild",
+            "tiny/dist/tiny-0.1.0.tar.zst",
+            "--source",
+            "tiny",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("PASS"));
+}
+
 // ---------------------------------------------------------------------------
 // ATC-PKG-2 (structural: one process cannot run three hosts)
 // ---------------------------------------------------------------------------
