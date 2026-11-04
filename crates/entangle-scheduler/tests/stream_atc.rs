@@ -785,6 +785,10 @@ fn atc_str_1_credit_exhaustion_stalls_at_timeout() {
     let mut task = StreamingTask::with_defaults(plugin_id(), vec![]);
     task.channel.credit_window = 4;
     task.channel.credit_exhaustion_timeout_ms = 5_000;
+    // A 1 s heartbeat: three unanswered Pings would close the stream at 3 s,
+    // before the 5 s stall, so "still Active" below is only possible if the
+    // heartbeats really were answered.
+    task.channel.heartbeat_ms = 1_000;
     let mut sim = Sim::new(&task);
 
     // Some time into the stream, the executor produces its window's worth.
@@ -1570,4 +1574,39 @@ async fn stream_lines_end_to_end_over_two_loopback_iroh_nodes() {
 
     a.shutdown().await;
     b.shutdown().await;
+}
+
+/// A stream that ends before the plugin returns (cancel, PeerLost, a size
+/// cap) drops the `invoke_stream` future, which must still publish `Idled`
+/// for the `Activated` it published, or lifecycle subscribers see the plugin
+/// as active forever.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_aborted_stream_still_publishes_idled() {
+    use entangle_runtime::LifecyclePhase;
+
+    let plugins = plugins().await;
+    let mut sub = plugins.kernel.bus().subscribe();
+    // Keep the driver end alive so the guest parks in `next-chunk` instead
+    // of seeing its input close and returning.
+    let (port, _driver) = entangle_host::stream_port(1);
+    let kernel = plugins.kernel.clone();
+    let id = plugins.stream_lines.clone();
+    let run =
+        tokio::spawn(async move { kernel.invoke_stream(&id, b"", port, 30_000).await.map(|_| ()) });
+
+    let activated = tokio::time::timeout(TEST_DEADLINE, sub.recv())
+        .await
+        .expect("Activated in time")
+        .expect("recv");
+    assert_eq!(activated.payload.phase, LifecyclePhase::Activated);
+    // The stream ends early: the executor driver drops the plugin future.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    run.abort();
+    let _ = run.await;
+
+    let idled = tokio::time::timeout(Duration::from_secs(5), sub.recv())
+        .await
+        .expect("Idled must follow an aborted stream")
+        .expect("recv");
+    assert_eq!(idled.payload.phase, LifecyclePhase::Idled);
 }

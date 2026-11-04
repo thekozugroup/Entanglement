@@ -282,10 +282,10 @@ fn pings_flow_while_data_credit_is_zero() {
         p.send(&[i]);
     }
     p.pump();
-    // Nobody consumes and no credit flows, yet four heartbeats later
-    // neither side has lost the other.
-    p.advance(p.t0 + Duration::from_secs(4));
-    p.advance(p.t0 + Duration::from_secs(4) + 4 * SEC);
+    // Nobody consumes and no credit flows, yet well past three heartbeat
+    // intervals (the PeerLost threshold at the default 5 s) neither side has
+    // lost the other: only answered Pings can explain that.
+    p.advance(p.t0 + Duration::from_secs(20));
     assert!(matches!(
         p.exec.state(),
         ExecutorState::Active | ExecutorState::Stalled { .. }

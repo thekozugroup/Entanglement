@@ -296,6 +296,14 @@ impl Kernel {
         };
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
+        // A stream routinely ends before the plugin returns (cancel, PeerLost,
+        // a size cap): the caller then drops this future. A drop guard
+        // publishes `Idled` on that path as well as on normal return.
+        let _idle = IdleOnDrop {
+            kernel: self,
+            plugin_id,
+            effective_tier,
+        };
         let result = plugin
             .run_stream(
                 &self.engine,
@@ -305,7 +313,6 @@ impl Kernel {
                 entangle_host::state::ResourceLimits::default(),
             )
             .await;
-        self.emit(plugin_id, effective_tier, LifecyclePhase::Idled);
         Ok(result?)
     }
 
@@ -467,4 +474,19 @@ fn parse_manifest(bytes: &[u8]) -> Result<ValidatedManifest, RuntimeError> {
     let raw: entangle_manifest::schema::Manifest =
         toml::from_str(text).map_err(|e| RuntimeError::Manifest(LoadError::Parse(e)))?;
     Ok(validate(raw)?)
+}
+
+/// Publishes [`LifecyclePhase::Idled`] when dropped, so a stream future that
+/// is dropped mid-run still balances its `Activated`.
+struct IdleOnDrop<'a> {
+    kernel: &'a Kernel,
+    plugin_id: &'a PluginId,
+    effective_tier: Tier,
+}
+
+impl Drop for IdleOnDrop<'_> {
+    fn drop(&mut self) {
+        self.kernel
+            .emit(self.plugin_id, self.effective_tier, LifecyclePhase::Idled);
+    }
 }
