@@ -7,12 +7,13 @@
 //! |-------------|--------------------------------|
 //! | E0042–E0043 | Tier violations                |
 //! | E0100–E0122 | Authentication / authorisation |
-//! | E0200–E0201 | Manifest / plugin id           |
+//! | E0200–E0203 | Manifest / plugin id; capability parameters (E0202 malformed, E0203 unknown; see `entangle-manifest`) |
 //! | E0300–E0301 | Task execution                 |
 //! | E0302–E0305 | Integrity policy (see `entangle-runtime`) |
 //! | E0306–E0349 | Integrity verification: metrics, policy envelope, quorum (`entangle_runtime::IntegrityError`; E0306–E0318 in use) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
-//! | E0507–E0519 | Host artifact checks, e.g. runtime-kind sniffing (see `entangle-host`) |
+//! | E0507       | Host artifact checks: runtime-kind sniffing (see `entangle-host`) |
+//! | E0508–E0519 | Host: realising capability grants in a wasm instance (storage root, scope directories, unsafe paths; E0508–E0510 in use; see `entangle-host`) |
 //! | E0600–E0629 | Agent host: adapters, MCP gateway (see `entangle-agent-host`) |
 //! | E0630–E0639 | `mesh.iroh` transport (see `entangle-mesh-iroh`) |
 //! | E0640–E0649 | `mesh.tailscale` transport (see `entangle-mesh-tailscale`) |
@@ -26,7 +27,9 @@
 //! | E9999       | Internal / unexpected          |
 //!
 //! Other crates layer their own codes into the gaps between these ranges —
-//! `entangle-broker` owns E0050 and E0123, and E0400–E0425 belong to the
+//! `entangle-broker` owns E0050 and E0123–E0127 (E0124 operator
+//! `deny_capabilities` refusal, E0125 revoked capability, E0126 invalid deny
+//! pattern, E0127 tier ceiling on a grant), and E0400–E0425 belong to the
 //! broker / biscuits cross-node paths. The table above is therefore *this
 //! crate's* view, not a workspace-wide registry.
 //!
