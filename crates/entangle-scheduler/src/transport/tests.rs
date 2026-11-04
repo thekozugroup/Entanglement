@@ -556,6 +556,90 @@ async fn a_failure_after_the_request_was_sent_is_never_retried_elsewhere() {
     assert_eq!(iroh.calls(), 0);
 }
 
+fn stream_task(p: PeerId) -> StreamingTask {
+    let mut task = StreamingTask::with_defaults(
+        "0123456789abcdef0123456789abcdef/demo@1.0.0"
+            .parse()
+            .unwrap(),
+        Vec::new(),
+    );
+    task.integrity = entangle_types::task::IntegrityPolicy::TrustedExecutor { allowlist: vec![p] };
+    task
+}
+
+/// Stream opens follow the one-shot rules: a connect failure falls back
+/// (and is counted under the transport that carried the stream), while a
+/// failure once the connection was up is never retried elsewhere.
+#[tokio::test]
+async fn a_stream_open_falls_back_on_connect_failure_but_is_never_retried_after_it_started() {
+    let p = peer(1);
+    let registry = entangle_observability::Registry::new();
+    let ts = Scripted::new(TransportKind::Tailscale, p, || {
+        Err(LinkError::Connect("refused".into()))
+    });
+    let iroh = Scripted::answering(TransportKind::Iroh, p);
+    let r = router(&[ts.clone(), iroh.clone()]).with_metrics(registry.clone());
+    let handle = r
+        .open_stream(p, &stream_task(p), StreamOptions::default())
+        .await
+        .expect("iroh carries the stream");
+    assert_eq!(handle.executor(), p);
+    assert_eq!((ts.calls(), iroh.calls()), (1, 1));
+    assert_eq!(
+        r.last_route(&p).map(|rec| rec.transport),
+        Some(TransportKind::Iroh)
+    );
+    let opens = |outcome: &str, transport: &str| {
+        registry
+            .value(
+                entangle_observability::catalog::names::REMOTE_STREAM_OPENS,
+                &[("outcome", outcome), ("transport", transport)],
+            )
+            .unwrap_or(0.0)
+    };
+    assert_eq!(opens("ok", "iroh"), 1.0);
+    assert_eq!(opens("ok", "tailscale"), 0.0);
+
+    // The connection was up when it failed: the Open frame may have been
+    // delivered, so the second transport is never offered the stream.
+    let ts = Scripted::new(TransportKind::Tailscale, p, || {
+        Err(LinkError::Transport("reset after Open".into()))
+    });
+    let iroh = Scripted::answering(TransportKind::Iroh, p);
+    let r = router(&[ts.clone(), iroh.clone()]);
+    let err = r
+        .open_stream(p, &stream_task(p), StreamOptions::default())
+        .await
+        .err()
+        .expect("a transport failure after connecting is an error");
+    assert!(err.to_string().contains("ENTANGLE-E0432"), "{err}");
+    assert_eq!((ts.calls(), iroh.calls()), (1, 0));
+}
+
+/// A stream cut before the executor's signed End is an interruption, never
+/// a clean completion.
+#[tokio::test]
+async fn a_stream_cut_before_its_end_is_interrupted_not_complete() {
+    let p = peer(1);
+    let ts = Scripted::answering(TransportKind::Tailscale, p);
+    let r = router(&[ts.clone()]);
+    let mut handle = r
+        .open_stream(p, &stream_task(p), StreamOptions::default())
+        .await
+        .unwrap();
+    // The far end goes away without sending End.
+    ts.far_ends.lock().clear();
+    let _ = handle.finish_input().await;
+    let result = tokio::time::timeout(Duration::from_secs(5), handle.collect())
+        .await
+        .expect("a cut stream ends");
+    assert!(
+        matches!(result.outcome, crate::stream::StreamOutcome::Interrupted(_)),
+        "{:?}",
+        result.outcome
+    );
+}
+
 #[tokio::test]
 async fn preferred_and_overrides_pick_the_first_candidate() {
     let p = peer(1);

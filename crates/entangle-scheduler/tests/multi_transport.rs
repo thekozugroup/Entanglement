@@ -587,12 +587,29 @@ async fn a_connect_failure_on_the_first_candidate_falls_back_to_the_next() {
     a.discover(&b).await;
     // B's tailnet listener goes away after discovery: dialling it is refused.
     b.tailnet.shutdown().await;
-    let router = a.router(&b, RoutePolicy::new());
+    let metrics = Registry::new();
+    let router = Arc::new(
+        TransportRouter::new(a.peer_id)
+            .with_link(a.iroh_link(&b))
+            .with_link(a.tailnet_link())
+            .with_policy(RoutePolicy::new())
+            .with_metrics(metrics.clone()),
+    );
     let client = RemoteDispatch::with_router(Arc::clone(&router));
     let (out, kind) = run(&client, &one_shot(&b.hello, b"fallback"), b.peer_id).await;
     assert_eq!(out.unwrap(), b"Hello, fallback!");
     assert_eq!(kind, Some(TransportKind::Iroh));
     assert_eq!(b.served("ok", "iroh"), 1.0);
+    // The tailnet was dialled first and failed: it is now demoted behind iroh.
+    let order = |r: &TransportRouter, p: &PeerId| -> Vec<TransportKind> {
+        r.plan(p).candidates.iter().map(|c| c.transport).collect()
+    };
+    assert_eq!(
+        order(&router, &b.peer_id),
+        [TransportKind::Iroh, TransportKind::Tailscale],
+        "a failed tailnet dial demotes the tailnet candidate"
+    );
+    assert_eq!(b.served("ok", "tailscale"), 0.0);
 
     // Streams fall back the same way.
     let mut task = StreamingTask::with_defaults(b.lines.clone(), b"x\n".to_vec());
@@ -612,6 +629,25 @@ async fn a_connect_failure_on_the_first_candidate_falls_back_to_the_next() {
         "{:?}",
         result.outcome
     );
+    assert_eq!(
+        router.last_route(&b.peer_id).map(|r| r.transport),
+        Some(TransportKind::Iroh)
+    );
+    assert_eq!(
+        metrics.value(
+            names::REMOTE_STREAM_OPENS,
+            &[("outcome", "ok"), ("transport", "iroh")]
+        ),
+        Some(1.0)
+    );
+    assert_eq!(
+        metrics.value(
+            names::REMOTE_STREAM_OPENS,
+            &[("outcome", "ok"), ("transport", "tailscale")]
+        ),
+        None,
+        "no stream ran over the dead tailnet listener"
+    );
 
     // A peer rejected by the tailnet transport's ACL (not on its allowlist)
     // is a setup failure too: nothing was sent, so iroh is tried — where
@@ -619,13 +655,25 @@ async fn a_connect_failure_on_the_first_candidate_falls_back_to_the_next() {
     let c = Submitter::start().await;
     let d = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
     c.discover(&d).await;
+    let router_c = c.router(&d, RoutePolicy::new());
+    assert_eq!(
+        order(&router_c, &d.peer_id),
+        [TransportKind::Tailscale, TransportKind::Iroh],
+        "the tailnet is the first candidate for the stranger"
+    );
     let (out, kind) = run(
-        &RemoteDispatch::with_router(c.router(&d, RoutePolicy::new())),
+        &RemoteDispatch::with_router(Arc::clone(&router_c)),
         &one_shot(&d.hello, b"c"),
         d.peer_id,
     )
     .await;
     assert_eq!(kind, Some(TransportKind::Iroh));
+    assert_eq!(
+        order(&router_c, &d.peer_id),
+        [TransportKind::Iroh, TransportKind::Tailscale],
+        "the tailnet dial was attempted, failed, and is demoted"
+    );
+    assert_eq!(d.served("ok", "tailscale"), 0.0);
     assert!(
         matches!(
             out,
