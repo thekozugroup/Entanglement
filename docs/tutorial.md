@@ -496,14 +496,14 @@ not walked through here. Commands and flags are in
 | Capability grants (`entangle perms`) and `entangle security set-max-tier` | operations.md |
 | OCI publish and pull (`plugins publish`, `plugins install oci://...`) | operations.md |
 | Metrics, traces, `entangle diag mesh` | operations.md |
+| Backup and restore (`entangle backup`, `entangle restore`) | operations.md §7 |
+| `entangle plugins enable` and `disable` | operations.md |
 
 Not implemented: `Attested` integrity (needs TEE hardware), native Windows,
 `entangle install`, `entangle logs`, `entangle upgrade`, `entangle trace task`.
-On unmerged branches, not in this tree: `entangle backup` / `restore`,
-`entangle plugins enable|disable`.
 
 If you encounter an error code not listed in this tutorial, check the full
-error reference in [architecture.md §appendix-errors](architecture.md#appendix-errors).
+error reference in [operations.md §6](operations.md#6-reading-entangle-exxxx-error-codes).
 
 ---
 
