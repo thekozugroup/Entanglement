@@ -1516,4 +1516,167 @@ mod tests {
         assert_eq!(lowered.max_input_bytes, 64);
         assert_eq!(lowered.max_output_bytes, 128);
     }
+
+    // ── capability tokens across transport fallback ─────────────────────
+
+    use crate::capability::{test_clock, HeldToken, StaticTokens, REQUEST_TOKEN_TTL_SECS};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// A dial target for `key`, as a link would hand the router.
+    fn target_for(key: [u8; 32]) -> DialTarget {
+        DialTarget::Iroh(IrohPeer::new(key, "127.0.0.1:9".parse().expect("addr")))
+    }
+
+    /// A link whose dial takes `takes_secs` of token-clock time and then
+    /// fails to connect, as a stale LAN address does: nothing is sent.
+    #[derive(Debug)]
+    struct SlowDial {
+        worker_key: [u8; 32],
+        takes_secs: i64,
+        dials: AtomicUsize,
+    }
+
+    #[async_trait::async_trait]
+    impl Link for SlowDial {
+        fn kind(&self) -> TransportKind {
+            TransportKind::Local
+        }
+        fn target(&self, _peer: &PeerId) -> Option<DialTarget> {
+            Some(target_for(self.worker_key))
+        }
+        async fn request(
+            &self,
+            _target: &DialTarget,
+            _payload: &[u8],
+            _connecting: &Connecting,
+        ) -> Result<Vec<u8>, LinkError> {
+            self.dials.fetch_add(1, Ordering::SeqCst);
+            test_clock::advance(self.takes_secs);
+            Err(LinkError::Connect(format!(
+                "dial timed out after {}s",
+                self.takes_secs
+            )))
+        }
+        async fn open_stream(
+            &self,
+            _target: &DialTarget,
+        ) -> Result<crate::transport::StreamIo, LinkError> {
+            Err(LinkError::Connect("no streams".into()))
+        }
+    }
+
+    /// A link that connects at once and hands the frame to `server`, as the
+    /// submitter `from` (what the transport would have authenticated).
+    #[derive(Debug)]
+    struct InProcess {
+        worker_key: [u8; 32],
+        from: PeerId,
+        server: Arc<RemoteTaskServer>,
+    }
+
+    #[async_trait::async_trait]
+    impl Link for InProcess {
+        fn kind(&self) -> TransportKind {
+            TransportKind::Iroh
+        }
+        fn target(&self, _peer: &PeerId) -> Option<DialTarget> {
+            Some(target_for(self.worker_key))
+        }
+        async fn request(
+            &self,
+            _target: &DialTarget,
+            payload: &[u8],
+            connecting: &Connecting,
+        ) -> Result<Vec<u8>, LinkError> {
+            connecting.connected();
+            Ok(self
+                .server
+                .handle_via(self.from, payload.to_vec(), TransportKind::Iroh)
+                .await)
+        }
+        async fn open_stream(
+            &self,
+            _target: &DialTarget,
+        ) -> Result<crate::transport::StreamIo, LinkError> {
+            Err(LinkError::Connect("no streams".into()))
+        }
+    }
+
+    /// Review finding L3, case 1: the router's fallback across transports
+    /// must not consume the capability token's lifetime. The first
+    /// candidate's dial takes longer than the token's 60 s before it fails;
+    /// the frame then goes out on the second and must still verify — its
+    /// token is attenuated for that attempt, once the link has connected,
+    /// not once per dispatch before routing.
+    ///
+    /// (The task's plugin is not loaded on the worker: `PluginNotLoaded`
+    /// is what a request the capability gate admitted gets.)
+    #[tokio::test]
+    async fn a_token_outlives_a_transport_fallback_longer_than_its_ttl() {
+        let worker = entangle_signing::IdentityKeyPair::generate();
+        let submitter = entangle_signing::IdentityKeyPair::generate();
+        let worker_key = *worker.public().as_bytes();
+        let worker_id = PeerId::from_public_key_bytes(&worker_key);
+        let submitter_id = PeerId::from_public_key_bytes(submitter.public().as_bytes());
+
+        let checks = entangle_observability::Registry::new();
+        let gate = CapabilityGate::for_identity(&worker)
+            .expect("gate")
+            .with_metrics(checks.clone());
+        let kernel = Arc::new(
+            Kernel::new(
+                entangle_runtime::KernelConfig::default(),
+                entangle_signing::Keyring::new(),
+            )
+            .expect("kernel"),
+        );
+        let server = Arc::new(RemoteTaskServer::new(
+            kernel,
+            Arc::new(StaticAllowlist::new().allow(submitter_id)),
+            Arc::new(gate),
+        ));
+
+        let slow = Arc::new(SlowDial {
+            worker_key,
+            takes_secs: REQUEST_TOKEN_TTL_SECS + 1,
+            dials: AtomicUsize::new(0),
+        });
+        let tokens = StaticTokens::new();
+        tokens.insert(
+            worker_id,
+            HeldToken::minted(&worker, submitter_id).expect("mint"),
+        );
+        let router = TransportRouter::new(submitter_id)
+            .with_link(Arc::clone(&slow) as Arc<dyn Link>)
+            .with_link(Arc::new(InProcess {
+                worker_key,
+                from: submitter_id,
+                server,
+            }))
+            .with_capability_tokens(Arc::new(tokens));
+        let client = RemoteDispatch::with_router(Arc::new(router));
+
+        let (task, env) = small_task();
+        let (result, kind) = client.dispatch_sealed_routed(&task, worker_id, &env).await;
+        assert_eq!(slow.dials.load(Ordering::SeqCst), 1, "local was tried first");
+        assert!(
+            test_clock::offset() > REQUEST_TOKEN_TTL_SECS,
+            "the failed dial outlasted a token's lifetime"
+        );
+        assert_eq!(kind, Some(TransportKind::Iroh));
+        match result {
+            Err(DispatchError::RemoteRejected {
+                code: RemoteErrorCode::PluginNotLoaded,
+                ..
+            }) => {}
+            other => panic!("the worker's capability gate must admit the frame, got {other:?}"),
+        }
+        assert_eq!(
+            checks.value(
+                entangle_observability::catalog::names::REMOTE_CAPABILITY,
+                &[("path", "task"), ("outcome", "ok")]
+            ),
+            Some(1.0)
+        );
+    }
 }

@@ -1354,3 +1354,112 @@ async fn malformed_token_bytes_are_refused() {
         b_events
     );
 }
+
+// ── late arrival: the grace a large frame earns ──────────────────────────────
+//
+// The worker checks a token's expiry only once the whole frame is in, so a
+// large input on a slow link can arrive after its token's 60 s. The rule
+// (`entangle_biscuits::templates::late_arrival_grace_secs`): one second of
+// grace per 256 KiB of the frame as the transport received it (integer
+// division: under 256 KiB there is none), capped; the token is expired only
+// once `now >= expires + grace`. These tests make a frame "arrive late" by
+// presenting a token that expired before it was sent.
+
+/// One second of grace per this many received bytes (the documented rule).
+const GRACE_BYTES_PER_SEC: usize = 256 * 1024;
+
+/// A task frame for `plugin` with `input_len` bytes of input, carrying a
+/// token that A presents for it but which expired `expired_secs_ago`
+/// seconds ago (a fresh nonce `nonce`), and that frame's grace.
+fn late_frame(p: &Pair, input_len: usize, expired_secs_ago: i64, nonce: u8) -> (RemoteRequest, i64) {
+    let request = task_request(&p.plugin, &vec![b'a'; input_len]);
+    let held = p.b.issue_to(&p.a);
+    let token = attenuate_for_request(
+        &held.token,
+        &held.issuer_public_key,
+        &RequestRestrictions {
+            expires: now_unix_secs() - expired_secs_ago,
+            nonce: [nonce; 16],
+            binding: binding_of(&request),
+        },
+    )
+    .unwrap();
+    let request = with_token(request, Some(token));
+    let frame_len = encode_request(&request).expect("encode").len();
+    let grace = i64::try_from(frame_len / GRACE_BYTES_PER_SEC).unwrap();
+    (request, grace)
+}
+
+/// The expected output of hello-pong for `input_len` bytes of `a`.
+fn hello_for(input_len: usize) -> Vec<u8> {
+    let mut out = b"Hello, ".to_vec();
+    out.extend(std::iter::repeat_n(b'a', input_len));
+    out.push(b'!');
+    out
+}
+
+/// A 4 MiB frame (16 s of grace) whose token expired 4 s before it was
+/// sent arrives inside its grace: it verifies and runs.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_large_frame_arriving_after_expiry_but_inside_its_grace_runs() {
+    let p = pair_with(&[], None).await;
+    let input_len = 4 * 1024 * 1024;
+    let (request, grace) = late_frame(&p, input_len, 4, 1);
+    assert_eq!(grace, 16, "a 4 MiB frame earns 16 s");
+    match send_raw(&p.a, &p.b, &request).await {
+        RemoteOutcome::Ok { output, .. } => assert_eq!(output, hello_for(input_len)),
+        other => panic!("a late frame inside its grace must run, got {other:?}"),
+    }
+}
+
+/// The same 4 MiB frame once its grace has passed too
+/// (`now >= expires + grace`) is refused as expired, with E0412.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_large_frame_arriving_after_its_grace_is_refused_as_expired() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let (request, grace) = late_frame(&p, 4 * 1024 * 1024, 16, 1);
+    assert_eq!(grace, 16);
+    assert_refused!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0412",
+        b_events
+    );
+}
+
+/// A frame under 256 KiB earns no grace: one second late is expired.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_frame_under_256_kib_earns_no_grace() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let (request, grace) = late_frame(&p, 200 * 1024, 1, 1);
+    assert_eq!(grace, 0);
+    assert_refused!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0412",
+        b_events
+    );
+}
+
+/// Inside the grace window the nonce is still remembered: the same late
+/// frame sent again is refused as a replay (E0458), not run twice.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_replay_inside_the_grace_window_is_refused() {
+    let p = pair_with(&[], None).await;
+    let input_len = 4 * 1024 * 1024;
+    let (request, grace) = late_frame(&p, input_len, 2, 1);
+    assert_eq!(grace, 16);
+    match send_raw(&p.a, &p.b, &request).await {
+        RemoteOutcome::Ok { output, .. } => assert_eq!(output, hello_for(input_len)),
+        other => panic!("the first late frame inside its grace must run, got {other:?}"),
+    }
+    let mut b_events = p.b.kernel.bus().subscribe();
+    assert_refused!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0458",
+        b_events
+    );
+}

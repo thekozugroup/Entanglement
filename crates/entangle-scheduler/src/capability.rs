@@ -103,8 +103,44 @@ impl HeldToken {
             &self.token,
             &self.issuer_public_key,
             binding,
-            templates::now_unix_secs(),
+            token_clock(),
         )
+    }
+}
+
+/// The clock tokens are presented and verified against: the wall clock
+/// (Unix seconds), which this crate's unit tests can move (`test_clock`).
+fn token_clock() -> i64 {
+    let now = templates::now_unix_secs();
+    #[cfg(test)]
+    let now = now.saturating_add(test_clock::offset());
+    now
+}
+
+/// A time source for this crate's unit tests only: moves the clock that
+/// [`HeldToken::present`] and [`CapabilityGate::check`] read, so a test can
+/// let a token's lifetime pass without waiting for it.
+///
+/// The offset is per thread: a test that moves it runs on a current-thread
+/// runtime (`#[tokio::test]`'s default), where every task it spawns — the
+/// dispatch, the links, the server — runs on the test's own thread, and
+/// tests running in parallel never see each other's clock.
+#[cfg(test)]
+pub(crate) mod test_clock {
+    use std::cell::Cell;
+
+    thread_local! {
+        static OFFSET: Cell<i64> = const { Cell::new(0) };
+    }
+
+    /// Move this thread's token clock forward by `secs`.
+    pub(crate) fn advance(secs: i64) {
+        OFFSET.with(|o| o.set(o.get().saturating_add(secs)));
+    }
+
+    /// How far this thread's token clock is ahead of the wall clock.
+    pub(crate) fn offset() -> i64 {
+        OFFSET.with(Cell::get)
     }
 }
 
@@ -356,7 +392,7 @@ impl CapabilityGate {
         let started = std::time::Instant::now();
         let result = self
             .verifier
-            .verify(token, presenter, binding, path.operation());
+            .verify_at(token, presenter, binding, path.operation(), token_clock());
         if let Some(reg) = &self.metrics {
             entangle_observability::catalog::biscuit_verification(
                 reg,
