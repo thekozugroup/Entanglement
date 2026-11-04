@@ -122,6 +122,12 @@ pub const DEFAULT_PROBABILITY: f64 = 0.01;
 /// Default bound on spot-checks running at once.
 pub const DEFAULT_MAX_CONCURRENT: usize = 4;
 
+/// The largest [`SpotCheckConfig::max_concurrent`] accepted: each running
+/// spot-check holds a re-run and, for `SemanticEquivalent`, the accepted
+/// output (up to `max_output_bytes`), so a larger bound is no bound at all —
+/// and tokio's semaphore cannot hold more than `usize::MAX >> 3` permits.
+pub const MAX_CONCURRENT_LIMIT: usize = 1024;
+
 /// How many finished spot-checks [`SpotChecker::recent`] keeps.
 pub const AUDIT_CAPACITY: usize = 256;
 
@@ -141,7 +147,7 @@ pub struct SpotCheckConfig {
     /// `0` never, `1` always. Values outside the range are clamped; `NaN`
     /// counts as `0`.
     pub probability: f64,
-    /// Most spot-checks running at once (at least 1).
+    /// Most spot-checks running at once, in `1..=`[`MAX_CONCURRENT_LIMIT`].
     pub max_concurrent: usize,
 }
 
@@ -163,8 +169,8 @@ impl SpotCheckConfig {
         }
     }
 
-    /// The probability clamped into `[0, 1]` (`NaN` is `0`) and a bound of at
-    /// least 1.
+    /// The probability clamped into `[0, 1]` (`NaN` is `0`) and the bound
+    /// into `1..=`[`MAX_CONCURRENT_LIMIT`].
     pub fn normalized(self) -> Self {
         let probability = if self.probability.is_nan() {
             0.0
@@ -173,7 +179,7 @@ impl SpotCheckConfig {
         };
         Self {
             probability,
-            max_concurrent: self.max_concurrent.max(1),
+            max_concurrent: self.max_concurrent.clamp(1, MAX_CONCURRENT_LIMIT),
         }
     }
 }
@@ -577,6 +583,22 @@ mod tests {
             0.0
         );
         assert_eq!(SpotCheckConfig::default().probability, DEFAULT_PROBABILITY);
+    }
+
+    /// A bound tokio's semaphore cannot hold (it panics above
+    /// `usize::MAX >> 3` permits) is clamped, not a panic.
+    #[test]
+    fn an_oversized_concurrency_bound_is_clamped() {
+        for max_concurrent in [usize::MAX, usize::MAX >> 2, MAX_CONCURRENT_LIMIT + 1] {
+            let checker = SpotChecker::new(SpotCheckConfig {
+                probability: 1.0,
+                max_concurrent,
+            });
+            assert_eq!(checker.config().max_concurrent, MAX_CONCURRENT_LIMIT);
+            assert_eq!(checker.in_flight(), 0);
+            let _slot = checker.try_begin().expect("a slot");
+            assert_eq!(checker.in_flight(), 1);
+        }
     }
 
     #[test]

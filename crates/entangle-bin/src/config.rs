@@ -192,8 +192,10 @@ pub struct SchedulerConfig {
     /// `1` checks every eligible task. Validated when the file is loaded.
     #[serde(deserialize_with = "de_probability")]
     pub spot_check_probability: f64,
-    /// Most spot-checks running at once (at least 1); a sampled task that
-    /// finds them all busy is skipped and counted, never queued.
+    /// Most spot-checks running at once, from 1 to
+    /// `entangle_scheduler::spot_check::MAX_CONCURRENT_LIMIT` (1024); a
+    /// sampled task that finds them all busy is skipped and counted, never
+    /// queued. Validated when the file is loaded.
     #[serde(deserialize_with = "de_concurrency")]
     pub spot_check_max_concurrent: usize,
 }
@@ -237,6 +239,14 @@ fn de_concurrency<'de, D: serde::Deserializer<'de>>(d: D) -> Result<usize, D::Er
             "[scheduler] spot_check_max_concurrent must be at least 1 (set \
              spot_check_probability = 0 to disable spot-checks)",
         ));
+    }
+    let limit = entangle_scheduler::spot_check::MAX_CONCURRENT_LIMIT;
+    if n > limit {
+        return Err(serde::de::Error::custom(format!(
+            "[scheduler] spot_check_max_concurrent must be at most {limit}, got {n} (each \
+             running spot-check holds a re-run and, for semantic-equivalent, the accepted \
+             output)"
+        )));
     }
     Ok(n)
 }
@@ -664,6 +674,31 @@ max_tier_allowed = 2
         // A round trip keeps the settings.
         let again: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
         assert_eq!(again.scheduler.spot_check_max_concurrent, 2);
+    }
+
+    /// A concurrency the dispatcher cannot build (tokio's semaphore panics
+    /// above `usize::MAX >> 3` permits) is refused when the file is loaded,
+    /// not by a panic at daemon start-up; the documented bound is accepted.
+    #[test]
+    fn spot_check_concurrency_above_the_bound_fails_the_load() {
+        let limit = entangle_scheduler::spot_check::MAX_CONCURRENT_LIMIT;
+        for too_many in [
+            (limit + 1).to_string(),
+            (1u64 << 61).to_string(),
+            i64::MAX.to_string(),
+        ] {
+            let text = format!("[scheduler]\nspot_check_max_concurrent = {too_many}\n");
+            let err = toml::from_str::<Config>(&text).expect_err(&too_many);
+            assert!(
+                err.to_string().contains("spot_check_max_concurrent"),
+                "{too_many}: {err}"
+            );
+        }
+        let cfg: Config = toml::from_str(&format!(
+            "[scheduler]\nspot_check_max_concurrent = {limit}\n"
+        ))
+        .unwrap();
+        assert_eq!(cfg.scheduler.spot_check_max_concurrent, limit);
     }
 
     #[test]
