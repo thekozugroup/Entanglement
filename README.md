@@ -81,7 +81,7 @@ Not available yet:
 
 - `Attested` integrity (needs TEE hardware; returns `ENTANGLE-E0304`).
 - Native Windows (Phase 5). On Windows only WSL2 is targeted; no CI job runs on Windows or WSL2.
-- `entangle logs`, `entangle upgrade`, `entangle trace task`.
+- `entangle upgrade`.
 
 Full list with reasons: [`STATUS.md`](./STATUS.md). Changes: [`CHANGELOG.md`](./CHANGELOG.md).
 
