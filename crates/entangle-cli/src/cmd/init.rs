@@ -1,32 +1,122 @@
-//! `entangle init` — initialise the user's entangle directory (spec §9.2).
+//! `entangle init` — set up `~/.entangle` (spec §9.2, §9.1.1, §11 #16–17).
 //!
-//! Interactive mode (default): walks the operator through a 4-step wizard using
-//! `dialoguer` prompts.  `--non-interactive` skips all prompts and uses defaults,
-//! preserving the original silent behaviour for scripted use.
+//! Interactive by default: a line-based wizard (no cursor movement, plain
+//! `question [default]:` lines, see [`crate::cmd::ui`]) that asks for the
+//! device label, whether this daemon will ever talk to another node, which
+//! transports to use (detecting a Tailscale tailnet with `tailscale status
+//! --json`), the tier ceiling and how to get the identity key; then writes
+//! the files, prints what to open in a firewall (it never changes one), and
+//! offers to pair a device now.
+//!
+//! `--headless` (or the older `--non-interactive`) asks nothing: every
+//! choice comes from flags (`--single-node`, `--transport`, `--label`,
+//! `--max-tier`, `--tailscale-profile`) or defaults.
+//!
+//! Multi-node is never written with an empty allowlist: `[mesh] multi_node`
+//! stays `false` until a device is paired (the daemon would refuse to start
+//! otherwise, `ENTANGLE-E0050`), and the node's own key is never put on its
+//! allowlist. The wizard pairs now, or prints the `entangle pair` commands.
+//!
+//! Choosing `mesh.tailscale` runs the §9.1.1 checks, each failure with its
+//! message and exit code: binary missing (64), older than 1.62.0 (69,
+//! `ENTANGLE-E0791`), not logged in or stopped (65), running but offline
+//! (75), several login profiles not confirmed (64).
 
-use crate::{
-    config::{self, entangle_dir, Config, MeshConfig, SecurityConfig},
-    identity::ensure_identity,
-};
+use crate::cmd::ui::{Prompter, Style};
+use crate::config::{self, entangle_dir};
+use crate::configedit::ConfigDoc;
+use crate::identity::ensure_identity;
 use anyhow::Context;
 use clap::Args;
+use entangle_mesh_tailscale::{
+    CliStatusSource, MeshTailscaleError, StatusSource as _, TailnetState, TailscaleProfile,
+    TailscaleStatus, TailscaleVersion,
+};
 use entangle_signing::{IdentityKeyPair, Keyring};
 use std::path::{Path, PathBuf};
+use toml_edit::{Array, Value};
 
 // ---------------------------------------------------------------------------
 // CLI args
 // ---------------------------------------------------------------------------
 
-#[derive(Args, Debug, Default)]
+/// `entangle init` arguments.
+#[derive(Args, Debug, Default, Clone)]
 pub struct InitArgs {
-    /// Skip all prompts; use defaults (display_name=hostname, transports=local,
-    /// max_tier=5, action=generate).  Existing files are left in place.
+    /// Ask nothing; use flags and defaults. Older spelling of --headless.
     #[arg(long)]
     pub non_interactive: bool,
+
+    /// Ask nothing: every choice comes from the flags below or defaults
+    /// (label = host name, transports = local, max tier = 5, new identity).
+    /// Existing files are left in place.
+    #[arg(long)]
+    pub headless: bool,
+
+    /// This daemon never talks to another node: no transports.
+    #[arg(long, conflicts_with = "transport")]
+    pub single_node: bool,
+
+    /// Transports to enable, comma-separated: local, iroh, tailscale.
+    #[arg(long, value_delimiter = ',', value_name = "LIST")]
+    pub transport: Vec<String>,
+
+    /// Human-readable device label shown to paired devices (default: host name).
+    #[arg(long, alias = "identity-label", value_name = "LABEL")]
+    pub label: Option<String>,
+
+    /// The Tailscale profile (tailnet, account or id) you expect to be
+    /// active; required with --headless when several profiles exist.
+    #[arg(long, value_name = "NAME")]
+    pub tailscale_profile: Option<String>,
+
+    /// `[security] max_tier_allowed`, 1..=5 (default 5).
+    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u8).range(1..=5))]
+    pub max_tier: Option<u8>,
+}
+
+impl InitArgs {
+    fn headless(&self) -> bool {
+        self.headless || self.non_interactive
+    }
+}
+
+/// A failure that ends `init` with a specific exit code (spec §9.1.1).
+#[derive(Debug)]
+pub struct InitFailure {
+    /// Process exit code.
+    pub code: i32,
+    /// The message (may span lines).
+    pub message: String,
+}
+
+impl std::fmt::Display for InitFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for InitFailure {}
+
+/// `EX_USAGE`.
+const EXIT_USAGE: i32 = 64;
+/// `EX_DATAERR`: the tailnet is not usable as it is.
+const EXIT_TAILNET: i32 = 65;
+/// `EX_UNAVAILABLE`: the host `tailscale` is too old.
+const EXIT_UNAVAILABLE: i32 = 69;
+/// `EX_TEMPFAIL`: retry shortly.
+const EXIT_TEMPFAIL: i32 = 75;
+
+fn fail(code: i32, message: impl Into<String>) -> anyhow::Error {
+    InitFailure {
+        code,
+        message: message.into(),
+    }
+    .into()
 }
 
 // ---------------------------------------------------------------------------
-// Wizard inputs
+// Answers
 // ---------------------------------------------------------------------------
 
 enum IdentityAction {
@@ -35,14 +125,741 @@ enum IdentityAction {
 }
 
 struct WizardAnswers {
-    /// Device display name (gathered for future use in config; stored when
-    /// a `display_name` field is added to `Config`).
-    #[allow(dead_code)]
-    display_name: String,
+    label: String,
     transports: Vec<String>,
     max_tier: u8,
     action: IdentityAction,
+    /// Detection result, when tailscale was chosen.
+    tailscale: Option<TsReport>,
+    /// Ask to pair at the end (interactive only).
+    offer_pairing: bool,
 }
+
+fn check_label(label: &str) -> anyhow::Result<()> {
+    entangle_bin::config::check_label(label)
+        .map_err(|e| fail(EXIT_USAGE, format!("ENTANGLE-E0784: invalid --label: {e}")))
+}
+
+fn parse_transports(raw: &[String]) -> anyhow::Result<Vec<String>> {
+    let mut out: Vec<String> = Vec::new();
+    for t in raw.iter().map(|t| t.trim()).filter(|t| !t.is_empty()) {
+        let t = t.strip_prefix("mesh.").unwrap_or(t);
+        if !crate::cmd::configset::TRANSPORTS.contains(&t) {
+            return Err(fail(
+                EXIT_USAGE,
+                format!(
+                    "ENTANGLE-E0784: unknown transport `{t}` in --transport (expected local, iroh \
+                     or tailscale)"
+                ),
+            ));
+        }
+        if !out.iter().any(|x| x == t) {
+            out.push(t.to_owned());
+        }
+    }
+    Ok(out)
+}
+
+// ---------------------------------------------------------------------------
+// Tailscale detection (spec §9.2 step 5, §9.1.1, §11 #17)
+// ---------------------------------------------------------------------------
+
+/// What `tailscale` on this host says.
+pub(crate) struct TsReport {
+    /// The command run (`tailscale` or a configured path).
+    pub cli: String,
+    /// Where `cli` resolves on `$PATH`, when it is a bare name.
+    pub resolved: Option<PathBuf>,
+    /// `tailscale version`, or why it could not be read.
+    pub version: Result<TailscaleVersion, String>,
+    /// Classified liveness state.
+    pub state: TailnetState,
+    /// The parsed status, when there was one.
+    pub status: Option<TailscaleStatus>,
+    /// Login profiles (`tailscale switch --list`); empty when unknown.
+    pub profiles: Vec<TailscaleProfile>,
+}
+
+/// Find `cmd` on `$PATH` (a path with a `/` is returned as is when it
+/// exists).
+pub(crate) fn which(cmd: &str) -> Option<PathBuf> {
+    if cmd.contains('/') {
+        let p = PathBuf::from(cmd);
+        return p.is_file().then_some(p);
+    }
+    std::env::split_paths(&std::env::var_os("PATH")?)
+        .map(|d| d.join(cmd))
+        .find(|p| p.is_file())
+}
+
+/// Probe the host's `tailscale` (status, version, profiles).
+pub(crate) async fn detect_tailscale(cli: &str) -> TsReport {
+    let source = CliStatusSource::new(cli);
+    let obs = source.observe().await;
+    let version = match source.fetch_version().await {
+        Ok(v) => Ok(v),
+        Err(MeshTailscaleError::NotInstalled) => Err("not installed".to_owned()),
+        Err(e) => Err(e.to_string()),
+    };
+    let profiles = source.list_profiles().await.unwrap_or_default();
+    TsReport {
+        cli: cli.to_owned(),
+        resolved: which(cli),
+        version,
+        state: obs.state,
+        status: obs.status,
+        profiles,
+    }
+}
+
+impl TsReport {
+    /// The tailnet is up and this node is online in it.
+    pub fn active(&self) -> bool {
+        self.state == TailnetState::Active
+    }
+
+    fn tailnet(&self) -> String {
+        self.profiles
+            .iter()
+            .find(|p| p.active)
+            .map(|p| p.tailnet.clone())
+            .filter(|t| !t.is_empty())
+            .or_else(|| self.status.as_ref().and_then(|s| s.tailnet_name.clone()))
+            .unwrap_or_else(|| "(unnamed tailnet)".to_owned())
+    }
+
+    fn binary(&self) -> String {
+        self.resolved
+            .as_ref()
+            .map_or_else(|| self.cli.clone(), |p| p.display().to_string())
+    }
+
+    /// One line: version, binary and state.
+    pub fn summary(&self) -> String {
+        let version = match &self.version {
+            Ok(v) => format!("tailscale {v}"),
+            Err(_) => "tailscale".to_owned(),
+        };
+        match &self.state {
+            TailnetState::Active => format!(
+                "{version} at {}: tailnet '{}' is active",
+                self.binary(),
+                self.tailnet()
+            ),
+            TailnetState::Stopped { reason } => {
+                format!("{version} at {}: not active ({reason})", self.binary())
+            }
+            TailnetState::Uninstalled => "tailscale: not installed".to_owned(),
+        }
+    }
+
+    /// The §9.1.1 failure for using `mesh.tailscale` on this host, if any.
+    pub fn failure(&self) -> Option<anyhow::Error> {
+        const SKIP: &str = "If you intended to skip Tailscale: rerun with --transport local,iroh";
+        if self.state == TailnetState::Uninstalled
+            || self.version.as_ref().is_err_and(|e| e == "not installed")
+        {
+            return Some(fail(
+                EXIT_USAGE,
+                format!(
+                    "ENTANGLE-E0789: tailscale binary not found.\n  Install: \
+                     https://tailscale.com/download\n  Or: rerun with --transport local,iroh"
+                ),
+            ));
+        }
+        if let Ok(v) = self.version {
+            if let Err(e) = v.check_supported() {
+                return Some(fail(EXIT_UNAVAILABLE, e.to_string()));
+            }
+        }
+        match &self.state {
+            TailnetState::Active | TailnetState::Uninstalled => None,
+            TailnetState::Stopped { reason } if reason == "NeedsLogin" => Some(fail(
+                EXIT_TAILNET,
+                format!(
+                    "ENTANGLE-E0789: tailnet not authenticated.\n  Run 'tailscale up' then \
+                     retry.\n  {SKIP}"
+                ),
+            )),
+            TailnetState::Stopped { reason } if reason == "Self offline" => Some(fail(
+                EXIT_TEMPFAIL,
+                "ENTANGLE-E0789: tailnet authenticated but offline. Wait a few seconds and \
+                 retry, or check 'tailscale netcheck'.",
+            )),
+            TailnetState::Stopped { reason } => Some(fail(
+                EXIT_TAILNET,
+                format!(
+                    "ENTANGLE-E0789: tailnet stopped ({reason}). Run 'tailscale up' to \
+                     resume.\n  {SKIP}"
+                ),
+            )),
+        }
+    }
+}
+
+/// Several login profiles: the active one must be the one meant (spec
+/// §9.1.1). `--tailscale-profile` names it; otherwise ask (interactive) or
+/// refuse (headless).
+fn confirm_profile(
+    report: &TsReport,
+    expected: Option<&str>,
+    prompter: Option<&mut Prompter>,
+) -> anyhow::Result<()> {
+    let active = report.profiles.iter().find(|p| p.active);
+    if let Some(want) = expected {
+        return match active {
+            Some(p) if p.matches(want) => Ok(()),
+            Some(p) => Err(fail(
+                EXIT_USAGE,
+                format!(
+                    "ENTANGLE-E0784: the active Tailscale profile is '{}' ({}), not '{want}'. \
+                     Run 'tailscale switch {want}' and retry.",
+                    p.tailnet, p.account
+                ),
+            )),
+            // No profile list (an older CLI): nothing to compare against.
+            None => Ok(()),
+        };
+    }
+    if report.profiles.len() < 2 {
+        return Ok(());
+    }
+    let Some(p) = active else {
+        return Ok(());
+    };
+    let warn = format!(
+        "{} multiple tailnets/profiles detected. Active profile: '{}' ({}).\n  If this is \
+         wrong, run 'tailscale switch <profile>' or pass --tailscale-profile <name> and retry.",
+        Style::stdout().warning(),
+        p.tailnet,
+        p.account
+    );
+    match prompter {
+        Some(prompter) => {
+            println!("{warn}");
+            if prompter.confirm(&format!("Continue with '{}'?", p.tailnet), false)? {
+                Ok(())
+            } else {
+                Err(fail(
+                    EXIT_USAGE,
+                    "ENTANGLE-E0784: stopped: the active Tailscale profile was not confirmed",
+                ))
+            }
+        }
+        None => Err(fail(
+            EXIT_USAGE,
+            format!(
+                "ENTANGLE-E0784: multiple Tailscale profiles; active: '{}' ({}). Pass \
+                 --tailscale-profile {} to confirm it (or 'tailscale switch <profile>' first).",
+                p.tailnet, p.account, p.tailnet
+            ),
+        )),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Interactive wizard
+// ---------------------------------------------------------------------------
+
+async fn run_wizard(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
+    let st = Style::stdout();
+    let mut p = Prompter::new();
+    let hostname = config::host_name();
+
+    println!("Welcome to Entanglement.");
+    println!(
+        "This sets up {}: a device identity, config.toml, peers.toml and keyring.toml.",
+        entangle_dir().display()
+    );
+    println!("Each question shows its default in brackets; press Enter to accept it.");
+
+    // [1/5] label
+    println!("\n{}", st.bold("[1/5] Device label"));
+    println!("Shown to the devices you pair with, next to this device's fingerprint.");
+    let label = match &args.label {
+        Some(l) => l.clone(),
+        None => loop {
+            let l = p.text("Label", &hostname)?;
+            match entangle_bin::config::check_label(&l) {
+                Ok(()) => break l,
+                Err(e) => println!("  {e}"),
+            }
+        },
+    };
+    check_label(&label)?;
+
+    // [2/5] single-node or not, and transports
+    println!("\n{}", st.bold("[2/5] Other devices"));
+    let mut tailscale = None;
+    let transports = if args.single_node {
+        println!("Single-node (--single-node): no transports.");
+        Vec::new()
+    } else if !args.transport.is_empty() {
+        let t = parse_transports(&args.transport)?;
+        println!("Transports (--transport): {}", t.join(", "));
+        t
+    } else if !p.confirm(
+        "Will this daemon ever talk to another Entanglement node?",
+        false,
+    )? {
+        println!(
+            "Single-node: no transports. Later: `entangle config set mesh.local.enabled true` \
+             (or mesh.iroh / mesh.tailscale), then pair with `entangle pair`."
+        );
+        Vec::new()
+    } else {
+        println!("\n{}", st.bold("[3/5] Transports"));
+        println!("Checking for Tailscale (`tailscale status --json`)...");
+        let report = detect_tailscale("tailscale").await;
+        println!("  {}", report.summary());
+        let mut chosen = Vec::new();
+        if report.state != TailnetState::Uninstalled
+            && p.confirm(
+                "Use mesh.tailscale (reach your devices over your tailnet)?",
+                report.active(),
+            )?
+        {
+            // The §9.1.1 checks right away, while the tailnet is the topic.
+            if let Some(e) = report.failure() {
+                return Err(e);
+            }
+            confirm_profile(&report, args.tailscale_profile.as_deref(), Some(&mut p))?;
+            chosen.push("tailscale".to_owned());
+            tailscale = Some(report);
+        }
+        if p.confirm("Use mesh.local (find devices on this LAN over mDNS)?", true)? {
+            chosen.push("local".to_owned());
+        }
+        if p.confirm(
+            "Use mesh.iroh (QUIC across networks with NAT traversal; also carries work to LAN \
+             peers found by mesh.local)?",
+            chosen.iter().any(|t| t == "local"),
+        )? {
+            chosen.push("iroh".to_owned());
+        }
+        if chosen.is_empty() {
+            println!("No transport chosen: this node is single-node.");
+        }
+        chosen
+    };
+    if tailscale.is_none() && transports.iter().any(|t| t == "tailscale") {
+        // Chosen with --transport: check it the same way.
+        let report = detect_tailscale("tailscale").await;
+        println!("  {}", report.summary());
+        if let Some(e) = report.failure() {
+            return Err(e);
+        }
+        confirm_profile(&report, args.tailscale_profile.as_deref(), Some(&mut p))?;
+        tailscale = Some(report);
+    }
+
+    // [4/5] tier ceiling
+    println!("\n{}", st.bold("[4/5] Plugin tier ceiling"));
+    println!("1-5; 5 allows native subprocess plugins, 3 forbids every native plugin.");
+    let max_tier = match args.max_tier {
+        Some(t) => t,
+        None => loop {
+            let raw = p.text("max_tier_allowed", "5")?;
+            match raw.parse::<u8>() {
+                Ok(n) if (1..=5).contains(&n) => break n,
+                _ => println!("  Please answer a number from 1 to 5."),
+            }
+        },
+    };
+
+    // [5/5] identity
+    println!("\n{}", st.bold("[5/5] Identity key"));
+    let action = if config::identity_path().exists() {
+        println!(
+            "Keeping the existing identity at {}.",
+            config::identity_path().display()
+        );
+        IdentityAction::Generate
+    } else {
+        println!("g: generate a fresh Ed25519 key (new device); i: import a PEM file.");
+        match p.choose("Identity", &["g", "i"], "g")?.as_str() {
+            "i" => IdentityAction::Import(p.text("PEM file path", "")?),
+            _ => IdentityAction::Generate,
+        }
+    };
+
+    Ok(WizardAnswers {
+        label,
+        offer_pairing: !transports.is_empty(),
+        transports,
+        max_tier,
+        action,
+        tailscale,
+    })
+}
+
+async fn headless_answers(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
+    let label = args.label.clone().unwrap_or_else(config::host_name);
+    check_label(&label)?;
+    let transports = if args.single_node {
+        Vec::new()
+    } else if args.transport.is_empty() {
+        vec!["local".to_owned()]
+    } else {
+        parse_transports(&args.transport)?
+    };
+    let tailscale = if transports.iter().any(|t| t == "tailscale") {
+        let report = detect_tailscale("tailscale").await;
+        if let Some(e) = report.failure() {
+            return Err(e);
+        }
+        confirm_profile(&report, args.tailscale_profile.as_deref(), None)?;
+        Some(report)
+    } else {
+        None
+    };
+    Ok(WizardAnswers {
+        label,
+        transports,
+        max_tier: args.max_tier.unwrap_or(5),
+        action: IdentityAction::Generate,
+        tailscale,
+        offer_pairing: false,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Writing
+// ---------------------------------------------------------------------------
+
+/// The config.toml `init` writes, validated as the daemon loads it.
+fn initial_config(a: &WizardAnswers, peers: &Path) -> anyhow::Result<ConfigDoc> {
+    let mut doc = ConfigDoc::parse(
+        "# Entanglement configuration, written by `entangle init`.\n\
+         # Change it with `entangle config set <key> <value>` (`entangle config get` lists the keys).\n\n",
+    )?;
+    doc.set_at(&["node"], "label", Value::from(a.label.as_str()))?;
+    let mut list = Array::new();
+    for t in &a.transports {
+        list.push(t.as_str());
+    }
+    doc.set_at(&["mesh"], "transports", Value::Array(list))?;
+    // Never multi-node with an empty allowlist (spec §9.2, §11 #16): it is
+    // switched on only once a device is paired.
+    doc.set_at(&["mesh"], "multi_node", Value::from(false))?;
+    if a.transports.iter().any(|t| t == "tailscale") {
+        doc.set_at(&["mesh", "tailscale"], "enabled", Value::from(true))?;
+        doc.set_at(
+            &["mesh", "tailscale"],
+            "acl-mode",
+            Value::from("entangle-on-top"),
+        )?;
+    }
+    doc.set_at(
+        &["security"],
+        "max_tier_allowed",
+        Value::from(i64::from(a.max_tier)),
+    )?;
+    crate::cmd::configset::validate_as_daemon(&doc.to_text(), peers)
+        .context("the config.toml init would write")?;
+    Ok(doc)
+}
+
+/// What to open in a host firewall, per transport. Init never changes a
+/// firewall (deviation from spec §1 / §9.2 step 6).
+fn print_firewall_notes(transports: &[String]) {
+    if transports.is_empty() {
+        return;
+    }
+    let st = Style::stdout();
+    println!("\n{}", st.bold("Firewall"));
+    println!("init does not change your firewall. If one is on, allow:");
+    for t in transports {
+        match t.as_str() {
+            "local" => println!("  mesh.local      UDP 5353 (mDNS multicast) on the LAN interface"),
+            "iroh" => println!(
+                "  mesh.iroh       the UDP port of [scheduler] bind (default: a random port; fix \
+                 one with `entangle config set scheduler.bind 0.0.0.0:41641`, then allow UDP 41641)"
+            ),
+            "tailscale" => println!(
+                "  mesh.tailscale  nothing on the host firewall: TCP {} arrives over the tailnet \
+                 (restrict it with a Tailscale ACL, below)",
+                entangle_mesh_tailscale::DEFAULT_PORT
+            ),
+            _ => {}
+        }
+    }
+    println!(
+        "  pairing         a random UDP port, shown by `entangle pair --print-code` (fix it with \
+         --bind 0.0.0.0:<port>)"
+    );
+}
+
+/// The spec §9.1.1 shared-tailnet note, the trust dependency of §11 #17 and
+/// the sample ACL of §11 #16.
+fn print_tailscale_notes(report: &TsReport) {
+    let st = Style::stdout();
+    let tailnet = report.tailnet();
+    println!("\n{}", st.bold("Tailscale"));
+    let version = report
+        .version
+        .as_ref()
+        .map_or_else(|_| "unknown version".to_owned(), ToString::to_string);
+    println!(
+        "Entanglement trusts the local Tailscale binary ({}, version {version}) for peer \
+         discovery.",
+        report.binary()
+    );
+    println!(
+        "{} tailnet '{tailnet}' may be shared with other Entanglement users.",
+        st.note()
+    );
+    println!(
+        "  Default: [mesh.tailscale] acl-mode = \"entangle-on-top\" — Entanglement enforces its \
+         own peer allowlist regardless of tailnet ACLs."
+    );
+    if report.status.as_ref().is_some_and(|s| s.users.len() > 1) {
+        println!(
+            "  This tailnet has {} accounts: keep acl-mode = \"entangle-on-top\".",
+            report.status.as_ref().map_or(0, |s| s.users.len())
+        );
+    }
+    println!("  Run 'entangle peers list' to see trusted peers (initially: none; pair one first).");
+    println!(
+        "  Sample Tailscale ACL limiting the Entanglement port to tagged devices:\n    \
+         {{\"acls\": [{{\"action\": \"accept\", \"src\": [\"tag:entangle\"], \"dst\": \
+         [\"tag:entangle:{}\"]}}]}}",
+        entangle_mesh_tailscale::DEFAULT_PORT
+    );
+}
+
+fn print_pair_later() {
+    println!("Daemon configured as single-node until a device is paired. Pair one:");
+    println!("  entangle pair --print-code     # on this device");
+    println!("  entangle pair <code>           # on the other device");
+    println!(
+        "Then make the daemon require a paired peer at start: entangle config set mesh.multi_node true"
+    );
+}
+
+/// After a successful pairing: the allowlist is populated, so multi-node can
+/// be recorded (the daemon's start-up rule now holds).
+fn enable_multi_node(cfg_path: &Path, peers: &Path) -> anyhow::Result<()> {
+    let mut doc = ConfigDoc::load(cfg_path)?;
+    doc.set_at(&["mesh"], "multi_node", Value::from(true))?;
+    crate::cmd::configset::validate_as_daemon(&doc.to_text(), peers)?;
+    doc.save(cfg_path)?;
+    println!("Set [mesh] multi_node = true (a paired device is on the allowlist).");
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Entry points
+// ---------------------------------------------------------------------------
+
+/// `entangle init`; returns the process exit code (spec §9.1.1 codes).
+pub async fn run(args: InitArgs) -> anyhow::Result<i32> {
+    match ensure_initialised(args, true).await {
+        Ok(()) => Ok(0),
+        Err(e) => match e.downcast_ref::<InitFailure>() {
+            Some(f) => {
+                eprintln!("{} {}", Style::stderr().error(), f.message);
+                Ok(f.code)
+            }
+            None => Err(e),
+        },
+    }
+}
+
+/// The body of `entangle init`, reusable by other commands.
+///
+/// `entangle quickstart` and `entangle install` need exactly this —
+/// create-or-keep the identity, config, peer store, and keyring — but print
+/// their own closing banner, so `print_next_steps` suppresses `init`'s.
+///
+/// Idempotent: with all four files present this returns early without touching
+/// anything. A failure with a specific exit code is an [`InitFailure`].
+pub(crate) async fn ensure_initialised(
+    args: InitArgs,
+    print_next_steps: bool,
+) -> anyhow::Result<()> {
+    let dir = entangle_dir();
+    let id_path = config::identity_path();
+    let cfg_path = config::config_path();
+    let kr_path = config::keyring_path();
+    let peers_path = dir.join("peers.toml");
+
+    // Idempotency check: all four files already present → nothing to do.
+    if id_path.exists() && cfg_path.exists() && kr_path.exists() && peers_path.exists() {
+        println!("Already initialized at {}.", dir.display());
+        return Ok(());
+    }
+
+    // Every question (and every tailnet check) before anything is written.
+    let answers = if args.headless() {
+        headless_answers(&args).await?
+    } else {
+        run_wizard(&args).await?
+    };
+    let doc = if cfg_path.exists() {
+        None
+    } else {
+        Some(initial_config(&answers, &peers_path)?)
+    };
+
+    create_entangle_dir(&dir)?;
+    println!();
+    match &answers.action {
+        IdentityAction::Generate => println!("Setting up identity..."),
+        IdentityAction::Import(_) => println!("Importing identity..."),
+    }
+
+    // --- identity.key ---
+    let kp = match &answers.action {
+        IdentityAction::Generate => {
+            let kp = ensure_identity(&id_path)?;
+            println!("  Identity ready at {} (mode 0600)", id_path.display());
+            kp
+        }
+        IdentityAction::Import(pem_path) => import_identity(pem_path, &id_path, &peers_path)?,
+    };
+
+    let fingerprint = fmt_fingerprint(&kp.fingerprint_hex());
+    println!("  Fingerprint: {fingerprint}");
+    println!(
+        "  Write the fingerprint down: it identifies this device. Back the key up with \
+         `entangle backup`."
+    );
+
+    // --- config.toml ---
+    match doc {
+        Some(doc) => {
+            doc.save(&cfg_path)?;
+            println!("  Wrote {}", cfg_path.display());
+        }
+        None => println!("  Kept existing {}", cfg_path.display()),
+    }
+
+    // --- peers.toml ---
+    if !peers_path.exists() {
+        write_peers_stub(&peers_path)?;
+        println!("  Wrote {} (empty)", peers_path.display());
+    } else {
+        println!("  Kept existing {}", peers_path.display());
+    }
+
+    // --- keyring.toml ---
+    if !kr_path.exists() {
+        Keyring::new().save(&kr_path)?;
+        println!("  Wrote {} (empty)", kr_path.display());
+    } else {
+        println!("  Kept existing {}", kr_path.display());
+    }
+
+    if let Some(report) = &answers.tailscale {
+        print_tailscale_notes(report);
+    }
+    print_firewall_notes(&answers.transports);
+
+    if !answers.transports.is_empty() {
+        println!("\n{}", Style::stdout().bold("Pairing"));
+        let has_peer = entangle_peers::PeerStore::open(&peers_path)
+            .map(|s| !s.is_empty())
+            .unwrap_or(false);
+        if has_peer {
+            println!("A paired device is already on the allowlist.");
+        } else if answers.offer_pairing
+            && Prompter::new().confirm("Pair another device now?", true)?
+        {
+            match crate::cmd::pair::pair_from_wizard(&answers.label).await {
+                Ok(()) => enable_multi_node(&cfg_path, &peers_path)?,
+                Err(e) => {
+                    println!(
+                        "{} pairing did not complete: {e:#}",
+                        Style::stdout().warning()
+                    );
+                    print_pair_later();
+                }
+            }
+        } else {
+            print_pair_later();
+        }
+    }
+
+    if print_next_steps {
+        println!();
+        println!("Next steps:");
+        println!("  - Start the daemon:        entangled run");
+        println!("  - Pair another device:     entangle pair --print-code");
+        println!("  - Install a plugin:        entangle plugins install <NAME>");
+        println!("  - See what is available:   entangle plugins available");
+        println!("  - Change a setting:        entangle config set <key> <value>");
+        println!("  - Run diagnostics:         entangle doctor");
+    }
+
+    Ok(())
+}
+
+/// The import arm: write `pem_path` as this device's identity, asking before
+/// replacing a different existing key.
+fn import_identity(
+    pem_path: &str,
+    id_path: &Path,
+    peers_path: &Path,
+) -> anyhow::Result<IdentityKeyPair> {
+    let pem =
+        std::fs::read_to_string(pem_path).with_context(|| format!("read PEM from {pem_path}"))?;
+    let kp = IdentityKeyPair::from_pem(&pem).map_err(|e| anyhow::anyhow!("invalid PEM: {e}"))?;
+    let new_fp = kp.fingerprint_hex();
+
+    match decide_import_at(id_path, &new_fp) {
+        ImportDecision::Write => {
+            write_identity_pem(id_path, &pem)?;
+            println!("  Wrote {} (mode 0600)", id_path.display());
+        }
+        ImportDecision::Skip => {
+            println!(
+                "  Imported key already matches {} — left in place.",
+                id_path.display()
+            );
+        }
+        ImportDecision::ConfirmReplace {
+            existing_fp,
+            new_fp,
+        } => {
+            println!();
+            println!("  An identity already exists at {}.", id_path.display());
+            match &existing_fp {
+                Some(fp) => println!("     existing fingerprint: {}", fmt_fingerprint(fp)),
+                None => {
+                    println!("     existing key is present but could NOT be parsed (corrupt?).")
+                }
+            }
+            println!("     imported fingerprint: {}", fmt_fingerprint(&new_fp));
+            println!();
+            println!("  WARNING: overwriting REPLACES this device's Ed25519 identity.");
+            println!("           Every existing pairing breaks (peer_id derives from the");
+            println!("           public key) and the old private key is UNRECOVERABLE.");
+
+            let proceed =
+                Prompter::new().confirm("  Overwrite the existing identity.key?", false)?;
+            if !proceed {
+                anyhow::bail!(
+                    "aborted: kept existing identity.key at {}",
+                    id_path.display()
+                );
+            }
+
+            let bak = backup_identity(id_path)?;
+            println!("  Backed up existing key to {} (mode 0600)", bak.display());
+            write_identity_pem(id_path, &pem)?;
+            println!("  Wrote {} (mode 0600)", id_path.display());
+
+            // Identity changed → any trusted peers are now stale.
+            warn_and_maybe_clear_stale_peers(peers_path)?;
+        }
+    }
+    Ok(kp)
+}
+
+// ---------------------------------------------------------------------------
+// Files
+// ---------------------------------------------------------------------------
 
 /// Empty peer store.  Trusted peers are persisted as a `[[peer]]`
 /// array-of-tables (see the `entangle-peers` crate); a brand-new store is just
@@ -164,17 +981,6 @@ fn decide_import_at(id_path: &Path, new_fp: &str) -> ImportDecision {
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn system_hostname() -> String {
-    // Try /etc/hostname first (Linux), then env vars.
-    std::fs::read_to_string("/etc/hostname")
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .or_else(|| std::env::var("HOSTNAME").ok())
-        .or_else(|| std::env::var("COMPUTERNAME").ok())
-        .unwrap_or_else(|| "my-device".to_string())
-}
-
 /// Format a raw fingerprint_hex string as `xxxx-xxxx-xxxx-xxxx` (groups of 4).
 fn fmt_fingerprint(raw: &str) -> String {
     raw.chars()
@@ -251,11 +1057,8 @@ fn warn_and_maybe_clear_stale_peers(peers_path: &Path) -> anyhow::Result<()> {
         peers_path.display()
     );
     println!("           and will no longer authenticate.");
-    let clear = dialoguer::Confirm::new()
-        .with_prompt("  Clear peers.toml now (you will need to re-pair)?")
-        .default(false)
-        .interact()
-        .context("clear stale peers confirmation")?;
+    let clear =
+        Prompter::new().confirm("  Clear peers.toml now (you will need to re-pair)?", false)?;
     if clear {
         write_peers_stub(peers_path).with_context(|| format!("clear {}", peers_path.display()))?;
         println!(
@@ -268,278 +1071,6 @@ fn warn_and_maybe_clear_stale_peers(peers_path: &Path) -> anyhow::Result<()> {
             peers_path.display()
         );
     }
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Interactive wizard
-// ---------------------------------------------------------------------------
-
-fn run_wizard() -> anyhow::Result<WizardAnswers> {
-    use dialoguer::{Input, Select};
-
-    let hostname = system_hostname();
-
-    println!("Welcome to Entanglement.\n");
-    println!(
-        "This will set up your local Entanglement directory at {}/",
-        entangle_dir().display()
-    );
-    println!("and set up your Ed25519 device identity (generate or import).\n");
-
-    // [1/4] Display name
-    println!("[1/4] Choose a display name for this device.");
-    println!("      Default: {hostname} (system hostname)");
-    let display_name: String = Input::new()
-        .with_prompt("     ")
-        .default(hostname.clone())
-        .interact_text()
-        .context("display name prompt")?;
-
-    // [2/4] Transports
-    println!();
-    println!("[2/4] Choose mesh transports to enable. Multiple separated by commas.");
-    println!("      Choices:");
-    println!("        local       LAN-only mDNS discovery (recommended)");
-    println!(
-        "        iroh        QUIC mesh with NAT hole-punching (peers listed in [scheduler] peers)"
-    );
-    println!(
-        "        tailscale   Use your existing tailnet (also set [mesh.tailscale] enabled = true)"
-    );
-    println!("      Default: local");
-    let transport_input: String = Input::new()
-        .with_prompt("     ")
-        .default("local".to_string())
-        .interact_text()
-        .context("transports prompt")?;
-    let transports: Vec<String> = transport_input
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect();
-    let transports = if transports.is_empty() {
-        vec!["local".to_string()]
-    } else {
-        transports
-    };
-
-    // [3/4] Max tier
-    println!();
-    println!("[3/4] Set max permission tier (1-5; 5 = native subprocess plugins allowed).");
-    println!("      Default: 5 (most permissive — can be tightened later)");
-    let tier_input: String = Input::new()
-        .with_prompt("     ")
-        .default("5".to_string())
-        .interact_text()
-        .context("max tier prompt")?;
-    let max_tier: u8 = tier_input.trim().parse::<u8>().unwrap_or(5).clamp(1, 5);
-
-    // [4/4] Identity action
-    println!();
-    println!("[4/4] Generate or import an identity key?");
-    println!("      [g] Generate fresh Ed25519 key (recommended for new device)");
-    println!("      [i] Import existing PEM file (path)");
-    println!("      Default: g");
-    let action_choices = &[
-        "g — Generate fresh Ed25519 key",
-        "i — Import existing PEM file",
-    ];
-    let action_idx = Select::new()
-        .with_prompt("     ")
-        .default(0)
-        .items(action_choices)
-        .interact()
-        .context("identity action prompt")?;
-
-    let action = if action_idx == 1 {
-        let path: String = Input::new()
-            .with_prompt("      PEM file path")
-            .interact_text()
-            .context("PEM path prompt")?;
-        IdentityAction::Import(path.trim().to_string())
-    } else {
-        IdentityAction::Generate
-    };
-
-    Ok(WizardAnswers {
-        display_name,
-        transports,
-        max_tier,
-        action,
-    })
-}
-
-// ---------------------------------------------------------------------------
-// Core init logic
-// ---------------------------------------------------------------------------
-
-pub async fn run(args: InitArgs) -> anyhow::Result<()> {
-    ensure_initialised(args, true).await
-}
-
-/// The body of `entangle init`, reusable by other commands.
-///
-/// `entangle quickstart` needs exactly this — create-or-keep the identity,
-/// config, peer store, and keyring — but prints its own closing banner, so
-/// `print_next_steps` suppresses `init`'s. Nothing about the identity-writing
-/// logic is duplicated there: it all lives here.
-///
-/// Idempotent: with all four files present this returns early without touching
-/// anything.
-pub(crate) async fn ensure_initialised(
-    args: InitArgs,
-    print_next_steps: bool,
-) -> anyhow::Result<()> {
-    let dir = entangle_dir();
-    let id_path = config::identity_path();
-    let cfg_path = config::config_path();
-    let kr_path = config::keyring_path();
-    let peers_path = dir.join("peers.toml");
-
-    // Idempotency check: all four files already present → nothing to do.
-    if id_path.exists() && cfg_path.exists() && kr_path.exists() && peers_path.exists() {
-        println!("Already initialized at {}.", dir.display());
-        return Ok(());
-    }
-
-    create_entangle_dir(&dir)?;
-
-    // Resolve wizard answers (interactive or default).
-    let answers = if args.non_interactive {
-        WizardAnswers {
-            display_name: system_hostname(),
-            transports: vec!["local".to_string()],
-            max_tier: 5,
-            action: IdentityAction::Generate,
-        }
-    } else {
-        run_wizard()?
-    };
-
-    println!();
-    match &answers.action {
-        IdentityAction::Generate => println!("Setting up identity..."),
-        IdentityAction::Import(_) => println!("Importing identity..."),
-    }
-
-    // --- identity.key ---
-    let kp = match &answers.action {
-        IdentityAction::Generate => {
-            let kp = ensure_identity(&id_path)?;
-            println!("  Identity ready at {} (mode 0600)", id_path.display());
-            kp
-        }
-        IdentityAction::Import(pem_path) => {
-            let pem = std::fs::read_to_string(pem_path)
-                .with_context(|| format!("read PEM from {pem_path}"))?;
-            let kp =
-                IdentityKeyPair::from_pem(&pem).map_err(|e| anyhow::anyhow!("invalid PEM: {e}"))?;
-            let new_fp = kp.fingerprint_hex();
-
-            match decide_import_at(&id_path, &new_fp) {
-                ImportDecision::Write => {
-                    write_identity_pem(&id_path, &pem)?;
-                    println!("  Wrote {} (mode 0600)", id_path.display());
-                }
-                ImportDecision::Skip => {
-                    println!(
-                        "  Imported key already matches {} — left in place.",
-                        id_path.display()
-                    );
-                }
-                ImportDecision::ConfirmReplace {
-                    existing_fp,
-                    new_fp,
-                } => {
-                    println!();
-                    println!("  An identity already exists at {}.", id_path.display());
-                    match &existing_fp {
-                        Some(fp) => println!("     existing fingerprint: {}", fmt_fingerprint(fp)),
-                        None => println!(
-                            "     existing key is present but could NOT be parsed (corrupt?)."
-                        ),
-                    }
-                    println!("     imported fingerprint: {}", fmt_fingerprint(&new_fp));
-                    println!();
-                    println!("  WARNING: overwriting REPLACES this device's Ed25519 identity.");
-                    println!("           Every existing pairing breaks (peer_id derives from the");
-                    println!("           public key) and the old private key is UNRECOVERABLE.");
-
-                    let proceed = dialoguer::Confirm::new()
-                        .with_prompt("  Overwrite the existing identity.key?")
-                        .default(false)
-                        .interact()
-                        .context("identity overwrite confirmation")?;
-                    if !proceed {
-                        anyhow::bail!(
-                            "aborted: kept existing identity.key at {}",
-                            id_path.display()
-                        );
-                    }
-
-                    let bak = backup_identity(&id_path)?;
-                    println!("  Backed up existing key to {} (mode 0600)", bak.display());
-                    write_identity_pem(&id_path, &pem)?;
-                    println!("  Wrote {} (mode 0600)", id_path.display());
-
-                    // Identity changed → any trusted peers are now stale.
-                    warn_and_maybe_clear_stale_peers(&peers_path)?;
-                }
-            }
-            kp
-        }
-    };
-
-    let fingerprint = fmt_fingerprint(&kp.fingerprint_hex());
-    println!("  Fingerprint: {fingerprint}");
-
-    // --- config.toml ---
-    if !cfg_path.exists() {
-        let cfg = Config {
-            mesh: MeshConfig {
-                transports: answers.transports,
-                multi_node: false,
-            },
-            security: SecurityConfig {
-                max_tier_allowed: answers.max_tier,
-                allow_unsandboxed_native: false,
-                deny_capabilities: Vec::new(),
-            },
-            ..Config::default()
-        };
-        config::save(&cfg_path, &cfg)?;
-        println!("  Wrote {}", cfg_path.display());
-    } else {
-        println!("  Kept existing {}", cfg_path.display());
-    }
-
-    // --- peers.toml ---
-    if !peers_path.exists() {
-        write_peers_stub(&peers_path)?;
-        println!("  Wrote {} (empty)", peers_path.display());
-    } else {
-        println!("  Kept existing {}", peers_path.display());
-    }
-
-    // --- keyring.toml ---
-    if !kr_path.exists() {
-        Keyring::new().save(&kr_path)?;
-        println!("  Wrote {} (empty)", kr_path.display());
-    } else {
-        println!("  Kept existing {}", kr_path.display());
-    }
-
-    if print_next_steps {
-        println!();
-        println!("Next steps:");
-        println!("  - Install a plugin:        entangle plugins install <NAME>");
-        println!("  - See what is available:   entangle plugins available");
-        println!("  - Pair another device:     entangle pair");
-        println!("  - Start the daemon:        entangled run");
-        println!("  - Run diagnostics:         entangle doctor");
-    }
-
     Ok(())
 }
 

@@ -237,13 +237,3 @@ pub fn kernel_config() -> anyhow::Result<entangle_runtime::KernelConfig> {
         ..entangle_runtime::KernelConfig::default()
     })
 }
-
-/// Serialize `c` to `path`, creating parent directories as needed.
-pub fn save(path: &Path, c: &Config) -> anyhow::Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let raw = toml::to_string_pretty(c)?;
-    std::fs::write(path, raw)?;
-    Ok(())
-}

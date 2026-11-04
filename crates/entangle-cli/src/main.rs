@@ -181,7 +181,7 @@ async fn run() -> anyhow::Result<()> {
 
     match cli.cmd {
         Cmd::Quickstart(a) => cmd::quickstart::run(a).await,
-        Cmd::Init(a) => cmd::init::run(a).await,
+        Cmd::Init(a) => exit_with(cmd::init::run(a).await?),
         Cmd::Backup(a) => cmd::backup::run_backup(a).await,
         Cmd::Restore(a) => cmd::backup::run_restore(a).await,
         Cmd::Version => cmd::version::run().await,

@@ -80,6 +80,11 @@ pub struct PairArgs {
     #[arg(long)]
     pub responder: bool,
 
+    /// Show a pairing code on this device and wait for the other device to
+    /// type it (`entangle pair <code>` there). Same as --responder.
+    #[arg(long, conflicts_with = "responder")]
+    pub print_code: bool,
+
     /// Human-readable display name for this device (default: hostname).
     #[arg(long)]
     pub display_name: Option<String>,
@@ -156,13 +161,18 @@ pub struct PairArgs {
     #[arg(long, value_name = "PATH", hide = true)]
     pub identity_file: Option<PathBuf>,
 
-    /// Override the transport bind address (useful in tests).
-    #[arg(long, value_name = "ADDR", hide = true)]
+    /// Bind the pairing endpoint here (default 0.0.0.0:0, a random UDP
+    /// port). Fix the port to allow it through a firewall.
+    #[arg(long, value_name = "ADDR")]
     pub bind: Option<String>,
 
     /// Skip mDNS entirely (useful in tests and on locked-down networks).
     #[arg(long, hide = true)]
     pub no_mdns: bool,
+
+    /// Do not draw the QR code next to the pairing code.
+    #[arg(long)]
+    pub no_qr: bool,
 }
 
 impl PairArgs {
@@ -180,6 +190,11 @@ impl PairArgs {
 
     fn is_manual(&self) -> bool {
         self.manual || self.uses_blob_files()
+    }
+
+    /// This device shows the code (`--responder` / `--print-code`).
+    fn shows_code(&self) -> bool {
+        self.responder || self.print_code
     }
 
     /// The code the user supplied, from either spelling.
@@ -355,8 +370,39 @@ fn resolve_display_name(args: &PairArgs) -> String {
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
+/// `entangle init`'s "pair now": show a code on this device and wait for the
+/// other one (`entangle pair <code>` there), exactly as `entangle pair
+/// --print-code` does, with `label` as this device's name.
+pub async fn pair_from_wizard(label: &str) -> anyhow::Result<()> {
+    run(PairArgs {
+        responder: true,
+        print_code: false,
+        display_name: Some(label.to_owned()),
+        manual: false,
+        peer: None,
+        code: None,
+        code_arg: None,
+        yes: false,
+        timeout: 300,
+        max_attempts: DEFAULT_MAX_ATTEMPTS,
+        discover_secs: 4,
+        emit_request_file: None,
+        consume_accept_file: None,
+        emit_finalize_file: None,
+        request_file: None,
+        emit_accept_file: None,
+        consume_finalize_file: None,
+        peers_file: None,
+        identity_file: None,
+        bind: None,
+        no_mdns: false,
+        no_qr: false,
+    })
+    .await
+}
+
 pub async fn run(args: PairArgs) -> anyhow::Result<()> {
-    match (args.is_manual(), args.responder) {
+    match (args.is_manual(), args.shows_code()) {
         (true, true) => run_manual_responder(args),
         (true, false) => run_manual_initiator(args),
         (false, true) => run_responder(args).await,

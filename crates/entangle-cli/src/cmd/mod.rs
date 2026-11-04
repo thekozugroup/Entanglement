@@ -24,5 +24,6 @@ pub mod release;
 pub mod repro;
 pub mod scaffold;
 pub mod security;
+pub mod ui;
 pub mod version;
 pub mod wrapper;
