@@ -115,6 +115,19 @@ impl Registry {
         self.upsert(name, help, Kind::Gauge, labels, |v| *v = value);
     }
 
+    /// Set several samples of the gauge family `name` at once.
+    ///
+    /// All of `samples` (label set, value) are written under one lock, so a
+    /// concurrent [`Registry::render`] sees either none or all of them; use
+    /// it for gauges whose samples must stay consistent with each other,
+    /// such as a one-hot state gauge.
+    pub fn set_gauges(&self, name: &str, help: &str, samples: &[(&[(&str, &str)], f64)]) {
+        let mut guard = self.families.lock();
+        for (labels, value) in samples {
+            self.upsert_locked(&mut guard, name, help, Kind::Gauge, labels, |v| *v = *value);
+        }
+    }
+
     /// Set a counter sample to an absolute `value`.
     ///
     /// For counters whose authoritative total is kept elsewhere (a collector
@@ -237,7 +250,19 @@ impl Registry {
         mutate: impl FnOnce(&mut f64),
     ) {
         let mut guard = self.families.lock();
-        let family = guard.entry(name.to_string()).or_insert_with(|| Family {
+        self.upsert_locked(&mut guard, name, help, kind, labels, mutate);
+    }
+
+    fn upsert_locked(
+        &self,
+        families: &mut BTreeMap<String, Family>,
+        name: &str,
+        help: &str,
+        kind: Kind,
+        labels: &[(&str, &str)],
+        mutate: impl FnOnce(&mut f64),
+    ) {
+        let family = families.entry(name.to_string()).or_insert_with(|| Family {
             help: help.to_string(),
             kind,
             samples: Vec::new(),

@@ -292,15 +292,21 @@ pub fn output_size_exceeded(reg: &Registry) {
 
 /// Set the one-hot tailnet state gauge. `active` is one of
 /// [`TAILSCALE_STATES`]; every other state is set to 0.
+///
+/// All four samples change in one step, so a concurrent scrape sees the old
+/// state or the new one, never two states at 1 or none.
 pub fn tailscale_state(reg: &Registry, active: &str) {
-    for state in TAILSCALE_STATES {
-        reg.set_gauge(
-            names::TAILSCALE_STATE,
-            "Tailnet liveness state (1 for the current state)",
-            &[("state", state)],
-            if state == active { 1.0 } else { 0.0 },
-        );
-    }
+    let labels = TAILSCALE_STATES.map(|state| [("state", state)]);
+    let samples: Vec<(&[(&str, &str)], f64)> = labels
+        .iter()
+        .zip(TAILSCALE_STATES)
+        .map(|(l, state)| (&l[..], if state == active { 1.0 } else { 0.0 }))
+        .collect();
+    reg.set_gauges(
+        names::TAILSCALE_STATE,
+        "Tailnet liveness state (1 for the current state)",
+        &samples,
+    );
 }
 
 #[cfg(test)]
@@ -363,5 +369,42 @@ mod tests {
             r.value(names::TAILSCALE_STATE, &[("state", "active")]),
             Some(1.0)
         );
+    }
+
+    /// A scrape racing a state change sees the old state or the new one,
+    /// never two states at 1 (stopped -> active) or none (active -> stopped).
+    #[test]
+    fn a_render_racing_a_tailscale_transition_sees_exactly_one_state() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let r = Registry::new();
+        tailscale_state(&r, "stopped");
+        let stop = Arc::new(AtomicBool::new(false));
+        let flipper = {
+            let (r, stop) = (r.clone(), stop.clone());
+            std::thread::spawn(move || {
+                let mut active = false;
+                while !stop.load(Ordering::Relaxed) {
+                    active = !active;
+                    tailscale_state(&r, if active { "active" } else { "stopped" });
+                }
+            })
+        };
+        let mut torn = None;
+        for _ in 0..20_000 {
+            let out = r.render();
+            let ones = out
+                .lines()
+                .filter(|l| l.starts_with(names::TAILSCALE_STATE) && l.ends_with(" 1"))
+                .count();
+            if ones != 1 {
+                torn = Some((ones, out));
+                break;
+            }
+        }
+        stop.store(true, Ordering::Relaxed);
+        flipper.join().unwrap();
+        if let Some((ones, out)) = torn {
+            panic!("a render saw {ones} states at 1:\n{out}");
+        }
     }
 }
