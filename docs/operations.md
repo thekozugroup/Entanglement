@@ -1507,6 +1507,11 @@ stream server behind `peers.toml` — so a peer may reach this node over
 whichever transport it picks. The serving side's `transport` label is the
 transport that carried the frame (`iroh` covers LAN dialling).
 
+During a rolling upgrade, a node from before protocol selection that probes
+the tailnet path (`entangle diag mesh --probe` sends a plain ping) gets a
+fixed answer and still reports the path reachable; nothing it sends reaches
+the task or stream server.
+
 ### Troubleshooting
 
 | Symptom | Likely cause and fix |

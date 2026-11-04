@@ -137,12 +137,43 @@ async fn a_connection_that_selects_nothing_reaches_no_handler() {
     tokio::spawn(async move { b2.serve_protocols(handlers).await });
     let a = node(AclMode::TrustTailnet, None).await;
 
-    // A protocol-less request where the selection belongs.
+    // A protocol-less request where the selection belongs: the fixed
+    // protocol-less answer (see the next test), not a handler's.
     let mut conn = a.connect(&peer_of(&b)).await.unwrap();
+    assert_eq!(
+        conn.request(b"entangle/scheduler/1").await.unwrap(),
+        crate::protocol::PROTOCOL_LESS_ANSWER
+    );
+    // The connection was closed after it: nothing more is read from it.
     assert!(conn.request(b"entangle/scheduler/1").await.is_err());
     // A selection record that is too long to be one: refused from its header.
     let mut conn = a.connect(&peer_of(&b)).await.unwrap();
     assert!(conn.request(&[0u8; 4096]).await.is_err());
+    assert_eq!(count.0.load(Ordering::SeqCst), 0);
+}
+
+/// A node built before protocol selection probes the tailnet path with a
+/// plain request where the selection belongs (its `entangle diag mesh
+/// --probe` sent `entangle-diag-ping` and took any answer to mean
+/// "reachable"). During a rolling upgrade that probe is still answered —
+/// and still reaches no handler.
+#[tokio::test]
+async fn an_older_builds_protocol_less_probe_is_answered() {
+    let b = node(AclMode::TrustTailnet, None).await;
+    let count = Arc::new(Count(AtomicUsize::new(0)));
+    let b2 = b.clone();
+    let handlers: Vec<(Vec<u8>, Arc<dyn ProtocolHandler>)> = vec![(P1.to_vec(), count.clone())];
+    tokio::spawn(async move { b2.serve_protocols(handlers).await });
+    let a = node(AclMode::TrustTailnet, None).await;
+
+    let answer = timeout(
+        Duration::from_secs(10),
+        a.request(&peer_of(&b), b"entangle-diag-ping"),
+    )
+    .await
+    .unwrap()
+    .expect("an older build's probe gets an answer");
+    assert_eq!(answer, crate::protocol::PROTOCOL_LESS_ANSWER);
     assert_eq!(count.0.load(Ordering::SeqCst), 0);
 }
 

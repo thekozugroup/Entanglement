@@ -25,6 +25,13 @@
 //!   record as if it were a request; the client sees an answer without the
 //!   `ETSP` magic and reports that the peer does not serve the protocol, a
 //!   connection-setup failure the caller may retry on another transport.
+//! * A client built before protocol selection existed sends a plain request
+//!   where the selection belongs — in practice only the `entangle diag mesh
+//!   --probe` ping, which took any answer to mean "reachable". If that first
+//!   record fits under the selection cap, the server answers it with the
+//!   fixed [`PROTOCOL_LESS_ANSWER`] (as the old listener answered every
+//!   request with a fixed reply) and closes the connection; the record never
+//!   reaches a handler.
 
 use crate::error::MeshTailscaleError;
 
@@ -39,6 +46,12 @@ pub const MAX_PROTOCOL_NAME: usize = 64;
 
 /// Largest selection (or answer) record, in plaintext bytes.
 pub(crate) const SELECT_MAX: usize = PROTOCOL_MAGIC.len() + 2 + MAX_PROTOCOL_NAME;
+
+/// The server's reply to a first record that is not a selection (a client
+/// from before protocol selection; see the module docs). It does not start
+/// with [`PROTOCOL_MAGIC`], so it can never pass for a selection answer.
+pub const PROTOCOL_LESS_ANSWER: &[u8] =
+    b"entangle: this mesh.tailscale listener serves selected protocols only";
 
 /// Answer status: the protocol is served on this connection.
 pub(crate) const STATUS_SERVED: u8 = 1;
@@ -139,6 +152,7 @@ mod tests {
             None
         );
         assert_eq!(decode_answer(b"ETSP\x01"), None);
+        assert_eq!(decode_answer(PROTOCOL_LESS_ANSWER), None);
         assert_eq!(decode_answer(b"ETSP\x01\x01\x01"), None);
     }
 }

@@ -17,8 +17,8 @@ use crate::error::MeshTailscaleError;
 use crate::framing::{read_sealed, read_sealed_opt, write_sealed, Opener, Sealer};
 use crate::handshake::{client_handshake, server_handshake, Admission, Refusal, Remote, Session};
 use crate::protocol::{
-    decode_answer, decode_select, encode_answer, encode_select, validate_name, SELECT_MAX,
-    STATUS_NOT_SERVED, STATUS_SERVED,
+    decode_answer, decode_select, encode_answer, encode_select, validate_name,
+    PROTOCOL_LESS_ANSWER, SELECT_MAX, STATUS_NOT_SERVED, STATUS_SERVED,
 };
 use crate::status::TailscaleStatus;
 use crate::stream::SealedStream;
@@ -862,12 +862,27 @@ impl MeshConn {
                 return Err(MeshTailscaleError::PeerNotAllowed(self.remote.peer_id));
             }
         }
+        let max = self.max_frame_bytes;
         let Some(name) = decode_select(&record) else {
+            // A client from before protocol selection (its diag probe):
+            // answer as that build's listener did, then close. The record
+            // reaches no handler.
+            let _ = timeout(
+                limit,
+                write_sealed(
+                    &mut self.stream,
+                    &mut self.sealer,
+                    PROTOCOL_LESS_ANSWER,
+                    max,
+                ),
+            )
+            .await;
             return Err(MeshTailscaleError::Protocol(
-                "the first record is not a protocol selection".into(),
+                "the first record is not a protocol selection (answered as a protocol-less \
+                 request)"
+                    .into(),
             ));
         };
-        let max = self.max_frame_bytes;
         if !served.contains(&name) {
             let what = String::from_utf8_lossy(name).into_owned();
             let _ = timeout(
