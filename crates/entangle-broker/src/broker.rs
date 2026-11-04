@@ -805,6 +805,9 @@ fn biscuit_surface(c: &CapabilityKind) -> Cow<'static, str> {
             Cow::Owned(format!("storage.local[{scope:?}]"))
         }
         CapabilityKind::NetWan { .. } => Cow::Borrowed("net.wan"),
+        // Biscuits minted so far carry `custom.` + the stored name, and the
+        // manifest stores the full key (`custom.x`): keep that wire form.
+        CapabilityKind::Custom(s) => Cow::Owned(format!("custom.{s}")),
         other => format_cap(other),
     }
 }
@@ -828,7 +831,10 @@ fn format_cap(c: &CapabilityKind) -> Cow<'static, str> {
         MeshPeer => Cow::Borrowed("mesh.peer"),
         AgentInvoke => Cow::Borrowed("agent.invoke"),
         HostDockerSocket => Cow::Borrowed("host.docker-socket"),
-        Custom(s) => Cow::Owned(format!("custom.{s}")),
+        // The manifest key (`custom.x`), whether or not the stored name
+        // carries the `custom.` prefix — the same name `revoke` and
+        // `grant_by_key` audit, so events for one capability correlate.
+        Custom(_) => c.key(),
     }
 }
 

@@ -316,3 +316,53 @@ fn released_grants_leave_the_report() {
         .count();
     assert_eq!(released, 1, "a second release must not be audited again");
 }
+
+/// Every audit event names a custom capability by its manifest key
+/// (`custom.telemetry`), so grants, releases, refusals and revocations of
+/// the same capability can be correlated by name.
+#[test]
+fn custom_capabilities_have_one_audit_name() {
+    let broker = Broker::new(BrokerPolicy::default());
+    let m = manifest("custom", r#""custom.telemetry" = {}"#);
+    let id = m.plugin_id.clone();
+    broker.register_plugin(m).unwrap();
+    let standing = broker.grant_declared(&id).unwrap();
+    let g = broker.grant_by_key(&id, "custom.telemetry").unwrap();
+    broker.release(&id, g.grant_id).unwrap();
+    broker.revoke(&id, "custom.telemetry").unwrap();
+    assert!(broker.grant_by_key(&id, "custom.telemetry").is_err());
+    broker.unregister_plugin(&id).unwrap();
+    assert_eq!(standing.granted.len(), 1);
+
+    let names: Vec<(&'static str, String)> = broker
+        .audit_log()
+        .snapshot()
+        .into_iter()
+        .filter_map(|e| match e {
+            AuditEvent::CapabilityGranted { capability, .. } => {
+                Some(("granted", capability.into_owned()))
+            }
+            AuditEvent::CapabilityReleased { capability, .. } => {
+                Some(("released", capability.into_owned()))
+            }
+            AuditEvent::CapabilityRevoked { capability, .. } => {
+                Some(("revoked", capability.into_owned()))
+            }
+            AuditEvent::CapabilityDenied { capability, .. } => {
+                Some(("denied", capability.into_owned()))
+            }
+            _ => None,
+        })
+        .collect();
+    let want = |what: &'static str| (what, "custom.telemetry".to_owned());
+    assert_eq!(
+        names,
+        vec![
+            want("granted"),
+            want("granted"),
+            want("released"),
+            want("revoked"),
+            want("denied"),
+        ]
+    );
+}
