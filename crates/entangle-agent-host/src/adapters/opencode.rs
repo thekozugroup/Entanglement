@@ -135,6 +135,13 @@ impl Adapter for OpenCodeAdapter {
         "opencode"
     }
 
+    /// Every global config file OpenCode reads.
+    fn user_config_files(&self) -> Vec<Utf8PathBuf> {
+        self.global_dir()
+            .map(|d| GLOBAL_FILES.iter().map(|f| d.join(f)).collect())
+            .unwrap_or_default()
+    }
+
     fn config_path(&self) -> Result<Utf8PathBuf, AdapterError> {
         let dir = self.global_dir()?;
         Ok(GLOBAL_FILES

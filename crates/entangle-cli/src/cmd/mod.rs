@@ -10,6 +10,7 @@ pub mod diag;
 pub mod diagpair;
 pub mod doctor;
 pub mod init;
+pub mod install;
 pub mod keyring;
 pub mod keys;
 pub mod mesh;

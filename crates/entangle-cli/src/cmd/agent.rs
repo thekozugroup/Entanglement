@@ -38,6 +38,29 @@ Example:
     Run(RunArgs),
     /// List the supported agents and where their MCP config lives.
     List,
+    /// Agent-host maintenance (`cleanup`).
+    #[command(subcommand)]
+    Host(HostCmd),
+}
+
+#[derive(Subcommand)]
+enum HostCmd {
+    /// Remove per-session agent config directories left behind.
+    #[command(long_about = "\
+Remove per-session agent config directories left behind by sessions that did
+not end normally (a session killed with SIGKILL cannot remove its own), and
+report each one. A directory whose `entangle agent run` is still alive is kept;
+--all removes every session directory, in use or not (what `entangle
+uninstall` runs). Only `sess-*` directories under the sessions root are ever
+removed: your own agent configs are never touched.")]
+    Cleanup {
+        /// Remove every session directory, including ones still in use.
+        #[arg(long)]
+        all: bool,
+        /// Emit JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Args)]
@@ -74,6 +97,10 @@ pub async fn run(a: AgentArgs) -> Result<i32> {
             Ok(0)
         }
         AgentCmd::Run(r) => run_agent(r).await,
+        AgentCmd::Host(HostCmd::Cleanup { all, json }) => {
+            crate::cmd::install::run_cleanup(all, json)?;
+            Ok(0)
+        }
     }
 }
 
@@ -87,8 +114,9 @@ fn list() {
     }
 }
 
-/// Directory holding per-session directories.
-fn sessions_root() -> PathBuf {
+/// Directory holding per-session directories (`entangle agent host
+/// cleanup` removes the ones left behind).
+pub(crate) fn sessions_root() -> PathBuf {
     if let Some(d) = std::env::var_os("ENTANGLE_SESSIONS_DIR") {
         return PathBuf::from(d);
     }
@@ -396,6 +424,9 @@ async fn launch(
         .activate(&dir, base_url, TOKEN_ENV)
         .context("writing session config")?
         .clone();
+    // Who owns the directory, so `entangle agent host cleanup` can tell a
+    // live session from one a SIGKILL left behind.
+    crate::cmd::install::write_session_owner(dir.as_std_path(), session.agent())?;
 
     if let Some(stop) = *stop.borrow() {
         // Asked to stop before the agent started: do not start it.

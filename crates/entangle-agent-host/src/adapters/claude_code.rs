@@ -28,6 +28,19 @@ impl Adapter for ClaudeCodeAdapter {
         true
     }
 
+    /// `~/.claude/settings.json` and `~/.claude.json` (spec §8.3 names the
+    /// former): the user's own configs, which a session never touches.
+    fn user_config_files(&self) -> Vec<Utf8PathBuf> {
+        let Ok(home) = std::env::var("HOME") else {
+            return Vec::new();
+        };
+        let home = Utf8PathBuf::from(home);
+        vec![
+            home.join(".claude/settings.json"),
+            home.join(".claude.json"),
+        ]
+    }
+
     fn snapshot(&self, path: &Utf8PathBuf) -> Result<Snapshot, AdapterError> {
         let bytes = std::fs::read(path).unwrap_or_default();
         Ok(Snapshot {

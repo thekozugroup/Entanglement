@@ -1,7 +1,7 @@
 //! `entangle` CLI — entry point.
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
-//! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke},
+//! init, install, uninstall, version, doctor, keys gen, keyring {list,add,remove}, plugins {list,load,unload,invoke},
 //! mesh {peers,status,trust,untrust,revoke}, peers {list,remove}, perms {list,revoke}, pair (initiator/responder),
 //! wrapper, security set-max-tier, config {reload,validate,set,get,unset}, metrics, diag mesh.
 //! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
@@ -21,6 +21,7 @@ use cmd::{
     compute::ComputeArgs,
     diag::DiagArgs,
     init::InitArgs,
+    install::{InstallArgs, UninstallArgs},
     keyring::KeyringArgs,
     keys::KeysArgs,
     mesh::MeshArgs,
@@ -73,6 +74,12 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     Quickstart(QuickstartArgs),
     /// Generate identity, write ~/.entangle/identity.key and config.toml.
     Init(InitArgs),
+    /// First-run setup: init if needed, the shell-wrapper question, and
+    /// checksums of your agent configs (which Entanglement never modifies).
+    Install(InstallArgs),
+    /// Remove wrappers and leftover agent sessions, verify your agent configs
+    /// are untouched; `--purge` also deletes ~/.entangle.
+    Uninstall(UninstallArgs),
     /// Export identity, keyrings and paired peers to a passphrase-encrypted archive.
     Backup(BackupArgs),
     /// Import an archive written by `entangle backup` (e.g. on a new device).
@@ -182,6 +189,8 @@ async fn run() -> anyhow::Result<()> {
     match cli.cmd {
         Cmd::Quickstart(a) => cmd::quickstart::run(a).await,
         Cmd::Init(a) => exit_with(cmd::init::run(a).await?),
+        Cmd::Install(a) => exit_with(cmd::install::run_install(a).await?),
+        Cmd::Uninstall(a) => exit_with(cmd::install::run_uninstall(a).await?),
         Cmd::Backup(a) => cmd::backup::run_backup(a).await,
         Cmd::Restore(a) => cmd::backup::run_restore(a).await,
         Cmd::Version => cmd::version::run().await,
