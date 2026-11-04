@@ -34,6 +34,24 @@ pub enum ShareMode {
     RwScoped,
 }
 
+/// Returns `true` if `s` is a valid `storage.share.<name>` name:
+/// `^[a-z0-9][a-z0-9_-]{0,62}$`.
+///
+/// A share name becomes exactly one directory under the daemon's
+/// `<data>/shares` (and the suffix of `ENTANGLE_SHARE_<NAME>`), so it must be
+/// a single plain path component: no separator, no `.`/`..`, never empty or
+/// absolute. Otherwise `"storage.share./"` would name the filesystem root and
+/// `"storage.share.../.."` the daemon's own configuration directory.
+pub fn is_valid_share_name(s: &str) -> bool {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() || c.is_ascii_digit() => {}
+        _ => return false,
+    }
+    s.len() <= 63
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
+}
+
 /// All capability surfaces available in the Entanglement architecture.
 ///
 /// # §4.3 Tier ↔ capability binding
@@ -55,7 +73,8 @@ pub enum CapabilityKind {
     },
     /// `storage.share.<name>` — access a named shared volume.
     StorageShare {
-        /// The volume name.
+        /// The volume name; see [`is_valid_share_name`] (enforced when a
+        /// manifest is validated and again before a native scope is derived).
         name: String,
         /// Read/write mode.
         mode: ShareMode,
@@ -152,6 +171,40 @@ mod tests {
             .find(|v| matches!(v, CapabilityKind::HostDockerSocket))
             .expect("HostDockerSocket must be in standard_variants");
         assert_eq!(docker.min_tier(), Tier::Native);
+    }
+
+    #[test]
+    fn share_names_are_one_plain_path_component() {
+        for ok in [
+            "photos",
+            "a",
+            "0",
+            "my-share",
+            "my_share",
+            "s3",
+            &"a".repeat(63),
+        ] {
+            assert!(is_valid_share_name(ok), "{ok:?}");
+        }
+        for bad in [
+            "",
+            "/",
+            "/etc",
+            ".",
+            "..",
+            "../..",
+            "a/b",
+            "a\\b",
+            "-a",
+            "_a",
+            "Photos",
+            "a b",
+            "a.b",
+            "é",
+            &"a".repeat(64),
+        ] {
+            assert!(!is_valid_share_name(bad), "{bad:?}");
+        }
     }
 
     #[test]

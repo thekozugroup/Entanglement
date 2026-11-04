@@ -160,6 +160,8 @@ Standard lifecycle — install → load → validate → verify → pre-compile 
 
 For plugins needing raw access (CUDA, Node.js, exotic devices), Entanglement launches a native binary in a sandboxed subprocess. IPC is **Cap'n Proto** over a Unix Domain Socket (or named pipe on Windows). The OS sandbox is per §0.2: Seatbelt on macOS, Landlock+seccomp on Linux, deferred on native Windows. The agent-host commits to using this path for Claude Code, Codex, and OpenCode (§8).
 
+**Implementation deviation (Phase 1).** IPC is not Cap'n Proto: the host writes one length-prefixed request frame (`u32` big-endian length + input bytes) to the plugin's **stdin** and reads one response frame (`u32` length + tag byte `0` ok / `1` err + body) from its **stdout**; stderr goes to the daemon log. A single request/response shape needs no schema compiler, and a pipe pair needs no socket path the sandbox would have to expose. Each invocation runs a fresh sandboxed process (deadline → the process group is killed; an oversized response is refused from its header). See `crates/entangle-sandbox` (`frame`, `supervisor`).
+
 ### 3.5 Subprocess sandbox honesty
 
 This section documents the realities:
@@ -178,7 +180,7 @@ Entanglement supports two paths against the **same Ed25519 publisher key**:
 
 **Path A — OCI artifact (production)**
 - `oci://ghcr.io/thekozugroup/entangle-scheduler:1.4.2`
-- Three layers: `application/vnd.entangle.manifest.+toml`, `application/wasm`, `application/vnd.entangle.signature.+ed25519`
+- One layer `application/vnd.entangle.plugin.layer.v1.tar+zstd` (artifactType `application/vnd.entangle.plugin.v1`) holding `entangle.toml`, `plugin.wasm` and `plugin.wasm.sig`; the signature is verified from those bytes, never from registry metadata. See `docs/plugin-authoring.md` section 7.
 - Cosign provenance optional but recommended. **Path B — Plain HTTPS tarball (hobbyist)**
 - `https://github.com/alice/my-plugin/releases/download/v0.1/my-plugin.tar.zst`
 - Detached signature at the same URL with `.sig` suffix.
@@ -893,7 +895,7 @@ Why this is tier-5:            Claude Code is a Node.js application that
 
 | OS | Isolation |
 |---|---|
-| Linux | `unshare` + Landlock (filesystem allowlist matches `storage.local` scope) + seccomp-bpf (network syscalls allowed only to `net.wan` allowlist via socket filter; raw sockets blocked); user namespace; cgroup memory + CPU limits |
+| Linux | `unshare` + Landlock (filesystem allowlist matches `storage.local` scope) + seccomp-bpf (network syscalls allowed only to `net.wan` allowlist via socket filter; raw sockets blocked); user namespace; cgroup memory + CPU limits. *Phase 1 implements the socket filter per address family (no network capability → no IP sockets; `net.lan`/`net.wan` → IP allowed, no per-host allowlist yet) and rlimits instead of cgroups.* |
 | macOS | `sandbox-exec` profile generated from declared caps (network, fs scopes); Endpoint Security agent observes child processes |
 | Windows | WSL2 (uses Linux profile inside) |
 
@@ -1468,7 +1470,7 @@ Everything else below is **planned design**, not implemented: `entangle logs`,
 `entangle trace task`, `entangle upgrade`, and `entangle backup`/`restore` do
 not exist yet.
 
-**Logs:** structured JSON to stderr by default. systemd captures via journald; macOS via `os_log`; Docker via stdout. Per-plugin log streams visible via `entangle logs <plugin-id> [--follow]`. Rotation handled by the host's logger or by the maintenance plugin. **Metrics:** the daemon serves a Prometheus `/metrics` endpoint (`[metrics] enabled = true`; loopback only unless `allow_non_loopback = true`). It is built into `entangled`, not a separate `observability` plugin. Standard metrics: capability grants and denials, plugin uptime, mesh peer count, scheduler in-flight tasks (the dispatcher has no queue to measure), biscuit verification latency, and `entangle_mesh_tailscale_state{state}`; `entangle metrics` prints the same text over RPC. Full catalogue: `docs/operations.md` §12. **Tracing:** an OTLP/HTTP exporter with JSON encoding, built in and optional (`[telemetry.otlp]`; `http://` endpoints only). Span propagation across the mesh uses a W3C `traceparent` carried as an optional extension of the one-shot task request on the scheduler ALPN (`entangle/scheduler/1`), not on every `entangle/*` ALPN. `entangle trace task <id>` is not implemented; read the trace in your collector. **Upgrade:** `entangle upgrade` updates the binary atomically (downloads to side path, swaps symlink, restarts via supervisor). Plugins re-instantiate. Mesh re-converges in <10s. Daemon downtime: typically 1–2s. **Backup:** `entangle backup --to <path>` packages identity + trust + paired peers + plugin data dirs (configurable include/exclude). Encrypted. `entangle restore --from` restores onto a fresh install. **Disaster recovery:** lost laptop → restore from backup on new device → mesh peers see the same NodeId via the restored identity; OR rotate identity (§6.5) and let peers migrate. `entangle diag mesh` checks reachability and prints a triage report.
+**Logs:** structured JSON to stderr by default. systemd captures via journald; macOS via `os_log`; Docker via stdout. Per-plugin log streams visible via `entangle logs <plugin-id> [--follow]`. Rotation handled by the host's logger or by the maintenance plugin. **Metrics:** the daemon serves a Prometheus `/metrics` endpoint (`[metrics] enabled = true`; loopback only unless `allow_non_loopback = true`). It is built into `entangled`, not a separate `observability` plugin. Standard metrics: capability grants and denials, plugin uptime, mesh peer count, scheduler in-flight tasks (the dispatcher has no queue to measure), biscuit verification latency, and `entangle_mesh_tailscale_state{state}`; `entangle metrics` prints the same text over RPC. Full catalogue: `docs/operations.md` §14. **Tracing:** an OTLP/HTTP exporter with JSON encoding, built in and optional (`[telemetry.otlp]`; `http://` endpoints only). Span propagation across the mesh uses a W3C `traceparent` carried as an optional extension of the one-shot task request on the scheduler ALPN (`entangle/scheduler/1`), not on every `entangle/*` ALPN. `entangle trace task <id>` is not implemented; read the trace in your collector. **Upgrade:** `entangle upgrade` updates the binary atomically (downloads to side path, swaps symlink, restarts via supervisor). Plugins re-instantiate. Mesh re-converges in <10s. Daemon downtime: typically 1–2s. **Backup:** `entangle backup --to <path>` packages identity + trust + paired peers + plugin data dirs (configurable include/exclude). Encrypted. `entangle restore --from` restores onto a fresh install. **Disaster recovery:** lost laptop → restore from backup on new device → mesh peers see the same NodeId via the restored identity; OR rotate identity (§6.5) and let peers migrate. `entangle diag mesh` checks reachability and prints a triage report.
 
 ### 9.7 License
 
@@ -1796,14 +1798,15 @@ ATC-MAN-3
   GIVEN  a entangle.toml with `runtime.kind = "wasm-component"` and a binary that is actually ELF
   WHEN   entangle-host instantiates the plugin
   THEN   instantiation fails with Err(Error::RuntimeKindMismatch { declared, observed })
-  TEST   crates/entangle-host/tests/runtime_kind.rs::lie_at_instantiation_rejected
+  TEST   crates/entangle-host/tests/runtime_kind.rs::atc_man_3_lie_at_instantiation_rejected
 
 ATC-MAN-4 4.1)
   GIVEN  a entangle.toml with `tier = 3` AND a config with `[security] max_tier_allowed = 2`
   WHEN   entangle install <manifest> is invoked
   THEN   it returns Err(Error::TierExceeded { plugin_tier: 3, ceiling: 2 })
+         (implemented as PolicyError::TierAboveCeiling { plugin, ceiling }, ENTANGLE-E0043)
   AND    no plugin state is mutated
-  TEST   crates/entangle-bin/tests/install_max_tier.rs::install_rejects_above_ceiling
+  TEST   crates/entangle-bin/tests/install_max_tier.rs::atc_man_4_install_rejects_above_ceiling
 ```
 
 ### 16.2 Reproducible packaging (M4)
@@ -1992,13 +1995,13 @@ ATC-MIR-1
   GIVEN  a plugin.tar.zst served by mirror.entanglement.dev
   WHEN   entangle install verifies it
   THEN   the verifier code path NEVER consults the mirror's identity for artifact bytes
-  TEST   crates/entangle-signing/tests/mirror_cdn_only.rs::no_mirror_in_artifact_trust
+  TEST   crates/entangle-oci/tests/mirror_cdn_only.rs::atc_mir_1_no_mirror_in_artifact_trust
 
 ATC-MIR-2
   GIVEN  a directory listing served by mirror with a valid mirror-listing signature
   WHEN   entangle-oci::list_tags() is called
   THEN   it returns the listing AND records the listing-signature verification result
-  TEST   crates/entangle-oci/tests/listing.rs::mirror_listing_verified
+  TEST   crates/entangle-oci/tests/listing.rs::atc_mir_2_mirror_listing_verified
 ```
 
 ### 16.9 Reproducible 1.0 release (M6)

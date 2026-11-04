@@ -4,10 +4,12 @@ use crate::{
     errors::RuntimeError,
     lifecycle::{LifecycleEvent, LifecyclePhase},
     loader::PluginPackage,
+    native::{NativeConfig, NativePlugin},
 };
-use entangle_broker::{Broker, BrokerPolicy};
-use entangle_host::{HostEngine, LoadedPlugin};
+use entangle_broker::{Broker, BrokerError, BrokerPolicy};
+use entangle_host::{check_runtime_kind, DeclaredRuntime, HostEngine, LoadedPlugin};
 use entangle_ipc::{Bus, Envelope, Topic};
+use entangle_manifest::Runtime;
 use entangle_manifest::{loader::LoadError, validate::validate, ValidatedManifest};
 use entangle_observability::catalog::{self, names, PluginLabels};
 use entangle_observability::Registry;
@@ -33,6 +35,9 @@ pub struct KernelConfig {
     pub multi_node: bool,
     /// Capacity of the lifecycle event bus (number of buffered envelopes).
     pub bus_capacity: usize,
+    /// Native (tier 4–5) plugin settings: sandbox opt-out, storage root,
+    /// limits (spec §3.4).
+    pub native: NativeConfig,
 }
 
 impl Default for KernelConfig {
@@ -41,6 +46,7 @@ impl Default for KernelConfig {
             max_tier_allowed: Tier::Native,
             multi_node: false,
             bus_capacity: 1024,
+            native: NativeConfig::default(),
         }
     }
 }
@@ -49,7 +55,16 @@ impl Default for KernelConfig {
 
 struct LoadedRecord {
     effective_tier: Tier,
-    plugin: LoadedPlugin,
+    plugin: PluginImpl,
+}
+
+/// How a loaded plugin executes.
+#[derive(Clone)]
+enum PluginImpl {
+    /// Wasm component in the shared Wasmtime engine.
+    Wasm(LoadedPlugin),
+    /// Native executable in a sandboxed subprocess (see [`crate::native`]).
+    Native(Arc<NativePlugin>),
 }
 
 /// The kernel's metric state (see [`Kernel::with_metrics`]).
@@ -69,7 +84,6 @@ struct KernelMetrics {
 /// IPC bus. Call [`Kernel::load_plugin_from_dir`] to run the full five-step
 /// load pipeline (spec §3).
 pub struct Kernel {
-    #[allow(dead_code)] // retained for future daemon config queries
     config: KernelConfig,
     engine: HostEngine,
     broker: Broker,
@@ -92,6 +106,14 @@ impl Kernel {
             peer_allowlist_populated: false,
         };
         let engine = HostEngine::new().map_err(entangle_host::HostError::LinkerSetup)?;
+        // Staged native binaries left behind by a process that died without
+        // unloading (SIGKILL, OOM kill) would otherwise accumulate across
+        // restarts. Only copies no live process holds are removed, so a
+        // running daemon sharing this root keeps its own. The system temp
+        // dir (no root configured) is left to the OS's tmp cleaning.
+        if let Some(root) = &config.native.staging_dir {
+            crate::native::sweep_stale_staging(root);
+        }
         Ok(Self {
             bus: Bus::new(config.bus_capacity),
             lifecycle_topic: Topic::new(LIFECYCLE_TOPIC).expect("static topic is valid"),
@@ -171,14 +193,18 @@ impl Kernel {
     ///
     /// Steps:
     /// 1. Parse and validate the manifest (`entangle.toml`) from the exact
-    ///    bytes covered by the signature, and refuse duplicate plugin ids
-    ///    up front.
+    ///    bytes covered by the signature, refuse a tier above
+    ///    `max_tier_allowed` (ATC-MAN-4) and duplicate plugin ids up front.
     /// 2. Verify the signature bundle over the artifact **and** manifest
     ///    bytes against the trusted keyring, then bind the verified signer
-    ///    to the publisher named in the manifest.
+    ///    to the publisher named in the manifest. Check the artifact's magic
+    ///    bytes against the declared runtime (ATC-MAN-3).
     /// 3. Register the plugin with the capability broker.
-    /// 4. Compile the artifact with the host engine (rolling back the broker
-    ///    registration on failure — no partial state remains).
+    /// 4. Wasm: compile the artifact with the host engine. Native: grant the
+    ///    declared capabilities through the broker, plan the OS sandbox
+    ///    (refusing when none is available), and stage the verified bytes
+    ///    (see [`crate::native`]). On failure the broker registration — and
+    ///    with it every grant — is rolled back; no partial state remains.
     /// 5. Emit lifecycle events on the IPC bus after each step.
     ///
     /// Returns the [`PluginId`] on success, or the first error encountered.
@@ -196,6 +222,16 @@ impl Kernel {
         let manifest = parse_manifest(&pkg.manifest_bytes)?;
         let plugin_id = manifest.plugin_id.clone();
         let effective_tier = manifest.effective_tier;
+
+        // Tier ceiling FIRST (spec §9.4.1, ATC-MAN-4): a plugin above
+        // `max_tier_allowed` is refused before any signature work, broker
+        // registration, capability grant, or file write. Refusing on an
+        // as-yet-unverified manifest is safe — refusal never grants anything —
+        // and the broker re-checks the verified manifest at registration.
+        self.broker
+            .policy()
+            .check_plugin_load(effective_tier)
+            .map_err(BrokerError::from)?;
 
         // Duplicate check FIRST — before any broker or host state exists, so
         // a rejected re-load leaves the running plugin fully intact.
@@ -265,24 +301,42 @@ impl Kernel {
             LifecyclePhase::SignatureVerified,
         );
 
+        // ── Step 2c: Runtime kind (ATC-MAN-3) ────────────────────────────────
+        // The verified bytes must be what the manifest says they are.
+        let runtime = manifest.runtime;
+        let declared = match runtime {
+            Runtime::Wasm => DeclaredRuntime::Wasm,
+            Runtime::Native => DeclaredRuntime::Native,
+        };
+        check_runtime_kind(declared, &pkg.bytes)?;
+        let declared_caps = manifest.capabilities.clone();
+
         // ── Step 3: Broker ───────────────────────────────────────────────────
         // register_plugin takes ownership of ValidatedManifest (not Clone).
         self.broker.register_plugin(manifest)?;
         self.emit(&plugin_id, effective_tier, LifecyclePhase::Registered);
 
-        // ── Step 4: Host ─────────────────────────────────────────────────────
-        // On failure, roll back the broker registration so no partial state
-        // remains from this load attempt.
-        let plugin = match LoadedPlugin::from_bytes(
-            &self.engine,
-            &pkg.bytes,
-            plugin_id.clone(),
-            effective_tier,
-        ) {
+        // ── Step 4: Host / native sandbox ────────────────────────────────────
+        // On failure, roll back the broker registration (which also releases
+        // any grants, audited) so no partial state remains.
+        let plugin = match runtime {
+            Runtime::Wasm => LoadedPlugin::from_bytes(
+                &self.engine,
+                &pkg.bytes,
+                plugin_id.clone(),
+                effective_tier,
+            )
+            .map(PluginImpl::Wasm)
+            .map_err(RuntimeError::from),
+            Runtime::Native => self
+                .prepare_native(&plugin_id, &pkg, &declared_caps)
+                .map(|n| PluginImpl::Native(Arc::new(n))),
+        };
+        let plugin = match plugin {
             Ok(p) => p,
             Err(e) => {
                 let _ = self.broker.unregister_plugin(&plugin_id);
-                return Err(e.into());
+                return Err(e);
             }
         };
         self.emit(&plugin_id, effective_tier, LifecyclePhase::Loaded);
@@ -367,10 +421,50 @@ impl Kernel {
         };
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
-        let result = plugin.run_one_shot(&self.engine, input, timeout_ms).await;
+        let result = match plugin {
+            PluginImpl::Wasm(p) => p
+                .run_one_shot(&self.engine, input, timeout_ms)
+                .await
+                .map(|r| r.output)
+                .map_err(RuntimeError::from),
+            PluginImpl::Native(n) => n
+                .invoke(input, timeout_ms)
+                .await
+                .map_err(RuntimeError::from),
+        };
         self.emit(plugin_id, effective_tier, LifecyclePhase::Idled);
 
-        Ok(result?.output)
+        result
+    }
+
+    /// The sandbox plan a loaded native plugin runs under (`None` for wasm
+    /// plugins and unknown ids).
+    pub fn native_sandbox(&self, plugin_id: &PluginId) -> Option<entangle_sandbox::Plan> {
+        match &self.plugins.read().get(plugin_id)?.plugin {
+            PluginImpl::Native(n) => Some(n.plan().clone()),
+            PluginImpl::Wasm(_) => None,
+        }
+    }
+
+    /// Grant every declared capability through the broker (audited), derive
+    /// the sandbox from the grants, and stage the verified binary.
+    fn prepare_native(
+        &self,
+        plugin_id: &PluginId,
+        pkg: &PluginPackage,
+        declared: &[entangle_types::capability::CapabilityKind],
+    ) -> Result<NativePlugin, RuntimeError> {
+        let grants = declared
+            .iter()
+            .map(|cap| self.broker.grant(plugin_id, cap))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(NativePlugin::prepare(
+            plugin_id,
+            &pkg.bytes,
+            Some(&pkg.dir),
+            &grants,
+            &self.config.native,
+        )?)
     }
 
     /// Invoke a [`entangle_types::task::OneShotTask`] honoring its

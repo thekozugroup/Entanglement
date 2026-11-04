@@ -33,15 +33,21 @@ pub struct MeshConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SecurityConfig {
-    /// Maximum plugin tier accepted at runtime (1..=5).
+    /// Maximum plugin tier accepted at runtime (1..=5). `4` disables tier-5
+    /// native plugins globally; `3` disables every native plugin.
     #[serde(default = "default_max_tier")]
     pub max_tier_allowed: u8,
+    /// Run native plugins without an OS sandbox on a host that has none.
+    /// Default `false` (refused with ENTANGLE-E0700).
+    #[serde(default)]
+    pub allow_unsandboxed_native: bool,
 }
 
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
             max_tier_allowed: default_max_tier(),
+            allow_unsandboxed_native: false,
         }
     }
 }
@@ -90,6 +96,39 @@ pub fn load(path: &Path) -> anyhow::Result<Config> {
     let raw = std::fs::read_to_string(path)?;
     let cfg: Config = toml::from_str(&raw)?;
     Ok(cfg)
+}
+
+/// The `[security] max_tier_allowed` ceiling from `~/.entangle/config.toml`.
+pub fn max_tier_allowed() -> anyhow::Result<entangle_types::tier::Tier> {
+    let cfg = load(&config_path())?;
+    entangle_types::tier::Tier::try_from(cfg.security.max_tier_allowed).map_err(|e| {
+        anyhow::anyhow!(
+            "invalid [security] max_tier_allowed in {}: {e}",
+            config_path().display()
+        )
+    })
+}
+
+/// Kernel settings for the CLI's in-process (`--allow-local`) kernel.
+///
+/// Honours the same `[security]` keys as the daemon — the tier ceiling
+/// (`max_tier_allowed = 4` disables tier-5 plugins) and the native-plugin
+/// sandbox opt-out — so a local load is never more permissive than the
+/// daemon would be. Native plugin storage lives in `~/.entangle/data`, staged
+/// binaries in `~/.entangle/native`.
+pub fn kernel_config() -> anyhow::Result<entangle_runtime::KernelConfig> {
+    let cfg = load(&config_path())?;
+    let dir = entangle_dir();
+    Ok(entangle_runtime::KernelConfig {
+        max_tier_allowed: max_tier_allowed()?,
+        native: entangle_runtime::NativeConfig {
+            allow_unsandboxed: cfg.security.allow_unsandboxed_native,
+            data_dir: Some(dir.join("data")),
+            staging_dir: Some(dir.join("native")),
+            ..entangle_runtime::NativeConfig::default()
+        },
+        ..entangle_runtime::KernelConfig::default()
+    })
 }
 
 /// Serialize `c` to `path`, creating parent directories as needed.

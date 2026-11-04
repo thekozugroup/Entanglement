@@ -136,8 +136,9 @@ target = "wasm32-wasip2"
 | 5 | native | full host access, incl. the Docker socket | `native` |
 
 `runtime = "wasm"` is only valid for tiers 1–3, and `runtime = "native"` only
-for tiers 4–5. `entangle plugins new` generates wasm plugins, so `--tier` is
-limited to 1–3.
+for tiers 4–5. `entangle plugins new` generates wasm plugins (`--tier` 1–3)
+unless you pass `--native` (`--tier` 4–5) — see
+[Native plugins](#native-tier-45-plugins) below.
 
 ### The tier ↔ capability rule
 
@@ -157,6 +158,10 @@ Every capability carries a **minimum tier**:
 | `"storage.share.<name>" = { mode = "ro" \| "rw" \| "rw-scoped" }` | 4 |
 | `"mesh.peer" = {}` | 4 |
 | `"host.docker-socket" = {}` | 5 |
+
+`<name>` in `storage.share.<name>` is one path component matching
+`[a-z0-9][a-z0-9_-]*` (at most 63 characters); anything else, such as `/`,
+`..` or `a/b`, fails validation.
 
 The *implied tier* is the maximum minimum-tier across everything you declare.
 The rule is:
@@ -301,6 +306,113 @@ keyring, and daemon reachability.
 
 ---
 
+## 7. Publish to an OCI registry
+
+Any OCI Distribution v1.1 registry (GHCR, Harbor, a self-hosted `registry:2`,
+a mirror) can host your plugin. The registry is only a place to keep bytes:
+consumers trust **your publisher key**, never the registry (spec §3.6, ATC-MIR-1).
+
+```sh
+entangle plugins build .                       # produces dist/ (section 4)
+entangle plugins publish dist oci://ghcr.io/you/hello:0.1.0
+```
+
+`publish` accepts the build directory (or an already packed package file),
+packs it, uploads the blobs (monolithic upload; chunked for packages larger
+than 4 MiB) and pushes the manifest. Credentials come from
+`ENTANGLE_OCI_TOKEN`, or `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD`,
+together with `ENTANGLE_OCI_REGISTRY=<host[:port]>` naming the one registry
+they are for, or from `~/.entangle/oci-auth.toml` (see `docs/operations.md`
+section 12). Consumers run:
+
+```sh
+entangle keyring add <YOUR_PUBLIC_KEY_HEX> --name you   # once
+entangle plugins install oci://ghcr.io/you/hello:0.1.0
+```
+
+Pin by digest (`oci://ghcr.io/you/hello@sha256:<hex>`) for reproducible installs;
+tags are mutable.
+
+### Artifact format
+
+| Item | Value |
+|------|-------|
+| Manifest media type | `application/vnd.oci.image.manifest.v1+json` |
+| `artifactType` | `application/vnd.entangle.plugin.v1` |
+| Config | the OCI empty descriptor (`application/vnd.oci.empty.v1+json`, `{}`) |
+| Layer (exactly one) | `application/vnd.entangle.plugin.layer.v1.tar+zstd` |
+
+The layer is a zstd-compressed ustar archive of exactly three regular files,
+the same ones the loader reads from `dist/`: `entangle.toml`, `plugin.wasm`,
+`plugin.wasm.sig` (links, directories, extra or duplicate entries are
+rejected). The archive is deterministic (fixed order, zero timestamps).
+Registries that predate `artifactType` are handled via the config media type
+as OCI 1.1 prescribes. An image index is accepted if it has exactly one child
+manifest with this `artifactType`. Manifest annotations are informational and
+never influence trust.
+
+Pulled bytes are verified exactly like a local `dist/`: the signature must be
+by a key in **your** keyring, bound to the publisher in the manifest id. The
+installer then applies `security.max_tier_allowed`, manifest validation and the
+kernel's own load-time checks.
+
+### Mirror listings
+
+A mirror operator can publish a signed listing of a repository's tags at the
+well-known tag `_entangle-listing` (artifact type
+`application/vnd.entangle.mirror-listing.v1`: a JSON layer
+`...mirror-listing.v1+json` with `repository`, `tags` -> digests,
+`generated_at`, `expires_at` in unix seconds, and a detached Ed25519 signature
+layer `...mirror-listing.sig.v1+json` over the exact listing bytes). Listings
+are signed with a dedicated **mirror key**, which is never a publisher key:
+
+```sh
+entangle plugins mirror-sign oci://mirror.example/you/hello --key mirror.pem --ttl-days 7
+entangle plugins tags oci://mirror.example/you/hello
+```
+
+A listing says which tags existed; it cannot make an artifact trusted.
+
+## Native (tier 4–5) plugins
+
+Some workloads cannot be wasm (a Node.js agent, a GPU driver). A native
+plugin is an ordinary **executable** that the daemon runs inside the host's
+OS sandbox — Landlock + seccomp + namespaces on Linux, Seatbelt on macOS —
+derived from the capabilities it declares.
+
+```sh
+entangle plugins new my-native --native     # tier 5 by default; --tier 4 also valid
+entangle plugins build my-native            # cargo build --release for THIS host + sign
+```
+
+`dist/` then holds `plugin.bin`, `entangle.toml` and `plugin.bin.sig`; trust,
+load and invoke exactly as above. A pre-built executable can be packaged with
+`--bin <FILE>`. `examples/native-echo/` is a complete example.
+
+**Protocol.** The generated `src/main.rs` implements it; there is no SDK
+dependency. Each invocation starts a fresh process, writes one request to its
+stdin and closes it, and reads one response from its stdout:
+
+```text
+request  (stdin):  u32 big-endian length | input bytes
+response (stdout): u32 big-endian length | tag | body
+                   tag 0 = ok (body = output), tag 1 = err (body = UTF-8 message)
+```
+
+The response length includes the tag byte. stderr goes to the daemon log. The
+process is killed (with everything it forked) at the invocation deadline, and
+a response larger than the configured cap is refused from its header.
+
+**What the plugin can touch** is exactly what its granted capabilities map
+to (`docs/operations.md` §12): with no capabilities, only its own binary and
+the system libraries, no network, no Unix sockets, an empty environment apart
+from `ENTANGLE_PLUGIN_ID`. `storage.local { scope = "plugin" }` adds a private
+read-write directory at `$ENTANGLE_DATA_DIR`.
+
+Native plugins are refused on hosts with no sandbox primitive, and operators
+can disable them entirely with `[security] max_tier_allowed = 3` (or tier 5
+alone with `= 4`).
+
 ## Troubleshooting
 
 | Symptom | Cause |
@@ -313,6 +425,9 @@ keyring, and daemon reachability.
 | `the wasm32-wasip2 target is not installed` | `rustup target add wasm32-wasip2` |
 | `… does not declare crate-type = ["cdylib"]` | restore the `[lib]` block in `Cargo.toml` |
 | `identity key not found at ~/.entangle/identity.key` | `entangle init` |
+| `ENTANGLE-E0814: package verification failed` on `install oci://` | the signer is not in your keyring (`ENTANGLE-E0101`) or the package was altered; the registry is irrelevant |
+| `ENTANGLE-E0507: runtime kind mismatch` | the artifact is not what `runtime` says (an executable shipped as wasm, or the reverse); rebuild with `entangle plugins build` |
+| `ENTANGLE-E0700` / `E0701` when loading a native plugin | the host has no OS sandbox (or cannot take the network away); see `entangle doctor` and `docs/operations.md` §12 |
 
 ## Reference
 
@@ -321,3 +436,4 @@ keyring, and daemon reachability.
   §4.4 (manifest), §3.6 (artifact signing).
 - `docs/tutorial.md` — a narrated walkthrough using the bundled examples.
 - `examples/hello-world/`, `examples/hash-it/` — working plugins in-tree.
+- `examples/native-echo/` — a working native (tier 5) plugin.

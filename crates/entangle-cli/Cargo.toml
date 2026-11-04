@@ -16,6 +16,7 @@ path = "src/main.rs"
 entangle-types     = { workspace = true }
 entangle-runtime   = { workspace = true }
 entangle-signing   = { workspace = true }
+entangle-oci       = { workspace = true }
 entangle-manifest  = { workspace = true }
 entangle-rpc       = { path = "../entangle-rpc" }
 entangle-peers     = { path = "../entangle-peers" }
@@ -44,6 +45,8 @@ dialoguer         = { workspace = true }
 rustix            = { workspace = true }
 
 [dev-dependencies]
+entangle-oci      = { workspace = true, features = ["testing"] }
+tokio             = { workspace = true, features = ["full"] }
 assert_cmd        = "2"
 tempfile          = { workspace = true }
 predicates        = "3"

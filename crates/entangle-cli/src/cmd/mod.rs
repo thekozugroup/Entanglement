@@ -8,6 +8,7 @@ pub mod doctor;
 pub mod init;
 pub mod keyring;
 pub mod mesh;
+pub mod oci;
 pub mod package;
 pub mod pair;
 pub mod plugins;
