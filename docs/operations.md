@@ -839,10 +839,13 @@ Choose action:
 Decision [u/c]:
 ```
 
-- **Unload-and-disable** (Enter or `u`): the daemon sets the new ceiling first
-  (so a racing load above it is refused), then unloads each affected plugin
-  through the kernel, which releases its broker grants. Afterwards a load above
-  the ceiling fails with `ENTANGLE-E0043`. The plugin ids are added to
+- **Unload-and-disable** (Enter or `u`): the daemon takes the delta set and
+  sets the new ceiling in one step (a load still in flight is either in the
+  delta set or refused with `ENTANGLE-E0043`), then drains each affected
+  plugin — new invocations are refused, invocations already running complete
+  (each within its own timeout) — and only then unloads it, releasing its
+  broker grants, and audits it. Afterwards a load above the ceiling fails with
+  `ENTANGLE-E0043`. The plugin ids are added to
   `[plugins] disabled` in `config.toml`.
 - An answer at the prompt covers exactly the plugins listed. If another
   plugin above the new ceiling was loaded while the prompt waited, the daemon
