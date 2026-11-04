@@ -323,6 +323,70 @@ pub struct DiagMeshResult {
     pub probed: bool,
 }
 
+/// Parameters for the `perms/list` RPC method.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PermsListParams {
+    /// Only this plugin (full id); every loaded plugin when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin_id: Option<String>,
+}
+
+/// Result of the `perms/list` RPC method: every loaded plugin's declared
+/// capabilities and where each stands with the broker (spec §4.6).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PermsListResult {
+    /// One entry per plugin, sorted by id.
+    pub plugins: Vec<PluginPerms>,
+}
+
+/// One plugin's capabilities, as `entangle perms list` shows them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PluginPerms {
+    /// Full plugin id.
+    pub plugin_id: String,
+    /// The plugin's effective tier (1..=5).
+    pub effective_tier: u8,
+    /// Every capability the manifest declares, in manifest order.
+    pub capabilities: Vec<CapabilityGrantInfo>,
+}
+
+/// One declared capability and its broker state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapabilityGrantInfo {
+    /// Manifest key: `storage.local`, `net.wan`, `storage.share.photos`, ...
+    pub capability: String,
+    /// Declared parameters, e.g. `scope=plugin mode=rw` or
+    /// `hosts=api.example.com:443`; empty when the capability takes none.
+    #[serde(default)]
+    pub params: String,
+    /// `granted`, `denied` (operator policy or tier ceiling), `revoked`
+    /// (`perms revoke`, until the plugin is reloaded) or `not-granted`.
+    pub state: String,
+    /// Outstanding broker grant ids (`granted` only).
+    #[serde(default)]
+    pub grant_ids: Vec<u64>,
+    /// Why the capability is denied (`denied` only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+/// Parameters for the `perms/revoke` RPC method.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermsRevokeParams {
+    /// Full plugin id.
+    pub plugin_id: String,
+    /// Manifest key of the capability to revoke (`net.wan`, ...).
+    pub capability: String,
+}
+
+/// Result of the `perms/revoke` RPC method.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PermsRevokeResult {
+    /// Broker grant ids withdrawn by this call (empty when it was already
+    /// revoked).
+    pub withdrawn: Vec<u64>,
+}
+
 /// Method name constants — kept in sync between client and server.
 pub mod method {
     /// `version` — return daemon / runtime / types version strings.
@@ -347,4 +411,8 @@ pub mod method {
     pub const METRICS_EXPORT: &str = "metrics/export";
     /// `diag/mesh` — mesh triage report (transports, endpoints, peer paths).
     pub const DIAG_MESH: &str = "diag/mesh";
+    /// `perms/list` — declared capabilities and their grant state per plugin.
+    pub const PERMS_LIST: &str = "perms/list";
+    /// `perms/revoke` — revoke a loaded plugin's capability (spec §4.6).
+    pub const PERMS_REVOKE: &str = "perms/revoke";
 }

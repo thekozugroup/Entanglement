@@ -112,6 +112,8 @@ pub const RPC_METHODS: &[&str] = &[
     "compute/dispatch",
     "metrics/export",
     "diag/mesh",
+    "perms/list",
+    "perms/revoke",
 ];
 
 /// A bounded interner for plugin-id label values.
