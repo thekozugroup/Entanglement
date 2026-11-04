@@ -885,14 +885,14 @@ fn rebuild_verify_reports_a_git_commit_mismatch_without_failing() {
     trust_fixture_key(home.path());
     verify_rebuild(home.path(), &archive, &project)
         .success()
-        .stdout(predicate::str::contains(&format!("git commit {recorded}")));
+        .stdout(predicate::str::contains(format!("git commit {recorded}")));
 
     // A later commit with identical content: still passes, with a note.
     git(&["commit", "-q", "--allow-empty", "-m", "two"]);
     verify_rebuild(home.path(), &archive, &project)
         .success()
         .stdout(predicate::str::contains("PASS"))
-        .stdout(predicate::str::contains(&format!(
+        .stdout(predicate::str::contains(format!(
             "recorded git commit {recorded}"
         )));
 }
