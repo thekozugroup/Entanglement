@@ -34,3 +34,7 @@ tracing = { workspace = true }
 regex = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 entangle-peers = { workspace = true }
+# Only to build a hostile dialer in `tests/loopback_pairing.rs` (one that
+# grants the listener no stream credit), which `entangle-mesh-iroh` rightly
+# has no knob for. Same workspace entry, so no new features or crates.
+iroh = { workspace = true }

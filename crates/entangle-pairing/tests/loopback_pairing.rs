@@ -19,7 +19,7 @@ use entangle_pairing::mesh::{
     PairingListener, PairingMeshError,
 };
 use entangle_pairing::net::{
-    Dialer, HostConfig, PairingNetError, PairingWire, RejectReason, SessionEnd,
+    Dialer, HostConfig, PairingNetError, PairingOffer, PairingWire, RejectReason, SessionEnd,
 };
 use entangle_pairing::{PairedPeer, PairingCode};
 use entangle_peers::TrustedPeer;
@@ -531,7 +531,179 @@ async fn a_responder_that_exits_on_success_still_delivers_the_finalize() {
 }
 
 // ---------------------------------------------------------------------------
-// 8. Needs real multicast.
+// 8. A dialer that never takes its answer cannot hold `wait` open.
+// ---------------------------------------------------------------------------
+
+/// A dialer that grants the listener no stream credit.
+///
+/// Built on a stock iroh endpoint — any device on the LAN can do this with the
+/// key and port the mDNS beacon advertises. It connects on `ALPN_CONTROL`
+/// with a per-stream receive window of zero, sends one frame and never reads,
+/// so every byte the listener writes back on that stream blocks until the
+/// connection goes away.
+struct Stonewaller {
+    transport: Arc<MeshIroh>,
+    conn: iroh::endpoint::Connection,
+    // Held, never read: reading is what would grant credit.
+    _stream: (iroh::endpoint::SendStream, iroh::endpoint::RecvStream),
+}
+
+impl Stonewaller {
+    async fn send(peer: &IrohPeer, frame: &[u8]) -> Self {
+        use entangle_pairing::mesh::ALPN_CONTROL;
+        use iroh::endpoint::{ConnectOptions, QuicTransportConfig, VarInt};
+
+        let identity = IdentityKeyPair::generate();
+        let transport = transport(&identity).await;
+        let id = iroh::EndpointId::from_bytes(&peer.public_key).expect("listener key");
+        let addr = peer.addrs().fold(
+            iroh::EndpointAddr::new(id),
+            iroh::EndpointAddr::with_ip_addr,
+        );
+        let no_credit = QuicTransportConfig::builder()
+            .stream_receive_window(VarInt::from_u32(0))
+            .build();
+        let connecting = deadline(
+            "stonewalling dial",
+            transport.endpoint().connect_with_opts(
+                addr,
+                ALPN_CONTROL,
+                ConnectOptions::new().with_transport_config(no_credit),
+            ),
+        )
+        .await
+        .expect("dial");
+        let conn = deadline("stonewalling handshake", connecting)
+            .await
+            .expect("handshake");
+        let (mut send, recv) = deadline("open stream", conn.open_bi())
+            .await
+            .expect("open stream");
+        // `entangle-mesh-iroh`'s request framing: a big-endian u32 length,
+        // then the payload; one frame per stream, then FIN.
+        let len = u32::try_from(frame.len()).expect("pairing frames are small");
+        send.write_all(&len.to_be_bytes()).await.expect("header");
+        send.write_all(frame).await.expect("body");
+        send.finish().expect("finish");
+        Self {
+            transport,
+            conn,
+            _stream: (send, recv),
+        }
+    }
+
+    async fn leave(self) {
+        self.conn.close(0u32.into(), b"done");
+        self.transport.shutdown().await;
+    }
+}
+
+/// How far past the point `wait` should have returned it may run before the
+/// test calls it hung: generous for a loaded machine, and well short of the
+/// listener's 20 s delivery bound, which a frame that did not end the session
+/// must not be made to wait out.
+const WAIT_SLACK: Duration = Duration::from_secs(8);
+
+/// A `Hello` that the dialer never lets the listener answer — it grants no
+/// stream credit, so the `Offer` can never be written — must not keep `wait`
+/// from reporting the expiry at the TTL. That frame did not end the session,
+/// so nothing about its delivery can change the outcome; `wait` used to wait
+/// for it regardless, and with no deadline, so `entangle pair --responder`
+/// (and its beacon) stayed up past the expiry it had advertised until Ctrl-C.
+#[tokio::test]
+async fn wait_reports_the_expiry_while_a_dialer_withholds_stream_credit() {
+    let ttl = Duration::from_secs(3);
+    let host = listener(ttl, 5).await;
+    let started = std::time::Instant::now();
+    let peer = dialable(&host);
+    let hello = Dialer::new(&IdentityKeyPair::generate(), "x", PairingCode::generate())
+        .hello()
+        .encode()
+        .expect("encode hello");
+    let attacker = Stonewaller::send(&peer, &hello).await;
+
+    let outcome = tokio::time::timeout(ttl + WAIT_SLACK, host.wait())
+        .await
+        .unwrap_or_else(|_| {
+            panic!(
+                "wait() did not return within {:?} of a {ttl:?} session while a \
+                 dialer withheld stream credit",
+                started.elapsed()
+            )
+        });
+    assert!(
+        matches!(outcome, Err(PairingMeshError::Timeout(t)) if t == ttl),
+        "expected the session's timeout, got {outcome:?}"
+    );
+    assert_eq!(host.session().ended(), Some(SessionEnd::Expired));
+    deadline("shutdown", host.shutdown()).await;
+    attacker.leave().await;
+}
+
+/// The same stall on the frame that *does* end the session: a wrong proof
+/// that burns the last attempt, from a dialer that grants no credit for the
+/// refusal. `wait` holds back the end of a session until its last frame is
+/// delivered, but that delivery has a bound; past it `wait` reports the end
+/// anyway, instead of waiting forever.
+#[tokio::test]
+async fn wait_is_bounded_when_the_frame_that_ends_the_session_cannot_be_delivered() {
+    // The listener's delivery bound (the dialer's own round-trip timeout).
+    // The TTL is far beyond it, so the TTL cannot be what ends the wait.
+    const DELIVERY_BOUND: Duration = Duration::from_secs(20);
+    let host = listener(Duration::from_secs(300), 1).await;
+    let peer = dialable(&host);
+
+    // A well-formed `Accept` whose proof is over a made-up nonce and a random
+    // code: one failed attempt, which at `max_attempts = 1` destroys the
+    // session inside `handle`, before the refusal is written.
+    let made_up_offer = PairingOffer {
+        host_peer_id: peer.peer_id,
+        host_pubkey_hex: hex::encode(peer.public_key),
+        host_display_name: "studio".into(),
+        nonce: [0; 32],
+        created_at_secs: 0,
+    };
+    let accept = PairingWire::Accept(
+        Dialer::new(&IdentityKeyPair::generate(), "x", PairingCode::generate())
+            .accept_for(&made_up_offer),
+    )
+    .encode()
+    .expect("encode accept");
+    let attacker = Stonewaller::send(&peer, &accept).await;
+
+    deadline("the session burns", async {
+        while host.session().ended().is_none() {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    assert_eq!(host.session().ended(), Some(SessionEnd::AttemptsExhausted));
+
+    let started = std::time::Instant::now();
+    let outcome = tokio::time::timeout(DELIVERY_BOUND + WAIT_SLACK, host.wait())
+        .await
+        .unwrap_or_else(|_| {
+            panic!(
+                "wait() was still waiting {:?} after the session ended, for a refusal \
+                 the dialer will never take",
+                started.elapsed()
+            )
+        });
+    assert!(
+        matches!(
+            outcome,
+            Err(PairingMeshError::Net(PairingNetError::Rejected(
+                RejectReason::TooManyAttempts
+            )))
+        ),
+        "expected the burned session's error, got {outcome:?}"
+    );
+    deadline("shutdown", host.shutdown()).await;
+    attacker.leave().await;
+}
+
+// ---------------------------------------------------------------------------
+// 9. Needs real multicast.
 // ---------------------------------------------------------------------------
 
 /// mDNS discovery needs a live multicast-capable interface, which sandboxed CI

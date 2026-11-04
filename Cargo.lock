@@ -1792,6 +1792,7 @@ dependencies = [
  "entangle-signing",
  "entangle-types",
  "hex",
+ "iroh",
  "rand_core 0.6.4",
  "regex",
  "serde",
