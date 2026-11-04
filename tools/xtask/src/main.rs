@@ -28,6 +28,7 @@
 //! `rustup`) and keeps `cargo xtask` free of heavy runtime dependencies.
 
 mod governance;
+mod loc;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -77,6 +78,18 @@ enum Task {
         /// Write the P0 issue body here when there is a violation.
         #[arg(long)]
         report: Option<PathBuf>,
+    },
+    /// Spec §2.3/§10: L1+L2 trust-footprint LOC must stay within the budget in
+    /// `docs/trust-footprint.toml`. Prints a per-crate breakdown; exits
+    /// non-zero when over budget.
+    #[command(name = "loc-budget")]
+    LocBudget {
+        /// Crate list and budget.
+        #[arg(long, default_value = "docs/trust-footprint.toml")]
+        config: PathBuf,
+        /// Directory the crate paths in the config are relative to.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
     },
     /// ATC-BUS-2: the newest note in docs/governance/rotations.md must be at
     /// most 35 days old. Exits non-zero otherwise.
@@ -157,6 +170,24 @@ fn main() -> Result<()> {
                     eprintln!("VIOLATION {v}");
                 }
                 bail!("bus factor violated for {} role(s)", violations.len())
+            }
+        }
+        Task::LocBudget { config, root } => {
+            let text = std::fs::read_to_string(&config)
+                .with_context(|| format!("reading {}", config.display()))?;
+            let cfg = loc::Config::parse(&text)?;
+            let report = loc::run(&root, &cfg)?;
+            print!("{}", report.render());
+            if report.within_budget() {
+                println!("loc-budget OK: {} <= {}", report.total, report.budget);
+                Ok(())
+            } else {
+                bail!(
+                    "trust footprint is {} LOC, over the {} budget by {}",
+                    report.total,
+                    report.budget,
+                    report.total - report.budget
+                )
             }
         }
         Task::RotationNoteCheck {

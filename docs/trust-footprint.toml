@@ -1,0 +1,32 @@
+# Trust-footprint definition read by `cargo xtask loc-budget` (CI: ci.yml,
+# job "trust-footprint").
+#
+# Spec: docs/architecture.md §2.3 ("The trust footprint is L1+L2 — a CI check
+# enforces that L1+L2 LOC stays under a budget (initial: 25k LOC excluding
+# tests)") and §10 ("`entangle-core` + `entangle-broker` + `entangle-manifest`
+# + `entangle-signing` + `entangle-oci` + `entangle-https-fetch` +
+# `entangle-host` + `entangle-ipc` total < 25k LOC excluding tests").
+#
+# Counted: non-blank, non-comment Rust lines under `<crate>/src`, excluding
+# `#[cfg(test)]` items, `tests.rs` files and anything under a `tests/` dir.
+# Changing the budget or the crate list is a spec-level decision.
+
+budget = 25000
+
+# L1 (core runtime) + L2 (trusted libraries linked into the binary).
+crates = [
+    "crates/entangle-core",
+    "crates/entangle-host",
+    "crates/entangle-broker",
+    "crates/entangle-manifest",
+    "crates/entangle-signing",
+    "crates/entangle-oci",
+    "crates/entangle-ipc",
+]
+
+# Named by the spec's §10 list but not a crate in this workspace yet (the
+# HTTPS fetch code currently lives inside entangle-oci). Counted as 0 and
+# reported; delete the entry if the crate is created (it then moves to `crates`).
+not_yet_present = [
+    "crates/entangle-https-fetch",
+]
