@@ -111,10 +111,15 @@ async fn lying_registry_streaming_too_much_is_cut_off() {
         .unwrap_err();
     assert!(matches!(e, OciError::SizeMismatch { .. }), "{e}");
     assert_eq!(code(&e), "ENTANGLE-E0809");
+    // The client must stop at the descriptor size. The mock itself can queue
+    // ~4 MiB into loopback socket buffers before any backpressure, so allow
+    // descriptor size + 8 MiB: far below the 512 MiB offered (the old bound
+    // was 128 MiB).
     assert!(
-        mock.bytes_streamed() < total / 4,
-        "client kept reading: {} of {total} bytes sent",
-        mock.bytes_streamed()
+        mock.bytes_streamed() <= pkg.len() as u64 + 8 * 1024 * 1024,
+        "client kept reading: {} of {total} bytes sent for a {}-byte descriptor",
+        mock.bytes_streamed(),
+        pkg.len()
     );
 }
 
@@ -661,4 +666,180 @@ async fn failed_chunk_is_resumed_from_what_the_registry_holds() {
             "stored={stored}"
         );
     }
+}
+
+#[tokio::test]
+async fn bearer_token_is_not_leaked_to_the_cdn_redirect_target() {
+    let mock = MockRegistry::start(MockOptions {
+        auth: MockAuth::Bearer {
+            token_requires_basic: None,
+        },
+        cdn: true,
+        tag_page_size: None,
+    })
+    .await;
+    let pkg = signed_package(&keypair(1), "hello", &wasm_bytes(3000));
+    seed_artifact(&mock, "r/p", "t", &pkg);
+    let pulled = pull_artifact(&client(&mock), &reference(&mock, "r/p:t"))
+        .await
+        .unwrap();
+    assert_eq!(pulled.package, pkg);
+    let cdn = mock.requests_to("cdn");
+    assert!(!cdn.is_empty(), "blob must have come from the CDN listener");
+    assert!(
+        cdn.iter().all(|r| r.authorization.is_none()),
+        "bearer token leaked to the CDN: {cdn:?}"
+    );
+    assert!(mock.requests_to("registry").iter().any(|r| r
+        .authorization
+        .as_deref()
+        .is_some_and(|a| a.starts_with("Bearer tok-"))));
+}
+
+#[tokio::test]
+async fn redirect_loop_is_cut_off_at_max_redirects() {
+    let mock = plain().await;
+    let pkg = signed_package(&keypair(1), "hello", &wasm_bytes(200));
+    seed_artifact(&mock, "r/p", "t", &pkg);
+    mock.redirect_blob_in_a_loop(Digest::of(&pkg).as_str());
+    let e = pull_artifact(&client(&mock), &reference(&mock, "r/p:t"))
+        .await
+        .unwrap_err();
+    assert!(matches!(e, OciError::Redirect(_)), "{e}");
+    let blob_gets = mock
+        .requests()
+        .iter()
+        .filter(|r| r.method == "GET" && r.path.contains("/blobs/sha256:"))
+        .count();
+    assert_eq!(
+        blob_gets,
+        ClientConfig::default().max_redirects as usize + 1,
+        "must stop right after max_redirects"
+    );
+}
+
+/// One raw HTTP/1.1 request against the mock; returns (status, body).
+async fn raw(
+    mock: &MockRegistry,
+    method: &str,
+    path: &str,
+    headers: &[(&str, &str)],
+    body: &[u8],
+) -> (u16, String) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut s = tokio::net::TcpStream::connect(mock.registry())
+        .await
+        .unwrap();
+    let mut req = format!(
+        "{method} {path} HTTP/1.1\r\nhost: {}\r\nconnection: close\r\ncontent-length: {}\r\n",
+        mock.registry(),
+        body.len()
+    );
+    for (k, v) in headers {
+        req.push_str(&format!("{k}: {v}\r\n"));
+    }
+    req.push_str("\r\n");
+    s.write_all(req.as_bytes()).await.unwrap();
+    s.write_all(body).await.unwrap();
+    let mut out = Vec::new();
+    s.read_to_end(&mut out).await.unwrap();
+    let text = String::from_utf8_lossy(&out).into_owned();
+    let code = text.split(' ').nth(1).unwrap().parse().unwrap();
+    (code, text)
+}
+
+/// The mock must refuse what a real registry refuses, otherwise client
+/// regressions (manifest before blobs, missing Accept, cross-repo blobs) pass.
+#[tokio::test]
+async fn mock_is_as_strict_as_a_real_registry() {
+    let mock = plain().await;
+    let pkg = signed_package(&keypair(1), "hello", &wasm_bytes(300));
+
+    // Manifest PUT referencing blobs that were never pushed: 400.
+    let manifest = format!(
+        r#"{{"schemaVersion":2,"mediaType":"{MEDIA_TYPE_MANIFEST}","config":{{"mediaType":"{MEDIA_TYPE_EMPTY}","digest":"sha256:{z}","size":2}},"layers":[]}}"#,
+        z = "0".repeat(64)
+    );
+    let (c, body) = raw(
+        &mock,
+        "PUT",
+        "/v2/a/b/manifests/t",
+        &[("content-type", MEDIA_TYPE_MANIFEST)],
+        manifest.as_bytes(),
+    )
+    .await;
+    assert_eq!(c, 400, "{body}");
+    assert!(body.contains("MANIFEST_BLOB_UNKNOWN"), "{body}");
+
+    // A blob pushed through the client to repo a/b is not readable from c/d.
+    let c1 = client(&mock);
+    push_artifact(&c1, &reference(&mock, "a/b:t"), &pkg)
+        .await
+        .unwrap();
+    let layer = Digest::of(&pkg);
+    let (c, _) = raw(
+        &mock,
+        "GET",
+        &format!("/v2/a/b/blobs/{}", layer.as_str()),
+        &[],
+        b"",
+    )
+    .await;
+    assert_eq!(c, 200);
+    let (c, _) = raw(
+        &mock,
+        "GET",
+        &format!("/v2/c/d/blobs/{}", layer.as_str()),
+        &[],
+        b"",
+    )
+    .await;
+    assert_eq!(c, 404, "blob store must be per repository");
+
+    // Manifest GET without a matching Accept is refused; with it, served.
+    let (c, _) = raw(&mock, "GET", "/v2/a/b/manifests/t", &[], b"").await;
+    assert_eq!(c, 404);
+    let (c, _) = raw(
+        &mock,
+        "GET",
+        "/v2/a/b/manifests/t",
+        &[("accept", MEDIA_TYPE_MANIFEST)],
+        b"",
+    )
+    .await;
+    assert_eq!(c, 200);
+}
+
+/// A registry (or a MITM) cannot push the client onto cleartext HTTP to a
+/// non-loopback host: the redirect is refused before any connection is made.
+#[tokio::test]
+async fn redirect_to_plain_http_on_a_remote_host_is_refused() {
+    let mock = MockRegistry::start(MockOptions {
+        auth: MockAuth::Basic {
+            username: "alice".into(),
+            password: "s3cret".into(),
+        },
+        ..MockOptions::default()
+    })
+    .await;
+    let pkg = signed_package(&keypair(1), "hello", &wasm_bytes(200));
+    seed_artifact(&mock, "r/p", "t", &pkg);
+    // 192.0.2.0/24 is TEST-NET-1: never routable, so a connect would hang.
+    mock.redirect_blob_to(Digest::of(&pkg).as_str(), "http://192.0.2.1:5000/blob");
+    let cfg = ClientConfig {
+        credential: Some(Credential::Basic {
+            username: "alice".into(),
+            password: Secret::new("s3cret"),
+        }),
+        ..ClientConfig::default()
+    };
+    let started = std::time::Instant::now();
+    let e = pull_artifact(&client_with(&mock, cfg), &reference(&mock, "r/p:t"))
+        .await
+        .unwrap_err();
+    assert!(matches!(e, OciError::InsecureTransport { .. }), "{e}");
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(5),
+        "refusal must not wait on a connection"
+    );
 }

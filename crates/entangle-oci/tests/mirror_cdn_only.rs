@@ -55,10 +55,18 @@ async fn atc_mir_1_no_mirror_in_artifact_trust() {
         "evil",
         &signed_package(&attacker, "tool", &wasm),
     );
-    // (2) Claims the trusted publisher's id, but the signature is the attacker's.
+    // (2) Claims the trusted publisher's id with the publisher's fingerprint and
+    // the correct artifact/manifest hashes, but the signature bytes are the
+    // attacker's: only the signature check can reject it.
     let mut forged = signed_files(&publisher, "tool", &wasm);
-    let other = signed_files(&attacker, "tool", &wasm);
-    forged.signature = other.signature.clone(); // attacker's bundle, publisher's manifest
+    let attacker_sig = entangle_signing::sign_artifact(&wasm, &forged.manifest, &attacker);
+    let mut bundle: SignatureBundle =
+        toml::from_str(std::str::from_utf8(&forged.signature).unwrap()).unwrap();
+    assert_ne!(bundle.signature, attacker_sig.signature);
+    bundle.signature = attacker_sig.signature;
+    forged.signature = toml::to_string(&toml::Value::try_from(&bundle).unwrap())
+        .unwrap()
+        .into_bytes();
     seed_artifact(&hostile, "acme/tool", "forged", &pack(&forged).unwrap());
     // (3) Signed by the *mirror's* key: the mirror can sign listings, never artifacts.
     seed_artifact(
@@ -99,18 +107,14 @@ async fn atc_mir_1_no_mirror_in_artifact_trust() {
         assert!(matches!(e, OciError::Verification(_)), "{bad}: {e}");
         assert!(e.to_string().starts_with("ENTANGLE-E0814"), "{bad}: {e}");
     }
-    // The forged one fails on the signature itself, not on a lookup.
+    // The forged one fails on the signature itself, not on a hash or a lookup.
     let e = pull_and_verify(&hostile, "acme/tool:forged", &trusted)
         .await
         .unwrap_err();
     assert!(
         matches!(
             e,
-            OciError::Verification(
-                entangle_signing::VerificationError::UnknownPublisher
-                    | entangle_signing::VerificationError::BadSignature
-                    | entangle_signing::VerificationError::ManifestHashMismatch { .. }
-            )
+            OciError::Verification(entangle_signing::VerificationError::BadSignature)
         ),
         "{e}"
     );

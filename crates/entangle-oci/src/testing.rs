@@ -96,6 +96,16 @@ struct MethodFault {
 #[derive(Default)]
 struct State {
     blobs: Mutex<HashMap<String, Vec<u8>>>,
+    /// Blobs a client pushed, per repository: like a real registry, a blob
+    /// is only visible (and referencable) in the repository it was pushed to.
+    repo_blobs: Mutex<std::collections::HashSet<(String, String)>>,
+    /// Blobs stored with [`MockRegistry::put_blob`]: visible in every
+    /// repository (test fixtures).
+    seeded: Mutex<std::collections::HashSet<String>>,
+    /// Blobs whose GET answers a 307 pointing back at the same URL.
+    redirect_loops: Mutex<std::collections::HashSet<String>>,
+    /// Blobs whose GET answers a 307 to a fixed `Location`.
+    redirect_to: Mutex<HashMap<String, String>>,
     /// `(repo, digest)` -> `(content-type, bytes)`
     manifests: Mutex<HashMap<(String, String), StoredManifest>>,
     /// `(repo, tag)` -> digest
@@ -244,6 +254,16 @@ impl MockRegistry {
         lock(&self.state.tampered).insert(digest.to_owned(), bytes);
     }
 
+    /// Answer GETs of blob `digest` with a 307 to `location`.
+    pub fn redirect_blob_to(&self, digest: &str, location: &str) {
+        lock(&self.state.redirect_to).insert(digest.to_owned(), location.to_owned());
+    }
+
+    /// Answer GETs of blob `digest` with a 307 to the same URL, forever.
+    pub fn redirect_blob_in_a_loop(&self, digest: &str) {
+        lock(&self.state.redirect_loops).insert(digest.to_owned());
+    }
+
     /// Stream `total` bytes (chunked, no `Content-Length`) for blob `digest`.
     pub fn serve_endless(&self, digest: &str, total: u64) {
         lock(&self.state.endless).insert(digest.to_owned(), total);
@@ -269,6 +289,7 @@ impl MockRegistry {
     pub fn put_blob(&self, bytes: &[u8]) -> String {
         let d = format!("sha256:{}", hex::encode(Sha256::digest(bytes)));
         lock(&self.state.blobs).insert(d.clone(), bytes.to_vec());
+        lock(&self.state.seeded).insert(d.clone());
         d
     }
 
@@ -449,7 +470,7 @@ fn route_inner(
         let Some(d) = path.strip_prefix("/blob/") else {
             return status(404).body(full("")).expect("response");
         };
-        return serve_blob(state, d, method == Method::HEAD);
+        return serve_blob(state, None, d, method == Method::HEAD);
     }
 
     let opts = lock(&state.opts).clone();
@@ -520,17 +541,30 @@ fn route_inner(
     if let Some((repo, digest)) = split_repo(rest, "/blobs/") {
         if *method == Method::GET || *method == Method::HEAD {
             if *method == Method::GET {
+                if let Some(loc) = lock(&state.redirect_to).get(digest) {
+                    return status(307)
+                        .header("location", loc.as_str())
+                        .body(full(""))
+                        .expect("response");
+                }
+            }
+            if *method == Method::GET && lock(&state.redirect_loops).contains(digest) {
+                return status(307)
+                    .header("location", format!("/v2/{repo}/blobs/{digest}"))
+                    .body(full(""))
+                    .expect("response");
+            }
+            if *method == Method::GET {
                 if let Some(cdn) = *lock(&state.cdn_addr) {
-                    if lock(&state.blobs).contains_key(digest) {
+                    if blob_visible(state, repo, digest) {
                         return status(307)
                             .header("location", format!("http://{cdn}/blob/{digest}"))
                             .body(full(""))
                             .expect("response");
                     }
                 }
-                let _ = repo;
             }
-            return serve_blob(state, digest, *method == Method::HEAD);
+            return serve_blob(state, Some(repo), digest, *method == Method::HEAD);
         }
     }
     if let Some(repo) = rest.strip_suffix("/tags/list") {
@@ -569,7 +603,18 @@ fn split_repo<'a>(rest: &'a str, marker: &str) -> Option<(&'a str, &'a str)> {
     Some((&rest[..i], &rest[i + marker.len()..]))
 }
 
-fn serve_blob(state: &Arc<State>, digest: &str, head: bool) -> Response<Body_> {
+/// Whether `digest` can be read from / referenced in `repo`.
+fn blob_visible(state: &Arc<State>, repo: &str, digest: &str) -> bool {
+    lock(&state.seeded).contains(digest)
+        || lock(&state.repo_blobs).contains(&(repo.to_owned(), digest.to_owned()))
+}
+
+fn serve_blob(state: &Arc<State>, repo: Option<&str>, digest: &str, head: bool) -> Response<Body_> {
+    if let Some(repo) = repo {
+        if !blob_visible(state, repo, digest) {
+            return status(404).body(full("")).expect("response");
+        }
+    }
     if let Some(total) = lock(&state.endless).get(digest).copied() {
         return status(200)
             .body(
@@ -619,6 +664,22 @@ fn manifests(
                 .get(&(repo.to_owned(), d.clone()))
                 .cloned()
                 .expect("resolved manifest exists");
+            // A real registry only serves a media type the client accepts.
+            let accept = parts
+                .headers
+                .get("accept")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("");
+            if !accept.split(',').any(|a| {
+                let a = a.split(';').next().unwrap_or("").trim();
+                a == ct || a == "*/*"
+            }) {
+                return status(404)
+                    .header("content-type", "application/json")
+                    .body(full("{\"errors\":[{\"code\":\"MANIFEST_UNKNOWN\",\"message\":\"no acceptable media type\"}]}"))
+                    .expect("response");
+            }
+            // (An override simulates a registry that ignores Accept.)
             let ct = lock(&state.content_type_override)
                 .get(repo)
                 .cloned()
@@ -641,6 +702,27 @@ fn manifests(
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or("")
                 .to_owned();
+            // Like a real registry: every referenced blob must exist in `repo`.
+            if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&body) {
+                let refs = v
+                    .get("config")
+                    .into_iter()
+                    .chain(
+                        v.get("layers")
+                            .and_then(|l| l.as_array())
+                            .into_iter()
+                            .flatten(),
+                    )
+                    .filter_map(|d| d.get("digest").and_then(|x| x.as_str()));
+                for r in refs {
+                    if !blob_visible(state, repo, r) {
+                        return status(400)
+                            .header("content-type", "application/json")
+                            .body(full(format!("{{\"errors\":[{{\"code\":\"MANIFEST_BLOB_UNKNOWN\",\"message\":\"blob unknown: {r}\"}}]}}")))
+                            .expect("response");
+                    }
+                }
+            }
             lock(&state.manifests).insert((repo.to_owned(), d.clone()), (ct, body.to_vec()));
             if !reference.starts_with("sha256:") {
                 lock(&state.tags).insert((repo.to_owned(), reference.to_owned()), d.clone());
@@ -738,6 +820,7 @@ fn uploads(
                     .expect("response");
             }
             lock(&state.blobs).insert(actual.clone(), buf);
+            lock(&state.repo_blobs).insert((repo.to_owned(), actual.clone()));
             status(201)
                 .header("docker-content-digest", actual)
                 .body(full(""))
