@@ -9,7 +9,7 @@
 //! waits at most [`entangle_rpc::methods::LOGS_MAX_WAIT_MS`].
 //!
 //! Errors are `-32602` (a bad parameter or an unknown source, with an
-//! `ENTANGLE-E068x` code in the message) or `-32000` (no such trace).
+//! `ENTANGLE-E0920`-`E0924` code in the message) or `-32000` (no such trace).
 
 use crate::state::DaemonState;
 use entangle_observability::context::{AttrValue, SpanKind, SpanRecord, SpanStatus};
