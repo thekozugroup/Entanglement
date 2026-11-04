@@ -90,8 +90,9 @@ fn bench_grant_denied(c: &mut Criterion) {
             broker
                 .register_plugin(fresh_manifest("deny-plugin"))
                 .expect("register");
+            let undeclared = CapabilityKind::NetLan;
             for _ in 0..10_000u32 {
-                let err = broker.grant(&plugin_id, &CapabilityKind::NetWan);
+                let err = broker.grant(&plugin_id, &undeclared);
                 black_box(err.is_err());
             }
         });
@@ -181,7 +182,7 @@ fn bench_snapshot_grants(c: &mut Criterion) {
     broker
         .register_plugin(manifest_with(
             "snap-plugin",
-            &["compute.cpu", "net.lan", "net.wan"],
+            &["compute.cpu", "net.lan", "agent.invoke"],
         ))
         .expect("register");
     for _ in 0..100 {

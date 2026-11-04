@@ -273,6 +273,17 @@ idle-timeout-secs = 300
 ed25519 = "...sig over manifest+component..."
 ```
 
+> **Implementation note (capability parameters).** Manifests key capabilities
+> as `"storage.local" = { … }`, `"net.wan" = { … }` (dotted names). The
+> parameters implemented and validated are `storage.local { scope = "plugin" |
+> "$plugin_data" | "shared", mode = "ro" | "rw" }`, `storage.share.<n> { mode
+> }` and `net.wan { hosts = ["host[:port]", …] }`, plus `rationale` everywhere.
+> Any other parameter — including `max-threads` / `fuel-budget` and
+> `mesh-peer { scope }` shown above — is rejected (`ENTANGLE-E0203`) rather than
+> accepted unenforced; CPU and memory are bounded by the host's resource
+> limits. A `net.wan` without `hosts`, or with a `*` entry, is a WAN egress
+> wildcard and implies tier 4 (§4.2).
+
 #### 4.4.1 `tier` vs `implied_tier` — two worked examples
 
 `tier` is a **declared ceiling** the author commits to; `implied_tier` is the **floor computed from capabilities**. The invariant is `declared_tier >= implied_tier`. Three cases:
@@ -313,6 +324,14 @@ flowchart TB
   F -->|Yes| G[Issue handle, log grant]
   G --> H[Plugin uses handle until revoked or dropped]
 ```
+
+> **Implementation note.** There is no interactive consent step yet: loading a
+> signed plugin from a trusted publisher stands in for install consent, and the
+> operator's `[security] deny_capabilities` list is the "deny" branch. The
+> kernel runs this flow for every declared capability once at load; a denied
+> capability does not fail the load — the plugin runs without it — and the
+> resulting grants are what the wasm WASI context and the native sandbox are
+> built from. Each runtime `capability.fetch` runs the flow again.
 
 ### 4.6 Powerbox (runtime grants)
 

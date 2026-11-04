@@ -62,7 +62,7 @@ fn grants_and_denials_are_counted_by_capability_kind() {
     // Undeclared: denied. A parameterised kind folds to its family, so a
     // plugin cannot mint label values through share names or custom strings.
     for kind in [
-        CapabilityKind::NetWan,
+        CapabilityKind::NetWan { hosts: vec![] },
         CapabilityKind::Custom("a-very-specific-thing".into()),
         CapabilityKind::Custom("another".into()),
     ] {

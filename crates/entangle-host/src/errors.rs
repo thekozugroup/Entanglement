@@ -6,10 +6,10 @@
 /// its APIs. We store that directly so callers can inspect the root cause via
 /// standard `anyhow` chaining.
 ///
-/// The stable code blocks `ENTANGLE-E0500`–`ENTANGLE-E0506` (Wasm execution)
-/// and `ENTANGLE-E0507`–`ENTANGLE-E0519` (artifact checks) are reserved for
-/// this enum; see the range table in `entangle-types::errors` for the
-/// workspace map.
+/// The stable code blocks `ENTANGLE-E0500`–`ENTANGLE-E0506` (Wasm execution),
+/// `ENTANGLE-E0507` (artifact checks) and `ENTANGLE-E0508`–`ENTANGLE-E0519`
+/// (realising and enforcing capability grants) are reserved for this enum; see the range
+/// table in `entangle-types::errors` for the workspace map.
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
     /// ENTANGLE-E0500: failed to compile a WebAssembly component from bytes.
@@ -58,5 +58,47 @@ pub enum HostError {
         declared: crate::runtime_kind::DeclaredRuntime,
         /// What the artifact's magic bytes say.
         observed: crate::runtime_kind::ArtifactKind,
+    },
+
+    /// ENTANGLE-E0508: a storage capability was granted but the host has no
+    /// storage root to place it under (see
+    /// [`CapabilityContext::with_storage_root`](crate::capability::CapabilityContext::with_storage_root)).
+    #[error(
+        "ENTANGLE-E0508: capability '{capability}' was granted but no storage root is \
+         configured for plugin storage"
+    )]
+    NoStorageRoot {
+        /// The storage capability's manifest key.
+        capability: String,
+    },
+
+    /// ENTANGLE-E0509: a granted storage directory could not be created or
+    /// opened (e.g. a path component is a symbolic link or not a directory).
+    #[error("ENTANGLE-E0509: cannot prepare storage scope {path}: {source}")]
+    StorageScope {
+        /// The scope directory.
+        path: std::path::PathBuf,
+        /// Underlying error.
+        source: std::io::Error,
+    },
+
+    /// ENTANGLE-E0510: a grant would name a directory outside the storage
+    /// root (a share name or plugin id that is not one plain path
+    /// component).
+    #[error("ENTANGLE-E0510: refusing storage path: {0}")]
+    UnsafeStoragePath(String),
+
+    /// ENTANGLE-E0511: a network capability the running invocation relied
+    /// on was withdrawn while it ran (`entangle perms revoke`, the plugin
+    /// was unloaded, or the tier ceiling was lowered below it). The
+    /// invocation is stopped — closing every socket it had open — so no
+    /// connection outlives the grant.
+    #[error(
+        "ENTANGLE-E0511: invocation stopped: capability '{capability}' was withdrawn while it \
+         ran (revoked, the plugin was unloaded, or the tier ceiling was lowered below it)"
+    )]
+    CapabilityRevoked {
+        /// The withdrawn capability's manifest key (`net.lan`, `net.wan`).
+        capability: String,
     },
 }

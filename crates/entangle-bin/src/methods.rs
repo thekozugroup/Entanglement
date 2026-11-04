@@ -19,6 +19,10 @@
 //! - `security/plan-max-tier` → params `MaxTierParams` → `MaxTierPlan` (dry run)
 //! - `security/apply-max-tier` → params `MaxTierApplyParams` → `MaxTierApplied`
 //! - `security/cancel-max-tier` → params `MaxTierParams` → null
+//! - `perms/list`   → params `{ "plugin_id"?: "<id>" }` → `PermsListResult`: each
+//!   plugin's declared capabilities and their grant state (granted / denied /
+//!   revoked / not-granted)
+//! - `perms/revoke` → params `{ "plugin_id", "capability" }` → `{ "withdrawn": [ids] }`
 //!
 //! Every request is counted in `entangle_rpc_requests_total{method,outcome}`
 //! and timed in `entangle_rpc_request_duration_seconds{method}`; the `method`
@@ -28,8 +32,9 @@ use crate::state::DaemonState;
 use entangle_rpc::methods::{
     method, AffectedPlugin, ComputeDispatchParams, ComputeDispatchResult, ComputeIntegrity,
     DiagMeshParams, MaxTierApplied, MaxTierApplyParams, MaxTierParams, MaxTierPlan,
-    MeshStatusResult, MetricsExportResult, PluginsInvokeParams, PluginsInvokeResult,
-    PluginsListResult, PluginsLoadParams, PluginsLoadResult, PluginsUnloadParams,
+    MeshStatusResult, MetricsExportResult, PermsListParams, PermsRevokeParams, PermsRevokeResult,
+    PluginsInvokeParams, PluginsInvokeResult, PluginsListResult, PluginsLoadParams,
+    PluginsLoadResult, PluginsUnloadParams,
 };
 use entangle_runtime::MaxTierRefusal;
 use serde::{Deserialize, Serialize};
@@ -189,6 +194,8 @@ async fn route(req: Req, state: &Arc<DaemonState>) -> String {
             },
         ),
         m if m == method::DIAG_MESH => handle_diag_mesh(req.id, req.params, state).await,
+        m if m == method::PERMS_LIST => handle_perms_list(req.id, req.params, state),
+        m if m == method::PERMS_REVOKE => handle_perms_revoke(req.id, req.params, state),
         _ => error_resp(req.id, -32601, format!("method not found: {}", req.method)),
     }
 }
@@ -430,6 +437,51 @@ fn handle_security_cancel(
     };
     state.kernel.record_lowering_cancelled(requested);
     ok_resp(id, serde_json::Value::Null)
+}
+
+// ── perms/* ───────────────────────────────────────────────────────────────────
+
+fn perms_error(id: serde_json::Value, e: crate::perms::PermsError) -> String {
+    let code = match e {
+        crate::perms::PermsError::InvalidId(_) => -32602,
+        _ => -32000,
+    };
+    error_resp(id, code, e.to_string())
+}
+
+fn handle_perms_list(
+    id: serde_json::Value,
+    params: serde_json::Value,
+    state: &Arc<DaemonState>,
+) -> String {
+    // `params` may be omitted entirely (`null`): list every plugin.
+    let p: PermsListParams = if params.is_null() {
+        PermsListParams::default()
+    } else {
+        match serde_json::from_value(params) {
+            Ok(v) => v,
+            Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
+        }
+    };
+    match crate::perms::list(&state.kernel, p.plugin_id.as_deref()) {
+        Ok(r) => ok_resp(id, r),
+        Err(e) => perms_error(id, e),
+    }
+}
+
+fn handle_perms_revoke(
+    id: serde_json::Value,
+    params: serde_json::Value,
+    state: &Arc<DaemonState>,
+) -> String {
+    let p: PermsRevokeParams = match serde_json::from_value(params) {
+        Ok(v) => v,
+        Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
+    };
+    match crate::perms::revoke(&state.kernel, &p.plugin_id, &p.capability) {
+        Ok(withdrawn) => ok_resp(id, PermsRevokeResult { withdrawn }),
+        Err(e) => perms_error(id, e),
+    }
 }
 
 // ── compute/dispatch ──────────────────────────────────────────────────────────

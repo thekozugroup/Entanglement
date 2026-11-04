@@ -47,19 +47,46 @@ impl entangle::plugin::logging::Host for HostState {
 
 // -- capability -------------------------------------------------------------
 
+/// The WIT name of a `capability.kind` case (see
+/// [`crate::capability::capability_key`]).
+pub fn kind_name(kind: entangle::plugin::capability::Kind) -> &'static str {
+    use entangle::plugin::capability::Kind;
+    match kind {
+        Kind::ComputeCpu => "compute-cpu",
+        Kind::ComputeGpu => "compute-gpu",
+        Kind::ComputeNpu => "compute-npu",
+        Kind::StorageLocal => "storage-local",
+        Kind::StorageShare => "storage-share",
+        Kind::NetLan => "net-lan",
+        Kind::NetWan => "net-wan",
+        Kind::MeshPeer => "mesh-peer",
+        Kind::AgentInvoke => "agent-invoke",
+        Kind::HostDockerSocket => "host-docker-socket",
+        Kind::Custom => "custom",
+    }
+}
+
+/// Brokered: see [`crate::capability`]. Every decision is made, audited and
+/// counted by the broker; a malformed `(kind, name)` pair is `invalid-kind`
+/// before it reaches it.
 impl entangle::plugin::capability::Host for HostState {
     async fn fetch(
         &mut self,
-        _kind: entangle::plugin::capability::Kind,
-        _name: Option<String>,
+        kind: entangle::plugin::capability::Kind,
+        name: Option<String>,
     ) -> Result<u32, FetchError> {
-        // Iter-1 stub: deny everything.
-        // Future iter wires through the broker.
-        Err(FetchError::NotGranted("not yet wired to broker".into()))
+        let Some(key) = crate::capability::capability_key(kind_name(kind), name.as_deref()) else {
+            return Err(FetchError::InvalidKind);
+        };
+        self.fetch_capability(&key).map_err(|r| match r {
+            crate::capability::FetchRefusal::NotGranted(why) => FetchError::NotGranted(why),
+            crate::capability::FetchRefusal::InvalidKind => FetchError::InvalidKind,
+            crate::capability::FetchRefusal::Revoked => FetchError::Revoked,
+        })
     }
 
-    async fn release(&mut self, _h: u32) {
-        // no-op
+    async fn release(&mut self, h: u32) {
+        self.release_capability(h);
     }
 }
 

@@ -289,6 +289,13 @@ pub struct SecurityConfig {
     /// such a plugin is refused with `ENTANGLE-E0700`. Has no effect on a host
     /// that has a primitive — the sandbox is then always engaged.
     pub allow_unsandboxed_native: bool,
+    /// Capabilities the broker never grants to any plugin, whatever its
+    /// manifest declares (spec §4.5): exact keys (`net.wan`,
+    /// `storage.share.photos`), family prefixes (`net.*`, `storage.share.*`)
+    /// or `*`. A plugin that declares a denied capability still loads,
+    /// without it; the denial is audited and shown by `entangle perms list`.
+    /// An invalid pattern is a startup error (`ENTANGLE-E0126`).
+    pub deny_capabilities: Vec<entangle_broker::CapabilityPattern>,
 }
 
 impl Default for SecurityConfig {
@@ -296,6 +303,7 @@ impl Default for SecurityConfig {
         Self {
             max_tier_allowed: Tier::Native,
             allow_unsandboxed_native: false,
+            deny_capabilities: Vec::new(),
         }
     }
 }
@@ -329,6 +337,7 @@ pub fn kernel_config(cfg: &Config, config_dir: &std::path::Path) -> entangle_run
         max_tier_allowed: cfg.security.max_tier_allowed,
         multi_node: cfg.mesh.multi_node,
         bus_capacity: cfg.runtime.bus_capacity,
+        denied_capabilities: cfg.security.deny_capabilities.clone(),
         native: entangle_runtime::NativeConfig {
             allow_unsandboxed: cfg.security.allow_unsandboxed_native,
             data_dir: Some(config_dir.join("data")),

@@ -82,6 +82,23 @@ impl HostEngine {
             |s| s,
         )
         .context("add entangle:plugin host imports to linker")?;
+        // The guest's name lookups are answered from its grants
+        // (`crate::lookup`), never by wasmtime-wasi's resolver, which would
+        // forward any name to the system resolver: replace that interface.
+        linker.allow_shadowing(true);
+        wasmtime_wasi::p2::bindings::sockets::ip_name_lookup::add_to_linker::<
+            HostState,
+            wasmtime::component::HasSelf<HostState>,
+        >(&mut linker, |s| s)
+        .context("replace wasi:sockets/ip-name-lookup")?;
+        // Inbound datagrams are filtered by the grants (`crate::udp_inbound`);
+        // the rest of the UDP interface is wasmtime-wasi's, delegated.
+        wasmtime_wasi::p2::bindings::sockets::udp::add_to_linker::<
+            HostState,
+            wasmtime::component::HasSelf<HostState>,
+        >(&mut linker, |s| s)
+        .context("replace wasi:sockets/udp")?;
+        linker.allow_shadowing(false);
         // The `stream-plugin` world imports everything above plus
         // `entangle:plugin/stream`; only that interface is added here (the
         // shared ones are already linked). A one-shot invocation has no

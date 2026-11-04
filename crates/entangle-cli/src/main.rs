@@ -2,7 +2,7 @@
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
 //! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke},
-//! mesh {peers,status,trust,untrust,revoke}, pair (initiator/responder),
+//! mesh {peers,status,trust,untrust,revoke}, perms {list,revoke}, pair (initiator/responder),
 //! wrapper, security set-max-tier, config {reload,validate}, metrics, diag mesh.
 //! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
 //! Pairing goes directly to peers.toml (no daemon RPC).
@@ -23,6 +23,7 @@ use cmd::{
     keyring::KeyringArgs,
     mesh::MeshArgs,
     pair::PairArgs,
+    perms::PermsArgs,
     plugins::PluginsArgs,
     quickstart::QuickstartArgs,
     release::ReleaseArgs,
@@ -105,6 +106,9 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Print the detected platform and the sandbox primitive that would be used
     /// for tier-5 plugins on this host (spec §0.2).
     PrintPlatform,
+    /// Plugins' capability grants: list them, revoke one (spec §4.6).
+    #[command(subcommand_required = true)]
+    Perms(PermsArgs),
     /// Operator triage reports (`diag mesh`).
     #[command(subcommand_required = true)]
     Diag(DiagArgs),
@@ -186,6 +190,7 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Security(a) => exit_with(cmd::security::run_security(a).await?),
         Cmd::Config(a) => exit_with(cmd::security::run_config(a).await?),
         Cmd::PrintPlatform => print_platform(),
+        Cmd::Perms(a) => cmd::perms::run(a).await,
         Cmd::Diag(a) => cmd::diag::run(a).await,
         Cmd::Metrics => print_metrics().await,
         Cmd::Completions { shell } => generate_completions(shell),

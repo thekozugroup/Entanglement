@@ -24,11 +24,28 @@
 //! side of the [`StreamPortDriver`] (the scheduler's stream executor) owns
 //! the protocol and acknowledges each chunk only once it is on the wire, so
 //! the guest's `yield-chunk` blocking *is* the protocol's backpressure.
+//!
+//! # Capabilities
+//!
+//! A stream plugin's capabilities are those of any wasm plugin: with a
+//! [`CapabilityContext`] attached ([`LoadedStreamPlugin::with_capabilities`])
+//! each stream's instance is built from the plugin's broker grants as they
+//! stand when the stream starts — the same preopens, socket rules and pinned
+//! `net.wan` names as a one-shot instance (see [`crate::capability`]) — and
+//! `capability.fetch` decides through the same broker. A network grant
+//! withdrawn while the stream runs (revoked, or released with the plugin's
+//! registration) stops it with [`HostError::CapabilityRevoked`]
+//! (`ENTANGLE-E0511`), whether the guest is computing, waiting on a socket,
+//! or parked in `yield-chunk` / `next-chunk`.
 
 use crate::bindings::entangle::plugin::types::PluginError;
+use crate::capability::{CapabilityContext, WasiGrants};
 use crate::engine::HostEngine;
 use crate::errors::HostError;
-use crate::plugin::{classify_call_error, classify_instantiate_error};
+use crate::plugin::{
+    backstop, classify_call_error, classify_instantiate_error, instance_grants, net_watch,
+    run_watched, REVOCATION_CHECK_TICKS,
+};
 use crate::state::{HostState, ResourceLimits};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 use std::time::{Duration, Instant};
@@ -62,10 +79,6 @@ pub use bindings::entangle::plugin::stream::ChunkResult;
 pub const OUTPUT_HANDLE: u64 = 0;
 /// The handle of a streaming invocation's input stream (`next-chunk`).
 pub const INPUT_HANDLE: u64 = 1;
-
-/// Extra wall-clock slack for the tokio backstop beyond the epoch deadline;
-/// mirrors the one-shot path.
-const TIMEOUT_BACKSTOP_SLACK_MS: u64 = 250;
 
 /// Message a guest sees when the driver side of its port is gone.
 const STREAM_CLOSED: &str = "stream closed";
@@ -224,6 +237,8 @@ pub struct LoadedStreamPlugin {
     pre: bindings::StreamPluginPre<HostState>,
     plugin_id: PluginId,
     effective_tier: Tier,
+    /// Broker + storage root; `None` = no capabilities at all.
+    caps: Option<CapabilityContext>,
 }
 
 impl std::fmt::Debug for LoadedStreamPlugin {
@@ -268,7 +283,33 @@ impl LoadedStreamPlugin {
             pre,
             plugin_id,
             effective_tier,
+            caps: None,
         })
+    }
+
+    /// Decide `capability.fetch` through `ctx`'s broker and realise the
+    /// plugin's broker grants in every stream's WASI context, exactly as
+    /// [`crate::LoadedPlugin::with_capabilities`] does for one-shot calls.
+    /// Without this, a stream has no preopens, no network, and every fetch
+    /// is refused.
+    #[must_use]
+    pub fn with_capabilities(mut self, ctx: CapabilityContext) -> Self {
+        self.caps = Some(ctx);
+        self
+    }
+
+    /// The capability context, if one is attached.
+    pub fn capabilities(&self) -> Option<&CapabilityContext> {
+        self.caps.as_ref()
+    }
+
+    /// What the plugin's current broker grants realise (creating its storage
+    /// directories); see [`crate::LoadedPlugin::realise_capabilities`].
+    pub async fn realise_capabilities(&self) -> Result<WasiGrants, HostError> {
+        match &self.caps {
+            Some(ctx) => crate::capability::realise(ctx, &self.plugin_id).await,
+            None => Ok(WasiGrants::default()),
+        }
     }
 
     /// Instantiate the component in a fresh store, attach `port`, and run
@@ -283,6 +324,12 @@ impl LoadedStreamPlugin {
     /// tick, so it never holds a worker thread for longer than a tick. An `err(..)`
     /// result is [`HostError::PluginReturnedError`], as is an `ok(h)` naming
     /// a handle other than [`OUTPUT_HANDLE`].
+    ///
+    /// The instance's WASI context is built from the plugin's broker grants
+    /// as they stand when the stream starts, and a network grant withdrawn
+    /// while it runs stops it with [`HostError::CapabilityRevoked`] — the
+    /// same rules as [`crate::LoadedPlugin::run_one_shot_with_limits`] (see
+    /// the module docs).
     pub async fn run_stream(
         &self,
         engine: &HostEngine,
@@ -291,8 +338,16 @@ impl LoadedStreamPlugin {
         timeout_ms: u64,
         limits: ResourceLimits,
     ) -> Result<StreamRunResult, HostError> {
-        let mut state = HostState::with_limits(self.plugin_id.clone(), self.effective_tier, limits);
+        let grants = instance_grants(self.caps.as_ref(), &self.plugin_id, timeout_ms).await?;
+        let mut state = HostState::with_capabilities(
+            self.plugin_id.clone(),
+            self.effective_tier,
+            limits,
+            &grants,
+            self.caps.clone(),
+        )?;
         state.stream = Some(port);
+        let watch = net_watch(self.caps.as_ref(), &self.plugin_id, &grants);
         let mut store = Store::new(engine.engine(), state);
         store.limiter(|s| &mut s.limits);
         // A stream guest may compute for a long time between two host calls
@@ -302,10 +357,19 @@ impl LoadedStreamPlugin {
         // not the stream protocol loops, not their heartbeats. So at every
         // epoch tick the guest yields to the executor and carries on — until
         // the wall-clock deadline, where it traps as an epoch deadline would.
-        let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+        // A networked instance is also interrupted once its network grants
+        // are withdrawn, checked every few ticks as for a one-shot call.
+        // `None`: a timeout too far out for this platform's clock, i.e. no
+        // deadline.
+        let deadline = Instant::now().checked_add(Duration::from_millis(timeout_ms));
+        let tick_watch = watch.clone();
+        let mut ticks: u64 = 0;
         store.set_epoch_deadline(1);
         store.epoch_deadline_callback(move |_| {
-            if Instant::now() >= deadline {
+            ticks = ticks.wrapping_add(1);
+            let withdrawn = ticks.is_multiple_of(REVOCATION_CHECK_TICKS)
+                && tick_watch.as_ref().is_some_and(|w| w.withdrawn().is_some());
+            if withdrawn || deadline.is_some_and(|d| Instant::now() >= d) {
                 Ok(UpdateDeadline::Interrupt)
             } else {
                 Ok(UpdateDeadline::YieldCustom(
@@ -327,11 +391,8 @@ impl LoadedStreamPlugin {
                 .map_err(|e| classify_call_error(e.into(), timeout_ms))
         };
 
-        let backstop = Duration::from_millis(timeout_ms.saturating_add(TIMEOUT_BACKSTOP_SLACK_MS));
-        let outcome = match tokio::time::timeout(backstop, run).await {
-            Ok(result) => result?,
-            Err(_elapsed) => return Err(HostError::Timeout(timeout_ms)),
-        };
+        let call = tokio::time::timeout(backstop(timeout_ms), run);
+        let outcome = run_watched(call, watch.as_ref(), timeout_ms).await?;
         // Release the port now so the driver sees the channels close even if
         // the caller keeps the result around.
         store.data_mut().stream = None;

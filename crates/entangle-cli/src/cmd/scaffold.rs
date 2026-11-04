@@ -310,10 +310,10 @@ description = "{description}"
 #   "compute.cpu" = {{}}           2
 #   "compute.gpu" = {{}}           3
 #   "compute.npu" = {{}}           3
-#   "storage.local" = {{ scope = "plugin" }}   1
-#   "storage.local" = {{ scope = "shared" }}   2
-#   "net.lan" = {{}}               3
-#   "net.wan" = {{}}               3
+#   "storage.local" = {{ scope = "plugin" }}   1   (/data in the guest; mode = "ro" | "rw")
+#   "storage.local" = {{ scope = "shared" }}   2   (/shared in the guest)
+#   "net.lan" = {{}}               3   (RFC 1918 / link-local / ULA hosts only)
+#   "net.wan" = {{ hosts = ["api.example.com:443"] }}  3   (only these host[:port]s)
 #   "agent.invoke" = {{}}          2
 #   "storage.share.<name>" = {{ mode = "ro" }} 4   (requires runtime = "native")
 #   "mesh.peer" = {{}}             4               (requires runtime = "native")
@@ -520,7 +520,10 @@ description = "{description}"
 #   "storage.local" = {{ scope = "plugin" }}    rw $ENTANGLE_DATA_DIR (own dir)
 #   "storage.local" = {{ scope = "shared" }}    rw $ENTANGLE_SHARED_DIR
 #   "storage.share.<name>" = {{ mode = "ro" }}  ro $ENTANGLE_SHARE_<NAME>
-#   "net.lan" = {{}} / "net.wan" = {{}}           IP networking
+#   "net.lan" = {{}}                            IP networking
+#   "net.wan" = {{ hosts = ["api.example.com"] }}  IP networking (hosts not yet
+#                                               enforced for native; omit hosts
+#                                               for any host, tier 4)
 #   "compute.gpu" = {{}}                        GPU device nodes
 #   "host.docker-socket" = {{}}                 /var/run/docker.sock (tier 5)
 [capabilities]

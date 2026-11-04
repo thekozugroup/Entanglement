@@ -13,7 +13,7 @@ use entangle_broker::{AuditKind, PolicyError};
 use entangle_host::{ArtifactKind, DeclaredRuntime, HostError};
 use entangle_runtime::{Kernel, KernelConfig, NativeConfig, RuntimeError};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
-use entangle_types::capability::{CapabilityKind, StorageScope};
+use entangle_types::capability::{CapabilityKind, StorageMode, StorageScope};
 use entangle_types::tier::Tier;
 
 fn workspace_root() -> PathBuf {
@@ -163,7 +163,8 @@ async fn native_plugin_loads_and_invokes_through_the_kernel() {
     assert_eq!(
         grants[0].kind,
         CapabilityKind::StorageLocal {
-            scope: StorageScope::Plugin
+            scope: StorageScope::Plugin,
+            mode: StorageMode::Rw,
         }
     );
 
@@ -188,6 +189,17 @@ async fn native_plugin_loads_and_invokes_through_the_kernel() {
         .join(kp.fingerprint_hex())
         .join("native-echo");
     assert_eq!(std::fs::read_to_string(own.join("requests")).unwrap(), "2");
+
+    // Revoking the grant its sandbox was built from refuses further
+    // invocations (the profile cannot shed it) until the plugin is reloaded.
+    k.revoke_capability(&id, "storage.local").unwrap();
+    let err = k.invoke(&id, b"after revoke", 10_000).await.unwrap_err();
+    assert!(err.to_string().contains("ENTANGLE-E0125"), "{err}");
+    assert_eq!(
+        std::fs::read_to_string(own.join("requests")).unwrap(),
+        "2",
+        "a refused invocation never ran"
+    );
 
     k.unload(&id).await.unwrap();
     assert!(k.list_plugins().is_empty());

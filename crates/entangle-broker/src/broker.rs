@@ -7,20 +7,42 @@
 //!   it did not explicitly declare at manifest time.
 //! - **Every decision is audited** via [`AuditLog`].
 //! - **Tier ceiling** (spec §9.4.1): plugins whose effective tier exceeds
-//!   [`BrokerPolicy::max_tier_allowed`] are refused at registration.
+//!   [`BrokerPolicy::max_tier_allowed`] are refused at registration. The
+//!   ceiling can be lowered at runtime ([`Broker::set_max_tier_allowed`]);
+//!   every later decision reads the ceiling then in force, so a plugin left
+//!   above it is granted nothing new (`ENTANGLE-E0127`) and its outstanding
+//!   grants stop being live ([`Broker::is_live`], [`Broker::live_grants`])
+//!   exactly as revoked ones do, until it is unloaded.
+//! - **Operator policy** (spec §4.5): a capability matching
+//!   [`BrokerPolicy::denied_capabilities`] is never granted, declared or not.
+//!   For a native plugin, whose OS sandbox allows or forbids IP networking
+//!   as a whole, denying either `net.lan` or `net.wan` denies both.
+//! - **Revocation** (spec §4.6): [`Broker::revoke`] withdraws a capability
+//!   from a plugin for the rest of its registration; later requests are
+//!   refused as revoked.
+//!
+//! # Decision order
+//! [`Broker::grant`] checks, in order: the plugin is registered; the manifest
+//! declares exactly this capability (`not_declared`); the plugin's effective
+//! tier is within the ceiling (`tier_ceiling`); no operator deny pattern
+//! matches (`operator_policy`); the capability has not been revoked
+//! (`revoked`). The first failing check is the denial reason recorded in the
+//! audit log and in `entangle_capability_denials_total{reason}`.
 
 use crate::{
     audit::{AuditEvent, AuditLog},
-    errors::BrokerError,
+    errors::{BrokerError, Refusal},
     policy::{BrokerPolicy, CrossNodePolicy},
 };
 use entangle_biscuits::verifier;
-use entangle_manifest::ValidatedManifest;
-use entangle_types::{capability::CapabilityKind, peer_id::PeerId, plugin_id::PluginId};
+use entangle_manifest::{Runtime, ValidatedManifest};
+use entangle_types::{
+    capability::CapabilityKind, peer_id::PeerId, plugin_id::PluginId, tier::Tier,
+};
 use parking_lot::{Mutex, RwLock};
 use std::borrow::Cow;
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -39,22 +61,75 @@ pub struct GrantedCapability {
     pub kind: CapabilityKind,
 }
 
+/// The outcome of [`Broker::grant_declared`]: every declared capability is
+/// either granted or denied, with the reason.
+#[derive(Clone, Debug, Default)]
+pub struct Resolution {
+    /// Grants issued, in manifest order.
+    pub granted: Vec<GrantedCapability>,
+    /// Declared capabilities that were refused (operator policy, revocation,
+    /// tier ceiling), with the refusal.
+    pub denied: Vec<(CapabilityKind, String)>,
+}
+
+/// Where a declared capability stands, as shown by `entangle perms list`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GrantState {
+    /// Granted; these grants are outstanding.
+    Granted {
+        /// Outstanding grant ids (the load-time grant plus any handles the
+        /// plugin holds right now).
+        grant_ids: Vec<GrantId>,
+    },
+    /// Refused by the broker policy (tier ceiling or operator deny list).
+    Denied {
+        /// Human-readable reason.
+        reason: String,
+    },
+    /// Withdrawn by [`Broker::revoke`]; refused until the plugin is reloaded.
+    Revoked,
+    /// Declared and grantable, but no grant is outstanding (e.g. never
+    /// resolved, or released).
+    NotGranted,
+}
+
+/// One declared capability and its [`GrantState`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CapabilityStatus {
+    /// The declared capability, with its manifest parameters.
+    pub capability: CapabilityKind,
+    /// Where it stands.
+    pub state: GrantState,
+}
+
 // ── internal ────────────────────────────────────────────────────────────────
 
 struct PluginRecord {
     /// Immutable for the lifetime of the registration — the deny-by-default
     /// check reads it under a *shared* lock.
     manifest: ValidatedManifest,
-    /// Outstanding grants, keyed by id.
+    /// Outstanding grants and revocations.
     ///
     /// Guarded by its own mutex rather than by the `plugins` lock so that
     /// issuing a grant does not need exclusive access to the whole registry
-    /// (see [`Broker::grant`]). Only the [`CapabilityKind`] is stored: the
-    /// holder is already the key of the enclosing `plugins` map, so keeping a
-    /// whole [`GrantedCapability`] here would clone the [`PluginId`] (two
+    /// (see [`Broker::grant`]).
+    table: Mutex<GrantTable>,
+}
+
+#[derive(Default)]
+struct GrantTable {
+    /// Outstanding grants, keyed by id.
+    ///
+    /// Only the [`CapabilityKind`] is stored: the holder is already the key
+    /// of the enclosing `plugins` map, so keeping a whole
+    /// [`GrantedCapability`] here would clone the [`PluginId`] (two
     /// `String`s) per grant for no added information;
     /// [`Broker::snapshot_grants`] reassembles the public struct on demand.
-    grants: Mutex<HashMap<GrantId, CapabilityKind>>,
+    grants: HashMap<GrantId, CapabilityKind>,
+    /// Capability keys withdrawn by [`Broker::revoke`]. Checked and updated
+    /// under the same lock as `grants`, so a grant can never be issued for a
+    /// key between its revocation and the removal of its outstanding grants.
+    revoked: BTreeSet<String>,
 }
 
 // ── Broker ──────────────────────────────────────────────────────────────────
@@ -128,14 +203,33 @@ impl Broker {
     /// Change the tier ceiling at runtime (spec §9.4.1 lowering workflow).
     ///
     /// Later registrations above the new ceiling fail with `ENTANGLE-E0043`.
-    /// This does **not** unload anything: the caller (the kernel) unloads the
-    /// affected plugins first, so the broker never holds a plugin above its
-    /// own ceiling. Returns the previous ceiling.
+    /// This does **not** unload anything — the caller (the kernel) drains and
+    /// unloads the affected plugins — but it takes effect at once for their
+    /// capabilities: a plugin above the new ceiling is granted nothing more
+    /// (`ENTANGLE-E0127`) and none of its outstanding grants is live any
+    /// longer ([`Broker::is_live`]), so the host stops its in-flight network
+    /// use as it does on a revocation. The grants themselves stay recorded
+    /// until the plugin is unregistered, which releases (and audits) them.
+    /// Returns the previous ceiling.
     pub fn set_max_tier_allowed(
         &self,
         tier: entangle_types::tier::Tier,
     ) -> entangle_types::tier::Tier {
         std::mem::replace(&mut self.policy.write().max_tier_allowed, tier)
+    }
+
+    /// Check `tier` against the ceiling in force now (without copying the
+    /// policy, unlike [`Broker::policy`]): `ENTANGLE-E0043` above it.
+    pub fn check_tier(&self, tier: Tier) -> Result<(), crate::policy::PolicyError> {
+        self.policy.read().check_plugin_load(tier)
+    }
+
+    /// `true` when the registered plugin `record` is within the ceiling in
+    /// force.
+    fn within_ceiling(&self, record: &PluginRecord) -> bool {
+        // A temporary guard: the policy lock is never held while waiting for
+        // a grant table (see `capability_report` for the other order).
+        self.check_tier(record.manifest.effective_tier).is_ok()
     }
 
     /// Effective tier of every registered plugin, sorted by plugin id.
@@ -153,9 +247,15 @@ impl Broker {
     /// Register a validated plugin manifest with the broker.
     ///
     /// Enforces the tier ceiling from [`BrokerPolicy::max_tier_allowed`]
-    /// (spec §9.4.1). The manifest validation layer (`entangle-manifest`)
-    /// has already ensured `declared >= implied` (spec §4.4.1); the broker
-    /// does not re-check that invariant.
+    /// (spec §9.4.1), and re-checks the tier binding (spec §4.3): every
+    /// declared capability's `min_tier` must be within the manifest's
+    /// declared and effective tiers, or the registration is refused with
+    /// [`BrokerError::TierBelowCapability`] (`ENTANGLE-E0042`). Validation
+    /// already ensures this, but [`ValidatedManifest`]'s fields are public,
+    /// so a capability list changed after validation must not pass for a
+    /// validated one. The registered manifest is private to the broker and
+    /// never changes, so every later grant (which must match a declared
+    /// capability) is within the tier too.
     ///
     /// Registration is strictly insert-only: a second registration under the
     /// same [`PluginId`] returns [`BrokerError::AlreadyRegistered`] instead of
@@ -165,6 +265,19 @@ impl Broker {
         self.policy
             .read()
             .check_plugin_load(manifest.effective_tier)?;
+        let ceiling = manifest.declared_tier.min(manifest.effective_tier);
+        if let Some(cap) = manifest
+            .capabilities
+            .iter()
+            .find(|c| c.min_tier() > ceiling)
+        {
+            return Err(BrokerError::TierBelowCapability {
+                plugin: manifest.plugin_id.clone(),
+                declared: ceiling,
+                implied: cap.min_tier(),
+                capability: cap.key().into_owned(),
+            });
+        }
 
         let plugin_id = manifest.plugin_id.clone();
         let declared_tier = manifest.declared_tier;
@@ -178,7 +291,7 @@ impl Broker {
             Entry::Vacant(slot) => {
                 slot.insert(PluginRecord {
                     manifest,
-                    grants: Mutex::new(HashMap::new()),
+                    table: Mutex::new(GrantTable::default()),
                 });
             }
         }
@@ -205,7 +318,7 @@ impl Broker {
         // Release any outstanding grants. The record is ours now (it is out of
         // the registry and nobody else holds a reference), so the grant table
         // can be taken by value.
-        for (gid, kind) in removed.grants.into_inner() {
+        for (gid, kind) in removed.table.into_inner().grants {
             self.audit.record(AuditEvent::CapabilityReleased {
                 plugin: plugin.clone(),
                 capability: format_cap(&kind),
@@ -225,8 +338,12 @@ impl Broker {
     /// Grant a capability the plugin declared at manifest time.
     ///
     /// Denies with [`BrokerError::CapabilityNotDeclared`] if the requested
-    /// capability was not listed in the plugin's manifest — enforcing the
-    /// no-ambient-authority invariant (spec §11).
+    /// capability (with exactly these parameters) was not listed in the
+    /// plugin's manifest — enforcing the no-ambient-authority invariant (spec
+    /// §11) — then applies the tier ceiling, the operator deny list
+    /// ([`BrokerError::CapabilityDeniedByPolicy`]) and revocation
+    /// ([`BrokerError::CapabilityRevoked`]); see the module docs for the
+    /// order. Every decision is audited and counted.
     pub fn grant(
         &self,
         plugin: &PluginId,
@@ -239,53 +356,332 @@ impl Broker {
         // event timestamp is still taken inside the critical section, so
         // `AuditEvent::at` continues to order decisions the way the locks
         // serialised them even if two threads append to the log out of order.
-        let (granted, at) = {
+        let (decision, at) = {
             let plugins = self.plugins.read();
             let record = plugins
                 .get(plugin)
                 .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
-
-            // Deny-by-default: requested kind must be present in manifest capabilities.
-            let declared = record.manifest.capabilities.iter().any(|c| c == requested);
-            if !declared {
-                (None, SystemTime::now())
-            } else {
-                let gid = self.next_grant_id.fetch_add(1, Ordering::Relaxed);
-                let mut grants = record.grants.lock();
-                grants.insert(gid, requested.clone());
-                let at = SystemTime::now();
-                drop(grants);
-                (Some(gid), at)
-            }
+            let decision = self.decide(record, requested);
+            (decision, SystemTime::now())
         };
+        self.record_decision(plugin, requested, decision, at)
+    }
 
-        let capability = format_cap(requested);
-        if let Some(reg) = &self.metrics {
-            match granted {
-                Some(_) => {
-                    entangle_observability::catalog::capability_grant(reg, cap_kind(requested))
-                }
-                None => entangle_observability::catalog::capability_denial(
-                    reg,
-                    cap_kind(requested),
-                    "not_declared",
-                ),
-            }
-        }
-        match granted {
+    /// Grant the declared capability whose manifest key (see
+    /// [`CapabilityKind::key`]) is `key` — `net.wan`, `storage.local`,
+    /// `storage.share.photos`, `custom.x`.
+    ///
+    /// This is how a plugin's runtime `capability.fetch(kind, name)` reaches
+    /// the broker: the plugin names a capability, the manifest supplies its
+    /// parameters. A key the manifest does not declare is denied (and
+    /// audited) as [`BrokerError::CapabilityNotDeclared`].
+    pub fn grant_by_key(
+        &self,
+        plugin: &PluginId,
+        key: &str,
+    ) -> Result<GrantedCapability, BrokerError> {
+        let (declared, at) = {
+            let plugins = self.plugins.read();
+            let record = plugins
+                .get(plugin)
+                .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
+            let declared = record
+                .manifest
+                .capabilities
+                .iter()
+                .find(|c| c.key() == key)
+                .cloned();
+            (declared, SystemTime::now())
+        };
+        match declared {
+            Some(cap) => self.grant(plugin, &cap),
             None => {
+                if let Some(reg) = &self.metrics {
+                    entangle_observability::catalog::capability_denial(
+                        reg,
+                        key_family(key),
+                        Denial::NotDeclared.metric_reason(),
+                    );
+                }
                 self.audit.record(AuditEvent::CapabilityDenied {
                     plugin: plugin.clone(),
-                    capability: capability.clone(),
+                    capability: Cow::Owned(key.to_owned()),
                     reason: Cow::Borrowed("not declared in manifest"),
                     at,
                 });
                 Err(BrokerError::CapabilityNotDeclared {
                     plugin: plugin.clone(),
-                    capability: capability.into_owned(),
+                    capability: key.to_owned(),
                 })
             }
-            Some(gid) => {
+        }
+    }
+
+    /// Resolve every capability the plugin's manifest declares (spec §4.5):
+    /// each is granted, or denied with the reason (operator policy,
+    /// revocation, tier ceiling). Every decision is audited.
+    ///
+    /// The kernel calls this once at load; the grants it issues are the
+    /// plugin's standing grants, from which the runtimes derive what the
+    /// plugin can reach (WASI preopens and socket rules for wasm, the OS
+    /// sandbox profile for native). Fails only if the plugin is not
+    /// registered.
+    pub fn grant_declared(&self, plugin: &PluginId) -> Result<Resolution, BrokerError> {
+        let declared = self
+            .declared(plugin)
+            .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
+        let mut out = Resolution::default();
+        for cap in declared {
+            match self.grant(plugin, &cap) {
+                Ok(g) => out.granted.push(g),
+                Err(e @ BrokerError::PluginNotRegistered(_)) => return Err(e),
+                Err(e) => out.denied.push((cap, e.to_string())),
+            }
+        }
+        Ok(out)
+    }
+
+    /// Revoke the capability with manifest key `key` from `plugin` (spec
+    /// §4.6, `entangle perms revoke`): every outstanding grant of it is
+    /// withdrawn, and later requests are refused with
+    /// [`BrokerError::CapabilityRevoked`] until the plugin is unloaded and
+    /// loaded again. Idempotent; returns the grant ids withdrawn by this call.
+    ///
+    /// The capability must be declared ([`BrokerError::CapabilityNotDeclared`]
+    /// otherwise), so a typo cannot pass for a revocation.
+    pub fn revoke(&self, plugin: &PluginId, key: &str) -> Result<Vec<GrantId>, BrokerError> {
+        let (withdrawn, newly, at) = {
+            let plugins = self.plugins.read();
+            let record = plugins
+                .get(plugin)
+                .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
+            if !record.manifest.capabilities.iter().any(|c| c.key() == key) {
+                return Err(BrokerError::CapabilityNotDeclared {
+                    plugin: plugin.clone(),
+                    capability: key.to_owned(),
+                });
+            }
+            let mut table = record.table.lock();
+            let newly = table.revoked.insert(key.to_owned());
+            let mut withdrawn: Vec<GrantId> = table
+                .grants
+                .iter()
+                .filter(|(_, k)| k.key() == key)
+                .map(|(id, _)| *id)
+                .collect();
+            withdrawn.sort_unstable();
+            for id in &withdrawn {
+                table.grants.remove(id);
+            }
+            (withdrawn, newly, SystemTime::now())
+        };
+        if newly || !withdrawn.is_empty() {
+            self.audit.record(AuditEvent::CapabilityRevoked {
+                plugin: plugin.clone(),
+                capability: Cow::Owned(key.to_owned()),
+                grant_ids: withdrawn.clone(),
+                at,
+            });
+        }
+        Ok(withdrawn)
+    }
+
+    /// `true` while grant `grant_id` is outstanding for `plugin` (not
+    /// released, revoked, or dropped with the plugin's registration) **and**
+    /// the plugin is within the tier ceiling in force now.
+    ///
+    /// A ceiling lowered below the plugin (spec §9.4.1) suspends every grant
+    /// it holds, the way [`Broker::revoke`] withdraws one: what checks
+    /// liveness — the host's socket checks, name lookups and in-flight
+    /// network watch, the kernel's native-sandbox check — refuses at once,
+    /// while the plugin drains and is unloaded. Raising the ceiling again
+    /// before then makes the grants live again.
+    pub fn is_live(&self, plugin: &PluginId, grant_id: GrantId) -> bool {
+        let plugins = self.plugins.read();
+        let Some(record) = plugins.get(plugin) else {
+            return false;
+        };
+        self.within_ceiling(record) && record.table.lock().grants.contains_key(&grant_id)
+    }
+
+    /// The grants a new instance of `plugin` may realise: its outstanding
+    /// grants ([`Broker::snapshot_grants`]), or none while it is above the
+    /// ceiling in force (see [`Broker::is_live`]) or not registered.
+    pub fn live_grants(&self, plugin: &PluginId) -> Vec<GrantedCapability> {
+        let within = {
+            let plugins = self.plugins.read();
+            plugins.get(plugin).is_some_and(|r| self.within_ceiling(r))
+        };
+        if within {
+            self.snapshot_grants(plugin)
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// The capabilities `plugin`'s manifest declares (with parameters), or
+    /// `None` when it is not registered.
+    pub fn declared(&self, plugin: &PluginId) -> Option<Vec<CapabilityKind>> {
+        self.plugins
+            .read()
+            .get(plugin)
+            .map(|r| r.manifest.capabilities.clone())
+    }
+
+    /// The registered plugin's effective tier, or `None`.
+    pub fn effective_tier(&self, plugin: &PluginId) -> Option<Tier> {
+        self.plugins
+            .read()
+            .get(plugin)
+            .map(|r| r.manifest.effective_tier)
+    }
+
+    /// Every declared capability of `plugin` with its current
+    /// [`GrantState`], in manifest order; `None` when it is not registered.
+    /// Pure inspection: nothing is granted or audited.
+    pub fn capability_report(&self, plugin: &PluginId) -> Option<Vec<CapabilityStatus>> {
+        let plugins = self.plugins.read();
+        let record = plugins.get(plugin)?;
+        // Read the ceiling in force now (it can be lowered at runtime), before
+        // taking the grant table: the policy lock is never awaited while a
+        // table is held by a reader that holds the policy (`is_live`).
+        let ceiling = self.check_tier(record.manifest.effective_tier).err();
+        let table = record.table.lock();
+        Some(
+            record
+                .manifest
+                .capabilities
+                .iter()
+                .map(|cap| {
+                    let key = cap.key();
+                    let state = if table.revoked.contains(key.as_ref()) {
+                        GrantState::Revoked
+                    } else if let Some(e) = &ceiling {
+                        GrantState::Denied {
+                            reason: e.to_string(),
+                        }
+                    } else if let Some(detail) = self.operator_denial(&record.manifest, cap) {
+                        GrantState::Denied {
+                            reason: format!("operator policy (deny_capabilities = {detail:?})"),
+                        }
+                    } else {
+                        let mut grant_ids: Vec<GrantId> = table
+                            .grants
+                            .iter()
+                            .filter(|(_, k)| *k == cap)
+                            .map(|(id, _)| *id)
+                            .collect();
+                        grant_ids.sort_unstable();
+                        if grant_ids.is_empty() {
+                            GrantState::NotGranted
+                        } else {
+                            GrantState::Granted { grant_ids }
+                        }
+                    };
+                    CapabilityStatus {
+                        capability: cap.clone(),
+                        state,
+                    }
+                })
+                .collect(),
+        )
+    }
+
+    /// Why the operator's deny list refuses `cap` to the plugin whose
+    /// manifest is `manifest`: the matching pattern, or `None`.
+    ///
+    /// A native plugin's OS sandbox can only allow or forbid IP networking
+    /// as a whole, so for it `net.lan` and `net.wan` are one authority: a
+    /// pattern denying either denies both. Otherwise denying `net.wan` would
+    /// not stop the WAN egress a granted `net.lan` gives a native plugin
+    /// (wasm plugins' rules are per address and keep the other one).
+    fn operator_denial(
+        &self,
+        manifest: &ValidatedManifest,
+        cap: &CapabilityKind,
+    ) -> Option<String> {
+        let policy = self.policy.read();
+        if let Some(p) = policy.denies(cap) {
+            return Some(p.as_str().to_owned());
+        }
+        let is_net = matches!(cap, CapabilityKind::NetLan | CapabilityKind::NetWan { .. });
+        if manifest.runtime != Runtime::Native || !is_net {
+            return None;
+        }
+        [
+            CapabilityKind::NetLan,
+            CapabilityKind::NetWan { hosts: Vec::new() },
+        ]
+        .iter()
+        .find_map(|other| policy.denies(other))
+        .map(|p| {
+            format!(
+                "{} (a native sandbox cannot separate net.lan from net.wan)",
+                p.as_str()
+            )
+        })
+    }
+
+    /// The broker's decision for `requested`, issuing the grant (under the
+    /// plugin's table lock) when every check passes.
+    fn decide(&self, record: &PluginRecord, requested: &CapabilityKind) -> Result<GrantId, Denial> {
+        // Deny-by-default: requested kind must be present in manifest capabilities.
+        if !record.manifest.capabilities.iter().any(|c| c == requested) {
+            return Err(Denial::NotDeclared);
+        }
+        // Tier ceiling (§9.4.1): enforced at registration, re-checked per
+        // decision against the ceiling in force *now* — it can be lowered at
+        // runtime (`set_max_tier_allowed`) — so a lowered ceiling refuses new
+        // grants (`ENTANGLE-E0127`) to the plugins above it at once.
+        if let Err(e) = self.check_tier(record.manifest.effective_tier) {
+            return Err(Denial::TierCeiling(e.to_string()));
+        }
+        // Operator deny list (§4.5).
+        if let Some(detail) = self.operator_denial(&record.manifest, requested) {
+            return Err(Denial::OperatorPolicy(detail));
+        }
+        let mut table = record.table.lock();
+        if table.revoked.contains(requested.key().as_ref()) {
+            return Err(Denial::Revoked);
+        }
+        let gid = self.next_grant_id.fetch_add(1, Ordering::Relaxed);
+        table.grants.insert(gid, requested.clone());
+        Ok(gid)
+    }
+
+    /// Audit + count a decision made by [`Broker::decide`] and turn it into
+    /// the public result.
+    fn record_decision(
+        &self,
+        plugin: &PluginId,
+        requested: &CapabilityKind,
+        decision: Result<GrantId, Denial>,
+        at: SystemTime,
+    ) -> Result<GrantedCapability, BrokerError> {
+        let capability = format_cap(requested);
+        if let Some(reg) = &self.metrics {
+            match &decision {
+                Ok(_) => {
+                    entangle_observability::catalog::capability_grant(reg, cap_kind(requested))
+                }
+                Err(d) => entangle_observability::catalog::capability_denial(
+                    reg,
+                    cap_kind(requested),
+                    d.metric_reason(),
+                ),
+            }
+        }
+        match decision {
+            Err(denial) => {
+                self.audit.record(AuditEvent::CapabilityDenied {
+                    plugin: plugin.clone(),
+                    capability: capability.clone(),
+                    reason: denial.audit_reason(),
+                    at,
+                });
+                Err(denial.into_error(plugin, capability.into_owned()))
+            }
+            Ok(gid) => {
                 self.audit.record(AuditEvent::CapabilityGranted {
                     plugin: plugin.clone(),
                     capability,
@@ -311,8 +707,11 @@ impl Broker {
             let record = plugins
                 .get(plugin)
                 .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
-            let mut grants = record.grants.lock();
-            grants.remove(&grant_id).map(|k| (k, SystemTime::now()))
+            let mut table = record.table.lock();
+            table
+                .grants
+                .remove(&grant_id)
+                .map(|k| (k, SystemTime::now()))
         };
 
         if let Some((kind, at)) = removed {
@@ -399,7 +798,7 @@ impl Broker {
             })?;
 
         // 2. Verify claims: expiry, peer binding, required capability surface.
-        let cap_str = format_cap(requested);
+        let cap_str = biscuit_surface(requested);
         verifier::verify(
             &biscuit,
             &verifier::VerifyContext {
@@ -418,8 +817,9 @@ impl Broker {
             .read()
             .get(plugin)
             .map(|r| {
-                r.grants
+                r.table
                     .lock()
+                    .grants
                     .iter()
                     .map(|(grant_id, kind)| GrantedCapability {
                         grant_id: *grant_id,
@@ -441,44 +841,130 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
+/// Why [`Broker::decide`] refused a capability.
+enum Denial {
+    NotDeclared,
+    TierCeiling(String),
+    OperatorPolicy(String),
+    Revoked,
+}
+
+impl Denial {
+    /// The `reason` label of `entangle_capability_denials_total`.
+    fn metric_reason(&self) -> &'static str {
+        match self {
+            Denial::NotDeclared => "not_declared",
+            Denial::TierCeiling(_) => "tier_ceiling",
+            Denial::OperatorPolicy(_) => "operator_policy",
+            Denial::Revoked => "revoked",
+        }
+    }
+
+    fn audit_reason(&self) -> Cow<'static, str> {
+        match self {
+            Denial::NotDeclared => Cow::Borrowed("not declared in manifest"),
+            Denial::TierCeiling(e) => Cow::Owned(format!("tier ceiling: {e}")),
+            Denial::OperatorPolicy(p) => {
+                Cow::Owned(format!("operator policy (deny_capabilities = {p:?})"))
+            }
+            Denial::Revoked => Cow::Borrowed("revoked by operator"),
+        }
+    }
+
+    fn into_error(self, plugin: &PluginId, capability: String) -> BrokerError {
+        let plugin = plugin.clone();
+        match self {
+            Denial::NotDeclared => BrokerError::CapabilityNotDeclared { plugin, capability },
+            Denial::TierCeiling(detail) => BrokerError::TierCeiling(Box::new(Refusal {
+                plugin,
+                capability,
+                detail,
+            })),
+            Denial::OperatorPolicy(detail) => {
+                BrokerError::CapabilityDeniedByPolicy(Box::new(Refusal {
+                    plugin,
+                    capability,
+                    detail,
+                }))
+            }
+            Denial::Revoked => BrokerError::CapabilityRevoked { plugin, capability },
+        }
+    }
+}
+
+/// The fixed-cardinality metric label for a capability kind.
+fn cap_kind(c: &CapabilityKind) -> &'static str {
+    c.family()
+}
+
+/// [`CapabilityKind::family`] for a bare manifest key, so a denial for an
+/// undeclared key (which has no `CapabilityKind`) is labelled the same way.
+fn key_family(key: &str) -> &'static str {
+    const FIXED: &[&str] = &[
+        "compute.cpu",
+        "compute.gpu",
+        "compute.npu",
+        "storage.local",
+        "net.lan",
+        "net.wan",
+        "mesh.peer",
+        "agent.invoke",
+        "host.docker-socket",
+    ];
+    if let Some(k) = FIXED.iter().find(|k| **k == key) {
+        k
+    } else if key.starts_with("storage.share.") {
+        "storage.share"
+    } else if key.starts_with("custom.") {
+        "custom"
+    } else {
+        "unknown"
+    }
+}
+
+/// The capability surface a cross-node biscuit must carry for `c`.
+///
+/// Deliberately independent of the audit rendering ([`format_cap`]): it is a
+/// wire contract with biscuits minted by other nodes, so it keeps the
+/// pre-parameter forms (`net.wan`, `storage.local[Plugin]`) — the manifest
+/// still bounds the parameters, since a biscuit grant also passes
+/// [`Broker::grant`].
+fn biscuit_surface(c: &CapabilityKind) -> Cow<'static, str> {
+    match c {
+        CapabilityKind::StorageLocal { scope, .. } => {
+            Cow::Owned(format!("storage.local[{scope:?}]"))
+        }
+        CapabilityKind::NetWan { .. } => Cow::Borrowed("net.wan"),
+        // Biscuits minted so far carry `custom.` + the stored name, and the
+        // manifest stores the full key (`custom.x`): keep that wire form.
+        CapabilityKind::Custom(s) => Cow::Owned(format!("custom.{s}")),
+        other => format_cap(other),
+    }
+}
+
 /// Render a capability as its canonical audit-log name.
 ///
 /// Returns a [`Cow`] because the overwhelmingly common capabilities are the
 /// fieldless variants, whose names are compile-time constants — a grant of
 /// `compute.cpu` should not have to heap-allocate its own name. Only the
 /// parameterised variants actually build a string.
-/// The fixed-cardinality metric label for a capability kind.
-fn cap_kind(c: &CapabilityKind) -> &'static str {
-    use CapabilityKind::*;
-    match c {
-        ComputeCpu => "compute.cpu",
-        ComputeGpu => "compute.gpu",
-        ComputeNpu => "compute.npu",
-        StorageLocal { .. } => "storage.local",
-        StorageShare { .. } => "storage.share",
-        NetLan => "net.lan",
-        NetWan => "net.wan",
-        MeshPeer => "mesh.peer",
-        AgentInvoke => "agent.invoke",
-        HostDockerSocket => "host.docker-socket",
-        Custom(_) => "custom",
-    }
-}
-
 fn format_cap(c: &CapabilityKind) -> Cow<'static, str> {
     use CapabilityKind::*;
     match c {
         ComputeCpu => Cow::Borrowed("compute.cpu"),
         ComputeGpu => Cow::Borrowed("compute.gpu"),
         ComputeNpu => Cow::Borrowed("compute.npu"),
-        StorageLocal { scope } => Cow::Owned(format!("storage.local[{scope:?}]")),
+        StorageLocal { scope, mode } => Cow::Owned(format!("storage.local[{scope:?},{mode:?}]")),
         StorageShare { name, mode } => Cow::Owned(format!("storage.share.{name}[{mode:?}]")),
         NetLan => Cow::Borrowed("net.lan"),
-        NetWan => Cow::Borrowed("net.wan"),
+        NetWan { .. } => Cow::Owned(format!("net.wan[{}]", c.params())),
         MeshPeer => Cow::Borrowed("mesh.peer"),
         AgentInvoke => Cow::Borrowed("agent.invoke"),
         HostDockerSocket => Cow::Borrowed("host.docker-socket"),
-        Custom(s) => Cow::Owned(format!("custom.{s}")),
+        // The manifest key (`custom.x`), whether or not the stored name
+        // carries the `custom.` prefix — the same name `revoke` and
+        // `grant_by_key` audit, so events for one capability correlate.
+        Custom(_) => c.key(),
     }
 }
 

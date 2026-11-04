@@ -8,7 +8,9 @@ use std::str::FromStr;
 use thiserror::Error;
 
 use entangle_types::{
-    capability::{is_valid_share_name, CapabilityKind, ShareMode, StorageScope},
+    capability::{
+        is_valid_share_name, CapabilityKind, NetHost, ShareMode, StorageMode, StorageScope,
+    },
     plugin_id::PluginId,
     tier::Tier,
 };
@@ -86,13 +88,31 @@ pub enum ValidationError {
         tier: Tier,
     },
 
-    /// A capability key was recognised but its argument table is malformed.
-    #[error("malformed capability args for '{key}': {message}")]
+    /// ENTANGLE-E0202: a capability key was recognised but one of its
+    /// parameters is malformed (wrong type, unknown value, bad host entry).
+    #[error("ENTANGLE-E0202: malformed capability args for '{key}': {message}")]
     CapabilityArgs {
         /// The capability key.
         key: String,
         /// Human-readable description of the problem.
         message: String,
+    },
+
+    /// ENTANGLE-E0203: a capability table contains a parameter this
+    /// capability does not take. Unknown parameters are refused rather than
+    /// ignored, so a typo (`host = …` for `hosts = …`) can never silently
+    /// widen or drop a restriction.
+    #[error(
+        "ENTANGLE-E0203: capability '{key}' does not take parameter '{param}' \
+         (allowed: {allowed})"
+    )]
+    UnknownCapabilityParam {
+        /// The capability key.
+        key: String,
+        /// The unrecognised parameter.
+        param: String,
+        /// The parameters this capability accepts, comma-separated.
+        allowed: String,
     },
 
     /// TOML deserialisation failed.
@@ -145,10 +165,23 @@ pub fn validate(m: Manifest) -> Result<ValidatedManifest, ValidationError> {
             })
             .expect("implied_tier > declared means at least one cap exceeds it");
 
+        // An unrestricted / wildcard WAN grant is the usual way a tier-3
+        // plugin trips this; say how to fix it rather than just the tiers.
+        let capability = match parse_capability(offending_key, &m.capabilities[offending_key]) {
+            Ok(CapabilityKind::NetWan { hosts })
+                if declared_tier >= Tier::Networked && hosts.iter().any(NetHost::is_wildcard) =>
+            {
+                format!(
+                    "{offending_key}: a wildcard or unrestricted WAN allowlist is a tier-4 \
+                     authority; list the hosts instead, e.g. hosts = [\"api.example.com:443\"]"
+                )
+            }
+            _ => offending_key.clone(),
+        };
         return Err(ValidationError::TierBelowCapability {
             declared: declared_tier,
             implied: implied_tier,
-            capability: offending_key.clone(),
+            capability,
         });
     }
 
@@ -186,56 +219,97 @@ pub fn validate(m: Manifest) -> Result<ValidatedManifest, ValidationError> {
 
 // ── Capability key parsing ───────────────────────────────────────────────────
 
+/// The parameter every capability accepts: why the plugin needs it, shown
+/// to the operator (spec §11 #9).
+const RATIONALE: &str = "rationale";
+
 /// Parse a single `[capabilities]` entry from its string key and raw TOML args.
 ///
 /// Mapping table per spec §4.4:
 ///
-/// | Key | Maps to |
-/// |-----|---------|
-/// | `compute.cpu` | [`CapabilityKind::ComputeCpu`] |
-/// | `compute.gpu` | [`CapabilityKind::ComputeGpu`] |
-/// | `compute.npu` | [`CapabilityKind::ComputeNpu`] |
-/// | `storage.local` | [`CapabilityKind::StorageLocal`] |
-/// | `storage.share.<name>` | [`CapabilityKind::StorageShare`] (`<name>` per [`is_valid_share_name`]) |
-/// | `net.lan` | [`CapabilityKind::NetLan`] |
-/// | `net.wan` | [`CapabilityKind::NetWan`] |
-/// | `mesh.peer` | [`CapabilityKind::MeshPeer`] |
-/// | `agent.invoke` | [`CapabilityKind::AgentInvoke`] |
-/// | `host.docker-socket` | [`CapabilityKind::HostDockerSocket`] |
-/// | `custom.*` | [`CapabilityKind::Custom`] |
+/// | Key | Maps to | Parameters (besides `rationale`) |
+/// |-----|---------|------------|
+/// | `compute.cpu` | [`CapabilityKind::ComputeCpu`] | — |
+/// | `compute.gpu` | [`CapabilityKind::ComputeGpu`] | — |
+/// | `compute.npu` | [`CapabilityKind::ComputeNpu`] | — |
+/// | `storage.local` | [`CapabilityKind::StorageLocal`] | `scope` = `plugin` (alias `$plugin_data`, default) \| `shared`; `mode` = `ro` \| `rw` (default) |
+/// | `storage.share.<name>` | [`CapabilityKind::StorageShare`] (`<name>` per [`is_valid_share_name`]) | `mode` = `ro` (default) \| `rw` \| `rw-scoped` |
+/// | `net.lan` | [`CapabilityKind::NetLan`] | — |
+/// | `net.wan` | [`CapabilityKind::NetWan`] | `hosts` = non-empty list of `host[:port]` ([`NetHost`]); omitted = `["*"]` (tier 4) |
+/// | `mesh.peer` | [`CapabilityKind::MeshPeer`] | — |
+/// | `agent.invoke` | [`CapabilityKind::AgentInvoke`] | — |
+/// | `host.docker-socket` | [`CapabilityKind::HostDockerSocket`] | — |
+/// | `custom.*` | [`CapabilityKind::Custom`] | — |
+///
+/// The value must be a table (`"compute.cpu" = {}`); any parameter not
+/// listed is refused ([`ValidationError::UnknownCapabilityParam`]), and
+/// `rationale`, when present, must be a string.
 pub fn parse_capability(key: &str, args: &toml::Value) -> Result<CapabilityKind, ValidationError> {
-    // Helper: extract an optional string field from an inline table.
-    let str_field = |field: &str, default: &str| -> Result<String, ValidationError> {
-        match args.get(field) {
-            None => Ok(default.to_owned()),
-            Some(toml::Value::String(s)) => Ok(s.clone()),
-            Some(_) => Err(ValidationError::CapabilityArgs {
-                key: key.to_owned(),
-                message: format!("field `{field}` must be a string"),
-            }),
+    let bad = |message: String| ValidationError::CapabilityArgs {
+        key: key.to_owned(),
+        message,
+    };
+    let table = args.as_table().ok_or_else(|| {
+        bad(format!(
+            "expected a table of parameters (e.g. `\"{key}\" = {{}}`), found {}",
+            args.type_str()
+        ))
+    })?;
+    // Refuse anything this capability does not take.
+    let allow = |params: &[&str]| -> Result<(), ValidationError> {
+        for name in table.keys() {
+            if name != RATIONALE && !params.contains(&name.as_str()) {
+                let mut allowed: Vec<&str> = params.to_vec();
+                allowed.push(RATIONALE);
+                return Err(ValidationError::UnknownCapabilityParam {
+                    key: key.to_owned(),
+                    param: name.clone(),
+                    allowed: allowed.join(", "),
+                });
+            }
+        }
+        match table.get(RATIONALE) {
+            None | Some(toml::Value::String(_)) => Ok(()),
+            Some(_) => Err(bad(format!("field `{RATIONALE}` must be a string"))),
+        }
+    };
+    // An optional string field.
+    let str_field = |field: &str| -> Result<Option<&str>, ValidationError> {
+        match table.get(field) {
+            None => Ok(None),
+            Some(toml::Value::String(s)) => Ok(Some(s.as_str())),
+            Some(_) => Err(bad(format!("field `{field}` must be a string"))),
         }
     };
 
     match key {
-        "compute.cpu" => Ok(CapabilityKind::ComputeCpu),
+        "compute.cpu" => allow(&[]).map(|()| CapabilityKind::ComputeCpu),
 
-        "compute.gpu" => Ok(CapabilityKind::ComputeGpu),
+        "compute.gpu" => allow(&[]).map(|()| CapabilityKind::ComputeGpu),
 
-        "compute.npu" => Ok(CapabilityKind::ComputeNpu),
+        "compute.npu" => allow(&[]).map(|()| CapabilityKind::ComputeNpu),
 
         "storage.local" => {
-            let scope_str = str_field("scope", "plugin")?;
-            let scope = match scope_str.as_str() {
-                "plugin" => StorageScope::Plugin,
+            allow(&["scope", "mode"])?;
+            let scope = match str_field("scope")?.unwrap_or("plugin") {
+                "plugin" | "$plugin_data" => StorageScope::Plugin,
                 "shared" => StorageScope::Shared,
                 other => {
-                    return Err(ValidationError::CapabilityArgs {
-                        key: key.to_owned(),
-                        message: format!("unknown scope `{other}`; expected `plugin` or `shared`"),
-                    })
+                    return Err(bad(format!(
+                        "unknown scope `{other}`; expected `plugin` (or `$plugin_data`) or `shared`"
+                    )))
                 }
             };
-            Ok(CapabilityKind::StorageLocal { scope })
+            let mode = match str_field("mode")?.unwrap_or("rw") {
+                "ro" => StorageMode::Ro,
+                "rw" => StorageMode::Rw,
+                other => {
+                    return Err(bad(format!(
+                        "unknown mode `{other}`; expected `ro` or `rw`"
+                    )))
+                }
+            };
+            Ok(CapabilityKind::StorageLocal { scope, mode })
         }
 
         k if k.starts_with("storage.share.") => {
@@ -246,42 +320,69 @@ pub fn parse_capability(key: &str, args: &toml::Value) -> Result<CapabilityKind,
             // The name becomes one directory under `<data>/shares`: refuse
             // anything that could address a path outside it (`/`, `..`, …).
             if !is_valid_share_name(&name) {
-                return Err(ValidationError::CapabilityArgs {
-                    key: key.to_owned(),
-                    message: format!(
-                        "invalid share name `{name}`; expected `[a-z0-9][a-z0-9_-]*` \
-                         (one path component, at most 63 characters)"
-                    ),
-                });
+                return Err(bad(format!(
+                    "invalid share name `{name}`; expected `[a-z0-9][a-z0-9_-]*` \
+                     (one path component, at most 63 characters)"
+                )));
             }
-            let mode_str = str_field("mode", "ro")?;
-            let mode = match mode_str.as_str() {
+            allow(&["mode"])?;
+            let mode = match str_field("mode")?.unwrap_or("ro") {
                 "ro" => ShareMode::Ro,
                 "rw" => ShareMode::Rw,
                 "rw-scoped" => ShareMode::RwScoped,
                 other => {
-                    return Err(ValidationError::CapabilityArgs {
-                        key: key.to_owned(),
-                        message: format!(
-                            "unknown mode `{other}`; expected `ro`, `rw`, or `rw-scoped`"
-                        ),
-                    })
+                    return Err(bad(format!(
+                        "unknown mode `{other}`; expected `ro`, `rw`, or `rw-scoped`"
+                    )))
                 }
             };
             Ok(CapabilityKind::StorageShare { name, mode })
         }
 
-        "net.lan" => Ok(CapabilityKind::NetLan),
+        "net.lan" => allow(&[]).map(|()| CapabilityKind::NetLan),
 
-        "net.wan" => Ok(CapabilityKind::NetWan),
+        "net.wan" => {
+            allow(&["hosts"])?;
+            let hosts = match table.get("hosts") {
+                // No allowlist = any host: a wildcard, which `min_tier`
+                // prices at tier 4 (§4.2).
+                None => vec![NetHost::any()],
+                Some(toml::Value::Array(entries)) => {
+                    if entries.is_empty() {
+                        return Err(bad(
+                            "`hosts` is empty; list at least one `host[:port]`".to_owned()
+                        ));
+                    }
+                    let mut hosts: Vec<NetHost> = Vec::with_capacity(entries.len());
+                    for e in entries {
+                        let s = e.as_str().ok_or_else(|| {
+                            bad("`hosts` entries must be strings `host[:port]`".to_owned())
+                        })?;
+                        let h: NetHost = s.parse().map_err(|e| bad(format!("{e}")))?;
+                        if !hosts.contains(&h) {
+                            hosts.push(h);
+                        }
+                    }
+                    hosts
+                }
+                Some(_) => {
+                    return Err(bad(
+                        "`hosts` must be a list of strings `host[:port]`".to_owned()
+                    ))
+                }
+            };
+            Ok(CapabilityKind::NetWan { hosts })
+        }
 
-        "mesh.peer" => Ok(CapabilityKind::MeshPeer),
+        "mesh.peer" => allow(&[]).map(|()| CapabilityKind::MeshPeer),
 
-        "agent.invoke" => Ok(CapabilityKind::AgentInvoke),
+        "agent.invoke" => allow(&[]).map(|()| CapabilityKind::AgentInvoke),
 
-        "host.docker-socket" => Ok(CapabilityKind::HostDockerSocket),
+        "host.docker-socket" => allow(&[]).map(|()| CapabilityKind::HostDockerSocket),
 
-        k if k.starts_with("custom.") => Ok(CapabilityKind::Custom(key.to_owned())),
+        k if k.starts_with("custom.") => {
+            allow(&[]).map(|()| CapabilityKind::Custom(key.to_owned()))
+        }
 
         _ => Err(ValidationError::UnknownCapability {
             key: key.to_owned(),
@@ -485,5 +586,223 @@ mod tests {
             matches!(err, ValidationError::InvalidTier(6)),
             "got: {err:?}"
         );
+    }
+
+    fn table(pairs: &[(&str, toml::Value)]) -> toml::Value {
+        let mut t = toml::map::Map::new();
+        for (k, v) in pairs {
+            t.insert((*k).to_owned(), v.clone());
+        }
+        toml::Value::Table(t)
+    }
+
+    fn s(v: &str) -> toml::Value {
+        toml::Value::String(v.to_owned())
+    }
+
+    fn hosts(v: &[&str]) -> toml::Value {
+        toml::Value::Array(v.iter().map(|h| s(h)).collect())
+    }
+
+    #[test]
+    fn storage_local_parses_scope_and_mode() {
+        let cases = [
+            (vec![], StorageScope::Plugin, StorageMode::Rw),
+            (
+                vec![("mode", s("ro"))],
+                StorageScope::Plugin,
+                StorageMode::Ro,
+            ),
+            (
+                vec![("scope", s("$plugin_data")), ("mode", s("rw"))],
+                StorageScope::Plugin,
+                StorageMode::Rw,
+            ),
+            (
+                vec![("scope", s("shared")), ("mode", s("ro"))],
+                StorageScope::Shared,
+                StorageMode::Ro,
+            ),
+            (
+                vec![("scope", s("plugin")), ("rationale", s("cache AOT output"))],
+                StorageScope::Plugin,
+                StorageMode::Rw,
+            ),
+        ];
+        for (args, scope, mode) in cases {
+            let cap = parse_capability("storage.local", &table(&args)).expect("valid");
+            assert_eq!(
+                cap,
+                CapabilityKind::StorageLocal { scope, mode },
+                "{args:?}"
+            );
+        }
+        for (args, needle) in [
+            (vec![("mode", s("rwx"))], "unknown mode"),
+            (vec![("mode", s("rw-scoped"))], "unknown mode"),
+            (vec![("scope", s("/etc"))], "unknown scope"),
+            (
+                vec![("mode", toml::Value::Boolean(true))],
+                "must be a string",
+            ),
+            (
+                vec![("rationale", toml::Value::Integer(3))],
+                "must be a string",
+            ),
+        ] {
+            let err = parse_capability("storage.local", &table(&args)).expect_err(needle);
+            assert!(
+                matches!(err, ValidationError::CapabilityArgs { .. }),
+                "{args:?}: {err}"
+            );
+            assert!(err.to_string().contains(needle), "{args:?}: {err}");
+            assert!(err.to_string().starts_with("ENTANGLE-E0202"), "{err}");
+        }
+    }
+
+    /// A typo must never silently drop a restriction: unknown parameters are
+    /// refused for every capability, with the allowed set in the message.
+    #[test]
+    fn unknown_capability_parameters_are_refused() {
+        for (key, param) in [
+            ("compute.cpu", "max-threads"),
+            ("storage.local", "path"),
+            ("storage.share.photos", "scope"),
+            ("net.lan", "hosts"),
+            ("net.wan", "host"),
+            ("mesh.peer", "scope"),
+            ("custom.thing", "anything"),
+        ] {
+            let err = parse_capability(key, &table(&[(param, s("x"))])).expect_err(key);
+            match &err {
+                ValidationError::UnknownCapabilityParam {
+                    key: k,
+                    param: p,
+                    allowed,
+                } => {
+                    assert_eq!(k, key);
+                    assert_eq!(p, param);
+                    assert!(allowed.contains("rationale"), "{allowed}");
+                }
+                other => panic!("{key}: expected UnknownCapabilityParam, got {other}"),
+            }
+            assert!(err.to_string().starts_with("ENTANGLE-E0203"), "{err}");
+        }
+    }
+
+    #[test]
+    fn capability_value_must_be_a_table() {
+        for v in [toml::Value::Boolean(true), s("rw"), toml::Value::Integer(1)] {
+            let err = parse_capability("compute.cpu", &v).expect_err("non-table");
+            assert!(err.to_string().contains("expected a table"), "{err}");
+        }
+    }
+
+    #[test]
+    fn net_wan_parses_and_deduplicates_hosts() {
+        let cap = parse_capability(
+            "net.wan",
+            &table(&[(
+                "hosts",
+                hosts(&["API.example.com:443", "api.example.com:443", "203.0.113.9"]),
+            )]),
+        )
+        .expect("valid");
+        let CapabilityKind::NetWan { hosts } = cap else {
+            panic!("expected NetWan, got {cap:?}");
+        };
+        let rendered: Vec<String> = hosts.iter().map(ToString::to_string).collect();
+        assert_eq!(rendered, ["api.example.com:443", "203.0.113.9"]);
+    }
+
+    #[test]
+    fn net_wan_rejects_malformed_allowlists() {
+        for (v, needle) in [
+            (hosts(&[]), "empty"),
+            (hosts(&["https://api.example.com"]), "invalid host entry"),
+            (hosts(&["api.example.com:0"]), "port"),
+            (
+                toml::Value::Array(vec![toml::Value::Integer(1)]),
+                "must be strings",
+            ),
+            (s("api.example.com"), "must be a list"),
+        ] {
+            let err = parse_capability("net.wan", &table(&[("hosts", v)])).expect_err(needle);
+            assert!(err.to_string().contains(needle), "{err}");
+        }
+    }
+
+    /// §4.2: WAN wildcards are tier 4. Below that, an explicit wildcard or an
+    /// unrestricted `net.wan` (no `hosts`) is refused with ENTANGLE-E0042 and
+    /// a hint to list hosts instead.
+    #[test]
+    fn net_wan_wildcards_require_tier_4() {
+        for args in [
+            table(&[]),
+            table(&[("hosts", hosts(&["*"]))]),
+            table(&[("hosts", hosts(&["api.example.com:443", "*.example.org"]))]),
+        ] {
+            let mut m = minimal_manifest("wan-wild", 3, Runtime::Wasm);
+            m.capabilities.insert("net.wan".into(), args.clone());
+            let err = validate(m).expect_err("wildcard at tier 3");
+            assert!(
+                matches!(
+                    err,
+                    ValidationError::TierBelowCapability {
+                        implied: Tier::Privileged,
+                        ..
+                    }
+                ),
+                "{args:?}: {err}"
+            );
+            assert!(err.to_string().contains("list the hosts"), "{err}");
+
+            // At tier 4+ (native) the same allowlist is accepted.
+            let mut m = minimal_manifest("wan-wild", 5, Runtime::Native);
+            m.capabilities.insert("net.wan".into(), args);
+            validate(m).expect("wildcard at tier 5");
+        }
+
+        // Named hosts are an ordinary tier-3 capability.
+        let mut m = minimal_manifest("wan-named", 3, Runtime::Wasm);
+        m.capabilities.insert(
+            "net.wan".into(),
+            table(&[("hosts", hosts(&["api.example.com:443"]))]),
+        );
+        let v = validate(m).expect("named hosts at tier 3");
+        assert_eq!(v.implied_tier, Tier::Networked);
+
+        // Below tier 3 the ordinary E0042 message names the capability.
+        let mut m = minimal_manifest("wan-low", 1, Runtime::Wasm);
+        m.capabilities.insert("net.wan".into(), table(&[]));
+        let err = validate(m).expect_err("tier 1");
+        assert!(
+            matches!(err, ValidationError::TierBelowCapability { ref capability, .. } if capability == "net.wan"),
+            "{err}"
+        );
+    }
+
+    /// Every manifest shipped in `examples/` and `plugins/` still validates
+    /// (with the build-time publisher placeholder filled in).
+    #[test]
+    fn shipped_manifests_still_validate() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut seen = 0;
+        for dir in ["examples", "plugins"] {
+            for entry in std::fs::read_dir(root.join(dir)).expect(dir).flatten() {
+                let path = entry.path().join("entangle.toml");
+                if !path.exists() {
+                    continue;
+                }
+                let text = std::fs::read_to_string(&path)
+                    .expect("read manifest")
+                    .replace("PUBLISHER_PLACEHOLDER", PUB);
+                let raw: Manifest =
+                    toml::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+                validate(raw).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+                seen += 1;
+            }
+        }
+        assert!(seen >= 5, "expected the shipped manifests, found {seen}");
     }
 }

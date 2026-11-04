@@ -161,6 +161,28 @@ impl Client {
         self.call(method::PLUGINS_INVOKE, p).await
     }
 
+    /// `perms/list` — declared capabilities and their grant state, for one
+    /// plugin or every loaded plugin.
+    pub async fn perms_list(&self, plugin_id: Option<&str>) -> Result<PermsListResult, RpcError> {
+        let p = PermsListParams {
+            plugin_id: plugin_id.map(str::to_owned),
+        };
+        self.call(method::PERMS_LIST, p).await
+    }
+
+    /// `perms/revoke` — revoke a loaded plugin's capability by manifest key.
+    pub async fn perms_revoke(
+        &self,
+        plugin_id: &str,
+        capability: &str,
+    ) -> Result<PermsRevokeResult, RpcError> {
+        let p = PermsRevokeParams {
+            plugin_id: plugin_id.into(),
+            capability: capability.into(),
+        };
+        self.call(method::PERMS_REVOKE, p).await
+    }
+
     /// `mesh/peers` — list peers seen on the mesh.
     pub async fn mesh_peers(&self) -> Result<MeshPeersResult, RpcError> {
         self.call(method::MESH_PEERS, serde_json::Value::Null).await

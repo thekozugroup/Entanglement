@@ -1579,6 +1579,7 @@ dependencies = [
  "entangle-types",
  "parking_lot",
  "semver",
+ "serde",
  "thiserror 2.0.18",
  "toml 0.8.23",
  "tracing",
@@ -1644,10 +1645,15 @@ name = "entangle-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "entangle-broker",
+ "entangle-manifest",
+ "entangle-observability",
  "entangle-types",
  "entangle-wit",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "toml 0.8.23",
  "tracing",
  "wasmtime",
  "wasmtime-wasi",

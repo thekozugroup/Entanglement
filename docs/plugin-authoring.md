@@ -154,7 +154,8 @@ Every capability carries a **minimum tier**:
 | `"compute.gpu" = {}` | 3 |
 | `"compute.npu" = {}` | 3 |
 | `"net.lan" = {}` | 3 |
-| `"net.wan" = {}` | 3 |
+| `"net.wan" = { hosts = ["api.example.com:443"] }` | 3 |
+| `"net.wan" = {}` (any host) or a wildcard entry (`"*"`, `"*.example.com"`) | 4 |
 | `"storage.share.<name>" = { mode = "ro" \| "rw" \| "rw-scoped" }` | 4 |
 | `"mesh.peer" = {}` | 4 |
 | `"host.docker-socket" = {}` | 5 |
@@ -167,8 +168,11 @@ The *implied tier* is the maximum minimum-tier across everything you declare.
 The rule is:
 
 - **Declaring a capability below its implied tier fails validation with
-  `ENTANGLE-E0042`.** For example `tier = 1` together with `"net.wan" = {}`
-  is rejected, because `net.wan` implies tier 3.
+  `ENTANGLE-E0042`.** For example `tier = 1` together with
+  `"net.wan" = { hosts = ["api.example.com:443"] }` is rejected, because
+  `net.wan` implies tier 3 — and a tier-3 plugin with an unrestricted
+  `"net.wan" = {}` is rejected too, because WAN egress wildcards are a
+  tier-4 authority (spec §4.2); the error tells you to list the hosts.
 - Declaring a tier *above* what your capabilities need is allowed. The
   **effective tier** is `max(declared, implied)`, so over-declaring costs you
   privilege headroom you didn't need — grant the least privilege you can.
@@ -180,6 +184,125 @@ a tier mistake fails in about a second:
 error: the rendered entangle.toml is not a valid plugin manifest
   caused by: ENTANGLE-E0042: declared tier Pure below implied tier Networked from capability 'net.wan'
 ```
+
+### Capability parameters
+
+Each capability is a table; every key in it is checked. A key a capability
+does not take is refused (`ENTANGLE-E0203`), so a typo such as `host = …`
+for `hosts = …` can never silently drop a restriction; a malformed value is
+`ENTANGLE-E0202`. Every capability also accepts `rationale = "…"`, a string
+shown to the operator.
+
+| Capability | Parameters |
+|---|---|
+| `storage.local` | `scope` = `"plugin"` (default; `"$plugin_data"` is an alias) or `"shared"`; `mode` = `"rw"` (default) or `"ro"` |
+| `storage.share.<name>` | `mode` = `"ro"` (default), `"rw"` or `"rw-scoped"` |
+| `net.wan` | `hosts` = non-empty list of `"host[:port]"`: a DNS name, an IPv4 address, or a bracketed IPv6 address (`"[2001:db8::1]:443"`). No port = every port of that host. `"*"` and `"*.domain"` are wildcards (tier 4). Omitting `hosts` means any host (tier 4). |
+| everything else | none |
+
+```toml
+[capabilities]
+"storage.local" = { mode = "rw", rationale = "cache downloaded models" }
+"net.wan" = { hosts = ["api.example.com:443", "cdn.example.com"] }
+```
+
+### Using capabilities at run time
+
+Declaring a capability is necessary but not sufficient: when the plugin is
+loaded the daemon's capability broker decides each one (spec §4.5). It grants
+it unless the operator's policy refuses it — `[security] deny_capabilities`
+in the daemon config, or a `max_tier_allowed` below your tier. A denied
+capability does **not** stop your plugin from loading; it simply does not
+work, and `entangle perms list` shows why. An operator can also revoke a
+capability from a running plugin (`entangle perms revoke`); revoking a
+network capability stops any invocation running with it
+(`ENTANGLE-E0511`), closing its connections. Lowering `max_tier_allowed`
+below your plugin's tier while it runs does the same to all of its
+capabilities before it is unloaded. Write plugins that degrade
+gracefully when a capability is missing.
+
+What a wasm plugin can reach is derived from the broker's grants alone —
+nothing else is ambient. This holds for both worlds: a `stream-plugin`
+component's stream gets exactly the directories, network rules, name
+lookups and `capability.fetch` answers a one-shot invocation of the same
+plugin would get, built from the grants as they stand when the stream starts,
+and a revoked network capability stops a running stream the same way
+(`ENTANGLE-E0511`):
+
+**Storage.** `storage.local` (plugin scope) appears in the guest as the
+directory **`/data`**: your plugin's private directory on the host, kept
+across invocations and upgrades (it is keyed by publisher and name, not
+version). Use ordinary `std::fs` with absolute paths under `/data`; there is
+no working directory, so relative paths fail. With `mode = "ro"` the
+directory is readable and every write, create, rename or delete fails with
+`PermissionDenied`. `scope = "shared"` appears as **`/shared`**, a directory
+every shared-scope plugin sees; `storage.share.<name>` (tier 4, native only
+today) would appear as `/shares/<name>`. Nothing else on the host filesystem
+exists for the guest: absolute paths outside these directories, `..` above
+them and symbolic links pointing out of them all fail, whoever created the
+link.
+
+```rust
+std::fs::write("/data/state.json", &bytes)?;          // needs storage.local (rw)
+let cached = std::fs::read("/data/state.json").ok();  // works with ro too
+```
+
+**Network.** Use `std::net::TcpStream` / `UdpSocket` (wasi:sockets). Without
+a `net.*` grant there is no TCP, no UDP and no DNS at all.
+
+- `net.lan` — connect (TCP) or send (UDP) to LAN addresses only: RFC 1918
+  (`10/8`, `172.16/12`, `192.168/16`), link-local (`169.254/16`,
+  `fe80::/10`) and unique-local IPv6 (`fc00::/7`). **The daemon's own host
+  is never reachable** — neither loopback (`127.0.0.0/8` / `::1`) nor any
+  address assigned to one of the host's interfaces, through any grant — and
+  neither are cloud instance-metadata endpoints (`169.254.169.254`,
+  `fd00:ec2::254` and their AWS siblings).
+- `net.wan` — connect to exactly the listed `host[:port]` entries. Host
+  names are resolved **by the daemon when each invocation starts**, and the
+  invocation may connect to exactly the addresses they resolved to (on the
+  listed port, if any). The guest's own DNS answers cannot widen that: an
+  allowlisted name that resolves somewhere else mid-invocation (DNS
+  rebinding) is still refused, as is any allowlisted name that resolves to a
+  LAN, loopback or other non-public address (use `net.lan` for LAN hosts).
+- Name lookups (`ToSocketAddrs`, `TcpStream::connect("name:port")`) are
+  answered by the daemon, not passed to a resolver: a `net.wan` allowlisted
+  name resolves to exactly the addresses pinned for the invocation, so
+  connecting by name always reaches an address the rules accept; any other
+  name does not resolve. Under `net.lan` alone no name resolves — connect to
+  LAN hosts by address.
+- Plugins are clients: listening (`TcpListener::bind`) is always refused; a
+  UDP socket may bind only an ephemeral port on the unspecified address, and
+  `recv_from` only returns datagrams from addresses your grants let you send
+  to (others are dropped by the daemon).
+
+A refused address fails with `PermissionDenied`, before any packet is sent.
+
+**`capability.fetch`.** `entangle_sdk::capability::fetch(kind, name)` asks
+the broker for a handle to a capability (`name` is the share name for
+`storage-share`, the suffix for `custom`, and `None` otherwise):
+
+```rust
+use entangle_sdk::capability::{fetch, release, FetchError, Kind};
+
+match fetch(Kind::NetWan, None) {
+    Ok(handle) => { /* granted: go online */ release(handle); }
+    Err(FetchError::NotGranted(why)) => { /* not declared or denied: `why` carries the ENTANGLE code */ }
+    Err(FetchError::Revoked) => { /* the operator revoked it */ }
+    Err(FetchError::InvalidKind) => { /* malformed name, e.g. `storage-share` without one */ }
+}
+```
+
+It returns a handle only for a capability your manifest declares **and** the
+broker grants; otherwise `not-granted` with the reason (`ENTANGLE-E0120` not
+declared, `E0124` operator policy, `E0127` tier ceiling), or `revoked`
+(`E0125`) after `entangle perms revoke`. Every decision is audited and counted
+(`entangle_capability_grants_total` / `entangle_capability_denials_total`).
+Storage and network work without fetching — they are realised from the
+standing grants — so today a handle is mainly a reliable "do I have this?"
+check, and the token future host interfaces (GPU, mesh, agent invocation)
+will take. Handles belong to one invocation: `release` is idempotent, and
+any handle still held when the invocation ends is released for you. An
+invocation may hold at most 256 handles and make at most 1024 fetches.
 
 ### The plugin id
 
@@ -407,7 +530,11 @@ a response larger than the configured cap is refused from its header.
 to (`docs/operations.md` §12): with no capabilities, only its own binary and
 the system libraries, no network, no Unix sockets, an empty environment apart
 from `ENTANGLE_PLUGIN_ID`. `storage.local { scope = "plugin" }` adds a private
-read-write directory at `$ENTANGLE_DATA_DIR`.
+directory at `$ENTANGLE_DATA_DIR` — the same host directory a wasm plugin sees
+as `/data`, read-write or read-only per `mode`. For native plugins `net.lan`
+and `net.wan` currently grant IP networking as a whole; the per-address rules
+above apply to wasm plugins. For the same reason an operator who denies either
+one (`[security] deny_capabilities`) denies a native plugin both.
 
 Native plugins are refused on hosts with no sandbox primitive, and operators
 can disable them entirely with `[security] max_tier_allowed = 3` (or tier 5
@@ -418,6 +545,12 @@ alone with `= 4`).
 | Symptom | Cause |
 |---------|-------|
 | `ENTANGLE-E0042: declared tier … below implied tier …` | raise `tier`, or drop the capability |
+| `ENTANGLE-E0042 … a wildcard or unrestricted WAN allowlist is a tier-4 authority` | list the hosts: `"net.wan" = { hosts = ["api.example.com:443"] }` |
+| `ENTANGLE-E0202: malformed capability args` / `ENTANGLE-E0203: … does not take parameter` | fix the capability table; see [Capability parameters](#capability-parameters) |
+| `fetch` → `not-granted: ENTANGLE-E0124 … by operator policy`, or `/data` missing | the operator denies that capability (`entangle perms list` shows it); the plugin runs without it |
+| `fetch` → `revoked` | the operator ran `entangle perms revoke`; reload the plugin to get it back |
+| `ENTANGLE-E0508` / `E0509` when loading | a storage grant has no data directory, or the plugin's directory is a symbolic link / not a directory (see `docs/operations.md` §18) |
+| `PermissionDenied` on connect | the address is not covered by your `net.*` grant (loopback never is) |
 | `ENTANGLE-E0201: plugin id format invalid` | the id is not `<publisher>/<name>@<version>`; rebuild with `entangle plugins build` rather than hand-editing `dist/` |
 | `ENTANGLE-E0101: publisher fingerprint not in keyring` | run `entangle keyring add <PUBLIC_KEY_HEX> --name …` |
 | `ENTANGLE-E0104: manifest hash mismatch` | `dist/entangle.toml` was edited after signing; rebuild |
@@ -433,7 +566,10 @@ alone with `= 4`).
 
 - `crates/entangle-sdk/README.md` — the SDK surface and dependency forms.
 - `docs/architecture.md` §4.2 (tiers), §4.3 (tier ↔ capability binding),
-  §4.4 (manifest), §3.6 (artifact signing).
+  §4.4 (manifest), §4.5–4.6 (capability resolution, grants and revocation),
+  §3.6 (artifact signing).
+- `crates/entangle-host/fixtures-src/caps-probe/` — a test plugin that
+  exercises storage, sockets, DNS and `capability.fetch`.
 - `docs/tutorial.md` — a narrated walkthrough using the bundled examples.
 - `examples/hello-world/`, `examples/hash-it/` — working plugins in-tree.
 - `examples/native-echo/` — a working native (tier 5) plugin.
