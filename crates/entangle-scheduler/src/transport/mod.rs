@@ -25,6 +25,14 @@
 //! * a failure while **connecting** (dial, handshake, identity, the peer's
 //!   ACL admission, protocol selection) delivered nothing, so the next
 //!   candidate is tried;
+//! * so does a candidate that has not connected by its **connect
+//!   deadline**: every candidate but the last gets one
+//!   ([`TransportRouter::with_connect_timeout`], shortened to an even share
+//!   of what is left of the request's budget), so a dial that hangs — a
+//!   stale or spoofed LAN address, a blackholed port — cannot use up the
+//!   budget before the later transports are tried. A link reports when its
+//!   connection is set up ([`Connecting`]); the deadline never cuts short a
+//!   request already sent;
 //! * anything after that — an application-level answer, even a refusal, or
 //!   a transport failure once the request may have been delivered — is
 //!   final: it is never retried on another transport, so a request is
@@ -50,9 +58,10 @@ mod serve;
 mod stream_io;
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::future::Future;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use entangle_mesh_iroh::IrohPeer;
 use entangle_mesh_tailscale::TailscalePeer;
@@ -195,6 +204,35 @@ pub enum LinkError {
     Transport(String),
 }
 
+/// Handed to each [`Link::request`]: the link calls
+/// [`Connecting::connected`] once its connection is set up (dialled,
+/// authenticated, admitted, protocol selected) and **before** it sends
+/// anything.
+///
+/// Until then the router may abandon the attempt at its connect deadline —
+/// nothing was sent, so another transport may be tried. After it the
+/// attempt runs to its end: a request that may have reached the peer is
+/// never abandoned for another transport.
+#[derive(Debug, Default)]
+pub struct Connecting(AtomicBool);
+
+impl Connecting {
+    /// The connection is set up; nothing has been sent yet.
+    pub fn connected(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+
+    /// Whether [`Connecting::connected`] was called.
+    pub fn is_connected(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+}
+
+/// How long the router waits for a candidate that has a fallback after it to
+/// connect before trying the next one; see
+/// [`TransportRouter::with_connect_timeout`].
+pub const DEFAULT_ATTEMPT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// One transport, as the router uses it. See the module docs.
 #[async_trait::async_trait]
 pub trait Link: std::fmt::Debug + Send + Sync {
@@ -210,10 +248,17 @@ pub trait Link: std::fmt::Debug + Send + Sync {
     fn target(&self, peer: &PeerId) -> Option<DialTarget>;
 
     /// Connect to `target` and do one `entangle/scheduler/1`
-    /// request/response.
-    async fn request(&self, target: &DialTarget, payload: &[u8]) -> Result<Vec<u8>, LinkError>;
+    /// request/response, calling `connecting.connected()` between the two
+    /// (see [`Connecting`]).
+    async fn request(
+        &self,
+        target: &DialTarget,
+        payload: &[u8],
+        connecting: &Connecting,
+    ) -> Result<Vec<u8>, LinkError>;
 
-    /// Connect to `target` and open one `entangle/stream/1` stream.
+    /// Connect to `target` and open one `entangle/stream/1` stream. Nothing
+    /// is sent on it yet, so the whole call is connection setup.
     async fn open_stream(&self, target: &DialTarget) -> Result<StreamIo, LinkError>;
 }
 
@@ -346,6 +391,7 @@ pub struct TransportRouter {
     policy: RoutePolicy,
     records: Mutex<HashMap<PeerId, RouteRecord>>,
     metrics: Option<entangle_observability::Registry>,
+    connect_timeout: Duration,
 }
 
 impl std::fmt::Debug for TransportRouter {
@@ -368,6 +414,7 @@ impl TransportRouter {
             policy: RoutePolicy::default(),
             records: Mutex::new(HashMap::new()),
             metrics: None,
+            connect_timeout: DEFAULT_ATTEMPT_CONNECT_TIMEOUT,
         }
     }
 
@@ -390,6 +437,18 @@ impl TransportRouter {
     #[must_use]
     pub fn with_metrics(mut self, registry: entangle_observability::Registry) -> Self {
         self.metrics = Some(registry);
+        self
+    }
+
+    /// How long a candidate with a fallback after it may take to connect
+    /// before the next one is tried (default
+    /// [`DEFAULT_ATTEMPT_CONNECT_TIMEOUT`]). A request with a budget gives
+    /// each such candidate at most an even share of what is left of it. The
+    /// last candidate has no router deadline: its transport's own timeouts
+    /// and the caller's budget bound it.
+    #[must_use]
+    pub const fn with_connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = timeout;
         self
     }
 
@@ -512,19 +571,24 @@ impl TransportRouter {
         payload: &[u8],
         only: Option<TransportKind>,
     ) -> Result<(Vec<u8>, TransportKind), RouteError> {
-        self.request_tracked(peer, payload, only, &AttemptCell::default())
+        self.request_tracked(peer, payload, only, &AttemptCell::default(), None)
             .await
     }
 
     /// [`TransportRouter::request`], noting each attempt's transport in
-    /// `attempt` as it starts.
+    /// `attempt` as it starts. `budget` is how long the caller will wait
+    /// for the whole request: candidates with a fallback after them share
+    /// what is left of it for connecting (see
+    /// [`TransportRouter::with_connect_timeout`]).
     pub async fn request_tracked(
         &self,
         peer: PeerId,
         payload: &[u8],
         only: Option<TransportKind>,
         attempt: &AttemptCell,
+        budget: Option<Duration>,
     ) -> Result<(Vec<u8>, TransportKind), RouteError> {
+        let started = tokio::time::Instant::now();
         let (candidates, skipped) = self.candidates(&peer, only);
         if candidates.is_empty() {
             return Err(RouteError::NoRoute {
@@ -532,11 +596,16 @@ impl TransportRouter {
                 detail: render_skipped(&skipped),
             });
         }
+        let count = candidates.len();
         let mut failures = Vec::new();
-        for (link, target) in candidates {
+        for (index, (link, target)) in candidates.into_iter().enumerate() {
             let kind = link.kind();
             attempt.set(kind);
-            match link.request(&target, payload).await {
+            let left = budget.map(|b| b.saturating_sub(started.elapsed()));
+            let limit = self.connect_limit(index, count, left);
+            let connecting = Connecting::default();
+            let sent = link.request(&target, payload, &connecting);
+            match within_setup(sent, &connecting, limit).await {
                 Ok(answer) => {
                     self.record(peer, kind, &target);
                     return Ok((answer, kind));
@@ -589,10 +658,13 @@ impl TransportRouter {
                 .to_string(),
             ));
         }
+        let count = candidates.len();
         let mut failures = Vec::new();
-        for (link, target) in candidates {
+        for (index, (link, target)) in candidates.into_iter().enumerate() {
             let kind = link.kind();
-            match link.open_stream(&target).await {
+            let limit = self.connect_limit(index, count, None);
+            let opening = link.open_stream(&target);
+            match within_setup(opening, &Connecting::default(), limit).await {
                 Ok(io) => {
                     if io.remote_peer_id() != peer {
                         // Links pin the dialled key; this is a backstop.
@@ -640,6 +712,26 @@ impl TransportRouter {
         Err(StreamError::Transport(err.to_string()))
     }
 
+    /// The connect deadline of candidate `index` of `count`: none for the
+    /// last; otherwise the router's cap, or an even share of `left` (what
+    /// remains of the caller's budget) among the candidates still to try,
+    /// whichever is shorter.
+    fn connect_limit(
+        &self,
+        index: usize,
+        count: usize,
+        left: Option<Duration>,
+    ) -> Option<Duration> {
+        let still_to_try = count.saturating_sub(index);
+        if still_to_try <= 1 {
+            return None;
+        }
+        let share = left.map_or(self.connect_timeout, |left| {
+            left / u32::try_from(still_to_try).unwrap_or(u32::MAX)
+        });
+        Some(self.connect_timeout.min(share))
+    }
+
     fn count_stream(&self, outcome: &str, kind: Option<TransportKind>) {
         if let Some(reg) = &self.metrics {
             entangle_observability::catalog::remote_stream_open(
@@ -647,6 +739,34 @@ impl TransportRouter {
                 outcome,
                 TransportKind::label(kind),
             );
+        }
+    }
+}
+
+/// Run one attempt, giving up at `limit` unless the link has reported its
+/// connection set up by then: nothing was sent, so the next candidate may be
+/// tried. Once set up, the attempt runs to its end.
+async fn within_setup<T>(
+    attempt: impl Future<Output = Result<T, LinkError>>,
+    connecting: &Connecting,
+    limit: Option<Duration>,
+) -> Result<T, LinkError> {
+    let Some(limit) = limit else {
+        return attempt.await;
+    };
+    tokio::pin!(attempt);
+    tokio::select! {
+        biased;
+        result = &mut attempt => result,
+        () = tokio::time::sleep(limit) => {
+            if connecting.is_connected() {
+                attempt.await
+            } else {
+                Err(LinkError::Connect(format!(
+                    "not connected within {}ms",
+                    limit.as_millis()
+                )))
+            }
         }
     }
 }

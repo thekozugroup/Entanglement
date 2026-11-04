@@ -244,6 +244,28 @@ pub trait MeshTransport: std::fmt::Debug + Send + Sync {
     /// [`MeshTransport::connect`] instead.
     async fn request(&self, peer: &IrohPeer, payload: &[u8]) -> Result<Vec<u8>, MeshIrohError>;
 
+    /// [`MeshTransport::request`], calling `connected` once the connection
+    /// is set up (dialled, handshake done, identity checked) and before the
+    /// request is sent.
+    ///
+    /// A caller can then bound connection setup on its own — give up on a
+    /// dial that has not connected by some deadline, knowing nothing was
+    /// sent — without cutting short a request that is already running.
+    ///
+    /// The default calls `connected` first and then
+    /// [`MeshTransport::request`]: an implementation that cannot tell the
+    /// two phases apart reports the whole request as past setup, so a caller
+    /// never abandons a request it may already have sent.
+    async fn request_noting(
+        &self,
+        peer: &IrohPeer,
+        payload: &[u8],
+        connected: &(dyn Fn() + Send + Sync),
+    ) -> Result<Vec<u8>, MeshIrohError> {
+        connected();
+        self.request(peer, payload).await
+    }
+
     /// Wait for the next inbound connection.
     ///
     /// Returns `Ok(None)` once the transport has been shut down, which is the

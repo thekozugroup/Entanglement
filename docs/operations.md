@@ -1454,8 +1454,19 @@ until then it simply has no candidates.
 The router tries the candidates in order. It moves on to the next one only
 when **connecting** fails: dial refused or timed out, handshake or identity
 failure, the peer's ACL refusing us on the tailnet, or the peer not serving
-the protocol. Nothing was delivered in those cases. Everything after the
-connection is up is final:
+the protocol. Nothing was delivered in those cases.
+
+A candidate with a fallback after it must connect within 5 s, or within an
+even share of what is left of the request's budget when that is shorter
+(e.g. a 2 s task with the 10 s overhead and three candidates: 4 s for the
+first). A dial that has not connected by then — a LAN sighting left behind
+when the peer moved, a spoofed one, a blackholed port — is abandoned
+(nothing was sent) and the next candidate tried, so it cannot use up the
+budget before the later transports get a turn. The last candidate is bound
+only by its transport's own timeouts and the request's budget. The deadline
+covers connection setup only: a request already sent runs to its end.
+
+Everything after the connection is up is final:
 
 * an answer from the peer — success, or a refusal such as `not-authorized`
   or `plugin-not-loaded` — is the result, never resent elsewhere;

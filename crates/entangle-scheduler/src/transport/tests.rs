@@ -3,6 +3,7 @@
 //! loopback transports in `tests/multi_transport.rs`.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::Duration;
 
 use entangle_mesh_iroh::IrohPeer;
 use entangle_mesh_tailscale::TailscalePeer;
@@ -25,6 +26,11 @@ struct Scripted {
     down: Option<String>,
     knows: PeerId,
     script: Script,
+    /// Never finishes connecting (a blackholed address): requests and
+    /// stream opens neither answer nor fail.
+    silent: bool,
+    /// Connects at once, then takes this long to answer (a running task).
+    runs_for: Option<Duration>,
     calls: AtomicUsize,
 }
 
@@ -45,7 +51,23 @@ impl Scripted {
             down: None,
             knows,
             script: Box::new(script),
+            silent: false,
+            runs_for: None,
             calls: AtomicUsize::new(0),
+        })
+    }
+
+    fn running_for(kind: TransportKind, knows: PeerId, time: Duration) -> Arc<Self> {
+        Arc::new(Self {
+            runs_for: Some(time),
+            ..Arc::into_inner(Self::answering(kind, knows)).unwrap()
+        })
+    }
+
+    fn silent(kind: TransportKind, knows: PeerId) -> Arc<Self> {
+        Arc::new(Self {
+            silent: true,
+            ..Arc::into_inner(Self::answering(kind, knows)).unwrap()
         })
     }
 
@@ -88,12 +110,27 @@ impl Link for Scripted {
             _ => DialTarget::Iroh(IrohPeer::new(key, addr)),
         })
     }
-    async fn request(&self, _target: &DialTarget, _payload: &[u8]) -> Result<Vec<u8>, LinkError> {
+    async fn request(
+        &self,
+        _target: &DialTarget,
+        _payload: &[u8],
+        connecting: &Connecting,
+    ) -> Result<Vec<u8>, LinkError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.silent {
+            std::future::pending::<()>().await;
+        }
+        if let Some(time) = self.runs_for {
+            connecting.connected();
+            tokio::time::sleep(time).await;
+        }
         (self.script)()
     }
     async fn open_stream(&self, _target: &DialTarget) -> Result<StreamIo, LinkError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.silent {
+            std::future::pending::<()>().await;
+        }
         Err(LinkError::Connect("scripted links carry no streams".into()))
     }
 }
@@ -240,6 +277,98 @@ async fn a_connect_failure_falls_back_to_the_next_candidate() {
         "{text}"
     );
     assert_eq!(err.transport(), Some(TransportKind::Iroh));
+}
+
+/// A candidate that never finishes connecting (a stale or spoofed mDNS
+/// sighting, a blackholed address) must not hold the request: it gets a
+/// connect deadline of its own, and the next candidate is tried.
+#[tokio::test]
+async fn a_candidate_that_never_connects_does_not_hold_the_request() {
+    let p = peer(1);
+    let local = Scripted::silent(TransportKind::Local, p);
+    let ts = Scripted::answering(TransportKind::Tailscale, p);
+    let r = router(&[local.clone(), ts.clone()]);
+    let (answer, kind) = tokio::time::timeout(Duration::from_secs(10), r.request(p, b"x", None))
+        .await
+        .expect("a silent first candidate held the request past its connect deadline")
+        .unwrap();
+    assert_eq!(
+        (answer.as_slice(), kind),
+        (&b"tailscale"[..], TransportKind::Tailscale)
+    );
+    assert_eq!((local.calls(), ts.calls()), (1, 1));
+
+    // With a budget, the candidates with a fallback share what is left of
+    // it: here half of 1 s, well inside the 5 s cap.
+    let started = tokio::time::Instant::now();
+    let (_, kind) = tokio::time::timeout(
+        Duration::from_secs(1),
+        r.request_tracked(
+            p,
+            b"x",
+            None,
+            &AttemptCell::default(),
+            Some(Duration::from_secs(1)),
+        ),
+    )
+    .await
+    .expect("the fallback ran inside the budget")
+    .unwrap();
+    assert_eq!(kind, TransportKind::Tailscale);
+    assert!(started.elapsed() >= Duration::from_millis(450));
+
+    // The last candidate has no router deadline (its transport's own
+    // timeouts bound it), so a peer known on one transport only is dialled
+    // exactly as before.
+    let only = router(&[Scripted::silent(TransportKind::Iroh, p)])
+        .with_connect_timeout(Duration::from_millis(10));
+    assert!(
+        tokio::time::timeout(Duration::from_millis(300), only.request(p, b"x", None))
+            .await
+            .is_err(),
+        "the only candidate is not cut at the connect deadline"
+    );
+
+    // Streams: every candidate with a fallback gets the deadline too.
+    let local = Scripted::silent(TransportKind::Local, p);
+    let ts = Scripted::answering(TransportKind::Tailscale, p);
+    let r = router(&[local.clone(), ts.clone()]).with_connect_timeout(Duration::from_millis(50));
+    let mut task = StreamingTask::with_defaults(
+        "0123456789abcdef0123456789abcdef/demo@1.0.0"
+            .parse()
+            .unwrap(),
+        Vec::new(),
+    );
+    task.integrity = entangle_types::task::IntegrityPolicy::TrustedExecutor { allowlist: vec![p] };
+    let err = tokio::time::timeout(
+        Duration::from_secs(5),
+        r.open_stream(p, &task, StreamOptions::default()),
+    )
+    .await
+    .expect("a silent first candidate held the stream open past its connect deadline")
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("local: not connected within 50ms"),
+        "{err}"
+    );
+    assert_eq!((local.calls(), ts.calls()), (1, 1));
+}
+
+/// The connect deadline bounds connection setup only: an attempt whose link
+/// has connected (and may have sent the request) runs to its end, however
+/// long the task takes, and is never re-sent elsewhere.
+#[tokio::test]
+async fn a_connected_attempt_is_not_cut_at_the_connect_deadline() {
+    let p = peer(1);
+    let local = Scripted::running_for(TransportKind::Local, p, Duration::from_millis(300));
+    let iroh = Scripted::answering(TransportKind::Iroh, p);
+    let r = router(&[local.clone(), iroh.clone()]).with_connect_timeout(Duration::from_millis(20));
+    let (answer, kind) = r.request(p, b"x", None).await.unwrap();
+    assert_eq!(
+        (answer.as_slice(), kind),
+        (&b"local"[..], TransportKind::Local)
+    );
+    assert_eq!((local.calls(), iroh.calls()), (1, 0));
 }
 
 #[tokio::test]

@@ -8,7 +8,7 @@ use entangle_mesh_tailscale::{LivenessSnapshot, MeshTailscale, MeshTailscaleErro
 use entangle_types::peer_id::PeerId;
 use tokio::sync::watch;
 
-use super::{Availability, DialTarget, Link, LinkError, StreamIo, TransportKind};
+use super::{Availability, Connecting, DialTarget, Link, LinkError, StreamIo, TransportKind};
 use crate::remote::PeerAddressBook;
 
 /// Classify an iroh error: failures while dialling or authenticating
@@ -91,12 +91,17 @@ impl Link for IrohLink {
         self.book.lookup(peer).map(DialTarget::Iroh)
     }
 
-    async fn request(&self, target: &DialTarget, payload: &[u8]) -> Result<Vec<u8>, LinkError> {
+    async fn request(
+        &self,
+        target: &DialTarget,
+        payload: &[u8],
+        connecting: &Connecting,
+    ) -> Result<Vec<u8>, LinkError> {
         let DialTarget::Iroh(peer) = target else {
             return Err(LinkError::Connect("not an iroh dial target".into()));
         };
         self.transport
-            .request(peer, payload)
+            .request_noting(peer, payload, &|| connecting.connected())
             .await
             .map_err(iroh_error)
     }
@@ -204,8 +209,14 @@ impl Link for TailscaleLink {
         self.transport.candidate(peer).map(DialTarget::Tailscale)
     }
 
-    async fn request(&self, target: &DialTarget, payload: &[u8]) -> Result<Vec<u8>, LinkError> {
+    async fn request(
+        &self,
+        target: &DialTarget,
+        payload: &[u8],
+        connecting: &Connecting,
+    ) -> Result<Vec<u8>, LinkError> {
         let mut conn = self.connect(target, ALPN_SCHEDULER).await?;
+        connecting.connected();
         conn.request(payload).await.map_err(tailscale_error)
     }
 

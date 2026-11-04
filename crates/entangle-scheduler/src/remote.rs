@@ -78,7 +78,8 @@ use tracing::Instrument as _;
 
 use crate::dispatcher::DispatchError;
 use crate::transport::{
-    AttemptCell, DialTarget, IrohLink, Link, LinkError, RouteError, TransportKind, TransportRouter,
+    AttemptCell, Connecting, DialTarget, IrohLink, Link, LinkError, RouteError, TransportKind,
+    TransportRouter,
 };
 use crate::wire::{
     decode_request, decode_response, encode_request, encode_response, ControlAction, ControlFrame,
@@ -445,7 +446,9 @@ impl RemoteDispatch {
             let attempt = Arc::clone(&attempt);
             let frame = frame.clone();
             AbortOnDrop(tokio::spawn(async move {
-                router.request_tracked(peer, &frame, only, &attempt).await
+                router
+                    .request_tracked(peer, &frame, only, &attempt, Some(budget))
+                    .await
             }))
         };
         let answer = match tokio::time::timeout(budget, io).await {
@@ -569,7 +572,8 @@ pub async fn send_control_over(
             reason: format!("encoding request: {e}"),
         }
     })?;
-    let raw = match tokio::time::timeout(timeout, link.request(target, &bytes)).await {
+    let connecting = Connecting::default();
+    let raw = match tokio::time::timeout(timeout, link.request(target, &bytes, &connecting)).await {
         Ok(Ok(raw)) => raw,
         Ok(Err(LinkError::Connect(why) | LinkError::Transport(why))) => {
             return Err(DispatchError::RemoteTransport { peer, reason: why })

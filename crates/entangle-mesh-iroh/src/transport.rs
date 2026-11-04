@@ -348,7 +348,18 @@ impl MeshTransport for MeshIroh {
     }
 
     async fn request(&self, peer: &IrohPeer, payload: &[u8]) -> Result<Vec<u8>, MeshIrohError> {
+        self.request_noting(peer, payload, &|| {}).await
+    }
+
+    async fn request_noting(
+        &self,
+        peer: &IrohPeer,
+        payload: &[u8],
+        connected: &(dyn Fn() + Send + Sync),
+    ) -> Result<Vec<u8>, MeshIrohError> {
         let conn = self.connect(peer).await?;
+        // Nothing has been sent yet: the request opens its own QUIC stream.
+        connected();
         let response = conn.request(payload).await;
         conn.close();
         response

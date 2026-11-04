@@ -624,6 +624,51 @@ async fn a_connect_failure_on_the_first_candidate_falls_back_to_the_next() {
     );
 }
 
+/// A `local` candidate whose LAN address never answers (a sighting left
+/// behind when the peer left the LAN, or a spoofed one) gives way to the
+/// tailnet inside the task's budget: it does not hold the dispatch for the
+/// endpoint's whole connect timeout, longer than a short task's budget.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_silent_lan_candidate_gives_way_to_the_tailnet_within_the_budget() {
+    let a = Submitter::start().await;
+    let b = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
+    a.discover(&b).await;
+    // The daemon's endpoint keeps iroh's default connect timeout (15 s). A
+    // fresh one, so no path to B is cached from an earlier connection.
+    let lan = MeshIroh::start(
+        MeshIrohConfig {
+            connect_timeout: entangle_mesh_iroh::DEFAULT_CONNECT_TIMEOUT,
+            ..iroh_config()
+        },
+        &a.key,
+    )
+    .await
+    .unwrap();
+    // Takes datagrams and never answers.
+    let blackhole = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+    let sightings = PeerDirectory::new();
+    sightings.insert(IrohPeer::new(
+        b.iroh.local_public_key(),
+        blackhole.local_addr().unwrap(),
+    ));
+    let local = IrohLink::local(Arc::new(lan) as Arc<dyn MeshTransport>, Arc::new(sightings));
+    let router = Arc::new(
+        TransportRouter::new(a.peer_id)
+            .with_link(Arc::new(local))
+            .with_link(a.tailnet_link()),
+    );
+    let client =
+        RemoteDispatch::with_router(Arc::clone(&router)).with_overhead(Duration::from_secs(2));
+    let mut task = one_shot(&b.hello, b"lan-gone");
+    // A 6 s budget: shorter than the LAN dial's own timeout.
+    task.timeout_ms = 4_000;
+    let (out, kind) = run(&client, &task, b.peer_id).await;
+    assert_eq!(out.unwrap(), b"Hello, lan-gone!");
+    assert_eq!(kind, Some(TransportKind::Tailscale));
+    assert_eq!(b.served("ok", "tailscale"), 1.0);
+    drop(blackhole);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn an_application_error_from_the_peer_is_not_retried_on_another_transport() {
     let a = Submitter::start().await;
