@@ -853,7 +853,9 @@ scrape_configs:
 |---|---|---|---|
 | `entangle_plugin_invocations_total` | counter | `plugin`, `outcome` (`ok`/`error`) | Plugin invocations through the kernel. Calls for an id that is not loaded count under `plugin="unknown"`. |
 | `entangle_plugin_invocation_duration_seconds` | histogram | `plugin` | Wall-clock duration of each invocation. |
-| `entangle_plugin_errors_total` | counter | `plugin`, `class` | Failed invocations by error-code class: `E05xx` is `ENTANGLE-E05..`, `none` if the error carries no code. |
+| `entangle_plugin_errors_total` | counter | `plugin`, `class` | Failed invocations (one-shot calls and streams) by error-code class: `E05xx` is `ENTANGLE-E05..`, `none` if the error carries no code. |
+| `entangle_plugin_streams_total` | counter | `plugin`, `outcome` (`ok`/`error`/`cancelled`) | Stream-plugin invocations through the kernel, one per stream (§17). `cancelled`: the stream was torn down (cancel, peer lost, a size cap, the timeout) before the plugin returned. Streams are not counted in `entangle_plugin_invocations_total`. |
+| `entangle_plugin_stream_duration_seconds` | histogram | `plugin` | Wall-clock duration of each stream; buckets reach the 1 h stream ceiling. |
 | `entangle_plugins_loaded` | gauge | — | Plugins currently loaded. |
 | `entangle_plugin_uptime_seconds` | gauge | `plugin` | Seconds since each loaded plugin was loaded (series vanish on unload). |
 | `entangle_capability_grants_total` | counter | `capability` | Broker grants: one per declared capability when a plugin loads (its standing grant), plus one per successful plugin `capability.fetch`. |
@@ -931,7 +933,9 @@ the daemon's exit by at most about 11 s. Failures are visible as
 `entangle_telemetry_*` metrics.
 
 Spans (from `entangle*` targets, `INFO` and above, independent of
-`RUST_LOG`): `rpc.request`, `task.dispatch`, `plugin.invoke`,
+`RUST_LOG`): `rpc.request`, `task.dispatch`, `plugin.invoke` (one-shot calls
+and streams alike, told apart by its `world` attribute: `plugin` or
+`stream-plugin`),
 `remote.dispatch` (client) and `remote.task.execute` (server); the last two
 carry a `transport` attribute (`local`, `tailscale`, `iroh`, `none`). `WARN`/`ERROR`
 events inside a span are attached to it; an `ERROR` marks the span failed.

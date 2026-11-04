@@ -514,6 +514,7 @@ impl Kernel {
         let span = tracing::info_span!(
             "plugin.invoke",
             plugin = %plugin_id,
+            world = "plugin",
             input_bytes = input.len() as u64,
         );
         let result = self
@@ -655,7 +656,44 @@ impl Kernel {
     /// stream's instance realises the plugin's broker grants as they stand
     /// when it starts, and a network grant withdrawn while it runs stops it
     /// (`ENTANGLE-E0511`). A one-shot plugin is [`RuntimeError::WrongWorld`].
+    ///
+    /// Recorded like a one-shot invocation: a `plugin.invoke` span (with
+    /// `world = "stream-plugin"`), and — with [`Kernel::with_metrics`] —
+    /// `entangle_plugin_streams_total{plugin, outcome}` (`ok`, `error`, or
+    /// `cancelled` when the stream is torn down before the plugin returns),
+    /// `entangle_plugin_stream_duration_seconds{plugin}` and, on failure,
+    /// `entangle_plugin_errors_total{plugin, class}`. The `plugin` label is
+    /// bounded exactly as for one-shot invocations.
     pub async fn invoke_stream(
+        &self,
+        plugin_id: &PluginId,
+        input: &[u8],
+        port: StreamPort,
+        timeout_ms: u64,
+    ) -> Result<StreamRunResult, RuntimeError> {
+        let span = tracing::info_span!(
+            "plugin.invoke",
+            plugin = %plugin_id,
+            world = "stream-plugin",
+            input_bytes = input.len() as u64,
+        );
+        // Records the outcome on every path, including the future being
+        // dropped mid-stream (`cancelled`).
+        let mut recorder = StreamRecorder {
+            kernel: self,
+            plugin_id,
+            started: Instant::now(),
+            done: false,
+        };
+        let result = self
+            .invoke_stream_inner(plugin_id, input, port, timeout_ms)
+            .instrument(span)
+            .await;
+        recorder.finish(&result);
+        result
+    }
+
+    async fn invoke_stream_inner(
         &self,
         plugin_id: &PluginId,
         input: &[u8],
@@ -1042,6 +1080,57 @@ fn parse_manifest(bytes: &[u8]) -> Result<ValidatedManifest, RuntimeError> {
 
 /// Publishes [`LifecyclePhase::Idled`] when dropped, so a stream future that
 /// is dropped mid-run still balances its `Activated`.
+/// Records one stream-plugin invocation's metrics exactly once: from
+/// [`StreamRecorder::finish`] when the invocation returns, or as `cancelled`
+/// when its future is dropped first.
+struct StreamRecorder<'a> {
+    kernel: &'a Kernel,
+    plugin_id: &'a PluginId,
+    started: Instant,
+    done: bool,
+}
+
+impl StreamRecorder<'_> {
+    fn finish(&mut self, result: &Result<StreamRunResult, RuntimeError>) {
+        self.done = true;
+        let Some(m) = &self.kernel.metrics else {
+            return;
+        };
+        // An id that is not loaded must not mint a label value.
+        let label = match result {
+            Err(RuntimeError::NotLoaded(_)) => "unknown".to_owned(),
+            _ => m.labels.label(&self.plugin_id.to_string()),
+        };
+        let message = result.as_ref().err().map(ToString::to_string);
+        let end = match &message {
+            None => catalog::StreamEnd::Ok,
+            Some(message) => catalog::StreamEnd::Err(message),
+        };
+        catalog::plugin_stream(
+            &m.registry,
+            &label,
+            end,
+            self.started.elapsed().as_secs_f64(),
+        );
+    }
+}
+
+impl Drop for StreamRecorder<'_> {
+    fn drop(&mut self) {
+        if self.done {
+            return;
+        }
+        if let Some(m) = &self.kernel.metrics {
+            catalog::plugin_stream(
+                &m.registry,
+                &m.labels.label(&self.plugin_id.to_string()),
+                catalog::StreamEnd::Cancelled,
+                self.started.elapsed().as_secs_f64(),
+            );
+        }
+    }
+}
+
 struct IdleOnDrop<'a> {
     kernel: &'a Kernel,
     plugin_id: &'a PluginId,
