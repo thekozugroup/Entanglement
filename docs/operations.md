@@ -544,6 +544,14 @@ transport, so peers also known over iroh or the LAN are re-routed there, and
 peers known only over the tailnet fail fast with `ENTANGLE-E0430` instead of
 dialling.
 
+Each discovery round also feeds the trusted, non-revoked peers it found into
+the scheduler's worker pool, so a peer reachable only over the tailnet (no
+mDNS sighting) can be chosen for remote work. The tailnet says nothing about
+hardware, so such a peer is entered with a conservative default (one core, no
+memory or GPU) and only light tasks fit it; if mDNS also describes the peer,
+its advertised capabilities are kept. Entries the tailnet added are removed
+when the peer leaves the tailnet or the tailnet stops being `active`.
+
 ---
 
 ## 11. Replicated integrity: `Deterministic` and `SemanticEquivalent`
@@ -1423,7 +1431,7 @@ about that peer.
 
 | Transport | Running when | Candidate for a peer when |
 |---|---|---|
-| `local` | `"local"` **and** `"iroh"` in `[mesh] transports` | its mDNS sighting advertises its key and mesh port (every daemon running the iroh endpoint advertises them) and it is trusted in `peers.toml`. Dialled over the iroh endpoint to the LAN addresses only. |
+| `local` | `"local"` **and** `"iroh"` in `[mesh] transports` | its mDNS sighting advertises its key and mesh port (a daemon advertises them only when it runs both `"local"` and `"iroh"`; with `"iroh"` alone it does not announce on the LAN, so it is never a `local` candidate) and it is trusted in `peers.toml`. Dialled over the iroh endpoint to the LAN addresses only. |
 | `tailscale` | §10 (`[mesh.tailscale] enabled = true` and `"tailscale"` in `transports`) | the last discovery round found it on the tailnet **and** the tailnet is `active`. |
 | `iroh` | `"iroh"` in `transports` | its long address is in `[scheduler] peers` and it is trusted. |
 

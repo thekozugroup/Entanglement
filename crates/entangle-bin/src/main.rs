@@ -209,6 +209,11 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
             peer_store.clone(),
             servers.as_ref().map(|s| Arc::clone(&s.tasks)),
             servers.as_ref().map(|s| Arc::clone(&s.streams)),
+            Some(Arc::new(entangle_bin::tailscale::TailnetWorkers::new(
+                worker_pool.clone(),
+                peer_store.clone(),
+                local_peer_id,
+            ))),
         )
         .await
         {
