@@ -493,3 +493,50 @@ async fn chained_reloads_forward_every_old_id_to_the_newest() {
     assert_eq!(f.kernel.broker().registered_tiers().len(), 1);
     let _ = Path::new("");
 }
+
+/// Two new versions loaded at once over the same plugin: never two versions
+/// loaded, never a swap checked against a version that is no longer there.
+/// Each load either swaps or is refused (`ENTANGLE-E0789`).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_reloads_leave_exactly_one_version() {
+    let f = Fixture::new();
+    f.kernel
+        .load_plugin_from_dir(&f.package("probe", "0.1.0", PROBE, 1, ""))
+        .await
+        .unwrap();
+    let (a, b) = (
+        f.package("probe", "0.2.0", PROBE, 1, ""),
+        f.package("probe", "0.3.0", PROBE, 1, ""),
+    );
+    let (ka, kb) = (f.kernel.clone(), f.kernel.clone());
+    let (ra, rb) = tokio::join!(
+        tokio::spawn(async move { ka.load_plugin(&a, LoadOptions::default()).await }),
+        tokio::spawn(async move { kb.load_plugin(&b, LoadOptions::default()).await }),
+    );
+    for r in [ra.unwrap(), rb.unwrap()] {
+        match r {
+            Ok(o) => {
+                if let Some(r) = o.replaced {
+                    drained(r.drained).await;
+                }
+            }
+            Err(e) => assert!(
+                matches!(e, RuntimeError::ReloadRaced(_))
+                    && e.to_string().starts_with("ENTANGLE-E0789"),
+                "{e}"
+            ),
+        }
+    }
+    let loaded = f.kernel.list_plugins();
+    assert_eq!(loaded.len(), 1, "{loaded:?}");
+    assert_eq!(
+        f.kernel.broker().registered_tiers().len(),
+        1,
+        "the refused version was rolled back"
+    );
+    let current = loaded[0].clone();
+    assert_eq!(
+        f.call(&f.id("probe", "0.1.0"), "id").await,
+        current.to_string()
+    );
+}

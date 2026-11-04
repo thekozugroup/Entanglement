@@ -763,10 +763,27 @@ impl Kernel {
                 drop(plugins);
                 return Err(RuntimeError::AlreadyLoaded(plugin_id));
             }
+            // The version this load was checked against (consent, downgrade,
+            // migrate) must still be the one loaded: a concurrent load,
+            // reload or unload of the same plugin refuses this one rather
+            // than leaving two versions loaded or skipping the checks.
+            let current = plugins
+                .keys()
+                .find(|p| {
+                    p.publisher == plugin_id.publisher
+                        && p.name == plugin_id.name
+                        && **p != plugin_id
+                })
+                .cloned();
+            if current != previous {
+                drop(plugins);
+                let _ = self.broker.unregister_plugin(&plugin_id);
+                self.record_reload("refused");
+                return Err(RuntimeError::ReloadRaced(Box::new(plugin_id)));
+            }
             // The swap: the old version leaves the map (new calls can no
             // longer take its in-flight token) in the same step as the new
             // one enters it, and calls for the old id are routed to the new.
-            // It may have been unloaded meanwhile: then this is a plain load.
             let replaced = previous
                 .as_ref()
                 .and_then(|prev| plugins.remove(prev).map(|r| (prev.clone(), r)));

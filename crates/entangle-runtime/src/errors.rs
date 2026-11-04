@@ -98,6 +98,15 @@ pub enum RuntimeError {
         message: String,
     },
 
+    /// Another version of the plugin was loaded, reloaded or unloaded while
+    /// this one was being verified: nothing changed (the new version was
+    /// rolled back); retry.
+    #[error(
+        "ENTANGLE-E0789: another version of {0} was loaded or unloaded while this one was \
+         being verified; nothing changed, retry"
+    )]
+    ReloadRaced(Box<PluginId>),
+
     /// Host code panicked during this plugin call and the panic was
     /// contained (spec §2.1): the call's instance is discarded, the plugin
     /// stays loaded and the daemon keeps running. See

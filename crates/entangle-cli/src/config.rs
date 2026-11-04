@@ -24,20 +24,20 @@ pub struct Config {
     /// `[plugins]` — operator state about plugins.
     #[serde(default, skip_serializing_if = "PluginsConfig::is_default")]
     pub plugins: PluginsConfig,
-    /// `[runtime]` — the daemon's section; the CLI reads only `aot_cache`
-    /// (for its `--allow-local` kernel) and never writes it.
-    #[serde(default, skip_serializing)]
-    pub runtime: RuntimeConfig,
 }
 
-/// The part of the daemon's `[runtime]` section the CLI's local kernel
-/// honours. Other keys (`bus_capacity`, the cache limits) are the daemon's.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
-pub struct RuntimeConfig {
-    /// `aot_cache` (default `true`): use `~/.entangle/aot`, shared with the
-    /// daemon, for compiled components.
-    #[serde(default)]
-    pub aot_cache: Option<bool>,
+/// `[runtime] aot_cache` from the config file at `path` (default `true`).
+///
+/// `[runtime]` is the daemon's section and deliberately not part of the
+/// CLI's [`Config`] (the CLI never writes it); the `--allow-local` kernel
+/// only reads this one key, so it shares the daemon's AOT cache unless the
+/// operator turned it off.
+pub fn runtime_aot_cache(path: &Path) -> bool {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| text.parse::<toml::Table>().ok())
+        .and_then(|t| t.get("runtime")?.get("aot_cache")?.as_bool())
+        .unwrap_or(true)
 }
 
 /// `[wrappers]` section.
@@ -197,10 +197,7 @@ pub fn kernel_config() -> anyhow::Result<entangle_runtime::KernelConfig> {
         max_tier_allowed: max_tier_allowed()?,
         denied_capabilities,
         disabled_plugins: cfg.plugins.disabled.clone(),
-        aot_cache: cfg
-            .runtime
-            .aot_cache
-            .unwrap_or(true)
+        aot_cache: runtime_aot_cache(&config_path())
             .then(|| entangle_runtime::AotCacheConfig::new(dir.join("aot"))),
         native: entangle_runtime::NativeConfig {
             allow_unsandboxed: cfg.security.allow_unsandboxed_native,
@@ -220,4 +217,22 @@ pub fn save(path: &Path, c: &Config) -> anyhow::Result<()> {
     let raw = toml::to_string_pretty(c)?;
     std::fs::write(path, raw)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_local_kernel_reads_only_runtime_aot_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        assert!(runtime_aot_cache(&path), "absent file: on");
+        std::fs::write(&path, "[runtime]\nbus_capacity = 64\n").unwrap();
+        assert!(runtime_aot_cache(&path), "absent key: on");
+        std::fs::write(&path, "[runtime]\naot_cache = false\n").unwrap();
+        assert!(!runtime_aot_cache(&path));
+        // The CLI's own schema ignores the daemon's section.
+        assert!(load(&path).is_ok());
+    }
 }
