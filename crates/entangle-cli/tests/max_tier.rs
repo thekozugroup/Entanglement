@@ -217,59 +217,50 @@ fn run_blocking(mut c: Command) -> std::process::Output {
     c.output().unwrap()
 }
 
-/// Run `entangle <args>` on a pty (so stdin/stdout are terminals) with
-/// `input` typed at the prompt. Returns (exit code, terminal transcript).
-fn run_on_tty(home: &Path, args: &[&str], input: &str) -> (i32, String) {
-    use std::io::Write as _;
-    let mut cmdline = format!("'{}'", entangle_bin().display());
-    for a in args {
-        cmdline.push_str(&format!(" '{a}'"));
-    }
-    let mut child = Command::new("script")
-        .args(["-qec", &cmdline, "/dev/null"])
-        .env("HOME", home)
-        .env_remove("XDG_CONFIG_HOME")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("`script` (util-linux) is required for the pty tests");
-    let mut stdin = child.stdin.take().unwrap();
-    // Let the prompt appear before answering, then keep stdin open until the
-    // child exits so `script` does not forward an early EOF.
-    std::thread::sleep(std::time::Duration::from_millis(700));
-    stdin.write_all(input.as_bytes()).unwrap();
-    stdin.flush().unwrap();
-    let out = child.wait_with_output().unwrap();
-    drop(stdin);
-    let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
-    text.push_str(&String::from_utf8_lossy(&out.stderr));
-    (out.status.code().unwrap_or(-1), text.replace('\r', ""))
+/// What a run on a pty produced. `stdout` is the terminal transcript of the
+/// CLI's stdout only (what the user sees at the prompt); `stderr` was
+/// redirected to a file inside the pty command, so the two never mix.
+struct Tty {
+    code: i32,
+    stdout: String,
+    stderr: String,
 }
 
-/// Like [`run_on_tty`], but waits until the prompt is on screen, runs
-/// `at_prompt` (while the CLI waits for the answer), and only then types
-/// `input`.
-fn run_on_tty_at_prompt(
+/// Run `entangle <args>` on a pty (so stdin/stdout are terminals), stderr
+/// captured separately. With `expect_prompt`, wait until "Decision [u/c]:" is
+/// on screen, run `at_prompt` (while the CLI waits for the answer), then type
+/// `input`; otherwise just type `input`. Every wait has a deadline: a CLI that
+/// hangs fails the test instead of hanging CI.
+fn run_pty(
     home: &Path,
     args: &[&str],
+    expect_prompt: bool,
     at_prompt: impl FnOnce(),
     input: &str,
-) -> (i32, String) {
+) -> Tty {
     use std::io::{Read as _, Write as _};
+    // The pty tests need util-linux `script`; a missing one is a failure, not
+    // a silent pass (the interactive half of the spec would go unchecked).
+    assert!(
+        have_script(),
+        "util-linux `script` is required for the pty tests (ATC-MAX-1/3)"
+    );
+    let err_file = home.parent().unwrap_or(home).join("pty-stderr.txt");
+    let _ = std::fs::remove_file(&err_file);
     let mut cmdline = format!("'{}'", entangle_bin().display());
     for a in args {
         cmdline.push_str(&format!(" '{a}'"));
     }
+    cmdline.push_str(&format!(" 2>'{}'", err_file.display()));
     let mut child = Command::new("script")
         .args(["-qec", &cmdline, "/dev/null"])
         .env("HOME", home)
         .env_remove("XDG_CONFIG_HOME")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::null())
         .spawn()
-        .expect("`script` (util-linux) is required for the pty tests");
+        .expect("spawning `script`");
     let mut stdin = child.stdin.take().unwrap();
     let mut stdout = child.stdout.take().unwrap();
     let screen = Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
@@ -285,34 +276,43 @@ fn run_on_tty_at_prompt(
             }
         })
     };
+    let shown = || String::from_utf8_lossy(&screen.lock().unwrap()).into_owned();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
-    loop {
-        let shown = String::from_utf8_lossy(&screen.lock().unwrap()).into_owned();
-        if shown.contains("Decision [u/c]:") {
-            break;
+    if expect_prompt {
+        while !shown().contains("Decision [u/c]:") {
+            if std::time::Instant::now() > deadline {
+                let _ = child.kill();
+                panic!("the prompt never appeared: {}", shown());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
         }
-        if std::time::Instant::now() > deadline {
-            let _ = child.kill();
-            panic!("the prompt never appeared: {shown}");
-        }
-        std::thread::sleep(std::time::Duration::from_millis(20));
     }
     at_prompt();
     stdin.write_all(input.as_bytes()).unwrap();
     stdin.flush().unwrap();
-    let status = child.wait().unwrap();
+    // Keep stdin open until the child exits so `script` forwards no early EOF.
+    let status = loop {
+        if let Some(s) = child.try_wait().unwrap() {
+            break s;
+        }
+        if std::time::Instant::now() > deadline {
+            let _ = child.kill();
+            panic!("the CLI never exited: {}", shown());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
     drop(stdin);
     reader.join().unwrap();
-    let mut err = String::new();
-    child
-        .stderr
-        .take()
-        .unwrap()
-        .read_to_string(&mut err)
-        .unwrap();
-    let mut text = String::from_utf8_lossy(&screen.lock().unwrap()).into_owned();
-    text.push_str(&err);
-    (status.code().unwrap_or(-1), text.replace('\r', ""))
+    Tty {
+        code: status.code().unwrap_or(-1),
+        stdout: shown().replace('\r', ""),
+        stderr: std::fs::read_to_string(&err_file).unwrap_or_default(),
+    }
+}
+
+/// [`run_pty`] for a CLI that prompts: type `input` at the prompt.
+fn run_on_tty(home: &Path, args: &[&str], input: &str) -> Tty {
+    run_pty(home, args, true, || {}, input)
 }
 
 fn have_script() -> bool {
@@ -333,10 +333,6 @@ fn have_script() -> bool {
 /// affected list AND the default action is unload-and-disable.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn atc_max_1_interactive_lowering_prompts() {
-    if !have_script() {
-        eprintln!("skipping: `script` not installed");
-        return;
-    }
     let f = Fixture::new("", true).await;
     // The operator edits the file by hand (comment must survive the edit).
     let edited = f
@@ -346,27 +342,42 @@ async fn atc_max_1_interactive_lowering_prompts() {
 
     // An empty answer (just Enter) takes the default.
     let home = f.home.clone();
-    let (code, out) =
-        tokio::task::spawn_blocking(move || run_on_tty(&home, &["config", "reload"], "\n"))
-            .await
-            .unwrap();
+    let t = tokio::task::spawn_blocking(move || run_on_tty(&home, &["config", "reload"], "\n"))
+        .await
+        .unwrap();
+    let (code, out) = (t.code, t.stdout.as_str());
 
     assert_eq!(code, 0, "{out}");
     assert!(out.contains("will affect 2 running plugins"), "{out}");
-    assert!(
-        out.contains("agent-host") && out.contains("tier 5"),
-        "{out}"
-    );
-    assert!(
-        out.contains("cuda-runner") && out.contains("tier 4"),
-        "{out}"
-    );
+    // The affected list is on STDOUT (the transcript holds stdout only; the
+    // post-unload W0214 lines went to stderr) and precedes the choices.
+    let (listing, choices) = out
+        .split_once("Choose action:")
+        .unwrap_or_else(|| panic!("no prompt on stdout: {out}"));
+    for (name, tier) in [("agent-host", 5), ("cuda-runner", 4)] {
+        let id = f.id(name);
+        let line = listing
+            .lines()
+            .find(|l| l.contains(&id))
+            .unwrap_or_else(|| panic!("{name} missing from the stdout list: {out}"));
+        assert!(
+            line.starts_with("  - ") && line.contains(&format!("(tier {tier}, native subprocess,")),
+            "{line:?}"
+        );
+    }
     assert!(
         !out.contains("/tiny@"),
         "tier-2 plugin is not affected: {out}"
     );
-    assert!(out.contains("[u] unload-and-disable  (default"), "{out}");
-    assert!(out.contains("Decision [u/c]:"), "{out}");
+    assert!(
+        choices.contains("[u] unload-and-disable  (default"),
+        "{out}"
+    );
+    assert!(choices.contains("Decision [u/c]:"), "{out}");
+    assert!(
+        !t.stdout.contains("ENTANGLE-W0214") && t.stderr.contains("ENTANGLE-W0214"),
+        "W0214 is a stderr line: {out}"
+    );
 
     // Default = unload-and-disable.
     assert_eq!(
@@ -474,11 +485,11 @@ async fn lowering_without_tty_or_force_is_refused_and_changes_nothing() {
 }
 
 /// Raising the ceiling never unloads anything; lowering to a value above all
-/// loaded tiers needs no confirmation either.
+/// loaded tiers needs no confirmation either (and is audited).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn raising_or_harmless_lowering_never_unloads() {
     let f = Fixture::new("", true).await;
-    // Lower to 5 -> 5 (no change), then to 4 would affect tier 5: use force at 4.
+    // Lowering 5 -> 4 would affect the tier-5 plugin: consent with --force-unload.
     let mut c = f.cmd(&["security", "set-max-tier", "4", "--force-unload"]);
     let out = tokio::task::spawn_blocking(move || {
         run_blocking(std::mem::replace(&mut c, Command::new("true")))
@@ -515,6 +526,40 @@ async fn raising_or_harmless_lowering_never_unloads() {
         1,
         "only the first call unloaded"
     );
+    // Harmless lowering: no loaded plugin is above 4 any more, so 5 -> 4
+    // needs no confirmation (no flag, no terminal), unloads nothing and is
+    // audited as I0215 with zero plugins affected.
+    let mut c = f.cmd(&["security", "set-max-tier", "4"]);
+    let out = tokio::task::spawn_blocking(move || {
+        run_blocking(std::mem::replace(&mut c, Command::new("true")))
+    })
+    .await
+    .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        stdout.contains("lowered 5 -> 4") && stdout.contains("no loaded plugin is above it"),
+        "{stdout}"
+    );
+    assert_eq!(f.loaded().len(), 2, "nothing was unloaded");
+    assert_eq!(f.state.kernel.max_tier_allowed() as u8, 4);
+    assert_eq!(
+        f.audit_file("ENTANGLE-W0214").len(),
+        1,
+        "still only the first call"
+    );
+    let harmless: Vec<_> = f
+        .audit_file("ENTANGLE-I0215")
+        .into_iter()
+        .filter(|v| v["unloaded"] == 0)
+        .collect();
+    assert_eq!(harmless.len(), 1, "{harmless:?}");
+    assert_eq!(harmless[0]["old_ceiling"], 5);
+    assert_eq!(harmless[0]["new_ceiling"], 4);
     // Out-of-range values are rejected before anything is touched.
     let out = f.cmd(&["security", "set-max-tier", "9"]).output().unwrap();
     assert!(String::from_utf8_lossy(&out.stderr).contains("ENTANGLE-E0752"));
@@ -684,10 +729,6 @@ async fn set_max_tier_without_daemon_edits_config_only() {
 /// log has an ENTANGLE-I0216 entry.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn atc_max_3_cancel_reverts_edit() {
-    if !have_script() {
-        eprintln!("skipping: `script` not installed");
-        return;
-    }
     let f = Fixture::new("", true).await;
     let edited = f
         .config()
@@ -695,10 +736,10 @@ async fn atc_max_3_cancel_reverts_edit() {
     std::fs::write(f.config_path(), &edited).unwrap();
 
     let home = f.home.clone();
-    let (code, out) =
-        tokio::task::spawn_blocking(move || run_on_tty(&home, &["config", "reload"], "c\n"))
-            .await
-            .unwrap();
+    let t = tokio::task::spawn_blocking(move || run_on_tty(&home, &["config", "reload"], "c\n"))
+        .await
+        .unwrap();
+    let (code, out) = (t.code, format!("{}{}", t.stdout, t.stderr));
 
     assert_eq!(
         code, 1,
@@ -741,10 +782,11 @@ async fn plugin_loaded_while_prompting_is_not_unloaded_unconfirmed() {
     let home = f.home.clone();
     let state = f.state.clone();
     let rt = tokio::runtime::Handle::current();
-    let (code, out) = tokio::task::spawn_blocking(move || {
-        run_on_tty_at_prompt(
+    let t = tokio::task::spawn_blocking(move || {
+        run_pty(
             &home,
             &["security", "set-max-tier", "3"],
+            true,
             || {
                 rt.block_on(state.kernel.load_plugin_from_dir(&late_dir))
                     .expect("late load");
@@ -754,6 +796,7 @@ async fn plugin_loaded_while_prompting_is_not_unloaded_unconfirmed() {
     })
     .await
     .unwrap();
+    let (code, out) = (t.code, format!("{}{}", t.stdout, t.stderr));
 
     assert!(
         !out.contains(&format!("unloaded and disabled {late_id}")),
@@ -773,19 +816,15 @@ async fn plugin_loaded_while_prompting_is_not_unloaded_unconfirmed() {
 /// Cancelling `set-max-tier` at the prompt leaves config.toml untouched.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn set_max_tier_cancel_leaves_config_untouched() {
-    if !have_script() {
-        eprintln!("skipping: `script` not installed");
-        return;
-    }
     let f = Fixture::new("", true).await;
     let before = f.config();
     let home = f.home.clone();
-    let (code, out) = tokio::task::spawn_blocking(move || {
+    let t = tokio::task::spawn_blocking(move || {
         run_on_tty(&home, &["security", "set-max-tier", "3"], "c\n")
     })
     .await
     .unwrap();
-    assert_eq!(code, 1, "{out}");
+    assert_eq!(t.code, 1, "{}{}", t.stdout, t.stderr);
     assert_eq!(f.config(), before);
     assert_eq!(f.audit_file("ENTANGLE-I0216").len(), 1);
     assert_eq!(f.loaded().len(), 3);
@@ -812,4 +851,117 @@ async fn config_validate_lists_orphans_without_applying() {
     assert!(stdout.contains(&f.id("agent-host")), "{stdout}");
     assert_eq!(f.loaded().len(), 3, "validate changes nothing");
     assert_eq!(f.state.kernel.max_tier_allowed() as u8, 5);
+}
+
+// ---------------------------------------------------------------------------
+// Prompt edge paths and flags
+// ---------------------------------------------------------------------------
+
+/// Run `args` on a pty against a fresh fixture; the typed `input` answers.
+async fn prompted(f: &Fixture, args: &'static [&'static str], input: &'static str) -> Tty {
+    let home = f.home.clone();
+    tokio::task::spawn_blocking(move || run_on_tty(&home, args, input))
+        .await
+        .unwrap()
+}
+
+/// Nothing was unloaded, lowered or persisted, and the cancel is audited.
+fn assert_cancelled(f: &Fixture, before: &str, t: &Tty) {
+    let out = format!("{}{}", t.stdout, t.stderr);
+    assert_eq!(t.code, 1, "{out}");
+    assert_eq!(f.config(), before, "{out}");
+    assert_eq!(f.loaded().len(), 3, "{out}");
+    assert_eq!(f.state.kernel.max_tier_allowed() as u8, 5, "{out}");
+    assert_eq!(f.audit_file("ENTANGLE-I0216").len(), 1, "{out}");
+    assert!(f.audit_file("ENTANGLE-W0214").is_empty(), "{out}");
+}
+
+/// The explicit answers `u` and `unload` (any case) unload and disable.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn prompt_explicit_unload_answers_unload() {
+    for answer in ["u\n", "UNLOAD\n"] {
+        let f = Fixture::new("", true).await;
+        let t = prompted(&f, &["security", "set-max-tier", "3"], answer).await;
+        assert_eq!(t.code, 0, "{answer:?}: {}{}", t.stdout, t.stderr);
+        assert_eq!(f.loaded(), vec![f.id("tiny")], "{answer:?}");
+        assert_eq!(f.state.kernel.max_tier_allowed() as u8, 3);
+    }
+}
+
+/// End of input at the prompt (Ctrl-D) is the safe answer: cancel.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn prompt_eof_cancels() {
+    let f = Fixture::new("", true).await;
+    let before = f.config();
+    let t = prompted(&f, &["security", "set-max-tier", "3"], "\x04").await;
+    assert_cancelled(&f, &before, &t);
+}
+
+/// Three unrecognised answers in a row fall through to cancel, each one
+/// answered with a hint.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn prompt_three_unrecognised_answers_cancel() {
+    let f = Fixture::new("", true).await;
+    let before = f.config();
+    let t = prompted(&f, &["security", "set-max-tier", "3"], "x\ny\nz\n").await;
+    assert_eq!(
+        t.stdout.matches("Unrecognised answer").count(),
+        3,
+        "{}",
+        t.stdout
+    );
+    assert_cancelled(&f, &before, &t);
+}
+
+/// `--yes` at a terminal answers the prompt with its default (unload) and
+/// still lists what it unloads.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn yes_at_a_terminal_takes_the_default_and_lists_the_plugins() {
+    let f = Fixture::new("", true).await;
+    let home = f.home.clone();
+    let t = tokio::task::spawn_blocking(move || {
+        run_pty(
+            &home,
+            &["security", "set-max-tier", "3", "--yes"],
+            false,
+            || {},
+            "",
+        )
+    })
+    .await
+    .unwrap();
+    let all = format!("{}{}", t.stdout, t.stderr);
+    assert_eq!(t.code, 0, "{all}");
+    assert!(
+        t.stderr.contains(&f.id("agent-host")) && t.stderr.contains(&f.id("cuda-runner")),
+        "{all}"
+    );
+    assert!(
+        !all.contains("Decision [u/c]:"),
+        "no prompt with --yes: {all}"
+    );
+    assert_eq!(f.loaded(), vec![f.id("tiny")]);
+    assert_eq!(f.audit_file("ENTANGLE-W0214").len(), 2);
+}
+
+/// `config reload` with no daemon: nothing is loaded, nothing to reload; the
+/// file is left exactly as the operator wrote it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn config_reload_without_daemon_changes_nothing() {
+    let f = Fixture::new("", false).await;
+    std::fs::write(
+        f.config_path(),
+        "[security]\nmax_tier_allowed = 3 # by hand\n",
+    )
+    .unwrap();
+    let before = f.config();
+    let out = f.cmd(&["config", "reload"]).output().unwrap();
+    let (so, se) = (
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+    assert!(out.status.success(), "{so}{se}");
+    assert!(se.contains("daemon not running"), "{se}");
+    assert!(so.contains("nothing to reload"), "{so}");
+    assert_eq!(f.config(), before);
 }

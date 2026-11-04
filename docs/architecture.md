@@ -958,7 +958,7 @@ User runs: entangle agent run claude-code
 
    The same shim is installed for `codex`, `aider`, and other supported agent hosts (per §8.3.1).
 
-2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`.
+2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`. *(Implementation status: the shim is opt-in through `entangle wrapper enable` only; the first-run question, `--no-wrapper` and the shell-history note of item 3 are not implemented. See docs/operations.md §14.)*
 
 3. **Doctor check.** `entangle doctor` validates the wrapper is in place AND not shadowed:
    - If the wrapper block is missing from the user's rc files → warning with `entangle wrapper enable`.

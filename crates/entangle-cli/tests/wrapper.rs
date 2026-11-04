@@ -188,6 +188,12 @@ fn wrp_1_zsh_and_fish_blocks_when_those_shells_exist() {
     let e = Env::new();
     e.ok(&["wrapper", "enable"]);
     let have = |s: &str| Command::new(s).arg("--version").output().is_ok();
+    if !have("zsh") {
+        eprintln!("NOTE: zsh is not installed; the zsh shim is only checked statically");
+    }
+    if !have("fish") {
+        eprintln!("NOTE: fish is not installed; the fish shim is only checked statically");
+    }
     if have("zsh") {
         let o = Command::new("zsh")
             .args(["-i", "-c", "claude --version"])
@@ -213,6 +219,19 @@ fn wrp_1_zsh_and_fish_blocks_when_those_shells_exist() {
         assert!(stderr(&o).contains("claude launched outside Entanglement session"));
         assert_eq!(o.status.code(), Some(7));
     }
+    // Without zsh, at least the file zsh would read holds the very block that
+    // bash and sh execute above (the POSIX dialect), unmodified.
+    let zshrc = std::fs::read_to_string(e.home.join(".zshrc")).unwrap();
+    let block = |t: &str| {
+        let a = t.find("# >>> entangle wrapper >>>").expect("begin marker");
+        let b = t.find("# <<< entangle wrapper <<<").expect("end marker");
+        t[a..b].to_owned()
+    };
+    assert_eq!(
+        block(&zshrc),
+        block(&e.rc()),
+        "zsh block is the POSIX block"
+    );
     // The fish snippet is always written, in fish syntax.
     let fish = std::fs::read_to_string(e.home.join(".config/fish/conf.d/entangle.fish")).unwrap();
     assert!(fish.contains("function claude --wraps claude") && fish.contains("$argv"));

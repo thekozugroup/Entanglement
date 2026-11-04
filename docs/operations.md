@@ -818,6 +818,19 @@ to change). Limits:
 - the "shell history shows recent unwrapped invocations" note from the spec is
   not implemented.
 
+**Differences from the spec text (§8.3).** The wrapper is opt-in through
+`entangle wrapper enable` only: there is no first-run wizard question and no
+`entangle install --no-wrapper` flag (`entangle init` and `install` never
+touch shell rc files, so there is nothing to opt out of), and doctor's
+shell-history note (item 3) is not implemented. An absent `[wrappers] install`
+key means "not enabled".
+
+**Upgrade order.** `entangle wrapper enable` and the tier-ceiling workflow
+write the `[wrappers]` and `[plugins]` sections. A daemon built before these
+sections existed rejects unknown config keys and will not start on such a
+file, so upgrade the daemon (`entangled`) together with, or before, the CLI;
+after rolling a daemon back, remove those two sections from `config.toml`.
+
 ---
 
 ## 15. Changing the tier ceiling safely (`max_tier_allowed`)
