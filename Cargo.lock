@@ -1814,6 +1814,7 @@ dependencies = [
  "entangle-host",
  "entangle-ipc",
  "entangle-manifest",
+ "entangle-sandbox",
  "entangle-signing",
  "entangle-types",
  "hex",
@@ -1825,6 +1826,17 @@ dependencies = [
  "toml 0.8.23",
  "tracing",
  "wat",
+]
+
+[[package]]
+name = "entangle-sandbox"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

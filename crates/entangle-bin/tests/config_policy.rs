@@ -14,13 +14,9 @@ use entangle_types::peer_id::PeerId;
 use entangle_types::tier::Tier;
 
 /// Build a `KernelConfig` from a parsed daemon config exactly as `main.rs`
-/// does.
+/// does (through the same helper).
 fn kernel_config_from(cfg: &Config) -> KernelConfig {
-    KernelConfig {
-        max_tier_allowed: cfg.security.max_tier_allowed,
-        multi_node: cfg.mesh.multi_node,
-        bus_capacity: cfg.runtime.bus_capacity,
-    }
+    entangle_bin::config::kernel_config(cfg, std::path::Path::new("/nonexistent/.entangle"))
 }
 
 // ---------------------------------------------------------------------------

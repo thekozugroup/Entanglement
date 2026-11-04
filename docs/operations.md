@@ -113,6 +113,7 @@ multi_node = false         # default: false
 
 [security]
 max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
+allow_unsandboxed_native = false   # default: false
 ```
 
 | Section | Key | Type | Default | Meaning |
@@ -120,7 +121,8 @@ max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
 | `[mesh]` | `transports` | array of strings | `[]` | Active mesh transport backends. Phase 1 supports only `"local"` (mDNS on `_entangle._udp.local`). Listing `"iroh"`/`"tailscale"` here does not activate them — those crates are Phase-2 scaffolds. |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
-| `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043`. Out-of-range values (`0` or `>5`) fail to parse. |
+| `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
+| `[security]` | `allow_unsandboxed_native` | bool | `false` | Run native (tier 4–5) plugins on a host that has **no** OS sandbox primitive. Off: such plugins are refused with `ENTANGLE-E0700`. No effect on hosts that have one — the sandbox is then always engaged. See §12. |
 
 Notes:
 
@@ -175,7 +177,7 @@ Two independent tools answer "is it working," at different levels:
 
 ### `entangle doctor` — structured pre-flight / ongoing diagnostics
 
-Runs 13 checks and prints one `[ok] / [warn] / [fail] / [skip]` line each,
+Runs 14 checks and prints one `[ok] / [warn] / [fail] / [skip]` line each,
 then a summary (`crates/entangle-cli/src/cmd/doctor.rs`):
 
 1. `identity` — `identity.key` present and parses as a valid Ed25519 keypair.
@@ -188,9 +190,10 @@ then a summary (`crates/entangle-cli/src/cmd/doctor.rs`):
 8. `wasm32-wasip2` — whether the Wasm target is installed (needed to build plugins, not to run the daemon).
 9. `daemon-reachable` — connects to the RPC socket and calls `version`. **Only warns** (exit code stays 0) if the daemon is unreachable — it does not fail the overall check.
 10. `daemon-version-match` — compares the daemon's reported version to the CLI's own; skipped if the daemon isn't reachable.
-11. `OS sandbox` — availability of Seatbelt/Landlock/Bubblewrap for tier-5 plugin isolation (probe only in Phase 1 — no enforcement yet).
-12. `disk-space` — warns below 1 GiB free on the filesystem hosting `~/.entangle` (or `/tmp` if that dir doesn't exist yet).
-13. `clock-skew` — compares the daemon's clock to the local clock via a `time` RPC; `warn` above 2s drift, **`fail`** above 30s (biscuit-auth tokens have only ±60s allowance, so severe drift breaks cross-node auth and pairing TOFU).
+11. `OS sandbox` — the layers a tier-5 plugin without network access would run under on this host (e.g. `Landlock ABI 7 + seccomp + user/net namespace + Landlock TCP rules; network denied`), or why native plugins would be refused. Warns on reduced isolation. See §12.
+12. `sandbox trial` — engages that sandbox for real on two trivial children: `true` must run, and `cat` of a file outside the profile must be denied. **Fails** if the child could read the file (sandbox not enforcing) or if engagement fails on a host that should support it.
+13. `disk-space` — warns below 1 GiB free on the filesystem hosting `~/.entangle` (or `/tmp` if that dir doesn't exist yet).
+14. `clock-skew` — compares the daemon's clock to the local clock via a `time` RPC; `warn` above 2s drift, **`fail`** above 30s (biscuit-auth tokens have only ±60s allowance, so severe drift breaks cross-node auth and pairing TOFU).
 
 Exit code is `1` if any check is `fail`, else `0` — `warn` never fails the
 command. Because check 9 (daemon reachability) only warns, **`entangle
@@ -269,7 +272,11 @@ canonical range table, maintained in
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
 | E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum (`entangle-runtime::IntegrityError`; see §11) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
+| E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch (`entangle-host`) |
 | E0600–E0699 | Agent-host adapter (`entangle-agent-host`) |
+| E0700–E0719 | OS-sandbox engagement (`entangle-sandbox`) — see §12 |
+| E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
+| E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -398,6 +405,9 @@ Docker, `docker logs -f entangled` shows the same JSON stream; pass
 | `entangle`/`entangled` fail identity checks with "PEM parse failed" / corrupt key | `identity.key` truncated, corrupted, or edited by hand | Restore from backup (§7); if none exists, `entangle init` can generate a fresh identity — but every existing pairing must be redone via `entangle pair`. |
 | `entangle doctor`'s `identity-perms` or `dir-perms` check warns | File/dir permissions loosened outside the tool (e.g. by a backup/restore process, or an `umask` override) | `chmod 600 ~/.entangle/identity.key` / `chmod 700 ~/.entangle` as suggested in the check's own output. |
 | `entangled status` fails / hangs | Daemon not running, socket path mismatch, or daemon wedged | Check `systemctl status entangled` / `docker ps`; confirm the socket path matches (`--socket` override vs. default `$HOME/.entangle/sock`); check logs for the last activity before it stopped responding. |
+| Native plugin refused with `ENTANGLE-E0700` / `E0701` | No sandbox primitive on this host (E0700), or one exists but cannot take the network away (E0701) | Run `entangle doctor` (§12). Enable Landlock / install bubblewrap; or grant the plugin `net.*`; or, knowingly, set `allow_unsandboxed_native = true`. |
+| Native plugin invocation fails with `ENTANGLE-E0726` | A sandbox step failed in the child before `exec` (fail-closed), e.g. user namespaces blocked by a container's seccomp profile after the probe | Check `entangle doctor`'s `sandbox trial` line; the error carries the OS errno. |
+| Plugin load refused with `ENTANGLE-E0507` | The artifact is not what `runtime` declares (an executable shipped as `wasm`, a component shipped as `native`, or a binary for another OS) | Rebuild with `entangle plugins build`, which picks the artifact kind from the manifest. |
 | Plugin load refused with `ENTANGLE-E0043` | Plugin's declared tier exceeds `[security] max_tier_allowed` in `config.toml` | Either raise `max_tier_allowed` (understand the tier's capability implications first — see spec §4.2) or use a lower-tier plugin build. |
 | Cross-node capability grant refused with `ENTANGLE-E0100`/`E0101` | Biscuit signature doesn't verify, or the publisher/peer key isn't in the trust roots | Re-check the peer is actually paired (`entangle mesh peers`) and its key matches what's in `peers.toml`/`keyring.toml`. |
 | `clock-skew` check in `entangle doctor` reports `fail` | Local and daemon-host clocks have drifted >30s | Sync via NTP/chrony. Biscuit-auth tokens only tolerate ±60s, so severe drift breaks pairing TOFU and cross-node auth outright. |
@@ -525,7 +535,68 @@ node running an older build answers `unsupported-version`; upgrade both ends.
 
 ---
 
-## 12. OCI registries and mirrors
+## 12. Native (tier 4–5) plugins and the OS sandbox
+
+A native plugin is a host executable (`runtime = "native"`, packaged as
+`plugin.bin`). It is signature-verified exactly like a wasm component, then
+run as a **sandboxed subprocess**, one fresh process per invocation, spoken
+to over length-prefixed frames on stdin/stdout (`crates/entangle-sandbox`).
+
+**Disable them.** `[security] max_tier_allowed = 4` refuses every tier-5
+plugin; `= 3` refuses every native plugin. Refusal happens before signature
+work, capability grants, or any file write (`ENTANGLE-E0043`).
+
+**What the sandbox is made of.** The capabilities the broker grants become
+the profile; everything else is denied.
+
+| Layer (Linux) | What it does |
+|---|---|
+| Landlock (ABI ≥ 1) | Filesystem allowlist: the staged binary (read+exec), system libraries and loader cache (read+exec), the package directory (read), the plugin's storage scopes (read+write, never exec), `/dev/null`. Scopes are resolved without following symbolic links (the daemon resolves its own data and package directories first), so a plugin that can write into a share cannot redirect another plugin's grant with a planted link. ABI ≥ 4: TCP bind/connect denied unless networking is granted. ABI ≥ 6: signals and abstract Unix sockets scoped to the sandbox (the plugin cannot signal the daemon). Below ABI 6 the plan is reported as *reduced*: the plugin runs under the daemon's uid with no PID namespace and can signal it. |
+| user + network namespace | When unprivileged user namespaces work: the plugin sees only a downed loopback. |
+| seccomp-bpf | `socket()` and `socketpair()` refused for every address family not granted (`AF_UNIX` only with `host.docker-socket` — this is what keeps the daemon's RPC socket out of reach); creating or joining namespaces refused (`clone3` reports `ENOSYS`, libc falls back to `clone`); `prlimit`/`setpriority`/`sched_set*`/`ioprio_set` refused on any process but the plugin itself (it shares the daemon's uid); `keyctl`/`add_key`/`request_key` refused; `setsid`/`setpgid` refused (descendants stay in the group that is killed); `io_uring_setup`, x32 and foreign-arch syscalls refused. |
+| process | no capabilities (ambient, bounding, effective, permitted and inheritable sets emptied — a daemon run as root does not hand root to its plugins), a fresh, empty session keyring (the daemon's or login session's keys are not reachable; with seccomp the key syscalls are refused outright), `no_new_privs`, `RLIMIT_CORE=0`, address-space / CPU-time / fd rlimits, inherited fds closed at exec, empty environment, own process group (killed on timeout or when the invocation is dropped), killed if the spawning daemon/CLI dies (`PR_SET_PDEATHSIG`). |
+
+Fallbacks: **bubblewrap** when Landlock is absent; **Seatbelt** (`sandbox-exec
+-p <generated profile>`) on macOS. On hosts that restrict unprivileged user
+namespaces (Ubuntu ≥ 23.10 by default) network denial still holds via seccomp
+and Landlock's TCP rules; if only Landlock TCP rules remain, the plan is
+reported as *reduced* (UDP not isolated) rather than silently accepted.
+
+**Capability → access.**
+
+| Capability | Child gets |
+|---|---|
+| `storage.local { scope = "plugin" }` | rw `~/.entangle/data/plugins/<publisher>/<name>` = `$ENTANGLE_DATA_DIR` = `$HOME` = cwd |
+| `storage.local { scope = "shared" }` | rw `~/.entangle/data/shared` = `$ENTANGLE_SHARED_DIR` |
+| `storage.share.<n>` | `~/.entangle/data/shares/<n>` (ro / rw / rw-scoped per mode) = `$ENTANGLE_SHARE_<N>`; `<n>` must match `[a-z0-9][a-z0-9_-]*`, so a share can never name a path outside `shares/` (`ENTANGLE-E0743`) |
+| `net.lan`, `net.wan` | IP networking (no per-host allowlist yet) |
+| `compute.gpu` | read, write and ioctl on `/dev/dri`, `/dev/kfd`, `/dev/nvidia*` when present (ordinary scopes never get device ioctls) |
+| `host.docker-socket` | rw `/var/run/docker.sock` + `AF_UNIX` sockets |
+
+**Where things live.** Verified binaries are staged (never run from the
+package directory) under `~/.entangle/native/entangle-native-<name>-<random>/`
+(`0700`, binary `0500`), removed on unload. The process using a copy holds a
+lock on it; copies left behind by a daemon that was killed (SIGKILL, OOM) are
+removed when the next daemon or local (`--allow-local`) kernel starts, while
+copies a running daemon still uses are kept. Plugin stderr is logged under the
+`entangle::native` tracing target, bounded per invocation.
+
+**No primitive at all.** Native plugins are refused with `ENTANGLE-E0700`
+unless the operator sets `allow_unsandboxed_native = true`, in which case
+they run with only the process layer (and seccomp/namespaces if available) —
+`entangle doctor` then warns on every run.
+
+**Check a host.** `entangle doctor` (checks 11–12) and `entangle
+print-platform` show the exact layers and run a real trial engagement.
+
+Known limits: on a host without seccomp, descendants that call `setsid()`
+escape the timeout kill (they stay sandboxed); no cgroup accounting; Landlock (through ABI 7) does not cover
+path-based Unix sockets, which is why the seccomp `AF_UNIX` rule matters — on a
+host without seccomp that protection is absent, and the plan is reported as *reduced*.
+
+---
+
+## 13. OCI registries and mirrors
 
 `entangle plugins install oci://registry[:port]/repo[:tag|@sha256:<hex>]`,
 `entangle plugins publish`, `entangle plugins tags` and

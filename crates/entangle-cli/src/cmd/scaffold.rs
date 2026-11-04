@@ -11,6 +11,11 @@
 //!   .gitignore     target/ and dist/
 //! ```
 //!
+//! With `--native` the project is instead a dependency-free Rust **binary**
+//! (tier 4–5): `src/main.rs` implements the stdin/stdout frame protocol the
+//! daemon speaks to sandboxed native plugins, and `entangle.toml` declares
+//! `runtime = "native"`.
+//!
 //! # Why the SDK dependency is a choice
 //! A generated project cannot use `path = "../../crates/entangle-sdk"` — that
 //! only resolves inside this repository. [`SdkSource`] models the three real
@@ -45,8 +50,10 @@ pub struct NewOptions {
     pub name: String,
     /// Directory to create. Defaults to `./<name>`.
     pub path: Option<PathBuf>,
-    /// Declared tier (1..=3 for wasm plugins).
+    /// Declared tier (1..=3 for wasm plugins, 4..=5 for native ones).
     pub tier: u8,
+    /// Scaffold a native (subprocess) plugin instead of a wasm component.
+    pub native: bool,
     /// Manifest description.
     pub description: Option<String>,
     /// SDK dependency source spec — see [`SdkSource::parse`].
@@ -363,6 +370,193 @@ Full guide: `docs/plugin-authoring.md` in the Entanglement repository.
     )
 }
 
+// ---------------------------------------------------------------------------
+// Native (tier 4-5) templates
+// ---------------------------------------------------------------------------
+
+/// `Cargo.toml` for a native plugin: a stand-alone binary crate with no
+/// dependencies.
+pub fn render_native_cargo_toml(name: &str) -> String {
+    format!(
+        r#"[workspace]
+# Stand-alone project — not a member of any surrounding cargo workspace.
+
+[package]
+name = "{name}"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+# A native plugin is an ordinary executable that the Entanglement daemon runs
+# inside an OS sandbox. `entangle plugins build` packages it as plugin.bin.
+[[bin]]
+name = "{name}"
+path = "src/main.rs"
+
+[dependencies]
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+"#
+    )
+}
+
+/// `src/main.rs` for a native plugin: the frame protocol plus a `run`.
+pub fn render_native_main_rs(name: &str) -> String {
+    format!(
+        r#"//! {name} — an Entanglement native (tier 4-5) plugin.
+//!
+//! The daemon runs this executable inside an OS sandbox derived from the
+//! capabilities in `entangle.toml`, and talks to it over stdin/stdout:
+//!
+//! ```text
+//! request  (stdin):  u32 big-endian length | input bytes
+//! response (stdout): u32 big-endian length | tag | body
+//!                    tag 0 = ok (body = output), tag 1 = err (body = message)
+//! ```
+//!
+//! The response length includes the tag byte. Serve requests until stdin
+//! closes. Write diagnostics to stderr — they end up in the daemon's log.
+//! Environment: `ENTANGLE_PLUGIN_ID`, and `ENTANGLE_DATA_DIR` when the
+//! `storage.local` capability is granted. Nothing else is inherited.
+
+use std::io::{{self, Read, Write}};
+
+/// The plugin entrypoint: input bytes in, output bytes (or an error) out.
+fn run(input: Vec<u8>) -> Result<Vec<u8>, String> {{
+    let name = String::from_utf8(input).map_err(|e| format!("invalid input: {{e}}"))?;
+    let name = if name.is_empty() {{ "world".to_owned() }} else {{ name }};
+    eprintln!("{name} received: {{name}}");
+    Ok(format!("Hello, {{name}}! — from {name}").into_bytes())
+}}
+
+/// Refuse requests larger than this rather than allocating for them.
+const MAX_REQUEST: usize = 64 * 1024 * 1024;
+
+fn read_request(input: &mut impl Read) -> io::Result<Option<Vec<u8>>> {{
+    let mut header = [0u8; 4];
+    match input.read_exact(&mut header) {{
+        Ok(()) => {{}}
+        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
+        Err(e) => return Err(e),
+    }}
+    let len = u32::from_be_bytes(header) as usize;
+    if len > MAX_REQUEST {{
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "request too large"));
+    }}
+    let mut body = vec![0u8; len];
+    input.read_exact(&mut body)?;
+    Ok(Some(body))
+}}
+
+fn write_response(out: &mut impl Write, result: Result<&[u8], &str>) -> io::Result<()> {{
+    let (tag, body) = match result {{
+        Ok(bytes) => (0u8, bytes),
+        Err(msg) => (1u8, msg.as_bytes()),
+    }};
+    let len = u32::try_from(body.len() + 1)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "response too large"))?;
+    out.write_all(&len.to_be_bytes())?;
+    out.write_all(&[tag])?;
+    out.write_all(body)?;
+    out.flush()
+}}
+
+fn main() {{
+    let (stdin, stdout) = (io::stdin(), io::stdout());
+    let (mut input, mut out) = (stdin.lock(), stdout.lock());
+    loop {{
+        let request = match read_request(&mut input) {{
+            Ok(Some(r)) => r,
+            Ok(None) => return,
+            Err(e) => {{
+                eprintln!("{name}: bad request: {{e}}");
+                std::process::exit(2);
+            }}
+        }};
+        let result = run(request);
+        let sent = match &result {{
+            Ok(bytes) => write_response(&mut out, Ok(bytes)),
+            Err(msg) => write_response(&mut out, Err(msg)),
+        }};
+        if sent.is_err() {{
+            return;
+        }}
+    }}
+}}
+"#
+    )
+}
+
+/// `entangle.toml` for a native plugin.
+pub fn render_native_manifest(name: &str, tier: u8, description: &str) -> String {
+    format!(
+        r#"# Entanglement plugin manifest (spec §4.4) — NATIVE plugin.
+#
+# `entangle plugins build` rewrites `id` with your publisher fingerprint,
+# compiles this crate for the host, and signs dist/plugin.bin.
+[plugin]
+id = "{PUBLISHER_PLACEHOLDER}/{name}@0.1.0"
+version = "0.1.0"
+
+# Native plugins are tier 4 (privileged) or 5 (native). They run as a
+# subprocess under the host's OS sandbox — Landlock + seccomp + namespaces on
+# Linux, Seatbelt on macOS — and are refused on hosts without one. An operator
+# can disable them entirely with `[security] max_tier_allowed = 3` (or tier 5
+# alone with `= 4`).
+tier = {tier}
+runtime = "native"
+description = "{description}"
+
+# Granted capabilities ARE the sandbox profile: nothing below means no files
+# beyond the binary and system libraries, no network, no Unix sockets.
+#
+#   "storage.local" = {{ scope = "plugin" }}    rw $ENTANGLE_DATA_DIR (own dir)
+#   "storage.local" = {{ scope = "shared" }}    rw $ENTANGLE_SHARED_DIR
+#   "storage.share.<name>" = {{ mode = "ro" }}  ro $ENTANGLE_SHARE_<NAME>
+#   "net.lan" = {{}} / "net.wan" = {{}}           IP networking
+#   "compute.gpu" = {{}}                        GPU device nodes
+#   "host.docker-socket" = {{}}                 /var/run/docker.sock (tier 5)
+[capabilities]
+
+[build]
+target = "host"
+"#
+    )
+}
+
+/// `README.md` for a native plugin.
+pub fn render_native_readme(name: &str, tier: u8) -> String {
+    format!(
+        r#"# {name}
+
+An [Entanglement]({REPO_URL}) **native** (tier {tier}) plugin, scaffolded with
+`entangle plugins new {name} --native`.
+
+The daemon runs the executable inside an OS sandbox derived from the
+`[capabilities]` in `entangle.toml` and exchanges length-prefixed frames with
+it on stdin/stdout (see `src/main.rs`).
+
+## Build, sign, trust, load, run
+
+```sh
+entangle init                     # once per machine — creates your publisher key
+entangle plugins build .          # cargo build --release for this host + sign
+entangle keyring add <YOUR_PUBLIC_KEY_HEX> --name self
+entangle plugins load dist/
+entangle plugins invoke <PUBLISHER_FINGERPRINT>/{name}@0.1.0 --input 'world'
+```
+
+`entangle doctor` shows which sandbox your host will engage. A host with no
+sandbox primitive refuses native plugins unless the operator sets
+`[security] allow_unsandboxed_native = true`.
+"#
+    )
+}
+
 /// Render the generated `.gitignore`.
 pub fn render_gitignore() -> String {
     "target/\ndist/\nCargo.lock\n".to_owned()
@@ -382,16 +576,27 @@ pub fn run(opts: NewOptions) -> Result<()> {
             opts.name
         );
     }
-    if !(1..=3).contains(&opts.tier) {
+    if opts.native && !(4..=5).contains(&opts.tier) {
+        bail!(
+            "--tier {} is out of range for a native plugin.\n\
+             Native plugins are tier 4 or 5; tiers 1-3 are wasm plugins (omit --native).",
+            opts.tier
+        );
+    }
+    if !opts.native && !(1..=3).contains(&opts.tier) {
         bail!(
             "--tier {} is out of range for a wasm plugin.\n\
              Tiers 1-3 run on `runtime = \"wasm\"`; tiers 4-5 require \
-             `runtime = \"native\"`, which this template does not generate.",
+             `runtime = \"native\"` — scaffold one with --native.",
             opts.tier
         );
     }
 
-    let sdk = SdkSource::parse(&opts.sdk)?;
+    let sdk = if opts.native {
+        None
+    } else {
+        Some(SdkSource::parse(&opts.sdk)?)
+    };
     let dir = opts
         .path
         .clone()
@@ -404,19 +609,34 @@ pub fn run(opts: NewOptions) -> Result<()> {
     std::fs::create_dir_all(dir.join("src"))
         .with_context(|| format!("creating {}", dir.join("src").display()))?;
 
-    let files: [(PathBuf, String); 5] = [
-        (dir.join("Cargo.toml"), render_cargo_toml(&opts.name, &sdk)),
-        (dir.join("src/lib.rs"), render_lib_rs(&opts.name)),
-        (
-            dir.join("entangle.toml"),
-            render_manifest(&opts.name, opts.tier, &description),
-        ),
-        (
-            dir.join("README.md"),
-            render_readme(&opts.name, opts.tier, &sdk),
-        ),
-        (dir.join(".gitignore"), render_gitignore()),
-    ];
+    let files: [(PathBuf, String); 5] = match &sdk {
+        Some(sdk) => [
+            (dir.join("Cargo.toml"), render_cargo_toml(&opts.name, sdk)),
+            (dir.join("src/lib.rs"), render_lib_rs(&opts.name)),
+            (
+                dir.join("entangle.toml"),
+                render_manifest(&opts.name, opts.tier, &description),
+            ),
+            (
+                dir.join("README.md"),
+                render_readme(&opts.name, opts.tier, sdk),
+            ),
+            (dir.join(".gitignore"), render_gitignore()),
+        ],
+        None => [
+            (dir.join("Cargo.toml"), render_native_cargo_toml(&opts.name)),
+            (dir.join("src/main.rs"), render_native_main_rs(&opts.name)),
+            (
+                dir.join("entangle.toml"),
+                render_native_manifest(&opts.name, opts.tier, &description),
+            ),
+            (
+                dir.join("README.md"),
+                render_native_readme(&opts.name, opts.tier),
+            ),
+            (dir.join(".gitignore"), render_gitignore()),
+        ],
+    };
 
     if !opts.force {
         let existing: Vec<&Path> = files
@@ -444,13 +664,18 @@ pub fn run(opts: NewOptions) -> Result<()> {
     println!();
     println!("Scaffolded plugin '{}' in {}", opts.name, dir.display());
     println!("  tier:       {}", opts.tier);
-    println!("  SDK source: {}", sdk.summary());
+    match &sdk {
+        Some(sdk) => println!("  SDK source: {}", sdk.summary()),
+        None => println!("  runtime:    native (sandboxed subprocess)"),
+    }
     println!();
     println!("Next steps:");
-    println!(
-        "  rustup target add {}",
-        crate::cmd::package::DEFAULT_TARGET
-    );
+    if sdk.is_some() {
+        println!(
+            "  rustup target add {}",
+            crate::cmd::package::DEFAULT_TARGET
+        );
+    }
     println!("  entangle init                     # once, creates your publisher key");
     println!("  entangle plugins build {}", dir.display());
     Ok(())
@@ -591,6 +816,7 @@ mod tests {
             name: "my-plugin".into(),
             path: Some(dir.clone()),
             tier: 1,
+            native: false,
             description: None,
             sdk: "crates-io".into(),
             force: false,
@@ -621,6 +847,7 @@ mod tests {
             name: "MyPlugin".into(),
             path: Some(PathBuf::from("/nonexistent-should-not-be-created")),
             tier: 1,
+            native: false,
             description: None,
             sdk: "crates-io".into(),
             force: false,
@@ -636,5 +863,53 @@ mod tests {
         bad_tier.tier = 5;
         let err = run(bad_tier).expect_err("tier 5 wasm must be rejected");
         assert!(format!("{err:#}").contains("out of range"), "{err:#}");
+    }
+
+    #[test]
+    fn native_scaffold_renders_a_valid_native_manifest() {
+        for tier in [4u8, 5] {
+            let src = render_native_manifest("my-native", tier, "scaffolded");
+            let rendered = render_dist_manifest(&src, FP).expect("must validate");
+            assert!(rendered.native, "runtime must be native");
+            assert_eq!(rendered.effective_tier, tier);
+            assert_eq!(rendered.plugin_id, format!("{FP}/my-native@0.1.0"));
+            let m: entangle_manifest::Manifest = toml::from_str(&src).unwrap();
+            assert!(m.capabilities.is_empty(), "no capabilities by default");
+        }
+        let cargo: toml::Value = toml::from_str(&render_native_cargo_toml("my-native")).unwrap();
+        assert_eq!(cargo["bin"][0]["name"].as_str(), Some("my-native"));
+        assert!(
+            cargo.get("lib").is_none(),
+            "a native plugin is a binary, not a cdylib"
+        );
+        let main = render_native_main_rs("my-native");
+        assert!(main.contains("fn run(input: Vec<u8>) -> Result<Vec<u8>, String>"));
+        assert!(main.contains("to_be_bytes"));
+    }
+
+    #[test]
+    fn native_scaffold_writes_a_binary_project_and_checks_tiers() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("my-native");
+        let opts = NewOptions {
+            name: "my-native".into(),
+            path: Some(dir.clone()),
+            tier: 5,
+            native: true,
+            description: None,
+            sdk: "auto".into(),
+            force: false,
+        };
+        run(opts.clone()).expect("native scaffold");
+        assert!(dir.join("src/main.rs").exists());
+        assert!(!dir.join("src/lib.rs").exists());
+        let manifest = std::fs::read_to_string(dir.join("entangle.toml")).unwrap();
+        assert!(manifest.contains("runtime = \"native\""));
+
+        let mut low = opts;
+        low.path = Some(tmp.path().join("other"));
+        low.tier = 3;
+        let err = run(low).expect_err("native tier 3 must be rejected");
+        assert!(format!("{err:#}").contains("out of range for a native plugin"));
     }
 }

@@ -157,13 +157,23 @@ impl Default for TailscaleSection {
 pub struct SecurityConfig {
     /// Maximum tier plugins may declare (1..=5). Defaults to tier 5 (native),
     /// matching the CLI default.
+    ///
+    /// This is the "one config line" that disables native plugins globally:
+    /// `max_tier_allowed = 4` refuses every tier-5 plugin, `3` refuses every
+    /// native (tier 4–5) plugin (spec §9.4.1).
     pub max_tier_allowed: Tier,
+    /// Run native (tier 4–5) plugins even on a host with **no** OS sandbox
+    /// primitive (no Landlock, bubblewrap, or Seatbelt). Default `false`:
+    /// such a plugin is refused with `ENTANGLE-E0700`. Has no effect on a host
+    /// that has a primitive — the sandbox is then always engaged.
+    pub allow_unsandboxed_native: bool,
 }
 
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
             max_tier_allowed: Tier::Native,
+            allow_unsandboxed_native: false,
         }
     }
 }
@@ -184,6 +194,25 @@ pub struct RuntimeConfig {
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self { bus_capacity: 1024 }
+    }
+}
+
+/// Build the runtime [`KernelConfig`](entangle_runtime::KernelConfig) the
+/// daemon uses from a parsed config and the config directory (`~/.entangle`).
+///
+/// Native plugins store their scopes under `<config_dir>/data` and are staged
+/// for execution under `<config_dir>/native` (both created on demand, 0700).
+pub fn kernel_config(cfg: &Config, config_dir: &std::path::Path) -> entangle_runtime::KernelConfig {
+    entangle_runtime::KernelConfig {
+        max_tier_allowed: cfg.security.max_tier_allowed,
+        multi_node: cfg.mesh.multi_node,
+        bus_capacity: cfg.runtime.bus_capacity,
+        native: entangle_runtime::NativeConfig {
+            allow_unsandboxed: cfg.security.allow_unsandboxed_native,
+            data_dir: Some(config_dir.join("data")),
+            staging_dir: Some(config_dir.join("native")),
+            ..entangle_runtime::NativeConfig::default()
+        },
     }
 }
 
@@ -271,6 +300,28 @@ max_tier_allowed = 2
             cfg.security.max_tier_allowed
         );
         assert_eq!(reparsed.runtime.bus_capacity, cfg.runtime.bus_capacity);
+    }
+
+    #[test]
+    fn unsandboxed_native_opt_out_is_off_unless_set() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert!(!cfg.security.allow_unsandboxed_native);
+        let cfg: Config = toml::from_str("[security]\nallow_unsandboxed_native = true\n").unwrap();
+        assert!(cfg.security.allow_unsandboxed_native);
+        let k = kernel_config(&cfg, std::path::Path::new("/home/u/.entangle"));
+        assert!(k.native.allow_unsandboxed);
+        assert_eq!(
+            k.native.data_dir.as_deref(),
+            Some(std::path::Path::new("/home/u/.entangle/data"))
+        );
+    }
+
+    /// README: tier-5 "can be disabled globally with one config line".
+    #[test]
+    fn one_line_disables_tier_five() {
+        let cfg: Config = toml::from_str("[security]\nmax_tier_allowed = 4\n").unwrap();
+        let k = kernel_config(&cfg, std::path::Path::new("/x"));
+        assert_eq!(k.max_tier_allowed, Tier::Privileged);
     }
 
     #[test]

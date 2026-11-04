@@ -20,6 +20,7 @@ entangle-signing = { workspace = true }
 entangle-host = { workspace = true }
 entangle-broker = { workspace = true }
 entangle-ipc = { workspace = true }
+entangle-sandbox = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 blake3 = { workspace = true }

@@ -194,6 +194,7 @@ fn print_metrics() -> anyhow::Result<()> {
 }
 
 fn print_platform() -> anyhow::Result<()> {
+    use entangle_runtime::os_sandbox;
     let probe = entangle_runtime::probe_os_sandbox();
     println!(
         "{} {} (sandbox: {})",
@@ -201,5 +202,17 @@ fn print_platform() -> anyhow::Result<()> {
         std::env::consts::ARCH,
         probe.description()
     );
+    println!("  host:      {}", os_sandbox::host_support().describe());
+    let policy = os_sandbox::Policy {
+        allow_unsandboxed: config::load(&config::config_path())
+            .map(|c| c.security.allow_unsandboxed_native)
+            .unwrap_or(false),
+    };
+    for (label, net) in [("no network", false), ("with network", true)] {
+        match os_sandbox::plan_for(net, policy) {
+            Ok(plan) => println!("  tier-5 ({label}): {}", plan.describe()),
+            Err(e) => println!("  tier-5 ({label}): refused — {e}"),
+        }
+    }
     Ok(())
 }
