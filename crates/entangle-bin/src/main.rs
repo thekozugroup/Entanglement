@@ -466,7 +466,7 @@ async fn record_sightings(discovery: &Discovery, registry: &entangle_observabili
         entangle_observability::catalog::names::MESH_PEERS,
         "Mesh peers by state (trusted and revoked come from the peer store, sighted from mDNS)",
         &[("state", "sighted")],
-        discovery.snapshot_peers().await.len() as f64,
+        discovery.peer_count().await as f64,
     );
 }
 
