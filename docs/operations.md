@@ -336,7 +336,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0400` | Cross-node dispatch attempted but the remote transport is not implemented (Phase 2 scaffold). |
 | `ENTANGLE-E0401` | Task input exceeds the dispatcher's configured `max_input_bytes`. |
 | `ENTANGLE-E0410`–`E0413` | Biscuit-auth parse / mint / verify / malformed-claim failures. |
-| `ENTANGLE-E0450`–`E0463` | Remote-request capability tokens (`mesh.peer`, see §21): E0450 no token while `[trust] require_capability_tokens = true` (re-pair with `entangle pair`); E0451 not a biscuit or too large; E0452 does not verify under this node's identity key; E0453 issued to another peer than the presenter; E0454 does not grant `mesh.peer`; E0455 per-request expiry missing or more than 60 s (+30 s skew) ahead; E0456 bound to another request; E0457 not exactly one nonce; E0458 replayed nonce; E0459 replay cache full (retry shortly); E0460 revoked on this node; E0461 a block holds content other than the accepted facts; E0462 a template restriction (`gpu_job`, `agent_session`) is not met; E0463 `revoked-tokens.toml` unreadable, so every token is refused. Expiry failures use `ENTANGLE-E0412`. |
+| `ENTANGLE-E0450`–`E0463` | Remote-request capability tokens (`mesh.peer`, see §21): E0450 no token while `[trust] require_capability_tokens = true` (re-pair with `entangle pair`); E0451 not a biscuit or too large; E0452 does not verify under this node's identity key; E0453 issued to another peer than the presenter; E0454 does not grant `mesh.peer`; E0455 per-request expiry missing or more than 60 s (+30 s skew) ahead (a large frame's late-arrival grace extends acceptance past the expiry, never this window); E0456 bound to another request; E0457 not exactly one nonce; E0458 replayed nonce; E0459 replay cache full (retry shortly); E0460 revoked on this node; E0461 a block holds content other than the accepted facts; E0462 a template restriction (`gpu_job`, `agent_session`) is not met; E0463 `revoked-tokens.toml` unreadable, so every token is refused. Expiry failures use `ENTANGLE-E0412`. |
 | `ENTANGLE-E0420`–`E0425` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch (E0420–E0424); E0425 is a relay whose cumulative `total_bytes_cap` budget is exhausted. |
 | `ENTANGLE-E0620`–`E0624`, `E0660`–`E0671` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
 | `ENTANGLE-E0630`, `E0640` | Retired `NotImplemented` codes for `mesh.iroh` and `mesh.tailscale`; both transports are implemented. |
@@ -1796,6 +1796,37 @@ and the revocation set, and counts the outcome in
 `entangle_remote_capability_checks_total{path,outcome}` (§14a; `path` is
 `task` or `stream`, `outcome` a fixed set of labels, including
 `tokenless_accepted` while the gate is off).
+
+**When the token is attenuated, and late arrival.** The submitter
+attenuates its token per attempt, once that attempt's transport has
+connected and immediately before the frame is written (a stream: once the
+stream is open, in its `Open`). Time spent dialling — including falling
+back from `local` to `tailscale` to `iroh`, and a second try of a candidate
+the connect deadline cut short — never counts against the 60 s, and every
+attempt carries a fresh nonce, so the worker's replay cache sees a resend
+as a new request. A request whose frame was sent is still never retried on
+another transport.
+
+The worker sees the token only once the whole frame has arrived, so a large
+frame on a slow link earns a late-arrival grace, measured on the bytes the
+transport actually received (never a size the frame declares):
+
+```text
+grace = received frame bytes / 262144     (seconds; integer division, at most 600)
+```
+
+A frame under 256 KiB earns none; a 16 MiB input (the largest a task frame
+carries) earns 64 s, which covers its delivery on any link of 2 Mbit/s or
+faster. The token counts as expired (`ENTANGLE-E0412`) only once
+`now >= expires + grace`. How far ahead a token may expire is unchanged
+(60 s + 30 s clock skew, else `ENTANGLE-E0455`). The replay cache remembers
+each nonce until the token's expiry plus that grace plus 30 s, so a replay
+inside the grace window is still refused (`ENTANGLE-E0458`). It holds at
+most 65 536 nonces, 16 384 per peer — a nonce stays at most 120 s for a
+frame under 256 KiB, 184 s for a 16 MiB one — and when full it refuses new
+requests (`ENTANGLE-E0459`, retry shortly) rather than accepting them
+unchecked. A refusal is logged with the frame's size and the grace it
+earned.
 
 **Upgrading.** A peer paired before this release has no token, and a
 worker that requires tokens refuses its requests with `ENTANGLE-E0450`.

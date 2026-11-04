@@ -62,7 +62,17 @@ The full threat model is in `docs/architecture.md` §11; the highlights:
   biscuit rooted at the worker's own identity key, naming it as holder, to
   have a task or stream executed; the allowlist alone is not enough. Each
   request carries an attenuated copy that expires within 60 s, is bound to
-  that exact request and carries a nonce the worker remembers. A token proves
+  that exact request and carries a nonce the worker remembers. The copy is
+  made per attempt, after the transport has connected, so dialling and
+  falling back across transports do not shorten its life, and every attempt
+  has its own nonce. Because the worker checks the token only once the whole
+  frame is in, a large frame earns a late-arrival grace: one second per
+  256 KiB the worker's transport actually received (never a declared size),
+  at most 600 s; the token is expired only once `now >= expires + grace`,
+  and the nonce is remembered for that extended window, so a replay inside
+  it is still refused. A presented copy is therefore usable for at most its
+  60 s plus its own frame's grace (64 s for the largest task frame), only by
+  its holder, and only for the request it is bound to. A token proves
   *this key was paired with this node and has not been revoked here*. It does
   not prove the peer is well behaved, and it limits nothing the plugin
   capabilities do not already limit. The pairing tokens themselves have no

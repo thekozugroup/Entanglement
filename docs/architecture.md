@@ -1606,7 +1606,7 @@ LOC count of first-party crates is half the story. The actual security-review su
 | 5 | Mesh impersonation / Sybil | Ed25519 NodeIds; explicit pairing TOFU; revocation gossip |
 | 6 | DoS via runaway plugin | Wasmtime fuel + memory caps; cgroup limits on subprocess; broker rate-limits powerbox |
 | 7 | Eavesdropping on mesh traffic | Iroh QUIC TLS 1.3 with NodeId-pinned certs; tailscale-mode uses WireGuard (Tailscale's transport) plus Entanglement's own biscuit-authenticated session |
-| 8 | Replay of capability tokens | Biscuit nonce + 60s expiry; receivers track recent nonces |
+| 8 | Replay of capability tokens | Biscuit nonce + 60s expiry; receivers track recent nonces. *Implementation note (deviation): the receiver checks a token only once its whole frame has arrived, so a frame of N received bytes earns ⌊N / 256 KiB⌋ s (at most 600 s) of late-arrival grace past the 60 s expiry, and its nonce is tracked for that extended window; presenters attenuate per send attempt, after connecting.* |
 | 9 | Powerbox prompt fatigue | Required rationale; plain-English authority; narrow defaults |
 | 10 | Tier-5 agent escapes via Node.js exploit | Pinned Node, OS sandbox, MCP gateway interposition; documented residual risk |
 | 11 | **Byzantine worker poisons compute results**  | §7.5 replication + quorum + reputation; trust for connectivity ≠ trust for correctness |
