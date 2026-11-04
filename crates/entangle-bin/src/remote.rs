@@ -10,6 +10,11 @@
 //! * **client** — [`directory_from_config`] turns configured peer addresses
 //!   into an address book so this node can send work out.
 //!
+//! The daemon itself builds one task server and one stream server and
+//! serves them on every running transport, iroh and tailscale alike, and
+//! routes outbound work per peer across them: see [`crate::mesh`]. The
+//! helpers here are the iroh-only building blocks.
+//!
 //! # The authorization gate
 //!
 //! [`PeerStoreAllowlist`] is the only thing standing between the network and
