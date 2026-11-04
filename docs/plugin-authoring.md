@@ -439,7 +439,7 @@ than 4 MiB) and pushes the manifest. Credentials come from
 `ENTANGLE_OCI_TOKEN`, or `ENTANGLE_OCI_USERNAME` + `ENTANGLE_OCI_PASSWORD`,
 together with `ENTANGLE_OCI_REGISTRY=<host[:port]>` naming the one registry
 they are for, or from `~/.entangle/oci-auth.toml` (see `docs/operations.md`
-section 12). Consumers run:
+section 13). Consumers run:
 
 ```sh
 entangle keyring add <YOUR_PUBLIC_KEY_HEX> --name you   # once
@@ -542,7 +542,7 @@ alone with `= 4`).
 | `ENTANGLE-E0202: malformed capability args` / `ENTANGLE-E0203: … does not take parameter` | fix the capability table; see [Capability parameters](#capability-parameters) |
 | `fetch` → `not-granted: ENTANGLE-E0124 … by operator policy`, or `/data` missing | the operator denies that capability (`entangle perms list` shows it); the plugin runs without it |
 | `fetch` → `revoked` | the operator ran `entangle perms revoke`; reload the plugin to get it back |
-| `ENTANGLE-E0508` / `E0509` when loading | a storage grant has no data directory, or the plugin's directory is a symbolic link / not a directory (see `docs/operations.md` §15) |
+| `ENTANGLE-E0508` / `E0509` when loading | a storage grant has no data directory, or the plugin's directory is a symbolic link / not a directory (see `docs/operations.md` §18) |
 | `PermissionDenied` on connect | the address is not covered by your `net.*` grant (loopback never is) |
 | `ENTANGLE-E0201: plugin id format invalid` | the id is not `<publisher>/<name>@<version>`; rebuild with `entangle plugins build` rather than hand-editing `dist/` |
 | `ENTANGLE-E0101: publisher fingerprint not in keyring` | run `entangle keyring add <PUBLIC_KEY_HEX> --name …` |

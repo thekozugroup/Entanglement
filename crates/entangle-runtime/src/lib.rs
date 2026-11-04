@@ -40,7 +40,7 @@ mod tests;
 pub use entangle_broker::CapabilityPattern;
 pub use errors::RuntimeError;
 pub use integrity::{check_trusted_executor, verify_deterministic, IntegrityError, ReplicaOutput};
-pub use kernel::{Kernel, KernelConfig};
+pub use kernel::{Kernel, KernelConfig, LoadedPluginInfo, MaxTierOutcome, MaxTierRefusal};
 pub use lifecycle::{LifecycleEvent, LifecyclePhase};
 pub use loader::PluginPackage;
 pub use metric::{MetricEntry, MetricRegistry};

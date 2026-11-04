@@ -37,6 +37,15 @@ pub struct LoadedPlugin {
     caps: Option<CapabilityContext>,
 }
 
+impl std::fmt::Debug for LoadedPlugin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoadedPlugin")
+            .field("plugin_id", &self.plugin_id)
+            .field("effective_tier", &self.effective_tier)
+            .finish_non_exhaustive()
+    }
+}
+
 impl Clone for LoadedPlugin {
     fn clone(&self) -> Self {
         Self {
@@ -88,6 +97,14 @@ impl LoadedPlugin {
             .linker()
             .instantiate_pre(&component)
             .map_err(|e| HostError::Instantiate(e.into()))?;
+        Self::from_instance_pre(instance_pre, plugin_id, effective_tier)
+    }
+
+    pub(crate) fn from_instance_pre(
+        instance_pre: wasmtime::component::InstancePre<HostState>,
+        plugin_id: PluginId,
+        effective_tier: Tier,
+    ) -> Result<Self, HostError> {
         let pre = PluginPre::new(instance_pre).map_err(|e| HostError::Instantiate(e.into()))?;
         Ok(Self {
             pre,
@@ -283,14 +300,7 @@ impl LoadedPlugin {
 
         // Map inner plugin-error to HostError.
         let output = call_result.map_err(|plugin_err| {
-            use crate::bindings::entangle::plugin::types::PluginError;
-            let msg = match plugin_err {
-                PluginError::InvalidInput(s) => format!("invalid-input: {s}"),
-                PluginError::ResourceExhausted(s) => format!("resource-exhausted: {s}"),
-                PluginError::CapabilityDenied(s) => format!("capability-denied: {s}"),
-                PluginError::Internal(s) => format!("internal: {s}"),
-            };
-            HostError::PluginReturnedError(msg)
+            HostError::PluginReturnedError(crate::stream::plugin_error_text(plugin_err))
         })?;
 
         let log_lines = std::mem::take(&mut store.data_mut().log_buffer);
@@ -305,6 +315,66 @@ impl LoadedPlugin {
     /// Returns the effective capability tier for this plugin.
     pub fn effective_tier(&self) -> Tier {
         self.effective_tier
+    }
+}
+
+/// A compiled plugin component of either `entangle:plugin` world.
+#[derive(Clone, Debug)]
+pub enum CompiledPlugin {
+    /// A `plugin`-world component (`run` export): one input, one output.
+    OneShot(LoadedPlugin),
+    /// A `stream-plugin`-world component (`start-stream` export).
+    Stream(crate::stream::LoadedStreamPlugin),
+}
+
+impl CompiledPlugin {
+    /// Compile `bytes` and classify the component by the world it exports.
+    ///
+    /// The component is compiled and its imports resolved once; it is then
+    /// matched against the `plugin` world (`run`) and, failing that, the
+    /// `stream-plugin` world (`start-stream`). A component that exports
+    /// neither is [`HostError::Instantiate`] with both reasons; a native
+    /// executable is [`HostError::RuntimeKindMismatch`] (ATC-MAN-3), as in
+    /// [`LoadedPlugin::from_bytes`].
+    pub fn from_bytes(
+        engine: &HostEngine,
+        bytes: &[u8],
+        plugin_id: PluginId,
+        effective_tier: Tier,
+    ) -> Result<Self, HostError> {
+        crate::runtime_kind::check_runtime_kind(crate::runtime_kind::DeclaredRuntime::Wasm, bytes)?;
+        let component = Component::from_binary(engine.engine(), bytes)?;
+        let instance_pre = engine
+            .linker()
+            .instantiate_pre(&component)
+            .map_err(|e| HostError::Instantiate(e.into()))?;
+        let one_shot = match LoadedPlugin::from_instance_pre(
+            instance_pre.clone(),
+            plugin_id.clone(),
+            effective_tier,
+        ) {
+            Ok(p) => return Ok(Self::OneShot(p)),
+            Err(e) => e,
+        };
+        match crate::stream::LoadedStreamPlugin::from_instance_pre(
+            instance_pre,
+            plugin_id,
+            effective_tier,
+        ) {
+            Ok(p) => Ok(Self::Stream(p)),
+            Err(stream) => Err(HostError::Instantiate(anyhow::anyhow!(
+                "component exports neither the `plugin` world ({one_shot}) nor the \
+                 `stream-plugin` world ({stream})"
+            ))),
+        }
+    }
+
+    /// The world this component implements: `"plugin"` or `"stream-plugin"`.
+    pub const fn world(&self) -> &'static str {
+        match self {
+            Self::OneShot(_) => "plugin",
+            Self::Stream(_) => "stream-plugin",
+        }
     }
 }
 

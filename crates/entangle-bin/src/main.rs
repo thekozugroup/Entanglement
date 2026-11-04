@@ -201,6 +201,13 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
             local_peer_id,
             Some(registry.clone()),
         );
+        // Streaming tasks (entangle/stream/1) on the same endpoint and gate.
+        remote::spawn_stream_server(
+            Arc::clone(transport),
+            kernel.clone(),
+            peer_store.clone(),
+            identity.clone(),
+        );
     }
     let dispatcher = Arc::new(dispatcher);
 

@@ -56,6 +56,9 @@ pub struct ComputeArgs {
 pub enum ComputeCmd {
     /// Dispatch a one-shot plugin invocation via the scheduler.
     Dispatch(DispatchArgs),
+    /// Run a streaming task on a trusted peer (or, with --allow-local, in
+    /// this process) and write its chunks to stdout as they arrive.
+    Stream(super::compute_stream::StreamArgs),
 }
 
 /// `entangle compute dispatch` flags.
@@ -145,6 +148,7 @@ pub struct DispatchArgs {
 pub async fn run(args: ComputeArgs) -> anyhow::Result<()> {
     match args.cmd {
         ComputeCmd::Dispatch(a) => dispatch(a).await,
+        ComputeCmd::Stream(a) => super::compute_stream::run(a).await,
     }
 }
 

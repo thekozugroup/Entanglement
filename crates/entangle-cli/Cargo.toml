@@ -23,6 +23,9 @@ entangle-peers     = { path = "../entangle-peers" }
 entangle-mesh-tailscale = { workspace = true }
 entangle-pairing   = { path = "../entangle-pairing" }
 entangle-scheduler     = { path = "../entangle-scheduler" }
+# `compute stream` dials the executor itself (see cmd/compute_stream.rs).
+# Already in the graph via entangle-scheduler: no new build cost.
+entangle-mesh-iroh     = { workspace = true }
 entangle-observability = { workspace = true, features = ["otlp"] }
 entangle-agent-host    = { path = "../entangle-agent-host" }
 camino            = { workspace = true }
@@ -34,6 +37,7 @@ tracing           = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 serde             = { workspace = true, features = ["derive"] }
 toml              = { workspace = true }
+toml_edit         = { workspace = true }
 directories       = "5"
 hex               = { workspace = true }
 base64            = { workspace = true }
@@ -54,3 +58,5 @@ entangle-signing  = { workspace = true }
 entangle-pairing  = { path = "../entangle-pairing" }
 hex               = { workspace = true }
 serde_json        = { workspace = true }
+entangle-bin      = { path = "../entangle-bin" }
+entangle-broker   = { workspace = true }

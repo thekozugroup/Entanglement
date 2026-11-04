@@ -549,7 +549,7 @@ Biscuits unchanged in semantics. Two additions:
 
 ### 6.7 ALPN multiplexing
 
-`entangle/control/1` membership; `entangle/scheduler/1` work; `entangle/agent/1` A2A; `entangle/blobs/1` blob transfer; `entangle/docs/1` shared-storage. Same as. ---
+`entangle/control/1` membership; `entangle/scheduler/1` work; `entangle/stream/1` streaming tasks (§7.1; served on the same endpoint and port as `entangle/scheduler/1`); `entangle/agent/1` A2A; `entangle/blobs/1` blob transfer; `entangle/docs/1` shared-storage. Same as. ---
 
 ## 7. Distributed Compute Scheduler (a Plugin)
 
@@ -568,7 +568,7 @@ This document pins three reference workloads. The scheduler must satisfy each at
 
 - **Task type:** `StreamingTask` (§7.1). One executor; `Integrity::TrustedExecutor { allowlist: ["abc12...desktop-nodeid"] }` (§7.5). The submitter has out-of-band reason to trust the destination — it's their own desktop. Replication is rejected at submit-time (`replication=1`, `quorum=1` enforced).
 
-- **RPC shape:** bidirectional QUIC stream over `entangle/scheduler/1` ALPN; `Credit`-based backpressure window of 32 chunks; partial results accepted (a half-streamed answer is still useful to the user). **Workload B — Batch image processing across a home cluster.**
+- **RPC shape:** bidirectional QUIC stream over the `entangle/stream/1` ALPN (same endpoint as `entangle/scheduler/1`); `Credit`-based backpressure window of 32 chunks; partial results accepted (a half-streamed answer is still useful to the user). **Workload B — Batch image processing across a home cluster.**
 - User has 8,000 RAW photos; runs `image-tool dehaze --recursive`.
 
 - Scheduler shards across 3 desktops; bandwidth-aware placement keeps blob transfers off the slow Wi-Fi link.
@@ -612,7 +612,7 @@ struct StreamingTask {
   signature: Ed25519Sig,
   resources: ResourceSpec,
   initial_inputs: Vec<InputRef>,     // prompt, system prompt, generation params
-  // Bidirectional channel handling — opened over `entangle/scheduler/1` ALPN
+  // Bidirectional channel handling — opened over the `entangle/stream/1` ALPN
   // upon task acceptance. channel: ChannelSpec {
     inbound:  ChunkSchema,           // submitter -> worker (e.g. additional turns)
     outbound: ChunkSchema,           // worker -> submitter (e.g. token chunks)
@@ -681,7 +681,7 @@ The metric (a Wasm component) is **never instantiated** for an oversized result.
 
 - **`max_total_bytes` (StreamingTask):** added (default 256 MiB). capped per-chunk size but had no lifetime cap — a worker could send 16 MiB chunks forever. Both ends track and tear down at the threshold.
 
-- **Bridge biscuit lifetime byte cap (§6.4):**  specified a per-second rate limit (`relay_rate_max($r), $r <= 1048576`) but no cumulative session cap. adds a fifth mandatory attenuation `relay_total_bytes_max($t), $t <= 1073741824` (1 GiB ceiling per bridge cap lifetime). See §6.4 update below; bridge attenuation invariant becomes `|attenuation_facts ∩ {dest_pin, rate_limit, total_bytes_cap, ttl_le_3600s, bridge_marker}| == 5`. **Streaming RPC shape (Workload A example).** Submitter opens a bidirectional QUIC stream over the `entangle/scheduler/1` ALPN to the chosen worker:
+- **Bridge biscuit lifetime byte cap (§6.4):**  specified a per-second rate limit (`relay_rate_max($r), $r <= 1048576`) but no cumulative session cap. adds a fifth mandatory attenuation `relay_total_bytes_max($t), $t <= 1073741824` (1 GiB ceiling per bridge cap lifetime). See §6.4 update below; bridge attenuation invariant becomes `|attenuation_facts ∩ {dest_pin, rate_limit, total_bytes_cap, ttl_le_3600s, bridge_marker}| == 5`. **Streaming RPC shape (Workload A example).** Submitter opens a bidirectional QUIC stream over the `entangle/stream/1` ALPN (accepted on the worker's scheduler endpoint, same port) to the chosen worker:
 
 ```
 Submitter -> Worker:  StreamOpen { task_id, initial_inputs: { prompt: "...", max_tokens: 1024, temperature: 0.7 } }
@@ -721,7 +721,7 @@ loop {
 }
 ```
 
-**Defaults and overrides.** `task_timeout` defaults to **30 minutes**, configurable per task via `StreamingTask.channel.credit_exhaustion_timeout`. Streams with `task_timeout == 0` are rejected at submit-time (would cause an immediate stall on the first credit underflow). **Heartbeat ping (mandatory).** Independent of `Credit` frames, both ends of the stream send a `Ping` frame every **5 seconds**. Three consecutive missed pings (15s) auto-close the channel with `Reason::PeerLost`. The `Ping` frame is a 16-byte fixed-size control frame on the same QUIC stream — it is unaffected by application-level credit exhaustion (i.e. `Ping` flows even when data credits are 0). The implementation lives in `entangle-plugin-scheduler::stream::heartbeat`. ```
+**Defaults and overrides.** `task_timeout` defaults to **30 minutes**, configurable per task via `StreamingTask.channel.credit_exhaustion_timeout`. Streams with `task_timeout == 0` are rejected at submit-time (would cause an immediate stall on the first credit underflow). **Heartbeat ping (mandatory).** Independent of `Credit` frames, both ends of the stream send a `Ping` frame every **5 seconds**. Three consecutive missed pings (15s) auto-close the channel with `Reason::PeerLost`. The `Ping` frame is a 16-byte fixed-size control frame on the same QUIC stream [Implementation: `Ping { seq, ts_ms }` is a small postcard-encoded control frame (varint fields, at most `CONTROL_FRAME_MAX` = 2 KiB, typically under 32 bytes), not fixed-size] — it is unaffected by application-level credit exhaustion (i.e. `Ping` flows even when data credits are 0). The implementation lives in `entangle-plugin-scheduler::stream::heartbeat`. ```
 Worker    -> Submitter: Ping { seq: 41, ts: 2026-04-28T11:23:55Z }
 Submitter -> Worker:    Pong { seq: 41, ts: 2026-04-28T11:23:55Z, rtt_estimate_ms: 18 }
 ```
@@ -744,8 +744,15 @@ struct SignedChunk {
     bytes: Vec<u8>,
     ts: Instant,
     executor_node_id: NodeId,
-    // Signature over (task_id || seq || ts || sha256(bytes)). // Verified by submitter on each chunk; chain accumulates into a
-    // tamper-evident transcript. signature: Ed25519Sig,
+    // Signature over "entangle/stream/chunk/v1" || 0x00 || task_id || policy_hash
+    //   || request_digest || seq (u64 BE) || BLAKE3(bytes)  — domain-separated,
+    //   bound to the task's policy hash (INV-INT-1) and to the request itself
+    //   (request_digest: BLAKE3 over the Open frame's plugin, BLAKE3(input)
+    //   and requested limits; a reused task_id cannot relabel output); no
+    //   timestamp: ordering is the seq.
+    // Verified by submitter on each chunk against the executor's
+    // transport-authenticated key; chunks chain into a BLAKE3 transcript
+    // hash that the executor's signed End frame commits to. signature: Ed25519Sig,
 }
 ```
 
@@ -977,7 +984,7 @@ User runs: entangle agent run claude-code
 
    The same shim is installed for `codex`, `aider`, and other supported agent hosts (per §8.3.1).
 
-2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`.
+2. **Opt-in.** The first-run wizard asks: *"Install shell wrappers that warn when agent hosts run outside Entanglement? [Y/n]"*. User can disable at any time via `entangle wrapper disable` (which removes the block) or by setting `[wrappers] install = false` in `~/.entangle/config.toml`. Users who never want the shim can run `entangle install --no-wrapper`. *(Implementation status: the shim is opt-in through `entangle wrapper enable` only; the first-run question, `--no-wrapper` and the shell-history note of item 3 are not implemented. See docs/operations.md §15.)*
 
 3. **Doctor check.** `entangle doctor` validates the wrapper is in place AND not shadowed:
    - If the wrapper block is missing from the user's rc files → warning with `entangle wrapper enable`.
@@ -1937,6 +1944,18 @@ ATC-INT-5 (output-size DoS short-circuit, INV-INT-2; A-N1-)
   AND    reputation::get(peer_id) is strictly less than the pre-task value
   TEST   crates/entangle-plugin-scheduler/tests/integrity/oversized_output_short_circuits.rs
 
+ATC-INT-6 (streaming total-byte cap, both ends; A-N1-)
+  GIVEN  a StreamingTask with channel.max_total_bytes = 1024
+  WHEN   the executor's chunks would carry the stream past 1024 cumulative bytes
+  THEN   the executor does not send the chunk that crosses the cap and closes the
+         stream with Reason::TotalBytesExceeded
+  AND    against an executor that does not self-close, the submitter tears the
+         stream down with Err(StreamBytesExceeded) — refusing the oversized chunk
+         from its frame header, before allocating it — and lowers the executor's
+         reputation
+  TEST   crates/entangle-scheduler/tests/stream_atc.rs::atc_int_6_executor_closes_at_max_total_bytes
+         crates/entangle-scheduler/tests/stream_atc.rs::atc_int_6_submitter_tears_down_an_executor_that_does_not_self_close
+
 ### 16.5 StreamingTask credit + heartbeat + signing (A-N3-, B-streaming)
 
 ```
@@ -1964,23 +1983,23 @@ ATC-STR-3 (chunk signing)
 
 ```
 ATC-WRP-1
-  GIVEN  `entangle install` has run with default settings AND user opts in to wrappers
-  WHEN   the user runs `claude-code` in a fresh shell with ENTANGLE_SESSION_ID unset
-  THEN   stderr contains the string "claude-code launched outside Entanglement session"
-  AND    exit code matches `command claude-code --version` (warning is non-blocking)
-  TEST   tests/bats/wrapper.bats::warns_outside_session
+  GIVEN  the user opted in to wrappers (`entangle wrapper enable`, or the install-time prompt)
+  WHEN   the user runs `claude` (the adapter's `binary()`; `claude-code` is its `entangle agent run` name) in a fresh shell with ENTANGLE_SESSION_ID unset
+  THEN   stderr contains the string "claude launched outside Entanglement session"
+  AND    exit code matches `command claude --version` (warning is non-blocking)
+  TEST   crates/entangle-cli/tests/wrapper.rs::atc_wrp_1_warns_outside_session
 
 ATC-WRP-2
   GIVEN  `entangle wrapper disable` has run
-  WHEN   the user runs `claude-code`
+  WHEN   the user runs `claude`
   THEN   stderr does NOT contain the wrapper warning
-  TEST   tests/bats/wrapper.bats::disable_silences
+  TEST   crates/entangle-cli/tests/wrapper.rs::atc_wrp_2_disable_silences
 
 ATC-WRP-3
-  GIVEN  PATH is ordered such that /usr/local/bin/claude-code resolves before the shell function
+  GIVEN  the user's shell resolves /usr/local/bin/claude (the adapter's `binary()`) instead of the shell function
   WHEN   `entangle doctor` runs
   THEN   stdout contains "shadowed" AND exit code == 1
-  TEST   tests/bats/doctor.bats::detects_shadowed_wrapper
+  TEST   crates/entangle-cli/tests/wrapper.rs::atc_wrp_3_detects_shadowed_wrapper
 ```
 
 ### 16.7 max_tier_allowed lowering (B-max_tier-) — M5
@@ -1991,20 +2010,20 @@ ATC-MAX-1 (interactive prompt)
   WHEN   user lowers to max_tier_allowed = 3 via interactive `entangle config reload`
   THEN   stdout contains "agent-host" in the affected list
   AND    default action is unload-and-disable; cancel reverts the edit
-  TEST   tests/bats/max_tier.bats::interactive_lowering_prompts
+  TEST   crates/entangle-cli/tests/max_tier.rs::atc_max_1_interactive_lowering_prompts
 
 ATC-MAX-2 (force-unload non-silent)
   GIVEN  same precondition as ATC-MAX-1
   WHEN   `entangle security set-max-tier 3 --force-unload` runs
   THEN   stderr contains the affected-plugin list AND audit log has ENTANGLE-W0214 entry per plugin
-  TEST   tests/bats/max_tier.bats::force_unload_is_loud
+  TEST   crates/entangle-cli/tests/max_tier.rs::atc_max_2_force_unload_is_loud
 
 ATC-MAX-3 (cancel revert)
   GIVEN  same precondition as ATC-MAX-1
   WHEN   user chooses "cancel" at the prompt
   THEN   max_tier_allowed remains 5 in config.toml
   AND    audit log has ENTANGLE-I0216 entry
-  TEST   tests/bats/max_tier.bats::cancel_reverts_edit
+  TEST   crates/entangle-cli/tests/max_tier.rs::atc_max_3_cancel_reverts_edit
 ```
 
 ### 16.8 Mirror-as-CDN (B-mirror-signing-) — M4

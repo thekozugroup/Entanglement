@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use entangle_bin::config::{Config, SchedulerConfig};
 use entangle_bin::remote::{
-    directory_from_config, scheduler_transport_enabled, spawn_task_server,
+    directory_from_config, scheduler_transport_enabled, spawn_stream_server, spawn_task_server,
     start_scheduler_transport, PeerStoreAllowlist,
 };
 use entangle_mesh_iroh::{
@@ -368,4 +368,95 @@ async fn an_unparseable_bind_is_a_typed_startup_error() {
         err.to_string().contains("not-a-socket-addr"),
         "the error should name the offending value: {err}"
     );
+}
+
+// ── streaming tasks (entangle/stream/1) ─────────────────────────────────────
+
+/// Open a stream to `server` as `client` and return how it ended.
+async fn stream_outcome(
+    client: &MeshIroh,
+    server: &MeshIroh,
+) -> entangle_scheduler::stream::StreamOutcome {
+    let task = entangle_types::task::StreamingTask::with_defaults(demo_plugin(), b"x".to_vec());
+    let handle = deadline(
+        "open stream",
+        entangle_scheduler::open_stream(
+            client,
+            &address_of(server),
+            &task,
+            entangle_scheduler::stream::StreamOptions::default(),
+        ),
+    )
+    .await
+    .expect("the daemon endpoint accepts entangle/stream/1");
+    deadline("stream", handle.collect()).await.outcome
+}
+
+/// The daemon serves streaming tasks on its scheduler endpoint — same port,
+/// second ALPN — behind the same peer-store gate as one-shot tasks: an
+/// unpaired peer is refused as unauthorized, a paired one gets past the gate
+/// (and then learns the plugin is not loaded), and one-shot traffic on the
+/// same endpoint is unaffected.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_daemon_serves_streams_behind_the_peer_store_gate() {
+    let (id_client, id_daemon) = (IdentityKeyPair::generate(), IdentityKeyPair::generate());
+    let cfg = SchedulerConfig {
+        bind: "127.0.0.1:0".to_owned(),
+        relay: false,
+        ..SchedulerConfig::default()
+    };
+    let daemon = start_scheduler_transport(&cfg, &id_daemon)
+        .await
+        .expect("daemon transport");
+    let store = PeerStore::new();
+    spawn_task_server(
+        Arc::clone(&daemon),
+        empty_kernel(),
+        store.clone(),
+        daemon.local_peer_id(),
+    );
+    spawn_stream_server(
+        Arc::clone(&daemon),
+        empty_kernel(),
+        store.clone(),
+        id_daemon.clone(),
+    );
+    let client = start_node(loopback_scheduler_config(), &id_client).await;
+
+    use entangle_scheduler::stream::{Reason, StreamError, StreamOutcome};
+    match stream_outcome(&client, &daemon).await {
+        StreamOutcome::Interrupted(StreamError::PeerAborted { reason, .. }) => {
+            assert_eq!(reason, Reason::NotAuthorized)
+        }
+        other => panic!("an unpaired peer must be refused, got {other:?}"),
+    }
+
+    store
+        .add(TrustedPeer::new(
+            client.local_peer_id(),
+            hex::encode(client.local_public_key()),
+            "client".into(),
+        ))
+        .expect("add");
+    match stream_outcome(&client, &daemon).await {
+        StreamOutcome::Interrupted(StreamError::PeerAborted { reason, .. }) => {
+            assert_eq!(reason, Reason::PluginNotLoaded, "past the gate")
+        }
+        other => panic!("expected PluginNotLoaded, got {other:?}"),
+    }
+
+    // One-shot dispatch still answers on the very same endpoint.
+    match ask(&client, &daemon).await {
+        RemoteOutcome::Err { code, .. } => assert_eq!(code, RemoteErrorCode::PluginNotLoaded),
+        other => panic!("unexpected {other:?}"),
+    }
+
+    store.revoke(&client.local_peer_id()).expect("revoke");
+    assert!(matches!(
+        stream_outcome(&client, &daemon).await,
+        StreamOutcome::Interrupted(StreamError::PeerAborted {
+            reason: Reason::NotAuthorized,
+            ..
+        })
+    ));
 }

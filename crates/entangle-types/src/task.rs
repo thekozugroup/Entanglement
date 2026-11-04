@@ -276,26 +276,57 @@ impl OneShotTask {
     }
 }
 
-/// Channel parameters for a streaming task.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+/// Channel parameters for a streaming task (spec §7.1).
+///
+/// Every limit is declared by the submitter and enforced by **both** ends:
+/// the executor refuses to exceed it and the submitter tears the stream down
+/// if the executor does anyway (defense in depth, §7.1 DoS table).
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ChannelSpec {
     /// Maximum size of a single chunk in bytes (default: 1 MiB).
     pub max_chunk_bytes: u64,
-    /// Maximum cumulative transfer size in bytes (default: 256 MiB).
+    /// Maximum cumulative transfer size in bytes, per direction (default:
+    /// 256 MiB). Crossing it closes the stream with `TotalBytesExceeded`.
     pub max_total_bytes: u64,
-    /// Back-pressure credit window in chunk units (default: 16).
+    /// Back-pressure credit window in chunk units (default: 16): the
+    /// executor may have at most this many chunks unacknowledged.
     pub credit_window: u32,
-    /// Heartbeat interval in milliseconds (default: 5 000).
+    /// Heartbeat interval in milliseconds (default: 5 000). Three
+    /// consecutive missed pongs close the stream with `PeerLost`.
     pub heartbeat_ms: u32,
+    /// How long, in milliseconds, an executor with zero credit waits for a
+    /// `Credit` frame before it reports the stream as stalled — the spec's
+    /// `task_timeout` / `credit_exhaustion_timeout` (default: 30 minutes).
+    /// A stall that lasts twice this long cancels the stream.
+    #[serde(default = "ChannelSpec::default_credit_exhaustion_timeout_ms")]
+    pub credit_exhaustion_timeout_ms: u64,
+}
+
+impl ChannelSpec {
+    /// Default `max_chunk_bytes` (1 MiB).
+    pub const DEFAULT_MAX_CHUNK_BYTES: u64 = 1024 * 1024;
+    /// Default `max_total_bytes` (256 MiB).
+    pub const DEFAULT_MAX_TOTAL_BYTES: u64 = 256 * 1024 * 1024;
+    /// Default `credit_window` (16 chunks).
+    pub const DEFAULT_CREDIT_WINDOW: u32 = 16;
+    /// Default `heartbeat_ms` (5 s).
+    pub const DEFAULT_HEARTBEAT_MS: u32 = 5_000;
+    /// Default `credit_exhaustion_timeout_ms` (30 minutes, spec §7.1).
+    pub const DEFAULT_CREDIT_EXHAUSTION_TIMEOUT_MS: u64 = 30 * 60 * 1_000;
+
+    fn default_credit_exhaustion_timeout_ms() -> u64 {
+        Self::DEFAULT_CREDIT_EXHAUSTION_TIMEOUT_MS
+    }
 }
 
 impl Default for ChannelSpec {
     fn default() -> Self {
         Self {
-            max_chunk_bytes: 1024 * 1024,
-            max_total_bytes: 256 * 1024 * 1024,
-            credit_window: 16,
-            heartbeat_ms: 5_000,
+            max_chunk_bytes: Self::DEFAULT_MAX_CHUNK_BYTES,
+            max_total_bytes: Self::DEFAULT_MAX_TOTAL_BYTES,
+            credit_window: Self::DEFAULT_CREDIT_WINDOW,
+            heartbeat_ms: Self::DEFAULT_HEARTBEAT_MS,
+            credit_exhaustion_timeout_ms: Self::DEFAULT_CREDIT_EXHAUSTION_TIMEOUT_MS,
         }
     }
 }
@@ -308,7 +339,8 @@ pub enum PartialResultPolicy {
     Discard,
     /// Keep partial results as-is.
     Keep,
-    /// Keep partial results only if they carry a valid plugin signature.
+    /// Keep partial results only if they carry a valid executor signature
+    /// (the signed chunk transcript is kept with them, for attribution).
     KeepSigned,
 }
 
@@ -321,16 +353,52 @@ pub struct StreamingTask {
     pub id: TaskId,
     /// Plugin to invoke.
     pub plugin: PluginId,
+    /// Initial input (prompt, parameters) handed to the plugin's
+    /// `start-stream` export. Further input may follow as inbound chunks.
+    #[serde(default)]
+    pub input: Vec<u8>,
+    /// Maximum accepted size of `input` in bytes (default: 16 MiB).
+    #[serde(default = "StreamingTask::default_max_input_bytes")]
+    pub max_input_bytes: u64,
     /// Channel configuration.
     pub channel: ChannelSpec,
     /// Resource requirements for the task.
     pub resources: ResourceSpec,
-    /// Integrity verification policy.
+    /// Integrity verification policy. Only `TrustedExecutor` and `None` are
+    /// valid for a stream (§7.5); the scheduler refuses the others at submit
+    /// time.
     pub integrity: IntegrityPolicy,
-    /// Wall-clock timeout in milliseconds.
+    /// Wall-clock timeout for the whole stream, in milliseconds.
     pub timeout_ms: u64,
     /// Partial-result retention policy.
     pub partial_result: PartialResultPolicy,
+}
+
+impl StreamingTask {
+    /// Default for `max_input_bytes` (16 MiB, as for a one-shot task).
+    pub const DEFAULT_MAX_INPUT_BYTES: u64 = OneShotTask::DEFAULT_MAX_INPUT_BYTES;
+    /// Default wall-clock timeout for a whole stream (1 hour).
+    pub const DEFAULT_TIMEOUT_MS: u64 = 60 * 60 * 1_000;
+
+    fn default_max_input_bytes() -> u64 {
+        Self::DEFAULT_MAX_INPUT_BYTES
+    }
+
+    /// A streaming task with spec-default channel limits, `IntegrityPolicy::None`
+    /// and `PartialResultPolicy::Keep`.
+    pub fn with_defaults(plugin: PluginId, input: Vec<u8>) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4(),
+            plugin,
+            input,
+            max_input_bytes: Self::DEFAULT_MAX_INPUT_BYTES,
+            channel: ChannelSpec::default(),
+            resources: ResourceSpec::default(),
+            integrity: IntegrityPolicy::None,
+            timeout_ms: Self::DEFAULT_TIMEOUT_MS,
+            partial_result: PartialResultPolicy::Keep,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -344,6 +412,36 @@ mod tests {
         assert_eq!(c.max_total_bytes, 256 * 1024 * 1024);
         assert_eq!(c.credit_window, 16);
         assert_eq!(c.heartbeat_ms, 5_000);
+        assert_eq!(c.credit_exhaustion_timeout_ms, 30 * 60 * 1_000);
+    }
+
+    /// A channel spec serialised before `credit_exhaustion_timeout_ms`
+    /// existed still deserialises, with the spec default.
+    #[test]
+    fn channel_spec_without_credit_timeout_gets_the_default() {
+        let old =
+            r#"{"max_chunk_bytes":10,"max_total_bytes":100,"credit_window":2,"heartbeat_ms":50}"#;
+        let c: ChannelSpec = serde_json::from_str(old).unwrap();
+        assert_eq!(
+            c.credit_exhaustion_timeout_ms,
+            ChannelSpec::DEFAULT_CREDIT_EXHAUSTION_TIMEOUT_MS
+        );
+        assert_eq!(c.credit_window, 2);
+    }
+
+    #[test]
+    fn streaming_task_defaults_and_round_trip() {
+        let plugin: PluginId = "0123456789abcdef0123456789abcdef/s@0.1.0".parse().unwrap();
+        let task = StreamingTask::with_defaults(plugin, b"prompt".to_vec());
+        assert_eq!(task.max_input_bytes, 16 * 1024 * 1024);
+        assert_eq!(task.integrity, IntegrityPolicy::None);
+        assert_eq!(task.partial_result, PartialResultPolicy::Keep);
+        assert_eq!(task.channel, ChannelSpec::default());
+        let json = serde_json::to_string(&task).unwrap();
+        let back: StreamingTask = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.input, b"prompt");
+        assert_eq!(back.id, task.id);
+        assert_eq!(back.channel, task.channel);
     }
 
     #[test]

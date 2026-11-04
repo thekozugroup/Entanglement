@@ -16,6 +16,9 @@
 //! - `mesh/status`  → local_peer_id (identity-derived), display_name, real transport list, counts
 //! - `metrics/export` → `{ "text": "<Prometheus exposition>" }` (what `GET /metrics` serves)
 //! - `diag/mesh`    → mesh triage report, optionally with per-peer round-trip probes
+//! - `security/plan-max-tier` → params `MaxTierParams` → `MaxTierPlan` (dry run)
+//! - `security/apply-max-tier` → params `MaxTierApplyParams` → `MaxTierApplied`
+//! - `security/cancel-max-tier` → params `MaxTierParams` → null
 //! - `perms/list`   → params `{ "plugin_id"?: "<id>" }` → `PermsListResult`: each
 //!   plugin's declared capabilities and their grant state (granted / denied /
 //!   revoked / not-granted)
@@ -27,11 +30,13 @@
 
 use crate::state::DaemonState;
 use entangle_rpc::methods::{
-    method, ComputeDispatchParams, ComputeDispatchResult, ComputeIntegrity, DiagMeshParams,
+    method, AffectedPlugin, ComputeDispatchParams, ComputeDispatchResult, ComputeIntegrity,
+    DiagMeshParams, MaxTierApplied, MaxTierApplyParams, MaxTierParams, MaxTierPlan,
     MeshStatusResult, MetricsExportResult, PermsListParams, PermsRevokeParams, PermsRevokeResult,
     PluginsInvokeParams, PluginsInvokeResult, PluginsListResult, PluginsLoadParams,
     PluginsLoadResult, PluginsUnloadParams,
 };
+use entangle_runtime::MaxTierRefusal;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::Instrument as _;
@@ -175,6 +180,13 @@ async fn route(req: Req, state: &Arc<DaemonState>) -> String {
         m if m == method::COMPUTE_DISPATCH => {
             handle_compute_dispatch(req.id, req.params, state).await
         }
+        m if m == method::SECURITY_PLAN_MAX_TIER => handle_security_plan(req.id, req.params, state),
+        m if m == method::SECURITY_APPLY_MAX_TIER => {
+            handle_security_apply(req.id, req.params, state).await
+        }
+        m if m == method::SECURITY_CANCEL_MAX_TIER => {
+            handle_security_cancel(req.id, req.params, state)
+        }
         m if m == method::METRICS_EXPORT => ok_resp(
             req.id,
             MetricsExportResult {
@@ -290,6 +302,141 @@ async fn handle_plugins_invoke(
         Ok(output) => ok_resp(id, PluginsInvokeResult { output }),
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
+}
+
+// ── security/*-max-tier ───────────────────────────────────────────────────────
+
+fn parse_tier(id: &serde_json::Value, n: u8) -> Result<entangle_types::tier::Tier, String> {
+    entangle_types::tier::Tier::try_from(n)
+        .map_err(|e| error_resp(id.clone(), -32602, format!("invalid max_tier {n}: {e}")))
+}
+
+fn affected_wire(infos: &[entangle_runtime::LoadedPluginInfo]) -> Vec<AffectedPlugin> {
+    infos
+        .iter()
+        .map(|i| AffectedPlugin {
+            plugin_id: i.plugin.to_string(),
+            tier: i.tier as u8,
+            native: i.native,
+            uptime_secs: i.uptime.as_secs(),
+        })
+        .collect()
+}
+
+/// `security/plan-max-tier`: read-only delta set (spec §9.4.1 step 1).
+fn handle_security_plan(
+    id: serde_json::Value,
+    params: serde_json::Value,
+    state: &Arc<DaemonState>,
+) -> String {
+    let p: MaxTierParams = match serde_json::from_value(params) {
+        Ok(v) => v,
+        Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
+    };
+    let requested = match parse_tier(&id, p.max_tier) {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    let current = state.kernel.max_tier_allowed();
+    let affected = if requested < current {
+        affected_wire(&state.kernel.plugins_above(requested))
+    } else {
+        Vec::new()
+    };
+    ok_resp(
+        id,
+        MaxTierPlan {
+            current: current as u8,
+            requested: requested as u8,
+            affected,
+        },
+    )
+}
+
+/// `security/apply-max-tier`: change the ceiling at runtime. Never unloads
+/// unless `unload` is set; the CLI sets it only after the operator chose
+/// unload-and-disable or passed `--force-unload`.
+async fn handle_security_apply(
+    id: serde_json::Value,
+    params: serde_json::Value,
+    state: &Arc<DaemonState>,
+) -> String {
+    let p: MaxTierApplyParams = match serde_json::from_value(params) {
+        Ok(v) => v,
+        Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
+    };
+    let new = match parse_tier(&id, p.max_tier) {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    let confirmed: Option<Vec<entangle_types::plugin_id::PluginId>> = match p
+        .confirmed
+        .map(|ids| ids.iter().map(|s| s.parse()).collect::<Result<Vec<_>, _>>())
+        .transpose()
+    {
+        Ok(c) => c,
+        Err(e) => return error_resp(id, -32602, format!("invalid confirmed plugin id: {e}")),
+    };
+    let ids = |v: &[entangle_runtime::LoadedPluginInfo]| {
+        v.iter()
+            .map(|a| a.plugin.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    match state
+        .kernel
+        .apply_max_tier(new, p.unload, confirmed.as_deref())
+        .await
+    {
+        Ok(o) => ok_resp(
+            id,
+            MaxTierApplied {
+                old: o.old as u8,
+                new: o.new as u8,
+                unloaded: o.unloaded.iter().map(|p| p.to_string()).collect(),
+            },
+        ),
+        Err(MaxTierRefusal::NeedsUnload(affected)) => error_resp(
+            id,
+            -32001,
+            format!(
+                "ENTANGLE-E0750: lowering max_tier_allowed to {} would unload {} plugin(s): {}",
+                p.max_tier,
+                affected.len(),
+                ids(&affected)
+            ),
+        ),
+        Err(MaxTierRefusal::Unconfirmed(unseen)) => error_resp(
+            id,
+            -32001,
+            format!(
+                "ENTANGLE-E0758: lowering max_tier_allowed to {} would also unload {} plugin(s) \
+                 that were not on the confirmed list (loaded since it was shown): {}; nothing \
+                 was changed",
+                p.max_tier,
+                unseen.len(),
+                ids(&unseen)
+            ),
+        ),
+    }
+}
+
+/// `security/cancel-max-tier`: audit a cancelled lowering (`ENTANGLE-I0216`).
+fn handle_security_cancel(
+    id: serde_json::Value,
+    params: serde_json::Value,
+    state: &Arc<DaemonState>,
+) -> String {
+    let p: MaxTierParams = match serde_json::from_value(params) {
+        Ok(v) => v,
+        Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
+    };
+    let requested = match parse_tier(&id, p.max_tier) {
+        Ok(t) => t,
+        Err(resp) => return resp,
+    };
+    state.kernel.record_lowering_cancelled(requested);
+    ok_resp(id, serde_json::Value::Null)
 }
 
 // ── perms/* ───────────────────────────────────────────────────────────────────

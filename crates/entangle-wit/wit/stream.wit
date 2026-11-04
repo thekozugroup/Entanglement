@@ -1,5 +1,17 @@
 package entangle:plugin@0.1.0;
 
+/// Chunked I/O for components of the `stream-plugin` world (spec §7.1).
+///
+/// A streaming invocation has two streams, named by fixed handles:
+///
+/// * handle `0` — the **output** stream. The plugin produces it by calling
+///   `yield-chunk(0, bytes)` from inside its `start-stream` export, one call
+///   per chunk, and ends it by returning `ok(0)` from `start-stream`.
+/// * handle `1` — the **input** stream: chunks the submitter sends while the
+///   task runs (e.g. additional turns). The plugin consumes it with
+///   `next-chunk(1)`.
+///
+/// Any other handle is an error.
 interface %stream {
   variant chunk-result {
     ok(list<u8>),
@@ -7,10 +19,17 @@ interface %stream {
     error(string),
   }
 
-  /// Yield one chunk. Blocks until host has credit, or returns `error`
-  /// if heartbeat missed (per §7.1 max_total_bytes / heartbeat_ms).
+  /// Yield one chunk on the output stream.
+  ///
+  /// Blocks while the submitter has granted no credit (backpressure).
+  /// Returns `error` once the stream can no longer carry chunks: cancelled by
+  /// the submitter, lost (three missed heartbeats), stalled past its credit
+  /// timeout, or over its `max_chunk_bytes` / `max_total_bytes` limits. A
+  /// plugin should return from `start-stream` when this fails.
   yield-chunk: func(handle: u64, chunk: list<u8>) -> result<_, string>;
 
-  /// Read one chunk from a stream the plugin is consuming.
+  /// Read the next chunk of the input stream: `ok` with the bytes, `end`
+  /// once the submitter has finished sending, or `error` if the stream
+  /// closed before that.
   next-chunk: func(handle: u64) -> chunk-result;
 }

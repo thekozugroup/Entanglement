@@ -26,7 +26,8 @@ const MAX_WASM_STACK_BYTES: usize = 512 * 1024;
 /// should be shared across all plugin loads within a single broker process.
 ///
 /// Owns two pieces of shared infrastructure:
-/// - A pre-built [`Linker`] (WASI p2 + `entangle:plugin` host imports), so
+/// - A pre-built [`Linker`] (WASI p2 + `entangle:plugin` host imports,
+///   including `entangle:plugin/stream` for stream plugins), so
 ///   linker construction is paid once instead of on every invocation.
 /// - A background epoch-ticker thread that increments the engine epoch every
 ///   `EPOCH_TICK_MS`. Each store sets its own absolute epoch deadline, so
@@ -98,6 +99,16 @@ impl HostEngine {
         >(&mut linker, |s| s)
         .context("replace wasi:sockets/udp")?;
         linker.allow_shadowing(false);
+        // The `stream-plugin` world imports everything above plus
+        // `entangle:plugin/stream`; only that interface is added here (the
+        // shared ones are already linked). A one-shot invocation has no
+        // stream attached, so the import fails cleanly if a non-stream
+        // component calls it.
+        crate::stream::bindings::entangle::plugin::stream::add_to_linker::<
+            HostState,
+            wasmtime::component::HasSelf<HostState>,
+        >(&mut linker, |s| s)
+        .context("add entangle:plugin/stream host imports to linker")?;
 
         // Lifetime epoch ticker. Holds only a weak engine handle so it never
         // keeps the engine alive; exits when the last strong handle is gone

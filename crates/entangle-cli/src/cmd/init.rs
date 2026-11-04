@@ -502,6 +502,7 @@ pub(crate) async fn ensure_initialised(
                 allow_unsandboxed_native: false,
                 deny_capabilities: Vec::new(),
             },
+            ..Config::default()
         };
         config::save(&cfg_path, &cfg)?;
         println!("  Wrote {}", cfg_path.display());

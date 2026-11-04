@@ -1,0 +1,13 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/stream-lines@0.1.0"   # PUBLISHER_PLACEHOLDER is replaced with the real publisher fingerprint at build time
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "Streaming task: emits its text input one line per chunk, then each line of every inbound chunk, as the submitter grants credit"
+
+[capabilities]
+# tier 1: pure compute. No filesystem, no network, no capability handles.
+
+[build]
+wit_world = "entangle:plugin@0.1.0/stream-plugin"
+target = "wasm32-wasip2"

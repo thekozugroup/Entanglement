@@ -4,7 +4,9 @@
 //!
 //! * **server** — [`spawn_task_server`] serves
 //!   [`ALPN_SCHEDULER`] so trusted peers
-//!   can run work on this node's kernel;
+//!   can run work on this node's kernel, and [`spawn_stream_server`] serves
+//!   streaming tasks ([`ALPN_STREAM`], spec §7.1) on the **same endpoint and
+//!   port**, behind the same allowlist;
 //! * **client** — [`directory_from_config`] turns configured peer addresses
 //!   into an address book so this node can send work out.
 //!
@@ -29,11 +31,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use entangle_mesh_iroh::{
-    parse_node_addr, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER,
+    parse_node_addr, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER, ALPN_STREAM,
 };
 use entangle_peers::{PeerStore, TrustLevel};
 use entangle_runtime::Kernel;
-use entangle_scheduler::{PeerAllowlist, PeerDirectory, RemoteTaskServer};
+use entangle_scheduler::{PeerAllowlist, PeerDirectory, RemoteTaskServer, StreamServer};
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
 
@@ -82,9 +84,10 @@ impl PeerAllowlist for PeerStoreAllowlist {
 
 /// Start the QUIC endpoint that carries scheduler traffic.
 ///
-/// Bound to `cfg.bind` and speaking [`ALPN_SCHEDULER`] — never
+/// Bound to `cfg.bind` and speaking [`ALPN_SCHEDULER`], plus
+/// [`ALPN_STREAM`] for streaming tasks on the same socket — never
 /// `ALPN_CONTROL`, so scheduler traffic cannot arrive on, or be confused
-/// with, the membership protocol.
+/// with, the membership protocol. One port and one long address serve both.
 pub async fn start_scheduler_transport(
     cfg: &SchedulerConfig,
     identity: &IdentityKeyPair,
@@ -99,6 +102,7 @@ pub async fn start_scheduler_transport(
             bind,
             allow_derp_relay: cfg.relay,
             alpn: ALPN_SCHEDULER.to_vec(),
+            extra_alpns: vec![ALPN_STREAM.to_vec()],
             ..MeshIrohConfig::default()
         },
         identity,
@@ -147,6 +151,28 @@ pub fn spawn_task_server_with_metrics(
     }
     let server = Arc::new(server);
     tokio::spawn(entangle_scheduler::serve_tasks(transport, server))
+}
+
+/// Serve streaming tasks (`entangle/stream/1`) on `transport` for peers
+/// `store` authorizes.
+///
+/// The same [`PeerStoreAllowlist`] gate as [`spawn_task_server`], checked
+/// before any byte of a stream is decoded. Chunks are signed with
+/// `identity` — the daemon identity, which is also the transport's — so a
+/// submitter verifies them against the key the QUIC handshake proved.
+pub fn spawn_stream_server(
+    transport: Arc<MeshIroh>,
+    kernel: Arc<Kernel>,
+    store: PeerStore,
+    identity: IdentityKeyPair,
+) -> tokio::task::JoinHandle<()> {
+    let allowlist = Arc::new(PeerStoreAllowlist::new(store));
+    tracing::info!(
+        trusted_peers = ?allowlist,
+        "serving streaming tasks for trusted peers",
+    );
+    let server = Arc::new(StreamServer::new(kernel, allowlist, identity));
+    tokio::spawn(entangle_scheduler::serve_streams(transport, server))
 }
 
 /// Build the outbound address book from `[scheduler] peers`.

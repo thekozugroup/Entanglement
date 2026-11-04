@@ -11,6 +11,7 @@
 //! | E0300–E0301 | Task execution                 |
 //! | E0302–E0305 | Integrity policy (see `entangle-runtime`) |
 //! | E0306–E0349 | Integrity verification: metrics, policy envelope, quorum (`entangle_runtime::IntegrityError`; E0306–E0318 in use) |
+//! | E0350–E0399 | Streaming tasks: submit-time validation, credit, heartbeat, chunk signing, size caps (`entangle_scheduler::stream::StreamError`; E0350–E0371 in use) |
 //! | E0500–E0506 | Wasm host (see `entangle-host`) |
 //! | E0507       | Host artifact checks: runtime-kind sniffing (see `entangle-host`) |
 //! | E0508–E0519 | Host: realising capability grants in a wasm instance (storage root, scope directories, unsafe paths; E0508–E0510 in use, and E0511 for an invocation stopped because a network grant was withdrawn while it ran; see `entangle-host`) |
@@ -22,6 +23,7 @@
 //! | E0700–E0719 | OS-sandbox engagement (see `entangle-sandbox`) |
 //! | E0720–E0739 | Native-plugin supervisor (see `entangle-sandbox`) |
 //! | E0740–E0749 | Native-plugin runtime glue (see `entangle-runtime::native`) |
+//! | E0750–E0779 | Operator safety UX: shell wrappers, `max_tier_allowed` lowering (see `entangle-cli` `cmd::wrapper`, `cmd::security`; `entangle-bin` RPC `security/*`) |
 //! | E0800–E0829 | OCI registry distribution and mirror listings (see `entangle-oci`; E0800–E0819 in use) |
 //! | E0900       | I/O                            |
 //! | E9999       | Internal / unexpected          |

@@ -88,6 +88,53 @@ pub enum AuditEvent {
         /// Wall-clock time of the release.
         at: SystemTime,
     },
+    /// `ENTANGLE-W0214` — a plugin was unloaded and disabled because the
+    /// operator lowered `[security] max_tier_allowed` below its tier
+    /// (spec §9.4.1, lowering workflow step 4). One event per plugin.
+    PluginDisabledByCeiling {
+        /// The unloaded plugin.
+        plugin: PluginId,
+        /// The plugin's effective tier.
+        tier: Tier,
+        /// The ceiling before the change.
+        old_ceiling: Tier,
+        /// The ceiling now in force.
+        new_ceiling: Tier,
+        /// Wall-clock time of the unload.
+        at: SystemTime,
+    },
+    /// `ENTANGLE-I0215` — summary written after a ceiling was lowered.
+    CeilingLowered {
+        /// The ceiling before the change.
+        old_ceiling: Tier,
+        /// The ceiling now in force.
+        new_ceiling: Tier,
+        /// How many plugins were unloaded to honour it.
+        unloaded: u32,
+        /// Wall-clock time of the change.
+        at: SystemTime,
+    },
+    /// `ENTANGLE-I0217` — the tier ceiling was raised at runtime (spec
+    /// §9.4.1: raising is "a privileged, audited operation"). Raising never
+    /// unloads anything.
+    CeilingRaised {
+        /// The ceiling before the change.
+        old_ceiling: Tier,
+        /// The ceiling now in force.
+        new_ceiling: Tier,
+        /// Wall-clock time of the change.
+        at: SystemTime,
+    },
+    /// `ENTANGLE-I0216` — the operator cancelled a ceiling lowering; the
+    /// previous ceiling stays in force.
+    CeilingLoweringCancelled {
+        /// The ceiling that remains in force.
+        current: Tier,
+        /// The ceiling the operator asked for and then cancelled.
+        requested: Tier,
+        /// Wall-clock time of the cancellation.
+        at: SystemTime,
+    },
 }
 
 /// Discriminator for filtering [`AuditEvent`]s.
@@ -105,6 +152,14 @@ pub enum AuditKind {
     CapabilityReleased,
     /// Matches [`AuditEvent::CapabilityRevoked`].
     CapabilityRevoked,
+    /// Matches [`AuditEvent::PluginDisabledByCeiling`] (`ENTANGLE-W0214`).
+    PluginDisabledByCeiling,
+    /// Matches [`AuditEvent::CeilingLowered`] (`ENTANGLE-I0215`).
+    CeilingLowered,
+    /// Matches [`AuditEvent::CeilingLoweringCancelled`] (`ENTANGLE-I0216`).
+    CeilingLoweringCancelled,
+    /// Matches [`AuditEvent::CeilingRaised`] (`ENTANGLE-I0217`).
+    CeilingRaised,
 }
 
 impl AuditEvent {
@@ -117,6 +172,22 @@ impl AuditEvent {
             AuditEvent::CapabilityDenied { .. } => AuditKind::CapabilityDenied,
             AuditEvent::CapabilityReleased { .. } => AuditKind::CapabilityReleased,
             AuditEvent::CapabilityRevoked { .. } => AuditKind::CapabilityRevoked,
+            AuditEvent::PluginDisabledByCeiling { .. } => AuditKind::PluginDisabledByCeiling,
+            AuditEvent::CeilingLowered { .. } => AuditKind::CeilingLowered,
+            AuditEvent::CeilingLoweringCancelled { .. } => AuditKind::CeilingLoweringCancelled,
+            AuditEvent::CeilingRaised { .. } => AuditKind::CeilingRaised,
+        }
+    }
+
+    /// Stable `ENTANGLE-W/I` code for operator-facing events, if this event
+    /// has one (the ceiling-lowering family, spec §9.4.1).
+    pub fn code(&self) -> Option<&'static str> {
+        match self {
+            AuditEvent::PluginDisabledByCeiling { .. } => Some("ENTANGLE-W0214"),
+            AuditEvent::CeilingLowered { .. } => Some("ENTANGLE-I0215"),
+            AuditEvent::CeilingLoweringCancelled { .. } => Some("ENTANGLE-I0216"),
+            AuditEvent::CeilingRaised { .. } => Some("ENTANGLE-I0217"),
+            _ => None,
         }
     }
 
@@ -129,6 +200,10 @@ impl AuditEvent {
             AuditEvent::CapabilityDenied { at, .. } => at,
             AuditEvent::CapabilityReleased { at, .. } => at,
             AuditEvent::CapabilityRevoked { at, .. } => at,
+            AuditEvent::PluginDisabledByCeiling { at, .. } => at,
+            AuditEvent::CeilingLowered { at, .. } => at,
+            AuditEvent::CeilingLoweringCancelled { at, .. } => at,
+            AuditEvent::CeilingRaised { at, .. } => at,
         }
     }
 }
@@ -178,7 +253,18 @@ impl AuditLog {
     /// When the log is at capacity the oldest retained event is evicted and
     /// the dropped counter incremented.
     pub fn record(&self, e: AuditEvent) {
-        tracing::info!(target: "entangle::audit", event = ?e, "broker audit");
+        // Operator-facing events carry their stable code as a field (so the
+        // daemon log can be grepped for e.g. `ENTANGLE-W0214`, spec §9.4.1
+        // step 4), and W-codes are logged as warnings.
+        match e.code() {
+            Some(code) if code.starts_with("ENTANGLE-W") => {
+                tracing::warn!(target: "entangle::audit", code, event = ?e, "broker audit")
+            }
+            Some(code) => {
+                tracing::info!(target: "entangle::audit", code, event = ?e, "broker audit")
+            }
+            None => tracing::info!(target: "entangle::audit", event = ?e, "broker audit"),
+        }
         let mut events = self.events.lock();
         while events.len() >= self.max_events {
             events.pop_front();
@@ -323,6 +409,59 @@ mod tests {
         let denied = log.filter(t, Some(AuditKind::CapabilityDenied));
         assert_eq!(denied.len(), 1);
         assert_eq!(denied[0].kind(), AuditKind::CapabilityDenied);
+    }
+
+    /// Spec §9.4.1 step 4: "the daemon emits a structured ENTANGLE-W0214
+    /// warning per plugin". The `entangle::audit` log line of an event with a
+    /// stable code carries that code as a field, and W-codes log at WARN.
+    #[test]
+    fn coded_events_log_their_code_and_warnings_at_warn_level() {
+        use std::sync::{Arc, Mutex};
+        #[derive(Clone)]
+        struct Buf(Arc<Mutex<Vec<u8>>>);
+        impl std::io::Write for Buf {
+            fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(b);
+                Ok(b.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let buf = Buf(Arc::new(Mutex::new(Vec::new())));
+        let writer = buf.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(move || writer.clone())
+            .with_ansi(false)
+            .with_max_level(tracing::Level::TRACE)
+            .finish();
+        let log = AuditLog::default();
+        tracing::subscriber::with_default(subscriber, || {
+            log.record(AuditEvent::PluginDisabledByCeiling {
+                plugin: plugin("hot"),
+                tier: Tier::Native,
+                old_ceiling: Tier::Native,
+                new_ceiling: Tier::Networked,
+                at: SystemTime::UNIX_EPOCH,
+            });
+            log.record(AuditEvent::CeilingLowered {
+                old_ceiling: Tier::Native,
+                new_ceiling: Tier::Networked,
+                unloaded: 1,
+                at: SystemTime::UNIX_EPOCH,
+            });
+        });
+        let out = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
+        let lines: Vec<&str> = out.lines().collect();
+        assert_eq!(lines.len(), 2, "{out}");
+        assert!(
+            lines[0].contains("WARN") && lines[0].contains("ENTANGLE-W0214"),
+            "{out}"
+        );
+        assert!(
+            lines[1].contains("INFO") && lines[1].contains("ENTANGLE-I0215"),
+            "{out}"
+        );
     }
 
     fn registered(name: &str, at: SystemTime) -> AuditEvent {

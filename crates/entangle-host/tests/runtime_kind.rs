@@ -2,8 +2,8 @@
 //! runtime kind is rejected when `entangle-host` instantiates it.
 
 use entangle_host::{
-    check_runtime_kind, runtime_kind::HOST_NATIVE_FORMAT, ArtifactKind, DeclaredRuntime,
-    HostEngine, HostError, LoadedPlugin,
+    check_runtime_kind, runtime_kind::HOST_NATIVE_FORMAT, ArtifactKind, CompiledPlugin,
+    DeclaredRuntime, HostEngine, HostError, LoadedPlugin, LoadedStreamPlugin,
 };
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 
@@ -99,4 +99,32 @@ fn honest_artifacts_pass() {
     let engine = HostEngine::new().unwrap();
     LoadedPlugin::from_bytes(&engine, &hello_pong_component(), plugin_id(), Tier::Pure)
         .expect("the real component still loads");
+}
+
+/// The world-classifying loader the kernel uses ([`CompiledPlugin`]) and the
+/// stream-plugin loader refuse a native executable exactly as
+/// [`LoadedPlugin::from_bytes`] does, and still classify the real component.
+#[test]
+fn compiled_and_stream_loaders_reject_native_executable() {
+    let engine = HostEngine::new().unwrap();
+    let elf = real_native_executable();
+    let expect_mismatch = |err: HostError| match err {
+        HostError::RuntimeKindMismatch { declared, observed } => {
+            assert_eq!(declared, DeclaredRuntime::Wasm);
+            assert_eq!(observed, HOST_NATIVE_FORMAT);
+        }
+        other => panic!("expected RuntimeKindMismatch, got {other}"),
+    };
+    match CompiledPlugin::from_bytes(&engine, &elf, plugin_id(), Tier::Pure) {
+        Err(e) => expect_mismatch(e),
+        Ok(_) => panic!("CompiledPlugin accepted a native executable"),
+    }
+    match LoadedStreamPlugin::from_bytes(&engine, &elf, plugin_id(), Tier::Pure) {
+        Err(e) => expect_mismatch(e),
+        Ok(_) => panic!("LoadedStreamPlugin accepted a native executable"),
+    }
+    let honest =
+        CompiledPlugin::from_bytes(&engine, &hello_pong_component(), plugin_id(), Tier::Pure)
+            .expect("the real component still loads");
+    assert_eq!(honest.world(), "plugin");
 }

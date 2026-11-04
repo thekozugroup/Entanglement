@@ -10,7 +10,8 @@ use entangle_broker::{
     Broker, BrokerError, BrokerPolicy, CapabilityPattern, CapabilityStatus, GrantId,
 };
 use entangle_host::{
-    check_runtime_kind, CapabilityContext, DeclaredRuntime, HostEngine, LoadedPlugin,
+    check_runtime_kind, CapabilityContext, CompiledPlugin, DeclaredRuntime, HostEngine, StreamPort,
+    StreamRunResult,
 };
 use entangle_ipc::{Bus, Envelope, Topic};
 use entangle_manifest::Runtime;
@@ -73,15 +74,73 @@ struct LoadedRecord {
     /// revoked the plugin is refused until it is reloaded — never run with
     /// authority the broker has withdrawn.
     sandbox_grants: Vec<entangle_broker::GrantedCapability>,
+    loaded_at: Instant,
+    /// Held shared by every running invocation (taken while the record is
+    /// still in the map); [`Kernel::unload`] takes it exclusively after
+    /// removing the record, i.e. waits for those invocations to finish.
+    inflight: Arc<tokio::sync::RwLock<()>>,
+}
+
+/// A running invocation's (one-shot or stream) share of
+/// [`LoadedRecord::inflight`].
+type InflightToken = tokio::sync::OwnedRwLockReadGuard<()>;
+
+/// A loaded plugin as reported by the lowering workflow ([`Kernel::plugins_above`]).
+#[derive(Clone, Debug)]
+pub struct LoadedPluginInfo {
+    /// The plugin.
+    pub plugin: PluginId,
+    /// Its effective tier.
+    pub tier: Tier,
+    /// True for a native subprocess, false for a Wasm component.
+    pub native: bool,
+    /// Time since it was loaded.
+    pub uptime: std::time::Duration,
+}
+
+/// Result of [`Kernel::apply_max_tier`].
+#[derive(Clone, Debug)]
+pub struct MaxTierOutcome {
+    /// Ceiling before the call.
+    pub old: Tier,
+    /// Ceiling now in force.
+    pub new: Tier,
+    /// Plugins that were unloaded to honour it.
+    pub unloaded: Vec<PluginId>,
+}
+
+/// Why [`Kernel::apply_max_tier`] refused to lower the ceiling. Nothing was
+/// changed in either case.
+#[derive(Clone, Debug)]
+pub enum MaxTierRefusal {
+    /// Lowering would unload these plugins and unloading was not authorised.
+    NeedsUnload(Vec<LoadedPluginInfo>),
+    /// Unloading was authorised for a confirmed list of plugins, but these
+    /// plugins above the new ceiling are not on it (typically loaded after
+    /// the operator saw the list). They are never unloaded unseen.
+    Unconfirmed(Vec<LoadedPluginInfo>),
 }
 
 /// How a loaded plugin executes.
 #[derive(Clone)]
 enum PluginImpl {
-    /// Wasm component in the shared Wasmtime engine.
-    Wasm(LoadedPlugin),
+    /// Wasm component in the shared Wasmtime engine, of either
+    /// `entangle:plugin` world (one-shot `run` or `start-stream`).
+    Wasm(CompiledPlugin),
     /// Native executable in a sandboxed subprocess (see [`crate::native`]).
+    /// Native plugins are one-shot only.
     Native(Arc<NativePlugin>),
+}
+
+impl PluginImpl {
+    /// The `entangle:plugin` world this plugin implements: `"plugin"` or
+    /// `"stream-plugin"`.
+    fn world(&self) -> &'static str {
+        match self {
+            Self::Wasm(p) => p.world(),
+            Self::Native(_) => "plugin",
+        }
+    }
 }
 
 /// The kernel's metric state (see [`Kernel::with_metrics`]).
@@ -395,29 +454,47 @@ impl Kernel {
                 return Err(e);
             }
         };
-        self.emit(&plugin_id, effective_tier, LifecyclePhase::Loaded);
 
         // ── Bookkeeping ───────────────────────────────────────────────────────
         // A concurrent load of the same id would have failed at broker
         // registration (insert-only), so the slot is expected to be vacant;
         // never overwrite an existing record.
-        match self.plugins.write().entry(plugin_id.clone()) {
-            std::collections::hash_map::Entry::Occupied(_) => {
-                return Err(RuntimeError::AlreadyLoaded(plugin_id));
+        //
+        // The ceiling is checked again here, under the `plugins` write lock
+        // that `apply_max_tier` holds while it lowers the ceiling and computes
+        // the delta set: the checks above ran under the ceiling in force at
+        // that time, and a lowering in between (while the component compiled
+        // or the native binary was staged) neither saw this plugin, which is
+        // not in `plugins` yet, nor refused it. Under the lock either the
+        // lowering already happened (refused here) or it happens after the
+        // insert (it then sees and unloads the plugin).
+        {
+            let mut plugins = self.plugins.write();
+            if let Err(e) = self.broker.policy().check_plugin_load(effective_tier) {
+                drop(plugins);
+                let _ = self.broker.unregister_plugin(&plugin_id);
+                return Err(BrokerError::from(e).into());
             }
-            std::collections::hash_map::Entry::Vacant(slot) => {
-                slot.insert(LoadedRecord {
-                    effective_tier,
-                    plugin,
-                    sandbox_grants,
-                });
-                if let Some(m) = &self.metrics {
-                    m.loaded_at
-                        .lock()
-                        .insert(plugin_id.to_string(), Instant::now());
+            match plugins.entry(plugin_id.clone()) {
+                std::collections::hash_map::Entry::Occupied(_) => {
+                    return Err(RuntimeError::AlreadyLoaded(plugin_id));
+                }
+                std::collections::hash_map::Entry::Vacant(slot) => {
+                    let loaded_at = Instant::now();
+                    slot.insert(LoadedRecord {
+                        effective_tier,
+                        plugin,
+                        sandbox_grants,
+                        loaded_at,
+                        inflight: Arc::new(tokio::sync::RwLock::new(())),
+                    });
+                    if let Some(m) = &self.metrics {
+                        m.loaded_at.lock().insert(plugin_id.to_string(), loaded_at);
+                    }
                 }
             }
         }
+        self.emit(&plugin_id, effective_tier, LifecyclePhase::Loaded);
 
         Ok(plugin_id)
     }
@@ -469,32 +546,27 @@ impl Kernel {
     ) -> Result<Vec<u8>, RuntimeError> {
         // Acquire the read lock, clone what we need, then release it before
         // the async call so we don't hold a lock across an .await point.
-        let (plugin, effective_tier) = {
-            let plugins = self.plugins.read();
-            let record = plugins
-                .get(plugin_id)
-                .ok_or_else(|| RuntimeError::NotLoaded(plugin_id.clone()))?;
-            // A native sandbox cannot shed a revoked grant: refuse instead.
-            if let Some(g) = record
-                .sandbox_grants
-                .iter()
-                .find(|g| !self.broker.is_live(plugin_id, g.grant_id))
-            {
-                return Err(RuntimeError::Broker(BrokerError::CapabilityRevoked {
-                    plugin: plugin_id.clone(),
-                    capability: g.kind.key().into_owned(),
-                }));
-            }
-            (record.plugin.clone(), record.effective_tier)
-        };
+        // The in-flight token is held until this invocation returns, so an
+        // unload (or a ceiling lowering) drains it before unregistering.
+        let (plugin, effective_tier, _inflight) = self.record(plugin_id)?;
+        if let PluginImpl::Wasm(CompiledPlugin::Stream(_)) = plugin {
+            return Err(RuntimeError::WrongWorld {
+                plugin: plugin_id.clone(),
+                expected: "plugin",
+                actual: plugin.world(),
+            });
+        }
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
         let result = match plugin {
-            PluginImpl::Wasm(p) => p
+            PluginImpl::Wasm(CompiledPlugin::OneShot(p)) => p
                 .run_one_shot(&self.engine, input, timeout_ms)
                 .await
                 .map(|r| r.output)
                 .map_err(RuntimeError::from),
+            PluginImpl::Wasm(CompiledPlugin::Stream(_)) => {
+                unreachable!("stream plugins are refused above")
+            }
             PluginImpl::Native(n) => n
                 .invoke(input, timeout_ms)
                 .await
@@ -542,10 +614,21 @@ impl Kernel {
         if let Some(root) = &self.config.native.data_dir {
             ctx = ctx.with_storage_root(root);
         }
-        let plugin =
-            LoadedPlugin::from_bytes(&self.engine, &pkg.bytes, plugin_id.clone(), effective_tier)?
-                .with_capabilities(ctx);
-        plugin.realise_capabilities().await?;
+        let plugin = match CompiledPlugin::from_bytes(
+            &self.engine,
+            &pkg.bytes,
+            plugin_id.clone(),
+            effective_tier,
+        )? {
+            CompiledPlugin::OneShot(p) => {
+                let p = p.with_capabilities(ctx);
+                p.realise_capabilities().await?;
+                CompiledPlugin::OneShot(p)
+            }
+            // Stream plugins run without capabilities (no preopens, no
+            // network, every fetch refused).
+            stream @ CompiledPlugin::Stream(_) => stream,
+        };
         Ok(PluginImpl::Wasm(plugin))
     }
 
@@ -564,6 +647,102 @@ impl Kernel {
             grants,
             &self.config.native,
         )?)
+    }
+
+    /// Run a loaded `stream-plugin` component's `start-stream(input)` with
+    /// `port` attached, until the plugin returns (spec §7.1).
+    ///
+    /// Chunks the plugin yields, and input it reads, flow through `port`;
+    /// the caller drives the other end. Bounded by `timeout_ms` exactly as a
+    /// one-shot invocation is. A one-shot plugin is
+    /// [`RuntimeError::WrongWorld`].
+    pub async fn invoke_stream(
+        &self,
+        plugin_id: &PluginId,
+        input: &[u8],
+        port: StreamPort,
+        timeout_ms: u64,
+    ) -> Result<StreamRunResult, RuntimeError> {
+        // The in-flight token is held for the whole stream, exactly as for a
+        // one-shot invocation: an unload, and so a ceiling lowering that
+        // affects this plugin, waits for the stream to end (it returns, times
+        // out, or its future is dropped) before releasing the plugin's grants.
+        // It is declared before the `Idled` guard, so it is released after
+        // `Idled` is published.
+        let (plugin, effective_tier, _inflight) = self.record(plugin_id)?;
+        let PluginImpl::Wasm(CompiledPlugin::Stream(plugin)) = plugin else {
+            return Err(RuntimeError::WrongWorld {
+                plugin: plugin_id.clone(),
+                expected: "stream-plugin",
+                actual: plugin.world(),
+            });
+        };
+
+        self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
+        // A stream routinely ends before the plugin returns (cancel, PeerLost,
+        // a size cap): the caller then drops this future. A drop guard
+        // publishes `Idled` on that path as well as on normal return.
+        let _idle = IdleOnDrop {
+            kernel: self,
+            plugin_id,
+            effective_tier,
+        };
+        let result = plugin
+            .run_stream(
+                &self.engine,
+                input,
+                port,
+                timeout_ms,
+                entangle_host::state::ResourceLimits::default(),
+            )
+            .await;
+        Ok(result?)
+    }
+
+    /// The `entangle:plugin` world a loaded plugin implements: `"plugin"`
+    /// (one-shot `run`) or `"stream-plugin"` (`start-stream`).
+    pub fn plugin_world(&self, plugin_id: &PluginId) -> Option<&'static str> {
+        self.plugins
+            .read()
+            .get(plugin_id)
+            .map(|record| record.plugin.world())
+    }
+
+    /// Clone a loaded plugin's implementation and tier and take its
+    /// in-flight token, releasing the lock before any `.await`. A native
+    /// plugin whose sandbox was derived from a grant since revoked is
+    /// refused (`ENTANGLE-E0125`) until it is reloaded.
+    ///
+    /// The caller holds the token for as long as the plugin's code runs
+    /// (a one-shot call or a whole stream). It is taken while the record is
+    /// still in the map, so an unload that removes the record afterwards
+    /// waits for the caller to drop it (taking it never fails here: unload
+    /// only waits for the token after the record is gone).
+    fn record(
+        &self,
+        plugin_id: &PluginId,
+    ) -> Result<(PluginImpl, Tier, InflightToken), RuntimeError> {
+        let plugins = self.plugins.read();
+        let record = plugins
+            .get(plugin_id)
+            .ok_or_else(|| RuntimeError::NotLoaded(plugin_id.clone()))?;
+        // A native sandbox cannot shed a revoked grant: refuse instead.
+        if let Some(g) = record
+            .sandbox_grants
+            .iter()
+            .find(|g| !self.broker.is_live(plugin_id, g.grant_id))
+        {
+            return Err(RuntimeError::Broker(BrokerError::CapabilityRevoked {
+                plugin: plugin_id.clone(),
+                capability: g.kind.key().into_owned(),
+            }));
+        }
+        let token = record
+            .inflight
+            .clone()
+            .try_read_owned()
+            .map_err(|_| RuntimeError::NotLoaded(plugin_id.clone()))?;
+        Ok((record.plugin.clone(), record.effective_tier, token))
     }
 
     /// Invoke a [`entangle_types::task::OneShotTask`] honoring its
@@ -636,9 +815,16 @@ impl Kernel {
         }
     }
 
-    /// Unload a currently-loaded plugin.
+    /// Unload a currently-loaded plugin, draining it first.
     ///
-    /// De-registers from the broker and emits a [`LifecyclePhase::Unloaded`] event.
+    /// From the moment this is called new invocations and streams fail with
+    /// [`RuntimeError::NotLoaded`]; invocations already running, one-shot
+    /// ([`Kernel::invoke`]) and streaming ([`Kernel::invoke_stream`]) alike,
+    /// are waited for (each is bounded by its own timeout, and a stream also
+    /// ends when its caller drops it), so the plugin's broker
+    /// grants are not released while its code still runs (spec §9.4.1 step 4:
+    /// "gracefully drained, then unloaded"). Then de-registers from the
+    /// broker and emits a [`LifecyclePhase::Unloaded`] event.
     pub async fn unload(&self, plugin: &PluginId) -> Result<(), RuntimeError> {
         let record = self
             .plugins
@@ -648,9 +834,138 @@ impl Kernel {
         if let Some(m) = &self.metrics {
             m.loaded_at.lock().remove(&plugin.to_string());
         }
+        let _drained = record.inflight.write().await;
         self.broker.unregister_plugin(plugin)?;
         self.emit(plugin, record.effective_tier, LifecyclePhase::Unloaded);
         Ok(())
+    }
+
+    /// The tier ceiling currently in force (may differ from the configured
+    /// one after [`Kernel::apply_max_tier`]).
+    pub fn max_tier_allowed(&self) -> Tier {
+        self.broker.policy().max_tier_allowed
+    }
+
+    /// Loaded plugins whose effective tier exceeds `ceiling` — the delta set
+    /// of the lowering workflow (spec §9.4.1) — with their tier and whether
+    /// they are native subprocesses, sorted by plugin id.
+    pub fn plugins_above(&self, ceiling: Tier) -> Vec<LoadedPluginInfo> {
+        Self::above(&self.plugins.read(), ceiling)
+    }
+
+    fn above(plugins: &HashMap<PluginId, LoadedRecord>, ceiling: Tier) -> Vec<LoadedPluginInfo> {
+        let mut v: Vec<LoadedPluginInfo> = plugins
+            .iter()
+            .filter(|(_, r)| r.effective_tier > ceiling)
+            .map(|(id, r)| LoadedPluginInfo {
+                plugin: id.clone(),
+                tier: r.effective_tier,
+                native: matches!(r.plugin, PluginImpl::Native(_)),
+                uptime: r.loaded_at.elapsed(),
+            })
+            .collect();
+        v.sort_by_key(|i| i.plugin.to_string());
+        v
+    }
+
+    /// Apply a new tier ceiling at runtime (spec §9.4.1).
+    ///
+    /// Raising (or keeping) the ceiling unloads nothing. Lowering it unloads
+    /// every plugin above the new ceiling **only if `unload` is true**;
+    /// otherwise, when the delta set is non-empty, nothing changes and the
+    /// affected plugins are returned in [`MaxTierRefusal::NeedsUnload`] so the
+    /// caller can prompt. With `confirmed` (the list the operator was shown
+    /// and agreed to), a delta set containing any other plugin is refused
+    /// with [`MaxTierRefusal::Unconfirmed`] and nothing changes. The
+    /// unload goes through [`Kernel::unload`], which drains invocations
+    /// already running (including active streams) and then releases the
+    /// broker grants; only then is the
+    /// plugin's `ENTANGLE-W0214` audit event recorded (one per plugin),
+    /// then an `ENTANGLE-I0215` summary. Afterwards loads above the ceiling
+    /// fail with `ENTANGLE-E0043`. Raising records `ENTANGLE-I0217`; applying
+    /// the ceiling already in force records nothing.
+    pub async fn apply_max_tier(
+        &self,
+        new: Tier,
+        unload: bool,
+        confirmed: Option<&[PluginId]>,
+    ) -> Result<MaxTierOutcome, MaxTierRefusal> {
+        // The delta set and the ceiling change are one step under the
+        // `plugins` write lock, which a load also holds when it re-checks the
+        // ceiling and records the plugin: a load in flight either landed
+        // before (it is in the delta set and unloaded below) or lands after
+        // (it is refused with ENTANGLE-E0043). Concurrent calls serialise here.
+        let (old, affected) = {
+            let plugins = self.plugins.write();
+            let old = self.max_tier_allowed();
+            let affected = if new < old {
+                Self::above(&plugins, new)
+            } else {
+                Vec::new()
+            };
+            if !affected.is_empty() && !unload {
+                return Err(MaxTierRefusal::NeedsUnload(affected));
+            }
+            if let Some(confirmed) = confirmed {
+                let unseen: Vec<LoadedPluginInfo> = affected
+                    .iter()
+                    .filter(|a| !confirmed.contains(&a.plugin))
+                    .cloned()
+                    .collect();
+                if !unseen.is_empty() {
+                    return Err(MaxTierRefusal::Unconfirmed(unseen));
+                }
+            }
+            self.broker.set_max_tier_allowed(new);
+            (old, affected)
+        };
+        let mut unloaded = Vec::new();
+        for info in &affected {
+            // A concurrent unload by the operator is fine: the plugin is gone
+            // either way, and is still reported as affected.
+            let _ = self.unload(&info.plugin).await;
+            self.broker
+                .audit_log()
+                .record(entangle_broker::AuditEvent::PluginDisabledByCeiling {
+                    plugin: info.plugin.clone(),
+                    tier: info.tier,
+                    old_ceiling: old,
+                    new_ceiling: new,
+                    at: std::time::SystemTime::now(),
+                });
+            unloaded.push(info.plugin.clone());
+        }
+        if new < old {
+            self.broker
+                .audit_log()
+                .record(entangle_broker::AuditEvent::CeilingLowered {
+                    old_ceiling: old,
+                    new_ceiling: new,
+                    unloaded: unloaded.len() as u32,
+                    at: std::time::SystemTime::now(),
+                });
+        } else if new > old {
+            self.broker
+                .audit_log()
+                .record(entangle_broker::AuditEvent::CeilingRaised {
+                    old_ceiling: old,
+                    new_ceiling: new,
+                    at: std::time::SystemTime::now(),
+                });
+        }
+        Ok(MaxTierOutcome { old, new, unloaded })
+    }
+
+    /// Record that the operator cancelled a ceiling lowering
+    /// (`ENTANGLE-I0216`); the ceiling is unchanged.
+    pub fn record_lowering_cancelled(&self, requested: Tier) {
+        self.broker
+            .audit_log()
+            .record(entangle_broker::AuditEvent::CeilingLoweringCancelled {
+                current: self.max_tier_allowed(),
+                requested,
+                at: std::time::SystemTime::now(),
+            });
     }
 
     /// Return the ids of all currently loaded plugins, sorted by their
@@ -708,4 +1023,19 @@ fn parse_manifest(bytes: &[u8]) -> Result<ValidatedManifest, RuntimeError> {
     let raw: entangle_manifest::schema::Manifest =
         toml::from_str(text).map_err(|e| RuntimeError::Manifest(LoadError::Parse(e)))?;
     Ok(validate(raw)?)
+}
+
+/// Publishes [`LifecyclePhase::Idled`] when dropped, so a stream future that
+/// is dropped mid-run still balances its `Activated`.
+struct IdleOnDrop<'a> {
+    kernel: &'a Kernel,
+    plugin_id: &'a PluginId,
+    effective_tier: Tier,
+}
+
+impl Drop for IdleOnDrop<'_> {
+    fn drop(&mut self) {
+        self.kernel
+            .emit(self.plugin_id, self.effective_tier, LifecyclePhase::Idled);
+    }
 }

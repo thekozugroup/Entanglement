@@ -98,6 +98,12 @@ pub enum ReputationReason {
     /// trapped, timed out, ran out of memory or broke its contract) while
     /// other replicas' outputs compared fine.
     IncomparableOutput,
+    /// As a stream executor, it sent a chunk (or `End`) whose signature or
+    /// sequence did not verify (ATC-STR-3).
+    BadChunkSignature,
+    /// As a stream executor, it broke the stream protocol: data without
+    /// credit, or a frame invalid in the stream's state.
+    StreamProtocolViolation,
 }
 
 impl ReputationReason {
@@ -108,6 +114,8 @@ impl ReputationReason {
             Self::PolicyHashMismatch => "policy-hash-mismatch",
             Self::DisagreedWithQuorum => "disagreed-with-quorum",
             Self::IncomparableOutput => "incomparable-output",
+            Self::BadChunkSignature => "bad-chunk-signature",
+            Self::StreamProtocolViolation => "stream-protocol-violation",
         }
     }
 }

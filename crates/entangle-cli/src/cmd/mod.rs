@@ -3,6 +3,7 @@
 pub mod agent;
 pub mod catalog;
 pub mod compute;
+pub mod compute_stream;
 pub mod diag;
 pub mod doctor;
 pub mod init;
@@ -14,5 +15,8 @@ pub mod pair;
 pub mod perms;
 pub mod plugins;
 pub mod quickstart;
+pub mod rcblock;
 pub mod scaffold;
+pub mod security;
 pub mod version;
+pub mod wrapper;

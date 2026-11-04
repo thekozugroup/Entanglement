@@ -49,6 +49,36 @@ mod cli_mirror {
         pub mesh: MeshConfig,
         #[serde(default)]
         pub security: SecurityConfig,
+        #[serde(default, skip_serializing_if = "WrappersConfig::is_default")]
+        pub wrappers: WrappersConfig,
+        #[serde(default, skip_serializing_if = "PluginsConfig::is_default")]
+        pub plugins: PluginsConfig,
+    }
+
+    /// Mirrors `entangle_cli::config::WrappersConfig`.
+    #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct WrappersConfig {
+        #[serde(default)]
+        pub install: bool,
+    }
+
+    impl WrappersConfig {
+        fn is_default(&self) -> bool {
+            *self == Self::default()
+        }
+    }
+
+    /// Mirrors `entangle_cli::config::PluginsConfig`.
+    #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+    pub struct PluginsConfig {
+        #[serde(default)]
+        pub disabled: Vec<String>,
+    }
+
+    impl PluginsConfig {
+        fn is_default(&self) -> bool {
+            *self == Self::default()
+        }
     }
 
     /// Mirrors `entangle_cli::config::MeshConfig`.
@@ -125,6 +155,7 @@ fn daemon_parses_the_exact_bytes_entangle_init_writes() {
             allow_unsandboxed_native: false,
             deny_capabilities: Vec::new(),
         },
+        ..Default::default()
     };
 
     let daemon = daemon_parses_cli_output(&cli_cfg);
@@ -136,6 +167,23 @@ fn daemon_parses_the_exact_bytes_entangle_init_writes() {
     assert_eq!(daemon.security.max_tier_allowed, Tier::Networked);
     // Daemon-only section the CLI never writes: defaults must fill it in.
     assert_eq!(daemon.runtime.bus_capacity, 1024);
+}
+
+#[test]
+fn daemon_parses_the_wrapper_and_disabled_plugin_sections_the_cli_writes() {
+    let cli_cfg = cli_mirror::Config {
+        wrappers: cli_mirror::WrappersConfig { install: true },
+        plugins: cli_mirror::PluginsConfig {
+            disabled: vec!["ab/agent-host@0.1.0".to_owned()],
+        },
+        ..Default::default()
+    };
+    let daemon = daemon_parses_cli_output(&cli_cfg);
+    assert!(daemon.wrappers.install);
+    assert_eq!(
+        daemon.plugins.disabled,
+        vec!["ab/agent-host@0.1.0".to_owned()]
+    );
 }
 
 #[test]
@@ -172,6 +220,7 @@ fn every_cli_representable_value_crosses_the_boundary_intact() {
                         allow_unsandboxed_native: false,
                         deny_capabilities: Vec::new(),
                     },
+                    ..Default::default()
                 };
                 let daemon = daemon_parses_cli_output(&cli_cfg);
                 assert_eq!(daemon.mesh.transports, transports);
@@ -276,8 +325,23 @@ mod source_of_truth {
 
         assert_eq!(
             struct_fields(&src, "Config"),
-            vec!["mesh: MeshConfig", "security: SecurityConfig"],
+            vec![
+                "mesh: MeshConfig",
+                "security: SecurityConfig",
+                "wrappers: WrappersConfig",
+                "plugins: PluginsConfig"
+            ],
             "entangle-cli's top-level Config changed"
+        );
+        assert_eq!(
+            struct_fields(&src, "WrappersConfig"),
+            vec!["install: bool"],
+            "entangle-cli's [wrappers] section changed"
+        );
+        assert_eq!(
+            struct_fields(&src, "PluginsConfig"),
+            vec!["disabled: Vec<String>"],
+            "entangle-cli's [plugins] section changed"
         );
         assert_eq!(
             struct_fields(&src, "MeshConfig"),
@@ -456,6 +520,7 @@ fn load_config_boots_on_a_cli_written_file() {
             allow_unsandboxed_native: false,
             deny_capabilities: Vec::new(),
         },
+        ..Default::default()
     };
 
     let dir = tempfile::tempdir().expect("tempdir");

@@ -113,6 +113,9 @@ pub struct HostState {
     /// Which sources its UDP sockets may receive from (see
     /// `crate::udp_inbound`); `None` (no network grant): none.
     pub(crate) inbound: Option<InboundRules>,
+    /// The chunk channels of a streaming invocation (`stream-plugin` world);
+    /// `None` for a one-shot call.
+    pub(crate) stream: Option<crate::stream::StreamPort>,
     pub(crate) table: ResourceTable,
     wasi: WasiCtx,
 }
@@ -252,6 +255,7 @@ impl HostState {
             limits: limits.to_store_limits(),
             log_bytes: 0,
             log_truncated: false,
+            stream: None,
             table: ResourceTable::new(),
             wasi,
         }

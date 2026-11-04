@@ -15,6 +15,9 @@
 //!   `capability.fetch` and WASI grants are decided and realised against.
 //! - [`LoadedMetric`] — a compiled `entangle:integrity/metric` component
 //!   (spec §7.5), run at tier 2 with an observable instantiation counter.
+//! - [`LoadedStreamPlugin`] — a compiled `stream-plugin` component (spec
+//!   §7.1) and the [`StreamPort`] its chunks flow through.
+//! - [`CompiledPlugin`] — either kind, classified by the world it exports.
 //! - [`check_runtime_kind`] — magic-byte check that an artifact is the runtime
 //!   kind its manifest declares (ATC-MAN-3).
 
@@ -32,12 +35,17 @@ pub mod plugin;
 pub mod runtime_kind;
 pub mod state;
 pub mod storage;
+pub mod stream;
 mod udp_inbound;
 
 pub use capability::{CapabilityContext, WasiGrants};
 pub use engine::HostEngine;
 pub use errors::HostError;
 pub use metric::LoadedMetric;
-pub use plugin::{LoadedPlugin, PluginRunResult};
+pub use plugin::{CompiledPlugin, LoadedPlugin, PluginRunResult};
 pub use runtime_kind::{check_runtime_kind, ArtifactKind, DeclaredRuntime};
 pub use state::HostState;
+pub use stream::{
+    stream_port, ChunkAck, ChunkResult, LoadedStreamPlugin, PluginChunk, StreamInput, StreamPort,
+    StreamPortDriver, StreamRunResult, INPUT_HANDLE, OUTPUT_HANDLE,
+};

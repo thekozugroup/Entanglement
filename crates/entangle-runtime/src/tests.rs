@@ -533,3 +533,251 @@ async fn compile_failure_rolls_back_broker_registration() {
     // ...and the kernel holds no record either.
     assert!(kernel.list_plugins().is_empty());
 }
+
+// ── max_tier_allowed lowering (spec §9.4.1) ──────────────────────────────────
+
+/// Wait for the lifecycle event `phase` on `sub`.
+async fn wait_for_phase(
+    sub: &mut entangle_ipc::bus::Subscriber<crate::LifecycleEvent>,
+    phase: LifecyclePhase,
+) {
+    loop {
+        let env = tokio::time::timeout(Duration::from_secs(30), sub.recv())
+            .await
+            .expect("lifecycle event within 30s")
+            .expect("recv ok");
+        if env.payload.phase == phase {
+            return;
+        }
+    }
+}
+
+/// A load that the broker registered under the old ceiling but that has not
+/// yet been recorded as loaded (here: while its component compiles) must not
+/// end up loaded above a ceiling lowered in that window. Either the lowering
+/// sees and unloads it, or the load is refused with ENTANGLE-E0043.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn load_racing_a_ceiling_lowering_never_lands_above_it() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_plugin_package(dir.path(), &keypair, &loadable_wasm(), 3);
+
+    let kernel =
+        std::sync::Arc::new(Kernel::new(KernelConfig::default(), keyring).expect("kernel"));
+    let mut sub = kernel.bus().subscribe();
+    let k = kernel.clone();
+    let path = dir.path().to_path_buf();
+    let load = tokio::spawn(async move { k.load_plugin_from_dir(&path).await });
+
+    // Lower the ceiling as soon as the broker has registered the plugin, i.e.
+    // while the kernel is still compiling it.
+    wait_for_phase(&mut sub, LifecyclePhase::Registered).await;
+    let outcome = kernel
+        .apply_max_tier(Tier::Sandboxed, true, None)
+        .await
+        .expect("unload authorised");
+    let loaded = load.await.expect("load task");
+
+    assert_eq!(kernel.max_tier_allowed(), Tier::Sandboxed);
+    assert!(
+        kernel.plugins_above(Tier::Sandboxed).is_empty(),
+        "a tier-3 plugin is loaded under ceiling 2 (load result {loaded:?}, outcome {outcome:?})"
+    );
+    match loaded {
+        Ok(id) => assert!(outcome.unloaded.contains(&id), "{outcome:?}"),
+        Err(e) => assert!(e.to_string().contains("ENTANGLE-E0043"), "{e}"),
+    }
+    assert!(
+        kernel.broker().registered_tiers().is_empty(),
+        "no broker registration may outlive the refused or unloaded plugin"
+    );
+}
+
+/// The `stress.wasm` fixture: input `spin:<ms>` busy-loops that long.
+fn stress_wasm() -> Vec<u8> {
+    std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-host/tests/fixtures/stress.wasm"
+    ))
+    .expect("stress.wasm fixture not found — run fixtures-src/stress/build.sh")
+}
+
+/// Spec §9.4.1 step 4: each plugin above a lowered ceiling is drained —
+/// invocations already running complete — and only then unloaded and
+/// reported (ENTANGLE-W0214). `apply_max_tier` must not return, and must not
+/// audit the plugin as unloaded, while an invocation of it is still running.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn lowering_drains_in_flight_invocations_before_unloading() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_plugin_package(dir.path(), &keypair, &stress_wasm(), 3);
+    let kernel =
+        std::sync::Arc::new(Kernel::new(KernelConfig::default(), keyring).expect("kernel"));
+    let id = kernel.load_plugin_from_dir(dir.path()).await.expect("load");
+
+    let mut sub = kernel.bus().subscribe();
+    let (k, pid) = (kernel.clone(), id.clone());
+    let started = std::time::Instant::now();
+    // The guest busy-loops for 1500 ms of wall-clock time once it runs.
+    let invocation = tokio::spawn(async move { k.invoke(&pid, b"spin:1500", 30_000).await });
+    wait_for_phase(&mut sub, LifecyclePhase::Activated).await;
+
+    let outcome = kernel
+        .apply_max_tier(Tier::Sandboxed, true, None)
+        .await
+        .expect("unload authorised");
+    // apply_max_tier records W0214 only after the drain, so by the time it
+    // returns the 1500 ms invocation has run to completion.
+    assert!(
+        started.elapsed() >= Duration::from_millis(1400),
+        "apply_max_tier returned (and audited the plugin unloaded) after {:?}, while its \
+         1500 ms invocation was still running",
+        started.elapsed()
+    );
+    let result = invocation.await.expect("invocation task");
+    assert!(
+        result.is_ok(),
+        "the drained invocation completes: {result:?}"
+    );
+    assert_eq!(outcome.unloaded, vec![id.clone()]);
+    assert!(kernel
+        .broker()
+        .audit_log()
+        .snapshot()
+        .iter()
+        .any(|e| e.code() == Some("ENTANGLE-W0214")));
+    assert!(kernel.list_plugins().is_empty());
+}
+
+/// The `stream-lines` fixture: a `stream-plugin` component that emits its
+/// input line by line, then each inbound chunk, until its input ends.
+fn stream_lines_wasm() -> Vec<u8> {
+    std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-scheduler/tests/fixtures/stream-lines.wasm"
+    ))
+    .expect("stream-lines.wasm fixture not found — run entangle-scheduler/tests/fixtures/build.sh")
+}
+
+/// Spec §9.4.1 step 4 for streaming tasks: the drain covers an active stream
+/// exactly as it covers a one-shot invocation. Lowering the ceiling below a
+/// stream plugin's tier refuses new streams of it at once, but releases its
+/// grants and audits it as unloaded (`ENTANGLE-W0214`) only once the stream
+/// that was running has ended, and after that stream's `Idled`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn lowering_drains_active_streams_before_unloading() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_plugin_package(dir.path(), &keypair, &stream_lines_wasm(), 2);
+    let kernel =
+        std::sync::Arc::new(Kernel::new(KernelConfig::default(), keyring).expect("kernel"));
+    let id = kernel.load_plugin_from_dir(dir.path()).await.expect("load");
+    assert_eq!(kernel.plugin_world(&id), Some("stream-plugin"));
+
+    let mut sub = kernel.bus().subscribe();
+    // The guest parks in `next-chunk` until its input ends: the stream stays
+    // active for as long as the test holds the driver end open.
+    let (port, driver) = entangle_host::stream_port(1);
+    let (k, pid) = (kernel.clone(), id.clone());
+    let stream = tokio::spawn(async move { k.invoke_stream(&pid, b"", port, 30_000).await });
+    wait_for_phase(&mut sub, LifecyclePhase::Activated).await;
+
+    let k = kernel.clone();
+    let lowering = tokio::spawn(async move { k.apply_max_tier(Tier::Pure, true, None).await });
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(
+        !lowering.is_finished(),
+        "the lowering returned while a stream of the affected plugin was still running"
+    );
+    let w0214 = |kernel: &Kernel| {
+        kernel
+            .broker()
+            .audit_log()
+            .snapshot()
+            .iter()
+            .any(|e| e.code() == Some("ENTANGLE-W0214"))
+    };
+    assert!(!w0214(&kernel), "audited as unloaded before the drain");
+    assert_eq!(
+        kernel.broker().registered_tiers().len(),
+        1,
+        "the plugin's broker registration (and grants) must outlive its running stream"
+    );
+
+    // Already draining: a new stream (or one-shot call) of the plugin is refused.
+    let (port2, _driver2) = entangle_host::stream_port(1);
+    let refused = kernel.invoke_stream(&id, b"", port2, 1_000).await;
+    assert!(
+        matches!(refused, Err(crate::RuntimeError::NotLoaded(_))),
+        "a new stream of a draining plugin: {refused:?}"
+    );
+
+    // End the stream: the submitter finishes its input and the guest returns.
+    driver
+        .input
+        .send(entangle_host::StreamInput::End)
+        .await
+        .expect("guest still reading");
+    let ran = tokio::time::timeout(Duration::from_secs(30), stream)
+        .await
+        .expect("stream ends once its input ends")
+        .expect("stream task");
+    assert!(ran.is_ok(), "the drained stream completes: {ran:?}");
+    let outcome = tokio::time::timeout(Duration::from_secs(30), lowering)
+        .await
+        .expect("the lowering completes once the stream has ended")
+        .expect("lowering task")
+        .expect("unload authorised");
+    assert_eq!(outcome.unloaded, vec![id.clone()]);
+    assert!(w0214(&kernel));
+    assert!(kernel.list_plugins().is_empty());
+    assert!(kernel.broker().registered_tiers().is_empty());
+
+    // The stream's `Idled` is published before the plugin's `Unloaded`.
+    let mut phases = Vec::new();
+    while let Ok(Ok(env)) = tokio::time::timeout(Duration::from_secs(1), sub.recv()).await {
+        phases.push(env.payload.phase);
+    }
+    let idled = phases.iter().position(|p| *p == LifecyclePhase::Idled);
+    let unloaded = phases.iter().position(|p| *p == LifecyclePhase::Unloaded);
+    assert!(
+        matches!((idled, unloaded), (Some(i), Some(u)) if i < u),
+        "expected Idled before Unloaded, got {phases:?}"
+    );
+}
+
+/// Spec §9.4.1: raising the ceiling is "a privileged, audited operation" —
+/// every change of the ceiling leaves an audit entry, not only lowering.
+#[tokio::test(flavor = "multi_thread")]
+async fn raising_the_ceiling_is_audited() {
+    let keyring = keyring_for(&IdentityKeyPair::generate());
+    let config = KernelConfig {
+        max_tier_allowed: Tier::Networked,
+        ..KernelConfig::default()
+    };
+    let kernel = Kernel::new(config, keyring).expect("kernel");
+    let before = kernel.broker().audit_log().snapshot().len();
+
+    kernel
+        .apply_max_tier(Tier::Native, false, None)
+        .await
+        .expect("raising needs no confirmation");
+    let events = kernel.broker().audit_log().snapshot();
+    assert_eq!(
+        events.len(),
+        before + 1,
+        "one audit event for the raise: {events:?}"
+    );
+    let last = events.last().expect("event");
+    assert_eq!(last.code(), Some("ENTANGLE-I0217"), "{last:?}");
+
+    // Re-applying the same ceiling changes nothing and audits nothing.
+    kernel
+        .apply_max_tier(Tier::Native, false, None)
+        .await
+        .expect("no-op");
+    assert_eq!(kernel.broker().audit_log().snapshot().len(), before + 1);
+}

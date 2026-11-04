@@ -2,19 +2,29 @@
 //! daemon's Ed25519 identity, plus the framed request/response round-trip.
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
 use iroh::endpoint::{Connection, SendStream};
 use iroh::{Endpoint, EndpointAddr, RelayMode, SecretKey};
+use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
 use crate::error::MeshIrohError;
 use crate::framing::{read_frame, write_frame};
 use crate::peer::IrohPeer;
+use crate::stream::FramedStream;
 use crate::{MeshIrohConfig, MeshTransport};
+
+/// Connections that have completed their handshake but not yet been taken
+/// by an `accept` call, per ALPN, when the endpoint accepts several ALPNs.
+///
+/// Bounds memory: a peer cannot queue unboundedly many connections; past
+/// this many, new connections on that ALPN are closed as busy.
+const ROUTED_QUEUE_DEPTH: usize = 64;
 
 /// A live `mesh.iroh` transport.
 ///
@@ -25,6 +35,92 @@ pub struct MeshIroh {
     endpoint: Endpoint,
     public_key: [u8; 32],
     peer_id: PeerId,
+    /// Present when the endpoint accepts more than one ALPN: a background
+    /// task completes handshakes and routes each connection to the queue of
+    /// its negotiated ALPN.
+    router: Option<Arc<Router>>,
+}
+
+/// Routes inbound connections to per-ALPN queues.
+struct Router {
+    queues: Vec<(Vec<u8>, tokio::sync::Mutex<mpsc::Receiver<MeshConn>>)>,
+    task: tokio::task::JoinHandle<()>,
+}
+
+impl std::fmt::Debug for Router {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Router")
+            .field(
+                "alpns",
+                &self
+                    .queues
+                    .iter()
+                    .map(|(a, _)| String::from_utf8_lossy(a).into_owned())
+                    .collect::<Vec<_>>(),
+            )
+            .finish_non_exhaustive()
+    }
+}
+
+impl Drop for Router {
+    fn drop(&mut self) {
+        // The task holds an endpoint handle; stop it with the last transport
+        // clone so it does not keep the endpoint alive on its own.
+        self.task.abort();
+    }
+}
+
+impl Router {
+    fn spawn(endpoint: Endpoint, config: &MeshIrohConfig) -> Self {
+        let mut queues = Vec::new();
+        let mut senders = Vec::new();
+        for alpn in config.accepted_alpns() {
+            let (tx, rx) = mpsc::channel(ROUTED_QUEUE_DEPTH);
+            senders.push((alpn.clone(), tx));
+            queues.push((alpn, tokio::sync::Mutex::new(rx)));
+        }
+        let senders = Arc::new(senders);
+        let config = config.clone();
+        let task = tokio::spawn(async move {
+            while let Some(incoming) = endpoint.accept().await {
+                let senders = Arc::clone(&senders);
+                let config = config.clone();
+                // Handshake on its own task: one slow peer must not hold up
+                // every other inbound connection.
+                tokio::spawn(async move {
+                    let conn = match incoming.await {
+                        Ok(conn) => MeshConn::wrap(conn, &config),
+                        Err(e) => {
+                            debug!(error = %e, "mesh.iroh: inbound handshake failed");
+                            return;
+                        }
+                    };
+                    let Some((_, tx)) = senders.iter().find(|(a, _)| a.as_slice() == conn.alpn())
+                    else {
+                        // The TLS layer only negotiates configured ALPNs, so
+                        // this is unreachable in practice; close, never guess.
+                        conn.inner.close(1u32.into(), b"entangle: unsupported alpn");
+                        return;
+                    };
+                    if let Err(mpsc::error::TrySendError::Full(conn)) = tx.try_send(conn) {
+                        warn!(
+                            peer = %conn.remote_peer_id(),
+                            alpn = %String::from_utf8_lossy(conn.alpn()),
+                            "mesh.iroh: accept queue full, refusing connection"
+                        );
+                        conn.inner.close(2u32.into(), b"entangle: busy");
+                    }
+                });
+            }
+            // Endpoint closed: dropping the senders ends every accept loop.
+        });
+        Self { queues, task }
+    }
+
+    async fn accept(&self, alpn: &[u8]) -> Option<Result<Option<MeshConn>, MeshIrohError>> {
+        let (_, queue) = self.queues.iter().find(|(a, _)| a.as_slice() == alpn)?;
+        Some(Ok(queue.lock().await.recv().await))
+    }
 }
 
 impl MeshIroh {
@@ -62,7 +158,7 @@ impl MeshIroh {
 
         let builder = Endpoint::builder(iroh::endpoint::presets::Minimal)
             .secret_key(secret)
-            .alpns(vec![config.alpn.clone()])
+            .alpns(config.accepted_alpns())
             .relay_mode(relay_mode)
             // Replace iroh's default `0.0.0.0` + `[::]` sockets with exactly
             // the address the operator configured, so `bind` means bind.
@@ -84,14 +180,89 @@ impl MeshIroh {
             bind = %config.bind,
             relay = config.allow_derp_relay,
             alpn = %String::from_utf8_lossy(&config.alpn),
+            extra_alpns = config.extra_alpns.len(),
             "mesh.iroh endpoint bound"
         );
+        let router = (!config.extra_alpns.is_empty())
+            .then(|| Arc::new(Router::spawn(endpoint.clone(), &config)));
         Ok(Self {
             config,
             endpoint,
             public_key,
             peer_id,
+            router,
         })
+    }
+
+    /// Dial `peer` speaking `alpn` instead of the transport's primary ALPN.
+    ///
+    /// The peer must accept `alpn` (as its primary or an extra ALPN), or the
+    /// handshake fails with [`MeshIrohError::Connect`].
+    pub async fn connect_alpn(
+        &self,
+        peer: &IrohPeer,
+        alpn: &[u8],
+    ) -> Result<MeshConn, MeshIrohError> {
+        let addr = self.peer_addr(peer)?;
+        let dialing = self.endpoint.connect(addr, alpn);
+        let conn = match timeout(self.config.connect_timeout, dialing).await {
+            Ok(Ok(conn)) => conn,
+            Ok(Err(e)) => {
+                return Err(MeshIrohError::Connect {
+                    peer: peer.peer_id,
+                    reason: e.to_string(),
+                })
+            }
+            Err(_elapsed) => {
+                return Err(MeshIrohError::ConnectTimeout {
+                    peer: peer.peer_id,
+                    after: self.config.connect_timeout,
+                })
+            }
+        };
+        let conn = MeshConn::wrap(conn, &self.config);
+        // QUIC authenticated *some* key; it must be the one we meant to dial.
+        if conn.remote_public_key() != peer.public_key {
+            conn.close();
+            return Err(MeshIrohError::Identity(format!(
+                "dialled {} but the handshake authenticated {}",
+                peer.peer_id,
+                conn.remote_peer_id()
+            )));
+        }
+        Ok(conn)
+    }
+
+    /// Wait for the next inbound connection that negotiated `alpn`.
+    ///
+    /// `alpn` must be the primary ALPN or one of
+    /// [`MeshIrohConfig::extra_alpns`]; anything else is
+    /// [`MeshIrohError::Protocol`]. Returns `Ok(None)` once the transport has
+    /// been shut down.
+    pub async fn accept_alpn(&self, alpn: &[u8]) -> Result<Option<MeshConn>, MeshIrohError> {
+        if let Some(router) = &self.router {
+            if let Some(result) = router.accept(alpn).await {
+                return result;
+            }
+        } else if alpn == self.config.alpn.as_slice() {
+            return self.accept_direct().await;
+        }
+        Err(MeshIrohError::Protocol(format!(
+            "this transport does not accept ALPN {:?}",
+            String::from_utf8_lossy(alpn)
+        )))
+    }
+
+    /// Accept straight from the endpoint (single-ALPN transports).
+    async fn accept_direct(&self) -> Result<Option<MeshConn>, MeshIrohError> {
+        let Some(incoming) = self.endpoint.accept().await else {
+            // `accept()` yields `None` only once the endpoint is closed.
+            return Ok(None);
+        };
+        let conn = incoming
+            .await
+            .map_err(|e| MeshIrohError::Stream(format!("accepting connection: {e}")))?;
+        Ok(Some(MeshConn::wrap(conn, &self.config)))
     }
 
     /// Borrow the active (normalized) config.
@@ -173,24 +344,7 @@ impl MeshTransport for MeshIroh {
     }
 
     async fn connect(&self, peer: &IrohPeer) -> Result<MeshConn, MeshIrohError> {
-        let addr = self.peer_addr(peer)?;
-        let dialing = self.endpoint.connect(addr, &self.config.alpn);
-        let conn = match timeout(self.config.connect_timeout, dialing).await {
-            Ok(Ok(conn)) => conn,
-            Ok(Err(e)) => {
-                return Err(MeshIrohError::Connect {
-                    peer: peer.peer_id,
-                    reason: e.to_string(),
-                })
-            }
-            Err(_elapsed) => {
-                return Err(MeshIrohError::ConnectTimeout {
-                    peer: peer.peer_id,
-                    after: self.config.connect_timeout,
-                })
-            }
-        };
-        Ok(MeshConn::wrap(conn, &self.config))
+        self.connect_alpn(peer, &self.config.alpn).await
     }
 
     async fn request(&self, peer: &IrohPeer, payload: &[u8]) -> Result<Vec<u8>, MeshIrohError> {
@@ -201,14 +355,12 @@ impl MeshTransport for MeshIroh {
     }
 
     async fn accept(&self) -> Result<Option<MeshConn>, MeshIrohError> {
-        let Some(incoming) = self.endpoint.accept().await else {
-            // `accept()` yields `None` only once the endpoint is closed.
-            return Ok(None);
-        };
-        let conn = incoming
-            .await
-            .map_err(|e| MeshIrohError::Stream(format!("accepting connection: {e}")))?;
-        Ok(Some(MeshConn::wrap(conn, &self.config)))
+        match &self.router {
+            // Several ALPNs on this endpoint: only connections that
+            // negotiated the primary one are this caller's.
+            Some(_) => self.accept_alpn(&self.config.alpn).await,
+            None => self.accept_direct().await,
+        }
     }
 
     async fn shutdown(&self) {
@@ -225,6 +377,7 @@ pub struct MeshConn {
     inner: Connection,
     remote_public_key: [u8; 32],
     remote_peer_id: PeerId,
+    alpn: Vec<u8>,
     max_frame_bytes: usize,
     request_timeout: Duration,
 }
@@ -237,10 +390,52 @@ impl MeshConn {
         Self {
             remote_peer_id: PeerId::from_public_key_bytes(&remote_public_key),
             remote_public_key,
+            alpn: inner.alpn().to_vec(),
             inner,
             max_frame_bytes: config.max_frame_bytes,
             request_timeout: config.request_timeout,
         }
+    }
+
+    /// The ALPN this connection negotiated.
+    pub fn alpn(&self) -> &[u8] {
+        &self.alpn
+    }
+
+    /// Open a long-lived bidirectional framed stream to the peer.
+    ///
+    /// The peer learns of the stream when the first frame is sent on it.
+    /// Frames are capped at the transport's per-frame cap; see
+    /// [`FramedStream`].
+    pub async fn open_stream(&self) -> Result<FramedStream, MeshIrohError> {
+        let (send, recv) = self
+            .inner
+            .open_bi()
+            .await
+            .map_err(|e| MeshIrohError::Stream(format!("opening stream: {e}")))?;
+        Ok(FramedStream::from_quic(
+            send,
+            recv,
+            self.remote_public_key,
+            self.max_frame_bytes,
+        ))
+    }
+
+    /// Wait for the peer to open a framed stream on this connection.
+    ///
+    /// Returns `Ok(None)` when the peer closed the connection cleanly.
+    pub async fn accept_stream(&self) -> Result<Option<FramedStream>, MeshIrohError> {
+        let (send, recv) = match self.inner.accept_bi().await {
+            Ok(pair) => pair,
+            Err(e) if is_clean_close(&e) => return Ok(None),
+            Err(e) => return Err(MeshIrohError::Stream(format!("accepting stream: {e}"))),
+        };
+        Ok(Some(FramedStream::from_quic(
+            send,
+            recv,
+            self.remote_public_key,
+            self.max_frame_bytes,
+        )))
     }
 
     /// The authenticated [`PeerId`] of the remote end.

@@ -14,6 +14,9 @@
 //!   validation, the output-size short-circuit (INV-INT-2), hash quorum and
 //!   `SemanticEquivalent` metric verification (spec §7.5).
 //! * [`reputation`] — per-peer, per-policy-variant correctness reputation.
+//! * [`stream`] — streaming tasks (spec §7.1): the `entangle/stream/1`
+//!   protocol, credit flow control, heartbeats, chunk signing, and the
+//!   [`StreamServer`] executor.
 //!
 //! # Remote execution is opt-in
 //!
@@ -34,6 +37,7 @@ pub mod integrity;
 pub mod placement;
 pub mod remote;
 pub mod reputation;
+pub mod stream;
 pub mod wire;
 pub mod work_unit;
 pub mod worker;
@@ -48,6 +52,10 @@ pub use remote::{
     RemoteTaskServer, StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
 };
 pub use reputation::{ReputationReason, ReputationStore, ReputationTier};
+pub use stream::{
+    open_stream, serve_streams, validate_submit as validate_stream_submit, StreamError,
+    StreamHandle, StreamServer,
+};
 pub use wire::{
     ControlAction, ControlFrame, RemoteErrorCode, RemoteOutcome, RemoteRequest, RemoteTaskRequest,
     RemoteTaskResponse, RequestFrame, WireError,
