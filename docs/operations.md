@@ -2034,7 +2034,9 @@ entangle plugins load ./fetcher-0.3.0 --allow-downgrade
    its grants (so it can convert its `/data` — both versions share the
    plugin's storage directory), bounded to 30 s. `err`, a trap or a timeout
    refuses the reload with `ENTANGLE-E0783`; the old version keeps running
-   and nothing of the new one remains. Without the hook the reload is a plain
+   and nothing of the new one remains except what the hook already wrote
+   before failing (a hook should leave the data usable by the old version
+   when it fails). Without the hook the reload is a plain
    drain-and-swap.
 4. **Swap.** In one step the new version takes over: every new call and
    stream — including ones addressed to the old version's id, so existing
@@ -2046,9 +2048,17 @@ entangle plugins load ./fetcher-0.3.0 --allow-downgrade
    grants are released and `Unloaded` is published for it. The
    `plugins load` reply does not wait for this.
 
-Two loads of the same plugin at once cannot both swap: one that finds a
-different version loaded than the one it was checked against is rolled back
-with `ENTANGLE-E0789` (retry it).
+Loads and unloads of the same plugin are serialised: a second
+`plugins load` waits for the first to swap (or fail) and is then checked
+against, and migrates from, the version the first installed (a lower one is
+then refused as a downgrade, before its hook). A tier-ceiling lowering waits
+for reloads under way. Every refusal therefore comes before the `migrate`
+hook: a hook runs only for a version that then goes live, and `Migrated` is
+published after the swap. `ENTANGLE-E0789` remains as a last line of defence
+(retry it). The old version keeps serving while the hook runs, and its calls
+and streams already running finish during the drain, writing in its own
+format: a `migrate` hook must be idempotent and tolerate data the old
+version writes meanwhile.
 
 Loading the version that is already loaded is refused as before
 (`plugin already loaded`); unload it first or bump the version. Loading a

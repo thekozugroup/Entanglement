@@ -708,3 +708,152 @@ async fn rolling_back_to_a_draining_version_says_it_is_draining() {
     let outcome = f.kernel.load_plugin(&old_dir, back).await.unwrap();
     assert_eq!(outcome.plugin_id, v1);
 }
+
+/// The migrate hook converts storage both versions share, which cannot be
+/// undone: it may run only for a version that then goes live, migrating
+/// from the version it actually replaces. Two reloads of one plugin at once
+/// are serialised — the second is checked against, and migrates from, the
+/// version the first installed (or is refused before its hook).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_reloads_migrate_only_for_the_version_that_goes_live() {
+    for _ in 0..4 {
+        let f = Fixture::new();
+        let caps = "\"storage.local\" = { mode = \"rw\" }";
+        let v1 = f.id("probe", "0.1.0");
+        f.kernel
+            .load_plugin_from_dir(&f.package("probe", "0.1.0", PROBE, 1, caps))
+            .await
+            .unwrap();
+        let mut sub = f.kernel.bus().subscribe();
+        let (a, b) = (
+            f.package("probe", "0.2.0", PROBE, 1, caps),
+            f.package("probe", "0.3.0", PROBE, 1, caps),
+        );
+        let (ka, kb) = (f.kernel.clone(), f.kernel.clone());
+        let (ra, rb) = tokio::join!(
+            tokio::spawn(async move { ka.load_plugin(&a, LoadOptions::default()).await }),
+            tokio::spawn(async move { kb.load_plugin(&b, LoadOptions::default()).await }),
+        );
+        // Each swap, with the version it replaced.
+        let mut swaps = Vec::new();
+        for r in [ra.unwrap(), rb.unwrap()] {
+            match r {
+                Ok(o) => {
+                    let replaced = o.replaced.expect("a reload");
+                    swaps.push((replaced.previous.clone(), o.plugin_id.clone()));
+                    drained(replaced.drained).await;
+                }
+                // 0.3.0 first: 0.2.0 is then a downgrade, refused before
+                // its hook.
+                Err(e) => assert!(matches!(e, RuntimeError::ReloadDowngrade { .. }), "{e}"),
+            }
+        }
+        let loaded = f.kernel.list_plugins();
+        assert_eq!(loaded.len(), 1, "{loaded:?}");
+        let current = loaded[0].clone();
+
+        // `Migrated` only for versions that swapped in.
+        let mut migrated = Vec::new();
+        while let Ok(Ok(env)) = tokio::time::timeout(Duration::from_millis(200), sub.recv()).await {
+            if env.payload.phase == LifecyclePhase::Migrated {
+                migrated.push(env.payload.plugin.clone());
+            }
+        }
+        let swapped: Vec<PluginId> = swaps.iter().map(|(_, to)| to.clone()).collect();
+        for m in &migrated {
+            assert!(
+                swapped.contains(m),
+                "{m} migrated but never went live: {swaps:?}"
+            );
+        }
+        // The data was last migrated by the version serving it, from the
+        // version it replaced.
+        let (from, _) = swaps.iter().find(|(_, to)| *to == current).unwrap();
+        let data = f
+            .root
+            .join("data/plugins")
+            .join(&v1.publisher)
+            .join(&v1.name)
+            .join("migrated");
+        assert_eq!(
+            std::fs::read_to_string(data).unwrap(),
+            format!("{}->{}", from.version, current.version),
+            "swaps {swaps:?}"
+        );
+    }
+}
+
+/// A ceiling lowered while a reload is under way never refuses the new
+/// version after its migrate hook has run: either the reload is refused
+/// before the hook (nothing migrated) or it completes and the lowering then
+/// unloads it.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_ceiling_lowered_during_a_reload_never_strands_a_migration() {
+    use entangle_types::tier::Tier;
+    for _ in 0..4 {
+        let f = Fixture::new();
+        let caps = "\"storage.local\" = { mode = \"rw\" }";
+        let (v1, v2) = (f.id("probe", "0.1.0"), f.id("probe", "0.2.0"));
+        f.kernel
+            .load_plugin_from_dir(&f.package("probe", "0.1.0", PROBE, 2, caps))
+            .await
+            .unwrap();
+        let mut sub = f.kernel.bus().subscribe();
+        let higher = f.package("probe", "0.2.0", PROBE, 3, caps);
+        let k = f.kernel.clone();
+        let reload = tokio::spawn(async move {
+            k.load_plugin(
+                &higher,
+                LoadOptions {
+                    accept_new_capabilities: true,
+                    ..LoadOptions::default()
+                },
+            )
+            .await
+        });
+        // Lower the ceiling below 0.2.0 as soon as it is registered.
+        loop {
+            let env = sub.recv().await.unwrap();
+            if env.payload.plugin == v2 && env.payload.phase == LifecyclePhase::Registered {
+                break;
+            }
+        }
+        f.kernel
+            .apply_max_tier(Tier::Sandboxed, true, None)
+            .await
+            .unwrap();
+        let outcome = reload.await.unwrap();
+
+        let mut phases = Vec::new();
+        while let Ok(Ok(env)) = tokio::time::timeout(Duration::from_millis(200), sub.recv()).await {
+            if env.payload.plugin == v2 {
+                phases.push(env.payload.phase);
+            }
+        }
+        let data = f
+            .root
+            .join("data/plugins")
+            .join(&v1.publisher)
+            .join(&v1.name)
+            .join("migrated");
+        match outcome {
+            Ok(o) => {
+                // It went live, then the lowering unloaded it.
+                assert_eq!(o.plugin_id, v2);
+                assert!(phases.contains(&LifecyclePhase::Loaded), "{phases:?}");
+                assert_eq!(std::fs::read_to_string(&data).unwrap(), "0.1.0->0.2.0");
+                assert!(f.kernel.list_plugins().is_empty());
+            }
+            Err(e) => {
+                // Refused: nothing of 0.2.0 ran, 0.1.0 serves its data as is.
+                assert!(e.to_string().contains("ENTANGLE-E0043"), "{e}");
+                assert!(!phases.contains(&LifecyclePhase::Migrated), "{phases:?}");
+                assert!(
+                    !data.exists(),
+                    "the refused version's hook migrated the data"
+                );
+                assert_eq!(f.kernel.list_plugins(), vec![v1.clone()]);
+            }
+        }
+    }
+}

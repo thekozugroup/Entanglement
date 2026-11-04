@@ -329,6 +329,45 @@ pub struct Kernel {
     /// with the broker while their calls and streams finish, each with a
     /// watch that turns `true` once it is unregistered.
     draining: Draining,
+    /// One lock per plugin (publisher and name), held by a load from before
+    /// it looks for the loaded version until its swap, and by an unload while
+    /// it takes the plugin out of `plugins`: loads, reloads and unloads of
+    /// one plugin are serialised, so the version a reload was checked against
+    /// (and migrated from) is still the one loaded when it swaps.
+    reload_locks: ReloadLocks,
+    /// Held shared by a hot reload from before its new version is
+    /// registered until its swap, and exclusively by
+    /// [`Kernel::apply_max_tier`] while it changes the ceiling: a ceiling
+    /// lowering never lands between a reload's `migrate` hook (which changes
+    /// storage both versions share, irreversibly) and its swap.
+    reload_gate: tokio::sync::RwLock<()>,
+}
+
+/// The per-plugin locks of [`Kernel`] (its `reload_locks` field), by
+/// publisher and name.
+type ReloadLocks = Arc<Mutex<HashMap<(String, String), Arc<tokio::sync::Mutex<()>>>>>;
+
+/// A held per-plugin lock; dropping it releases the lock and forgets it once
+/// nobody else holds or waits for it.
+struct PluginLock {
+    key: (String, String),
+    locks: ReloadLocks,
+    guard: Option<tokio::sync::OwnedMutexGuard<()>>,
+}
+
+impl Drop for PluginLock {
+    fn drop(&mut self) {
+        drop(self.guard.take());
+        let mut locks = self.locks.lock();
+        // Only the map's own handle left: nobody holds or awaits it (taking
+        // a handle needs the map lock, held here).
+        if locks
+            .get(&self.key)
+            .is_some_and(|l| Arc::strong_count(l) == 1)
+        {
+            locks.remove(&self.key);
+        }
+    }
 }
 
 /// The kernel's set of draining versions (its `draining` field).
@@ -407,6 +446,8 @@ impl Kernel {
             metrics: None,
             aliases: RwLock::new(HashMap::new()),
             draining: Arc::default(),
+            reload_locks: Arc::default(),
+            reload_gate: tokio::sync::RwLock::new(()),
         })
     }
 
@@ -617,6 +658,16 @@ impl Kernel {
     ///    [`Kernel::unload`] (its grants released once its last call or
     ///    stream ended, then `Unloaded`); [`Replaced::drained`] reports it.
     ///
+    /// Loads and unloads of one plugin are serialised: a second load waits
+    /// for the first to swap (or fail) and is then checked against — and
+    /// migrates from — the version the first installed. A tier-ceiling
+    /// lowering ([`Kernel::apply_max_tier`]) waits for reloads under way.
+    /// So every refusal comes before the `migrate` hook: a hook runs only
+    /// for a version that then goes live, and `Migrated` is published after
+    /// the swap. (The old version still serves while the hook runs, and its
+    /// calls and streams in flight finish during the drain: a hook must
+    /// tolerate the old version writing in the old format meanwhile.)
+    ///
     /// Loading the version already loaded is [`RuntimeError::AlreadyLoaded`]
     /// as before (unload it, or bump the version).
     pub async fn load_plugin(
@@ -649,6 +700,10 @@ impl Kernel {
             .check_plugin_load(effective_tier)
             .map_err(BrokerError::from)?;
 
+        // Loads, reloads and unloads of this plugin are serialised from here
+        // to the swap: the version found loaded below stays the one loaded.
+        let _plugin_lock = self.lock_plugin(&plugin_id).await;
+
         // Duplicate check FIRST — before any broker or host state exists, so
         // a rejected re-load leaves the running plugin fully intact.
         if self.plugins.read().contains_key(&plugin_id) {
@@ -668,6 +723,21 @@ impl Kernel {
         }
         // Another version of the same plugin: this load is a hot reload.
         let previous = self.loaded_version_of(&plugin_id);
+        // A reload's `migrate` hook changes storage the old version keeps
+        // using; every refusal must come before it. The ceiling is fixed from
+        // here to the swap (a lowering waits for this gate), so it is checked
+        // again now and holds at the swap.
+        let _reload_gate = match previous {
+            Some(_) => {
+                let gate = self.reload_gate.read().await;
+                self.broker
+                    .policy()
+                    .check_plugin_load(effective_tier)
+                    .map_err(BrokerError::from)?;
+                Some(gate)
+            }
+            None => None,
+        };
 
         self.emit(
             &plugin_id,
@@ -783,10 +853,6 @@ impl Kernel {
                 return Err(e);
             }
         };
-        if migrated {
-            self.emit(&plugin_id, effective_tier, LifecyclePhase::Migrated);
-        }
-
         // ── Bookkeeping ───────────────────────────────────────────────────────
         // A concurrent load of the same id would have failed at broker
         // registration (insert-only), so the slot is expected to be vacant;
@@ -812,9 +878,11 @@ impl Kernel {
                 return Err(RuntimeError::AlreadyLoaded(plugin_id));
             }
             // The version this load was checked against (consent, downgrade,
-            // migrate) must still be the one loaded: a concurrent load,
-            // reload or unload of the same plugin refuses this one rather
-            // than leaving two versions loaded or skipping the checks.
+            // migrate) must still be the one loaded. The plugin lock held
+            // since the checks makes this hold (loads and unloads of the
+            // plugin wait for it), as the reload gate makes the ceiling
+            // check above hold for a reload; both stay as a last line of
+            // defence, never leaving two versions loaded or skipping a check.
             let current = plugins
                 .keys()
                 .find(|p| {
@@ -880,6 +948,12 @@ impl Kernel {
             }
             replaced
         };
+        // Published once the swap committed: a hook that ran for a version
+        // that then never went live is impossible (see `reload_gate`), and
+        // this event never claims one.
+        if migrated {
+            self.emit(&plugin_id, effective_tier, LifecyclePhase::Migrated);
+        }
         self.emit(&plugin_id, effective_tier, LifecyclePhase::Loaded);
 
         let replaced = replaced_record.map(|(previous, record)| {
@@ -910,6 +984,19 @@ impl Kernel {
             .keys()
             .find(|p| p.publisher == id.publisher && p.name == id.name && p.version != id.version)
             .cloned()
+    }
+
+    /// Take `id`'s plugin lock (see the `reload_locks` field), waiting for
+    /// a load or unload of the same plugin in progress.
+    async fn lock_plugin(&self, id: &PluginId) -> PluginLock {
+        let key = (id.publisher.clone(), id.name.clone());
+        let lock = Arc::clone(self.reload_locks.lock().entry(key.clone()).or_default());
+        let guard = lock.lock_owned().await;
+        PluginLock {
+            key,
+            locks: Arc::clone(&self.reload_locks),
+            guard: Some(guard),
+        }
     }
 
     /// Refuse a reload from `prev` to `manifest` that downgrades without
@@ -1512,6 +1599,10 @@ impl Kernel {
     /// "gracefully drained, then unloaded"). Then de-registers from the
     /// broker and emits a [`LifecyclePhase::Unloaded`] event.
     pub async fn unload(&self, plugin: &PluginId) -> Result<(), RuntimeError> {
+        // Not while a load of this plugin is between its checks and its swap
+        // (it would swap against a version that is gone); the drain below
+        // runs without the lock.
+        let plugin_lock = self.lock_plugin(plugin).await;
         let record = {
             let mut plugins = self.plugins.write();
             let record = plugins
@@ -1521,6 +1612,7 @@ impl Kernel {
             self.aliases.write().retain(|_, current| current != plugin);
             record
         };
+        drop(plugin_lock);
         if let Some(m) = &self.metrics {
             m.loaded_at.lock().remove(&plugin.to_string());
         }
@@ -1602,6 +1694,9 @@ impl Kernel {
         // ceiling and records the plugin: a load in flight either landed
         // before (it is in the delta set and unloaded below) or lands after
         // (it is refused with ENTANGLE-E0043). Concurrent calls serialise here.
+        // Exclusive: no hot reload is between its last ceiling check and its
+        // swap (see `reload_gate`). Released before the unloads below.
+        let gate = self.reload_gate.write().await;
         let (old, affected) = {
             let plugins = self.plugins.write();
             let old = self.max_tier_allowed();
@@ -1626,6 +1721,7 @@ impl Kernel {
             self.broker.set_max_tier_allowed(new);
             (old, affected)
         };
+        drop(gate);
         let mut unloaded = Vec::new();
         for info in &affected {
             // A concurrent unload by the operator is fine: the plugin is gone
