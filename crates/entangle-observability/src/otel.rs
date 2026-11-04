@@ -445,6 +445,12 @@ impl OtelExporter {
         SpanLayer::new(self.inner.clone())
     }
 
+    /// This exporter as a [`SpanSink`], for sharing one span layer with
+    /// other sinks (see [`crate::traces::FanoutSink`]).
+    pub fn sink(&self) -> Arc<dyn SpanSink> {
+        self.inner.clone()
+    }
+
     /// The exporter's health counters.
     pub fn stats(&self) -> &Arc<ExporterStats> {
         &self.inner.stats
