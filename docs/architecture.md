@@ -105,7 +105,7 @@ A panic in the capability broker would kill the daemon. commits:
 > long-lived core tasks (RPC server, maintenance loop, scheduler servers) run
 > under a supervisor that exits with status 70 when one ends. Plugin state is
 > reconstructed from `~/.entangle/plugins.state.toml` through the full load
-> path. See `docs/operations.md` §21–§22.
+> path. See `docs/operations.md` §22–§23.
 
 ### 2.2 What's deliberately NOT in the core
 
@@ -180,7 +180,7 @@ Standard lifecycle — install → load → validate → verify → pre-compile 
 > id) go to the new version. The `init` / `activate` / `idle` / `shutdown`
 > lifecycle exports are not implemented; "instantiate" and "activate ↔ idle"
 > are the kernel's `[lifecycle]` handling (§4.4). See `docs/operations.md`
-> §24.
+> §25.
 
 ### 3.4 Tier-5 escape hatch: subprocess plugins
 
@@ -478,6 +478,8 @@ On device B: `entangle pair 734-291`
 3. User confirms on **both** sides (mutual TOFU). Either side can reject.
 
 4. On accept, both sides mint long-lived biscuit tokens granting `mesh.peer` to each other and persist them.
+
+> **Implementation note (deviations).** The `mesh.peer` tokens minted here have no expiry: they live until revoked locally (`entangle peers remove`; §6.5 gossip is not implemented), not 24 h as §6.1.1 states. Per-request attenuations carry the 60 s expiry. Control frames carry no token, since they execute nothing; task frames and stream `Open`s do.
 
 5. Pairing is bidirectional and revocable: `entangle peers list`, `entangle peers remove <nodeid>`. **Failure modes (each with an explicit message):**
 
@@ -1638,7 +1640,7 @@ LOC count of first-party crates is half the story. The actual security-review su
 | 5 | Mesh impersonation / Sybil | Ed25519 NodeIds; explicit pairing TOFU; revocation gossip |
 | 6 | DoS via runaway plugin | Wasmtime fuel + memory caps; cgroup limits on subprocess; broker rate-limits powerbox |
 | 7 | Eavesdropping on mesh traffic | Iroh QUIC TLS 1.3 with NodeId-pinned certs; tailscale-mode uses WireGuard (Tailscale's transport) plus Entanglement's own biscuit-authenticated session |
-| 8 | Replay of capability tokens | Biscuit nonce + 60s expiry; receivers track recent nonces |
+| 8 | Replay of capability tokens | Biscuit nonce + 60s expiry; receivers track recent nonces. *Implementation note (deviation): the receiver checks a token only once its whole frame has arrived, so a frame of N received bytes earns ⌊N / 256 KiB⌋ s (at most 600 s) of late-arrival grace past the 60 s expiry, and its nonce is tracked for that extended window; presenters attenuate per send attempt, after connecting.* |
 | 9 | Powerbox prompt fatigue | Required rationale; plain-English authority; narrow defaults |
 | 10 | Tier-5 agent escapes via Node.js exploit | Pinned Node, OS sandbox, MCP gateway interposition; documented residual risk |
 | 11 | **Byzantine worker poisons compute results**  | §7.5 replication + quorum + reputation; trust for connectivity ≠ trust for correctness |

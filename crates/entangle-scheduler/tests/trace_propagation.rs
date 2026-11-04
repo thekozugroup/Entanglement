@@ -14,6 +14,7 @@ use std::time::Duration;
 use entangle_mesh_iroh::{IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER};
 use entangle_observability::context::{hex_string, SpanLayer, SpanRecord, SpanSink};
 use entangle_runtime::{Kernel, KernelConfig};
+use entangle_scheduler::capability::{CapabilityGate, StaticTokens};
 use entangle_scheduler::wire::{
     decode_response, encode_request, encode_response, RemoteErrorCode, RemoteOutcome,
     RemoteRequest, RemoteTaskRequest, RemoteTaskResponse, RequestFrame, TRACE_EXTENSION_TAG,
@@ -135,6 +136,7 @@ fn loopback_config() -> MeshIrohConfig {
 }
 
 struct Node {
+    identity: IdentityKeyPair,
     peer_id: PeerId,
     kernel: Arc<Kernel>,
     transport: Arc<MeshIroh>,
@@ -148,6 +150,7 @@ impl Node {
         let transport = Arc::new(MeshIroh::start(loopback_config(), &identity).await.unwrap());
         Self {
             peer_id: transport.local_peer_id(),
+            identity,
             kernel,
             transport,
         }
@@ -167,7 +170,7 @@ impl Node {
         let server = Arc::new(RemoteTaskServer::new(
             Arc::clone(&self.kernel),
             Arc::new(allowlist),
-            self.peer_id,
+            Arc::new(CapabilityGate::for_identity(&self.identity).unwrap()),
         ));
         tokio::spawn(entangle_scheduler::serve_tasks(
             Arc::clone(&self.transport),
@@ -177,6 +180,12 @@ impl Node {
 }
 
 fn dispatcher_for(local: &Node, remote: &Node) -> Dispatcher {
+    dispatcher_with(local, remote, true)
+}
+
+/// `local`'s dispatcher to `remote`, holding the token `remote` issued it
+/// when `paired` (a peer built before capability tokens issued none).
+fn dispatcher_with(local: &Node, remote: &Node, paired: bool) -> Dispatcher {
     let pool = WorkerPool::new();
     pool.upsert(WorkerInfo {
         peer_id: remote.peer_id,
@@ -194,10 +203,20 @@ fn dispatcher_for(local: &Node, remote: &Node) -> Dispatcher {
     directory.insert(remote.address());
     Dispatcher::new(pool, Arc::clone(&local.kernel), local.peer_id)
         .with_strict_remote(true)
-        .with_remote(Arc::new(RemoteDispatch::new(
-            Arc::clone(&local.transport) as Arc<dyn MeshTransport>,
-            Arc::new(directory),
-        )))
+        .with_remote(Arc::new(
+            RemoteDispatch::new(
+                Arc::clone(&local.transport) as Arc<dyn MeshTransport>,
+                Arc::new(directory),
+            )
+            .with_capability_tokens({
+                // What pairing leaves `local` holding: the token `remote` minted for it.
+                let tokens = StaticTokens::new();
+                if paired {
+                    tokens.paired_with(&remote.identity, local.peer_id).unwrap();
+                }
+                Arc::new(tokens)
+            }),
+        ))
 }
 
 fn task_for(plugin: PluginId, input: &[u8]) -> OneShotTask {
@@ -354,7 +373,8 @@ async fn a_pre_extension_peer_still_interoperates() {
         },
     ));
 
-    let dispatcher = dispatcher_for(&a, &legacy);
+    // A pre-extension peer predates capability tokens too: it issued none.
+    let dispatcher = dispatcher_with(&a, &legacy, false);
     let plugin: PluginId = "0123456789abcdef0123456789abcdef/legacy@1.0.0"
         .parse()
         .unwrap();
@@ -441,12 +461,22 @@ async fn a_spot_check_frame_is_not_linked_to_the_task_it_checks() {
         });
         directory.insert(node.address());
     }
+    // What pairing leaves the submitter holding: a token from each worker.
+    let tokens = StaticTokens::new();
+    for node in [&producer, &checker] {
+        tokens
+            .paired_with(&node.identity, submitter.peer_id)
+            .unwrap();
+    }
     let dispatcher = Dispatcher::new(pool, Arc::clone(&submitter.kernel), submitter.peer_id)
         .with_strict_remote(true)
-        .with_remote(Arc::new(RemoteDispatch::new(
-            Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
-            Arc::new(directory),
-        )))
+        .with_remote(Arc::new(
+            RemoteDispatch::new(
+                Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
+                Arc::new(directory),
+            )
+            .with_capability_tokens(Arc::new(tokens)),
+        ))
         .with_spot_checks(entangle_scheduler::SpotCheckConfig::with_probability(1.0));
 
     let mut task = task_for(plugin.clone(), b"trace");

@@ -5,14 +5,20 @@
 //!
 //! The daemon picks up `~/.entangle/peers.toml` changes on next start (or,
 //! future iter, via file-watch reload).
+//!
+//! `untrust` and `revoke` also revoke the `mesh.peer` capability token this
+//! node issued to the peer while pairing (its revocation ids go into
+//! `~/.entangle/revoked-tokens.toml`, which the daemon re-reads on every
+//! check), and `trust` on an already-paired peer keeps the peer's token
+//! fields — so taking a peer off the allowlist and putting it back by hand
+//! never revives a token issued before. See `entangle peers`.
 
 use anyhow::bail;
 use clap::{Args, Subcommand};
-use entangle_peers::{PeerStore, TrustedPeer};
+use entangle_peers::TrustedPeer;
 use entangle_rpc::{methods::MeshStatusResult, Client as RpcClient, RpcError};
-use entangle_types::peer_id::PeerId;
 
-use crate::config;
+use crate::cmd::peers::{open_peer_store, open_revocations, parse_peer_id, report_revoked};
 use crate::daemon_not_running_error;
 
 // ── Clap types ───────────────────────────────────────────────────────────────
@@ -53,12 +59,14 @@ pub enum MeshCmd {
         #[arg(long, default_value = "")]
         note: String,
     },
-    /// Remove a peer from the allowlist.
+    /// Remove a peer from the allowlist (and revoke the capability token
+    /// this node issued to it; same as `entangle peers remove`).
     Untrust {
         /// Peer id (hex) to remove.
         peer_id: String,
     },
-    /// Revoke a peer (keeps audit trail; refuses future connections).
+    /// Revoke a peer (keeps audit trail; refuses future connections; revokes
+    /// the capability token this node issued to it).
     Revoke {
         /// Peer id (hex) to revoke.
         peer_id: String,
@@ -197,7 +205,10 @@ fn trust(
         peer.note = note;
     }
 
-    store.add(peer)?;
+    // An already-paired peer keeps its token fields: the token this node
+    // presents to it, and the revocation ids of the one it was issued (so a
+    // later `untrust` / `peers remove` can still revoke it).
+    store.add_keeping_tokens(peer)?;
     println!("trusted: {} ({})", peer_id_hex, display_name);
     Ok(())
 }
@@ -207,10 +218,12 @@ fn trust(
 fn untrust(peer_id_hex: String) -> anyhow::Result<()> {
     let peer_id = parse_peer_id(&peer_id_hex)?;
     let store = open_peer_store()?;
+    let revocations = open_revocations()?;
 
-    match store.remove(&peer_id)? {
-        Some(_) => {
+    match store.remove_revoking(&peer_id, &revocations)? {
+        Some(peer) => {
             println!("removed: {}", peer_id_hex);
+            report_revoked(&peer);
             Ok(())
         }
         // Non-zero exit so scripts can detect a no-op removal.
@@ -223,9 +236,14 @@ fn untrust(peer_id_hex: String) -> anyhow::Result<()> {
 fn revoke(peer_id_hex: String) -> anyhow::Result<()> {
     let peer_id = parse_peer_id(&peer_id_hex)?;
     let store = open_peer_store()?;
+    let revocations = open_revocations()?;
 
-    store.revoke(&peer_id)?;
+    let issued = store.get(&peer_id);
+    store.revoke_revoking(&peer_id, &revocations)?;
     println!("revoked: {}", peer_id_hex);
+    if let Some(peer) = issued {
+        report_revoked(&peer);
+    }
     Ok(())
 }
 
@@ -233,16 +251,6 @@ fn revoke(peer_id_hex: String) -> anyhow::Result<()> {
 
 fn rpc_client() -> RpcClient {
     RpcClient::new(RpcClient::default_socket())
-}
-
-fn open_peer_store() -> anyhow::Result<PeerStore> {
-    let path = config::entangle_dir().join("peers.toml");
-    let store = PeerStore::open(path)?;
-    Ok(store)
-}
-
-fn parse_peer_id(hex_str: &str) -> anyhow::Result<PeerId> {
-    PeerId::from_hex(hex_str).map_err(|e| anyhow::anyhow!("invalid peer id '{}': {}", hex_str, e))
 }
 
 fn allow_local() -> bool {

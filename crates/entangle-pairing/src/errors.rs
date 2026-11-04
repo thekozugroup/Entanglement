@@ -22,6 +22,10 @@ pub enum PairingError {
     /// Hex decode failure.
     #[error("invalid hex: {0}")]
     Hex(String),
+    /// The `mesh.peer` capability token could not be minted, or the one the
+    /// other device sent is not a valid grant to this device.
+    #[error("capability token: {0}")]
+    Grant(String),
 }
 
 /// Errors arising from [`crate::PairingCode`] parsing or construction.

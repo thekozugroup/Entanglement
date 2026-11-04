@@ -27,10 +27,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use entangle_biscuits::templates::{
+    attenuate_for_request, attenuate_gpu_job, now_unix_secs, RequestRestrictions, StaticRevocations,
+};
 use entangle_mesh_iroh::{
     IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER, MAX_FRAME_BYTES,
 };
+use entangle_observability::catalog::names;
+use entangle_observability::Registry;
 use entangle_runtime::{Kernel, KernelConfig, LifecyclePhase};
+use entangle_scheduler::capability::{task_binding, CapabilityGate, HeldToken, StaticTokens};
 use entangle_scheduler::wire::{
     decode_response, encode_request, RemoteErrorCode, RemoteOutcome, RemoteRequest, RequestFrame,
     WIRE_VERSION,
@@ -130,7 +136,11 @@ fn loopback_config() -> MeshIrohConfig {
 
 /// One node: an identity, a kernel, and a QUIC endpoint.
 struct Node {
+    identity: IdentityKeyPair,
     peer_id: PeerId,
+    /// The capability tokens this node presents (what pairing would have
+    /// left it holding: see [`dispatcher_for`]).
+    tokens: StaticTokens,
     kernel: Arc<Kernel>,
     transport: Arc<MeshIroh>,
     /// Kept alive so the tempdir holding the plugin package is not deleted.
@@ -150,10 +160,23 @@ impl Node {
         );
         Self {
             peer_id: transport.local_peer_id(),
+            identity,
+            tokens: StaticTokens::new(),
             kernel,
             transport,
             _package: None,
         }
+    }
+
+    /// This node's capability gate (rooted at its identity, tokens
+    /// required).
+    fn gate(&self) -> Arc<CapabilityGate> {
+        Arc::new(CapabilityGate::for_identity(&self.identity).expect("gate"))
+    }
+
+    /// The `mesh.peer` token this node would issue `holder` while pairing.
+    fn issue_to(&self, holder: &Node) -> HeldToken {
+        HeldToken::minted(&self.identity, holder.peer_id).expect("mint")
     }
 
     /// Load the hello-pong fixture into this node's kernel.
@@ -184,7 +207,7 @@ impl Node {
         self.serve_with(RemoteTaskServer::new(
             Arc::clone(&self.kernel),
             Arc::new(allowlist),
-            self.peer_id,
+            self.gate(),
         ))
     }
 
@@ -217,7 +240,8 @@ fn worker_for(peer: PeerId) -> WorkerInfo {
 }
 
 /// Build node A's dispatcher: a pool containing only `remote`, a transport,
-/// and an address book that can reach it.
+/// an address book that can reach it, and the capability token `remote`
+/// issued A (as pairing leaves it: minted with `remote`'s identity key).
 fn dispatcher_for(local: &Node, remote: &Node) -> Dispatcher {
     let pool = WorkerPool::new();
     pool.upsert(worker_for(remote.peer_id));
@@ -225,10 +249,12 @@ fn dispatcher_for(local: &Node, remote: &Node) -> Dispatcher {
     let directory = PeerDirectory::new();
     directory.insert(remote.address());
 
+    local.tokens.insert(remote.peer_id, remote.issue_to(local));
     let client = RemoteDispatch::new(
         Arc::clone(&local.transport) as Arc<dyn MeshTransport>,
         Arc::new(directory),
-    );
+    )
+    .with_capability_tokens(Arc::new(local.tokens.clone()));
 
     Dispatcher::new(pool, Arc::clone(&local.kernel), local.peer_id)
         .with_strict_remote(true)
@@ -504,7 +530,7 @@ async fn oversize_input_is_refused_by_the_executor() {
     let server = RemoteTaskServer::new(
         Arc::clone(&node_b.kernel),
         Arc::new(StaticAllowlist::new().allow(node_a.peer_id)),
-        node_b.peer_id,
+        node_b.gate(),
     )
     .with_max_bytes(8, OneShotTask::DEFAULT_MAX_OUTPUT_BYTES);
     assert_eq!(server.input_ceiling(), 8);
@@ -870,7 +896,7 @@ async fn a_caller_cannot_raise_the_executors_timeout_ceiling() {
     let server = RemoteTaskServer::new(
         Arc::clone(&node_b.kernel),
         Arc::new(StaticAllowlist::new()),
-        node_b.peer_id,
+        node_b.gate(),
     );
 
     // Whatever a peer asks for, the ceiling wins.
@@ -896,7 +922,7 @@ async fn a_caller_cannot_raise_the_executors_timeout_ceiling() {
     let strict = RemoteTaskServer::new(
         Arc::clone(&node_b.kernel),
         Arc::new(StaticAllowlist::new()),
-        node_b.peer_id,
+        node_b.gate(),
     )
     .with_max_timeout_ms(1_000);
     assert_eq!(strict.effective_timeout_ms(u64::MAX), 1_000);
@@ -985,5 +1011,460 @@ async fn a_node_not_serving_the_scheduler_alpn_executes_nothing() {
     assert!(
         matches!(err, DispatchError::RemoteTransport { .. }),
         "expected a transport-level failure, got {err:?}"
+    );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 6. CAPABILITY TOKENS — every failure class, over a real transport, against
+//    the real verifier. B is the worker; tokens are minted with real keys.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// A task frame for `plugin`, sealed.
+fn task_request(plugin: &PluginId, input: &[u8]) -> RemoteRequest {
+    RemoteRequest::for_task(&task_for(plugin.clone(), input)).expect("seal")
+}
+
+/// `request`'s binding (what its token must be bound to).
+fn binding_of(request: &RemoteRequest) -> [u8; 32] {
+    let RequestFrame::Task(body) = &request.frame else {
+        unreachable!("a task frame")
+    };
+    task_binding(body)
+}
+
+/// Attach `token` to `request`.
+fn with_token(mut request: RemoteRequest, token: Option<Vec<u8>>) -> RemoteRequest {
+    if let RequestFrame::Task(body) = &mut request.frame {
+        body.capability = token;
+    }
+    request
+}
+
+/// Send `request` from `from` to `to` over the real QUIC transport.
+async fn send_raw(from: &Node, to: &Node, request: &RemoteRequest) -> RemoteOutcome {
+    let frame = encode_request(request).expect("encode");
+    let raw = deadline("raw request", from.transport.request(&to.address(), &frame))
+        .await
+        .expect("transport round trip");
+    decode_response(&raw, u64::MAX)
+        .expect("a valid envelope")
+        .outcome
+}
+
+/// `outcome` is a capability refusal with `code` whose message carries
+/// `entangle_code`, and B's kernel (whose lifecycle events `b_events`
+/// receives) ran nothing.
+macro_rules! assert_refused {
+    ($outcome:expr, $code:expr, $entangle_code:expr, $b_events:expr) => {{
+        match $outcome {
+            RemoteOutcome::Err { code: got, message } => {
+                assert_eq!(got, $code, "{message}");
+                assert!(message.contains($entangle_code), "{message}");
+            }
+            other => panic!("expected a {} refusal, got {other:?}", $code),
+        }
+        // No wait: the refusal is only returned after the worker has handled
+        // the frame, and a task that ran publishes its lifecycle events
+        // before its answer goes out. So anything B ran is already queued
+        // here, and a timing window (which a slow host could outrun) is not
+        // needed.
+        // (A zero timeout still polls the receiver once.)
+        if let Ok(Ok(env)) = tokio::time::timeout(Duration::ZERO, $b_events.recv()).await {
+            panic!("node B ran {} for a refused token", env.payload.plugin);
+        }
+    }};
+}
+
+/// Two nodes, B serving hello-pong to `allowed` behind `gate` (B's own by
+/// default).
+struct Pair {
+    a: Node,
+    b: Node,
+    plugin: PluginId,
+}
+
+async fn pair_with(extra_allowed: &[PeerId], gate: Option<CapabilityGate>) -> Pair {
+    let publisher = IdentityKeyPair::generate();
+    let a = Node::start(&publisher).await;
+    let mut b = Node::start(&publisher).await;
+    let plugin = b.load_hello_pong(&publisher).await;
+    let mut allow = StaticAllowlist::new().allow(a.peer_id);
+    for p in extra_allowed {
+        allow = allow.allow(*p);
+    }
+    let gate = gate.map_or_else(|| b.gate(), Arc::new);
+    b.serve_with(RemoteTaskServer::new(
+        Arc::clone(&b.kernel),
+        Arc::new(allow),
+        gate,
+    ));
+    Pair { a, b, plugin }
+}
+
+/// A token, presented as a submitter presents it, runs the task; without
+/// one the worker refuses it with ENTANGLE-E0450 (which says to re-pair)
+/// before anything runs.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_task_without_a_token_is_refused_and_with_one_it_runs() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let request = task_request(&p.plugin, b"world");
+    assert_refused!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteErrorCode::CapabilityRequired,
+        "ENTANGLE-E0450",
+        b_events
+    );
+
+    let token = p.b.issue_to(&p.a).present(binding_of(&request)).unwrap();
+    match send_raw(&p.a, &p.b, &with_token(request, Some(token))).await {
+        RemoteOutcome::Ok { output, .. } => assert_eq!(output, b"Hello, world!"),
+        other => panic!("a valid token must run the task, got {other:?}"),
+    }
+}
+
+/// With `require_capability_tokens = false` a tokenless task from an
+/// allowlisted peer runs and is counted; a task that does carry a token is
+/// still fully verified.
+#[tokio::test(flavor = "multi_thread")]
+async fn with_the_gate_off_a_tokenless_task_runs_and_is_counted() {
+    let metrics = Registry::new();
+    let publisher = IdentityKeyPair::generate();
+    let a = Node::start(&publisher).await;
+    let mut b = Node::start(&publisher).await;
+    let plugin = b.load_hello_pong(&publisher).await;
+    let gate = CapabilityGate::for_identity(&b.identity)
+        .unwrap()
+        .require_tokens(false)
+        .with_metrics(metrics.clone());
+    b.serve_with(RemoteTaskServer::new(
+        Arc::clone(&b.kernel),
+        Arc::new(StaticAllowlist::new().allow(a.peer_id)),
+        Arc::new(gate),
+    ));
+    let request = task_request(&plugin, b"world");
+    assert!(matches!(
+        send_raw(&a, &b, &request).await,
+        RemoteOutcome::Ok { .. }
+    ));
+    assert_eq!(
+        metrics.value(
+            names::REMOTE_CAPABILITY,
+            &[("path", "task"), ("outcome", "tokenless_accepted")]
+        ),
+        Some(1.0)
+    );
+    // A token bound to another request is still refused.
+    let wrong = b.issue_to(&a).present([0; 32]).unwrap();
+    let mut b_events = b.kernel.bus().subscribe();
+    assert_refused!(
+        send_raw(
+            &a,
+            &b,
+            &with_token(task_request(&plugin, b"world"), Some(wrong))
+        )
+        .await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0456",
+        b_events
+    );
+}
+
+/// A token B issued to A is useless to C, another peer B trusts: the token
+/// names its holder and B compares it with the transport-authenticated id.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_token_issued_to_another_peer_is_refused() {
+    let publisher = IdentityKeyPair::generate();
+    let c = Node::start(&publisher).await;
+    let p = pair_with(&[c.peer_id], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let request = task_request(&p.plugin, b"world");
+    // C holds A's token (stolen) and attenuates it itself.
+    let stolen = p.b.issue_to(&p.a).present(binding_of(&request)).unwrap();
+    assert_refused!(
+        send_raw(&c, &p.b, &with_token(request, Some(stolen))).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0453",
+        b_events
+    );
+}
+
+/// A token minted by another node's key (C issues A a token "for B") does
+/// not verify under B's key.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_token_minted_by_another_nodes_key_is_refused() {
+    let publisher = IdentityKeyPair::generate();
+    let c = Node::start(&publisher).await;
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let request = task_request(&p.plugin, b"world");
+    let forged = c.issue_to(&p.a).present(binding_of(&request)).unwrap();
+    assert_refused!(
+        send_raw(&p.a, &p.b, &with_token(request, Some(forged))).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0452",
+        b_events
+    );
+}
+
+/// A token narrowed to `compute.gpu-job` is for GPU tasks only: on the task
+/// path (a task that asks for no GPU) it is refused with the template
+/// restriction code, before anything runs.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_gpu_job_token_is_refused_on_a_task_that_asks_for_no_gpu() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let request = task_request(&p.plugin, b"world");
+    let held = p.b.issue_to(&p.a);
+    let gpu = attenuate_gpu_job(&held.token, &held.issuer_public_key, None).unwrap();
+    let narrowed = HeldToken {
+        token: gpu,
+        issuer_public_key: held.issuer_public_key,
+    };
+    let presented = narrowed.present(binding_of(&request)).unwrap();
+    assert_refused!(
+        send_raw(&p.a, &p.b, &with_token(request, Some(presented))).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0462",
+        b_events
+    );
+}
+
+/// An expired per-request token is refused with the shared expiry code.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_expired_token_is_refused() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let request = task_request(&p.plugin, b"world");
+    let held = p.b.issue_to(&p.a);
+    let expired = attenuate_for_request(
+        &held.token,
+        &held.issuer_public_key,
+        &RequestRestrictions {
+            expires: now_unix_secs() - 1,
+            nonce: [1; 16],
+            binding: binding_of(&request),
+        },
+    )
+    .unwrap();
+    assert_refused!(
+        send_raw(&p.a, &p.b, &with_token(request, Some(expired))).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0412",
+        b_events
+    );
+}
+
+/// The same frame sent twice — same nonce — runs once; the replay is
+/// refused.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_replayed_request_is_refused() {
+    let p = pair_with(&[], None).await;
+    let request = task_request(&p.plugin, b"world");
+    let token = p.b.issue_to(&p.a).present(binding_of(&request)).unwrap();
+    let request = with_token(request, Some(token));
+    assert!(matches!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteOutcome::Ok { .. }
+    ));
+    let mut b_events = p.b.kernel.bus().subscribe();
+    assert_refused!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0458",
+        b_events
+    );
+}
+
+/// A token attenuated for task X does not authorise task Y.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_token_bound_to_another_task_is_refused() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let x = task_request(&p.plugin, b"x");
+    let y = task_request(&p.plugin, b"y");
+    let for_x = p.b.issue_to(&p.a).present(binding_of(&x)).unwrap();
+    assert_refused!(
+        send_raw(&p.a, &p.b, &with_token(y, Some(for_x))).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0456",
+        b_events
+    );
+}
+
+/// A token whose revocation id is in B's revocation set is refused, while
+/// a fresh one (re-paired) still works.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_revoked_token_is_refused() {
+    let publisher = IdentityKeyPair::generate();
+    let a = Node::start(&publisher).await;
+    let mut b = Node::start(&publisher).await;
+    let plugin = b.load_hello_pong(&publisher).await;
+    let revoked = StaticRevocations::new();
+    b.serve_with(RemoteTaskServer::new(
+        Arc::clone(&b.kernel),
+        Arc::new(StaticAllowlist::new().allow(a.peer_id)),
+        Arc::new(
+            CapabilityGate::for_identity(&b.identity)
+                .unwrap()
+                .with_revocations(Arc::new(revoked.clone())),
+        ),
+    ));
+    let minted =
+        entangle_biscuits::templates::mint_mesh_peer(&b.identity, a.peer_id, None).unwrap();
+    let held = HeldToken {
+        token: minted.bytes.clone(),
+        issuer_public_key: *b.identity.public().as_bytes(),
+    };
+    let request = task_request(&plugin, b"world");
+    let ok = held.present(binding_of(&request)).unwrap();
+    assert!(matches!(
+        send_raw(&a, &b, &with_token(request, Some(ok))).await,
+        RemoteOutcome::Ok { .. }
+    ));
+    revoked.revoke(minted.revocation_ids.clone());
+    let mut b_events = b.kernel.bus().subscribe();
+    let request = task_request(&plugin, b"world");
+    let again = held.present(binding_of(&request)).unwrap();
+    assert_refused!(
+        send_raw(&a, &b, &with_token(request, Some(again))).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0460",
+        b_events
+    );
+    // Re-pairing issues a new token, which is not revoked.
+    let request = task_request(&plugin, b"world");
+    let fresh = b.issue_to(&a).present(binding_of(&request)).unwrap();
+    assert!(matches!(
+        send_raw(&a, &b, &with_token(request, Some(fresh))).await,
+        RemoteOutcome::Ok { .. }
+    ));
+}
+
+/// Malformed token bytes are a structured refusal, not a crash.
+#[tokio::test(flavor = "multi_thread")]
+async fn malformed_token_bytes_are_refused() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let request = with_token(task_request(&p.plugin, b"world"), Some(vec![0xde, 0xad]));
+    assert_refused!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0451",
+        b_events
+    );
+}
+
+// ── late arrival: the grace a large frame earns ──────────────────────────────
+//
+// The worker checks a token's expiry only once the whole frame is in, so a
+// large input on a slow link can arrive after its token's 60 s. The rule
+// (`entangle_biscuits::templates::late_arrival_grace_secs`): one second of
+// grace per 256 KiB of the frame as the transport received it (integer
+// division: under 256 KiB there is none), capped; the token is expired only
+// once `now >= expires + grace`. These tests make a frame "arrive late" by
+// presenting a token that expired before it was sent.
+
+/// One second of grace per this many received bytes (the documented rule).
+const GRACE_BYTES_PER_SEC: usize = 256 * 1024;
+
+/// A task frame for `plugin` with `input_len` bytes of input, carrying a
+/// token that A presents for it but which expired `expired_secs_ago`
+/// seconds ago (a fresh nonce `nonce`), and that frame's grace.
+fn late_frame(
+    p: &Pair,
+    input_len: usize,
+    expired_secs_ago: i64,
+    nonce: u8,
+) -> (RemoteRequest, i64) {
+    let request = task_request(&p.plugin, &vec![b'a'; input_len]);
+    let held = p.b.issue_to(&p.a);
+    let token = attenuate_for_request(
+        &held.token,
+        &held.issuer_public_key,
+        &RequestRestrictions {
+            expires: now_unix_secs() - expired_secs_ago,
+            nonce: [nonce; 16],
+            binding: binding_of(&request),
+        },
+    )
+    .unwrap();
+    let request = with_token(request, Some(token));
+    let frame_len = encode_request(&request).expect("encode").len();
+    let grace = i64::try_from(frame_len / GRACE_BYTES_PER_SEC).unwrap();
+    (request, grace)
+}
+
+/// The expected output of hello-pong for `input_len` bytes of `a`.
+fn hello_for(input_len: usize) -> Vec<u8> {
+    let mut out = b"Hello, ".to_vec();
+    out.extend(std::iter::repeat_n(b'a', input_len));
+    out.push(b'!');
+    out
+}
+
+/// A 4 MiB frame (16 s of grace) whose token expired 4 s before it was
+/// sent arrives inside its grace: it verifies and runs.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_large_frame_arriving_after_expiry_but_inside_its_grace_runs() {
+    let p = pair_with(&[], None).await;
+    let input_len = 4 * 1024 * 1024;
+    let (request, grace) = late_frame(&p, input_len, 4, 1);
+    assert_eq!(grace, 16, "a 4 MiB frame earns 16 s");
+    match send_raw(&p.a, &p.b, &request).await {
+        RemoteOutcome::Ok { output, .. } => assert_eq!(output, hello_for(input_len)),
+        other => panic!("a late frame inside its grace must run, got {other:?}"),
+    }
+}
+
+/// The same 4 MiB frame once its grace has passed too
+/// (`now >= expires + grace`) is refused as expired, with E0412.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_large_frame_arriving_after_its_grace_is_refused_as_expired() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let (request, grace) = late_frame(&p, 4 * 1024 * 1024, 16, 1);
+    assert_eq!(grace, 16);
+    assert_refused!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0412",
+        b_events
+    );
+}
+
+/// A frame under 256 KiB earns no grace: one second late is expired.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_frame_under_256_kib_earns_no_grace() {
+    let p = pair_with(&[], None).await;
+    let mut b_events = p.b.kernel.bus().subscribe();
+    let (request, grace) = late_frame(&p, 200 * 1024, 1, 1);
+    assert_eq!(grace, 0);
+    assert_refused!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0412",
+        b_events
+    );
+}
+
+/// Inside the grace window the nonce is still remembered: the same late
+/// frame sent again is refused as a replay (E0458), not run twice.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_replay_inside_the_grace_window_is_refused() {
+    let p = pair_with(&[], None).await;
+    let input_len = 4 * 1024 * 1024;
+    let (request, grace) = late_frame(&p, input_len, 2, 1);
+    assert_eq!(grace, 16);
+    match send_raw(&p.a, &p.b, &request).await {
+        RemoteOutcome::Ok { output, .. } => assert_eq!(output, hello_for(input_len)),
+        other => panic!("the first late frame inside its grace must run, got {other:?}"),
+    }
+    let mut b_events = p.b.kernel.bus().subscribe();
+    assert_refused!(
+        send_raw(&p.a, &p.b, &request).await,
+        RemoteErrorCode::CapabilityRejected,
+        "ENTANGLE-E0458",
+        b_events
     );
 }

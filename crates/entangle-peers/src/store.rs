@@ -50,6 +50,11 @@ impl PeerStore {
         })
     }
 
+    /// The backing file, if persistent.
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+
     /// Add or replace a peer (last-write-wins on `peer_id` collision).
     pub fn add(&self, peer: TrustedPeer) -> Result<(), PeerStoreError> {
         self.locked_mutate(|map| {
@@ -202,7 +207,7 @@ fn save_map(path: &Path, map: &HashMap<PeerId, TrustedPeer>) -> Result<(), PeerS
 /// on any error the temp file is removed. The temp name incorporates the pid, a
 /// nanosecond timestamp and a counter so a stale temp left by a crashed process
 /// (even after PID reuse) never collides with a fresh write.
-fn write_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+pub(crate) fn write_atomic(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
 
@@ -263,12 +268,12 @@ fn lock_path_for(target: &Path) -> PathBuf {
 /// The lock is advisory (only cooperating `PeerStore` writers honor it) and is
 /// released automatically when the handle drops or the process exits, so it does
 /// not suffer the stale-lock problem of `O_EXCL` lockfiles.
-struct FileLock {
+pub(crate) struct FileLock {
     _file: std::fs::File,
 }
 
 impl FileLock {
-    fn acquire(target: &Path) -> Result<Self, PeerStoreError> {
+    pub(crate) fn acquire(target: &Path) -> Result<Self, PeerStoreError> {
         let lock_path = lock_path_for(target);
         let file = std::fs::OpenOptions::new()
             .read(true)

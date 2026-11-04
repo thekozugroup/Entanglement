@@ -69,3 +69,6 @@ hex               = { workspace = true }
 serde_json        = { workspace = true }
 entangle-bin      = { path = "../entangle-bin" }
 entangle-broker   = { workspace = true }
+# Mint and verify real capability tokens in the pairing / peers / backup
+# tests (already in the graph via entangle-scheduler).
+entangle-biscuits = { workspace = true }

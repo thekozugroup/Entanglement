@@ -33,6 +33,11 @@
 //! 5. Both sides store each other's public key as TOFU; future sessions are
 //!    authenticated without a code.
 //!
+//! Riding on steps 3 and 4 (and on the network channel's `Accept` /
+//! `Finalize`), each side hands the other a `mesh.peer` capability token
+//! rooted at its own identity key ([`grant`], spec §6.3 step 4): the token the
+//! other device presents with every remote request it sends this one.
+//!
 //! Entropy source: [`rand_core::OsRng`] (system CSPRNG on all platforms).
 
 #![forbid(unsafe_code)]
@@ -46,6 +51,8 @@ pub mod envelope;
 pub mod errors;
 /// 8-byte human-readable public-key fingerprint.
 pub mod fingerprint;
+/// The `mesh.peer` capability tokens a pairing exchanges.
+pub mod grant;
 /// Pairing over the live mesh transport (QUIC + mDNS).
 pub mod mesh;
 /// Transport-independent state machines for pairing over a network link.
@@ -61,8 +68,8 @@ pub use envelope::{
 pub use errors::{CodeError, FingerprintError, PairingError};
 pub use fingerprint::ShortFingerprint;
 pub use mesh::{
-    dial_and_pair, discover_pairing_hosts, parse_node_addr, start_pairing_transport, IrohPeer,
-    PairingCandidate, PairingListener, PairingMeshError,
+    dial_and_pair, dial_and_pair_with_grant, discover_pairing_hosts, parse_node_addr,
+    start_pairing_transport, IrohPeer, PairingCandidate, PairingListener, PairingMeshError,
 };
 pub use net::{
     Dialer, HostConfig, HostSession, PairingNetError, PairingOffer, PairingWire, RejectReason,

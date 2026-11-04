@@ -26,6 +26,8 @@ entangle-manifest   = { workspace = true }
 entangle-broker     = { workspace = true }
 entangle-scheduler      = { path = "../entangle-scheduler" }
 entangle-peers          = { path = "../entangle-peers" }
+# The revocation-set adapter of the capability gate (`remote::StoreRevocations`).
+entangle-biscuits       = { workspace = true }
 entangle-mesh-local     = { workspace = true }
 entangle-mesh-iroh      = { workspace = true }
 entangle-mesh-tailscale = { workspace = true }

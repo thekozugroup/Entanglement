@@ -2,7 +2,7 @@
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
 //! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke},
-//! mesh {peers,status,trust,untrust,revoke}, perms {list,revoke}, pair (initiator/responder),
+//! mesh {peers,status,trust,untrust,revoke}, peers {list,remove}, perms {list,revoke}, pair (initiator/responder),
 //! wrapper, security set-max-tier, config {reload,validate}, metrics, diag mesh.
 //! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
 //! Pairing goes directly to peers.toml (no daemon RPC).
@@ -24,6 +24,7 @@ use cmd::{
     keyring::KeyringArgs,
     mesh::MeshArgs,
     pair::PairArgs,
+    peers::PeersArgs,
     perms::PermsArgs,
     plugins::PluginsArgs,
     quickstart::QuickstartArgs,
@@ -93,6 +94,9 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     Mesh(MeshArgs),
     /// Pair this device with another (short-code + fingerprint exchange).
     Pair(PairArgs),
+    /// Paired peers and their capability tokens: list, remove (revokes).
+    #[command(subcommand_required = true)]
+    Peers(PeersArgs),
     /// Dispatch compute tasks via the scheduler.
     #[command(subcommand_required = true)]
     Compute(ComputeArgs),
@@ -183,6 +187,7 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Release(a) => cmd::release::run(a).await,
         Cmd::Mesh(a) => cmd::mesh::run(a).await,
         Cmd::Pair(a) => cmd::pair::run(a).await,
+        Cmd::Peers(a) => cmd::peers::run(a).await,
         Cmd::Compute(a) => cmd::compute::run(a).await,
         Cmd::Agent(a) => {
             let code = cmd::agent::run(a).await?;

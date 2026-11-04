@@ -11,6 +11,7 @@ use crate::{
     envelope::{make_code_commit, signing_payload, PairingAccept, PairingFinalize, PairingRequest},
     errors::PairingError,
     fingerprint::ShortFingerprint,
+    grant,
 };
 use entangle_signing::{IdentityKeyPair, IdentityPublicKey, Signature};
 use entangle_types::peer_id::PeerId;
@@ -22,7 +23,7 @@ const PAIRING_TIMEOUT_SECS: u64 = 300; // 5 minutes per spec §6.3
 // ── Shared output type ────────────────────────────────────────────────────────
 
 /// A successfully paired peer record produced at the end of the flow.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PairedPeer {
     /// Stable identifier for the remote peer.
     pub peer_id: PeerId,
@@ -32,6 +33,28 @@ pub struct PairedPeer {
     pub display_name: String,
     /// Short fingerprint for future verification.
     pub fingerprint: ShortFingerprint,
+    /// The `mesh.peer` capability token the remote device issued to this one
+    /// (raw biscuit, already checked by [`grant::check`]): what this device
+    /// presents with every remote request it sends there. `None` when the
+    /// remote device sent none (built before tokens existed).
+    pub capability_token: Option<Vec<u8>>,
+    /// Revocation ids of the token this device issued to the remote one
+    /// (empty if it issued none): what `entangle peers remove` revokes.
+    pub issued_revocation_ids: Vec<Vec<u8>>,
+}
+
+impl std::fmt::Debug for PairedPeer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The token is a credential: say whether there is one, never print it.
+        f.debug_struct("PairedPeer")
+            .field("peer_id", &self.peer_id)
+            .field("pubkey_hex", &self.pubkey_hex)
+            .field("display_name", &self.display_name)
+            .field("fingerprint", &self.fingerprint)
+            .field("has_capability_token", &self.capability_token.is_some())
+            .field("issued_revocation_ids", &self.issued_revocation_ids.len())
+            .finish()
+    }
 }
 
 // ── Initiator ─────────────────────────────────────────────────────────────────
@@ -177,7 +200,14 @@ impl Initiator {
             ));
         }
 
-        // 5. Sign the same payload on behalf of initiator (mutual proof of key
+        // 5. The responder's capability token (if it sent one) must be a
+        //    mesh.peer grant from its key to us; then mint ours for it.
+        let own_id = PeerId::from_public_key_bytes(self.keypair.public().as_bytes());
+        let received =
+            grant::check_optional(accept.capability_token_hex.as_deref(), &pub_bytes, own_id)?;
+        let issued = grant::issue(&self.keypair, responder_peer_id)?;
+
+        // 6. Sign the same payload on behalf of initiator (mutual proof of key
         //    possession) and record the completed state.
         let our_sig = self.keypair.sign(&payload);
         self.state = InitiatorState::Completed(PairedPeer {
@@ -185,10 +215,13 @@ impl Initiator {
             pubkey_hex: accept.responder_pubkey_hex.clone(),
             display_name: accept.responder_display_name.clone(),
             fingerprint: ShortFingerprint::from_public_key(&pub_bytes),
+            capability_token: received,
+            issued_revocation_ids: issued.revocation_ids.clone(),
         });
         Ok(PairingFinalize {
             signature_hex: hex::encode(our_sig.as_bytes()),
             created_at_secs: now_secs(),
+            capability_token_hex: Some(grant::to_hex(&issued)),
         })
     }
 
@@ -232,6 +265,8 @@ enum ResponderState {
     Pending,
     Accepted {
         payload: [u8; 64],
+        /// Revocation ids of the token sent to the initiator in the accept.
+        issued: Vec<Vec<u8>>,
     },
     Completed(PairedPeer),
     #[allow(dead_code)]
@@ -337,14 +372,22 @@ impl Responder {
         let payload = signing_payload(typed_code, &self.request.nonce);
         let sig = self.keypair.sign(&payload);
         let responder_peer_id = PeerId::from_public_key_bytes(self.keypair.public().as_bytes());
+        // The initiator proved knowledge of the code (via the commitment):
+        // mint its mesh.peer token. `receive` checked that the id is the
+        // fingerprint of the key.
+        let issued = grant::issue(&self.keypair, self.request.initiator_peer_id)?;
 
-        self.state = ResponderState::Accepted { payload };
+        self.state = ResponderState::Accepted {
+            payload,
+            issued: issued.revocation_ids.clone(),
+        };
         Ok(PairingAccept {
             responder_peer_id,
             responder_pubkey_hex: hex::encode(self.keypair.public().as_bytes()),
             responder_display_name: self.display_name.clone(),
             signature_hex: hex::encode(sig.as_bytes()),
             created_at_secs: now_secs(),
+            capability_token_hex: Some(grant::to_hex(&issued)),
         })
     }
 
@@ -359,8 +402,8 @@ impl Responder {
         &mut self,
         finalize: &PairingFinalize,
     ) -> Result<PairedPeer, PairingError> {
-        let payload = match &self.state {
-            ResponderState::Accepted { payload } => *payload,
+        let (payload, issued) = match &self.state {
+            ResponderState::Accepted { payload, issued } => (*payload, issued.clone()),
             _ => return Err(PairingError::Envelope("not in Accepted state".into())),
         };
 
@@ -390,11 +433,18 @@ impl Responder {
             .verify(&payload, &sig)
             .map_err(|_| PairingError::VerifyFailed)?;
 
+        let received = grant::check_optional(
+            finalize.capability_token_hex.as_deref(),
+            &pub_bytes,
+            PeerId::from_public_key_bytes(self.keypair.public().as_bytes()),
+        )?;
         let paired = PairedPeer {
             peer_id: self.request.initiator_peer_id,
             pubkey_hex: self.request.initiator_pubkey_hex.clone(),
             display_name: self.request.initiator_display_name.clone(),
             fingerprint: ShortFingerprint::from_public_key(&pub_bytes),
+            capability_token: received,
+            issued_revocation_ids: issued,
         };
         self.state = ResponderState::Completed(paired.clone());
         Ok(paired)
@@ -476,6 +526,43 @@ mod tests {
             initiator_paired.peer_id, accept.responder_peer_id,
             "initiator's paired peer_id should match what the responder declared"
         );
+
+        // Spec §6.3 step 4: both sides hold a mesh.peer token from the other,
+        // and know the revocation ids of the one they issued.
+        let i_token = initiator_paired.capability_token.as_deref().unwrap();
+        let r_token = responder_paired.capability_token.as_deref().unwrap();
+        let i_id = responder_paired.peer_id;
+        let r_id = initiator_paired.peer_id;
+        let i_pub: [u8; 32] = hex::decode(&responder_paired.pubkey_hex)
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let r_pub: [u8; 32] = hex::decode(&initiator_paired.pubkey_hex)
+            .unwrap()
+            .try_into()
+            .unwrap();
+        grant::verify(i_token, &r_pub, i_id).expect("responder -> initiator");
+        grant::verify(r_token, &i_pub, r_id).expect("initiator -> responder");
+        assert!(!initiator_paired.issued_revocation_ids.is_empty());
+        assert!(!responder_paired.issued_revocation_ids.is_empty());
+    }
+
+    /// A token that is not a grant to this device fails the pairing.
+    #[test]
+    fn a_foreign_capability_token_fails_the_pairing() {
+        let mut initiator = Initiator::start(make_keypair(), "Alice".into());
+        let mut responder =
+            Responder::receive(make_keypair(), "Bob".into(), initiator.request()).unwrap();
+        let mut accept = responder.accept(initiator.code()).unwrap();
+        // A token minted by some third device.
+        let third = make_keypair();
+        let t = grant::issue(&third, accept.responder_peer_id).unwrap();
+        accept.capability_token_hex = Some(grant::to_hex(&t));
+        assert!(matches!(
+            initiator.handle_accept(&accept),
+            Err(PairingError::Grant(_))
+        ));
+        assert!(initiator.completed().is_none());
     }
 
     /// Responder rejects a wrong pairing code.

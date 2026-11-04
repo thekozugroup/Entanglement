@@ -18,11 +18,17 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use entangle_biscuits::templates::{
+    attenuate_for_request, attenuate_gpu_job, now_unix_secs, RequestRestrictions, StaticRevocations,
+};
 use entangle_mesh_iroh::{
     duplex_pair, FramedStream, IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER,
     ALPN_STREAM, MAX_FRAME_BYTES,
 };
+use entangle_observability::catalog::names;
+use entangle_observability::Registry;
 use entangle_runtime::{Kernel, KernelConfig};
+use entangle_scheduler::capability::{CapabilityGate, CapabilityTokens, HeldToken, StaticTokens};
 use entangle_scheduler::stream::frame::{
     decode_frame, encode_frame, AcceptedFrame, ChunkFrame, Frame, OpenFrame, CHUNK_FRAME_OVERHEAD,
     CONTROL_FRAME_MAX,
@@ -195,6 +201,29 @@ fn server(
 
 fn peer_of(key: &IdentityKeyPair) -> PeerId {
     PeerId::from_public_key_bytes(key.public().as_bytes())
+}
+
+/// What `submitter` holds after pairing with `executor`: the `mesh.peer`
+/// token `executor` minted for it (the shared helper — a real token, not a
+/// disabled gate).
+fn tokens(executor: &IdentityKeyPair, submitter: &IdentityKeyPair) -> Arc<dyn CapabilityTokens> {
+    let t = StaticTokens::new();
+    t.paired_with(executor, peer_of(submitter)).unwrap();
+    Arc::new(t)
+}
+
+/// Stream options presenting that token.
+fn paired(executor: &IdentityKeyPair, submitter: &IdentityKeyPair) -> StreamOptions {
+    StreamOptions {
+        capability: Some(tokens(executor, submitter)),
+        ..StreamOptions::default()
+    }
+}
+
+/// Put that token, attenuated for this stream, on a machine's queued Open.
+fn present(sub: &mut SubmitterMachine, executor: &IdentityKeyPair, submitter: &IdentityKeyPair) {
+    let held = HeldToken::minted(executor, peer_of(submitter)).unwrap();
+    sub.attach_capability(held.present(sub.capability_binding()).unwrap());
 }
 
 fn pub_of(key: &IdentityKeyPair) -> [u8; 32] {
@@ -487,7 +516,7 @@ async fn atc_int_6_executor_closes_at_max_total_bytes() {
 
     let (sub_io, exec_io) = duplex(&submitter, &executor);
     let served = tokio::spawn(async move { srv.handle(exec_io).await });
-    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    let mut handle = StreamHandle::start(sub_io, &task, paired(&executor, &submitter)).unwrap();
     handle.finish_input().await.unwrap();
     let result = deadline("collecting", handle.collect()).await;
 
@@ -888,7 +917,7 @@ async fn atc_str_1_stall_and_resume_in_real_time() {
     let (sub_io, exec_io) = duplex(&submitter, &executor);
     let served = tokio::spawn(async move { srv.handle(exec_io).await });
     let started = Instant::now();
-    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    let mut handle = StreamHandle::start(sub_io, &task, paired(&executor, &submitter)).unwrap();
     handle.finish_input().await.unwrap();
 
     // Take nothing; wait for the stall.
@@ -1079,6 +1108,7 @@ async fn atc_str_2_peer_lost_in_real_time() {
         Instant::now(),
     )
     .unwrap();
+    present(&mut sub, &executor, &submitter);
     let open = sub.poll_transmit().unwrap();
     let (mut sub_io, exec_io) = duplex(&submitter, &executor);
     let started = Instant::now();
@@ -1114,7 +1144,7 @@ async fn atc_str_3_forged_chunk_rejected() {
     task.partial_result = PartialResultPolicy::KeepSigned;
     let (sub_io, exec_io) = duplex(&submitter, &n);
     let served = tokio::spawn(async move { srv.handle(exec_io).await });
-    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    let mut handle = StreamHandle::start(sub_io, &task, paired(&n, &submitter)).unwrap();
     handle.finish_input().await.unwrap();
     let result = deadline("collect", handle.collect()).await;
     assert!(result.is_complete(), "{:?}", result.outcome);
@@ -1303,6 +1333,7 @@ async fn the_executor_clamps_limits_and_refuses_non_stream_plugins() {
         Instant::now(),
     )
     .unwrap();
+    present(&mut sub, &executor, &submitter);
     let (mut sub_io, exec_io) = duplex(&submitter, &executor);
     let served = tokio::spawn(async move { srv.handle(exec_io).await });
     send_frame(&mut sub_io, &sub.poll_transmit().unwrap()).await;
@@ -1341,7 +1372,7 @@ async fn the_executor_clamps_limits_and_refuses_non_stream_plugins() {
         let task = StreamingTask::with_defaults(plugin, vec![]);
         let (sub_io, exec_io) = duplex(&submitter, &executor);
         let served = tokio::spawn(async move { srv.handle(exec_io).await });
-        let handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+        let handle = StreamHandle::start(sub_io, &task, paired(&executor, &submitter)).unwrap();
         let result = deadline("collect", handle.collect()).await;
         match &result.outcome {
             StreamOutcome::Interrupted(StreamError::PeerAborted {
@@ -1374,7 +1405,7 @@ async fn a_plugin_failure_mid_stream_honours_the_partial_result_policy() {
         task.partial_result = policy;
         let (sub_io, exec_io) = duplex(&submitter, &executor);
         let served = tokio::spawn(async move { srv.handle(exec_io).await });
-        let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+        let mut handle = StreamHandle::start(sub_io, &task, paired(&executor, &submitter)).unwrap();
         handle.send_input(vec![0xff, 0xfe]).await.unwrap();
         let result = deadline("collect", handle.collect()).await;
         match &result.outcome {
@@ -1408,7 +1439,7 @@ async fn cancel_mid_stream_stops_the_plugin() {
     task.channel.credit_window = 2;
     let (sub_io, exec_io) = duplex(&submitter, &executor);
     let served = tokio::spawn(async move { srv.handle(exec_io).await });
-    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    let mut handle = StreamHandle::start(sub_io, &task, paired(&executor, &submitter)).unwrap();
     assert!(matches!(
         deadline("first", handle.next()).await,
         ChunkPoll::Chunk(_)
@@ -1449,7 +1480,7 @@ async fn a_cancelled_stream_is_counted_as_cancelled_not_as_a_plugin_error() {
     task.channel.credit_window = 2;
     let (sub_io, exec_io) = duplex(&submitter, &executor);
     let served = tokio::spawn(async move { srv.handle(exec_io).await });
-    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    let mut handle = StreamHandle::start(sub_io, &task, paired(&executor, &submitter)).unwrap();
     assert!(matches!(
         deadline("first", handle.next()).await,
         ChunkPoll::Chunk(_)
@@ -1546,7 +1577,7 @@ async fn stream_lines_end_to_end_over_two_loopback_iroh_nodes() {
     let task_server = Arc::new(entangle_scheduler::RemoteTaskServer::new(
         Arc::clone(&plugins.kernel),
         Arc::new(allow()),
-        peer_of(&b_key),
+        Arc::new(CapabilityGate::for_identity(&b_key).unwrap()),
     ));
     tokio::spawn(entangle_scheduler::serve_tasks(Arc::clone(&b), task_server));
 
@@ -1566,7 +1597,7 @@ async fn stream_lines_end_to_end_over_two_loopback_iroh_nodes() {
     task.partial_result = PartialResultPolicy::KeepSigned;
     let mut handle = deadline(
         "open_stream",
-        open_stream(&a, &b_addr, &task, StreamOptions::default()),
+        open_stream(&a, &b_addr, &task, paired(&b_key, &a_key)),
     )
     .await
     .expect("stream opens");
@@ -1628,7 +1659,8 @@ async fn stream_lines_end_to_end_over_two_loopback_iroh_nodes() {
         .await
         .unwrap();
     let client =
-        entangle_scheduler::RemoteDispatch::new(Arc::new(scheduler_a), Arc::new(directory));
+        entangle_scheduler::RemoteDispatch::new(Arc::new(scheduler_a), Arc::new(directory))
+            .with_capability_tokens(tokens(&b_key, &a_key));
     let one_shot = entangle_types::task::OneShotTask::with_defaults(
         plugins.hello_pong.clone(),
         b"mesh".to_vec(),
@@ -1679,4 +1711,284 @@ async fn an_aborted_stream_still_publishes_idled() {
         .expect("Idled must follow an aborted stream")
         .expect("recv");
     assert_eq!(idled.payload.phase, LifecyclePhase::Idled);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Capability tokens on the stream Open: every failure class is refused by the
+// real verifier before the executor accepts anything, chunk or input.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// The `Open` frame a submitter for `task` would send to `executor`, and the
+/// binding a token for it must carry.
+fn open_for(task: &StreamingTask, executor: &IdentityKeyPair) -> (OpenFrame, [u8; 32]) {
+    let mut sub = SubmitterMachine::new(
+        task,
+        pub_of(executor),
+        SubmitterOptions::default(),
+        Instant::now(),
+    )
+    .unwrap();
+    let binding = sub.capability_binding();
+    match sub.poll_transmit() {
+        Some(Frame::Open(open)) => (open, binding),
+        other => panic!("expected the Open frame, got {other:?}"),
+    }
+}
+
+/// Send `open` from `submitter` to `srv` and return the refusal: the first
+/// (and only) frame back must be an `Error`, the stream must then end, and
+/// the executor must have reported no event (nothing was accepted or run).
+async fn refused_open(
+    srv: StreamServer,
+    mut events: mpsc::UnboundedReceiver<(PeerId, StreamEvent)>,
+    submitter: &IdentityKeyPair,
+    executor: &IdentityKeyPair,
+    open: OpenFrame,
+) -> (Reason, String) {
+    let (mut sub_io, exec_io) = duplex(submitter, executor);
+    let probe = srv.clone();
+    let served = tokio::spawn(async move { srv.handle(exec_io).await });
+    send_frame(&mut sub_io, &Frame::Open(open)).await;
+    let (reason, message) = match recv_frame(&mut sub_io, Side::Executor).await {
+        Some(Frame::Error { reason, message }) => (reason, message),
+        other => panic!("expected a refusal before anything else, got {other:?}"),
+    };
+    assert!(
+        recv_frame(&mut sub_io, Side::Executor).await.is_none(),
+        "then the stream ends"
+    );
+    assert!(matches!(
+        deadline("executor", served).await.unwrap(),
+        Err(StreamError::PeerAborted {
+            by: Side::Executor,
+            ..
+        })
+    ));
+    assert!(events.try_recv().is_err(), "the executor accepted nothing");
+    assert_eq!(probe.in_flight_len(), 0, "no stream slot was taken");
+    (reason, message)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn every_capability_failure_on_a_stream_open_is_refused_before_any_chunk() {
+    let plugins = plugins().await;
+    let submitter = IdentityKeyPair::generate();
+    let executor = IdentityKeyPair::generate();
+    let stranger = IdentityKeyPair::generate();
+    let task = StreamingTask::with_defaults(plugins.stream_lines.clone(), b"a\n".to_vec());
+    let own = HeldToken::minted(&executor, peer_of(&submitter)).unwrap();
+    let issued_to_stranger = HeldToken::minted(&executor, peer_of(&stranger)).unwrap();
+    let foreign = HeldToken::minted(&stranger, peer_of(&submitter)).unwrap();
+
+    type Build = Box<dyn Fn([u8; 32]) -> Option<Vec<u8>>>;
+    let own_c = own.clone();
+    let own_e = own.clone();
+    let own_g = own.clone();
+    let cases: Vec<(&str, Build, Reason, &str)> = vec![
+        (
+            "no token",
+            Box::new(|_| None),
+            Reason::CapabilityRequired,
+            "ENTANGLE-E0450",
+        ),
+        (
+            "malformed",
+            Box::new(|_| Some(vec![1, 2, 3])),
+            Reason::CapabilityRejected,
+            "ENTANGLE-E0451",
+        ),
+        (
+            "minted by another node",
+            Box::new(move |b| Some(foreign.present(b).unwrap())),
+            Reason::CapabilityRejected,
+            "ENTANGLE-E0452",
+        ),
+        (
+            "issued to another peer",
+            Box::new(move |b| Some(issued_to_stranger.present(b).unwrap())),
+            Reason::CapabilityRejected,
+            "ENTANGLE-E0453",
+        ),
+        (
+            "expired",
+            Box::new(move |b| {
+                Some(
+                    attenuate_for_request(
+                        &own_e.token,
+                        &own_e.issuer_public_key,
+                        &RequestRestrictions {
+                            expires: now_unix_secs() - 1,
+                            nonce: [3; 16],
+                            binding: b,
+                        },
+                    )
+                    .unwrap(),
+                )
+            }),
+            Reason::CapabilityRejected,
+            "ENTANGLE-E0412",
+        ),
+        (
+            "bound to another Open",
+            Box::new(move |_| Some(own_c.present([0xab; 32]).unwrap())),
+            Reason::CapabilityRejected,
+            "ENTANGLE-E0456",
+        ),
+        (
+            "a compute.gpu-job token",
+            Box::new(move |b| {
+                let gpu = attenuate_gpu_job(&own_g.token, &own_g.issuer_public_key, None).unwrap();
+                let held = HeldToken {
+                    token: gpu,
+                    issuer_public_key: own_g.issuer_public_key,
+                };
+                Some(held.present(b).unwrap())
+            }),
+            Reason::CapabilityRejected,
+            "ENTANGLE-E0462",
+        ),
+    ];
+    for (what, build, reason, code) in cases {
+        // The stranger is allowlisted too: the token, not the allowlist, refuses.
+        let (srv, events) = server(
+            &plugins,
+            &executor,
+            &[peer_of(&submitter), peer_of(&stranger)],
+        );
+        let (mut open, binding) = open_for(&task, &executor);
+        open.capability = build(binding);
+        let (got, message) = refused_open(srv, events, &submitter, &executor, open).await;
+        assert_eq!(got, reason, "{what}: {message}");
+        assert!(message.contains(code), "{what}: {message}");
+    }
+}
+
+/// The same `Open` (same nonce) opened twice: the first is accepted, the
+/// replay is refused before it is accepted.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_replayed_stream_open_is_refused() {
+    let plugins = plugins().await;
+    let submitter = IdentityKeyPair::generate();
+    let executor = IdentityKeyPair::generate();
+    let task = StreamingTask::with_defaults(plugins.stream_lines.clone(), b"a\n".to_vec());
+    let (srv, _first_events) = server(&plugins, &executor, &[peer_of(&submitter)]);
+    let (mut open, binding) = open_for(&task, &executor);
+    open.capability = Some(
+        HeldToken::minted(&executor, peer_of(&submitter))
+            .unwrap()
+            .present(binding)
+            .unwrap(),
+    );
+
+    let (mut sub_io, exec_io) = duplex(&submitter, &executor);
+    let first = srv.clone();
+    let served = tokio::spawn(async move { first.handle(exec_io).await });
+    send_frame(&mut sub_io, &Frame::Open(open.clone())).await;
+    assert!(matches!(
+        recv_frame(&mut sub_io, Side::Executor).await,
+        Some(Frame::Accepted(_))
+    ));
+    send_frame(
+        &mut sub_io,
+        &Frame::Cancel {
+            reason: Reason::Cancelled,
+        },
+    )
+    .await;
+    let _ = deadline("first stream", served).await;
+
+    let (_tx, quiet) = mpsc::unbounded_channel();
+    let (reason, message) = refused_open(srv, quiet, &submitter, &executor, open).await;
+    assert_eq!(reason, Reason::CapabilityRejected);
+    assert!(message.contains("ENTANGLE-E0458"), "{message}");
+}
+
+/// A revoked token is refused on the stream path; with the gate off a
+/// tokenless Open is accepted and counted, and a token is still checked.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stream_opens_honour_revocation_and_the_migration_setting() {
+    let plugins = plugins().await;
+    let submitter = IdentityKeyPair::generate();
+    let executor = IdentityKeyPair::generate();
+    let task = StreamingTask::with_defaults(plugins.stream_lines.clone(), b"a\n".to_vec());
+    let minted =
+        entangle_biscuits::templates::mint_mesh_peer(&executor, peer_of(&submitter), None).unwrap();
+    let held = HeldToken {
+        token: minted.bytes.clone(),
+        issuer_public_key: pub_of(&executor),
+    };
+
+    let revoked = StaticRevocations::new();
+    revoked.revoke(minted.revocation_ids.clone());
+    let (srv, events) = server(&plugins, &executor, &[peer_of(&submitter)]);
+    let srv = srv.with_capability_gate(Arc::new(
+        CapabilityGate::for_identity(&executor)
+            .unwrap()
+            .with_revocations(Arc::new(revoked)),
+    ));
+    let (mut open, binding) = open_for(&task, &executor);
+    open.capability = Some(held.present(binding).unwrap());
+    let (reason, message) = refused_open(srv, events, &submitter, &executor, open).await;
+    assert_eq!(reason, Reason::CapabilityRejected);
+    assert!(message.contains("ENTANGLE-E0460"), "{message}");
+
+    let metrics = Registry::new();
+    let gate_off = Arc::new(
+        CapabilityGate::for_identity(&executor)
+            .unwrap()
+            .require_tokens(false)
+            .with_metrics(metrics.clone()),
+    );
+    let (srv, _events) = server(&plugins, &executor, &[peer_of(&submitter)]);
+    let srv = srv.with_capability_gate(Arc::clone(&gate_off));
+    let (sub_io, exec_io) = duplex(&submitter, &executor);
+    let served = tokio::spawn(async move { srv.handle(exec_io).await });
+    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    handle.finish_input().await.unwrap();
+    assert!(matches!(
+        deadline("collect", handle.collect()).await.outcome,
+        StreamOutcome::Complete(_)
+    ));
+    assert!(deadline("executor", served).await.unwrap().is_ok());
+    assert_eq!(
+        metrics.value(
+            names::REMOTE_CAPABILITY,
+            &[("path", "stream"), ("outcome", "tokenless_accepted")]
+        ),
+        Some(1.0)
+    );
+
+    let (srv, events) = server(&plugins, &executor, &[peer_of(&submitter)]);
+    let srv = srv.with_capability_gate(gate_off);
+    let (mut open, _) = open_for(&task, &executor);
+    open.capability = Some(held.present([0; 32]).unwrap());
+    let (reason, message) = refused_open(srv, events, &submitter, &executor, open).await;
+    assert_eq!(
+        reason,
+        Reason::CapabilityRejected,
+        "a token is verified even with the gate off"
+    );
+    assert!(message.contains("ENTANGLE-E0456"), "{message}");
+}
+
+/// A gate rooted at another identity refuses every stream (fail closed).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_gate_for_another_identity_refuses_every_stream() {
+    let plugins = plugins().await;
+    let submitter = IdentityKeyPair::generate();
+    let executor = IdentityKeyPair::generate();
+    let task = StreamingTask::with_defaults(plugins.stream_lines.clone(), b"a\n".to_vec());
+    let (srv, events) = server(&plugins, &executor, &[peer_of(&submitter)]);
+    let srv = srv.with_capability_gate(Arc::new(
+        CapabilityGate::for_identity(&IdentityKeyPair::generate()).unwrap(),
+    ));
+    let (mut open, binding) = open_for(&task, &executor);
+    open.capability = Some(
+        HeldToken::minted(&executor, peer_of(&submitter))
+            .unwrap()
+            .present(binding)
+            .unwrap(),
+    );
+    let (reason, _) = refused_open(srv, events, &submitter, &executor, open).await;
+    assert_eq!(reason, Reason::CapabilityRejected);
 }

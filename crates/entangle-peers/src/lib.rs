@@ -12,7 +12,10 @@
 //! # Persistence
 //! By default the store is backed by `~/.entangle/peers.toml`.  Each entry is
 //! stored as a `[[peer]]` TOML array-of-tables for human readability and easy
-//! manual editing.
+//! manual editing. A paired peer's record also carries the `mesh.peer`
+//! capability token this node presents to it and the revocation ids of the
+//! token this node issued to it; [`RevocationStore`]
+//! (`~/.entangle/revoked-tokens.toml`) is the local set of revoked token ids.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -21,9 +24,12 @@
 pub mod errors;
 /// [`TrustedPeer`] and [`TrustLevel`] domain types.
 pub mod peer;
+/// The local set of revoked capability-token ids.
+pub mod revocations;
 /// [`PeerStore`] implementation with TOML persistence.
 pub mod store;
 
 pub use errors::PeerStoreError;
 pub use peer::{TrustLevel, TrustedPeer};
+pub use revocations::{RevocationStore, RevokedToken, REVOCATIONS_FILE};
 pub use store::PeerStore;

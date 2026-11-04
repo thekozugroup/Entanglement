@@ -58,6 +58,34 @@ The full threat model is in `docs/architecture.md` §11; the highlights:
   never widen — enforced by `entangle-biscuits::verify_bridge` plus the
   five mandatory bridge-attenuation facts (`dest_pin`, `rate_limit`,
   `total_bytes_cap`, `ttl_le_3600s`, `bridge_marker`).
+- **Remote-work tokens** (`mesh.peer`, spec §6.6): a paired peer must hold a
+  biscuit rooted at the worker's own identity key, naming it as holder, to
+  have a task or stream executed; the allowlist alone is not enough. Each
+  request carries an attenuated copy that expires within 60 s, is bound to
+  that exact request and carries a nonce the worker remembers. The copy is
+  made per attempt, after the transport has connected, so dialling and
+  falling back across transports do not shorten its life, and every attempt
+  has its own nonce. Because the worker checks the token only once the whole
+  frame is in, a large frame earns a late-arrival grace: one second per
+  256 KiB the worker's transport actually received (never a declared size),
+  at most 600 s; the per-request expiry counts as passed only once
+  `now >= expires + grace`, and the nonce is remembered for that extended
+  window, so a replay inside it is still refused. The grace extends only
+  the expiry of the per-request block (the one carrying the nonce); an
+  expiry on the grant or on any other attenuation stays strict, so padding
+  a frame cannot keep a lapsed grant alive. A presented copy is therefore usable for at most its
+  60 s plus its own frame's grace (64 s for the largest task frame), only by
+  its holder, and only for the request it is bound to. A token proves
+  *this key was paired with this node and has not been revoked here*. It does
+  not prove the peer is well behaved, and it limits nothing the plugin
+  capabilities do not already limit. The pairing tokens themselves have no
+  expiry: they stay valid until revoked, and revocation is local to the
+  issuing node (no gossip), so a revoked peer keeps any access other nodes
+  granted it. Whoever can read `peers.toml` holds the tokens this node
+  presents (the file is mode 0600); whoever can write
+  `revoked-tokens.toml` can un-revoke. `[trust] require_capability_tokens =
+  false` turns the node back into an allowlist-only node and is meant for
+  migration only.
 - **Rate limiting** is a deliberate non-goal at the runtime layer: the
   daemon does not throttle peers. Operators wanting per-peer fairness
   install it as a `mesh.policy` plugin.

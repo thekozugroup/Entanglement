@@ -13,6 +13,7 @@ pub mod mesh;
 pub mod oci;
 pub mod package;
 pub mod pair;
+pub mod peers;
 pub mod perms;
 pub mod plugins;
 pub mod quickstart;

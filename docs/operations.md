@@ -82,7 +82,7 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.thekozugroup.e
 
 (`brew services start entangle` uses the Homebrew formula's own service
 definition instead, which restarts on every exit.) What a restart means for
-in-flight work is in §21.
+in-flight work is in §22.
 
 ### 1b. Docker / docker-compose
 
@@ -164,8 +164,8 @@ service_name = "entangled"
 | Section | Key | Type | Default | Meaning |
 |---|---|---|---|---|
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
-| `[runtime]` | `aot_cache` | bool | `true` | Keep compiled wasm components in `~/.entangle/aot` so a later load (or a restart) skips compilation (§23). `false` compiles every load. Also honoured by the CLI's `--allow-local` kernel (which shares the directory). |
-| `[runtime]` | `aot_cache_max_mb`, `aot_cache_max_unused_days` | integer, integer | `512`, `30` | AOT cache limits: the maintenance loop removes entries unused this many days, then the least recently used above the size cap (§23). Daemon-only. |
+| `[runtime]` | `aot_cache` | bool | `true` | Keep compiled wasm components in `~/.entangle/aot` so a later load (or a restart) skips compilation (§24). `false` compiles every load. Also honoured by the CLI's `--allow-local` kernel (which shares the directory). |
+| `[runtime]` | `aot_cache_max_mb`, `aot_cache_max_unused_days` | integer, integer | `512`, `30` | AOT cache limits: the maintenance loop removes entries unused this many days, then the least recently used above the size cap (§24). Daemon-only. |
 | `[mesh]` | `transports` | array of strings | `[]` | Active mesh transports: `"local"` (mDNS on `_entangle._udp.local`; LAN dialling also needs `"iroh"`), `"iroh"` (the scheduler endpoint, `[scheduler]`), `"tailscale"` (also needs `[mesh.tailscale] enabled = true`, §10). See §20 for how a transport is chosen per peer. |
 | `[mesh]` | `preferred` | string | absent | Daemon-only. `"local"`, `"tailscale"` or `"iroh"`: tried first for every peer; the others stay fallbacks in the spec order (§20). Anything else fails the load (`ENTANGLE-E0434`). |
 | `[mesh.overrides]` | `"<peer-id>"` | string or array of strings | none | Daemon-only. Per peer (32-hex peer id): one transport forces it, a list gives the exact order; no fallback outside it (§20). A bad id, an empty list or a repeated transport fails the load (`ENTANGLE-E0435`). |
@@ -227,8 +227,8 @@ world-writable path like `/tmp`).
 | `~/.entangle/peers.toml` | Persistent trusted-peer allowlist (pairing results). | `0600` | Written atomically via a mode-`0600` sibling temp file + rename. |
 | `~/.entangle/sock` | The daemon's Unix-domain RPC socket. | `0600` | The server **forces** mode `0600` after bind and **refuses to serve** if any group/other bit remains; every accepted connection is additionally checked against the socket owner's uid via `SO_PEERCRED` (defense-in-depth beyond the mode bit). |
 | `~/.entangle/cache/`, `~/.entangle/logs/` | Plugin artifact cache; daemon logs. | — | Managed by the built-in maintenance loop (§7). |
-| `~/.entangle/aot/` | AOT compilation cache: `cache.key` (32-byte per-node MAC key), `<key>.cwasm` (compiled component) + `<key>.meta` (sidecar with its keyed MAC). See §23. | `0700` directory, `0600` files | Created that way by the daemon; a directory or key file with group/other bits or another owner disables the cache (`ENTANGLE-E0786`); an entry file with them is refused and deleted. |
-| `~/.entangle/plugins.state.toml` | Plugins loaded at shutdown, reloaded at the next start (§22). | `0600` | Written atomically (temp file + rename) with mode `0600` on every load, unload and reload. |
+| `~/.entangle/aot/` | AOT compilation cache: `cache.key` (32-byte per-node MAC key), `<key>.cwasm` (compiled component) + `<key>.meta` (sidecar with its keyed MAC). See §24. | `0700` directory, `0600` files | Created that way by the daemon; a directory or key file with group/other bits or another owner disables the cache (`ENTANGLE-E0786`); an entry file with them is refused and deleted. |
+| `~/.entangle/plugins.state.toml` | Plugins loaded at shutdown, reloaded at the next start (§23). | `0600` | Written atomically (temp file + rename) with mode `0600` on every load, unload and reload. |
 | `~/.entangle/data/` | Plugin storage: `plugins/<publisher>/<name>/` (each plugin's private directory, wasm `/data` or native `$ENTANGLE_DATA_DIR`), `shared/`, `shares/<name>/`. See §18. | `0700` on every directory the daemon creates | Created on demand when a storage grant is realised, without following symbolic links. |
 
 `entangle doctor` (see §4) is the fastest way to audit all of the above at
@@ -347,7 +347,7 @@ canonical range table, maintained in
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
-| E0780–E0799 | Runtime lifecycle — see §21–§24: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788); a reload refused because another version of the plugin was loaded or unloaded meanwhile (E0789, retry); a load of a version that is still draining after being replaced or unloaded (E0790, retry once its calls and streams end); a recorded package that changed, refused at restore before anything of it is loaded (E0791, reported through E0784) |
+| E0780–E0799 | Runtime lifecycle — see §22–§25: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788); a reload refused because another version of the plugin was loaded or unloaded meanwhile (E0789, retry); a load of a version that is still draining after being replaced or unloaded (E0790, retry once its calls and streams end); a recorded package that changed, refused at restore before anything of it is loaded (E0791, reported through E0784) |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -363,6 +363,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0400` | Cross-node dispatch attempted but the remote transport is not implemented (Phase 2 scaffold). |
 | `ENTANGLE-E0401` | Task input exceeds the dispatcher's configured `max_input_bytes`. |
 | `ENTANGLE-E0410`–`E0413` | Biscuit-auth parse / mint / verify / malformed-claim failures. |
+| `ENTANGLE-E0450`–`E0463` | Remote-request capability tokens (`mesh.peer`, see §21): E0450 no token while `[trust] require_capability_tokens = true` (re-pair with `entangle pair`); E0451 not a biscuit or too large; E0452 does not verify under this node's identity key; E0453 issued to another peer than the presenter; E0454 does not grant `mesh.peer`; E0455 per-request expiry missing or more than 60 s (+30 s skew) ahead (a large frame's late-arrival grace extends acceptance past the per-request expiry, never this window); E0456 bound to another request; E0457 not exactly one nonce; E0458 replayed nonce; E0459 replay cache full (retry shortly); E0460 revoked on this node; E0461 a block holds content other than the accepted facts; E0462 a template restriction (`gpu_job`, `agent_session`) is not met; E0463 `revoked-tokens.toml` unreadable, so every token is refused. Expiry failures use `ENTANGLE-E0412`. |
 | `ENTANGLE-E0420`–`E0425` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch (E0420–E0424); E0425 is a relay whose cumulative `total_bytes_cap` budget is exhausted. |
 | `ENTANGLE-E0620`–`E0624`, `E0660`–`E0671` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
 | `ENTANGLE-E0630`, `E0640` | Retired `NotImplemented` codes for `mesh.iroh` and `mesh.tailscale`; both transports are implemented. |
@@ -451,8 +452,11 @@ happen entirely before anything is written, so a wrong passphrase, a modified
 or truncated archive, or an archive that is not a backup leaves the target
 untouched. Restored files get mode `0600` (`~/.entangle/` `0700` if it had to
 be created). The restored node has the same `peer_id`, the same keyring and
-the same peer list, and every biscuit issued earlier stays valid, since
-biscuits are bound to keys, not to the device.
+the same peer list (which holds each peer's `mesh.peer` token and the
+revocation ids of the tokens this node issued), the same
+`revoked-tokens.toml`, and every biscuit issued earlier stays valid, since
+biscuits are bound to keys, not to the device; a token revoked before the
+backup stays revoked after the restore.
 
 If this device already has an identity, keyring or peer list that differs from
 the archive, `restore` refuses (`ENTANGLE-E0864`). With `--force` it first
@@ -1025,13 +1029,13 @@ scrape_configs:
 | `entangle_daemon_uptime_seconds` | gauge | — | Seconds since the daemon started. |
 | `entangle_telemetry_spans_dropped_total`, `..._spans_exported_total`, `..._export_failures_total` | counter | — | OTLP exporter health (§14b); present only with `[telemetry.otlp]` on. |
 | `entangle_metrics_dropped_series_total` | counter | — | Appears only if a metric family hit its label-set cap (a bug indicator). |
-| `entangle_aot_cache_hits_total`, `entangle_aot_cache_misses_total` | counter | — | Wasm component loads answered from the AOT cache, and loads that compiled (§23). |
+| `entangle_aot_cache_hits_total`, `entangle_aot_cache_misses_total` | counter | — | Wasm component loads answered from the AOT cache, and loads that compiled (§24). |
 | `entangle_aot_cache_rejections_total` | counter | `reason` (`permissions`, `header`, `version`, `mac`, `deserialize`, `io`) | AOT cache entries refused and deleted (`ENTANGLE-E0785`); the component was compiled instead. |
 | `entangle_aot_cache_evictions_total` | counter | `reason` (`age`, `size`, `orphan`) | Entries removed by the maintenance loop's GC. |
 | `entangle_aot_cache_bytes` | gauge | — | Bytes the AOT cache holds on disk (exact after each GC). |
-| `entangle_plugin_restores_total` | counter | `outcome` (`restored`, `failed`, `disabled`) | Entries of the plugin-state file reloaded at daemon start (§22). |
-| `entangle_plugin_reloads_total` | counter | `outcome` (`swapped`, `refused`, `migrate_failed`) | Hot reloads of a loaded plugin to another version (§24). |
-| `entangle_plugin_idle_teardowns_total` | counter | `plugin` | Idle plugin instances dropped after their `idle-timeout-secs` (§24). |
+| `entangle_plugin_restores_total` | counter | `outcome` (`restored`, `failed`, `disabled`) | Entries of the plugin-state file reloaded at daemon start (§23). |
+| `entangle_plugin_reloads_total` | counter | `outcome` (`swapped`, `refused`, `migrate_failed`) | Hot reloads of a loaded plugin to another version (§25). |
+| `entangle_plugin_idle_teardowns_total` | counter | `plugin` | Idle plugin instances dropped after their `idle-timeout-secs` (§25). |
 
 #### Label cardinality
 
@@ -1613,7 +1617,7 @@ below a loaded plugin's tier (§16) has the same effect on all of its grants
 at once while it drains — the per-grant tier check (`ENTANGLE-E0127`)
 always reads the ceiling in force — and its unload then releases them. A
 revocation lasts until the plugin is unloaded and loaded again, or hot-reloaded
-to another version (§24); the plugin-state file (§22) records it, so it is
+to another version (§25); the plugin-state file (§23) records it, so it is
 applied again when a restarted daemon restores the plugin. To keep a
 capability away from every plugin, use `deny_capabilities` instead.
 
@@ -1808,7 +1812,93 @@ the task or stream server.
 
 ---
 
-## 21. Fault isolation and restarts
+## 21. Capability tokens for remote work (`mesh.peer`)
+
+Being on the peer allowlist is not enough to make this node run anything
+(spec §6.1.1): every remote task frame and every stream `Open` must also carry
+a biscuit capability token (spec §6.6). Control frames (cancel, heartbeat)
+carry none, since they never execute anything.
+
+**Pairing mints them.** `entangle pair` (spec §6.3 step 4) exchanges a
+`mesh.peer` token each way after both sides confirm: the peer holds a token
+rooted at *this* node's identity key naming it as holder, and this node holds
+one rooted at the peer's key. Both are stored in `~/.entangle/peers.toml`
+(the token this node presents, and the revocation ids of the token it
+issued). Per request the submitter attenuates its token: expiry at most 60 s
+ahead, a fresh nonce, and a binding to the exact frame. The worker checks
+root, holder, `mesh.peer` grant, expiry, binding, nonce (replays are refused),
+and the revocation set, and counts the outcome in
+`entangle_remote_capability_checks_total{path,outcome}` (§14a; `path` is
+`task` or `stream`, `outcome` a fixed set of labels, including
+`tokenless_accepted` while the gate is off).
+
+**When the token is attenuated, and late arrival.** The submitter
+attenuates its token per attempt, once that attempt's transport has
+connected and immediately before the frame is written (a stream: once the
+stream is open, in its `Open`). Time spent dialling — including falling
+back from `local` to `tailscale` to `iroh`, and a second try of a candidate
+the connect deadline cut short — never counts against the 60 s, and every
+attempt carries a fresh nonce, so the worker's replay cache sees a resend
+as a new request. A request whose frame was sent is still never retried on
+another transport.
+
+The worker sees the token only once the whole frame has arrived, so a large
+frame on a slow link earns a late-arrival grace, measured on the bytes the
+transport actually received (never a size the frame declares):
+
+```text
+grace = received frame bytes / 262144     (seconds; integer division, at most 600)
+```
+
+A frame under 256 KiB earns none; a 16 MiB input (the largest a task frame
+carries) earns 64 s, which covers its delivery on any link of 2 Mbit/s or
+faster. The per-request expiry counts as passed (`ENTANGLE-E0412`) only
+once `now >= expires + grace`. The grace extends only that expiry — the
+one in the block the submitter appended for this frame, next to its nonce.
+An expiry on the pairing grant itself or on any other attenuation of it
+stays strict, so a large frame never keeps a lapsed grant alive. How far
+ahead a token may expire is unchanged (60 s + 30 s clock skew, else
+`ENTANGLE-E0455`). The replay cache remembers each nonce until the token
+stops being accepted (at most its per-request expiry plus that grace) plus
+30 s, so a replay inside the grace window is still refused
+(`ENTANGLE-E0458`). It holds at most 65 536 nonces, 16 384 per peer — a
+nonce stays at most 120 s for a frame under 256 KiB, 184 s for a 16 MiB
+one — and when full it refuses new
+requests (`ENTANGLE-E0459`, retry shortly) rather than accepting them
+unchecked. A refusal is logged with the frame's size and the grace it
+earned.
+
+**Upgrading.** A peer paired before this release has no token, and a
+worker that requires tokens refuses its requests with `ENTANGLE-E0450`.
+Re-run `entangle pair` with each such peer; `entangle peers list` shows which
+peers hold no token. While you migrate, a worker can accept tokenless
+requests from allowlisted peers:
+
+```toml
+[trust]
+require_capability_tokens = false   # default: true. Allowlist-only; the daemon warns at startup
+```
+
+Set it back to `true` once every peer is re-paired.
+
+**Revoking.** `entangle peers remove <peer-id>` (and `mesh untrust` /
+`mesh revoke`) adds the revocation ids of the token this node issued to
+`~/.entangle/revoked-tokens.toml` (mode 0600). Revocation is local; it is not
+gossiped to other nodes. A later `entangle mesh trust` of the same peer puts it
+back on the allowlist but does not revive the old token; re-pair to issue a
+new one. If the file exists but cannot be read, every token is refused
+(`ENTANGLE-E0463`) until you fix it. `entangle backup` / `restore` carry the
+file.
+
+**Downgrades.** An older `entangle` binary reads `peers.toml` but drops the
+token fields of every record whenever it rewrites the file (any
+`mesh trust|untrust|revoke`). After running an old binary, re-pair the
+affected peers; the tokens this node issued can no longer be revoked from
+that file.
+
+---
+
+## 22. Fault isolation and restarts
 
 A bug in the daemon's own code must not leave a half-working daemon behind
 (spec §2.1). `entangled` therefore turns every **core fault** into a clean
@@ -1849,7 +1939,7 @@ daemon logs `ENTANGLE-E0787` with the task's name and exits 70. The
 **The tradeoff (spec §2.1).** A core fault restarts the whole daemon: calls
 and streams in flight on this node are lost (their callers see the
 connection close and may retry), mesh peers see this node disappear and
-re-appear, and plugins come back as described in §22. State on disk —
+re-appear, and plugins come back as described in §23. State on disk —
 identity, keyring, peers, plugin data, the AOT cache — is untouched. The
 daemon is one process by design; this is the price of that simplicity.
 
@@ -1862,12 +1952,12 @@ in a release build the variable has no effect.
 
 ---
 
-## 22. Plugins after a restart (the plugin-state file)
+## 23. Plugins after a restart (the plugin-state file)
 
-A restarted daemon — after an upgrade, a reboot, or a core-fault exit (§21) —
+A restarted daemon — after an upgrade, a reboot, or a core-fault exit (§22) —
 loads the plugins that were loaded before it stopped (spec §2.1). The daemon
 records them in `~/.entangle/plugins.state.toml` (mode `0600`, replaced
-atomically) after every `plugins load` (including hot reloads, §24),
+atomically) after every `plugins load` (including hot reloads, §25),
 `plugins unload`, `perms revoke` and tier-ceiling change:
 
 ```toml
@@ -1914,11 +2004,11 @@ A plugin disabled with `entangle plugins disable` while the daemon is stopped
 is therefore not reloaded, and comes back at the first start after it is
 enabled again. An unreadable state file restores nothing (`ENTANGLE-E0784`)
 and is rewritten on the next change. In-flight calls and streams are not
-part of the state: they are lost with the old process (§21).
+part of the state: they are lost with the old process (§22).
 
 ---
 
-## 23. AOT compilation cache
+## 24. AOT compilation cache
 
 Compiling a wasm component with Cranelift is the slow part of loading a
 plugin. The daemon keeps each compiled component in `~/.entangle/aot`
@@ -1965,7 +2055,7 @@ Metrics: `entangle_aot_cache_hits_total`, `..._misses_total`,
 
 ---
 
-## 24. Plugin lifecycle: lazy activation, idle teardown, hot reload
+## 25. Plugin lifecycle: lazy activation, idle teardown, hot reload
 
 ### `[lifecycle]` in `entangle.toml`
 
@@ -1985,7 +2075,7 @@ either way.)
   existed): the instance is created when the plugin loads.
 - **`lazy`**: loading verifies everything — signature, ceiling, runtime kind,
   grants — and compiles the component once (which also fills the AOT cache,
-  §23), but keeps no instance; the first call or stream creates it.
+  §24), but keeps no instance; the first call or stream creates it.
 - **`idle-timeout-secs`**: when no call or stream has used the plugin for
   this long, its instance is dropped (the plugin stays loaded and listed);
   the next call creates it again, from the verified bytes kept in memory and
@@ -2074,7 +2164,7 @@ draining`): retry once they have ended. Unloading the
 current version also ends the forwarding of the old ids. A capability revoked
 on the old version is not carried over to the new one. Reloads are counted in
 `entangle_plugin_reloads_total{outcome="swapped"|"refused"|"migrate_failed"}`
-and recorded in the plugin-state file (§22). `entangle plugins install`
+and recorded in the plugin-state file (§23). `entangle plugins install`
 upgrades go through the same checks; when one is refused for consent, load
 the installed directory with `--accept-new-capabilities`.
 

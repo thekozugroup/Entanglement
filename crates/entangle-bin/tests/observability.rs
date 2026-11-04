@@ -764,7 +764,7 @@ async fn diag_mesh_reports_paths_and_probes_round_trips() {
         let server = Arc::new(RemoteTaskServer::new(
             kernel(),
             Arc::new(allow),
-            node.local_peer_id(),
+            Arc::new(entangle_scheduler::CapabilityGate::new(&node.local_public_key()).unwrap()),
         ));
         tokio::spawn(entangle_scheduler::serve_tasks(Arc::clone(node), server));
     }
@@ -1076,6 +1076,7 @@ async fn diag_mesh_shows_the_chosen_transport_and_probes_the_tailnet_path() {
         b_store,
         id_b.clone(),
         Some(b_served.clone()),
+        Arc::new(entangle_scheduler::CapabilityGate::for_identity(&id_b).unwrap()),
     );
     tokio::spawn(entangle_scheduler::serve_tailscale(
         b_ts.clone(),

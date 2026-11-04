@@ -187,16 +187,30 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
 
     // Inbound: one task server and one stream server, shared by every
     // transport that serves the scheduler protocols, gated on the peer
-    // store (see `remote::PeerStoreAllowlist`).
+    // store (see `remote::PeerStoreAllowlist`) and then on capability tokens
+    // (`[trust] require_capability_tokens`, the local revocation set).
     let tailscale_on = entangle_bin::tailscale::enabled(&cfg.mesh);
-    let servers = (scheduler_mesh.is_some() || tailscale_on).then(|| {
-        entangle_bin::mesh::scheduler_servers(
+    let servers = if scheduler_mesh.is_some() || tailscale_on {
+        let revocations = Arc::new(entangle_peers::RevocationStore::at(
+            config_dir.join(entangle_peers::REVOCATIONS_FILE),
+        ));
+        let gate = remote::capability_gate(
+            &identity,
+            cfg.trust.require_capability_tokens,
+            revocations,
+            &peer_store,
+            Some(registry.clone()),
+        )?;
+        Some(entangle_bin::mesh::scheduler_servers(
             kernel.clone(),
             peer_store.clone(),
             identity.clone(),
             Some(registry.clone()),
-        )
-    });
+            gate,
+        ))
+    } else {
+        None
+    };
     // The daemon's long-lived core tasks: any one ending while the daemon
     // runs (returning or panicking) is a fault and exits with status 70
     // rather than leaving a half-working daemon (spec §2.1).
@@ -262,6 +276,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
                 .map(|rt| (rt.transport.clone(), rt.liveness.state())),
             policy: route_policy,
             metrics: Some(registry.clone()),
+            capability_tokens: Some(Arc::new(remote::PeerStoreTokens::new(peer_store.clone()))),
         },
     );
     let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id)

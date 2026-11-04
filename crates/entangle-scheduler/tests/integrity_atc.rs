@@ -35,6 +35,9 @@ use std::time::Duration;
 use entangle_mesh_iroh::{IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER};
 use entangle_observability::{catalog::names, Registry};
 use entangle_runtime::{IntegrityError, Kernel, KernelConfig, LifecyclePhase};
+use entangle_scheduler::capability::{
+    task_binding, CapabilityGate, CapabilityTokens, HeldToken, StaticTokens,
+};
 use entangle_scheduler::reputation::INITIAL_SCORE;
 use entangle_scheduler::spot_check::{Exemption, SkipReason, ATTESTATION_FAILURE_EVENT};
 use entangle_scheduler::wire::{
@@ -212,6 +215,7 @@ fn loopback_config() -> MeshIrohConfig {
 }
 
 struct Node {
+    identity: IdentityKeyPair,
     peer_id: PeerId,
     kernel: Arc<Kernel>,
     transport: Arc<MeshIroh>,
@@ -231,6 +235,7 @@ impl Node {
         );
         Self {
             peer_id: transport.local_peer_id(),
+            identity,
             kernel,
             transport,
             _packages: Vec::new(),
@@ -263,7 +268,7 @@ impl Node {
         let server = Arc::new(RemoteTaskServer::new(
             Arc::clone(&self.kernel),
             Arc::new(StaticAllowlist::new().allow(submitter)),
-            self.peer_id,
+            Arc::new(CapabilityGate::for_identity(&self.identity).expect("gate")),
         ));
         tokio::spawn(entangle_scheduler::serve_tasks(
             Arc::clone(&self.transport),
@@ -298,6 +303,29 @@ impl Node {
     }
 }
 
+/// `request` as `caller` sends it to `worker`: with a per-request
+/// attenuation of the token `worker` issued `caller`, encoded.
+fn frame_from(caller: &Node, worker: &Node, mut request: RemoteRequest) -> Vec<u8> {
+    if let RequestFrame::Task(body) = &mut request.frame {
+        let held = HeldToken::minted(&worker.identity, caller.peer_id).unwrap();
+        body.capability = Some(held.present(task_binding(body)).unwrap());
+    }
+    encode_request(&request).unwrap()
+}
+
+/// The tokens `submitter` holds after pairing with each of `workers`: the
+/// `mesh.peer` token each minted for it (the shared helper).
+fn paired_tokens<'a>(
+    submitter: &Node,
+    workers: impl IntoIterator<Item = &'a Node>,
+) -> Arc<dyn CapabilityTokens> {
+    let tokens = StaticTokens::new();
+    for w in workers {
+        tokens.paired_with(&w.identity, submitter.peer_id).unwrap();
+    }
+    Arc::new(tokens)
+}
+
 fn worker_info(peer: PeerId) -> WorkerInfo {
     WorkerInfo {
         peer_id: peer,
@@ -322,10 +350,13 @@ fn submitter_dispatcher(submitter: &Node, workers: &[&Node]) -> (Dispatcher, Arc
         pool.upsert(worker_info(w.peer_id));
         directory.insert(w.address());
     }
-    let client = Arc::new(RemoteDispatch::new(
-        Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
-        Arc::new(directory),
-    ));
+    let client = Arc::new(
+        RemoteDispatch::new(
+            Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
+            Arc::new(directory),
+        )
+        .with_capability_tokens(paired_tokens(submitter, workers.iter().copied())),
+    );
     let dispatcher = Dispatcher::new(pool, Arc::clone(&submitter.kernel), submitter.peer_id)
         .with_strict_remote(true)
         .with_remote(Arc::clone(&client));
@@ -1062,7 +1093,7 @@ async fn a_replicated_policy_in_one_frame_is_still_one_execution() {
         b"world",
         IntegrityPolicy::Deterministic { replicas: 16 },
     );
-    let frame = encode_request(&RemoteRequest::for_task(&t).unwrap()).unwrap();
+    let frame = frame_from(&caller, &worker, RemoteRequest::for_task(&t).unwrap());
     let raw = deadline(
         "raw frame",
         caller.transport.request(&worker.address(), &frame),
@@ -1107,7 +1138,7 @@ async fn a_frame_with_a_forged_policy_hash_runs_nothing() {
         "forged frame",
         caller
             .transport
-            .request(&worker.address(), &encode_request(&req).unwrap()),
+            .request(&worker.address(), &frame_from(&caller, &worker, req)),
     )
     .await
     .expect("round trip");
@@ -1128,7 +1159,7 @@ async fn a_frame_with_a_forged_policy_hash_runs_nothing() {
         "honest frame",
         caller
             .transport
-            .request(&worker.address(), &encode_request(&ok).unwrap()),
+            .request(&worker.address(), &frame_from(&caller, &worker, ok)),
     )
     .await
     .expect("round trip");
@@ -1224,7 +1255,7 @@ async fn a_worker_refuses_an_inconsistent_metric_reference() {
         artifact_blake3: [7; 32],
     };
     let t = task(plugin, b"world", semantic(&forged, 0.25));
-    let frame = encode_request(&RemoteRequest::for_task(&t).unwrap()).unwrap();
+    let frame = frame_from(&caller, &worker, RemoteRequest::for_task(&t).unwrap());
     let raw = deadline(
         "inconsistent metric frame",
         caller.transport.request(&worker.address(), &frame),
@@ -1334,10 +1365,14 @@ fn spot_checked_dispatcher(
         });
         directory.insert(w.address());
     }
-    let client = Arc::new(RemoteDispatch::new(
-        Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
-        Arc::new(directory),
-    ));
+    // Spot-check re-executions are remote requests too: the same tokens.
+    let client = Arc::new(
+        RemoteDispatch::new(
+            Arc::clone(&submitter.transport) as Arc<dyn MeshTransport>,
+            Arc::new(directory),
+        )
+        .with_capability_tokens(paired_tokens(submitter, workers.iter().map(|(w, _)| *w))),
+    );
     Dispatcher::new(pool, Arc::clone(&submitter.kernel), submitter.peer_id)
         .with_strict_remote(true)
         .with_remote(client)

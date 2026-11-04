@@ -505,9 +505,13 @@ fn announce_beacon(
 
 /// Run the full exchange against `peer` with the code the user typed.
 ///
-/// On success both devices have signed over `nonce ‖ code` and this side holds
-/// the other's key. Nothing is persisted here — the caller shows the
+/// On success both devices have signed over `nonce ‖ code`, exchanged
+/// `mesh.peer` capability tokens ([`crate::grant`]), and this side holds the
+/// other's key and token. Nothing is persisted here — the caller shows the
 /// fingerprints and asks for confirmation first.
+///
+/// This side's token for `peer` is minted here; a caller that must be able
+/// to revoke it when the exchange fails uses [`dial_and_pair_with_grant`].
 pub async fn dial_and_pair(
     transport: &MeshIroh,
     peer: &IrohPeer,
@@ -515,7 +519,35 @@ pub async fn dial_and_pair(
     display_name: &str,
     code: PairingCode,
 ) -> Result<PairedPeer, PairingMeshError> {
-    let dialer = Dialer::new(identity, display_name, code);
+    dial(transport, peer, Dialer::new(identity, display_name, code)).await
+}
+
+/// [`dial_and_pair`], sending `grant` — a `mesh.peer` token the caller minted
+/// for `peer` with [`crate::grant::issue`] — as this side's token. The caller
+/// knows its revocation ids before dialing, so it can revoke the token when
+/// the exchange fails after the token was sent, or when the user does not
+/// confirm the fingerprints.
+pub async fn dial_and_pair_with_grant(
+    transport: &MeshIroh,
+    peer: &IrohPeer,
+    identity: &IdentityKeyPair,
+    display_name: &str,
+    code: PairingCode,
+    grant: crate::grant::MintedToken,
+) -> Result<PairedPeer, PairingMeshError> {
+    dial(
+        transport,
+        peer,
+        Dialer::new(identity, display_name, code).with_grant(grant),
+    )
+    .await
+}
+
+async fn dial(
+    transport: &MeshIroh,
+    peer: &IrohPeer,
+    dialer: Dialer<'_>,
+) -> Result<PairedPeer, PairingMeshError> {
     let conn = transport.connect(peer).await?;
     let remote_key = conn.remote_public_key();
 
@@ -556,7 +588,7 @@ async fn run_exchange(
     };
     dialer.check_offer(remote_key, &offer)?;
 
-    let accept = PairingWire::Accept(dialer.accept_for(&offer))
+    let accept = PairingWire::Accept(dialer.accept_for(&offer)?)
         .encode()
         .map_err(PairingMeshError::from)?;
     let reply = conn.request(&accept).await?;

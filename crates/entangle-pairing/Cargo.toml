@@ -15,6 +15,10 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 entangle-types   = { workspace = true }
 entangle-signing = { workspace = true }
+# Each side mints a `mesh.peer` capability token for the other on accept and
+# checks the one it receives (spec §6.3 step 4). Already in the graph via
+# entangle-scheduler: no new crates or features.
+entangle-biscuits = { workspace = true }
 # The pairing exchange runs over the real mesh transport (see `mesh.rs`), and
 # finds the far device over mDNS. Both live behind this crate so the CLI needs
 # no transport dependency of its own.

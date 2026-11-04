@@ -1592,6 +1592,7 @@ dependencies = [
  "bytes",
  "clap",
  "directories",
+ "entangle-biscuits",
  "entangle-broker",
  "entangle-core",
  "entangle-manifest",
@@ -1634,6 +1635,7 @@ dependencies = [
  "rand_core 0.6.4",
  "serde",
  "thiserror 2.0.18",
+ "zeroize",
 ]
 
 [[package]]
@@ -1676,6 +1678,7 @@ dependencies = [
  "directories",
  "entangle-agent-host",
  "entangle-bin",
+ "entangle-biscuits",
  "entangle-broker",
  "entangle-manifest",
  "entangle-mesh-iroh",
@@ -1866,6 +1869,7 @@ name = "entangle-pairing"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "entangle-biscuits",
  "entangle-mesh-iroh",
  "entangle-mesh-local",
  "entangle-peers",
@@ -1957,6 +1961,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "blake3",
+ "entangle-biscuits",
  "entangle-host",
  "entangle-ipc",
  "entangle-mesh-iroh",

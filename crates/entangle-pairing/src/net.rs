@@ -25,6 +25,13 @@
 //!                                             code the user typed)
 //! ```
 //!
+//! `Accept` and `Finalize` also carry each side's `mesh.peer` capability token
+//! for the other ([`crate::grant`], spec §6.3 step 4): the dialer's is minted
+//! for the host it dialled (the key QUIC authenticated), the host's only
+//! once the dialer's proof of the code has verified. Each side checks the
+//! token it receives against the other's authenticated key before the
+//! exchange counts as complete.
+//!
 //! The signed payload, the fingerprints and the TOFU outcome are the same ones
 //! [`crate::session`] produces — [`envelope::signing_payload`] is the single
 //! definition of what gets signed, and both sides must arrive at identical
@@ -62,6 +69,8 @@
 //! would remove it. Documented in `docs/architecture.md` §11.
 
 use std::sync::Mutex;
+
+use crate::grant::{self, MintedToken};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -464,13 +473,32 @@ impl HostSession {
             .verify(&payload, &sig)
             .map_err(|_| RejectReason::BadCode)?;
 
-        // 4. Proven. Record the peer and counter-sign so the dialer can verify
+        // 4. The dialer's capability token, if it sent one, must be a
+        //    mesh.peer grant from its (QUIC-authenticated) key to us. Only now,
+        //    with the proof verified, do we mint ours for it.
+        let received = grant::check_optional(
+            accept.capability_token_hex.as_deref(),
+            &claimed,
+            self.local_peer_id(),
+        )
+        .map_err(|e| {
+            tracing::warn!(error = %e, "pairing: the dialer's capability token was refused");
+            RejectReason::Malformed
+        })?;
+        let issued = grant::issue(&self.keypair, accept.responder_peer_id).map_err(|e| {
+            tracing::error!(error = %e, "pairing: could not mint this device's capability token");
+            RejectReason::Malformed
+        })?;
+
+        // 5. Proven. Record the peer and counter-sign so the dialer can verify
         //    that *we* know the code too (mutual proof, mutual TOFU).
         let paired = PairedPeer {
             peer_id: accept.responder_peer_id,
             pubkey_hex: hex::encode(claimed),
             display_name: sanitize_display_name(&accept.responder_display_name),
             fingerprint: ShortFingerprint::from_public_key(&claimed),
+            capability_token: received,
+            issued_revocation_ids: issued.revocation_ids.clone(),
         };
         let our_sig = self.keypair.sign(&payload);
 
@@ -485,6 +513,7 @@ impl HostSession {
         Ok(PairingFinalize {
             signature_hex: hex::encode(our_sig.as_bytes()),
             created_at_secs: now_secs(),
+            capability_token_hex: Some(grant::to_hex(&issued)),
         })
     }
 
@@ -526,6 +555,10 @@ pub struct Dialer<'a> {
     keypair: &'a IdentityKeyPair,
     display_name: String,
     code: PairingCode,
+    /// A token minted by the caller for the host (see [`Dialer::with_grant`]).
+    grant: Option<MintedToken>,
+    /// Revocation ids of the token sent in the last [`Dialer::accept_for`].
+    issued: Mutex<Vec<Vec<u8>>>,
 }
 
 impl std::fmt::Debug for Dialer<'_> {
@@ -547,7 +580,30 @@ impl<'a> Dialer<'a> {
             keypair,
             display_name: sanitize_display_name(&display_name.into()),
             code,
+            grant: None,
+            issued: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Send `grant` — a `mesh.peer` token this device minted for the host it
+    /// is about to dial ([`grant::issue`]) — instead of minting one in
+    /// [`Dialer::accept_for`]. A caller that persists revocations mints the
+    /// token itself so that it can revoke it when the exchange fails after
+    /// the token went out (see [`crate::grant`]).
+    #[must_use]
+    pub fn with_grant(mut self, grant: MintedToken) -> Self {
+        self.grant = Some(grant);
+        self
+    }
+
+    /// Revocation ids of the token sent to the host by the last
+    /// [`Dialer::accept_for`] (empty before it). Revoke these if the pairing
+    /// is not completed and confirmed.
+    pub fn issued_revocation_ids(&self) -> Vec<Vec<u8>> {
+        self.issued
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// The opening frame.
@@ -588,17 +644,36 @@ impl<'a> Dialer<'a> {
         Ok(())
     }
 
-    /// Build the proof-of-code frame for `offer`.
-    pub fn accept_for(&self, offer: &PairingOffer) -> PairingAccept {
+    /// Build the proof-of-code frame for `offer`, carrying this device's
+    /// `mesh.peer` token for the host (the one given to
+    /// [`Dialer::with_grant`], or a fresh one).
+    ///
+    /// Call it only for an offer [`Dialer::check_offer`] accepted: the token
+    /// is issued to `offer.host_peer_id`.
+    ///
+    /// # Errors
+    /// [`PairingNetError::Pairing`] when no token can be minted, or the one
+    /// given to [`Dialer::with_grant`] is not a grant to this host.
+    pub fn accept_for(&self, offer: &PairingOffer) -> Result<PairingAccept, PairingNetError> {
+        let host = offer.host_peer_id;
+        let token = match &self.grant {
+            Some(g) => {
+                grant::verify(&g.bytes, self.keypair.public().as_bytes(), host)?;
+                g.clone()
+            }
+            None => grant::issue(self.keypair, host)?,
+        };
+        *self.issued.lock().unwrap_or_else(|e| e.into_inner()) = token.revocation_ids.clone();
         let payload = signing_payload(self.code, &offer.nonce);
         let sig = self.keypair.sign(&payload);
-        PairingAccept {
+        Ok(PairingAccept {
             responder_peer_id: PeerId::from_public_key_bytes(self.keypair.public().as_bytes()),
             responder_pubkey_hex: hex::encode(self.keypair.public().as_bytes()),
             responder_display_name: self.display_name.clone(),
             signature_hex: hex::encode(sig.as_bytes()),
             created_at_secs: now_secs(),
-        }
+            capability_token_hex: Some(grant::to_hex(&token)),
+        })
     }
 
     /// Verify the host's counter-signature and produce the peer record.
@@ -622,11 +697,20 @@ impl<'a> Dialer<'a> {
             .verify(&payload, &sig)
             .map_err(|_| PairingNetError::VerifyFailed)?;
 
+        // The host's token, if it sent one, must be a mesh.peer grant from
+        // its authenticated key to this device.
+        let received = grant::check_optional(
+            finalize.capability_token_hex.as_deref(),
+            &remote_key,
+            PeerId::from_public_key_bytes(self.keypair.public().as_bytes()),
+        )?;
         Ok(PairedPeer {
             peer_id: offer.host_peer_id,
             pubkey_hex: hex::encode(remote_key),
             display_name: sanitize_display_name(&offer.host_display_name),
             fingerprint: ShortFingerprint::from_public_key(&remote_key),
+            capability_token: received,
+            issued_revocation_ids: self.issued_revocation_ids(),
         })
     }
 }
@@ -704,7 +788,7 @@ mod tests {
         };
         dialer.check_offer(host_key, &offer)?;
 
-        let accept = PairingWire::Accept(dialer.accept_for(&offer));
+        let accept = PairingWire::Accept(dialer.accept_for(&offer)?);
         let reply = host.handle(dialer_key, &accept.encode().unwrap());
         let finalize = match PairingWire::decode(&reply)? {
             PairingWire::Finalize(f) => f,
@@ -827,7 +911,7 @@ mod tests {
             PairingWire::Offer(o) => o,
             other => panic!("expected Offer, got {other:?}"),
         };
-        let accept = PairingWire::Accept(dialer.accept_for(&offer))
+        let accept = PairingWire::Accept(dialer.accept_for(&offer).unwrap())
             .encode()
             .unwrap();
 

@@ -88,6 +88,10 @@ pub mod names {
     pub const REMOTE_SERVE: &str = "entangle_remote_serve_total";
     /// Streams this node opened to peers, by `outcome` and `transport`.
     pub const REMOTE_STREAM_OPENS: &str = "entangle_remote_stream_opens_total";
+    /// Capability-token checks on requests peers sent this node, by `path`
+    /// (`task`, `stream`) and `outcome`
+    /// ([`REMOTE_CAPABILITY_OUTCOMES`](super::REMOTE_CAPABILITY_OUTCOMES)).
+    pub const REMOTE_CAPABILITY: &str = "entangle_remote_capability_checks_total";
     /// Integrity verdicts, by `policy` and `outcome`.
     pub const INTEGRITY_VERDICTS: &str = "entangle_integrity_verdicts_total";
     /// Replica outputs over `max_output_bytes` (INV-INT-2).
@@ -134,6 +138,36 @@ pub mod names {
 /// The values of the `transport` label: the three mesh transports, and
 /// `none` when no transport was tried (no route).
 pub const TRANSPORT_LABELS: [&str; 4] = ["local", "tailscale", "iroh", "none"];
+
+/// The values of the `path` label of
+/// [`names::REMOTE_CAPABILITY`]: one-shot tasks and stream opens.
+pub const REMOTE_CAPABILITY_PATHS: [&str; 2] = ["task", "stream"];
+
+/// The values of the `outcome` label of [`names::REMOTE_CAPABILITY`]: `ok`
+/// (a token verified), `tokenless_accepted` (no token, accepted because
+/// `[trust] require_capability_tokens = false`), and one per refusal
+/// reason (`entangle_biscuits::templates::TokenError::label`). Anything else
+/// folds into `other`.
+pub const REMOTE_CAPABILITY_OUTCOMES: [&str; 18] = [
+    "ok",
+    "tokenless_accepted",
+    "build",
+    "expired",
+    "missing",
+    "malformed",
+    "bad_signature",
+    "wrong_holder",
+    "capability_not_granted",
+    "expiry_out_of_window",
+    "binding_mismatch",
+    "bad_nonce",
+    "replayed",
+    "replay_cache_full",
+    "revoked",
+    "unexpected_content",
+    "restriction_not_met",
+    "revocations_unavailable",
+];
 
 /// `transport` itself when it is one of [`TRANSPORT_LABELS`], else `none`
 /// (keeps the label bounded whatever a caller passes).
@@ -383,6 +417,28 @@ pub fn remote_serve(reg: &Registry, outcome: &str, transport: &str) {
     );
 }
 
+/// A capability token on a request a peer sent over `path` (`task` or
+/// `stream`) was checked with `outcome` (see [`REMOTE_CAPABILITY_OUTCOMES`];
+/// both labels fold unknown values, so they stay bounded).
+pub fn remote_capability(reg: &Registry, path: &str, outcome: &str) {
+    let path = REMOTE_CAPABILITY_PATHS
+        .iter()
+        .copied()
+        .find(|p| *p == path)
+        .unwrap_or("other");
+    let outcome = REMOTE_CAPABILITY_OUTCOMES
+        .iter()
+        .copied()
+        .find(|o| *o == outcome)
+        .unwrap_or("other");
+    reg.inc_counter(
+        names::REMOTE_CAPABILITY,
+        "Capability-token checks on requests from peers, by path and outcome",
+        &[("path", path), ("outcome", outcome)],
+        1.0,
+    );
+}
+
 /// This node tried to open a stream to a peer: `outcome` is `ok`,
 /// `transport_error` or `no_route`; `transport` the transport that carried
 /// (or last failed) it.
@@ -620,6 +676,23 @@ mod tests {
             ),
             Some(1.0)
         );
+    }
+
+    #[test]
+    fn the_capability_labels_are_bounded() {
+        let reg = Registry::new();
+        remote_capability(&reg, "task", "replayed");
+        remote_capability(&reg, "stream", "ok");
+        remote_capability(&reg, "peer-1234", "anything at all");
+        let text = reg.render();
+        assert!(text.contains("path=\"task\""), "{text}");
+        assert!(text.contains("outcome=\"replayed\""), "{text}");
+        assert!(
+            text.contains("path=\"other\",outcome=\"other\"")
+                || text.contains("outcome=\"other\",path=\"other\""),
+            "{text}"
+        );
+        assert!(!text.contains("peer-1234"));
     }
 
     #[test]

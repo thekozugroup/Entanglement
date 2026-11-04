@@ -207,6 +207,68 @@ fn pair_over_the_network_stores_both_peers() {
         !responder_store.contains(&responder_pubkey),
         "neither side may store itself"
     );
+
+    // Spec §6.3 step 4: on accept both sides minted a `mesh.peer` token for
+    // the other, exchanged them, and stored the one they received — and each
+    // recorded the revocation ids of the one it issued.
+    assert_tokens_exchanged(&i_peers, &i_key, &r_peers, &r_key);
+}
+
+/// Both peer lists hold exactly the other device, with a `mesh.peer` token
+/// that verifies under the *other* device's key, issued to *this* device, and
+/// the revocation ids of the token this device issued — which are exactly the
+/// ids of the token the other device holds.
+fn assert_tokens_exchanged(a_peers: &Path, a_key: &Path, b_peers: &Path, b_key: &Path) {
+    use entangle_biscuits::templates::{now_unix_secs, verify_mesh_peer_grant};
+    use entangle_peers::PeerStore;
+    use entangle_signing::IdentityKeyPair;
+    use entangle_types::peer_id::PeerId;
+
+    let identity = |p: &Path| {
+        IdentityKeyPair::from_pem(&std::fs::read_to_string(p).expect("identity file"))
+            .expect("identity parses")
+    };
+    let (a, b) = (identity(a_key), identity(b_key));
+    let a_id = PeerId::from_public_key_bytes(a.public().as_bytes());
+    let b_id = PeerId::from_public_key_bytes(b.public().as_bytes());
+    let record = |peers: &Path, of: PeerId| {
+        let list = PeerStore::open(peers).expect("peers.toml loads").list();
+        assert_eq!(list.len(), 1, "exactly the other device: {list:?}");
+        assert_eq!(list[0].peer_id, of);
+        list.into_iter().next().unwrap()
+    };
+    let (a_rec, b_rec) = (record(a_peers, b_id), record(b_peers, a_id));
+
+    let a_holds = a_rec
+        .capability_token_bytes()
+        .expect("side A stored the token side B issued it");
+    let b_holds = b_rec
+        .capability_token_bytes()
+        .expect("side B stored the token side A issued it");
+    let now = now_unix_secs();
+    let a_grant = verify_mesh_peer_grant(&a_holds, b.public().as_bytes(), a_id, now)
+        .expect("A's token is a mesh.peer grant rooted at B, issued to A");
+    let b_grant = verify_mesh_peer_grant(&b_holds, a.public().as_bytes(), b_id, now)
+        .expect("B's token is a mesh.peer grant rooted at A, issued to B");
+    assert_eq!(a_grant.expires, None, "pairing tokens live until revoked");
+    assert_eq!(b_grant.expires, None, "pairing tokens live until revoked");
+    assert_eq!(
+        a_rec.issued_revocation_ids(),
+        b_grant.revocation_ids,
+        "A recorded the revocation ids of the token it issued to B"
+    );
+    assert_eq!(
+        b_rec.issued_revocation_ids(),
+        a_grant.revocation_ids,
+        "B recorded the revocation ids of the token it issued to A"
+    );
+
+    #[cfg(unix)]
+    for peers in [a_peers, b_peers] {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(peers).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "{} holds tokens: mode 0600", peers.display());
+    }
 }
 
 /// A wrong code must fail, and must leave *no* peer behind on either device.
@@ -257,6 +319,24 @@ fn pair_over_the_network_rejects_a_wrong_code() {
         !i_peers.exists(),
         "a failed pairing must not write a peer store"
     );
+    // The initiator's capability token went out with its proof; the pairing
+    // failed, so it is revoked locally (it must stay dead even if that device
+    // is ever put on the allowlist by hand).
+    let revoked = entangle_peers::RevocationStore::open(work.path().join("revoked-tokens.toml"))
+        .expect("revocation set readable")
+        .list()
+        .expect("revocation set lists");
+    let responder_id = {
+        let key: [u8; 32] = hex::decode(responder.node_addr.split('@').next().unwrap())
+            .unwrap()
+            .try_into()
+            .unwrap();
+        entangle_types::peer_id::PeerId::from_public_key_bytes(&key).to_hex()
+    };
+    assert!(
+        !revoked.is_empty() && revoked.iter().all(|r| r.peer_id == responder_id),
+        "the token sent to the responder must be revoked: {revoked:?}"
+    );
 
     // The responder is still waiting; kill it and confirm it stored nothing.
     let _ = responder.child.kill();
@@ -273,6 +353,105 @@ fn pair_over_the_network_rejects_a_wrong_code() {
 #[test]
 #[ignore = "two-process harness required; run with: cargo test --test pair -- --ignored"]
 fn pair_round_trip_happy_path() {}
+
+/// The copy-paste channel end to end, two processes: the initiator writes
+/// its REQUEST and FINALIZE blobs to files and reads the ACCEPT blob on
+/// stdin; the responder reads REQUEST from a file and FINALIZE on stdin. Both
+/// end holding the other's key and a `mesh.peer` token from it.
+#[test]
+fn pair_manual_round_trip_exchanges_capability_tokens() {
+    use std::io::Write as _;
+
+    let i_home = TempDir::new().unwrap();
+    let r_home = TempDir::new().unwrap();
+    let work = TempDir::new().unwrap();
+    let path = |n: &str| work.path().join(n);
+    let (i_peers, r_peers) = (path("i-peers.toml"), path("r-peers.toml"));
+    let (i_key, r_key) = (path("i-identity.key"), path("r-identity.key"));
+    let (req, acc, fin) = (path("req.blob"), path("acc.blob"), path("fin.blob"));
+    let s = |p: &Path| p.to_str().unwrap().to_string();
+
+    let mut initiator = StdCommand::new(binary())
+        .args(["pair", "--manual", "--display-name", "laptop"])
+        .args(["--emit-request-file", &s(&req)])
+        .args(["--emit-finalize-file", &s(&fin)])
+        .args(["--peers-file", &s(&i_peers)])
+        .args(["--identity-file", &s(&i_key)])
+        .env("HOME", i_home.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("initiator starts");
+    // The code is printed before the REQUEST blob is written.
+    let mut i_err = BufReader::new(initiator.stderr.take().unwrap());
+    let mut code = None;
+    let mut line = String::new();
+    while code.is_none() {
+        line.clear();
+        assert!(i_err.read_line(&mut line).unwrap() > 0, "initiator exited");
+        if let Some(rest) = line.trim().strip_prefix("Code:") {
+            code = rest.split_whitespace().next().map(str::to_string);
+        }
+    }
+    let code = code.unwrap();
+    wait_for_file(&req);
+
+    let mut responder = StdCommand::new(binary())
+        .args([
+            "pair",
+            "--responder",
+            "--manual",
+            "--display-name",
+            "studio",
+        ])
+        .args(["--request-file", &s(&req)])
+        .args(["--emit-accept-file", &s(&acc)])
+        .args(["--code", &code])
+        .args(["--peers-file", &s(&r_peers)])
+        .args(["--identity-file", &s(&r_key)])
+        .env("HOME", r_home.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("responder starts");
+    wait_for_file(&acc);
+
+    // The human carries ACCEPT to the initiator…
+    let accept = std::fs::read_to_string(&acc).unwrap();
+    writeln!(initiator.stdin.as_mut().unwrap(), "{}", accept.trim()).unwrap();
+    let i_ok = initiator
+        .wait_timeout(Duration::from_secs(60))
+        .expect("initiator exits");
+    let mut rest = String::new();
+    std::io::Read::read_to_string(&mut i_err, &mut rest).unwrap();
+    assert!(i_ok, "initiator failed:\n{rest}");
+
+    // …and FINALIZE to the responder.
+    let finalize = std::fs::read_to_string(&fin).unwrap();
+    writeln!(responder.stdin.as_mut().unwrap(), "{}", finalize.trim()).unwrap();
+    let r_ok = responder
+        .wait_timeout(Duration::from_secs(60))
+        .expect("responder exits");
+    let mut r_err = String::new();
+    std::io::Read::read_to_string(responder.stderr.as_mut().unwrap(), &mut r_err).unwrap();
+    assert!(r_ok, "responder failed:\n{r_err}");
+
+    assert_tokens_exchanged(&i_peers, &i_key, &r_peers, &r_key);
+}
+
+fn wait_for_file(p: &Path) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(60);
+    while !p.exists() || std::fs::read(p).map(|b| b.is_empty()).unwrap_or(true) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "{} never appeared",
+            p.display()
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
 
 #[test]
 #[ignore = "two-process harness required; run with: cargo test --test pair -- --ignored"]

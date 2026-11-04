@@ -21,7 +21,10 @@
 //!
 //! Decoding follows the one-shot envelope's rules (`crate::wire`): version
 //! first — so a future layout is *reported*, not misparsed — then structure,
-//! then **no trailing bytes**.
+//! then **no trailing bytes** — with one exception: an `Open` frame may be
+//! followed by the capability-token block ([`CAPABILITY_EXTENSION_TAG`] and
+//! the postcard-encoded token bytes, see [`crate::capability`]). An `Open`
+//! without it is byte-for-byte the frame older nodes send.
 
 use serde::{Deserialize, Serialize};
 
@@ -44,8 +47,14 @@ pub const CHUNK_FRAME_OVERHEAD: usize = 128;
 /// `Chunk` and `Input`.
 pub const CONTROL_FRAME_MAX: usize = 2 * 1024;
 
-/// Upper bound on what an `Open` frame carries besides the task input.
-pub const OPEN_FRAME_OVERHEAD: usize = MAX_POLICY_BYTES + 4 * 1024;
+/// Upper bound on what an `Open` frame carries besides the task input: the
+/// policy, the envelope fields, and the capability-token block.
+pub const OPEN_FRAME_OVERHEAD: usize =
+    MAX_POLICY_BYTES + 4 * 1024 + crate::capability::MAX_TOKEN_BYTES + 8;
+
+/// First byte of the capability-token block after an `Open` frame (the same
+/// tag as the task frame's block, `crate::wire::CAPABILITY_EXTENSION_TAG`).
+pub const CAPABILITY_EXTENSION_TAG: u8 = crate::wire::CAPABILITY_EXTENSION_TAG;
 
 /// How many leading bytes of an encoded frame [`is_data_frame_prefix`]
 /// needs: the version and the frame kind.
@@ -193,6 +202,16 @@ pub struct OpenFrame {
     pub policy: Vec<u8>,
     /// `SHA-256(policy)` as sealed by the submitter (INV-INT-1).
     pub policy_hash: PolicyHash,
+    /// The per-request capability token, bound to this `Open`
+    /// ([`crate::capability::stream_binding`]).
+    ///
+    /// **Not part of the postcard body** (`serde(skip)`): it travels as the
+    /// [`CAPABILITY_EXTENSION_TAG`] block after the frame, so an `Open`
+    /// without it is unchanged on the wire. Not covered by
+    /// [`super::signing::request_digest`] either: the digest is what the
+    /// token is bound to.
+    #[serde(skip)]
+    pub capability: Option<Vec<u8>>,
 }
 
 /// The executor's acceptance: what it will actually enforce.
@@ -353,21 +372,35 @@ impl Frame {
 
 /// Encode `frame` at the current [`STREAM_WIRE_VERSION`].
 pub fn encode_frame(frame: &Frame) -> Result<Vec<u8>, StreamError> {
-    postcard::to_allocvec(&StreamFrame {
-        v: STREAM_WIRE_VERSION,
-        body: frame.clone(),
-    })
-    .map_err(|e| StreamError::Transport(format!("encoding {} frame: {e}", frame.name())))
+    encode_frame_owned(frame.clone())
 }
 
 /// Encode `frame` without cloning it (for the large `Chunk` / `Open`).
 pub fn encode_frame_owned(frame: Frame) -> Result<Vec<u8>, StreamError> {
     let name = frame.name();
-    postcard::to_allocvec(&StreamFrame {
+    let encoding =
+        |e: postcard::Error| StreamError::Transport(format!("encoding {name} frame: {e}"));
+    let capability = match &frame {
+        Frame::Open(open) => open.capability.clone(),
+        _ => None,
+    };
+    let mut bytes = postcard::to_allocvec(&StreamFrame {
         v: STREAM_WIRE_VERSION,
         body: frame,
     })
-    .map_err(|e| StreamError::Transport(format!("encoding {name} frame: {e}")))
+    .map_err(encoding)?;
+    if let Some(token) = capability {
+        if token.len() > crate::capability::MAX_TOKEN_BYTES {
+            return Err(StreamError::Transport(format!(
+                "capability token of {} bytes exceeds the {}-byte cap",
+                token.len(),
+                crate::capability::MAX_TOKEN_BYTES
+            )));
+        }
+        bytes.push(CAPABILITY_EXTENSION_TAG);
+        bytes.extend(postcard::to_allocvec(&token).map_err(encoding)?);
+    }
+    Ok(bytes)
 }
 
 /// Decode one frame from untrusted bytes sent by `from`.
@@ -385,8 +418,23 @@ pub fn decode_frame(bytes: &[u8], from: Side) -> Result<Frame, StreamError> {
             expected: STREAM_WIRE_VERSION,
         });
     }
-    let (frame, rest) = postcard::take_from_bytes::<StreamFrame>(bytes)
+    let (mut frame, mut rest) = postcard::take_from_bytes::<StreamFrame>(bytes)
         .map_err(|e| malformed(format!("decoding frame: {e}")))?;
+    if let (Frame::Open(open), [CAPABILITY_EXTENSION_TAG, ext @ ..]) = (&mut frame.body, rest) {
+        // Refuse an oversized token from its length prefix.
+        let (len, _) = postcard::take_from_bytes::<u32>(ext)
+            .map_err(|e| malformed(format!("capability block: {e}")))?;
+        if len as usize > crate::capability::MAX_TOKEN_BYTES {
+            return Err(malformed(format!(
+                "capability token of {len} bytes exceeds the {}-byte cap",
+                crate::capability::MAX_TOKEN_BYTES
+            )));
+        }
+        let (token, after) = postcard::take_from_bytes::<Vec<u8>>(ext)
+            .map_err(|e| malformed(format!("capability block: {e}")))?;
+        open.capability = Some(token);
+        rest = after;
+    }
     if !rest.is_empty() {
         return Err(malformed(format!(
             "{} trailing bytes after the frame",
@@ -424,6 +472,7 @@ mod tests {
                 partial_result: WirePartial::KeepSigned,
                 policy: vec![1, 2, 3],
                 policy_hash: PolicyHash([9; 32]),
+                capability: Some(vec![0xcd; crate::capability::MAX_TOKEN_BYTES]),
             }),
             Frame::Accepted(AcceptedFrame {
                 observed_policy_hash: PolicyHash([9; 32]),
@@ -499,6 +548,39 @@ mod tests {
         }
         assert!(!is_data_frame_prefix(&[1]), "a truncated prefix");
         assert!(!is_data_frame_prefix(&[2, CHUNK_KIND]), "another version");
+    }
+
+    #[test]
+    fn the_capability_block_follows_only_an_open_frame() {
+        let Frame::Open(mut open) = samples().remove(0) else {
+            panic!("the first sample is an Open frame");
+        };
+        open.capability = None;
+        let plain = encode_frame(&Frame::Open(open.clone())).unwrap();
+        open.capability = Some(vec![1, 2, 3]);
+        let with = encode_frame(&Frame::Open(open.clone())).unwrap();
+        assert_eq!(&with[..plain.len()], &plain[..], "the body is unchanged");
+        assert_eq!(
+            decode_frame(&with, Side::Submitter).unwrap(),
+            Frame::Open(open)
+        );
+
+        let mut credit = encode_frame(&Frame::Credit { n: 1 }).unwrap();
+        credit.push(CAPABILITY_EXTENSION_TAG);
+        credit.extend(postcard::to_allocvec(&vec![1u8]).unwrap());
+        assert!(decode_frame(&credit, Side::Submitter).is_err());
+
+        let mut twice = with.clone();
+        twice.push(CAPABILITY_EXTENSION_TAG);
+        twice.extend(postcard::to_allocvec(&vec![1u8]).unwrap());
+        assert!(decode_frame(&twice, Side::Submitter).is_err());
+
+        let mut huge = plain.clone();
+        huge.push(CAPABILITY_EXTENSION_TAG);
+        huge.extend(
+            postcard::to_allocvec(&vec![0u8; crate::capability::MAX_TOKEN_BYTES + 1]).unwrap(),
+        );
+        assert!(decode_frame(&huge, Side::Submitter).is_err());
     }
 
     #[test]

@@ -31,10 +31,11 @@
 //!   of what is left of the request's budget), so a dial that hangs — a
 //!   stale or spoofed LAN address, a blackholed port — cannot use up the
 //!   budget before the later transports are tried. A link reports when its
-//!   connection is set up ([`Connecting`]); the deadline never cuts short a
-//!   request already sent. It only makes room for the later candidates: if
-//!   they all fail too, a candidate it cut short is tried again without
-//!   one, as the last candidate would have been;
+//!   connection is set up by asking for the frame to send ([`Outbound`]);
+//!   the deadline never cuts short a request already sent. It only makes
+//!   room for the later candidates: if they all fail too, a candidate it
+//!   cut short is tried again without one, as the last candidate would have
+//!   been;
 //! * a candidate that failed to connect (or ran out its connect deadline)
 //!   moves behind the peer's other candidates for a while
 //!   ([`TransportRouter::with_connect_backoff`]), so a dead route is not
@@ -45,6 +46,14 @@
 //!   a transport failure once the request may have been delivered — is
 //!   final: it is never retried on another transport, so a request is
 //!   carried at most once.
+//!
+//! A request's frame is built per attempt, when the attempt's link has
+//! connected and immediately before the frame is written
+//! ([`TransportRouter::request_tracked`], [`Outbound`]); a stream's `Open`
+//! is built once its link has opened the stream. So a capability token is
+//! attenuated for the attempt that carries it: time spent dialling,
+//! including every fallback above, never counts against the token's 60 s,
+//! and an attempt that is tried again carries a fresh nonce.
 //!
 //! The transport that carried the last successful request or stream to a
 //! peer is recorded ([`TransportRouter::last_route`]) and shown by
@@ -212,26 +221,75 @@ pub enum LinkError {
     Transport(String),
 }
 
-/// Handed to each [`Link::request`]: the link calls
-/// [`Connecting::connected`] once its connection is set up (dialled,
-/// authenticated, admitted, protocol selected) and **before** it sends
-/// anything.
+/// Builds the bytes of one request for one attempt: called by the link
+/// once its connection is set up, immediately before writing them (see
+/// [`Outbound`]).
+pub type BuildFrame<'a> = &'a (dyn Fn() -> Vec<u8> + Send + Sync);
+
+/// One attempt's request, handed to [`Link::request`]. The link asks for the
+/// bytes to send with [`Outbound::frame`] once its connection is set up
+/// (dialled, authenticated, admitted, protocol selected), immediately before
+/// writing them, and at most once.
 ///
-/// Until then the router may abandon the attempt at its connect deadline —
-/// nothing was sent, so another transport may be tried. After it the
-/// attempt runs to its end: a request that may have reached the peer is
-/// never abandoned for another transport.
+/// **Built per attempt.** The frame is built at that moment, not when the
+/// request was made: anything time-sensitive in it — the capability token's
+/// expiry and nonce ([`crate::capability`]) — is minted for the attempt
+/// that carries it, so connection setup, and the router's fallback from one
+/// transport to the next, never use up a token's lifetime, and every
+/// attempt is a new request to the peer's replay cache.
+///
+/// **The end of setup.** Asking for the frame is also the link's report that
+/// setup is over. Until then the router may abandon the attempt at its
+/// connect deadline — nothing was sent, so another transport may be tried.
+/// After it the attempt runs to its end: a request that may have reached
+/// the peer is never abandoned for another transport, nor retried on one.
+pub struct Outbound<'a> {
+    build: BuildFrame<'a>,
+    connecting: Connecting,
+}
+
+impl std::fmt::Debug for Outbound<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Outbound")
+            .field("connected", &self.is_connected())
+            .finish_non_exhaustive()
+    }
+}
+
+impl<'a> Outbound<'a> {
+    /// An attempt whose frame `build` makes.
+    pub fn new(build: BuildFrame<'a>) -> Self {
+        Self {
+            build,
+            connecting: Connecting::default(),
+        }
+    }
+
+    /// The connection is set up and nothing has been sent: build the frame
+    /// to send now.
+    pub fn frame(&self) -> Vec<u8> {
+        self.connecting.connected();
+        (self.build)()
+    }
+
+    /// Whether the link has asked for the frame (its connection is set up).
+    pub fn is_connected(&self) -> bool {
+        self.connecting.is_connected()
+    }
+}
+
+/// Whether an attempt is past connection setup (see [`Outbound`]).
 #[derive(Debug, Default)]
-pub struct Connecting(AtomicBool);
+struct Connecting(AtomicBool);
 
 impl Connecting {
     /// The connection is set up; nothing has been sent yet.
-    pub fn connected(&self) {
+    fn connected(&self) {
         self.0.store(true, Ordering::Release);
     }
 
     /// Whether [`Connecting::connected`] was called.
-    pub fn is_connected(&self) -> bool {
+    fn is_connected(&self) -> bool {
         self.0.load(Ordering::Acquire)
     }
 }
@@ -260,13 +318,12 @@ pub trait Link: std::fmt::Debug + Send + Sync {
     fn target(&self, peer: &PeerId) -> Option<DialTarget>;
 
     /// Connect to `target` and do one `entangle/scheduler/1`
-    /// request/response, calling `connecting.connected()` between the two
-    /// (see [`Connecting`]).
+    /// request/response, sending what `outbound.frame()` returns when called
+    /// between the two (see [`Outbound`]).
     async fn request(
         &self,
         target: &DialTarget,
-        payload: &[u8],
-        connecting: &Connecting,
+        outbound: &Outbound<'_>,
     ) -> Result<Vec<u8>, LinkError>;
 
     /// Connect to `target` and open one `entangle/stream/1` stream. Nothing
@@ -402,6 +459,9 @@ pub struct RouterInputs {
     pub policy: RoutePolicy,
     /// Where stream opens are counted.
     pub metrics: Option<entangle_observability::Registry>,
+    /// The capability tokens to present to peers (task frames and stream
+    /// `Open`s), see [`crate::capability`].
+    pub capability_tokens: Option<Arc<dyn crate::capability::CapabilityTokens>>,
 }
 
 /// The outbound router for `inputs`, or `None` when no transport is running
@@ -412,6 +472,9 @@ pub fn build_router(local_peer_id: PeerId, inputs: RouterInputs) -> Option<Trans
     let mut router = TransportRouter::new(local_peer_id).with_policy(inputs.policy);
     if let Some(registry) = inputs.metrics {
         router = router.with_metrics(registry);
+    }
+    if let Some(tokens) = inputs.capability_tokens {
+        router = router.with_capability_tokens(tokens);
     }
     let mut any = false;
     if let Some(iroh) = &inputs.iroh {
@@ -504,6 +567,8 @@ pub struct TransportRouter {
     connect_backoff: Duration,
     /// When each (peer, transport) last failed to connect.
     connect_failures: Mutex<HashMap<(PeerId, TransportKind), tokio::time::Instant>>,
+    /// The capability tokens presented on task frames and stream `Open`s.
+    capability_tokens: Option<Arc<dyn crate::capability::CapabilityTokens>>,
 }
 
 impl std::fmt::Debug for TransportRouter {
@@ -529,7 +594,26 @@ impl TransportRouter {
             connect_timeout: DEFAULT_ATTEMPT_CONNECT_TIMEOUT,
             connect_backoff: DEFAULT_CONNECT_BACKOFF,
             connect_failures: Mutex::new(HashMap::new()),
+            capability_tokens: None,
         }
+    }
+
+    /// Present capability tokens from `tokens`: every stream `Open` this
+    /// router carries, and every task frame a
+    /// [`RemoteDispatch`](crate::RemoteDispatch) over it sends, carries a
+    /// per-request attenuation of the token held for its peer.
+    #[must_use]
+    pub fn with_capability_tokens(
+        mut self,
+        tokens: Arc<dyn crate::capability::CapabilityTokens>,
+    ) -> Self {
+        self.capability_tokens = Some(tokens);
+        self
+    }
+
+    /// The token source, if any.
+    pub fn capability_tokens(&self) -> Option<&Arc<dyn crate::capability::CapabilityTokens>> {
+        self.capability_tokens.as_ref()
     }
 
     /// Add a transport.
@@ -734,25 +818,38 @@ impl TransportRouter {
     /// Send one `entangle/scheduler/1` request to `peer` over the first
     /// candidate that connects, returning the answer and the transport that
     /// carried it. `only` restricts the attempt to one transport.
+    ///
+    /// Every attempt sends `payload` as is; a request with something
+    /// time-sensitive in it builds it per attempt instead
+    /// ([`TransportRouter::request_tracked`]).
     pub async fn request(
         &self,
         peer: PeerId,
         payload: &[u8],
         only: Option<TransportKind>,
     ) -> Result<(Vec<u8>, TransportKind), RouteError> {
-        self.request_tracked(peer, payload, only, &AttemptCell::default(), None)
-            .await
+        self.request_tracked(
+            peer,
+            &|| payload.to_vec(),
+            only,
+            &AttemptCell::default(),
+            None,
+        )
+        .await
     }
 
-    /// [`TransportRouter::request`], noting each attempt's transport in
-    /// `attempt` as it starts. `budget` is how long the caller will wait
-    /// for the whole request: candidates with a fallback after them share
-    /// what is left of it for connecting (see
+    /// [`TransportRouter::request`] with the frame built per attempt: each
+    /// attempt calls `frame` once its link has connected, immediately before
+    /// the frame is written (see [`Outbound`]), so connection setup and
+    /// fallbacks never age what it contains. Each attempt's transport is
+    /// noted in `attempt` as it starts. `budget` is how long the caller will
+    /// wait for the whole request: candidates with a fallback after them
+    /// share what is left of it for connecting (see
     /// [`TransportRouter::with_connect_timeout`]).
     pub async fn request_tracked(
         &self,
         peer: PeerId,
-        payload: &[u8],
+        frame: BuildFrame<'_>,
         only: Option<TransportKind>,
         attempt: &AttemptCell,
         budget: Option<Duration>,
@@ -773,9 +870,9 @@ impl TransportRouter {
             attempt.set(kind);
             let left = budget.map(|b| b.saturating_sub(started.elapsed()));
             let limit = self.connect_limit(next.retry, &queue, left);
-            let connecting = Connecting::default();
-            let sent = link.request(&target, payload, &connecting);
-            let result = match within_setup(sent, &connecting, limit).await {
+            let outbound = Outbound::new(frame);
+            let sent = link.request(&target, &outbound);
+            let result = match within_setup(sent, &outbound.connecting, limit).await {
                 Attempted::Done(result) => result,
                 Attempted::Cut(limit) => {
                     let why = format!("not connected within {}ms", limit.as_millis());
@@ -834,8 +931,11 @@ impl TransportRouter {
         &self,
         peer: PeerId,
         task: &StreamingTask,
-        options: StreamOptions,
+        mut options: StreamOptions,
     ) -> Result<StreamHandle, StreamError> {
+        if options.capability.is_none() {
+            options.capability = self.capability_tokens.clone();
+        }
         validate_submit(task)?;
         check_executor_allowed(&task.integrity, &peer)?;
         let (candidates, skipped) = self.candidates(&peer, None);

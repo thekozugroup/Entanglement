@@ -20,7 +20,10 @@ serde            = { workspace = true, features = ["derive"] }
 thiserror        = { workspace = true }
 hex              = { workspace = true }
 ed25519-dalek    = { workspace = true }
+# Per-request nonces (`templates::present_for_request`).
+rand_core        = { workspace = true, features = ["getrandom"] }
+# Wipes the identity seed after a root key pair is built from it.
+zeroize          = { workspace = true }
 
 [dev-dependencies]
-rand_core = { workspace = true }
 # NOTE: biscuit-quote is not needed since we use the string-based API

@@ -74,7 +74,8 @@ use entangle_scheduler::stream::{
 };
 use entangle_scheduler::transport::{build_router, RouterInputs};
 use entangle_scheduler::{
-    PeerDirectory, RoutePolicy, StaticAllowlist, TransportKind, TransportRouter,
+    HeldToken, PeerDirectory, RoutePolicy, StaticAllowlist, StaticTokens, TransportKind,
+    TransportRouter,
 };
 use entangle_signing::{IdentityKeyPair, Keyring};
 use entangle_types::{
@@ -565,6 +566,7 @@ fn stream_router(
     routing: &Routing,
     address: Option<&IrohPeer>,
     dialers: &Dialers,
+    tokens: StaticTokens,
 ) -> Option<TransportRouter> {
     let book = PeerDirectory::new();
     for entry in routing.book.iter().chain(address) {
@@ -579,6 +581,7 @@ fn stream_router(
             tailscale: dialers.tailscale.clone(),
             policy: routing.policy.clone(),
             metrics: None,
+            capability_tokens: Some(Arc::new(tokens)),
         },
     )
 }
@@ -647,9 +650,26 @@ async fn run_remote(a: &StreamArgs, task: &StreamingTask, spec: &str) -> anyhow:
             "peer {peer} is not trusted: pair it first (`entangle mesh trust` / `entangle pair`)"
         );
     }
+    // The Open carries a per-request attenuation of the token the peer
+    // minted for this node while pairing (`peers.toml`).
+    let tokens = StaticTokens::new();
+    match store.get(&peer).and_then(|p| p.presentable_token()) {
+        Some((token, issuer_public_key)) => tokens.insert(
+            peer,
+            HeldToken {
+                token,
+                issuer_public_key,
+            },
+        ),
+        None => eprintln!(
+            "warning: this node holds no capability token for {peer} (paired before tokens \
+             existed?); an executor that requires tokens will refuse the stream — re-pair with \
+             `entangle pair`"
+        ),
+    }
     let dialers = start_dialers(&identity, &store, &routing, peer, address.as_ref()).await;
     let local = PeerId::from_public_key_bytes(identity.public().as_bytes());
-    let opened = match stream_router(local, &routing, address.as_ref(), &dialers) {
+    let opened = match stream_router(local, &routing, address.as_ref(), &dialers, tokens) {
         Some(router) => open_routed(&router, peer, task)
             .await
             .map_err(|e| with_notes(e.into(), &dialers.notes)),
@@ -767,8 +787,21 @@ async fn run_local(a: &StreamArgs, task: &StreamingTask, plugin: &PluginId) -> a
         entangle_mesh_iroh::MAX_FRAME_BYTES,
         entangle_mesh_iroh::DEFAULT_DUPLEX_BUFFER,
     );
+    // The executor requires a capability token like any other: mint the one
+    // it would have issued the submitter while pairing.
+    let tokens = StaticTokens::new();
+    tokens
+        .paired_with(&executor, submitter_id)
+        .map_err(|e| anyhow::anyhow!("minting the in-process capability token: {e}"))?;
     let served = tokio::spawn(async move { server.handle(exec_io).await });
-    let handle = StreamHandle::start(sub_io, task, StreamOptions::default())?;
+    let handle = StreamHandle::start(
+        sub_io,
+        task,
+        StreamOptions {
+            capability: Some(Arc::new(tokens)),
+            ..StreamOptions::default()
+        },
+    )?;
     let result = consume(handle, a.json, task.partial_result, None).await;
     let _ = served.await;
     result
@@ -1061,6 +1094,7 @@ mod tests {
         /// tailnet listener (both on loopback), for `submitter` only.
         pub(super) struct Executor {
             pub(super) peer_id: PeerId,
+            key: IdentityKeyPair,
             iroh: Arc<MeshIroh>,
             pub(super) tailnet: MeshTailscale,
             plugin: PluginId,
@@ -1120,6 +1154,7 @@ mod tests {
                 ));
                 Self {
                     peer_id: peer_of(&key),
+                    key,
                     iroh,
                     tailnet,
                     plugin,
@@ -1162,7 +1197,11 @@ mod tests {
             exec: &Executor,
         ) -> Result<(String, Option<TransportKind>), String> {
             let address = exec.long_address();
-            let router = stream_router(local, routing, Some(&address), dialers)
+            // What pairing leaves this node holding: the token the executor
+            // minted for it.
+            let tokens = StaticTokens::new();
+            tokens.paired_with(&exec.key, local).unwrap();
+            let router = stream_router(local, routing, Some(&address), dialers, tokens)
                 .expect("at least one transport is running");
             let task = StreamingTask::with_defaults(exec.plugin.clone(), b"one\ntwo\n".to_vec());
             let (mut handle, transport) =

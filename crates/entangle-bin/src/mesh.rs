@@ -25,6 +25,7 @@ use entangle_mesh_iroh::{IrohPeer, MeshIroh};
 use entangle_mesh_local::{DiscoveryEvent, PeerSeen};
 use entangle_peers::{PeerStore, TrustLevel};
 use entangle_runtime::Kernel;
+use entangle_scheduler::capability::CapabilityGate;
 use entangle_scheduler::{PeerDirectory, RemoteTaskServer, StreamServer, TransportKind};
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
@@ -42,24 +43,33 @@ pub struct SchedulerServers {
 }
 
 /// Build the task and stream servers, both gated on `store` (see
-/// [`PeerStoreAllowlist`]). Chunks are signed with `identity`, which must be
-/// the transports' identity.
+/// [`PeerStoreAllowlist`]) and then on capability tokens, checked by the
+/// one shared `gate` (see [`crate::remote::capability_gate`]) so both paths
+/// share its replay cache and revocation set. Chunks are signed with
+/// `identity`, which must be the transports' identity (and the gate's).
 pub fn scheduler_servers(
     kernel: Arc<Kernel>,
     store: PeerStore,
     identity: IdentityKeyPair,
     metrics: Option<entangle_observability::Registry>,
+    gate: Arc<CapabilityGate>,
 ) -> SchedulerServers {
     let allowlist = Arc::new(PeerStoreAllowlist::new(store));
-    let local = PeerId::from_public_key_bytes(identity.public().as_bytes());
-    let mut tasks = RemoteTaskServer::new(Arc::clone(&kernel), allowlist.clone(), local);
+    let mut tasks =
+        RemoteTaskServer::new(Arc::clone(&kernel), allowlist.clone(), Arc::clone(&gate));
     if let Some(registry) = metrics {
         tasks = tasks.with_metrics(registry);
     }
-    tracing::info!(trusted_peers = ?allowlist, "serving scheduler tasks and streams for trusted peers");
+    tracing::info!(
+        trusted_peers = ?allowlist,
+        require_capability_tokens = gate.requires_tokens(),
+        "serving scheduler tasks and streams for trusted peers"
+    );
     SchedulerServers {
         tasks: Arc::new(tasks),
-        streams: Arc::new(StreamServer::new(kernel, allowlist, identity)),
+        streams: Arc::new(
+            StreamServer::new(kernel, allowlist, identity).with_capability_gate(gate),
+        ),
     }
 }
 

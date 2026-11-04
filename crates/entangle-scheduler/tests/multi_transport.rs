@@ -36,14 +36,14 @@ use entangle_observability::Registry;
 use entangle_runtime::{Kernel, KernelConfig};
 use entangle_scheduler::stream::frame::{decode_frame, Frame};
 use entangle_scheduler::stream::{
-    verify_transcript, ChunkPoll, Reason, Side, StreamOptions, StreamOutcome,
+    verify_transcript, ChunkPoll, Reason, Side, StreamError, StreamOptions, StreamOutcome,
 };
 use entangle_scheduler::transport::DialTarget;
 use entangle_scheduler::wire::{decode_response, RemoteErrorCode, RemoteOutcome};
 use entangle_scheduler::{
-    DispatchError, Dispatcher, IrohLink, PeerDirectory, RemoteDispatch, RemoteTaskServer,
-    RoutePolicy, StaticAllowlist, StreamServer, TailscaleLink, TransportKind, TransportRouter,
-    WorkerInfo, WorkerPool,
+    CapabilityGate, DispatchError, Dispatcher, IrohLink, PeerDirectory, RemoteDispatch,
+    RemoteTaskServer, RoutePolicy, StaticAllowlist, StaticTokens, StreamServer, TailscaleLink,
+    TransportKind, TransportRouter, WorkerInfo, WorkerPool,
 };
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::peer_id::PeerId;
@@ -181,11 +181,19 @@ impl Worker {
         let allow: StaticAllowlist = allowed.iter().copied().collect();
         let allow = Arc::new(allow);
         let served = Registry::new();
-        let tasks = Arc::new(
-            RemoteTaskServer::new(Arc::clone(&kernel), allow.clone(), peer_id)
+        // One capability gate for both servers, rooted at the worker's key:
+        // every request must carry a token the worker issued.
+        let gate = Arc::new(
+            CapabilityGate::for_identity(&key)
+                .unwrap()
                 .with_metrics(served.clone()),
         );
-        let streams = Arc::new(StreamServer::new(kernel, allow, key.clone()));
+        let tasks = Arc::new(
+            RemoteTaskServer::new(Arc::clone(&kernel), allow.clone(), Arc::clone(&gate))
+                .with_metrics(served.clone()),
+        );
+        let streams =
+            Arc::new(StreamServer::new(kernel, allow, key.clone()).with_capability_gate(gate));
         tokio::spawn(entangle_scheduler::serve_tasks(
             Arc::clone(&iroh),
             Arc::clone(&tasks),
@@ -238,6 +246,10 @@ struct Submitter {
     iroh: Arc<MeshIroh>,
     tailnet: MeshTailscale,
     liveness: watch::Sender<LivenessSnapshot>,
+    /// The capability tokens this node presents: for every worker it has
+    /// learned a route to, the `mesh.peer` token that worker would have
+    /// issued it while pairing (real tokens, minted with the worker's key).
+    tokens: StaticTokens,
 }
 
 fn snapshot(state: TailnetState) -> LivenessSnapshot {
@@ -262,12 +274,24 @@ impl Submitter {
             iroh,
             tailnet,
             liveness,
+            tokens: StaticTokens::new(),
         }
+    }
+
+    /// Hold the token `worker` issued this node (as pairing leaves it).
+    fn paired_with(&self, worker: &Worker) {
+        self.tokens.paired_with(&worker.key, self.peer_id).unwrap();
+    }
+
+    /// An empty router presenting this node's tokens.
+    fn new_router(&self) -> TransportRouter {
+        TransportRouter::new(self.peer_id).with_capability_tokens(Arc::new(self.tokens.clone()))
     }
 
     /// A discovery round, as the daemon runs it: `tailscale status` lists
     /// one online peer at 127.0.0.1, probed on `worker`'s port.
     async fn discover(&self, worker: &Worker) {
+        self.paired_with(worker);
         self.discover_listener(&worker.tailnet, worker.peer_id)
             .await;
     }
@@ -286,6 +310,7 @@ impl Submitter {
     }
 
     fn iroh_link(&self, worker: &Worker) -> Arc<IrohLink> {
+        self.paired_with(worker);
         let book = PeerDirectory::new();
         book.insert(worker.iroh_address());
         Arc::new(
@@ -300,7 +325,7 @@ impl Submitter {
     /// A router knowing `worker` on both transports.
     fn router(&self, worker: &Worker, policy: RoutePolicy) -> Arc<TransportRouter> {
         Arc::new(
-            TransportRouter::new(self.peer_id)
+            self.new_router()
                 .with_link(self.iroh_link(worker))
                 .with_link(self.tailnet_link())
                 .with_policy(policy),
@@ -358,7 +383,7 @@ async fn a_one_shot_task_runs_over_the_tailscale_transport() {
     a.discover(&b).await;
 
     // The tailnet is the only transport A has.
-    let router = Arc::new(TransportRouter::new(a.peer_id).with_link(a.tailnet_link()));
+    let router = Arc::new(a.new_router().with_link(a.tailnet_link()));
     let pool = WorkerPool::new();
     pool.upsert(WorkerInfo {
         peer_id: b.peer_id,
@@ -409,7 +434,8 @@ async fn a_stream_lines_stream_runs_over_the_tailscale_transport() {
     let b = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
     a.discover(&b).await;
     let metrics = Registry::new();
-    let router = TransportRouter::new(a.peer_id)
+    let router = a
+        .new_router()
         .with_link(a.tailnet_link())
         .with_metrics(metrics.clone());
 
@@ -520,9 +546,8 @@ async fn a_peer_on_both_transports_uses_tailscale_first_and_iroh_while_the_tailn
     );
 
     // A peer reachable only over the tailnet is unreachable meanwhile.
-    let tailnet_only = RemoteDispatch::with_router(Arc::new(
-        TransportRouter::new(a.peer_id).with_link(a.tailnet_link()),
-    ));
+    let tailnet_only =
+        RemoteDispatch::with_router(Arc::new(a.new_router().with_link(a.tailnet_link())));
     let (out, kind) = run(&tailnet_only, &one_shot(&b.hello, b"three"), b.peer_id).await;
     let err = out.unwrap_err().to_string();
     assert!(
@@ -536,6 +561,110 @@ async fn a_peer_on_both_transports_uses_tailscale_first_and_iroh_while_the_tailn
     a.set_tailnet(TailnetState::Active);
     let (_, kind) = run(&client, &one_shot(&b.hello, b"four"), b.peer_id).await;
     assert_eq!(kind, Some(TransportKind::Tailscale));
+}
+
+/// The capability token travels in the frame, so every transport carries
+/// it: with the token the worker issued, a task and a stream run over
+/// `local`, `tailscale` and `iroh` alike; without one, the worker refuses
+/// both on each transport (`ENTANGLE-E0450`) before anything runs.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn every_transport_carries_the_capability_token_and_the_worker_requires_it() {
+    let a = Submitter::start().await;
+    let b = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
+    a.discover(&b).await;
+    let sightings = PeerDirectory::new();
+    sightings.insert(b.iroh_address());
+    let local: Arc<dyn entangle_scheduler::transport::Link> = Arc::new(
+        IrohLink::local(
+            Arc::clone(&a.iroh) as Arc<dyn MeshTransport>,
+            Arc::new(sightings),
+        )
+        .with_streams(Arc::clone(&a.iroh)),
+    );
+    let links: [(TransportKind, Arc<dyn entangle_scheduler::transport::Link>); 3] = [
+        (TransportKind::Local, local),
+        (TransportKind::Tailscale, a.tailnet_link()),
+        (TransportKind::Iroh, a.iroh_link(&b)),
+    ];
+    let mut stream = StreamingTask::with_defaults(b.lines.clone(), b"x\n".to_vec());
+    stream.integrity = IntegrityPolicy::TrustedExecutor {
+        allowlist: vec![b.peer_id],
+    };
+    for (kind, link) in links {
+        let with = Arc::new(a.new_router().with_link(Arc::clone(&link)));
+        let (out, got) = run(
+            &RemoteDispatch::with_router(Arc::clone(&with)),
+            &one_shot(&b.hello, b"token"),
+            b.peer_id,
+        )
+        .await;
+        assert_eq!(out.expect("a task with a token runs"), b"Hello, token!");
+        assert_eq!(got, Some(kind));
+        let mut handle = deadline(
+            "open",
+            with.open_stream(b.peer_id, &stream, StreamOptions::default()),
+        )
+        .await
+        .expect("a stream with a token opens");
+        handle.finish_input().await.unwrap();
+        assert!(
+            matches!(
+                deadline("collect", handle.collect()).await.outcome,
+                StreamOutcome::Complete(_)
+            ),
+            "{kind:?}: the stream ran"
+        );
+
+        let without = Arc::new(TransportRouter::new(a.peer_id).with_link(link));
+        let (out, got) = run(
+            &RemoteDispatch::with_router(Arc::clone(&without)),
+            &one_shot(&b.hello, b"none"),
+            b.peer_id,
+        )
+        .await;
+        assert_eq!(got, Some(kind));
+        match out {
+            Err(DispatchError::RemoteRejected {
+                code: RemoteErrorCode::CapabilityRequired,
+                message,
+                ..
+            }) => assert!(message.contains("ENTANGLE-E0450"), "{message}"),
+            other => panic!("{kind:?}: a tokenless task must be refused, got {other:?}"),
+        }
+        let refused = deadline(
+            "open",
+            without.open_stream(b.peer_id, &stream, StreamOptions::default()),
+        )
+        .await
+        .expect("the stream is opened, then refused");
+        match deadline("collect", refused.collect()).await.outcome {
+            StreamOutcome::Interrupted(StreamError::PeerAborted {
+                reason: Reason::CapabilityRequired,
+                message,
+                ..
+            }) => assert!(message.contains("ENTANGLE-E0450"), "{message}"),
+            other => panic!("{kind:?}: a tokenless stream must be refused, got {other:?}"),
+        }
+    }
+    // The executor saw `local` and `iroh` frames on its iroh endpoint.
+    assert_eq!(b.served("ok", "tailscale"), 1.0);
+    assert_eq!(b.served("ok", "iroh"), 2.0);
+    assert_eq!(b.served("capability-required", "tailscale"), 1.0);
+    assert_eq!(b.served("capability-required", "iroh"), 2.0);
+    assert_eq!(
+        b.served.value(
+            names::REMOTE_CAPABILITY,
+            &[("path", "task"), ("outcome", "ok")]
+        ),
+        Some(3.0)
+    );
+    assert_eq!(
+        b.served.value(
+            names::REMOTE_CAPABILITY,
+            &[("path", "stream"), ("outcome", "missing")]
+        ),
+        Some(3.0)
+    );
 }
 
 /// `mesh.local`: an mDNS sighting's LAN address, dialled over the iroh
@@ -553,7 +682,7 @@ async fn a_lan_sighting_is_tried_before_the_tailnet_and_the_internet() {
     )
     .with_streams(Arc::clone(&a.iroh));
     let router = Arc::new(
-        TransportRouter::new(a.peer_id)
+        a.new_router()
             .with_link(a.iroh_link(&b))
             .with_link(a.tailnet_link())
             .with_link(Arc::new(local)),
@@ -589,7 +718,7 @@ async fn a_connect_failure_on_the_first_candidate_falls_back_to_the_next() {
     b.tailnet.shutdown().await;
     let metrics = Registry::new();
     let router = Arc::new(
-        TransportRouter::new(a.peer_id)
+        a.new_router()
             .with_link(a.iroh_link(&b))
             .with_link(a.tailnet_link())
             .with_policy(RoutePolicy::new())
@@ -715,7 +844,7 @@ async fn a_silent_lan_candidate_gives_way_to_the_tailnet_within_the_budget() {
     ));
     let local = IrohLink::local(Arc::new(lan) as Arc<dyn MeshTransport>, Arc::new(sightings));
     let router = Arc::new(
-        TransportRouter::new(a.peer_id)
+        a.new_router()
             .with_link(Arc::new(local))
             .with_link(a.tailnet_link()),
     );
@@ -838,7 +967,7 @@ async fn a_burst_of_concurrent_requests_over_the_tailnet_all_complete() {
             .await;
     });
     a.discover_listener(&b, b_id).await;
-    let router = Arc::new(TransportRouter::new(a.peer_id).with_link(a.tailnet_link()));
+    let router = Arc::new(a.new_router().with_link(a.tailnet_link()));
     let burst: Vec<_> = (0..24u8)
         .map(|i| {
             let router = Arc::clone(&router);
@@ -861,6 +990,7 @@ async fn a_burst_of_concurrent_requests_over_the_tailnet_all_complete() {
 async fn a_tailnet_stream_holds_its_connection_slot_until_it_ends() {
     let a = Submitter::start().await;
     let b = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
+    a.paired_with(&b);
     let one_slot = MeshTailscale::start(
         &a.key,
         MeshTailscaleConfig {
@@ -871,12 +1001,10 @@ async fn a_tailnet_stream_holds_its_connection_slot_until_it_ends() {
     .await
     .unwrap();
     discover_from(&one_slot, &b.tailnet, b.peer_id).await;
-    let router = Arc::new(
-        TransportRouter::new(a.peer_id).with_link(Arc::new(TailscaleLink::new(
-            one_slot,
-            a.liveness.subscribe(),
-        ))),
-    );
+    let router = Arc::new(a.new_router().with_link(Arc::new(TailscaleLink::new(
+        one_slot,
+        a.liveness.subscribe(),
+    ))));
 
     let mut task = StreamingTask::with_defaults(b.lines.clone(), b"x\n".to_vec());
     task.integrity = IntegrityPolicy::TrustedExecutor {
@@ -931,7 +1059,7 @@ async fn the_allowlist_refuses_an_unlisted_peer_on_the_tailscale_path_before_dec
         .unwrap_err();
     assert!(err.to_string().contains("rejected us"), "{err}");
     let tailnet_only = RemoteDispatch::with_router(Arc::new(
-        TransportRouter::new(stranger.peer_id).with_link(stranger.tailnet_link()),
+        stranger.new_router().with_link(stranger.tailnet_link()),
     ));
     let (out, _) = run(&tailnet_only, &one_shot(&b.hello, b"x"), b.peer_id).await;
     assert!(out.unwrap_err().to_string().contains("ENTANGLE-E0431"));
@@ -1040,9 +1168,7 @@ async fn a_one_shot_task_over_the_tailnet_continues_the_submitters_trace() {
     let a = Submitter::start().await;
     let b = Worker::start(&[a.peer_id], AclMode::EntangleOnTop).await;
     a.discover(&b).await;
-    let client = RemoteDispatch::with_router(Arc::new(
-        TransportRouter::new(a.peer_id).with_link(a.tailnet_link()),
-    ));
+    let client = RemoteDispatch::with_router(Arc::new(a.new_router().with_link(a.tailnet_link())));
     let submit = tracing::info_span!(target: "entangle_test", "test.submit");
     let (out, kind) = run(&client, &one_shot(&b.hello, b"trace"), b.peer_id)
         .instrument(submit)

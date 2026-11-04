@@ -60,6 +60,7 @@ Distribution and release
 
 Biscuits
 - Bridge capability tests aligned with ATC-BRG-1..6; cumulative byte budget `BridgeBudget` (`ENTANGLE-E0425`).
+- Capability tokens on remote paths (spec §6.3 step 4, §6.6, §7.4): pairing mints and exchanges `mesh.peer` tokens; task frames and stream `Open`s carry a per-request attenuation (60 s expiry, nonce, request binding) verified by the worker before any work; replay cache; local revocation set (`revoked-tokens.toml`, carried by backup/restore); `entangle peers list|remove`; `[trust] require_capability_tokens` (default true); templates `mesh.peer`, `compute.gpu-job`, `agent.session`; `ENTANGLE-E0450`..`E0463`; `entangle_remote_capability_checks_total{path,outcome}`.
 
 Tests
 - The §16 acceptance matrix gates: 35 of 35 IDs covered by live tests, no ignored-only IDs, no stubs. An audit strengthened 9 tests.
@@ -86,7 +87,7 @@ Tests
 - Pairing: `PairingListener::wait()` could hang past the code's expiry when a dialer withheld QUIC stream credit, so `entangle pair --responder` kept its endpoint and mDNS beacon up past the advertised expiry.
 
 ### Deferred
-- Biscuit capability tokens on remote paths (spec §6.6): remote tasks and streams are gated by the peer allowlist only; the broker can verify tokens but nothing presents one yet.
+- Revocation gossip (spec §6.5, §6.6): token and key revocations are local to the node that records them.
 
 - `Attested` integrity: needs TEE hardware; returns `ENTANGLE-E0304`.
 - Native Windows (Phase 5).

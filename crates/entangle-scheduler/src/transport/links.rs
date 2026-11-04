@@ -13,7 +13,7 @@ use parking_lot::Mutex;
 use tokio::sync::{watch, OwnedSemaphorePermit, Semaphore};
 
 use super::{
-    Availability, Connecting, DialTarget, FrameError, FrameRecv, FrameSend, Link, LinkError,
+    Availability, DialTarget, FrameError, FrameRecv, FrameSend, Link, LinkError, Outbound,
     StreamIo, TransportKind,
 };
 use crate::remote::PeerAddressBook;
@@ -101,14 +101,14 @@ impl Link for IrohLink {
     async fn request(
         &self,
         target: &DialTarget,
-        payload: &[u8],
-        connecting: &Connecting,
+        outbound: &Outbound<'_>,
     ) -> Result<Vec<u8>, LinkError> {
         let DialTarget::Iroh(peer) = target else {
             return Err(LinkError::Connect("not an iroh dial target".into()));
         };
+        // The transport asks for the frame once its QUIC connection is up.
         self.transport
-            .request_noting(peer, payload, &|| connecting.connected())
+            .request_with(peer, &|| outbound.frame())
             .await
             .map_err(iroh_error)
     }
@@ -317,12 +317,12 @@ impl Link for TailscaleLink {
     async fn request(
         &self,
         target: &DialTarget,
-        payload: &[u8],
-        connecting: &Connecting,
+        outbound: &Outbound<'_>,
     ) -> Result<Vec<u8>, LinkError> {
         let (mut conn, slot) = self.connect(target, ALPN_SCHEDULER).await?;
-        connecting.connected();
-        let answer = conn.request(payload).await.map_err(tailscale_error);
+        // Handshake done and protocol selected: build the frame now.
+        let frame = outbound.frame();
+        let answer = conn.request(&frame).await.map_err(tailscale_error);
         // The connection closes before its slot is freed.
         drop(conn);
         drop(slot);

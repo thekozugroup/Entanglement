@@ -208,3 +208,264 @@ fn mesh_peers_with_allow_local_falls_back() {
         .assert()
         .success();
 }
+
+// ── capability-token revocation through the operator commands ────────────────
+//
+// Requirement 5 (`docs/architecture.md` §6.5: revocation is local): removing
+// or revoking a peer must put the revocation ids of the `mesh.peer` token
+// this node issued to it into `~/.entangle/revoked-tokens.toml`, so adding
+// the peer back to the allowlist by hand (`mesh trust`) never revives that
+// token. These tests drive the real `entangle` binary and then ask the real
+// verifier, reading the same files the daemon reads, whether the old token
+// still gets in.
+
+mod tokens {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use entangle_biscuits::templates::{
+        mint_mesh_peer, now_unix_secs, present_for_request, MintedToken, Operation,
+        RequestVerifier, RevocationList, TokenError,
+    };
+    use entangle_peers::{PeerStore, RevocationStore, TrustedPeer, REVOCATIONS_FILE};
+    use entangle_signing::IdentityKeyPair;
+    use entangle_types::peer_id::PeerId;
+    use tempfile::TempDir;
+
+    use super::entangle;
+
+    /// The daemon reads the revocation set the same way: through the
+    /// persisted store, re-read when the file changes.
+    #[derive(Debug)]
+    struct FileRevocations(RevocationStore);
+
+    impl RevocationList for FileRevocations {
+        fn any_revoked(&self, ids: &[Vec<u8>]) -> Result<bool, String> {
+            self.0.any_revoked(ids).map_err(|e| e.to_string())
+        }
+    }
+
+    pub(super) struct Paired {
+        pub home: TempDir,
+        /// This node (the CLI's `HOME`).
+        pub w: IdentityKeyPair,
+        /// The peer.
+        pub p_id: PeerId,
+        pub p_pub_hex: String,
+        /// The token `w` issued to the peer while pairing.
+        pub issued: MintedToken,
+        /// The token the peer issued to `w` (what `w` presents to it).
+        pub presented: Vec<u8>,
+    }
+
+    pub(super) fn dir(home: &TempDir) -> PathBuf {
+        home.path().join(".entangle")
+    }
+
+    /// A peer record as `entangle pair` stores it.
+    pub(super) fn paired() -> Paired {
+        let home = TempDir::new().unwrap();
+        let w = IdentityKeyPair::generate();
+        let p = IdentityKeyPair::generate();
+        let w_id = PeerId::from_public_key_bytes(w.public().as_bytes());
+        let p_id = PeerId::from_public_key_bytes(p.public().as_bytes());
+        let issued = mint_mesh_peer(&w, p_id, None).unwrap();
+        let presented = mint_mesh_peer(&p, w_id, None).unwrap().bytes;
+        let p_pub_hex = hex::encode(p.public().as_bytes());
+        std::fs::create_dir_all(dir(&home)).unwrap();
+        PeerStore::open(dir(&home).join("peers.toml"))
+            .unwrap()
+            .add(
+                TrustedPeer::new_validated(p_id, p_pub_hex.clone(), "peer".into())
+                    .unwrap()
+                    .with_tokens(Some(&presented), &issued.revocation_ids),
+            )
+            .unwrap();
+        Paired {
+            home,
+            w,
+            p_id,
+            p_pub_hex,
+            issued,
+            presented,
+        }
+    }
+
+    impl Paired {
+        /// What `w`'s gate decides when the peer presents the token `w`
+        /// issued it, attenuated for one request.
+        pub fn w_admits_old_token(&self) -> Result<(), TokenError> {
+            let revs = FileRevocations(RevocationStore::at(dir(&self.home).join(REVOCATIONS_FILE)));
+            let verifier = RequestVerifier::new(self.w.public().as_bytes())
+                .unwrap()
+                .with_revocations(Arc::new(revs));
+            let now = now_unix_secs();
+            let request =
+                present_for_request(&self.issued.bytes, self.w.public().as_bytes(), [9; 32], now)
+                    .unwrap();
+            verifier
+                .verify(&request, self.p_id, [9; 32], Operation::Stream)
+                .map(|_| ())
+        }
+
+        pub fn record(&self) -> Option<TrustedPeer> {
+            PeerStore::open(dir(&self.home).join("peers.toml"))
+                .unwrap()
+                .get(&self.p_id)
+        }
+
+        pub fn trust_by_hand(&self, name: &str) {
+            entangle(&self.home)
+                .args([
+                    "mesh",
+                    "trust",
+                    &self.p_id.to_hex(),
+                    "--public-key-hex",
+                    &self.p_pub_hex,
+                    "--display-name",
+                    name,
+                ])
+                .assert()
+                .success();
+        }
+    }
+}
+
+#[test]
+fn mesh_untrust_revokes_the_issued_token_so_a_manual_re_add_does_not_revive_it() {
+    let paired = tokens::paired();
+    paired
+        .w_admits_old_token()
+        .expect("before removal the peer's token is accepted");
+
+    entangle(&paired.home)
+        .args(["mesh", "untrust", &paired.p_id.to_hex()])
+        .assert()
+        .success();
+    assert!(paired.record().is_none());
+
+    paired.trust_by_hand("back-again");
+    assert!(paired.record().is_some(), "re-added to the allowlist");
+    assert_eq!(
+        paired.w_admits_old_token(),
+        Err(entangle_biscuits::templates::TokenError::Revoked),
+        "the token issued before `mesh untrust` must stay revoked"
+    );
+}
+
+#[test]
+fn mesh_revoke_revokes_the_issued_token_so_re_trusting_does_not_revive_it() {
+    let paired = tokens::paired();
+    entangle(&paired.home)
+        .args(["mesh", "revoke", &paired.p_id.to_hex()])
+        .assert()
+        .success();
+    paired.trust_by_hand("forgiven");
+    assert_eq!(
+        paired.w_admits_old_token(),
+        Err(entangle_biscuits::templates::TokenError::Revoked),
+        "the token issued before `mesh revoke` must stay revoked"
+    );
+}
+
+#[test]
+fn mesh_trust_on_a_paired_peer_keeps_both_token_fields() {
+    let paired = tokens::paired();
+    paired.trust_by_hand("renamed");
+    let record = paired.record().expect("still trusted");
+    assert_eq!(record.display_name, "renamed");
+    assert_eq!(
+        record.capability_token_bytes(),
+        Some(paired.presented.clone()),
+        "re-trusting by hand must keep the token this node presents to the peer"
+    );
+    assert_eq!(
+        record.issued_revocation_ids(),
+        paired.issued.revocation_ids,
+        "…and the record of the token it issued, so it can still be revoked"
+    );
+    // Which is what lets a later removal still revoke it.
+    entangle(&paired.home)
+        .args(["peers", "remove", &paired.p_id.to_hex()])
+        .assert()
+        .success();
+    paired.trust_by_hand("again");
+    assert_eq!(
+        paired.w_admits_old_token(),
+        Err(entangle_biscuits::templates::TokenError::Revoked)
+    );
+}
+
+#[test]
+fn peers_remove_revokes_the_issued_token_so_a_manual_re_add_does_not_revive_it() {
+    let paired = tokens::paired();
+    entangle(&paired.home)
+        .args(["peers", "remove", &paired.p_id.to_hex()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("removed"));
+    assert!(paired.record().is_none());
+    let set = std::fs::read_to_string(tokens::dir(&paired.home).join("revoked-tokens.toml"))
+        .expect("the revocation set is written");
+    assert!(set.contains(&hex::encode(&paired.issued.revocation_ids[0])));
+
+    paired.trust_by_hand("back-again");
+    assert_eq!(
+        paired.w_admits_old_token(),
+        Err(entangle_biscuits::templates::TokenError::Revoked)
+    );
+
+    // Removing an unknown peer is an error, as with `mesh untrust`.
+    entangle(&paired.home)
+        .args(["peers", "remove", &make_test_peer().0])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("not found"));
+}
+
+#[test]
+fn peers_list_shows_which_peers_hold_no_token() {
+    let paired = tokens::paired();
+    let (bare_id, bare_pub) = make_test_peer();
+    entangle(&paired.home)
+        .args([
+            "mesh",
+            "trust",
+            &bare_id,
+            "--public-key-hex",
+            &bare_pub,
+            "--display-name",
+            "pre-token",
+        ])
+        .assert()
+        .success();
+
+    let out = entangle(&paired.home)
+        .args(["peers", "list", "--json"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let value: serde_json::Value = serde_json::from_slice(&out.stdout).expect("JSON");
+    let peers = value["peers"].as_array().expect("a peers array");
+    assert_eq!(peers.len(), 2, "{value}");
+    let by_id = |id: &str| {
+        peers
+            .iter()
+            .find(|p| p["peer_id"] == id)
+            .unwrap_or_else(|| panic!("{id} listed: {value}"))
+    };
+    assert_eq!(by_id(&paired.p_id.to_hex())["has_token"], true);
+    assert_eq!(by_id(&bare_id)["has_token"], false);
+    // Never the token itself: it is a credential.
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(!text.contains(&hex::encode(&paired.presented)));
+
+    // The table says it in words, and says what to do.
+    entangle(&paired.home)
+        .args(["peers", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("pre-token"))
+        .stdout(predicate::str::contains("none"))
+        .stdout(predicate::str::contains("entangle pair"));
+}

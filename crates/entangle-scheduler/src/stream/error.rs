@@ -59,6 +59,12 @@ pub enum Reason {
     Busy,
     /// An unexpected internal condition.
     Internal,
+    /// The `Open` frame carried no capability token and the executor
+    /// requires one (`ENTANGLE-E0450`). **No work was done.**
+    CapabilityRequired,
+    /// The `Open` frame's capability token was refused (`ENTANGLE-E0451`–
+    /// `E0463`, `E0412`; the message says which check). **No work was done.**
+    CapabilityRejected,
 }
 
 impl Reason {
@@ -83,6 +89,8 @@ impl Reason {
             Self::PluginFailed => "plugin-failed",
             Self::Busy => "busy",
             Self::Internal => "internal",
+            Self::CapabilityRequired => "capability-required",
+            Self::CapabilityRejected => "capability-rejected",
         }
     }
 }
@@ -477,6 +485,8 @@ mod tests {
             Reason::PluginFailed,
             Reason::Busy,
             Reason::Internal,
+            Reason::CapabilityRequired,
+            Reason::CapabilityRejected,
         ];
         let mut labels: Vec<&str> = all.iter().map(|r| r.as_str()).collect();
         labels.sort_unstable();
