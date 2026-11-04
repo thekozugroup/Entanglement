@@ -10,7 +10,8 @@ use entangle_biscuits::templates::{
     present_for_request, root_keypair, root_public_key, verify_agent_session, verify_gpu_job,
     verify_mesh_peer_grant, verify_request, Operation, ReplayCache, RequestCheck,
     RequestRestrictions, RequestVerifier, RevocationList, StaticRevocations, TokenError,
-    MAX_CLOCK_SKEW_SECS, REQUEST_TOKEN_TTL_SECS,
+    late_arrival_grace_secs, MAX_CLOCK_SKEW_SECS, MAX_LATE_ARRIVAL_GRACE_SECS,
+    REPLAY_GRACE_SECS, REQUEST_TOKEN_TTL_SECS,
 };
 use entangle_biscuits::BiscuitError;
 use entangle_signing::IdentityKeyPair;
@@ -66,6 +67,7 @@ fn check<'a>(
         binding: BINDING,
         operation: op,
         now_unix_secs: NOW,
+        received_frame_len: 0,
     }
 }
 
@@ -590,4 +592,147 @@ fn every_template_error_carries_a_stable_code() {
     assert!(TokenError::Revoked
         .to_string()
         .starts_with("ENTANGLE-E0460"));
+}
+
+// ── late arrival (review finding L3) ────────────────────────────────────────
+
+/// A frame of `secs` seconds' worth of grace (256 KiB each).
+const fn frame_of(secs: usize) -> usize {
+    secs * 256 * 1024
+}
+
+#[test]
+fn the_late_arrival_grace_is_one_second_per_256_kib_received_capped() {
+    assert_eq!(late_arrival_grace_secs(0), 0);
+    assert_eq!(late_arrival_grace_secs(frame_of(1) - 1), 0, "under 256 KiB: none");
+    assert_eq!(late_arrival_grace_secs(frame_of(1)), 1);
+    assert_eq!(late_arrival_grace_secs(frame_of(2) - 1), 1, "integer division");
+    // The largest task frame (16 MiB of input plus 64 KiB of envelope).
+    assert_eq!(late_arrival_grace_secs(16 * 1024 * 1024 + 64 * 1024), 64);
+    assert_eq!(MAX_LATE_ARRIVAL_GRACE_SECS, 600);
+    assert_eq!(late_arrival_grace_secs(frame_of(600)), 600);
+    assert_eq!(late_arrival_grace_secs(frame_of(601)), 600, "capped");
+    assert_eq!(late_arrival_grace_secs(usize::MAX), 600);
+}
+
+#[test]
+fn a_large_frame_is_expired_only_once_its_grace_has_passed_too() {
+    let (w, b) = (Node::new(), Node::new());
+    let root = root_public_key(&w.public()).unwrap();
+    let presented = request(&grant(&w, &b), &w, NOW - 5, 1, BINDING);
+    let late = |frame_len: usize, now: i64| {
+        verify_request(
+            &presented,
+            &RequestCheck {
+                received_frame_len: frame_len,
+                now_unix_secs: now,
+                ..check(&root, b.id(), TASK)
+            },
+        )
+    };
+    // Eight seconds of grace: five seconds late is inside it.
+    let ok = late(frame_of(8), NOW).unwrap();
+    assert_eq!((ok.expires, ok.late_grace_secs), (NOW - 5, 8));
+    assert_eq!(ok.accepted_until(), NOW + 3);
+    assert!(late(frame_of(8), NOW + 2).is_ok(), "the last second inside it");
+    // `now >= expires + grace`: expired, with the shared E0412 refusal.
+    assert_eq!(
+        late(frame_of(8), NOW + 3),
+        Err(TokenError::Expired {
+            expires: NOW - 5,
+            now: NOW + 3
+        })
+    );
+    assert!(late(frame_of(8), NOW + 3)
+        .unwrap_err()
+        .to_string()
+        .starts_with("ENTANGLE-E0412"));
+    // Under 256 KiB there is no grace: one byte short of a second's worth.
+    assert!(matches!(
+        late(frame_of(1) - 1, NOW - 5),
+        Err(TokenError::Expired { .. })
+    ));
+    assert!(late(frame_of(1), NOW - 5).is_ok(), "one second of grace");
+    // The grace stretches only the past: how far ahead a token may expire
+    // is unchanged, however large its frame.
+    let far = request(
+        &grant(&w, &b),
+        &w,
+        NOW + REQUEST_TOKEN_TTL_SECS + MAX_CLOCK_SKEW_SECS + 1,
+        2,
+        BINDING,
+    );
+    assert!(matches!(
+        verify_request(
+            &far,
+            &RequestCheck {
+                received_frame_len: frame_of(600),
+                ..check(&root, b.id(), TASK)
+            },
+        ),
+        Err(TokenError::ExpiryOutOfWindow { .. })
+    ));
+    // The long-lived templates earn no grace.
+    let expiring = mint_mesh_peer(&w.key, b.id(), Some(NOW - 1)).unwrap().bytes;
+    assert!(matches!(
+        verify_mesh_peer_grant(&expiring, &w.public(), b.id(), NOW),
+        Err(TokenError::Expired { .. })
+    ));
+}
+
+#[test]
+fn a_replay_inside_the_grace_window_is_refused_as_a_replay() {
+    let (w, b) = (Node::new(), Node::new());
+    let v = RequestVerifier::new(&w.public()).unwrap();
+    let token = grant(&w, &b);
+    // The largest task frame: 64 s of grace, longer than the replay cache's
+    // own margin, so remembering the nonce only until `expires +
+    // REPLAY_GRACE_SECS` would let this replay through.
+    let frame_len = 16 * 1024 * 1024 + 64 * 1024;
+    let grace = late_arrival_grace_secs(frame_len);
+    assert!(grace > REPLAY_GRACE_SECS + 10);
+    let expires = NOW;
+    let first = request(&token, &w, expires, 1, BINDING);
+    let at = |now: i64| v.verify_received_at(&first, b.id(), BINDING, TASK, frame_len, now);
+    at(expires + 10).unwrap();
+    assert_eq!(at(expires + 10), Err(TokenError::Replayed));
+    assert_eq!(
+        at(expires + REPLAY_GRACE_SECS + 5),
+        Err(TokenError::Replayed),
+        "past expires + REPLAY_GRACE_SECS but inside the grace: still a replay"
+    );
+    assert_eq!(at(expires + grace - 1), Err(TokenError::Replayed));
+    // Once the grace has passed the token is expired before the cache is
+    // consulted.
+    assert!(matches!(
+        at(expires + grace),
+        Err(TokenError::Expired { .. })
+    ));
+}
+
+#[test]
+fn the_replay_cache_holds_a_late_nonce_for_its_grace_and_still_fails_closed() {
+    let a = PeerId::from_public_key_bytes(&[1; 32]);
+    let mut cache = ReplayCache::new(1, 1);
+    // Accepted until NOW + 64 (expiry NOW, 64 s of grace).
+    cache.check_and_record([1; 16], a, NOW + 64, NOW + 10).unwrap();
+    // The cache is full for as long as that nonce is retained: a new token
+    // is refused, never accepted unchecked.
+    for now in [NOW + 11, NOW + 64, NOW + 64 + REPLAY_GRACE_SECS - 1] {
+        assert!(
+            matches!(
+                cache.check_and_record([2; 16], a, now + 60, now),
+                Err(TokenError::ReplayCacheFull(_))
+            ),
+            "at {now}"
+        );
+        assert_eq!(
+            cache.check_and_record([1; 16], a, NOW + 64, now),
+            Err(TokenError::Replayed)
+        );
+    }
+    // Retention ends at accepted_until + REPLAY_GRACE_SECS.
+    let after = NOW + 64 + REPLAY_GRACE_SECS;
+    cache.check_and_record([2; 16], a, after + 60, after).unwrap();
+    assert_eq!(cache.len(), 1);
 }

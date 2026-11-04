@@ -36,12 +36,25 @@
 //! verifier's **own** public key; every block holds only facts this module
 //! defines (grant facts only in the authority block); the `peer` fact names
 //! the presenter; `capability("mesh.peer")` is granted; the tightest
-//! `expires` exists, has not passed, and is no more than
+//! `expires` exists, has not passed — give or take the late-arrival grace
+//! of a large frame ([`late_arrival_grace_secs`]) — and is no more than
 //! [`REQUEST_TOKEN_TTL_SECS`] + [`MAX_CLOCK_SKEW_SECS`] away; every
 //! `request_binding` equals the request's digest; there is exactly one
 //! nonce; every template restriction in the chain is satisfied by the
 //! operation; no revocation id of the token is in the local revocation set;
 //! and the nonce has not been seen ([`ReplayCache`]).
+//!
+//! # When a presenter attenuates, and late arrival
+//!
+//! A presenter attenuates once per attempt to send, once the connection is
+//! set up and immediately before the frame is written, so time spent
+//! dialling — including falling back from one transport to another — never
+//! counts against the token's 60 s. A resend is a new attenuation with a
+//! new nonce. What remains is the time the frame itself takes to arrive:
+//! a verifier sees a token only once the whole frame is in, so a large
+//! frame on a slow link earns one second of grace per 256 KiB received
+//! ([`late_arrival_grace_secs`], capped at [`MAX_LATE_ARRIVAL_GRACE_SECS`]),
+//! and the replay cache remembers its nonce for that much longer.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex, RwLock};
@@ -80,14 +93,51 @@ pub const NONCE_LEN: usize = 16;
 /// Longest agent session id ([`attenuate_agent_session`]).
 pub const MAX_SESSION_ID_LEN: usize = 128;
 
+/// Bytes of the received frame that earn a per-request token one second of
+/// late-arrival grace ([`late_arrival_grace_secs`]): 256 KiB, what a link
+/// of 2 Mbit/s delivers in a second.
+pub const LATE_ARRIVAL_BYTES_PER_SEC: usize = 262_144;
+/// The most late-arrival grace any frame earns, however large it is. A
+/// scheduler task frame is at most 16 MiB + 64 KiB (64 s of grace), so this
+/// only bounds transports or configurations with larger frames.
+pub const MAX_LATE_ARRIVAL_GRACE_SECS: i64 = 600;
+
 /// Default number of nonces a [`ReplayCache`] tracks at once.
 pub const DEFAULT_REPLAY_CAPACITY: usize = 65_536;
 /// Default number of nonces one presenter may hold in a [`ReplayCache`] at
 /// once, so one peer cannot fill the cache for everybody.
 pub const DEFAULT_REPLAY_PER_PEER: usize = 16_384;
-/// How long after its token's expiry a nonce is still remembered (covers a
-/// verifier clock that steps backwards a little).
+/// How long after its token stops being accepted (its expiry plus the
+/// frame's late-arrival grace) a nonce is still remembered: covers a
+/// verifier clock that steps backwards by up to [`MAX_CLOCK_SKEW_SECS`].
 pub const REPLAY_GRACE_SECS: i64 = 30;
+
+// A replay must stay refused for as long as any clock the verifier
+// tolerates could still accept its token.
+const _: () = assert!(REPLAY_GRACE_SECS >= MAX_CLOCK_SKEW_SECS);
+
+/// The late-arrival grace, in seconds, that a per-request token earns from
+/// the frame that carried it: `received_frame_len /`
+/// [`LATE_ARRIVAL_BYTES_PER_SEC`] (integer division, so a frame under
+/// 256 KiB earns none), at most [`MAX_LATE_ARRIVAL_GRACE_SECS`].
+///
+/// A verifier checks a token's expiry only once the whole frame carrying it
+/// has arrived, and a large input on a slow link can take longer than the
+/// token's [`REQUEST_TOKEN_TTL_SECS`] to arrive. Such a token counts as
+/// expired only once `now >= expires + grace`. The grace scales with the
+/// frame and only with it: `received_frame_len` must be the length the
+/// transport actually received, never a length the presenter declares. How
+/// far ahead a token may expire is unchanged
+/// ([`TokenError::ExpiryOutOfWindow`]).
+pub const fn late_arrival_grace_secs(received_frame_len: usize) -> i64 {
+    let secs = received_frame_len / LATE_ARRIVAL_BYTES_PER_SEC;
+    if secs >= MAX_LATE_ARRIVAL_GRACE_SECS as usize {
+        MAX_LATE_ARRIVAL_GRACE_SECS
+    } else {
+        // Below the cap (600), so the cast is exact.
+        secs as i64
+    }
+}
 
 // ─── Errors ─────────────────────────────────────────────────────────────────
 
@@ -544,12 +594,16 @@ fn string_term(arg: &str) -> Option<&str> {
 }
 
 /// The checks every template shares: parse under `root`, scan strictly, the
-/// holder is `holder`, `mesh.peer` is granted, not expired.
+/// holder is `holder`, `mesh.peer` is granted, not expired — where a token
+/// counts as expired once `now >= expires + late_grace` (`late_grace` is 0
+/// everywhere but for a per-request token in a large frame:
+/// [`late_arrival_grace_secs`]).
 fn verify_chain(
     token: &[u8],
     root: &PublicKey,
     holder: PeerId,
     now: i64,
+    late_grace: i64,
 ) -> Result<(Scanned, Vec<Vec<u8>>), TokenError> {
     let biscuit = parse_under(token, root)?;
     let scanned = scan(&biscuit)?;
@@ -566,7 +620,7 @@ fn verify_chain(
         return Err(TokenError::CapabilityNotGranted(MESH_PEER.to_owned()));
     }
     if let Some(expires) = scanned.expires {
-        if now >= expires {
+        if now >= expires.saturating_add(late_grace) {
             return Err(TokenError::Expired { expires, now });
         }
     }
@@ -596,7 +650,7 @@ pub fn verify_mesh_peer_grant(
     now: i64,
 ) -> Result<TemplateGrant, TokenError> {
     let (scanned, revocation_ids) =
-        verify_chain(token, &root_public_key(issuer_public_key)?, holder, now)?;
+        verify_chain(token, &root_public_key(issuer_public_key)?, holder, now, 0)?;
     if scanned.blocks != 1 {
         return Err(TokenError::UnexpectedContent(format!(
             "a mesh.peer grant has exactly one block, this token has {}",
@@ -620,7 +674,7 @@ pub fn verify_gpu_job(
     now: i64,
     task_requests_gpu: bool,
 ) -> Result<TemplateGrant, TokenError> {
-    let (scanned, revocation_ids) = verify_chain(token, root, holder, now)?;
+    let (scanned, revocation_ids) = verify_chain(token, root, holder, now, 0)?;
     if !scanned.gpu_job {
         return Err(TokenError::CapabilityNotGranted(COMPUTE_GPU_JOB.to_owned()));
     }
@@ -648,7 +702,7 @@ pub fn verify_agent_session(
     session_id: &str,
     now: i64,
 ) -> Result<TemplateGrant, TokenError> {
-    let (scanned, revocation_ids) = verify_chain(token, root, holder, now)?;
+    let (scanned, revocation_ids) = verify_chain(token, root, holder, now, 0)?;
     if scanned.agent_sessions.is_empty() {
         return Err(TokenError::CapabilityNotGranted(AGENT_SESSION.to_owned()));
     }
@@ -729,6 +783,11 @@ pub struct RequestCheck<'a> {
     pub operation: Operation<'a>,
     /// The verifier's clock, Unix seconds.
     pub now_unix_secs: i64,
+    /// The length of the frame that carried the token, as the transport
+    /// received it — never a length the presenter declares. It earns the
+    /// token its late-arrival grace ([`late_arrival_grace_secs`]); 0 for
+    /// none.
+    pub received_frame_len: usize,
 }
 
 /// A per-request token that passed [`verify_request`].
@@ -738,8 +797,21 @@ pub struct VerifiedRequest {
     pub nonce: [u8; NONCE_LEN],
     /// Its tightest expiry.
     pub expires: i64,
+    /// The late-arrival grace its frame earned
+    /// ([`late_arrival_grace_secs`]): it was accepted until
+    /// [`VerifiedRequest::accepted_until`].
+    pub late_grace_secs: i64,
     /// Its revocation ids (to check against the revocation set).
     pub revocation_ids: Vec<Vec<u8>>,
+}
+
+impl VerifiedRequest {
+    /// The first moment (Unix seconds) at which this token, in this frame,
+    /// counts as expired: its expiry plus its late-arrival grace. A
+    /// [`ReplayCache`] must remember the nonce at least this long.
+    pub const fn accepted_until(&self) -> i64 {
+        self.expires.saturating_add(self.late_grace_secs)
+    }
 }
 
 /// Verify a per-request token: every stateless check (see the module docs).
@@ -749,7 +821,9 @@ pub fn verify_request(
     check: &RequestCheck<'_>,
 ) -> Result<VerifiedRequest, TokenError> {
     let now = check.now_unix_secs;
-    let (scanned, revocation_ids) = verify_chain(token, check.root, check.presenter, now)?;
+    let late_grace_secs = late_arrival_grace_secs(check.received_frame_len);
+    let (scanned, revocation_ids) =
+        verify_chain(token, check.root, check.presenter, now, late_grace_secs)?;
 
     let max_secs = REQUEST_TOKEN_TTL_SECS + MAX_CLOCK_SKEW_SECS;
     let expires = scanned
@@ -793,6 +867,7 @@ pub fn verify_request(
     Ok(VerifiedRequest {
         nonce,
         expires,
+        late_grace_secs,
         revocation_ids,
     })
 }
@@ -836,14 +911,30 @@ impl RevocationList for StaticRevocations {
 /// Nonces of recently accepted per-request tokens (spec §13 #8: "receivers
 /// track recent nonces").
 ///
-/// **Policy.** A nonce is remembered until its token's expiry plus
-/// [`REPLAY_GRACE_SECS`]; after that the token itself is refused as expired,
-/// so forgetting the nonce cannot let it back in. At most `capacity` nonces
-/// are tracked, and at most `per_peer` for one presenter. When either bound
-/// is reached (after dropping expired entries) a new token is **refused**
-/// with [`TokenError::ReplayCacheFull`] — never accepted unchecked — so a
-/// flood costs availability, not replay protection; the per-peer bound keeps
-/// one presenter from filling the cache for the others.
+/// **Policy.** A nonce is remembered until its token stops being accepted
+/// — its expiry plus the late-arrival grace of the frame it came in
+/// ([`VerifiedRequest::accepted_until`]) — plus [`REPLAY_GRACE_SECS`]
+/// (at least [`MAX_CLOCK_SKEW_SECS`]); after that the token itself is
+/// refused as expired, so forgetting the nonce cannot let it back in. A
+/// replay inside the grace window is therefore still refused as a replay.
+/// (A replay must carry the same request binding, so its frame differs from
+/// the original only in unbound bytes — the trace context, the policy
+/// encoding, the token: far less than 256 KiB, so at most one second more
+/// grace, which the retention margin covers.)
+///
+/// **Bounds.** At most `capacity` nonces are tracked, and at most
+/// `per_peer` for one presenter. When either bound is reached (after
+/// dropping entries past their retention) a new token is **refused** with
+/// [`TokenError::ReplayCacheFull`] — never accepted unchecked — so a flood
+/// costs availability, not replay protection; the per-peer bound keeps one
+/// presenter from filling the cache for the others. A nonce is held at most
+/// [`REQUEST_TOKEN_TTL_SECS`] + [`MAX_CLOCK_SKEW_SECS`] + grace +
+/// [`REPLAY_GRACE_SECS`]: 120 s for a frame under 256 KiB, 184 s for the
+/// largest task frame (16 MiB, 64 s of grace), never more than 720 s
+/// ([`MAX_LATE_ARRIVAL_GRACE_SECS`]). Each second of grace costs the
+/// presenter 256 KiB of received bytes, so holding the default per-peer
+/// share (16 384 nonces) with maximum-size frames takes about 1.4 GiB/s of
+/// sustained traffic; the defaults keep their headroom.
 #[derive(Debug)]
 pub struct ReplayCache {
     entries: HashMap<[u8; NONCE_LEN], (i64, PeerId)>,
@@ -882,14 +973,17 @@ impl ReplayCache {
         self.entries.is_empty()
     }
 
-    /// Record `nonce`, presented by `presenter` in a token expiring at
-    /// `expires`, or refuse it: [`TokenError::Replayed`] if it is already
-    /// tracked, [`TokenError::ReplayCacheFull`] if a bound is reached.
+    /// Record `nonce`, presented by `presenter` in a token accepted until
+    /// `accepted_until` (its expiry plus its frame's late-arrival grace:
+    /// [`VerifiedRequest::accepted_until`]), or refuse it:
+    /// [`TokenError::Replayed`] if it is already tracked,
+    /// [`TokenError::ReplayCacheFull`] if a bound is reached. The nonce is
+    /// remembered until `accepted_until` + [`REPLAY_GRACE_SECS`].
     pub fn check_and_record(
         &mut self,
         nonce: [u8; NONCE_LEN],
         presenter: PeerId,
-        expires: i64,
+        accepted_until: i64,
         now: i64,
     ) -> Result<(), TokenError> {
         self.prune(now);
@@ -908,17 +1002,17 @@ impl ReplayCache {
                 "this peer holds {held} live nonces, the per-peer cap"
             )));
         }
-        self.entries.insert(nonce, (expires, presenter));
-        self.by_expiry.insert((expires, nonce));
+        self.entries.insert(nonce, (accepted_until, presenter));
+        self.by_expiry.insert((accepted_until, nonce));
         *self.per_peer.entry(presenter).or_insert(0) += 1;
         Ok(())
     }
 
-    /// Forget every nonce whose token expired more than
+    /// Forget every nonce whose token stopped being accepted more than
     /// [`REPLAY_GRACE_SECS`] before `now`.
     fn prune(&mut self, now: i64) {
-        while let Some(&(expires, nonce)) = self.by_expiry.first() {
-            if expires.saturating_add(REPLAY_GRACE_SECS) > now {
+        while let Some(&(accepted_until, nonce)) = self.by_expiry.first() {
+            if accepted_until.saturating_add(REPLAY_GRACE_SECS) > now {
                 break;
             }
             self.by_expiry.pop_first();
@@ -985,7 +1079,8 @@ impl RequestVerifier {
 
     /// Verify `token`, presented by the transport-authenticated `presenter`
     /// for `operation` on a request whose digest is `binding`, at the
-    /// current wall-clock time.
+    /// current wall-clock time, with no late-arrival grace (as for a frame
+    /// under 256 KiB; see [`Self::verify_received`]).
     pub fn verify(
         &self,
         token: &[u8],
@@ -993,7 +1088,7 @@ impl RequestVerifier {
         binding: [u8; 32],
         operation: Operation<'_>,
     ) -> Result<VerifiedRequest, TokenError> {
-        self.verify_at(token, presenter, binding, operation, unix_now())
+        self.verify_received_at(token, presenter, binding, operation, 0, unix_now())
     }
 
     /// [`Self::verify`] at an explicit `now` (Unix seconds).
@@ -1005,6 +1100,41 @@ impl RequestVerifier {
         operation: Operation<'_>,
         now: i64,
     ) -> Result<VerifiedRequest, TokenError> {
+        self.verify_received_at(token, presenter, binding, operation, 0, now)
+    }
+
+    /// [`Self::verify`] for a token that arrived in a frame of
+    /// `received_frame_len` bytes — the length the transport received, not
+    /// one the presenter declares — which earns it the late-arrival grace
+    /// of [`late_arrival_grace_secs`].
+    pub fn verify_received(
+        &self,
+        token: &[u8],
+        presenter: PeerId,
+        binding: [u8; 32],
+        operation: Operation<'_>,
+        received_frame_len: usize,
+    ) -> Result<VerifiedRequest, TokenError> {
+        self.verify_received_at(
+            token,
+            presenter,
+            binding,
+            operation,
+            received_frame_len,
+            unix_now(),
+        )
+    }
+
+    /// [`Self::verify_received`] at an explicit `now` (Unix seconds).
+    pub fn verify_received_at(
+        &self,
+        token: &[u8],
+        presenter: PeerId,
+        binding: [u8; 32],
+        operation: Operation<'_>,
+        received_frame_len: usize,
+        now: i64,
+    ) -> Result<VerifiedRequest, TokenError> {
         let verified = verify_request(
             token,
             &RequestCheck {
@@ -1013,6 +1143,7 @@ impl RequestVerifier {
                 binding,
                 operation,
                 now_unix_secs: now,
+                received_frame_len,
             },
         )?;
         if let Some(revocations) = &self.revocations {
@@ -1025,7 +1156,7 @@ impl RequestVerifier {
         self.replay
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .check_and_record(verified.nonce, presenter, verified.expires, now)?;
+            .check_and_record(verified.nonce, presenter, verified.accepted_until(), now)?;
         Ok(verified)
     }
 }
