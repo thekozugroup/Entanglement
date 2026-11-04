@@ -1,0 +1,863 @@
+//! Capability grants realised for wasm plugins, driven through the
+//! `caps-probe` fixture (source: `fixtures-src/caps-probe/`).
+//!
+//! Every test registers a manifest with a real [`Broker`], resolves its
+//! standing grants the way the kernel does at load
+//! ([`Broker::grant_declared`]), and runs the probe with a script of
+//! filesystem, socket, DNS and `capability.fetch` steps. The probe answers
+//! one line per step: `ok[:detail]` or `err:<kind>:<message>`.
+//!
+//! # Loopback listeners
+//! The production rules never let a network grant reach loopback (see
+//! `entangle_host::net`). Tests that need a reachable "LAN" or "public" host
+//! therefore install the documented test hook
+//! [`CapabilityContext::with_address_classifier`], which only re-labels
+//! specific loopback addresses (`127.0.0.1` as LAN, `127.0.0.2` as public);
+//! the grant rules themselves are the production ones, and
+//! [`loopback_is_never_reachable_under_production_rules`] checks that without
+//! the hook the same grant reaches nothing on loopback.
+
+use entangle_broker::{AuditEvent, Broker, BrokerPolicy, CapabilityPattern};
+use entangle_host::net::{classify, AddrClass};
+use entangle_host::{CapabilityContext, HostEngine, HostError, LoadedPlugin};
+use entangle_manifest::{schema::Manifest, validate::validate, ValidatedManifest};
+use entangle_observability::catalog::names;
+use entangle_observability::Registry;
+use entangle_types::capability::{CapabilityKind, ShareMode};
+use entangle_types::plugin_id::PluginId;
+use std::net::{IpAddr, Ipv4Addr};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use tokio::io::AsyncWriteExt;
+
+const PROBE: &[u8] = include_bytes!("fixtures/caps-probe.wasm");
+const PUB: &str = "aabbccddeeff00112233445566778899";
+const SECRET: &str = "top-secret-outside-the-sandbox";
+
+/// Test classifier: `127.0.0.1` stands in for a LAN host, `127.0.0.2` for a
+/// public one; every other address is classified as in production.
+fn lan_and_public_on_loopback(ip: IpAddr) -> AddrClass {
+    match ip {
+        IpAddr::V4(v4) if v4 == Ipv4Addr::new(127, 0, 0, 1) => AddrClass::Lan,
+        IpAddr::V4(v4) if v4 == Ipv4Addr::new(127, 0, 0, 2) => AddrClass::Wan,
+        other => classify(other),
+    }
+}
+
+/// Test classifier: `127.0.0.1` stands in for a public host (so the name
+/// `localhost` can be an allowlisted WAN host).
+fn public_on_loopback(ip: IpAddr) -> AddrClass {
+    match ip {
+        IpAddr::V4(v4) if v4.is_loopback() => AddrClass::Wan,
+        other => classify(other),
+    }
+}
+
+fn manifest(name: &str, tier: u8, caps: &str) -> ValidatedManifest {
+    let text = format!(
+        r#"
+[plugin]
+id = "{PUB}/{name}@0.1.0"
+version = "0.1.0"
+tier = {tier}
+runtime = "wasm"
+
+[capabilities]
+{caps}
+"#
+    );
+    let raw: Manifest = toml::from_str(&text).expect("toml");
+    validate(raw).expect("valid manifest")
+}
+
+struct Harness {
+    engine: HostEngine,
+    broker: Arc<Broker>,
+    registry: Registry,
+    tmp: tempfile::TempDir,
+    id: PluginId,
+    plugin: LoadedPlugin,
+}
+
+struct Setup<'a> {
+    name: &'a str,
+    tier: u8,
+    caps: &'a str,
+    deny: &'a [&'a str],
+    classify: Option<fn(IpAddr) -> AddrClass>,
+    /// Extra (already validated) capabilities appended to the manifest, for
+    /// kinds a wasm manifest cannot declare (tier-4 `storage.share`).
+    extra: Vec<CapabilityKind>,
+    storage_root: bool,
+}
+
+impl<'a> Setup<'a> {
+    fn new(name: &'a str, caps: &'a str) -> Self {
+        Self {
+            name,
+            tier: 3,
+            caps,
+            deny: &[],
+            classify: None,
+            extra: Vec::new(),
+            storage_root: true,
+        }
+    }
+
+    fn harness(self) -> Harness {
+        let registry = Registry::new();
+        let policy = BrokerPolicy {
+            denied_capabilities: self
+                .deny
+                .iter()
+                .map(|p| p.parse::<CapabilityPattern>().expect("pattern"))
+                .collect(),
+            ..Default::default()
+        };
+        let broker = Arc::new(Broker::new(policy).with_metrics(registry.clone()));
+        let mut m = manifest(self.name, self.tier, self.caps);
+        m.capabilities.extend(self.extra);
+        let id = m.plugin_id.clone();
+        let tier = m.effective_tier;
+        broker.register_plugin(m).expect("register");
+        // What the kernel does at load: resolve the standing grants.
+        broker.grant_declared(&id).expect("resolve");
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut ctx = CapabilityContext::new(Arc::clone(&broker));
+        if self.storage_root {
+            ctx = ctx.with_storage_root(tmp.path().join("data"));
+        }
+        if let Some(c) = self.classify {
+            ctx = ctx.with_address_classifier(c);
+        }
+        let engine = HostEngine::new().expect("engine");
+        let plugin = LoadedPlugin::from_bytes(&engine, PROBE, id.clone(), tier)
+            .expect("compile")
+            .with_capabilities(ctx);
+        Harness {
+            engine,
+            broker,
+            registry,
+            tmp,
+            id,
+            plugin,
+        }
+    }
+}
+
+impl Harness {
+    /// Run the probe with one command per line; one result per command.
+    async fn run(&self, script: &str) -> Vec<String> {
+        run_plugin(&self.engine, &self.plugin, script).await
+    }
+
+    /// The plugin's private data directory on the host.
+    fn data_dir(&self) -> PathBuf {
+        canonical_root(self.tmp.path())
+            .join("data/plugins")
+            .join(PUB)
+            .join(&self.id.name)
+    }
+
+    fn grants(&self, family: &str) -> Option<f64> {
+        self.registry
+            .value(names::CAPABILITY_GRANTS, &[("capability", family)])
+    }
+
+    fn denials(&self, family: &str, reason: &str) -> Option<f64> {
+        self.registry.value(
+            names::CAPABILITY_DENIALS,
+            &[("capability", family), ("reason", reason)],
+        )
+    }
+}
+
+fn canonical_root(p: &Path) -> PathBuf {
+    std::fs::canonicalize(p).expect("canonical tempdir")
+}
+
+async fn run_plugin(engine: &HostEngine, plugin: &LoadedPlugin, script: &str) -> Vec<String> {
+    let out = plugin
+        .run_one_shot(engine, script.as_bytes(), 30_000)
+        .await
+        .expect("probe runs");
+    let text = String::from_utf8(out.output).expect("utf-8 output");
+    let lines: Vec<String> = text.lines().map(str::to_owned).collect();
+    // Shown by the test harness only when a test fails (or with --nocapture).
+    for (step, result) in script.lines().filter(|l| !l.trim().is_empty()).zip(&lines) {
+        eprintln!("  {step}  →  {result}");
+    }
+    let steps = script.lines().filter(|l| !l.trim().is_empty()).count();
+    assert_eq!(
+        lines.len(),
+        steps,
+        "one result per step:\n{script}\n---\n{text}"
+    );
+    lines
+}
+
+/// Assert each result against a prefix, with the whole transcript on failure.
+fn expect(script: &str, got: &[String], want: &[&str]) {
+    assert_eq!(got.len(), want.len());
+    let steps: Vec<&str> = script.lines().filter(|l| !l.trim().is_empty()).collect();
+    for ((step, g), w) in steps.iter().zip(got).zip(want) {
+        assert!(
+            g.starts_with(w),
+            "step `{step}`: expected `{w}…`, got `{g}`\nfull transcript:\n{}",
+            steps
+                .iter()
+                .zip(got)
+                .map(|(s, g)| format!("  {s}  →  {g}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
+}
+
+/// A TCP listener that greets every connection with `greeting` and counts
+/// accepted connections.
+struct Listener {
+    addr: std::net::SocketAddr,
+    accepted: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+async fn listener(ip: &str, greeting: &'static str) -> Listener {
+    let l = tokio::net::TcpListener::bind((ip, 0)).await.expect("bind");
+    let addr = l.local_addr().unwrap();
+    let accepted = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let count = Arc::clone(&accepted);
+    tokio::spawn(async move {
+        while let Ok((mut s, _)) = l.accept().await {
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let _ = s.write_all(greeting.as_bytes()).await;
+            let _ = s.shutdown().await;
+        }
+    });
+    Listener { addr, accepted }
+}
+
+impl Listener {
+    fn accepted(&self) -> usize {
+        self.accepted.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+// ── no grants ──────────────────────────────────────────────────────────────
+
+/// Without grants there is no filesystem, no socket, no DNS and every fetch
+/// is refused — both with no broker at all and with a broker for a plugin
+/// that declares nothing.
+#[tokio::test(flavor = "multi_thread")]
+async fn without_grants_everything_is_denied() {
+    let lan = listener("127.0.0.1", "lan").await;
+    let udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let script = format!(
+        "write /data/x hello\n\
+         read /etc/passwd\n\
+         ls /\n\
+         connect {lan}\n\
+         connect 8.8.8.8:53\n\
+         udp {udp}\n\
+         resolve localhost\n\
+         listen 0.0.0.0:0\n\
+         fetch compute-cpu\n\
+         fetch storage-local\n",
+        lan = lan.addr,
+        udp = udp.local_addr().unwrap(),
+    );
+    let want = [
+        "err:",
+        "err:",
+        "err:",
+        "err:",
+        "err:",
+        "err:",
+        "err:",
+        "err:",
+        "err:not-granted:",
+        "err:not-granted:",
+    ];
+
+    // No capability context at all.
+    let engine = HostEngine::new().unwrap();
+    let id: PluginId = format!("{PUB}/bare@0.1.0").parse().unwrap();
+    let bare = LoadedPlugin::from_bytes(&engine, PROBE, id, entangle_types::tier::Tier::Networked)
+        .unwrap();
+    let got = run_plugin(&engine, &bare, &script).await;
+    expect(&script, &got, &want);
+
+    // A broker, a storage root and a test classifier that would make the
+    // listener a LAN host — but nothing declared, so nothing granted.
+    let h = Setup {
+        classify: Some(lan_and_public_on_loopback),
+        ..Setup::new("nothing", "")
+    }
+    .harness();
+    let got = h.run(&script).await;
+    expect(&script, &got, &want);
+    assert!(
+        got[8].contains("ENTANGLE-E0120") || got[8].contains("not declared"),
+        "{}",
+        got[8]
+    );
+
+    assert_eq!(lan.accepted(), 0, "no connection may reach the listener");
+    let mut buf = [0u8; 16];
+    assert!(
+        tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            udp.recv_from(&mut buf)
+        )
+        .await
+        .is_err(),
+        "no datagram may reach the UDP socket"
+    );
+    assert!(
+        !h.data_dir().exists(),
+        "no storage grant, no data directory"
+    );
+    // The refused fetches were broker decisions: audited and counted.
+    assert_eq!(h.denials("compute.cpu", "not_declared"), Some(1.0));
+    assert_eq!(h.denials("storage.local", "not_declared"), Some(1.0));
+}
+
+// ── storage ────────────────────────────────────────────────────────────────
+
+/// `storage.local` (rw): `/data` is the plugin's private 0700 directory,
+/// and no path — absolute, `..`, or a symlink planted by the guest or the
+/// host — leaves it.
+#[tokio::test(flavor = "multi_thread")]
+async fn storage_local_rw_works_and_every_escape_fails() {
+    let h = Setup {
+        tier: 1,
+        ..Setup::new("storage-rw", r#""storage.local" = { mode = "rw" }"#)
+    }
+    .harness();
+
+    // Secrets next to and above the data directory, and a directory outside.
+    let root = canonical_root(h.tmp.path());
+    std::fs::write(root.join("secret.txt"), SECRET).unwrap();
+    let outside = root.join("outside");
+    std::fs::create_dir(&outside).unwrap();
+
+    let script = "write /data/note.txt hello wasm\n\
+                  read /data/note.txt\n\
+                  mkdir /data/sub\n\
+                  write /data/sub/a.txt nested\n\
+                  ls /data\n\
+                  symlink note.txt /data/alias\n\
+                  read /data/alias\n";
+    let got = h.run(script).await;
+    expect(
+        script,
+        &got,
+        &[
+            "ok",
+            "ok:hello wasm",
+            "ok",
+            "ok",
+            "ok:note.txt,sub",
+            "ok",
+            "ok:hello wasm",
+        ],
+    );
+
+    let data = h.data_dir();
+    assert_eq!(
+        std::fs::read_to_string(data.join("note.txt")).unwrap(),
+        "hello wasm"
+    );
+    assert_eq!(
+        std::fs::read_to_string(data.join("sub/a.txt")).unwrap(),
+        "nested"
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for d in [&data, &data.parent().unwrap().to_path_buf()] {
+            let mode = std::fs::metadata(d).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o700, "{}", d.display());
+        }
+    }
+
+    // Symlinks planted by the host, pointing outside.
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(root.join("secret.txt"), data.join("host-abs")).unwrap();
+        std::os::unix::fs::symlink("../../../../secret.txt", data.join("host-rel")).unwrap();
+        std::os::unix::fs::symlink(&outside, data.join("host-dir")).unwrap();
+    }
+
+    let secret = root.join("secret.txt");
+    let script = format!(
+        "read {secret}\n\
+         read /data/../secret.txt\n\
+         read /data/../../../../secret.txt\n\
+         read ../secret.txt\n\
+         read secret.txt\n\
+         ls /data/..\n\
+         ls /\n\
+         symlink {secret} /data/guest-abs\n\
+         read /data/guest-abs\n\
+         symlink ../../../../secret.txt /data/guest-rel\n\
+         read /data/guest-rel\n\
+         read /data/host-abs\n\
+         read /data/host-rel\n\
+         ls /data/host-dir\n\
+         write /data/host-dir/pwned x\n\
+         write /data/host-rel clobber\n\
+         write {outside}/pwned x\n",
+        secret = secret.display(),
+        outside = outside.display(),
+    );
+    let got = h.run(&script).await;
+    // Creating a symlink is allowed or refused depending on its target;
+    // what matters is that nothing outside `/data` is ever read or written.
+    let steps: Vec<&str> = script.lines().collect();
+    for (step, result) in steps.iter().zip(&got) {
+        if step.starts_with("symlink ") {
+            continue;
+        }
+        assert!(
+            result.starts_with("err:"),
+            "`{step}` must fail, got `{result}`"
+        );
+        assert!(
+            !result.contains(SECRET),
+            "`{step}` leaked the secret: {result}"
+        );
+    }
+    assert!(!outside.join("pwned").exists());
+    assert_eq!(std::fs::read_to_string(&secret).unwrap(), SECRET);
+    assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
+}
+
+/// `storage.local { mode = "ro" }`: the directory is readable, nothing in it
+/// can be created, changed or removed.
+#[tokio::test(flavor = "multi_thread")]
+async fn storage_local_ro_rejects_writes() {
+    let h = Setup::new("storage-ro", r#""storage.local" = { mode = "ro" }"#).harness();
+    // Realising creates the directory; seed it from the host.
+    let grants = h.plugin.realise_capabilities().await.unwrap();
+    assert_eq!(grants.preopens.len(), 1);
+    assert!(!grants.preopens[0].writable);
+    std::fs::write(h.data_dir().join("seed.txt"), "seeded").unwrap();
+
+    let script = "read /data/seed.txt\n\
+                  ls /data\n\
+                  write /data/seed.txt overwritten\n\
+                  write /data/new.txt x\n\
+                  mkdir /data/d\n\
+                  symlink seed.txt /data/alias\n";
+    let got = h.run(script).await;
+    expect(
+        script,
+        &got,
+        &["ok:seeded", "ok:seed.txt", "err:", "err:", "err:", "err:"],
+    );
+    assert_eq!(
+        std::fs::read_to_string(h.data_dir().join("seed.txt")).unwrap(),
+        "seeded"
+    );
+    let names: Vec<_> = std::fs::read_dir(h.data_dir())
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert_eq!(names, ["seed.txt"]);
+}
+
+/// `storage.share.<n>` realises `/shares/<n>` (read-only for `ro`), and
+/// `rw-scoped` maps to the plugin's own subdirectory of the share. Wasm
+/// manifests cannot declare shares (tier 4); the grants are injected here to
+/// exercise the host mapping the native runtime shares.
+#[tokio::test(flavor = "multi_thread")]
+async fn storage_share_grants_preopen_the_named_share() {
+    let h = Setup {
+        extra: vec![
+            CapabilityKind::StorageShare {
+                name: "photos".into(),
+                mode: ShareMode::Ro,
+            },
+            CapabilityKind::StorageShare {
+                name: "inbox".into(),
+                mode: ShareMode::RwScoped,
+            },
+        ],
+        ..Setup::new("sharer", "")
+    }
+    .harness();
+    let grants = h.plugin.realise_capabilities().await.unwrap();
+    let root = canonical_root(h.tmp.path()).join("data");
+    let mut pre: Vec<_> = grants
+        .preopens
+        .iter()
+        .map(|p| (p.guest.clone(), p.host.clone(), p.writable))
+        .collect();
+    pre.sort();
+    assert_eq!(
+        pre,
+        vec![
+            (
+                "/shares/inbox".to_owned(),
+                root.join("shares/inbox").join(PUB).join("sharer"),
+                true
+            ),
+            (
+                "/shares/photos".to_owned(),
+                root.join("shares/photos"),
+                false
+            ),
+        ]
+    );
+    std::fs::write(root.join("shares/photos/pic.txt"), "pixels").unwrap();
+
+    let script = "read /shares/photos/pic.txt\n\
+                  write /shares/photos/new.txt x\n\
+                  write /shares/inbox/mine.txt mine\n\
+                  read /shares/inbox/../../photos/pic.txt\n\
+                  ls /shares\n";
+    let got = h.run(script).await;
+    expect(script, &got, &["ok:pixels", "err:", "ok", "err:", "err:"]);
+    assert_eq!(
+        std::fs::read_to_string(root.join("shares/inbox").join(PUB).join("sharer/mine.txt"))
+            .unwrap(),
+        "mine"
+    );
+}
+
+/// A storage grant with no storage root, or whose directory is a symlink
+/// planted on the host, is refused when realised instead of preopening
+/// something else.
+#[tokio::test(flavor = "multi_thread")]
+async fn unrealisable_storage_grants_fail_closed() {
+    let h = Setup {
+        storage_root: false,
+        ..Setup::new("no-root", r#""storage.local" = {}"#)
+    }
+    .harness();
+    let err = h.plugin.realise_capabilities().await.unwrap_err();
+    assert!(matches!(err, HostError::NoStorageRoot { .. }), "{err}");
+    assert!(err.to_string().starts_with("ENTANGLE-E0508"), "{err}");
+    // An invocation fails the same way rather than running without it.
+    let err = h
+        .plugin
+        .run_one_shot(&h.engine, b"info\n", 30_000)
+        .await
+        .unwrap_err();
+    assert!(err.to_string().starts_with("ENTANGLE-E0508"), "{err}");
+
+    #[cfg(unix)]
+    {
+        let h = Setup::new("linked", r#""storage.local" = {}"#).harness();
+        let root = canonical_root(h.tmp.path());
+        let elsewhere = root.join("elsewhere");
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        std::fs::create_dir_all(h.data_dir().parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(&elsewhere, h.data_dir()).unwrap();
+        let err = h.plugin.realise_capabilities().await.unwrap_err();
+        assert!(matches!(err, HostError::StorageScope { .. }), "{err}");
+        assert!(err.to_string().contains("symbolic link"), "{err}");
+    }
+}
+
+// ── network ────────────────────────────────────────────────────────────────
+
+/// `net.lan` reaches a LAN host (TCP and UDP) and resolves names, but not a
+/// public address; plugins never listen.
+#[tokio::test(flavor = "multi_thread")]
+async fn net_lan_allows_lan_hosts_but_not_public_ones() {
+    let lan = listener("127.0.0.1", "hello-lan").await;
+    let public = listener("127.0.0.2", "hello-public").await;
+    let udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let h = Setup {
+        classify: Some(lan_and_public_on_loopback),
+        ..Setup::new("lan", r#""net.lan" = {}"#)
+    }
+    .harness();
+
+    let script = format!(
+        "connect {lan}\n\
+         connect {public}\n\
+         connect 8.8.8.8:53\n\
+         connect [::1]:{lan_port}\n\
+         udp {udp}\n\
+         udp 127.0.0.2:{udp_port}\n\
+         resolve localhost\n\
+         listen 127.0.0.1:0\n\
+         listen 0.0.0.0:0\n",
+        lan = lan.addr,
+        public = public.addr,
+        lan_port = lan.addr.port(),
+        udp = udp.local_addr().unwrap(),
+        udp_port = udp.local_addr().unwrap().port(),
+    );
+    let got = h.run(&script).await;
+    expect(
+        &script,
+        &got,
+        &[
+            "ok:hello-lan",
+            "err:",
+            "err:",
+            "err:",
+            "ok",
+            "err:",
+            "ok:",
+            "err:",
+            "err:",
+        ],
+    );
+    assert!(got[6].contains("127.0.0.1"), "{}", got[6]);
+    assert_eq!(lan.accepted(), 1);
+    assert_eq!(public.accepted(), 0);
+    let mut buf = [0u8; 16];
+    let (n, _) = tokio::time::timeout(std::time::Duration::from_secs(5), udp.recv_from(&mut buf))
+        .await
+        .expect("datagram arrives")
+        .unwrap();
+    assert_eq!(&buf[..n], b"ping");
+}
+
+/// Without the test hook, loopback is neither LAN nor WAN: the same grants
+/// reach nothing on `127.0.0.0/8` (the daemon's own services).
+#[tokio::test(flavor = "multi_thread")]
+async fn loopback_is_never_reachable_under_production_rules() {
+    let l = listener("127.0.0.1", "daemon").await;
+    let caps = format!(
+        r#""net.lan" = {{}}
+"net.wan" = {{ hosts = ["127.0.0.1:{port}", "localhost"] }}"#,
+        port = l.addr.port()
+    );
+    let h = Setup::new("prod-rules", &caps).harness();
+    let script = format!(
+        "connect {addr}\n\
+         connect localhost:{port}\n\
+         connect [::ffff:127.0.0.1]:{port}\n",
+        addr = l.addr,
+        port = l.addr.port()
+    );
+    let got = h.run(&script).await;
+    expect(&script, &got, &["err:", "err:", "err:"]);
+    assert_eq!(l.accepted(), 0);
+}
+
+/// `net.wan` reaches exactly the allowlisted host:port pairs: not another
+/// port of the same host, not another public host, not a LAN host.
+#[tokio::test(flavor = "multi_thread")]
+async fn net_wan_allows_only_the_allowlisted_host_and_port() {
+    let allowed = listener("127.0.0.2", "hello-allowed").await;
+    let other_port = listener("127.0.0.2", "hello-other-port").await;
+    let lan = listener("127.0.0.1", "hello-lan").await;
+    let caps = format!(
+        r#""net.wan" = {{ hosts = ["127.0.0.2:{}"] }}"#,
+        allowed.addr.port()
+    );
+    let h = Setup {
+        classify: Some(lan_and_public_on_loopback),
+        ..Setup::new("wan", &caps)
+    }
+    .harness();
+    let script = format!(
+        "connect {allowed}\n\
+         connect {other}\n\
+         connect {lan}\n\
+         connect 8.8.8.8:443\n\
+         listen 0.0.0.0:0\n",
+        allowed = allowed.addr,
+        other = other_port.addr,
+        lan = lan.addr,
+    );
+    let got = h.run(&script).await;
+    expect(
+        &script,
+        &got,
+        &["ok:hello-allowed", "err:", "err:", "err:", "err:"],
+    );
+    assert_eq!(allowed.accepted(), 1);
+    assert_eq!(other_port.accepted(), 0);
+    assert_eq!(lan.accepted(), 0);
+}
+
+/// An allowlisted *name* is resolved by the host when the instance is
+/// created; the guest may connect to the resulting addresses on the listed
+/// port only.
+#[tokio::test(flavor = "multi_thread")]
+async fn net_wan_hostnames_are_pinned_to_their_resolved_addresses() {
+    let allowed = listener("127.0.0.1", "hello-by-name").await;
+    let other = listener("127.0.0.1", "hello-other").await;
+    let caps = format!(
+        r#""net.wan" = {{ hosts = ["localhost:{}"] }}"#,
+        allowed.addr.port()
+    );
+    let h = Setup {
+        classify: Some(public_on_loopback),
+        ..Setup::new("wan-name", &caps)
+    }
+    .harness();
+    let grants = h.plugin.realise_capabilities().await.unwrap();
+    assert!(
+        grants
+            .net
+            .wan_targets
+            .iter()
+            .any(|t| t.ip == IpAddr::V4(Ipv4Addr::LOCALHOST) && t.port == Some(allowed.addr.port())),
+        "{:?}",
+        grants.net.wan_targets
+    );
+    let script = format!(
+        "connect localhost:{port}\n\
+         connect {other}\n\
+         resolve localhost\n",
+        port = allowed.addr.port(),
+        other = other.addr,
+    );
+    let got = h.run(&script).await;
+    expect(&script, &got, &["ok:hello-by-name", "err:", "ok:"]);
+    assert_eq!(other.accepted(), 0);
+}
+
+// ── capability.fetch ───────────────────────────────────────────────────────
+
+/// `fetch` returns a handle only for a capability the manifest declares and
+/// the broker grants; every decision is audited and counted; handles are
+/// released by `release` (idempotently) or when the instance ends. A
+/// capability the operator denies is neither fetchable nor realised.
+#[tokio::test(flavor = "multi_thread")]
+async fn fetch_returns_handles_only_for_granted_capabilities() {
+    let lan = listener("127.0.0.1", "hello-lan").await;
+    let h = Setup {
+        deny: &["net.lan"],
+        classify: Some(lan_and_public_on_loopback),
+        ..Setup::new(
+            "fetcher",
+            r#""compute.cpu" = {}
+"storage.local" = {}
+"net.lan" = {}
+"custom.telemetry" = {}"#,
+        )
+    }
+    .harness();
+    let standing = h.broker.snapshot_grants(&h.id).len();
+    assert_eq!(standing, 3, "net.lan is denied by policy at load");
+
+    let script = format!(
+        "fetch compute-cpu\n\
+         fetch storage-local\n\
+         fetch custom telemetry\n\
+         fetch net-lan\n\
+         fetch net-wan\n\
+         fetch compute-gpu\n\
+         fetch storage-share\n\
+         fetch storage-share ../etc\n\
+         fetch custom\n\
+         release 1\n\
+         release 1\n\
+         release 999\n\
+         connect {lan}\n\
+         write /data/ok.txt fine\n",
+        lan = lan.addr
+    );
+    let got = h.run(&script).await;
+    expect(
+        &script,
+        &got,
+        &[
+            "ok:1",
+            "ok:2",
+            "ok:3",
+            "err:not-granted:ENTANGLE-E0124",
+            "err:not-granted:ENTANGLE-E0120",
+            "err:not-granted:ENTANGLE-E0120",
+            "err:invalid-kind:",
+            "err:invalid-kind:",
+            "err:invalid-kind:",
+            "ok",
+            "ok",
+            "ok",
+            "err:",
+            "ok",
+        ],
+    );
+    assert_eq!(
+        lan.accepted(),
+        0,
+        "a policy-denied net.lan realises nothing"
+    );
+
+    // Handles 2 and 3 were never released: the instance's end released them.
+    assert_eq!(h.broker.snapshot_grants(&h.id).len(), standing);
+
+    // Metrics: one standing grant per granted capability, plus one per fetch.
+    assert_eq!(h.grants("compute.cpu"), Some(2.0));
+    assert_eq!(h.grants("storage.local"), Some(2.0));
+    assert_eq!(h.grants("custom"), Some(2.0));
+    assert_eq!(h.grants("net.lan"), None);
+    assert_eq!(h.denials("net.lan", "operator_policy"), Some(2.0));
+    assert_eq!(h.denials("net.wan", "not_declared"), Some(1.0));
+    assert_eq!(h.denials("compute.gpu", "not_declared"), Some(1.0));
+
+    // Audit: the fetched grants, the refusals, and exactly one release each.
+    let audit = h.broker.audit_log().snapshot();
+    let denied: Vec<String> = audit
+        .iter()
+        .filter_map(|e| match e {
+            AuditEvent::CapabilityDenied { capability, .. } => Some(capability.to_string()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(denied, ["net.lan", "net.lan", "net.wan", "compute.gpu"]);
+    let released = audit
+        .iter()
+        .filter(|e| matches!(e, AuditEvent::CapabilityReleased { .. }))
+        .count();
+    assert_eq!(released, 3, "handles 1 (released), 2 and 3 (instance end)");
+}
+
+/// §4.6: after `revoke`, `fetch` answers `revoked`, the next instance no
+/// longer has the capability realised, and other grants are untouched.
+#[tokio::test(flavor = "multi_thread")]
+async fn revoked_capabilities_are_refused_and_no_longer_realised() {
+    let lan = listener("127.0.0.1", "hello-lan").await;
+    let h = Setup {
+        classify: Some(lan_and_public_on_loopback),
+        ..Setup::new(
+            "revokee",
+            r#""compute.cpu" = {}
+"storage.local" = {}
+"net.lan" = {}"#,
+        )
+    }
+    .harness();
+    let script = format!(
+        "fetch net-lan\n\
+         connect {lan}\n\
+         fetch storage-local\n\
+         write /data/before.txt x\n\
+         fetch compute-cpu\n",
+        lan = lan.addr
+    );
+    let got = h.run(&script).await;
+    expect(&script, &got, &["ok:", "ok:hello-lan", "ok:", "ok", "ok:"]);
+
+    h.broker.revoke(&h.id, "net.lan").unwrap();
+    h.broker.revoke(&h.id, "storage.local").unwrap();
+
+    let got = h.run(&script).await;
+    expect(
+        &script,
+        &got,
+        &["err:revoked:", "err:", "err:revoked:", "err:", "ok:"],
+    );
+    assert_eq!(lan.accepted(), 1);
+    assert_eq!(h.denials("net.lan", "revoked"), Some(1.0));
+    assert_eq!(h.denials("storage.local", "revoked"), Some(1.0));
+    let revoked = h
+        .broker
+        .audit_log()
+        .snapshot()
+        .iter()
+        .filter(|e| matches!(e, AuditEvent::CapabilityRevoked { .. }))
+        .count();
+    assert_eq!(revoked, 2);
+}
