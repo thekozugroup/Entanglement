@@ -1687,6 +1687,7 @@ dependencies = [
  "entangle-bin",
  "entangle-biscuits",
  "entangle-broker",
+ "entangle-host",
  "entangle-manifest",
  "entangle-mesh-iroh",
  "entangle-mesh-local",

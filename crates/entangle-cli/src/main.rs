@@ -121,6 +121,26 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Operator triage reports (`diag mesh`).
     #[command(subcommand_required = true)]
     Diag(DiagArgs),
+    /// Read a plugin's or a subsystem's recent log lines from the daemon.
+    #[command(long_about = "\
+Read the daemon's in-memory log buffers.
+
+SOURCE is a plugin (its full id, or its name when unambiguous) or one of the
+subsystems `scheduler`, `mesh`, `gateway`, `daemon`. A plugin's log is what it
+printed (stdout, stderr, its `log` calls) plus the daemon's own messages about
+it.
+
+  entangle logs hello-world --follow
+  entangle logs scheduler --filter StalledEvent
+  entangle logs mesh --level warn --since 10m --json
+
+The buffers hold the most recent lines only and start empty when the daemon
+starts. Secrets (tokens, passphrases, credentials) are redacted before they
+are stored. Fails if the daemon is not running.")]
+    Logs(cmd::logs::LogsArgs),
+    /// Show the recorded trace of a task.
+    #[command(subcommand_required = true)]
+    Trace(cmd::trace::TraceArgs),
     /// Print the running daemon's metrics in the Prometheus text format.
     ///
     /// Fetches the exposition over the daemon's RPC socket (the same text
@@ -204,6 +224,8 @@ async fn run() -> anyhow::Result<()> {
         Cmd::PrintPlatform => print_platform(),
         Cmd::Perms(a) => cmd::perms::run(a).await,
         Cmd::Diag(a) => cmd::diag::run(a).await,
+        Cmd::Logs(a) => cmd::logs::run(a).await,
+        Cmd::Trace(a) => cmd::trace::run(a).await,
         Cmd::Metrics => print_metrics().await,
         Cmd::Completions { shell } => generate_completions(shell),
     }

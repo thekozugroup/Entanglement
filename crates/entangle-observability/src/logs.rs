@@ -954,12 +954,12 @@ mod tests {
         );
         let e = resolve_source("hello", known()).unwrap_err().to_string();
         assert!(
-            e.starts_with("ENTANGLE-E0681") && e.contains("aa/hello@0.1.0"),
+            e.starts_with("ENTANGLE-E0921") && e.contains("aa/hello@0.1.0"),
             "{e}"
         );
         let e = resolve_source("nope", known()).unwrap_err().to_string();
         assert!(
-            e.starts_with("ENTANGLE-E0680") && e.contains("scheduler, mesh, gateway, daemon"),
+            e.starts_with("ENTANGLE-E0920") && e.contains("scheduler, mesh, gateway, daemon"),
             "{e}"
         );
     }

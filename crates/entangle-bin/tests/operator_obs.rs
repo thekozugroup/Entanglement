@@ -206,7 +206,7 @@ async fn level_and_filter_select_lines() {
         v["error"]["message"]
             .as_str()
             .unwrap()
-            .contains("ENTANGLE-E0682"),
+            .contains("ENTANGLE-E0922"),
         "{v}"
     );
 }
@@ -331,7 +331,7 @@ async fn an_unknown_plugin_is_a_clear_error() {
     )
     .await;
     let msg = v["error"]["message"].as_str().unwrap();
-    assert!(msg.starts_with("ENTANGLE-E0680"), "{msg}");
+    assert!(msg.starts_with("ENTANGLE-E0920"), "{msg}");
     assert!(
         msg.contains("no-such-plugin") && msg.contains("scheduler, mesh, gateway, daemon"),
         "{msg}"
@@ -477,7 +477,7 @@ async fn a_native_plugins_stderr_is_its_log_and_a_dispatch_leaves_a_trace() {
         none["error"]["message"]
             .as_str()
             .unwrap()
-            .starts_with("ENTANGLE-E0683"),
+            .starts_with("ENTANGLE-E0923"),
         "{none}"
     );
     let bad = rpc(
@@ -490,7 +490,7 @@ async fn a_native_plugins_stderr_is_its_log_and_a_dispatch_leaves_a_trace() {
         bad["error"]["message"]
             .as_str()
             .unwrap()
-            .starts_with("ENTANGLE-E0684"),
+            .starts_with("ENTANGLE-E0924"),
         "{bad}"
     );
 }

@@ -23,7 +23,6 @@
 //! | E0640–E0649 | `mesh.tailscale` transport (see `entangle-mesh-tailscale`) |
 //! | E0650–E0659 | Observability: OTLP exporter, metrics endpoint, diag (see `entangle-observability`, `entangle-bin`); E0650 retired |
 //! | E0660–E0679 | Agent sessions and `entangle agent run` (see `entangle-agent-host`) |
-//! | E0680–E0699 | Operator log and trace stores: `entangle logs`, `entangle trace` (`entangle_observability::QueryError`, `entangle-bin` RPC `logs/read`, `trace/get`; E0680–E0684 in use) |
 //! | E0700–E0719 | OS-sandbox engagement (see `entangle-sandbox`) |
 //! | E0720–E0739 | Native-plugin supervisor (see `entangle-sandbox`) |
 //! | E0740–E0749 | Native-plugin runtime glue (see `entangle-runtime::native`) |
@@ -33,6 +32,7 @@
 //! | E0830–E0859 | Packaging reproducibility, release verification, release-key ceremony (E0830–E0839 packaging in `entangle-cli` `cmd::package`; E0840–E0849 release signatures in `entangle-signing::release` and `entangle-cli` `cmd::release`; E0850–E0859 Shamir sharing in `entangle-signing::shamir`) |
 //! | E0860–E0879 | Operator backup / restore archive (`entangle-cli` `cmd::backup`; E0860–E0867 in use) |
 //! | E0900       | I/O                            |
+//! | E0920–E0939 | Operator log and trace stores: `entangle logs`, `entangle trace` (`entangle_observability::QueryError`, `entangle-bin` RPC `logs/read`, `trace/get`; E0920–E0924 in use) |
 //! | E9999       | Internal / unexpected          |
 //!
 //! Other crates layer their own codes into the gaps between these ranges —

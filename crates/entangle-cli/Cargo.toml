@@ -35,7 +35,7 @@ camino            = { workspace = true }
 clap              = { workspace = true, features = ["derive"] }
 clap_complete     = "4"
 anyhow            = { workspace = true }
-tokio             = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "fs"] }
+tokio             = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "fs", "signal"] }
 tracing           = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 serde             = { workspace = true, features = ["derive"] }
@@ -72,3 +72,5 @@ entangle-broker   = { workspace = true }
 # Mint and verify real capability tokens in the pairing / peers / backup
 # tests (already in the graph via entangle-scheduler).
 entangle-biscuits = { workspace = true }
+# `tests/operator_obs.rs` emits plugin output the way a wasm plugin does.
+entangle-host     = { workspace = true }
