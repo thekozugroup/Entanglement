@@ -25,6 +25,7 @@ pub mod quickstart;
 pub mod rcblock;
 pub mod release;
 pub mod repro;
+pub mod routes;
 pub mod scaffold;
 pub mod security;
 pub mod ui;

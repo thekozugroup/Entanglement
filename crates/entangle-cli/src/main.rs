@@ -93,7 +93,7 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Verify and sign release artifacts; release-key ceremony.
     #[command(subcommand_required = true)]
     Release(ReleaseArgs),
-    /// Manage the local mesh: list peers, trust/untrust/revoke.
+    /// Manage the local mesh: list peers, routes per peer, trust/untrust/revoke.
     #[command(subcommand_required = true)]
     Mesh(MeshArgs),
     /// Pair this device with another (short-code + fingerprint exchange).
