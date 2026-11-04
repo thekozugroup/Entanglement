@@ -493,6 +493,34 @@ impl MeshTailscale {
         status: &TailscaleStatus,
         port: u16,
     ) -> Vec<TailscalePeer> {
+        self.discover_round(status, port, None).await
+    }
+
+    /// [`MeshTailscale::discover_on_port`], bounded by `limit`: probes still
+    /// running then are abandoned, and the round is **published with the
+    /// answers already in hand** — one slow node (its port accepts and never
+    /// answers, or drops the dial: up to `connect_timeout +
+    /// handshake_timeout` per address) does not throw away the candidates
+    /// every other node gave in milliseconds, as dropping
+    /// [`MeshTailscale::discover_on_port`] under a timeout would. A node that
+    /// had not answered by then is treated as one that never answers; the
+    /// one-`PeerId`-two-nodes rule applies to the answers received.
+    pub async fn discover_on_port_within(
+        &self,
+        status: &TailscaleStatus,
+        port: u16,
+        limit: Duration,
+    ) -> Vec<TailscalePeer> {
+        let deadline = tokio::time::Instant::now().checked_add(limit);
+        self.discover_round(status, port, deadline).await
+    }
+
+    async fn discover_round(
+        &self,
+        status: &TailscaleStatus,
+        port: u16,
+        deadline: Option<tokio::time::Instant>,
+    ) -> Vec<TailscalePeer> {
         let mut set = JoinSet::new();
         let policy = self.inner.config.address_policy;
         let probes = Arc::new(Semaphore::new(MAX_CONCURRENT_PROBES));
@@ -526,7 +554,23 @@ impl MeshTailscale {
         }
         let mut found: BTreeMap<PeerId, TailscalePeer> = BTreeMap::new();
         let mut ambiguous: BTreeSet<PeerId> = BTreeSet::new();
-        while let Some(res) = set.join_next().await {
+        loop {
+            let next = match deadline {
+                Some(at) => match tokio::time::timeout_at(at, set.join_next()).await {
+                    Ok(next) => next,
+                    Err(_) => {
+                        debug!(
+                            abandoned = set.len(),
+                            "mesh.tailscale discovery: round cut off at its deadline; \
+                             publishing the answers in hand"
+                        );
+                        // Dropping the set aborts the probes still running.
+                        break;
+                    }
+                },
+                None => set.join_next().await,
+            };
+            let Some(res) = next else { break };
             let Ok(Some(p)) = res else { continue };
             if p.peer_id == self.inner.peer_id {
                 continue;

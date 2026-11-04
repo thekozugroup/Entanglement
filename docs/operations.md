@@ -1329,8 +1329,10 @@ Being its own process, it starts only what that order can use for the peer:
   when it runs both `"local"` and `"iroh"`);
 * `tailscale` (`[mesh.tailscale] enabled` and `"tailscale"` listed): one
   `tailscale status` and one discovery round on `[mesh.tailscale] port`
-  (at most 8 s), from a client-only tailnet transport whose listener is
-  bound to loopback and serves nothing;
+  (at most 8 s: a node that has not answered by then — say one whose port
+  accepts and never answers — is skipped, and the answers already in are
+  kept), from a client-only tailnet transport whose listener is bound to
+  loopback and serves nothing;
 * `iroh`: when the peer has a long address — `--peer <key>@host:port` or its
   `[scheduler] peers` entry — whether or not `"iroh"` is listed, as before.
 
