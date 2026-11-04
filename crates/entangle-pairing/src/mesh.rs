@@ -15,6 +15,7 @@
 //! ```
 
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -31,7 +32,8 @@ use tokio::time::Instant as TokioInstant;
 use tracing::{debug, warn};
 
 use crate::net::{
-    Dialer, HostConfig, HostSession, PairingNetError, PairingWire, MAX_PAIRING_FRAME_BYTES,
+    Dialer, HostConfig, HostSession, PairingNetError, PairingWire, SessionEnd,
+    MAX_PAIRING_FRAME_BYTES,
 };
 use crate::{PairedPeer, PairingCode, ShortFingerprint};
 
@@ -48,9 +50,27 @@ pub const DEFAULT_PAIRING_BIND: &str = "0.0.0.0:0";
 const DIAL_TIMEOUT: Duration = Duration::from_secs(10);
 /// How long one request/response round-trip may take.
 const ROUND_TRIP_TIMEOUT: Duration = Duration::from_secs(20);
-/// Grace period for the peer to close the connection after the final frame, so
-/// the response is not discarded by an abrupt endpoint shutdown.
-const LINGER: Duration = Duration::from_secs(3);
+/// How long the listener spends delivering one response before it gives up on
+/// the connection: writing the frame and, for the frame that ends the session,
+/// then waiting for the dialer to close the connection.
+///
+/// Writing needs stream credit from the dialer, so a dialer that grants none
+/// stalls it indefinitely; this bounds that. And the dialer reads the final
+/// frame last, so its close is the only signal that the frame arrived; closing
+/// (or shutting the endpoint down) any sooner can discard it. Either way this
+/// is a bound for a dialer that misbehaves, not a delay: an honest dialer
+/// takes the frame at once and closes as soon as it has read it. It is the
+/// dialer's own [`ROUND_TRIP_TIMEOUT`] — past that the dialer has given up on
+/// the frame anyway, and anything shorter (the close wait was 3 s) cuts off a
+/// dialer on a loaded machine or a lossy link that is still inside its budget.
+const DELIVERY_TIMEOUT: Duration = ROUND_TRIP_TIMEOUT;
+/// [`PairingListener::wait`]'s own limit on waiting for the frame that ended
+/// the session to be delivered, counted from when it sees the session end.
+///
+/// A backstop only: the accept loop already gives up on a delivery after
+/// [`DELIVERY_TIMEOUT`], and this is twice that so it never cuts a delivery
+/// short. It keeps `wait` bounded even if that loop someday is not.
+const WAIT_DELIVERY_BACKSTOP: Duration = Duration::from_secs(2 * DELIVERY_TIMEOUT.as_secs());
 /// Frames one connection may send before it is dropped.
 const MAX_FRAMES_PER_CONNECTION: usize = 8;
 
@@ -132,9 +152,8 @@ pub struct PairingListener {
     transport: Arc<MeshIroh>,
     session: Arc<HostSession>,
     beacon: Option<Discovery>,
-    /// Woken after every handled frame so [`PairingListener::wait`] observes
-    /// state changes immediately instead of polling.
-    progress: Arc<Notify>,
+    /// What the accept loop tells [`PairingListener::wait`].
+    progress: Arc<Progress>,
     /// The accept loop. It keeps answering (with refusals) after the session
     /// ends, so a late dialer is told *why* rather than left hanging, and it
     /// stops when the endpoint is shut down.
@@ -189,7 +208,7 @@ impl PairingListener {
         } else {
             None
         };
-        let progress = Arc::new(Notify::new());
+        let progress = Arc::new(Progress::default());
         let server = tokio::spawn(serve_loop(
             Arc::clone(&transport),
             Arc::clone(&session),
@@ -236,25 +255,63 @@ impl PairingListener {
     ///
     /// The accept loop runs in the background from construction; this only
     /// observes it. Returns the peer that proved knowledge of the code.
+    ///
+    /// When a frame ends the session, this returns only once that frame has
+    /// been delivered: the dialer closed the connection after reading it, or
+    /// the listener's bound on that (the dialer's own round-trip timeout) ran
+    /// out. A caller may therefore shut the listener down, or exit, the moment
+    /// this returns without discarding the dialer's `Finalize`. The session
+    /// records the peer *before* that frame is even written, so returning on
+    /// the session state alone leaves the dialer without it whenever the
+    /// shutdown overtakes the frame (a loaded machine, a lossy link).
+    ///
+    /// Always bounded: at most the session's TTL, or, once a frame has ended
+    /// the session, that frame's delivery bound. A frame that did not end the
+    /// session never holds this up, however long its answer takes to deliver.
     pub async fn wait(&self) -> Result<PairedPeer, PairingMeshError> {
         let ttl = self.session.ttl();
         let deadline = TokioInstant::now() + self.session.time_remaining();
+        // Set when this first sees the session over with its last frame still
+        // being delivered.
+        let mut give_up_on_delivery = None;
         loop {
-            if let Some(peer) = self.session.outcome() {
-                return Ok(peer);
-            }
+            // Register before checking so a wake-up between the check and the
+            // await cannot be lost.
+            let woken = self.progress.notify.notified();
+            // `is_finished` also records an expiry that has come due.
             if self.session.is_finished() {
-                return Err(finished_error(&self.session, ttl));
+                let now = TokioInstant::now();
+                let give_up = *give_up_on_delivery.get_or_insert(now + WAIT_DELIVERY_BACKSTOP);
+                let delivered = !self.progress.frame_in_flight();
+                if !delivered && now >= give_up {
+                    warn!(
+                        "pairing listener: the session's last frame was still being delivered \
+                         {WAIT_DELIVERY_BACKSTOP:?} after it ended; reporting the end anyway"
+                    );
+                }
+                if delivered || now >= give_up {
+                    return self
+                        .session
+                        .outcome()
+                        .ok_or_else(|| finished_error(&self.session, ttl));
+                }
+                // The frame that ended the session is still being delivered.
+                // The accept loop bounds that by `DELIVERY_TIMEOUT` and wakes
+                // this when it is done; `give_up` is the backstop.
+                tokio::select! {
+                    () = woken => {}
+                    () = tokio::time::sleep_until(give_up) => {}
+                }
+                continue;
             }
-            // Register before re-checking so a wake-up between the check above
-            // and the await here cannot be lost.
-            let woken = self.progress.notified();
             tokio::select! {
                 () = woken => {}
                 () = tokio::time::sleep_until(deadline) => {
-                    // Materialise the expiry, then report it.
-                    let _ = self.session.is_finished();
-                    return Err(finished_error(&self.session, ttl));
+                    // A frame may have ended the session at the same instant;
+                    // if so, go round and wait for it to be delivered.
+                    if !self.session.is_finished() {
+                        return Err(PairingMeshError::Timeout(ttl));
+                    }
                 }
             }
         }
@@ -272,12 +329,58 @@ impl PairingListener {
     }
 }
 
+/// What the accept loop tells [`PairingListener::wait`].
+#[derive(Default)]
+struct Progress {
+    /// Woken whenever a frame has been fully handled, so `wait` observes
+    /// state changes immediately instead of polling.
+    notify: Notify,
+    /// Frames that may end the session and have not yet been delivered. The
+    /// session can end inside [`HostSession::handle`], before the frame that
+    /// ends it is written; while this is non-zero `wait` must not report the
+    /// end, or a caller that shuts down right after would discard that frame.
+    ///
+    /// A frame counts from before it reaches a live session. If the session
+    /// outlives it, it stops counting as soon as `handle` returns; only the
+    /// frame that ends the session counts until delivered (within
+    /// [`DELIVERY_TIMEOUT`]). Frames arriving after the end are not counted:
+    /// they cannot change the outcome, and counting them would let late or
+    /// hostile dialers hold `wait` open.
+    in_flight: AtomicUsize,
+}
+
+impl Progress {
+    /// Mark a frame as being handled until the returned guard is dropped.
+    ///
+    /// Taken *before* the frame reaches the session, so anyone who sees the
+    /// session state that frame produced also sees it in flight.
+    fn frame(&self) -> FrameInFlight<'_> {
+        self.in_flight.fetch_add(1, Ordering::SeqCst);
+        FrameInFlight(self)
+    }
+
+    fn frame_in_flight(&self) -> bool {
+        self.in_flight.load(Ordering::SeqCst) > 0
+    }
+}
+
+/// One frame being handled; see [`Progress::frame`]. Dropping it — including
+/// when the accept loop is aborted mid-delivery — wakes `wait`.
+struct FrameInFlight<'a>(&'a Progress);
+
+impl Drop for FrameInFlight<'_> {
+    fn drop(&mut self) {
+        self.0.in_flight.fetch_sub(1, Ordering::SeqCst);
+        self.0.notify.notify_waiters();
+    }
+}
+
 /// Answer pairing frames on every inbound connection until the endpoint closes.
 ///
 /// Connections are served one at a time. The protocol is two round-trips long
 /// and a pairing listener has exactly one job, so serialising them also bounds
 /// how fast a hostile peer can spend the session's attempt budget.
-async fn serve_loop(transport: Arc<MeshIroh>, session: Arc<HostSession>, progress: Arc<Notify>) {
+async fn serve_loop(transport: Arc<MeshIroh>, session: Arc<HostSession>, progress: Arc<Progress>) {
     loop {
         match transport.accept().await {
             Ok(Some(conn)) => serve_connection(&session, &conn, &progress).await,
@@ -292,7 +395,7 @@ async fn serve_loop(transport: Arc<MeshIroh>, session: Arc<HostSession>, progres
 }
 
 /// Answer frames on one connection until it closes.
-async fn serve_connection(session: &HostSession, conn: &MeshConn, progress: &Notify) {
+async fn serve_connection(session: &HostSession, conn: &MeshConn, progress: &Progress) {
     let remote_key = conn.remote_public_key();
     // One honest exchange is two frames. The cap stops a single connection
     // from being an unbounded work source; the attempt cap in `HostSession`
@@ -306,25 +409,56 @@ async fn serve_connection(session: &HostSession, conn: &MeshConn, progress: &Not
                 break;
             }
         };
+        // Tracked only while the session is live: this may be the frame that
+        // ends it, and `wait` must then wait for its delivery.
+        let mut in_flight = (!session.is_finished()).then(|| progress.frame());
         let response = session.handle(remote_key, request.payload());
         let finished = session.is_finished();
-        if let Err(e) = request.respond(&response).await {
-            debug!(error = %e, "pairing listener: response failed");
-            break;
+        if !finished {
+            // The session outlived this frame, so its answer cannot change
+            // what `wait` reports. Holding `wait` for that delivery would let
+            // a dialer that never takes the answer keep it past the TTL.
+            drop(in_flight.take());
         }
-        progress.notify_waiters();
+        // The dialer must grant stream credit for the answer to be written at
+        // all; one that never does must not stall the loop (or, for the final
+        // frame, `wait`) indefinitely.
+        let deliver_by = TokioInstant::now() + DELIVERY_TIMEOUT;
+        match tokio::time::timeout_at(deliver_by, request.respond(&response)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => {
+                debug!(error = %e, "pairing listener: response failed");
+                break;
+            }
+            Err(_elapsed) => {
+                debug!(
+                    "pairing listener: the dialer did not take the response within \
+                     {DELIVERY_TIMEOUT:?}"
+                );
+                break;
+            }
+        }
         if finished {
-            // Let the peer read that last frame and close, rather than having
-            // the response discarded by an abrupt teardown.
-            let _ = tokio::time::timeout(LINGER, conn.closed()).await;
-            break;
+            // This was the session's last frame (a `Finalize`, or the refusal
+            // that burned the session) and the dialer reads it last. Writing
+            // it only queued it: wait for the dialer to close — its sign that
+            // the frame arrived — before letting go, or the close (and the
+            // endpoint shutdown that `wait` returning allows) discards it.
+            // Writing and this wait share the one delivery budget.
+            let grace = deliver_by.saturating_duration_since(TokioInstant::now());
+            if !conn.close_when_peer_done(grace).await {
+                debug!(
+                    "pairing listener: the dialer did not close within {DELIVERY_TIMEOUT:?} \
+                     of the final frame"
+                );
+            }
+            return;
         }
     }
     conn.close();
 }
 
 fn finished_error(session: &HostSession, ttl: Duration) -> PairingMeshError {
-    use crate::net::SessionEnd;
     match session.ended() {
         Some(SessionEnd::AttemptsExhausted) => {
             PairingNetError::Rejected(crate::net::RejectReason::TooManyAttempts).into()

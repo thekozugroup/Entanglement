@@ -518,6 +518,34 @@ impl MeshConn {
     pub async fn closed(&self) {
         let _ = self.inner.closed().await;
     }
+
+    /// Close the connection after this side has sent the **last** frame of an
+    /// exchange, without discarding that frame.
+    ///
+    /// A QUIC close is abrupt: once it is sent the peer may drop any stream
+    /// data it has not yet handed to its application — even data it has
+    /// acknowledged — and nothing still queued here is ever retransmitted. So
+    /// the side that speaks last must not close first. Only the side that
+    /// *reads* last knows everything arrived, and it closes once it has (as
+    /// every caller of [`MeshConn::request`] does). This waits for that close,
+    /// the peer's application-level acknowledgement, for at most `grace`, and
+    /// then closes regardless so a peer that never closes cannot pin the
+    /// connection.
+    ///
+    /// Every response stream must already be finished (as
+    /// [`MeshRequest::respond`] does), or the peer cannot finish reading.
+    /// Returns `true` if the peer's application closed the connection within
+    /// `grace`; `false` if `grace` ran out or the connection ended any other
+    /// way (idle timeout, transport error, a local close).
+    pub async fn close_when_peer_done(&self, grace: Duration) -> bool {
+        use iroh::endpoint::ConnectionError;
+        let peer_closed = matches!(
+            timeout(grace, self.inner.closed()).await,
+            Ok(ConnectionError::ApplicationClosed(_))
+        );
+        self.close();
+        peer_closed
+    }
 }
 
 fn is_clean_close(err: &iroh::endpoint::ConnectionError) -> bool {
