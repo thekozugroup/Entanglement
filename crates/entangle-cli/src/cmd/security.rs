@@ -300,17 +300,35 @@ fn prompt(current: u8, new: u8, affected: &[AffectedPlugin]) -> Result<Decision>
     Ok(Decision::Cancel)
 }
 
-/// Persist the tier and the disabled plugins in config.toml (format-preserving).
-fn persist(mode: Mode, new: u8, disabled: &[String]) -> Result<()> {
-    let path = config::config_path();
-    let mut doc = ConfigDoc::load(&path)?;
+/// config.toml with the tier and the disabled plugins applied, in memory
+/// (format-preserving). Fails, without writing anything, when the file cannot
+/// take the edit (unreadable, not valid TOML, a section of the wrong shape).
+fn edited_config(mode: Mode, new: u8, disabled: &[String]) -> Result<ConfigDoc> {
+    let mut doc = ConfigDoc::load(&config::config_path())?;
     if mode == Mode::SetMaxTier {
         doc.set_int("security", "max_tier_allowed", i64::from(new))?;
     }
     for id in disabled {
         doc.add_to_str_array("plugins", "disabled", id)?;
     }
-    doc.save(&path)
+    Ok(doc)
+}
+
+/// Persist the tier and the disabled plugins in config.toml.
+fn persist(mode: Mode, new: u8, disabled: &[String]) -> Result<()> {
+    edited_config(mode, new, disabled)?.save(&config::config_path())
+}
+
+/// [`persist`] after the daemon already applied `new`: on failure, say that
+/// the two now disagree and how to reconcile them.
+fn persist_applied(mode: Mode, new: u8, disabled: &[String]) -> Result<()> {
+    persist(mode, new, disabled).with_context(|| {
+        format!(
+            "the daemon already runs with max_tier_allowed = {new}, but {} could not be \
+             updated to match; fix the file and re-run `entangle security set-max-tier {new}`",
+            config::config_path().display()
+        )
+    })
 }
 
 async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
@@ -355,13 +373,20 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
     };
 
     let current = plan.current;
+    let listed: Vec<String> = plan.affected.iter().map(|a| a.plugin_id.clone()).collect();
+    // Nothing in the daemon changes before config.toml is known to take the
+    // edit; after the daemon applied it, the file is written first and the
+    // durable audit lines last, so no later failure can leave the daemon
+    // changed while the file still holds the old ceiling (which the next
+    // daemon start would restore).
+    edited_config(mode, new, &listed)?;
     if plan.affected.is_empty() {
         let applied = client
             .security_apply_max_tier(new, false, None)
             .await
             .context("applying the new ceiling to the daemon")?;
         if mode == Mode::SetMaxTier {
-            persist(mode, new, &[])?;
+            persist_applied(mode, new, &[])?;
         }
         if applied.old < applied.new {
             println!(
@@ -388,12 +413,7 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
     // prompt waited. `--force-unload` consents in advance to whatever is above
     // the ceiling when it is applied (still listed and audited per plugin).
     let unattended = flags.force_unload || flags.yes;
-    let confirmed = (!unattended).then(|| {
-        plan.affected
-            .iter()
-            .map(|a| a.plugin_id.clone())
-            .collect::<Vec<_>>()
-    });
+    let confirmed = (!unattended).then(|| listed.clone());
     let decision = if unattended {
         eprintln!(
             "Lowering [security] max_tier_allowed from {current} to {new}: unloading and disabling {} plugin{} above the new ceiling:\n{}",
@@ -464,31 +484,43 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
                 .map(|a| (a.plugin_id.as_str(), a.tier))
                 .collect();
             for id in &applied.unloaded {
-                let tier = tiers.get(id.as_str()).copied();
                 eprintln!(
                     "ENTANGLE-W0214: unloaded and disabled {id}{} (max_tier_allowed {} -> {})",
-                    tier.map(|t| format!(" (tier {t})")).unwrap_or_default(),
+                    tiers
+                        .get(id.as_str())
+                        .map(|t| format!(" (tier {t})"))
+                        .unwrap_or_default(),
                     applied.old,
                     applied.new
                 );
-                audit(
+            }
+            persist_applied(mode, new, &applied.unloaded)?;
+            // Durable trail last. A failure is reported (exit non-zero) after
+            // every line was attempted; daemon and config.toml already agree.
+            let mut audit_err = None;
+            for id in &applied.unloaded {
+                let tier = tiers.get(id.as_str()).copied();
+                if let Err(e) = audit(
                     "ENTANGLE-W0214",
                     "plugin unloaded and disabled: tier above new max_tier_allowed",
                     serde_json::json!({
                         "plugin": id, "tier": tier,
                         "old_ceiling": applied.old, "new_ceiling": applied.new,
                     }),
-                )?;
+                ) {
+                    audit_err.get_or_insert(e);
+                }
             }
-            audit(
+            if let Err(e) = audit(
                 "ENTANGLE-I0215",
                 "max_tier_allowed lowered",
                 serde_json::json!({
                     "old_ceiling": applied.old, "new_ceiling": applied.new,
                     "unloaded": applied.unloaded,
                 }),
-            )?;
-            persist(mode, new, &applied.unloaded)?;
+            ) {
+                audit_err.get_or_insert(e);
+            }
             println!(
                 "max_tier_allowed lowered {} -> {}; unloaded and disabled {} plugin{} (ENTANGLE-I0215). \
                  Loads above tier {} now fail with ENTANGLE-E0043.",
@@ -498,7 +530,10 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
                 if applied.unloaded.len() == 1 { "" } else { "s" },
                 applied.new
             );
-            Ok(0)
+            match audit_err {
+                Some(e) => Err(e),
+                None => Ok(0),
+            }
         }
     }
 }

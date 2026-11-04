@@ -581,6 +581,58 @@ async fn ceiling_changes_without_daemon_are_audited() {
     assert_eq!(raised[0]["new_ceiling"], 4);
 }
 
+/// The daemon is only changed once config.toml is known to be editable, and
+/// the file is written right after the daemon applied the change — before the
+/// durable audit lines — so a later failure cannot leave the daemon lowered
+/// with the old ceiling still in config.toml (restored at the next start).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn audit_log_failure_after_lowering_still_persists_the_config() {
+    let f = Fixture::new("", true).await;
+    // An audit log that cannot be opened for appending.
+    std::fs::create_dir_all(f.home.join(".entangle/audit.log")).unwrap();
+    let mut c = f.cmd(&["security", "set-max-tier", "3", "--force-unload"]);
+    let out = tokio::task::spawn_blocking(move || {
+        run_blocking(std::mem::replace(&mut c, Command::new("true")))
+    })
+    .await
+    .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        !out.status.success(),
+        "the audit failure is reported: {stderr}"
+    );
+    assert!(stderr.contains("audit log"), "{stderr}");
+    // The daemon was lowered, so config.toml must say so too.
+    assert_eq!(f.state.kernel.max_tier_allowed() as u8, 3);
+    let cfg = f.config();
+    assert!(cfg.contains("max_tier_allowed = 3"), "{cfg}");
+    assert!(
+        cfg.contains(&f.id("agent-host")) && cfg.contains(&f.id("cuda-runner")),
+        "{cfg}"
+    );
+}
+
+/// A config.toml the CLI cannot edit (valid TOML the daemon accepts, but an
+/// inline `[security]` table) is refused before the daemon is touched.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn uneditable_config_is_refused_before_the_daemon_changes() {
+    let f = Fixture::new("", true).await;
+    std::fs::write(f.config_path(), "security = { max_tier_allowed = 5 }\n").unwrap();
+    let mut c = f.cmd(&["security", "set-max-tier", "3", "--force-unload"]);
+    let out = tokio::task::spawn_blocking(move || {
+        run_blocking(std::mem::replace(&mut c, Command::new("true")))
+    })
+    .await
+    .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(!out.status.success(), "{stderr}");
+    assert!(stderr.contains("ENTANGLE-E0754"), "{stderr}");
+    assert_eq!(f.state.kernel.max_tier_allowed() as u8, 5, "{stderr}");
+    assert_eq!(f.loaded().len(), 3, "nothing was unloaded: {stderr}");
+    assert!(f.audit_file("ENTANGLE-W0214").is_empty());
+    assert_eq!(f.config(), "security = { max_tier_allowed = 5 }\n");
+}
+
 /// With no daemon nothing is loaded: the config is edited, preserving
 /// everything else, and the operator is told so.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

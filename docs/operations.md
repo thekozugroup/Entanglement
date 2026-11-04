@@ -862,6 +862,11 @@ Decision [u/c]:
   unloads and disables without asking, but the affected list goes to **stderr**
   and each plugin gets an `ENTANGLE-W0214` line. There is no flag that skips
   the audit trail.
+- **Ordering.** The daemon is changed only once `config.toml` is known to take
+  the edit (otherwise `ENTANGLE-E0754` and nothing changes); right after the
+  daemon applied it the file is written, and the durable audit lines last, so
+  a failure late in the command never leaves the daemon changed while the file
+  still holds the old ceiling (which the next daemon start would restore).
 - **Raising** (or lowering past every loaded plugin's tier) never unloads
   anything. Every change of the ceiling is audited: a raise as
   `ENTANGLE-I0217`, a lowering as `ENTANGLE-I0215` — also when the daemon is
