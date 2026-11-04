@@ -68,9 +68,12 @@ The full threat model is in `docs/architecture.md` §11; the highlights:
   has its own nonce. Because the worker checks the token only once the whole
   frame is in, a large frame earns a late-arrival grace: one second per
   256 KiB the worker's transport actually received (never a declared size),
-  at most 600 s; the token is expired only once `now >= expires + grace`,
-  and the nonce is remembered for that extended window, so a replay inside
-  it is still refused. A presented copy is therefore usable for at most its
+  at most 600 s; the per-request expiry counts as passed only once
+  `now >= expires + grace`, and the nonce is remembered for that extended
+  window, so a replay inside it is still refused. The grace extends only
+  the expiry of the per-request block (the one carrying the nonce); an
+  expiry on the grant or on any other attenuation stays strict, so padding
+  a frame cannot keep a lapsed grant alive. A presented copy is therefore usable for at most its
   60 s plus its own frame's grace (64 s for the largest task frame), only by
   its holder, and only for the request it is bound to. A token proves
   *this key was paired with this node and has not been revoked here*. It does

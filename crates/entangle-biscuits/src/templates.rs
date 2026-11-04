@@ -35,9 +35,10 @@
 //! this order: the token parses and its signature chain verifies under the
 //! verifier's **own** public key; every block holds only facts this module
 //! defines (grant facts only in the authority block); the `peer` fact names
-//! the presenter; `capability("mesh.peer")` is granted; the tightest
-//! `expires` exists, has not passed — give or take the late-arrival grace
-//! of a large frame ([`late_arrival_grace_secs`]) — and is no more than
+//! the presenter; `capability("mesh.peer")` is granted; no `expires` in the
+//! chain has passed — the per-request block's own one give or take the
+//! late-arrival grace of a large frame ([`late_arrival_grace_secs`]), every
+//! other one strictly; the tightest `expires` exists and is no more than
 //! [`REQUEST_TOKEN_TTL_SECS`] + [`MAX_CLOCK_SKEW_SECS`] away; every
 //! `request_binding` equals the request's digest; there is exactly one
 //! nonce; every template restriction in the chain is satisfied by the
@@ -54,7 +55,12 @@
 //! a verifier sees a token only once the whole frame is in, so a large
 //! frame on a slow link earns one second of grace per 256 KiB received
 //! ([`late_arrival_grace_secs`], capped at [`MAX_LATE_ARRIVAL_GRACE_SECS`]),
-//! and the replay cache remembers its nonce for that much longer.
+//! and the replay cache remembers its nonce for that much longer. The grace
+//! extends only the expiry of the per-request block — the one carrying the
+//! nonce, which the presenter appended for this frame. An expiry on the
+//! grant itself, on a delegated attenuation, or on any other block stays
+//! strict, so a presenter cannot keep a lapsed grant alive by padding its
+//! frame.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex, RwLock};
@@ -123,8 +129,10 @@ const _: () = assert!(REPLAY_GRACE_SECS >= MAX_CLOCK_SKEW_SECS);
 ///
 /// A verifier checks a token's expiry only once the whole frame carrying it
 /// has arrived, and a large input on a slow link can take longer than the
-/// token's [`REQUEST_TOKEN_TTL_SECS`] to arrive. Such a token counts as
-/// expired only once `now >= expires + grace`. The grace scales with the
+/// token's [`REQUEST_TOKEN_TTL_SECS`] to arrive. Such a token's
+/// per-request block counts as expired only once `now >= expires + grace`;
+/// every other expiry in its chain (the grant's, an attenuation's) stays
+/// strict. The grace scales with the
 /// frame and only with it: `received_frame_len` must be the length the
 /// transport actually received, never a length the presenter declares. How
 /// far ahead a token may expire is unchanged
@@ -512,7 +520,14 @@ struct Scanned {
     blocks: usize,
     issued_to: Option<PeerId>,
     capabilities: Vec<String>,
+    /// The tightest `expires` in the whole chain.
     expires: Option<i64>,
+    /// The tightest `expires` in the blocks that carry a `nonce` — the
+    /// per-request block a presenter appends ([`present_for_request`]).
+    request_expires: Option<i64>,
+    /// The tightest `expires` in every other block: the grant's, a
+    /// delegated attenuation's, any block appended without a nonce.
+    other_expires: Option<i64>,
     nonces: Vec<String>,
     bindings: Vec<String>,
     gpu_job: bool,
@@ -534,6 +549,8 @@ fn scan(biscuit: &Biscuit) -> Result<Scanned, TokenError> {
             .print_block_source(index)
             .map_err(|e| TokenError::Malformed(format!("block {index}: {e}")))?;
         let authority = index == 0;
+        let mut block_expires: Option<i64> = None;
+        let mut block_has_nonce = false;
         for raw in source.lines() {
             let line = raw.trim();
             if line.is_empty() {
@@ -555,11 +572,13 @@ fn scan(biscuit: &Biscuit) -> Result<Scanned, TokenError> {
                 }
                 (_, "expires") => {
                     let t: i64 = arg.parse().map_err(|_| unexpected())?;
-                    s.expires = Some(s.expires.map_or(t, |prev| prev.min(t)));
+                    block_expires = Some(min_of(block_expires, t));
                 }
-                (false, "nonce") => s
-                    .nonces
-                    .push(string_term(arg).ok_or_else(unexpected)?.to_owned()),
+                (false, "nonce") => {
+                    block_has_nonce = true;
+                    s.nonces
+                        .push(string_term(arg).ok_or_else(unexpected)?.to_owned());
+                }
                 (false, "request_binding") => s
                     .bindings
                     .push(string_term(arg).ok_or_else(unexpected)?.to_owned()),
@@ -570,8 +589,49 @@ fn scan(biscuit: &Biscuit) -> Result<Scanned, TokenError> {
                 _ => return Err(unexpected()),
             }
         }
+        if let Some(t) = block_expires {
+            s.expires = Some(min_of(s.expires, t));
+            let slot = if block_has_nonce {
+                &mut s.request_expires
+            } else {
+                &mut s.other_expires
+            };
+            *slot = Some(min_of(*slot, t));
+        }
     }
     Ok(s)
+}
+
+/// `t`, or the smaller of `t` and `prev`.
+fn min_of(prev: Option<i64>, t: i64) -> i64 {
+    prev.map_or(t, |p| p.min(t))
+}
+
+impl Scanned {
+    /// When the token stops being accepted, and the `expires` fact that
+    /// decides it: `(first expired second, expires)`; `None` without any
+    /// expiry.
+    ///
+    /// `late_grace` stretches only the expiry of the per-request block (the
+    /// one carrying the token's single nonce): it undoes that block's 60 s
+    /// being used up while its frame was in transit, and the presenter
+    /// wrote that block itself. Every other expiry — the grant's, a
+    /// delegated attenuation's, a block appended without a nonce — stays
+    /// strict, so padding a frame never keeps a lapsed grant alive. A chain
+    /// without exactly one nonce earns no grace at all.
+    fn acceptance_end(&self, late_grace: i64) -> Option<(i64, i64)> {
+        let grace = if self.nonces.len() == 1 {
+            late_grace
+        } else {
+            0
+        };
+        let request = self.request_expires.map(|e| (e.saturating_add(grace), e));
+        let other = self.other_expires.map(|e| (e, e));
+        match (request, other) {
+            (Some(r), Some(o)) => Some(if o.0 <= r.0 { o } else { r }),
+            (r, o) => r.or(o),
+        }
+    }
 }
 
 /// `name(arg);` → `(name, arg)`, where `name` is `[a-z_]+` and `arg` holds
@@ -594,8 +654,10 @@ fn string_term(arg: &str) -> Option<&str> {
 }
 
 /// The checks every template shares: parse under `root`, scan strictly, the
-/// holder is `holder`, `mesh.peer` is granted, not expired — where a token
-/// counts as expired once `now >= expires + late_grace` (`late_grace` is 0
+/// holder is `holder`, `mesh.peer` is granted, not expired — where the
+/// per-request block's expiry counts as passed once
+/// `now >= expires + late_grace`, and every other expiry once
+/// `now >= expires` ([`Scanned::acceptance_end`]; `late_grace` is 0
 /// everywhere but for a per-request token in a large frame:
 /// [`late_arrival_grace_secs`]).
 fn verify_chain(
@@ -619,8 +681,8 @@ fn verify_chain(
     if !scanned.capabilities.iter().any(|c| c == MESH_PEER) {
         return Err(TokenError::CapabilityNotGranted(MESH_PEER.to_owned()));
     }
-    if let Some(expires) = scanned.expires {
-        if now >= expires.saturating_add(late_grace) {
+    if let Some((until, expires)) = scanned.acceptance_end(late_grace) {
+        if now >= until {
             return Err(TokenError::Expired { expires, now });
         }
     }
@@ -795,22 +857,27 @@ pub struct RequestCheck<'a> {
 pub struct VerifiedRequest {
     /// Its nonce (to record in a [`ReplayCache`]).
     pub nonce: [u8; NONCE_LEN],
-    /// Its tightest expiry.
+    /// Its tightest expiry, over every block of the chain.
     pub expires: i64,
     /// The late-arrival grace its frame earned
-    /// ([`late_arrival_grace_secs`]): it was accepted until
+    /// ([`late_arrival_grace_secs`]). It extends only the expiry of the
+    /// per-request block, never the grant's or another block's: see
     /// [`VerifiedRequest::accepted_until`].
     pub late_grace_secs: i64,
     /// Its revocation ids (to check against the revocation set).
     pub revocation_ids: Vec<Vec<u8>>,
+    /// See [`VerifiedRequest::accepted_until`].
+    accepted_until: i64,
 }
 
 impl VerifiedRequest {
     /// The first moment (Unix seconds) at which this token, in this frame,
-    /// counts as expired: its expiry plus its late-arrival grace. A
-    /// [`ReplayCache`] must remember the nonce at least this long.
+    /// counts as expired: the per-request block's expiry plus the
+    /// late-arrival grace, or any other expiry in the chain (the grant's,
+    /// an attenuation's) if that comes first. A [`ReplayCache`] must
+    /// remember the nonce at least this long.
     pub const fn accepted_until(&self) -> i64 {
-        self.expires.saturating_add(self.late_grace_secs)
+        self.accepted_until
     }
 }
 
@@ -864,11 +931,17 @@ pub fn verify_request(
     };
 
     check_restrictions(&scanned, check.operation)?;
+    // `expires` exists, so the chain has an acceptance end; the fallback is
+    // never taken.
+    let accepted_until = scanned
+        .acceptance_end(late_grace_secs)
+        .map_or(expires, |(until, _)| until);
     Ok(VerifiedRequest {
         nonce,
         expires,
         late_grace_secs,
         revocation_ids,
+        accepted_until,
     })
 }
 
@@ -912,7 +985,8 @@ impl RevocationList for StaticRevocations {
 /// track recent nonces").
 ///
 /// **Policy.** A nonce is remembered until its token stops being accepted
-/// — its expiry plus the late-arrival grace of the frame it came in
+/// — its per-request expiry plus the late-arrival grace of the frame it
+/// came in, or an earlier strict expiry in its chain
 /// ([`VerifiedRequest::accepted_until`]) — plus [`REPLAY_GRACE_SECS`]
 /// (at least [`MAX_CLOCK_SKEW_SECS`]); after that the token itself is
 /// refused as expired, so forgetting the nonce cannot let it back in. A
@@ -974,8 +1048,8 @@ impl ReplayCache {
     }
 
     /// Record `nonce`, presented by `presenter` in a token accepted until
-    /// `accepted_until` (its expiry plus its frame's late-arrival grace:
-    /// [`VerifiedRequest::accepted_until`]), or refuse it:
+    /// `accepted_until` ([`VerifiedRequest::accepted_until`]: at most its
+    /// per-request expiry plus its frame's late-arrival grace), or refuse it:
     /// [`TokenError::Replayed`] if it is already tracked,
     /// [`TokenError::ReplayCacheFull`] if a bound is reached. The nonce is
     /// remembered until `accepted_until` + [`REPLAY_GRACE_SECS`].

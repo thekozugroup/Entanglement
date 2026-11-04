@@ -40,8 +40,9 @@
 //! token only once the whole frame is in, so a large frame earns a
 //! late-arrival grace measured on the bytes the transport received: one
 //! second per 256 KiB, at most 600 s
-//! ([`templates::late_arrival_grace_secs`]); its token is expired only once
-//! `now >= expires + grace`, and its nonce is remembered that much longer,
+//! ([`templates::late_arrival_grace_secs`]); its per-request expiry counts
+//! as passed only once `now >= expires + grace` (the grant's own expiry, if
+//! any, stays strict), and its nonce is remembered that much longer,
 //! so a replay inside the grace is still refused. A frame without a
 //! token is refused ([`RemoteErrorCode::CapabilityRequired`],
 //! `ENTANGLE-E0450`) unless `[trust] require_capability_tokens = false`, in

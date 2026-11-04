@@ -728,7 +728,9 @@ fn the_grace_stretches_only_the_per_request_expiry_never_a_grant_or_other_block(
 
     // A grant expiring in ten seconds bounds the request at its own expiry,
     // and the replay cache need hold the nonce only until then.
-    let short = mint_mesh_peer(&w.key, b.id(), Some(NOW + 10)).unwrap().bytes;
+    let short = mint_mesh_peer(&w.key, b.id(), Some(NOW + 10))
+        .unwrap()
+        .bytes;
     let presented = request(&short, &w, NOW + 59, 2, BINDING);
     let ok = at(&presented, NOW + 9).unwrap();
     assert_eq!(ok.accepted_until(), NOW + 10);
@@ -754,12 +756,7 @@ fn the_grace_stretches_only_the_per_request_expiry_never_a_grant_or_other_block(
     );
 
     // So is a block the holder appended without a nonce.
-    let own = append_raw(
-        &grant(&w, &b),
-        &w,
-        &[&format!("expires({})", NOW - 1)],
-        &[],
-    );
+    let own = append_raw(&grant(&w, &b), &w, &[&format!("expires({})", NOW - 1)], &[]);
     let presented = request(&own, &w, NOW + 59, 4, BINDING);
     assert!(matches!(
         at(&presented, NOW),
