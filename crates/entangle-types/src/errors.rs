@@ -16,7 +16,7 @@
 //! | E0600–E0629 | Agent host: adapters, MCP gateway (see `entangle-agent-host`) |
 //! | E0630–E0639 | `mesh.iroh` transport (see `entangle-mesh-iroh`) |
 //! | E0640–E0649 | `mesh.tailscale` transport (see `entangle-mesh-tailscale`) |
-//! | E0650–E0659 | Observability: metrics endpoint, OTLP export (see `entangle-observability`) |
+//! | E0650–E0659 | Observability: OTLP exporter, metrics endpoint, diag (see `entangle-observability`, `entangle-bin`); E0650 retired |
 //! | E0660–E0679 | Agent sessions and `entangle agent run` (see `entangle-agent-host`) |
 //! | E0700–E0719 | OS-sandbox engagement (see `entangle-sandbox`) |
 //! | E0720–E0739 | Native-plugin supervisor (see `entangle-sandbox`) |

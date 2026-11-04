@@ -111,7 +111,7 @@ wit-parser = "0.245"
 # Networking
 mdns-sd = "0.19"
 # HTTP server for the MCP gateway (entangle-agent-host). Already in Cargo.lock.
-hyper = { version = "1", features = ["server", "http1"] }
+hyper = { version = "1", features = ["server", "client", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
 bytes = "1"
@@ -183,7 +183,7 @@ entangle-peers = { path = "crates/entangle-peers" }
 entangle-pairing = { path = "crates/entangle-pairing" }
 entangle-biscuits = { path = "crates/entangle-biscuits" }
 entangle-scheduler = { path = "crates/entangle-scheduler" }
-entangle-observability = { path = "crates/entangle-observability" }
+entangle-observability = { path = "crates/entangle-observability", default-features = false }
 entangle-sandbox = { path = "crates/entangle-sandbox" }
 
 [profile.release]

@@ -61,6 +61,16 @@ pub enum ReputationTier {
 }
 
 impl ReputationTier {
+    /// Stable lowercase label (metric label value).
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Excluded => "excluded",
+            Self::Probation => "probation",
+            Self::Good => "good",
+            Self::Trusted => "trusted",
+        }
+    }
+
     /// The tier a `score` falls in.
     pub fn of(score: f64) -> Self {
         if score >= TRUSTED_THRESHOLD {
@@ -154,6 +164,22 @@ impl ReputationStore {
             alpha,
             records: RwLock::new(HashMap::new()),
         }
+    }
+
+    /// How many observed peers sit in each tier, per policy kind: one entry
+    /// per `(kind, tier)` with at least one peer. Peers never observed for a
+    /// kind (still at [`INITIAL_SCORE`]) are not counted.
+    pub fn tier_counts(&self) -> Vec<(PolicyKind, ReputationTier, usize)> {
+        let mut counts: std::collections::BTreeMap<(PolicyKind, ReputationTier), usize> =
+            std::collections::BTreeMap::new();
+        for ((_, kind), rec) in self.records.read().iter() {
+            *counts
+                .entry((*kind, ReputationTier::of(rec.score)))
+                .or_default() += 1;
+        }
+        let mut out: Vec<_> = counts.into_iter().map(|((k, t), n)| (k, t, n)).collect();
+        out.sort();
+        out
     }
 
     /// The peer's score for `kind` ([`INITIAL_SCORE`] if never observed).

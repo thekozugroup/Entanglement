@@ -13,6 +13,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
+entangle-observability = { workspace = true }
 entangle-types = { workspace = true }
 entangle-manifest = { workspace = true }
 entangle-peers = { workspace = true }

@@ -325,6 +325,11 @@ impl Discovery {
         self.peers.read().await.values().cloned().collect()
     }
 
+    /// Number of currently known remote peers, without cloning the table.
+    pub async fn peer_count(&self) -> usize {
+        self.peers.read().await.len()
+    }
+
     /// Unregister the mDNS service and shut down the daemon.
     ///
     /// Also aborts the browser task and clears the announcing guard so the

@@ -85,6 +85,8 @@ pub struct Broker {
     plugins: RwLock<HashMap<PluginId, PluginRecord>>,
     next_grant_id: AtomicU64,
     audit: Arc<AuditLog>,
+    /// Metrics sink; `None` until [`Broker::with_metrics`].
+    metrics: Option<entangle_observability::Registry>,
 }
 
 impl Broker {
@@ -95,7 +97,19 @@ impl Broker {
             plugins: RwLock::new(HashMap::new()),
             next_grant_id: AtomicU64::new(1),
             audit: Arc::new(AuditLog::default()),
+            metrics: None,
         }
+    }
+
+    /// Count grants, denials and biscuit verifications into `registry`.
+    ///
+    /// The `capability` label is the capability *kind* (`compute.cpu`,
+    /// `storage.local`, `storage.share`, `custom`, ...), never a share name or
+    /// custom string, so its cardinality is fixed.
+    #[must_use]
+    pub fn with_metrics(mut self, registry: entangle_observability::Registry) -> Self {
+        self.metrics = Some(registry);
+        self
     }
 
     /// Return a shared reference to the audit log.
@@ -246,6 +260,18 @@ impl Broker {
         };
 
         let capability = format_cap(requested);
+        if let Some(reg) = &self.metrics {
+            match granted {
+                Some(_) => {
+                    entangle_observability::catalog::capability_grant(reg, cap_kind(requested))
+                }
+                None => entangle_observability::catalog::capability_denial(
+                    reg,
+                    cap_kind(requested),
+                    "not_declared",
+                ),
+            }
+        }
         match granted {
             None => {
                 self.audit.record(AuditEvent::CapabilityDenied {
@@ -321,6 +347,39 @@ impl Broker {
         local_peer_id: PeerId,
         cross_node_policy: &CrossNodePolicy,
     ) -> Result<GrantedCapability, BrokerError> {
+        let started = std::time::Instant::now();
+        let result =
+            self.verify_biscuit(requested, biscuit_bytes, local_peer_id, cross_node_policy);
+        if let Some(reg) = &self.metrics {
+            entangle_observability::catalog::biscuit_verification(
+                reg,
+                result.is_ok(),
+                started.elapsed().as_secs_f64(),
+            );
+            if result.is_err() {
+                entangle_observability::catalog::capability_denial(
+                    reg,
+                    cap_kind(requested),
+                    "biscuit_invalid",
+                );
+            }
+        }
+        result?;
+
+        // 3. Biscuit is valid — ALSO enforce manifest deny-by-default.
+        //    A biscuit grants are never a bypass for the manifest layer.
+        self.grant(plugin, requested)
+    }
+
+    /// Steps 1 and 2 of [`Broker::grant_with_biscuit`]: signature, expiry,
+    /// peer binding and capability surface.
+    fn verify_biscuit(
+        &self,
+        requested: &CapabilityKind,
+        biscuit_bytes: &[u8],
+        local_peer_id: PeerId,
+        cross_node_policy: &CrossNodePolicy,
+    ) -> Result<(), BrokerError> {
         // 1. Try every trust root until one accepts the biscuit.
         let mut last_err: Option<String> = None;
         let biscuit = cross_node_policy
@@ -350,10 +409,7 @@ impl Broker {
             &cap_str,
         )
         .map_err(|e| BrokerError::BiscuitVerify(e.to_string()))?;
-
-        // 3. Biscuit is valid — ALSO enforce manifest deny-by-default.
-        //    A biscuit grants are never a bypass for the manifest layer.
-        self.grant(plugin, requested)
+        Ok(())
     }
 
     /// Return all outstanding grants for a plugin.
@@ -391,6 +447,24 @@ fn now_secs() -> u64 {
 /// fieldless variants, whose names are compile-time constants — a grant of
 /// `compute.cpu` should not have to heap-allocate its own name. Only the
 /// parameterised variants actually build a string.
+/// The fixed-cardinality metric label for a capability kind.
+fn cap_kind(c: &CapabilityKind) -> &'static str {
+    use CapabilityKind::*;
+    match c {
+        ComputeCpu => "compute.cpu",
+        ComputeGpu => "compute.gpu",
+        ComputeNpu => "compute.npu",
+        StorageLocal { .. } => "storage.local",
+        StorageShare { .. } => "storage.share",
+        NetLan => "net.lan",
+        NetWan => "net.wan",
+        MeshPeer => "mesh.peer",
+        AgentInvoke => "agent.invoke",
+        HostDockerSocket => "host.docker-socket",
+        Custom(_) => "custom",
+    }
+}
+
 fn format_cap(c: &CapabilityKind) -> Cow<'static, str> {
     use CapabilityKind::*;
     match c {

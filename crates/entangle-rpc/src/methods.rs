@@ -215,6 +215,114 @@ pub struct ComputeReplica {
     pub output_bytes: Option<u64>,
 }
 
+// ── metrics/export + diag/mesh types ─────────────────────────────────────────
+
+/// Result of the `metrics/export` RPC method.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MetricsExportResult {
+    /// The daemon's metrics in the Prometheus text format (version 0.0.4),
+    /// exactly what `GET /metrics` serves.
+    pub text: String,
+}
+
+/// Parameters for the `diag/mesh` RPC method.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct DiagMeshParams {
+    /// Measure a round trip to every trusted peer on every path that supports
+    /// it.
+    #[serde(default)]
+    pub probe: bool,
+    /// Per-peer probe timeout in milliseconds (clamped by the daemon).
+    #[serde(default)]
+    pub probe_timeout_ms: u64,
+}
+
+/// One address this node is reachable at.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiagEndpoint {
+    /// Transport name: `mdns`, `iroh`, `tailscale` or `metrics`.
+    pub transport: String,
+    /// The `ip:port` (or long address) peers can use.
+    pub address: String,
+}
+
+/// The `mesh.tailscale` liveness state, as the daemon last confirmed it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiagTailscale {
+    /// `active`, `stopped`, `uninstalled` or `unknown` (not yet polled).
+    pub state: String,
+    /// Why the tailnet is stopped (e.g. `NeedsLogin`), if known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// Seconds since the last confirmed transition.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since_secs: Option<u64>,
+    /// Confirmed transitions so far.
+    #[serde(default)]
+    pub transitions: u64,
+    /// Peers currently reachable through the tailnet.
+    #[serde(default)]
+    pub candidates: usize,
+}
+
+/// One way a peer can currently be reached.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagPath {
+    /// `mdns` (sighting), `iroh` (address book) or `tailscale` (candidate).
+    pub transport: String,
+    /// Address, when the path has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+    /// Human-readable detail (`last seen 3s ago`, ...).
+    #[serde(default)]
+    pub detail: String,
+    /// Measured round trip in milliseconds (only with `probe`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rtt_ms: Option<f64>,
+    /// Why the probe failed (only with `probe`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probe_error: Option<String>,
+}
+
+/// A trusted peer and every path it is reachable on.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagPeer {
+    /// Peer id (hex).
+    pub peer_id: String,
+    /// Display name from the peer store.
+    pub display_name: String,
+    /// Trust level label from the peer store.
+    pub trust: String,
+    /// Known paths; empty means no transport currently knows how to reach it.
+    pub paths: Vec<DiagPath>,
+}
+
+/// Result of the `diag/mesh` RPC method.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagMeshResult {
+    /// This node's peer id (hex).
+    pub local_peer_id: String,
+    /// This node's display name.
+    pub local_display_name: String,
+    /// `[mesh] transports` as configured.
+    pub transports_configured: Vec<String>,
+    /// Transports that actually started.
+    pub transports_active: Vec<String>,
+    /// Local endpoint addresses.
+    pub endpoints: Vec<DiagEndpoint>,
+    /// Tailnet liveness; absent when `mesh.tailscale` is not running.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tailscale: Option<DiagTailscale>,
+    /// Trusted (non-revoked) peers.
+    pub peers: Vec<DiagPeer>,
+    /// mDNS sightings of peers that are *not* trusted.
+    #[serde(default)]
+    pub untrusted_sightings: usize,
+    /// Whether `probe` was requested.
+    #[serde(default)]
+    pub probed: bool,
+}
+
 /// Method name constants — kept in sync between client and server.
 pub mod method {
     /// `version` — return daemon / runtime / types version strings.
@@ -244,6 +352,10 @@ pub mod method {
     /// `security/cancel-max-tier` — record that the operator cancelled a
     /// ceiling lowering (`ENTANGLE-I0216`).
     pub const SECURITY_CANCEL_MAX_TIER: &str = "security/cancel-max-tier";
+    /// `metrics/export` — the Prometheus exposition of the daemon's registry.
+    pub const METRICS_EXPORT: &str = "metrics/export";
+    /// `diag/mesh` — mesh triage report (transports, endpoints, peer paths).
+    pub const DIAG_MESH: &str = "diag/mesh";
 }
 
 /// Parameters of `security/plan-max-tier` and `security/cancel-max-tier`.

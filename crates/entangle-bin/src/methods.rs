@@ -14,17 +14,27 @@
 //! - `mesh/peers`   → sighted peers overlaid with the PeerStore (`trusted` comes
 //!   only from the store, never from an unauthenticated sighting)
 //! - `mesh/status`  → local_peer_id (identity-derived), display_name, real transport list, counts
+//! - `metrics/export` → `{ "text": "<Prometheus exposition>" }` (what `GET /metrics` serves)
+//! - `diag/mesh`    → mesh triage report, optionally with per-peer round-trip probes
+//! - `security/plan-max-tier` → params `MaxTierParams` → `MaxTierPlan` (dry run)
+//! - `security/apply-max-tier` → params `MaxTierApplyParams` → `MaxTierApplied`
+//! - `security/cancel-max-tier` → params `MaxTierParams` → null
+//!
+//! Every request is counted in `entangle_rpc_requests_total{method,outcome}`
+//! and timed in `entangle_rpc_request_duration_seconds{method}`; the `method`
+//! label is normalised to the implemented set, so clients cannot mint labels.
 
 use crate::state::DaemonState;
 use entangle_rpc::methods::{
     method, AffectedPlugin, ComputeDispatchParams, ComputeDispatchResult, ComputeIntegrity,
-    MaxTierApplied, MaxTierApplyParams, MaxTierParams, MaxTierPlan, MeshStatusResult,
-    PluginsInvokeParams, PluginsInvokeResult, PluginsListResult, PluginsLoadParams,
-    PluginsLoadResult, PluginsUnloadParams,
+    DiagMeshParams, MaxTierApplied, MaxTierApplyParams, MaxTierParams, MaxTierPlan,
+    MeshStatusResult, MetricsExportResult, PluginsInvokeParams, PluginsInvokeResult,
+    PluginsListResult, PluginsLoadParams, PluginsLoadResult, PluginsUnloadParams,
 };
 use entangle_runtime::MaxTierRefusal;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::Instrument as _;
 
 /// Upper bound (5 minutes) applied to any client-supplied `timeout_ms` before
 /// it reaches the kernel. Client input is untrusted: without a clamp a caller
@@ -90,22 +100,69 @@ fn ok_resp<T: Serialize>(id: serde_json::Value, result: T) -> String {
 /// Parse `line` as a JSON-RPC 2.0 request, dispatch to the appropriate handler,
 /// and return a serialized JSON-RPC 2.0 response string.
 pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
+    let started = std::time::Instant::now();
+    let record = |method: &str, resp: &str, id_json: &str| {
+        entangle_observability::catalog::rpc_request(
+            &state.metrics,
+            method,
+            !is_error_response(resp, id_json),
+            started.elapsed().as_secs_f64(),
+        );
+    };
+
     // -32700: Parse error
     let req: Req = match serde_json::from_str(line) {
         Ok(r) => r,
         Err(e) => {
             tracing::debug!(error = %e, "JSON parse error");
-            return error_resp(serde_json::Value::Null, -32700, format!("parse error: {e}"));
+            let resp = error_resp(serde_json::Value::Null, -32700, format!("parse error: {e}"));
+            record("unknown", &resp, "null");
+            return resp;
         }
     };
+    let id_json = serde_json::to_string(&req.id).unwrap_or_default();
 
     // -32600: Invalid Request (jsonrpc field must be "2.0")
     if req.jsonrpc != "2.0" {
-        return error_resp(req.id, -32600, "invalid request: jsonrpc must be \"2.0\"");
+        let resp = error_resp(req.id, -32600, "invalid request: jsonrpc must be \"2.0\"");
+        record("unknown", &resp, &id_json);
+        return resp;
     }
 
     tracing::debug!(method = %req.method, "RPC dispatch");
+    let method_name = req.method.clone();
+    // The span's `method` is normalised like the metric label, so a client
+    // cannot inject arbitrary text into traces either.
+    let known = entangle_observability::catalog::RPC_METHODS.contains(&method_name.as_str());
+    let span = tracing::info_span!(
+        "rpc.request",
+        otel.kind = "server",
+        method = if known {
+            method_name.as_str()
+        } else {
+            "unknown"
+        },
+    );
+    let resp = route(req, state).instrument(span).await;
+    record(&method_name, &resp, &id_json);
+    resp
+}
 
+/// `true` when `resp` (a response this module built for a request whose id
+/// serialises to `id_json`) is a JSON-RPC error.
+///
+/// Responses are serialised as `{"jsonrpc":"2.0","id":<id>,` followed by
+/// `"result"` or `"error"`, so the discriminating key sits right after the id
+/// prefix we know exactly; nothing inside a result can be mistaken for it.
+fn is_error_response(resp: &str, id_json: &str) -> bool {
+    let prefix = format!(r#"{{"jsonrpc":"2.0","id":{id_json},"#);
+    resp.strip_prefix(&prefix)
+        .is_some_and(|rest| rest.starts_with(r#""error":"#))
+        // A response that does not have our shape (serialisation fallback).
+        || !resp.starts_with(&prefix)
+}
+
+async fn route(req: Req, state: &Arc<DaemonState>) -> String {
     match req.method.as_str() {
         m if m == method::VERSION => handle_version(req.id),
         m if m == method::TIME => handle_time(req.id),
@@ -125,6 +182,13 @@ pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
         m if m == method::SECURITY_CANCEL_MAX_TIER => {
             handle_security_cancel(req.id, req.params, state)
         }
+        m if m == method::METRICS_EXPORT => ok_resp(
+            req.id,
+            MetricsExportResult {
+                text: state.metrics.render(),
+            },
+        ),
+        m if m == method::DIAG_MESH => handle_diag_mesh(req.id, req.params, state).await,
         _ => error_resp(req.id, -32601, format!("method not found: {}", req.method)),
     }
 }
@@ -540,6 +604,31 @@ pub(crate) fn compute_result(result: entangle_scheduler::DispatchResult) -> Comp
             .collect(),
         pair_agreement: result.pair_agreement,
     }
+}
+
+// ── diag/mesh ─────────────────────────────────────────────────────────────────
+
+async fn handle_diag_mesh(
+    id: serde_json::Value,
+    params: serde_json::Value,
+    state: &Arc<DaemonState>,
+) -> String {
+    // `null` (no params) means "no probe".
+    let p: DiagMeshParams = if params.is_null() {
+        DiagMeshParams::default()
+    } else {
+        match serde_json::from_value(params) {
+            Ok(v) => v,
+            Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
+        }
+    };
+    let report = crate::diag::mesh_report(
+        state,
+        p.probe,
+        std::time::Duration::from_millis(p.probe_timeout_ms),
+    )
+    .await;
+    ok_resp(id, report)
 }
 
 // ── mesh/peers ────────────────────────────────────────────────────────────────

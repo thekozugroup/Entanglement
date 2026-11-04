@@ -68,6 +68,7 @@ use entangle_types::plugin_id::PluginId;
 use entangle_types::resource::ResourceSpec;
 use entangle_types::task::{IntegrityPolicy, OneShotTask, TaskId};
 use parking_lot::{Mutex, RwLock};
+use tracing::Instrument as _;
 
 use crate::dispatcher::DispatchError;
 use crate::wire::{
@@ -144,6 +145,10 @@ pub struct RemoteDispatch {
     transport: DynMeshTransport,
     addresses: Arc<dyn PeerAddressBook>,
     overhead: Duration,
+    /// Peers that answered a frame carrying a `traceparent` extension with
+    /// `MalformedRequest` (a pre-extension build): we stop attaching it for
+    /// them.
+    no_trace_extension: Arc<Mutex<HashSet<PeerId>>>,
 }
 
 impl std::fmt::Debug for RemoteDispatch {
@@ -168,6 +173,7 @@ impl RemoteDispatch {
             transport,
             addresses,
             overhead: DEFAULT_REMOTE_OVERHEAD,
+            no_trace_extension: Arc::default(),
         }
     }
 
@@ -224,10 +230,15 @@ impl RemoteDispatch {
         peer: PeerId,
         envelope: &PolicyEnvelope,
     ) -> Result<RemoteReplica, DispatchError> {
-        let request = RemoteRequest::task(RemoteTaskRequest::sealed(task, envelope));
-        let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
+        let span = tracing::info_span!(
+            "remote.dispatch",
+            otel.kind = "client",
+            peer = %peer,
+            plugin = %task.plugin,
+        );
         let response = self
-            .round_trip(peer, &request, budget, task.max_output_bytes)
+            .dispatch_traced(task, peer, envelope)
+            .instrument(span)
             .await?;
         match response.outcome {
             RemoteOutcome::Ok {
@@ -247,6 +258,52 @@ impl RemoteDispatch {
                 message,
             }),
         }
+    }
+
+    /// Send the task frame, carrying the current span's `traceparent` when a
+    /// trace is being recorded and the peer is known to accept it.
+    ///
+    /// A peer built before the extension existed rejects such a frame as
+    /// malformed; that one answer makes us resend the identical task without
+    /// it and remember not to attach it for that peer again. (The rejected
+    /// frame was refused at decode time, so nothing ran.)
+    async fn dispatch_traced(
+        &self,
+        task: &OneShotTask,
+        peer: PeerId,
+        envelope: &PolicyEnvelope,
+    ) -> Result<RemoteTaskResponse, DispatchError> {
+        let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
+        let traceparent = if self.no_trace_extension.lock().contains(&peer) {
+            None
+        } else {
+            entangle_observability::context::current_traceparent()
+        };
+        let body = RemoteTaskRequest::sealed(task, envelope);
+        let request = RemoteRequest::task(body.clone().with_traceparent(traceparent.clone()));
+        let response = self
+            .round_trip(peer, &request, budget, task.max_output_bytes)
+            .await?;
+        let rejected_extension = traceparent.is_some()
+            && matches!(
+                response.outcome,
+                RemoteOutcome::Err {
+                    code: RemoteErrorCode::MalformedRequest,
+                    ..
+                }
+            );
+        if !rejected_extension {
+            return Ok(response);
+        }
+        tracing::debug!(%peer, "peer rejected the traceparent extension; resending without it");
+        self.no_trace_extension.lock().insert(peer);
+        self.round_trip(
+            peer,
+            &RemoteRequest::task(body),
+            budget,
+            task.max_output_bytes,
+        )
+        .await
     }
 
     /// Send a control frame about one of this node's in-flight tasks on
@@ -330,7 +387,32 @@ impl RemoteDispatch {
             )
         };
 
-        let raw = match tokio::time::timeout(budget, self.transport.request(&addr, &frame)).await {
+        // The transport call runs on its own task so that it does not inherit
+        // the caller's tracing span: the transport (iroh) creates long-lived
+        // connection tasks and spans while dialling, and a child span that
+        // outlives the request would keep this request's span — and every
+        // ancestor — open, delaying its export until the connection ends.
+        // The task is still owned by this call: it is aborted when the budget
+        // runs out *and* when this future is dropped (a cancelled dispatch),
+        // exactly as an inline `await` would have been.
+        let io = {
+            let transport = Arc::clone(&self.transport);
+            let (addr, frame) = (addr.clone(), frame.clone());
+            AbortOnDrop(tokio::spawn(async move {
+                transport.request(&addr, &frame).await
+            }))
+        };
+        let answer = match tokio::time::timeout(budget, io).await {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(join)) => {
+                return Err(DispatchError::RemoteTransport {
+                    peer,
+                    reason: format!("transport task failed: {join}"),
+                })
+            }
+            Err(elapsed) => Err(elapsed),
+        };
+        let raw = match answer {
             Ok(Ok(bytes)) => bytes,
             Ok(Err(e)) => {
                 // A frame-cap refusal is about the answer only when our own
@@ -373,6 +455,29 @@ impl RemoteDispatch {
                 reason: other.to_string(),
             },
         })
+    }
+}
+
+/// A spawned task that is aborted when this handle is dropped, so the task
+/// cannot outlive the future that awaits it. (A plain `JoinHandle` detaches
+/// its task on drop.)
+struct AbortOnDrop<T>(tokio::task::JoinHandle<T>);
+
+impl<T> Drop for AbortOnDrop<T> {
+    fn drop(&mut self) {
+        // A no-op once the task has finished.
+        self.0.abort();
+    }
+}
+
+impl<T> std::future::Future for AbortOnDrop<T> {
+    type Output = Result<T, tokio::task::JoinError>;
+
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        std::pin::Pin::new(&mut self.0).poll(cx)
     }
 }
 
@@ -469,6 +574,8 @@ pub struct RemoteTaskServer {
     max_input_bytes: u64,
     max_output_bytes: u64,
     in_flight: InFlight,
+    /// Metrics sink; `None` until [`RemoteTaskServer::with_metrics`].
+    metrics: Option<entangle_observability::Registry>,
 }
 
 impl std::fmt::Debug for RemoteTaskServer {
@@ -499,7 +606,17 @@ impl RemoteTaskServer {
             max_input_bytes: OneShotTask::DEFAULT_MAX_INPUT_BYTES,
             max_output_bytes: OneShotTask::DEFAULT_MAX_OUTPUT_BYTES,
             in_flight: Arc::new(Mutex::new(HashMap::new())),
+            metrics: None,
         }
+    }
+
+    /// Count every answered frame by outcome into `registry`
+    /// (`entangle_remote_serve_total`; outcomes: `ok`, `ack`, or a
+    /// [`RemoteErrorCode`] label).
+    #[must_use]
+    pub fn with_metrics(mut self, registry: entangle_observability::Registry) -> Self {
+        self.metrics = Some(registry);
+        self
     }
 
     /// The policy hash of `caller`'s task `task_id`, if it is executing here
@@ -568,6 +685,14 @@ impl RemoteTaskServer {
     /// [`RemoteOutcome::Err`].
     pub async fn handle(&self, from: PeerId, payload: Vec<u8>) -> Vec<u8> {
         let response = self.respond(from, payload).await;
+        if let Some(reg) = &self.metrics {
+            let outcome = match &response.outcome {
+                RemoteOutcome::Ok { .. } => "ok",
+                RemoteOutcome::Ack { .. } => "ack",
+                RemoteOutcome::Err { code, .. } => code.as_str(),
+            };
+            entangle_observability::catalog::remote_serve(reg, outcome);
+        }
         encode_response(&response).unwrap_or_else(|e| {
             // The only realistic cause is an output that fits the task's
             // limits but not a single frame. Answer with an error that does
@@ -621,8 +746,25 @@ impl RemoteTaskServer {
         }
     }
 
-    /// Execute one task frame — exactly once — for `from`.
+    /// Execute one task frame — exactly once — for `from`, inside a span that
+    /// continues the submitter's trace when the frame carried a valid
+    /// `traceparent`. The `traceparent` only picks the trace; it grants
+    /// nothing (the allowlist check already ran, on the transport-authenticated
+    /// identity).
     async fn run_task(&self, from: PeerId, request: RemoteTaskRequest) -> RemoteTaskResponse {
+        let span = tracing::info_span!(
+            "remote.task.execute",
+            otel.kind = "server",
+            peer = %from,
+            plugin = %request.plugin,
+        );
+        if let Some(tp) = request.traceparent.as_deref() {
+            entangle_observability::context::set_remote_parent(&span, tp);
+        }
+        self.run_task_inner(from, request).instrument(span).await
+    }
+
+    async fn run_task_inner(&self, from: PeerId, request: RemoteTaskRequest) -> RemoteTaskResponse {
         // The caller's own declared ceiling was already enforced by
         // `decode_request`; this is *this node's* ceiling, which the caller
         // cannot raise.
@@ -974,6 +1116,93 @@ mod tests {
             matches!(err, DispatchError::RemoteTransport { .. }),
             "{err:?}"
         );
+    }
+
+    /// Sends on its channel when dropped.
+    struct SignalOnDrop(Option<tokio::sync::oneshot::Sender<()>>);
+
+    impl Drop for SignalOnDrop {
+        fn drop(&mut self) {
+            if let Some(tx) = self.0.take() {
+                let _ = tx.send(());
+            }
+        }
+    }
+
+    /// A transport whose requests never answer. It reports when a request
+    /// starts and when that request's future is dropped (cancelled).
+    struct Hanging {
+        started: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+        dropped: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    }
+
+    impl std::fmt::Debug for Hanging {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("Hanging")
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl MeshTransport for Hanging {
+        fn local_peer_id(&self) -> PeerId {
+            peer(0)
+        }
+        fn local_public_key(&self) -> [u8; 32] {
+            [0; 32]
+        }
+        fn local_addrs(&self) -> Vec<std::net::SocketAddr> {
+            Vec::new()
+        }
+        async fn connect(&self, _peer: &IrohPeer) -> Result<MeshConn, MeshIrohError> {
+            Err(MeshIrohError::Stream(
+                "hanging transport does not dial".into(),
+            ))
+        }
+        async fn request(
+            &self,
+            _peer: &IrohPeer,
+            _payload: &[u8],
+        ) -> Result<Vec<u8>, MeshIrohError> {
+            let _cancelled = SignalOnDrop(self.dropped.lock().take());
+            if let Some(tx) = self.started.lock().take() {
+                let _ = tx.send(());
+            }
+            std::future::pending().await
+        }
+        async fn accept(&self) -> Result<Option<MeshConn>, MeshIrohError> {
+            Ok(None)
+        }
+        async fn shutdown(&self) {}
+    }
+
+    /// Dropping a dispatch (the RPC caller went away, an outer timeout
+    /// fired) cancels its transport request, as awaiting the request inline
+    /// did; it must not leave the request running detached until the peer
+    /// answers.
+    #[tokio::test]
+    async fn dropping_a_dispatch_cancels_its_transport_request() {
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (dropped_tx, dropped_rx) = tokio::sync::oneshot::channel();
+        let transport = Hanging {
+            started: Mutex::new(Some(started_tx)),
+            dropped: Mutex::new(Some(dropped_tx)),
+        };
+        let target = IrohPeer::new([7u8; 32], "127.0.0.1:9".parse().expect("addr"));
+        let directory = PeerDirectory::new();
+        directory.insert(target.clone());
+        let client = RemoteDispatch::new(Arc::new(transport), Arc::new(directory));
+        let (task, env) = small_task();
+        let mut dispatch =
+            Box::pin(async move { client.dispatch_sealed(&task, target.peer_id, &env).await });
+        tokio::select! {
+            r = &mut dispatch => panic!("a hanging transport cannot answer: {r:?}"),
+            r = started_rx => r.expect("the transport request started"),
+        }
+        drop(dispatch);
+        tokio::time::timeout(Duration::from_secs(5), dropped_rx)
+            .await
+            .expect("dropping the dispatch must cancel its transport request")
+            .expect("the request future signalled its drop");
     }
 
     #[test]

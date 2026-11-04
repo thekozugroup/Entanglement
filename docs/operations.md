@@ -116,10 +116,20 @@ max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
 allow_unsandboxed_native = false   # default: false
 
 [wrappers]
-install = false            # written by `entangle wrapper enable|disable` (§14)
+install = false            # written by `entangle wrapper enable|disable` (§15)
 
 [plugins]
-disabled = []              # written by a `max_tier_allowed` lowering (§15)
+disabled = []              # written by a `max_tier_allowed` lowering (§16)
+
+[metrics]                  # daemon-only; see §14
+enabled = false            # default: false
+listen = "127.0.0.1:9464"  # default
+allow_non_loopback = false # default: false
+
+[telemetry.otlp]           # daemon-only; see §14
+enabled = false            # default: false
+endpoint = "http://localhost:4318"
+service_name = "entangled"
 ```
 
 | Section | Key | Type | Default | Meaning |
@@ -127,10 +137,12 @@ disabled = []              # written by a `max_tier_allowed` lowering (§15)
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
 | `[mesh]` | `transports` | array of strings | `[]` | Active mesh transport backends. Phase 1 supports only `"local"` (mDNS on `_entangle._udp.local`). Listing `"iroh"`/`"tailscale"` here does not activate them — those crates are Phase-2 scaffolds. |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
+| `[metrics]` | `enabled`, `listen`, `allow_non_loopback` | bool, `ip:port`, bool | `false`, `127.0.0.1:9464`, `false` | Prometheus scrape endpoint (§14). A non-loopback `listen` is refused (`ENTANGLE-E0656`) unless `allow_non_loopback = true`. |
+| `[telemetry.otlp]` | `enabled`, `endpoint`, `service_name` | bool, URL, string | `false`, `http://localhost:4318`, `entangled` | OTLP/HTTP trace export (§14). `endpoint` must be `http://`; `4318` is OTLP/HTTP (`4317` is gRPC, which is not spoken). |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
 | `[security]` | `allow_unsandboxed_native` | bool | `false` | Run native (tier 4–5) plugins on a host that has **no** OS sandbox primitive. Off: such plugins are refused with `ENTANGLE-E0700`. No effect on hosts that have one — the sandbox is then always engaged. See §12. |
-| `[wrappers]` | `install` | bool | `false` | Opt-in record for the shell shim. `entangle wrapper enable` sets `true`, `disable` sets `false`; setting `false` by hand silences an installed shim at once (it checks this key whenever an agent host is launched outside a session). The daemon ignores it. See §14. |
-| `[plugins]` | `disabled` | array of strings | `[]` | Plugin ids unloaded by a tier-ceiling lowering. See §15 for what honours it today. |
+| `[wrappers]` | `install` | bool | `false` | Opt-in record for the shell shim. `entangle wrapper enable` sets `true`, `disable` sets `false`; setting `false` by hand silences an installed shim at once (it checks this key whenever an agent host is launched outside a session). The daemon ignores it. See §15. |
+| `[plugins]` | `disabled` | array of strings | `[]` | Plugin ids unloaded by a tier-ceiling lowering. See §16 for what honours it today. |
 
 Notes:
 
@@ -285,7 +297,7 @@ canonical range table, maintained in
 | E0700–E0719 | OS-sandbox engagement (`entangle-sandbox`) — see §12 |
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
-| E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §14, §15 |
+| E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
 
@@ -304,19 +316,20 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0420`–`E0425` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch (E0420–E0424); E0425 is a relay whose cumulative `total_bytes_cap` budget is exhausted. |
 | `ENTANGLE-E0620`–`E0624`, `E0660`–`E0670` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
 | `ENTANGLE-E0630`, `E0640` | Retired `NotImplemented` codes for `mesh.iroh` and `mesh.tailscale`; both transports are implemented. |
-| `ENTANGLE-E0650` | OpenTelemetry export not implemented yet. |
-| `ENTANGLE-E0750` | Daemon refused `security/apply-max-tier`: the new ceiling would unload plugins and the caller did not authorise unloading (§15). |
-| `ENTANGLE-E0751` | A shell rc file has a damaged or duplicated wrapper block; run `entangle wrapper repair` (§14). |
-| `ENTANGLE-E0752` | `max_tier_allowed` outside 1..=5 (argument or `config.toml`) (§15). |
-| `ENTANGLE-E0753` | Lowering `max_tier_allowed` over loaded plugins refused: no terminal and no `--force-unload` (§15). |
+| `ENTANGLE-E0651`–`E0654` | OTLP trace export: invalid `[telemetry.otlp]` endpoint (E0651; `https://` is not supported), empty `service_name` (E0652), an out-of-range exporter setting (E0653), the export thread could not start (E0654). `E0650` is retired. See §14. |
+| `ENTANGLE-E0655`–`E0657` | Metrics endpoint: `[metrics] listen` is not an `ip:port` (E0655), a non-loopback `listen` without `allow_non_loopback = true` (E0656), the socket could not be bound (E0657). See §14. |
+| `ENTANGLE-E0750` | Daemon refused `security/apply-max-tier`: the new ceiling would unload plugins and the caller did not authorise unloading (§16). |
+| `ENTANGLE-E0751` | A shell rc file has a damaged or duplicated wrapper block; run `entangle wrapper repair` (§15). |
+| `ENTANGLE-E0752` | `max_tier_allowed` outside 1..=5 (argument or `config.toml`) (§16). |
+| `ENTANGLE-E0753` | Lowering `max_tier_allowed` over loaded plugins refused: no terminal and no `--force-unload` (§16). |
 | `ENTANGLE-E0754` | `config.toml` could not be edited (not valid TOML, or a section has the wrong shape). |
-| `ENTANGLE-E0756` | A shell rc file could not be read or written (or `$HOME` is unset, or the file is not UTF-8) (§14). |
-| `ENTANGLE-E0757` | `entangle wrapper repair` while wrappers are not enabled (§14). |
-| `ENTANGLE-E0758` | Daemon refused `security/apply-max-tier`: a plugin above the new ceiling was not on the list the operator confirmed (loaded while the prompt waited); nothing changed, re-run to see the current list (§15). |
-| `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§15). |
-| `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§15). |
-| `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§15). |
-| `ENTANGLE-I0217` | **Info (audit).** `max_tier_allowed` was raised (spec §9.4.1: raising is an audited operation) (§15). |
+| `ENTANGLE-E0756` | A shell rc file could not be read or written (or `$HOME` is unset, or the file is not UTF-8) (§15). |
+| `ENTANGLE-E0757` | `entangle wrapper repair` while wrappers are not enabled (§15). |
+| `ENTANGLE-E0758` | Daemon refused `security/apply-max-tier`: a plugin above the new ceiling was not on the list the operator confirmed (loaded while the prompt waited); nothing changed, re-run to see the current list (§16). |
+| `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§16). |
+| `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§16). |
+| `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§16). |
+| `ENTANGLE-I0217` | **Info (audit).** `max_tier_allowed` was raised (spec §9.4.1: raising is an audited operation) (§16). |
 
 If you hit a code not listed above, the fastest way to find its exact meaning
 and the crate that owns it is:
@@ -735,7 +748,188 @@ trusted as a publisher on that machine).
 
 ---
 
-## 14. Shell wrappers: warning when an agent host runs outside Entanglement
+## 14. Observability: metrics, tracing, `entangle diag mesh`
+
+Everything here is **off by default** and costs nothing until enabled. The
+daemon owns one metrics registry, which the kernel, broker, scheduler and
+mesh code record into; the scrape endpoint and `entangle metrics` both render
+it.
+
+### 14a. Metrics
+
+```toml
+[metrics]
+enabled = true
+listen = "127.0.0.1:9464"
+# allow_non_loopback = true   # only to expose it deliberately
+```
+
+`GET /metrics` returns the Prometheus text format 0.0.4
+(`Content-Type: text/plain; version=0.0.4; charset=utf-8`). `HEAD /metrics` is
+allowed, any other method on it is `405`, any other path is `404`.
+
+The endpoint has **no authentication**. It therefore refuses to start on a
+non-loopback address unless `allow_non_loopback = true`
+(`ENTANGLE-E0656`); if you do open it, firewall it. It serves one request per
+connection, gives clients 5 s to send their request head and 15 s in total,
+and serves at most 32 connections at once (extras are closed).
+`listen` must be an IP literal and port (`localhost` is not accepted).
+
+`entangle metrics` prints the same text by asking the running daemon over the
+RPC socket, so it works with `[metrics] enabled = false`. If the daemon is not
+running it fails with `daemon not running at ~/.entangle/sock`.
+
+Prometheus scrape job:
+
+```yaml
+scrape_configs:
+  - job_name: entangled
+    static_configs: [{ targets: ["127.0.0.1:9464"] }]
+```
+
+#### Metric catalogue
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `entangle_plugin_invocations_total` | counter | `plugin`, `outcome` (`ok`/`error`) | Plugin invocations through the kernel. Calls for an id that is not loaded count under `plugin="unknown"`. |
+| `entangle_plugin_invocation_duration_seconds` | histogram | `plugin` | Wall-clock duration of each invocation. |
+| `entangle_plugin_errors_total` | counter | `plugin`, `class` | Failed invocations by error-code class: `E05xx` is `ENTANGLE-E05..`, `none` if the error carries no code. |
+| `entangle_plugins_loaded` | gauge | — | Plugins currently loaded. |
+| `entangle_plugin_uptime_seconds` | gauge | `plugin` | Seconds since each loaded plugin was loaded (series vanish on unload). |
+| `entangle_capability_grants_total` | counter | `capability` | Broker grants. Emitted by `Broker::grant`; plugin `capability.fetch` is not yet routed through the broker, so a plugin call does not move this series yet. |
+| `entangle_capability_denials_total` | counter | `capability`, `reason` (`not_declared`, `biscuit_invalid`) | Broker denials (same caveat as grants). |
+| `entangle_biscuit_verification_seconds` | histogram | `outcome` (`ok`/`denied`) | Latency of cross-node biscuit verification. |
+| `entangle_rpc_requests_total` | counter | `method`, `outcome` (`ok`/`error`) | RPC requests. |
+| `entangle_rpc_request_duration_seconds` | histogram | `method` | RPC handling time. |
+| `entangle_remote_dispatch_total` | counter | `outcome` | Tasks this node sent to a peer: `ok`, `transport_error`, `output_too_large`, `error`, or `rejected_<code>` for a peer's refusal (`rejected_not_authorized`, `rejected_plugin_not_loaded`, ...). |
+| `entangle_remote_serve_total` | counter | `outcome` | Frames this node answered for peers: `ok`, `ack`, or the refusal code (`not-authorized`, `plugin-not-loaded`, ...). |
+| `entangle_integrity_verdicts_total` | counter | `policy`, `outcome` | One per `compute/dispatch`: `policy` is `none`, `deterministic`, `semantic-equivalent`, `trusted-executor` or `attested`; `outcome` is `accepted`, `rejected` (integrity refusal), `output_size_exceeded` or `failed` (placement/transport/execution). |
+| `entangle_integrity_output_size_exceeded_total` | counter | — | Replica outputs over `max_output_bytes` (the `OutputSizeExceededWarning` events, `ENTANGLE-E0300`). |
+| `entangle_reputation_peers` | gauge | `policy`, `tier` (`trusted`/`good`/`probation`/`excluded`) | How many observed peers sit in each reputation tier. |
+| `entangle_mesh_peers` | gauge | `state` (`trusted`, `observer`, `revoked`, `sighted`) | Peer-store (one per trust level) and mDNS counts. `sighted` is unauthenticated and exists only with `mesh.local`. |
+| `entangle_scheduler_inflight_tasks` | gauge | — | Tasks inside the dispatcher right now. The dispatcher places and runs immediately and has **no queue**, so this is the saturation signal. |
+| `entangle_scheduler_workers` | gauge | — | Live workers in the scheduler pool. |
+| `entangle_mesh_tailscale_state` | gauge | `state` (`active`, `stopped`, `uninstalled`, `unknown`) | One-hot: 1 for the tailnet state the liveness poller last confirmed (`unknown` until the first poll). **Absent unless `mesh.tailscale` is running.** |
+| `entangle_build_info` | gauge | `version` | Always 1. |
+| `entangle_daemon_uptime_seconds` | gauge | — | Seconds since the daemon started. |
+| `entangle_telemetry_spans_dropped_total`, `..._spans_exported_total`, `..._export_failures_total` | counter | — | OTLP exporter health (§14b); present only with `[telemetry.otlp]` on. |
+| `entangle_metrics_dropped_series_total` | counter | — | Appears only if a metric family hit its label-set cap (a bug indicator). |
+
+#### Label cardinality
+
+No label carries a peer id or free text. `capability` is the capability
+*kind* (`compute.cpu`, `storage.share`, `custom`, ...), never a share or
+custom name. `method` is normalised to the RPC methods the daemon implements
+(everything else is `unknown`). `class`, `policy`, `tier`, `state` and
+`outcome` draw from the closed sets above. The one open-ended label is
+`plugin`: each distinct plugin id gets its own series for the **first 64**
+ids the daemon sees; later ids fold into `plugin="other"`. As a backstop every
+family holds at most 512 label sets (excess samples are dropped and counted in
+`entangle_metrics_dropped_series_total`). Counters for a plugin that has been
+unloaded stay until the daemon restarts; its `plugin_uptime_seconds` series
+disappears at once.
+
+### 14b. Tracing (OTLP/HTTP)
+
+```toml
+[telemetry.otlp]
+enabled = true
+endpoint = "http://localhost:4318"   # spans go to <endpoint>/v1/traces
+service_name = "entangled"
+```
+
+The daemon exports `tracing` spans as OTLP/HTTP **JSON** (`POST
+<endpoint>/v1/traces`, `Content-Type: application/json`; `resourceSpans` →
+`scopeSpans` → `spans`, hex `traceId`/`spanId`/`parentSpanId`, unix-nanosecond
+timestamps as strings). Point it at a local OpenTelemetry Collector or agent
+with the OTLP **HTTP** receiver (port 4318; port 4317 is gRPC, which is not
+spoken). The exporter has no TLS client, so `https://` endpoints are refused
+at startup (`ENTANGLE-E0651`): terminate TLS in the collector/agent.
+
+A collector fragment:
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:4318
+```
+
+Delivery: spans queue (2048) and ship in batches of up to 256 or every 5 s; a
+full queue drops the new span and counts it (never blocks the daemon). Each
+request has a 10 s timeout. `429`, `502`, `503`, `504` and connection
+failures are retried with exponential backoff (250 ms doubling to 10 s,
+`Retry-After` honoured, 3 retries); any other `4xx` or `5xx` is permanent and
+the batch is dropped (the OTLP/HTTP retry rules). On shutdown
+the queue is flushed, bounded: each remaining batch is sent once (no retries)
+and the exporter gives up one request timeout (10 s) after the stop began,
+counting what is still unsent as dropped, so an unreachable collector delays
+the daemon's exit by at most about 11 s. Failures are visible as
+`entangle_telemetry_*` metrics.
+
+Spans (from `entangle*` targets, `INFO` and above, independent of
+`RUST_LOG`): `rpc.request`, `task.dispatch`, `plugin.invoke`,
+`remote.dispatch` (client) and `remote.task.execute` (server). `WARN`/`ERROR`
+events inside a span are attached to it; an `ERROR` marks the span failed.
+
+**Across the mesh.** When a remote dispatch happens inside a recorded span,
+the task frame carries a W3C `traceparent` (an optional trailing extension on
+the scheduler wire v2 task frame). The worker's `remote.task.execute` span
+joins that trace, so one trace shows the submitter's `remote.dispatch` and the
+worker's execution (and its `plugin.invoke`) as parent and child. The worker
+treats the value as untrusted: it only chooses which trace the span belongs
+to; authorization is decided before and independently from the transport-
+authenticated peer id, and a malformed value is ignored. With export off no
+extension is sent, so frames are byte-identical to before. A peer built before
+this extension answers it `MalformedRequest`; the dispatcher then resends the
+same task without it and stops attaching it for that peer until restart.
+
+### 14c. `entangle diag mesh`
+
+```text
+$ entangle diag mesh --probe
+Mesh diagnostics for laptop (3f9c…)
+
+Transports
+  configured: local, iroh, tailscale
+  running:    local, iroh
+  ! tailscale is configured but not running (see the daemon log for why)
+
+Local endpoints
+  iroh        3f9c…@192.168.1.20:41641
+
+Trusted peers (2)
+  desk  7a21…  [trusted]
+    mdns       192.168.1.31:7001   sighted 4s ago (1 address; unauthenticated, passive)
+    iroh       192.168.1.31:41641  address book ([scheduler] peers)  rtt 3.2 ms
+  ghost  c0de…  [trusted]
+    no path: no transport currently knows how to reach this peer
+    hint: is the peer on the same LAN with mDNS allowed?; add its address under [scheduler] peers
+
+Probe: 1 of 2 trusted peer(s) answered
+```
+
+`--json` prints the daemon's structured report (the `diag/mesh` RPC result).
+The report lists configured vs running transports, this node's endpoint
+addresses, the tailnet state (state, reason, time in state, candidate count)
+when `mesh.tailscale` runs, and for every **trusted** (non-revoked) peer each
+path a transport currently knows: an mDNS sighting, an iroh address-book entry
+(`[scheduler] peers`), a tailscale candidate. Untrusted mDNS sightings are only
+counted.
+
+`--probe` (with `--timeout-ms`, default 3000, at most 30000) measures a round
+trip per path, through the daemon, concurrently. The iroh probe is a scheduler
+control frame about a task that does not exist: the peer authenticates us,
+checks its allowlist and answers `unknown task` without running anything, so
+an answer proves dial + handshake + authorization. A peer that answers
+`not authorized` is shown as reached with that error: the network path is fine
+but *it* does not trust this node. tailscale paths are probed with one request
+over the tailnet session. mDNS sightings are passive and have no round trip.
+
+---
+
+## 15. Shell wrappers: warning when an agent host runs outside Entanglement
 
 Running `claude`, `codex` or `opencode` directly bypasses Entanglement (that is
 by design, spec §8.3). The **wrapper** is an opt-in shell function that prints a
@@ -833,7 +1027,7 @@ after rolling a daemon back, remove those two sections from `config.toml`.
 
 ---
 
-## 15. Changing the tier ceiling safely (`max_tier_allowed`)
+## 16. Changing the tier ceiling safely (`max_tier_allowed`)
 
 `[security] max_tier_allowed` (1–5) caps the plugin tier the daemon will load
 (§2). Raising it is a config edit. **Lowering it below the tier of a loaded

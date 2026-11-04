@@ -2,7 +2,8 @@
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
 //! init, version, doctor, keyring {list,add,remove}, plugins {list,load,unload,invoke},
-//! mesh {peers,status,trust,untrust,revoke}, pair (initiator/responder).
+//! mesh {peers,status,trust,untrust,revoke}, pair (initiator/responder),
+//! wrapper, security set-max-tier, config {reload,validate}, metrics, diag mesh.
 //! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
 //! Pairing goes directly to peers.toml (no daemon RPC).
 
@@ -17,6 +18,7 @@ mod identity;
 use cmd::{
     agent::AgentArgs,
     compute::ComputeArgs,
+    diag::DiagArgs,
     init::InitArgs,
     keyring::KeyringArgs,
     mesh::MeshArgs,
@@ -99,11 +101,14 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Print the detected platform and the sandbox primitive that would be used
     /// for tier-5 plugins on this host (spec §0.2).
     PrintPlatform,
-    /// Print Prometheus exposition for the in-process metrics registry.
+    /// Operator triage reports (`diag mesh`).
+    #[command(subcommand_required = true)]
+    Diag(DiagArgs),
+    /// Print the running daemon's metrics in the Prometheus text format.
     ///
-    /// Phase 1: prints the daemon's own counter/gauge/histogram families
-    /// (still empty in the CLI process — wired to the daemon's registry in
-    /// Phase 2 when the scrape endpoint is exposed).
+    /// Fetches the exposition over the daemon's RPC socket (the same text
+    /// `GET /metrics` serves when `[metrics] enabled = true`); it works with
+    /// the HTTP endpoint disabled. Fails if the daemon is not running.
     Metrics,
     /// Generate shell completion script for the given shell to stdout.
     ///
@@ -176,7 +181,8 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Security(a) => exit_with(cmd::security::run_security(a).await?),
         Cmd::Config(a) => exit_with(cmd::security::run_config(a).await?),
         Cmd::PrintPlatform => print_platform(),
-        Cmd::Metrics => print_metrics(),
+        Cmd::Diag(a) => cmd::diag::run(a).await,
+        Cmd::Metrics => print_metrics().await,
         Cmd::Completions { shell } => generate_completions(shell),
     }
 }
@@ -209,18 +215,16 @@ fn generate_completions(shell: clap_complete::Shell) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn print_metrics() -> anyhow::Result<()> {
-    let registry = entangle_observability::Registry::new();
-    // Seed a few zero-valued series so the output is recognisable even when
-    // the daemon's registry isn't yet wired through RPC (Phase 2).
-    registry.inc_counter(
-        "entangle_cli_invocations_total",
-        "entangle CLI subcommands run since daemon start",
-        &[("subcommand", "metrics")],
-        1.0,
-    );
-    print!("{}", registry.render());
-    Ok(())
+async fn print_metrics() -> anyhow::Result<()> {
+    let client = entangle_rpc::Client::new(entangle_rpc::Client::default_socket());
+    match client.metrics_export().await {
+        Ok(r) => {
+            print!("{}", r.text);
+            Ok(())
+        }
+        Err(entangle_rpc::RpcError::DaemonNotRunning(_)) => Err(daemon_not_running_error()),
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn print_platform() -> anyhow::Result<()> {
