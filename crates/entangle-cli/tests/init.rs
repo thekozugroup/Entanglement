@@ -442,6 +442,77 @@ fn interactive_single_node_and_an_unconfirmed_profile() {
         .stderr(predicate::str::contains("--headless"));
 }
 
+/// With an identity already on disk the wizard still offers to import a
+/// PEM (keeping it is the default); importing a different key asks for
+/// confirmation and backs the old one up first (docs/install.md).
+#[test]
+fn the_wizard_can_replace_an_existing_identity_with_a_backup() {
+    let tmp = TempDir::new().unwrap();
+    entangle(&tmp)
+        .args(["init", "--headless", "--single-node"])
+        .assert()
+        .success();
+    let dir = entangle_dir(&tmp);
+    let old = std::fs::read_to_string(dir.join("identity.key")).unwrap();
+    // Not fully initialised: the wizard runs again.
+    std::fs::remove_file(dir.join("config.toml")).unwrap();
+    std::fs::remove_file(dir.join("keyring.toml")).unwrap();
+
+    // The key to import: another device's identity.
+    let other = TempDir::new().unwrap();
+    entangle(&other)
+        .args(["init", "--headless", "--single-node"])
+        .assert()
+        .success();
+    let pem_path = entangle_dir(&other).join("identity.key");
+    let pem = std::fs::read_to_string(&pem_path).unwrap();
+    assert_ne!(old, pem);
+
+    // label, multi-node?, tier, identity (keep/import), PEM path, overwrite?,
+    // clear peers.toml?
+    let answers = format!("box\nn\n5\ni\n{}\ny\nn\n", pem_path.display());
+    let a = entangle(&tmp)
+        .env("TERM", "dumb")
+        .arg("init")
+        .write_stdin(answers)
+        .assert()
+        .success();
+    let out = output_of(&a);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("identity.key")).unwrap(),
+        pem,
+        "the imported key replaced the old one:\n{out}"
+    );
+    let backups: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("identity.key.bak-")
+        })
+        .collect();
+    assert_eq!(backups.len(), 1, "{out}");
+    assert_eq!(std::fs::read_to_string(backups[0].path()).unwrap(), old);
+    assert!(
+        out.contains("Overwrite the existing identity.key?"),
+        "{out}"
+    );
+
+    // Keeping it is the default.
+    std::fs::remove_file(dir.join("keyring.toml")).unwrap();
+    std::fs::remove_file(dir.join("config.toml")).unwrap();
+    entangle(&tmp)
+        .arg("init")
+        .write_stdin("box\nn\n5\n\n")
+        .assert()
+        .success();
+    assert_eq!(
+        std::fs::read_to_string(dir.join("identity.key")).unwrap(),
+        pem
+    );
+}
+
 /// NO_COLOR wins over CLICOLOR_FORCE (spec §9.4.2).
 #[test]
 fn no_color_is_honoured() {

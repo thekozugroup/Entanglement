@@ -488,10 +488,18 @@ async fn run_wizard(args: &InitArgs) -> anyhow::Result<WizardAnswers> {
     println!("\n{}", st.bold("[5/5] Identity key"));
     let action = if config::identity_path().exists() {
         println!(
-            "Keeping the existing identity at {}.",
+            "An identity already exists at {}.",
             config::identity_path().display()
         );
-        IdentityAction::Generate
+        println!(
+            "k: keep it; i: import a PEM file instead (asks before replacing it, and backs the \
+             old key up first)."
+        );
+        match p.choose("Identity", &["k", "i"], "k")?.as_str() {
+            "i" => IdentityAction::Import(p.text("PEM file path", "")?),
+            // `ensure_identity` keeps the key on disk.
+            _ => IdentityAction::Generate,
+        }
     } else {
         println!("g: generate a fresh Ed25519 key (new device); i: import a PEM file.");
         match p.choose("Identity", &["g", "i"], "g")?.as_str() {

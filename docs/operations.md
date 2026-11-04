@@ -1977,7 +1977,9 @@ the same under a screen reader, on `TERM=dumb` and with stdin piped):
    (default yes when the tailnet is active), then `mesh.local` and
    `mesh.iroh`;
 4. the tier ceiling (`[security] max_tier_allowed`);
-5. generate a key or import a PEM file.
+5. generate a key or import a PEM file — or, when `identity.key` already
+   exists, keep it (the default) or import a PEM file over it, which asks
+   before replacing the key and backs the old one up first.
 
 **Non-interactive**: `--headless` (or `--non-interactive`) asks nothing:
 
