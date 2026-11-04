@@ -858,7 +858,8 @@ Decision [u/c]:
   cannot mistake it for success.
 - **No terminal, no `--force-unload`**: refused with `ENTANGLE-E0753`, nothing
   changes.
-- **`--force-unload`** (or `--yes`, which answers the prompt with its default):
+- **`--force-unload`** (or, at a terminal only, `--yes`, which answers the
+  prompt with its default; without a terminal `--yes` is refused like no flag):
   unloads and disables without asking, but the affected list goes to **stderr**
   and each plugin gets an `ENTANGLE-W0214` line. There is no flag that skips
   the audit trail.

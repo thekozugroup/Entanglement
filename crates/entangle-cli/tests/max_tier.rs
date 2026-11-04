@@ -633,6 +633,27 @@ async fn uneditable_config_is_refused_before_the_daemon_changes() {
     assert_eq!(f.config(), "security = { max_tier_allowed = 5 }\n");
 }
 
+/// `--yes` answers the prompt; without a terminal there is no prompt, so it
+/// is refused like no flag at all (ENTANGLE-E0753). Only `--force-unload`
+/// is the non-interactive path (spec §9.4.1 step 6).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn yes_without_a_terminal_is_refused() {
+    let f = Fixture::new("", true).await;
+    let before = f.config();
+    let mut c = f.cmd(&["security", "set-max-tier", "3", "--yes"]);
+    let out = tokio::task::spawn_blocking(move || {
+        run_blocking(std::mem::replace(&mut c, Command::new("true")))
+    })
+    .await
+    .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    assert!(stderr.contains("ENTANGLE-E0753"), "{stderr}");
+    assert_eq!(f.loaded().len(), 3);
+    assert_eq!(f.state.kernel.max_tier_allowed() as u8, 5);
+    assert_eq!(f.config(), before);
+}
+
 /// With no daemon nothing is loaded: the config is edited, preserving
 /// everything else, and the operator is told so.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

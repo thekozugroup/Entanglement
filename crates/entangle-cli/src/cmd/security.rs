@@ -47,9 +47,9 @@ loaded plugin lists the affected plugins and, at a terminal, asks whether to
 unload-and-disable them (default) or cancel. `--force-unload` is the
 non-interactive path: it unloads and disables them without asking, but is never
 silent -- the affected list goes to stderr and one ENTANGLE-W0214 audit entry is
-written per plugin. `--yes` answers the prompt with its default at a terminal.
-Without a terminal and without --force-unload, lowering over loaded plugins is
-refused (ENTANGLE-E0753) and nothing changes.
+written per plugin. `--yes` answers the prompt with its default, at a terminal
+only. Without a terminal and without --force-unload (`--yes` included), lowering
+over loaded plugins is refused (ENTANGLE-E0753) and nothing changes.
 
 If the daemon is not running nothing is loaded, so only config.toml changes and
 the ceiling applies at the next daemon start.")]
@@ -59,7 +59,9 @@ the ceiling applies at the next daemon start.")]
         /// Non-interactive: unload and disable affected plugins without asking.
         #[arg(long)]
         force_unload: bool,
-        /// Accept the default action (unload-and-disable) without prompting.
+        /// At a terminal, accept the default action (unload-and-disable)
+        /// without prompting. Without a terminal it is refused like no flag;
+        /// use --force-unload there.
         #[arg(long, short = 'y')]
         yes: bool,
     },
@@ -88,7 +90,9 @@ restarts. Flags behave as for `entangle security set-max-tier`.")]
         /// Non-interactive: unload and disable affected plugins without asking.
         #[arg(long)]
         force_unload: bool,
-        /// Accept the default action (unload-and-disable) without prompting.
+        /// At a terminal, accept the default action (unload-and-disable)
+        /// without prompting. Without a terminal it is refused like no flag;
+        /// use --force-unload there.
         #[arg(long, short = 'y')]
         yes: bool,
     },
@@ -412,7 +416,10 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
     // (ENTANGLE-E0758) to unload any other one, e.g. one loaded while the
     // prompt waited. `--force-unload` consents in advance to whatever is above
     // the ceiling when it is applied (still listed and audited per plugin).
-    let unattended = flags.force_unload || flags.yes;
+    // `--yes` only answers a prompt, so it counts only at a terminal; the one
+    // non-interactive path is `--force-unload` (spec §9.4.1 step 6).
+    let at_terminal = std::io::stdin().is_terminal();
+    let unattended = flags.force_unload || (flags.yes && at_terminal);
     let confirmed = (!unattended).then(|| listed.clone());
     let decision = if unattended {
         eprintln!(
@@ -422,7 +429,7 @@ async fn lower_or_raise(new: u8, mode: Mode, flags: Flags) -> Result<i32> {
             affected_list(&plan.affected)
         );
         Decision::Unload
-    } else if std::io::stdin().is_terminal() {
+    } else if at_terminal {
         prompt(current, new, &plan.affected)?
     } else {
         eprintln!(
