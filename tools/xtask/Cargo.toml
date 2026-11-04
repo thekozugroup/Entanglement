@@ -15,4 +15,5 @@ clap = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
 
 [dev-dependencies]
+serde_yaml = { workspace = true }
 tempfile = { workspace = true }

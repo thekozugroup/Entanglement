@@ -475,6 +475,347 @@ fn atc_bus_1_workflow_runs_the_xtask_and_opens_a_p0_issue() {
     );
 }
 
+/// `.github/workflows/bus-factor.yml`, parsed.
+fn bus_factor_workflow() -> serde_yaml::Value {
+    let text =
+        std::fs::read_to_string(repo_root().join(".github/workflows/bus-factor.yml")).unwrap();
+    serde_yaml::from_str(&text).unwrap()
+}
+
+/// What happened in one simulated run of the `invariant_check` job.
+#[derive(Debug)]
+struct JobRun {
+    /// `(step name or id, ran, exit code)` per `run:` step, in order.
+    steps: Vec<(String, bool, Option<i32>)>,
+    /// The job's final conclusion.
+    failed: bool,
+    /// Every `gh` invocation, one line of arguments each.
+    gh_calls: Vec<String>,
+    /// The `--body-file` contents of `gh issue create`, if it was called.
+    issue_body: Option<String>,
+}
+
+impl JobRun {
+    fn ran(&self, needle: &str) -> bool {
+        self.steps
+            .iter()
+            .any(|(n, ran, _)| *ran && n.contains(needle))
+    }
+}
+
+/// Run the `invariant_check` job's `run:` steps in `ws` the way GitHub
+/// Actions does: `uses:` steps are skipped (checkout, toolchain, cache), a
+/// step without `if:` runs while the job has not failed, the only other
+/// condition understood is `steps.<id>.outcome == 'failure'` (with the
+/// implicit `success() &&`), and `continue-on-error` turns a failed outcome
+/// into a successful conclusion. `cargo` and `gh` are stubs on `PATH`: `cargo
+/// xtask ...` runs the real xtask binary, `gh` records its arguments, reports
+/// `open_issues` open P0 issues, and fails `issue create` when `gh_fails`.
+fn simulate_invariant_check(ws: &Path, open_issues: u32, gh_fails: bool) -> JobRun {
+    let wf = bus_factor_workflow();
+    let steps = wf["jobs"]["invariant_check"]["steps"]
+        .as_sequence()
+        .expect("invariant_check has steps")
+        .clone();
+    let sim = TempDir::new().unwrap();
+    let bin = sim.path().join("bin");
+    let runner_temp = sim.path().join("runner-temp");
+    std::fs::create_dir_all(&bin).unwrap();
+    std::fs::create_dir_all(&runner_temp).unwrap();
+    let stub = |name: &str, body: &str| {
+        use std::os::unix::fs::PermissionsExt as _;
+        let p = bin.join(name);
+        std::fs::write(&p, format!("#!/bin/sh\n{body}")).unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+    };
+    stub(
+        "cargo",
+        "[ \"$1\" = xtask ] || { echo \"unexpected: cargo $*\" >&2; exit 97; }\n\
+         shift\nexec \"$XTASK_BIN\" \"$@\"\n",
+    );
+    stub(
+        "gh",
+        "printf '%s\\n' \"$*\" >> \"$GH_LOG\"\n\
+         [ -n \"$GH_TOKEN\" ] || { echo 'no GH_TOKEN' >&2; exit 4; }\n\
+         case \"$1 $2\" in\n\
+         'label create') exit 0 ;;\n\
+         'issue list') echo \"$GH_OPEN_ISSUES\"; exit 0 ;;\n\
+         'issue create')\n\
+           [ -z \"$GH_FAIL\" ] || exit 1\n\
+           while [ $# -gt 0 ]; do\n\
+             [ \"$1\" = --body-file ] && cp \"$2\" \"$GH_BODY\"\n\
+             shift\n\
+           done\n\
+           exit 0 ;;\n\
+         esac\n\
+         echo \"unexpected: gh $*\" >&2\nexit 98\n",
+    );
+    let gh_log = sim.path().join("gh.log");
+    let gh_body = sim.path().join("issue-body.md");
+    let path = format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+
+    let mut outcomes = std::collections::BTreeMap::new();
+    let mut failed = false;
+    let mut log = Vec::new();
+    for step in &steps {
+        let Some(script) = step["run"].as_str() else {
+            continue;
+        };
+        let label = step["id"]
+            .as_str()
+            .or(step["name"].as_str())
+            .unwrap_or(script)
+            .to_owned();
+        let wanted = match step["if"].as_str() {
+            None => !failed,
+            Some(cond) => {
+                let id = cond
+                    .strip_prefix("steps.")
+                    .and_then(|c| c.strip_suffix(".outcome == 'failure'"))
+                    .unwrap_or_else(|| panic!("unsupported condition `{cond}` on {label}"));
+                !failed && outcomes.get(id) == Some(&false)
+            }
+        };
+        if !wanted {
+            log.push((label, false, None));
+            continue;
+        }
+        let file = sim.path().join("step.sh");
+        std::fs::write(&file, script).unwrap();
+        let mut cmd = Command::new("bash");
+        match step["shell"].as_str() {
+            // GitHub's default on Linux runners, and its explicit `bash`.
+            None => cmd.arg("-e"),
+            Some("bash") => cmd.args(["--noprofile", "--norc", "-eo", "pipefail"]),
+            Some(other) => panic!("unsupported shell {other}"),
+        };
+        isolate_git(&mut cmd);
+        if let Some(env) = step["env"].as_mapping() {
+            for (k, v) in env {
+                let (k, v) = (k.as_str().unwrap(), v.as_str().unwrap());
+                // `${{ github.token }}` is a secret the runner substitutes.
+                let v = if v.contains("${{") { "stub-token" } else { v };
+                cmd.env(k, v);
+            }
+        }
+        let out = cmd
+            .arg(&file)
+            .current_dir(ws)
+            .env("PATH", &path)
+            .env("XTASK_BIN", env!("CARGO_BIN_EXE_xtask"))
+            .env("RUNNER_TEMP", &runner_temp)
+            .env("GITHUB_SERVER_URL", "https://github.example")
+            .env("GITHUB_REPOSITORY", "owner/repo")
+            .env("GITHUB_RUN_ID", "42")
+            .env("GH_LOG", &gh_log)
+            .env("GH_BODY", &gh_body)
+            .env("GH_OPEN_ISSUES", open_issues.to_string())
+            .env("GH_FAIL", if gh_fails { "1" } else { "" })
+            .output()
+            .unwrap();
+        let ok = out.status.success();
+        if let Some(id) = step["id"].as_str() {
+            outcomes.insert(id.to_owned(), ok);
+        }
+        if !ok && step["continue-on-error"].as_bool() != Some(true) {
+            failed = true;
+        }
+        log.push((label, true, out.status.code()));
+    }
+    JobRun {
+        steps: log,
+        failed,
+        gh_calls: std::fs::read_to_string(&gh_log)
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_owned)
+            .collect(),
+        issue_body: std::fs::read_to_string(&gh_body).ok(),
+    }
+}
+
+/// A checkout for the simulated job: a git repository whose merges are the
+/// given `(author, days ago)` (relative to the real clock, which the workflow
+/// does not override) and whose `docs/maintainers/roles.toml` is `roster`
+/// (none when `None`).
+fn workflow_checkout(merges: &[(&str, i64)], roster: Option<&str>) -> TempDir {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    let emails: Vec<String> = merges
+        .iter()
+        .map(|(n, _)| format!("{n}@example.com"))
+        .collect();
+    let entries: Vec<(&str, &str, i64)> = merges
+        .iter()
+        .zip(&emails)
+        .map(|((n, ago), e)| (*n, e.as_str(), now - ago * DAY))
+        .collect();
+    let repo = fixture_repo(&entries);
+    if let Some(r) = roster {
+        let dir = repo.path().join("docs/maintainers");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("roles.toml"), r).unwrap();
+    }
+    repo
+}
+
+/// The workflow's shape: weekly schedule, issue permission, and a check step
+/// whose failure is recorded (`continue-on-error`, an `id`) rather than
+/// stopping the job before the P0 issue step, which is gated on that
+/// failure and followed by a step that fails the job.
+#[test]
+fn atc_bus_1_workflow_is_weekly_and_gates_the_p0_issue_on_the_check() {
+    let wf = bus_factor_workflow();
+    let crons: Vec<&str> = wf["on"]["schedule"]
+        .as_sequence()
+        .expect("on.schedule")
+        .iter()
+        .map(|s| s["cron"].as_str().unwrap())
+        .collect();
+    assert_eq!(crons.len(), 1, "{crons:?}");
+    let f: Vec<&str> = crons[0].split_whitespace().collect();
+    assert_eq!(f.len(), 5, "{crons:?}");
+    assert!(
+        f[0].parse::<u8>().is_ok_and(|m| m < 60),
+        "fixed minute: {crons:?}"
+    );
+    assert!(
+        f[1].parse::<u8>().is_ok_and(|h| h < 24),
+        "fixed hour: {crons:?}"
+    );
+    assert_eq!((f[2], f[3]), ("*", "*"), "every week: {crons:?}");
+    assert!(
+        f[4].parse::<u8>().is_ok_and(|d| d <= 7),
+        "exactly one weekday: {crons:?}"
+    );
+    assert_eq!(wf["permissions"]["issues"].as_str(), Some("write"));
+
+    let job = &wf["jobs"]["invariant_check"];
+    for key in ["if", "continue-on-error"] {
+        assert!(job.get(key).is_none(), "invariant_check has `{key}`");
+    }
+    let steps = job["steps"].as_sequence().unwrap();
+    let pos = |needle: &str| {
+        steps
+            .iter()
+            .position(|s| s["run"].as_str().is_some_and(|r| r.contains(needle)))
+            .unwrap_or_else(|| panic!("no step runs `{needle}`"))
+    };
+    let (check, issue) = (pos("cargo xtask bus-factor"), pos("gh issue create"));
+    let id = steps[check]["id"]
+        .as_str()
+        .expect("the check step has an id");
+    assert_eq!(steps[check]["continue-on-error"].as_bool(), Some(true));
+    assert!(steps[check].get("if").is_none());
+    assert!(
+        steps[check]["run"]
+            .as_str()
+            .unwrap()
+            .contains("--report \"${RUNNER_TEMP}/bus-factor-body.md\""),
+        "the check writes the issue body"
+    );
+    let gate = format!("steps.{id}.outcome == 'failure'");
+    assert!(issue > check);
+    assert_eq!(steps[issue]["if"].as_str(), Some(gate.as_str()));
+    assert!(steps[issue].get("continue-on-error").is_none());
+    let fail = steps
+        .iter()
+        .skip(issue + 1)
+        .position(|s| {
+            s["if"].as_str() == Some(gate.as_str())
+                && s["run"].as_str().is_some_and(|r| r.contains("exit 1"))
+        })
+        .expect("a step after the issue fails the job on violation");
+    assert!(steps[issue + 1 + fail].get("continue-on-error").is_none());
+}
+
+/// AND if any role drops below 2, a P0 GitHub issue is opened: the job's own
+/// steps, run against a checkout whose roster has one holder per role, open
+/// exactly one P0 issue whose body is the xtask's report, and the job fails.
+#[test]
+fn atc_bus_1_workflow_opens_a_p0_issue_when_a_role_drops_below_two() {
+    let single = SPEC_ROLES
+        .iter()
+        .map(|r| format!("[role.{r}]\nholders = [\"alice\"]\n"))
+        .collect::<String>();
+    let ws = workflow_checkout(&[("alice", 1)], Some(&single));
+    let run = simulate_invariant_check(ws.path(), 0, false);
+    assert!(run.ran("check"), "{run:?}");
+    assert!(run.ran("Open P0 issue"), "{run:?}");
+    assert!(run.failed, "the job must fail on a violation: {run:?}");
+    let creates: Vec<_> = run
+        .gh_calls
+        .iter()
+        .filter(|c| c.starts_with("issue create"))
+        .collect();
+    assert_eq!(creates.len(), 1, "{run:?}");
+    assert!(creates[0].contains("--label P0"), "{run:?}");
+    assert!(
+        creates[0].contains("--title P0: Bus Factor Violation"),
+        "{run:?}"
+    );
+    let body = run.issue_body.as_deref().expect("issue body");
+    assert!(
+        body.contains("P0: Bus Factor Violation (INV-BUS-1)"),
+        "{body}"
+    );
+    for role in SPEC_ROLES {
+        assert!(
+            body.contains(&format!("- {role}: 1 active holder(s) of 1 declared")),
+            "{body}"
+        );
+    }
+
+    // An open P0 bus-factor issue already exists: no duplicate, still failed.
+    let again = simulate_invariant_check(ws.path(), 1, false);
+    assert!(again.ran("Open P0 issue"), "{again:?}");
+    assert!(
+        !again.gh_calls.iter().any(|c| c.starts_with("issue create")),
+        "{again:?}"
+    );
+    assert!(again.failed, "{again:?}");
+
+    // gh failing to open the issue is not swallowed.
+    let broken = simulate_invariant_check(ws.path(), 0, true);
+    assert!(
+        broken
+            .steps
+            .iter()
+            .any(|(n, ran, code)| *ran && n.contains("Open P0 issue") && *code != Some(0)),
+        "{broken:?}"
+    );
+    assert!(broken.failed, "{broken:?}");
+}
+
+/// A tooling error (here: no roster) also opens the P0 issue, with a fallback
+/// body; a healthy roster opens nothing and the job passes.
+#[test]
+fn atc_bus_1_workflow_opens_an_issue_on_tooling_errors_and_none_when_healthy() {
+    let broken = workflow_checkout(&[("alice", 1)], None);
+    let run = simulate_invariant_check(broken.path(), 0, false);
+    assert!(run.failed, "{run:?}");
+    let body = run.issue_body.as_deref().expect("issue body");
+    assert!(body.contains("failed without producing a report"), "{body}");
+    assert!(
+        body.contains("https://github.example/owner/repo/actions/runs/42"),
+        "{body}"
+    );
+
+    let healthy = workflow_checkout(&[("alice", 1), ("bob", 2)], Some(TWO_HOLDERS));
+    let run = simulate_invariant_check(healthy.path(), 0, false);
+    assert!(!run.failed, "{run:?}");
+    assert!(run.ran("check"), "{run:?}");
+    assert!(!run.ran("Open P0 issue"), "{run:?}");
+    assert!(run.gh_calls.is_empty(), "{run:?}");
+    assert!(run.issue_body.is_none(), "{run:?}");
+}
+
 // ---------------------------------------------------------------------------
 // ATC-BUS-2
 // ---------------------------------------------------------------------------
