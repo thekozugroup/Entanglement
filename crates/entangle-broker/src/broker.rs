@@ -7,7 +7,12 @@
 //!   it did not explicitly declare at manifest time.
 //! - **Every decision is audited** via [`AuditLog`].
 //! - **Tier ceiling** (spec §9.4.1): plugins whose effective tier exceeds
-//!   [`BrokerPolicy::max_tier_allowed`] are refused at registration.
+//!   [`BrokerPolicy::max_tier_allowed`] are refused at registration. The
+//!   ceiling can be lowered at runtime ([`Broker::set_max_tier_allowed`]);
+//!   every later decision reads the ceiling then in force, so a plugin left
+//!   above it is granted nothing new (`ENTANGLE-E0127`) and its outstanding
+//!   grants stop being live ([`Broker::is_live`], [`Broker::live_grants`])
+//!   exactly as revoked ones do, until it is unloaded.
 //! - **Operator policy** (spec §4.5): a capability matching
 //!   [`BrokerPolicy::denied_capabilities`] is never granted, declared or not.
 //!   For a native plugin, whose OS sandbox allows or forbids IP networking
@@ -198,14 +203,33 @@ impl Broker {
     /// Change the tier ceiling at runtime (spec §9.4.1 lowering workflow).
     ///
     /// Later registrations above the new ceiling fail with `ENTANGLE-E0043`.
-    /// This does **not** unload anything: the caller (the kernel) unloads the
-    /// affected plugins first, so the broker never holds a plugin above its
-    /// own ceiling. Returns the previous ceiling.
+    /// This does **not** unload anything — the caller (the kernel) drains and
+    /// unloads the affected plugins — but it takes effect at once for their
+    /// capabilities: a plugin above the new ceiling is granted nothing more
+    /// (`ENTANGLE-E0127`) and none of its outstanding grants is live any
+    /// longer ([`Broker::is_live`]), so the host stops its in-flight network
+    /// use as it does on a revocation. The grants themselves stay recorded
+    /// until the plugin is unregistered, which releases (and audits) them.
+    /// Returns the previous ceiling.
     pub fn set_max_tier_allowed(
         &self,
         tier: entangle_types::tier::Tier,
     ) -> entangle_types::tier::Tier {
         std::mem::replace(&mut self.policy.write().max_tier_allowed, tier)
+    }
+
+    /// Check `tier` against the ceiling in force now (without copying the
+    /// policy, unlike [`Broker::policy`]): `ENTANGLE-E0043` above it.
+    pub fn check_tier(&self, tier: Tier) -> Result<(), crate::policy::PolicyError> {
+        self.policy.read().check_plugin_load(tier)
+    }
+
+    /// `true` when the registered plugin `record` is within the ceiling in
+    /// force.
+    fn within_ceiling(&self, record: &PluginRecord) -> bool {
+        // A temporary guard: the policy lock is never held while waiting for
+        // a grant table (see `capability_report` for the other order).
+        self.check_tier(record.manifest.effective_tier).is_ok()
     }
 
     /// Effective tier of every registered plugin, sorted by plugin id.
@@ -463,12 +487,36 @@ impl Broker {
     }
 
     /// `true` while grant `grant_id` is outstanding for `plugin` (not
-    /// released, revoked, or dropped with the plugin's registration).
+    /// released, revoked, or dropped with the plugin's registration) **and**
+    /// the plugin is within the tier ceiling in force now.
+    ///
+    /// A ceiling lowered below the plugin (spec §9.4.1) suspends every grant
+    /// it holds, the way [`Broker::revoke`] withdraws one: what checks
+    /// liveness — the host's socket checks, name lookups and in-flight
+    /// network watch, the kernel's native-sandbox check — refuses at once,
+    /// while the plugin drains and is unloaded. Raising the ceiling again
+    /// before then makes the grants live again.
     pub fn is_live(&self, plugin: &PluginId, grant_id: GrantId) -> bool {
-        self.plugins
-            .read()
-            .get(plugin)
-            .is_some_and(|r| r.table.lock().grants.contains_key(&grant_id))
+        let plugins = self.plugins.read();
+        let Some(record) = plugins.get(plugin) else {
+            return false;
+        };
+        self.within_ceiling(record) && record.table.lock().grants.contains_key(&grant_id)
+    }
+
+    /// The grants a new instance of `plugin` may realise: its outstanding
+    /// grants ([`Broker::snapshot_grants`]), or none while it is above the
+    /// ceiling in force (see [`Broker::is_live`]) or not registered.
+    pub fn live_grants(&self, plugin: &PluginId) -> Vec<GrantedCapability> {
+        let within = {
+            let plugins = self.plugins.read();
+            plugins.get(plugin).is_some_and(|r| self.within_ceiling(r))
+        };
+        if within {
+            self.snapshot_grants(plugin)
+        } else {
+            Vec::new()
+        }
     }
 
     /// The capabilities `plugin`'s manifest declares (with parameters), or
@@ -494,13 +542,11 @@ impl Broker {
     pub fn capability_report(&self, plugin: &PluginId) -> Option<Vec<CapabilityStatus>> {
         let plugins = self.plugins.read();
         let record = plugins.get(plugin)?;
+        // Read the ceiling in force now (it can be lowered at runtime), before
+        // taking the grant table: the policy lock is never awaited while a
+        // table is held by a reader that holds the policy (`is_live`).
+        let ceiling = self.check_tier(record.manifest.effective_tier).err();
         let table = record.table.lock();
-        // Read the ceiling in force now (it can be lowered at runtime).
-        let ceiling = self
-            .policy
-            .read()
-            .check_plugin_load(record.manifest.effective_tier)
-            .err();
         Some(
             record
                 .manifest
@@ -585,14 +631,9 @@ impl Broker {
         }
         // Tier ceiling (§9.4.1): enforced at registration, re-checked per
         // decision against the ceiling in force *now* — it can be lowered at
-        // runtime (`set_max_tier_allowed`) — so a grant can never outlive a
-        // policy that forbids it. The guard is a temporary: it is released
-        // before `operator_denial` reads the policy again.
-        let ceiling = self
-            .policy
-            .read()
-            .check_plugin_load(record.manifest.effective_tier);
-        if let Err(e) = ceiling {
+        // runtime (`set_max_tier_allowed`) — so a lowered ceiling refuses new
+        // grants (`ENTANGLE-E0127`) to the plugins above it at once.
+        if let Err(e) = self.check_tier(record.manifest.effective_tier) {
             return Err(Denial::TierCeiling(e.to_string()));
         }
         // Operator deny list (§4.5).

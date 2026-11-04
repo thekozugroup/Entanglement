@@ -296,7 +296,7 @@ canonical range table, maintained in
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
 | E0306–E0349 | Integrity verification: metric trust and loading, policy envelope, semantic quorum (`entangle-runtime::IntegrityError`; see §11) |
 | E0500–E0506 | Wasm host errors (`entangle-host`) |
-| E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component; `E0511` an invocation stopped because a network grant it relied on was revoked (or the plugin unloaded) while it ran (`entangle-host`) |
+| E0507–E0519 | Host artifact checks — `E0507` runtime kind mismatch; realising capability grants — `E0508` storage grant without a data directory, `E0509` a storage directory could not be created or opened (e.g. it is a symbolic link), `E0510` a share name or plugin id that is not one safe path component; `E0511` an invocation or stream stopped because a network grant it relied on was revoked (or the plugin unloaded, or the tier ceiling lowered below it) while it ran (`entangle-host`) |
 | E0600–E0699 | Agent-host adapter (`entangle-agent-host`) |
 | E0700–E0719 | OS-sandbox engagement (`entangle-sandbox`) — see §12 |
 | E0720–E0739 | Native-plugin supervisor (`entangle-sandbox`) — see §12 |
@@ -1065,7 +1065,14 @@ Decision [u/c]:
   delta set or refused with `ENTANGLE-E0043`), then drains each affected
   plugin — new invocations are refused, invocations already running complete
   (each within its own timeout) — and only then unloads it, releasing its
-  broker grants, and audits it. An active stream (§17) of an affected plugin
+  broker grants, and audits it. From the moment the ceiling is lowered, an
+  affected plugin's capabilities stop as if revoked (§18): its
+  `capability.fetch` calls are refused (`ENTANGLE-E0127`), new sockets and
+  name lookups are refused, and an invocation or stream running on a
+  `net.lan` / `net.wan` grant is stopped (`ENTANGLE-E0511`) rather than
+  drained — no connection outlives the ceiling that forbids it. An
+  invocation without network keeps the directories it had open until it
+  ends. An active stream (§17) of an affected plugin
   is drained the same way: the lowering waits until it ends (completes,
   reaches its stream timeout, or is cancelled by its submitter); new streams
   are refused. Afterwards a load above the ceiling fails with
@@ -1324,8 +1331,11 @@ connection it had open — an established connection never outlives the
 grant. Storage is revoked from the next invocation (an invocation already
 running keeps its open directory until it ends). A native plugin's OS-sandbox profile is fixed when
 it loads, so a native plugin with a revoked capability is refused outright
-(`ENTANGLE-E0125`) from its next invocation. A revocation is held in the
-daemon's memory: it lasts until the plugin is unloaded and loaded again or
+(`ENTANGLE-E0125`) from its next invocation. Lowering `max_tier_allowed`
+below a loaded plugin's tier (§16) has the same effect on all of its grants
+at once while it drains — the per-grant tier check (`ENTANGLE-E0127`)
+always reads the ceiling in force — and its unload then releases them. A
+revocation is held in the daemon's memory: it lasts until the plugin is unloaded and loaded again or
 the daemon restarts; to keep a capability away from every
 plugin, use `deny_capabilities` instead.
 

@@ -484,3 +484,70 @@ fn operator_net_denial_covers_both_net_capabilities_of_a_native_plugin() {
     assert_eq!(resolution.granted.len(), 1);
     assert_eq!(resolution.granted[0].kind, CapabilityKind::NetLan);
 }
+
+/// §9.4.1 + §4.6: the per-grant tier check reads the ceiling in force *now*.
+/// Lowering it below a registered plugin refuses every new grant
+/// (`ENTANGLE-E0127`, reason `tier_ceiling`) and suspends the outstanding
+/// ones — not live, nothing to realise — exactly as a revocation would,
+/// while they stay recorded until the plugin is unregistered (which
+/// releases them, audited). Raising the ceiling back restores them.
+#[test]
+fn a_lowered_ceiling_refuses_new_grants_and_suspends_outstanding_ones() {
+    use entangle_types::tier::Tier;
+    let reg = Registry::new();
+    let broker = Broker::new(BrokerPolicy::default()).with_metrics(reg.clone());
+    let m = manifest("ceiling", CAPS);
+    let id = m.plugin_id.clone();
+    broker.register_plugin(m).unwrap();
+    let standing = broker.grant_declared(&id).unwrap();
+    let lan = standing
+        .granted
+        .iter()
+        .find(|g| g.kind == CapabilityKind::NetLan)
+        .unwrap()
+        .grant_id;
+    let fetched = broker.grant_by_key(&id, "net.lan").unwrap().grant_id;
+    assert!(broker.is_live(&id, lan) && broker.is_live(&id, fetched));
+    let outstanding = broker.snapshot_grants(&id).len();
+    assert_eq!(broker.live_grants(&id).len(), outstanding);
+
+    assert_eq!(broker.set_max_tier_allowed(Tier::Sandboxed), Tier::Native);
+    let err = broker.grant_by_key(&id, "compute.cpu").unwrap_err();
+    assert!(matches!(err, BrokerError::TierCeiling(_)), "{err}");
+    assert!(err.to_string().starts_with("ENTANGLE-E0127"), "{err}");
+    assert_eq!(denial_count(&reg, "compute.cpu", "tier_ceiling"), Some(1.0));
+    assert!(
+        broker.check_tier(Tier::Networked).is_err() && broker.check_tier(Tier::Sandboxed).is_ok()
+    );
+    assert!(!broker.is_live(&id, lan) && !broker.is_live(&id, fetched));
+    assert!(broker.live_grants(&id).is_empty(), "nothing to realise");
+    assert_eq!(
+        broker.snapshot_grants(&id).len(),
+        outstanding,
+        "suspended, not released"
+    );
+    let report = broker.capability_report(&id).unwrap();
+    assert!(
+        report
+            .iter()
+            .all(|s| matches!(&s.state, GrantState::Denied { reason } if reason.contains("ENTANGLE-E0043"))),
+        "{report:?}"
+    );
+
+    // Raising the ceiling before the plugin is unloaded restores its grants.
+    broker.set_max_tier_allowed(Tier::Native);
+    assert!(broker.is_live(&id, lan) && broker.is_live(&id, fetched));
+    assert_eq!(broker.live_grants(&id).len(), outstanding);
+
+    // Unregistering (what the kernel's unload does after the drain)
+    // releases every grant, audited, lowered ceiling or not.
+    broker.set_max_tier_allowed(Tier::Sandboxed);
+    broker.unregister_plugin(&id).unwrap();
+    let released = broker
+        .audit_log()
+        .snapshot()
+        .iter()
+        .filter(|e| matches!(e, AuditEvent::CapabilityReleased { plugin, .. } if *plugin == id))
+        .count();
+    assert_eq!(released, outstanding);
+}

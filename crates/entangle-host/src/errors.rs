@@ -89,12 +89,13 @@ pub enum HostError {
     UnsafeStoragePath(String),
 
     /// ENTANGLE-E0511: a network capability the running invocation relied
-    /// on was withdrawn while it ran (`entangle perms revoke`, or the plugin
-    /// was unloaded). The invocation is stopped — closing every socket it
-    /// had open — so no connection outlives the grant.
+    /// on was withdrawn while it ran (`entangle perms revoke`, the plugin
+    /// was unloaded, or the tier ceiling was lowered below it). The
+    /// invocation is stopped — closing every socket it had open — so no
+    /// connection outlives the grant.
     #[error(
         "ENTANGLE-E0511: invocation stopped: capability '{capability}' was withdrawn while it \
-         ran (revoked, or the plugin was unloaded)"
+         ran (revoked, the plugin was unloaded, or the tier ceiling was lowered below it)"
     )]
     CapabilityRevoked {
         /// The withdrawn capability's manifest key (`net.lan`, `net.wan`).

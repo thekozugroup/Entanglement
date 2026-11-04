@@ -282,3 +282,229 @@ async fn a_stream_plugins_unrealisable_grant_fails_the_load() {
     assert!(k.list_plugins().is_empty());
     assert!(k.capability_report(&id.parse().unwrap()).is_none());
 }
+
+/// Poll `cond` every 10 ms for up to 10 s.
+async fn eventually(mut cond: impl FnMut() -> bool) -> bool {
+    for _ in 0..1_000 {
+        if cond() {
+            return true;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    cond()
+}
+
+/// The next chunk of a stream, acknowledged, as text.
+async fn next_chunk(driver: &mut entangle_host::StreamPortDriver) -> Option<String> {
+    let chunk = tokio::time::timeout(std::time::Duration::from_secs(30), driver.chunks.recv())
+        .await
+        .expect("a chunk within 30 s")?;
+    chunk.ack.sent();
+    Some(String::from_utf8(chunk.bytes).unwrap())
+}
+
+fn audited(k: &Kernel, pred: impl Fn(&AuditEvent) -> bool) -> usize {
+    k.broker()
+        .audit_log()
+        .snapshot()
+        .iter()
+        .filter(|e| pred(e))
+        .count()
+}
+
+/// §9.4.1 with §4.5: once the ceiling is lowered below a plugin, the
+/// broker's per-grant check uses the new ceiling — the plugin's fetches are
+/// refused (`ENTANGLE-E0127`) while it drains — but a stream it is running
+/// without network still completes (the lowering waits for it), keeping
+/// the directory it had open, as after a revocation. Its grants are released
+/// (audited) by the unload that follows the drain.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_lowered_ceiling_refuses_new_fetches_while_the_plugin_drains() {
+    use entangle_types::tier::Tier;
+    let kp = IdentityKeyPair::generate();
+    let tmp = tempfile::tempdir().unwrap();
+    let pkg = tmp.path().join("pkg");
+    std::fs::create_dir_all(&pkg).unwrap();
+    let data = tmp.path().join("data");
+    write_component(
+        &pkg,
+        &kp,
+        "stream-caps-probe",
+        STREAM_PROBE,
+        r#""storage.local" = { mode = "rw" }"#,
+    );
+    let k = std::sync::Arc::new(kernel(&kp, Some(data.clone()), &[]));
+    let id = k.load_plugin_from_dir(&pkg).await.expect("loads");
+
+    let (port, mut driver) = entangle_host::stream_port(1);
+    let (kk, pid) = (k.clone(), id.clone());
+    let stream = tokio::spawn(async move {
+        kk.invoke_stream(
+            &pid,
+            b"fetch storage-local\nwrite /data/a.txt before\n",
+            port,
+            30_000,
+        )
+        .await
+    });
+    assert!(next_chunk(&mut driver).await.unwrap().starts_with("ok:"));
+    assert_eq!(next_chunk(&mut driver).await.unwrap(), "ok");
+
+    let kk = k.clone();
+    let lowering =
+        tokio::spawn(async move { kk.apply_max_tier(Tier::Sandboxed, true, None).await });
+    assert!(eventually(|| k.max_tier_allowed() == Tier::Sandboxed).await);
+
+    driver
+        .input
+        .send(entangle_host::StreamInput::Chunk(
+            b"fetch storage-local\nwrite /data/a.txt during\nread /data/a.txt\n".to_vec(),
+        ))
+        .await
+        .expect("the plugin reads its input");
+    let refused = next_chunk(&mut driver).await.unwrap();
+    assert!(
+        refused.starts_with("err:not-granted:ENTANGLE-E0127"),
+        "a fetch above the lowered ceiling: {refused}"
+    );
+    assert_eq!(next_chunk(&mut driver).await.unwrap(), "ok");
+    assert_eq!(next_chunk(&mut driver).await.unwrap(), "ok:during");
+    assert!(!lowering.is_finished(), "the lowering waits for the stream");
+    assert_eq!(
+        k.broker().registered_tiers().len(),
+        1,
+        "the registration (and grants) outlive the running stream"
+    );
+
+    driver
+        .input
+        .send(entangle_host::StreamInput::End)
+        .await
+        .expect("the plugin reads its input");
+    let ran = stream.await.unwrap();
+    assert!(ran.is_ok(), "the drained stream completes: {ran:?}");
+    let outcome = tokio::time::timeout(std::time::Duration::from_secs(30), lowering)
+        .await
+        .expect("the lowering completes once the stream ended")
+        .unwrap()
+        .expect("unload authorised");
+    assert_eq!(outcome.unloaded, vec![id.clone()]);
+    assert!(k.broker().registered_tiers().is_empty());
+    assert!(audited(&k, |e| e.code() == Some("ENTANGLE-W0214")) == 1);
+    // The handle the stream fetched (released when its instance ended) and
+    // the standing grant (released by the unload).
+    assert_eq!(
+        audited(
+            &k,
+            |e| matches!(e, AuditEvent::CapabilityReleased { plugin, .. } if *plugin == id)
+        ),
+        2
+    );
+}
+
+/// §9.4.1 with §4.6: a ceiling lowered below a plugin stops its in-flight
+/// network use exactly as a revocation does: a stream running on a
+/// `net.lan` grant is stopped at once (`ENTANGLE-E0511`) instead of being
+/// drained until it ends, so the lowering completes promptly, and only then
+/// does the unload release its grants and audit it (`ENTANGLE-W0214`).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_lowered_ceiling_stops_a_networked_stream_like_a_revocation() {
+    use entangle_types::tier::Tier;
+    let kp = IdentityKeyPair::generate();
+    let tmp = tempfile::tempdir().unwrap();
+    let pkg = tmp.path().join("pkg");
+    std::fs::create_dir_all(&pkg).unwrap();
+    write_component(
+        &pkg,
+        &kp,
+        "stream-caps-probe",
+        STREAM_PROBE,
+        r#""net.lan" = {}"#,
+    );
+    let k = std::sync::Arc::new(kernel(&kp, None, &[]));
+    let id = k.load_plugin_from_dir(&pkg).await.expect("loads");
+
+    let (port, mut driver) = entangle_host::stream_port(1);
+    let (kk, pid) = (k.clone(), id.clone());
+    let stream = tokio::spawn(async move {
+        kk.invoke_stream(&pid, b"fetch net-lan\n", port, 30_000)
+            .await
+    });
+    assert!(next_chunk(&mut driver).await.unwrap().starts_with("ok:"));
+    // The plugin is now parked in `next-chunk`, holding its network grant.
+
+    let started = std::time::Instant::now();
+    let outcome = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        k.apply_max_tier(Tier::Sandboxed, true, None),
+    )
+    .await
+    .expect("the lowering does not wait out the 30 s stream")
+    .expect("unload authorised");
+    assert!(started.elapsed() < std::time::Duration::from_secs(10));
+    assert_eq!(outcome.unloaded, vec![id.clone()]);
+    let err = stream
+        .await
+        .unwrap()
+        .expect_err("the networked stream is stopped by the lowering");
+    assert!(
+        matches!(
+            err,
+            RuntimeError::Host(entangle_host::HostError::CapabilityRevoked { ref capability })
+                if capability == "net.lan"
+        ),
+        "{err}"
+    );
+    assert!(err.to_string().contains("ENTANGLE-E0511"), "{err}");
+    assert!(
+        next_chunk(&mut driver).await.is_none(),
+        "the stream's port is closed"
+    );
+
+    // Released by the unload, after the stream stopped: the standing grant
+    // and the fetched handle; then the plugin is reported unloaded.
+    let events = k.broker().audit_log().snapshot();
+    let pos = |pred: &dyn Fn(&AuditEvent) -> bool| events.iter().rposition(pred);
+    let released =
+        pos(&|e| matches!(e, AuditEvent::CapabilityReleased { plugin, .. } if *plugin == id));
+    let w0214 = pos(&|e| e.code() == Some("ENTANGLE-W0214"));
+    assert!(
+        matches!((released, w0214), (Some(r), Some(w)) if r < w),
+        "{events:?}"
+    );
+    assert_eq!(
+        audited(
+            &k,
+            |e| matches!(e, AuditEvent::CapabilityReleased { plugin, .. } if *plugin == id)
+        ),
+        2
+    );
+    assert!(k.broker().registered_tiers().is_empty());
+    assert!(k.list_plugins().is_empty());
+}
+
+/// A plugin left above a ceiling lowered without unloading it (the broker's
+/// ceiling changed directly) is suspended, not run: invocations are refused
+/// with `ENTANGLE-E0043` until the ceiling is raised again.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plugin_above_the_ceiling_in_force_is_suspended() {
+    use entangle_types::tier::Tier;
+    let kp = IdentityKeyPair::generate();
+    let tmp = tempfile::tempdir().unwrap();
+    let pkg = tmp.path().join("pkg");
+    std::fs::create_dir_all(&pkg).unwrap();
+    write_package(&pkg, &kp, "");
+    let k = kernel(&kp, None, &[]);
+    let id = k.load_plugin_from_dir(&pkg).await.expect("loads");
+    assert_eq!(run(&k, &id, "fetch net-lan\n").await.len(), 1);
+
+    k.broker().set_max_tier_allowed(Tier::Sandboxed);
+    let err = k.invoke(&id, b"fetch net-lan\n", 30_000).await.unwrap_err();
+    assert!(err.to_string().contains("ENTANGLE-E0043"), "{err}");
+    let (port, _driver) = entangle_host::stream_port(1);
+    let err = k.invoke_stream(&id, b"", port, 30_000).await.unwrap_err();
+    assert!(err.to_string().contains("ENTANGLE-E0043"), "{err}");
+
+    k.broker().set_max_tier_allowed(Tier::Native);
+    assert_eq!(run(&k, &id, "fetch net-lan\n").await.len(), 1);
+}

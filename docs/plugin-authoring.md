@@ -216,7 +216,9 @@ capability does **not** stop your plugin from loading; it simply does not
 work, and `entangle perms list` shows why. An operator can also revoke a
 capability from a running plugin (`entangle perms revoke`); revoking a
 network capability stops any invocation running with it
-(`ENTANGLE-E0511`), closing its connections. Write plugins that degrade
+(`ENTANGLE-E0511`), closing its connections. Lowering `max_tier_allowed`
+below your plugin's tier while it runs does the same to all of its
+capabilities before it is unloaded. Write plugins that degrade
 gracefully when a capability is missing.
 
 What a wasm plugin can reach is derived from the broker's grants alone —

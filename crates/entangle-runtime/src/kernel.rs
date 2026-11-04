@@ -708,9 +708,11 @@ impl Kernel {
     }
 
     /// Clone a loaded plugin's implementation and tier and take its
-    /// in-flight token, releasing the lock before any `.await`. A native
-    /// plugin whose sandbox was derived from a grant since revoked is
-    /// refused (`ENTANGLE-E0125`) until it is reloaded.
+    /// in-flight token, releasing the lock before any `.await`. A plugin
+    /// above the ceiling in force (lowered since it loaded) is refused
+    /// (`ENTANGLE-E0043`), and a native plugin whose sandbox was derived
+    /// from a grant since revoked is refused (`ENTANGLE-E0125`) until it is
+    /// reloaded.
     ///
     /// The caller holds the token for as long as the plugin's code runs
     /// (a one-shot call or a whole stream). It is taken while the record is
@@ -725,6 +727,11 @@ impl Kernel {
         let record = plugins
             .get(plugin_id)
             .ok_or_else(|| RuntimeError::NotLoaded(plugin_id.clone()))?;
+        // Above a ceiling lowered since it loaded (it is waiting to be
+        // drained and unloaded): suspended, nothing new starts.
+        self.broker
+            .check_tier(record.effective_tier)
+            .map_err(BrokerError::from)?;
         // A native sandbox cannot shed a revoked grant: refuse instead.
         if let Some(g) = record
             .sandbox_grants
@@ -875,10 +882,19 @@ impl Kernel {
     /// affected plugins are returned in [`MaxTierRefusal::NeedsUnload`] so the
     /// caller can prompt. With `confirmed` (the list the operator was shown
     /// and agreed to), a delta set containing any other plugin is refused
-    /// with [`MaxTierRefusal::Unconfirmed`] and nothing changes. The
-    /// unload goes through [`Kernel::unload`], which drains invocations
-    /// already running (including active streams) and then releases the
-    /// broker grants; only then is the
+    /// with [`MaxTierRefusal::Unconfirmed`] and nothing changes.
+    ///
+    /// Once the new ceiling is set, every affected plugin is suspended at
+    /// once, before its turn to be unloaded comes: new invocations and
+    /// streams are refused (`ENTANGLE-E0043`, or `NotLoaded` once its unload
+    /// started), and its capabilities stop exactly as on a revocation
+    /// (`Kernel::revoke_capability`) — `capability.fetch` is refused
+    /// (`ENTANGLE-E0127`), new sockets and name lookups are refused, and an
+    /// invocation or stream running on a network grant is stopped
+    /// (`ENTANGLE-E0511`); an open storage directory stays open until the
+    /// invocation ends. The unload goes through [`Kernel::unload`], which
+    /// drains invocations still running (including active streams) and then
+    /// releases the broker grants (audited); only then is the
     /// plugin's `ENTANGLE-W0214` audit event recorded (one per plugin),
     /// then an `ENTANGLE-I0215` summary. Afterwards loads above the ceiling
     /// fail with `ENTANGLE-E0043`. Raising records `ENTANGLE-I0217`; applying

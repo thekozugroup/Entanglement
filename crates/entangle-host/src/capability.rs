@@ -50,7 +50,10 @@
 //!
 //! # Revocation
 //! A revoked grant (`Broker::revoke`) is gone from the next instance's
-//! context. Within a running instance, network access stops at once:
+//! context. A tier ceiling lowered below the plugin (spec §9.4.1) has the
+//! same effect on all of its grants at once: the broker no longer counts
+//! them as live (`Broker::is_live`, `Broker::live_grants`), so everything
+//! below applies to them too while the plugin drains and is unloaded. Within a running instance, network access stops at once:
 //! every socket check and name lookup re-confirms that the grant it relies
 //! on is still live, and an invocation whose `net.lan` or `net.wan` grants
 //! are all withdrawn is **stopped** (`ENTANGLE-E0511`) — checked every
@@ -326,7 +329,9 @@ pub async fn realise_within(
     plugin: &PluginId,
     dns_budget: Duration,
 ) -> Result<WasiGrants, HostError> {
-    let grants = ctx.broker.snapshot_grants(plugin);
+    // Nothing while the plugin is above a (lowered) tier ceiling: its grants
+    // are suspended there exactly as revoked ones are gone.
+    let grants = ctx.broker.live_grants(plugin);
     realise_grants_within(ctx, plugin, &grants, dns_budget).await
 }
 

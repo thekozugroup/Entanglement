@@ -1613,3 +1613,88 @@ async fn revoking_a_net_grant_stops_a_stream_in_flight() {
         );
     }
 }
+
+// ── a lowered tier ceiling ──────────────────────────────────────────────────
+
+/// §9.4.1: a tier ceiling lowered below a running plugin stops its network
+/// use exactly as a revocation does — the connection it holds does not
+/// outlive the lowering (`ENTANGLE-E0511`) — and while it stays above the
+/// ceiling its fetches are refused (`ENTANGLE-E0127`) and a new instance
+/// realises nothing. Raising the ceiling again restores its grants.
+#[tokio::test(flavor = "multi_thread")]
+async fn lowering_the_ceiling_below_a_plugin_stops_its_network_like_a_revocation() {
+    use entangle_types::tier::Tier;
+    let h = Setup {
+        classify: Some(lan_everywhere),
+        ..Setup::new(
+            "ceiling",
+            r#""net.lan" = {}
+"storage.local" = { mode = "rw" }"#,
+        )
+    }
+    .harness();
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = l.local_addr().unwrap();
+    let broker = Arc::clone(&h.broker);
+    tokio::spawn(async move {
+        if let Ok((mut s, _)) = l.accept().await {
+            // The guest is connected and waiting for a greeting: lower the
+            // ceiling below its tier (3), then keep talking.
+            broker.set_max_tier_allowed(Tier::Sandboxed);
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            let _ = s.write_all(b"after-lowering").await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+    });
+    let script = format!("connect {addr}\n");
+    let started = std::time::Instant::now();
+    let err = match h
+        .plugin
+        .run_one_shot(&h.engine, script.as_bytes(), 30_000)
+        .await
+    {
+        Ok(out) => panic!(
+            "the connection outlived the lowered ceiling:\n{}",
+            String::from_utf8_lossy(&out.output)
+        ),
+        Err(e) => e,
+    };
+    assert!(
+        matches!(err, HostError::CapabilityRevoked { ref capability } if capability == "net.lan"),
+        "{err}"
+    );
+    assert!(err.to_string().starts_with("ENTANGLE-E0511"), "{err}");
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(5),
+        "stopped at the lowering, not at the end: {:?}",
+        started.elapsed()
+    );
+
+    // Still above the ceiling: a new instance has no directory, no network,
+    // and the broker refuses its fetches on the tier ceiling.
+    let lan = listener("127.0.0.1", "hello-lan").await;
+    let script = format!(
+        "write /data/x no\n\
+         fetch net-lan\n\
+         connect {lan}\n",
+        lan = lan.addr
+    );
+    let got = h.run(&script).await;
+    expect(
+        &script,
+        &got,
+        &["err:", "err:not-granted:ENTANGLE-E0127", "err:"],
+    );
+    assert_eq!(lan.accepted(), 0);
+
+    // Raised again before an unload: the grants are live again.
+    h.broker.set_max_tier_allowed(Tier::Native);
+    let script = format!(
+        "write /data/x yes\n\
+         fetch net-lan\n\
+         connect {lan}\n",
+        lan = lan.addr
+    );
+    let got = h.run(&script).await;
+    expect(&script, &got, &["ok", "ok:", "ok:hello-lan"]);
+}
