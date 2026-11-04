@@ -1,6 +1,6 @@
 # Entanglement — Architecture (FINAL)
 
-**Status:** Approved for implementation
+**Status:** Approved for implementation. Implementation status of each feature is in [`STATUS.md`](../STATUS.md); "Implementation note" passages in this document record where the code differs from the design.
 **Date:** 2026-04-29
 **Author:** Architect role
 **Audience:** experienced Rust engineers; implementing team Monday morning
@@ -28,7 +28,7 @@ Cross-platform support per OS: sandbox primitive and install path:
 | Linux | x86_64, aarch64, riscv64 | Landlock (≥6.7) + seccomp-bpf + user namespaces; bubblewrap as fallback wrapper for older kernels | `curl -fsSL get.entanglement.dev \| sh` (script verifies signed checksum) and `apt`/`dnf` repo | 1 |
 | Windows | x86_64, aarch64 | **WSL2 only** for Phase 1–3. Native Windows (AppContainer + Job Objects) deferred to Phase 5. | `winget install Entanglement.Entanglement` (installs WSL2 distro + daemon inside) | 1 (WSL2), 5 (native) |
 
-Native Windows is rejected for MVP because AppContainer + Job Objects do not give equivalent rigor to Landlock/Seatbelt without significant kernel-driver-class work. Telling Windows users "use WSL2" is honest; promising "AppContainer parity" would not be. `entangle --print-platform` prints the detected platform and which sandbox primitive it will use. **Tailscale availability per OS** (relevant because §6 elevates Tailscale to a first-class transport):
+Native Windows is rejected for MVP because AppContainer + Job Objects do not give equivalent rigor to Landlock/Seatbelt without significant kernel-driver-class work. Telling Windows users "use WSL2" is honest; promising "AppContainer parity" would not be. `entangle print-platform` prints the detected platform and which sandbox primitive it will use. **Tailscale availability per OS** (relevant because §6 elevates Tailscale to a first-class transport):
 
 | OS | Tailscale client | Entanglement daemon? | Notes |
 |---|---|---|---|
@@ -68,7 +68,7 @@ Entanglement is a **small Rust core runtime** that runs Wasm Component plugins u
 
 ### One-paragraph elevator
 
-**Entanglement is a tiny Rust runtime + plugin ecosystem that turns the devices you already own into one cooperative compute fabric.** Two roles drive every design decision: (1) **AI sysadmin** plugins — agents like Claude Code, Codex, OpenCode that operate the system on the user's behalf, including managing Docker on the host as a sealed tier-5 capability; and (2) **swarm compute** — pooling CPU/GPU/NPU across paired devices so individual workloads (LLM inference, batch jobs, test parallelization) finish faster than they would on any single machine. Everything else in this document — the tier model, the capability broker, the three mesh transports, the biscuit auth, the OCI/tarball distribution — exists to make those two roles safe and ship-able. **How it actually feels to a user.** A user runs `brew install entangle && entangle init`. The init wizard generates an Ed25519 identity, writes `~/.config/entangle/config.toml`, opens the firewall hole (or skips it if Tailscale is detected), and prints a 6-digit pairing code. On the second device they run `entangle pair <code>` — TOFU on both sides with explicit accept. Each daemon discovers peers via mDNS on LAN, pkarr on WAN, or MagicDNS SRV/TXT records on a tailnet — whichever transports the node is configured to participate in. UDP-hostile network? Tell the user to install Tailscale; Entanglement's `mesh.tailscale` mode then works without our shipping our own TURN. Plugins — distributed as signed OCI artifacts *or* `.tar.zst` from an HTTPS URL — declare the capabilities they need. Capability handles are the only authority. From there: a `scheduler` plugin places signed Wasm work units (the swarm-compute role); an `agent-host-claude-code` subprocess plugin runs Claude Code with the kernel intercepting every MCP tool call (the AI-sysadmin role); a `entangle-mesh-fs` plugin shares storage. The core stays small. ---
+**Entanglement is a tiny Rust runtime + plugin ecosystem that turns the devices you already own into one cooperative compute fabric.** Two roles drive every design decision: (1) **AI sysadmin** plugins — agents like Claude Code, Codex, OpenCode that operate the system on the user's behalf, including managing Docker on the host as a sealed tier-5 capability; and (2) **swarm compute** — pooling CPU/GPU/NPU across paired devices so individual workloads (LLM inference, batch jobs, test parallelization) finish faster than they would on any single machine. Everything else in this document — the tier model, the capability broker, the three mesh transports, the biscuit auth, the OCI/tarball distribution — exists to make those two roles safe and ship-able. **How it actually feels to a user.** A user runs `brew install entangle && entangle init`. The init wizard generates an Ed25519 identity, writes `~/.config/entangle/config.toml`, opens the firewall hole (or skips it if Tailscale is detected), and prints a 6-digit pairing code. On the second device they run `entangle pair <code>` — TOFU on both sides with explicit accept. Each daemon discovers peers via mDNS on LAN, Iroh addressing on WAN, or by probing the online peers of its tailnet (§6.1.1) — whichever transports the node is configured to participate in. (pkarr is not implemented.) UDP-hostile network? Tell the user to install Tailscale; Entanglement's `mesh.tailscale` mode then works without our shipping our own TURN. Plugins — distributed as signed OCI artifacts *or* `.tar.zst` from an HTTPS URL — declare the capabilities they need. Capability handles are the only authority. From there: a `scheduler` plugin places signed Wasm work units (the swarm-compute role); an `agent-host-claude-code` subprocess plugin runs Claude Code with the kernel intercepting every MCP tool call (the AI-sysadmin role); a `entangle-mesh-fs` plugin shares storage. The core stays small. ---
 
 ## 2. Core Runtime Responsibilities
 
@@ -1059,12 +1059,15 @@ entangle init
 ```
 # If you're already running Tailscale, skip the WAN/Iroh setup entirely:
 entangle init --transport tailscale
-# Detects the running tailscaled, registers Entanglement's MagicDNS SRV/TXT records,
-# enumerates other tailnet peers running entangled, and prompts to pair them. # No DERP, no pkarr, no firewall holes — Tailscale already solved that. ```
+# Design only: `entangle init` has no --transport flag in the code. Today the transport
+# is enabled with `[mesh] transports` and `[mesh.tailscale]` in config.toml, and the daemon
+# enumerates online tailnet peers and probes them (§6.1.1); no SRV/TXT records are published. # No DERP, no pkarr, no firewall holes — Tailscale already solved that. ```
 
 This is the recommended path for users who already have a tailnet — including Headscale users.
 
 #### 9.1.1 `entangle init --transport tailscale` failure modes
+
+*Implementation note: not implemented. `entangle init` has no `--transport` flag and the messages and exit codes below are not produced by any command. The daemon reports the liveness states of §6.1.1 instead (`entangle diag mesh`, `entangle_mesh_tailscale_state`).*
 
 The Tailscale path is one command on the happy path and a careful ladder of error messages otherwise. Each failure mode has a precise message, a clear remedy, and an exit code. Mirrors §6.3's pairing UX commitment. | Detected condition | Message | Exit code |
 |---|---|---|
@@ -1073,7 +1076,7 @@ The Tailscale path is one command on the happy path and a careful ladder of erro
 | Multiple Tailscale profiles configured (`tailscale status --json --peers=false` shows multiple `Users` records OR a non-default `LoginProfile`) | `warning: multiple tailnets/profiles detected. Active profile: 'corp.ts.net' (admin@corp.ts.net).` `If this is wrong, run 'tailscale switch <profile>' or pass --tailscale-profile <name> and retry.` `Continue with 'corp.ts.net'? [y/N]` | `0` if y, `64` if N |
 | `BackendState: Running` but `Self.Online == false` (e.g. routing not yet established) | `error: tailnet authenticated but offline. Wait a few seconds and retry, or check 'tailscale netcheck'.` | `75` (EX_TEMPFAIL) |
 | `BackendState: Stopped` (user has it installed, paused) | `error: tailnet stopped. Run 'tailscale up' to resume.` | `65` |
-| MagicDNS disabled on the tailnet | `error: MagicDNS is disabled on tailnet '<name>'. Entanglement uses MagicDNS SRV/TXT records for peer discovery.` `Enable MagicDNS in your tailnet admin panel, or rerun with --transport iroh.` | `65` |
+| MagicDNS disabled on the tailnet | `error: MagicDNS is disabled on tailnet '<name>'. Entanglement uses MagicDNS for peer discovery.` (design; the transport dials tailnet IPs and works without MagicDNS, see §6.1.1) `Enable MagicDNS in your tailnet admin panel, or rerun with --transport iroh.` | `65` |
 | Detection succeeds, init completes, **but the user is on a tailnet they don't fully control** | `note: tailnet 'corp.ts.net' may be shared with other Entanglement users.` `Default: [mesh.tailscale] acl-mode = "entangle-on-top" — Entanglement enforces its own peer allowlist regardless of tailnet ACLs.` `Run 'entangle peers list' to see currently trusted peers (initially: only this node).` | `0` |
 
 **Post-pairing tailnet logout.** If the user runs `tailscale logout` *after* successfully pairing peers via `mesh.tailscale`, Entanglement's liveness loop (§6.1.1) detects the transition `tailnet-active → tailnet-installed-but-stopped` within ≤30s and degrades. Biscuit caps remain valid until expiry — they were minted by Entanglement's Ed25519 key, not Tailscale's WireGuard key, so the cryptographic trust survives the tailnet logout. Peers reachable only via `mesh.tailscale` go silent until a `* → tailnet-active` transition. The operator runbook (§9.6) calls this out and includes the recovery (`tailscale up` → wait ≤30s → `entangle diag mesh` to confirm re-attachment).
@@ -1506,6 +1509,8 @@ Apache-2.0 OR MIT (dual). Closes. ---
 
 ## 10. Crate Layout
 
+*Implementation note: the tree below is the design. The workspace as built has the 26 crates under `crates/` plus `tools/xtask`, listed in STATUS.md. There is no `entangle-https-fetch`, `entangle-i18n` or `cargo-entangle` crate; the plugin transports and scheduler are ordinary crates, not plugins.*
+
 Workspace re-shaped to honor the smaller-core decision  and the `entangle-*` crates.io prefix policy 1.1). **Every** first-party crate uses the `entangle-` prefix; no plugin crate names collide with the unprefixed `entangle` Bitcoin-Stratum crate. ```
 entanglement/                                    # the project (GitHub: thekozugroup/entanglement)
 ├── Cargo.toml                              # [workspace]
@@ -1606,7 +1611,7 @@ LOC count of first-party crates is half the story. The actual security-review su
 | 15 | **Compromise-recovery UX**  | Backup/restore (§9.6); identity rotation (§6.5); per-user keyring rotation procedure documented |
 | 16 | **Tailnet-shared-by-multiple-tenants attack** (v2.1; sharpened) | A malicious tailnet peer (e.g. on a contractor- or family-shared tailnet, or an MSP-managed tailnet) speaks Entanglement protocol but is not a sanctioned Entanglement node. Mitigation: in `mesh.tailscale` mode (and any other multi-node mode), `[trust] entangle.peers` allowlist of Ed25519 fingerprints is **mandatory** (the daemon refuses to start in any multi-node mode without a populated allowlist; single-node mode is permitted with an empty allowlist — see §9.2); biscuit caps gate every operation; default `acl-mode = "entangle-on-top"` does not defer to tailnet ACLs. We additionally recommend the user configure Tailscale ACLs to restrict reachability to the Entanglement SRV port — the install wizard prints a sample ACL fragment. |
 | 17 | **Host `tailscale` binary supply chain**  | `entangle-mesh-tailscale` shells out to the host `tailscale` binary and trusts its `--json` output for peer enumeration. A compromised `tailscale` binary could lie about peer state, advertise rogue peers, or leak Entanglement's Ed25519 fingerprint. Mitigation: pin a minimum supported Tailscale version (`tailscale version >= 1.62.0` checked at boot); document expected provenance (Tailscale's official packages, Apple App Store on macOS); recommend Tailscale's auto-update; structured logging records the detected Tailscale version on every state transition. We do **not** verify the `tailscale` binary signature ourselves — the OS package manager does that, and re-implementing it would be redundant. The user-facing surface in the `init` wizard names this trust dependency explicitly: "Entanglement trusts the local Tailscale binary (`/usr/bin/tailscale`, version 1.x) for peer discovery." |
-| 18 | **Hostile Tailscale/Headscale control plane**  | A self-hosted Headscale operator (or a compromised control plane) can rewrite MagicDNS to point Entanglement's SRV/TXT lookups at attacker-controlled nodes. Mitigation: Entanglement's own TOFU (§6.3) is the security primitive; MagicDNS provides rendezvous, not authentication. A peer that resolves via a hostile MagicDNS record still must pass the `[trust] entangle.peers` allowlist *and* present a biscuit signed by a key the local node trusts. We recommend `entangle-on-top` ACL mode (default) precisely because it doesn't trust the tailnet's reachability decisions; we document this in the install wizard for users on shared/non-self-controlled control planes. |
+| 18 | **Hostile Tailscale/Headscale control plane**  | A self-hosted Headscale operator (or a compromised control plane) can rewrite MagicDNS or the peer list to point Entanglement's peer probes at attacker-controlled nodes (no SRV/TXT records are used; see §6.1.1). Mitigation: Entanglement's own TOFU (§6.3) is the security primitive; MagicDNS provides rendezvous, not authentication. A peer that resolves via a hostile MagicDNS record still must pass the `[trust] entangle.peers` allowlist *and* present a biscuit signed by a key the local node trusts. We recommend `entangle-on-top` ACL mode (default) precisely because it doesn't trust the tailnet's reachability decisions; we document this in the install wizard for users on shared/non-self-controlled control planes. |
 
 ### Out of scope
 
@@ -1634,7 +1639,7 @@ The threat model now distinguishes:
 |---|---|---|---|---|
 | **0 — Skeleton** | Daemon boots, loads no-op Wasm plugin | 6 weeks | core, host, lifecycle WIT, manifest, hello-world plugin | signing, mesh, scheduler, agents |
 | **1 — Capability broker + signed plugins** | Plugin reads sandboxed dir, can't read elsewhere; OCI + tarball install with signature verification | **4–6 months total (with Phase 0)** | broker, powerbox CLI prompts, storage-local, system.clock, system.entropy, OCI fetch, tarball fetch, signing, tier check, install wizard, hello-world walkthrough, **first plugin shipping in production** | mesh, multi-node, scheduler, agents |
-| **2 — Mesh + identity + pairing** | Two daemons pair, exchange biscuit tokens, communicate over Iroh (LAN or WAN) OR Tailscale | +6 months (10–12 months total) | `entangle-mesh-local`, `entangle-mesh-iroh`, `entangle-mesh-tailscale` (uses host `tailscale` binary), mDNS, pkarr, MagicDNS SRV/TXT, chitchat, biscuit-auth, pairing UX, revocation gossip, backup/restore | scheduler, agent-host, embedded `tsnet` |
+| **2 — Mesh + identity + pairing** | Two daemons pair, exchange biscuit tokens, communicate over Iroh (LAN or WAN) OR Tailscale | +6 months (10–12 months total) | `entangle-mesh-local`, `entangle-mesh-iroh`, `entangle-mesh-tailscale` (uses host `tailscale` binary), mDNS, pkarr, tailnet peer probing, chitchat, biscuit-auth, pairing UX, revocation gossip, backup/restore (design scope; pkarr, chitchat, revocation gossip and backup/restore are not implemented, see STATUS.md) | scheduler, agent-host, embedded `tsnet` |
 | **3 — Compute MVP (workload A floor)** | Submit Wasm CPU job; runs on best-fit peer; replication+quorum optional; LLM inference offload partially demonstrable | +5 months (15–17 months total) | scheduler, gossip resource ads, placement, iroh-blobs transfer, retry/cancel, integrity policy plumbing | GPU/NPU, full-fidelity workloads B/C |
 | **4 — Heterogeneous compute** | GPU + NPU jobs route to capable peers; workloads B and C demonstrable | +4 months (~20 months total) | compute.gpu via WASI-GFX (or fallback), compute.npu via WASI-NN, bandwidth-aware scoring, tier-5 subprocess hardened | agents |
 | **5 — Agent host + native Windows** | Claude Code on laptop calls GPU on desktop; full audit; native Windows sandbox | +6 months (~24 months total) | mcp-gateway sharded per session, agent-host-claude-code, agent-host-codex, A2A bridge, before/after_tool hooks, native Windows sandbox primitive evaluation | further agent variants |
@@ -1659,6 +1664,8 @@ The threat model now distinguishes:
 | `mesh.iroh` | Phase 2 | pkarr + DERP fallback; WAN |
 | `mesh.tailscale` (host-daemon mode) | Phase 2 | Shells to host `tailscale` binary; no embedded Go |
 | `mesh.tailscale-embedded` (`tsnet`) | Phase 3 | Optional, for headless servers without a Tailscale daemon (e.g. minimal containers). Adds Go runtime to the binary; opt-in build feature. |
+
+*Implementation status:* `mesh.local`, `mesh.iroh` and `mesh.tailscale` (host-daemon mode) are implemented; the scheduler, agent host (gateway, `entangle agent run`), tier-5 sandboxing on Linux, integrity policies other than `Attested`, and streaming tasks also exist in the code, ahead of the phase order above. `mesh.tailscale-embedded`, `Attested` integrity, native Windows and the items under "Not done" in STATUS.md are not implemented.
 
 **Shippable "1.0":** end of Phase 1 (4–6 months). It is small but real: a single-binary daemon, signed plugins, capability-secured execution, full operator DX, end-to-end hello-world walkthrough. Mesh, scheduler, agent host are genuine 1.x releases. This is honest. If we ship faster, great; we don't promise it. **Phase-1 falsifiable monthly schedule.** The 4–6 month estimate is a guess unless it is decomposed into checkable monthly checkpoints. commits to the following month-by-month schedule for Phase 1, with the **exact PRs/issues that constitute "done"** at each milestone. Project tracking lives in `github.com/entanglement-dev/entanglement` issues with labels `phase-1`, `month-1`…`month-6`. **If Phase 1 is not done by month 6, the spec is wrong** — that is a falsifiable statement and we will say so in the  retrospective. | Month | Theme | Concrete deliverables (each = labeled GitHub issue) | "Done" gate |
 |---|---|---|---|
@@ -1773,7 +1780,7 @@ The invariant: **the mirror is a CDN, not a CA.** A compromised mirror can refus
 
 - **mesh-local / mesh-iroh / mesh-tailscale** — three first-class transport plugins implementing the `mesh.peer` capability. LAN-only Iroh, WAN Iroh with hole-punching/DERP, and Tailscale-overlay respectively. Mixable per node.
 
-- **MagicDNS** — Tailscale's DNS-over-tailnet feature. Entanglement uses MagicDNS SRV/TXT records for peer discovery in `mesh.tailscale` mode.
+- **MagicDNS** — Tailscale's DNS-over-tailnet feature. `mesh.tailscale` mode does not publish SRV/TXT records; it probes the online peers listed by `tailscale status --json` (§6.1.1).
 
 - **`tsnet`** — Tailscale's embedded Go library that lets a process join a tailnet without a separate `tailscaled`. Entanglement's Phase-3 optional build feature for headless containers.
 
