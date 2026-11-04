@@ -376,8 +376,10 @@ mod tests {
             .collect();
         let of = |n: &str| &files.iter().find(|(name, _)| name == n).unwrap().1;
         if !home.is_empty() {
-            assert!(
-                of("claude-code").contains(&Utf8PathBuf::from(&home).join(".claude/settings.json"))
+            assert_eq!(
+                of("claude-code"),
+                &[Utf8PathBuf::from(&home).join(".claude/settings.json")],
+                "not ~/.claude.json: Claude Code rewrites it on every run"
             );
             assert!(of("codex").contains(&Utf8PathBuf::from(&home).join(".codex/config.toml")));
         }

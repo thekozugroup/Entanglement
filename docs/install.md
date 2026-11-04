@@ -567,9 +567,9 @@ entangle uninstall --purge    # also delete ~/.entangle (asks you to type `purge
 
 `entangle uninstall` removes the shell wrappers, deletes every per-session
 agent config directory (`entangle agent host cleanup --all`), and compares
-your `~/.claude/settings.json`, `~/.claude.json`, `~/.codex/config.toml` and
-OpenCode configs with the checksums `entangle install` recorded, reporting any
-that changed (Entanglement never writes them). It keeps `~/.entangle` unless
+your `~/.claude/settings.json`, `~/.codex/config.toml` and OpenCode configs
+with the checksums `entangle install` recorded, reporting any that changed
+(Entanglement never writes them). It keeps `~/.entangle` unless
 `--purge`, which refuses while the daemon is running. It does not remove the
 binaries or a service unit: do that as below.
 

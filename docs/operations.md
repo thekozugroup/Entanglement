@@ -2146,8 +2146,8 @@ win over a choice recorded in `[wrappers] install`, and `--no-wrapper` also
 removes a shim installed earlier; without a flag the recorded choice is
 respected, and with `--headless` nothing is installed), and records a SHA-256 checksum
 of each agent config file Entanglement never modifies — your
-`~/.claude/settings.json` and `~/.claude.json`, `~/.codex/config.toml`, and
-OpenCode's global `opencode.json(c)` / `config.json` — in
+`~/.claude/settings.json` (not `~/.claude.json`, which Claude Code rewrites
+on every run), `~/.codex/config.toml`, and OpenCode's global `opencode.json(c)` / `config.json` — in
 `~/.entangle/agent-host/install-checksums.json` (absent files are recorded as
 absent). Re-running it keeps the first recording and adds files it did not
 know.

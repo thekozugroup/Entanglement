@@ -377,3 +377,36 @@ fn no_wrapper_wins_over_a_recorded_opt_in() {
         .stdout(predicate::str::contains("--no-wrapper"));
     assert!(!has_block(".bashrc") && !has_block(".zshrc") && !fish.exists());
 }
+
+/// `~/.claude.json` is Claude Code's own app state, which it rewrites on
+/// every run (sessions started by `entangle agent run claude-code` too):
+/// it is not a config Entanglement vouches for, so a rewrite is not
+/// reported as a change. `~/.claude/settings.json` still is.
+#[test]
+fn claude_codes_own_app_state_is_not_reported_as_changed() {
+    let env = Env::new();
+    let state = env.home.path().join(".claude.json");
+    std::fs::write(&state, "{\"numStartups\":1}\n").unwrap();
+    env.cmd()
+        .args(["install", "--headless", "--no-wrapper"])
+        .assert()
+        .success();
+    // What Claude Code does on its next start.
+    std::fs::write(&state, "{\"numStartups\":2}\n").unwrap();
+    let out = env
+        .cmd()
+        .arg("uninstall")
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(!stdout.contains("CHANGED"), "{stdout}");
+    assert!(!stdout.contains(".claude.json"), "{stdout}");
+    assert!(
+        stdout.lines().any(|l| l.contains("claude-code")
+            && l.contains(".claude/settings.json")
+            && l.trim_end().ends_with("unchanged")),
+        "{stdout}"
+    );
+}
