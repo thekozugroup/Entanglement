@@ -652,7 +652,11 @@ request has a 10 s timeout. `429`, `502`, `503`, `504` and connection
 failures are retried with exponential backoff (250 ms doubling to 10 s,
 `Retry-After` honoured, 3 retries); any other `4xx` or `5xx` is permanent and
 the batch is dropped (the OTLP/HTTP retry rules). On shutdown
-the queue is flushed. Failures are visible as `entangle_telemetry_*` metrics.
+the queue is flushed, bounded: each remaining batch is sent once (no retries)
+and the exporter gives up one request timeout (10 s) after the stop began,
+counting what is still unsent as dropped, so an unreachable collector delays
+the daemon's exit by at most about 11 s. Failures are visible as
+`entangle_telemetry_*` metrics.
 
 Spans (from `entangle*` targets, `INFO` and above, independent of
 `RUST_LOG`): `rpc.request`, `task.dispatch`, `plugin.invoke`,

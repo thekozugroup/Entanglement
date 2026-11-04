@@ -25,7 +25,12 @@
 //!   [`OtelConfig::max_retries`] times. Every other `4xx` or `5xx` is
 //!   permanent: the batch is dropped and counted, never retried.
 //! * **Shutdown.** [`OtelExporter::shutdown`] drains the queue and sends the
-//!   remaining spans before returning (bounded by the same timeouts).
+//!   remaining spans once each, without retries, within one
+//!   [`OtelConfig::request_timeout`] in total; what is still unsent then is
+//!   counted as dropped. A dead or hung collector therefore delays shutdown
+//!   by at most that timeout (plus a one-second grace), however long the
+//!   queue. [`OtelExporter::flush`] is bounded too. Neither request ever
+//!   waits behind queued spans.
 //!
 //! Export runs on its own thread with a private current-thread runtime, so
 //! it works whether or not the caller is inside a Tokio runtime.
@@ -46,7 +51,7 @@ use parking_lot::Mutex;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError, SyncSender, TrySendError};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 /// Default OTLP/HTTP endpoint. (`4317` is OTLP/gRPC and is not spoken here.)
@@ -325,17 +330,44 @@ fn is_retryable_status(status: u16) -> bool {
     matches!(status, 429 | 502 | 503 | 504)
 }
 
+/// How long [`OtelExporter::shutdown`] waits, past the worker's own deadline,
+/// for the export thread to end before leaving it detached.
+const SHUTDOWN_GRACE: Duration = Duration::from_secs(1);
+
 enum Msg {
     Span(Box<SpanRecord>),
-    Flush(mpsc::Sender<()>),
-    Shutdown(mpsc::Sender<()>),
+    /// Wakes an idle worker to look at its [`Control`] requests. It carries
+    /// nothing, so a drain that discards one loses nothing.
+    Wake,
+}
+
+/// Requests to the worker that must never wait behind queued spans.
+#[derive(Default)]
+struct Control {
+    /// Flush requests not answered yet.
+    flushes: Mutex<Vec<mpsc::Sender<()>>>,
+    /// Set once, by [`OtelExporter::shutdown`]: the instant the worker stops
+    /// exporting by.
+    deadline: OnceLock<Instant>,
+    /// Wakes an export attempt or a backoff in progress when shutdown begins.
+    notify: tokio::sync::Notify,
+}
+
+impl Control {
+    fn deadline(&self) -> Option<Instant> {
+        self.deadline.get().copied()
+    }
 }
 
 struct Inner {
     tx: SyncSender<Msg>,
     stats: Arc<ExporterStats>,
+    control: Arc<Control>,
     thread: Mutex<Option<std::thread::JoinHandle<()>>>,
+    /// Disconnects when the export thread ends (the worker owns the sender).
+    finished: Mutex<Option<mpsc::Receiver<()>>>,
     closed: AtomicBool,
+    flush_timeout: Duration,
     shutdown_timeout: Duration,
 }
 
@@ -375,27 +407,35 @@ impl OtelExporter {
         validate(cfg)?;
         let target = parse_endpoint(&cfg.endpoint)?;
         let (tx, rx) = mpsc::sync_channel::<Msg>(cfg.queue_capacity);
+        let (finished_tx, finished_rx) = mpsc::channel::<()>();
         let stats = Arc::new(ExporterStats::default());
+        let control = Arc::new(Control::default());
         let worker = Worker {
             cfg: cfg.clone(),
             target,
             stats: Arc::clone(&stats),
+            control: Arc::clone(&control),
             instance_id: uuid::Uuid::new_v4().to_string(),
+            _finished: finished_tx,
         };
         let handle = std::thread::Builder::new()
             .name("entangle-otlp-export".to_owned())
             .spawn(move || worker.run(rx))
             .map_err(|e| OtelError::StartFailed(e.to_string()))?;
-        // Shutdown waits for in-flight work: every attempt of a batch.
+        // A flush may wait for one batch's full retry budget.
         let attempts = cfg.max_retries.saturating_add(2);
-        let shutdown_timeout = (cfg.request_timeout + cfg.backoff_max).saturating_mul(attempts);
+        let flush_timeout = (cfg.request_timeout + cfg.backoff_max).saturating_mul(attempts);
         Ok(Self {
             inner: Arc::new(Inner {
                 tx,
                 stats,
+                control,
                 thread: Mutex::new(Some(handle)),
+                finished: Mutex::new(Some(finished_rx)),
                 closed: AtomicBool::new(false),
-                shutdown_timeout,
+                flush_timeout,
+                // The final send gets one request's worth of time in total.
+                shutdown_timeout: cfg.request_timeout,
             }),
         })
     }
@@ -437,54 +477,55 @@ impl OtelExporter {
         });
     }
 
-    /// Send everything queued so far and wait for it (bounded).
+    /// Send everything queued so far and wait for it.
     ///
-    /// Returns `false` if the exporter is shut down or did not finish in time.
+    /// Waits at most one batch's full retry budget,
+    /// `(request_timeout + backoff_max) * (max_retries + 2)`, in total: the
+    /// request never queues behind spans. Returns `false` if the exporter is
+    /// shut down or the spans were not all sent in time.
     pub fn flush(&self) -> bool {
-        let (ack_tx, ack_rx) = mpsc::channel();
-        if self.inner.tx.send(Msg::Flush(ack_tx)).is_err() {
+        if self.inner.closed.load(Ordering::Acquire) {
             return false;
         }
-        ack_rx.recv_timeout(self.inner.shutdown_timeout).is_ok()
+        let (ack_tx, ack_rx) = mpsc::channel();
+        self.inner.control.flushes.lock().push(ack_tx);
+        // A full queue means the worker is busy; it looks at its requests
+        // after every message, so the wake-up is only needed when it idles.
+        if let Err(TrySendError::Disconnected(_)) = self.inner.tx.try_send(Msg::Wake) {
+            return false;
+        }
+        ack_rx.recv_timeout(self.inner.flush_timeout).is_ok()
     }
 
     /// Stop accepting spans, send what is queued, and stop the thread.
+    ///
+    /// Bounded: the worker stops retrying at once, sends each remaining batch
+    /// once, and gives up `request_timeout` after this call (an attempt in
+    /// flight is cut off then too); spans still unsent are counted as
+    /// dropped. This call returns at most one second after that
+    /// deadline, leaving the thread detached if it has somehow not ended.
     /// Idempotent; later spans are counted as dropped.
     pub fn shutdown(&self) {
         if self.inner.closed.swap(true, Ordering::AcqRel) {
             return;
         }
-        let (ack_tx, ack_rx) = mpsc::channel();
-        if self.inner.tx.send(Msg::Shutdown(ack_tx)).is_ok() {
-            let _ = ack_rx.recv_timeout(self.inner.shutdown_timeout);
-        }
-        if let Some(handle) = self.inner.thread.lock().take() {
-            let _ = handle.join();
-        }
-    }
-}
-
-/// Control requests [`Worker::drain`] took off the queue.
-#[derive(Default)]
-struct Drained {
-    flushes: Vec<mpsc::Sender<()>>,
-    shutdown: Option<mpsc::Sender<()>>,
-}
-
-impl Drained {
-    /// Answer the drained requests (the spans queued before them have been
-    /// sent). Returns whether one of them was a shutdown, i.e. the worker
-    /// must stop.
-    fn finish(self) -> bool {
-        for ack in self.flushes {
-            let _ = ack.send(());
-        }
-        match self.shutdown {
-            Some(ack) => {
-                let _ = ack.send(());
-                true
+        let deadline = Instant::now() + self.inner.shutdown_timeout;
+        let _ = self.inner.control.deadline.set(deadline);
+        // Cut short an attempt or backoff in progress, and wake an idle
+        // worker. A full queue means the worker is busy and sees the
+        // deadline at its next step.
+        self.inner.control.notify.notify_waiters();
+        let _ = self.inner.tx.try_send(Msg::Wake);
+        let ended = match self.inner.finished.lock().take() {
+            Some(finished) => {
+                let wait = deadline.saturating_duration_since(Instant::now()) + SHUTDOWN_GRACE;
+                !matches!(finished.recv_timeout(wait), Err(RecvTimeoutError::Timeout))
             }
-            None => false,
+            None => true,
+        };
+        let handle = self.inner.thread.lock().take();
+        if let (true, Some(handle)) = (ended, handle) {
+            let _ = handle.join();
         }
     }
 }
@@ -493,7 +534,10 @@ struct Worker {
     cfg: OtelConfig,
     target: Target,
     stats: Arc<ExporterStats>,
+    control: Arc<Control>,
     instance_id: String,
+    /// Dropped when the worker ends, which is what `shutdown()` waits for.
+    _finished: mpsc::Sender<()>,
 }
 
 impl Worker {
@@ -509,40 +553,44 @@ impl Worker {
             }
         };
         let mut batch: Vec<SpanRecord> = Vec::new();
-        let mut deadline = Instant::now() + self.cfg.flush_interval;
+        let mut next_flush = Instant::now() + self.cfg.flush_interval;
         loop {
-            let wait = deadline.saturating_duration_since(Instant::now());
+            if self.closing() {
+                self.finish(&rt, &rx, &mut batch);
+                return;
+            }
+            let flushes = std::mem::take(&mut *self.control.flushes.lock());
+            if !flushes.is_empty() {
+                self.drain(&rx, &mut batch);
+                self.send(&rt, &mut batch);
+                next_flush = Instant::now() + self.cfg.flush_interval;
+                if self.closing() {
+                    // Shutdown cut the flush short: `finish` answers these
+                    // if it gets the rest out.
+                    self.control.flushes.lock().extend(flushes);
+                } else {
+                    for ack in flushes {
+                        let _ = ack.send(());
+                    }
+                }
+                continue;
+            }
+            let wait = next_flush.saturating_duration_since(Instant::now());
             match rx.recv_timeout(wait) {
                 Ok(Msg::Span(s)) => {
                     batch.push(*s);
                     if batch.len() >= self.cfg.batch_size {
                         self.send(&rt, &mut batch);
-                        deadline = Instant::now() + self.cfg.flush_interval;
+                        next_flush = Instant::now() + self.cfg.flush_interval;
                     }
                 }
-                Ok(Msg::Flush(ack)) => {
-                    let found = self.drain(&rx, &mut batch);
-                    self.send(&rt, &mut batch);
-                    deadline = Instant::now() + self.cfg.flush_interval;
-                    let _ = ack.send(());
-                    // A shutdown queued behind this flush was taken off the
-                    // queue by the drain: honour it here.
-                    if found.finish() {
-                        return;
-                    }
-                }
-                Ok(Msg::Shutdown(ack)) => {
-                    let found = self.drain(&rx, &mut batch);
-                    self.send(&rt, &mut batch);
-                    found.finish();
-                    let _ = ack.send(());
-                    return;
-                }
+                Ok(Msg::Wake) => {}
                 Err(RecvTimeoutError::Timeout) => {
                     self.send(&rt, &mut batch);
-                    deadline = Instant::now() + self.cfg.flush_interval;
+                    next_flush = Instant::now() + self.cfg.flush_interval;
                 }
                 Err(RecvTimeoutError::Disconnected) => {
+                    // Every handle is gone without a shutdown; nobody waits.
                     self.send(&rt, &mut batch);
                     return;
                 }
@@ -550,24 +598,23 @@ impl Worker {
         }
     }
 
-    /// Move every span already queued into `batch`, keeping the control
-    /// requests found on the way (dropping one would lose its ack, and a
-    /// lost shutdown request would leave `shutdown()` joining forever).
-    fn drain(&self, rx: &mpsc::Receiver<Msg>, batch: &mut Vec<SpanRecord>) -> Drained {
-        let mut found = Drained::default();
-        while let Ok(msg) = rx.try_recv() {
-            match msg {
-                Msg::Span(s) => batch.push(*s),
-                Msg::Flush(ack) => found.flushes.push(ack),
-                Msg::Shutdown(ack) => found.shutdown = Some(ack),
-            }
-        }
-        found
+    fn closing(&self) -> bool {
+        self.control.deadline().is_some()
     }
 
-    /// Send `batch` in `batch_size` chunks; empties it.
+    /// Move every span already queued into `batch`.
+    fn drain(&self, rx: &mpsc::Receiver<Msg>, batch: &mut Vec<SpanRecord>) {
+        while let Ok(msg) = rx.try_recv() {
+            if let Msg::Span(s) = msg {
+                batch.push(*s);
+            }
+        }
+    }
+
+    /// Send `batch` in `batch_size` chunks, retrying each; empties it unless
+    /// shutdown begins, which leaves the rest to [`Worker::finish`].
     fn send(&self, rt: &tokio::runtime::Runtime, batch: &mut Vec<SpanRecord>) {
-        while !batch.is_empty() {
+        while !batch.is_empty() && !self.closing() {
             let n = batch.len().min(self.cfg.batch_size);
             let chunk: Vec<SpanRecord> = batch.drain(..n).collect();
             let body = encode_batch(&self.cfg.service_name, &self.instance_id, &chunk);
@@ -579,18 +626,53 @@ impl Worker {
         }
     }
 
+    /// Shutdown: send what is queued, one attempt per chunk and no retries,
+    /// until the deadline; count the spans left after it as dropped. Pending
+    /// flushes are answered only if nothing was left behind.
+    fn finish(
+        &self,
+        rt: &tokio::runtime::Runtime,
+        rx: &mpsc::Receiver<Msg>,
+        batch: &mut Vec<SpanRecord>,
+    ) {
+        self.drain(rx, batch);
+        let deadline = self.control.deadline().unwrap_or_else(Instant::now);
+        while !batch.is_empty() && Instant::now() < deadline {
+            let n = batch.len().min(self.cfg.batch_size);
+            let chunk: Vec<SpanRecord> = batch.drain(..n).collect();
+            let body = encode_batch(&self.cfg.service_name, &self.instance_id, &chunk);
+            match rt.block_on(self.attempt(&body)) {
+                Some(Ok((status, _))) if (200..300).contains(&status) => {
+                    self.stats.exported.fetch_add(n as u64, Ordering::Relaxed);
+                }
+                _ => {
+                    self.stats.failed_batches.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+        }
+        let abandoned = batch.len() as u64;
+        batch.clear();
+        self.stats.dropped.fetch_add(abandoned, Ordering::Relaxed);
+        let flushes = std::mem::take(&mut *self.control.flushes.lock());
+        if abandoned == 0 {
+            for ack in flushes {
+                let _ = ack.send(());
+            }
+        }
+    }
+
     async fn post_with_retry(&self, body: &[u8]) -> bool {
         let mut backoff = self.cfg.backoff_base;
-        for attempt in 0..=self.cfg.max_retries {
-            let outcome = tokio::time::timeout(self.cfg.request_timeout, self.post(body)).await;
-            let retry_after = match outcome {
-                Ok(Ok((status, _))) if (200..300).contains(&status) => return true,
+        let mut retries = 0;
+        loop {
+            let retry_after = match self.attempt(body).await {
+                Some(Ok((status, _))) if (200..300).contains(&status) => return true,
                 // Transient by the OTLP/HTTP spec; honour the collector's own
                 // pacing hint when it sends one.
-                Ok(Ok((status, retry_after))) if is_retryable_status(status) => retry_after,
+                Some(Ok((status, retry_after))) if is_retryable_status(status) => retry_after,
                 // Any other status is permanent (the spec says it MUST NOT be
                 // retried): resending the same bytes cannot change the answer.
-                Ok(Ok((status, _))) => {
+                Some(Ok((status, _))) => {
                     eprintln!(
                         "entangle: OTLP collector rejected a span batch with HTTP {status}; \
                          dropping it"
@@ -599,19 +681,57 @@ impl Worker {
                 }
                 // Connection refused / reset / timeout: the collector may be
                 // restarting.
-                Ok(Err(_)) | Err(_) => None,
+                Some(Err(_)) | None => None,
             };
-            if attempt == self.cfg.max_retries {
-                break;
+            if retries == self.cfg.max_retries {
+                return false;
             }
-            self.stats.retries.fetch_add(1, Ordering::Relaxed);
-            let sleep = retry_after
+            let pause = retry_after
                 .map(|d| d.min(self.cfg.backoff_max))
                 .unwrap_or(backoff);
-            tokio::time::sleep(sleep).await;
+            // No retries once shutdown has begun.
+            if !self.pause(pause).await {
+                return false;
+            }
+            retries += 1;
+            self.stats.retries.fetch_add(1, Ordering::Relaxed);
             backoff = (backoff * 2).min(self.cfg.backoff_max);
         }
-        false
+    }
+
+    /// Back off for `pause`; `false` if shutdown began first (or during it).
+    async fn pause(&self, pause: Duration) -> bool {
+        // Created before the check so a shutdown in between still wakes it.
+        let shutdown = self.control.notify.notified();
+        tokio::pin!(shutdown);
+        if self.closing() {
+            return false;
+        }
+        tokio::select! {
+            () = tokio::time::sleep(pause) => !self.closing(),
+            () = &mut shutdown => false,
+        }
+    }
+
+    /// One export attempt, bounded by `request_timeout` and, once shutdown
+    /// has begun, by the shutdown deadline. `None` when it ran out of time.
+    async fn attempt(&self, body: &[u8]) -> Option<Result<(u16, Option<Duration>), String>> {
+        let request = tokio::time::timeout(self.cfg.request_timeout, self.post(body));
+        tokio::pin!(request);
+        // Created before the check so a shutdown in between still wakes it.
+        let shutdown = self.control.notify.notified();
+        tokio::pin!(shutdown);
+        if !self.closing() {
+            tokio::select! {
+                outcome = &mut request => return outcome.ok(),
+                () = &mut shutdown => {}
+            }
+        }
+        let deadline = self.control.deadline().unwrap_or_else(Instant::now);
+        tokio::select! {
+            outcome = &mut request => outcome.ok(),
+            () = tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)) => None,
+        }
     }
 
     /// One HTTP/1.1 `POST`. Returns the status and any `Retry-After` seconds.

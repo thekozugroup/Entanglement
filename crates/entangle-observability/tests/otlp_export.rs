@@ -444,6 +444,82 @@ fn shutdown_flushes_queued_spans() {
     exporter.shutdown();
 }
 
+/// A collector that accepts connections but never answers, behind a full
+/// queue: every batch would take `1 + max_retries` timed-out attempts.
+/// `shutdown()` must still return within its documented bound (one
+/// `request_timeout` for the final send, plus a little), and count what it
+/// could not deliver instead of losing it silently.
+#[test]
+fn shutdown_is_bounded_behind_an_unresponsive_collector_and_a_full_queue() {
+    let collector = Collector::start(&[], true);
+    let request_timeout = Duration::from_millis(400);
+    let cfg = OtelConfig {
+        queue_capacity: 16,
+        batch_size: 1,
+        request_timeout,
+        max_retries: 3,
+        ..config(collector.endpoint())
+    };
+    let exporter = OtelExporter::start(&cfg).unwrap();
+    traced(&exporter, || {
+        for i in 0..40u64 {
+            let _s = info_span!("backlog", i).entered();
+        }
+    });
+    assert!(collector.wait_for(1), "the worker is stuck on a batch");
+
+    let started = Instant::now();
+    exporter.shutdown();
+    let took = started.elapsed();
+    assert!(
+        took < request_timeout + Duration::from_secs(2),
+        "shutdown took {took:?} (bound: request_timeout {request_timeout:?} plus grace)"
+    );
+    let s = exporter.stats();
+    assert_eq!(s.exported(), 0, "nothing can be delivered");
+    // batch_size 1: one failed batch is one span.
+    assert_eq!(
+        s.exported() + s.dropped() + s.failed_batches(),
+        40,
+        "every span is accounted for (dropped {}, failed {})",
+        s.dropped(),
+        s.failed_batches()
+    );
+}
+
+/// `flush()` with a full queue and an unresponsive collector returns `false`
+/// within its bound instead of first waiting for a queue slot.
+#[test]
+fn flush_is_bounded_when_the_queue_is_full() {
+    let collector = Collector::start(&[], true);
+    let cfg = OtelConfig {
+        queue_capacity: 8,
+        batch_size: 1,
+        request_timeout: Duration::from_millis(400),
+        max_retries: 3,
+        ..config(collector.endpoint())
+    };
+    // The flush bound: one batch's full retry budget,
+    // (request_timeout + backoff_max) * (max_retries + 2).
+    let bound = (cfg.request_timeout + cfg.backoff_max) * (cfg.max_retries + 2);
+    let exporter = OtelExporter::start(&cfg).unwrap();
+    traced(&exporter, || {
+        for i in 0..20u64 {
+            let _s = info_span!("backlog", i).entered();
+        }
+    });
+    assert!(collector.wait_for(1), "the worker is stuck on a batch");
+
+    let started = Instant::now();
+    assert!(!exporter.flush(), "nothing can be delivered in time");
+    let took = started.elapsed();
+    assert!(
+        took < bound + Duration::from_millis(800),
+        "flush took {took:?} (bound {bound:?})"
+    );
+    exporter.shutdown();
+}
+
 /// A flush and a shutdown queued together: the flush's drain must not
 /// swallow the shutdown request (or `shutdown()` never returns), and every
 /// flush is answered.
@@ -460,7 +536,10 @@ fn a_shutdown_queued_behind_a_flush_is_not_lost() {
     };
     let exporter = OtelExporter::start(&cfg).unwrap();
     traced(&exporter, || drop(info_span!("first")));
-    assert!(collector.wait_for(1), "the worker is posting the first batch");
+    assert!(
+        collector.wait_for(1),
+        "the worker is posting the first batch"
+    );
 
     let flusher = {
         let e = exporter.clone();

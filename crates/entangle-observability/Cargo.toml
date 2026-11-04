@@ -21,7 +21,7 @@ parking_lot = { workspace = true }
 uuid = { workspace = true }
 # OTLP/HTTP exporter (feature `otlp`): hyper client over a raw TcpStream. All
 # already in Cargo.lock; the opentelemetry crates are deliberately not used.
-tokio = { workspace = true, features = ["rt", "net", "time", "macros"], optional = true }
+tokio = { workspace = true, features = ["rt", "net", "time", "macros", "sync"], optional = true }
 hyper = { workspace = true, features = ["client", "http1"], optional = true }
 hyper-util = { workspace = true, optional = true }
 http-body-util = { workspace = true, optional = true }

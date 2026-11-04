@@ -359,9 +359,13 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let _ = std::fs::remove_file(&socket_path);
 
     tracing::info!("entangled stopped");
-    // Last: deliver the final span batch (bounded by the exporter's timeouts).
+    // Last: deliver the final span batches. `shutdown` blocks for at most the
+    // exporter's request timeout plus one second (spans still unsent then
+    // are dropped and counted), so run it off the async worker threads.
     if let Some(exporter) = otel_exporter {
-        exporter.shutdown();
+        if let Err(e) = tokio::task::spawn_blocking(move || exporter.shutdown()).await {
+            tracing::warn!(error = %e, "OTLP exporter shutdown task failed");
+        }
     }
     Ok(())
 }
