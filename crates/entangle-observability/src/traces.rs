@@ -13,7 +13,19 @@
 //! The store holds at most [`TraceConfig::max_spans`] spans in total,
 //! [`TraceConfig::max_traces`] traces, and [`MAX_SPANS_PER_TRACE`] per trace
 //! (further spans of a full trace are counted, not kept). When a bound is hit
-//! the *oldest trace* is evicted whole, with its task index entries.
+//! a whole trace is evicted, with its task index entries:
+//!
+//! 1. first the oldest *finished, task-less* trace: its local root span has
+//!    closed and none of its spans named a task. Every RPC call the daemon
+//!    answers (`logs/read` while following, `status` polled by a script) is
+//!    such a trace, a single `rpc.request` span, and it can only be looked up
+//!    by trace id;
+//! 2. only when there is none, the oldest trace of any kind.
+//!
+//! So task traces last for the next `max_traces` *tasks*, not the next
+//! `max_traces` RPC calls. A trace still in progress (a `plugin.invoke` that
+//! closed before the `task.dispatch` carrying the task id) is never treated
+//! as task-less.
 //!
 //! # What is and is not here
 //!
@@ -28,7 +40,7 @@
 use crate::context::{AttrValue, SpanEvent, SpanKind, SpanRecord, SpanSink};
 use crate::redact;
 use parking_lot::Mutex;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 /// Most spans kept for one trace; later ones are counted in
@@ -134,35 +146,54 @@ struct Entry {
     spans: Vec<SpanRecord>,
     tasks: Vec<String>,
     dropped: u64,
+    /// When the trace was first written to: its key in `Inner::order` (and
+    /// `Inner::finished_taskless`).
+    seq: u64,
+    /// Its local root span closed while it indexed no task (see the module
+    /// docs): evicted before any other trace.
+    finished_taskless: bool,
 }
 
 struct Inner {
     cfg: TraceConfig,
     traces: HashMap<[u8; 16], Entry>,
-    order: VecDeque<[u8; 16]>,
+    /// Every held trace, oldest first.
+    order: BTreeMap<u64, [u8; 16]>,
+    /// The held traces with `finished_taskless` set, oldest first.
+    finished_taskless: BTreeMap<u64, [u8; 16]>,
+    next_seq: u64,
     by_task: HashMap<String, Vec<[u8; 16]>>,
     total_spans: usize,
     evicted_traces: u64,
 }
 
 impl Inner {
-    fn evict_oldest(&mut self) -> bool {
-        let Some(id) = self.order.pop_front() else {
-            return false;
+    /// The trace to evict next, never `keep` (the one just written to): the
+    /// oldest finished task-less trace, else the oldest trace.
+    fn victim(&self, keep: &[u8; 16]) -> Option<[u8; 16]> {
+        self.finished_taskless
+            .values()
+            .chain(self.order.values())
+            .find(|id| *id != keep)
+            .copied()
+    }
+
+    fn evict(&mut self, id: &[u8; 16]) {
+        let Some(e) = self.traces.remove(id) else {
+            return;
         };
-        if let Some(e) = self.traces.remove(&id) {
-            self.total_spans -= e.spans.len();
-            for t in &e.tasks {
-                if let Some(v) = self.by_task.get_mut(t) {
-                    v.retain(|x| *x != id);
-                    if v.is_empty() {
-                        self.by_task.remove(t);
-                    }
+        self.order.remove(&e.seq);
+        self.finished_taskless.remove(&e.seq);
+        self.total_spans -= e.spans.len();
+        for t in &e.tasks {
+            if let Some(v) = self.by_task.get_mut(t) {
+                v.retain(|x| x != id);
+                if v.is_empty() {
+                    self.by_task.remove(t);
                 }
             }
-            self.evicted_traces += 1;
         }
-        true
+        self.evicted_traces += 1;
     }
 }
 
@@ -203,7 +234,9 @@ impl TraceStore {
             inner: Arc::new(Mutex::new(Inner {
                 cfg,
                 traces: HashMap::new(),
-                order: VecDeque::new(),
+                order: BTreeMap::new(),
+                finished_taskless: BTreeMap::new(),
+                next_seq: 0,
                 by_task: HashMap::new(),
                 total_spans: 0,
                 evicted_traces: 0,
@@ -298,15 +331,25 @@ impl SpanSink for TraceStore {
             .or_else(|| attr_str(&span, "task"))
             .map(normalize_task_id)
             .filter(|t| !t.is_empty() && t.len() <= 64);
+        // No parent at all: the local root of its trace. The registry closes
+        // a span only after all its children, so the trace is complete here.
+        let is_local_root = span.parent_span_id.is_none();
         let mut g = self.inner.lock();
         let trace_id = span.trace_id;
-        if let std::collections::hash_map::Entry::Vacant(v) = g.traces.entry(trace_id) {
-            v.insert(Entry {
-                spans: Vec::new(),
-                tasks: Vec::new(),
-                dropped: 0,
-            });
-            g.order.push_back(trace_id);
+        if !g.traces.contains_key(&trace_id) {
+            let seq = g.next_seq;
+            g.next_seq += 1;
+            g.traces.insert(
+                trace_id,
+                Entry {
+                    spans: Vec::new(),
+                    tasks: Vec::new(),
+                    dropped: 0,
+                    seq,
+                    finished_taskless: false,
+                },
+            );
+            g.order.insert(seq, trace_id);
         }
         let full = g
             .traces
@@ -337,20 +380,33 @@ impl SpanSink for TraceStore {
                 g.by_task.entry(t).or_default().push(trace_id);
             }
         }
-        // Bounds: evict whole old traces, never the one just written to
-        // unless it is alone.
-        while (g.total_spans > g.cfg.max_spans || g.traces.len() > g.cfg.max_traces)
-            && g.order.len() > 1
-        {
-            if g.order.front() == Some(&trace_id) {
-                // Rotate so the active trace is not the victim.
-                g.order.pop_front();
-                g.order.push_back(trace_id);
-                continue;
+        // Classify: finished and task-less (evicted first), or not (again, if
+        // a late span of a finished trace named a task).
+        let state = g.traces.get_mut(&trace_id).map(|e| {
+            let was = e.finished_taskless;
+            if e.tasks.is_empty() {
+                e.finished_taskless |= is_local_root;
+            } else {
+                e.finished_taskless = false;
             }
-            if !g.evict_oldest() {
+            (e.seq, was, e.finished_taskless)
+        });
+        match state {
+            Some((seq, false, true)) => {
+                g.finished_taskless.insert(seq, trace_id);
+            }
+            Some((seq, true, false)) => {
+                g.finished_taskless.remove(&seq);
+            }
+            _ => {}
+        }
+        // Bounds: evict whole traces, never the one just written to unless
+        // it is alone.
+        while g.total_spans > g.cfg.max_spans || g.traces.len() > g.cfg.max_traces {
+            let Some(victim) = g.victim(&trace_id) else {
                 break;
-            }
+            };
+            g.evict(&victim);
         }
     }
 }
@@ -473,6 +529,93 @@ mod tests {
         let v = s.by_trace(&[99; 16]).unwrap();
         assert_eq!(v.spans.len(), MAX_SPANS_PER_TRACE);
         assert_eq!(v.dropped_spans, 50);
+    }
+
+    /// One finished single-span trace per RPC call, as `methods::dispatch`'s
+    /// `rpc.request` root span produces for `logs/read`, `status`, ...
+    fn rpc_call(s: &TraceStore, trace: u8) {
+        s.emit(span(
+            trace,
+            1,
+            None,
+            "rpc.request",
+            &[("method", "logs/read")],
+        ));
+    }
+
+    #[test]
+    fn rpc_call_traces_do_not_evict_task_traces() {
+        // Trace bound: far more RPC calls than `max_traces`.
+        let s = TraceStore::new(TraceConfig {
+            max_spans: 100_000,
+            max_traces: 5,
+        });
+        let task = format!("{:032x}", 7);
+        s.emit(span(1, 2, Some(1), "plugin.invoke", &[]));
+        s.emit(span(1, 1, None, "task.dispatch", &[("task_id", &task)]));
+        for t in 10..=250u8 {
+            rpc_call(&s, t);
+            assert!(s.trace_count() <= 5);
+        }
+        let v = s.by_task(&task);
+        assert_eq!(v.len(), 1, "the task trace survives the RPC calls");
+        assert_eq!(v[0].spans.len(), 2);
+        assert!(s.evicted_traces() > 0, "RPC-call traces were evicted");
+        assert!(s.by_trace(&[250; 16]).is_some(), "the newest call is kept");
+
+        // Span bound: the same.
+        let s = TraceStore::new(TraceConfig {
+            max_spans: 64,
+            max_traces: 100_000,
+        });
+        s.emit(span(1, 2, Some(1), "plugin.invoke", &[]));
+        s.emit(span(1, 1, None, "task.dispatch", &[("task_id", &task)]));
+        for t in 10..=250u8 {
+            rpc_call(&s, t);
+            assert!(s.span_count() <= 64);
+        }
+        assert_eq!(s.by_task(&task)[0].spans.len(), 2);
+    }
+
+    #[test]
+    fn an_unfinished_task_trace_outlives_finished_rpc_call_traces() {
+        // `plugin.invoke` closes before the `task.dispatch` that carries the
+        // task id: the trace has no task index yet while RPC calls go on.
+        let s = TraceStore::new(TraceConfig {
+            max_spans: 100_000,
+            max_traces: 5,
+        });
+        let task = format!("{:032x}", 8);
+        s.emit(span(1, 2, Some(1), "plugin.invoke", &[]));
+        for t in 10..=60u8 {
+            rpc_call(&s, t);
+        }
+        s.emit(span(1, 1, None, "task.dispatch", &[("task_id", &task)]));
+        let v = s.by_task(&task);
+        assert_eq!(v.len(), 1);
+        assert_eq!(
+            v[0].spans.len(),
+            2,
+            "plugin.invoke was kept: {:?}",
+            v[0].spans
+        );
+    }
+
+    #[test]
+    fn task_traces_are_still_evicted_oldest_first_among_themselves() {
+        let s = TraceStore::new(TraceConfig {
+            max_spans: 100_000,
+            max_traces: 3,
+        });
+        for t in 1..=6u8 {
+            let task = format!("{t:032x}");
+            s.emit(span(t, 1, None, "task.dispatch", &[("task_id", &task)]));
+            rpc_call(&s, 100 + t);
+        }
+        assert_eq!(s.trace_count(), 3);
+        assert!(s.by_task(&format!("{:032x}", 3)).is_empty());
+        assert!(!s.by_task(&format!("{:032x}", 5)).is_empty());
+        assert!(!s.by_task(&format!("{:032x}", 6)).is_empty());
     }
 
     #[test]

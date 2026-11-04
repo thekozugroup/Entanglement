@@ -712,3 +712,53 @@ async fn the_trace_store_cap_comes_from_config_and_holds() {
         "the oldest is gone"
     );
 }
+
+/// Every RPC call the daemon answers is a one-span `rpc.request` trace in the
+/// store, and `entangle logs --follow` on a chatty source makes thousands of
+/// them. They must not push task traces out: after more `logs/read` calls
+/// than the store holds traces, the task's trace is still there.
+#[tokio::test(flavor = "multi_thread")]
+async fn rpc_calls_do_not_evict_task_traces() {
+    let state = plain_state();
+    let task = uuid::Uuid::new_v4().to_string();
+    {
+        let root = tracing::info_span!(target: "entangle_test", "task.dispatch", task_id = %task);
+        let _g = root.enter();
+        let _c = tracing::info_span!(target: "entangle_test", "plugin.invoke").entered();
+    }
+    for _ in 0..(TraceConfig::DEFAULT_TRACES + 200) {
+        logs(
+            &state,
+            serde_json::json!({ "source": "daemon", "limit": 1 }),
+        )
+        .await;
+    }
+    let v = rpc(&state, "trace/get", serde_json::json!({ "id": task })).await;
+    assert!(v.get("error").is_none(), "the task trace was evicted: {v}");
+    let t: TraceGetResult = serde_json::from_value(v["result"].clone()).unwrap();
+    assert_eq!(t.traces.len(), 1, "{t:?}");
+    let names: Vec<&str> = t.traces[0].spans.iter().map(|s| s.name.as_str()).collect();
+    assert!(
+        names.contains(&"task.dispatch") && names.contains(&"plugin.invoke"),
+        "{names:?}"
+    );
+}
+
+/// `max_traces` comes from `[telemetry.trace_store]` and holds.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_trace_count_cap_comes_from_config_and_holds() {
+    let cfg: config::Config = toml::from_str("[telemetry.trace_store]\nmax_traces = 10\n").unwrap();
+    let store = TraceStore::new(cfg.telemetry.trace_store.trace_config());
+    use tracing_subscriber::prelude::*;
+    let sink: Arc<dyn entangle_observability::context::SpanSink> = Arc::new(store.clone());
+    let sub =
+        tracing_subscriber::registry().with(entangle_observability::context::SpanLayer::new(sink));
+    tracing::subscriber::with_default(sub, || {
+        for i in 0..50u32 {
+            let _s = tracing::info_span!(target: "entangle_test", "task.dispatch", task_id = %format!("{i:032x}")).entered();
+        }
+    });
+    assert_eq!(store.trace_count(), 10);
+    assert_eq!(store.by_task(&format!("{:032x}", 49)).len(), 1);
+    assert!(store.by_task(&format!("{:032x}", 39)).is_empty());
+}

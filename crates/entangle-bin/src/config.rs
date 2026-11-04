@@ -152,19 +152,23 @@ pub struct TelemetrySection {
 ///
 /// ```toml
 /// [telemetry.trace_store]
-/// max_spans = 10000      # oldest traces are evicted whole beyond this
+/// max_spans = 10000      # whole traces are evicted beyond either bound,
+/// max_traces = 2000      # finished task-less ones (RPC calls) first
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct TraceStoreSection {
     /// Spans kept in total (clamped to 64..=1 000 000).
     pub max_spans: usize,
+    /// Traces kept at once (clamped to 1..=1 000 000).
+    pub max_traces: usize,
 }
 
 impl Default for TraceStoreSection {
     fn default() -> Self {
         Self {
             max_spans: entangle_observability::traces::TraceConfig::DEFAULT_SPANS,
+            max_traces: entangle_observability::traces::TraceConfig::DEFAULT_TRACES,
         }
     }
 }
@@ -174,7 +178,7 @@ impl TraceStoreSection {
     pub fn trace_config(&self) -> entangle_observability::traces::TraceConfig {
         entangle_observability::traces::TraceConfig {
             max_spans: self.max_spans,
-            ..Default::default()
+            max_traces: self.max_traces,
         }
     }
 }
@@ -1047,6 +1051,19 @@ max_tier_allowed = 2
         assert!(toml::from_str::<Config>("[logs]\nbogus = 1\n").is_err());
         let bad: Config = toml::from_str("[logs]\ncapture_level = \"loud\"\n").unwrap();
         assert!(bad.logs.log_config().unwrap_err().contains("capture_level"));
+    }
+
+    #[test]
+    fn trace_store_max_traces_is_configurable() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert_eq!(
+            cfg.telemetry.trace_store.trace_config().max_traces,
+            entangle_observability::traces::TraceConfig::DEFAULT_TRACES
+        );
+        let cfg: Config =
+            toml::from_str("[telemetry.trace_store]\nmax_spans = 500\nmax_traces = 50\n").unwrap();
+        let tc = cfg.telemetry.trace_store.trace_config();
+        assert_eq!((tc.max_spans, tc.max_traces), (500, 50));
     }
 
     #[test]

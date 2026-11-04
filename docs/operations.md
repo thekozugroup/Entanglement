@@ -1266,13 +1266,19 @@ own and carries `task_id`); all are printed.
 
 ```toml
 [telemetry.trace_store]
-max_spans = 10000   # 64..=1000000; oldest traces are evicted whole
+max_spans = 10000   # 64..=1000000
+max_traces = 2000   # 1..=1000000
 ```
 
-Limits: spans of `entangle*` targets at `INFO` and above only; at most 2000
-traces, `max_spans` spans in total and 512 per trace (more are counted and
-reported); span attributes are redacted like log fields; the store is memory
-only and starts empty at daemon start. Each node records only its own spans:
+Limits: spans of `entangle*` targets at `INFO` and above only; at most
+`max_traces` traces, `max_spans` spans in total and 512 per trace (more are
+counted and reported). Beyond a bound whole traces are evicted: first the
+oldest *finished* trace that names no task (every RPC call the daemon answers,
+including each `logs/read` of `entangle logs --follow`, is such a one-span
+`rpc.request` trace), and only when there is none the oldest trace of any
+kind, so task traces are kept for the last `max_traces` tasks however often
+the daemon is polled. Span attributes are redacted like log fields; the store
+is memory only and starts empty at daemon start. Each node records only its own spans:
 for work a peer executed you see this node's `remote.dispatch`, and the output
 says that the peer's spans are held by that node (run `entangle trace task` on
 the peer; the worker records the same task id and joins the same trace id
