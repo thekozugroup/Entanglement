@@ -25,7 +25,6 @@
 
 use std::collections::VecDeque;
 use std::future::Future;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -38,7 +37,7 @@ use tokio::task::JoinHandle;
 
 use super::error::{Reason, Side, StreamError};
 use super::executor::{ExecutorMachine, InputPoll, SendOutcome};
-use super::frame::{decode_frame, encode_frame_owned};
+use super::frame::{decode_frame, encode_frame_owned, CONTROL_FRAME_MAX};
 use super::partial::{finalize, StreamContext, StreamOutcome, StreamResult};
 use super::submitter::{ChunkPoll, InputSend, SubmitterMachine, SubmitterOptions, VerifiedChunk};
 use super::StreamEvent;
@@ -67,14 +66,24 @@ enum ReadItem {
     Failed(String),
 }
 
+/// Read frames in lockstep with the loop: each read waits for the cap the
+/// loop computed **after** processing the previous frame, so the cap always
+/// reflects the bytes already received (a reader running one frame ahead
+/// would check the next header against a stale, larger budget).
 fn spawn_reader(
     mut recv: FramedRecv,
-    cap: Arc<AtomicUsize>,
-) -> (mpsc::Receiver<ReadItem>, JoinHandle<()>) {
-    let (tx, rx) = mpsc::channel(2);
+    first_cap: usize,
+) -> (
+    mpsc::Receiver<ReadItem>,
+    mpsc::Sender<usize>,
+    JoinHandle<()>,
+) {
+    let (tx, rx) = mpsc::channel(1);
+    let (cap_tx, mut cap_rx) = mpsc::channel::<usize>(1);
+    let _ = cap_tx.try_send(first_cap);
     let task = tokio::spawn(async move {
-        loop {
-            let item = match recv.recv_capped(cap.load(Ordering::Acquire)).await {
+        while let Some(cap) = cap_rx.recv().await {
+            let item = match recv.recv_capped(cap).await {
                 Ok(Some(bytes)) => ReadItem::Frame(bytes),
                 Ok(None) => ReadItem::Eof,
                 Err(MeshIrohError::FrameTooLarge { declared, .. }) => ReadItem::TooLarge(declared),
@@ -86,7 +95,7 @@ fn spawn_reader(
             }
         }
     });
-    (rx, task)
+    (rx, cap_tx, task)
 }
 
 fn spawn_writer(mut send: FramedSend) -> (mpsc::Sender<Vec<u8>>, JoinHandle<()>) {
@@ -101,6 +110,13 @@ fn spawn_writer(mut send: FramedSend) -> (mpsc::Sender<Vec<u8>>, JoinHandle<()>)
         let _ = send.finish().await;
     });
     (tx, task)
+}
+
+/// The reader task and its two channels.
+struct Reading {
+    rx: mpsc::Receiver<ReadItem>,
+    caps: mpsc::Sender<usize>,
+    task: JoinHandle<()>,
 }
 
 /// Encoded frames waiting for room in the writer queue.
@@ -127,9 +143,13 @@ async fn linger(
     mut out: Outbound,
     wtx: mpsc::Sender<Vec<u8>>,
     writer: JoinHandle<()>,
-    mut rx: mpsc::Receiver<ReadItem>,
-    reader: JoinHandle<()>,
+    reading: Reading,
 ) {
+    let Reading {
+        mut rx,
+        caps,
+        task: reader,
+    } = reading;
     let flush = async {
         while let Some(frame) = out.frames.pop_front() {
             if wtx.send(frame).await.is_err() {
@@ -141,10 +161,14 @@ async fn linger(
     };
     let _ = tokio::time::timeout(LINGER, flush).await;
     let drain = async {
+        // Whatever still arrives is discarded; only control-sized frames are
+        // read, so a closing peer cannot make this end allocate.
+        let _ = caps.try_send(CONTROL_FRAME_MAX);
         while let Some(item) = rx.recv().await {
             if !matches!(item, ReadItem::Frame(_)) {
                 break;
             }
+            let _ = caps.try_send(CONTROL_FRAME_MAX);
         }
     };
     let _ = tokio::time::timeout(LINGER, drain).await;
@@ -201,8 +225,12 @@ pub async fn drive_executor_halves<P>(
 where
     P: Future<Output = Result<(), String>> + Send,
 {
-    let cap = Arc::new(AtomicUsize::new(m.frame_cap()));
-    let (mut rx, reader) = spawn_reader(recv, Arc::clone(&cap));
+    let (rx, caps, reader) = spawn_reader(recv, m.frame_cap());
+    let mut reading = Reading {
+        rx,
+        caps,
+        task: reader,
+    };
     let (wtx, writer) = spawn_writer(send);
     let mut out = Outbound::default();
     let mut seen = Vec::new();
@@ -266,17 +294,19 @@ where
             m.on_transport_lost("the submitter stopped reading the stream".into());
             continue;
         }
-        cap.store(m.frame_cap(), Ordering::Release);
         let deadline = m.poll_timeout();
         let take_chunk = chunks_open && pending.is_none() && out.is_empty();
 
         tokio::select! {
             biased;
-            item = rx.recv() => match item {
-                Some(ReadItem::Frame(bytes)) => match decode_frame(&bytes, Side::Submitter) {
-                    Ok(frame) => { let _ = m.on_frame(frame, Instant::now()); }
-                    Err(e) => { m.fail(e); }
-                },
+            item = reading.rx.recv() => match item {
+                Some(ReadItem::Frame(bytes)) => {
+                    match decode_frame(&bytes, Side::Submitter) {
+                        Ok(frame) => { let _ = m.on_frame(frame, Instant::now()); }
+                        Err(e) => { m.fail(e); }
+                    }
+                    let _ = reading.caps.try_send(m.frame_cap());
+                }
                 Some(ReadItem::TooLarge(declared)) => { m.on_oversized_frame(declared); }
                 Some(ReadItem::Eof) => m.on_transport_lost("the submitter closed its side of the stream".into()),
                 Some(ReadItem::Failed(e)) => m.on_transport_lost(e),
@@ -306,7 +336,7 @@ where
 
     // Close the plugin's input so a guest still reading sees the end.
     drop(port);
-    linger(out, wtx, writer, rx, reader).await;
+    linger(out, wtx, writer, reading).await;
     let outcome = match m.error() {
         None => Ok(()),
         Some(e) => Err(e.clone()),
@@ -643,8 +673,12 @@ async fn drive_submitter(
     executor: PeerId,
 ) -> Finished {
     let (send, recv) = io.split();
-    let cap = Arc::new(AtomicUsize::new(m.frame_cap()));
-    let (mut rx, reader) = spawn_reader(recv, Arc::clone(&cap));
+    let (rx, caps, reader) = spawn_reader(recv, m.frame_cap());
+    let mut reading = Reading {
+        rx,
+        caps,
+        task: reader,
+    };
     let (wtx, writer) = spawn_writer(send);
     let mut out = Outbound::default();
     let mut pending_next: Option<oneshot::Sender<ChunkPoll>> = None;
@@ -705,16 +739,18 @@ async fn drive_submitter(
             m.on_transport_lost("the executor stopped reading the stream".into());
             continue;
         }
-        cap.store(m.frame_cap(), Ordering::Release);
         let deadline = m.poll_timeout();
 
         tokio::select! {
             biased;
-            item = rx.recv() => match item {
-                Some(ReadItem::Frame(bytes)) => match decode_frame(&bytes, Side::Executor) {
-                    Ok(frame) => { let _ = m.on_frame(frame, Instant::now()); }
-                    Err(e) => { m.fail(e); }
-                },
+            item = reading.rx.recv() => match item {
+                Some(ReadItem::Frame(bytes)) => {
+                    match decode_frame(&bytes, Side::Executor) {
+                        Ok(frame) => { let _ = m.on_frame(frame, Instant::now()); }
+                        Err(e) => { m.fail(e); }
+                    }
+                    let _ = reading.caps.try_send(m.frame_cap());
+                }
                 Some(ReadItem::TooLarge(declared)) => { m.on_oversized_frame(declared); }
                 Some(ReadItem::Eof) => m.on_transport_lost("the executor closed its side of the stream".into()),
                 Some(ReadItem::Failed(e)) => m.on_transport_lost(e),
@@ -783,7 +819,7 @@ async fn drive_submitter(
             other => break other,
         }
     };
-    linger(out, wtx, writer, rx, reader).await;
+    linger(out, wtx, writer, reading).await;
 
     let outcome = match &terminal {
         ChunkPoll::Ended(end) => StreamOutcome::Complete(end.clone()),
