@@ -442,6 +442,12 @@ async fn start_dialers(
         .sightings
         .as_ref()
         .is_some_and(|s| s.peers().contains(&peer));
+    if dialers.sightings.is_some() && !lan_route {
+        dialers.notes.push(format!(
+            "local: peer {peer} was not seen on the LAN (mDNS, {} ms)",
+            LAN_BROWSE.as_millis()
+        ));
+    }
     if routing.wants_iroh(&peer, address) || lan_route {
         let config = MeshIrohConfig {
             alpn: ALPN_STREAM.to_vec(),
@@ -647,14 +653,7 @@ async fn run_remote(a: &StreamArgs, task: &StreamingTask, spec: &str) -> anyhow:
         Some(router) => open_routed(&router, peer, task)
             .await
             .map_err(|e| with_notes(e.into(), &dialers.notes)),
-        None => Err(with_notes(
-            anyhow::anyhow!(
-                "no transport can reach peer {peer}: give its long address (--peer \
-                 <pubkey-hex>@host:port, or [scheduler] peers), or enable \"local\" or \
-                 mesh.tailscale in ~/.entangle/config.toml"
-            ),
-            &dialers.notes,
-        )),
+        None => Err(no_route(peer, &routing, address.as_ref(), &dialers).into()),
     };
     let result = match opened {
         Ok((handle, transport)) => consume(handle, a.json, task.partial_result, transport).await,
@@ -662,6 +661,63 @@ async fn run_remote(a: &StreamArgs, task: &StreamingTask, spec: &str) -> anyhow:
     };
     dialers.shutdown().await;
     result
+}
+
+/// Nothing this run started can carry a stream to `peer`: the router's
+/// `ENTANGLE-E0430` inside `ENTANGLE-E0363`, as when the router itself finds
+/// no route, with each transport's reason taken from what is configured (a
+/// transport that is enabled is never "to be enabled").
+fn no_route(
+    peer: PeerId,
+    routing: &Routing,
+    address: Option<&IrohPeer>,
+    dialers: &Dialers,
+) -> StreamError {
+    let order = routing.policy.order_for(&peer);
+    let not_listed = |kind: TransportKind| {
+        format!(
+            "{}: [mesh.overrides] does not list it for this peer",
+            kind.as_str()
+        )
+    };
+    let noted = |prefix: &str| {
+        dialers
+            .notes
+            .iter()
+            .find(|n| n.starts_with(prefix))
+            .cloned()
+    };
+    let local = if !routing.transports.iter().any(|t| t == "local") {
+        "local: \"local\" is not in [mesh] transports".to_owned()
+    } else if !order.contains(&TransportKind::Local) {
+        not_listed(TransportKind::Local)
+    } else {
+        noted("local: ").unwrap_or_else(|| format!("local: peer {peer} was not seen on the LAN"))
+    };
+    let tailscale = if routing.tailnet.is_none() {
+        "tailscale: not enabled (set [mesh.tailscale] enabled = true and list \"tailscale\" in \
+         [mesh] transports)"
+            .to_owned()
+    } else if !order.contains(&TransportKind::Tailscale) {
+        not_listed(TransportKind::Tailscale)
+    } else {
+        noted("tailscale: ")
+            .unwrap_or_else(|| "tailscale: the tailnet transport did not start".into())
+    };
+    let iroh = if address.is_none() {
+        "iroh: no address for the peer (give --peer <pubkey-hex>@host:port, or add it to \
+         [scheduler] peers)"
+            .to_owned()
+    } else if !order.contains(&TransportKind::Iroh) {
+        not_listed(TransportKind::Iroh)
+    } else {
+        noted("iroh: ").unwrap_or_else(|| "iroh: the endpoint did not start".into())
+    };
+    let route = entangle_scheduler::RouteError::NoRoute {
+        peer,
+        detail: [local, tailscale, iroh].join("; "),
+    };
+    StreamError::Transport(route.to_string())
 }
 
 /// `error`, plus why transports this run wanted did not start.
