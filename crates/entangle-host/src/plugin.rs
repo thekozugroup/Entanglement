@@ -215,15 +215,19 @@ impl LoadedPlugin {
                 // also as soon as its network grants are withdrawn while it
                 // runs wasm code: check every few ticks.
                 let watch = watch.clone();
-                let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+                // `None`: a timeout too far out for this platform's clock,
+                // i.e. no deadline.
+                let deadline = Instant::now().checked_add(Duration::from_millis(timeout_ms));
                 let step = REVOCATION_CHECK_TICKS.min(ticks);
                 store.set_epoch_deadline(step);
                 store.epoch_deadline_callback(move |_| {
-                    let left = deadline.saturating_duration_since(Instant::now());
-                    if watch.withdrawn().is_some() || left.is_zero() {
+                    let left = deadline.map(|d| d.saturating_duration_since(Instant::now()));
+                    if watch.withdrawn().is_some() || left.is_some_and(|l| l.is_zero()) {
                         return Ok(UpdateDeadline::Interrupt);
                     }
-                    let left_ms = u64::try_from(left.as_millis()).unwrap_or(u64::MAX);
+                    let left_ms = left.map_or(u64::MAX, |l| {
+                        u64::try_from(l.as_millis()).unwrap_or(u64::MAX)
+                    });
                     Ok(UpdateDeadline::Continue(
                         step.min(left_ms.div_ceil(EPOCH_TICK_MS).max(1)),
                     ))

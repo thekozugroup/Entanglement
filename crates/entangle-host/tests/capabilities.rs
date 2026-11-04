@@ -1276,6 +1276,12 @@ async fn revoking_a_net_grant_stops_a_busy_networked_invocation() {
         .await
         .unwrap_err();
     assert!(matches!(err, HostError::Timeout(300)), "{err}");
+    // An effectively unbounded timeout is accepted, as for any invocation.
+    let out = plugin
+        .run_one_shot(&h.engine, b"echo", u64::MAX)
+        .await
+        .expect("no deadline arithmetic overflows");
+    assert_eq!(out.output, b"echo");
     assert!(
         started.elapsed() < std::time::Duration::from_millis(2_000),
         "{:?}",
