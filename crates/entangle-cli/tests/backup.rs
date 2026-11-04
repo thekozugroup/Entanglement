@@ -415,3 +415,102 @@ fn a_restore_that_fails_part_way_changes_nothing() {
         .collect();
     assert!(leftovers.is_empty(), "{leftovers:?}");
 }
+
+/// Requirement 2 / spec §6.5: a restored node keeps its capability tokens
+/// (the ones it presents, and the record of the ones it issued) **and** its
+/// revocation set. Without the latter, every token revoked before the backup
+/// would verify again on the restored node: same identity key, empty set.
+#[test]
+fn round_trip_keeps_capability_tokens_and_the_revocation_set() {
+    use entangle_biscuits::templates::{
+        mint_mesh_peer, now_unix_secs, present_for_request, Operation, RequestVerifier,
+        RevocationList, TokenError,
+    };
+    use entangle_peers::{PeerStore, RevocationStore, TrustedPeer, REVOCATIONS_FILE};
+    use entangle_types::peer_id::PeerId;
+
+    #[derive(Debug)]
+    struct FileRevocations(RevocationStore);
+    impl RevocationList for FileRevocations {
+        fn any_revoked(&self, ids: &[Vec<u8>]) -> Result<bool, String> {
+            self.0.any_revoked(ids).map_err(|e| e.to_string())
+        }
+    }
+
+    let old = TempDir::new().unwrap();
+    let dir = old.path().join(".entangle");
+    std::fs::create_dir_all(&dir).unwrap();
+    let w = IdentityKeyPair::generate();
+    std::fs::write(dir.join("identity.key"), w.to_pem()).unwrap();
+    let w_id = PeerId::from_public_key_bytes(w.public().as_bytes());
+
+    // Two paired peers: `kept` stays, `gone` is removed (its token revoked).
+    let pair = |seed_name: &str| {
+        let p = IdentityKeyPair::generate();
+        let p_id = PeerId::from_public_key_bytes(p.public().as_bytes());
+        let issued = mint_mesh_peer(&w, p_id, None).unwrap();
+        let presented = mint_mesh_peer(&p, w_id, None).unwrap().bytes;
+        let record =
+            TrustedPeer::new_validated(p_id, hex::encode(p.public().as_bytes()), seed_name.into())
+                .unwrap()
+                .with_tokens(Some(&presented), &issued.revocation_ids);
+        (p_id, issued, presented, record)
+    };
+    let (kept_id, kept_issued, kept_presented, kept) = pair("kept");
+    let (gone_id, gone_issued, _, gone) = pair("gone");
+    let store = PeerStore::open(dir.join("peers.toml")).unwrap();
+    store.add(kept).unwrap();
+    store.add(gone).unwrap();
+    entangle(old.path())
+        .args(["peers", "remove", &gone_id.to_hex()])
+        .assert()
+        .success();
+
+    let work = TempDir::new().unwrap();
+    let pass = passfile(work.path(), "correct horse battery");
+    let ar = work.path().join("node.bak");
+    backup(old.path(), &ar, &pass, &[])
+        .success()
+        .stdout(predicate::str::contains(REVOCATIONS_FILE));
+
+    let new = TempDir::new().unwrap();
+    restore(new.path(), &ar, &pass, &[]).success();
+    let n = new.path().join(".entangle");
+    assert_eq!(
+        std::fs::read(dir.join(REVOCATIONS_FILE)).unwrap(),
+        std::fs::read(n.join(REVOCATIONS_FILE)).expect("the revocation set is restored"),
+    );
+    assert_eq!(mode(&n.join(REVOCATIONS_FILE)), 0o600);
+
+    // The tokens survive in the restored peer list.
+    let restored = PeerStore::open(n.join("peers.toml")).unwrap();
+    let record = restored.get(&kept_id).expect("kept peer restored");
+    assert_eq!(record.capability_token_bytes(), Some(kept_presented));
+    assert_eq!(record.issued_revocation_ids(), kept_issued.revocation_ids);
+
+    // And the restored node, under its restored identity, still accepts the
+    // live token and still refuses the revoked one — even after the removed
+    // peer is put back on the allowlist by hand.
+    let restored_identity =
+        IdentityKeyPair::from_pem(&std::fs::read_to_string(n.join("identity.key")).unwrap())
+            .unwrap();
+    let verifier = RequestVerifier::new(restored_identity.public().as_bytes())
+        .unwrap()
+        .with_revocations(std::sync::Arc::new(FileRevocations(RevocationStore::at(
+            n.join(REVOCATIONS_FILE),
+        ))));
+    let ask = |token: &[u8], holder: PeerId, nonce_binding: u8| {
+        let now = now_unix_secs();
+        let req =
+            present_for_request(token, w.public().as_bytes(), [nonce_binding; 32], now).unwrap();
+        verifier
+            .verify(&req, holder, [nonce_binding; 32], Operation::Stream)
+            .map(|_| ())
+    };
+    ask(&kept_issued.bytes, kept_id, 1).expect("a live token still verifies after restore");
+    assert_eq!(
+        ask(&gone_issued.bytes, gone_id, 2),
+        Err(TokenError::Revoked),
+        "a token revoked before the backup must stay revoked after the restore"
+    );
+}

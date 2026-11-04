@@ -1,9 +1,14 @@
 //! `entangle backup` / `entangle restore` (spec §6.5, §9.6).
 //!
-//! `backup --to <path>` exports the node identity, the trust keyrings and the
-//! paired-peer list into one passphrase-encrypted archive; `restore --from
-//! <path>` imports it on a new device. Biscuits are bound to the identity and
-//! the keyring, not to the device, so every issued biscuit stays valid.
+//! `backup --to <path>` exports the node identity, the trust keyrings, the
+//! paired-peer list (with the `mesh.peer` capability tokens each record
+//! carries) and the local capability-token revocation set
+//! (`revoked-tokens.toml`) into one passphrase-encrypted archive; `restore
+//! --from <path>` imports it on a new device. Biscuits are bound to the
+//! identity and the keyring, not to the device, so every issued biscuit stays
+//! valid — and every revoked one stays revoked: the revocation set travels
+//! with the identity key the tokens are rooted at, since restoring the key
+//! without it would make every token revoked before the backup verify again.
 //!
 //! # Archive format (version 1)
 //!
@@ -80,9 +85,14 @@ const IDENTITY: &str = "identity.key";
 const KEYRING: &str = "keyring.toml";
 const RELEASE_KEYRING: &str = "release-keyring.toml";
 const PEERS: &str = "peers.toml";
+/// The local set of revoked capability-token ids (spec §6.5).
+const REVOCATIONS: &str = entangle_peers::REVOCATIONS_FILE;
 const CONFIG: &str = "config.toml";
-/// State that always belongs to the identity: restored (or removed) together.
-const MANAGED: [&str; 4] = [IDENTITY, KEYRING, RELEASE_KEYRING, PEERS];
+/// State that always belongs to the identity: restored (or removed) together,
+/// committed in this order. The revocation set goes in before the peer list,
+/// so a peer is never back on the allowlist while its revoked token is not
+/// yet in the set.
+const MANAGED: [&str; 5] = [IDENTITY, KEYRING, RELEASE_KEYRING, REVOCATIONS, PEERS];
 
 // ---------------------------------------------------------------------------
 // Clap types
@@ -366,7 +376,7 @@ fn validate(c: &Contents) -> Result<()> {
     }
     let mut seen = std::collections::HashSet::new();
     for f in &c.files {
-        if ![IDENTITY, KEYRING, RELEASE_KEYRING, PEERS, CONFIG].contains(&f.name.as_str()) {
+        if !MANAGED.contains(&f.name.as_str()) && f.name != CONFIG {
             bail!("ENTANGLE-E0863: unexpected file {:?} in backup", f.name);
         }
         if !seen.insert(f.name.as_str()) {
@@ -566,7 +576,7 @@ pub fn collect(dir: &Path, include_config: bool) -> Result<Contents> {
     let kp = IdentityKeyPair::from_pem(pem)
         .map_err(|e| anyhow!("ENTANGLE-E0866: identity.key is unreadable: {e}"))?;
     let mut files = vec![ArchiveFile::new(IDENTITY, &id_bytes).with_time_of(&dir.join(IDENTITY))];
-    let mut names = vec![KEYRING, RELEASE_KEYRING, PEERS];
+    let mut names = vec![KEYRING, RELEASE_KEYRING, PEERS, REVOCATIONS];
     if include_config {
         names.push(CONFIG);
     }
