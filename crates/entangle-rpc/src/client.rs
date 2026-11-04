@@ -128,8 +128,23 @@ impl Client {
 
     /// `plugins/load` — ask the daemon to load the plugin at `dir`.
     pub async fn plugins_load(&self, dir: impl AsRef<Path>) -> Result<PluginsLoadResult, RpcError> {
+        self.plugins_load_with(dir, false, false).await
+    }
+
+    /// `plugins/load`, with the hot-reload consent flags: a new version of a
+    /// loaded plugin that declares more capabilities (or a higher tier) is
+    /// only accepted with `accept_new_capabilities`, a lower version only
+    /// with `allow_downgrade`.
+    pub async fn plugins_load_with(
+        &self,
+        dir: impl AsRef<Path>,
+        accept_new_capabilities: bool,
+        allow_downgrade: bool,
+    ) -> Result<PluginsLoadResult, RpcError> {
         let p = PluginsLoadParams {
             dir: dir.as_ref().to_string_lossy().into_owned(),
+            accept_new_capabilities,
+            allow_downgrade,
         };
         self.call(method::PLUGINS_LOAD, p).await
     }

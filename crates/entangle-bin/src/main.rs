@@ -355,6 +355,14 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
             .await
             .context("starting the metrics endpoint")?;
 
+    // ── 3e'. Plugin state (spec §2.1): reload what was loaded before the
+    // daemon stopped, through the normal load path, before serving RPC.
+    let plugin_state = Arc::new(entangle_bin::plugin_state::PluginStateStore::new(
+        config_dir.join(entangle_bin::plugin_state::STATE_FILE),
+    ));
+    entangle_bin::plugin_state::restore(&kernel, &plugin_state, Some(&registry)).await;
+    daemon_state = daemon_state.with_plugin_state(plugin_state);
+
     daemon_state = daemon_state.with_config_path(config_path.clone());
     daemon_state = daemon_state.with_diag(entangle_bin::state::MeshDiagSources {
         configured_transports: cfg.mesh.transports.clone(),

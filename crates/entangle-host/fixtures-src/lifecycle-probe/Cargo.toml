@@ -1,0 +1,21 @@
+[workspace]
+[package]
+name = "lifecycle-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+# A `migratable-plugin` component (the `plugin` world plus the hot-reload
+# `migrate` export): the SDK binds only the `plugin` world, so the bindings
+# come from wit-bindgen directly (as for stream-caps-probe).
+[dependencies]
+wit-bindgen = { version = "0.57", default-features = false, features = ["macros"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

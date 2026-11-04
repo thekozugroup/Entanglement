@@ -75,6 +75,9 @@ pub struct DaemonState {
     /// The config.toml whose `[plugins] disabled` list is re-read before each
     /// plugin load; `None` (tests) keeps the kernel's startup list.
     pub config_path: Option<std::path::PathBuf>,
+    /// The plugin-state file rewritten after every change to the loaded
+    /// set (spec §2.1); `None` (tests) persists nothing.
+    pub plugin_state: Option<Arc<crate::plugin_state::PluginStateStore>>,
 }
 
 impl DaemonState {
@@ -105,6 +108,22 @@ impl DaemonState {
             diag: MeshDiagSources::default(),
             started_at: Instant::now(),
             config_path: None,
+            plugin_state: None,
+        }
+    }
+
+    /// Record the loaded plugins in `store` after every change (see
+    /// [`crate::plugin_state`]).
+    #[must_use]
+    pub fn with_plugin_state(mut self, store: Arc<crate::plugin_state::PluginStateStore>) -> Self {
+        self.plugin_state = Some(store);
+        self
+    }
+
+    /// Rewrite the plugin-state file from the kernel (no-op without one).
+    pub fn persist_plugins(&self) {
+        if let Some(store) = &self.plugin_state {
+            store.record(&self.kernel, None);
         }
     }
 

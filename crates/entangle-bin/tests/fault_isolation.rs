@@ -300,3 +300,41 @@ fn service_definitions_restart_on_failure_only() {
     );
     assert!(compact.contains("<string>/usr/local/bin/entangled</string><string>run</string>"));
 }
+
+/// Spec §2.1 end to end: after the process dies (here SIGKILL, as after a
+/// crash the service manager restarts), the new daemon reloads the plugins
+/// the old one had loaded, through the full verification path.
+#[tokio::test(flavor = "multi_thread")]
+async fn plugins_come_back_after_the_daemon_is_killed_and_restarted() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (pkg, id) = install_probe(tmp.path());
+    let mut d = Daemon::start(tmp.path(), "");
+    let client = d.client().await;
+    client.plugins_load(&pkg).await.expect("load");
+    let out = client
+        .plugins_invoke(&id, b"write /data/kept before\n".to_vec(), 10_000)
+        .await
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&out.output), "ok\n");
+    let _ = d.child.kill();
+    let _ = d.child.wait();
+    drop(d);
+
+    let mut d = Daemon::start(tmp.path(), "");
+    let client = d.client().await;
+    assert_eq!(
+        client.plugins_list().await.unwrap().plugins,
+        vec![id.clone()]
+    );
+    let out = client
+        .plugins_invoke(&id, b"read /data/kept\n".to_vec(), 10_000)
+        .await
+        .expect("the restored plugin answers");
+    assert_eq!(String::from_utf8_lossy(&out.output), "ok:before\n");
+    let restored = d
+        .log()
+        .lines()
+        .any(|l| l.contains("plugin state restored") && l.contains("\"restored\":1"));
+    assert!(restored, "{}", d.log());
+    assert_eq!(d.terminate().code(), Some(0), "{}", d.log());
+}

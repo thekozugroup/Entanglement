@@ -70,5 +70,24 @@ table at the top of its `src/lib.rs`.
 bash ../../fixtures-src/stream-caps-probe/build.sh
 ```
 
+## lifecycle-probe.wasm
+
+**Purpose**: Stable binary artifact used by `entangle-runtime/tests/hot_reload.rs`
+for hot reload and the optional `migrate` hook. A `migratable-plugin`-world
+component (the `plugin` world plus `migrate`): `run` answers `id` with the
+plugin id it runs as, `spin:<ms>` after busy-waiting, `read <path>` with a
+file's contents, anything else with `<plugin-id>|<input>`; `migrate(from)`
+fails in a version whose pre-release tag contains `fail` and otherwise writes
+`<from>-><to>` to `/data/migrated` (when it has storage). See the table at
+the top of its `src/lib.rs`.
+
+**Source**: `crates/entangle-host/fixtures-src/lifecycle-probe/` (uses
+`wit-bindgen` directly: the SDK binds only the `plugin` world).
+
+**Rebuild**:
+```bash
+bash ../../fixtures-src/lifecycle-probe/build.sh
+```
+
 **Binary blob policy**: Committed `.wasm` files are binary blobs — this is intentional.  
 The source of truth is the `fixtures-src/` directory; the blob is reproducible via the build script above.

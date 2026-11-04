@@ -65,6 +65,39 @@ pub enum RuntimeError {
     #[error("native: {0}")]
     Native(#[from] crate::native::NativeError),
 
+    /// A hot reload would widen what the plugin may do and the operator has
+    /// not accepted that (spec §4.4.1 case B).
+    #[error(
+        "ENTANGLE-E0781: reloading {} as {} needs consent: the new version declares more \
+         than the loaded one; re-run with --accept-new-capabilities to accept:\n{}",
+        .0.from, .0.to, .0.diff
+    )]
+    ReloadNeedsConsent(Box<crate::kernel::ConsentRequired>),
+
+    /// A hot reload to a lower version, not explicitly allowed.
+    #[error(
+        "ENTANGLE-E0782: reloading {from} as {to} is a downgrade; re-run with \
+         --allow-downgrade to accept"
+    )]
+    ReloadDowngrade {
+        /// The loaded version.
+        from: Box<PluginId>,
+        /// The lower version offered.
+        to: Box<PluginId>,
+    },
+
+    /// The new version's `migrate` hook failed: the reload was refused and
+    /// the loaded version keeps running.
+    #[error("ENTANGLE-E0783: the migrate hook of {to} failed ({message}); {from} keeps running")]
+    MigrateFailed {
+        /// The version that keeps running.
+        from: Box<PluginId>,
+        /// The version whose hook failed.
+        to: Box<PluginId>,
+        /// What the hook (or the host) reported.
+        message: String,
+    },
+
     /// Host code panicked during this plugin call and the panic was
     /// contained (spec §2.1): the call's instance is discarded, the plugin
     /// stays loaded and the daemon keeps running. See

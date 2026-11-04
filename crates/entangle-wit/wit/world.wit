@@ -34,3 +34,30 @@ world stream-plugin {
 
   export start-stream: func(input: list<u8>) -> result<stream-handle, plugin-error>;
 }
+
+/// The optional hot-reload hook (spec §3.3). A component of either world
+/// above may also export `migrate`; when the kernel replaces a loaded version
+/// of a plugin with this one it calls `migrate` on a fresh instance of the
+/// **new** version, with the version it replaces, before any call is routed
+/// to it. `ok` lets the swap proceed; `err` keeps the old version running
+/// and refuses the reload. A component without the export is swapped in
+/// after the old version drains (drain-and-swap).
+///
+/// The instance gets the new version's capability grants, so a plugin can
+/// rewrite its own storage (`/data`) into the new version's format here.
+world migrate-hook {
+  export migrate: func(from-version: string) -> result<_, string>;
+}
+
+/// A `plugin` world component that exports the `migrate` hook.
+world migratable-plugin {
+  include plugin;
+  include migrate-hook;
+}
+
+/// A `stream-plugin` world component that exports the `migrate` hook.
+world migratable-stream-plugin {
+  include stream-plugin;
+  include migrate-hook;
+}
+

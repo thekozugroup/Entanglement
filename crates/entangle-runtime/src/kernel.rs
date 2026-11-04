@@ -105,6 +105,8 @@ pub struct PluginSource {
     pub dir: std::path::PathBuf,
     /// BLAKE3 (hex) of the verified artifact.
     pub artifact_digest: String,
+    /// BLAKE3 (hex) of the verified manifest (`entangle.toml`).
+    pub manifest_digest: String,
     /// Its `[lifecycle]`.
     pub lifecycle: Lifecycle,
 }
@@ -148,6 +150,118 @@ pub enum MaxTierRefusal {
     /// the operator saw the list). They are never unloaded unseen.
     Unconfirmed(Vec<LoadedPluginInfo>),
 }
+
+/// Options for [`Kernel::load_plugin`] that matter when the load replaces
+/// another version of an already loaded plugin (hot reload, spec §3.3).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LoadOptions {
+    /// Accept a new version that declares capabilities the loaded version
+    /// does not (with exactly the same parameters), or a higher tier. Without
+    /// it such a reload is refused with the capability diff
+    /// (`ENTANGLE-E0781`): every upgrade re-asks for consent (spec §4.4.1
+    /// case B).
+    pub accept_new_capabilities: bool,
+    /// Accept a version lower than the loaded one (`ENTANGLE-E0782`
+    /// otherwise).
+    pub allow_downgrade: bool,
+}
+
+/// What [`Kernel::load_plugin`] did.
+#[derive(Clone, Debug)]
+pub struct LoadOutcome {
+    /// The plugin now loaded.
+    pub plugin_id: PluginId,
+    /// Set when this load replaced another version of the plugin.
+    pub replaced: Option<Replaced>,
+}
+
+/// The version a hot reload replaced.
+#[derive(Clone, Debug)]
+pub struct Replaced {
+    /// Its id.
+    pub previous: PluginId,
+    /// Whether the new version's `migrate` hook ran (`false`: it exports
+    /// none, plain drain-and-swap).
+    pub migrated: bool,
+    /// Turns `true` once the replaced version's calls and streams have
+    /// finished and it was unloaded (its `Unloaded` event published).
+    pub drained: tokio::sync::watch::Receiver<bool>,
+}
+
+/// How a reload changes what a plugin may do: the capabilities the new
+/// version declares that the loaded one does not declare with exactly the
+/// same parameters (`added`), the reverse (`removed`), and the effective
+/// tiers. Shown to the operator when a reload needs consent.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CapabilityDiff {
+    /// `key (params)` of each newly declared capability.
+    pub added: Vec<String>,
+    /// `key (params)` of each capability no longer declared.
+    pub removed: Vec<String>,
+    /// Effective tier of the loaded version, and of the new one.
+    pub tier: (Tier, Tier),
+}
+
+impl CapabilityDiff {
+    /// The diff from `old` (at `old_tier`) to `new` (at `new_tier`).
+    pub fn between(
+        old: &[entangle_types::capability::CapabilityKind],
+        old_tier: Tier,
+        new: &[entangle_types::capability::CapabilityKind],
+        new_tier: Tier,
+    ) -> Self {
+        let show = |c: &entangle_types::capability::CapabilityKind| {
+            let params = c.params();
+            if params.is_empty() {
+                c.key().into_owned()
+            } else {
+                format!("{} ({params})", c.key())
+            }
+        };
+        Self {
+            added: new.iter().filter(|c| !old.contains(c)).map(show).collect(),
+            removed: old.iter().filter(|c| !new.contains(c)).map(show).collect(),
+            tier: (old_tier, new_tier),
+        }
+    }
+
+    /// Whether the new version may do more: a new capability or a higher
+    /// tier. Removing capabilities or lowering the tier is not.
+    pub fn is_increase(&self) -> bool {
+        !self.added.is_empty() || self.tier.1 > self.tier.0
+    }
+}
+
+impl std::fmt::Display for CapabilityDiff {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for a in &self.added {
+            writeln!(f, "  + {a}")?;
+        }
+        for r in &self.removed {
+            writeln!(f, "  - {r}")?;
+        }
+        let (old, new) = self.tier;
+        if old == new {
+            write!(f, "  tier {} (unchanged)", old as u8)
+        } else {
+            write!(f, "  tier {} -> {}", old as u8, new as u8)
+        }
+    }
+}
+
+/// A reload refused for want of consent ([`RuntimeError::ReloadNeedsConsent`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConsentRequired {
+    /// The loaded version.
+    pub from: PluginId,
+    /// The version offered.
+    pub to: PluginId,
+    /// What changes.
+    pub diff: CapabilityDiff,
+}
+
+/// How long a `migrate` hook may run.
+const MIGRATE_TIMEOUT_MS: u64 = 30_000;
 
 /// How a loaded plugin executes.
 #[derive(Clone)]
@@ -208,6 +322,9 @@ pub struct Kernel {
     disabled: DisabledPlugins,
     /// The AOT compilation cache, when configured and usable.
     aot: Option<Arc<crate::AotCache>>,
+    /// Ids of versions replaced by a hot reload → the version now loaded:
+    /// calls addressed to a replaced version go to its successor.
+    aliases: RwLock<HashMap<PluginId, PluginId>>,
 }
 
 /// The `[plugins] disabled` set: plugin ids refused at load. Cheap to clone;
@@ -277,6 +394,7 @@ impl Kernel {
             disabled: DisabledPlugins::new(config.disabled_plugins.iter().cloned()),
             config,
             metrics: None,
+            aliases: RwLock::new(HashMap::new()),
         })
     }
 
@@ -435,6 +553,41 @@ impl Kernel {
     /// `entangle.toml` post-signing (e.g. raising the tier) fails verification
     /// with [`VerificationError::ManifestHashMismatch`].
     pub async fn load_plugin_from_dir(&self, dir: &Path) -> Result<PluginId, RuntimeError> {
+        self.load_plugin(dir, LoadOptions::default())
+            .await
+            .map(|o| o.plugin_id)
+    }
+
+    /// [`Kernel::load_plugin_from_dir`], which also **hot-reloads** (spec
+    /// §3.1, §3.3): when another version of the same plugin (same publisher
+    /// and name) is loaded, the new version goes through the whole pipeline
+    /// above while the old one keeps serving, and then replaces it:
+    ///
+    /// 1. A version lower than the loaded one is refused unless
+    ///    `opts.allow_downgrade` (`ENTANGLE-E0782`); a new version that
+    ///    declares a capability the loaded one does not, or has a higher
+    ///    tier, is refused unless `opts.accept_new_capabilities`
+    ///    (`ENTANGLE-E0781`, carrying the [`CapabilityDiff`]). Checked on
+    ///    the verified manifest, before the broker sees the new version.
+    /// 2. If the new component exports the `migrate` hook, it runs in a
+    ///    fresh instance of the new version, with the version being replaced
+    ///    (`migrate(from-version)`). A failure (`err`, a trap, a timeout)
+    ///    refuses the reload (`ENTANGLE-E0783`) and keeps the old version;
+    ///    without the hook the swap is a plain drain-and-swap.
+    /// 3. The swap is atomic: from then on new calls and streams — including
+    ///    ones addressed to the old version's id — run on the new version;
+    ///    calls and streams already running on the old one finish there.
+    /// 4. The old version is drained in the background exactly as by
+    ///    [`Kernel::unload`] (its grants released once its last call or
+    ///    stream ended, then `Unloaded`); [`Replaced::drained`] reports it.
+    ///
+    /// Loading the version already loaded is [`RuntimeError::AlreadyLoaded`]
+    /// as before (unload it, or bump the version).
+    pub async fn load_plugin(
+        &self,
+        dir: &Path,
+        opts: LoadOptions,
+    ) -> Result<LoadOutcome, RuntimeError> {
         let pkg = PluginPackage::from_directory(dir)?;
 
         // ── Step 1: Manifest ─────────────────────────────────────────────────
@@ -465,6 +618,8 @@ impl Kernel {
         if self.plugins.read().contains_key(&plugin_id) {
             return Err(RuntimeError::AlreadyLoaded(plugin_id));
         }
+        // Another version of the same plugin: this load is a hot reload.
+        let previous = self.loaded_version_of(&plugin_id);
 
         self.emit(
             &plugin_id,
@@ -536,6 +691,14 @@ impl Kernel {
             Runtime::Native => DeclaredRuntime::Native,
         };
         check_runtime_kind(declared, &pkg.bytes)?;
+
+        // ── Step 2d: Reload consent (spec §4.4.1 case B) ─────────────────────
+        if let Some(prev) = &previous {
+            if let Err(e) = self.check_reload(prev, &manifest, opts) {
+                self.record_reload("refused");
+                return Err(e);
+            }
+        }
         // ── Step 3: Broker ───────────────────────────────────────────────────
         // register_plugin takes ownership of ValidatedManifest (not Clone).
         self.broker.register_plugin(manifest)?;
@@ -548,21 +711,33 @@ impl Kernel {
             Err(e) => Err(e),
             Ok(grants) => match runtime {
                 Runtime::Wasm => self
-                    .prepare_wasm(&plugin_id, &pkg, effective_tier, lifecycle)
+                    .prepare_wasm(
+                        &plugin_id,
+                        &pkg,
+                        effective_tier,
+                        lifecycle,
+                        previous.as_ref(),
+                    )
                     .await
-                    .map(|p| (p, Vec::new())),
+                    .map(|(p, migrated)| (p, Vec::new(), migrated)),
                 Runtime::Native => self
                     .prepare_native(&plugin_id, &pkg, &grants)
-                    .map(|n| (PluginImpl::Native(Arc::new(n)), grants)),
+                    .map(|n| (PluginImpl::Native(Arc::new(n)), grants, false)),
             },
         };
-        let (plugin, sandbox_grants) = match plugin {
+        let (plugin, sandbox_grants, migrated) = match plugin {
             Ok(p) => p,
             Err(e) => {
                 let _ = self.broker.unregister_plugin(&plugin_id);
+                if matches!(e, RuntimeError::MigrateFailed { .. }) {
+                    self.record_reload("migrate_failed");
+                }
                 return Err(e);
             }
         };
+        if migrated {
+            self.emit(&plugin_id, effective_tier, LifecyclePhase::Migrated);
+        }
 
         // ── Bookkeeping ───────────────────────────────────────────────────────
         // A concurrent load of the same id would have failed at broker
@@ -577,12 +752,33 @@ impl Kernel {
         // not in `plugins` yet, nor refused it. Under the lock either the
         // lowering already happened (refused here) or it happens after the
         // insert (it then sees and unloads the plugin).
-        {
+        let replaced_record = {
             let mut plugins = self.plugins.write();
             if let Err(e) = self.broker.policy().check_plugin_load(effective_tier) {
                 drop(plugins);
                 let _ = self.broker.unregister_plugin(&plugin_id);
                 return Err(BrokerError::from(e).into());
+            }
+            if plugins.contains_key(&plugin_id) {
+                drop(plugins);
+                return Err(RuntimeError::AlreadyLoaded(plugin_id));
+            }
+            // The swap: the old version leaves the map (new calls can no
+            // longer take its in-flight token) in the same step as the new
+            // one enters it, and calls for the old id are routed to the new.
+            // It may have been unloaded meanwhile: then this is a plain load.
+            let replaced = previous
+                .as_ref()
+                .and_then(|prev| plugins.remove(prev).map(|r| (prev.clone(), r)));
+            if let Some((prev, _)) = &replaced {
+                let mut aliases = self.aliases.write();
+                for target in aliases.values_mut() {
+                    if target == prev {
+                        *target = plugin_id.clone();
+                    }
+                }
+                aliases.insert(prev.clone(), plugin_id.clone());
+                aliases.remove(&plugin_id);
             }
             match plugins.entry(plugin_id.clone()) {
                 std::collections::hash_map::Entry::Occupied(_) => {
@@ -608,6 +804,7 @@ impl Kernel {
                         source: PluginSource {
                             dir: pkg.dir.clone(),
                             artifact_digest: blake3::hash(&pkg.bytes).to_hex().to_string(),
+                            manifest_digest: blake3::hash(&pkg.manifest_bytes).to_hex().to_string(),
                             lifecycle,
                         },
                     });
@@ -616,10 +813,113 @@ impl Kernel {
                     }
                 }
             }
-        }
+            replaced
+        };
         self.emit(&plugin_id, effective_tier, LifecyclePhase::Loaded);
 
-        Ok(plugin_id)
+        let replaced = replaced_record.map(|(previous, record)| {
+            tracing::info!(
+                from = %previous,
+                to = %plugin_id,
+                migrated,
+                "plugin hot-reloaded; the old version drains"
+            );
+            self.record_reload("swapped");
+            Replaced {
+                drained: self.drain_in_background(previous.clone(), record),
+                previous,
+                migrated,
+            }
+        });
+        Ok(LoadOutcome {
+            plugin_id,
+            replaced,
+        })
+    }
+
+    /// The loaded version of `id`'s plugin (same publisher and name), other
+    /// than `id` itself.
+    fn loaded_version_of(&self, id: &PluginId) -> Option<PluginId> {
+        self.plugins
+            .read()
+            .keys()
+            .find(|p| p.publisher == id.publisher && p.name == id.name && p.version != id.version)
+            .cloned()
+    }
+
+    /// Refuse a reload from `prev` to `manifest` that downgrades without
+    /// `allow_downgrade` or widens authority without
+    /// `accept_new_capabilities`.
+    fn check_reload(
+        &self,
+        prev: &PluginId,
+        manifest: &ValidatedManifest,
+        opts: LoadOptions,
+    ) -> Result<(), RuntimeError> {
+        let to = &manifest.plugin_id;
+        if to.version < prev.version && !opts.allow_downgrade {
+            return Err(RuntimeError::ReloadDowngrade {
+                from: Box::new(prev.clone()),
+                to: Box::new(to.clone()),
+            });
+        }
+        let old_tier = self
+            .plugins
+            .read()
+            .get(prev)
+            .map(|r| r.effective_tier)
+            .unwrap_or(Tier::Pure);
+        let old_caps = self.broker.declared(prev).unwrap_or_default();
+        let diff = CapabilityDiff::between(
+            &old_caps,
+            old_tier,
+            &manifest.capabilities,
+            manifest.effective_tier,
+        );
+        if diff.is_increase() && !opts.accept_new_capabilities {
+            return Err(RuntimeError::ReloadNeedsConsent(Box::new(
+                ConsentRequired {
+                    from: prev.clone(),
+                    to: to.clone(),
+                    diff,
+                },
+            )));
+        }
+        Ok(())
+    }
+
+    fn record_reload(&self, outcome: &str) {
+        if let Some(m) = &self.metrics {
+            catalog::plugin_reload(&m.registry, outcome);
+        }
+    }
+
+    /// Wait for `record`'s calls and streams to end, then release its grants
+    /// and publish `Unloaded` — [`Kernel::unload`] for a record already out
+    /// of the map — without holding up the caller.
+    fn drain_in_background(
+        &self,
+        id: PluginId,
+        record: LoadedRecord,
+    ) -> tokio::sync::watch::Receiver<bool> {
+        if let PluginImpl::Wasm(slot) = &record.plugin {
+            slot.retire();
+        }
+        if let Some(m) = &self.metrics {
+            m.loaded_at.lock().remove(&id.to_string());
+        }
+        let (tx, rx) = tokio::sync::watch::channel(false);
+        let broker = Arc::clone(&self.broker);
+        let events = self.events.clone();
+        tokio::spawn(async move {
+            let _drained = record.inflight.write().await;
+            if let Err(e) = broker.unregister_plugin(&id) {
+                tracing::warn!(plugin = %id, error = %e, "replaced plugin version was already unregistered");
+            }
+            events.emit(&id, record.effective_tier, LifecyclePhase::Unloaded);
+            let _ = tx.send(true);
+        });
+        rx
     }
 
     /// Invoke a loaded plugin's `run` export with `input` bytes; returns the
@@ -672,7 +972,8 @@ impl Kernel {
         // the async call so we don't hold a lock across an .await point.
         // The in-flight token is held until this invocation returns, so an
         // unload (or a ceiling lowering) drains it before unregistering.
-        let (plugin, effective_tier, _inflight) = self.record(plugin_id)?;
+        let (resolved, plugin, effective_tier, _inflight) = self.record(plugin_id)?;
+        let plugin_id = &resolved;
         if plugin.world() != "plugin" {
             return Err(RuntimeError::WrongWorld {
                 plugin: plugin_id.clone(),
@@ -753,7 +1054,8 @@ impl Kernel {
         pkg: &PluginPackage,
         effective_tier: Tier,
         lifecycle: Lifecycle,
-    ) -> Result<PluginImpl, RuntimeError> {
+        replacing: Option<&PluginId>,
+    ) -> Result<(PluginImpl, bool), RuntimeError> {
         let mut ctx = CapabilityContext::new(Arc::clone(&self.broker));
         if let Some(root) = &self.config.native.data_dir {
             ctx = ctx.with_storage_root(root);
@@ -773,17 +1075,44 @@ impl Kernel {
         }
         let plugin = plugin.with_capabilities(ctx.clone());
         plugin.realise_capabilities().await?;
+        // Hot reload: the new version's `migrate` hook, before anything is
+        // routed to it (spec §3.3).
+        let mut migrated = false;
+        if let Some(prev) = replacing {
+            let from = prev.version.to_string();
+            let failed = |message: String| RuntimeError::MigrateFailed {
+                from: Box::new(prev.clone()),
+                to: Box::new(plugin_id.clone()),
+                message,
+            };
+            let outcome = entangle_core::fault::contain(plugin.run_migrate(
+                &self.engine,
+                &from,
+                MIGRATE_TIMEOUT_MS,
+            ))
+            .await
+            .map_err(|p| failed(format!("panicked: {}", p.message)))?;
+            match outcome {
+                Ok(entangle_host::MigrateOutcome::NoHook) => {}
+                Ok(entangle_host::MigrateOutcome::Migrated) => migrated = true,
+                Ok(entangle_host::MigrateOutcome::Refused(message)) => return Err(failed(message)),
+                Err(e) => return Err(failed(e.to_string())),
+            }
+        }
         // Compiled either way, so a lazy plugin's component is known good
         // (and in the AOT cache) at load; only an eager one keeps it
         // resident (`[lifecycle]`, spec §4.4).
-        Ok(PluginImpl::Wasm(Arc::new(WasmSlot::new(
-            plugin,
-            ctx,
-            &pkg.bytes,
-            plugin_id.clone(),
-            effective_tier,
-            lifecycle,
-        ))))
+        Ok((
+            PluginImpl::Wasm(Arc::new(WasmSlot::new(
+                plugin,
+                ctx,
+                &pkg.bytes,
+                plugin_id.clone(),
+                effective_tier,
+                lifecycle,
+            ))),
+            migrated,
+        ))
     }
 
     /// The instance a call or stream of `plugin` runs on, with the guard
@@ -883,7 +1212,8 @@ impl Kernel {
         // out, or its future is dropped) before releasing the plugin's grants.
         // It is declared before the `Idled` guard, so it is released after
         // `Idled` is published.
-        let (plugin, effective_tier, _inflight) = self.record(plugin_id)?;
+        let (resolved, plugin, effective_tier, _inflight) = self.record(plugin_id)?;
+        let plugin_id = &resolved;
         if plugin.world() != "stream-plugin" {
             return Err(RuntimeError::WrongWorld {
                 plugin: plugin_id.clone(),
@@ -955,8 +1285,9 @@ impl Kernel {
             .map(|record| record.source.clone())
     }
 
-    /// Clone a loaded plugin's implementation and tier and take its
-    /// in-flight token, releasing the lock before any `.await`. A plugin
+    /// Clone a loaded plugin's id (the version answering for `requested`,
+    /// after a hot reload), implementation and tier and take its in-flight
+    /// token, releasing the lock before any `.await`. A plugin
     /// above the ceiling in force (lowered since it loaded) is refused
     /// (`ENTANGLE-E0043`), and a native plugin whose sandbox was derived
     /// from a grant since revoked is refused (`ENTANGLE-E0125`) until it is
@@ -969,12 +1300,19 @@ impl Kernel {
     /// only waits for the token after the record is gone).
     fn record(
         &self,
-        plugin_id: &PluginId,
-    ) -> Result<(PluginImpl, Tier, InflightToken), RuntimeError> {
+        requested: &PluginId,
+    ) -> Result<(PluginId, PluginImpl, Tier, InflightToken), RuntimeError> {
         let plugins = self.plugins.read();
-        let record = plugins
-            .get(plugin_id)
-            .ok_or_else(|| RuntimeError::NotLoaded(plugin_id.clone()))?;
+        // A version replaced by a hot reload answers through its successor.
+        let (plugin_id, record) = match plugins.get_key_value(requested) {
+            Some(found) => found,
+            None => {
+                let current = self.aliases.read().get(requested).cloned();
+                current
+                    .and_then(|c| plugins.get_key_value(&c))
+                    .ok_or_else(|| RuntimeError::NotLoaded(requested.clone()))?
+            }
+        };
         // Above a ceiling lowered since it loaded (it is waiting to be
         // drained and unloaded): suspended, nothing new starts.
         self.broker
@@ -996,7 +1334,12 @@ impl Kernel {
             .clone()
             .try_read_owned()
             .map_err(|_| RuntimeError::NotLoaded(plugin_id.clone()))?;
-        Ok((record.plugin.clone(), record.effective_tier, token))
+        Ok((
+            plugin_id.clone(),
+            record.plugin.clone(),
+            record.effective_tier,
+            token,
+        ))
     }
 
     /// Invoke a [`entangle_types::task::OneShotTask`] honoring its
@@ -1080,11 +1423,15 @@ impl Kernel {
     /// "gracefully drained, then unloaded"). Then de-registers from the
     /// broker and emits a [`LifecyclePhase::Unloaded`] event.
     pub async fn unload(&self, plugin: &PluginId) -> Result<(), RuntimeError> {
-        let record = self
-            .plugins
-            .write()
-            .remove(plugin)
-            .ok_or_else(|| RuntimeError::NotLoaded(plugin.clone()))?;
+        let record = {
+            let mut plugins = self.plugins.write();
+            let record = plugins
+                .remove(plugin)
+                .ok_or_else(|| RuntimeError::NotLoaded(plugin.clone()))?;
+            // Replaced versions answered through this one: no longer.
+            self.aliases.write().retain(|_, current| current != plugin);
+            record
+        };
         if let Some(m) = &self.metrics {
             m.loaded_at.lock().remove(&plugin.to_string());
         }

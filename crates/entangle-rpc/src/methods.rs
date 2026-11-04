@@ -30,6 +30,15 @@ pub struct PluginsListResult {
 pub struct PluginsLoadParams {
     /// Path to the directory containing the plugin artefact.
     pub dir: String,
+    /// Hot reload: accept a new version that declares capabilities the
+    /// loaded version does not, or a higher tier (`--accept-new-capabilities`).
+    /// Absent (older clients): `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub accept_new_capabilities: bool,
+    /// Hot reload: accept a version lower than the loaded one
+    /// (`--allow-downgrade`). Absent: `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub allow_downgrade: bool,
 }
 
 /// Result of the `plugins/load` RPC method.
@@ -37,6 +46,13 @@ pub struct PluginsLoadParams {
 pub struct PluginsLoadResult {
     /// Id assigned to the newly loaded plugin.
     pub plugin_id: String,
+    /// When the load hot-reloaded another version of the plugin: that
+    /// version's id (it drains in the background).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaced: Option<String>,
+    /// Whether the new version's `migrate` hook ran (only with `replaced`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub migrated: bool,
 }
 
 /// Parameters for the `plugins/unload` RPC method.

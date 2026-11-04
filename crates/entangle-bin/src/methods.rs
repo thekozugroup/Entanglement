@@ -253,14 +253,24 @@ async fn handle_plugins_load(
     };
     let dir = std::path::PathBuf::from(&p.dir);
     state.refresh_disabled_plugins();
-    match state.kernel.load_plugin_from_dir(&dir).await {
-        // Wire contract: `{ "plugin_id": "<id>" }`, not a bare string.
-        Ok(plugin_id) => ok_resp(
-            id,
-            PluginsLoadResult {
-                plugin_id: plugin_id.to_string(),
-            },
-        ),
+    let opts = entangle_runtime::LoadOptions {
+        accept_new_capabilities: p.accept_new_capabilities,
+        allow_downgrade: p.allow_downgrade,
+    };
+    match state.kernel.load_plugin(&dir, opts).await {
+        // Wire contract: `{ "plugin_id": "<id>" }`, not a bare string; a hot
+        // reload adds `replaced` (and `migrated`).
+        Ok(outcome) => {
+            state.persist_plugins();
+            ok_resp(
+                id,
+                PluginsLoadResult {
+                    plugin_id: outcome.plugin_id.to_string(),
+                    migrated: outcome.replaced.as_ref().is_some_and(|r| r.migrated),
+                    replaced: outcome.replaced.map(|r| r.previous.to_string()),
+                },
+            )
+        }
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
 }
@@ -281,7 +291,23 @@ async fn handle_plugins_unload(
         Err(e) => return error_resp(id, -32602, format!("invalid plugin id: {e}")),
     };
     match state.kernel.unload(&plugin_id).await {
-        Ok(()) => ok_resp(id, serde_json::Value::Null),
+        Ok(()) => {
+            state.persist_plugins();
+            ok_resp(id, serde_json::Value::Null)
+        }
+        // An entry that failed to restore at startup is not loaded; unloading
+        // its id forgets it (see `plugin_state`).
+        Err(entangle_runtime::RuntimeError::NotLoaded(_))
+            if state
+                .plugin_state
+                .as_ref()
+                .is_some_and(|s| s.has_failed_entry(&plugin_id)) =>
+        {
+            if let Some(store) = &state.plugin_state {
+                store.record(&state.kernel, Some(&plugin_id));
+            }
+            ok_resp(id, serde_json::Value::Null)
+        }
         Err(e) => error_resp(id, -32000, format!("server error: {e}")),
     }
 }
@@ -391,14 +417,19 @@ async fn handle_security_apply(
         .apply_max_tier(new, p.unload, confirmed.as_deref())
         .await
     {
-        Ok(o) => ok_resp(
-            id,
-            MaxTierApplied {
-                old: o.old as u8,
-                new: o.new as u8,
-                unloaded: o.unloaded.iter().map(|p| p.to_string()).collect(),
-            },
-        ),
+        Ok(o) => {
+            if !o.unloaded.is_empty() {
+                state.persist_plugins();
+            }
+            ok_resp(
+                id,
+                MaxTierApplied {
+                    old: o.old as u8,
+                    new: o.new as u8,
+                    unloaded: o.unloaded.iter().map(|p| p.to_string()).collect(),
+                },
+            )
+        }
         Err(MaxTierRefusal::NeedsUnload(affected)) => error_resp(
             id,
             -32001,
@@ -482,7 +513,11 @@ fn handle_perms_revoke(
         Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
     };
     match crate::perms::revoke(&state.kernel, &p.plugin_id, &p.capability) {
-        Ok(withdrawn) => ok_resp(id, PermsRevokeResult { withdrawn }),
+        Ok(withdrawn) => {
+            // A revocation survives a restart (`plugin_state`).
+            state.persist_plugins();
+            ok_resp(id, PermsRevokeResult { withdrawn })
+        }
         Err(e) => perms_error(id, e),
     }
 }
