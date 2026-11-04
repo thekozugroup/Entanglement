@@ -33,6 +33,23 @@ pub struct TrustedPeer {
     /// Human-readable note.
     #[serde(default)]
     pub note: String,
+    /// Hex of the `mesh.peer` capability token this node **presents** to the
+    /// peer: minted by the peer during pairing, rooted at its identity key,
+    /// issued to this node (spec §6.3 step 4). `None` for a peer paired
+    /// before tokens existed, or added by hand with `entangle mesh trust`;
+    /// such a peer refuses this node's requests while it requires tokens
+    /// (re-pair with `entangle pair`).
+    ///
+    /// Optional with a serde default, so `peers.toml` files written before
+    /// this field existed still load, and older binaries ignore it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_token: Option<String>,
+    /// Hex revocation ids of the `mesh.peer` token this node **issued** to
+    /// the peer while pairing. `entangle peers remove` adds them to the
+    /// local revocation set (see [`crate::RevocationStore`]), so re-adding
+    /// the peer to the allowlist later does not revive that token.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub issued_token_revocation_ids: Vec<String>,
 }
 
 impl TrustedPeer {
@@ -46,7 +63,45 @@ impl TrustedPeer {
             paired_at: now_secs(),
             last_seen_at: None,
             note: String::new(),
+            capability_token: None,
+            issued_token_revocation_ids: Vec::new(),
         }
+    }
+
+    /// Record the token exchange of a pairing: `presented` is the token the
+    /// peer issued to this node (raw biscuit bytes), `issued` the revocation
+    /// ids of the token this node issued to the peer.
+    #[must_use]
+    pub fn with_tokens(mut self, presented: Option<&[u8]>, issued: &[Vec<u8>]) -> Self {
+        self.capability_token = presented.map(hex::encode);
+        self.issued_token_revocation_ids = issued.iter().map(hex::encode).collect();
+        self
+    }
+
+    /// Whether this node holds a token to present to the peer.
+    pub fn has_capability_token(&self) -> bool {
+        self.capability_token.is_some()
+    }
+
+    /// The token to present, decoded. `None` when there is none or it is not
+    /// valid hex (a hand-edited file); either way the peer gets no token.
+    pub fn capability_token_bytes(&self) -> Option<Vec<u8>> {
+        hex::decode(self.capability_token.as_deref()?).ok()
+    }
+
+    /// The revocation ids of the token this node issued, decoded. Entries
+    /// that are not valid hex are skipped.
+    pub fn issued_revocation_ids(&self) -> Vec<Vec<u8>> {
+        self.issued_token_revocation_ids
+            .iter()
+            .filter_map(|h| hex::decode(h).ok())
+            .collect()
+    }
+
+    /// The peer's raw Ed25519 public key (`None` if `public_key_hex` is not
+    /// 32 hex-encoded bytes).
+    pub fn public_key_bytes(&self) -> Option<[u8; 32]> {
+        hex::decode(&self.public_key_hex).ok()?.try_into().ok()
     }
 
     /// Create a trusted peer after validating the id/key relationship.
@@ -109,10 +164,33 @@ mod tests {
             paired_at: 1_700_000_000,
             last_seen_at: Some(1_700_010_000),
             note: "co-located in the LAN".into(),
+            capability_token: Some("0a0b".into()),
+            issued_token_revocation_ids: vec!["ff".into()],
         };
         let serialised = toml::to_string(&peer).expect("toml serialise");
         let parsed: TrustedPeer = toml::from_str(&serialised).expect("toml deserialise");
         assert_eq!(parsed, peer);
+    }
+
+    /// A record written before the token fields existed still loads, and a
+    /// record without tokens serializes exactly as before (no new keys), so
+    /// older binaries keep reading `peers.toml`.
+    #[test]
+    fn token_fields_are_optional_both_ways() {
+        let old = "peer_id = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]\n\
+                   public_key_hex = \"00\"\ndisplay_name = \"x\"\ntrust = \"trusted\"\n\
+                   paired_at = 1\n";
+        let parsed: TrustedPeer = toml::from_str(old).expect("pre-token record loads");
+        assert!(parsed.capability_token.is_none());
+        assert!(parsed.issued_token_revocation_ids.is_empty());
+        let text = toml::to_string(&parsed).unwrap();
+        assert!(!text.contains("capability_token"), "{text}");
+        assert!(!text.contains("issued_token_revocation_ids"), "{text}");
+
+        let with = parsed.with_tokens(Some(&[1, 2]), &[vec![3], vec![4]]);
+        assert_eq!(with.capability_token_bytes(), Some(vec![1, 2]));
+        assert_eq!(with.issued_revocation_ids(), vec![vec![3], vec![4]]);
+        assert!(with.has_capability_token());
     }
 
     #[test]
