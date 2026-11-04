@@ -357,11 +357,34 @@ fn is_generated_line(t: &str, desired: &str) -> bool {
     !t.trim().is_empty() && desired.lines().any(|d| d.trim_end() == t)
 }
 
+/// For a stray END marker at `end` (its BEGIN line was deleted by hand): the
+/// first line of the orphaned generated body directly above it, if that body
+/// can be identified. The run of generated lines must reach the block's first
+/// comment line (the line [`render`] writes right after BEGIN); otherwise
+/// `None`, so a user line that merely looks generated (`}`, `fi`) above an
+/// unrelated stray marker is never taken.
+fn orphaned_body_above(ls: &[Line<'_>], end: usize, desired: &str) -> Option<usize> {
+    let header = desired.lines().nth(1)?.trim_end();
+    let mut j = end;
+    while j > 0 {
+        j -= 1;
+        let l = &ls[j];
+        if is_begin(l) || is_end(l) || !is_generated_line(l.text, desired) {
+            return None;
+        }
+        if l.text.trim_end() == header {
+            return Some(j);
+        }
+    }
+    None
+}
+
 /// Line indices to delete for every block in `ls`, whether well-formed or
 /// damaged. Well-formed regions go entirely (markers and body). For a damaged
-/// marker only the marker line and the *generated* lines directly after a
-/// stray begin (up to the next marker or a line we did not write) are
-/// dropped, so unrelated user lines are never lost.
+/// marker only the marker line and the *generated* lines next to it are
+/// dropped -- after a stray begin (up to the next marker or a line we did not
+/// write), or before a stray end (back to the block's header comment, see
+/// [`orphaned_body_above`]) -- so unrelated user lines are never lost.
 fn removal_set(ls: &[Line<'_>], s: &Scan, desired: &str) -> Vec<usize> {
     let mut del = vec![false; ls.len()];
     for r in &s.regions {
@@ -380,6 +403,10 @@ fn removal_set(ls: &[Line<'_>], s: &Scan, desired: &str) -> Vec<usize> {
             {
                 del[j] = true;
                 j += 1;
+            }
+        } else if let Some(first) = orphaned_body_above(ls, *i, desired) {
+            for d in &mut del[first..*i] {
+                *d = true;
             }
         }
     }
@@ -649,6 +676,32 @@ mod tests {
         assert!(!fixed["x\r\n".len()..].contains('\r'), "{fixed:?}");
         let dup = format!("x\r\ny\n{b}\n{b}\n");
         assert!(!repair(&dup, &b).text["x\r\n".len()..].contains('\r'));
+    }
+
+    /// The BEGIN marker was deleted by hand: `remove` (disable) and `repair`
+    /// must also take the generated functions above the stray END, or they
+    /// stay active while `status` reports no block.
+    #[test]
+    fn stray_end_takes_the_generated_body_above_it() {
+        let b = posix();
+        let rc = "export A=1\n";
+        let on = install(rc, &b).unwrap().text;
+        let cut = on.replace(&format!("{BEGIN}\n"), "");
+        assert!(matches!(inspect(&cut, &b), BlockState::Damaged(_)));
+        let off = remove(&cut, &b);
+        assert!(off.changed);
+        assert_eq!(off.text, rc, "no orphaned shim lines: {:?}", off.text);
+        let fixed = repair(&cut, &b);
+        assert_eq!(fixed.text, on, "repair restores exactly one block");
+        // User lines directly above the orphaned body are never taken, even
+        // when they look like generated ones (`}`).
+        let mine = "f() {\n  :\n}\n";
+        let on = install(mine, &b).unwrap().text.replace("\n\n# >>>", "\n# >>>");
+        let cut = on.replace(&format!("{BEGIN}\n"), "");
+        assert_eq!(remove(&cut, &b).text, mine);
+        // Without the generated header above it, only the marker goes.
+        let rc3 = format!("pre\n}}\n{END}\npost\n");
+        assert_eq!(remove(&rc3, &b).text, "pre\n}\npost\n");
     }
 
     #[test]

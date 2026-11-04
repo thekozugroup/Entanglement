@@ -271,6 +271,22 @@ fn wrp_1_existing_alias_before_the_block_keeps_rc_file_working() {
     );
 }
 
+/// The BEGIN marker deleted by hand: `disable` must not leave the shim
+/// functions behind while reporting them removed.
+#[test]
+fn disable_after_begin_marker_was_deleted_removes_the_functions() {
+    let e = Env::new();
+    std::fs::write(e.home.join(".bashrc"), "export KEEP=1\n").unwrap();
+    e.ok(&["wrapper", "enable"]);
+    let cut = e.rc().replace("# >>> entangle wrapper >>>\n", "");
+    std::fs::write(e.home.join(".bashrc"), cut).unwrap();
+    e.ok(&["wrapper", "disable"]);
+    assert_eq!(e.rc(), "export KEEP=1\n");
+    let o = e.bash("claude --version", None);
+    assert!(!stderr(&o).contains("launched outside"), "{}", stderr(&o));
+    assert!(e.ok(&["wrapper", "status"]).contains("no wrapper block"));
+}
+
 /// Enable is idempotent and never disturbs the user's own rc content.
 #[test]
 fn enable_is_idempotent_and_preserves_user_content() {
