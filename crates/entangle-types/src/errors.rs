@@ -24,6 +24,7 @@
 //! | E0740–E0749 | Native-plugin runtime glue (see `entangle-runtime::native`) |
 //! | E0750–E0779 | Operator safety UX: shell wrappers, `max_tier_allowed` lowering (see `entangle-cli` `cmd::wrapper`, `cmd::security`; `entangle-bin` RPC `security/*`) |
 //! | E0800–E0829 | OCI registry distribution and mirror listings (see `entangle-oci`; E0800–E0819 in use) |
+//! | E0830–E0859 | Packaging reproducibility, release verification, release-key ceremony (E0830–E0839 packaging in `entangle-cli` `cmd::package`; E0840–E0849 release signatures in `entangle-signing::release` and `entangle-cli` `cmd::release`; E0850–E0859 Shamir sharing in `entangle-signing::shamir`) |
 //! | E0900       | I/O                            |
 //! | E9999       | Internal / unexpected          |
 //!

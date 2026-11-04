@@ -15,9 +15,11 @@
 pub mod artifact;
 pub mod keypair;
 pub mod keyring;
+pub mod release;
+pub mod shamir;
 pub mod signature;
 
-pub use artifact::{sign_artifact, verify_artifact, VerificationError};
+pub use artifact::{sign_artifact, sign_artifact_at, verify_artifact, VerificationError};
 pub use keypair::{IdentityKeyPair, IdentityPublicKey, KeypairError};
 pub use keyring::{Keyring, KeyringError, TrustEntry};
 pub use signature::{Signature, SignatureBundle, SignatureError};
