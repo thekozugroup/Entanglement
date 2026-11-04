@@ -765,9 +765,11 @@ mod tests {
 
     #[test]
     fn a_capability_token_travels_as_an_extension_with_or_without_a_traceparent() {
-        let plain = encode_request(&sample_request()).unwrap();
+        // One request (its task id is random), so the envelopes compare.
+        let base = sample_request();
+        let plain = encode_request(&base).unwrap();
         for tp in [None, Some(TP.to_owned())] {
-            let mut req = sample_request();
+            let mut req = base.clone();
             if let RequestFrame::Task(t) = &mut req.frame {
                 t.traceparent = tp.clone();
                 t.capability = Some(vec![9; 300]);
