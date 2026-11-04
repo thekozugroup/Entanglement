@@ -651,6 +651,104 @@ async fn lowering_drains_in_flight_invocations_before_unloading() {
     assert!(kernel.list_plugins().is_empty());
 }
 
+/// The `stream-lines` fixture: a `stream-plugin` component that emits its
+/// input line by line, then each inbound chunk, until its input ends.
+fn stream_lines_wasm() -> Vec<u8> {
+    std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../entangle-scheduler/tests/fixtures/stream-lines.wasm"
+    ))
+    .expect("stream-lines.wasm fixture not found — run entangle-scheduler/tests/fixtures/build.sh")
+}
+
+/// Spec §9.4.1 step 4 for streaming tasks: the drain covers an active stream
+/// exactly as it covers a one-shot invocation. Lowering the ceiling below a
+/// stream plugin's tier refuses new streams of it at once, but releases its
+/// grants and audits it as unloaded (`ENTANGLE-W0214`) only once the stream
+/// that was running has ended, and after that stream's `Idled`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn lowering_drains_active_streams_before_unloading() {
+    let keypair = IdentityKeyPair::generate();
+    let keyring = keyring_for(&keypair);
+    let dir = tempfile::tempdir().expect("tempdir");
+    write_plugin_package(dir.path(), &keypair, &stream_lines_wasm(), 2);
+    let kernel =
+        std::sync::Arc::new(Kernel::new(KernelConfig::default(), keyring).expect("kernel"));
+    let id = kernel.load_plugin_from_dir(dir.path()).await.expect("load");
+    assert_eq!(kernel.plugin_world(&id), Some("stream-plugin"));
+
+    let mut sub = kernel.bus().subscribe();
+    // The guest parks in `next-chunk` until its input ends: the stream stays
+    // active for as long as the test holds the driver end open.
+    let (port, driver) = entangle_host::stream_port(1);
+    let (k, pid) = (kernel.clone(), id.clone());
+    let stream = tokio::spawn(async move { k.invoke_stream(&pid, b"", port, 30_000).await });
+    wait_for_phase(&mut sub, LifecyclePhase::Activated).await;
+
+    let k = kernel.clone();
+    let lowering = tokio::spawn(async move { k.apply_max_tier(Tier::Pure, true, None).await });
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(
+        !lowering.is_finished(),
+        "the lowering returned while a stream of the affected plugin was still running"
+    );
+    let w0214 = |kernel: &Kernel| {
+        kernel
+            .broker()
+            .audit_log()
+            .snapshot()
+            .iter()
+            .any(|e| e.code() == Some("ENTANGLE-W0214"))
+    };
+    assert!(!w0214(&kernel), "audited as unloaded before the drain");
+    assert_eq!(
+        kernel.broker().registered_tiers().len(),
+        1,
+        "the plugin's broker registration (and grants) must outlive its running stream"
+    );
+
+    // Already draining: a new stream (or one-shot call) of the plugin is refused.
+    let (port2, _driver2) = entangle_host::stream_port(1);
+    let refused = kernel.invoke_stream(&id, b"", port2, 1_000).await;
+    assert!(
+        matches!(refused, Err(crate::RuntimeError::NotLoaded(_))),
+        "a new stream of a draining plugin: {refused:?}"
+    );
+
+    // End the stream: the submitter finishes its input and the guest returns.
+    driver
+        .input
+        .send(entangle_host::StreamInput::End)
+        .await
+        .expect("guest still reading");
+    let ran = tokio::time::timeout(Duration::from_secs(30), stream)
+        .await
+        .expect("stream ends once its input ends")
+        .expect("stream task");
+    assert!(ran.is_ok(), "the drained stream completes: {ran:?}");
+    let outcome = tokio::time::timeout(Duration::from_secs(30), lowering)
+        .await
+        .expect("the lowering completes once the stream has ended")
+        .expect("lowering task")
+        .expect("unload authorised");
+    assert_eq!(outcome.unloaded, vec![id.clone()]);
+    assert!(w0214(&kernel));
+    assert!(kernel.list_plugins().is_empty());
+    assert!(kernel.broker().registered_tiers().is_empty());
+
+    // The stream's `Idled` is published before the plugin's `Unloaded`.
+    let mut phases = Vec::new();
+    while let Ok(Ok(env)) = tokio::time::timeout(Duration::from_secs(1), sub.recv()).await {
+        phases.push(env.payload.phase);
+    }
+    let idled = phases.iter().position(|p| *p == LifecyclePhase::Idled);
+    let unloaded = phases.iter().position(|p| *p == LifecyclePhase::Unloaded);
+    assert!(
+        matches!((idled, unloaded), (Some(i), Some(u)) if i < u),
+        "expected Idled before Unloaded, got {phases:?}"
+    );
+}
+
 /// Spec §9.4.1: raising the ceiling is "a privileged, audited operation" —
 /// every change of the ceiling leaves an audit entry, not only lowering.
 #[tokio::test(flavor = "multi_thread")]
