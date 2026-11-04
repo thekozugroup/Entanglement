@@ -21,7 +21,7 @@
 //! | `state` | the tailnet states / peer states listed per metric |
 //! | `plugin` | plugin id, **bounded to [`PLUGIN_LABEL_LIMIT`] distinct ids** per [`PluginLabels`]; further ids fold into `other` |
 //!
-//! [`Registry`](crate::Registry) additionally caps each family at
+//! [`Registry`] additionally caps each family at
 //! [`MAX_SERIES_PER_FAMILY`](crate::metrics::MAX_SERIES_PER_FAMILY) label
 //! sets as a last resort.
 
