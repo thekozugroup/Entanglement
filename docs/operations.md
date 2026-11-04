@@ -1236,7 +1236,9 @@ capture_level = "info"    # trace | debug | info | warn | error
   value such as `Some("…")`, `Secret(…)` or `[10, 125, …]`), a hex run of 32
   or more digits right after one of those words (`gateway token 3f2a…`), URL
   userinfo, PEM private keys and long mixed-case base64url runs (the shape of
-  a capability token) are replaced. Other hex digests are kept. This is
+  a capability token) are replaced. Other hex digests are kept. A wasm
+  plugin's output is redacted before it is emitted at all, so the daemon's
+  console output (and the journal) gets the redacted line too. This is
   pattern-based: a plugin that prints a secret in some other shape prints it.
   Do not rely on it as the only control.
 * Output of an invocation that failed before returning is still logged for a

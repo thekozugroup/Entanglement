@@ -12,6 +12,14 @@
 //! Before this module stdout was discarded and stderr went to the daemon's
 //! own stderr, mixed with every other plugin's.
 //!
+//! # Secrets
+//!
+//! Every line is passed through
+//! [`entangle_observability::redact::redact_text`] before it is emitted: the
+//! event reaches every layer of the daemon's subscriber, including the
+//! console output that journald keeps, not only the operator buffers (which
+//! redact again).
+//!
 //! # Bounds
 //!
 //! One [`CapturedOutput`] (one instance's stdout and stderr together) emits
@@ -41,6 +49,7 @@ pub const MAX_LINE_BYTES: usize = 4096;
 /// (`trace`, `debug`, `info`, `warn`, `error`; anything else is `info`).
 pub fn emit_line(plugin: &PluginId, level: &str, stream: &str, text: &str) {
     let plugin = plugin.to_string();
+    let text = entangle_observability::redact::redact_text(text);
     match level {
         "trace" => tracing::trace!(target: TARGET, plugin = %plugin, stream, "{text}"),
         "debug" => tracing::debug!(target: TARGET, plugin = %plugin, stream, "{text}"),
@@ -277,6 +286,37 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    /// Plugin output goes to every subscriber layer — the daemon's console
+    /// (journald) as well as the redacting operator buffers — so it is
+    /// redacted before it is emitted at all.
+    #[test]
+    fn plugin_output_is_redacted_before_it_is_emitted() {
+        let (_, lines) = capture(|| {
+            emit_line(&id(), "info", "log", "login password=hunter2 user=bob");
+            let (out, err) = CapturedOutput::pair(&id());
+            out.feed(b"GET / Authorization: Bearer tok-1234567890\n");
+            err.feed(b"api_key: Some(\"sk-live-0001\")\n");
+        });
+        assert_eq!(lines.len(), 3, "{lines:?}");
+        let all = format!("{lines:?}");
+        for secret in ["hunter2", "tok-1234567890", "sk-live-0001"] {
+            assert!(!all.contains(secret), "{secret} emitted: {all}");
+        }
+        assert_eq!(
+            lines.iter().filter(|l| l.0.contains("[REDACTED]")).count(),
+            3,
+            "{all}"
+        );
+        assert!(lines[0].0.contains("user=bob"), "{all}");
+    }
+
+    /// The daemon's span layer and log buffer recognise plugin output by
+    /// this target.
+    #[test]
+    fn the_target_is_the_one_the_observability_layers_expect() {
+        assert_eq!(TARGET, entangle_observability::logs::PLUGIN_OUTPUT_TARGET);
     }
 
     #[test]
