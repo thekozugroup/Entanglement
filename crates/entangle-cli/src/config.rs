@@ -41,6 +41,11 @@ pub struct SecurityConfig {
     /// Default `false` (refused with ENTANGLE-E0700).
     #[serde(default)]
     pub allow_unsandboxed_native: bool,
+    /// Capabilities never granted to any plugin (spec §4.5), e.g.
+    /// `["net.wan", "storage.share.*"]`. A plugin declaring one loads
+    /// without it. Validated when a kernel is built (`ENTANGLE-E0126`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub deny_capabilities: Vec<String>,
 }
 
 impl Default for SecurityConfig {
@@ -48,6 +53,7 @@ impl Default for SecurityConfig {
         Self {
             max_tier_allowed: default_max_tier(),
             allow_unsandboxed_native: false,
+            deny_capabilities: Vec::new(),
         }
     }
 }
@@ -113,14 +119,27 @@ pub fn max_tier_allowed() -> anyhow::Result<entangle_types::tier::Tier> {
 ///
 /// Honours the same `[security]` keys as the daemon — the tier ceiling
 /// (`max_tier_allowed = 4` disables tier-5 plugins) and the native-plugin
-/// sandbox opt-out — so a local load is never more permissive than the
-/// daemon would be. Native plugin storage lives in `~/.entangle/data`, staged
+/// sandbox opt-out, and the `deny_capabilities` list — so a local load is
+/// never more permissive than the daemon would be. Native plugin storage lives in `~/.entangle/data`, staged
 /// binaries in `~/.entangle/native`.
 pub fn kernel_config() -> anyhow::Result<entangle_runtime::KernelConfig> {
     let cfg = load(&config_path())?;
     let dir = entangle_dir();
+    let denied_capabilities = cfg
+        .security
+        .deny_capabilities
+        .iter()
+        .map(|p| p.parse::<entangle_runtime::CapabilityPattern>())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "[security] deny_capabilities in {}: {e}",
+                config_path().display()
+            )
+        })?;
     Ok(entangle_runtime::KernelConfig {
         max_tier_allowed: max_tier_allowed()?,
+        denied_capabilities,
         native: entangle_runtime::NativeConfig {
             allow_unsandboxed: cfg.security.allow_unsandboxed_native,
             data_dir: Some(dir.join("data")),

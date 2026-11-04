@@ -22,18 +22,21 @@
 //! # Capability → sandbox mapping
 //! | capability | effect on the child |
 //! |---|---|
-//! | `storage.local { scope = "plugin" }` | rw `<data>/plugins/<publisher>/<name>`; `ENTANGLE_DATA_DIR`, `HOME`, cwd |
-//! | `storage.local { scope = "shared" }` | rw `<data>/shared`; `ENTANGLE_SHARED_DIR` |
+//! | `storage.local { scope = "plugin" }` | `<data>/plugins/<publisher>/<name>` (rw, or ro with `mode = "ro"`); `ENTANGLE_DATA_DIR`, `HOME`, cwd |
+//! | `storage.local { scope = "shared" }` | `<data>/shared` (rw, or ro with `mode = "ro"`); `ENTANGLE_SHARED_DIR` |
 //! | `storage.share.<n> { mode = "ro" }` | ro `<data>/shares/<n>`; `ENTANGLE_SHARE_<N>` |
 //! | `storage.share.<n> { mode = "rw" }` | rw `<data>/shares/<n>` |
 //! | `storage.share.<n> { mode = "rw-scoped" }` | rw `<data>/shares/<n>/<publisher>/<name>` |
-//! | `net.lan`, `net.wan` | IP networking allowed (no finer host allowlist yet) |
+//! | `net.lan`, `net.wan` | IP networking allowed (no finer host allowlist yet — unlike wasm plugins, whose `net.lan` / `net.wan { hosts }` are enforced per address; see `entangle_host::net`) |
 //! | `host.docker-socket` | rw `/var/run/docker.sock` + `AF_UNIX` sockets |
 //! | `compute.gpu` | read, write and ioctl on the GPU device nodes present (`/dev/dri`, `/dev/nvidia*`, `/dev/kfd`) |
 //! | `compute.cpu`, `compute.npu`, `mesh.peer`, `agent.invoke`, `custom.*` | none at the OS level |
 //!
 //! `<n>` is always one plain path component
-//! ([`is_valid_share_name`]; anything else is `ENTANGLE-E0743`).
+//! ([`is_valid_share_name`]; anything else is `ENTANGLE-E0743`). The layout is
+//! [`entangle_host::storage`]'s, so a storage grant names the same directory
+//! for a wasm plugin (preopened as `/data`, `/shared`, `/shares/<n>`) and a
+//! native one.
 //!
 //! Always: the staged binary (read+exec), the package directory (read-only,
 //! for bundled assets), `ENTANGLE_PLUGIN_ID`, `ENTANGLE_PROTOCOL=frame-v1`.
@@ -43,11 +46,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use entangle_broker::GrantedCapability;
+use entangle_host::storage::{create_private_dir, resolve_trusted};
 use entangle_sandbox::{
     InvokeLimits, Plan, Policy, ResourceLimits, SandboxError, SandboxProfile, Supervisor,
     SupervisorError,
 };
-use entangle_types::capability::{is_valid_share_name, CapabilityKind, ShareMode, StorageScope};
+use entangle_types::capability::{
+    is_valid_share_name, CapabilityKind, ShareMode, StorageMode, StorageScope,
+};
 use entangle_types::plugin_id::PluginId;
 
 /// Daemon-wide settings for native plugins (part of `KernelConfig`).
@@ -361,19 +367,34 @@ pub fn profile_for(
 
     for g in grants {
         match &g.kind {
-            CapabilityKind::StorageLocal { scope } => {
+            CapabilityKind::StorageLocal { scope, mode } => {
                 let root = data(&g.kind)?;
                 let (dir, var) = match scope {
                     StorageScope::Plugin => (
-                        root.join("plugins").join(&id.publisher).join(&id.name),
+                        entangle_host::storage::plugin_data_dir(root, id).map_err(|e| {
+                            NativeError::StorageScope {
+                                path: root.join("plugins"),
+                                source: std::io::Error::new(
+                                    std::io::ErrorKind::InvalidInput,
+                                    e.to_string(),
+                                ),
+                            }
+                        })?,
                         "ENTANGLE_DATA_DIR",
                     ),
-                    StorageScope::Shared => (root.join("shared"), "ENTANGLE_SHARED_DIR"),
+                    StorageScope::Shared => (
+                        entangle_host::storage::shared_dir(root),
+                        "ENTANGLE_SHARED_DIR",
+                    ),
                 };
                 if *scope == StorageScope::Plugin {
                     home = Some(dir.clone());
                 }
-                p = p.read_write(&dir).env(var, &dir);
+                p = match mode {
+                    StorageMode::Rw => p.read_write(&dir),
+                    StorageMode::Ro => p.read_only(&dir),
+                }
+                .env(var, &dir);
                 dirs.push(dir);
             }
             CapabilityKind::StorageShare { name, mode } => {
@@ -403,7 +424,7 @@ pub fn profile_for(
                 p = p.env(&var, &share);
                 dirs.push(share);
             }
-            CapabilityKind::NetLan | CapabilityKind::NetWan => p = p.allow_network(true),
+            CapabilityKind::NetLan | CapabilityKind::NetWan { .. } => p = p.allow_network(true),
             CapabilityKind::HostDockerSocket => {
                 p = p
                     .read_write(resolve_trusted(Path::new("/var/run/docker.sock")))
@@ -586,87 +607,6 @@ impl NativePlugin {
     }
 }
 
-/// Resolve a *trusted* root — one no plugin can write to or above, such as
-/// the daemon's data directory, a package directory or `/var/run` — to its
-/// canonical form. The longest existing ancestor is canonicalised and the
-/// rest appended, so a data directory that does not exist yet still loses
-/// the OS symlinks above it (`/home` → `var/home`).
-///
-/// A relative `p` is first made absolute against the working directory, so
-/// the result is always absolute (the sandbox refuses relative paths).
-///
-/// Scopes derived from these roots are then granted without following any
-/// link (`entangle-sandbox` refuses one), so a link a plugin plants *below*
-/// a root can never redirect another plugin's grant.
-fn resolve_trusted(p: &Path) -> PathBuf {
-    let absolute = std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
-    let p = absolute.as_path();
-    let mut existing = p;
-    let mut rest: Vec<&std::ffi::OsStr> = Vec::new();
-    loop {
-        if let Ok(mut c) = std::fs::canonicalize(existing) {
-            c.extend(rest.iter().rev());
-            return c;
-        }
-        match (existing.parent(), existing.file_name()) {
-            (Some(parent), Some(name)) => {
-                rest.push(name);
-                existing = parent;
-            }
-            _ => return p.to_path_buf(),
-        }
-    }
-}
-
-/// `mkdir -p` with mode 0700 on every directory it creates (Unix), without
-/// following symbolic links: a plugin with write access to a share can plant
-/// links beneath it, and following one would create directories wherever it
-/// points. Callers pass paths under a [`resolve_trusted`] root.
-fn create_private_dir(d: &Path) -> std::io::Result<()> {
-    use std::path::Component;
-    let mut b = std::fs::DirBuilder::new();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::DirBuilderExt;
-        b.mode(0o700);
-    }
-    let mut cur = PathBuf::new();
-    for comp in d.components() {
-        cur.push(comp);
-        match comp {
-            Component::Prefix(_) | Component::RootDir | Component::CurDir => continue,
-            Component::ParentDir => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "a storage path may not contain '..'",
-                ))
-            }
-            Component::Normal(_) => {}
-        }
-        // Create if missing (an existing entry, e.g. from a concurrent load,
-        // is then inspected like any other).
-        match b.create(&cur) {
-            Ok(()) => continue,
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(e) => return Err(e),
-        }
-        let meta = std::fs::symlink_metadata(&cur)?;
-        if meta.file_type().is_symlink() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("{} is a symbolic link", cur.display()),
-            ));
-        }
-        if !meta.is_dir() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("{} is not a directory", cur.display()),
-            ));
-        }
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -719,9 +659,11 @@ mod tests {
         let grants = [
             grant(CapabilityKind::StorageLocal {
                 scope: StorageScope::Plugin,
+                mode: StorageMode::Rw,
             }),
             grant(CapabilityKind::StorageLocal {
                 scope: StorageScope::Shared,
+                mode: StorageMode::Rw,
             }),
             grant(CapabilityKind::StorageShare {
                 name: "photos".into(),
@@ -749,7 +691,13 @@ mod tests {
     #[test]
     fn network_and_docker_socket_capabilities() {
         let id = pid();
-        let (p, _) = profile_for(&inputs(&id, None), &[grant(CapabilityKind::NetWan)]).unwrap();
+        let (p, _) = profile_for(
+            &inputs(&id, None),
+            &[grant(CapabilityKind::NetWan {
+                hosts: vec!["api.example.com:443".parse().unwrap()],
+            })],
+        )
+        .unwrap();
         assert!(p.allow_network);
         let (p, _) = profile_for(
             &inputs(&id, None),
@@ -772,6 +720,7 @@ mod tests {
             &inputs(&id, None),
             &[grant(CapabilityKind::StorageLocal {
                 scope: StorageScope::Plugin,
+                mode: StorageMode::Rw,
             })],
         )
         .unwrap_err();
@@ -867,6 +816,7 @@ mod tests {
         };
         let grants = [grant(CapabilityKind::StorageLocal {
             scope: StorageScope::Plugin,
+            mode: StorageMode::Rw,
         })];
         let plugin = match NativePlugin::prepare(
             &id,

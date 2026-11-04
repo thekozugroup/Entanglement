@@ -36,6 +36,8 @@ pub mod os_sandbox;
 #[cfg(test)]
 mod tests;
 
+/// The `[security] deny_capabilities` pattern type ([`KernelConfig::denied_capabilities`]).
+pub use entangle_broker::CapabilityPattern;
 pub use errors::RuntimeError;
 pub use integrity::{check_trusted_executor, verify_deterministic, IntegrityError, ReplicaOutput};
 pub use kernel::{Kernel, KernelConfig};

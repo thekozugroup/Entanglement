@@ -500,6 +500,7 @@ pub(crate) async fn ensure_initialised(
             security: SecurityConfig {
                 max_tier_allowed: answers.max_tier,
                 allow_unsandboxed_native: false,
+                deny_capabilities: Vec::new(),
             },
         };
         config::save(&cfg_path, &cfg)?;

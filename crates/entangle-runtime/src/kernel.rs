@@ -6,8 +6,12 @@ use crate::{
     loader::PluginPackage,
     native::{NativeConfig, NativePlugin},
 };
-use entangle_broker::{Broker, BrokerError, BrokerPolicy};
-use entangle_host::{check_runtime_kind, DeclaredRuntime, HostEngine, LoadedPlugin};
+use entangle_broker::{
+    Broker, BrokerError, BrokerPolicy, CapabilityPattern, CapabilityStatus, GrantId,
+};
+use entangle_host::{
+    check_runtime_kind, CapabilityContext, DeclaredRuntime, HostEngine, LoadedPlugin,
+};
 use entangle_ipc::{Bus, Envelope, Topic};
 use entangle_manifest::Runtime;
 use entangle_manifest::{loader::LoadError, validate::validate, ValidatedManifest};
@@ -36,8 +40,14 @@ pub struct KernelConfig {
     /// Capacity of the lifecycle event bus (number of buffered envelopes).
     pub bus_capacity: usize,
     /// Native (tier 4–5) plugin settings: sandbox opt-out, storage root,
-    /// limits (spec §3.4).
+    /// limits (spec §3.4). `native.data_dir` is the storage root for **both**
+    /// runtimes: wasm plugins' storage grants are preopened from the same
+    /// directories (see `entangle_host::storage`).
     pub native: NativeConfig,
+    /// `[security] deny_capabilities`: capabilities the broker never grants,
+    /// whatever a manifest declares (spec §4.5). A plugin declaring one still
+    /// loads, without it.
+    pub denied_capabilities: Vec<CapabilityPattern>,
 }
 
 impl Default for KernelConfig {
@@ -47,6 +57,7 @@ impl Default for KernelConfig {
             multi_node: false,
             bus_capacity: 1024,
             native: NativeConfig::default(),
+            denied_capabilities: Vec::new(),
         }
     }
 }
@@ -86,7 +97,9 @@ struct KernelMetrics {
 pub struct Kernel {
     config: KernelConfig,
     engine: HostEngine,
-    broker: Broker,
+    /// Shared with every wasm plugin's [`CapabilityContext`], which asks it
+    /// for `capability.fetch` decisions and reads the plugin's grants.
+    broker: Arc<Broker>,
     keyring: Arc<RwLock<Keyring>>,
     plugins: RwLock<HashMap<PluginId, LoadedRecord>>,
     bus: Bus<LifecycleEvent>,
@@ -104,6 +117,7 @@ impl Kernel {
             max_tier_allowed: config.max_tier_allowed,
             multi_node: config.multi_node,
             peer_allowlist_populated: false,
+            denied_capabilities: config.denied_capabilities.clone(),
         };
         let engine = HostEngine::new().map_err(entangle_host::HostError::LinkerSetup)?;
         // Staged native binaries left behind by a process that died without
@@ -117,7 +131,7 @@ impl Kernel {
         Ok(Self {
             bus: Bus::new(config.bus_capacity),
             lifecycle_topic: Topic::new(LIFECYCLE_TOPIC).expect("static topic is valid"),
-            broker: Broker::new(policy),
+            broker: Arc::new(Broker::new(policy)),
             engine,
             keyring: Arc::new(RwLock::new(keyring)),
             plugins: RwLock::new(HashMap::new()),
@@ -163,8 +177,18 @@ impl Kernel {
                 }
             });
         }
+        // The broker is shared only once plugins load; until then this is
+        // the sole handle. A kernel with plugins loaded keeps its broker
+        // (and records broker metrics nowhere) rather than splitting it.
+        let broker = match Arc::try_unwrap(self.broker) {
+            Ok(b) => Arc::new(b.with_metrics(registry.clone())),
+            Err(shared) => {
+                tracing::warn!("Kernel::with_metrics after plugins were loaded: broker metrics are not recorded");
+                shared
+            }
+        };
         Self {
-            broker: self.broker.with_metrics(registry.clone()),
+            broker,
             metrics: Some(KernelMetrics {
                 registry,
                 labels,
@@ -177,6 +201,25 @@ impl Kernel {
     /// Access the capability broker.
     pub fn broker(&self) -> &Broker {
         &self.broker
+    }
+
+    /// Every declared capability of a loaded plugin and where it stands
+    /// (granted, denied by policy, revoked) — `entangle perms list`.
+    /// `None` when the plugin is not loaded.
+    pub fn capability_report(&self, plugin: &PluginId) -> Option<Vec<CapabilityStatus>> {
+        self.broker.capability_report(plugin)
+    }
+
+    /// Revoke a loaded plugin's capability by manifest key (`net.wan`,
+    /// `storage.local`, ...) — `entangle perms revoke` (spec §4.6). Takes
+    /// effect at once for `capability.fetch` and for wasm socket checks, and
+    /// from the next invocation for storage. Returns the grants withdrawn.
+    pub fn revoke_capability(
+        &self,
+        plugin: &PluginId,
+        key: &str,
+    ) -> Result<Vec<GrantId>, RuntimeError> {
+        Ok(self.broker.revoke(plugin, key)?)
     }
 
     /// Access the lifecycle IPC bus.
@@ -199,12 +242,18 @@ impl Kernel {
     ///    bytes against the trusted keyring, then bind the verified signer
     ///    to the publisher named in the manifest. Check the artifact's magic
     ///    bytes against the declared runtime (ATC-MAN-3).
-    /// 3. Register the plugin with the capability broker.
-    /// 4. Wasm: compile the artifact with the host engine. Native: grant the
-    ///    declared capabilities through the broker, plan the OS sandbox
-    ///    (refusing when none is available), and stage the verified bytes
-    ///    (see [`crate::native`]). On failure the broker registration — and
-    ///    with it every grant — is rolled back; no partial state remains.
+    /// 3. Register the plugin with the capability broker and resolve its
+    ///    declared capabilities (spec §4.5, [`Broker::grant_declared`]): each
+    ///    is granted, or — when the operator's `deny_capabilities` policy
+    ///    refuses it — denied, audited and logged, and the plugin loads
+    ///    without it.
+    /// 4. Wasm: compile the artifact with the host engine and realise the
+    ///    grants once (creating storage directories) so a grant that cannot
+    ///    be realised fails the load. Native: derive the sandbox from the
+    ///    grants, plan it (refusing when none is available), and stage the
+    ///    verified bytes (see [`crate::native`]). On failure the broker
+    ///    registration — and with it every grant — is rolled back; no
+    ///    partial state remains.
     /// 5. Emit lifecycle events on the IPC bus after each step.
     ///
     /// Returns the [`PluginId`] on success, or the first error encountered.
@@ -309,28 +358,22 @@ impl Kernel {
             Runtime::Native => DeclaredRuntime::Native,
         };
         check_runtime_kind(declared, &pkg.bytes)?;
-        let declared_caps = manifest.capabilities.clone();
-
         // ── Step 3: Broker ───────────────────────────────────────────────────
         // register_plugin takes ownership of ValidatedManifest (not Clone).
         self.broker.register_plugin(manifest)?;
         self.emit(&plugin_id, effective_tier, LifecyclePhase::Registered);
 
-        // ── Step 4: Host / native sandbox ────────────────────────────────────
+        // ── Step 4: Capabilities, then host / native sandbox ─────────────────
         // On failure, roll back the broker registration (which also releases
         // any grants, audited) so no partial state remains.
-        let plugin = match runtime {
-            Runtime::Wasm => LoadedPlugin::from_bytes(
-                &self.engine,
-                &pkg.bytes,
-                plugin_id.clone(),
-                effective_tier,
-            )
-            .map(PluginImpl::Wasm)
-            .map_err(RuntimeError::from),
-            Runtime::Native => self
-                .prepare_native(&plugin_id, &pkg, &declared_caps)
-                .map(|n| PluginImpl::Native(Arc::new(n))),
+        let plugin = match self.resolve_capabilities(&plugin_id) {
+            Err(e) => Err(e),
+            Ok(grants) => match runtime {
+                Runtime::Wasm => self.prepare_wasm(&plugin_id, &pkg, effective_tier).await,
+                Runtime::Native => self
+                    .prepare_native(&plugin_id, &pkg, &grants)
+                    .map(|n| PluginImpl::Native(Arc::new(n))),
+            },
         };
         let plugin = match plugin {
             Ok(p) => p,
@@ -446,23 +489,54 @@ impl Kernel {
         }
     }
 
-    /// Grant every declared capability through the broker (audited), derive
-    /// the sandbox from the grants, and stage the verified binary.
+    /// Resolve the plugin's declared capabilities through the broker
+    /// (spec §4.5): the standing grants both runtimes realise. Capabilities
+    /// the operator's policy denies are audited by the broker and logged
+    /// here; the plugin loads without them.
+    fn resolve_capabilities(
+        &self,
+        plugin_id: &PluginId,
+    ) -> Result<Vec<entangle_broker::GrantedCapability>, RuntimeError> {
+        let resolution = self.broker.grant_declared(plugin_id)?;
+        for (cap, why) in &resolution.denied {
+            tracing::warn!(plugin = %plugin_id, capability = %cap.key(), reason = %why, "declared capability denied; plugin loads without it");
+        }
+        Ok(resolution.granted)
+    }
+
+    /// Compile the component, attach the broker and storage root, and
+    /// realise the standing grants once so an unrealisable grant (no storage
+    /// root, a symlinked scope) fails the load instead of every invocation.
+    async fn prepare_wasm(
+        &self,
+        plugin_id: &PluginId,
+        pkg: &PluginPackage,
+        effective_tier: Tier,
+    ) -> Result<PluginImpl, RuntimeError> {
+        let mut ctx = CapabilityContext::new(Arc::clone(&self.broker));
+        if let Some(root) = &self.config.native.data_dir {
+            ctx = ctx.with_storage_root(root);
+        }
+        let plugin =
+            LoadedPlugin::from_bytes(&self.engine, &pkg.bytes, plugin_id.clone(), effective_tier)?
+                .with_capabilities(ctx);
+        plugin.realise_capabilities().await?;
+        Ok(PluginImpl::Wasm(plugin))
+    }
+
+    /// Derive the sandbox from the standing grants and stage the verified
+    /// binary.
     fn prepare_native(
         &self,
         plugin_id: &PluginId,
         pkg: &PluginPackage,
-        declared: &[entangle_types::capability::CapabilityKind],
+        grants: &[entangle_broker::GrantedCapability],
     ) -> Result<NativePlugin, RuntimeError> {
-        let grants = declared
-            .iter()
-            .map(|cap| self.broker.grant(plugin_id, cap))
-            .collect::<Result<Vec<_>, _>>()?;
         Ok(NativePlugin::prepare(
             plugin_id,
             &pkg.bytes,
             Some(&pkg.dir),
-            &grants,
+            grants,
             &self.config.native,
         )?)
     }

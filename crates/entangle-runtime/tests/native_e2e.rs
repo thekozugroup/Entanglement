@@ -13,7 +13,7 @@ use entangle_broker::{AuditKind, PolicyError};
 use entangle_host::{ArtifactKind, DeclaredRuntime, HostError};
 use entangle_runtime::{Kernel, KernelConfig, NativeConfig, RuntimeError};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
-use entangle_types::capability::{CapabilityKind, StorageScope};
+use entangle_types::capability::{CapabilityKind, StorageMode, StorageScope};
 use entangle_types::tier::Tier;
 
 fn workspace_root() -> PathBuf {
@@ -163,7 +163,8 @@ async fn native_plugin_loads_and_invokes_through_the_kernel() {
     assert_eq!(
         grants[0].kind,
         CapabilityKind::StorageLocal {
-            scope: StorageScope::Plugin
+            scope: StorageScope::Plugin,
+            mode: StorageMode::Rw,
         }
     );
 
