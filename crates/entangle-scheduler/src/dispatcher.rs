@@ -768,6 +768,7 @@ impl Dispatcher {
             let ctx = Arc::clone(&ctx);
             let this = self.clone();
             let peer = target.peer_id;
+            let span = tracing::Span::current();
             set.spawn(async move {
                 let slot = if peer == this.local_peer_id {
                     let started = Instant::now();
@@ -781,7 +782,7 @@ impl Dispatcher {
                     this.run_slot(ctx, idx, peer).await
                 };
                 (idx, slot)
-            });
+            }.instrument(span));
         }
         let mut slots: Vec<Option<SlotResult>> = (0..targets.len()).map(|_| None).collect();
         while let Some(joined) = set.join_next().await {
@@ -1089,6 +1090,10 @@ impl Dispatcher {
         });
         let this = self.clone();
         let ctx = Arc::clone(ctx);
+        // The attempt runs on its own task, inside the dispatch's span, so
+        // its `remote.dispatch` span (and the worker's) stays in the
+        // submitter's trace.
+        let span = tracing::Span::current();
         let handle = set.spawn(async move {
             let started = Instant::now();
             let attempt_task;
@@ -1104,7 +1109,7 @@ impl Dispatcher {
             };
             let (replica, cause) = this.remote_attempt(task, peer, &ctx.envelope).await;
             (replica, cause, started.elapsed())
-        });
+        }.instrument(span));
         running.insert(
             handle.id(),
             Running {

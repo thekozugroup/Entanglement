@@ -281,7 +281,8 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     );
     let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id)
         .with_metrics(registry.clone())
-        .with_spot_checks(cfg.scheduler.spot_checks());
+        .with_spot_checks(cfg.scheduler.spot_checks())
+        .with_speculation(cfg.scheduler.speculation());
     if let Some(router) = router {
         let running = router.transports();
         tracing::info!(
