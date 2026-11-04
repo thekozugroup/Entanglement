@@ -26,15 +26,15 @@
 //! the guest's `yield-chunk` blocking *is* the protocol's backpressure.
 
 use crate::bindings::entangle::plugin::types::PluginError;
-use crate::engine::{HostEngine, EPOCH_TICK_MS};
+use crate::engine::HostEngine;
 use crate::errors::HostError;
 use crate::plugin::{classify_call_error, classify_instantiate_error};
 use crate::state::{HostState, ResourceLimits};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, oneshot};
 use wasmtime::component::{Component, InstancePre};
-use wasmtime::Store;
+use wasmtime::{Store, UpdateDeadline};
 
 /// Generated host bindings for the `entangle:plugin@0.1.0` `stream-plugin`
 /// world. The interfaces it shares with the `plugin` world are mapped onto
@@ -272,10 +272,13 @@ impl LoadedStreamPlugin {
     /// Instantiate the component in a fresh store, attach `port`, and run
     /// `start-stream(input)` to completion.
     ///
-    /// Time and memory are bounded as for a one-shot call: an epoch deadline
-    /// of `timeout_ms` plus a tokio backstop ([`HostError::Timeout`]), and
-    /// `limits` ([`HostError::ResourceExhausted`]). The backstop also covers
-    /// a guest parked in `yield-chunk` waiting for credit. An `err(..)`
+    /// Time and memory are bounded as for a one-shot call: a wall-clock
+    /// deadline of `timeout_ms` checked at every epoch tick, plus a tokio
+    /// backstop ([`HostError::Timeout`]), and `limits`
+    /// ([`HostError::ResourceExhausted`]). The backstop also covers a guest
+    /// parked in `yield-chunk` waiting for credit. Unlike a one-shot call,
+    /// a computing guest **yields** to the async executor at every epoch
+    /// tick, so it never holds a worker thread for longer than a tick. An `err(..)`
     /// result is [`HostError::PluginReturnedError`], as is an `ok(h)` naming
     /// a handle other than [`OUTPUT_HANDLE`].
     pub async fn run_stream(
@@ -290,7 +293,25 @@ impl LoadedStreamPlugin {
         state.stream = Some(port);
         let mut store = Store::new(engine.engine(), state);
         store.limiter(|s| &mut s.limits);
-        store.set_epoch_deadline(timeout_ms.div_ceil(EPOCH_TICK_MS).max(1));
+        // A stream guest may compute for a long time between two host calls
+        // (an LLM processing its prompt). Without a yield point it would hold
+        // its tokio worker thread all that time, and with as many computing
+        // guests as worker threads nothing else on the runtime would run:
+        // not the stream protocol loops, not their heartbeats. So at every
+        // epoch tick the guest yields to the executor and carries on — until
+        // the wall-clock deadline, where it traps as an epoch deadline would.
+        let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+        store.set_epoch_deadline(1);
+        store.epoch_deadline_callback(move |_| {
+            if Instant::now() >= deadline {
+                Ok(UpdateDeadline::Interrupt)
+            } else {
+                Ok(UpdateDeadline::YieldCustom(
+                    1,
+                    Box::pin(tokio::task::yield_now()),
+                ))
+            }
+        });
 
         let run = async {
             let plugin = self
@@ -423,6 +444,86 @@ mod tests {
             port.next_chunk(INPUT_HANDLE).await,
             ChunkResult::Error(e) if e == STREAM_CLOSED
         ));
+    }
+
+    /// A `stream-plugin` component whose `start-stream` computes forever
+    /// without a single host call (think: an LLM processing a long prompt).
+    const SPINNING_STREAM_PLUGIN: &str = r#"
+(component
+  (type $plugin-error (variant
+    (case "invalid-input" string)
+    (case "resource-exhausted" string)
+    (case "capability-denied" string)
+    (case "internal" string)))
+  (export $plugin-error-type "plugin-error" (type $plugin-error))
+  (core module $m
+    (memory (export "mem") 1)
+    (global $next (mut i32) (i32.const 1024))
+    (func (export "realloc") (param i32 i32 i32 i32) (result i32)
+      (local $at i32)
+      (local.set $at (global.get $next))
+      (global.set $next
+        (i32.add (local.get $at)
+                 (i32.and (i32.add (local.get 3) (i32.const 7)) (i32.const -8))))
+      (local.get $at))
+    (func (export "start-stream") (param i32 i32) (result i32)
+      (loop $spin (br $spin))
+      (i32.const 0)))
+  (core instance $i (instantiate $m))
+  (func (export "start-stream")
+    (param "input" (list u8))
+    (result (result u64 (error $plugin-error-type)))
+    (canon lift (core func $i "start-stream")
+      (memory $i "mem")
+      (realloc (func $i "realloc"))))
+)
+"#;
+
+    /// A guest that computes between host calls must not hold its worker
+    /// thread for the whole computation: a daemon with as many computing
+    /// streams as worker threads would otherwise stop answering every
+    /// stream's heartbeat (the protocol loops, readers, writers and timers
+    /// all need a worker too). It still times out on schedule.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn a_computing_guest_does_not_hold_its_worker_thread() {
+        let engine = HostEngine::new().unwrap();
+        let id: PluginId = "aabbccddeeff00112233445566778899/spin@0.1.0"
+            .parse()
+            .unwrap();
+        let plugin = LoadedStreamPlugin::from_bytes(
+            &engine,
+            &wat::parse_str(SPINNING_STREAM_PLUGIN).unwrap(),
+            id,
+            Tier::Pure,
+        )
+        .unwrap();
+        let (port, _driver) = stream_port(1);
+        let started = std::time::Instant::now();
+        let guest = tokio::spawn(async move {
+            plugin
+                .run_stream(&engine, b"", port, 3_000, ResourceLimits::default())
+                .await
+        });
+        // The guest is now computing on the runtime's only worker thread.
+        std::thread::sleep(Duration::from_millis(200));
+        let other_ran_at = tokio::spawn(async { std::time::Instant::now() })
+            .await
+            .unwrap();
+        let waited = other_ran_at - started;
+        assert!(
+            waited < Duration::from_millis(1_500),
+            "another task waited {waited:?} for the worker the guest computes on"
+        );
+        let outcome = guest.await.unwrap();
+        assert!(
+            matches!(outcome, Err(HostError::Timeout(3_000))),
+            "{outcome:?}"
+        );
+        let took = started.elapsed();
+        assert!(
+            took >= Duration::from_millis(3_000) && took < Duration::from_millis(6_000),
+            "timed out after {took:?}"
+        );
     }
 
     #[test]

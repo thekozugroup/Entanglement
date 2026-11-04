@@ -237,11 +237,13 @@ pub struct ExecutorReport {
 /// `plugin` is the plugin's execution (e.g. `Kernel::invoke_stream`),
 /// resolving to `Err(text)` if it failed.
 ///
-/// The plugin runs on **its own task**, not inside this loop: a guest that
-/// computes for a long time between two `yield-chunk` calls (an LLM's
-/// prompt processing, say) holds a worker thread, but never this loop — so
-/// heartbeats are still answered, and credit, stall and deadline timers
-/// still run, while it computes. The task is aborted when the stream
+/// The plugin runs on **its own task**, not inside this loop, so a guest
+/// that computes for a long time between two `yield-chunk` calls (an LLM's
+/// prompt processing, say) never blocks this loop: heartbeats are still
+/// answered, and credit, stall and deadline timers still run, while it
+/// computes. A wasm guest also yields its worker thread at every epoch tick
+/// (`LoadedStreamPlugin::run_stream`), so even as many computing guests as
+/// the runtime has workers cannot starve these loops. The task is aborted when the stream
 /// closes early (the guest's next host call fails first: its port is
 /// dropped). `events` (optional) receives every [`StreamEvent`] as it
 /// happens.
