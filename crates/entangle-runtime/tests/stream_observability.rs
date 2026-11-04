@@ -255,3 +255,86 @@ async fn stream_invocations_get_a_span_and_scrapeable_metrics() {
          {worlds:?}"
     );
 }
+
+/// A stream torn down under a running plugin is `cancelled`, not a plugin
+/// error, even though the plugin then fails: the executor's driver refuses
+/// the chunk the guest is blocked on (`chunk.ack.refuse(..)` once the stream
+/// is terminal — a cancel, a lost peer, a size cap, the stream's timeout) or
+/// closes its input, and the guest's `yield-chunk` / `next-chunk` failure
+/// ends it with an error before its future is ever dropped. The plugin's own
+/// wall-clock timeout is `cancelled` too. None of them raises
+/// `entangle_plugin_errors_total`; a plugin that fails on its own still
+/// counts as `error`.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_stream_torn_down_under_the_plugin_is_cancelled_not_an_error() {
+    spans();
+    let kp = IdentityKeyPair::generate();
+    let registry = Registry::new();
+    let kernel = Kernel::new(KernelConfig::default(), keyring_for(&kp))
+        .unwrap()
+        .with_metrics(registry.clone());
+    let stream = load(&kernel, &kp, "stream-caps-probe", STREAM_PROBE).await;
+
+    // ── the driver refuses the pending chunk: the stream went terminal.
+    let (port, mut driver) = entangle_host::stream_port(1);
+    let run = kernel.invoke_stream(&stream, b"fetch storage-local\n", port, 30_000);
+    let drive = async {
+        let chunk = tokio::time::timeout(Duration::from_secs(30), driver.chunks.recv())
+            .await
+            .expect("a chunk within 30 s")
+            .expect("one chunk per command");
+        chunk
+            .ack
+            .refuse("stream cancelled: ENTANGLE-E0358: the submitter cancelled the stream");
+        driver // the input stays open: only the refusal ends the plugin
+    };
+    let (ran, _driver) = tokio::join!(run, drive);
+    assert!(ran.is_err(), "the guest fails on a refused chunk: {ran:?}");
+
+    // ── the driver goes away while the guest waits for input.
+    let (port, mut driver) = entangle_host::stream_port(1);
+    let run = kernel.invoke_stream(&stream, b"fetch storage-local\n", port, 30_000);
+    let drive = async {
+        let chunk = tokio::time::timeout(Duration::from_secs(30), driver.chunks.recv())
+            .await
+            .expect("a chunk within 30 s")
+            .expect("one chunk per command");
+        chunk.ack.sent();
+        drop(driver);
+    };
+    let (ran, ()) = tokio::join!(run, drive);
+    assert!(ran.is_err(), "the guest fails on a closed input: {ran:?}");
+
+    // ── the plugin's own wall-clock timeout, waiting for input.
+    let (port, mut driver) = entangle_host::stream_port(1);
+    let run = kernel.invoke_stream(&stream, b"fetch storage-local\n", port, 200);
+    let drive = async {
+        if let Ok(Some(chunk)) =
+            tokio::time::timeout(Duration::from_secs(30), driver.chunks.recv()).await
+        {
+            chunk.ack.sent();
+        }
+        driver // never sends input, never closes it
+    };
+    let (ran, _driver) = tokio::join!(run, drive);
+    let err = ran.expect_err("the stream times out");
+    assert!(err.to_string().contains("ENTANGLE-E0504"), "{err}");
+
+    let scrape = registry.render();
+    let s = stream.to_string();
+    let streams = |outcome: &str| {
+        sample(
+            &scrape,
+            names::PLUGIN_STREAMS,
+            &[("plugin", &s), ("outcome", outcome)],
+        )
+    };
+    assert_eq!(streams("cancelled"), Some(3.0), "{scrape}");
+    assert_eq!(streams("error"), None, "{scrape}");
+    assert!(
+        !scrape
+            .lines()
+            .any(|l| l.starts_with(names::PLUGIN_ERRORS) && l.contains(&s)),
+        "a torn-down stream is not a plugin error: {scrape}"
+    );
+}

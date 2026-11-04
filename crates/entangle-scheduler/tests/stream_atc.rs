@@ -110,9 +110,17 @@ struct Plugins {
 }
 
 async fn plugins() -> Plugins {
+    plugins_with(None).await
+}
+
+/// [`plugins`] on a kernel that records into `metrics`.
+async fn plugins_with(metrics: Option<entangle_observability::Registry>) -> Plugins {
     let publisher = IdentityKeyPair::generate();
-    let kernel =
-        Arc::new(Kernel::new(KernelConfig::default(), keyring_for(&publisher)).expect("kernel"));
+    let mut kernel = Kernel::new(KernelConfig::default(), keyring_for(&publisher)).expect("kernel");
+    if let Some(registry) = metrics {
+        kernel = kernel.with_metrics(registry);
+    }
+    let kernel = Arc::new(kernel);
     let a = tempfile::tempdir().unwrap();
     let b = tempfile::tempdir().unwrap();
     let stream_lines = write_package(
@@ -1422,6 +1430,64 @@ async fn cancel_mid_stream_stops_the_plugin() {
         handle.next().await,
         ChunkPoll::Chunk(_) | ChunkPoll::Closed(StreamError::Cancelled { .. })
     ));
+}
+
+/// The executor's stream metrics count a submitter's cancel as
+/// `cancelled`, not as a plugin error: the driver refuses the chunk the
+/// plugin is blocked on (and closes its input) before it drops the
+/// invocation, so the plugin fails first — that failure is the teardown.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_cancelled_stream_is_counted_as_cancelled_not_as_a_plugin_error() {
+    use entangle_observability::catalog::names;
+    let registry = entangle_observability::Registry::new();
+    let plugins = plugins_with(Some(registry.clone())).await;
+    let submitter = IdentityKeyPair::generate();
+    let executor = IdentityKeyPair::generate();
+    let (srv, _events) = server(&plugins, &executor, &[peer_of(&submitter)]);
+    let mut task =
+        StreamingTask::with_defaults(plugins.stream_lines.clone(), lines(500, 8).into_bytes());
+    task.channel.credit_window = 2;
+    let (sub_io, exec_io) = duplex(&submitter, &executor);
+    let served = tokio::spawn(async move { srv.handle(exec_io).await });
+    let mut handle = StreamHandle::start(sub_io, &task, StreamOptions::default()).unwrap();
+    assert!(matches!(
+        deadline("first", handle.next()).await,
+        ChunkPoll::Chunk(_)
+    ));
+    handle.cancel().await;
+    let report = deadline("executor", served).await.unwrap().unwrap();
+    assert!(matches!(report.outcome, Err(StreamError::Cancelled { .. })));
+
+    // The invocation ends (or is aborted) as the executor finishes; give the
+    // runtime a moment to record it.
+    let plugin = plugins.stream_lines.to_string();
+    let outcome = |o: &str| {
+        registry.value(
+            names::PLUGIN_STREAMS,
+            &[("plugin", plugin.as_str()), ("outcome", o)],
+        )
+    };
+    let recorded = deadline("the stream's metric", async {
+        loop {
+            if ["ok", "error", "cancelled"]
+                .iter()
+                .any(|o| outcome(o).is_some())
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    });
+    recorded.await;
+    let scrape = registry.render();
+    assert_eq!(outcome("cancelled"), Some(1.0), "{scrape}");
+    assert_eq!(outcome("error"), None, "{scrape}");
+    assert!(
+        !scrape
+            .lines()
+            .any(|l| l.starts_with(names::PLUGIN_ERRORS) && l.contains(&plugin)),
+        "a cancel is not a plugin error: {scrape}"
+    );
 }
 
 // ════════════════════════════════════════════════════════════════════════════

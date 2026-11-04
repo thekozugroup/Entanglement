@@ -660,7 +660,9 @@ impl Kernel {
     /// Recorded like a one-shot invocation: a `plugin.invoke` span (with
     /// `world = "stream-plugin"`), and — with [`Kernel::with_metrics`] —
     /// `entangle_plugin_streams_total{plugin, outcome}` (`ok`, `error`, or
-    /// `cancelled` when the stream is torn down before the plugin returns),
+    /// `cancelled` when the stream is torn down before the plugin returns:
+    /// the future is dropped, the plugin fails after `port` was closed under
+    /// it — a refused chunk, a closed input — or it hits its timeout),
     /// `entangle_plugin_stream_duration_seconds{plugin}` and, on failure,
     /// `entangle_plugin_errors_total{plugin, class}`. The `plugin` label is
     /// bounded exactly as for one-shot invocations.
@@ -685,11 +687,15 @@ impl Kernel {
             started: Instant::now(),
             done: false,
         };
+        // The executor tears a stream down under its plugin (refuses the
+        // pending chunk, closes the input) and only then drops this future:
+        // the plugin's resulting failure is the teardown, not its own.
+        let teardown = port.teardown_signal();
         let result = self
             .invoke_stream_inner(plugin_id, input, port, timeout_ms)
             .instrument(span)
             .await;
-        recorder.finish(&result);
+        recorder.finish(&result, teardown.torn_down());
         result
     }
 
@@ -1091,7 +1097,10 @@ struct StreamRecorder<'a> {
 }
 
 impl StreamRecorder<'_> {
-    fn finish(&mut self, result: &Result<StreamRunResult, RuntimeError>) {
+    /// `torn_down`: the guest saw its stream closed under it (see
+    /// [`entangle_host::TeardownSignal`]). A failure after that — like the
+    /// stream's wall-clock timeout — is `cancelled`, not a plugin error.
+    fn finish(&mut self, result: &Result<StreamRunResult, RuntimeError>, torn_down: bool) {
         self.done = true;
         let Some(m) = &self.kernel.metrics else {
             return;
@@ -1101,10 +1110,16 @@ impl StreamRecorder<'_> {
             Err(RuntimeError::NotLoaded(_)) => "unknown".to_owned(),
             _ => m.labels.label(&self.plugin_id.to_string()),
         };
-        let message = result.as_ref().err().map(ToString::to_string);
-        let end = match &message {
-            None => catalog::StreamEnd::Ok,
-            Some(message) => catalog::StreamEnd::Err(message),
+        let message = match result {
+            Ok(_) => None,
+            Err(RuntimeError::Host(entangle_host::HostError::Timeout(_))) => None,
+            Err(_) if torn_down => None,
+            Err(e) => Some(e.to_string()),
+        };
+        let end = match (&message, result) {
+            (None, Ok(_)) => catalog::StreamEnd::Ok,
+            (None, Err(_)) => catalog::StreamEnd::Cancelled,
+            (Some(message), _) => catalog::StreamEnd::Err(message),
         };
         catalog::plugin_stream(
             &m.registry,
