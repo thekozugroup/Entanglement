@@ -522,3 +522,74 @@ accepted tasks under deterministic replay, spec §7.5). `Deterministic` and
 
 Scheduler wire version: v2 (task frames carry the policy and its hash). A
 node running an older build answers `unsupported-version`; upgrade both ends.
+
+## 12. Streaming tasks (`entangle compute stream`)
+
+Spec §7.1. A streaming task runs a `stream-plugin` component (export
+`start-stream`, imports `yield-chunk` / `next-chunk`) on **one** executor and
+sends its output back chunk by chunk as it is produced — an LLM's tokens, a
+log tail. The submitter controls the pace: the executor may run at most
+`credit_window` chunks ahead of what the submitter has consumed.
+
+### Serving streams
+
+A daemon with `"iroh"` in `[mesh] transports` serves streams on its
+scheduler endpoint: the same `[scheduler] bind` port answers both
+`entangle/scheduler/1` (one-shot tasks) and `entangle/stream/1`, so a peer's
+one long address covers both. The gate is the same peer store: only peers
+paired with `entangle mesh trust` (and not revoked) may open a stream, and an
+unpaired peer is refused before anything it sent is decoded. Load the stream
+plugin like any other (`entangle plugins load <dir>`); a one-shot plugin
+cannot be streamed, and a stream plugin cannot be `invoke`d.
+
+Every limit a submitter asks for is clamped by the executor (and reported
+back in the `Accepted` frame): stream timeout ≤ 1 h, input ≤ 16 MiB, chunk ≤
+4 MiB, total ≤ 256 MiB per direction, credit window ≤ 256, heartbeat between
+1 s and 60 s, credit-exhaustion timeout ≤ 30 min, at most 64 streams at once.
+
+### Running one
+
+`compute stream` does not go through the daemon: it *is* the submitter. It
+dials the executor itself with this node's identity (`~/.entangle/identity.key`,
+so the executor's allowlist entry for this node covers it), grants credit as
+stdout drains, and verifies every chunk's signature against the key the QUIC
+handshake proved for the executor.
+
+```bash
+# On a paired peer, by long address or by peer id ([scheduler] peers gives the address):
+entangle compute stream <publisher>/stream-lines@0.1.0 --input $'one\ntwo\n' \
+  --peer <peer-id> --integrity trusted-executor --allow <peer-id>
+
+# In this process (no network), e.g. to try a plugin:
+entangle --allow-local compute stream <plugin-id> --input 'hello' --plugin-dir ./pkg
+
+# One JSON object per chunk (seq, bytes, text/base64, signature status), then a status line:
+entangle compute stream <plugin-id> --peer <peer-id> --json
+```
+
+`--integrity` accepts only `none` and `trusted-executor` (`--allow <peer-id>`,
+repeatable; the executor must be one of them). `deterministic` and
+`semantic-equivalent` are refused at submit time with `ENTANGLE-E0350`: there
+is one executor and no second stream to compare against. `--partial keep`
+(default) prints chunks as they arrive and, if the stream is interrupted,
+keeps what arrived; `keep-signed` is the same for the CLI (the signatures are
+in `--json`); `discard` holds all output back until the stream completes and
+prints nothing if it does not. The exit status is non-zero for an
+interrupted stream either way. Ctrl-C cancels the stream on the executor.
+
+### What closes a stream
+
+| Code | Reason | Meaning |
+|---|---|---|
+| `E0352` | `bad-chunk-signature` | A chunk did not verify against the executor's key, or arrived replayed / out of order. The stream aborts; the executor loses reputation. |
+| `E0353` | `total-bytes-exceeded` | The stream reached `max_total_bytes`. The executor stops itself; a submitter facing one that does not tears the stream down. |
+| `E0354` | `chunk-size-exceeded` | One chunk over `max_chunk_bytes`. |
+| `E0356` | `peer-lost` | Three heartbeats in a row went unanswered (15 s at the 5 s default). |
+| `E0357` | `submitter-unresponsive` | The executor had no credit for twice the credit-exhaustion timeout. |
+| `E0361` | (the peer's reason) | The other end closed the stream and said why. |
+
+A consumer that stops reading stalls the executor: after the
+credit-exhaustion timeout (30 min by default) the executor logs a
+`StalledEvent` (`RUST_LOG=entangle::scheduler::stream=warn`; the event is
+named `StalledEvent` in the log line) and waits as long again before giving
+up. Reading again before then resumes the stream.

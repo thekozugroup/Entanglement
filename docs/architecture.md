@@ -528,7 +528,7 @@ Biscuits unchanged in semantics. Two additions:
 
 ### 6.7 ALPN multiplexing
 
-`entangle/control/1` membership; `entangle/scheduler/1` work; `entangle/agent/1` A2A; `entangle/blobs/1` blob transfer; `entangle/docs/1` shared-storage. Same as. ---
+`entangle/control/1` membership; `entangle/scheduler/1` work; `entangle/stream/1` streaming tasks (§7.1; served on the same endpoint and port as `entangle/scheduler/1`); `entangle/agent/1` A2A; `entangle/blobs/1` blob transfer; `entangle/docs/1` shared-storage. Same as. ---
 
 ## 7. Distributed Compute Scheduler (a Plugin)
 
@@ -547,7 +547,7 @@ This document pins three reference workloads. The scheduler must satisfy each at
 
 - **Task type:** `StreamingTask` (§7.1). One executor; `Integrity::TrustedExecutor { allowlist: ["abc12...desktop-nodeid"] }` (§7.5). The submitter has out-of-band reason to trust the destination — it's their own desktop. Replication is rejected at submit-time (`replication=1`, `quorum=1` enforced).
 
-- **RPC shape:** bidirectional QUIC stream over `entangle/scheduler/1` ALPN; `Credit`-based backpressure window of 32 chunks; partial results accepted (a half-streamed answer is still useful to the user). **Workload B — Batch image processing across a home cluster.**
+- **RPC shape:** bidirectional QUIC stream over the `entangle/stream/1` ALPN (same endpoint as `entangle/scheduler/1`); `Credit`-based backpressure window of 32 chunks; partial results accepted (a half-streamed answer is still useful to the user). **Workload B — Batch image processing across a home cluster.**
 - User has 8,000 RAW photos; runs `image-tool dehaze --recursive`.
 
 - Scheduler shards across 3 desktops; bandwidth-aware placement keeps blob transfers off the slow Wi-Fi link.
@@ -591,7 +591,7 @@ struct StreamingTask {
   signature: Ed25519Sig,
   resources: ResourceSpec,
   initial_inputs: Vec<InputRef>,     // prompt, system prompt, generation params
-  // Bidirectional channel handling — opened over `entangle/scheduler/1` ALPN
+  // Bidirectional channel handling — opened over the `entangle/stream/1` ALPN
   // upon task acceptance. channel: ChannelSpec {
     inbound:  ChunkSchema,           // submitter -> worker (e.g. additional turns)
     outbound: ChunkSchema,           // worker -> submitter (e.g. token chunks)
@@ -660,7 +660,7 @@ The metric (a Wasm component) is **never instantiated** for an oversized result.
 
 - **`max_total_bytes` (StreamingTask):** added (default 256 MiB). capped per-chunk size but had no lifetime cap — a worker could send 16 MiB chunks forever. Both ends track and tear down at the threshold.
 
-- **Bridge biscuit lifetime byte cap (§6.4):**  specified a per-second rate limit (`relay_rate_max($r), $r <= 1048576`) but no cumulative session cap. adds a fifth mandatory attenuation `relay_total_bytes_max($t), $t <= 1073741824` (1 GiB ceiling per bridge cap lifetime). See §6.4 update below; bridge attenuation invariant becomes `|attenuation_facts ∩ {dest_pin, rate_limit, total_bytes_cap, ttl_le_3600s, bridge_marker}| == 5`. **Streaming RPC shape (Workload A example).** Submitter opens a bidirectional QUIC stream over the `entangle/scheduler/1` ALPN to the chosen worker:
+- **Bridge biscuit lifetime byte cap (§6.4):**  specified a per-second rate limit (`relay_rate_max($r), $r <= 1048576`) but no cumulative session cap. adds a fifth mandatory attenuation `relay_total_bytes_max($t), $t <= 1073741824` (1 GiB ceiling per bridge cap lifetime). See §6.4 update below; bridge attenuation invariant becomes `|attenuation_facts ∩ {dest_pin, rate_limit, total_bytes_cap, ttl_le_3600s, bridge_marker}| == 5`. **Streaming RPC shape (Workload A example).** Submitter opens a bidirectional QUIC stream over the `entangle/stream/1` ALPN (accepted on the worker's scheduler endpoint, same port) to the chosen worker:
 
 ```
 Submitter -> Worker:  StreamOpen { task_id, initial_inputs: { prompt: "...", max_tokens: 1024, temperature: 0.7 } }
@@ -723,8 +723,12 @@ struct SignedChunk {
     bytes: Vec<u8>,
     ts: Instant,
     executor_node_id: NodeId,
-    // Signature over (task_id || seq || ts || sha256(bytes)). // Verified by submitter on each chunk; chain accumulates into a
-    // tamper-evident transcript. signature: Ed25519Sig,
+    // Signature over "entangle/stream/chunk/v1" || 0x00 || task_id || policy_hash
+    //   || seq (u64 BE) || BLAKE3(bytes)  — domain-separated, bound to the
+    //   task's policy hash (INV-INT-1); no timestamp: ordering is the seq.
+    // Verified by submitter on each chunk against the executor's
+    // transport-authenticated key; chunks chain into a BLAKE3 transcript
+    // hash that the executor's signed End frame commits to. signature: Ed25519Sig,
 }
 ```
 
@@ -1913,6 +1917,18 @@ ATC-INT-5 (output-size DoS short-circuit, INV-INT-2; A-N1-)
          is emitted to telemetry
   AND    reputation::get(peer_id) is strictly less than the pre-task value
   TEST   crates/entangle-plugin-scheduler/tests/integrity/oversized_output_short_circuits.rs
+
+ATC-INT-6 (streaming total-byte cap, both ends; A-N1-)
+  GIVEN  a StreamingTask with channel.max_total_bytes = 1024
+  WHEN   the executor's chunks would carry the stream past 1024 cumulative bytes
+  THEN   the executor does not send the chunk that crosses the cap and closes the
+         stream with Reason::TotalBytesExceeded
+  AND    against an executor that does not self-close, the submitter tears the
+         stream down with Err(StreamBytesExceeded) — refusing the oversized chunk
+         from its frame header, before allocating it — and lowers the executor's
+         reputation
+  TEST   crates/entangle-scheduler/tests/stream_atc.rs::atc_int_6_executor_closes_at_max_total_bytes
+         crates/entangle-scheduler/tests/stream_atc.rs::atc_int_6_submitter_tears_down_an_executor_that_does_not_self_close
 
 ### 16.5 StreamingTask credit + heartbeat + signing (A-N3-, B-streaming)
 
