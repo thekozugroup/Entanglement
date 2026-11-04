@@ -192,6 +192,17 @@ pub fn wrappers_enabled() -> bool {
         .unwrap_or(false)
 }
 
+/// Whether config.toml explicitly says `[wrappers] install = false`, which
+/// the installed shim honours at run time (spec §8.3 item 2): its blocks are
+/// then inactive.
+pub fn wrappers_off_in_config() -> bool {
+    std::fs::read_to_string(config::config_path())
+        .ok()
+        .and_then(|t| t.parse::<toml::Table>().ok())
+        .and_then(|t| t.get("wrappers")?.get("install")?.as_bool())
+        == Some(false)
+}
+
 fn write_rc(rc: &RcFile, text: &str) -> Result<()> {
     if rc.dialect == Dialect::Fish && text.is_empty() {
         // The conf.d snippet is wholly ours: don't leave an empty file.
@@ -332,8 +343,14 @@ pub async fn run(a: WrapperArgs) -> Result<()> {
                     .collect::<Vec<_>>()
                     .join(", ")
             );
+            let off = wrappers_off_in_config();
             for rc in rc_files()? {
                 let st = match rc_status(&rc, &hosts) {
+                    Ok(s) if off && s.has_block() => format!(
+                        "{} -- inactive: [wrappers] install = false (`entangle wrapper disable` \
+                         removes it)",
+                        s.describe()
+                    ),
                     Ok(s) => s.describe(),
                     Err(e) => format!("error: {e:#}"),
                 };

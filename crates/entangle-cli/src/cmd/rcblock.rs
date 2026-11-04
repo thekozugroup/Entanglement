@@ -67,8 +67,26 @@ fn warning_lines(h: &Host) -> [String; 4] {
     ]
 }
 
+/// Name of the helper function the shim calls to honour `[wrappers] install =
+/// false` (spec §8.3 item 2).
+const OFF_FN: &str = "__entangle_wrapper_off";
+
+/// awk program that exits 0 exactly when `config.toml` says `[wrappers]
+/// install = false` (as a `[wrappers]` table key, a top-level dotted key
+/// `wrappers.install`, or in an inline `wrappers = { ... }` table), and
+/// non-zero otherwise (also when the file is missing). Only POSIX awk
+/// features; no single quotes, as it is embedded in single quotes in both
+/// shell dialects.
+const OFF_AWK: &str = r#"/^[ \t]*\[/ { s = $0; sub(/^[ \t]*\[[ \t]*/, "", s); sub(/[ \t]*\].*$/, "", s); next } s == "wrappers" && /^[ \t]*install[ \t]*=[ \t]*false[ \t\r]*(#.*)?$/ { off = 1 } s == "" && /^[ \t]*wrappers[ \t]*\.[ \t]*install[ \t]*=[ \t]*false[ \t\r]*(#.*)?$/ { off = 1 } s == "" && /^[ \t]*wrappers[ \t]*=[ \t]*\{.*install[ \t]*=[ \t]*false/ { off = 1 } END { exit !off }"#;
+
 /// Render the managed block (marker to marker, LF line endings, no trailing
 /// newline) for `hosts`.
+///
+/// Each function warns only outside a session (`ENTANGLE_SESSION_ID` unset)
+/// and only while `~/.entangle/config.toml` does not say `[wrappers] install
+/// = false`, so that hand edit silences the shim at once, as spec §8.3 item 2
+/// promises (the check runs only when an agent host is launched outside a
+/// session; a missing file or awk means "not disabled").
 pub fn render(dialect: Dialect, hosts: &[Host]) -> String {
     let mut out = String::new();
     out.push_str(BEGIN);
@@ -90,6 +108,27 @@ pub fn render(dialect: Dialect, hosts: &[Host]) -> String {
         // `sh` sourcing the file.)
         out.push_str("# An alias of the same name is set aside while each function is defined.\n");
     }
+    if !hosts.is_empty() {
+        out.push_str("# `[wrappers] install = false` in ~/.entangle/config.toml silences it.\n");
+        match dialect {
+            Dialect::Posix => {
+                out.push_str(&format!("{OFF_FN}() {{\n"));
+                out.push_str(&format!(
+                    "  command awk '{OFF_AWK}' \"$HOME/.entangle/config.toml\" 2>/dev/null\n"
+                ));
+                out.push_str("}\n");
+            }
+            Dialect::Fish => {
+                out.push_str(&format!(
+                    "function {OFF_FN} --description 'entangle wrapper: disabled in config.toml?'\n"
+                ));
+                out.push_str(&format!(
+                    "    command awk '{OFF_AWK}' \"$HOME/.entangle/config.toml\" 2>/dev/null\n"
+                ));
+                out.push_str("end\n");
+            }
+        }
+    }
     for h in hosts {
         let w = warning_lines(h);
         match dialect {
@@ -101,7 +140,9 @@ pub fn render(dialect: Dialect, hosts: &[Host]) -> String {
                     h.binary
                 ));
                 out.push_str(&format!("{}() {{\n", h.binary));
-                out.push_str("  if [ -z \"${ENTANGLE_SESSION_ID:-}\" ]; then\n");
+                out.push_str(&format!(
+                    "  if [ -z \"${{ENTANGLE_SESSION_ID:-}}\" ] && ! {OFF_FN}; then\n"
+                ));
                 out.push_str(&format!(
                     "    printf '\\033[33mwarning:\\033[0m {}\\n' >&2\n",
                     w[0]
@@ -122,7 +163,9 @@ pub fn render(dialect: Dialect, hosts: &[Host]) -> String {
                     "function {0} --wraps {0} --description 'entangle wrapper'\n",
                     h.binary
                 ));
-                out.push_str("    if test -z \"$ENTANGLE_SESSION_ID\"\n");
+                out.push_str(&format!(
+                    "    if test -z \"$ENTANGLE_SESSION_ID\"; and not {OFF_FN}\n"
+                ));
                 out.push_str(&format!(
                     "        printf '\\033[33mwarning:\\033[0m {}\\n' >&2\n",
                     w[0]
@@ -677,6 +720,49 @@ mod tests {
     }
 
     /// The BEGIN marker was deleted by hand: `remove` (disable) and `repair`
+    /// The awk check the shim runs: only an explicit `[wrappers] install =
+    /// false` (table key, dotted key, inline table; comments and CRLF
+    /// tolerated) turns the warning off.
+    #[cfg(unix)]
+    #[test]
+    fn off_check_matches_only_wrappers_install_false() {
+        let d = tempfile::tempdir().unwrap();
+        let cfg = d.path().join("config.toml");
+        let off = |text: &str| {
+            std::fs::write(&cfg, text).unwrap();
+            std::process::Command::new("awk")
+                .arg(OFF_AWK)
+                .arg(&cfg)
+                .status()
+                .unwrap()
+                .success()
+        };
+        assert!(off("[wrappers]\ninstall = false\n"));
+        assert!(off(
+            "[security]\nmax_tier_allowed = 5\n\n[wrappers]\ninstall = false # by hand\r\n"
+        ));
+        assert!(off("  [ wrappers ]  # c\n  install=false\n"));
+        assert!(off("wrappers.install = false\n[security]\n"));
+        assert!(off("wrappers = { install = false }\n"));
+        assert!(!off("[wrappers]\ninstall = true\n"));
+        assert!(!off("[other]\ninstall = false\n"));
+        assert!(!off("[wrappers]\n[other]\ninstall = false\n"));
+        assert!(!off("[wrappers]\ninstall = falsey\n"));
+        assert!(!off("# [wrappers] install = false\n"));
+        assert!(!off(""));
+        std::fs::remove_file(&cfg).unwrap();
+        assert!(!off_missing(&cfg), "a missing file means not disabled");
+        fn off_missing(p: &std::path::Path) -> bool {
+            std::process::Command::new("awk")
+                .arg(OFF_AWK)
+                .arg(p)
+                .stderr(std::process::Stdio::null())
+                .status()
+                .unwrap()
+                .success()
+        }
+    }
+
     /// must also take the generated functions above the stray END, or they
     /// stay active while `status` reports no block.
     #[test]

@@ -129,7 +129,7 @@ disabled = []              # written by a `max_tier_allowed` lowering (§15)
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
 | `[security]` | `allow_unsandboxed_native` | bool | `false` | Run native (tier 4–5) plugins on a host that has **no** OS sandbox primitive. Off: such plugins are refused with `ENTANGLE-E0700`. No effect on hosts that have one — the sandbox is then always engaged. See §12. |
-| `[wrappers]` | `install` | bool | `false` | Opt-in record for the shell shim. `entangle wrapper enable` sets `true`, `disable` sets `false`. The daemon ignores it. See §14. |
+| `[wrappers]` | `install` | bool | `false` | Opt-in record for the shell shim. `entangle wrapper enable` sets `true`, `disable` sets `false`; setting `false` by hand silences an installed shim at once (it checks this key whenever an agent host is launched outside a session). The daemon ignores it. See §14. |
 | `[plugins]` | `disabled` | array of strings | `[]` | Plugin ids unloaded by a tier-ceiling lowering. See §15 for what honours it today. |
 
 Notes:
@@ -779,6 +779,11 @@ What it does and does not touch:
   model (`[mesh.tailscale]`, `[metrics]`, `[telemetry]`) are left as they were.
   Disabling is never silent: it prints what it did and the choice persists.
 - Inside an Entanglement session (`ENTANGLE_SESSION_ID` set) the shim is silent.
+- Setting `[wrappers] install = false` in `config.toml` by hand (spec §8.3
+  item 2) silences the shim too, without touching the rc files: each function
+  checks the key (one `awk` over `config.toml`) when an agent host is launched
+  outside a session. `status` then shows the remaining blocks as inactive;
+  `entangle wrapper disable` removes them.
 
 ### `entangle doctor` and the wrapper
 

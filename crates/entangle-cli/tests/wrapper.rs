@@ -694,3 +694,46 @@ fn zsh_block_follows_zdotdir() {
     let zshrc = std::fs::read_to_string(zdot.join(".zshrc")).unwrap_or_default();
     assert!(!zshrc.contains("entangle wrapper"), "{zshrc:?}");
 }
+
+/// Spec §8.3 item 2: the user can disable the wrapper "via `entangle wrapper
+/// disable` ... or by setting `[wrappers] install = false` in
+/// ~/.entangle/config.toml". A hand edit silences the shim at once (bash and
+/// POSIX sh), and `status` says the remaining blocks are inactive.
+#[test]
+fn install_false_in_config_silences_the_shim() {
+    let e = Env::new();
+    e.ok(&["wrapper", "enable"]);
+    let cfg = e.home.join(".entangle/config.toml");
+    let on = std::fs::read_to_string(&cfg).unwrap();
+    assert!(on.contains("install = true"), "{on}");
+    std::fs::write(
+        &cfg,
+        on.replace("install = true", "install = false # by hand"),
+    )
+    .unwrap();
+
+    let o = e.bash("claude --version", None);
+    assert!(!stderr(&o).contains("launched outside"), "{}", stderr(&o));
+    assert_eq!(stdout(&o), "real claude --version\n");
+    assert_eq!(o.status.code(), Some(7));
+    let o = Command::new("sh")
+        .args(["-c", ". \"$HOME/.bashrc\"; codex x"])
+        .env_clear()
+        .env("HOME", &e.home)
+        .env("PATH", e.path())
+        .output()
+        .unwrap();
+    assert!(!stderr(&o).contains("launched outside"), "{}", stderr(&o));
+    assert_eq!(stdout(&o), "real codex x\n");
+    let status = e.ok(&["wrapper", "status"]);
+    assert!(status.contains("inactive"), "{status}");
+
+    // Back on: the warning returns without re-running `enable`.
+    std::fs::write(&cfg, on).unwrap();
+    let o = e.bash("claude --version", None);
+    assert!(
+        stderr(&o).contains("claude launched outside Entanglement session"),
+        "{}",
+        stderr(&o)
+    );
+}
