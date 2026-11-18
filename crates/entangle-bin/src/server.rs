@@ -105,9 +105,9 @@ pub fn bind(socket_path: &Path) -> anyhow::Result<BoundSocket> {
     // Remove a stale socket file so bind succeeds after a crash — but only
     // if the existing path really is a socket. Anything else (regular file,
     // directory, symlink) is suspicious and must not be unlinked blindly.
-    match std::fs::symlink_metadata(&socket_path) {
+    match std::fs::symlink_metadata(socket_path) {
         Ok(meta) if meta.file_type().is_socket() => {
-            std::fs::remove_file(&socket_path).with_context(|| {
+            std::fs::remove_file(socket_path).with_context(|| {
                 format!("failed to remove stale socket {}", socket_path.display())
             })?;
         }
