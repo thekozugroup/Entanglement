@@ -138,6 +138,12 @@ async fn send_recv(socket_path: PathBuf, state: Arc<DaemonState>, request: &str)
     }
     let mut stream = stream.expect("failed to connect to test RPC server within 300 ms");
 
+    // The daemon requires the per-start token on every connection.
+    let token = entangle_rpc::auth::read_token(&socket_path).expect("token file next to socket");
+    stream
+        .write_all(format!("{}\n", entangle_rpc::auth::auth_line(&token)).as_bytes())
+        .await
+        .unwrap();
     stream.write_all(request.as_bytes()).await.unwrap();
     stream.write_all(b"\n").await.unwrap();
     stream.flush().await.unwrap();

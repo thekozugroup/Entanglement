@@ -90,6 +90,13 @@ impl Client {
                 })??;
         let (rd, mut wr) = stream.into_split();
 
+        // Authenticate the connection first (see [`crate::auth`]). Without a
+        // readable token nothing is sent and the daemon refuses the request.
+        if let Some(token) = crate::auth::read_token(&self.socket_path) {
+            wr.write_all(crate::auth::auth_line(&token).as_bytes())
+                .await?;
+            wr.write_all(b"\n").await?;
+        }
         wr.write_all(line.as_bytes()).await?;
         wr.write_all(b"\n").await?;
         wr.flush().await?;

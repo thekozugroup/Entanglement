@@ -385,8 +385,8 @@ pub(crate) fn report(engaged: &Engaged) {
             }
             eprintln!(
                 "note: the sandbox limits files and socket families; it is not a containment \
-                 boundary. Through local sockets (D-Bus, ssh-agent, Docker, the Entanglement \
-                 daemon) and the environment variables it inherits, the agent can still act as \
+                 boundary. Through local sockets (D-Bus, ssh-agent, Docker) and the environment \
+                 variables it inherits, the agent can still act as \
                  you. See docs/agents.md."
             );
         }

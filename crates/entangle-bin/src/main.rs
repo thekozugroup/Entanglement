@@ -547,6 +547,13 @@ async fn status(args: StatusArgs) -> anyhow::Result<()> {
         .await
         .with_context(|| format!("connecting to {}", socket_path.display()))?;
 
+    // Authenticate the connection (see `entangle_rpc::auth`).
+    if let Some(token) = entangle_rpc::auth::read_token(&socket_path) {
+        stream
+            .write_all(entangle_rpc::auth::auth_line(&token).as_bytes())
+            .await?;
+        stream.write_all(b"\n").await?;
+    }
     let req = r#"{"jsonrpc":"2.0","id":1,"method":"version","params":{}}"#;
     stream.write_all(req.as_bytes()).await?;
     stream.write_all(b"\n").await?;

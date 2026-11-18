@@ -37,7 +37,7 @@ directories and its install paths (add more with --sandbox-read and
 --sandbox-write). Network access is NOT restricted. --no-sandbox turns the
 sandbox off; --require-sandbox refuses to start unless every layer is
 engaged. The sandbox is defence in depth, not a containment boundary: local
-Unix sockets (D-Bus, ssh-agent, Docker, the daemon) stay reachable.
+Unix sockets (D-Bus, ssh-agent, Docker) stay reachable.
 
 Your own agent config is read but never modified: a rewritten copy is written
 to a session directory (removed on exit) and the agent is launched against it.

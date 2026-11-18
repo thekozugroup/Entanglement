@@ -175,7 +175,7 @@ it executes. The status is printed at session start and by `entangle doctor`
 ("agent sandbox"):
 
 ```
-sandbox: Landlock ABI 7 filesystem allowlist + seccomp socket filter + no_new_privs; chmod, chown, timestamps and extended attributes NOT restricted by Landlock; local Unix sockets (D-Bus, ssh-agent, tmux, X11, Docker, the Entanglement daemon) stay reachable; network egress NOT restricted; writable: /home/you/project, /tmp, /var/tmp, /home/you/.claude, /home/you/.claude.json
+sandbox: Landlock ABI 7 filesystem allowlist + seccomp socket filter + no_new_privs; chmod, chown, timestamps and extended attributes NOT restricted by Landlock; local Unix sockets (D-Bus, ssh-agent, tmux, X11, Docker) stay reachable; network egress NOT restricted; writable: /home/you/project, /tmp, /var/tmp, /home/you/.claude, /home/you/.claude.json
 note: the sandbox limits files and socket families; it is not a containment boundary. ...
 ```
 
@@ -275,10 +275,22 @@ Stated plainly:
   an unconfined process, the Secret Service hands out stored passwords),
   tmux and screen sockets (send keys to another shell), X11 and Wayland
   sockets, the Docker socket (root on the host), the ssh-agent socket (signs
-  with your keys), and the **Entanglement daemon's RPC socket** (every
-  daemon method, without the gateway's policy or audit). A test
+  with your keys). A test
   (`path_named_unix_sockets_outside_the_allowlist_stay_reachable`) pins this
   gap so the docs change when it closes.
+
+  The **Entanglement daemon's RPC socket** is reachable too, but the daemon
+  requires a token on every connection before it dispatches any method. It
+  writes a fresh random token at each start to `~/.entangle/sock.token`
+  (mode `0600`, next to the socket); the CLI and the gateway's built-in
+  `entangle` server read it, the sandboxed agent cannot (`~/.entangle` is
+  never on its allowlist; tested by
+  `sandboxed_agent_cannot_read_the_daemon_token`), so its connections are
+  refused (`-32001 unauthorized`). This holds only while the token stays out
+  of the allowlist: a daemon started with `--socket` in a directory the agent
+  can read (the project, `/tmp`) or a `--sandbox-read ~/.entangle` gives the
+  token away, and an agent that escapes through one of the sockets above
+  can read it like any other file of yours.
 * **Secrets in environment variables reach the agent.** The agent inherits
   your environment: `SSH_AUTH_SOCK`, `DBUS_SESSION_BUS_ADDRESS`, `AWS_*`,
   `GH_TOKEN`, `GITHUB_TOKEN`, API keys. Unset what it should not have before

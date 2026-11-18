@@ -389,3 +389,40 @@ fn deferred_agents_are_refused_with_the_reason() {
     );
     assert!(!all.contains("aider"), "no shim for a deferred host: {all}");
 }
+
+/// Review finding 1(b): the daemon's RPC token lives next to its socket in
+/// `~/.entangle`, which the agent's allowlist never includes, so a
+/// sandboxed agent that connects to the socket cannot authenticate.
+#[test]
+fn sandboxed_agent_cannot_read_the_daemon_token() {
+    if !landlock() {
+        return;
+    }
+    let f = fixture();
+    let home = dir();
+    let token = entangle_rpc::auth::token_path(&home.path().join(".entangle/sock"));
+    fs::create_dir_all(token.parent().unwrap()).unwrap();
+    fs::write(&token, "daemon-token").unwrap();
+    let agent = f.project.path().join("read-token.sh");
+    fs::write(
+        &agent,
+        "#!/bin/sh\nif cat \"$TOKEN\" >/dev/null 2>&1; then exit 50; fi\nexit 51\n",
+    )
+    .unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    let mut cmd = entangle();
+    cmd.current_dir(f.project.path())
+        .env("HOME", home.path())
+        .env("TOKEN", &token)
+        .env("ENTANGLE_SESSIONS_DIR", f.sessions.path().join("s"))
+        .env_remove("ENTANGLE_AGENT_SANDBOX_PROBE")
+        .args(["agent", "run", "claude-code", "--config"])
+        .arg(f.project.path().join("none.json"))
+        .arg("--bin")
+        .arg(&agent);
+    let out = cmd.output().unwrap();
+    assert_eq!(out.status.code(), Some(51), "{}", stderr(&out));
+    // Without the sandbox the same script reads it (the test is meaningful).
+    let out = cmd.arg("--no-sandbox").output().unwrap();
+    assert_eq!(out.status.code(), Some(50), "{}", stderr(&out));
+}

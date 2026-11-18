@@ -271,10 +271,7 @@ impl AgentPlan {
             );
         }
         gaps.push("chmod, chown, timestamps and extended attributes NOT restricted by Landlock");
-        gaps.push(
-            "local Unix sockets (D-Bus, ssh-agent, tmux, X11, Docker, the Entanglement daemon) \
-             stay reachable",
-        );
+        gaps.push("local Unix sockets (D-Bus, ssh-agent, tmux, X11, Docker) stay reachable");
         gaps
     }
 

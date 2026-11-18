@@ -63,7 +63,13 @@ async fn start_and_connect(socket_path: &PathBuf, state: Arc<DaemonState>) -> Un
 async fn connect_with_retry(socket_path: &PathBuf) -> UnixStream {
     for _ in 0..50 {
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        if let Ok(s) = UnixStream::connect(socket_path).await {
+        if let Ok(mut s) = UnixStream::connect(socket_path).await {
+            // The daemon requires the per-start token on every connection.
+            let token =
+                entangle_rpc::auth::read_token(socket_path).expect("token file next to socket");
+            s.write_all(format!("{}\n", entangle_rpc::auth::auth_line(&token)).as_bytes())
+                .await
+                .unwrap();
             return s;
         }
     }

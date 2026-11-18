@@ -1,7 +1,8 @@
 //! Unix-domain-socket RPC server.
 //!
 //! Wire format: newline-delimited JSON-RPC 2.0. One request per line,
-//! one response per line. Debug-friendly with `nc -U ~/.entangle/sock`.
+//! one response per line. Debug-friendly with `nc -U ~/.entangle/sock`, once
+//! the first line carries the token (see Hardening).
 //!
 //! # Hardening
 //!
@@ -16,6 +17,12 @@
 //!   is forced to `0600` (the server refuses to run otherwise), stale socket
 //!   files are only unlinked when they really are sockets, and each accepted
 //!   peer must present the owner's uid via `SO_PEERCRED`.
+//! - At each start a random token is written to a `0600` file next to the
+//!   socket (`<socket>.token`, see [`entangle_rpc::auth`]); the first line
+//!   of every connection must present it, or the connection gets a
+//!   `-32001` error and is closed before any method is dispatched. A
+//!   process confined by the agent sandbox can connect to the socket (the
+//!   sandbox does not mediate `connect()`) but cannot read the token.
 
 use crate::methods;
 use crate::state::DaemonState;
@@ -60,6 +67,7 @@ pub struct BoundSocket {
     listener: UnixListener,
     owner_uid: u32,
     path: PathBuf,
+    token: Arc<str>,
 }
 
 impl BoundSocket {
@@ -124,6 +132,9 @@ pub fn bind(socket_path: &Path) -> anyhow::Result<BoundSocket> {
         }
     }
 
+    // The token exists before the socket does, so a client that can
+    // connect can also find it.
+    let token = write_token(socket_path)?;
     let listener = UnixListener::bind(socket_path)
         .with_context(|| format!("failed to bind {}", socket_path.display()))?;
 
@@ -134,7 +145,55 @@ pub fn bind(socket_path: &Path) -> anyhow::Result<BoundSocket> {
         listener,
         owner_uid,
         path: socket_path.to_path_buf(),
+        token: token.into(),
     })
+}
+
+/// Write a fresh random connection token to `<socket>.token` (mode `0600`,
+/// replacing any earlier one atomically) and return it.
+fn write_token(socket_path: &Path) -> anyhow::Result<String> {
+    use std::io::{Read as _, Write as _};
+    use std::os::unix::fs::OpenOptionsExt as _;
+    let mut raw = [0u8; 32];
+    std::fs::File::open("/dev/urandom")
+        .and_then(|mut f| f.read_exact(&mut raw))
+        .context("reading /dev/urandom for the RPC token")?;
+    let token: String = raw.iter().map(|b| format!("{b:02x}")).collect();
+    let path = entangle_rpc::auth::token_path(socket_path);
+    let tmp = path.with_extension(format!("token.{}.tmp", std::process::id()));
+    {
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&tmp)
+            .with_context(|| format!("writing {}", tmp.display()))?;
+        f.write_all(token.as_bytes())?;
+        f.sync_all()?;
+    }
+    std::fs::rename(&tmp, &path).with_context(|| format!("writing {}", path.display()))?;
+    Ok(token)
+}
+
+/// Constant-time comparison of two tokens.
+fn token_matches(given: &str, expected: &str) -> bool {
+    let (a, b) = (given.as_bytes(), expected.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+
+/// Whether `line` is the authentication line carrying `token`.
+fn authenticates(line: &str, token: &str) -> bool {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+        return false;
+    };
+    v.get("method").and_then(|m| m.as_str()) == Some(entangle_rpc::auth::AUTH_METHOD)
+        && v.pointer("/params/token")
+            .and_then(|t| t.as_str())
+            .is_some_and(|t| token_matches(t, token))
 }
 
 /// Accept connections on a socket from [`bind`] until a fatal accept error.
@@ -143,6 +202,7 @@ pub async fn serve_listener(bound: BoundSocket, state: Arc<DaemonState>) -> anyh
         listener,
         owner_uid,
         path: socket_path,
+        token,
     } = bound;
 
     tracing::info!(socket_path = %socket_path.display(), "RPC server listening");
@@ -217,10 +277,11 @@ pub async fn serve_listener(bound: BoundSocket, state: Arc<DaemonState>) -> anyh
         }
 
         let s = state.clone();
+        let token = token.clone();
         tokio::spawn(async move {
             // Hold the permit for the lifetime of the connection.
             let _permit = permit;
-            if let Err(e) = serve_client(stream, s, CLIENT_READ_TIMEOUT).await {
+            if let Err(e) = serve_client(stream, s, &token, CLIENT_READ_TIMEOUT).await {
                 tracing::warn!(error = %e, "client task ended with error");
             }
         });
@@ -262,6 +323,7 @@ fn accept_backoff(consecutive_errors: u32) -> Duration {
 async fn serve_client(
     stream: UnixStream,
     state: Arc<DaemonState>,
+    token: &str,
     read_timeout: Duration,
 ) -> anyhow::Result<()> {
     let (rd, mut wr) = stream.into_split();
@@ -272,6 +334,7 @@ async fn serve_client(
     let line_limit = MAX_REQUEST_BYTES as u64 + 1;
     let mut reader = BufReader::new(rd).take(line_limit);
     let mut buf: Vec<u8> = Vec::new();
+    let mut authenticated = false;
 
     loop {
         buf.clear();
@@ -311,6 +374,21 @@ async fn serve_client(
         let line = std::str::from_utf8(line_bytes).context("request line is not valid UTF-8")?;
         if line.trim().is_empty() {
             continue;
+        }
+        if !authenticated {
+            if authenticates(line, token) {
+                authenticated = true;
+                continue;
+            }
+            let resp = format!(
+                r#"{{"jsonrpc":"2.0","id":null,"error":{{"code":{},"message":"unauthorized: the first line of a connection must carry the token from {}"}}}}"#,
+                entangle_rpc::auth::UNAUTHORIZED,
+                "<socket>.token"
+            );
+            wr.write_all(resp.as_bytes()).await?;
+            wr.write_all(b"\n").await?;
+            wr.flush().await?;
+            return Ok(());
         }
 
         let resp = methods::dispatch(line, &state).await;
@@ -366,7 +444,7 @@ mod tests {
             held_clients.push(client); // keep the peer open: a genuine stall
             let s = state.clone();
             tasks.push(tokio::spawn(async move {
-                serve_client(server, s, Duration::from_millis(100)).await
+                serve_client(server, s, "t", Duration::from_millis(100)).await
             }));
         }
 
@@ -386,11 +464,14 @@ mod tests {
     async fn active_then_stalled_connection_is_reaped() {
         let state = make_state();
         let (mut client, server) = UnixStream::pair().expect("socketpair");
-        let task =
-            tokio::spawn(
-                async move { serve_client(server, state, Duration::from_millis(200)).await },
-            );
+        let task = tokio::spawn(async move {
+            serve_client(server, state, "t", Duration::from_millis(200)).await
+        });
 
+        client
+            .write_all(format!("{}\n", entangle_rpc::auth::auth_line("t")).as_bytes())
+            .await
+            .unwrap();
         client
             .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"version\",\"params\":{}}\n")
             .await
@@ -408,6 +489,79 @@ mod tests {
             .expect("stalled client was not reaped by the read timeout")
             .expect("client task panicked");
         assert!(result.is_ok());
+    }
+
+    /// Review finding 1(b): a connection that does not present the token
+    /// gets an error and is closed before any method is dispatched; a wrong
+    /// token likewise; the right token is served.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_connection_without_the_token_is_refused_before_dispatch() {
+        const VERSION: &[u8] =
+            b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"version\",\"params\":{}}\n";
+        for first in [
+            None,
+            Some(entangle_rpc::auth::auth_line("wrong-token")),
+            Some(entangle_rpc::auth::auth_line("secret-tokeX")),
+        ] {
+            let state = make_state();
+            let (mut client, server) = UnixStream::pair().expect("socketpair");
+            let task = tokio::spawn(async move {
+                serve_client(server, state, "secret-token", Duration::from_secs(5)).await
+            });
+            if let Some(line) = &first {
+                client
+                    .write_all(format!("{line}\n").as_bytes())
+                    .await
+                    .unwrap();
+            }
+            // After a wrong first line the server may already have refused
+            // and closed, so this write can fail with EPIPE: that is the
+            // behaviour under test, not an error.
+            let _ = client.write_all(VERSION).await;
+            let mut reader = BufReader::new(client);
+            let mut line = String::new();
+            reader.read_line(&mut line).await.unwrap();
+            let v: serde_json::Value = serde_json::from_str(&line).expect("JSON");
+            assert_eq!(v["error"]["code"], -32001, "{first:?}: {line}");
+            assert!(v.get("result").is_none());
+            // The connection is closed: nothing more is read.
+            let mut rest = String::new();
+            assert_eq!(reader.read_line(&mut rest).await.unwrap(), 0);
+            assert!(task.await.unwrap().is_ok());
+        }
+        // The right token: served.
+        let state = make_state();
+        let (mut client, server) = UnixStream::pair().expect("socketpair");
+        tokio::spawn(async move {
+            serve_client(server, state, "secret-token", Duration::from_secs(5)).await
+        });
+        let auth = format!("{}\n", entangle_rpc::auth::auth_line("secret-token"));
+        client.write_all(auth.as_bytes()).await.unwrap();
+        client.write_all(VERSION).await.unwrap();
+        let mut reader = BufReader::new(client);
+        let mut line = String::new();
+        reader.read_line(&mut line).await.unwrap();
+        let v: serde_json::Value = serde_json::from_str(&line).expect("JSON");
+        assert!(v["result"]["entangled"].is_string(), "{line}");
+    }
+
+    #[test]
+    fn the_token_file_is_private_and_replaced_at_each_bind() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _g = rt.enter();
+        let dir = tempfile::tempdir().unwrap();
+        let sock = dir.path().join("sock");
+        let a = bind(&sock).unwrap();
+        let path = entangle_rpc::auth::token_path(&sock);
+        let meta = std::fs::metadata(&path).unwrap();
+        assert_eq!(meta.permissions().mode() & 0o777, 0o600);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), &*a.token);
+        assert_eq!(a.token.len(), 64);
+        let first = a.token.clone();
+        drop(a);
+        let b = bind(&sock).unwrap();
+        assert_ne!(first, b.token, "a new token at each start");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), &*b.token);
     }
 
     #[test]
