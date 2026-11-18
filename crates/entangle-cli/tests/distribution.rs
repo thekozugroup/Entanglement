@@ -1243,10 +1243,7 @@ fn mirror_set_get_unset_round_trip_and_bad_urls_are_refused() {
             .unwrap();
         assert!(!o.status.success(), "{bad}");
         let se = s(&o).1;
-        assert!(
-            se.contains("ENTANGLE-E0825") || se.contains("ENTANGLE-E0801"),
-            "{bad}: {se}"
-        );
+        assert!(se.contains("ENTANGLE-E0825"), "{bad}: {se}");
         assert!(!se.contains("hunter2"), "{se}");
     }
     assert!(!home.path().join(".entangle/mirror.toml").exists());
@@ -1361,8 +1358,8 @@ async fn oci_install_prefers_the_mirror_over_tls_and_falls_back_to_the_origin() 
     assert!(home.path().join(".entangle/plugins/late").is_dir());
 
     // (c) The mirror serves a package that does not verify: skipped with a
-    // warning, and the origin's genuine one is installed. A mirror can fail
-    // to deliver; it cannot substitute.
+    // warning, and the origin's genuine one is installed. (Validly signed but
+    // wrong packages are covered by the binding/pin/downgrade test below.)
     let out = install("swapped");
     let (so, se) = s(&out);
     assert!(out.status.success(), "{so}\n{se}");
@@ -1640,6 +1637,122 @@ async fn oci_floating_tags_resolve_through_the_verified_listing() {
             .unwrap()
             .contains("tool@2.0.0")
     );
+}
+
+/// `plugins tags` with a mirror: the mirror's listing is fetched first (the
+/// output says who served it, text and JSON), a repository the mirror does
+/// not have falls back to the origin, and the rollback record is shared
+/// between them: an old listing served by the mirror after a newer one was
+/// seen from the origin is refused.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn tags_through_a_mirror_fall_back_and_share_the_rollback_record() {
+    let mirror = MockRegistry::start(MockOptions::default()).await;
+    let origin = MockRegistry::start(MockOptions::default()).await;
+    let home = TempDir::new().unwrap();
+    let publisher = kp(1);
+    let mirror_key = kp(50);
+    let pkg = pack(&files(&publisher, "tool", 1, "1.0.0")).unwrap();
+    for m in [&mirror, &origin] {
+        seed(m, "acme/tool", "1.0.0", &pkg);
+    }
+    seed(
+        &origin,
+        "acme/late",
+        "1.0.0",
+        &pack(&files(&publisher, "late", 1, "1.0.0")).unwrap(),
+    );
+    let mut keys = MirrorKeyring::new();
+    keys.add_public_key(&mirror_key.public(), "mirror");
+    keys.save(&home.path().join(".entangle/mirror-keys.toml"))
+        .unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let digest = entangle_oci::Digest::of(&origin.manifest_bytes("acme/tool", "1.0.0").unwrap());
+    let listing = |generated_at: u64| MirrorListing {
+        version: 1,
+        repository: "acme/tool".into(),
+        tags: [("1.0.0".to_owned(), digest.clone())].into(),
+        generated_at,
+        expires_at: now + 86_400,
+    };
+    let publish = |m: &MockRegistry, at: u64| {
+        let reference =
+            Reference::parse(&format!("oci://{}/acme/tool:latest", m.registry())).unwrap();
+        let client = OciClient::for_reference(&reference, Default::default()).unwrap();
+        let l = listing(at);
+        let k = &mirror_key;
+        async move { publish_listing(&client, &reference, &l, k).await.unwrap() }
+    };
+    std::fs::write(
+        home.path().join(".entangle/mirror.toml"),
+        format!("url = \"{}\"\n", mirror.origin()),
+    )
+    .unwrap();
+    let tags = |repo: &str, extra: &[&str]| {
+        entangle(&home)
+            .args(["plugins", "tags"])
+            .arg(format!("oci://{}/{repo}", origin.registry()))
+            .args(extra)
+            .output()
+            .unwrap()
+    };
+
+    // The origin's newer listing is seen first (mirror temporarily unset).
+    publish(&origin, now - 60).await;
+    std::fs::rename(
+        home.path().join(".entangle/mirror.toml"),
+        home.path().join(".entangle/mirror.toml.off"),
+    )
+    .unwrap();
+    let out = tags("acme/tool", &["--require-verified"]);
+    assert!(out.status.success(), "{}", s(&out).1);
+    assert!(!s(&out).0.contains("served by"), "{}", s(&out).0);
+    std::fs::rename(
+        home.path().join(".entangle/mirror.toml.off"),
+        home.path().join(".entangle/mirror.toml"),
+    )
+    .unwrap();
+
+    // (a) The mirror is asked first and says so; it serves an older listing
+    // by the same key, which the shared record refuses.
+    publish(&mirror, now - 3_600).await;
+    let before = origin.requests().len();
+    let out = tags("acme/tool", &[]);
+    let (so, se) = s(&out);
+    assert!(out.status.success(), "{so}\n{se}");
+    assert!(
+        so.contains(&format!("served by:  mirror {}", mirror.origin())),
+        "{so}"
+    );
+    assert!(so.contains("ROLLED BACK"), "{so}");
+    assert_eq!(
+        origin.requests().len(),
+        before,
+        "origin contacted needlessly"
+    );
+    let out = tags("acme/tool", &["--json"]);
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["source"], "mirror");
+    assert_eq!(v["verification"]["status"], "rolled_back");
+    assert_eq!(v["verification"]["newest_seen"], now - 60);
+
+    // Once the mirror catches up, its listing verifies.
+    publish(&mirror, now - 30).await;
+    let out = tags("acme/tool", &["--json", "--require-verified"]);
+    assert!(out.status.success(), "{}", s(&out).1);
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["source"], "mirror");
+    assert_eq!(v["verification"]["status"], "verified");
+
+    // (b) A repository the mirror does not have: the origin answers.
+    let out = tags("acme/late", &["--json"]);
+    let (so, se) = s(&out);
+    assert!(out.status.success(), "{so}\n{se}");
+    assert!(se.contains("trying the next source"), "{se}");
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["source"], "origin");
 }
 
 /// Two signed listings through the CLI: after the newer one has been seen,

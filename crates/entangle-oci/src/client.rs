@@ -207,9 +207,9 @@ impl OciClient {
             return Err(refused("a query or fragment is not allowed"));
         }
         if url.scheme() == "http" && !cfg.insecure_registry && !crate::http::url_is_loopback(&url) {
-            return Err(OciError::InsecureTransport {
-                host: authority(&url),
-            });
+            return Err(refused(
+                "plain http is only accepted for a loopback host; use https",
+            ));
         }
         if !url.path().ends_with('/') {
             let p = format!("{}/", url.path());

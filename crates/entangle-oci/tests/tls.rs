@@ -196,7 +196,7 @@ fn mirror_base_urls_are_vetted() {
     assert!(OciClient::with_base_url("https://mirror.example.org/oci/", cfg()).is_ok());
     assert!(OciClient::with_base_url("http://127.0.0.1:5000", cfg()).is_ok());
     for (bad, code) in [
-        ("http://mirror.example.org", "ENTANGLE-E0801"),
+        ("http://mirror.example.org", "ENTANGLE-E0825"),
         ("ftp://mirror.example.org", "ENTANGLE-E0825"),
         ("https://user:secret@mirror.example.org", "ENTANGLE-E0825"),
         ("https://mirror.example.org/oci?x=1", "ENTANGLE-E0825"),
@@ -208,5 +208,7 @@ fn mirror_base_urls_are_vetted() {
             .to_string();
         assert!(e.starts_with(code), "{bad}: {e}");
         assert!(!e.contains("secret"), "{e}");
+        // No hint at a flag `entangle mirror set` does not have.
+        assert!(!e.contains("--insecure-registry"), "{bad}: {e}");
     }
 }

@@ -173,28 +173,48 @@ mod tests {
             "ftp://mirror.example.org",
         ] {
             let e = vet(bad).unwrap_err().to_string();
-            assert!(
-                e.starts_with("ENTANGLE-E0825") || e.starts_with("ENTANGLE-E0801"),
-                "{bad}: {e}"
-            );
+            assert!(e.starts_with("ENTANGLE-E0825"), "{bad}: {e}");
+            assert!(!e.contains("--insecure-registry"), "{bad}: {e}");
         }
     }
 
-    /// The kill-switch must not be pre-armed: no host name is compiled in.
+    /// The kill-switch must not be pre-armed: no host name is compiled in,
+    /// in any crate's sources (comments aside).
     #[test]
     fn no_mirror_host_is_hard_coded() {
-        let src = include_str!("mirror.rs");
-        let oci = include_str!("oci.rs");
-        for needle in ["mirror.entanglement", "entanglement.dev"] {
-            let code = |s: &str| {
-                s.lines()
-                    .filter(|l| !l.trim_start().starts_with("//"))
-                    // This test's own needle list.
-                    .filter(|l| !l.contains("for needle in"))
-                    .any(|l| l.contains(needle))
-            };
-            assert!(!code(src), "{needle} in mirror.rs");
-            assert!(!code(oci), "{needle} in oci.rs");
+        fn rust_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+            for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    rust_files(&p, out);
+                } else if p.extension().is_some_and(|x| x == "rs") {
+                    out.push(p);
+                }
+            }
+        }
+        let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let mut files = Vec::new();
+        for c in std::fs::read_dir(&crates).unwrap().flatten() {
+            rust_files(&c.path().join("src"), &mut files);
+        }
+        assert!(files.len() > 50, "found only {} source files", files.len());
+        let needles = ["mirror.entanglement", "entanglement.dev"];
+        for f in files {
+            let text = std::fs::read_to_string(&f).unwrap();
+            for (n, line) in text.lines().enumerate() {
+                let t = line.trim_start();
+                if t.starts_with("//") || line.contains("let needles = [") {
+                    continue;
+                }
+                for needle in needles {
+                    assert!(
+                        !line.contains(needle),
+                        "{needle} in {}:{}",
+                        f.display(),
+                        n + 1
+                    );
+                }
+            }
         }
     }
 }
