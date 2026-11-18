@@ -11,9 +11,12 @@
 //! at most [`RttProber::concurrency`] at a time, each bounded by a timeout,
 //! and records the round trip with
 //! [`WorkerPool::set_measured_rtt`](crate::WorkerPool::set_measured_rtt).
-//! A worker whose probe gets no answer has its measurement cleared, so its
-//! advertised constant applies again. Nothing here is labelled by peer: the
-//! prober records no metrics.
+//! A worker whose probe gets no answer within the timeout is recorded at
+//! the timeout (its round trip is at least that): never at the advertised
+//! constant, which is the best-case LAN figure and would rank a worker that
+//! stopped answering — or ignores probes on purpose — above every worker
+//! that answers. The constant applies only while no probe has been made.
+//! Nothing here is labelled by peer: the prober records no metrics.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -138,7 +141,8 @@ impl RttProber {
                     tracing::debug!(%peer, rtt_ms = rtt.as_millis() as u64, "measured worker RTT");
                 }
                 ProbeResult::Failed(why) => {
-                    self.pool.clear_measured_rtt(&peer);
+                    // No answer within the timeout: at least that slow.
+                    self.pool.set_measured_rtt(&peer, self.timeout);
                     tracing::debug!(%peer, error = %why, "worker RTT probe got no answer");
                 }
             }
@@ -232,10 +236,20 @@ mod tests {
         }
     }
 
+    fn rtt_of(pool: &WorkerPool, p: PeerId) -> Option<u32> {
+        pool.live(Duration::MAX)
+            .into_iter()
+            .find(|w| w.peer_id == p)
+            .map(|w| w.rtt_ms)
+    }
+
     /// A probe round measures each reachable worker's round trip into the
-    /// pool; an unreachable one keeps its advertised constant.
+    /// pool; a worker that does not answer within the probe timeout is
+    /// recorded at that timeout — never at the optimistic advertised
+    /// constant, which would rank it above the workers that do answer — and
+    /// its next advertisement does not undo that.
     #[tokio::test]
-    async fn a_round_measures_reachable_workers_and_falls_back_for_the_rest() {
+    async fn a_round_measures_reachable_workers_and_ranks_silent_ones_last() {
         let (near, far, dead) = (
             PeerId::from_public_key_bytes(&key(1)),
             PeerId::from_public_key_bytes(&key(2)),
@@ -251,33 +265,95 @@ mod tests {
         for p in [near, far, dead] {
             pool.upsert(worker(p, 5));
         }
-        let prober = RttProber::new(
+        let mut prober = RttProber::new(
             Arc::new(RemoteDispatch::with_router(Arc::new(router))),
             pool.clone(),
             Duration::from_secs(60),
         );
+        prober.timeout = Duration::from_millis(500);
         assert_eq!(prober.round().await, 2);
-        let rtt = |p: PeerId| {
-            pool.live(Duration::MAX)
-                .into_iter()
-                .find(|w| w.peer_id == p)
-                .map(|w| w.rtt_ms)
-        };
-        assert!(rtt(near).is_some_and(|ms| ms < 100), "{:?}", rtt(near));
-        assert!(rtt(far).is_some_and(|ms| ms >= 120), "{:?}", rtt(far));
-        assert_eq!(
-            rtt(dead),
-            Some(5),
-            "no answer: the advertised constant stays"
+        assert!(
+            rtt_of(&pool, near).is_some_and(|ms| ms < 100),
+            "{:?}",
+            rtt_of(&pool, near)
         );
-        assert_eq!(pool.measured_rtt(&dead), None);
+        assert!(
+            rtt_of(&pool, far).is_some_and(|ms| (120..500).contains(&ms)),
+            "{:?}",
+            rtt_of(&pool, far)
+        );
+        assert_eq!(rtt_of(&pool, dead), Some(500), "no answer: the timeout");
+        // Its next advertisement (the LAN constant) does not undo that.
+        pool.upsert(worker(dead, 5));
+        assert_eq!(rtt_of(&pool, dead), Some(500));
+        assert_eq!(pool.measured_rtt(&dead), Some(500));
 
-        // Bounded: one worker per round, the least recently probed first.
-        let mut one = prober.clone();
-        one.max_per_round = 1;
-        pool.clear_measured_rtt(&near);
-        one.round().await;
-        let probed: Vec<_> = one.last_probed.lock().keys().copied().collect();
-        assert_eq!(probed.len(), 3, "all three have been probed by now");
+        // A worker measured before that stops answering keeps ranking
+        // behind those that answer.
+        let mut silent = HashMap::new();
+        silent.insert(near, Duration::from_secs(5));
+        let mut lagging = prober.clone();
+        lagging.remote = Arc::new(RemoteDispatch::with_router(Arc::new(
+            TransportRouter::new(PeerId::from_public_key_bytes(&key(9)))
+                .with_link(Arc::new(Delayed(silent))),
+        )));
+        lagging.max_per_round = 3;
+        lagging.round().await;
+        pool.upsert(worker(near, 5));
+        assert_eq!(rtt_of(&pool, near), Some(500), "silent now: the timeout");
+    }
+
+    /// A round probes at most `max_per_round` workers: those never probed
+    /// first, then the least recently probed.
+    #[tokio::test]
+    async fn a_round_is_bounded_and_probes_the_least_recently_probed_first() {
+        let peers: Vec<PeerId> = (1..=4)
+            .map(|b| PeerId::from_public_key_bytes(&key(b)))
+            .collect();
+        let link = Delayed(peers.iter().map(|p| (*p, Duration::ZERO)).collect());
+        let router =
+            TransportRouter::new(PeerId::from_public_key_bytes(&key(9))).with_link(Arc::new(link));
+        let pool = WorkerPool::new();
+        for p in &peers {
+            pool.upsert(worker(*p, 5));
+        }
+        let mut prober = RttProber::new(
+            Arc::new(RemoteDispatch::with_router(Arc::new(router))),
+            pool.clone(),
+            Duration::from_secs(60),
+        );
+        prober.max_per_round = 1;
+        // peers[3] was never probed; of the rest, peers[1] longest ago.
+        let now = Instant::now();
+        {
+            let mut last = prober.last_probed.lock();
+            last.insert(peers[0], now - Duration::from_secs(10));
+            last.insert(peers[1], now - Duration::from_secs(30));
+            last.insert(peers[2], now - Duration::from_secs(20));
+        }
+        let probed_since = |since: Instant| -> Vec<PeerId> {
+            let last = prober.last_probed.lock();
+            let mut v: Vec<PeerId> = peers
+                .iter()
+                .copied()
+                .filter(|p| last.get(p).is_some_and(|at| *at >= since))
+                .collect();
+            v.sort();
+            v
+        };
+        let before = Instant::now();
+        assert_eq!(prober.round().await, 1, "one worker per round");
+        assert_eq!(probed_since(before), vec![peers[3]], "never-probed first");
+        assert!(pool.measured_rtt(&peers[3]).is_some());
+        let before = Instant::now();
+        assert_eq!(prober.round().await, 1);
+        assert_eq!(probed_since(before), vec![peers[1]], "then the oldest");
+        let before = Instant::now();
+        assert_eq!(prober.round().await, 1);
+        assert_eq!(probed_since(before), vec![peers[2]]);
+        for p in [peers[1], peers[2], peers[3]] {
+            assert!(pool.measured_rtt(&p).is_some(), "{p} was measured");
+        }
+        assert_eq!(pool.measured_rtt(&peers[0]), None, "not probed yet");
     }
 }

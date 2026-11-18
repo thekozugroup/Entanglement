@@ -82,7 +82,9 @@ impl WorkerInfo {
 /// [`RttProber`](crate::rtt::RttProber)): a measurement younger than
 /// [`MEASURED_RTT_MAX_AGE`] replaces the `rtt_ms` an advertisement carries
 /// (the feeders can only put a constant there — 5 ms on the LAN, 20 ms on
-/// the tailnet), and the constant is used again once there is none.
+/// the tailnet), and the constant is used again once there is none. A
+/// probe that got no answer is recorded as the probe timeout, so the
+/// constant stands only for a worker not yet probed.
 #[derive(Clone)]
 pub struct WorkerPool {
     inner: Arc<RwLock<HashMap<PeerId, (WorkerInfo, Instant)>>>,
