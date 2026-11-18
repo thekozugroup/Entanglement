@@ -1,7 +1,7 @@
 //! `entangle` CLI — entry point.
 //!
 //! Implements Phase-1 subcommands (spec §9.2 operator UX):
-//! init, install, uninstall, version, doctor, keys gen, keyring {list,add,remove}, plugins {list,load,unload,invoke},
+//! init, install, uninstall, pack, mirror {set,get,unset}, version, doctor, keys gen, keyring {list,add,remove}, plugins {list,load,unload,invoke},
 //! mesh {peers,status,trust,untrust,revoke}, peers {list,remove}, perms {list,revoke}, pair (initiator/responder),
 //! wrapper, security set-max-tier, config {reload,validate,set,get,unset}, metrics, diag mesh.
 //! Daemon RPC wired; falls back to local in-process kernel with --allow-local.
@@ -76,6 +76,8 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     Init(InitArgs),
     /// First-run setup: init if needed, the shell-wrapper question, and
     /// checksums of your agent configs (which Entanglement never modifies).
+    /// With a SOURCE (a URL, `oci://` reference, package file, pack or
+    /// catalog name) it installs that plugin, like `plugins install`.
     Install(InstallArgs),
     /// Remove wrappers and leftover agent sessions, verify your agent configs
     /// are untouched; `--purge` also deletes ~/.entangle.
@@ -97,6 +99,25 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Author plugins (new, build) and manage loaded ones (list, load, unload, invoke).
     #[command(subcommand_required = true)]
     Plugins(PluginsArgs),
+    /// Bundle signed plugin packages into a `.entanglepack` for offline install.
+    #[command(long_about = "\
+Bundle signed plugin packages into one .entanglepack file for a machine that
+cannot reach a registry.
+
+  entangle pack hello-world ./my-plugin/dist ./tool-0.2.0.tar.zst -o plugins.entanglepack
+
+Each argument is a package archive (*.tar.zst), a package directory, or the id
+or name of a plugin installed under ~/.entangle/plugins. Every package must
+verify against your own keyring. The same inputs always give the same file.
+
+Install it elsewhere with `entangle plugins install ./plugins.entanglepack`.
+The public keys in a pack are never trusted automatically: the recipient must
+already have the publishers in their keyring, or pass --trust-pack-keys after
+checking the fingerprints.")]
+    Pack(cmd::pack::PackArgs),
+    /// Registry mirror used before the origin registry (`set`, `get`, `unset`).
+    #[command(subcommand_required = true)]
+    Mirror(cmd::mirror::MirrorArgs),
     /// Verify and sign release artifacts; release-key ceremony.
     #[command(subcommand_required = true)]
     Release(ReleaseArgs),
@@ -218,6 +239,8 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Keyring(a) => cmd::keyring::run(a).await,
         Cmd::Keys(a) => cmd::keys::run(a).await,
         Cmd::Plugins(a) => cmd::plugins::run(a).await,
+        Cmd::Pack(a) => cmd::pack::run(a).await,
+        Cmd::Mirror(a) => cmd::mirror::run(a).await,
         Cmd::Release(a) => cmd::release::run(a).await,
         Cmd::Mesh(a) => cmd::mesh::run(a).await,
         Cmd::Pair(a) => cmd::pair::run(a).await,

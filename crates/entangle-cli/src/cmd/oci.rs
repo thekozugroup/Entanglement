@@ -6,20 +6,23 @@
 //! (`~/.entangle/keyring.toml`) — the same Ed25519 check the kernel applies to
 //! a local directory, which then runs again at load. Registry credentials and
 //! mirror keys (`~/.entangle/mirror-keys.toml`) never feed into that decision.
+//!
+//! Pulls and listing fetches try the mirror configured with `entangle mirror
+//! set` first and the origin registry second ([`sources_for`]); publishing
+//! always goes to the registry the reference names.
 
 use std::path::{Path, PathBuf};
-use std::str::FromStr as _;
 
 use anyhow::{bail, Context, Result};
 use entangle_oci::{
     build_listing, list_tags, pack_dir, publish_listing, pull_artifact, push_artifact, unpack,
-    verify_package, ClientConfig, Credential, ListOptions, ListingVerification, MirrorKeyring,
-    OciClient, Reference, Selector,
+    verify_package, ClientConfig, Credential, ListOptions, ListingState, ListingVerification,
+    MirrorKeyring, OciClient, Reference, Selector,
 };
 use entangle_signing::{IdentityKeyPair, Keyring};
 use entangle_types::plugin_id::PluginId;
 
-use crate::cmd::plugins::Session;
+use crate::cmd::dist;
 use crate::config;
 
 /// `~/.entangle/oci-auth.toml`.
@@ -30,6 +33,12 @@ fn auth_file() -> PathBuf {
 /// `~/.entangle/mirror-keys.toml`.
 pub fn mirror_keys_path() -> PathBuf {
     config::entangle_dir().join("mirror-keys.toml")
+}
+
+/// `~/.entangle/mirror-listing-state.toml`: the newest signed listing seen
+/// per repository (rollback protection; see `entangle_oci::listing_state`).
+pub fn listing_state_path() -> PathBuf {
+    config::entangle_dir().join("mirror-listing-state.toml")
 }
 
 /// Build a client for `reference`'s registry with credentials from the
@@ -54,27 +63,6 @@ pub struct InstallOptions {
     pub out: Option<PathBuf>,
     /// Verify and write, but do not load.
     pub no_load: bool,
-}
-
-/// Highest tier this machine accepts (`security.max_tier_allowed`).
-fn max_tier_allowed() -> Result<u8> {
-    Ok(config::load(&config::config_path())?
-        .security
-        .max_tier_allowed)
-}
-
-/// Parse and validate the signed manifest, returning its effective tier.
-///
-/// Runs the same manifest validation the kernel runs (tier/capability
-/// consistency, id syntax) so a bad package is refused before it touches disk.
-fn effective_tier(manifest: &[u8]) -> Result<u8> {
-    let text = std::str::from_utf8(manifest).context("entangle.toml is not UTF-8")?;
-    let parsed: entangle_manifest::Manifest =
-        toml::from_str(text).context("parsing entangle.toml from the package")?;
-    let validated = entangle_manifest::validate::validate(parsed)
-        .map_err(|e| anyhow::anyhow!("{e}"))
-        .context("the package's entangle.toml is not a valid plugin manifest")?;
-    Ok(validated.effective_tier as u8)
 }
 
 /// Does `tag` look like a full `MAJOR.MINOR.PATCH` version (optionally `v`-prefixed)?
@@ -124,155 +112,141 @@ fn check_binding(reference: &Reference, id: &PluginId) -> Result<()> {
     Ok(())
 }
 
-/// The default install directory is keyed on the plugin name only; do not let
-/// one trusted publisher's plugin silently replace another's there.
-fn refuse_other_publishers_install(dir: &Path, id: &PluginId) -> Result<()> {
-    let Ok(text) = std::fs::read_to_string(dir.join("entangle.toml")) else {
-        return Ok(());
-    };
-    let existing = toml::from_str::<toml::Value>(&text)
-        .ok()
-        .and_then(|v| v.get("plugin")?.get("id")?.as_str().map(str::to_owned))
-        .and_then(|s| PluginId::from_str(&s).ok());
-    if let Some(old) = existing {
-        if old.publisher != id.publisher {
-            bail!(
-                "{} already holds `{old}`, installed from a different publisher than `{id}`; \
-                 not overwriting it. Pick another directory with --out",
-                dir.display()
-            );
-        }
-    }
-    Ok(())
+/// One place a reference can be pulled from.
+struct Source {
+    /// `mirror https://…` or `registry host:port`, for messages.
+    label: String,
+    /// Client bound to it.
+    client: OciClient,
+    /// Whether this is the configured mirror (as opposed to the origin).
+    mirror: bool,
 }
 
-/// Write `files` into `out` so that a failure never leaves a mixed directory:
-/// stage in a sibling directory, then swap it into place.
-fn write_package_atomically(files: &entangle_oci::PackageFiles, out: &Path) -> Result<()> {
-    let parent = match out.parent() {
-        Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
-        _ => PathBuf::from("."),
-    };
-    std::fs::create_dir_all(&parent)?;
-    let base = out
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "plugin".into());
-    let pid = std::process::id();
-    let staging = parent.join(format!(".{base}.staging-{pid}"));
-    let backup = parent.join(format!(".{base}.old-{pid}"));
-    let _ = std::fs::remove_dir_all(&staging);
-    let _ = std::fs::remove_dir_all(&backup);
-    if let Err(e) = files.write_dir(&staging) {
-        let _ = std::fs::remove_dir_all(&staging);
-        return Err(e.into());
+/// The sources to try for `reference`, in order: the mirror configured with
+/// `entangle mirror set` (if any), then the origin registry the reference
+/// names. There is no built-in mirror: without `mirror set` the only source
+/// is the origin.
+///
+/// The mirror gets its own credential lookup (by the mirror's host), so the
+/// origin's credentials are never sent to it.
+fn sources_for(reference: &Reference, insecure: bool) -> Result<Vec<Source>> {
+    let mut sources = Vec::new();
+    if let Some(url) = crate::cmd::mirror::configured()? {
+        let host = url::Url::parse(&url)
+            .ok()
+            .and_then(|u| {
+                let h = u.host_str()?.to_owned();
+                Some(match u.port() {
+                    Some(p) => format!("{h}:{p}"),
+                    None => h,
+                })
+            })
+            .unwrap_or_default();
+        let cfg = ClientConfig {
+            credential: Credential::resolve(&host, Some(&auth_file()))?,
+            ..ClientConfig::default()
+        };
+        let client = OciClient::with_base_url(&url, cfg).with_context(|| {
+            format!(
+                "the configured mirror {url} is not usable; fix it with `entangle mirror set \
+                 <URL>` or remove it with `entangle mirror unset`"
+            )
+        })?;
+        sources.push(Source {
+            label: format!("mirror {url}"),
+            client,
+            mirror: true,
+        });
     }
-    let had_old = std::fs::symlink_metadata(out).is_ok();
-    if had_old {
-        if let Err(e) = std::fs::rename(out, &backup) {
-            let _ = std::fs::remove_dir_all(&staging);
-            return Err(e.into());
-        }
-    }
-    if let Err(e) = std::fs::rename(&staging, out) {
-        if had_old {
-            let _ = std::fs::rename(&backup, out);
-        }
-        let _ = std::fs::remove_dir_all(&staging);
-        return Err(e.into());
-    }
-    if had_old {
-        // Best effort: the new package is already in place.
-        if std::fs::remove_dir_all(&backup).is_err() {
-            let _ = std::fs::remove_file(&backup);
-        }
-    }
-    Ok(())
+    sources.push(Source {
+        label: format!("registry {}", reference.registry),
+        client: client_for(reference, insecure)?,
+        mirror: false,
+    });
+    Ok(sources)
 }
 
 /// `entangle plugins install oci://…`.
+///
+/// Sources are tried in order (the configured mirror, then the origin). A
+/// source that cannot be reached, does not have the artifact, or serves bytes
+/// that do not verify against the publisher keyring is skipped with a
+/// warning: a mirror is a CDN for bytes, so the worst it can do is fail to
+/// deliver, and the same publisher signature is required whoever delivers.
 pub async fn install(opts: InstallOptions) -> Result<()> {
     let reference = Reference::parse(&opts.reference)?;
-    let client = client_for(&reference, opts.insecure_registry)?;
-
-    println!("[1/4] pulling {reference}");
-    let pulled = pull_artifact(&client, &reference).await?;
-    println!(
-        "      manifest {}  package {} ({} bytes)",
-        pulled.manifest_digest,
-        pulled.layer_digest,
-        pulled.package.len()
-    );
-
-    println!("[2/4] verifying the publisher signature against your keyring");
+    let sources = sources_for(&reference, opts.insecure_registry)?;
     let keyring = Keyring::load(&config::keyring_path())?;
-    let verified = verify_package(&pulled.package, &keyring).with_context(|| {
-        format!(
-            "{reference} was NOT installed. Only plugins signed by a publisher in your \
-             keyring are accepted, whichever registry served them; trust a publisher with \
-             `entangle keyring add <PUBLIC_KEY_HEX> --name <NAME>`"
-        )
-    })?;
+
+    let mut cleared = None;
+    let mut failures: Vec<String> = Vec::new();
+    let last = sources.len() - 1;
+    for (i, source) in sources.iter().enumerate() {
+        println!("[1/4] pulling {reference} from {}", source.label);
+        let attempt = async {
+            let pulled = pull_artifact(&source.client, &reference).await?;
+            println!(
+                "      manifest {}  package {} ({} bytes)",
+                pulled.manifest_digest,
+                pulled.layer_digest,
+                pulled.package.len()
+            );
+            println!("[2/4] verifying the publisher signature against your keyring");
+            let verified = verify_package(&pulled.package, &keyring).with_context(|| {
+                format!(
+                    "{reference} was NOT installed. Only plugins signed by a publisher in your \
+                     keyring are accepted, whichever registry served them; trust a publisher \
+                     with `entangle keyring add <PUBLIC_KEY_HEX> --name <NAME>`"
+                )
+            })?;
+            anyhow::Ok(verified)
+        };
+        match attempt.await {
+            Ok(verified) => {
+                cleared = Some(verified);
+                break;
+            }
+            Err(e) if i < last => {
+                eprintln!(
+                    "warning: {} could not supply {reference}: {e:#}; trying the next source",
+                    source.label
+                );
+                failures.push(format!("{}: {e:#}", source.label));
+            }
+            Err(e) => {
+                return Err(if failures.is_empty() {
+                    e
+                } else {
+                    e.context(format!(
+                        "every source failed (earlier: {})",
+                        failures.join("; ")
+                    ))
+                });
+            }
+        }
+    }
+    // The loop either breaks with a package or returns the last error.
+    let Some(verified) = cleared else {
+        bail!("no source for {reference}");
+    };
     println!(
         "      {} signed by trusted key {}",
         verified.plugin_id, verified.signer_fingerprint
     );
 
-    let tier = effective_tier(&verified.files.manifest)?;
-    let max = max_tier_allowed()?;
-    if tier > max {
-        bail!(
-            "ENTANGLE-E0043: {} declares effective tier {tier}, above this machine's \
-             security.max_tier_allowed = {max} (~/.entangle/config.toml); not installed",
-            verified.plugin_id
-        );
-    }
-    println!("      effective tier {tier} (max_tier_allowed {max})");
-
-    let id = PluginId::from_str(&verified.plugin_id)
-        .map_err(|e| anyhow::anyhow!("plugin id {}: {e}", verified.plugin_id))?;
-    check_binding(&reference, &id)?;
-    let default_dir = opts.out.is_none();
-    let out = opts
-        .out
-        .unwrap_or_else(|| crate::cmd::catalog::default_out_dir(&id.name));
-    if default_dir {
-        refuse_other_publishers_install(&out, &id)?;
-    }
+    let cleared = dist::check_policy(verified)?;
+    println!(
+        "      effective tier {} (max_tier_allowed {})",
+        cleared.tier,
+        config::load(&config::config_path())?
+            .security
+            .max_tier_allowed
+    );
+    check_binding(&reference, &cleared.id)?;
+    let out = dist::destination(&cleared, opts.out.as_deref())?;
     println!("[3/4] writing package to {}", out.display());
-    write_package_atomically(&verified.files, &out)
-        .with_context(|| format!("writing package to {}", out.display()))?;
-
-    if opts.no_load {
-        println!("[4/4] skipped loading (--no-load)");
-        println!(
-            "      load it with: entangle plugins load {}",
-            out.display()
-        );
-        return Ok(());
-    }
-    println!("[4/4] loading (the kernel verifies the signature again)");
-    let session = Session::connect().await?;
-    let report = session
-        .load_package(&out, &verified.plugin_id)
-        .await
-        .with_context(|| {
-            format!(
-                "loading {} (the verified package is at {}; retry with `entangle plugins load {}`)",
-                verified.plugin_id,
-                out.display(),
-                out.display()
-            )
-        })?;
-    if report.already_loaded {
-        println!("      {} was already loaded — nothing to do", report.id);
-    } else {
-        println!("      loaded {} into the {}", report.id, session.describe());
-    }
-    if !session.is_daemon() {
-        println!("      NOTE: no daemon is running, so that load was temporary.");
-    }
-    Ok(())
+    dist::write_verified(&cleared, &out)?;
+    dist::load_installed("[4/4]", &out, &cleared.verified.plugin_id, opts.no_load).await
 }
 
 /// `entangle plugins publish <package> oci://…`.
@@ -313,9 +287,10 @@ pub async fn tags(
     mirror_keys: Option<PathBuf>,
     json: bool,
     require_verified: bool,
+    accept_older_listing: bool,
 ) -> Result<()> {
     let reference = Reference::parse(reference)?;
-    let client = client_for(&reference, insecure)?;
+    let sources = sources_for(&reference, insecure)?;
     let keys = MirrorKeyring::load(&mirror_keys.unwrap_or_else(mirror_keys_path))?;
     if let Ok(publishers) = Keyring::load(&config::keyring_path()) {
         for fp in keys.overlap_with(&publishers) {
@@ -325,7 +300,31 @@ pub async fn tags(
             );
         }
     }
-    let listing = list_tags(&client, &reference, &keys, &ListOptions::default()).await?;
+    // Newest listing seen per repository: an older one is refused even when
+    // its signature and expiry are fine (rollback protection).
+    let list_opts = ListOptions {
+        state: Some(ListingState::at(listing_state_path())),
+        accept_older: accept_older_listing,
+        ..ListOptions::default()
+    };
+    let mut served = None;
+    let last = sources.len() - 1;
+    for (i, source) in sources.iter().enumerate() {
+        match list_tags(&source.client, &reference, &keys, &list_opts).await {
+            Ok(l) => {
+                served = Some((l, source));
+                break;
+            }
+            Err(e) if i < last => eprintln!(
+                "warning: {} could not list {}: {e}; trying the next source",
+                source.label, reference.repository
+            ),
+            Err(e) => return Err(e.into()),
+        }
+    }
+    let Some((listing, source)) = served else {
+        bail!("no source for {reference}");
+    };
     let status = listing.verification.to_string();
     if json {
         let verification = match &listing.verification {
@@ -337,6 +336,15 @@ pub async fn tags(
                 serde_json::json!({"status": "invalid", "reason": reason})
             }
             ListingVerification::Expired => serde_json::json!({"status": "expired"}),
+            ListingVerification::RolledBack {
+                newest_seen,
+                offered,
+            } => serde_json::json!({
+                "status": "rolled_back",
+                "code": "ENTANGLE-E0820",
+                "newest_seen": newest_seen,
+                "offered": offered,
+            }),
         };
         let tags: Vec<_> = listing
             .tags
@@ -349,12 +357,17 @@ pub async fn tags(
             "{}",
             serde_json::to_string(&serde_json::json!({
                 "repository": listing.repository,
+                "source": if source.mirror { "mirror" } else { "origin" },
+                "served_by": source.client.base_url().as_str(),
                 "verification": verification,
                 "tags": tags,
             }))?
         );
     } else {
         println!("repository: {}/{}", reference.registry, listing.repository);
+        if source.mirror {
+            println!("served by:  {}", source.label);
+        }
         println!("listing:    {status}");
         if listing.tags.is_empty() {
             println!("tags:       (none)");
@@ -364,6 +377,29 @@ pub async fn tags(
                 Some(d) => println!("  {tag:<24} {d}"),
                 None => println!("  {tag:<24} (digest not covered by a verified listing)"),
             }
+        }
+    }
+    if let ListingVerification::RolledBack {
+        newest_seen,
+        offered,
+    } = &listing.verification
+    {
+        eprintln!(
+            "warning: the listing for {} was refused as a rollback: it was generated at \
+             {offered}, older than the newest one this machine has seen ({newest_seen}). The \
+             tags above are the registry's own, unauthenticated. If the mirror was \
+             deliberately restored from an older snapshot, accept it once with \
+             --accept-older-listing (the record is in {}).",
+            source.client.listing_scope(&listing.repository),
+            listing_state_path().display()
+        );
+        if require_verified {
+            return Err(anyhow::Error::from(entangle_oci::OciError::ListingRollback {
+                repository: source.client.listing_scope(&listing.repository),
+                newest_seen: *newest_seen,
+                offered: *offered,
+            })
+            .context("--require-verified was given"));
         }
     }
     if require_verified && !matches!(listing.verification, ListingVerification::Verified { .. }) {

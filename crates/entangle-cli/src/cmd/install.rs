@@ -1,7 +1,10 @@
 //! `entangle install`, `entangle uninstall` and `entangle agent host cleanup`
 //! (spec §8.3 "Cleanup-on-uninstall" and wrapper item 2, §9.2).
 //!
-//! * **install** is the first-run path: `entangle init` when this device has
+//! * **install `<SOURCE>`** installs a plugin and is the same as `entangle
+//!   plugins install <SOURCE>` (URL, `oci://` reference, package archive,
+//!   `.entanglepack`, or catalog name).
+//! * **install** with no argument is the first-run path: `entangle init` when this device has
 //!   no identity yet, the wrapper question (`--wrapper` / `--no-wrapper`,
 //!   which win over a choice recorded in `[wrappers] install`; without a
 //!   flag the recorded choice is respected), and a
@@ -35,6 +38,26 @@ use crate::config;
 /// `entangle install` arguments.
 #[derive(Args, Debug)]
 pub struct InstallArgs {
+    /// A plugin to install instead of running the first-run setup: an
+    /// `https://…/<name>.tar.zst` URL, an `oci://registry/repo:tag`
+    /// reference, a package archive or `.entanglepack` file, or a catalog
+    /// plugin name. Exactly `entangle plugins install <SOURCE>`; use that
+    /// command for its catalog build options.
+    #[arg(value_name = "SOURCE", conflicts_with_all = ["wrapper", "no_wrapper", "headless"])]
+    pub source: Option<String>,
+    /// With SOURCE: where to write the verified package.
+    #[arg(long, requires = "source")]
+    pub out: Option<PathBuf>,
+    /// With SOURCE: verify and write, but do not load.
+    #[arg(long, requires = "source")]
+    pub no_load: bool,
+    /// With an `oci://` SOURCE: allow plain HTTP to a non-loopback registry.
+    #[arg(long, requires = "source")]
+    pub insecure_registry: bool,
+    /// With an `.entanglepack` SOURCE: add its unknown publisher keys to
+    /// your keyring after printing their fingerprints.
+    #[arg(long, requires = "source")]
+    pub trust_pack_keys: bool,
     /// Install the shell wrappers without asking.
     #[arg(long, conflicts_with = "no_wrapper")]
     pub wrapper: bool,
@@ -46,6 +69,26 @@ pub struct InstallArgs {
     /// no wrappers unless --wrapper.
     #[arg(long, alias = "non-interactive")]
     pub headless: bool,
+}
+
+/// `entangle install <SOURCE>`: hand over to `entangle plugins install`.
+async fn install_plugin(source: String, a: &InstallArgs) -> Result<i32> {
+    use crate::cmd::plugins::{PluginsArgs, PluginsCmd};
+    crate::cmd::plugins::run(PluginsArgs {
+        cmd: PluginsCmd::Install {
+            name: source,
+            catalog: None,
+            key: None,
+            out: a.out.clone(),
+            target: crate::cmd::package::DEFAULT_TARGET.to_owned(),
+            wasm: None,
+            no_load: a.no_load,
+            insecure_registry: a.insecure_registry,
+            trust_pack_keys: a.trust_pack_keys,
+        },
+    })
+    .await?;
+    Ok(0)
 }
 
 /// `entangle uninstall` arguments.
@@ -364,7 +407,10 @@ fn print_cleanup(root: &Path, outcomes: &[SessionOutcome]) {
 // ---------------------------------------------------------------------------
 
 /// `entangle install`.
-pub async fn run_install(a: InstallArgs) -> Result<i32> {
+pub async fn run_install(mut a: InstallArgs) -> Result<i32> {
+    if let Some(source) = a.source.take() {
+        return install_plugin(source, &a).await;
+    }
     let st = Style::stdout();
     println!("{}", st.bold("[1/3] Identity and configuration"));
     let init = crate::cmd::init::InitArgs {

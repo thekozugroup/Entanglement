@@ -93,6 +93,13 @@ pub enum PluginsCmd {
         /// built for the host).
         #[arg(long, default_value = crate::cmd::package::DEFAULT_TARGET)]
         target: String,
+        /// Compress the package archive with N threads (zstd level 19 either
+        /// way). The default, 1, is the reproducible archive; with N > 1 the
+        /// archive is NOT bit-stable across thread counts, so its sha256 and
+        /// detached signature differ from the default's.
+        #[arg(long, value_name = "N", default_value_t = 1,
+              value_parser = clap::value_parser!(u32).range(1..=256))]
+        threads: u32,
     },
     /// Verify a built package: its publisher signature, and with `--rebuild`
     /// that it reproduces from source.
@@ -147,12 +154,16 @@ kernel and the command says so — the signed package still persists on disk, so
 `entangled run` followed by `entangle plugins load <DIR>` picks it up. Use
 --no-load to skip loading entirely.")]
     Install {
-        /// Plugin name as shown by `entangle plugins available`, or an
-        /// `oci://registry/repo:tag` reference to pull, verify and install.
+        /// What to install: a plugin name as shown by `entangle plugins
+        /// available`; an `oci://registry/repo:tag` reference; an
+        /// `https://…/<name>.tar.zst` URL (its detached signature is fetched
+        /// from the same URL plus `.sig`); a package archive on disk
+        /// (`./<name>.tar.zst`); or an offline pack (`./<file>.entanglepack`).
         ///
-        /// For `oci://` the package is installed only if its signature verifies
-        /// against YOUR keyring and its tier is within `max_tier_allowed`; the
-        /// build/catalog options below are refused.
+        /// For everything but a catalog name the package is installed only if
+        /// its signature verifies against YOUR keyring, its tier is within
+        /// `max_tier_allowed` and it is not disabled; the build/catalog
+        /// options below are refused.
         name: String,
         /// Catalog directory to install from (highest-priority source).
         #[arg(long)]
@@ -177,6 +188,12 @@ kernel and the command says so — the signed package still persists on disk, so
         /// loopback. Trust is unaffected: the publisher signature is still required.
         #[arg(long)]
         insecure_registry: bool,
+        /// For `.entanglepack` files only: add the pack's publisher keys that
+        /// are not yet in your keyring, after printing their fingerprints.
+        /// Without it a package from an unknown publisher is refused and the
+        /// `entangle keyring add` command for its key is printed instead.
+        #[arg(long)]
+        trust_pack_keys: bool,
     },
     /// Publish a signed plugin package (a build `dist/` directory or packed
     /// `.tar.zst`) to an OCI registry: `publish <PACKAGE> oci://host/repo:tag`.
@@ -206,6 +223,13 @@ kernel and the command says so — the signed package still persists on disk, so
         /// Exit non-zero unless the listing signature verified.
         #[arg(long)]
         require_verified: bool,
+        /// Accept a correctly signed listing that is OLDER than the newest
+        /// one this machine has seen for the repository, and make it the new
+        /// baseline. Without it such a listing is refused as a rollback
+        /// (ENTANGLE-E0820). Use it once, after confirming that the mirror
+        /// was deliberately restored from an older snapshot.
+        #[arg(long)]
+        accept_older_listing: bool,
     },
     /// Sign and publish a mirror listing for a repository (mirror operators).
     MirrorSign {
@@ -341,6 +365,7 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             wasm,
             bin,
             target,
+            threads,
         } => crate::cmd::package::run(crate::cmd::package::BuildOptions {
             dir,
             key,
@@ -348,6 +373,7 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             wasm,
             bin,
             target,
+            threads,
         }),
         PluginsCmd::Verify {
             package,
@@ -371,8 +397,10 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             wasm,
             no_load,
             insecure_registry,
+            trust_pack_keys,
         } => {
-            if name.starts_with("oci://") {
+            let source = InstallSource::classify(&name);
+            if let Some(kind) = source.describe() {
                 let mut ignored = Vec::new();
                 if catalog.is_some() {
                     ignored.push("--catalog");
@@ -388,29 +416,64 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
                 }
                 if !ignored.is_empty() {
                     anyhow::bail!(
-                        "{} only apply to catalog installs and would be ignored for an oci:// \
-                         reference (the registry's signed package is installed as-is); remove them",
+                        "{} only apply to catalog installs and would be ignored for {kind} \
+                         (the signed package is installed as-is); remove them",
                         ignored.join(", ")
                     );
                 }
-                return crate::cmd::oci::install(crate::cmd::oci::InstallOptions {
-                    reference: name,
-                    insecure_registry,
-                    out,
-                    no_load,
-                })
-                .await;
             }
-            crate::cmd::catalog::install(crate::cmd::catalog::InstallOptions {
-                name,
-                catalog,
-                key,
-                out,
-                target,
-                wasm,
-                no_load,
-            })
-            .await
+            if insecure_registry && source != InstallSource::Oci {
+                anyhow::bail!(
+                    "--insecure-registry only applies to oci:// references (a download URL \
+                     must be https, or http on loopback)"
+                );
+            }
+            if trust_pack_keys && source != InstallSource::Pack {
+                anyhow::bail!("--trust-pack-keys only applies to .entanglepack files");
+            }
+            match source {
+                InstallSource::Oci => {
+                    crate::cmd::oci::install(crate::cmd::oci::InstallOptions {
+                        reference: name,
+                        insecure_registry,
+                        out,
+                        no_load,
+                    })
+                    .await
+                }
+                InstallSource::Url => {
+                    crate::cmd::dist::install_url(crate::cmd::dist::UrlInstallOptions {
+                        url: name,
+                        out,
+                        no_load,
+                    })
+                    .await
+                }
+                InstallSource::Pack => {
+                    crate::cmd::dist::install_pack(crate::cmd::dist::PackInstallOptions {
+                        path: PathBuf::from(name),
+                        out,
+                        no_load,
+                        trust_pack_keys,
+                    })
+                    .await
+                }
+                InstallSource::ArchiveFile => {
+                    crate::cmd::dist::install_archive_file(Path::new(&name), out, no_load).await
+                }
+                InstallSource::Catalog => {
+                    crate::cmd::catalog::install(crate::cmd::catalog::InstallOptions {
+                        name,
+                        catalog,
+                        key,
+                        out,
+                        target,
+                        wasm,
+                        no_load,
+                    })
+                    .await
+                }
+            }
         }
         PluginsCmd::Publish {
             package,
@@ -423,6 +486,7 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             mirror_keys,
             json,
             require_verified,
+            accept_older_listing,
         } => {
             crate::cmd::oci::tags(
                 &reference,
@@ -430,6 +494,7 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
                 mirror_keys,
                 json,
                 require_verified,
+                accept_older_listing,
             )
             .await
         }
@@ -472,6 +537,53 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
                 OutputSink::from_flags(output_file, raw),
             )
             .await
+        }
+    }
+}
+
+/// What the argument of `plugins install` names.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum InstallSource {
+    /// `oci://registry/repo:tag`.
+    Oci,
+    /// `https://…` (or `http://` on loopback): archive plus `.sig`.
+    Url,
+    /// A `.entanglepack` file.
+    Pack,
+    /// A package archive on disk (`*.tar.zst`).
+    ArchiveFile,
+    /// A catalog plugin name, built from source and signed locally.
+    Catalog,
+}
+
+impl InstallSource {
+    /// Decide by the argument's shape alone. A URL scheme or a pack/archive
+    /// file name is never a valid catalog name (those match
+    /// `^[a-z][a-z0-9-]*$`), so nothing a catalog install accepts today is
+    /// reinterpreted.
+    pub(crate) fn classify(arg: &str) -> Self {
+        let lower = arg.to_ascii_lowercase();
+        if lower.starts_with("oci://") {
+            Self::Oci
+        } else if lower.starts_with("https://") || lower.starts_with("http://") {
+            Self::Url
+        } else if lower.ends_with(&format!(".{}", entangle_oci::PACK_EXTENSION)) {
+            Self::Pack
+        } else if lower.ends_with(".tar.zst") {
+            Self::ArchiveFile
+        } else {
+            Self::Catalog
+        }
+    }
+
+    /// How to name this source in a message; `None` for a catalog install.
+    fn describe(self) -> Option<&'static str> {
+        match self {
+            Self::Oci => Some("an oci:// reference"),
+            Self::Url => Some("a download URL"),
+            Self::Pack => Some("an .entanglepack file"),
+            Self::ArchiveFile => Some("a package archive"),
+            Self::Catalog => None,
         }
     }
 }
@@ -946,6 +1058,28 @@ impl OutputSink {
                 eprintln!("wrote {} bytes to {path}", output.len());
                 Ok(())
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod install_source_tests {
+    use super::InstallSource;
+
+    #[test]
+    fn install_arguments_are_classified_by_shape() {
+        for (arg, want) in [
+            ("oci://ghcr.io/acme/tool:1.0.0", InstallSource::Oci),
+            ("https://example.org/dl/tool-0.1.0.tar.zst", InstallSource::Url),
+            ("http://127.0.0.1:8080/tool.tar.zst", InstallSource::Url),
+            ("HTTPS://EXAMPLE.ORG/x.tar.zst", InstallSource::Url),
+            ("./plugins.entanglepack", InstallSource::Pack),
+            ("/media/usb/site.ENTANGLEPACK", InstallSource::Pack),
+            ("./dist/tool-0.1.0.tar.zst", InstallSource::ArchiveFile),
+            ("hello-world", InstallSource::Catalog),
+            ("compress", InstallSource::Catalog),
+        ] {
+            assert_eq!(InstallSource::classify(arg), want, "{arg}");
         }
     }
 }

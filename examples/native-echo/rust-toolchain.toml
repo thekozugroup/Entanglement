@@ -1,0 +1,4 @@
+# The exact compiler this plugin is built with. `entangle plugins build`
+# refuses to package without an exact pin (ENTANGLE-E0943).
+[toolchain]
+channel = "1.91.1"

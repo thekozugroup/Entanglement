@@ -18,7 +18,14 @@
 //!     fixed in `entangle_oci::pack`;
 //!   - manifest serialisation: `toml::to_string_pretty` over an ordered table;
 //!   - dependency resolution: `cargo build --locked` against the project's
-//!     `Cargo.lock`, which must exist ([`require_lockfile`], ATC-PKG-3).
+//!     `Cargo.lock`, which must exist ([`require_lockfile`], ATC-PKG-3);
+//!   - the compiler: a `rust-toolchain.toml` pinned to an exact release that
+//!     is also the compiler in use ([`require_pinned_toolchain`],
+//!     `ENTANGLE-E0943`);
+//!   - interface versions: `[build] wit_world` and every WIT import of
+//!     another package must name an exact `@x.y.z`
+//!     ([`require_pinned_wit_world`], [`require_pinned_wit_imports`],
+//!     `ENTANGLE-E0942`).
 //! * **Provenance** ([`Provenance`], ATC-PKG-4): `provenance.json` in the
 //!   package records the source-tree digest, the git commit when available,
 //!   the toolchain and the build flags.
@@ -145,6 +152,323 @@ pub fn workspace_root(project: &Path) -> PathBuf {
         }
     }
     project.to_path_buf()
+}
+
+// ---------------------------------------------------------------------------
+// Pinned toolchain (spec §9.3 "Toolchain")
+// ---------------------------------------------------------------------------
+
+/// Is `channel` an exact stable release (`MAJOR.MINOR.PATCH`, digits only)?
+/// `stable`, `beta`, `nightly`, a dated nightly and a bare `1.91` (which
+/// rustup resolves to whatever the latest 1.91.x is) are not.
+pub fn is_exact_toolchain(channel: &str) -> bool {
+    let parts: Vec<&str> = channel.split('.').collect();
+    parts.len() == 3
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.len() <= 9 && p.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// The toolchain file that pins `project`: the nearest `rust-toolchain.toml`
+/// (or legacy `rust-toolchain`) from the project directory up to its cargo
+/// workspace root, the same span in which `Cargo.lock` is required. A file
+/// further up (a stray one in a home directory) does not count: the pin has
+/// to travel with the source.
+fn toolchain_file(project: &Path, root: &Path) -> Option<PathBuf> {
+    for dir in project.ancestors() {
+        for name in ["rust-toolchain.toml", "rust-toolchain"] {
+            let p = dir.join(name);
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+        if dir == root {
+            break;
+        }
+    }
+    None
+}
+
+/// The `channel` a toolchain file names. `rust-toolchain.toml` is TOML with
+/// a `[toolchain]` table; the legacy `rust-toolchain` file may also be a bare
+/// channel on one line.
+fn toolchain_channel(path: &Path) -> Result<String> {
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let legacy = path.file_name().and_then(|n| n.to_str()) == Some("rust-toolchain");
+    match toml::from_str::<toml::Table>(&text) {
+        Ok(doc) => doc
+            .get("toolchain")
+            .and_then(|t| t.get("channel"))
+            .and_then(|c| c.as_str())
+            .map(str::to_owned)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ENTANGLE-E0943: {} has no `[toolchain] channel`.\n\
+                     A reproducible package pins its compiler to an exact release, e.g.\n\n  \
+                     [toolchain]\n  channel = \"1.91.1\"\n",
+                    path.display()
+                )
+            }),
+        Err(_) if legacy && text.trim().lines().count() == 1 => Ok(text.trim().to_owned()),
+        Err(e) => bail!("ENTANGLE-E0943: {} is not valid TOML: {e}", path.display()),
+    }
+}
+
+/// The `release:` field of `rustc -vV` run in `dir` (e.g. `1.91.1`).
+fn rustc_release(dir: &Path) -> Result<String> {
+    let id = toolchain_id(dir)?;
+    Ok(id
+        .strip_prefix("rustc ")
+        .and_then(|r| r.split_whitespace().next())
+        .unwrap_or("unknown")
+        .to_owned())
+}
+
+/// The active compiler's release when it is an exact stable one (what
+/// `entangle plugins new` writes into the scaffolded `rust-toolchain.toml`).
+/// `dir` need not exist yet: `rustc` is then asked from its nearest existing
+/// ancestor.
+pub fn active_exact_release(dir: &Path) -> Option<String> {
+    let from = dir
+        .ancestors()
+        .find(|d| d.is_dir())
+        .filter(|d| !d.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    rustc_release(from).ok().filter(|r| is_exact_toolchain(r))
+}
+
+/// Fail with `ENTANGLE-E0943` unless the project pins its Rust toolchain to
+/// an exact release **and** that is the compiler about to be used.
+///
+/// 1. A `rust-toolchain.toml` must exist in the project or between it and
+///    its workspace root ([`toolchain_file`]).
+/// 2. Its `channel` must be an exact stable release ([`is_exact_toolchain`]).
+/// 3. `rustc -vV`, run in the project directory with the current
+///    environment, must report that release. This catches a
+///    `RUSTUP_TOOLCHAIN` override and a toolchain not managed by rustup,
+///    both of which make the file a dead letter.
+///
+/// Returns the pinned release. Reads files and runs `rustc -vV`; nothing is
+/// fetched or written.
+pub fn require_pinned_toolchain(project: &Path) -> Result<String> {
+    let project = std::fs::canonicalize(project)
+        .with_context(|| format!("resolving {}", project.display()))?;
+    let root = workspace_root(&project);
+    let example = || {
+        rustc_release(&project)
+            .ok()
+            .filter(|r| is_exact_toolchain(r))
+            .unwrap_or_else(|| "1.91.1".to_owned())
+    };
+    let Some(file) = toolchain_file(&project, &root) else {
+        let v = example();
+        bail!(
+            "ENTANGLE-E0943: rust-toolchain.toml missing in {}.\n\
+             A reproducible package pins the compiler that builds it. Create {} with\n\n  \
+             [toolchain]\n  channel = \"{v}\"\n\n\
+             (an exact release, not \"stable\"), commit it, and build again. Nothing was \
+             fetched or written.",
+            project.display(),
+            project.join("rust-toolchain.toml").display(),
+        );
+    };
+    let channel = toolchain_channel(&file)?;
+    if !is_exact_toolchain(&channel) {
+        let v = example();
+        bail!(
+            "ENTANGLE-E0943: {} pins channel = {channel:?}, which is not an exact release: it \
+             names whatever toolchain that resolves to on the day of the build.\n\
+             Pin a full version instead, e.g.\n\n  [toolchain]\n  channel = \"{v}\"\n\n\
+             Nothing was fetched or written.",
+            file.display()
+        );
+    }
+    let active = rustc_release(&project)?;
+    if active != channel {
+        bail!(
+            "ENTANGLE-E0943: {} pins Rust {channel}, but the compiler that would build this \
+             package is Rust {active}.\n\
+             Something overrides the file (the RUSTUP_TOOLCHAIN variable, `cargo +<toolchain>`, \
+             or a toolchain not managed by rustup). Build with Rust {channel}, or change the \
+             pin. Nothing was built or written.",
+            file.display()
+        );
+    }
+    Ok(channel)
+}
+
+// ---------------------------------------------------------------------------
+// Exact WIT versions (spec §9.3 "WIT versions")
+// ---------------------------------------------------------------------------
+
+/// Is `v` a full semantic version (`MAJOR.MINOR.PATCH`, optional
+/// `-prerelease` / `+build`)?
+fn is_exact_wit_version(v: &str) -> bool {
+    let core = v.split(['-', '+']).next().unwrap_or(v);
+    let parts: Vec<&str> = core.split('.').collect();
+    parts.len() == 3
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+}
+
+fn is_wit_ident(s: &str) -> bool {
+    let s = s.strip_prefix('%').unwrap_or(s);
+    s.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+}
+
+/// If `word` is a reference to something in another WIT package
+/// (`ns:pkg/item`, with the version after the item as WIT writes it or after
+/// the package as `entangle.toml` writes it), return whether it carries an
+/// exact version. `None` for anything else (`name: type` has no `/`).
+fn wit_reference_is_pinned(word: &str) -> Option<bool> {
+    let word = word.trim_end_matches('.');
+    let (ns, rest) = word.split_once(':')?;
+    if !is_wit_ident(ns) || !rest.contains('/') {
+        return None;
+    }
+    let pkg_end = rest.find(['/', '@'])?;
+    if !is_wit_ident(&rest[..pkg_end]) {
+        return None;
+    }
+    Some(match rest.split_once('@') {
+        None => false,
+        Some((_, after)) => {
+            // The version ends at the next `/` (toml form) or at the end.
+            let version = after.split('/').next().unwrap_or(after);
+            is_exact_wit_version(version.trim_end_matches('.'))
+        }
+    })
+}
+
+/// WIT source with `//` and `/* */` comments blanked out.
+fn strip_wit_comments(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let b = text.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'/' && b.get(i + 1) == Some(&b'/') {
+            while i < b.len() && b[i] != b'\n' {
+                i += 1;
+            }
+        } else if b[i] == b'/' && b.get(i + 1) == Some(&b'*') {
+            i += 2;
+            while i < b.len() && !(b[i] == b'*' && b.get(i + 1) == Some(&b'/')) {
+                if b[i] == b'\n' {
+                    out.push('\n');
+                }
+                i += 1;
+            }
+            i = (i + 2).min(b.len());
+            out.push(' ');
+        } else {
+            // Comment markers are ASCII, so slicing on them keeps UTF-8 intact.
+            let start = i;
+            i += 1;
+            while i < b.len() && !text.is_char_boundary(i) {
+                i += 1;
+            }
+            out.push_str(&text[start..i]);
+        }
+    }
+    out
+}
+
+/// The floating references in one WIT file: `(line, reference)` for every
+/// `import` / `export` / `use` / `include` of another package's item that
+/// does not name an exact `@x.y.z` version.
+pub fn floating_wit_references(text: &str) -> Vec<(usize, String)> {
+    let clean = strip_wit_comments(text);
+    let mut out = Vec::new();
+    for (n, line) in clean.lines().enumerate() {
+        for word in line.split(|c: char| c.is_whitespace() || ";{},()<>=".contains(c)) {
+            if wit_reference_is_pinned(word) == Some(false) {
+                out.push((n + 1, word.trim_end_matches('.').to_owned()));
+            }
+        }
+    }
+    out
+}
+
+fn collect_wit_files(dir: &Path, top: bool, out: &mut Vec<PathBuf>) {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut entries: Vec<_> = rd.flatten().collect();
+    entries.sort_by_key(|e| e.file_name());
+    for entry in entries {
+        let path = entry.path();
+        let Ok(ty) = entry.file_type() else { continue };
+        if ty.is_dir() {
+            let name = entry.file_name();
+            let skip = DIGEST_SKIP_DIRS.iter().any(|s| name == *s)
+                || (top && DIGEST_SKIP_ROOT_DIRS.iter().any(|s| name == *s))
+                || is_package_output_dir(&path)
+                || is_cargo_target_dir(&path);
+            if !skip {
+                collect_wit_files(&path, false, out);
+            }
+        } else if ty.is_file() && path.extension().and_then(|e| e.to_str()) == Some("wit") {
+            out.push(path);
+        }
+    }
+}
+
+/// Fail with `ENTANGLE-E0942` if `[build] wit_world` in the source manifest
+/// names a WIT world without an exact version (`entangle:plugin/plugin`,
+/// `entangle:plugin@0.1/plugin`).
+pub fn require_pinned_wit_world(manifest_text: &str, manifest_path: &Path) -> Result<()> {
+    let Some(world) = toml::from_str::<toml::Table>(manifest_text)
+        .ok()
+        .and_then(|d| d.get("build")?.get("wit_world")?.as_str().map(str::to_owned))
+    else {
+        return Ok(());
+    };
+    if wit_reference_is_pinned(&world) == Some(true) {
+        return Ok(());
+    }
+    bail!(
+        "ENTANGLE-E0942: floating WIT import: [build] wit_world = {world:?} in {} does not name \
+         an exact version.\n\
+         A reproducible package states the interface version it was built against. Write it \
+         in full, e.g. wit_world = \"entangle:plugin@0.1.0/plugin\". Nothing was built or \
+         written.",
+        manifest_path.display()
+    )
+}
+
+/// Fail with `ENTANGLE-E0942` if any `.wit` file under `dirs` (the project
+/// and its path dependencies; build output and VCS directories skipped)
+/// imports, exports, uses or includes another package's item without an
+/// exact `@x.y.z` version. The error names every such import.
+pub fn require_pinned_wit_imports(dirs: &[PathBuf]) -> Result<()> {
+    let mut findings = Vec::new();
+    for dir in dirs {
+        let mut files = Vec::new();
+        collect_wit_files(dir, true, &mut files);
+        for file in files {
+            let Ok(text) = std::fs::read_to_string(&file) else {
+                continue;
+            };
+            for (line, reference) in floating_wit_references(&text) {
+                findings.push(format!("  {}:{line}: {reference}", file.display()));
+            }
+        }
+    }
+    if findings.is_empty() {
+        return Ok(());
+    }
+    bail!(
+        "ENTANGLE-E0942: floating WIT import{}:\n{}\n\
+         Every WIT import of another package must pin an exact version \
+         (`wasi:io/streams@0.2.0`, not `wasi:io/streams` or `@0.2`): otherwise the same \
+         source resolves to whatever version is on disk on the day of the build. Nothing was \
+         built or written.",
+        if findings.len() == 1 { "" } else { "s" },
+        findings.join("\n")
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -579,15 +903,25 @@ pub struct ArchiveInfo {
     pub path: PathBuf,
     /// SHA-256 hex of the archive bytes.
     pub sha256: String,
+    /// Path of the detached signature, `<archive>.sig`.
+    pub signature: PathBuf,
 }
 
-/// Write `dist/provenance.json` and the package archive
-/// `dist/<name>-<version>.tar.zst`, returning the archive path and SHA-256.
+/// Write `dist/provenance.json`, the package archive
+/// `dist/<name>-<version>.tar.zst` and its detached signature
+/// `dist/<name>-<version>.tar.zst.sig` (what a plain-HTTPS install fetches
+/// from `<url>.sig`; see `entangle_oci::detached`), returning the archive
+/// path and SHA-256.
+///
+/// `threads` > 1 compresses with that many threads; the archive is then not
+/// bit-stable across thread counts (`entangle_oci::pack_with_threads`).
 pub fn write_archive(
     dist: &Path,
     project: &Path,
     plugin_id: &str,
     recipe: Option<BuildRecipe>,
+    keypair: &entangle_signing::IdentityKeyPair,
+    threads: u32,
 ) -> Result<ArchiveInfo> {
     let mut files = PackageFiles::read_dir(dist).map_err(|e| anyhow::anyhow!("{e}"))?;
     let prov = make_provenance(
@@ -603,7 +937,8 @@ pub fn write_archive(
         .with_context(|| format!("writing {}", dist.join(FILE_PROVENANCE).display()))?;
     files.provenance = Some(json);
 
-    let bytes = entangle_oci::pack(&files).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let bytes =
+        entangle_oci::pack_with_threads(&files, threads).map_err(|e| anyhow::anyhow!("{e}"))?;
     let stem = plugin_id
         .rsplit('/')
         .next()
@@ -611,9 +946,14 @@ pub fn write_archive(
         .replace('@', "-");
     let path = dist.join(format!("{stem}.tar.zst"));
     std::fs::write(&path, &bytes).with_context(|| format!("writing {}", path.display()))?;
+    let signature = dist.join(format!("{stem}.tar.zst.sig"));
+    let sig = entangle_oci::sign_archive(&bytes, keypair).map_err(|e| anyhow::anyhow!("{e}"))?;
+    std::fs::write(&signature, sig)
+        .with_context(|| format!("writing {}", signature.display()))?;
     Ok(ArchiveInfo {
         path,
         sha256: hex::encode(Sha256::digest(&bytes)),
+        signature,
     })
 }
 
@@ -942,6 +1282,186 @@ mod tests {
         );
         write(&d.path().join("sub/target/release/junk"), "x");
         assert_eq!(source_digest(d.path()).unwrap(), before);
+    }
+
+    #[test]
+    fn exact_toolchain_versions_are_told_from_floating_channels() {
+        for ok in ["1.91.1", "1.83.0", "2.0.10"] {
+            assert!(is_exact_toolchain(ok), "{ok}");
+        }
+        for bad in [
+            "stable",
+            "beta",
+            "nightly",
+            "nightly-2025-01-01",
+            "1.91",
+            "1",
+            "1.91.x",
+            "1.91.1-beta.2",
+            "",
+            "1..1",
+            "v1.91.1",
+        ] {
+            assert!(!is_exact_toolchain(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn toolchain_pin_is_found_between_the_project_and_its_workspace_root_only() {
+        let d = tempfile::tempdir().unwrap();
+        let ws = std::fs::canonicalize(d.path()).unwrap();
+        write(&ws.join("outer/rust-toolchain.toml"), "[toolchain]\nchannel = \"1.91.1\"\n");
+        write(&ws.join("outer/ws/Cargo.toml"), "[workspace]\nmembers = [\"member\"]\n");
+        write(&ws.join("outer/ws/member/Cargo.toml"), PKG);
+        let member = ws.join("outer/ws/member");
+        let root = workspace_root(&member);
+        assert_eq!(root, ws.join("outer/ws"));
+        // The file above the workspace root does not pin this project.
+        assert_eq!(toolchain_file(&member, &root), None);
+        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        assert!(e.starts_with("ENTANGLE-E0943"), "{e}");
+        assert!(e.contains("rust-toolchain.toml missing"), "{e}");
+        assert!(e.contains("[toolchain]") && e.contains("channel = "), "{e}");
+
+        // At the workspace root it does; in the project it wins.
+        write(&root.join("rust-toolchain.toml"), "[toolchain]\nchannel = \"stable\"\n");
+        assert_eq!(
+            toolchain_file(&member, &root),
+            Some(root.join("rust-toolchain.toml"))
+        );
+        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        assert!(e.starts_with("ENTANGLE-E0943") && e.contains("\"stable\""), "{e}");
+        assert!(e.contains("not an exact release"), "{e}");
+        write(&member.join("rust-toolchain.toml"), "[toolchain]\nchannel = \"1.91\"\n");
+        assert_eq!(
+            toolchain_file(&member, &root),
+            Some(member.join("rust-toolchain.toml"))
+        );
+        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        assert!(e.contains("\"1.91\"") && e.contains("not an exact release"), "{e}");
+
+        // No channel at all, and the legacy one-line file.
+        write(&member.join("rust-toolchain.toml"), "[toolchain]\nprofile = \"minimal\"\n");
+        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        assert!(e.contains("has no `[toolchain] channel`"), "{e}");
+        std::fs::remove_file(member.join("rust-toolchain.toml")).unwrap();
+        std::fs::remove_file(root.join("rust-toolchain.toml")).unwrap();
+        write(&member.join("rust-toolchain"), "nightly\n");
+        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        assert!(e.contains("\"nightly\""), "{e}");
+    }
+
+    /// An exact pin that is not the compiler in use is refused; the pin
+    /// equal to the active compiler passes.
+    #[test]
+    fn toolchain_pin_must_be_the_compiler_in_use() {
+        let d = tempfile::tempdir().unwrap();
+        write(&d.path().join("Cargo.toml"), &format!("{PKG}\n[workspace]\n"));
+        let active = rustc_release(d.path()).unwrap();
+        assert!(is_exact_toolchain(&active), "test toolchain: {active}");
+
+        // 0.0.1 is never the active compiler, and with RUSTUP_TOOLCHAIN set
+        // (as it is under `cargo test`) rustup does not try to install it.
+        if std::env::var_os("RUSTUP_TOOLCHAIN").is_some() {
+            write(
+                &d.path().join("rust-toolchain.toml"),
+                "[toolchain]\nchannel = \"0.0.1\"\n",
+            );
+            let e = require_pinned_toolchain(d.path()).unwrap_err().to_string();
+            assert!(e.starts_with("ENTANGLE-E0943"), "{e}");
+            assert!(e.contains("pins Rust 0.0.1") && e.contains(&active), "{e}");
+            write(
+                &d.path().join("rust-toolchain.toml"),
+                &format!("[toolchain]\nchannel = \"{active}\"\n"),
+            );
+            assert_eq!(require_pinned_toolchain(d.path()).unwrap(), active);
+        }
+    }
+
+    #[test]
+    fn wit_references_without_an_exact_version_are_floating() {
+        for (word, want) in [
+            ("wasi:io/streams@0.2.0", Some(true)),
+            ("wasi:io/streams@0.2.0-rc.1", Some(true)),
+            ("wasi:io/streams@0.2.0.", Some(true)), // `use a:b/c@1.0.0.{x}`
+            ("entangle:plugin@0.1.0/plugin", Some(true)), // entangle.toml form
+            ("wasi:io/streams", Some(false)),
+            ("wasi:io/streams@0.2", Some(false)),
+            ("wasi:io/streams@0", Some(false)),
+            ("entangle:plugin@0.1/plugin", Some(false)),
+            ("entangle:plugin/plugin", Some(false)),
+            // Not references to another package's item.
+            ("input:list", None),
+            ("logging", None),
+            ("entangle:plugin@0.1.0", None),
+            ("x:", None),
+            ("9a:b/c", None),
+        ] {
+            assert_eq!(wit_reference_is_pinned(word), want, "{word}");
+        }
+    }
+
+    #[test]
+    fn floating_imports_are_found_by_line_and_comments_are_ignored() {
+        let wit = "package acme:tool@1.0.0;\n\
+                   // import wasi:io/streams;   (a comment, not an import)\n\
+                   /* use wasi:clocks/wall-clock.{now};\n   still a comment */\n\
+                   world tool {\n\
+                     import logging;\n\
+                     import wasi:io/streams@0.2.0;\n\
+                     import wasi:clocks/wall-clock;\n\
+                     use wasi:random/random@0.2.{get-random-bytes};\n\
+                     include entangle:plugin/plugin@0.1.0;\n\
+                     export run: func(input:list<u8>) -> result<list<u8>, string>;\n\
+                   }\n";
+        assert_eq!(
+            floating_wit_references(wit),
+            vec![
+                (8, "wasi:clocks/wall-clock".to_owned()),
+                (9, "wasi:random/random@0.2".to_owned()),
+            ]
+        );
+        // The repository's own WIT (what every plugin is built against) is clean.
+        for dir in ["wit", "wit-integrity"] {
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../entangle-wit")
+                .join(dir);
+            require_pinned_wit_imports(&[root]).unwrap();
+        }
+    }
+
+    #[test]
+    fn floating_wit_in_a_project_is_refused_naming_the_import() {
+        let d = tempfile::tempdir().unwrap();
+        write(&d.path().join("wit/world.wit"), "world w {\n  import wasi:io/streams;\n}\n");
+        write(
+            &d.path().join("wit/deps/io/streams.wit"),
+            "package wasi:io@0.2.0;\ninterface streams {}\n",
+        );
+        // Build output is not source.
+        write(&d.path().join("target/x.wit"), "world t { import a:b/c; }\n");
+        let e = require_pinned_wit_imports(&[d.path().to_path_buf()])
+            .unwrap_err()
+            .to_string();
+        assert!(e.starts_with("ENTANGLE-E0942: floating WIT import:"), "{e}");
+        assert!(e.contains("world.wit:2: wasi:io/streams"), "{e}");
+        assert!(!e.contains("a:b/c"), "{e}");
+        write(
+            &d.path().join("wit/world.wit"),
+            "world w {\n  import wasi:io/streams@0.2.0;\n}\n",
+        );
+        require_pinned_wit_imports(&[d.path().to_path_buf()]).unwrap();
+
+        let m = Path::new("entangle.toml");
+        require_pinned_wit_world("[build]\nwit_world = \"entangle:plugin@0.1.0/plugin\"\n", m)
+            .unwrap();
+        require_pinned_wit_world("[plugin]\nid = \"x\"\n", m).unwrap();
+        for bad in ["entangle:plugin/plugin", "entangle:plugin@0.1/plugin", "plugin"] {
+            let e = require_pinned_wit_world(&format!("[build]\nwit_world = \"{bad}\"\n"), m)
+                .unwrap_err()
+                .to_string();
+            assert!(e.starts_with("ENTANGLE-E0942") && e.contains(bad), "{e}");
+        }
     }
 
     #[test]

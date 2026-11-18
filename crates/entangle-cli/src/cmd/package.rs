@@ -67,6 +67,10 @@ pub struct BuildOptions {
     pub bin: Option<PathBuf>,
     /// Target triple to build for (wasm plugins; native ones build for the host).
     pub target: String,
+    /// Threads for compressing the package archive. `1` (the default) gives
+    /// the reproducible archive; more is faster but not bit-stable across
+    /// thread counts.
+    pub threads: u32,
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +113,8 @@ pub struct BuildOutcome {
     pub archive: Option<PathBuf>,
     /// SHA-256 (hex) of [`BuildOutcome::archive`].
     pub archive_sha256: Option<String>,
+    /// Detached signature of [`BuildOutcome::archive`] (`<archive>.sig`).
+    pub archive_signature: Option<PathBuf>,
 }
 
 /// Split an `entangle.toml` `plugin.id` into its bare `<name>` segment.
@@ -357,6 +363,13 @@ pub fn run(opts: BuildOptions) -> Result<()> {
     if let (Some(a), Some(h)) = (&outcome.archive, &outcome.archive_sha256) {
         println!();
         println!("Package archive: {} (sha256 {h})", a.display());
+        if let Some(sig) = &outcome.archive_signature {
+            println!(
+                "Detached signature: {} (publish both at the same URL to serve the package \
+                 over plain HTTPS)",
+                sig.display()
+            );
+        }
     }
     println!();
     println!("Next steps:");
@@ -466,6 +479,12 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
     let source_text = std::fs::read_to_string(&source_manifest)
         .with_context(|| format!("reading {}", source_manifest.display()))?;
     let rendered = render_dist_manifest(&source_text, &fingerprint)?;
+    // Reproducibility rules that need no toolchain: a floating WIT version
+    // is a one-second failure too (ENTANGLE-E0942).
+    if !rendered.native {
+        repro::require_pinned_wit_world(&source_text, &source_manifest)?;
+        repro::require_pinned_wit_imports(std::slice::from_ref(&dir))?;
+    }
 
     println!("[entangle] publisher fingerprint: {fingerprint}");
     println!("[entangle] plugin id:             {}", rendered.plugin_id);
@@ -543,14 +562,33 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
     let archive = if rendered.native {
         None
     } else {
-        let info = repro::write_archive(&dist, &dir, &rendered.plugin_id, recipe)?;
+        if opts.threads > 1 {
+            eprintln!(
+                "warning: --threads {}: the archive is compressed as {} independent zstd \
+                 frames and is NOT bit-stable across thread counts. Its sha256 and detached \
+                 signature differ from the default single-threaded archive (and from any \
+                 other --threads value); publish the default one where a third party is \
+                 expected to reproduce the digest.",
+                opts.threads, opts.threads
+            );
+        }
+        let info = repro::write_archive(
+            &dist,
+            &dir,
+            &rendered.plugin_id,
+            recipe,
+            &keypair,
+            opts.threads,
+        )?;
         println!("[entangle] wrote {}", info.path.display());
+        println!("[entangle] wrote {}", info.signature.display());
         println!("[entangle] package sha256: {}", info.sha256);
         Some(info)
     };
 
     Ok(BuildOutcome {
         archive_sha256: archive.as_ref().map(|a| a.sha256.clone()),
+        archive_signature: archive.as_ref().map(|a| a.signature.clone()),
         archive: archive.map(|a| a.path),
         plugin_id: rendered.plugin_id,
         dist,
@@ -586,6 +624,8 @@ pub fn build_wasm_in(
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
     repro::require_lockfile(project)?;
+    // Spec §9.3 "Toolchain": an exact pin that is also the compiler in use.
+    repro::require_pinned_toolchain(project)?;
     ensure_target_installed(target)?;
 
     let info = cargo_metadata(cargo_manifest)?;
@@ -605,6 +645,15 @@ pub fn build_wasm_in(
     // remapped too.
     std::fs::create_dir_all(&target_root)
         .with_context(|| format!("creating {}", target_root.display()))?;
+    // Spec §9.3 "WIT versions": the project's own WIT and that of the path
+    // dependencies it is built against (the SDK's, in this repository).
+    let mut wit_dirs = vec![project.to_path_buf()];
+    wit_dirs.extend(
+        repro::path_dependencies(cargo_manifest, &cargo_bin())?
+            .into_iter()
+            .map(|(_, dir)| dir),
+    );
+    repro::require_pinned_wit_imports(&wit_dirs)?;
     let prepared = repro::prepare_build(
         cargo_manifest,
         target,
@@ -693,6 +742,7 @@ fn project_dir_for(cargo_manifest: &Path) -> PathBuf {
 fn build_native(cargo_manifest: &Path) -> Result<PathBuf> {
     let cargo_manifest = &absolute_manifest(cargo_manifest)?;
     repro::require_lockfile(&project_dir_for(cargo_manifest))?;
+    repro::require_pinned_toolchain(&project_dir_for(cargo_manifest))?;
     let info = cargo_metadata(cargo_manifest)?;
     let bin = match info.bins.as_slice() {
         [] => bail!(

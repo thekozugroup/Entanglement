@@ -1,0 +1,6 @@
+# The exact compiler this plugin is built with. `entangle plugins build`
+# refuses to package without an exact pin (ENTANGLE-E0943): the same source
+# must give the same bytes on every machine.
+[toolchain]
+channel = "1.91.1"
+targets = ["wasm32-wasip2"]

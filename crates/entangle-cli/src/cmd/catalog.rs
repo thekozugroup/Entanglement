@@ -559,6 +559,7 @@ pub fn prepare(entry: &CatalogEntry, opts: &InstallOptions) -> Result<Prepared> 
         wasm: opts.wasm.clone().filter(|_| !native),
         bin: opts.wasm.clone().filter(|_| native),
         target: opts.target.clone(),
+        threads: 1,
     })
     .with_context(|| {
         format!(

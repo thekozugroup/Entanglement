@@ -18,6 +18,11 @@ entangle-runtime   = { workspace = true }
 entangle-signing   = { workspace = true }
 entangle-oci       = { workspace = true }
 entangle-manifest  = { workspace = true }
+# Runtime-kind sniffing for installs (`cmd::dist`). Already in the graph via
+# entangle-runtime: no new build cost.
+entangle-host      = { workspace = true }
+# Mirror URLs (`cmd::oci`). Already in the graph via entangle-oci.
+url                = { workspace = true }
 entangle-rpc       = { path = "../entangle-rpc" }
 entangle-peers     = { path = "../entangle-peers" }
 entangle-mesh-tailscale = { workspace = true }

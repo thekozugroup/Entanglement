@@ -8,6 +8,7 @@
 //!   entangle.toml  manifest with a documented tier + capability table
 //!   src/lib.rs     a working `run` wired up by `entangle_plugin!`
 //!   README.md      the exact build/sign/load/invoke commands for this plugin
+//!   rust-toolchain.toml   the exact Rust release in use (builds need the pin)
 //!   .gitignore     target/ and dist/ (Cargo.lock is deliberately NOT ignored:
 //!                  `entangle plugins build` requires it, see ATC-PKG-3)
 //! ```
@@ -563,6 +564,26 @@ sandbox primitive refuses native plugins unless the operator sets
     )
 }
 
+/// Render the generated `rust-toolchain.toml`: the exact release that
+/// `entangle plugins build` requires (`ENTANGLE-E0943`), plus the wasm
+/// target for wasm plugins so rustup installs it with the toolchain.
+pub fn render_rust_toolchain(release: &str, wasm: bool) -> String {
+    let mut out = String::from(
+        "# The exact compiler this plugin is built with. `entangle plugins build`\n\
+         # refuses to package without an exact pin (ENTANGLE-E0943): the same source\n\
+         # must give the same bytes on every machine. Bump it deliberately.\n\
+         [toolchain]\n",
+    );
+    out.push_str(&format!("channel = \"{release}\"\n"));
+    if wasm {
+        out.push_str(&format!(
+            "targets = [\"{}\"]\n",
+            crate::cmd::package::DEFAULT_TARGET
+        ));
+    }
+    out
+}
+
 /// Render the generated `.gitignore`.
 pub fn render_gitignore() -> String {
     "target/\ndist/\n".to_owned()
@@ -615,8 +636,8 @@ pub fn run(opts: NewOptions) -> Result<()> {
     std::fs::create_dir_all(dir.join("src"))
         .with_context(|| format!("creating {}", dir.join("src").display()))?;
 
-    let files: [(PathBuf, String); 5] = match &sdk {
-        Some(sdk) => [
+    let mut files: Vec<(PathBuf, String)> = match &sdk {
+        Some(sdk) => vec![
             (dir.join("Cargo.toml"), render_cargo_toml(&opts.name, sdk)),
             (dir.join("src/lib.rs"), render_lib_rs(&opts.name)),
             (
@@ -629,7 +650,7 @@ pub fn run(opts: NewOptions) -> Result<()> {
             ),
             (dir.join(".gitignore"), render_gitignore()),
         ],
-        None => [
+        None => vec![
             (dir.join("Cargo.toml"), render_native_cargo_toml(&opts.name)),
             (dir.join("src/main.rs"), render_native_main_rs(&opts.name)),
             (
@@ -643,6 +664,17 @@ pub fn run(opts: NewOptions) -> Result<()> {
             (dir.join(".gitignore"), render_gitignore()),
         ],
     };
+    // `plugins build` refuses to build without an exact toolchain pin
+    // (ENTANGLE-E0943): pin the compiler in use now. Skipped when there is no
+    // rustc to ask or it is not a stable release (a nightly cannot be pinned
+    // by version); the build then says what to write.
+    let pinned = crate::cmd::repro::active_exact_release(&dir);
+    if let Some(release) = &pinned {
+        files.push((
+            dir.join("rust-toolchain.toml"),
+            render_rust_toolchain(release, !opts.native),
+        ));
+    }
 
     if !opts.force {
         let existing: Vec<&Path> = files
@@ -673,6 +705,12 @@ pub fn run(opts: NewOptions) -> Result<()> {
     match &sdk {
         Some(sdk) => println!("  SDK source: {}", sdk.summary()),
         None => println!("  runtime:    native (sandboxed subprocess)"),
+    }
+    if pinned.is_none() {
+        println!(
+            "  note: could not pin the Rust toolchain (no stable rustc found). Create \
+             rust-toolchain.toml with an exact `channel` before building."
+        );
     }
     // `plugins build` refuses to build without a Cargo.lock (ENTANGLE-E0830),
     // so pin dependencies now. Best effort: needs a reachable registry.
@@ -867,6 +905,45 @@ mod tests {
             format!("{err:#}").contains("refusing to overwrite"),
             "got: {err:#}"
         );
+    }
+
+    #[test]
+    fn scaffolded_toolchain_file_is_an_exact_pin_the_packager_accepts() {
+        let text = render_rust_toolchain("1.91.1", true);
+        let doc: toml::Table = toml::from_str(&text).unwrap();
+        assert_eq!(doc["toolchain"]["channel"].as_str(), Some("1.91.1"));
+        assert_eq!(
+            doc["toolchain"]["targets"][0].as_str(),
+            Some("wasm32-wasip2")
+        );
+        assert!(!render_rust_toolchain("1.91.1", false).contains("targets"));
+
+        // `plugins new` writes it, and `plugins build`'s check passes on it.
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("pinned");
+        run(NewOptions {
+            name: "pinned".into(),
+            path: Some(dir.clone()),
+            tier: 1,
+            native: false,
+            description: None,
+            sdk: "crates-io".into(),
+            force: false,
+            no_lockfile: true,
+        })
+        .unwrap();
+        let written = std::fs::read_to_string(dir.join("rust-toolchain.toml")).unwrap();
+        let channel = toml::from_str::<toml::Table>(&written).unwrap()["toolchain"]["channel"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert!(crate::cmd::repro::is_exact_toolchain(&channel), "{channel}");
+        if std::env::var_os("RUSTUP_TOOLCHAIN").is_some() {
+            assert_eq!(
+                crate::cmd::repro::require_pinned_toolchain(&dir).unwrap(),
+                channel
+            );
+        }
     }
 
     #[test]
