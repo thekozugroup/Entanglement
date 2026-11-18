@@ -24,7 +24,14 @@ Integrity
 - Per-peer per-policy reputation (EWMA).
 - Majority hash quorum for `Deterministic` across distinct workers.
 - Layer-2 replay spot-checks (spec §7.5): `[scheduler] spot_check_probability` (default 0.01) and `spot_check_max_concurrent`; re-runs prefer the submitter's kernel, use a fresh task id, and need a tie-breaker before a remote checker's dissent penalises anyone; `ENTANGLE-E0319`, `ReputationReason::SpotCheckMismatch` and `SpotCheckDissent`, `entangle_integrity_spot_checks_total{policy,outcome}`.
-- Plugins `metric-bleu-4` and `metric-numerical-l2-relative`.
+- Plugins `metric-bleu-4`, `metric-numerical-l2-relative` and `metric-embedding-cosine`.
+- Submit-time determinism check (`ENTANGLE-E0470`); `TrustedExecutor` results record the component digest.
+
+Scheduler failure handling
+- Retry policy for one-shot tasks (worker crash or loss after send; never a timeout, refusal, mismatch or plugin error), with a cancel to the lost attempt.
+- Speculative backup copies (`[scheduler] speculation*`, off by default).
+- Streaming retry from the input, attempt epochs, stall reactions (preempt, extend, preempt-and-reassign), stall blame, `entangle_scheduler_streams_stalled_total`.
+- Workload presets `--workload a|b|c`; NPU and measured RTT (`[scheduler] rtt_probe_interval_secs`) in placement; `ENTANGLE-E0470`..`E0489`.
 
 Streaming
 - Streaming tasks: credit flow control, heartbeat with `PeerLost` after three missed pongs, signed chunks bound to the request, total-byte and chunk-count caps, partial-result policies.
