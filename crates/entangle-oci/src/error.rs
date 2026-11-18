@@ -164,7 +164,8 @@ pub enum OciError {
          generated at {offered} but a newer one (generated at {newest_seen}) was already seen"
     )]
     ListingRollback {
-        /// `registry/repository` the listing describes.
+        /// Repository the listing describes (the record is per repository
+        /// and signing key, whoever served it).
         repository: String,
         /// `generated_at` (unix seconds) of the newest listing recorded.
         newest_seen: u64,

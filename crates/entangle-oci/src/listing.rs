@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 use crate::artifact::{check_artifact_type, push_layers};
 use crate::client::OciClient;
 use crate::error::{OciError, Result};
-use crate::listing_state::{ListingState, SeenListing};
+use crate::listing_state::{ListingState, Observation};
 use crate::reference::{Digest, Reference, Selector};
 use crate::types::*;
 
@@ -42,6 +42,16 @@ use crate::types::*;
 const LISTING_DOMAIN: &[u8] = b"entangle-oci mirror listing v1\0";
 /// Largest listing/signature layer accepted.
 const MAX_LISTING_BYTES: u64 = 4 * 1024 * 1024;
+
+/// How far in the future a listing's `generated_at` may lie (clock skew
+/// between the mirror and this machine). A listing dated later is
+/// `Invalid` and never recorded: otherwise one signed listing from the
+/// future would make every real listing look like a rollback.
+pub const MAX_LISTING_CLOCK_SKEW_SECS: u64 = 300;
+
+/// Longest lifetime (`expires_at - generated_at`) a listing may claim: 366
+/// days. A longer one is `Invalid`; `plugins mirror-sign` refuses to sign it.
+pub const MAX_LISTING_LIFETIME_SECS: u64 = 366 * 86_400;
 
 /// The signed listing document.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -276,6 +286,19 @@ pub fn verify_listing(
     if listing.expires_at <= listing.generated_at {
         return invalid("expires_at is not after generated_at".into());
     }
+    if listing.generated_at > now.saturating_add(MAX_LISTING_CLOCK_SKEW_SECS) {
+        return invalid(format!(
+            "generated_at {} is in the future (now {now}, allowance \
+             {MAX_LISTING_CLOCK_SKEW_SECS} s); check the mirror's clock and this machine's",
+            listing.generated_at
+        ));
+    }
+    if listing.expires_at - listing.generated_at > MAX_LISTING_LIFETIME_SECS {
+        return invalid(format!(
+            "lifetime of {} s exceeds the maximum of {MAX_LISTING_LIFETIME_SECS} s (366 days)",
+            listing.expires_at - listing.generated_at
+        ));
+    }
     if listing.expires_at <= now {
         return (ListingVerification::Expired, Some(listing));
     }
@@ -339,38 +362,46 @@ pub async fn list_tags(
         .filter(|t| t != LISTING_TAG)
         .collect();
 
+    let mut listing_sha256 = String::new();
     let (mut verification, listing) = match fetch_listing_layers(client, reference).await? {
         Fetched::Absent => (ListingVerification::Unsigned, None),
         Fetched::Bad(reason) => (ListingVerification::Invalid { reason }, None),
         Fetched::Layers { listing, signature } => {
+            listing_sha256 = hex::encode(<sha2::Sha256 as sha2::Digest>::digest(&listing));
             verify_listing(&listing, signature.as_deref(), repo, mirror_keys, now)
         }
     };
 
     // Rollback protection: only a listing that verified is compared or
-    // recorded, so nobody without a mirror key can move the baseline.
+    // recorded, so nobody without a mirror key can move the baseline. The
+    // record is keyed on what the signature binds (the listing's repository
+    // and the signing key), not on the server that delivered it.
     if let (Some(state), ListingVerification::Verified { key_fingerprint }, Some(l)) =
         (&opts.state, &verification, &listing)
     {
-        let scope = client.listing_scope(repo);
-        let newest = state.newest(&scope)?;
-        match newest {
-            Some(seen) if l.generated_at < seen.generated_at && !opts.accept_older => {
+        match state.observe(
+            &l.repository,
+            key_fingerprint,
+            l.generated_at,
+            &listing_sha256,
+            opts.accept_older,
+        )? {
+            Observation::Recorded | Observation::Same => {}
+            Observation::Older { newest_seen } => {
                 verification = ListingVerification::RolledBack {
-                    newest_seen: seen.generated_at,
+                    newest_seen,
                     offered: l.generated_at,
                 };
             }
-            Some(seen) if l.generated_at == seen.generated_at => {}
-            _ => {
-                state.record(
-                    &scope,
-                    SeenListing {
-                        generated_at: l.generated_at,
-                        key_fingerprint: key_fingerprint.clone(),
-                        recorded_at: now_secs(),
-                    },
-                )?;
+            Observation::Equivocation { recorded_sha256 } => {
+                verification = ListingVerification::Invalid {
+                    reason: format!(
+                        "equivocation: a different listing (sha256 {recorded_sha256}) with the \
+                         same generated_at {} was already seen for this repository and key; \
+                         the mirror key signed two listings for one instant",
+                        l.generated_at
+                    ),
+                };
             }
         }
     }

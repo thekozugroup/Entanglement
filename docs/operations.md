@@ -1037,9 +1037,8 @@ verification status:
 |--------|---------|
 | `verified (mirror key <fp>)` | signed by a configured mirror key, for this repository, not expired; tag digests shown come from the signed listing |
 | `unsigned` | no listing, or a listing without a signature; tags shown are the registry's own and carry no digests |
-| `INVALID: <reason>` | unknown signer, bad signature (tampered), wrong repository, malformed |
+| `INVALID: <reason>` | unknown signer, bad signature (tampered), wrong repository, malformed, `generated_at` more than 300 s in the future, a lifetime (`expires_at - generated_at`) over 366 days, or a different listing with the same `generated_at` as one already seen (equivocation) |
 | `EXPIRED` | correctly signed but past `expires_at`; treat as stale |
-
 | `ROLLED BACK (ENTANGLE-E0820)` | correctly signed and not expired, but **older** than a listing this machine already saw for the repository; its tags and digests are not used |
 
 `--require-verified` makes `tags` exit non-zero unless `verified`. Mirror
@@ -1051,26 +1050,45 @@ trusted as a publisher on that machine).
 A signature and an expiry date show that a listing is genuine and still within
 its lifetime, not that it is the latest one: a mirror, or anyone in front of
 it, can keep serving last week's listing to hide a newer tag or a withdrawn
-one. `entangle plugins tags` therefore remembers, per repository, the
-`generated_at` of the newest listing whose signature it verified, in
-`~/.entangle/mirror-listing-state.toml` (mode `0600`):
+one. The client therefore remembers, per repository and signing key, the
+`generated_at` and SHA-256 of the newest listing whose signature it verified,
+in `~/.entangle/mirror-listing-state.toml` (mode `0600`, replaced atomically;
+each read-modify-write holds an advisory lock on
+`mirror-listing-state.toml.lock`):
 
 ```toml
-version = 1
+version = 2
 
-[repositories."registry.example.org/acme/tool"]
+[repositories."acme/tool@<32 hex key fingerprint>"]
 generated_at = 1800000000
 key_fingerprint = "<32 hex>"
+listing_sha256 = "<64 hex>"
 recorded_at = 1800000100
 ```
+
+**What the record covers.** It is consulted and moved by `plugins tags` and,
+when mirror keys are configured, by `plugins install oci://…` resolving a
+floating tag. It is keyed on what the listing signature binds, the
+listing's `repository` and the mirror key that signed it, so the same signed
+listing replayed through another mirror, the origin or a different
+registry host is judged against the same record (a version 1 file from a
+pre-release build, keyed on the serving host, is refused with
+`ENTANGLE-E0821`; delete it). It covers listings only: an install by exact
+version or digest does not consult it, and packages are protected from
+rollback by the downgrade check instead (`ENTANGLE-E0946`). Listings signed
+by different mirror keys have separate records.
 
 A verified listing older than the recorded one is reported as `ROLLED BACK`
 and treated like an invalid listing (the registry's own unauthenticated tag
 names are shown, with no digests; `--require-verified` fails with
 `ENTANGLE-E0820`). Only a listing that verified can move the record, so
 nobody without a mirror key can raise or lower it. `generated_at` is inside
-the signed bytes. The key is `host[:port][/prefix]/repository` of whoever
-served the listing, so a mirror and the origin are tracked separately.
+the signed bytes. A listing dated more than 300 s in the future is
+`INVALID` and never recorded, so one bad clock (or a key compromise) cannot
+make every later real listing look like a rollback; a listing that claims
+a lifetime over 366 days is `INVALID` too (`plugins mirror-sign --ttl-days`
+accepts 1 to 366). A different listing with the same `generated_at` as the
+recorded one is `INVALID` (equivocation) and does not replace it.
 
 **Resetting.** A mirror that was deliberately restored from an older snapshot
 trips the check. After confirming that with the mirror's operator, accept the

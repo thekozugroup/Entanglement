@@ -52,8 +52,9 @@ pub use fetch::{fetch_url, parse_download_url, signature_url, FetchOptions};
 pub use listing::{
     build_listing, list_tags, publish_listing, sign_listing, verify_listing, ListOptions,
     ListingSignature, ListingVerification, MirrorKeyring, MirrorListing, TagListing,
+    MAX_LISTING_CLOCK_SKEW_SECS, MAX_LISTING_LIFETIME_SECS,
 };
-pub use listing_state::{ListingState, SeenListing};
+pub use listing_state::{ListingState, Observation, SeenListing};
 pub use offline::{
     read_pack, write_pack, OfflinePack, PackIndex, PackIndexEntry, PackKey, PackedPackage,
     MAX_PACK_BYTES, PACK_EXTENSION,

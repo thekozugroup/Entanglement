@@ -582,13 +582,13 @@ pub async fn tags(
              tags above are the registry's own, unauthenticated. If the mirror was \
              deliberately restored from an older snapshot, accept it once with \
              --accept-older-listing (the record is in {}).",
-            source.client.listing_scope(&listing.repository),
+            listing.repository,
             listing_state_path().display()
         );
         if require_verified {
             return Err(
                 anyhow::Error::from(entangle_oci::OciError::ListingRollback {
-                    repository: source.client.listing_scope(&listing.repository),
+                    repository: listing.repository.clone(),
                     newest_seen: *newest_seen,
                     offered: *offered,
                 })
@@ -608,6 +608,13 @@ pub async fn tags(
 /// **mirror** key and publishes it at the well-known listing tag.
 pub async fn mirror_sign(reference: &str, key: &Path, ttl_days: u64, insecure: bool) -> Result<()> {
     let reference = Reference::parse(reference)?.with_selector(Selector::Tag("latest".into()));
+    if ttl_days == 0 || ttl_days.saturating_mul(86_400) > entangle_oci::MAX_LISTING_LIFETIME_SECS {
+        bail!(
+            "--ttl-days must be between 1 and {}: clients refuse a listing that claims a longer \
+             lifetime",
+            entangle_oci::MAX_LISTING_LIFETIME_SECS / 86_400
+        );
+    }
     let pem = std::fs::read_to_string(key).with_context(|| format!("reading {}", key.display()))?;
     let kp =
         IdentityKeyPair::from_pem(&pem).map_err(|e| anyhow::anyhow!("{}: {e}", key.display()))?;

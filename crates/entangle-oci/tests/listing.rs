@@ -320,7 +320,7 @@ async fn an_older_signed_listing_is_refused_once_a_newer_one_was_seen() {
     let keys = mirror_keys(&mirror);
     let dir = tempfile::tempdir().unwrap();
     let state = ListingState::at(dir.path().join("mirror-listing-state.toml"));
-    let scope = c.listing_scope("mirror/tool");
+    let fp = mirror.fingerprint_hex();
 
     let mut old = listing_for(&mock, "mirror/tool");
     old.generated_at = NOW - 5000;
@@ -336,7 +336,11 @@ async fn an_older_signed_listing_is_refused_once_a_newer_one_was_seen() {
         ListingVerification::Verified { .. }
     ));
     assert_eq!(
-        state.newest(&scope).unwrap().unwrap().generated_at,
+        state
+            .newest("mirror/tool", &fp)
+            .unwrap()
+            .unwrap()
+            .generated_at,
         NOW - 5000
     );
 
@@ -348,7 +352,7 @@ async fn an_older_signed_listing_is_refused_once_a_newer_one_was_seen() {
         ListingVerification::Verified { .. }
     ));
     assert!(tl.tags.contains_key("1.1.0"));
-    let seen = state.newest(&scope).unwrap().unwrap();
+    let seen = state.newest("mirror/tool", &fp).unwrap().unwrap();
     assert_eq!(seen.generated_at, NOW - 100);
     assert_eq!(seen.key_fingerprint, mirror.fingerprint_hex());
 
@@ -368,7 +372,11 @@ async fn an_older_signed_listing_is_refused_once_a_newer_one_was_seen() {
     assert!(tl.tags.values().all(|d| d.is_none()));
     assert!(tl.tags.contains_key("1.1.0"), "{:?}", tl.tags);
     assert_eq!(
-        state.newest(&scope).unwrap().unwrap().generated_at,
+        state
+            .newest("mirror/tool", &fp)
+            .unwrap()
+            .unwrap()
+            .generated_at,
         NOW - 100
     );
 
@@ -398,7 +406,7 @@ async fn an_operator_can_accept_an_older_listing_or_forget_the_record() {
     let keys = mirror_keys(&mirror);
     let dir = tempfile::tempdir().unwrap();
     let state = ListingState::at(dir.path().join("state.toml"));
-    let scope = c.listing_scope("mirror/tool");
+    let fp = mirror.fingerprint_hex();
 
     let mut new = listing_for(&mock, "mirror/tool");
     new.generated_at = NOW - 100;
@@ -423,7 +431,11 @@ async fn an_operator_can_accept_an_older_listing_or_forget_the_record() {
         ListingVerification::Verified { .. }
     ));
     assert_eq!(
-        state.newest(&scope).unwrap().unwrap().generated_at,
+        state
+            .newest("mirror/tool", &fp)
+            .unwrap()
+            .unwrap()
+            .generated_at,
         NOW - 5000
     );
     // From now on it verifies without the flag.
@@ -433,8 +445,8 @@ async fn an_operator_can_accept_an_older_listing_or_forget_the_record() {
         ListingVerification::Verified { .. }
     ));
 
-    assert!(state.forget(&scope).unwrap());
-    assert_eq!(state.newest(&scope).unwrap(), None);
+    assert!(state.forget("mirror/tool").unwrap());
+    assert_eq!(state.newest("mirror/tool", &fp).unwrap(), None);
 }
 
 /// Only a listing that verified can move the baseline: a forged "newer"
@@ -448,12 +460,12 @@ async fn unverified_listings_never_touch_the_recorded_state() {
     let keys = mirror_keys(&mirror);
     let dir = tempfile::tempdir().unwrap();
     let state = ListingState::at(dir.path().join("state.toml"));
-    let scope = c.listing_scope("mirror/tool");
+    let fp = mirror.fingerprint_hex();
 
     let genuine = listing_for(&mock, "mirror/tool");
     publish_listing(&c, &r, &genuine, &mirror).await.unwrap();
     list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
-    let baseline = state.newest(&scope).unwrap().unwrap();
+    let baseline = state.newest("mirror/tool", &fp).unwrap().unwrap();
 
     // Far in the future, signed by a key that is not a mirror key.
     let mut forged = genuine.clone();
@@ -465,7 +477,7 @@ async fn unverified_listings_never_touch_the_recorded_state() {
         tl.verification,
         ListingVerification::Invalid { .. }
     ));
-    assert_eq!(state.newest(&scope).unwrap().unwrap(), baseline);
+    assert_eq!(state.newest("mirror/tool", &fp).unwrap().unwrap(), baseline);
 
     // Unsigned.
     put_listing(
@@ -476,7 +488,7 @@ async fn unverified_listings_never_touch_the_recorded_state() {
     );
     let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
     assert_eq!(tl.verification, ListingVerification::Unsigned);
-    assert_eq!(state.newest(&scope).unwrap().unwrap(), baseline);
+    assert_eq!(state.newest("mirror/tool", &fp).unwrap().unwrap(), baseline);
 
     // Genuine but expired, and older: reported as expired, record untouched.
     let mut expired = genuine.clone();
@@ -485,7 +497,7 @@ async fn unverified_listings_never_touch_the_recorded_state() {
     publish_listing(&c, &r, &expired, &mirror).await.unwrap();
     let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
     assert_eq!(tl.verification, ListingVerification::Expired);
-    assert_eq!(state.newest(&scope).unwrap().unwrap(), baseline);
+    assert_eq!(state.newest("mirror/tool", &fp).unwrap().unwrap(), baseline);
 
     // The genuine listing still verifies afterwards.
     publish_listing(&c, &r, &genuine, &mirror).await.unwrap();
@@ -494,6 +506,158 @@ async fn unverified_listings_never_touch_the_recorded_state() {
         tl.verification,
         ListingVerification::Verified { .. }
     ));
+}
+
+/// A correctly signed listing dated in the future (beyond the 300 s clock
+/// allowance) is Invalid and never recorded, so it cannot lock out the
+/// listings that follow; an absurd lifetime is Invalid too.
+#[tokio::test]
+async fn a_future_dated_or_overlong_listing_is_invalid_and_not_recorded() {
+    let (mock, c, r) = setup().await;
+    let mirror = keypair(50);
+    let keys = mirror_keys(&mirror);
+    let dir = tempfile::tempdir().unwrap();
+    let state = ListingState::at(dir.path().join("state.toml"));
+
+    let mut future = listing_for(&mock, "mirror/tool");
+    future.generated_at = NOW + 301;
+    future.expires_at = NOW + 86_400;
+    publish_listing(&c, &r, &future, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    match &tl.verification {
+        ListingVerification::Invalid { reason } => assert!(reason.contains("future"), "{reason}"),
+        v => panic!("{v:?}"),
+    }
+    assert!(state.entries().unwrap().is_empty());
+
+    // Within the allowance it is fine (a mirror's clock may run a bit ahead).
+    let mut ahead = future.clone();
+    ahead.generated_at = NOW + 299;
+    publish_listing(&c, &r, &ahead, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &opts()).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+
+    // The genuine current listing still verifies and is recorded.
+    publish_listing(&c, &r, &listing_for(&mock, "mirror/tool"), &mirror)
+        .await
+        .unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+    assert_eq!(state.entries().unwrap().len(), 1);
+
+    let mut overlong = listing_for(&mock, "mirror/tool");
+    overlong.expires_at = overlong.generated_at + MAX_LISTING_LIFETIME_SECS + 1;
+    publish_listing(&c, &r, &overlong, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    match &tl.verification {
+        ListingVerification::Invalid { reason } => assert!(reason.contains("lifetime"), "{reason}"),
+        v => panic!("{v:?}"),
+    }
+}
+
+/// The record is keyed on what the signature binds (the listing's
+/// repository and the signing key), not on who served it: an old listing
+/// replayed through another host is still a rollback.
+#[tokio::test]
+async fn the_rollback_record_follows_the_repository_and_key_not_the_server() {
+    let (mock, c, r) = setup().await;
+    let other = MockRegistry::start(MockOptions::default()).await;
+    let c2 = client(&other);
+    let r2 = reference(&other, "mirror/tool:1.0.0");
+    let mirror = keypair(50);
+    let keys = mirror_keys(&mirror);
+    let dir = tempfile::tempdir().unwrap();
+    let state = ListingState::at(dir.path().join("state.toml"));
+
+    let new = listing_for(&mock, "mirror/tool");
+    let mut old = new.clone();
+    old.generated_at = NOW - 5000;
+    publish_listing(&c, &r, &new, &mirror).await.unwrap();
+    list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    let seen = state
+        .newest("mirror/tool", &mirror.fingerprint_hex())
+        .unwrap()
+        .unwrap();
+    assert_eq!(seen.generated_at, NOW - 100);
+
+    publish_listing(&c2, &r2, &old, &mirror).await.unwrap();
+    let tl = list_tags(&c2, &r2, &keys, &with_state(&state))
+        .await
+        .unwrap();
+    assert!(
+        matches!(tl.verification, ListingVerification::RolledBack { .. }),
+        "{:?}",
+        tl.verification
+    );
+}
+
+/// Two different listings with the same `generated_at` are equivocation by
+/// the signer: the second is Invalid and the record keeps the first.
+#[tokio::test]
+async fn a_different_listing_with_the_same_generated_at_is_refused() {
+    let (mock, c, r) = setup().await;
+    let mirror = keypair(50);
+    let keys = mirror_keys(&mirror);
+    let dir = tempfile::tempdir().unwrap();
+    let state = ListingState::at(dir.path().join("state.toml"));
+    let first = listing_for(&mock, "mirror/tool");
+    publish_listing(&c, &r, &first, &mirror).await.unwrap();
+    list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    let recorded = std::fs::read_to_string(state.path()).unwrap();
+
+    let mut second = first.clone();
+    second.tags.remove("1.1.0");
+    publish_listing(&c, &r, &second, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    match &tl.verification {
+        ListingVerification::Invalid { reason } => {
+            assert!(reason.contains("same generated_at"), "{reason}")
+        }
+        v => panic!("{v:?}"),
+    }
+    assert!(tl.tags.values().all(|d| d.is_none()));
+    assert_eq!(std::fs::read_to_string(state.path()).unwrap(), recorded);
+    // The identical listing again is fine.
+    publish_listing(&c, &r, &first, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+}
+
+/// Concurrent observations (two `entangle` processes) never lose the newest
+/// record: the read-modify-write runs under a lock.
+#[test]
+fn concurrent_observations_keep_the_newest_listing() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("state.toml");
+    let fp = "ab".repeat(16);
+    let threads: Vec<_> = (0..8u64)
+        .map(|t| {
+            let (path, fp) = (path.clone(), fp.clone());
+            std::thread::spawn(move || {
+                let state = ListingState::at(&path);
+                for i in 0..25u64 {
+                    let at = 1_000 + i * 8 + t;
+                    state
+                        .observe("r/a", &fp, at, &format!("{at:064x}"), false)
+                        .unwrap();
+                }
+            })
+        })
+        .collect();
+    for t in threads {
+        t.join().unwrap();
+    }
+    let seen = ListingState::at(&path).newest("r/a", &fp).unwrap().unwrap();
+    assert_eq!(seen.generated_at, 1_000 + 24 * 8 + 7);
 }
 
 /// A damaged state file fails the listing loudly instead of silently
