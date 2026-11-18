@@ -29,6 +29,9 @@ fn iroh_error(e: MeshIrohError) -> LinkError {
         MeshIrohError::FrameTooLarge { declared, max } => {
             LinkError::FrameTooLarge { declared, max }
         }
+        // The request was sent and the endpoint's `request_timeout` ran
+        // out: a slow answer, not a lost peer.
+        MeshIrohError::RequestTimeout(_) => LinkError::TimedOut(e.to_string()),
         other => LinkError::Transport(other.to_string()),
     }
 }
@@ -282,11 +285,16 @@ impl<T: FrameRecv> FrameRecv for Held<T> {
     }
 }
 
+/// Classify a tailnet error on an established connection (connection
+/// setup errors are [`LinkError::Connect`] in [`TailscaleLink::connect`]).
 fn tailscale_error(e: MeshTailscaleError) -> LinkError {
     match e {
         MeshTailscaleError::FrameTooLarge { declared, max } => {
             LinkError::FrameTooLarge { declared, max }
         }
+        // The request was sent and the connection's `request_timeout` ran
+        // out: a slow answer, not a lost peer.
+        other if other.is_request_timeout() => LinkError::TimedOut(other.to_string()),
         other => LinkError::Transport(other.to_string()),
     }
 }

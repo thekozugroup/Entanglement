@@ -109,6 +109,9 @@ pub enum MeshTailscaleError {
     VersionUnknown(String),
 }
 
+/// The start of the message of [`MeshTailscaleError::request_timeout`].
+const REQUEST_TIMED_OUT: &str = "request timed out after";
+
 impl MeshTailscaleError {
     /// The stable `ENTANGLE-Exxxx` code for this error.
     pub const fn code(&self) -> &'static str {
@@ -129,7 +132,15 @@ impl MeshTailscaleError {
     }
 
     pub(crate) fn request_timeout(after: Duration) -> Self {
-        Self::Stream(format!("request timed out after {}ms", after.as_millis()))
+        Self::Stream(format!("{REQUEST_TIMED_OUT} {}ms", after.as_millis()))
+    }
+
+    /// Whether this is a connection's own `request_timeout` running out
+    /// (the request or its answer did not complete in time; the peer may
+    /// be alive and still working), as opposed to a reset or a closed
+    /// connection.
+    pub fn is_request_timeout(&self) -> bool {
+        matches!(self, Self::Stream(why) if why.starts_with(REQUEST_TIMED_OUT))
     }
 }
 
@@ -178,5 +189,15 @@ mod tests {
         codes.sort_unstable();
         codes.dedup();
         assert_eq!(codes.len(), errs.len());
+    }
+
+    #[test]
+    fn only_a_request_timeout_is_a_request_timeout() {
+        let t = MeshTailscaleError::request_timeout(std::time::Duration::from_millis(30));
+        assert!(t.is_request_timeout(), "{t}");
+        assert!(
+            !MeshTailscaleError::Stream("connection reset by peer".into()).is_request_timeout()
+        );
+        assert!(all().iter().all(|e| !e.is_request_timeout()));
     }
 }

@@ -23,7 +23,16 @@
 //! (oversized output, policy-hash mismatch), an answer that could not be
 //! decoded, and a **timeout**: a task that did not answer within its own
 //! `timeout_ms` (plus the transport overhead) ran into its own limit, and
-//! running it again would only run into it again.
+//! running it again would only run into it again. A transport's own
+//! per-request timeout (iroh's or the tailnet's `request_timeout`, 30 s by
+//! default; [`RouteError::Failed`] with `timed_out`) is a timeout too, not
+//! a lost worker: the worker may still be running the task, so it is never
+//! retried (a retry would run the task twice there).
+//!
+//! Before a retry after [`RetryCause::LostAfterSend`], the attempt that was
+//! lost is cancelled on its worker with a `Cancel` control frame (waited
+//! for, bounded by [`crate::dispatcher::CANCEL_TIMEOUT`]): only the
+//! connection may have been lost, and the worker may still run that copy.
 //!
 //! # Where a retry goes
 //!
@@ -33,8 +42,10 @@
 //! worker that already holds a replica of the same replicated task, nor to
 //! one this replica already tried. A single-replica task whose worker was
 //! lost after the request was sent may go back to the same worker when no
-//! other is eligible (it may have restarted); an unreachable worker is
-//! never retried. Every retry is a new request with a fresh task id and a
+//! other is eligible (it may have restarted) and it still is eligible when
+//! the backoff ends; an unreachable worker is never retried. The target is
+//! chosen after the backoff, so a worker excluded or removed from the pool
+//! meanwhile is not used. Every retry is a new request with a fresh task id and a
 //! fresh per-attempt capability token.
 //!
 //! # Speculative execution
@@ -134,7 +145,9 @@ impl SpeculationConfig {
                     return None;
                 }
                 let median = history.median(plugin, min_samples)?;
-                let scaled = median.mul_f64(factor);
+                // A product too large for a `Duration` (a huge factor) is
+                // a threshold that is never reached: no backup.
+                let scaled = Duration::try_from_secs_f64(median.as_secs_f64() * factor).ok()?;
                 Some(scaled.max(floor))
             }
         }
@@ -277,6 +290,23 @@ mod tests {
             floor: Duration::ZERO,
         };
         assert_eq!(nan.threshold(&p, &h), None);
+    }
+
+    /// A factor so large that the threshold overflows `Duration` means "no
+    /// backup", not a panic in the dispatcher.
+    #[test]
+    fn a_huge_factor_never_panics_and_starts_no_backup() {
+        let h = DurationHistory::new();
+        let p = plugin(3);
+        h.record(&p, Duration::from_secs(10));
+        for factor in [1e30, f64::MAX] {
+            let c = SpeculationConfig::MedianMultiple {
+                factor,
+                min_samples: 1,
+                floor: Duration::ZERO,
+            };
+            assert_eq!(c.threshold(&p, &h), None, "factor {factor}");
+        }
     }
 
     #[test]

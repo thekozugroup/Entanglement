@@ -913,14 +913,22 @@ impl Dispatcher {
             AttemptKind::First,
         );
         let mut retries: u32 = 0;
+        // A backup copy was considered (the threshold passed) — at most once.
         let mut speculated = false;
+        // A backup copy was actually started.
+        let mut backup_launched = false;
         // Results that were not valid, in arrival order.
         let mut rejected: Vec<ReplicaResult> = Vec::new();
         loop {
             // A backup copy is started once, while exactly one attempt runs.
             let backup_at = match ctx.threshold {
                 Some(t) if !speculated && running.len() == 1 => {
-                    running.values().next().map(|r| r.started + t)
+                    // A threshold beyond what an `Instant` can hold never
+                    // fires.
+                    running
+                        .values()
+                        .next()
+                        .and_then(|r| r.started.checked_add(t))
                 }
                 _ => None,
             };
@@ -960,7 +968,7 @@ impl Dispatcher {
                             self.count_speculative("cancelled");
                         }
                         set.abort_all();
-                        if speculated {
+                        if backup_launched {
                             self.count_speculative(if run.kind == AttemptKind::Speculative {
                                 "won"
                             } else {
@@ -978,18 +986,42 @@ impl Dispatcher {
                     let answered_invalid = replica.outcome.is_ok();
                     let failed_peer = replica.peer;
                     rejected.push(replica);
+                    // Lost after the request was sent: the worker may still
+                    // be running this copy (only the connection was lost).
+                    // Tell it to stop before anything else is tried — never
+                    // run a second copy next to an orphaned first one.
+                    let lost = cause == Some(RetryCause::LostAfterSend) && !answered_invalid;
                     if !running.is_empty() {
+                        if lost {
+                            self.cancel_remote(failed_peer, run.task_id);
+                        }
                         // Another copy is still running: it may yet win.
                         continue;
                     }
                     let Some(cause) = cause.filter(|_| !answered_invalid) else { break };
-                    if retries + 1 >= u32::from(ctx.task.retry.attempts()) {
+                    let may_retry = retries + 1 < u32::from(ctx.task.retry.attempts())
+                        && Instant::now() < ctx.deadline;
+                    if lost {
+                        if may_retry {
+                            self.cancel_now(failed_peer, run.task_id).await;
+                        } else {
+                            self.cancel_remote(failed_peer, run.task_id);
+                        }
+                    }
+                    if !may_retry {
                         break;
                     }
                     let now = Instant::now();
                     if now >= ctx.deadline {
                         break;
                     }
+                    let wait = ctx.task.retry.backoff(retries + 1).min(ctx.deadline - now);
+                    tokio::time::sleep(wait).await;
+                    if Instant::now() >= ctx.deadline {
+                        break;
+                    }
+                    // Claimed after the backoff, so the target is eligible
+                    // now (a worker excluded or removed meanwhile is not).
                     let Some(target) = self.claim_failover(&ctx, &tried, Some((cause, failed_peer))) else {
                         tracing::info!(
                             peer = %failed_peer,
@@ -1000,22 +1032,17 @@ impl Dispatcher {
                         break;
                     };
                     retries += 1;
-                    let wait = ctx.task.retry.backoff(retries).min(ctx.deadline - now);
                     tracing::info!(
                         failed = %failed_peer,
                         next = %target,
                         cause = cause.label(),
                         retry = retries,
-                        wait_ms = wait.as_millis() as u64,
+                        waited_ms = wait.as_millis() as u64,
                         plugin = %ctx.task.plugin,
                         "retrying a failed attempt"
                     );
                     if let Some(reg) = &self.metrics {
                         catalog::scheduler_retry(reg, "one_shot", cause.label());
-                    }
-                    tokio::time::sleep(wait).await;
-                    if Instant::now() >= ctx.deadline {
-                        break;
                     }
                     tried.insert(target);
                     self.launch(
@@ -1039,6 +1066,7 @@ impl Dispatcher {
                                 "attempt is past the speculation threshold; starting a backup copy"
                             );
                             tried.insert(target);
+                            backup_launched = true;
                             self.count_speculative("launched");
                             self.launch(
                                 &ctx,
@@ -1180,7 +1208,13 @@ impl Dispatcher {
             return Some(peer);
         }
         match retry {
-            Some((cause, last)) if !ctx.replicated && cause.may_return_to_same_worker() => {
+            // Only while it is still eligible: live in the pool, its
+            // reputation not `Excluded`, resources and allowlist as before.
+            Some((cause, last))
+                if !ctx.replicated
+                    && cause.may_return_to_same_worker()
+                    && self.failover_candidates(&ctx.task).contains(&last) =>
+            {
                 Some(last)
             }
             _ => None,
@@ -1220,6 +1254,18 @@ impl Dispatcher {
                 tracing::debug!(%peer, task = %task_id, error = %e, "cancel frame not acknowledged");
             }
         });
+    }
+
+    /// Tell `peer` to stop running `task_id` and wait for its answer (at most
+    /// [`CANCEL_TIMEOUT`]): used before a retry, so a worker that lost only
+    /// its connection has stopped the orphaned copy first.
+    async fn cancel_now(&self, peer: PeerId, task_id: TaskId) {
+        let Some(remote) = self.remote.clone() else {
+            return;
+        };
+        if let Err(e) = remote.send_cancel(peer, task_id, CANCEL_TIMEOUT).await {
+            tracing::debug!(%peer, task = %task_id, error = %e, "cancel frame not acknowledged");
+        }
     }
 
     /// Apply the penalty acceptance would have applied to a result that was

@@ -591,8 +591,13 @@ impl RemoteDispatch {
                 }
                 // The precise retry rule (see `crate::retry`): lost after
                 // the request was sent, or the peer could not be reached.
+                // A transport's own request timeout is a timeout, not a
+                // lost peer: the worker may be alive and still running the
+                // task, so it is never retried (it would run twice there).
                 let cause = match &e {
-                    RouteError::Failed { .. } => Some(RetryCause::LostAfterSend),
+                    RouteError::Failed {
+                        timed_out: false, ..
+                    } => Some(RetryCause::LostAfterSend),
                     RouteError::Unreachable { .. } | RouteError::NoRoute { .. } => {
                         Some(RetryCause::Unreachable)
                     }
@@ -799,7 +804,7 @@ pub async fn send_control_over(
     let outbound = Outbound::new(&build);
     let raw = match tokio::time::timeout(timeout, link.request(target, &outbound)).await {
         Ok(Ok(raw)) => raw,
-        Ok(Err(LinkError::Connect(why) | LinkError::Transport(why))) => {
+        Ok(Err(LinkError::Connect(why) | LinkError::Transport(why) | LinkError::TimedOut(why))) => {
             return Err(DispatchError::RemoteTransport { peer, reason: why })
         }
         Ok(Err(LinkError::FrameTooLarge { declared, max })) => {
