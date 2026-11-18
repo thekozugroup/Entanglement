@@ -1293,6 +1293,25 @@ pub fn write_archive(
 
     let bytes =
         entangle_oci::pack_with_threads(&files, threads).map_err(|e| anyhow::anyhow!("{e}"))?;
+    if threads > 1 {
+        let frames = entangle_oci::pack_frame_count(&files, threads);
+        if frames > 1 {
+            eprintln!(
+                "warning: --threads {threads}: the archive is compressed as {frames} independent \
+                 zstd frames and is NOT bit-stable across thread counts. Its sha256 and \
+                 detached signature differ from the default single-threaded archive (and from \
+                 any other --threads value); publish the default one where a third party is \
+                 expected to reproduce the digest."
+            );
+        } else {
+            eprintln!(
+                "warning: --threads {threads}: this package is small enough to be compressed as \
+                 one zstd frame, so this archive is identical to the default one. For a larger \
+                 package --threads output is NOT bit-stable across thread counts; publish the \
+                 default archive where a third party is expected to reproduce the digest."
+            );
+        }
+    }
     let stem = plugin_id
         .rsplit('/')
         .next()

@@ -186,6 +186,18 @@ pub fn pack_with_threads(files: &PackageFiles, threads: u32) -> Result<Vec<u8>> 
     Ok(out)
 }
 
+/// How many zstd frames [`pack_with_threads`] writes for `files` with
+/// `threads`: 1 for `threads <= 1` and for packages too small to split
+/// (the archive is then byte-identical to [`pack`]'s), else one per slice.
+pub fn pack_frame_count(files: &PackageFiles, threads: u32) -> usize {
+    if threads <= 1 {
+        return 1;
+    }
+    let len = package_tar(files).len();
+    let chunk = len.div_ceil(threads as usize).max(MIN_THREAD_CHUNK);
+    len.div_ceil(chunk).max(1)
+}
+
 /// The normalised ustar stream [`pack`] compresses.
 fn package_tar(files: &PackageFiles) -> Vec<u8> {
     let mut tar = Vec::new();
@@ -586,6 +598,11 @@ mod tests {
             pack_with_threads(&sample(), 8).unwrap(),
             pack(&sample()).unwrap()
         );
+        // The frame count the CLI's warning reports.
+        assert_eq!(pack_frame_count(&sample(), 8), 1);
+        assert_eq!(pack_frame_count(&f, 1), 1);
+        assert_eq!(pack_frame_count(&f, 4), 4);
+        assert_eq!(pack_frame_count(&f, 3), 3);
     }
 
     #[test]

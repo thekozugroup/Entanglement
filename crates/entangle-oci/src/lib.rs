@@ -60,8 +60,9 @@ pub use offline::{
     MAX_PACK_BYTES, PACK_EXTENSION,
 };
 pub use package::{
-    pack, pack_dir, pack_with_threads, unpack, verify_package, PackageFiles, VerifiedPackage,
-    FILE_MANIFEST, FILE_NATIVE, FILE_NATIVE_SIGNATURE, FILE_PROVENANCE, FILE_SIGNATURE, FILE_WASM,
+    pack, pack_dir, pack_frame_count, pack_with_threads, unpack, verify_package, PackageFiles,
+    VerifiedPackage, FILE_MANIFEST, FILE_NATIVE, FILE_NATIVE_SIGNATURE, FILE_PROVENANCE,
+    FILE_SIGNATURE, FILE_WASM,
 };
 pub use reference::{Digest, Reference, Selector};
 pub use types::*;

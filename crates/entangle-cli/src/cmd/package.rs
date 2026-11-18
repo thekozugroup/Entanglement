@@ -574,16 +574,6 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
 
     // Step 5 — reproducible archive + provenance.
     let archive = {
-        if opts.threads > 1 {
-            eprintln!(
-                "warning: --threads {}: the archive is compressed as {} independent zstd \
-                 frames and is NOT bit-stable across thread counts. Its sha256 and detached \
-                 signature differ from the default single-threaded archive (and from any \
-                 other --threads value); publish the default one where a third party is \
-                 expected to reproduce the digest.",
-                opts.threads, opts.threads
-            );
-        }
         let info = repro::write_archive(
             &dist,
             &dir,

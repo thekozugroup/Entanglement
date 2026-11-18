@@ -2146,10 +2146,12 @@ source produce the same bytes: absolute paths are remapped out of the wasm
   `ENTANGLE-E0942`, listing each import as `file:line: reference`. WIT given inline to
   `generate!` (`inline: "…"`) is not scanned.
 * The archive is compressed with zstd level 19 on one thread. `--threads N` uses N
-  threads and prints a warning: the archive is then N independent zstd frames and is
-  **not bit-stable across thread counts**, so its sha256 and detached signature differ
+  threads and prints a warning: the archive is then up to N independent zstd frames
+  (the warning says how many) and is **not bit-stable across thread counts**, so its sha256 and detached signature differ
   from the default archive's (the contents are identical). Publish the default archive
-  where someone is expected to reproduce the digest.
+  where someone is expected to reproduce the digest. A package small enough to be one
+  frame (under 64 KiB of tar) gives the default archive whatever N is, and the warning
+  says so.
 * Next to the archive the build writes its detached signature,
   `<name>-<version>.tar.zst.sig` (format version 2: Ed25519 by the publisher key over
   the plugin id and the archive's SHA-256; deterministic). Serving both files from one HTTPS location is all a plain
