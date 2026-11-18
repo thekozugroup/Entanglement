@@ -670,7 +670,14 @@ fn atc_pkg_2_workflow_builds_on_three_hosts_and_compares_digests() {
     assert!(build.contains("examples/hello-world"), "{build}");
     assert!(build.contains("plugins build"), "{build}");
     assert!(
-        build.contains("toolchain: '1.91'") || build.contains("toolchain: \"1.91\""),
+        // serde_yaml quotes `1.91` (it would be a float) but not `1.91.1`.
+        [
+            "toolchain: '1.91.1'",
+            "toolchain: \"1.91.1\"",
+            "toolchain: 1.91.1"
+        ]
+        .iter()
+        .any(|t| build.contains(t)),
         "{build}"
     );
     assert!(build.contains("wasm32-wasip2"), "{build}");
