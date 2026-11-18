@@ -190,3 +190,47 @@ async fn a_missing_file_is_a_status_error_and_plain_http_is_loopback_only() {
     .unwrap_err();
     assert!(e.to_string().starts_with("ENTANGLE-E0822"), "{e}");
 }
+
+/// A server that trickles bytes just fast enough to beat the idle timeout
+/// is cut off by the overall deadline instead of holding the install open
+/// indefinitely.
+#[tokio::test]
+async fn a_trickling_server_is_cut_off_by_the_overall_deadline() {
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((mut sock, _)) = listener.accept().await {
+            tokio::spawn(async move {
+                let mut buf = [0u8; 4096];
+                let _ = sock.read(&mut buf).await;
+                let _ = sock
+                    .write_all(b"HTTP/1.1 200 OK\r\ncontent-type: application/octet-stream\r\n\r\n")
+                    .await;
+                loop {
+                    if sock.write_all(b"x").await.is_err() {
+                        return;
+                    }
+                    let _ = sock.flush().await;
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                }
+            });
+        }
+    });
+    let opts = FetchOptions {
+        timeout: std::time::Duration::from_secs(5),
+        deadline: std::time::Duration::from_secs(1),
+        ..FetchOptions::default()
+    };
+    let u = Url::parse(&format!("http://127.0.0.1:{}/slow.tar.zst", addr.port())).unwrap();
+    let started = std::time::Instant::now();
+    let e = tokio::time::timeout(
+        std::time::Duration::from_secs(20),
+        fetch_url(&u, "package archive", &opts),
+    )
+    .await
+    .expect("the fetch must end by its own deadline")
+    .unwrap_err();
+    assert!(e.to_string().contains("deadline"), "{e}");
+    assert!(started.elapsed() < std::time::Duration::from_secs(10));
+}

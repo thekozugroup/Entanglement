@@ -70,6 +70,10 @@ pub struct ClientConfig {
     /// for this long (a slow but steady upload is not cut off), and a body
     /// read fails when no data arrives for this long.
     pub timeout: Duration,
+    /// Overall deadline for reading one response body (a blob, a manifest,
+    /// a tag list), on top of the idle timeout: a server that trickles bytes
+    /// just fast enough to beat the idle timeout is cut off here.
+    pub transfer_deadline: Duration,
     /// Upload chunk size; blobs at most this large are uploaded monolithically.
     pub chunk_size: usize,
     /// Maximum redirects followed per request.
@@ -93,6 +97,7 @@ impl Default for ClientConfig {
             max_manifest_bytes: 4 * 1024 * 1024,
             retry: RetryPolicy::default(),
             timeout: Duration::from_secs(30),
+            transfer_deadline: Duration::from_secs(15 * 60),
             chunk_size: 4 * 1024 * 1024,
             max_redirects: 5,
             #[cfg(feature = "testing")]
@@ -466,6 +471,7 @@ impl OciClient {
             self.cfg.max_manifest_bytes,
             "token response",
             self.transport.timeout(),
+            self.cfg.transfer_deadline,
         )
         .await?;
         #[derive(serde::Deserialize)]
@@ -497,6 +503,7 @@ impl OciClient {
             4096,
             "error body",
             self.transport.timeout(),
+            self.cfg.transfer_deadline,
         )
         .await
         {
@@ -609,6 +616,7 @@ impl OciClient {
             self.cfg.max_manifest_bytes,
             "manifest",
             self.transport.timeout(),
+            self.cfg.transfer_deadline,
         )
         .await?;
         let digest = Digest::of(&raw);
@@ -709,10 +717,9 @@ impl OciClient {
         let mut body = resp.into_body();
         let mut hasher = Sha256::new();
         let mut buf = Vec::with_capacity(desc.size.min(16 * 1024 * 1024) as usize);
+        let until = tokio::time::Instant::now() + self.cfg.transfer_deadline;
         loop {
-            let frame = tokio::time::timeout(self.transport.timeout(), body.frame())
-                .await
-                .map_err(|_| OciError::Timeout(format!("reading {what}")))?;
+            let frame = next_frame(&mut body, self.transport.timeout(), until, &what).await?;
             let Some(frame) = frame else { break };
             let frame = frame.map_err(|e| OciError::Transport {
                 host: self.registry.clone(),
@@ -778,6 +785,7 @@ impl OciClient {
                 self.cfg.max_manifest_bytes,
                 "tag list",
                 self.transport.timeout(),
+                self.cfg.transfer_deadline,
             )
             .await?;
             let t: Tags = serde_json::from_slice(&body)
@@ -1040,18 +1048,43 @@ fn basic_header(username: &str, password: &Secret) -> String {
     )
 }
 
-/// Read a body fully but never more than `limit` bytes, with an idle timeout.
+/// The next frame of `body`, failing when none arrives within `idle` or
+/// when `until` (the transfer's overall deadline) passes first.
+pub(crate) async fn next_frame(
+    body: &mut Incoming,
+    idle: Duration,
+    until: tokio::time::Instant,
+    what: &str,
+) -> Result<Option<std::result::Result<hyper::body::Frame<Bytes>, hyper::Error>>> {
+    let now = tokio::time::Instant::now();
+    if now >= until {
+        return Err(OciError::Timeout(format!(
+            "reading {what}: the transfer exceeded its overall deadline"
+        )));
+    }
+    let left = until - now;
+    match tokio::time::timeout(idle.min(left), body.frame()).await {
+        Ok(f) => Ok(f),
+        Err(_) if left <= idle => Err(OciError::Timeout(format!(
+            "reading {what}: the transfer exceeded its overall deadline"
+        ))),
+        Err(_) => Err(OciError::Timeout(format!("reading {what}"))),
+    }
+}
+
+/// Read a body fully but never more than `limit` bytes, with an idle timeout
+/// and an overall `deadline`.
 pub(crate) async fn read_limited(
     mut body: Incoming,
     limit: u64,
     what: &str,
     idle: Duration,
+    deadline: Duration,
 ) -> Result<Vec<u8>> {
+    let until = tokio::time::Instant::now() + deadline;
     let mut buf = Vec::new();
     loop {
-        let frame = tokio::time::timeout(idle, body.frame())
-            .await
-            .map_err(|_| OciError::Timeout(format!("reading {what}")))?;
+        let frame = next_frame(&mut body, idle, until, what).await?;
         let Some(frame) = frame else { return Ok(buf) };
         let frame = frame.map_err(|e| OciError::Transport {
             host: String::new(),

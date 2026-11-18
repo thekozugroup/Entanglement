@@ -1016,7 +1016,8 @@ Blobs are capped at 512 MiB (checked from the descriptor before any bytes are
 requested and enforced while streaming; a registry that sends more than the
 descriptor says is cut off), manifests at 4 MiB, a decompressed package at
 256 MiB. A blob whose SHA-256 differs from its descriptor is rejected
-(`ENTANGLE-E0807`).
+(`ENTANGLE-E0807`). Besides the 30 s idle timeout, reading any one response
+body (blob, manifest, tag list) has an overall deadline of 15 minutes.
 
 ### Mirror keys and signed listings
 
@@ -1204,8 +1205,13 @@ What happens, in order; nothing is written unless all of it passes:
 
 Transport rules: the URL must be `https://`. `http://` is accepted only for a
 loopback host. A URL with embedded credentials or a `#fragment` is refused
-(`ENTANGLE-E0822`). Redirects are followed (at most 5) but never to a
-different scheme (`ENTANGLE-E0810`), and no credentials are sent. TLS uses
+(`ENTANGLE-E0822`). Redirects are followed (at most 5) to **any**
+`https://` host (release pages commonly redirect to a CDN; nothing is trusted
+because of where the bytes came from, only because of the signatures), but
+never to a different scheme (`ENTANGLE-E0810`), and no credentials are sent.
+Each fetch has a 30 s connect/idle timeout and an overall deadline of 15
+minutes, redirects and body included (`ENTANGLE-E0818`), so a server that
+trickles bytes cannot hold an install open indefinitely. TLS uses
 the same roots as registry access (bundled web roots plus the system store;
 `SSL_CERT_FILE` names a private CA). There is no option that disables
 certificate verification.

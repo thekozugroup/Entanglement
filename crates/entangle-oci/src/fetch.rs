@@ -11,9 +11,16 @@
 //! * redirects are followed up to a limit, but never to a different scheme
 //!   (neither an HTTPS download handed down to HTTP, nor the reverse);
 //! * no credentials are ever sent;
+//! * redirects may lead to any `https://` host (a release page commonly
+//!   redirects to a CDN); that is safe because nothing is trusted on the
+//!   strength of where the bytes came from, only on the signatures;
 //! * the body is cut off at `max_bytes`: a `Content-Length` over the cap is
 //!   refused before a byte is read, and a body without one is stopped at the
-//!   first byte past it.
+//!   first byte past it;
+//! * the whole fetch, redirects and body included, must finish within
+//!   [`FetchOptions::deadline`] (default 15 minutes), so a server that
+//!   trickles bytes just fast enough to beat the idle timeout cannot hold an
+//!   install open indefinitely.
 //!
 //! Nothing here judges the bytes. Trust is decided afterwards, by
 //! [`crate::verify_archive_signature`] and [`crate::verify_package`].
@@ -35,6 +42,8 @@ pub struct FetchOptions {
     pub max_bytes: u64,
     /// Connect / TLS-handshake / idle timeout.
     pub timeout: Duration,
+    /// Overall deadline for the whole fetch (redirects and body included).
+    pub deadline: Duration,
     /// Maximum redirects followed.
     pub max_redirects: u8,
     /// Extra TLS trust anchors for tests (feature `testing` only; see
@@ -48,6 +57,7 @@ impl Default for FetchOptions {
         Self {
             max_bytes: 512 * 1024 * 1024,
             timeout: Duration::from_secs(30),
+            deadline: Duration::from_secs(15 * 60),
             max_redirects: 5,
             #[cfg(feature = "testing")]
             test_roots: Vec::new(),
@@ -95,6 +105,18 @@ pub fn signature_url(url: &Url) -> Url {
 /// `what` names the object in error messages (`package archive`,
 /// `detached signature`).
 pub async fn fetch_url(url: &Url, what: &str, opts: &FetchOptions) -> Result<Vec<u8>> {
+    match tokio::time::timeout(opts.deadline, fetch_url_inner(url, what, opts)).await {
+        Ok(r) => r,
+        Err(_) => Err(OciError::Timeout(format!(
+            "fetching the {what} from {}: the transfer did not finish within the overall \
+             deadline of {} s",
+            authority(url),
+            opts.deadline.as_secs()
+        ))),
+    }
+}
+
+async fn fetch_url_inner(url: &Url, what: &str, opts: &FetchOptions) -> Result<Vec<u8>> {
     // Re-vet: callers may have built the URL themselves.
     let mut url = parse_download_url(url.as_str())?;
     let scheme = url.scheme().to_owned();
@@ -162,15 +184,21 @@ pub async fn fetch_url(url: &Url, what: &str, opts: &FetchOptions) -> Result<Vec
                         });
                     }
                 }
-                return read_limited(resp.into_body(), opts.max_bytes, what, opts.timeout)
-                    .await
-                    .map_err(|e| match e {
-                        OciError::Transport { detail, .. } => OciError::Transport {
-                            host: here.clone(),
-                            detail,
-                        },
-                        other => other,
-                    });
+                return read_limited(
+                    resp.into_body(),
+                    opts.max_bytes,
+                    what,
+                    opts.timeout,
+                    opts.deadline,
+                )
+                .await
+                .map_err(|e| match e {
+                    OciError::Transport { detail, .. } => OciError::Transport {
+                        host: here.clone(),
+                        detail,
+                    },
+                    other => other,
+                });
             }
             _ => {
                 return Err(OciError::Status {
