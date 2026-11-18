@@ -176,7 +176,7 @@ service_name = "entangled"
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
 | `[scheduler]` | `spot_check_probability`, `spot_check_max_concurrent` | float in 0..=1, integer 1..=1024 | `0.01`, `4` | Daemon-only. Layer-2 spot-checks of accepted `deterministic` / `semantic-equivalent` tasks (§11): the share re-run on another executor, and how many may run at once. `0` disables them; out-of-range values fail the load. (`bind`, `peers`, `relay` configure the iroh scheduler endpoint, §20.) |
 | `[scheduler]` | `speculation`, `speculation_delay_ms`, `speculation_factor`, `speculation_min_samples`, `speculation_floor_ms` | `"off"`/`"fixed"`/`"median"`, integer ≥ 1, float > 1, integer, integer | `"off"`, `10000`, `3.0`, `5`, `1000` | Daemon-only (settable with `entangle config set scheduler.<key>`). Speculative backup copies of slow remote attempts (§11, *Failure handling*): `fixed` starts a backup once an attempt has run `speculation_delay_ms`; `median` once it has run `speculation_factor` × the median of that plugin's last 32 successful attempts on this node (after `speculation_min_samples`, never before `speculation_floor_ms`). **Off by default**: a backup is a second execution on another machine. |
-| `[scheduler]` | `rtt_probe_interval_secs` | integer | `60` | Daemon-only. Seconds between rounds of round-trip-time probes to live workers (at most 16 per round, 4 at a time, 2 s each); placement uses the measured RTT for 10 minutes, else the advertised constant (5 ms LAN, 20 ms tailnet). `0` disables the probes. |
+| `[scheduler]` | `rtt_probe_interval_secs` | integer | `60` | Daemon-only. Seconds between rounds of round-trip-time probes to live workers (at most 16 per round, 4 at a time, 2 s each); placement uses the measured RTT for 10 minutes (a probe with no answer counts as the 2 s probe timeout, so a worker that stops answering ranks behind those that answer), else — for a worker not yet probed — the advertised constant (5 ms LAN, 20 ms tailnet). `0` disables the probes. |
 | `[metrics]` | `enabled`, `listen`, `allow_non_loopback` | bool, `ip:port`, bool | `false`, `127.0.0.1:9464`, `false` | Prometheus scrape endpoint (§14). A non-loopback `listen` is refused (`ENTANGLE-E0656`) unless `allow_non_loopback = true`. |
 | `[telemetry.otlp]` | `enabled`, `endpoint`, `service_name` | bool, URL, string | `false`, `http://localhost:4318`, `entangled` | OTLP/HTTP trace export (§14). `endpoint` must be `http://`; `4318` is OTLP/HTTP (`4317` is gRPC, which is not spoken). |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043` before anything is verified, granted or written. **`4` disables tier-5 native plugins globally; `3` disables every native plugin.** Out-of-range values (`0` or `>5`) fail to parse. |
@@ -834,13 +834,23 @@ back up:
   worker **could not be reached** (`E0430`, `E0431`). An answer from the worker
   (a plugin error, a plugin that is not loaded, a policy, capability-token or
   allowlist refusal), an integrity failure (oversized output, policy-hash
-  mismatch) and a **timeout** (the task ran into its own `timeout_ms`) are
-  final.
+  mismatch) and a **timeout** are final. A timeout is the task running into
+  its own `timeout_ms`, **or the transport's own per-request timeout**
+  (iroh's and the tailnet's `request_timeout`, 30 s by default): the worker
+  may still be running the task, so retrying would run it twice. A remote
+  task that needs longer than the transport's request timeout therefore
+  fails with `E0432` ("request timed out") rather than being re-run.
+* **The lost copy is cancelled first** — after a failure lost after send,
+  the dispatcher sends that attempt's worker a `Cancel` control frame and
+  waits for its answer (at most 2 s) before the retry starts: only the
+  connection may have been lost, and the worker may still run the copy.
 * **Where** — another eligible live worker, best placement score first,
   never one that holds a replica of the same task and never one this replica
   already tried. A single-replica task lost after send may go back to the
-  same worker when there is no other (it may have restarted); an unreachable
-  worker is never retried.
+  same worker when there is no other (it may have restarted) and it is still
+  eligible; an unreachable worker is never retried. The target is chosen
+  when the backoff ends, so a worker excluded (reputation) or removed from
+  the pool during the backoff is not used.
 * **How often** — the task's retry policy (`--max-attempts`, default 3
   attempts in all; waits of 200 ms doubling to 5 s) and its deadline: no
   retry starts after `timeout_ms` from the first attempt, and a retry gets
@@ -854,7 +864,10 @@ back up:
   worker, which stops the run at its next await point (a wasm guest busy in a
   host-call-free loop runs to the end of it) and frees its slot. For a
   replicated policy the backup only ever **replaces** the slow replica — the
-  result still has exactly `N` replicas.
+  result still has exactly `N` replicas. `won` / `lost` are counted only
+  when a backup was actually launched (with no other eligible worker, no
+  backup starts and nothing is counted). A `median` threshold too large to
+  represent (a huge `speculation_factor`) never fires.
 
 Every attempt is in the result (`attempts` in `compute dispatch --json`, and
 one `Attempt:` line each in text mode when there was more than one) and
@@ -871,15 +884,20 @@ pure = false                              # two runs on one input may differ
 nondeterministic = ["clock", "entropy"]   # or "network", "gpu-float"
 ```
 
-A `net.lan` / `net.wan` capability counts too. A `deterministic` task for
-such a plugin is refused **before anything is placed** with
-`ENTANGLE-E0470`, which names the reasons and points at
+A `net.lan` / `net.wan`, `agent.invoke` (an agent or LLM call) or
+`mesh.peer` (answers from other peers) capability counts too. A
+`deterministic` task for such a plugin is refused **before anything is
+placed** with `ENTANGLE-E0470`, which names the reasons and points at
 `--integrity semantic-equivalent`. The submitter checks the manifest its own
-kernel loaded (read back and checked against the digest recorded at load);
-an executor checks its own copy again before running a `deterministic`
-replica and answers `nondeterministic` (with the same E0470 text) — so a
-submitter without the plugin is refused too. Both keys are optional;
-without them nothing is assumed.
+kernel verified when it loaded the plugin (the declaration is read from the
+verified bytes at load; editing or deleting `entangle.toml` afterwards
+changes nothing until a reload); an executor checks its own copy again
+before running a `deterministic` replica and answers `nondeterministic`
+(with the same E0470 text) — so a submitter without the plugin is refused
+too. Both keys are optional; without them nothing is assumed. A key of the
+wrong type (`nondeterministic = "entropy"` instead of a list) does not stop
+the plugin from loading, but fails closed: `deterministic` is refused with
+E0470 naming the unreadable declaration.
 
 ### Workload presets
 
@@ -891,7 +909,18 @@ dispatch` and `compute stream`; any explicit flag overrides the preset:
 | `a` — LLM offload to your own machine | `trusted-executor` over the `--allow` ids (`ENTANGLE-E0472` without), `max_output_bytes` 1 MiB | `trusted-executor` over `--allow` (else the `--peer`), `max_total_bytes` 64 MiB, credit window 32, partial output kept |
 | `b` — batch on a trusted home mesh | `deterministic`, 1 replica | refused (`E0473`) |
 | `b-federated` — batch on a federated mesh | `deterministic`, 3 replicas (quorum 2) | refused |
-| `c` — test-suite runs | `deterministic`, 1 replica, 3 attempts | refused |
+| `c` — test-suite runs | `deterministic`, 1 replica, 3 attempts (see below) | refused |
+
+`--replicas` alone overrides a preset's replica count (`--workload
+b-federated --replicas 5` runs 5 replicas); it is ignored for workload `a`,
+whose policy is `trusted-executor`.
+
+Workload `c`'s "3 attempts" is the ordinary retry policy (a worker that
+crashes or is lost mid-task, §7.6 above), which is also the default. A
+**flaky test is not re-run**: a test that fails is a plugin error or a
+failing output, and neither is ever retried. The spec's "rerun on flake"
+for workload C is not implemented (see the implementation note in
+`docs/architecture.md` §7.5).
 
 The library equivalent is `entangle_scheduler::Workload::apply_one_shot` /
 `apply_stream`.
@@ -914,7 +943,7 @@ attestation hardware.
 |---|---|---|
 | BLEU-4 | `plugins/metric-bleu-4` | `1 − BLEU-4` over whitespace tokens |
 | Relative L2 | `plugins/metric-numerical-l2-relative` | `‖a − b‖ / max(‖a‖, ‖b‖)` over numeric vectors |
-| Embedding cosine | `plugins/metric-embedding-cosine` | `1 − cos` of a pinned feature-hashing embedding (words and character trigrams) for text, of the vectors themselves for numeric outputs; a threshold around `0.3` accepts paraphrases. Not a neural sentence model (see its README). |
+| Embedding cosine | `plugins/metric-embedding-cosine` | `1 − cos` of a pinned feature-hashing embedding (words and character trigrams) for text, of the vectors themselves for outputs that are a JSON array of two or more numbers (a bare number or `[42]` is an answer, compared as text); a threshold around `0.3` accepts paraphrases. Not a neural sentence model (see its README). |
 
 `image-ssim` (spec §7.5) is not provided.
 
@@ -1646,7 +1675,12 @@ The submitter observes two kinds of stall (library: `SubmitterMachine`,
   credit-exhaustion timeout (this end is not consuming); the executor sees
   the same stall from its side;
 * a **producer stall** — the executor holds credit and has sent nothing for
-  `SubmitterOptions::stall_after` (off unless set).
+  `SubmitterOptions::stall_after` (off unless set), counted only once this
+  end has finished its input and from that moment at the earliest. Before
+  that, an executor that sends nothing may be waiting for the next input
+  (a multi-turn stream on a bare `StreamHandle`); the submitter's own pace
+  is never blamed on it. A supervised stream finishes its input when it
+  opens, so this changes nothing there.
 
 Each is logged (`StalledEvent` with `observed_by=submitter`) and handled by
 the stream's `StallReaction`: `Wait` (the default: the executor's own timers
@@ -1654,14 +1688,16 @@ run, as before), `Preempt` (cancel it: `ENTANGLE-E0474`), `Extend { by,
 times }` (an `Extend` control frame pushes the executor's
 unresponsive-cancellation out, by at most 30 min per frame and 16 frames per
 stream; the wall-clock timeout still holds; an executor that predates the
-frame closes the stream as a protocol violation) or `PreemptAndReassign`
+frame closes the stream as a protocol violation. While the stall lasts, the
+next `Extend` is sent a quarter of `by` (at most 30 s) before the previous
+one runs out, so each of the `times` extensions lands in time) or `PreemptAndReassign`
 (cancel it and restart it on another executor, below). Each is counted in
 `entangle_scheduler_streams_stalled_total{outcome}`.
 
 **Stall blame.** A producer stall after at least half of the task's
 `expected_output_bytes`, or an executor's second producer stall within an
-hour, costs it reputation (`stalled-stream`). A credit stall never does: it
-is the consumer's doing.
+hour, costs it reputation (`stalled-stream`). A credit stall never does, nor
+does it count towards "second": it is the consumer's doing.
 
 ### Restarting a stream (`StreamingTask.retry`)
 
