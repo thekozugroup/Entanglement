@@ -1,7 +1,7 @@
 //! Plain HTTPS downloads (spec §3.6 path B): a package archive and its
 //! detached signature fetched from an ordinary web server.
 //!
-//! This reuses the registry client's transport ([`crate::http`]): the same
+//! This reuses the registry client's transport (the private `http` module): the same
 //! TLS configuration, connect/idle timeouts and loopback rule. On top of it:
 //!
 //! * the URL must be `https://`; `http://` is accepted for a loopback host

@@ -25,9 +25,10 @@
 //!
 //! **Resetting.** A mirror that was legitimately rebuilt from an older
 //! snapshot trips this check. An operator who has confirmed that out of band
-//! clears one repository with [`ListingState::forget`] (CLI: `entangle
-//! plugins tags <ref> --accept-older-listing`, or `entangle mirror forget
-//! <ref>`), or deletes the file to clear all of them.
+//! accepts the older listing once ([`crate::ListOptions::accept_older`]; CLI:
+//! `entangle plugins tags <ref> --accept-older-listing`), which records it as
+//! the new baseline. [`ListingState::forget`] drops one repository's record;
+//! deleting the file clears all of them.
 //!
 //! The file is not secret and not signed: someone who can rewrite files in
 //! `~/.entangle` can already replace the mirror keyring. A file that cannot
