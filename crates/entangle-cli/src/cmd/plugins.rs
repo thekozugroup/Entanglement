@@ -374,6 +374,7 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             bin,
             target,
             threads,
+            pin_policy: crate::cmd::repro::PinPolicy::Require,
         }),
         PluginsCmd::Verify {
             package,

@@ -14,7 +14,11 @@
 #                 in. Needs a Rust toolchain, needs no release. Works today.
 #
 # What it does, in order:
-#   1. Checks prerequisites: cargo/rustc >= 1.91 (the workspace MSRV).
+#   1. Checks prerequisites: cargo/rustc >= 1.91 (the workspace MSRV). The
+#      workspace and the bundled plugins pin exactly 1.91.1 in
+#      rust-toolchain.toml; with rustup cargo selects that toolchain itself.
+#      Without rustup, another 1.91+ compiler builds the binaries, and
+#      catalog plugin builds warn (ENTANGLE-E0943) instead of refusing.
 #   2. Checks for the wasm32-wasip2 target that plugins compile to, and offers
 #      to add it via rustup.
 #   3. `cargo install --locked` the CLI (`entangle`) and the daemon (`entangled`).
@@ -35,6 +39,8 @@ REPO="thekozugroup/Entanglement"
 REPO_URL="https://github.com/${REPO}"
 MSRV_MAJOR=1
 MSRV_MINOR=91
+# The exact release rust-toolchain.toml (workspace and bundled plugins) pins.
+PINNED_TOOLCHAIN="1.91.1"
 WASM_TARGET="wasm32-wasip2"
 
 # ── Defaults (overridable by flags / env) ────────────────────────────────────
@@ -218,9 +224,9 @@ check_rust_version() {
     if [ "$_maj" -lt "$MSRV_MAJOR" ] ||
         { [ "$_maj" -eq "$MSRV_MAJOR" ] && [ "$_min" -lt "$MSRV_MINOR" ]; }; then
         die "Rust ${_v} is too old — this workspace needs ${MSRV_MAJOR}.${MSRV_MINOR} or newer.
-  rust-toolchain.toml pins ${MSRV_MAJOR}.${MSRV_MINOR}, so if you have rustup it will
+  rust-toolchain.toml pins ${PINNED_TOOLCHAIN}, so if you have rustup it will
   fetch the right toolchain automatically once it is installed:
-      rustup toolchain install ${MSRV_MAJOR}.${MSRV_MINOR}
+      rustup toolchain install ${PINNED_TOOLCHAIN}
   Without rustup, upgrade your distro's Rust or install rustup:
       https://rustup.rs"
     fi
@@ -244,7 +250,9 @@ check_prereqs() {
         info "    rustup  $(rustup --version 2>/dev/null | head -n 1)"
     else
         warn "rustup not found. The build will use whatever 'cargo' is on your PATH,"
-        info "         and rust-toolchain.toml's pinned ${MSRV_MAJOR}.${MSRV_MINOR} cannot be honoured."
+        info "         and rust-toolchain.toml's pinned ${PINNED_TOOLCHAIN} cannot be honoured."
+        info "         Catalog plugin builds then warn (ENTANGLE-E0943); 'entangle plugins build'"
+        info "         of your own project refuses unless the compiler is ${PINNED_TOOLCHAIN}."
     fi
 }
 
@@ -507,7 +515,7 @@ main() {
     - 'No space left on device'  -> a release build of this workspace compiles
       Wasmtime and Iroh and needs several GB free. Free some, then re-run;
       cargo reuses what it already built. CARGO_BUILD_JOBS=2 lowers peak usage.
-    - Rust older than ${MSRV_MAJOR}.${MSRV_MINOR}     -> rustup toolchain install ${MSRV_MAJOR}.${MSRV_MINOR}
+    - Rust older than ${MSRV_MAJOR}.${MSRV_MINOR}     -> rustup toolchain install ${PINNED_TOOLCHAIN}
     - out of RAM (killed)        -> also CARGO_BUILD_JOBS=2
     - no network on first run    -> cargo must fetch the crates in Cargo.lock once
   If it is already installed and you just want to redo it, add --force."

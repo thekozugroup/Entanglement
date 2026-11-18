@@ -87,8 +87,15 @@ cd Entanglement
 What it does:
 
 1. Checks that `cargo` and `rustc` exist and that Rust is **1.91 or newer** (the
-   workspace MSRV, pinned by `rust-toolchain.toml`). It never installs a
-   toolchain for you — it points you at <https://rustup.rs>.
+   workspace MSRV). It never installs a toolchain for you — it points you at
+   <https://rustup.rs>. The workspace and every bundled plugin pin exactly
+   **1.91.1** in `rust-toolchain.toml`; with rustup, cargo selects (and if
+   needed downloads) that toolchain by itself. Without rustup any rustc 1.91+
+   builds the two binaries; building a plugin from the catalog
+   (`plugins install NAME`, `quickstart`) with a compiler other than 1.91.1
+   prints an `ENTANGLE-E0943` warning and goes on, while
+   `entangle plugins build` of your own project refuses until the pin and
+   the compiler agree (see docs/plugin-authoring.md).
 2. Checks for the **`wasm32-wasip2`** target that plugins compile to, and offers
    to add it with `rustup target add wasm32-wasip2`. The two binaries build fine
    without it; you only need it to compile plugins. It will not touch your
@@ -669,8 +676,9 @@ normally.
 
 **`Rust X.Y.Z is too old`** (from `bootstrap.sh`) — the workspace MSRV is
 **1.91** because iroh 1.0 requires it. With rustup, `rust-toolchain.toml`
-fetches the right toolchain automatically; otherwise
-`rustup toolchain install 1.91` or install rustup from <https://rustup.rs>.
+(which pins exactly 1.91.1) fetches the right toolchain automatically;
+otherwise `rustup toolchain install 1.91.1` or install rustup from
+<https://rustup.rs>.
 
 **`no Rust toolchain found`** (from `bootstrap.sh`) — install rustup, or use
 [Docker](#2-docker), which needs no toolchain on the host.

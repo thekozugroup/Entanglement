@@ -173,9 +173,16 @@ pub fn is_exact_toolchain(channel: &str) -> bool {
 /// (or legacy `rust-toolchain`) from the project directory up to its cargo
 /// workspace root, the same span in which `Cargo.lock` is required. A file
 /// further up (a stray one in a home directory) does not count: the pin has
-/// to travel with the source.
+/// to travel with the source. When the workspace root is not an ancestor of
+/// the project (`package.workspace` pointing sideways), only the project
+/// directory itself is searched: rustup, run in the project, would never see
+/// a file at that root, and the search must not walk on to `/`.
 fn toolchain_file(project: &Path, root: &Path) -> Option<PathBuf> {
+    let bounded = project.starts_with(root);
     for dir in project.ancestors() {
+        if !bounded && dir != project {
+            break;
+        }
         for name in ["rust-toolchain.toml", "rust-toolchain"] {
             let p = dir.join(name);
             if p.is_file() {
@@ -225,6 +232,37 @@ fn rustc_release(dir: &Path) -> Result<String> {
         .to_owned())
 }
 
+/// The `release:` field of `<rustc> -vV` run in `dir`, with rustup's
+/// automatic toolchain installation switched off (`RUSTUP_AUTO_INSTALL=0`),
+/// so that probing a pinned toolchain never downloads it. A probe that fails
+/// (the pinned toolchain is not installed) is an error naming the program.
+fn probe_release(rustc: &std::ffi::OsStr, dir: &Path) -> Result<String> {
+    let out = Command::new(rustc)
+        .arg("-vV")
+        .current_dir(dir)
+        .env("RUSTUP_AUTO_INSTALL", "0")
+        .output()
+        .with_context(|| format!("running `{} -vV`", rustc.to_string_lossy()))?;
+    if !out.status.success() {
+        bail!(
+            "`{} -vV` in {} failed: {}",
+            rustc.to_string_lossy(),
+            dir.display(),
+            String::from_utf8_lossy(&out.stderr).trim()
+        );
+    }
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .find_map(|l| l.strip_prefix("release:"))
+        .map(|r| r.trim().to_owned())
+        .context("`rustc -vV` printed no release")
+}
+
+/// The rustc program the build uses: `$RUSTC`, else `rustc`.
+fn rustc_program() -> std::ffi::OsString {
+    std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into())
+}
+
 /// The active compiler's release when it is an exact stable one (what
 /// `entangle plugins new` writes into the scaffolded `rust-toolchain.toml`).
 /// `dir` need not exist yet: `rustc` is then asked from its nearest existing
@@ -238,25 +276,60 @@ pub fn active_exact_release(dir: &Path) -> Option<String> {
     rustc_release(from).ok().filter(|r| is_exact_toolchain(r))
 }
 
-/// Fail with `ENTANGLE-E0943` unless the project pins its Rust toolchain to
-/// an exact release **and** that is the compiler about to be used.
+/// How [`require_pinned_toolchain`] treats a missing, floating or
+/// mismatched pin.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PinPolicy {
+    /// `entangle plugins build` of a project: the pin is a hard error
+    /// (`ENTANGLE-E0943`).
+    Require,
+    /// Builds the CLI makes on the user's behalf (`plugins install NAME`,
+    /// `quickstart`) and the rebuild of `verify --rebuild`: print the same
+    /// message as a warning and go on. `verify --rebuild` still compares the
+    /// recorded toolchain with the local one and reports a difference as its
+    /// verdict.
+    Warn,
+}
+
+/// Check that the project pins its Rust toolchain to an exact release
+/// **and** that this is the compiler about to be used.
 ///
 /// 1. A `rust-toolchain.toml` must exist in the project or between it and
-///    its workspace root ([`toolchain_file`]).
+///    its workspace root ([`toolchain_file`]); a project with both
+///    `rust-toolchain` and `rust-toolchain.toml` in one directory is refused
+///    (rustup prefers the legacy file, so the `.toml` one would be a dead
+///    letter).
 /// 2. Its `channel` must be an exact stable release ([`is_exact_toolchain`]).
 /// 3. `rustc -vV`, run in the project directory with the current
-///    environment, must report that release. This catches a
-///    `RUSTUP_TOOLCHAIN` override and a toolchain not managed by rustup,
-///    both of which make the file a dead letter.
+///    environment (and rustup's auto-install off), must report that
+///    release. This catches a `RUSTUP_TOOLCHAIN` override and a toolchain
+///    not managed by rustup, both of which make the file a dead letter.
 ///
-/// Returns the pinned release. Reads files and runs `rustc -vV`; nothing is
-/// fetched or written.
-pub fn require_pinned_toolchain(project: &Path) -> Result<String> {
+/// With [`PinPolicy::Require`] a failed check is an `ENTANGLE-E0943` error;
+/// with [`PinPolicy::Warn`] it is printed to stderr as a warning and the
+/// result is `Ok(None)`. Returns the pinned release when the check passes.
+/// Reads files and runs `rustc -vV`; nothing is fetched, built or written.
+pub fn require_pinned_toolchain(project: &Path, policy: PinPolicy) -> Result<Option<String>> {
+    match check_pinned_toolchain(project, &rustc_program()) {
+        Ok(v) => Ok(Some(v)),
+        Err(e) if policy == PinPolicy::Warn => {
+            eprintln!(
+                "warning: {e:#}\n(continuing: the exact pin is enforced by `entangle plugins \
+                 build`; this build may not reproduce a published package)"
+            );
+            Ok(None)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// [`require_pinned_toolchain`]'s check with an explicit rustc program.
+fn check_pinned_toolchain(project: &Path, rustc: &std::ffi::OsStr) -> Result<String> {
     let project = std::fs::canonicalize(project)
         .with_context(|| format!("resolving {}", project.display()))?;
     let root = workspace_root(&project);
     let example = || {
-        rustc_release(&project)
+        probe_release(rustc, &project)
             .ok()
             .filter(|r| is_exact_toolchain(r))
             .unwrap_or_else(|| "1.91.1".to_owned())
@@ -268,11 +341,22 @@ pub fn require_pinned_toolchain(project: &Path) -> Result<String> {
              A reproducible package pins the compiler that builds it. Create {} with\n\n  \
              [toolchain]\n  channel = \"{v}\"\n\n\
              (an exact release, not \"stable\"), commit it, and build again. Nothing was \
-             fetched or written.",
+             built or written.",
             project.display(),
             project.join("rust-toolchain.toml").display(),
         );
     };
+    if let Some(dir) = file.parent() {
+        if dir.join("rust-toolchain").is_file() && dir.join("rust-toolchain.toml").is_file() {
+            bail!(
+                "ENTANGLE-E0943: {} holds both `rust-toolchain` and `rust-toolchain.toml`.\n\
+                 rustup uses the legacy `rust-toolchain` file and ignores the other, so the \
+                 pin is ambiguous. Keep one (`rust-toolchain.toml`) and build again. Nothing \
+                 was built or written.",
+                dir.display()
+            );
+        }
+    }
     let channel = toolchain_channel(&file)?;
     if !is_exact_toolchain(&channel) {
         let v = example();
@@ -280,11 +364,20 @@ pub fn require_pinned_toolchain(project: &Path) -> Result<String> {
             "ENTANGLE-E0943: {} pins channel = {channel:?}, which is not an exact release: it \
              names whatever toolchain that resolves to on the day of the build.\n\
              Pin a full version instead, e.g.\n\n  [toolchain]\n  channel = \"{v}\"\n\n\
-             Nothing was fetched or written.",
+             Nothing was built or written.",
             file.display()
         );
     }
-    let active = rustc_release(&project)?;
+    let active = probe_release(rustc, &project).map_err(|e| {
+        anyhow::anyhow!(
+            "ENTANGLE-E0943: {} pins Rust {channel}, but asking the compiler for its version \
+             failed ({e:#}).\n\
+             With rustup, install the pinned toolchain first:\n  \
+             rustup toolchain install {channel} --target wasm32-wasip2\n\
+             Nothing was built or written.",
+            file.display()
+        )
+    })?;
     if active != channel {
         bail!(
             "ENTANGLE-E0943: {} pins Rust {channel}, but the compiler that would build this \
@@ -1176,13 +1269,20 @@ pub fn verify_rebuild(
         ));
     }
     let rebuilt = if files.native {
-        crate::cmd::package::build_native_in(&manifest_path, Some(scratch.path()), Some(epoch))?.exe
+        crate::cmd::package::build_native_in(
+            &manifest_path,
+            Some(scratch.path()),
+            Some(epoch),
+            PinPolicy::Warn,
+        )?
+        .exe
     } else {
         crate::cmd::package::build_wasm_in(
             &manifest_path,
             target,
             Some(scratch.path()),
             Some(epoch),
+            PinPolicy::Warn,
         )?
         .wasm
     };
@@ -1386,7 +1486,9 @@ mod tests {
         assert_eq!(root, ws.join("outer/ws"));
         // The file above the workspace root does not pin this project.
         assert_eq!(toolchain_file(&member, &root), None);
-        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        let e = require_pinned_toolchain(&member, PinPolicy::Require)
+            .unwrap_err()
+            .to_string();
         assert!(e.starts_with("ENTANGLE-E0943"), "{e}");
         assert!(e.contains("rust-toolchain.toml missing"), "{e}");
         assert!(e.contains("[toolchain]") && e.contains("channel = "), "{e}");
@@ -1400,7 +1502,9 @@ mod tests {
             toolchain_file(&member, &root),
             Some(root.join("rust-toolchain.toml"))
         );
-        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        let e = require_pinned_toolchain(&member, PinPolicy::Require)
+            .unwrap_err()
+            .to_string();
         assert!(
             e.starts_with("ENTANGLE-E0943") && e.contains("\"stable\""),
             "{e}"
@@ -1414,7 +1518,9 @@ mod tests {
             toolchain_file(&member, &root),
             Some(member.join("rust-toolchain.toml"))
         );
-        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        let e = require_pinned_toolchain(&member, PinPolicy::Require)
+            .unwrap_err()
+            .to_string();
         assert!(
             e.contains("\"1.91\"") && e.contains("not an exact release"),
             "{e}"
@@ -1425,43 +1531,145 @@ mod tests {
             &member.join("rust-toolchain.toml"),
             "[toolchain]\nprofile = \"minimal\"\n",
         );
-        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        let e = require_pinned_toolchain(&member, PinPolicy::Require)
+            .unwrap_err()
+            .to_string();
         assert!(e.contains("has no `[toolchain] channel`"), "{e}");
         std::fs::remove_file(member.join("rust-toolchain.toml")).unwrap();
         std::fs::remove_file(root.join("rust-toolchain.toml")).unwrap();
         write(&member.join("rust-toolchain"), "nightly\n");
-        let e = require_pinned_toolchain(&member).unwrap_err().to_string();
+        let e = require_pinned_toolchain(&member, PinPolicy::Require)
+            .unwrap_err()
+            .to_string();
         assert!(e.contains("\"nightly\""), "{e}");
     }
 
+    /// A fake `rustc` that reports `release` from `-vV` (and nothing else).
+    #[cfg(unix)]
+    fn fake_rustc(dir: &Path, release: &str) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt as _;
+        let p = dir.join("fake-rustc");
+        std::fs::write(
+            &p,
+            format!(
+                "#!/bin/sh\necho \"rustc {release} (0000000 2025-01-01)\"\n\
+                 echo \"release: {release}\"\necho \"commit-hash: 0000000\"\n"
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        p
+    }
+
     /// An exact pin that is not the compiler in use is refused; the pin
-    /// equal to the active compiler passes.
+    /// equal to the active compiler passes. A fake rustc makes this
+    /// independent of the toolchain running the test.
+    #[cfg(unix)]
     #[test]
     fn toolchain_pin_must_be_the_compiler_in_use() {
+        let d = tempfile::tempdir().unwrap();
+        let bin = tempfile::tempdir().unwrap();
+        write(
+            &d.path().join("Cargo.toml"),
+            &format!("{PKG}\n[workspace]\n"),
+        );
+        let rustc = fake_rustc(bin.path(), "1.92.0");
+        write(
+            &d.path().join("rust-toolchain.toml"),
+            "[toolchain]\nchannel = \"1.91.1\"\n",
+        );
+        let e = check_pinned_toolchain(d.path(), rustc.as_os_str())
+            .unwrap_err()
+            .to_string();
+        assert!(e.starts_with("ENTANGLE-E0943"), "{e}");
+        assert!(
+            e.contains("pins Rust 1.91.1") && e.contains("Rust 1.92.0"),
+            "{e}"
+        );
+        assert!(e.contains("Nothing was built or written"), "{e}");
+        assert!(!e.contains("fetched"), "{e}");
+        let rustc = fake_rustc(bin.path(), "1.91.1");
+        assert_eq!(
+            check_pinned_toolchain(d.path(), rustc.as_os_str()).unwrap(),
+            "1.91.1"
+        );
+        // A compiler that cannot be asked (the pinned rustup toolchain is not
+        // installed, and auto-install is off for the probe) names the fix.
+        let missing = bin.path().join("no-such-rustc");
+        let e = check_pinned_toolchain(d.path(), missing.as_os_str())
+            .unwrap_err()
+            .to_string();
+        assert!(e.starts_with("ENTANGLE-E0943"), "{e}");
+        assert!(e.contains("rustup toolchain install 1.91.1"), "{e}");
+    }
+
+    /// `PinPolicy::Warn` (catalog self-builds, `verify --rebuild`) turns every
+    /// refusal into a warning and goes on.
+    #[test]
+    fn warn_policy_does_not_stop_the_build() {
         let d = tempfile::tempdir().unwrap();
         write(
             &d.path().join("Cargo.toml"),
             &format!("{PKG}\n[workspace]\n"),
         );
-        let active = rustc_release(d.path()).unwrap();
-        assert!(is_exact_toolchain(&active), "test toolchain: {active}");
+        assert_eq!(
+            require_pinned_toolchain(d.path(), PinPolicy::Warn).unwrap(),
+            None
+        );
+        assert!(require_pinned_toolchain(d.path(), PinPolicy::Require).is_err());
+    }
 
-        // 0.0.1 is never the active compiler, and with RUSTUP_TOOLCHAIN set
-        // (as it is under `cargo test`) rustup does not try to install it.
-        if std::env::var_os("RUSTUP_TOOLCHAIN").is_some() {
-            write(
-                &d.path().join("rust-toolchain.toml"),
-                "[toolchain]\nchannel = \"0.0.1\"\n",
-            );
-            let e = require_pinned_toolchain(d.path()).unwrap_err().to_string();
-            assert!(e.starts_with("ENTANGLE-E0943"), "{e}");
-            assert!(e.contains("pins Rust 0.0.1") && e.contains(&active), "{e}");
-            write(
-                &d.path().join("rust-toolchain.toml"),
-                &format!("[toolchain]\nchannel = \"{active}\"\n"),
-            );
-            assert_eq!(require_pinned_toolchain(d.path()).unwrap(), active);
-        }
+    /// Both toolchain files in one directory: rustup would use the legacy
+    /// one, so the pin is ambiguous and refused.
+    #[test]
+    fn both_toolchain_files_are_refused() {
+        let d = tempfile::tempdir().unwrap();
+        write(
+            &d.path().join("Cargo.toml"),
+            &format!("{PKG}\n[workspace]\n"),
+        );
+        write(
+            &d.path().join("rust-toolchain.toml"),
+            "[toolchain]\nchannel = \"1.91.1\"\n",
+        );
+        write(&d.path().join("rust-toolchain"), "nightly\n");
+        let e = require_pinned_toolchain(d.path(), PinPolicy::Require)
+            .unwrap_err()
+            .to_string();
+        assert!(e.starts_with("ENTANGLE-E0943"), "{e}");
+        assert!(
+            e.contains("both `rust-toolchain` and `rust-toolchain.toml`"),
+            "{e}"
+        );
+    }
+
+    /// `package.workspace` pointing sideways: the search covers the project
+    /// directory only and never walks on to `/`.
+    #[test]
+    fn toolchain_search_stops_when_the_workspace_root_is_not_an_ancestor() {
+        let d = tempfile::tempdir().unwrap();
+        let base = std::fs::canonicalize(d.path()).unwrap();
+        write(
+            &base.join("rust-toolchain.toml"),
+            "[toolchain]\nchannel = \"1.91.1\"\n",
+        );
+        write(&base.join("ws/Cargo.toml"), "[workspace]\nmembers = []\n");
+        write(
+            &base.join("a/member/Cargo.toml"),
+            "[package]\nname = \"m\"\nversion = \"0.1.0\"\nworkspace = \"../../ws\"\n",
+        );
+        let member = base.join("a/member");
+        let root = workspace_root(&member);
+        assert_eq!(root, base.join("ws"));
+        assert_eq!(toolchain_file(&member, &root), None);
+        write(
+            &member.join("rust-toolchain.toml"),
+            "[toolchain]\nchannel = \"1.91.1\"\n",
+        );
+        assert_eq!(
+            toolchain_file(&member, &root),
+            Some(member.join("rust-toolchain.toml"))
+        );
     }
 
     #[test]

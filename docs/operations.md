@@ -2016,9 +2016,16 @@ source produce the same bytes: absolute paths are remapped out of the wasm
   or its cargo workspace root (a file further up does not count) whose `channel` is an
   exact release such as `"1.91.1"`. `"stable"`, `"nightly"` and a bare `"1.91"` are
   refused, and so is a pin that is not the compiler actually in use (`RUSTUP_TOOLCHAIN`,
-  `cargo +toolchain` or a toolchain not managed by rustup overriding the file):
-  `ENTANGLE-E0943`, before anything is fetched or written. `plugins new` writes the file
-  for the release in use. With rustup, an exact pin makes cargo use (and if necessary
+  `cargo +toolchain` or a toolchain not managed by rustup overriding the file), and so
+  is a directory holding both `rust-toolchain` and `rust-toolchain.toml`:
+  `ENTANGLE-E0943`, before anything is built or written (the compiler probe runs with
+  `RUSTUP_AUTO_INSTALL=0`, so a missing pinned toolchain is reported, not downloaded).
+  The search for the file stops at the cargo workspace root; when `package.workspace`
+  names a root that is not an ancestor, only the project directory counts. This is a
+  hard rule for `plugins build` only: `plugins install NAME`, `quickstart` and the
+  rebuild of `plugins verify --rebuild` print the same message as a warning and go on
+  (`verify --rebuild` still fails when the recorded toolchain differs from the local
+  one). `plugins new` writes the file for the release in use. With rustup, an exact pin makes cargo use (and if necessary
   download) exactly that toolchain in the project directory; list the wasm target in the
   file (`targets = ["wasm32-wasip2"]`) so it is installed with it. Packaging a pre-built
   artifact (`--wasm`, `--bin`) compiles nothing and needs no pin.

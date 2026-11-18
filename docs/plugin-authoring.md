@@ -358,7 +358,7 @@ these open:
 | Rule | Refused with | Fix |
 |------|--------------|-----|
 | A committed `Cargo.lock` | `ENTANGLE-E0830` | `cargo generate-lockfile` |
-| A `rust-toolchain.toml` in the project (or its cargo workspace root) whose `channel` is an exact release, and which is the compiler in use | `ENTANGLE-E0943` | `channel = "1.91.1"`, not `"stable"`, `"nightly"` or `"1.91"` |
+| A `rust-toolchain.toml` in the project (or its cargo workspace root) whose `channel` is an exact release, and which is the compiler in use; not both `rust-toolchain` and `rust-toolchain.toml` in one directory | `ENTANGLE-E0943` | `channel = "1.91.1"`, not `"stable"`, `"nightly"` or `"1.91"` |
 | `[build] wit_world` names an exact version | `ENTANGLE-E0942` | `entangle:plugin@0.1.0/plugin` |
 | Every WIT `import` / `export` / `use` / `include` of another package's item names an exact version, in the project's `.wit` files and those of its path dependencies | `ENTANGLE-E0942`, listing each as `file:line: reference` | `import wasi:io/streams@0.2.0;` |
 
@@ -376,8 +376,16 @@ With rustup, cargo run in the project directory then uses exactly that
 toolchain, installing it and the listed target if they are missing. If the
 build says the pin "is not the compiler that would build this package",
 something overrides the file: unset `RUSTUP_TOOLCHAIN`, drop `cargo
-+<toolchain>`, or build with the pinned release. Bump the pin deliberately,
-like a dependency.
++<toolchain>`, or build with the pinned release. If asking the pinned
+compiler for its version fails, the toolchain is not installed: the check
+does not download it (`rustup toolchain install <release>` does). Bump the
+pin deliberately, like a dependency.
+
+These pin rules are hard errors for `entangle plugins build` only. When the
+CLI builds a catalog plugin for you (`plugins install NAME`, `quickstart`) or
+rebuilds a package for `plugins verify --rebuild`, a pin problem is printed
+as a warning and the build goes on; `verify --rebuild` still reports a
+toolchain different from the recorded one as its verdict.
 
 Because the signature covers the manifest as well as the wasm, editing
 `dist/entangle.toml` after signing (raising the tier, adding a capability)

@@ -544,7 +544,7 @@ pub fn prepare(entry: &CatalogEntry, opts: &InstallOptions) -> Result<Prepared> 
     // exact rustup command instead of a wall of cargo output.
     let native = entry.runtime == "native";
     if opts.wasm.is_none() && !native {
-        package::ensure_target_installed(&opts.target)?;
+        package::ensure_target_installed(&opts.target, &entry.dir)?;
     }
 
     let out = opts
@@ -560,6 +560,10 @@ pub fn prepare(entry: &CatalogEntry, opts: &InstallOptions) -> Result<Prepared> 
         bin: opts.wasm.clone().filter(|_| native),
         target: opts.target.clone(),
         threads: 1,
+        // A self-build from the catalog warns about the pin instead of
+        // refusing: the user asked for a working plugin, not a reproducible
+        // release (`plugins build` keeps the hard rule).
+        pin_policy: crate::cmd::repro::PinPolicy::Warn,
     })
     .with_context(|| {
         format!(

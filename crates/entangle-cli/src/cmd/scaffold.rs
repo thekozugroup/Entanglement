@@ -940,8 +940,12 @@ mod tests {
         assert!(crate::cmd::repro::is_exact_toolchain(&channel), "{channel}");
         if std::env::var_os("RUSTUP_TOOLCHAIN").is_some() {
             assert_eq!(
-                crate::cmd::repro::require_pinned_toolchain(&dir).unwrap(),
-                channel
+                crate::cmd::repro::require_pinned_toolchain(
+                    &dir,
+                    crate::cmd::repro::PinPolicy::Require
+                )
+                .unwrap(),
+                Some(channel)
             );
         }
     }

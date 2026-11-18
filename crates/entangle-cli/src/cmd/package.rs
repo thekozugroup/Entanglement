@@ -73,6 +73,11 @@ pub struct BuildOptions {
     /// the reproducible archive; more is faster but not bit-stable across
     /// thread counts.
     pub threads: u32,
+    /// How an inexact or mismatched toolchain pin is treated:
+    /// [`repro::PinPolicy::Require`] for `plugins build`,
+    /// [`repro::PinPolicy::Warn`] for builds the CLI makes on the user's
+    /// behalf (`plugins install NAME`, `quickstart`).
+    pub pin_policy: repro::PinPolicy,
 }
 
 // ---------------------------------------------------------------------------
@@ -335,10 +340,15 @@ fn cargo_bin() -> String {
 // Build driver
 // ---------------------------------------------------------------------------
 
-/// Fail early with an actionable message when the wasm target is missing.
-pub fn ensure_target_installed(target: &str) -> Result<()> {
+/// Fail early with an actionable message when the wasm target is missing
+/// from the toolchain that builds `project`. `rustup` runs in the project
+/// directory, so its `rust-toolchain.toml` selects the toolchain whose
+/// targets are listed; rustup's auto-install is off for the query.
+pub fn ensure_target_installed(target: &str, project: &Path) -> Result<()> {
     let out = match Command::new("rustup")
         .args(["target", "list", "--installed"])
+        .current_dir(project)
+        .env("RUSTUP_AUTO_INSTALL", "0")
         .output()
     {
         Ok(o) if o.status.success() => o,
@@ -518,7 +528,7 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
                         cargo_manifest.display()
                     );
                 }
-                let built = build_native_in(&cargo_manifest, None, None)?;
+                let built = build_native_in(&cargo_manifest, None, None, opts.pin_policy)?;
                 recipe = Some(built.recipe);
                 built.exe
             }
@@ -545,7 +555,8 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
                         cargo_manifest.display()
                     );
                 }
-                let built = build_wasm_in(&cargo_manifest, &opts.target, None, None)?;
+                let built =
+                    build_wasm_in(&cargo_manifest, &opts.target, None, None, opts.pin_policy)?;
                 recipe = Some(built.recipe);
                 built.wasm
             }
@@ -617,6 +628,7 @@ pub fn build_wasm_in(
     target: &str,
     target_dir: Option<&Path>,
     source_date_epoch: Option<u64>,
+    pin_policy: repro::PinPolicy,
 ) -> Result<WasmBuild> {
     let cargo_manifest = &absolute_manifest(cargo_manifest)?;
     // ATC-PKG-3: refuse before touching rustup, cargo, or the network.
@@ -626,8 +638,8 @@ pub fn build_wasm_in(
         .unwrap_or_else(|| Path::new("."));
     repro::require_lockfile(project)?;
     // Spec §9.3 "Toolchain": an exact pin that is also the compiler in use.
-    repro::require_pinned_toolchain(project)?;
-    ensure_target_installed(target)?;
+    repro::require_pinned_toolchain(project, pin_policy)?;
+    ensure_target_installed(target, project)?;
 
     let info = cargo_metadata(cargo_manifest)?;
     if !info.is_cdylib {
@@ -795,11 +807,12 @@ pub fn build_native_in(
     cargo_manifest: &Path,
     target_dir: Option<&Path>,
     source_date_epoch: Option<u64>,
+    pin_policy: repro::PinPolicy,
 ) -> Result<NativeBuild> {
     let cargo_manifest = &absolute_manifest(cargo_manifest)?;
     let project = project_dir_for(cargo_manifest);
     repro::require_lockfile(&project)?;
-    repro::require_pinned_toolchain(&project)?;
+    repro::require_pinned_toolchain(&project, pin_policy)?;
     let info = cargo_metadata(cargo_manifest)?;
     let bin = native_bin(cargo_manifest, &info)?;
     let target_root = match target_dir {
