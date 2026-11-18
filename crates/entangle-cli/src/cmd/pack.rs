@@ -199,10 +199,7 @@ pub async fn run(args: PackArgs) -> Result<()> {
         hex::encode(sha2::Sha256::digest(&pack_bytes))
     );
     for p in &pack.packages {
-        println!(
-            "  {}  (publisher {})",
-            p.entry.plugin_id, p.entry.publisher
-        );
+        println!("  {}  (publisher {})", p.entry.plugin_id, p.entry.publisher);
     }
     if args.output.extension().and_then(|e| e.to_str()) != Some(PACK_EXTENSION) {
         eprintln!(

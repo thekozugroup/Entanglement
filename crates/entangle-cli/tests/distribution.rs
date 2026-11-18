@@ -184,7 +184,12 @@ async fn https_install_over_tls_checks_the_detached_signature_then_installs() {
     let publisher = kp(1);
     trust(&home, &[&publisher]);
     let pkg = archive(&publisher, "hello", 1);
-    serve(&srv.mock, "/releases/v0.1/hello-0.1.0.tar.zst", &pkg, &publisher);
+    serve(
+        &srv.mock,
+        "/releases/v0.1/hello-0.1.0.tar.zst",
+        &pkg,
+        &publisher,
+    );
 
     let url = format!("{}/releases/v0.1/hello-0.1.0.tar.zst", srv.mock.origin());
     assert!(url.starts_with("https://localhost:"), "{url}");
@@ -206,7 +211,11 @@ async fn https_install_over_tls_checks_the_detached_signature_then_installs() {
             "/releases/v0.1/hello-0.1.0.tar.zst"
         ]
     );
-    assert!(srv.mock.requests().iter().all(|r| r.authorization.is_none()));
+    assert!(srv
+        .mock
+        .requests()
+        .iter()
+        .all(|r| r.authorization.is_none()));
 
     // What is on disk is exactly the signed package.
     let on_disk = PackageFiles::read_dir(&home.path().join("installed")).unwrap();
@@ -271,7 +280,10 @@ async fn https_install_needs_a_trusted_certificate_for_the_name_dialled() {
     let (_, se) = s(&out);
     assert!(!out.status.success());
     assert!(se.contains("ENTANGLE-E0802") && se.contains("TLS"), "{se}");
-    assert!(srv.mock.requests().is_empty(), "no request before the handshake");
+    assert!(
+        srv.mock.requests().is_empty(),
+        "no request before the handshake"
+    );
     nothing_installed(&home);
 
     // With the CA, but dialling the address the certificate is not for.
@@ -299,7 +311,10 @@ async fn https_install_refusals_write_nothing() {
     let run = |path: &str| install_url(&home, &srv.ca_pem, &format!("{origin}{path}"));
     let refused = |out: &std::process::Output, needles: &[&str]| {
         let (so, se) = s(out);
-        assert!(!out.status.success(), "should have been refused:\n{so}\n{se}");
+        assert!(
+            !out.status.success(),
+            "should have been refused:\n{so}\n{se}"
+        );
         for n in needles {
             assert!(se.contains(n), "expected {n:?} in:\n{se}");
         }
@@ -309,7 +324,10 @@ async fn https_install_refusals_write_nothing() {
     // No detached signature published.
     srv.mock.put_file("/nosig.tar.zst", &pkg);
     let before = srv.mock.requests().len();
-    refused(&run("/nosig.tar.zst"), &["ENTANGLE-E0823", "nosig.tar.zst.sig"]);
+    refused(
+        &run("/nosig.tar.zst"),
+        &["ENTANGLE-E0823", "nosig.tar.zst.sig"],
+    );
     // ...and the archive itself was not even requested.
     assert_eq!(srv.mock.requests().len(), before + 1);
 
@@ -340,8 +358,10 @@ async fn https_install_refusals_write_nothing() {
     let mid = corrupt.len() / 2;
     corrupt[mid] ^= 0x55;
     srv.mock.put_file("/corrupt.tar.zst", &corrupt);
-    srv.mock
-        .put_file("/corrupt.tar.zst.sig", &sign_archive(&pkg, &publisher).unwrap());
+    srv.mock.put_file(
+        "/corrupt.tar.zst.sig",
+        &sign_archive(&pkg, &publisher).unwrap(),
+    );
     refused(&run("/corrupt.tar.zst"), &["ENTANGLE-E0823"]);
 
     // Detached signature by one trusted publisher over another's package.
@@ -353,7 +373,8 @@ async fn https_install_refusals_write_nothing() {
 
     // A signature document that is not one.
     srv.mock.put_file("/junk.tar.zst", &pkg);
-    srv.mock.put_file("/junk.tar.zst.sig", b"-----BEGIN PGP SIGNATURE-----");
+    srv.mock
+        .put_file("/junk.tar.zst.sig", b"-----BEGIN PGP SIGNATURE-----");
     refused(&run("/junk.tar.zst"), &["ENTANGLE-E0823"]);
 
     // An oversized "signature" is cut off at its cap.
@@ -693,11 +714,17 @@ fn pack_with_a_tampered_package_is_refused_and_installs_nothing() {
             (&evil_name, &evil_bytes),
         ],
     );
-    assert!(read_pack(&tar).is_ok(), "the forged container is well-formed");
+    assert!(
+        read_pack(&tar).is_ok(),
+        "the forged container is well-formed"
+    );
     let out = install(&tar);
     let (_, se) = s(&out);
     assert!(!out.status.success());
-    assert!(se.contains("ENTANGLE-E0102") || se.contains("ENTANGLE-E0100"), "{se}");
+    assert!(
+        se.contains("ENTANGLE-E0102") || se.contains("ENTANGLE-E0100"),
+        "{se}"
+    );
     assert!(se.contains("nothing from the pack was installed"), "{se}");
     // All or nothing: the untouched alpha was not installed either.
     nothing_installed(&receiver);
@@ -775,7 +802,9 @@ fn pack_keys_are_never_trusted_automatically() {
         .unwrap();
     let (so, se) = s(&out);
     assert!(out.status.success(), "{so}\n{se}");
-    let printed = so.find(&bob.fingerprint_hex()).expect("fingerprint printed");
+    let printed = so
+        .find(&bob.fingerprint_hex())
+        .expect("fingerprint printed");
     let saved = so.find("saved 1 new key").expect("key saved");
     assert!(printed < saved, "fingerprints come before the key is saved");
     let ring = keyring_of(&receiver);
@@ -928,7 +957,10 @@ fn mirror_set_get_unset_round_trip_and_bad_urls_are_refused() {
         "mirror.example.org",
         "https://u:hunter2@mirror.example.org",
     ] {
-        let o = entangle(&home).args(["mirror", "set", bad]).output().unwrap();
+        let o = entangle(&home)
+            .args(["mirror", "set", bad])
+            .output()
+            .unwrap();
         assert!(!o.status.success(), "{bad}");
         let se = s(&o).1;
         assert!(
@@ -1042,7 +1074,10 @@ async fn oci_install_prefers_the_mirror_over_tls_and_falls_back_to_the_origin() 
     let out = install("late");
     let (so, se) = s(&out);
     assert!(out.status.success(), "{so}\n{se}");
-    assert!(se.contains("warning: mirror") && se.contains("trying the next source"), "{se}");
+    assert!(
+        se.contains("warning: mirror") && se.contains("trying the next source"),
+        "{se}"
+    );
     assert!(home.path().join(".entangle/plugins/late").is_dir());
 
     // (c) The mirror serves a package that does not verify: skipped with a
@@ -1061,7 +1096,10 @@ async fn oci_install_prefers_the_mirror_over_tls_and_falls_back_to_the_origin() 
     let out = install("absent");
     let (_, se) = s(&out);
     assert!(!out.status.success());
-    assert!(se.contains("every source failed") && se.contains("mirror https://"), "{se}");
+    assert!(
+        se.contains("every source failed") && se.contains("mirror https://"),
+        "{se}"
+    );
 
     // (e) Without the CA the mirror's certificate is not trusted: the pull
     // falls back to the origin instead of trusting the mirror blindly.
@@ -1078,7 +1116,11 @@ async fn oci_install_prefers_the_mirror_over_tls_and_falls_back_to_the_origin() 
     let (so, se) = s(&out);
     assert!(out.status.success(), "{so}\n{se}");
     assert!(se.contains("TLS"), "{se}");
-    assert_eq!(mirror.mock.requests().len(), before, "no request without TLS");
+    assert_eq!(
+        mirror.mock.requests().len(),
+        before,
+        "no request without TLS"
+    );
 
     // (f) After `mirror unset` only the origin is used.
     assert!(entangle(&home)
@@ -1112,7 +1154,8 @@ async fn tags_refuses_a_rolled_back_listing_until_the_operator_accepts_it() {
     keys.save(&home.path().join(".entangle/mirror-keys.toml"))
         .unwrap();
 
-    let reference = Reference::parse(&format!("oci://{}/acme/tool:latest", mock.registry())).unwrap();
+    let reference =
+        Reference::parse(&format!("oci://{}/acme/tool:latest", mock.registry())).unwrap();
     let client = OciClient::for_reference(&reference, Default::default()).unwrap();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1154,7 +1197,10 @@ async fn tags_refuses_a_rolled_back_listing_until_the_operator_accepts_it() {
         assert_eq!(mode & 0o777, 0o600, "{mode:o}");
     }
     let recorded = std::fs::read_to_string(&state_file).unwrap();
-    assert!(recorded.contains(&format!("generated_at = {}", now - 60)), "{recorded}");
+    assert!(
+        recorded.contains(&format!("generated_at = {}", now - 60)),
+        "{recorded}"
+    );
 
     // Then an older one, still correctly signed and unexpired.
     publish_listing(&client, &reference, &listing(now - 7 * 86_400), &mirror_key)
@@ -1163,9 +1209,15 @@ async fn tags_refuses_a_rolled_back_listing_until_the_operator_accepts_it() {
     let out = tags(&[]);
     let (so, se) = s(&out);
     assert!(!out.status.success(), "{so}\n{se}");
-    assert!(so.contains("ROLLED BACK") && so.contains("ENTANGLE-E0820"), "{so}");
+    assert!(
+        so.contains("ROLLED BACK") && so.contains("ENTANGLE-E0820"),
+        "{so}"
+    );
     assert!(so.contains("not covered by a verified listing"), "{so}");
-    assert!(se.contains("ENTANGLE-E0820") && se.contains("--accept-older-listing"), "{se}");
+    assert!(
+        se.contains("ENTANGLE-E0820") && se.contains("--accept-older-listing"),
+        "{se}"
+    );
     assert_eq!(std::fs::read_to_string(&state_file).unwrap(), recorded);
     // JSON carries the same verdict.
     let out = entangle(&home)

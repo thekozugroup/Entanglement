@@ -1070,7 +1070,10 @@ mod install_source_tests {
     fn install_arguments_are_classified_by_shape() {
         for (arg, want) in [
             ("oci://ghcr.io/acme/tool:1.0.0", InstallSource::Oci),
-            ("https://example.org/dl/tool-0.1.0.tar.zst", InstallSource::Url),
+            (
+                "https://example.org/dl/tool-0.1.0.tar.zst",
+                InstallSource::Url,
+            ),
             ("http://127.0.0.1:8080/tool.tar.zst", InstallSource::Url),
             ("HTTPS://EXAMPLE.ORG/x.tar.zst", InstallSource::Url),
             ("./plugins.entanglepack", InstallSource::Pack),

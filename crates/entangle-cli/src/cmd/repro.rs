@@ -422,7 +422,12 @@ fn collect_wit_files(dir: &Path, top: bool, out: &mut Vec<PathBuf>) {
 pub fn require_pinned_wit_world(manifest_text: &str, manifest_path: &Path) -> Result<()> {
     let Some(world) = toml::from_str::<toml::Table>(manifest_text)
         .ok()
-        .and_then(|d| d.get("build")?.get("wit_world")?.as_str().map(str::to_owned))
+        .and_then(|d| {
+            d.get("build")?
+                .get("wit_world")?
+                .as_str()
+                .map(str::to_owned)
+        })
     else {
         return Ok(());
     };
@@ -948,8 +953,7 @@ pub fn write_archive(
     std::fs::write(&path, &bytes).with_context(|| format!("writing {}", path.display()))?;
     let signature = dist.join(format!("{stem}.tar.zst.sig"));
     let sig = entangle_oci::sign_archive(&bytes, keypair).map_err(|e| anyhow::anyhow!("{e}"))?;
-    std::fs::write(&signature, sig)
-        .with_context(|| format!("writing {}", signature.display()))?;
+    std::fs::write(&signature, sig).with_context(|| format!("writing {}", signature.display()))?;
     Ok(ArchiveInfo {
         path,
         sha256: hex::encode(Sha256::digest(&bytes)),
@@ -1310,8 +1314,14 @@ mod tests {
     fn toolchain_pin_is_found_between_the_project_and_its_workspace_root_only() {
         let d = tempfile::tempdir().unwrap();
         let ws = std::fs::canonicalize(d.path()).unwrap();
-        write(&ws.join("outer/rust-toolchain.toml"), "[toolchain]\nchannel = \"1.91.1\"\n");
-        write(&ws.join("outer/ws/Cargo.toml"), "[workspace]\nmembers = [\"member\"]\n");
+        write(
+            &ws.join("outer/rust-toolchain.toml"),
+            "[toolchain]\nchannel = \"1.91.1\"\n",
+        );
+        write(
+            &ws.join("outer/ws/Cargo.toml"),
+            "[workspace]\nmembers = [\"member\"]\n",
+        );
         write(&ws.join("outer/ws/member/Cargo.toml"), PKG);
         let member = ws.join("outer/ws/member");
         let root = workspace_root(&member);
@@ -1324,24 +1334,39 @@ mod tests {
         assert!(e.contains("[toolchain]") && e.contains("channel = "), "{e}");
 
         // At the workspace root it does; in the project it wins.
-        write(&root.join("rust-toolchain.toml"), "[toolchain]\nchannel = \"stable\"\n");
+        write(
+            &root.join("rust-toolchain.toml"),
+            "[toolchain]\nchannel = \"stable\"\n",
+        );
         assert_eq!(
             toolchain_file(&member, &root),
             Some(root.join("rust-toolchain.toml"))
         );
         let e = require_pinned_toolchain(&member).unwrap_err().to_string();
-        assert!(e.starts_with("ENTANGLE-E0943") && e.contains("\"stable\""), "{e}");
+        assert!(
+            e.starts_with("ENTANGLE-E0943") && e.contains("\"stable\""),
+            "{e}"
+        );
         assert!(e.contains("not an exact release"), "{e}");
-        write(&member.join("rust-toolchain.toml"), "[toolchain]\nchannel = \"1.91\"\n");
+        write(
+            &member.join("rust-toolchain.toml"),
+            "[toolchain]\nchannel = \"1.91\"\n",
+        );
         assert_eq!(
             toolchain_file(&member, &root),
             Some(member.join("rust-toolchain.toml"))
         );
         let e = require_pinned_toolchain(&member).unwrap_err().to_string();
-        assert!(e.contains("\"1.91\"") && e.contains("not an exact release"), "{e}");
+        assert!(
+            e.contains("\"1.91\"") && e.contains("not an exact release"),
+            "{e}"
+        );
 
         // No channel at all, and the legacy one-line file.
-        write(&member.join("rust-toolchain.toml"), "[toolchain]\nprofile = \"minimal\"\n");
+        write(
+            &member.join("rust-toolchain.toml"),
+            "[toolchain]\nprofile = \"minimal\"\n",
+        );
         let e = require_pinned_toolchain(&member).unwrap_err().to_string();
         assert!(e.contains("has no `[toolchain] channel`"), "{e}");
         std::fs::remove_file(member.join("rust-toolchain.toml")).unwrap();
@@ -1356,7 +1381,10 @@ mod tests {
     #[test]
     fn toolchain_pin_must_be_the_compiler_in_use() {
         let d = tempfile::tempdir().unwrap();
-        write(&d.path().join("Cargo.toml"), &format!("{PKG}\n[workspace]\n"));
+        write(
+            &d.path().join("Cargo.toml"),
+            &format!("{PKG}\n[workspace]\n"),
+        );
         let active = rustc_release(d.path()).unwrap();
         assert!(is_exact_toolchain(&active), "test toolchain: {active}");
 
@@ -1433,13 +1461,19 @@ mod tests {
     #[test]
     fn floating_wit_in_a_project_is_refused_naming_the_import() {
         let d = tempfile::tempdir().unwrap();
-        write(&d.path().join("wit/world.wit"), "world w {\n  import wasi:io/streams;\n}\n");
+        write(
+            &d.path().join("wit/world.wit"),
+            "world w {\n  import wasi:io/streams;\n}\n",
+        );
         write(
             &d.path().join("wit/deps/io/streams.wit"),
             "package wasi:io@0.2.0;\ninterface streams {}\n",
         );
         // Build output is not source.
-        write(&d.path().join("target/x.wit"), "world t { import a:b/c; }\n");
+        write(
+            &d.path().join("target/x.wit"),
+            "world t { import a:b/c; }\n",
+        );
         let e = require_pinned_wit_imports(&[d.path().to_path_buf()])
             .unwrap_err()
             .to_string();
@@ -1456,7 +1490,11 @@ mod tests {
         require_pinned_wit_world("[build]\nwit_world = \"entangle:plugin@0.1.0/plugin\"\n", m)
             .unwrap();
         require_pinned_wit_world("[plugin]\nid = \"x\"\n", m).unwrap();
-        for bad in ["entangle:plugin/plugin", "entangle:plugin@0.1/plugin", "plugin"] {
+        for bad in [
+            "entangle:plugin/plugin",
+            "entangle:plugin@0.1/plugin",
+            "plugin",
+        ] {
             let e = require_pinned_wit_world(&format!("[build]\nwit_world = \"{bad}\"\n"), m)
                 .unwrap_err()
                 .to_string();

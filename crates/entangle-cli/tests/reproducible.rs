@@ -131,7 +131,27 @@ fn tiny_plugin(parent: &Path, dir_name: &str, build_rs: Option<&str>, lib_rs: &s
         std::fs::write(dir.join("build.rs"), b).unwrap();
     }
     std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
+    // `plugins build` needs an exact toolchain pin (ENTANGLE-E0943).
+    std::fs::write(
+        dir.join("rust-toolchain.toml"),
+        format!("[toolchain]\nchannel = \"{}\"\n", active_rustc_release()),
+    )
+    .unwrap();
     dir
+}
+
+/// The `release:` of the rustc these tests (and the builds they start) run.
+fn active_rustc_release() -> String {
+    let out = std::process::Command::new("rustc")
+        .arg("-vV")
+        .output()
+        .expect("rustc on PATH");
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .find_map(|l| l.strip_prefix("release:"))
+        .expect("rustc -vV prints a release")
+        .trim()
+        .to_owned()
 }
 
 const TINY_LIB: &str =
@@ -1279,4 +1299,281 @@ fn atc_pkg_4_rebuild_verify_fails_on_changed_source_and_toolchain_without_buildi
         .assert()
         .failure()
         .stdout(predicate::str::contains("FAIL: ENTANGLE-E0831"));
+}
+
+// ---------------------------------------------------------------------------
+// Packager rules: pinned toolchain, exact WIT versions, --threads (spec §9.3)
+// ---------------------------------------------------------------------------
+
+fn build_tiny_raw(home: &Path, project: &Path, extra: &[&str]) -> std::process::Output {
+    entangle(home)
+        .env_remove("CARGO_TARGET_DIR")
+        .args(["plugins", "build"])
+        .arg(project)
+        .arg("--key")
+        .arg(key())
+        .args(extra)
+        .output()
+        .unwrap()
+}
+
+/// A refused build fetched, compiled and wrote nothing.
+fn assert_nothing_built(project: &Path) {
+    assert!(!project.join("dist").exists(), "dist/ was written");
+    assert!(!project.join("target").exists(), "cargo ran");
+}
+
+#[test]
+fn plugins_build_requires_an_exactly_pinned_rust_toolchain() {
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
+    let pin = project.join("rust-toolchain.toml");
+    let refused = |needles: &[&str]| {
+        let out = build_tiny_raw(home.path(), &project, &[]);
+        let err = String::from_utf8_lossy(&out.stderr).into_owned();
+        assert!(!out.status.success(), "built anyway:\n{err}");
+        assert!(err.contains("ENTANGLE-E0943"), "{err}");
+        for n in needles {
+            assert!(err.contains(n), "expected {n:?} in:\n{err}");
+        }
+        assert_nothing_built(&project);
+    };
+
+    // No pin at all: the error says what to write.
+    std::fs::remove_file(&pin).unwrap();
+    refused(&[
+        "rust-toolchain.toml missing",
+        "[toolchain]",
+        &format!("channel = \"{}\"", active_rustc_release()),
+    ]);
+
+    // Floating channels, including a bare major.minor.
+    for channel in ["stable", "nightly", "1.91", "beta"] {
+        std::fs::write(&pin, format!("[toolchain]\nchannel = \"{channel}\"\n")).unwrap();
+        refused(&[&format!("channel = {channel:?}"), "not an exact release"]);
+    }
+
+    // An exact pin that is not the compiler in use (these tests run with
+    // RUSTUP_TOOLCHAIN set by cargo, which overrides the file).
+    if std::env::var_os("RUSTUP_TOOLCHAIN").is_some() {
+        std::fs::write(&pin, "[toolchain]\nchannel = \"0.0.1\"\n").unwrap();
+        refused(&["pins Rust 0.0.1", &active_rustc_release()]);
+    }
+
+    // A pin above the workspace root does not count.
+    std::fs::remove_file(&pin).unwrap();
+    std::fs::write(
+        root.path().join("rust-toolchain.toml"),
+        format!("[toolchain]\nchannel = \"{}\"\n", active_rustc_release()),
+    )
+    .unwrap();
+    refused(&["rust-toolchain.toml missing"]);
+
+    // The pre-built path does not compile anything and needs no pin.
+    let wasm = root.path().join("prebuilt.wasm");
+    std::fs::write(&wasm, b"\0asm\x01\x00\x00\x00").unwrap();
+    let out = build_tiny_raw(home.path(), &project, &["--wasm", wasm.to_str().unwrap()]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
+fn plugins_build_refuses_floating_wit_imports() {
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
+    let manifest = project.join("entangle.toml");
+    let pinned = std::fs::read_to_string(&manifest).unwrap();
+    assert!(pinned.contains("entangle:plugin@0.1.0/plugin"));
+    let refused = |needles: &[&str]| {
+        let out = build_tiny_raw(home.path(), &project, &[]);
+        let err = String::from_utf8_lossy(&out.stderr).into_owned();
+        assert!(!out.status.success(), "built anyway:\n{err}");
+        assert!(err.contains("ENTANGLE-E0942"), "{err}");
+        assert!(err.contains("floating WIT import"), "{err}");
+        for n in needles {
+            assert!(err.contains(n), "expected {n:?} in:\n{err}");
+        }
+        assert_nothing_built(&project);
+    };
+
+    // [build] wit_world without a version, and with a partial one.
+    for world in ["entangle:plugin/plugin", "entangle:plugin@0.1/plugin"] {
+        std::fs::write(
+            &manifest,
+            pinned.replace("entangle:plugin@0.1.0/plugin", world),
+        )
+        .unwrap();
+        refused(&[world]);
+    }
+    std::fs::write(&manifest, &pinned).unwrap();
+
+    // A WIT file in the project importing another package without a version.
+    std::fs::create_dir_all(project.join("wit")).unwrap();
+    std::fs::write(
+        project.join("wit/world.wit"),
+        "package acme:tiny@0.1.0;\n\nworld tiny {\n  import wasi:io/streams@0.2.0;\n  \
+         import wasi:clocks/wall-clock;\n  // import wasi:random/random;\n}\n",
+    )
+    .unwrap();
+    refused(&["world.wit:5: wasi:clocks/wall-clock"]);
+    let out = build_tiny_raw(home.path(), &project, &[]);
+    let err = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(
+        !err.contains("world.wit:4"),
+        "pinned import reported: {err}"
+    );
+    assert!(
+        !err.contains("wasi:random"),
+        "commented import reported: {err}"
+    );
+    assert!(err.contains("floating WIT import:\n"), "one finding: {err}");
+
+    // Even a pre-built artifact is not packaged from a project with floating WIT.
+    let wasm = root.path().join("prebuilt.wasm");
+    std::fs::write(&wasm, b"\0asm\x01\x00\x00\x00").unwrap();
+    let out = build_tiny_raw(home.path(), &project, &["--wasm", wasm.to_str().unwrap()]);
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("ENTANGLE-E0942"));
+
+    // With the import pinned the project builds.
+    std::fs::write(
+        project.join("wit/world.wit"),
+        "package acme:tiny@0.1.0;\n\nworld tiny {\n  import wasi:io/streams@0.2.0;\n  \
+         import wasi:clocks/wall-clock@0.2.0;\n}\n",
+    )
+    .unwrap();
+    let _g = BUILD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let out = build_tiny_raw(home.path(), &project, &[]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// The default archive is single-threaded and comes with a detached
+/// signature; `--threads N` warns that the archive is then not bit-stable.
+#[test]
+fn threads_flag_warns_and_the_default_build_writes_a_verifying_detached_signature() {
+    let _g = BUILD_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let home = TempDir::new().unwrap();
+    let root = TempDir::new().unwrap();
+    let project = tiny_plugin(root.path(), "tiny", None, TINY_LIB);
+
+    let out = build_tiny_raw(home.path(), &project, &[]);
+    let (so, se) = (
+        String::from_utf8_lossy(&out.stdout).into_owned(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    );
+    assert!(out.status.success(), "{se}");
+    assert!(!se.contains("bit-stable"), "default build warned: {se}");
+    let archive = project.join("dist/tiny-0.1.0.tar.zst");
+    let sig = project.join("dist/tiny-0.1.0.tar.zst.sig");
+    assert!(so.contains("tiny-0.1.0.tar.zst.sig"), "{so}");
+    let default_bytes = std::fs::read(&archive).unwrap();
+    let default_sig = std::fs::read(&sig).unwrap();
+
+    // The detached signature verifies against a keyring holding the key,
+    // and names the same publisher as the package inside.
+    let pem = std::fs::read_to_string(key()).unwrap();
+    let kp = entangle_signing::IdentityKeyPair::from_pem(&pem).unwrap();
+    let mut ring = entangle_signing::Keyring::new();
+    ring.add(entangle_signing::TrustEntry {
+        fingerprint: kp.fingerprint(),
+        public_key: *kp.public().as_bytes(),
+        publisher_name: "fixture".into(),
+        added_at: 0,
+        note: String::new(),
+    });
+    let signer = entangle_oci::verify_archive_signature(&default_bytes, &default_sig, &ring)
+        .expect("detached signature verifies");
+    assert_eq!(signer, kp.fingerprint_hex());
+    assert_eq!(
+        entangle_oci::verify_package(&default_bytes, &ring)
+            .unwrap()
+            .signer_fingerprint,
+        signer
+    );
+    // Rebuilding gives the same archive and the same signature file.
+    let out = build_tiny_raw(home.path(), &project, &[]);
+    assert!(out.status.success());
+    assert_eq!(std::fs::read(&archive).unwrap(), default_bytes);
+    assert_eq!(std::fs::read(&sig).unwrap(), default_sig);
+
+    // --threads: a warning on stderr, a package with the same contents, and
+    // a detached signature that matches the bytes actually written.
+    let out = build_tiny_raw(home.path(), &project, &["--threads", "4"]);
+    let se = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(out.status.success(), "{se}");
+    assert!(
+        se.contains("warning: --threads 4") && se.contains("NOT bit-stable"),
+        "{se}"
+    );
+    let threaded = std::fs::read(&archive).unwrap();
+    assert_eq!(
+        entangle_oci::unpack(&threaded).unwrap(),
+        entangle_oci::unpack(&default_bytes).unwrap()
+    );
+    entangle_oci::verify_archive_signature(&threaded, &std::fs::read(&sig).unwrap(), &ring)
+        .expect("the signature follows the archive that was written");
+
+    // Out-of-range values are rejected by the argument parser.
+    for bad in ["0", "100000", "many"] {
+        let out = build_tiny_raw(home.path(), &project, &["--threads", bad]);
+        assert!(!out.status.success(), "--threads {bad}");
+    }
+}
+
+/// The repository's own example and catalog plugins satisfy the rules the
+/// packager now enforces: an exact toolchain pin (the release these tests
+/// build with) and a fully versioned `wit_world`.
+#[test]
+fn repository_plugins_pin_their_toolchain_and_wit_world_exactly() {
+    let exact = |v: &str| {
+        let p: Vec<&str> = v.split('.').collect();
+        p.len() == 3
+            && p.iter()
+                .all(|x| !x.is_empty() && x.bytes().all(|b| b.is_ascii_digit()))
+    };
+    let mut seen = 0;
+    for group in ["examples", "plugins"] {
+        for entry in std::fs::read_dir(repo_root().join(group)).unwrap() {
+            let dir = entry.unwrap().path();
+            if !dir.join("entangle.toml").is_file() {
+                continue;
+            }
+            seen += 1;
+            let pin = std::fs::read_to_string(dir.join("rust-toolchain.toml"))
+                .unwrap_or_else(|e| panic!("{}: no rust-toolchain.toml: {e}", dir.display()));
+            let doc: toml::Table = toml::from_str(&pin).unwrap();
+            let channel = doc["toolchain"]["channel"].as_str().unwrap();
+            assert!(exact(channel), "{}: channel {channel:?}", dir.display());
+            assert!(
+                release_matches_channel(channel, &pinned_channel()),
+                "{}: {channel} is outside the workspace's {} line",
+                dir.display(),
+                pinned_channel()
+            );
+            let manifest: toml::Table =
+                toml::from_str(&std::fs::read_to_string(dir.join("entangle.toml")).unwrap())
+                    .unwrap();
+            if let Some(world) = manifest
+                .get("build")
+                .and_then(|b| b.get("wit_world"))
+                .and_then(|w| w.as_str())
+            {
+                let version = world
+                    .split_once('@')
+                    .and_then(|(_, rest)| rest.split('/').next())
+                    .unwrap_or_else(|| panic!("{}: wit_world {world:?}", dir.display()));
+                assert!(exact(version), "{}: wit_world {world:?}", dir.display());
+            }
+        }
+    }
+    assert!(seen >= 12, "only {seen} plugin projects found");
 }

@@ -560,10 +560,7 @@ pub async fn install_pack(opts: PackInstallOptions) -> Result<()> {
     if opts.no_load {
         println!("[4/4] skipped loading (--no-load)");
         for out in &targets {
-            println!(
-                "      load with: entangle plugins load {}",
-                out.display()
-            );
+            println!("      load with: entangle plugins load {}", out.display());
         }
         return Ok(());
     }

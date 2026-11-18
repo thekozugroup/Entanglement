@@ -161,7 +161,10 @@ mod tests {
             vet(" https://mirror.example.org/oci/ ").unwrap(),
             "https://mirror.example.org/oci"
         );
-        assert_eq!(vet("http://127.0.0.1:5000").unwrap(), "http://127.0.0.1:5000");
+        assert_eq!(
+            vet("http://127.0.0.1:5000").unwrap(),
+            "http://127.0.0.1:5000"
+        );
         for bad in [
             "http://mirror.example.org",
             "mirror.example.org",

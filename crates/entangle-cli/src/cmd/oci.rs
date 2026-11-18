@@ -394,12 +394,14 @@ pub async fn tags(
             listing_state_path().display()
         );
         if require_verified {
-            return Err(anyhow::Error::from(entangle_oci::OciError::ListingRollback {
-                repository: source.client.listing_scope(&listing.repository),
-                newest_seen: *newest_seen,
-                offered: *offered,
-            })
-            .context("--require-verified was given"));
+            return Err(
+                anyhow::Error::from(entangle_oci::OciError::ListingRollback {
+                    repository: source.client.listing_scope(&listing.repository),
+                    newest_seen: *newest_seen,
+                    offered: *offered,
+                })
+                .context("--require-verified was given"),
+            );
         }
     }
     if require_verified && !matches!(listing.verification, ListingVerification::Verified { .. }) {
