@@ -492,6 +492,11 @@ pub struct BuildRecipe {
     pub rustflags: Vec<String>,
     /// `SOURCE_DATE_EPOCH` exported to the build.
     pub source_date_epoch: u64,
+    /// Host triple the artifact was built on and for. Recorded for native
+    /// plugins only (a wasm component does not depend on the build host, and
+    /// its provenance must not either).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
 }
 
 /// A build recipe plus the concrete rustc flags to run it with.
@@ -694,12 +699,36 @@ fn sysroot(dir: &Path) -> Option<PathBuf> {
         .then(|| PathBuf::from(String::from_utf8_lossy(&out.stdout).trim()))
 }
 
+/// The `host:` triple of the rustc that runs in `dir`.
+pub fn host_triple(dir: &Path) -> Result<String> {
+    let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
+    let out = Command::new(rustc)
+        .arg("-vV")
+        .current_dir(dir)
+        .output()
+        .context("running `rustc -vV` — is rustc on PATH?")?;
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .find_map(|l| l.strip_prefix("host:"))
+        .map(|h| h.trim().to_owned())
+        .context("`rustc -vV` printed no host triple")
+}
+
+/// The cargo arguments of the reproducible wasm build for `target`.
+pub fn wasm_cargo_args(target: &str) -> Vec<String> {
+    ["build", "--release", "--locked", "--target", target]
+        .map(str::to_owned)
+        .to_vec()
+}
+
 /// Assemble the recipe and the concrete rustc flags for building `manifest`
-/// into `target_dir` (cargo's effective target directory for this build)
-/// with `SOURCE_DATE_EPOCH = source_date_epoch`.
+/// with `cargo <cargo_args>` into `target_dir` (cargo's effective target
+/// directory for this build) with `SOURCE_DATE_EPOCH = source_date_epoch`.
+/// `host` is recorded as given (native builds; `None` for wasm).
 pub fn prepare_build(
     manifest: &Path,
-    target: &str,
+    cargo_args: Vec<String>,
+    host: Option<String>,
     cargo: &str,
     target_dir: &Path,
     source_date_epoch: u64,
@@ -729,11 +758,10 @@ pub fn prepare_build(
     Ok(PreparedBuild {
         recipe: BuildRecipe {
             toolchain: toolchain_id(&project)?,
-            cargo_args: ["build", "--release", "--locked", "--target", target]
-                .map(str::to_owned)
-                .to_vec(),
+            cargo_args,
             rustflags: logical,
             source_date_epoch,
+            host,
         },
         rustflags: actual,
     })
@@ -857,7 +885,7 @@ pub struct Provenance {
     pub git_commit: Option<String>,
     /// Build recipe; `None` when a pre-built artifact was packaged (`--wasm`).
     pub build: Option<BuildRecipe>,
-    /// BLAKE3 (hex) of `plugin.wasm`.
+    /// BLAKE3 (hex) of the artifact (`plugin.wasm` or `plugin.bin`).
     pub artifact_blake3: String,
     /// BLAKE3 (hex) of `entangle.toml`.
     pub manifest_blake3: String,
@@ -1074,7 +1102,7 @@ pub fn verify_rebuild(
     // 2. Recipe: toolchain and flags.
     let Some(recipe) = &prov.build else {
         return Ok(Fail(
-            "package was assembled from a pre-built artifact (--wasm); there is no build recipe to rebuild".into(),
+            "package was assembled from a pre-built artifact (--wasm / --bin); there is no build recipe to rebuild".into(),
         ));
     };
     // Scratch target dir: the source tree is untouched.
@@ -1082,7 +1110,31 @@ pub fn verify_rebuild(
     // The rebuild runs with the recorded epoch, whatever the verifier's
     // environment says (a build script may embed it).
     let epoch = recipe.source_date_epoch;
-    let prepared = prepare_build(&manifest_path, target, &cargo_bin(), scratch.path(), epoch)?;
+    // A native package is rebuilt for this host; a wasm one for `target`.
+    let (cargo_args, host) = if files.native {
+        (
+            crate::cmd::package::native_cargo_args(&manifest_path)?,
+            Some(host_triple(source)?),
+        )
+    } else {
+        (wasm_cargo_args(target), None)
+    };
+    if files.native && recipe.host != host {
+        return Ok(Fail(format!(
+            "host differs: the native package was built on {}, this machine is {}; a native \
+             executable can only be reproduced on the kind of host it was built for",
+            recipe.host.as_deref().unwrap_or("an unrecorded host"),
+            host.as_deref().unwrap_or("unknown")
+        )));
+    }
+    let prepared = prepare_build(
+        &manifest_path,
+        cargo_args,
+        host,
+        &cargo_bin(),
+        scratch.path(),
+        epoch,
+    )?;
     if prepared.recipe.toolchain != recipe.toolchain {
         return Ok(Fail(format!(
             "toolchain differs: package built with {}, local is {}",
@@ -1123,23 +1175,29 @@ pub fn verify_rebuild(
             signing_epoch()
         ));
     }
-    let built = crate::cmd::package::build_wasm_in(
-        &manifest_path,
-        target,
-        Some(scratch.path()),
-        Some(epoch),
-    )?;
-    let wasm = std::fs::read(&built.wasm)?;
+    let rebuilt = if files.native {
+        crate::cmd::package::build_native_in(&manifest_path, Some(scratch.path()), Some(epoch))?.exe
+    } else {
+        crate::cmd::package::build_wasm_in(
+            &manifest_path,
+            target,
+            Some(scratch.path()),
+            Some(epoch),
+        )?
+        .wasm
+    };
+    let artifact = files.artifact_name();
+    let wasm = std::fs::read(&rebuilt)?;
     if wasm != files.wasm {
         return Ok(Fail(format!(
-            "plugin.wasm differs from the rebuild: {} (package blake3 {}, rebuild blake3 {})",
+            "{artifact} differs from the rebuild: {} (package blake3 {}, rebuild blake3 {})",
             first_byte_difference(&wasm, &files.wasm),
             blake3::hash(&files.wasm).to_hex(),
             blake3::hash(&wasm).to_hex()
         )));
     }
     notes.push(format!(
-        "plugin.wasm blake3 {}",
+        "{artifact} blake3 {}",
         blake3::hash(&wasm).to_hex()
     ));
 
@@ -1148,7 +1206,7 @@ pub fn verify_rebuild(
         || prov.artifact_blake3 != blake3::hash(&wasm).to_hex().to_string()
     {
         return Ok(Fail(
-            "recorded artifact hash (signature bundle / provenance) does not match the rebuilt wasm".into(),
+            "recorded artifact hash (signature bundle / provenance) does not match the rebuilt artifact".into(),
         ));
     }
     if bundle.manifest_blake3 != *blake3::hash(rendered.toml.as_bytes()).as_bytes() {

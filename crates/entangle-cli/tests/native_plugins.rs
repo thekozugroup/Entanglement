@@ -41,7 +41,13 @@ fn copy_native_echo(dst: &Path) -> PathBuf {
     let src = examples_dir().join("native-echo");
     let out = dst.join("native-echo");
     std::fs::create_dir_all(out.join("src")).unwrap();
-    for f in ["Cargo.toml", "Cargo.lock", "entangle.toml", "src/main.rs"] {
+    for f in [
+        "Cargo.toml",
+        "Cargo.lock",
+        "rust-toolchain.toml",
+        "entangle.toml",
+        "src/main.rs",
+    ] {
         std::fs::copy(src.join(f), out.join(f)).unwrap();
     }
     out
@@ -184,4 +190,119 @@ fn install_refuses_above_the_ceiling_without_writing_anything() {
         "nothing built in the project"
     );
     assert!(!proj.join("target").exists() && !proj.join("dist").exists());
+}
+
+/// Native plugins are packaged reproducibly: two builds of the same source
+/// from different project and target directories give byte-identical
+/// archives (same host, same toolchain), the archive carries `plugin.bin`
+/// with its provenance and detached signature, `verify --rebuild` passes on
+/// it, and it installs and loads through the ordinary archive path.
+#[test]
+fn native_plugin_archives_are_reproducible_and_installable() {
+    use sha2::{Digest as _, Sha256};
+    let tmp = TempDir::new().unwrap();
+    let home = tmp.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    init(&home);
+
+    let mut archives = Vec::new();
+    let mut projects = Vec::new();
+    for n in ["first", "second/nested deeper"] {
+        let root = tmp.path().join(n);
+        let project = copy_native_echo(&root);
+        let out = root.join("out");
+        let built = entangle(&home)
+            .env("CARGO_TARGET_DIR", root.join("target dir"))
+            .env_remove("SOURCE_DATE_EPOCH")
+            .args(["plugins", "build"])
+            .arg(&project)
+            .arg("--out")
+            .arg(&out)
+            .assert()
+            .success();
+        let stdout = String::from_utf8_lossy(&built.get_output().stdout).into_owned();
+        let archive = out.join("native-echo-0.1.0.tar.zst");
+        assert!(archive.is_file(), "no native archive:\n{stdout}");
+        assert!(out.join("native-echo-0.1.0.tar.zst.sig").is_file());
+        assert!(out.join("provenance.json").is_file());
+        archives.push(archive);
+        projects.push((project, stdout));
+    }
+    let bytes: Vec<Vec<u8>> = archives.iter().map(|a| std::fs::read(a).unwrap()).collect();
+    assert_eq!(
+        hex::encode(Sha256::digest(&bytes[0])),
+        hex::encode(Sha256::digest(&bytes[1])),
+        "two native builds from different directories differ"
+    );
+
+    // What is in the archive.
+    let files = entangle_oci::unpack(&bytes[0]).unwrap();
+    assert!(files.native);
+    assert_eq!(files.artifact_name(), "plugin.bin");
+    assert!(files.wasm.starts_with(b"\x7fELF"), "not an ELF executable");
+    let prov: serde_json::Value =
+        serde_json::from_slice(files.provenance.as_ref().expect("provenance recorded")).unwrap();
+    let host = prov["build"]["host"].as_str().expect("host recorded");
+    assert!(host.contains("linux"), "{host}");
+    assert!(prov["build"]["cargo_args"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|a| a == "--locked"));
+    let recorded = serde_json::to_string(&prov).unwrap();
+    assert!(
+        !recorded.contains(tmp.path().to_str().unwrap()),
+        "a build path leaked into provenance: {recorded}"
+    );
+
+    // Trust the key, then: rebuild verification passes from the other copy.
+    let pubkey = projects[0]
+        .1
+        .lines()
+        .find(|l| l.trim_start().starts_with("entangle keyring add "))
+        .and_then(|l| l.split_whitespace().nth(3))
+        .expect("trust command printed")
+        .to_owned();
+    entangle(&home)
+        .args(["keyring", "add", &pubkey, "--name", "self"])
+        .assert()
+        .success();
+    entangle(&home)
+        .env_remove("CARGO_TARGET_DIR")
+        .env_remove("SOURCE_DATE_EPOCH")
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&archives[0])
+        .arg("--source")
+        .arg(&projects[1].0)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("PASS"))
+        .stdout(predicate::str::contains("plugin.bin blake3"));
+    // ...and fails, naming the artifact, when the source no longer matches.
+    let main_rs = projects[1].0.join("src/main.rs");
+    let mut src = std::fs::read_to_string(&main_rs).unwrap();
+    src.push_str("\n// edited after packaging\n");
+    std::fs::write(&main_rs, src).unwrap();
+    entangle(&home)
+        .env_remove("CARGO_TARGET_DIR")
+        .args(["plugins", "verify", "--rebuild"])
+        .arg(&archives[0])
+        .arg("--source")
+        .arg(&projects[1].0)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("FAIL: source digest differs"));
+
+    // The archive installs and loads like any other package.
+    entangle(&home)
+        .args(["--allow-local", "plugins", "install"])
+        .arg(&archives[0])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("effective tier 5"))
+        .stdout(predicate::str::contains("loaded "));
+    let installed = home.join(".entangle/plugins/native-echo");
+    assert!(installed.join("plugin.bin").is_file());
+    assert!(installed.join("plugin.bin.sig").is_file());
+    assert!(!installed.join("plugin.wasm").exists());
 }

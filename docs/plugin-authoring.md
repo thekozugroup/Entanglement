@@ -332,16 +332,52 @@ This:
 
 1. reads your identity key (`~/.entangle/identity.key`, or `--key <PEM>`);
 2. renders and **validates** `dist/entangle.toml` with the real publisher id;
-3. runs `cargo build --release --target wasm32-wasip2`;
-4. copies the component to `dist/plugin.wasm`;
-5. signs *both* the wasm and the manifest bytes into `dist/plugin.wasm.sig`.
+3. checks the reproducibility rules below (lockfile, toolchain pin, WIT
+   versions) before anything is compiled;
+4. runs `cargo build --release --locked --target wasm32-wasip2`;
+5. copies the component to `dist/plugin.wasm`;
+6. signs *both* the wasm and the manifest bytes into `dist/plugin.wasm.sig`;
+7. writes the package archive and its detached signature.
 
 ```text
 dist/
-  plugin.wasm       compiled component
-  entangle.toml     manifest with the real publisher in the id
-  plugin.wasm.sig   detached Ed25519 signature bundle
+  plugin.wasm                     compiled component
+  entangle.toml                   manifest with the real publisher in the id
+  plugin.wasm.sig                 detached Ed25519 signature bundle
+  provenance.json                 source digest, toolchain, build flags
+  <name>-<version>.tar.zst        the package archive (the four files above)
+  <name>-<version>.tar.zst.sig    detached signature over the archive
 ```
+
+### What a project must pin
+
+The same source must give the same package on every machine, so the build
+refuses, before compiling or fetching anything, a project that leaves one of
+these open:
+
+| Rule | Refused with | Fix |
+|------|--------------|-----|
+| A committed `Cargo.lock` | `ENTANGLE-E0830` | `cargo generate-lockfile` |
+| A `rust-toolchain.toml` in the project (or its cargo workspace root) whose `channel` is an exact release, and which is the compiler in use | `ENTANGLE-E0943` | `channel = "1.91.1"`, not `"stable"`, `"nightly"` or `"1.91"` |
+| `[build] wit_world` names an exact version | `ENTANGLE-E0942` | `entangle:plugin@0.1.0/plugin` |
+| Every WIT `import` / `export` / `use` / `include` of another package's item names an exact version, in the project's `.wit` files and those of its path dependencies | `ENTANGLE-E0942`, listing each as `file:line: reference` | `import wasi:io/streams@0.2.0;` |
+
+`entangle plugins new` writes a `rust-toolchain.toml` for the release you are
+using and a manifest with a pinned `wit_world`:
+
+```toml
+# rust-toolchain.toml
+[toolchain]
+channel = "1.91.1"
+targets = ["wasm32-wasip2"]
+```
+
+With rustup, cargo run in the project directory then uses exactly that
+toolchain, installing it and the listed target if they are missing. If the
+build says the pin "is not the compiler that would build this package",
+something overrides the file: unset `RUSTUP_TOOLCHAIN`, drop `cargo
++<toolchain>`, or build with the pinned release. Bump the pin deliberately,
+like a dependency.
 
 Because the signature covers the manifest as well as the wasm, editing
 `dist/entangle.toml` after signing (raising the tier, adding a capability)
@@ -354,8 +390,9 @@ Flags (`entangle plugins build --help`):
 | `<DIR>` | project directory (default `.`) |
 | `--key <PEM>` | signing key (default `~/.entangle/identity.key`) |
 | `--out <DIR>` | output directory (default `<DIR>/dist`) |
-| `--wasm <FILE>` | package a pre-built artifact instead of running cargo |
+| `--wasm <FILE>` | package a pre-built artifact instead of running cargo (no lockfile or toolchain pin needed; the WIT rule still applies) |
 | `--target <TRIPLE>` | build target (default `wasm32-wasip2`) |
+| `--threads <N>` | compress the archive with N threads (default 1). Prints a warning: with N > 1 the archive is **not bit-stable across thread counts**, so its sha256 and `.sig` differ from the default archive's. Contents are identical |
 
 The command prints your publisher fingerprint, the fully-qualified plugin id,
 the effective tier, and then the exact next commands to run.
@@ -456,6 +493,44 @@ entangle plugins install oci://ghcr.io/you/hello:0.1.0
 Pin by digest (`oci://ghcr.io/you/hello@sha256:<hex>`) for reproducible installs;
 tags are mutable.
 
+### Without a registry: plain HTTPS
+
+Upload the two archive files from `dist/` to any HTTPS location, side by side:
+
+```text
+https://example.org/releases/v0.1/hello-0.1.0.tar.zst
+https://example.org/releases/v0.1/hello-0.1.0.tar.zst.sig
+```
+
+Consumers who trust your key install with the archive's URL; the signature is
+fetched from the same URL plus `.sig` and checked before the archive is opened:
+
+```sh
+entangle plugins install https://example.org/releases/v0.1/hello-0.1.0.tar.zst
+```
+
+The `.sig` file is a small TOML document (`version`, `algorithm = "ed25519"`,
+`publisher_fingerprint`, `archive_sha256`, `signature`): an Ed25519 signature
+by your publisher key over the archive's SHA-256, with a domain prefix. It is
+deterministic, and it belongs to exactly those archive bytes: if you rebuild
+with `--threads`, publish the `.sig` written by that build. Plain `http://`
+URLs are refused (except on loopback), as are redirects that change scheme.
+
+### Offline: `.entanglepack`
+
+To hand plugins to a machine without network access, bundle their packages:
+
+```sh
+entangle pack ./dist ./other/dist -o plugins.entanglepack
+```
+
+and install on the other side with `entangle plugins install
+./plugins.entanglepack`. The pack includes your public key so the recipient
+can see whose signatures to expect, but a key in a pack is never trusted on
+its own: the recipient needs your key in their keyring already, or passes
+`--trust-pack-keys` after checking your fingerprint (the pack command prints
+it) with you. See `docs/operations.md` section 13.
+
 ### Artifact format
 
 | Item | Value |
@@ -465,9 +540,10 @@ tags are mutable.
 | Config | the OCI empty descriptor (`application/vnd.oci.empty.v1+json`, `{}`) |
 | Layer (exactly one) | `application/vnd.entangle.plugin.layer.v1.tar+zstd` |
 
-The layer is a zstd-compressed ustar archive of exactly three regular files,
-the same ones the loader reads from `dist/`: `entangle.toml`, `plugin.wasm`,
-`plugin.wasm.sig` (links, directories, extra or duplicate entries are
+The layer is a zstd-compressed ustar archive of the regular files the loader
+reads from `dist/`: `entangle.toml`, `plugin.wasm`, `plugin.wasm.sig` (for a
+native plugin `plugin.bin`, `plugin.bin.sig`; never both kinds), plus the
+optional `provenance.json` (links, directories, extra or duplicate entries are
 rejected). The archive is deterministic (fixed order, zero timestamps).
 Registries that predate `artifactType` are handled via the config media type
 as OCI 1.1 prescribes. An image index is accepted if it has exactly one child
@@ -556,6 +632,10 @@ alone with `= 4`).
 | `ENTANGLE-E0104: manifest hash mismatch` | `dist/entangle.toml` was edited after signing; rebuild |
 | `[signature] publisher = … does not match the signing key` | an optional `[signature]` section pins a different signer; drop it or sign with that key via `--key` |
 | `the wasm32-wasip2 target is not installed` | `rustup target add wasm32-wasip2` |
+| `ENTANGLE-E0943: rust-toolchain.toml missing` / `not an exact release` / `pins Rust X, but the compiler … is Rust Y` | pin the compiler exactly and build with it; see [What a project must pin](#what-a-project-must-pin) |
+| `ENTANGLE-E0942: floating WIT import` | give every listed import (and `[build] wit_world`) a full `@x.y.z` version |
+| `ENTANGLE-E0823` on `install https://…` | the `<url>.sig` file is missing, is not the one written for that archive, or is by another publisher |
+| `ENTANGLE-E0940` on `install <file>.entanglepack` | the pack holds a package from a publisher you have not trusted; add the key it prints, or pass `--trust-pack-keys` |
 | `… does not declare crate-type = ["cdylib"]` | restore the `[lib]` block in `Cargo.toml` |
 | `identity key not found at ~/.entangle/identity.key` | `entangle init` |
 | `ENTANGLE-E0814: package verification failed` on `install oci://` | the signer is not in your keyring (`ENTANGLE-E0101`) or the package was altered; the registry is irrelevant |

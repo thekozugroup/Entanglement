@@ -89,6 +89,14 @@ pub(crate) fn check_policy_with(
         entangle_manifest::Runtime::Native => entangle_host::DeclaredRuntime::Native,
         _ => entangle_host::DeclaredRuntime::Wasm,
     };
+    let native = declared == entangle_host::DeclaredRuntime::Native;
+    if native != verified.files.native {
+        bail!(
+            "ENTANGLE-E0507: {id} declares runtime = \"{declared}\" but its package carries {}; \
+             it was NOT installed",
+            verified.files.artifact_name()
+        );
+    }
     entangle_host::check_runtime_kind(declared, &verified.files.wasm)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .with_context(|| format!("{id} was NOT installed"))?;
@@ -588,6 +596,7 @@ mod tests {
             wasm: artifact.to_vec(),
             signature: toml::to_string(&bundle).unwrap().into_bytes(),
             provenance: None,
+            native: false,
         })
         .unwrap();
         let mut ring = Keyring::new();

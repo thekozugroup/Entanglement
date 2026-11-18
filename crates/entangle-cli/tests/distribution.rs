@@ -96,6 +96,7 @@ target = "wasm32-wasip2"
         wasm,
         signature: toml::to_string(&bundle).unwrap().into_bytes(),
         provenance: None,
+        native: false,
     }
 }
 

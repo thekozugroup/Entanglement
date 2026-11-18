@@ -360,9 +360,11 @@ canonical range table, maintained in
 | E0740–E0749 | Native-plugin staging / storage (`entangle-runtime::native`) |
 | E0750–E0779 | Operator safety UX: shell wrappers and `max_tier_allowed` lowering (`entangle-cli`, `entangle-bin`) — see §15, §16 |
 | E0780–E0799 | Runtime lifecycle — see §22–§25: invalid manifest `[lifecycle]` (E0780); hot reload refused for consent (E0781, with the capability diff), as a downgrade (E0782), or because the new version's `migrate` hook failed (E0783); a plugin-state entry not restored at startup (E0784, logged); AOT cache entry refused (E0785, logged) or cache unusable (E0786, logged); a core fault that exits the daemon (E0787); a contained panic in a plugin call (E0788); a reload refused because another version of the plugin was loaded or unloaded meanwhile (E0789, retry); a load of a version that is still draining after being replaced or unloaded (E0790, retry once its calls and streams end); a recorded package that changed, refused at restore before anything of it is loaded (E0791, reported through E0784) |
+| E0800–E0829 | Plugin distribution (`entangle-oci`) — see §13: registry access, package and listing verification (E0800–E0819); a signed mirror listing older than one already seen (E0820) and an unusable listing-state file (E0821); a download URL that is not acceptable (E0822); a missing, malformed or mismatching detached archive signature (E0823); a malformed `.entanglepack` (E0824); an invalid mirror URL (E0825) |
 | E0880–E0899 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0891: the 1.62.0 Tailscale floor, E0893: a Tailscale version that cannot be read; both also enforced by the daemon), `keys gen`, pairing UX, `install` / `uninstall` / `agent host cleanup` — see §26–§31 |
 | E0900 | I/O |
 | E0920–E0939 | Operator log and trace stores (`entangle_observability::QueryError`, `entangle logs`, `entangle trace task`; see §14d, §14e): unknown log source (E0920), a plugin name matching several plugins (E0921), an invalid log query parameter (E0922), no spans recorded for a task or trace id (E0923), an id that is neither a task UUID nor a trace id (E0924) |
+| E0940–E0949 | Plugin distribution, CLI side (`entangle-cli` `cmd::dist`, `cmd::pack`, `cmd::mirror`, `cmd::repro`) — see §13, §19: a pack holding packages from publishers not in the keyring (E0940); `entangle pack` cannot resolve or write what was asked (E0941); a floating WIT import in a plugin project (E0942); a missing, inexact or overridden `rust-toolchain.toml` (E0943); a damaged mirror setting (E0944) |
 | E9999 | Internal / unexpected |
 
 A handful of other crates layer additional codes into gaps in that range for
@@ -407,6 +409,17 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0891` | The host `tailscale` (the CLI or tailscaled) is older than 1.62.0: `entangle init` refuses to enable `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §27). |
 | `ENTANGLE-E0892` | `entangle uninstall`: the install checksum record is unreadable (§30). |
 | `ENTANGLE-E0893` | Neither `tailscale version` nor tailscaled's status reports a version, so the 1.62.0 floor cannot be checked: `entangle init` refuses `mesh.tailscale` (exit 69) and the daemon does not start the transport (§10, §27). |
+| `ENTANGLE-E0820` | `plugins tags`: the repository's signed listing is older than the newest one this machine has seen (rollback). Its digests are not used; reset with `--accept-older-listing` after checking with the mirror's operator (§13). |
+| `ENTANGLE-E0821` | `~/.entangle/mirror-listing-state.toml` is unreadable or malformed; delete it to start the rollback record afresh (§13). |
+| `ENTANGLE-E0822` | `plugins install <URL>`: the URL is not `https://` (or `http://` on loopback), or carries credentials or a fragment (§13). |
+| `ENTANGLE-E0823` | `plugins install <URL>`: no `<url>.sig`, a malformed one, one that covers other bytes, or one by a different publisher than the package inside; nothing was written (§13). |
+| `ENTANGLE-E0824` | A `.entanglepack` is malformed, of an unsupported version, or its index disagrees with its contents; nothing was installed (§13). |
+| `ENTANGLE-E0825` | `entangle mirror set`: the URL is not a usable mirror address (§13). |
+| `ENTANGLE-E0940` | `plugins install <pack>`: a package is signed by a publisher key that is not in your keyring. The message gives the fingerprint and the `entangle keyring add` command; `--trust-pack-keys` adds the pack's keys after printing them. Nothing was installed (§13). |
+| `ENTANGLE-E0941` | `entangle pack`: an argument is not a package, matches no (or several) installed plugins, or the output file exists (`--force`) (§13). |
+| `ENTANGLE-E0942` | `plugins build`: a WIT import (or `[build] wit_world`) does not name an exact `@x.y.z` version; the message lists each one. Nothing was built (§19). |
+| `ENTANGLE-E0943` | `plugins build`: no `rust-toolchain.toml` in the project or its workspace root, a `channel` that is not an exact release, or a pin that is not the compiler in use. Nothing was built (§19). |
+| `ENTANGLE-E0944` | `~/.entangle/mirror.toml` is unreadable or malformed; rewrite it with `entangle mirror set` or remove it with `entangle mirror unset` (§13). |
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§16). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§16). |
 | `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§16). |
@@ -887,7 +900,9 @@ host without seccomp that protection is absent, and the plan is reported as *red
 `entangle plugins install oci://registry[:port]/repo[:tag|@sha256:<hex>]`,
 `entangle plugins publish`, `entangle plugins tags` and
 `entangle plugins mirror-sign` use the `entangle-oci` client (OCI Distribution
-v1.1). Error codes are `ENTANGLE-E0800`..`E0829`.
+v1.1). Error codes are `ENTANGLE-E0800`..`E0829`. This section also covers the
+other ways a signed package reaches a machine: a mirror
+(`entangle mirror set`), a plain HTTPS URL, and an offline `.entanglepack`.
 
 **Trust model.** Only your publisher keyring (`~/.entangle/keyring.toml`)
 decides whether a pulled package installs. The registry's name, TLS identity,
@@ -951,7 +966,8 @@ registry already stored the chunk. Chunks are at least the registry's
 ### HTTPS and insecure registries
 
 HTTPS is mandatory, using the bundled web roots plus the system trust store
-(`SSL_CERT_FILE` is honoured, so a private CA works). Plain HTTP is allowed
+(`SSL_CERT_FILE` is honoured, so a private CA works). A response received over
+HTTPS is never followed to a plain-HTTP redirect target (`ENTANGLE-E0810`). Plain HTTP is allowed
 only for loopback registries (`localhost`, `127.0.0.0/8`, `::1`; the resolved
 peer must really be loopback) or when you pass `--insecure-registry`, which
 makes the client speak plain HTTP to that registry (and to token endpoints and
@@ -994,9 +1010,190 @@ verification status:
 | `INVALID: <reason>` | unknown signer, bad signature (tampered), wrong repository, malformed |
 | `EXPIRED` | correctly signed but past `expires_at`; treat as stale |
 
+| `ROLLED BACK (ENTANGLE-E0820)` | correctly signed and not expired, but **older** than a listing this machine already saw for the repository; its tags and digests are not used |
+
 `--require-verified` makes `tags` exit non-zero unless `verified`. Mirror
 operators publish with `entangle plugins mirror-sign` (refuses a key that is
 trusted as a publisher on that machine).
+
+### Listing rollback protection
+
+A signature and an expiry date show that a listing is genuine and still within
+its lifetime, not that it is the latest one: a mirror, or anyone in front of
+it, can keep serving last week's listing to hide a newer tag or a withdrawn
+one. `entangle plugins tags` therefore remembers, per repository, the
+`generated_at` of the newest listing whose signature it verified, in
+`~/.entangle/mirror-listing-state.toml` (mode `0600`):
+
+```toml
+version = 1
+
+[repositories."registry.example.org/acme/tool"]
+generated_at = 1800000000
+key_fingerprint = "<32 hex>"
+recorded_at = 1800000100
+```
+
+A verified listing older than the recorded one is reported as `ROLLED BACK`
+and treated like an invalid listing (the registry's own unauthenticated tag
+names are shown, with no digests; `--require-verified` fails with
+`ENTANGLE-E0820`). Only a listing that verified can move the record, so
+nobody without a mirror key can raise or lower it. `generated_at` is inside
+the signed bytes. The key is `host[:port][/prefix]/repository` of whoever
+served the listing, so a mirror and the origin are tracked separately.
+
+**Resetting.** A mirror that was deliberately restored from an older snapshot
+trips the check. After confirming that with the mirror's operator, accept the
+older listing once:
+
+```console
+$ entangle plugins tags oci://registry.example.org/acme/tool --accept-older-listing
+```
+
+That records the listing offered as the new baseline. To drop every record,
+delete `~/.entangle/mirror-listing-state.toml`; protection restarts from the
+next listing seen. A state file that cannot be parsed is an error
+(`ENTANGLE-E0821`), never treated as empty.
+
+### Mirror: `entangle mirror set|get|unset`
+
+A mirror is another OCI registry that holds the same repositories as the one
+your references name. Configure one and it is asked **first**; the origin
+registry is asked only for what the mirror cannot supply:
+
+```console
+$ entangle mirror set https://mirror.example.org/oci
+$ entangle mirror get
+https://mirror.example.org/oci
+$ entangle plugins install oci://ghcr.io/acme/hello:1.0.0   # mirror, then ghcr.io
+$ entangle mirror unset
+```
+
+- The setting is one URL in `~/.entangle/mirror.toml`, read each time the CLI
+  pulls. It applies to the next command; the daemon does not pull from
+  registries and needs no restart or reload.
+- **No mirror is built in.** The architecture names a project-run fallback
+  host; none is operated, so no host name is compiled into `entangle`. With
+  no `mirror set`, the only source is the registry in the reference.
+- The mirror serves repository `acme/hello` at
+  `<mirror url>/v2/acme/hello/...`: the same repository path as the origin,
+  without the origin's host name.
+- The URL must be `https://` (plain `http://` only for a loopback host), with
+  no credentials, query or fragment (`ENTANGLE-E0825`). Credentials for a
+  private mirror go in `~/.entangle/oci-auth.toml` under the mirror's host;
+  the origin's credentials are never sent to the mirror.
+- For `plugins install oci://…` a source is skipped, with a warning on
+  stderr, when it is unreachable (including a TLS failure), does not have the
+  artifact, or serves bytes that do not verify against your keyring. The
+  mirror is a CDN for bytes: it can fail to deliver, it cannot substitute. If
+  every source fails the error lists each attempt.
+- For `plugins tags` the first source that answers is used; the listing is
+  verified against `mirror-keys.toml` and the rollback record whichever
+  source served it. The output says `served by: mirror <url>` (JSON:
+  `"source": "mirror"`).
+- `plugins publish` and `plugins mirror-sign` always go to the registry in the
+  reference.
+
+### Plain HTTPS packages (`.tar.zst` + `.sig`)
+
+A publisher without a registry can put two files on any HTTPS server: the
+package archive and its detached signature, both written by
+`entangle plugins build` into `dist/`:
+
+```
+https://example.org/releases/v0.1/hello-0.1.0.tar.zst
+https://example.org/releases/v0.1/hello-0.1.0.tar.zst.sig
+```
+
+```console
+$ entangle plugins install https://example.org/releases/v0.1/hello-0.1.0.tar.zst
+$ entangle install https://example.org/releases/v0.1/hello-0.1.0.tar.zst   # the same
+```
+
+What happens, in order; nothing is written unless all of it passes:
+
+1. `<url>.sig` is fetched (at most 16 KiB), then the archive (at most
+   512 MiB; a larger `Content-Length` is refused before the body is read, and
+   a body with no length is cut off at the cap, `ENTANGLE-E0808`).
+2. The detached signature is checked against your publisher keyring **on the
+   raw archive bytes**, before the archive is decompressed or parsed. Missing
+   or malformed signature, or one over different bytes: `ENTANGLE-E0823`.
+   Unknown publisher: `ENTANGLE-E0101`, with the fingerprint the signature
+   names.
+3. The package is verified as on every other path (the signature inside it
+   binds artifact and manifest), and its signer must be the publisher that
+   signed the archive.
+4. `max_tier_allowed` (`ENTANGLE-E0043`), `[plugins] disabled`
+   (`ENTANGLE-E0759`) and the runtime-kind check (`ENTANGLE-E0507`).
+5. The package is staged and swapped into `~/.entangle/plugins/<name>` (or
+   `--out`), then loaded unless `--no-load`.
+
+Transport rules: the URL must be `https://`. `http://` is accepted only for a
+loopback host. A URL with embedded credentials or a `#fragment` is refused
+(`ENTANGLE-E0822`). Redirects are followed (at most 5) but never to a
+different scheme (`ENTANGLE-E0810`), and no credentials are sent. TLS uses
+the same roots as registry access (bundled web roots plus the system store;
+`SSL_CERT_FILE` names a private CA). There is no option that disables
+certificate verification.
+
+A package archive already on disk installs the same way, minus steps 1 and 2:
+`entangle plugins install ./hello-0.1.0.tar.zst`.
+
+### Offline installs: `entangle pack` and `.entanglepack`
+
+For a machine with no route to a registry, bundle packages into one file:
+
+```console
+$ entangle pack hello-world ./my-plugin/dist ./tool-0.2.0.tar.zst -o site.entanglepack
+```
+
+Each argument is a package archive, a package directory (or a project with a
+`dist/`), or a plugin installed under `~/.entangle/plugins`, by
+`<publisher>/<name>@<version>`, `<name>@<version>` or `<name>`. Every package
+must verify against **your** keyring, otherwise nothing is written. The same
+set of packages always produces the same file, byte for byte (fixed entry
+order, normalised tar headers, no timestamps or host names), so two people
+can compare its sha256. Plugin manifests carry no plugin-to-plugin
+dependencies, so a pack holds exactly the packages you name.
+
+On the other machine:
+
+```console
+$ entangle plugins install ./site.entanglepack
+```
+
+Every package in the pack is verified offline against that machine's keyring
+and put through the same tier, disabled and runtime-kind checks. All of them
+are installed, or none.
+
+**Keys inside a pack are never trusted automatically.** A pack carries the
+public keys of the publishers that signed its packages, so you can see whose
+signatures to expect. If one of them is not in your keyring the install stops
+with `ENTANGLE-E0940` and prints, for each such key, its fingerprint, the
+packages it signs, and the command that trusts it:
+
+```
+  fingerprint 4f3c…
+    signs: 4f3c…/hello@0.1.0
+    to trust it: entangle keyring add <64-hex public key> --name <NAME>
+```
+
+Check the fingerprint with the publisher through another channel, add the key,
+and install again. `--trust-pack-keys` does the adding for you: it prints the
+fingerprints, adds exactly the keys the pack's packages need, and saves the
+keyring only if every package then verifies. A running `entangled` reads
+`keyring.toml` at start, so restart it before loading plugins from a newly
+trusted publisher.
+
+Pack format (version 1): an uncompressed tar holding `entanglepack.json` (the
+index: format, version, per package the plugin id, signer, file name, sha256
+and size, and the signers' public keys) followed by
+`packages/<sha256>.tar.zst`. The index digests detect damage and mix-ups
+(`ENTANGLE-E0807`, `E0809`, `E0824`); they are not a signature, and no trust
+decision reads them. A pack of a newer format version is refused with
+`ENTANGLE-E0824`. A native plugin's package (`plugin.bin`) can be packed like
+any other; it installs only where its tier is allowed and the host is the kind
+it was built for (`ENTANGLE-E0507`).
 
 ---
 
@@ -1805,7 +2002,8 @@ the time.
 
 `entangle plugins build <dir>` writes, next to `plugin.wasm`, `entangle.toml`,
 `plugin.wasm.sig` and `provenance.json`, a deterministic archive
-`<dir>/dist/<name>-<version>.tar.zst` and prints its SHA-256. Two builds of the same
+`<dir>/dist/<name>-<version>.tar.zst` with its detached signature
+(`…tar.zst.sig`) and prints its SHA-256. Two builds of the same
 source produce the same bytes: absolute paths are remapped out of the wasm
 (`--remap-path-prefix` for the project, path dependencies, the cargo target directory,
 `$CARGO_HOME`, `$RUSTUP_HOME`, the sysroot), the signature timestamp is `SOURCE_DATE_EPOCH` (default
@@ -1814,6 +2012,37 @@ source produce the same bytes: absolute paths are remapped out of the wasm
 * The project **must** have a committed `Cargo.lock`; otherwise the build stops with
   `ENTANGLE-E0830: Cargo.lock missing` before fetching or writing anything. `plugins new`
   generates one (skip with `--no-lockfile`). Builds run `cargo build --locked`.
+* The project **must** pin its compiler: a `rust-toolchain.toml` in the project directory
+  or its cargo workspace root (a file further up does not count) whose `channel` is an
+  exact release such as `"1.91.1"`. `"stable"`, `"nightly"` and a bare `"1.91"` are
+  refused, and so is a pin that is not the compiler actually in use (`RUSTUP_TOOLCHAIN`,
+  `cargo +toolchain` or a toolchain not managed by rustup overriding the file):
+  `ENTANGLE-E0943`, before anything is fetched or written. `plugins new` writes the file
+  for the release in use. With rustup, an exact pin makes cargo use (and if necessary
+  download) exactly that toolchain in the project directory; list the wasm target in the
+  file (`targets = ["wasm32-wasip2"]`) so it is installed with it. Packaging a pre-built
+  artifact (`--wasm`, `--bin`) compiles nothing and needs no pin.
+* WIT versions must be exact: `[build] wit_world` in `entangle.toml` and every
+  `import` / `export` / `use` / `include` of another package's item in a `.wit` file of
+  the project or of a path dependency must name `@x.y.z`
+  (`wasi:io/streams@0.2.0`; not `wasi:io/streams`, not `@0.2`). Otherwise the build stops
+  with `ENTANGLE-E0942`, listing each import as `file:line: reference`.
+* The archive is compressed with zstd level 19 on one thread. `--threads N` uses N
+  threads and prints a warning: the archive is then N independent zstd frames and is
+  **not bit-stable across thread counts**, so its sha256 and detached signature differ
+  from the default archive's (the contents are identical). Publish the default archive
+  where someone is expected to reproduce the digest.
+* Next to the archive the build writes its detached signature,
+  `<name>-<version>.tar.zst.sig` (Ed25519 by the publisher key over the archive's
+  SHA-256; deterministic). Serving both files from one HTTPS location is all a plain
+  HTTPS install needs (§13).
+* Native plugins (`runtime = "native"`) follow the same rules and the same recipe (path
+  remapping, `SOURCE_DATE_EPOCH`, `--locked`, the pinned toolchain) and get the same
+  archive, with `plugin.bin` / `plugin.bin.sig` in place of the wasm files, a
+  `provenance.json` that also records the build host triple, and a detached signature.
+  Two builds on the **same kind of host** give identical bytes, and
+  `plugins verify --rebuild` checks that (it fails with `host differs` elsewhere). There
+  is no cross-host claim: a native executable depends on the system linker and C runtime.
 * Flags from `CARGO_ENCODED_RUSTFLAGS` or `RUSTFLAGS` in the environment are kept and
   recorded; the build passes them, with the remap flags, as `CARGO_ENCODED_RUSTFLAGS`
   (so paths with spaces work), which replaces any `build.rustflags` in `.cargo/config.toml`.

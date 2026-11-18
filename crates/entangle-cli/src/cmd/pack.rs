@@ -8,8 +8,9 @@
 //! Each argument names one package:
 //!
 //! * a package archive (`*.tar.zst`), as `entangle plugins build` writes;
-//! * a build or install directory (`entangle.toml`, `plugin.wasm`,
-//!   `plugin.wasm.sig`), or a project directory with such a `dist/` in it;
+//! * a build or install directory (`entangle.toml`, `plugin.wasm` or
+//!   `plugin.bin`, and its `.sig`), or a project directory with such a
+//!   `dist/` in it;
 //! * an installed plugin under `~/.entangle/plugins`, by full id
 //!   (`<publisher>/<name>@<version>`), `<name>@<version>`, or `<name>`.
 //!
@@ -54,7 +55,9 @@ pub struct PackArgs {
 }
 
 fn is_package_dir(dir: &Path) -> bool {
-    dir.join(entangle_oci::FILE_MANIFEST).is_file() && dir.join(entangle_oci::FILE_WASM).is_file()
+    dir.join(entangle_oci::FILE_MANIFEST).is_file()
+        && (dir.join(entangle_oci::FILE_WASM).is_file()
+            || dir.join(entangle_oci::FILE_NATIVE).is_file())
 }
 
 /// The package directory `dir` denotes: itself, or its `dist/`.
@@ -66,16 +69,10 @@ fn package_dir(dir: &Path) -> Result<PathBuf> {
     if is_package_dir(&dist) {
         return Ok(dist);
     }
-    if dir.join("plugin.bin").is_file() || dist.join("plugin.bin").is_file() {
-        bail!(
-            "ENTANGLE-E0941: {} holds a native plugin (plugin.bin). Package archives, and so \
-             packs, carry wasm plugins only; copy a native plugin's signed directory as it is",
-            dir.display()
-        );
-    }
     bail!(
-        "ENTANGLE-E0941: {} is not a plugin package: expected entangle.toml, plugin.wasm and \
-         plugin.wasm.sig in it or in its dist/ (build one with `entangle plugins build`)",
+        "ENTANGLE-E0941: {} is not a plugin package: expected entangle.toml, plugin.wasm (or \
+         plugin.bin) and its .sig in it or in its dist/ (build one with `entangle plugins \
+         build`)",
         dir.display()
     )
 }

@@ -1,8 +1,9 @@
 //! The plugin package layer, and the publisher-trust verifier.
 //!
 //! A package is the signed directory `entangle plugins build` produces
-//! (`entangle.toml`, `plugin.wasm`, `plugin.wasm.sig`) as a zstd-compressed
-//! ustar archive (media type [`crate::LAYER_TYPE_PLUGIN`]).
+//! (`entangle.toml`, `plugin.wasm`, `plugin.wasm.sig`; for a native plugin
+//! `plugin.bin`, `plugin.bin.sig`) as a zstd-compressed ustar archive (media
+//! type [`crate::LAYER_TYPE_PLUGIN`]).
 //!
 //! # Trust (ATC-MIR-1)
 //! [`verify_package`] is the only place a pulled package is judged, and its
@@ -23,10 +24,14 @@ use crate::error::{OciError, Result};
 
 /// Manifest file name inside a package.
 pub const FILE_MANIFEST: &str = "entangle.toml";
-/// Artifact file name inside a package.
+/// Artifact file name inside a package (wasm plugins).
 pub const FILE_WASM: &str = "plugin.wasm";
-/// Signature bundle file name inside a package.
+/// Signature bundle file name inside a package (wasm plugins).
 pub const FILE_SIGNATURE: &str = "plugin.wasm.sig";
+/// Artifact file name inside a package of a native (tier 4-5) plugin.
+pub const FILE_NATIVE: &str = "plugin.bin";
+/// Signature bundle file name inside a package of a native plugin.
+pub const FILE_NATIVE_SIGNATURE: &str = "plugin.bin.sig";
 
 /// Optional build-provenance record inside a package (`entangle plugins build`
 /// writes it; see `entangle-cli`'s `cmd::package::Provenance`). It is **not**
@@ -42,32 +47,66 @@ pub const ZSTD_LEVEL: i32 = 19;
 /// Cap on the decompressed size of a package (zip-bomb guard).
 pub const MAX_UNPACKED_BYTES: u64 = 256 * 1024 * 1024;
 
-/// The three files of a signed package, unverified.
+/// The files of a signed package, unverified.
+///
+/// A package holds one artifact: a wasm component (`plugin.wasm`, the common
+/// case) or, when [`PackageFiles::native`] is set, a native executable
+/// (`plugin.bin`, tier 4-5 plugins). The two never mix in one package.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PackageFiles {
     /// `entangle.toml` bytes (the exact bytes the signature covers).
     pub manifest: Vec<u8>,
-    /// `plugin.wasm` bytes.
+    /// The artifact bytes: `plugin.wasm`, or `plugin.bin` when `native`.
     pub wasm: Vec<u8>,
-    /// `plugin.wasm.sig` bytes (TOML signature bundle).
+    /// The signature bundle (TOML): `plugin.wasm.sig`, or `plugin.bin.sig`.
     pub signature: Vec<u8>,
     /// `provenance.json` bytes, when the builder recorded provenance.
     pub provenance: Option<Vec<u8>>,
+    /// The artifact is a native executable, stored as `plugin.bin` /
+    /// `plugin.bin.sig`. A native package only runs on the kind of host it
+    /// was built for; the loader checks that (`ENTANGLE-E0507`).
+    pub native: bool,
 }
 
 impl PackageFiles {
-    /// Read the three files from a build output directory.
+    /// The artifact's file name: [`FILE_WASM`] or [`FILE_NATIVE`].
+    pub fn artifact_name(&self) -> &'static str {
+        if self.native {
+            FILE_NATIVE
+        } else {
+            FILE_WASM
+        }
+    }
+
+    /// The signature bundle's file name.
+    pub fn signature_name(&self) -> &'static str {
+        if self.native {
+            FILE_NATIVE_SIGNATURE
+        } else {
+            FILE_SIGNATURE
+        }
+    }
+
+    /// Read the files from a build output directory. Like the loader, a
+    /// `plugin.wasm` is preferred when both artifacts are present.
     pub fn read_dir(dir: &Path) -> Result<Self> {
         let rd = |name: &str| {
             std::fs::read(dir.join(name)).map_err(|e| {
                 OciError::InvalidPackage(format!("reading {}: {e}", dir.join(name).display()))
             })
         };
+        let native = !dir.join(FILE_WASM).exists() && dir.join(FILE_NATIVE).exists();
+        let (artifact, signature) = if native {
+            (FILE_NATIVE, FILE_NATIVE_SIGNATURE)
+        } else {
+            (FILE_WASM, FILE_SIGNATURE)
+        };
         Ok(Self {
             manifest: rd(FILE_MANIFEST)?,
-            wasm: rd(FILE_WASM)?,
-            signature: rd(FILE_SIGNATURE)?,
+            wasm: rd(artifact)?,
+            signature: rd(signature)?,
             provenance: std::fs::read(dir.join(FILE_PROVENANCE)).ok(),
+            native,
         })
     }
 
@@ -75,8 +114,14 @@ impl PackageFiles {
     pub fn write_dir(&self, dir: &Path) -> std::io::Result<()> {
         std::fs::create_dir_all(dir)?;
         std::fs::write(dir.join(FILE_MANIFEST), &self.manifest)?;
-        std::fs::write(dir.join(FILE_WASM), &self.wasm)?;
-        std::fs::write(dir.join(FILE_SIGNATURE), &self.signature)?;
+        let artifact = dir.join(self.artifact_name());
+        std::fs::write(&artifact, &self.wasm)?;
+        #[cfg(unix)]
+        if self.native {
+            use std::os::unix::fs::PermissionsExt as _;
+            std::fs::set_permissions(&artifact, std::fs::Permissions::from_mode(0o755))?;
+        }
+        std::fs::write(dir.join(self.signature_name()), &self.signature)?;
         if let Some(p) = &self.provenance {
             std::fs::write(dir.join(FILE_PROVENANCE), p)?;
         }
@@ -146,8 +191,8 @@ fn package_tar(files: &PackageFiles) -> Vec<u8> {
     let mut tar = Vec::new();
     for (name, data) in [
         (FILE_MANIFEST, &files.manifest),
-        (FILE_WASM, &files.wasm),
-        (FILE_SIGNATURE, &files.signature),
+        (files.artifact_name(), &files.wasm),
+        (files.signature_name(), &files.signature),
     ] {
         tar_entry(&mut tar, name, data);
     }
@@ -193,7 +238,8 @@ pub(crate) fn tar_entry(out: &mut Vec<u8>, name: &str, data: &[u8]) {
     out.resize(out.len() + (512 - data.len() % 512) % 512, 0);
 }
 
-/// Unpack a package, rejecting anything but the three expected regular files.
+/// Unpack a package, rejecting anything but the expected regular files (one
+/// artifact with its signature, the manifest, optional provenance).
 pub fn unpack(bytes: &[u8]) -> Result<PackageFiles> {
     let bad = |m: String| OciError::InvalidPackage(m);
     let mut tar = Vec::new();
@@ -209,11 +255,14 @@ pub fn unpack(bytes: &[u8]) -> Result<PackageFiles> {
     }
 
     let (mut manifest, mut wasm, mut signature, mut provenance) = (None, None, None, None);
+    let (mut native_bin, mut native_sig) = (None, None);
     for (name, data) in tar_entries(&tar).map_err(bad)? {
         let slot = match name {
             FILE_MANIFEST => &mut manifest,
             FILE_WASM => &mut wasm,
             FILE_SIGNATURE => &mut signature,
+            FILE_NATIVE => &mut native_bin,
+            FILE_NATIVE_SIGNATURE => &mut native_sig,
             FILE_PROVENANCE => &mut provenance,
             other => return Err(bad(format!("unexpected entry {other:?}"))),
         };
@@ -222,6 +271,23 @@ pub fn unpack(bytes: &[u8]) -> Result<PackageFiles> {
         }
         *slot = Some(data.to_vec());
     }
+    let native = native_bin.is_some() || native_sig.is_some();
+    if native {
+        if wasm.is_some() || signature.is_some() {
+            return Err(bad(format!(
+                "a package holds one artifact: {FILE_WASM} and {FILE_NATIVE} entries are mixed"
+            )));
+        }
+        let need =
+            |v: Option<Vec<u8>>, n: &str| v.ok_or_else(|| bad(format!("package is missing {n}")));
+        return Ok(PackageFiles {
+            manifest: need(manifest, FILE_MANIFEST)?,
+            wasm: need(native_bin, FILE_NATIVE)?,
+            signature: need(native_sig, FILE_NATIVE_SIGNATURE)?,
+            provenance,
+            native: true,
+        });
+    }
     let need =
         |v: Option<Vec<u8>>, n: &str| v.ok_or_else(|| bad(format!("package is missing {n}")));
     Ok(PackageFiles {
@@ -229,6 +295,7 @@ pub fn unpack(bytes: &[u8]) -> Result<PackageFiles> {
         wasm: need(wasm, FILE_WASM)?,
         signature: need(signature, FILE_SIGNATURE)?,
         provenance,
+        native: false,
     })
 }
 
@@ -374,6 +441,78 @@ mod tests {
             wasm: [0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9].repeat(200),
             signature: b"sig".to_vec(),
             provenance: None,
+            native: false,
+        }
+    }
+
+    /// A native package round-trips under its own entry names, stays in
+    /// alphabetical order, and cannot be mixed with a wasm artifact.
+    #[test]
+    fn native_packages_use_plugin_bin_and_do_not_mix_with_wasm() {
+        let mut f = sample();
+        f.native = true;
+        f.provenance = Some(b"{}".to_vec());
+        let packed = pack(&f).unwrap();
+        assert_eq!(unpack(&packed).unwrap(), f);
+        assert_eq!(packed, pack(&f).unwrap());
+        assert_ne!(
+            packed,
+            pack(&PackageFiles {
+                native: false,
+                ..f.clone()
+            })
+            .unwrap()
+        );
+        let mut tar = Vec::new();
+        zstd::stream::read::Decoder::new(&packed[..])
+            .unwrap()
+            .read_to_end(&mut tar)
+            .unwrap();
+        let names: Vec<&str> = tar_entries(&tar).unwrap().iter().map(|e| e.0).collect();
+        assert_eq!(
+            names,
+            [
+                FILE_MANIFEST,
+                FILE_NATIVE,
+                FILE_NATIVE_SIGNATURE,
+                FILE_PROVENANCE
+            ]
+        );
+
+        // Both artifacts in one archive.
+        let mut tar = Vec::new();
+        tar_entry(&mut tar, FILE_MANIFEST, b"m");
+        tar_entry(&mut tar, FILE_NATIVE, b"b");
+        tar_entry(&mut tar, FILE_NATIVE_SIGNATURE, b"s");
+        tar_entry(&mut tar, FILE_WASM, b"w");
+        tar.extend_from_slice(&[0u8; 1024]);
+        let z = zstd::stream::encode_all(&tar[..], 3).unwrap();
+        assert!(unpack(&z).unwrap_err().to_string().contains("mixed"));
+        // A native artifact without its signature.
+        let mut tar = Vec::new();
+        tar_entry(&mut tar, FILE_MANIFEST, b"m");
+        tar_entry(&mut tar, FILE_NATIVE, b"b");
+        tar.extend_from_slice(&[0u8; 1024]);
+        let z = zstd::stream::encode_all(&tar[..], 3).unwrap();
+        assert!(unpack(&z)
+            .unwrap_err()
+            .to_string()
+            .contains("missing plugin.bin.sig"));
+
+        // Directory round trip: the artifact is written executable.
+        let d = tempfile::tempdir().unwrap();
+        f.write_dir(d.path()).unwrap();
+        assert!(d.path().join(FILE_NATIVE).is_file());
+        assert!(!d.path().join(FILE_WASM).exists());
+        assert_eq!(PackageFiles::read_dir(d.path()).unwrap(), f);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let mode = std::fs::metadata(d.path().join(FILE_NATIVE))
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o111, 0o111, "{mode:o}");
         }
     }
 

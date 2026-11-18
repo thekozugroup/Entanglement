@@ -28,12 +28,13 @@
 //! | E0740–E0749 | Native-plugin runtime glue (see `entangle-runtime::native`) |
 //! | E0750–E0779 | Operator safety UX: shell wrappers, `max_tier_allowed` lowering (see `entangle-cli` `cmd::wrapper`, `cmd::security`; `entangle-bin` RPC `security/*`) |
 //! | E0780–E0799 | Runtime lifecycle: manifest `[lifecycle]`, hot reload, plugin-state restore, AOT compilation cache, fault isolation (`entangle-manifest`, `entangle-runtime`, `entangle-aot`, `entangle-bin`, `entangle-core::fault`; E0780–E0791 in use) |
-//! | E0800–E0829 | OCI registry distribution and mirror listings (see `entangle-oci`; E0800–E0819 in use) |
+//! | E0800–E0829 | Plugin distribution (see `entangle-oci`): OCI registries and mirror listings (E0800–E0819); listing rollback and its state file (E0820, E0821), plain-HTTPS download URLs (E0822), detached archive signatures (E0823), `.entanglepack` files (E0824), mirror URLs (E0825) |
 //! | E0830–E0859 | Packaging reproducibility, release verification, release-key ceremony (E0830–E0839 packaging in `entangle-cli` `cmd::package`; E0840–E0849 release signatures in `entangle-signing::release` and `entangle-cli` `cmd::release`; E0850–E0859 Shamir sharing in `entangle-signing::shamir`) |
 //! | E0860–E0879 | Operator backup / restore archive (`entangle-cli` `cmd::backup`; E0860–E0867 in use) |
 //! | E0880–E0899 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0891 is the 1.62.0 Tailscale version floor and E0893 a Tailscale version that cannot be read, both also enforced by the daemon; `entangle_mesh_tailscale::MeshTailscaleError::UnsupportedVersion` / `VersionUnknown`), `keys gen`, pairing UX (`entangle_pairing::PairingError`), `install` / `uninstall` / `agent host cleanup` (see `entangle-cli` `cmd::configset`, `cmd::init`, `cmd::keys`, `cmd::pair`, `cmd::install`) |
 //! | E0900       | I/O                            |
 //! | E0920–E0939 | Operator log and trace stores: `entangle logs`, `entangle trace` (`entangle_observability::QueryError`, `entangle-bin` RPC `logs/read`, `trace/get`; E0920–E0924 in use) |
+//! | E0940–E0949 | Plugin distribution, CLI side (`entangle-cli` `cmd::dist`, `cmd::pack`, `cmd::mirror`, `cmd::repro`): untrusted publisher keys in a pack (E0940), `entangle pack` inputs and output (E0941), floating WIT imports (E0942), unpinned or overridden Rust toolchain (E0943), damaged mirror setting (E0944) |
 //! | E9999       | Internal / unexpected          |
 //!
 //! Other crates layer their own codes into the gaps between these ranges —

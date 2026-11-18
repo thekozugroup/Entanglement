@@ -19,7 +19,9 @@
 //! When the manifest declares `runtime = "native"` (tier 4–5) the project is a
 //! Rust **binary** crate: it is built with `cargo build --release` for the
 //! host (no `--target`), and the executable is packaged as `plugin.bin`. The
-//! signature covers it exactly as it covers a wasm component.
+//! signature covers it exactly as it covers a wasm component, and the build
+//! follows the same reproducibility recipe ([`build_native_in`]): the archive
+//! reproduces on the same kind of host, not across hosts.
 //!
 //! # Plugin id rewriting
 //! The author writes a placeholder publisher in their source `entangle.toml`
@@ -108,8 +110,7 @@ pub struct BuildOutcome {
     pub public_key_hex: String,
     /// Effective tier of the signed manifest.
     pub effective_tier: u8,
-    /// Reproducible package archive (`<dist>/<name>-<version>.tar.zst`); wasm
-    /// plugins only.
+    /// Reproducible package archive (`<dist>/<name>-<version>.tar.zst`).
     pub archive: Option<PathBuf>,
     /// SHA-256 (hex) of [`BuildOutcome::archive`].
     pub archive_sha256: Option<String>,
@@ -517,7 +518,9 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
                         cargo_manifest.display()
                     );
                 }
-                build_native(&cargo_manifest)?
+                let built = build_native_in(&cargo_manifest, None, None)?;
+                recipe = Some(built.recipe);
+                built.exe
             }
         }
     } else {
@@ -558,10 +561,8 @@ pub fn build(opts: BuildOptions) -> Result<BuildOutcome> {
     };
     write_dist_artifact(&dist, &artifact_src, artifact_name, &rendered, &keypair)?;
 
-    // Step 5 — reproducible archive + provenance (wasm packages).
-    let archive = if rendered.native {
-        None
-    } else {
+    // Step 5 — reproducible archive + provenance.
+    let archive = {
         if opts.threads > 1 {
             eprintln!(
                 "warning: --threads {}: the archive is compressed as {} independent zstd \
@@ -656,7 +657,8 @@ pub fn build_wasm_in(
     repro::require_pinned_wit_imports(&wit_dirs)?;
     let prepared = repro::prepare_build(
         cargo_manifest,
-        target,
+        repro::wasm_cargo_args(target),
+        None,
         &cargo_bin(),
         &target_root,
         source_date_epoch.unwrap_or_else(repro::signing_epoch),
@@ -738,19 +740,24 @@ fn project_dir_for(cargo_manifest: &Path) -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
-/// Compile a native plugin for the host and return the executable's path.
-fn build_native(cargo_manifest: &Path) -> Result<PathBuf> {
-    let cargo_manifest = &absolute_manifest(cargo_manifest)?;
-    repro::require_lockfile(&project_dir_for(cargo_manifest))?;
-    repro::require_pinned_toolchain(&project_dir_for(cargo_manifest))?;
-    let info = cargo_metadata(cargo_manifest)?;
-    let bin = match info.bins.as_slice() {
+/// A compiled native executable and the recipe that produced it.
+pub struct NativeBuild {
+    /// Path of the built executable.
+    pub exe: PathBuf,
+    /// Toolchain, flags, epoch and host used (recorded in provenance).
+    pub recipe: repro::BuildRecipe,
+}
+
+/// The binary target a native plugin project packages: its only one, or the
+/// one named after the package.
+fn native_bin(cargo_manifest: &Path, info: &CrateInfo) -> Result<String> {
+    match info.bins.as_slice() {
         [] => bail!(
             "{} has no binary target.\n\
              A native plugin is an executable: add src/main.rs (or a [[bin]] section).",
             cargo_manifest.display()
         ),
-        [only] => only.clone(),
+        [only] => Ok(only.clone()),
         many => many
             .iter()
             .find(|b| **b == info.name)
@@ -762,38 +769,92 @@ fn build_native(cargo_manifest: &Path) -> Result<PathBuf> {
                     cargo_manifest.display(),
                     many.join(", ")
                 )
-            })?,
-    };
-    println!(
-        "[entangle] compiling native plugin {} ({bin}) for this host ({}-{})...",
-        info.name,
-        std::env::consts::ARCH,
-        std::env::consts::OS
-    );
-    let status = Command::new(cargo_bin())
-        .args([
-            "build",
-            "--release",
-            "--locked",
-            "--bin",
-            &bin,
-            "--manifest-path",
-        ])
-        .arg(cargo_manifest)
-        .current_dir(project_dir_for(cargo_manifest))
-        .status()
-        .context("running cargo build")?;
-    if !status.success() {
-        bail!("cargo build --release --bin {bin} failed");
+            }),
     }
-    let exe = info
-        .target_dir
+}
+
+/// The cargo arguments of the reproducible native build of the project at
+/// `cargo_manifest` (without `--manifest-path`).
+pub fn native_cargo_args(cargo_manifest: &Path) -> Result<Vec<String>> {
+    let cargo_manifest = &absolute_manifest(cargo_manifest)?;
+    let bin = native_bin(cargo_manifest, &cargo_metadata(cargo_manifest)?)?;
+    Ok(["build", "--release", "--locked", "--bin", bin.as_str()]
+        .map(str::to_owned)
+        .to_vec())
+}
+
+/// Compile a native plugin for the host, reproducibly: the same lockfile,
+/// toolchain-pin, path-remapping, `SOURCE_DATE_EPOCH` and locale rules as
+/// [`build_wasm_in`]. Two builds of the same source with the same toolchain
+/// **on the same kind of host** give the same executable wherever the
+/// project and target directories are; across hosts the result depends on
+/// the system linker and C runtime, which this does not control.
+///
+/// `target_dir` and `source_date_epoch` are as for [`build_wasm_in`].
+pub fn build_native_in(
+    cargo_manifest: &Path,
+    target_dir: Option<&Path>,
+    source_date_epoch: Option<u64>,
+) -> Result<NativeBuild> {
+    let cargo_manifest = &absolute_manifest(cargo_manifest)?;
+    let project = project_dir_for(cargo_manifest);
+    repro::require_lockfile(&project)?;
+    repro::require_pinned_toolchain(&project)?;
+    let info = cargo_metadata(cargo_manifest)?;
+    let bin = native_bin(cargo_manifest, &info)?;
+    let target_root = match target_dir {
+        Some(td) => td.to_path_buf(),
+        None => info.target_dir.clone(),
+    };
+    std::fs::create_dir_all(&target_root)
+        .with_context(|| format!("creating {}", target_root.display()))?;
+    let prepared = repro::prepare_build(
+        cargo_manifest,
+        ["build", "--release", "--locked", "--bin", bin.as_str()]
+            .map(str::to_owned)
+            .to_vec(),
+        Some(repro::host_triple(&project)?),
+        &cargo_bin(),
+        &target_root,
+        source_date_epoch.unwrap_or_else(repro::signing_epoch),
+    )?;
+    println!(
+        "[entangle] compiling native plugin {} ({bin}) for this host ({})...",
+        info.name,
+        prepared.recipe.host.as_deref().unwrap_or("unknown")
+    );
+    println!("[entangle] toolchain: {}", prepared.recipe.toolchain);
+    let mut cmd = Command::new(cargo_bin());
+    cmd.args(&prepared.recipe.cargo_args)
+        .arg("--manifest-path")
+        .arg(cargo_manifest)
+        .current_dir(&project)
+        .env("CARGO_ENCODED_RUSTFLAGS", prepared.encoded_rustflags())
+        .env_remove("RUSTFLAGS")
+        .env(
+            "SOURCE_DATE_EPOCH",
+            prepared.recipe.source_date_epoch.to_string(),
+        )
+        .env("CARGO_INCREMENTAL", "0")
+        .env("LC_ALL", "C")
+        .env("TZ", "UTC");
+    if let Some(td) = target_dir {
+        cmd.env("CARGO_TARGET_DIR", td);
+    }
+    let status = cmd.status().context("running cargo build")?;
+    if !status.success() {
+        bail!("cargo build --release --locked --bin {bin} failed");
+    }
+    let exe = target_root
         .join("release")
         .join(format!("{bin}{}", std::env::consts::EXE_SUFFIX));
     if !exe.exists() {
         bail!("built executable not found at {}", exe.display());
     }
-    Ok(exe)
+    Ok(NativeBuild {
+        exe,
+        recipe: prepared.recipe,
+    })
 }
 
 /// Write `<artifact_name>` (`plugin.wasm` or `plugin.bin`), `entangle.toml`,

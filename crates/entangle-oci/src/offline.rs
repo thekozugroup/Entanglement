@@ -428,6 +428,7 @@ mod tests {
             wasm,
             signature: toml::to_string(&bundle).unwrap().into_bytes(),
             provenance: None,
+            native: false,
         })
         .unwrap()
     }

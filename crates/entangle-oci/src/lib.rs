@@ -60,7 +60,7 @@ pub use offline::{
 };
 pub use package::{
     pack, pack_dir, pack_with_threads, unpack, verify_package, PackageFiles, VerifiedPackage,
-    FILE_MANIFEST, FILE_PROVENANCE, FILE_SIGNATURE, FILE_WASM,
+    FILE_MANIFEST, FILE_NATIVE, FILE_NATIVE_SIGNATURE, FILE_PROVENANCE, FILE_SIGNATURE, FILE_WASM,
 };
 pub use reference::{Digest, Reference, Selector};
 pub use types::*;

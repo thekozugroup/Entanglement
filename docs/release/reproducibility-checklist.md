@@ -23,9 +23,13 @@ Read these once; the checklist below verifies them.
 | Archive layout, mtimes, owners, modes, zstd parameters | Fixed in the packer | `crates/entangle-oci` (`pack`) |
 | Manifest serialisation | `toml::to_string_pretty` over an ordered table | `package.rs` |
 | Signature | Ed25519 is deterministic: with a fixed `created_at` the bundle is a function of (artifact, manifest, key) | `entangle-signing` |
-| Rust toolchain | `rust-toolchain.toml` pins `channel = "1.91"`; CI uses the same version | repo root, `.github/workflows/*.yml` |
+| Rust toolchain | Every plugin project carries a `rust-toolchain.toml` with an exact `channel` (`"1.91.1"`); packaging refuses a missing or inexact pin, or one that is not the compiler in use (`ENTANGLE-E0943`). The workspace's own `rust-toolchain.toml` pins `channel = "1.91"` for building `entangle` itself; CI uses the same line | `repro.rs` (`require_pinned_toolchain`), each plugin directory, repo root, `.github/workflows/*.yml` |
+| WIT interface versions | `[build] wit_world` and every WIT import of another package must name an exact `@x.y.z`; packaging refuses a floating one (`ENTANGLE-E0942`) | `repro.rs` (`require_pinned_wit_world`, `require_pinned_wit_imports`) |
+| Compression threads | zstd level 19, one thread. `--threads N` is allowed but warns: the archive is then not bit-stable across thread counts. Release packages are built without it | `entangle-oci` (`pack`, `pack_with_threads`) |
+| Detached archive signature | `<name>-<version>.tar.zst.sig`: Ed25519 over the archive's SHA-256, deterministic, so it reproduces with the archive | `entangle-oci` (`sign_archive`) |
 | Locale and time zone | The cargo build is run with `LC_ALL=C` and `TZ=UTC` | `package.rs` |
-| Archive contents | `entangle.toml`, `plugin.wasm`, `plugin.wasm.sig`, `provenance.json`, alphabetical | `entangle-oci` |
+| Archive contents | `entangle.toml`, `plugin.wasm`, `plugin.wasm.sig`, `provenance.json`, alphabetical (native plugins: `plugin.bin`, `plugin.bin.sig`) | `entangle-oci` |
+| Native plugins | Same recipe as wasm; `provenance.json` also records the host triple. Byte-identical on the same kind of host only (the executable depends on the system linker and C runtime), so native packages are outside the cross-host check | `package.rs` (`build_native_in`), `crates/entangle-cli/tests/native_plugins.rs` |
 
 `provenance.json` records the source-tree SHA-256 (ignoring `.git`, and
 `target/` and `dist/` directly under the project root), the git commit when
@@ -39,8 +43,13 @@ Tick every box on the commit that will be tagged.
 - [ ] `Cargo.lock` is committed and current (`cargo metadata --locked` succeeds).
       Every plugin that ships has its own committed `Cargo.lock`
       (`plugins build` fails with `ENTANGLE-E0830` otherwise).
-- [ ] `rust-toolchain.toml` pins an exact version, and the CI workflows use the
-      same version. Do not bump one without the other.
+- [ ] Every plugin that ships has a `rust-toolchain.toml` pinning an exact
+      release (`plugins build` fails with `ENTANGLE-E0943` otherwise), all of
+      them the same release, inside the line the workspace `rust-toolchain.toml`
+      and the CI workflows use. Do not bump one without the others
+      (`cargo test --workspace --test reproducible repository_plugins` checks it).
+- [ ] No package was built with `--threads`: the release archive is the
+      single-threaded one.
 - [ ] Working tree is clean (`git status`): a dirty tree changes the source digest.
 - [ ] No release step sets `RUSTFLAGS` / `CARGO_ENCODED_RUSTFLAGS` differently
       from the documented build; the reproducible build replaces

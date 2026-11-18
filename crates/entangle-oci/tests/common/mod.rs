@@ -41,6 +41,7 @@ pub fn signed_files(kp: &IdentityKeyPair, name: &str, wasm: &[u8]) -> PackageFil
             .unwrap()
             .into_bytes(),
         provenance: None,
+        native: false,
     }
 }
 

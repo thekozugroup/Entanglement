@@ -144,6 +144,7 @@ async fn redirect_does_not_leak_authorization() {
         },
         cdn: true,
         tag_page_size: None,
+        ..MockOptions::default()
     })
     .await;
     let pkg = signed_package(&keypair(1), "hello", &wasm_bytes(3000));
@@ -676,6 +677,7 @@ async fn bearer_token_is_not_leaked_to_the_cdn_redirect_target() {
         },
         cdn: true,
         tag_page_size: None,
+        ..MockOptions::default()
     })
     .await;
     let pkg = signed_package(&keypair(1), "hello", &wasm_bytes(3000));
