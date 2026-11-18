@@ -118,10 +118,12 @@ pub struct DispatchArgs {
     #[arg(long)]
     pub max_attempts: Option<u8>,
 
-    /// Number of replicas for --integrity deterministic or semantic-equivalent.
-    /// Replicas go to distinct trusted peers; any remainder runs locally.
-    #[arg(long, default_value_t = 2)]
-    pub replicas: u8,
+    /// Number of replicas for --integrity deterministic or semantic-equivalent
+    /// (default 2; with --workload b, b-federated or c and no --integrity,
+    /// overrides the preset's count). Replicas go to distinct trusted peers;
+    /// any remainder runs locally.
+    #[arg(long)]
+    pub replicas: Option<u8>,
 
     /// Allow-listed peer hex ids for --integrity trusted-executor.
     /// May be repeated.
@@ -191,6 +193,9 @@ fn build_kernel() -> anyhow::Result<Kernel> {
     Kernel::new(config::kernel_config()?, keyring)
         .map_err(|e| anyhow::anyhow!("failed to build kernel: {e}"))
 }
+
+/// `--replicas` when no preset decides: 2.
+const DEFAULT_REPLICAS: u8 = 2;
 
 /// Strict majority of the `replicas * (replicas - 1) / 2` replica pairs.
 fn default_quorum(replicas: u8) -> u8 {
@@ -264,9 +269,10 @@ fn resolve_integrity(
                         allowlist: allowlist.iter().map(PeerId::to_hex).collect(),
                     }
                 }
-                IntegrityPolicy::Deterministic { replicas } => {
-                    ComputeIntegrity::Deterministic { replicas }
-                }
+                // An explicit --replicas wins over the preset's count.
+                IntegrityPolicy::Deterministic { replicas } => ComputeIntegrity::Deterministic {
+                    replicas: a.replicas.unwrap_or(replicas),
+                },
                 _ => ComputeIntegrity::None,
             })
         }
@@ -292,6 +298,7 @@ fn resolve_max_attempts(a: &DispatchArgs, workload: Option<Workload>) -> Option<
 
 fn parse_integrity(a: &DispatchArgs) -> anyhow::Result<ComputeIntegrity> {
     let integrity = a.integrity.as_deref().unwrap_or("none");
+    let replicas = a.replicas.unwrap_or(DEFAULT_REPLICAS);
     // These flags configure verification only under semantic-equivalent.
     // Dropping them silently would run the task once, unverified, while the
     // operator believes it was checked.
@@ -308,9 +315,7 @@ fn parse_integrity(a: &DispatchArgs) -> anyhow::Result<ComputeIntegrity> {
     }
     match integrity {
         "none" => Ok(ComputeIntegrity::None),
-        "deterministic" => Ok(ComputeIntegrity::Deterministic {
-            replicas: a.replicas,
-        }),
+        "deterministic" => Ok(ComputeIntegrity::Deterministic { replicas }),
         "trusted-executor" => {
             // Reject any malformed allowlist entry up front rather than
             // silently dropping it; the daemon receives only valid hex ids.
@@ -340,23 +345,23 @@ fn parse_integrity(a: &DispatchArgs) -> anyhow::Result<ComputeIntegrity> {
             if !threshold.is_finite() || threshold <= 0.0 {
                 anyhow::bail!("--threshold must be a finite distance > 0, got {threshold}");
             }
-            if a.replicas < 2 {
+            if replicas < 2 {
                 anyhow::bail!(
                     "--integrity semantic-equivalent needs --replicas 2 or more \
                      (it compares replica pairs)"
                 );
             }
-            let pairs = usize::from(a.replicas) * (usize::from(a.replicas) - 1) / 2;
-            let quorum = a.quorum.unwrap_or_else(|| default_quorum(a.replicas));
+            let pairs = usize::from(replicas) * (usize::from(replicas) - 1) / 2;
+            let quorum = a.quorum.unwrap_or_else(|| default_quorum(replicas));
             if quorum == 0 || usize::from(quorum) > pairs {
                 anyhow::bail!(
                     "--quorum must be between 1 and {pairs} (the replica pair count for \
                      --replicas {}), got {quorum}",
-                    a.replicas
+                    replicas
                 );
             }
             Ok(ComputeIntegrity::SemanticEquivalent {
-                replicas: a.replicas,
+                replicas,
                 quorum,
                 metric,
                 metric_dir: resolve_metric_dir(a.metric_dir.as_deref(), &id.name)?,
@@ -749,6 +754,15 @@ mod tests {
             resolve_integrity(&b, parse_workload(&b).unwrap()).unwrap(),
             ComputeIntegrity::Deterministic { replicas: 5 }
         );
+        // --replicas alone overrides the preset's replica count.
+        for (name, replicas) in [("b-federated", 5), ("b", 3), ("c", 2)] {
+            let a = args(&["--workload", name, "--replicas", &replicas.to_string()]);
+            assert_eq!(
+                resolve_integrity(&a, parse_workload(&a).unwrap()).unwrap(),
+                ComputeIntegrity::Deterministic { replicas },
+                "--workload {name} --replicas {replicas}"
+            );
+        }
         // No preset, no --integrity: none, as before.
         let plain = args(&[]);
         assert_eq!(
