@@ -113,6 +113,7 @@
 #![warn(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
 
+pub mod agent;
 pub mod bwrap;
 pub mod error;
 pub mod frame;
@@ -131,6 +132,9 @@ mod unix;
 #[cfg(unix)]
 pub use unix::sandboxed_command;
 
+pub use agent::{
+    agent_plan, confine_agent_command, AgentFilesystem, AgentPlan, AgentProfile, AgentSandboxError,
+};
 pub use error::{SandboxError, SupervisorError};
 pub use plan::{plan, Mechanism, NetworkIsolation, Plan, Policy};
 pub use probe::{probe, HostSupport, Platform};

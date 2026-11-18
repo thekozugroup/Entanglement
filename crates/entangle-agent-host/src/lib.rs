@@ -16,7 +16,7 @@ pub mod session;
 
 pub use adapters::{
     find_adapter, known_adapter_names, registry, Adapter, ConfigFormat, LaunchPlan, McpServerSpec,
-    Snapshot,
+    SandboxPaths, Snapshot,
 };
 pub use errors::{AdapterError, SessionError};
 pub use gateway::{

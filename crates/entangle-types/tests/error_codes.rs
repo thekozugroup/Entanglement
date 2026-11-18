@@ -36,6 +36,8 @@ const ERROR_SOURCES: &[&str] = &[
     "../entangle-scheduler/src/submit.rs",
     "../entangle-oci/src/error.rs",
     "../entangle-sandbox/src/error.rs",
+    // The agent-session sandbox (E0681, E0682).
+    "../entangle-sandbox/src/agent.rs",
     "../entangle-runtime/src/native.rs",
     "../entangle-observability/src/error.rs",
 ];

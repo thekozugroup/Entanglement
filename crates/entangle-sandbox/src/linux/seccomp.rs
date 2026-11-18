@@ -27,6 +27,8 @@
 
 use std::io;
 
+pub(crate) mod agent;
+
 /// Syscall numbers the filter refers to, for one architecture.
 ///
 /// Values are from the kernel's syscall tables (x86_64:

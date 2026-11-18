@@ -27,6 +27,8 @@ pub struct AgentSession {
     unmediated: BTreeMap<String, Utf8PathBuf>,
     /// The config is the adapter's project-scoped default (no explicit source).
     project_scoped: bool,
+    /// The caller named the config file (`--config`).
+    explicit_source: bool,
     /// The session directory handed to [`activate`](Self::activate). Recorded
     /// before any filesystem work so that a failed activation, a second
     /// activation, [`cleanup`](Self::cleanup) and [`Drop`] all remove it.
@@ -66,6 +68,7 @@ impl AgentSession {
             servers,
             unmediated,
             project_scoped,
+            explicit_source: source.is_some(),
             session_dir: None,
             active: None,
             finished: false,
@@ -121,6 +124,23 @@ impl AgentSession {
     /// The name of the agent this session manages.
     pub fn agent(&self) -> &str {
         self.adapter.name()
+    }
+
+    /// What the agent needs to reach inside the OS sandbox (see
+    /// [`Adapter::sandbox_paths`]).
+    pub fn sandbox_paths(&self) -> crate::adapters::SandboxPaths {
+        self.adapter.sandbox_paths()
+    }
+
+    /// The durable config file to edit to add an MCP server (see
+    /// [`Adapter::durable_config_hint`]). When the session was prepared
+    /// from an explicit file, that file.
+    pub fn durable_config_hint(&self) -> String {
+        if self.explicit_source {
+            self.source_path.to_string()
+        } else {
+            self.adapter.durable_config_hint()
+        }
     }
 
     /// Executable name of the agent.

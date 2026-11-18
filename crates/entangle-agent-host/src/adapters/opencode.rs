@@ -21,7 +21,9 @@
 //! merges, so each of the user's entries is overridden by a `remote` entry
 //! pointing at the gateway (see [`OpenCodeAdapter`] for the files read).
 
-use super::{gateway_route_url, Adapter, ConfigFormat, LaunchPlan, McpServerSpec, Snapshot};
+use super::{
+    gateway_route_url, Adapter, ConfigFormat, LaunchPlan, McpServerSpec, SandboxPaths, Snapshot,
+};
 use crate::errors::AdapterError;
 use camino::{Utf8Path, Utf8PathBuf};
 use serde_json::{json, Map, Value};
@@ -260,6 +262,27 @@ impl Adapter for OpenCodeAdapter {
             .ok_or_else(|| AdapterError::Parse("root not an object".into()))?
             .insert("mcp".into(), Value::Object(mcp));
         serde_json::to_string_pretty(&root).map_err(|e| AdapterError::Parse(e.to_string()))
+    }
+
+    /// The global config directory (read-only) and OpenCode's XDG data,
+    /// cache and state directories (`~/.local/share/opencode`,
+    /// `~/.cache/opencode`, `~/.local/state/opencode`). The three data
+    /// locations are OpenCode's documented defaults, not verified against a
+    /// live OpenCode here; `--sandbox-write` adds any other.
+    fn sandbox_paths(&self) -> SandboxPaths {
+        SandboxPaths {
+            read_only: self.global_dir().into_iter().collect(),
+            read_write: SandboxPaths::under_home(&[
+                ".local/share/opencode",
+                ".cache/opencode",
+                ".local/state/opencode",
+            ]),
+            session_dir_writable: false,
+        }
+    }
+
+    fn durable_config_hint(&self) -> String {
+        "~/.config/opencode/opencode.json (or the project's opencode.json)".to_owned()
     }
 
     fn launch_plan(

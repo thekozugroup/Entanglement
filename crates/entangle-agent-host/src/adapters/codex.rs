@@ -2,7 +2,7 @@
 
 use super::{
     gateway_route_url, parse_server_entry, Adapter, ConfigFormat, LaunchPlan, McpServerSpec,
-    Snapshot,
+    SandboxPaths, Snapshot,
 };
 use crate::errors::AdapterError;
 use camino::{Utf8Path, Utf8PathBuf};
@@ -22,6 +22,22 @@ impl Adapter for CodexAdapter {
     fn config_path(&self) -> Result<Utf8PathBuf, AdapterError> {
         let home = std::env::var("HOME").map_err(|_| AdapterError::Io("HOME unset".into()))?;
         Ok(Utf8PathBuf::from(home).join(".codex/config.toml"))
+    }
+
+    /// `~/.codex`: the session's `CODEX_HOME` links every file of it except
+    /// the config (login state, history), and Codex writes through those
+    /// links. Codex also writes into `CODEX_HOME` itself, which lives in
+    /// the session directory.
+    fn sandbox_paths(&self) -> SandboxPaths {
+        SandboxPaths {
+            read_write: SandboxPaths::under_home(&[".codex"]),
+            session_dir_writable: true,
+            ..SandboxPaths::default()
+        }
+    }
+
+    fn durable_config_hint(&self) -> String {
+        "~/.codex/config.toml".to_owned()
     }
 
     fn snapshot(&self, path: &Utf8PathBuf) -> Result<Snapshot, AdapterError> {

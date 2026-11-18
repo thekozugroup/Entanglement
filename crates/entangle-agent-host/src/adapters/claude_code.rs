@@ -2,7 +2,7 @@
 
 use super::{
     gateway_route_url, parse_server_entry, Adapter, ConfigFormat, LaunchPlan, McpServerSpec,
-    Snapshot,
+    SandboxPaths, Snapshot,
 };
 use crate::errors::AdapterError;
 use camino::{Utf8Path, Utf8PathBuf};
@@ -38,6 +38,22 @@ impl Adapter for ClaudeCodeAdapter {
             return Vec::new();
         };
         vec![Utf8PathBuf::from(home).join(".claude/settings.json")]
+    }
+
+    /// `~/.claude` (settings, credentials, history, per-project memory) and
+    /// `~/.claude.json` (the app state Claude Code rewrites on every run).
+    fn sandbox_paths(&self) -> SandboxPaths {
+        SandboxPaths {
+            read_write: SandboxPaths::under_home(&[".claude", ".claude.json"]),
+            ..SandboxPaths::default()
+        }
+    }
+
+    /// A session reads the project's `.mcp.json` (or the `--config` file),
+    /// and Claude Code's own durable user config is `~/.claude/settings.json`
+    /// (spec §8.3).
+    fn durable_config_hint(&self) -> String {
+        "~/.claude/settings.json (or the project's .mcp.json)".to_owned()
     }
 
     fn snapshot(&self, path: &Utf8PathBuf) -> Result<Snapshot, AdapterError> {

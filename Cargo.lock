@@ -1698,6 +1698,7 @@ dependencies = [
  "entangle-peers",
  "entangle-rpc",
  "entangle-runtime",
+ "entangle-sandbox",
  "entangle-scheduler",
  "entangle-signing",
  "entangle-types",

@@ -1,6 +1,7 @@
 //! `entangle agent {run,list}` — launch an AI coding agent behind the MCP
 //! gateway (spec §8.3).
 
+use crate::cmd::agent_sandbox;
 use anyhow::{anyhow, bail, Context, Result};
 use camino::Utf8PathBuf;
 use clap::{Args, Subcommand};
@@ -28,6 +29,13 @@ enum AgentCmd {
 Run an AI coding agent with every MCP server routed through a per-session,
 loopback-only, bearer-authenticated gateway that enforces tool policy and
 records an audit trail.
+
+On Linux the agent runs in an OS sandbox: it can write only the project
+directory (the enclosing git work tree, else the current directory), temporary
+directories and its own state directories, and can read only those, the system
+directories and its install paths (add more with --sandbox-read and
+--sandbox-write). Network access is NOT restricted. --no-sandbox turns the
+sandbox off; --require-sandbox refuses to start where it cannot be enforced.
 
 Your own agent config is read but never modified: a rewritten copy is written
 to a session directory (removed on exit) and the agent is launched against it.
@@ -85,9 +93,47 @@ struct RunArgs {
     /// listed and need a `y` at a terminal prompt.
     #[arg(long)]
     trust_project_servers: bool,
+    /// Run the agent WITHOUT the OS sandbox (Linux: Landlock filesystem
+    /// allowlist, seccomp socket filter, no_new_privs). The agent can then
+    /// read and write every file you can. A warning is printed.
+    #[arg(long, conflicts_with = "require_sandbox")]
+    no_sandbox: bool,
+    /// Refuse to start (ENTANGLE-E0680) when this host cannot confine the
+    /// agent's filesystem access, instead of starting with a warning.
+    #[arg(long)]
+    require_sandbox: bool,
+    /// Also let the sandboxed agent read (and execute from) this file or
+    /// directory, e.g. a toolchain installed under your home directory.
+    /// Repeatable.
+    #[arg(long, value_name = "PATH")]
+    sandbox_read: Vec<PathBuf>,
+    /// Also let the sandboxed agent read and write this file or directory,
+    /// e.g. a package cache. Repeatable.
+    #[arg(long, value_name = "PATH")]
+    sandbox_write: Vec<PathBuf>,
+    /// Limit the agent's address space (RLIMIT_AS), in MiB. Off by default:
+    /// JavaScript runtimes reserve very large virtual regions.
+    #[arg(long, value_name = "MIB")]
+    sandbox_max_memory_mb: Option<u64>,
+    /// Limit the agent's open file descriptors (RLIMIT_NOFILE).
+    #[arg(long, value_name = "N")]
+    sandbox_max_open_files: Option<u64>,
     /// Arguments passed to the agent.
     #[arg(last = true)]
     agent_args: Vec<String>,
+}
+
+impl RunArgs {
+    fn sandbox_options(&self) -> crate::cmd::agent_sandbox::SandboxOptions {
+        crate::cmd::agent_sandbox::SandboxOptions {
+            disabled: self.no_sandbox,
+            required: self.require_sandbox,
+            read: self.sandbox_read.clone(),
+            write: self.sandbox_write.clone(),
+            max_memory_mb: self.sandbox_max_memory_mb,
+            max_open_files: self.sandbox_max_open_files,
+        }
+    }
 }
 
 pub async fn run(a: AgentArgs) -> Result<i32> {
@@ -438,7 +484,18 @@ async fn launch(
         .bin
         .clone()
         .unwrap_or_else(|| PathBuf::from(session.binary()));
-    let mut cmd = tokio::process::Command::new(&bin);
+    let not_found = || {
+        format!(
+            "launching '{}' (is it installed and on PATH? use --bin to point at it)",
+            bin.display()
+        )
+    };
+    // Resolved here, not by the spawn: the sandbox allowlist names the
+    // executable and its install tree.
+    let program = agent_sandbox::resolve_program(&bin)
+        .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))
+        .with_context(not_found)?;
+    let mut cmd = tokio::process::Command::new(&program);
     cmd.args(&plan.args)
         .args(&args.agent_args)
         .env("ENTANGLE_SESSION_ID", session_id)
@@ -447,12 +504,18 @@ async fn launch(
     for (k, v) in &plan.env {
         cmd.env(k, v);
     }
-    let mut child = cmd.spawn().with_context(|| {
-        format!(
-            "launching '{}' (is it installed and on PATH? use --bin to point at it)",
-            bin.display()
-        )
-    })?;
+    let opts = args.sandbox_options();
+    let cwd = std::env::current_dir().context("resolving the current directory")?;
+    let profile = agent_sandbox::build_profile(
+        &program,
+        &cwd,
+        dir.as_std_path(),
+        &session.sandbox_paths(),
+        &opts,
+    )?;
+    let engaged = agent_sandbox::engage(cmd.as_std_mut(), &profile, &opts)?;
+    agent_sandbox::report(&engaged);
+    let mut child = cmd.spawn().with_context(not_found)?;
 
     // Interactive agents use Ctrl-C to interrupt the current turn, not to
     // quit, so SIGINT never ends the session: the agent decides what it means

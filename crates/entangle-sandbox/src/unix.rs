@@ -15,6 +15,9 @@ use crate::error::SandboxError;
 use crate::plan::{Mechanism, Plan};
 use crate::profile::{ResourceLimits, SandboxProfile};
 
+#[cfg(target_os = "linux")]
+pub(crate) mod agent;
+
 /// Pre-built state the forked child consumes.
 struct ChildSetup {
     limits: ResourceLimits,

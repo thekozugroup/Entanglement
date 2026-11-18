@@ -414,6 +414,29 @@ fn check_sandbox_trial(policy: entangle_runtime::os_sandbox::Policy) -> CheckRes
     }
 }
 
+/// What `entangle agent run` would engage on the agent subprocess here
+/// (spec §8.2). A different profile from the native-plugin one above: an
+/// agent keeps the network, the terminal and the user's environment.
+fn check_agent_sandbox() -> CheckResult {
+    const NAME: &str = "agent sandbox";
+    agent_sandbox_result(NAME, &super::agent_sandbox::host_plan())
+}
+
+fn agent_sandbox_result(name: &'static str, plan: &entangle_sandbox::AgentPlan) -> CheckResult {
+    let detail = plan.describe();
+    if !plan.filesystem_confined() {
+        CheckResult::warn(
+            name,
+            "agents started by `entangle agent run` can read and write every file you can",
+            detail,
+        )
+    } else if plan.is_degraded() {
+        CheckResult::warn(name, "reduced isolation", detail)
+    } else {
+        CheckResult::ok(name, format!("`entangle agent run` engages {detail}"))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Check 12 — disk-space
 // ---------------------------------------------------------------------------
@@ -899,6 +922,7 @@ pub async fn run() -> anyhow::Result<()> {
     let policy = sandbox_policy();
     results.push(check_os_sandbox(policy));
     results.push(check_sandbox_trial(policy));
+    results.push(check_agent_sandbox());
     results.push(check_disk_space());
     results.push(check_clock_skew(daemon_reachable).await);
     results.push(check_tailscale().await);

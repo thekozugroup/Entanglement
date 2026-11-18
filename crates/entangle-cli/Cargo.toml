@@ -36,6 +36,9 @@ entangle-scheduler     = { path = "../entangle-scheduler" }
 entangle-mesh-iroh     = { workspace = true }
 entangle-observability = { workspace = true, features = ["otlp"] }
 entangle-agent-host    = { path = "../entangle-agent-host" }
+# The OS sandbox of the agent subprocess (`entangle agent run`). Already in
+# the graph via entangle-runtime: no new build cost.
+entangle-sandbox       = { workspace = true }
 # `entangle config set` validates the edited file with the daemon's own
 # config schema and start-up checks (`entangle_bin::config`). Already built
 # for the daemon binary and as a dev-dependency: no new crates or features.

@@ -81,6 +81,24 @@ pub trait Adapter: Send + Sync {
         Ok(BTreeMap::new())
     }
 
+    /// The paths of the agent's own state that it needs inside the OS
+    /// sandbox `entangle agent run` engages (spec §8.2): its configuration,
+    /// credentials, history and cache directories. Everything else under
+    /// the home directory stays out of the agent's reach. Default: none.
+    fn sandbox_paths(&self) -> SandboxPaths {
+        SandboxPaths::default()
+    }
+
+    /// The durable config file a user edits to add an MCP server for this
+    /// agent, as shown in messages (spec §8.3: a tool call to a server that
+    /// is not in the session config is refused with an error pointing
+    /// here). Default: [`config_path`](Self::config_path).
+    fn durable_config_hint(&self) -> String {
+        self.config_path()
+            .map(|p| p.to_string())
+            .unwrap_or_else(|_| format!("the {} MCP config", self.name()))
+    }
+
     /// Produce the session config: the user's config with **every** MCP
     /// server entry replaced by one pointing at
     /// `<gateway_base_url>/<server-name>`. The bearer token is never written
@@ -153,6 +171,35 @@ impl std::fmt::Debug for McpServerSpec {
                 .field("headers", &headers.keys().collect::<Vec<_>>())
                 .finish(),
             Self::LegacySse { url } => f.debug_struct("LegacySse").field("url", url).finish(),
+        }
+    }
+}
+
+/// What an agent needs to reach inside the OS sandbox besides the project
+/// directory, the temporary directories and the system trees (see
+/// [`Adapter::sandbox_paths`]). Paths are absolute; ones that do not exist
+/// are skipped when the sandbox is built.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SandboxPaths {
+    /// Readable (and executable), never writable.
+    pub read_only: Vec<Utf8PathBuf>,
+    /// Readable and writable: the agent's own state.
+    pub read_write: Vec<Utf8PathBuf>,
+    /// Whether the agent writes into the session directory (Codex keeps
+    /// its `CODEX_HOME` there). When false the session directory, which
+    /// holds the gateway-routed MCP config, is read-only for the agent.
+    pub session_dir_writable: bool,
+}
+
+impl SandboxPaths {
+    /// `names` resolved under `$HOME` (nothing when `HOME` is unset).
+    pub fn under_home(names: &[&str]) -> Vec<Utf8PathBuf> {
+        match std::env::var("HOME") {
+            Ok(home) if !home.is_empty() => names
+                .iter()
+                .map(|n| Utf8PathBuf::from(&home).join(n))
+                .collect(),
+            _ => Vec::new(),
         }
     }
 }
