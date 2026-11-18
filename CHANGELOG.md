@@ -70,6 +70,9 @@ Operations
 Agents
 - MCP gateway HTTP server in `entangle-agent-host`: bearer auth, allow/deny policy, audit, stdio downstream servers, connection and size limits.
 - `entangle agent run` with session-scoped configs for claude-code, codex and opencode; `--trust-project-servers` consent.
+- Agent sandbox on Linux (Landlock allowlist, seccomp filter, `no_new_privs`, rlimits): `--no-sandbox`, `--require-sandbox`, `--sandbox-read`, `--sandbox-write`; sessions in `$HOME` or `/` refused; confirmation for user-level MCP servers that are new or changed since the last session (`--trust-new-servers`).
+- The daemon RPC socket requires a per-start token (`<socket>.token`, mode 0600) on every connection.
+- `--entangle-tools`: a built-in gateway server exposing loaded plugins as MCP tools. `entangle doctor` reports the agent sandbox and a shell-history note. `ENTANGLE-E0680`..`E0689`.
 - HTTP downstream MCP servers (Streamable HTTP, JSON and SSE replies, `Mcp-Session-Id`, request-id remapping, cancellation on timeout); configured headers are sent, the gateway's bearer token never is; legacy `type: "sse"` servers are refused.
 
 Distribution and release

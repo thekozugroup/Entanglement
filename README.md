@@ -128,7 +128,7 @@ The phase numbers below are this README's own. They differ from the phases in ar
 | 3     | Integrity policies: `Deterministic`, `SemanticEquivalent` | Implemented, with Layer-2 replay spot-checks (1% by default). `Attested` is not implemented (needs TEE hardware) |
 | 4     | Streaming tasks with chunk signing | Implemented. Streams run over Iroh and Tailscale, with per-peer transport selection in `compute stream`, and have invocation spans and metrics. Failed tasks are retried on another worker, slow ones can get a backup copy (`[scheduler] speculation`, off by default), and a stream that fails before delivering output restarts from its input. Reputation gossip is not implemented (reputation is a local per-peer, per-policy score) |
 | 1.5   | Distribution: OCI registry, reproducible packages, release verification, install script, Homebrew | Code and CI workflows exist. No release is published; `install.sh` and Homebrew need a `v0.1.0` tag. Cross-host reproducibility and real cosign run only in CI. Bus-factor check fails by design (one holder per role) |
-| 5     | Native Windows AppContainer; Aider and Cursor adapters; plugin marketplace | Not started |
+| 5     | Native Windows AppContainer; Aider and Cursor adapters; plugin marketplace | Not started (`agent run aider` is refused with a clear error) |
 
 ## Acknowledgements
 
