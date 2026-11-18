@@ -135,48 +135,166 @@ fn refuse_other_publishers_install(dir: &Path, id: &PluginId) -> Result<()> {
     Ok(())
 }
 
-/// Write `files` into `out` so that a failure never leaves a mixed directory:
-/// stage in a sibling directory, then swap it into place.
-fn write_package_atomically(files: &entangle_oci::PackageFiles, out: &Path) -> Result<()> {
-    let parent = match out.parent() {
+/// Refuse an existing `out` that is not a plugin package directory
+/// (`ENTANGLE-E0949`). Installing swaps the destination out whole, so an
+/// `--out` pointing at a populated directory that is not a package (a home
+/// directory, a project) would be moved aside and replaced. Absent, an empty
+/// directory, or a directory holding `entangle.toml` are accepted; a symlink
+/// or a file is not.
+pub(crate) fn check_out_dir(out: &Path) -> Result<()> {
+    let meta = match std::fs::symlink_metadata(out) {
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e).with_context(|| format!("inspecting {}", out.display())),
+    };
+    let ok = meta.is_dir()
+        && (out.join(entangle_oci::FILE_MANIFEST).is_file()
+            || std::fs::read_dir(out)
+                .map(|mut rd| rd.next().is_none())
+                .unwrap_or(false));
+    if !ok {
+        bail!(
+            "ENTANGLE-E0949: {} exists and is not a plugin package directory (no entangle.toml); \
+             installing would replace it whole. Nothing was written. Give --out a new or empty \
+             directory, or one that holds a package",
+            out.display()
+        );
+    }
+    Ok(())
+}
+
+/// A package written into a hidden staging directory next to its
+/// destination, not yet in place.
+struct Staged {
+    staging: PathBuf,
+    out: PathBuf,
+}
+
+fn parent_of(out: &Path) -> PathBuf {
+    match out.parent() {
         Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
         _ => PathBuf::from("."),
-    };
-    std::fs::create_dir_all(&parent)?;
+    }
+}
+
+fn hidden_prefix(out: &Path, what: &str) -> String {
     let base = out
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "plugin".into());
-    let pid = std::process::id();
-    let staging = parent.join(format!(".{base}.staging-{pid}"));
-    let backup = parent.join(format!(".{base}.old-{pid}"));
-    let _ = std::fs::remove_dir_all(&staging);
-    let _ = std::fs::remove_dir_all(&backup);
-    if let Err(e) = files.write_dir(&staging) {
-        let _ = std::fs::remove_dir_all(&staging);
-        return Err(e.into());
-    }
-    let had_old = std::fs::symlink_metadata(out).is_ok();
-    if had_old {
-        if let Err(e) = std::fs::rename(out, &backup) {
-            let _ = std::fs::remove_dir_all(&staging);
-            return Err(e.into());
+    format!(".{base}.{what}-")
+}
+
+/// Write `files` into a fresh staging directory created (with an
+/// unpredictable name, mode 0700) in `out`'s parent, so the later rename is
+/// on one filesystem and nothing else can have prepared the path.
+fn stage(files: &entangle_oci::PackageFiles, out: &Path) -> Result<Staged> {
+    check_out_dir(out)?;
+    let parent = parent_of(out);
+    std::fs::create_dir_all(&parent).with_context(|| format!("creating {}", parent.display()))?;
+    let dir = tempfile::Builder::new()
+        .prefix(&hidden_prefix(out, "staging"))
+        .tempdir_in(&parent)
+        .with_context(|| format!("creating a staging directory in {}", parent.display()))?;
+    files
+        .write_dir(dir.path())
+        .with_context(|| format!("writing package to {}", dir.path().display()))?;
+    Ok(Staged {
+        staging: dir.keep(),
+        out: out.to_path_buf(),
+    })
+}
+
+/// One destination swapped in: where its previous content was moved, if
+/// it had any.
+struct Swapped {
+    out: PathBuf,
+    backup: Option<PathBuf>,
+}
+
+/// Undo `done` in reverse order: remove each new package and move the old
+/// content back.
+fn roll_back(done: &[Swapped]) {
+    for d in done.iter().rev() {
+        let _ = std::fs::remove_dir_all(&d.out);
+        if let Some(holder) = &d.backup {
+            let _ = std::fs::rename(holder.join("pkg"), &d.out);
+            let _ = std::fs::remove_dir_all(holder);
         }
     }
-    if let Err(e) = std::fs::rename(&staging, out) {
-        if had_old {
-            let _ = std::fs::rename(&backup, out);
+}
+
+/// Move every staged package into place, then run `commit`; all of it
+/// happens, or none: if a rename or `commit` fails, the packages already
+/// swapped are removed, the previous contents are put back and the staging
+/// directories are deleted.
+fn swap_in_all(staged: Vec<Staged>, commit: impl FnOnce() -> Result<()>) -> Result<()> {
+    let mut done: Vec<Swapped> = Vec::with_capacity(staged.len());
+    let mut result = Ok(());
+    for s in &staged {
+        let step = (|| -> Result<Swapped> {
+            let backup = if std::fs::symlink_metadata(&s.out).is_ok() {
+                // Re-checked here: the directory may have changed since staging.
+                check_out_dir(&s.out)?;
+                let holder = tempfile::Builder::new()
+                    .prefix(&hidden_prefix(&s.out, "old"))
+                    .tempdir_in(parent_of(&s.out))?
+                    .keep();
+                if let Err(e) = std::fs::rename(&s.out, holder.join("pkg")) {
+                    let _ = std::fs::remove_dir_all(&holder);
+                    return Err(e.into());
+                }
+                Some(holder)
+            } else {
+                None
+            };
+            if let Err(e) = std::fs::rename(&s.staging, &s.out) {
+                if let Some(holder) = &backup {
+                    let _ = std::fs::rename(holder.join("pkg"), &s.out);
+                    let _ = std::fs::remove_dir_all(holder);
+                }
+                return Err(e.into());
+            }
+            Ok(Swapped {
+                out: s.out.clone(),
+                backup,
+            })
+        })();
+        match step {
+            Ok(d) => done.push(d),
+            Err(e) => {
+                result = Err(e.context(format!("writing package to {}", s.out.display())));
+                break;
+            }
         }
-        let _ = std::fs::remove_dir_all(&staging);
-        return Err(e.into());
     }
-    if had_old {
-        // Best effort: the new package is already in place.
-        if std::fs::remove_dir_all(&backup).is_err() {
-            let _ = std::fs::remove_file(&backup);
+    if result.is_ok() {
+        result = commit();
+    }
+    if result.is_err() {
+        roll_back(&done);
+    }
+    for s in &staged {
+        // Already renamed into place when the swap succeeded: then this
+        // finds nothing.
+        let _ = std::fs::remove_dir_all(&s.staging);
+    }
+    if result.is_ok() {
+        for d in &done {
+            if let Some(holder) = &d.backup {
+                // Best effort: the new packages are already in place.
+                let _ = std::fs::remove_dir_all(holder);
+            }
         }
     }
-    Ok(())
+    result
+}
+
+/// Write `files` into `out` so that a failure never leaves a mixed
+/// directory: staged next to it, then swapped into place.
+fn write_package_atomically(files: &entangle_oci::PackageFiles, out: &Path) -> Result<()> {
+    let staged = stage(files, out)?;
+    swap_in_all(vec![staged], || Ok(()))
 }
 
 /// The plugin id recorded in an installed package directory, if any.
@@ -242,6 +360,7 @@ pub(crate) fn destination(
             dir
         }
     };
+    check_out_dir(&dir)?;
     refuse_downgrade(&cleared.id, &dir, allow_downgrade)?;
     Ok(dir)
 }
@@ -522,9 +641,9 @@ pub struct PackInstallOptions {
     pub out: Option<PathBuf>,
     /// Verify and write, but do not load.
     pub no_load: bool,
-    /// Add the pack's publisher keys that are not yet in the keyring, after
-    /// printing their fingerprints.
-    pub trust_pack_keys: bool,
+    /// The fingerprints of the pack's publisher keys that are not yet in
+    /// the keyring, which the user agrees to add. Must be exactly that set.
+    pub trust_pack_keys: Option<String>,
     /// Allow replacing an installed plugin with a lower version.
     pub allow_downgrade: bool,
 }
@@ -568,8 +687,39 @@ pub async fn install_pack(opts: PackInstallOptions) -> Result<()> {
         }
     }
     let mut newly_trusted: Vec<TrustEntry> = Vec::new();
+    let unknown_fps: std::collections::BTreeSet<String> = unknown
+        .iter()
+        .map(|(k, _)| k.fingerprint.to_ascii_lowercase())
+        .collect();
+    let consented: Option<std::collections::BTreeSet<String>> =
+        opts.trust_pack_keys.as_deref().map(|v| {
+            v.split(',')
+                .map(|f| f.trim().to_ascii_lowercase())
+                .filter(|f| !f.is_empty())
+                .collect()
+        });
+    if let Some(given) = &consented {
+        if *given != unknown_fps {
+            let list = |set: &std::collections::BTreeSet<String>| {
+                if set.is_empty() {
+                    "(none)".to_owned()
+                } else {
+                    set.iter().cloned().collect::<Vec<_>>().join(",")
+                }
+            };
+            bail!(
+                "ENTANGLE-E0948: --trust-pack-keys names {}, but the publisher keys in {} that \
+                 your keyring does not hold are {}. The fingerprints must be exactly those, so \
+                 that you agree to each key by name. Nothing was installed and the keyring is \
+                 unchanged",
+                list(given),
+                path.display(),
+                list(&unknown_fps)
+            );
+        }
+    }
     if !unknown.is_empty() {
-        if !opts.trust_pack_keys {
+        if consented.is_none() {
             let mut msg = format!(
                 "ENTANGLE-E0940: {} holds package(s) signed by {} publisher key(s) that are \
                  not in your keyring. A key inside a pack is never trusted automatically. \
@@ -585,14 +735,19 @@ pub async fn install_pack(opts: PackInstallOptions) -> Result<()> {
                     key.public_key
                 ));
             }
-            msg.push_str(
+            msg.push_str(&format!(
                 "\nCheck each fingerprint with the publisher through another channel first. \
-                 To add all of them in one step, re-run with --trust-pack-keys.",
-            );
+                 To add exactly these in one step, re-run with\n  --trust-pack-keys {}\n\
+                 A key you add is trusted for that publisher's plugins from every source, not \
+                 only this pack.",
+                unknown_fps.iter().cloned().collect::<Vec<_>>().join(",")
+            ));
             bail!(msg);
         }
         println!(
-            "      --trust-pack-keys: adding {} publisher key(s) from the pack to your keyring",
+            "      --trust-pack-keys: will add {} publisher key(s) from the pack to your keyring \
+             (trusted for that publisher's plugins from every source), once every package has \
+             been verified and written",
             unknown.len()
         );
         for (key, ids) in &unknown {
@@ -648,13 +803,14 @@ pub async fn install_pack(opts: PackInstallOptions) -> Result<()> {
                 )
             })
         })?;
+        // Defence in depth: `read_pack` already compared the index with each
+        // manifest, and the verified id is that manifest's.
         if verified.plugin_id != p.entry.plugin_id {
-            bail!(
-                "ENTANGLE-E0824: the pack index lists {} but the signed manifest says {}; \
-                 nothing was installed",
-                p.entry.plugin_id,
-                verified.plugin_id
-            );
+            return Err(anyhow::Error::from(OciError::InvalidPack(format!(
+                "the pack index lists {} but the signed manifest says {}",
+                p.entry.plugin_id, verified.plugin_id
+            )))
+            .context("nothing was installed"));
         }
         let c = check_policy_with(
             verified,
@@ -673,6 +829,7 @@ pub async fn install_pack(opts: PackInstallOptions) -> Result<()> {
         let out = match &opts.out {
             Some(parent) => {
                 let out = parent.join(&c.id.name);
+                check_out_dir(&out)?;
                 refuse_downgrade(&c.id, &out, opts.allow_downgrade)?;
                 out
             }
@@ -688,11 +845,36 @@ pub async fn install_pack(opts: PackInstallOptions) -> Result<()> {
         targets.push(out);
     }
 
+    // All or none: stage every package, swap them all in, and save the
+    // keyring last; if any step fails, everything is rolled back.
+    println!("[3/4] writing {} package(s)", cleared.len());
+    let mut staged = Vec::with_capacity(cleared.len());
+    for (c, out) in cleared.iter().zip(&targets) {
+        match stage(&c.verified.files, out) {
+            Ok(st) => staged.push(st),
+            Err(e) => {
+                for st in &staged {
+                    let _ = std::fs::remove_dir_all(&st.staging);
+                }
+                return Err(
+                    e.context("nothing from the pack was installed and the keyring is unchanged")
+                );
+            }
+        }
+    }
+    swap_in_all(staged, || {
+        if !newly_trusted.is_empty() {
+            keyring
+                .save(&keyring_path)
+                .with_context(|| format!("saving {}", keyring_path.display()))?;
+        }
+        Ok(())
+    })
+    .context("nothing from the pack was installed and the keyring is unchanged")?;
+    for (c, out) in cleared.iter().zip(&targets) {
+        println!("      {} -> {}", c.verified.plugin_id, out.display());
+    }
     if !newly_trusted.is_empty() {
-        // Persist only now: a pack that fails verification leaves the keyring alone.
-        keyring
-            .save(&keyring_path)
-            .with_context(|| format!("saving {}", keyring_path.display()))?;
         println!(
             "      saved {} new key(s) to {}",
             newly_trusted.len(),
@@ -702,12 +884,6 @@ pub async fn install_pack(opts: PackInstallOptions) -> Result<()> {
             "      note: a running entangled reads keyring.toml only at startup; restart it \
              before loading these plugins into it"
         );
-    }
-
-    println!("[3/4] writing {} package(s)", cleared.len());
-    for (c, out) in cleared.iter().zip(&targets) {
-        write_verified(c, out)?;
-        println!("      {} -> {}", c.verified.plugin_id, out.display());
     }
     if opts.no_load {
         println!("[4/4] skipped loading (--no-load)");
@@ -755,6 +931,101 @@ mod tests {
     }
 
     const WASM: &[u8] = b"\0asm\x0d\x00\x01\x00";
+
+    fn pkg_files(tag: &str) -> PackageFiles {
+        PackageFiles {
+            manifest: format!("[plugin]\nid = \"{tag}\"\n").into_bytes(),
+            wasm: WASM.to_vec(),
+            signature: b"sig".to_vec(),
+            provenance: None,
+            native: false,
+        }
+    }
+
+    /// When the commit step (saving the keyring) fails after every package
+    /// was swapped in, all of them are rolled back: new ones removed, old
+    /// ones restored, no staging or backup directories left.
+    #[test]
+    fn a_failed_commit_rolls_every_package_back() {
+        let d = tempfile::tempdir().unwrap();
+        let (a, b) = (d.path().join("a"), d.path().join("b"));
+        pkg_files("old-a").write_dir(&a).unwrap();
+        let staged = vec![
+            stage(&pkg_files("new-a"), &a).unwrap(),
+            stage(&pkg_files("new-b"), &b).unwrap(),
+        ];
+        let e = swap_in_all(staged, || anyhow::bail!("keyring save failed")).unwrap_err();
+        assert!(format!("{e:#}").contains("keyring save failed"));
+        assert_eq!(PackageFiles::read_dir(&a).unwrap(), pkg_files("old-a"));
+        assert!(!b.exists());
+        let left: Vec<_> = std::fs::read_dir(d.path())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name())
+            .collect();
+        assert_eq!(left.len(), 1, "{left:?}");
+    }
+
+    /// A rename that fails half-way (the second destination's parent is gone)
+    /// undoes the first swap.
+    #[test]
+    fn a_failed_swap_undoes_the_earlier_ones() {
+        let d = tempfile::tempdir().unwrap();
+        let a = d.path().join("a");
+        let sub = d.path().join("sub");
+        let b = sub.join("b");
+        pkg_files("old-a").write_dir(&a).unwrap();
+        let staged = vec![
+            stage(&pkg_files("new-a"), &a).unwrap(),
+            stage(&pkg_files("new-b"), &b).unwrap(),
+        ];
+        // Pull the second package's staging directory away.
+        std::fs::remove_dir_all(&sub).unwrap();
+        assert!(swap_in_all(staged, || Ok(())).is_err());
+        assert_eq!(PackageFiles::read_dir(&a).unwrap(), pkg_files("old-a"));
+        let left: Vec<_> = std::fs::read_dir(d.path())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name())
+            .collect();
+        assert_eq!(left.len(), 1, "{left:?}");
+    }
+
+    /// `--out` that exists but is not a package (a home or project
+    /// directory, a file, a symlink) is refused; absent, empty or a package
+    /// directory is fine.
+    #[test]
+    fn out_must_be_absent_empty_or_a_package() {
+        let d = tempfile::tempdir().unwrap();
+        assert!(check_out_dir(&d.path().join("absent")).is_ok());
+        let empty = d.path().join("empty");
+        std::fs::create_dir(&empty).unwrap();
+        assert!(check_out_dir(&empty).is_ok());
+        let pkg = d.path().join("pkg");
+        pkg_files("x").write_dir(&pkg).unwrap();
+        assert!(check_out_dir(&pkg).is_ok());
+        let project = d.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        std::fs::write(project.join("notes.txt"), "mine").unwrap();
+        let file = d.path().join("file");
+        std::fs::write(&file, "x").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&pkg, d.path().join("link")).unwrap();
+        for bad in [project.clone(), file, d.path().join("link")] {
+            if !bad.exists() {
+                continue;
+            }
+            let e = check_out_dir(&bad).unwrap_err().to_string();
+            assert!(e.starts_with("ENTANGLE-E0949"), "{e}");
+        }
+        // ...and the write refuses it before touching anything.
+        assert!(write_package_atomically(&pkg_files("y"), &project).is_err());
+        assert_eq!(
+            std::fs::read_to_string(project.join("notes.txt")).unwrap(),
+            "mine"
+        );
+    }
+
     const ELF: &[u8] = b"\x7fELF\x02\x01\x01\x00rest";
 
     #[test]

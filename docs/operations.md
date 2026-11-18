@@ -364,7 +364,7 @@ canonical range table, maintained in
 | E0880–E0899 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0891: the 1.62.0 Tailscale floor, E0893: a Tailscale version that cannot be read; both also enforced by the daemon), `keys gen`, pairing UX, `install` / `uninstall` / `agent host cleanup` — see §26–§31 |
 | E0900 | I/O |
 | E0920–E0939 | Operator log and trace stores (`entangle_observability::QueryError`, `entangle logs`, `entangle trace task`; see §14d, §14e): unknown log source (E0920), a plugin name matching several plugins (E0921), an invalid log query parameter (E0922), no spans recorded for a task or trace id (E0923), an id that is neither a task UUID nor a trace id (E0924) |
-| E0940–E0949 | Plugin distribution, CLI side (`entangle-cli` `cmd::dist`, `cmd::pack`, `cmd::mirror`, `cmd::repro`) — see §13, §19: a pack holding packages from publishers not in the keyring (E0940); `entangle pack` cannot resolve or write what was asked (E0941); a floating WIT import in a plugin project (E0942); a missing, inexact or overridden `rust-toolchain.toml` (E0943); a damaged mirror setting (E0944); a package that is not what was asked for (E0945); a refused downgrade (E0946); an OCI publisher pin mismatch or a damaged pin file (E0947) |
+| E0940–E0949 | Plugin distribution, CLI side (`entangle-cli` `cmd::dist`, `cmd::pack`, `cmd::mirror`, `cmd::repro`) — see §13, §19: a pack holding packages from publishers not in the keyring (E0940); `entangle pack` cannot resolve or write what was asked (E0941); a floating WIT import in a plugin project (E0942); a missing, inexact or overridden `rust-toolchain.toml` (E0943); a damaged mirror setting (E0944); a package that is not what was asked for (E0945); a refused downgrade (E0946); an OCI publisher pin mismatch or a damaged pin file (E0947); a `--trust-pack-keys` list that is not the pack's unknown keys (E0948); an `--out` that exists and is not a package directory (E0949) |
 | E9999 | Internal / unexpected |
 
 A handful of other crates layer additional codes into gaps in that range for
@@ -415,13 +415,15 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0823` | `plugins install <URL>`: no `<url>.sig`, a malformed one, one that covers other bytes, or one by a different publisher than the package inside; nothing was written (§13). |
 | `ENTANGLE-E0824` | A `.entanglepack` is malformed, of an unsupported version, or its index disagrees with its contents; nothing was installed (§13). |
 | `ENTANGLE-E0825` | `entangle mirror set`: the URL is not a usable mirror address (§13). |
-| `ENTANGLE-E0940` | `plugins install <pack>`: a package is signed by a publisher key that is not in your keyring. The message gives the fingerprint and the `entangle keyring add` command; `--trust-pack-keys` adds the pack's keys after printing them. Nothing was installed (§13). |
-| `ENTANGLE-E0941` | `entangle pack`: an argument is not a package, matches no (or several) installed plugins, or the output file exists (`--force`) (§13). |
+| `ENTANGLE-E0940` | `plugins install <pack>`: a package is signed by a publisher key that is not in your keyring. The message gives the fingerprint and the `entangle keyring add` command; `--trust-pack-keys <FP>[,<FP>...]` adds exactly those keys. Nothing was installed (§13). |
+| `ENTANGLE-E0941` | `entangle pack`: an argument is not a package, matches no (or several) installed plugins, two packages have one plugin name, or the output file exists (`--force`) (§13). |
 | `ENTANGLE-E0942` | `plugins build`: a WIT import (or `[build] wit_world`) does not name an exact `@x.y.z` version; the message lists each one. Nothing was built (§19). |
 | `ENTANGLE-E0943` | `plugins build`: no `rust-toolchain.toml` in the project or its workspace root, a `channel` that is not an exact release, or a pin that is not the compiler in use. Nothing was built (§19). |
 | `ENTANGLE-E0944` | `~/.entangle/mirror.toml` is unreadable or malformed; rewrite it with `entangle mirror set` or remove it with `entangle mirror unset` (§13). |
 | `ENTANGLE-E0945` | `plugins install`: the validly signed package is not what was asked for: a URL whose file name is not the signed `<name>-<version>.tar.zst` (or that differs from `--expect`), an `oci://` repository/version tag that does not match the plugin, a floating tag with mirror keys configured but no verified listing, or a package not signed by `--publisher`. Nothing was written (§13). |
 | `ENTANGLE-E0946` | `plugins install`: the package is an older version than the one installed for the same publisher; `--allow-downgrade` permits it (§13). |
+| `ENTANGLE-E0948` | `plugins install <pack> --trust-pack-keys`: the fingerprints given are not exactly the pack's keys that your keyring lacks. Nothing was installed (§13). |
+| `ENTANGLE-E0949` | `plugins install --out <DIR>`: `DIR` exists and is not a plugin package directory (nor empty); installing would replace it. Nothing was written (§13). |
 | `ENTANGLE-E0947` | `plugins install oci://…`: the repository is pinned to another publisher (`~/.entangle/oci-publishers.toml`); `--publisher <FP>` re-pins it. Also: that file is unreadable or malformed (§13). |
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§16). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§16). |
@@ -949,8 +951,12 @@ publisher and name, in the destination directory or in
 still validly signed, so a server could otherwise roll you back to a version
 with a known flaw. `--allow-downgrade` permits it.
 
-The package is staged in a sibling directory and swapped into place, so
-a failed install never leaves a half-written directory. Without `--out`, an
+The package is staged in a sibling directory (a fresh, unpredictably named
+one created in the destination's parent) and swapped into place, so a failed
+install never leaves a half-written directory. An `--out` that already
+exists must be empty or hold a plugin package (`entangle.toml`); anything
+else (a home directory, a project, a file, a symlink) is refused with
+`ENTANGLE-E0949` rather than replaced. Without `--out`, an
 existing `~/.entangle/plugins/<name>` that holds another publisher's plugin is
 not overwritten; pass `--out`. Catalog-only flags (`--catalog`, `--key`,
 `--wasm`, `--target`) are refused for `oci://` references rather than ignored.
@@ -1218,8 +1224,14 @@ $ entangle pack hello-world ./my-plugin/dist ./tool-0.2.0.tar.zst -o site.entang
 
 Each argument is a package archive, a package directory (or a project with a
 `dist/`), or a plugin installed under `~/.entangle/plugins`, by
-`<publisher>/<name>@<version>`, `<name>@<version>` or `<name>`. Every package
-must verify against **your** keyring, otherwise nothing is written. The same
+`<publisher>/<name>@<version>`, `<name>@<version>` or `<name>`. Which one is
+decided by spelling, not by what exists: an argument containing `/`,
+starting with `.`, absolute, or ending in `.tar.zst` is a path; anything else
+is an installed plugin (write `./hello-world` for a directory of that name).
+Every package must verify against **your** keyring, and a pack holds at most
+one package per plugin name (two versions of one plugin, or one name from
+two publishers, is refused with `ENTANGLE-E0941`, since the installer writes
+each plugin to a directory named after it); otherwise nothing is written. The same
 set of packages always produces the same file, byte for byte (fixed entry
 order, normalised tar headers, no timestamps or host names), so two people
 can compare its sha256. Plugin manifests carry no plugin-to-plugin
@@ -1232,8 +1244,14 @@ $ entangle plugins install ./site.entanglepack
 ```
 
 Every package in the pack is verified offline against that machine's keyring
-and put through the same tier, disabled and runtime-kind checks. All of them
-are installed, or none.
+and put through the same tier, disabled, runtime-kind and downgrade checks.
+All of them are installed, or none: each package is first written to a
+staging directory next to its destination, then all are swapped in, and the
+keyring (when `--trust-pack-keys` adds keys) is saved last; if any step
+fails, the packages already swapped in are removed, the previous contents put
+back and the keyring left as it was. `--out <DIR>` for a pack is a parent
+directory (each package goes to `<DIR>/<name>`); for every other source it is
+the package directory itself.
 
 **Keys inside a pack are never trusted automatically.** A pack carries the
 public keys of the publishers that signed its packages, so you can see whose
@@ -1248,11 +1266,16 @@ packages it signs, and the command that trusts it:
 ```
 
 Check the fingerprint with the publisher through another channel, add the key,
-and install again. `--trust-pack-keys` does the adding for you: it prints the
-fingerprints, adds exactly the keys the pack's packages need, and saves the
-keyring only if every package then verifies. A running `entangled` reads
-`keyring.toml` at start, so restart it before loading plugins from a newly
-trusted publisher.
+and install again. Or name the keys you checked:
+`--trust-pack-keys <FP>[,<FP>...]`. The list must be exactly the pack's keys
+that your keyring lacks, the ones the refusal printed (`ENTANGLE-E0948`
+otherwise, and nothing changes), so each key is agreed to by name and a key
+you once removed is not quietly re-added. The keys are saved only when every
+package has verified and been written. **A key you add this way is a
+publisher key like any other**: it is trusted for that publisher's plugins
+from every source (registries, URLs, other packs), not only for this pack. A
+running `entangled` reads `keyring.toml` at start, so restart it before
+loading plugins from a newly trusted publisher.
 
 Pack format (version 1): an uncompressed tar holding `entanglepack.json` (the
 index: format, version, per package the plugin id, signer, file name, sha256

@@ -14,6 +14,13 @@
 //! * an installed plugin under `~/.entangle/plugins`, by full id
 //!   (`<publisher>/<name>@<version>`), `<name>@<version>`, or `<name>`.
 //!
+//! Which of these an argument is follows from its spelling alone: it is a
+//! path when it contains a path separator, starts with `.`, is absolute or
+//! ends in `.tar.zst`, and an installed plugin otherwise (so `hello-world`
+//! is the installed plugin even if `./hello-world` exists). A pack holds at
+//! most one package per plugin name (one version, one publisher), since
+//! `plugins install` writes each to a directory named after the plugin.
+//!
 //! Every package is verified against **your** keyring before it is packed
 //! (an unverifiable one is refused), and the public keys of the signers are
 //! written into the pack so the recipient can see whose signatures to
@@ -113,9 +120,26 @@ fn installed_matching(spec: &str) -> Vec<(PluginId, PathBuf)> {
     hits
 }
 
+/// Is a command-line argument a path (rather than an installed plugin)?
+/// The rule is syntactic so that the same words always mean the same thing,
+/// whatever happens to exist in the current directory: an argument is a path
+/// when it contains a path separator, starts with `.`, is absolute, or ends
+/// in `.tar.zst`. `hello-world` names an installed plugin even when a
+/// directory `./hello-world` exists; write `./hello-world` for the directory.
+fn is_path_argument(spec: &str) -> bool {
+    spec.contains('/')
+        || spec.contains(std::path::MAIN_SEPARATOR)
+        || spec.starts_with('.')
+        || spec.ends_with(".tar.zst")
+        || Path::new(spec).is_absolute()
+}
+
 /// Resolve one command-line argument to package archive bytes.
 fn resolve(spec: &str) -> Result<(String, Vec<u8>)> {
     let path = Path::new(spec);
+    if !is_path_argument(spec) {
+        return resolve_installed(spec);
+    }
     if path.is_dir() {
         let dir = package_dir(path)?;
         let bytes = pack_dir(&dir).with_context(|| format!("packing {}", dir.display()))?;
@@ -131,6 +155,12 @@ fn resolve(spec: &str) -> Result<(String, Vec<u8>)> {
         })?;
         return Ok((path.display().to_string(), bytes));
     }
+    bail!("ENTANGLE-E0941: {} does not exist", path.display())
+}
+
+/// Resolve an installed plugin's `<publisher>/<name>@<version>`,
+/// `<name>@<version>` or `<name>` to package archive bytes.
+fn resolve_installed(spec: &str) -> Result<(String, Vec<u8>)> {
     let hits = installed_matching(spec);
     match hits.as_slice() {
         [(_, dir)] => {
@@ -138,10 +168,14 @@ fn resolve(spec: &str) -> Result<(String, Vec<u8>)> {
             Ok((dir.display().to_string(), bytes))
         }
         [] => bail!(
-            "ENTANGLE-E0941: {spec:?} is neither a package file, a package directory, nor a \
-             plugin installed under {}. Give a path, or an installed plugin's \
-             <publisher>/<name>@<version>, <name>@<version> or <name>",
-            config::entangle_dir().join("plugins").display()
+            "ENTANGLE-E0941: {spec:?} is not a plugin installed under {}. Give an installed \
+             plugin's <publisher>/<name>@<version>, <name>@<version> or <name>, or a path{}",
+            config::entangle_dir().join("plugins").display(),
+            if Path::new(spec).exists() {
+                format!(" (for the file or directory here, write ./{spec})")
+            } else {
+                " (a path contains `/`, starts with `.` or ends in .tar.zst)".to_owned()
+            }
         ),
         many => bail!(
             "ENTANGLE-E0941: {spec:?} matches several installed plugins ({}); name one by its \
@@ -182,6 +216,31 @@ pub async fn run(args: PackArgs) -> Result<()> {
     // Re-read what is about to be written: the file must be one `plugins
     // install` accepts.
     let pack = read_pack(&pack_bytes).context("internal error: the pack does not read back")?;
+    // `plugins install` writes each package to a directory named after the
+    // plugin, all or none: two packages with one name (two versions, or two
+    // publishers) could never be installed together.
+    let mut by_name: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    for p in &pack.packages {
+        let id = PluginId::from_str(&p.entry.plugin_id)
+            .map_err(|e| anyhow::anyhow!("plugin id {}: {e}", p.entry.plugin_id))?;
+        by_name
+            .entry(id.name.clone())
+            .or_default()
+            .push(p.entry.plugin_id.clone());
+    }
+    let clashes: Vec<String> = by_name
+        .iter()
+        .filter(|(_, ids)| ids.len() > 1)
+        .map(|(name, ids)| format!("{name}: {}", ids.join(", ")))
+        .collect();
+    if !clashes.is_empty() {
+        bail!(
+            "ENTANGLE-E0941: more than one package named the same plugin ({}). An installer puts \
+             each plugin in a directory named after it, so such a pack could not be installed; \
+             pack one version from one publisher per name. Nothing was written",
+            clashes.join("; ")
+        );
+    }
 
     crate::fsutil::atomic_write(&args.output, &pack_bytes, 0o644)
         .with_context(|| format!("writing {}", args.output.display()))?;

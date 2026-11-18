@@ -54,10 +54,10 @@ pub struct InstallArgs {
     /// With an `oci://` SOURCE: allow plain HTTP to a non-loopback registry.
     #[arg(long, requires = "source")]
     pub insecure_registry: bool,
-    /// With an `.entanglepack` SOURCE: add its unknown publisher keys to
-    /// your keyring after printing their fingerprints.
-    #[arg(long, requires = "source")]
-    pub trust_pack_keys: bool,
+    /// With an `.entanglepack` SOURCE: add these of its publisher keys
+    /// (comma-separated fingerprints, exactly the ones your keyring lacks).
+    #[arg(long, requires = "source", value_name = "FP[,FP...]")]
+    pub trust_pack_keys: Option<String>,
     /// With a download-URL SOURCE: the `<publisher>/<name>@<version>` the
     /// package must be (when the file name is not `<name>-<version>.tar.zst`).
     #[arg(long, requires = "source", value_name = "PUBLISHER/NAME@VERSION")]
@@ -95,7 +95,7 @@ async fn install_plugin(source: String, a: &InstallArgs) -> Result<i32> {
             wasm: None,
             no_load: a.no_load,
             insecure_registry: a.insecure_registry,
-            trust_pack_keys: a.trust_pack_keys,
+            trust_pack_keys: a.trust_pack_keys.clone(),
             expect: a.expect.clone(),
             publisher: a.publisher.clone(),
             allow_downgrade: a.allow_downgrade,

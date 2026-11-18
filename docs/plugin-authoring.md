@@ -542,8 +542,9 @@ and install on the other side with `entangle plugins install
 ./plugins.entanglepack`. The pack includes your public key so the recipient
 can see whose signatures to expect, but a key in a pack is never trusted on
 its own: the recipient needs your key in their keyring already, or passes
-`--trust-pack-keys` after checking your fingerprint (the pack command prints
-it) with you. See `docs/operations.md` section 13.
+`--trust-pack-keys <FINGERPRINT>` after checking your fingerprint (the pack
+command prints it) with you. A pack holds one package per plugin name. See
+`docs/operations.md` section 13.
 
 ### Artifact format
 

@@ -988,21 +988,53 @@ fn pack_keys_are_never_trusted_automatically() {
     );
     assert!(keyring_of(&receiver).lookup(&bob.fingerprint()).is_none());
 
+    assert!(
+        se.contains(&format!("--trust-pack-keys {}", bob.fingerprint_hex())),
+        "{se}"
+    );
+
     // The flag is refused for anything that is not a pack.
     let out = entangle(&receiver)
         .args(["plugins", "install"])
         .arg(&a)
-        .args(["--no-load", "--trust-pack-keys"])
+        .args(["--no-load", "--trust-pack-keys", &bob.fingerprint_hex()])
         .output()
         .unwrap();
     assert!(!out.status.success());
     assert!(s(&out).1.contains("--trust-pack-keys"));
 
+    // The consent names the keys: a wrong set (another key, or more than the
+    // pack's unknown keys) is refused and changes nothing.
+    for wrong in [
+        kp(7).fingerprint_hex(),
+        format!("{},{}", bob.fingerprint_hex(), alice.fingerprint_hex()),
+    ] {
+        let out = entangle(&receiver)
+            .args(["plugins", "install"])
+            .arg(&packfile)
+            .args(["--no-load", "--trust-pack-keys", &wrong])
+            .output()
+            .unwrap();
+        let (_, se) = s(&out);
+        assert!(!out.status.success());
+        assert!(se.contains("ENTANGLE-E0948"), "{se}");
+        assert!(se.contains(&bob.fingerprint_hex()), "{se}");
+        nothing_installed(&receiver);
+        assert_eq!(
+            std::fs::read(receiver.path().join(".entangle/keyring.toml")).unwrap(),
+            ring_before
+        );
+    }
+
     // Explicit opt-in: fingerprints are printed, then the key is added.
     let out = entangle(&receiver)
         .args(["plugins", "install"])
         .arg(&packfile)
-        .args(["--no-load", "--trust-pack-keys"])
+        .args([
+            "--no-load",
+            "--trust-pack-keys",
+            &bob.fingerprint_hex().to_ascii_uppercase(),
+        ])
         .output()
         .unwrap();
     let (so, se) = s(&out);
@@ -1045,7 +1077,7 @@ fn pack_keys_are_never_trusted_automatically() {
     let out = entangle(&fresh)
         .args(["plugins", "install"])
         .arg(&p)
-        .args(["--no-load", "--trust-pack-keys"])
+        .args(["--no-load", "--trust-pack-keys", &bob.fingerprint_hex()])
         .output()
         .unwrap();
     assert!(!out.status.success());
@@ -1055,6 +1087,49 @@ fn pack_keys_are_never_trusted_automatically() {
 }
 
 /// Assemble a pack by hand from an index and entries (forgery cases).
+/// `entangle pack` refuses a set that `plugins install` could not install
+/// whole: two versions of one plugin, or one name from two publishers.
+#[test]
+fn pack_refuses_two_packages_with_one_name() {
+    let home = TempDir::new().unwrap();
+    let (alice, bob) = (kp(1), kp(2));
+    trust(&home, &[&alice, &bob]);
+    let put = |name: &str, bytes: Vec<u8>| {
+        let p = home.path().join(name);
+        std::fs::write(&p, bytes).unwrap();
+        p
+    };
+    let v1 = put(
+        "a1.tar.zst",
+        pack(&files(&alice, "hello", 1, "0.1.0")).unwrap(),
+    );
+    let v2 = put(
+        "a2.tar.zst",
+        pack(&files(&alice, "hello", 1, "0.2.0")).unwrap(),
+    );
+    let b1 = put(
+        "b1.tar.zst",
+        pack(&files(&bob, "hello", 1, "0.1.0")).unwrap(),
+    );
+    let out_file = home.path().join("x.entanglepack");
+    for pair in [[&v1, &v2], [&v1, &b1]] {
+        let out = entangle(&home)
+            .arg("pack")
+            .args(pair)
+            .arg("-o")
+            .arg(&out_file)
+            .output()
+            .unwrap();
+        let (_, se) = s(&out);
+        assert!(!out.status.success());
+        assert!(
+            se.contains("ENTANGLE-E0941") && se.contains("hello"),
+            "{se}"
+        );
+        assert!(!out_file.exists());
+    }
+}
+
 fn raw_pack(index: &entangle_oci::PackIndex, entries: &[(&str, &[u8])]) -> Vec<u8> {
     let mut tar = Vec::new();
     let mut put = |name: &str, data: &[u8]| {

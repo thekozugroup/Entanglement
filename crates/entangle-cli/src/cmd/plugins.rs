@@ -188,12 +188,13 @@ kernel and the command says so — the signed package still persists on disk, so
         /// loopback. Trust is unaffected: the publisher signature is still required.
         #[arg(long)]
         insecure_registry: bool,
-        /// For `.entanglepack` files only: add the pack's publisher keys that
-        /// are not yet in your keyring, after printing their fingerprints.
-        /// Without it a package from an unknown publisher is refused and the
-        /// `entangle keyring add` command for its key is printed instead.
-        #[arg(long)]
-        trust_pack_keys: bool,
+        /// For `.entanglepack` files only: add these publisher keys from the
+        /// pack to your keyring (comma-separated fingerprints). They must be
+        /// exactly the pack's keys that your keyring does not hold (the
+        /// refusal without this flag lists them). An added key is trusted
+        /// for that publisher's plugins from every source, not only the pack.
+        #[arg(long, value_name = "FP[,FP...]")]
+        trust_pack_keys: Option<String>,
         /// For download URLs only: the `<publisher>/<name>@<version>` the
         /// package must be. Needed when the URL's file name is not
         /// `<name>-<version>.tar.zst`; otherwise the file name is the check.
@@ -448,7 +449,7 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
                      must be https, or http on loopback)"
                 );
             }
-            if trust_pack_keys && source != InstallSource::Pack {
+            if trust_pack_keys.is_some() && source != InstallSource::Pack {
                 anyhow::bail!("--trust-pack-keys only applies to .entanglepack files");
             }
             if expect.is_some() && source != InstallSource::Url {
