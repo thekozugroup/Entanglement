@@ -25,13 +25,13 @@ use entangle_scheduler::wire::{
 };
 use entangle_scheduler::{
     AttemptKind, AttemptOutcome, DispatchError, Dispatcher, RemoteDispatch, RemoteTaskServer,
-    RetryCause, SpeculationConfig, StaticAllowlist, TransportKind, TransportRouter, WorkerInfo,
-    WorkerPool,
+    ReputationReason, RetryCause, SpeculationConfig, StaticAllowlist, TransportKind,
+    TransportRouter, WorkerInfo, WorkerPool,
 };
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::peer_id::PeerId;
 use entangle_types::plugin_id::PluginId;
-use entangle_types::task::{IntegrityPolicy, OneShotTask, RetryPolicy};
+use entangle_types::task::{IntegrityPolicy, OneShotTask, PolicyKind, RetryPolicy};
 use parking_lot::Mutex;
 
 const TEST_DEADLINE: Duration = Duration::from_secs(30);
@@ -116,6 +116,10 @@ enum Behaviour {
     Unreachable,
     /// Holds the frame this long before handing it to the worker.
     Late(Duration),
+    /// Hands the frame to the worker, which goes on running it, and then
+    /// the connection dies before the answer: the connection was lost, not
+    /// the worker. Behaves normally afterwards.
+    LostOnceWhileRunning,
 }
 
 struct Worker {
@@ -129,8 +133,11 @@ struct Workers {
     workers: HashMap<PeerId, Worker>,
     behaviour: Mutex<HashMap<PeerId, Behaviour>>,
     /// Every frame delivered (or taken) per worker: `("task", task id)` or
-    /// `("cancel", task id)`.
+    /// `("cancel", task id)`; every dial of an unreachable worker:
+    /// `("dial", zeros)`.
     log: Mutex<Vec<(PeerId, &'static str, [u8; 16])>>,
+    /// The capability token each task frame carried, by task id.
+    tokens: Mutex<HashMap<[u8; 16], Option<Vec<u8>>>>,
 }
 
 impl std::fmt::Debug for Workers {
@@ -142,6 +149,18 @@ impl std::fmt::Debug for Workers {
 impl Workers {
     fn set(&self, peer: PeerId, b: Behaviour) {
         self.behaviour.lock().insert(peer, b);
+    }
+
+    fn frames_with(&self, peer: PeerId, kind: &str, id: [u8; 16]) -> usize {
+        self.log
+            .lock()
+            .iter()
+            .filter(|(p, k, i)| *p == peer && *k == kind && *i == id)
+            .count()
+    }
+
+    fn token_of(&self, id: [u8; 16]) -> Option<Vec<u8>> {
+        self.tokens.lock().get(&id).cloned().flatten()
     }
 
     fn frames_to(&self, peer: PeerId, kind: &str) -> usize {
@@ -177,11 +196,15 @@ impl Link for Workers {
             .get(&peer)
             .unwrap_or(&Behaviour::Normal);
         if behaviour == Behaviour::Unreachable {
+            self.log.lock().push((peer, "dial", [0; 16]));
             return Err(LinkError::Connect("connection refused".into()));
         }
         let frame = outbound.frame();
         let (kind, id) = match decode_request(&frame).map(|r| r.frame) {
-            Ok(RequestFrame::Task(t)) => ("task", t.task_id),
+            Ok(RequestFrame::Task(t)) => {
+                self.tokens.lock().insert(t.task_id, t.capability.clone());
+                ("task", t.task_id)
+            }
             Ok(RequestFrame::Control(c)) => match c.action {
                 ControlAction::Cancel => ("cancel", c.task_id),
                 _ => ("control", c.task_id),
@@ -202,6 +225,19 @@ impl Link for Workers {
                 ));
             }
             Behaviour::Late(d) if kind == "task" => tokio::time::sleep(d).await,
+            Behaviour::LostOnceWhileRunning if kind == "task" => {
+                self.set(peer, Behaviour::Normal);
+                let server = Arc::clone(&self.workers.get(&peer).expect("known worker").server);
+                let from = self.from;
+                tokio::spawn(
+                    async move { server.handle_via(from, frame, TransportKind::Iroh).await },
+                );
+                // The worker has taken the task by now.
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                return Err(LinkError::Transport(
+                    "connection lost: stream reset by peer".into(),
+                ));
+            }
             _ => {}
         }
         let worker = self.workers.get(&peer).expect("known worker");
@@ -355,6 +391,7 @@ async fn cluster_with_tokens(fixtures: &[&str]) -> (Cluster, StaticTokens) {
             workers,
             behaviour: Mutex::new(HashMap::new()),
             log: Mutex::new(Vec::new()),
+            tokens: Mutex::new(HashMap::new()),
         }),
         servers,
         plugin: plugin.expect("at least one worker"),
@@ -409,6 +446,18 @@ async fn a_worker_crash_mid_task_is_retried_on_another_worker() {
     assert_eq!(retry.kind, AttemptKind::Retry(RetryCause::LostAfterSend));
     assert_eq!(retry.outcome, AttemptOutcome::Used);
     assert_ne!(retry.task_id, original, "a retry is a new request");
+    let first_token = c
+        .workers
+        .token_of(*first.task_id.as_bytes())
+        .expect("the first attempt carried a token");
+    let retry_token = c
+        .workers
+        .token_of(*retry.task_id.as_bytes())
+        .expect("the retry carried a token");
+    assert_ne!(
+        first_token, retry_token,
+        "the retry carried a freshly minted token, not the first attempt's"
+    );
     assert_eq!(c.retries("lost_after_send"), 1.0);
     assert_eq!(c.workers.frames_to(a, "task"), 1);
     assert_eq!(c.workers.frames_to(b, "task"), 1);
@@ -434,6 +483,95 @@ async fn a_crash_with_no_other_worker_retries_the_same_worker() {
     assert_eq!(c.workers.frames_to(a, "task"), 2);
 }
 
+/// The connection is lost while the worker goes on running the task: before
+/// the retry goes back to that same worker (the only one), the orphaned
+/// first copy is cancelled there — the worker acknowledges the `Cancel` for
+/// the first attempt's task id while it still runs — so the worker never
+/// runs both copies to completion.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_lost_attempt_is_cancelled_on_its_worker_before_the_retry() {
+    let (c, tokens) = cluster_with_tokens(&[STRESS_WASM]).await;
+    let a = c.peers[0];
+    c.workers.set(a, Behaviour::LostOnceWhileRunning);
+    let d = c.dispatcher(&tokens, SpeculationConfig::Off);
+    let result = deadline(
+        "dispatch",
+        d.dispatch_one_shot(c.task(b"spin:1500", IntegrityPolicy::None)),
+    )
+    .await
+    .expect("the retry on the same worker answers");
+    assert_eq!(result.output, b"spun", "the stress plugin's answer");
+    assert_eq!(result.attempts.len(), 2, "{:?}", result.attempts);
+    assert_eq!(
+        result.attempts[1].kind,
+        AttemptKind::Retry(RetryCause::LostAfterSend)
+    );
+    assert!(result.attempts.iter().all(|x| x.peer == a));
+    let lost = *result.attempts[0].task_id.as_bytes();
+    assert_eq!(
+        c.workers.frames_with(a, "cancel", lost),
+        1,
+        "the lost copy is cancelled on its worker"
+    );
+    assert_eq!(
+        c.workers.frames_with(a, "cancel-ack", lost),
+        1,
+        "the worker was still running the lost copy and stopped it"
+    );
+    let retry = *result.attempts[1].task_id.as_bytes();
+    assert_eq!(
+        c.workers.frames_with(a, "cancel", retry),
+        0,
+        "the retry is not cancelled"
+    );
+}
+
+/// A worker excluded while a retry backs off is not sent the retry: the
+/// fallback to the same worker (the only one) goes through the same
+/// eligibility filter as every other retry target.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_retry_in_place_is_not_sent_to_a_worker_excluded_during_the_backoff() {
+    let (c, tokens) = cluster_with_tokens(&[HELLO_PONG_WASM]).await;
+    let a = c.peers[0];
+    c.workers.set(a, Behaviour::CrashOnce);
+    let d = c.dispatcher(&tokens, SpeculationConfig::Off);
+    let mut task = c.task(b"again", IntegrityPolicy::None);
+    task.retry = RetryPolicy {
+        max_attempts: 3,
+        backoff_ms: 600,
+        max_backoff_ms: 600,
+    };
+    let running = {
+        let d = d.clone();
+        tokio::spawn(async move { d.dispatch_one_shot(task).await })
+    };
+    deadline("the first attempt reaches a", async {
+        while c.workers.frames_to(a, "task") < 1 {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await;
+    // A concurrent task's acceptance penalises a until it is excluded.
+    let reputation = d.verifier().reputation();
+    while reputation.is_eligible(&a, PolicyKind::None) {
+        reputation.penalize(&a, PolicyKind::None, ReputationReason::OversizedOutput);
+    }
+    let err = deadline("dispatch", running)
+        .await
+        .expect("join")
+        .expect_err("no eligible worker is left for the retry");
+    assert!(
+        matches!(err, DispatchError::RemoteTransport { .. }),
+        "{err:?}"
+    );
+    assert_eq!(
+        c.workers.frames_to(a, "task"),
+        1,
+        "the excluded worker was not sent the retry"
+    );
+    assert_eq!(c.retries("lost_after_send"), 0.0);
+}
+
 /// An unreachable worker (nothing delivered) fails over to another; an
 /// unreachable worker with no alternative is not dialled again.
 #[tokio::test(flavor = "multi_thread")]
@@ -454,6 +592,7 @@ async fn an_unreachable_worker_fails_over_but_is_never_retried_in_place() {
         AttemptKind::Retry(RetryCause::Unreachable)
     );
     assert_eq!(c.retries("unreachable"), 1.0);
+    assert_eq!(c.workers.frames_to(a, "dial"), 1, "a was dialled once");
 
     // Only the unreachable worker left eligible: one attempt, no retry.
     c.workers.set(b, Behaviour::Unreachable);
@@ -471,6 +610,16 @@ async fn an_unreachable_worker_fails_over_but_is_never_retried_in_place() {
         "{err:?}"
     );
     assert_eq!(c.retries("unreachable"), 1.0, "not retried in place");
+    assert_eq!(
+        c.workers.frames_to(a, "dial"),
+        2,
+        "a was dialled once more (the second task's only attempt), never again"
+    );
+    assert_eq!(
+        c.workers.frames_to(a, "task"),
+        0,
+        "nothing was ever delivered to a"
+    );
 }
 
 /// What the task itself caused is never retried: a plugin error (here: the
@@ -748,6 +897,29 @@ async fn no_backup_below_the_threshold_or_with_speculation_off() {
     assert_eq!(c.workers.frames_to(c.peers[1], "task"), 0);
 }
 
+/// Past the threshold with no other eligible worker, no backup starts —
+/// and so no speculative outcome (`won` / `lost`) is counted either.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_threshold_with_no_backup_worker_counts_no_speculative_outcome() {
+    let (c, tokens) = cluster_with_tokens(&[HELLO_PONG_WASM]).await;
+    c.workers
+        .set(c.peers[0], Behaviour::Late(Duration::from_millis(400)));
+    let d = c.dispatcher(
+        &tokens,
+        SpeculationConfig::After(Duration::from_millis(100)),
+    );
+    let r = deadline(
+        "dispatch",
+        d.dispatch_one_shot(c.task(b"q", IntegrityPolicy::None)),
+    )
+    .await
+    .expect("the only worker answers");
+    assert_eq!(r.attempts.len(), 1, "{:?}", r.attempts);
+    for event in ["launched", "won", "lost", "cancelled"] {
+        assert_eq!(c.speculative(event), 0.0, "{event}");
+    }
+}
+
 /// Replicated: the slow replica's backup goes to a worker holding no
 /// replica — never the one running the other replica — and replaces the
 /// slow replica instead of adding a vote.
@@ -784,6 +956,21 @@ async fn a_replica_backup_replaces_the_slow_replica_on_a_distinct_worker() {
         .attempts
         .iter()
         .any(|x| x.peer == slow && x.outcome == AttemptOutcome::Cancelled));
+    // The loser was really told to stop: a `Cancel` frame reached the slow
+    // worker, which acknowledged it while it still ran the replica.
+    deadline("cancel reaches the slow replica", async {
+        while c.workers.frames_to(slow, "cancel-ack") < 1 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    assert_eq!(c.workers.frames_to(slow, "cancel"), 1);
+    assert_eq!(
+        c.workers.frames_to(z, "cancel"),
+        0,
+        "the winner is not cancelled"
+    );
+    assert_eq!(c.workers.frames_to(b, "cancel"), 0);
 }
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -888,6 +1075,68 @@ async fn deterministic_is_refused_for_a_plugin_that_declares_nondeterminism() {
     );
 }
 
+/// The determinism check uses the manifest the kernel verified at load,
+/// not whatever the package directory holds now: editing the file after
+/// the load, or deleting it, does not turn the check off.
+#[tokio::test(flavor = "multi_thread")]
+async fn the_determinism_check_uses_the_manifest_verified_at_load() {
+    let publisher = IdentityKeyPair::generate();
+    let (kernel, plugin, dir) =
+        kernel_with_manifest(&publisher, HELLO_PONG_WASM, "pure = false").await;
+    let me = PeerId::from_public_key_bytes(&[42; 32]);
+    let local = Dispatcher::new(WorkerPool::new(), Arc::clone(&kernel), me);
+    let deterministic = || {
+        let mut task = OneShotTask::with_defaults(plugin.clone(), b"x".to_vec());
+        task.integrity = IntegrityPolicy::Deterministic { replicas: 1 };
+        task
+    };
+    let manifest = dir.path().join("entangle.toml");
+    let edited = std::fs::read_to_string(&manifest)
+        .unwrap()
+        .replace("pure = false", "");
+    std::fs::write(&manifest, edited).unwrap();
+    let err = deadline("dispatch", local.dispatch_one_shot(deterministic()))
+        .await
+        .expect_err("the verified manifest still says pure = false");
+    assert!(err.to_string().starts_with("ENTANGLE-E0470"), "{err}");
+
+    std::fs::remove_file(&manifest).unwrap();
+    let err = deadline("dispatch", local.dispatch_one_shot(deterministic()))
+        .await
+        .expect_err("nor does deleting the file");
+    assert!(err.to_string().starts_with("ENTANGLE-E0470"), "{err}");
+}
+
+/// A declaration of the wrong type (`nondeterministic = "entropy"`, a
+/// string rather than a list) loads — the regular schema ignores the key —
+/// but cannot be read as "deterministic": a `Deterministic` task is refused
+/// (fail closed) and names the problem. Other policies still run.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_mistyped_determinism_declaration_fails_closed() {
+    let publisher = IdentityKeyPair::generate();
+    let (kernel, plugin, _dir) = kernel_with_manifest(
+        &publisher,
+        HELLO_PONG_WASM,
+        "nondeterministic = \"entropy\"",
+    )
+    .await;
+    let me = PeerId::from_public_key_bytes(&[42; 32]);
+    let local = Dispatcher::new(WorkerPool::new(), Arc::clone(&kernel), me);
+    let mut task = OneShotTask::with_defaults(plugin.clone(), b"x".to_vec());
+    task.integrity = IntegrityPolicy::Deterministic { replicas: 1 };
+    let err = deadline("dispatch", local.dispatch_one_shot(task.clone()))
+        .await
+        .expect_err("an unreadable declaration is not a deterministic one");
+    let text = err.to_string();
+    assert!(text.starts_with("ENTANGLE-E0470"), "{text}");
+    assert!(text.contains("nondeterministic"), "{text}");
+    task.integrity = IntegrityPolicy::None;
+    let ok = deadline("dispatch", local.dispatch_one_shot(task))
+        .await
+        .expect("other policies run");
+    assert_eq!(ok.output, b"Hello, x!");
+}
+
 /// Two workers whose plugin manifest carries `extra`.
 async fn cluster_with_declared(
     publisher: &IdentityKeyPair,
@@ -931,6 +1180,7 @@ async fn cluster_with_declared(
             workers,
             behaviour: Mutex::new(HashMap::new()),
             log: Mutex::new(Vec::new()),
+            tokens: Mutex::new(HashMap::new()),
         }),
         servers,
         plugin: plugin.expect("plugin"),

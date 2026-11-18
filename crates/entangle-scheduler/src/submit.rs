@@ -3,7 +3,7 @@
 //! * **Determinism** — "`Deterministic` is rejected at submit if the
 //!   manifest declares nondeterminism" (§7.5): a `Deterministic`
 //!   (hash-quorum) task for a plugin whose manifest declares `pure = false`,
-//!   a non-deterministic host function or a network capability
+//!   a non-deterministic host function or a network, agent or mesh capability
 //!   ([`entangle_manifest::determinism`]) fails before anything is placed,
 //!   with [`SubmitError::NondeterministicPlugin`] naming the reasons and
 //!   pointing at `SemanticEquivalent`. The submitter checks the manifest of
@@ -68,30 +68,22 @@ pub enum SubmitError {
 }
 
 /// Why `plugin`'s manifest says its runs may differ, if `kernel` has it
-/// loaded: the manifest it was verified with, read back from its package
-/// directory and checked against the digest recorded at load. `None` when
-/// the plugin is not loaded here or its manifest cannot be read back
-/// unchanged (nothing is then known).
-pub fn declared_nondeterminism(kernel: &Kernel, plugin: &PluginId) -> Option<Vec<String>> {
+/// loaded: what the manifest **verified at load** declares (the kernel
+/// records it from the verified bytes; the file in the package directory
+/// is not read again, so editing or deleting it later changes nothing).
+/// `None` when the plugin is not loaded here; `Some(Err(_))` when its
+/// declaration keys have the wrong type and cannot be read.
+pub fn declared_nondeterminism(
+    kernel: &Kernel,
+    plugin: &PluginId,
+) -> Option<Result<Vec<String>, String>> {
     let resolved = kernel.resolve(plugin)?;
-    let source = kernel.loaded_source(&resolved)?;
-    let text = std::fs::read(source.dir.join("entangle.toml")).ok()?;
-    if blake3::hash(&text).to_hex().as_str() != source.manifest_digest {
-        tracing::warn!(
-            %plugin,
-            dir = %source.dir.display(),
-            "the plugin's manifest changed on disk since it was loaded; its determinism \
-             declaration is not used"
-        );
-        return None;
-    }
-    let text = String::from_utf8(text).ok()?;
-    entangle_manifest::determinism::nondeterminism(&text).ok()
+    Some(kernel.loaded_source(&resolved)?.nondeterminism)
 }
 
 /// Refuse a `Deterministic` policy for `plugin` when `kernel`'s copy of it
-/// declares non-determinism. Any other policy, and a plugin not loaded
-/// here, pass.
+/// declares non-determinism — or declares it in a form that cannot be read
+/// (fail closed). Any other policy, and a plugin not loaded here, pass.
 pub fn check_determinism(
     kernel: &Kernel,
     plugin: &PluginId,
@@ -100,13 +92,22 @@ pub fn check_determinism(
     if !matches!(policy, IntegrityPolicy::Deterministic { .. }) {
         return Ok(());
     }
-    match declared_nondeterminism(kernel, plugin) {
-        Some(reasons) if !reasons.is_empty() => Err(SubmitError::NondeterministicPlugin {
-            plugin: plugin.to_string(),
-            reasons: reasons.join("; "),
-        }),
-        _ => Ok(()),
+    let reasons = match declared_nondeterminism(kernel, plugin) {
+        None => return Ok(()),
+        Some(Ok(reasons)) => reasons,
+        Some(Err(why)) => vec![format!(
+            "its manifest's `pure` / `nondeterministic` declaration cannot be read ({}), \
+             so it cannot be taken as deterministic",
+            why.trim()
+        )],
+    };
+    if reasons.is_empty() {
+        return Ok(());
     }
+    Err(SubmitError::NondeterministicPlugin {
+        plugin: plugin.to_string(),
+        reasons: reasons.join("; "),
+    })
 }
 
 /// The reference workloads of spec §7.0, as presets.
@@ -128,8 +129,11 @@ pub enum Workload {
     /// B on a federated mesh: `Deterministic { 3, 2 }` (three replicas, a
     /// strict-majority quorum of two). One-shot only.
     BFederated,
-    /// C — test-suite parallelisation: `Deterministic { replicas: 1 }`,
-    /// re-run on flake (three attempts). One-shot only.
+    /// C — test-suite parallelisation: `Deterministic { replicas: 1 }`
+    /// and the standard retry policy (three attempts: a crashed or lost
+    /// worker is retried). A failing test — a plugin error or a failing
+    /// output — is **not** re-run: the spec's "rerun on flake" is not
+    /// implemented. One-shot only.
     C,
 }
 
