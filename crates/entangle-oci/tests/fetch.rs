@@ -36,7 +36,8 @@ async fn archive_and_detached_signature_are_fetched_over_tls_and_verify() {
     let (mock, opts) = tls_server().await;
     let publisher = keypair(1);
     let pkg = signed_package(&publisher, "tool", &wasm_bytes(4000));
-    let sig = sign_archive(&pkg, &publisher).unwrap();
+    let id = format!("{}/tool@0.1.0", publisher.fingerprint_hex());
+    let sig = sign_archive(&pkg, &id, &publisher).unwrap();
     mock.put_file("/dl/tool-0.1.0.tar.zst", &pkg);
     mock.put_file("/dl/tool-0.1.0.tar.zst.sig", &sig);
 
@@ -48,12 +49,11 @@ async fn archive_and_detached_signature_are_fetched_over_tls_and_verify() {
     let got = fetch_url(&u, "package archive", &opts).await.unwrap();
     assert_eq!(got, pkg);
     let ring = keyring_with(&[&publisher]);
-    let signer = verify_archive_signature(&got, &got_sig, &ring).unwrap();
-    assert_eq!(signer, publisher.fingerprint_hex());
-    assert_eq!(
-        verify_package(&got, &ring).unwrap().signer_fingerprint,
-        signer
-    );
+    let checked = verify_archive_signature(&got, &got_sig, &ring).unwrap();
+    assert_eq!(checked.signer, publisher.fingerprint_hex());
+    let verified = verify_package(&got, &ring).unwrap();
+    assert_eq!(verified.signer_fingerprint, checked.signer);
+    assert_eq!(verified.plugin_id, checked.plugin_id);
     // No credentials were sent.
     assert!(mock.requests().iter().all(|r| r.authorization.is_none()));
 }

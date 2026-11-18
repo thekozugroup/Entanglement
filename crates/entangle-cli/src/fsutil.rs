@@ -61,6 +61,58 @@ pub fn atomic_write(path: &Path, bytes: &[u8], default_mode: u32) -> std::io::Re
     result
 }
 
+/// Atomically replace `path` with `bytes`, the result always mode 0600
+/// (Unix) whatever the old file's mode was. For private state files
+/// (`oci-publishers.toml`). Parent directories are created; a symlink at
+/// `path` is replaced, not followed.
+pub fn write_private_atomically(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    std::fs::create_dir_all(parent)?;
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "file".into());
+    let tmp = parent.join(format!(".{name}.entangle-tmp-{}", std::process::id()));
+    let result = (|| {
+        let mut f = open_temp(&tmp)?;
+        f.write_all(bytes)?;
+        f.sync_all()?;
+        drop(f);
+        std::fs::rename(&tmp, path)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result
+}
+
+/// Take an exclusive advisory lock for a read-modify-write of `path`: the
+/// lock is on the sibling file `<path>.lock` (created 0600), so the state
+/// file itself can still be replaced by rename. The lock is held until the
+/// returned file is dropped; it blocks while another process holds it.
+pub fn lock_exclusive(path: &Path) -> std::io::Result<std::fs::File> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    std::fs::create_dir_all(parent)?;
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(".lock");
+    let mut opts = std::fs::OpenOptions::new();
+    opts.read(true).write(true).create(true).truncate(false);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        opts.mode(0o600);
+    }
+    let f = opts.open(parent.join(name))?;
+    f.lock()?;
+    Ok(f)
+}
+
 /// Create the temp file that [`atomic_write`] fills, readable and writable
 /// by the owner only (Unix): it holds a copy of the target, which may be a
 /// private file (a 0600 `~/.zshrc` with an API key), and must never exist

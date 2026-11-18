@@ -45,7 +45,7 @@ pub use auth::{Credential, Secret};
 pub use client::{ClientConfig, FetchedManifest, OciClient, RetryPolicy};
 pub use detached::{
     archive_signature_signer, sign_archive, verify_archive_signature, ArchiveSignature,
-    MAX_ARCHIVE_SIGNATURE_BYTES,
+    VerifiedArchiveSignature, ARCHIVE_SIGNATURE_VERSION, MAX_ARCHIVE_SIGNATURE_BYTES,
 };
 pub use error::{OciError, Result};
 pub use fetch::{fetch_url, parse_download_url, signature_url, FetchOptions};

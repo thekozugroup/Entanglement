@@ -157,13 +157,23 @@ async fn https_server() -> Https {
     }
 }
 
+/// The plugin id of the package in `archive`.
+fn id_in(archive: &[u8]) -> String {
+    let f = entangle_oci::unpack(archive).unwrap();
+    let m: toml::Value = toml::from_str(std::str::from_utf8(&f.manifest).unwrap()).unwrap();
+    m["plugin"]["id"].as_str().unwrap().to_owned()
+}
+
+/// The detached signature by `signer` over `archive`, vouching for the id of
+/// the package inside.
+fn detached(archive: &[u8], signer: &IdentityKeyPair) -> Vec<u8> {
+    sign_archive(archive, &id_in(archive), signer).unwrap()
+}
+
 /// Publish `archive` and its detached signature by `signer` at `path`.
 fn serve(mock: &MockRegistry, path: &str, archive: &[u8], signer: &IdentityKeyPair) {
     mock.put_file(path, archive);
-    mock.put_file(
-        &format!("{path}.sig"),
-        &sign_archive(archive, signer).unwrap(),
-    );
+    mock.put_file(&format!("{path}.sig"), &detached(archive, signer));
 }
 
 fn install_url(home: &TempDir, ca: &Path, url: &str) -> std::process::Output {
@@ -233,12 +243,15 @@ async fn entangle_install_with_a_source_delegates_to_plugins_install() {
     trust(&home, &[&publisher]);
     serve(
         &srv.mock,
-        "/hello.tar.zst",
+        "/hello-0.1.0.tar.zst",
         &archive(&publisher, "hello", 1),
         &publisher,
     );
     let out = entangle_trusting(&home, &srv.ca_pem)
-        .args(["install", &format!("{}/hello.tar.zst", srv.mock.origin())])
+        .args([
+            "install",
+            &format!("{}/hello-0.1.0.tar.zst", srv.mock.origin()),
+        ])
         .arg("--no-load")
         .output()
         .unwrap();
@@ -266,11 +279,11 @@ async fn https_install_needs_a_trusted_certificate_for_the_name_dialled() {
     trust(&home, &[&publisher]);
     serve(
         &srv.mock,
-        "/hello.tar.zst",
+        "/hello-0.1.0.tar.zst",
         &archive(&publisher, "hello", 1),
         &publisher,
     );
-    let url = format!("{}/hello.tar.zst", srv.mock.origin());
+    let url = format!("{}/hello-0.1.0.tar.zst", srv.mock.origin());
 
     // Without the test CA: the production trust store does not know it.
     let out = entangle(&home)
@@ -359,10 +372,8 @@ async fn https_install_refusals_write_nothing() {
     let mid = corrupt.len() / 2;
     corrupt[mid] ^= 0x55;
     srv.mock.put_file("/corrupt.tar.zst", &corrupt);
-    srv.mock.put_file(
-        "/corrupt.tar.zst.sig",
-        &sign_archive(&pkg, &publisher).unwrap(),
-    );
+    srv.mock
+        .put_file("/corrupt.tar.zst.sig", &detached(&pkg, &publisher));
     refused(&run("/corrupt.tar.zst"), &["ENTANGLE-E0823"]);
 
     // Detached signature by one trusted publisher over another's package.
@@ -391,10 +402,7 @@ async fn https_install_refusals_write_nothing() {
 
     // A redirect from HTTPS down to HTTP is not followed.
     plain.put_file("/hello.tar.zst", &pkg);
-    plain.put_file(
-        "/hello.tar.zst.sig",
-        &sign_archive(&pkg, &publisher).unwrap(),
-    );
+    plain.put_file("/hello.tar.zst.sig", &detached(&pkg, &publisher));
     srv.mock.redirect_file(
         "/moved.tar.zst.sig",
         &format!("{}/hello.tar.zst.sig", plain.origin()),
@@ -426,26 +434,31 @@ async fn https_install_refusals_write_nothing() {
     .unwrap();
     serve(
         &srv.mock,
-        "/tier3.tar.zst",
+        "/tier3-0.1.0.tar.zst",
         &archive(&publisher, "tier3", 3),
         &publisher,
     );
-    refused(&run("/tier3.tar.zst"), &["ENTANGLE-E0043"]);
+    refused(&run("/tier3-0.1.0.tar.zst"), &["ENTANGLE-E0043"]);
     serve(
         &srv.mock,
-        "/blocked.tar.zst",
+        "/blocked-0.1.0.tar.zst",
         &archive(&publisher, "blocked", 1),
         &publisher,
     );
-    refused(&run("/blocked.tar.zst"), &["ENTANGLE-E0759"]);
+    refused(&run("/blocked-0.1.0.tar.zst"), &["ENTANGLE-E0759"]);
 
     // A native executable shipped under a wasm manifest.
     let mut elf = files(&publisher, "elf", 1, "0.1.0");
     elf.wasm = b"\x7fELF\x02\x01\x01\x00 not wasm".to_vec();
     let bundle = sign_artifact_at(&elf.wasm, &elf.manifest, &publisher, 1);
     elf.signature = toml::to_string(&bundle).unwrap().into_bytes();
-    serve(&srv.mock, "/elf.tar.zst", &pack(&elf).unwrap(), &publisher);
-    refused(&run("/elf.tar.zst"), &["ENTANGLE-E0507"]);
+    serve(
+        &srv.mock,
+        "/elf-0.1.0.tar.zst",
+        &pack(&elf).unwrap(),
+        &publisher,
+    );
+    refused(&run("/elf-0.1.0.tar.zst"), &["ENTANGLE-E0507"]);
 
     // Catalog-only and registry-only flags are refused for a URL.
     let out = entangle(&home)
@@ -470,9 +483,200 @@ async fn https_install_refusals_write_nothing() {
     // After all that, the good package at the same server still installs
     // (with the ceiling lifted): the refusals were about those inputs.
     std::fs::remove_file(home.path().join(".entangle/config.toml")).unwrap();
-    serve(&srv.mock, "/good.tar.zst", &pkg, &publisher);
-    let out = run("/good.tar.zst");
+    serve(&srv.mock, "/good/hello-0.1.0.tar.zst", &pkg, &publisher);
+    let out = run("/good/hello-0.1.0.tar.zst");
     assert!(out.status.success(), "{}", s(&out).1);
+}
+
+/// A web host cannot answer one URL with another plugin, another version, or
+/// a package whose detached signature vouches for a different id: the signed
+/// id must match the URL's `<name>-<version>.tar.zst` (or `--expect`), and the
+/// package inside must be that id. Checked before the archive is opened.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn https_install_binds_the_url_to_the_signed_name_and_version() {
+    let srv = https_server().await;
+    let home = TempDir::new().unwrap();
+    let publisher = kp(1);
+    trust(&home, &[&publisher]);
+    let fp = publisher.fingerprint_hex();
+    let hello = archive(&publisher, "hello", 1);
+    let origin = srv.mock.origin();
+    let refused = |out: &std::process::Output, needles: &[&str]| {
+        let (so, se) = s(out);
+        assert!(!out.status.success(), "installed:\n{so}\n{se}");
+        for n in needles {
+            assert!(se.contains(n), "expected {n:?} in:\n{se}");
+        }
+        assert!(
+            !so.contains("verifying the package"),
+            "archive opened:\n{so}"
+        );
+        nothing_installed(&home);
+    };
+
+    // Another plugin under this URL's name.
+    serve(&srv.mock, "/dl/other-0.1.0.tar.zst", &hello, &publisher);
+    refused(
+        &install_url(
+            &home,
+            &srv.ca_pem,
+            &format!("{origin}/dl/other-0.1.0.tar.zst"),
+        ),
+        &["ENTANGLE-E0945", "hello-0.1.0.tar.zst", "--expect"],
+    );
+    // An older release under a newer version's URL.
+    serve(&srv.mock, "/dl/hello-0.2.0.tar.zst", &hello, &publisher);
+    refused(
+        &install_url(
+            &home,
+            &srv.ca_pem,
+            &format!("{origin}/dl/hello-0.2.0.tar.zst"),
+        ),
+        &["ENTANGLE-E0945"],
+    );
+    // A free-form URL needs --expect, and --expect must match.
+    serve(&srv.mock, "/dl/latest.tar.zst", &hello, &publisher);
+    let latest = format!("{origin}/dl/latest.tar.zst");
+    refused(
+        &install_url(&home, &srv.ca_pem, &latest),
+        &["ENTANGLE-E0945"],
+    );
+    let with_expect = |want: &str| {
+        entangle_trusting(&home, &srv.ca_pem)
+            .args(["plugins", "install", &latest, "--no-load", "--expect", want])
+            .arg("--out")
+            .arg(home.path().join("installed"))
+            .output()
+            .unwrap()
+    };
+    refused(
+        &with_expect(&format!("{fp}/hello@0.2.0")),
+        &["ENTANGLE-E0945", "--expect"],
+    );
+    refused(
+        &with_expect(&format!("{}/hello@0.1.0", kp(9).fingerprint_hex())),
+        &["ENTANGLE-E0945"],
+    );
+    // --expect is for URLs only.
+    let out = entangle(&home)
+        .args(["plugins", "install", "./x.tar.zst", "--expect"])
+        .arg(format!("{fp}/x@0.1.0"))
+        .output()
+        .unwrap();
+    assert!(!out.status.success() && s(&out).1.contains("--expect"));
+
+    // A detached signature vouching for another id than the package inside.
+    srv.mock.put_file("/dl/hello-0.3.0.tar.zst", &hello);
+    srv.mock.put_file(
+        "/dl/hello-0.3.0.tar.zst.sig",
+        &sign_archive(&hello, &format!("{fp}/hello@0.3.0"), &publisher).unwrap(),
+    );
+    let out = install_url(
+        &home,
+        &srv.ca_pem,
+        &format!("{origin}/dl/hello-0.3.0.tar.zst"),
+    );
+    let (_, se) = s(&out);
+    assert!(!out.status.success());
+    assert!(
+        se.contains("ENTANGLE-E0823") && se.contains("vouches for"),
+        "{se}"
+    );
+    nothing_installed(&home);
+
+    // The right --expect installs the free-form URL.
+    let out = with_expect(&format!("{fp}/hello@0.1.0"));
+    assert!(out.status.success(), "{}", s(&out).1);
+}
+
+/// A lower version over an installed plugin of the same publisher is refused
+/// on every path (URL, local archive, pack; OCI is covered with the mirror
+/// tests) unless --allow-downgrade.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_downgrade_is_refused_on_every_path_unless_allowed() {
+    let srv = https_server().await;
+    let home = TempDir::new().unwrap();
+    let publisher = kp(1);
+    trust(&home, &[&publisher]);
+    let v2 = pack(&files(&publisher, "hello", 1, "0.2.0")).unwrap();
+    let v1 = pack(&files(&publisher, "hello", 1, "0.1.0")).unwrap();
+    let local = |bytes: &[u8], name: &str| {
+        let p = home.path().join(name);
+        std::fs::write(&p, bytes).unwrap();
+        p
+    };
+    let installed = || {
+        String::from_utf8(
+            std::fs::read(home.path().join(".entangle/plugins/hello/entangle.toml")).unwrap(),
+        )
+        .unwrap()
+    };
+    let out = entangle(&home)
+        .args(["plugins", "install"])
+        .arg(local(&v2, "hello-0.2.0.tar.zst"))
+        .arg("--no-load")
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", s(&out).1);
+    assert!(installed().contains("0.2.0"));
+    let refused = |out: std::process::Output| {
+        let (so, se) = s(&out);
+        assert!(!out.status.success(), "downgraded:\n{so}\n{se}");
+        assert!(
+            se.contains("ENTANGLE-E0946") && se.contains("--allow-downgrade"),
+            "{se}"
+        );
+        assert!(installed().contains("0.2.0"));
+    };
+
+    // Local archive.
+    let old = local(&v1, "hello-0.1.0.tar.zst");
+    refused(
+        entangle(&home)
+            .args(["plugins", "install"])
+            .arg(&old)
+            .arg("--no-load")
+            .output()
+            .unwrap(),
+    );
+    // URL, to the default directory and to an --out elsewhere (the default
+    // directory still holds the newer version).
+    serve(&srv.mock, "/hello-0.1.0.tar.zst", &v1, &publisher);
+    let url = format!("{}/hello-0.1.0.tar.zst", srv.mock.origin());
+    refused(
+        entangle_trusting(&home, &srv.ca_pem)
+            .args(["plugins", "install", &url, "--no-load"])
+            .output()
+            .unwrap(),
+    );
+    refused(install_url(&home, &srv.ca_pem, &url));
+    // Pack.
+    let pack_file = home.path().join("old.entanglepack");
+    let out = entangle(&home)
+        .args(["pack"])
+        .arg(&old)
+        .arg("--output")
+        .arg(&pack_file)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", s(&out).1);
+    refused(
+        entangle(&home)
+            .args(["plugins", "install"])
+            .arg(&pack_file)
+            .arg("--no-load")
+            .output()
+            .unwrap(),
+    );
+    // With the flag the older version goes in.
+    let out = entangle(&home)
+        .args(["plugins", "install"])
+        .arg(&old)
+        .args(["--no-load", "--allow-downgrade"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", s(&out).1);
+    assert!(installed().contains("0.1.0"));
 }
 
 /// A package archive on disk installs through the same checks.
@@ -1134,6 +1338,233 @@ async fn oci_install_prefers_the_mirror_over_tls_and_falls_back_to_the_origin() 
     let out = install("late");
     assert!(out.status.success(), "{}", s(&out).1);
     assert_eq!(mirror.mock.requests().len(), before);
+}
+
+/// Every check runs inside each source's attempt, so a mirror that serves a
+/// validly signed but wrong package (another name, another version, another
+/// trusted publisher, an older release) is skipped and the origin is tried.
+/// The first install pins the repository's publisher; `--publisher` states
+/// and re-pins it. A floating tag goes through the verified listing when
+/// mirror keys are configured.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn oci_install_binds_each_source_pins_the_publisher_and_refuses_downgrades() {
+    let mirror = MockRegistry::start(MockOptions::default()).await;
+    let origin = MockRegistry::start(MockOptions::default()).await;
+    let home = TempDir::new().unwrap();
+    let (publisher, rival) = (kp(1), kp(2));
+    // Both publishers are trusted: the pin is what keeps them apart.
+    trust(&home, &[&publisher, &rival]);
+    let pkg = |k: &IdentityKeyPair, name: &str, v: &str| pack(&files(k, name, 1, v)).unwrap();
+
+    // The mirror answers acme/hello:0.2.0 with another plugin; the origin is right.
+    seed(
+        &mirror,
+        "acme/hello",
+        "0.2.0",
+        &pkg(&publisher, "other", "0.2.0"),
+    );
+    seed(
+        &origin,
+        "acme/hello",
+        "0.2.0",
+        &pkg(&publisher, "hello", "0.2.0"),
+    );
+    std::fs::create_dir_all(home.path().join(".entangle")).unwrap();
+    std::fs::write(
+        home.path().join(".entangle/mirror.toml"),
+        format!("url = \"{}\"\n", mirror.origin()),
+    )
+    .unwrap();
+    let install = |r: &str, extra: &[&str]| {
+        entangle(&home)
+            .args([
+                "plugins",
+                "install",
+                &format!("oci://{}/{r}", origin.registry()),
+            ])
+            .arg("--no-load")
+            .args(extra)
+            .output()
+            .unwrap()
+    };
+    let installed = || {
+        std::fs::read_to_string(home.path().join(".entangle/plugins/hello/entangle.toml"))
+            .unwrap_or_default()
+    };
+    let out = install("acme/hello:0.2.0", &[]);
+    let (so, se) = s(&out);
+    assert!(out.status.success(), "{so}\n{se}");
+    assert!(
+        se.contains("ENTANGLE-E0945") && se.contains("trying the next source"),
+        "{se}"
+    );
+    assert!(installed().contains(&format!("{}/hello@0.2.0", publisher.fingerprint_hex())));
+    let pins = std::fs::read_to_string(home.path().join(".entangle/oci-publishers.toml")).unwrap();
+    assert!(pins.contains(&publisher.fingerprint_hex()), "{pins}");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(home.path().join(".entangle/oci-publishers.toml"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "{mode:o}");
+    }
+
+    // An older, validly signed release from both sources: refused (no
+    // source passes), the newer one stays.
+    seed(
+        &mirror,
+        "acme/hello",
+        "0.1.0",
+        &pkg(&publisher, "hello", "0.1.0"),
+    );
+    seed(
+        &origin,
+        "acme/hello",
+        "0.1.0",
+        &pkg(&publisher, "hello", "0.1.0"),
+    );
+    let out = install("acme/hello:0.1.0", &[]);
+    let (_, se) = s(&out);
+    assert!(!out.status.success());
+    assert!(
+        se.contains("ENTANGLE-E0946") && se.contains("every source failed"),
+        "{se}"
+    );
+    assert!(installed().contains("hello@0.2.0"));
+    assert!(install("acme/hello:0.1.0", &["--allow-downgrade"])
+        .status
+        .success());
+    assert!(installed().contains("hello@0.1.0"));
+
+    // Another trusted publisher's `hello` in the pinned repository.
+    seed(
+        &mirror,
+        "acme/hello",
+        "0.3.0",
+        &pkg(&rival, "hello", "0.3.0"),
+    );
+    seed(
+        &origin,
+        "acme/hello",
+        "0.3.0",
+        &pkg(&rival, "hello", "0.3.0"),
+    );
+    let out = install("acme/hello:0.3.0", &[]);
+    let (_, se) = s(&out);
+    assert!(!out.status.success());
+    assert!(
+        se.contains("ENTANGLE-E0947")
+            && se.contains(&format!("--publisher {}", rival.fingerprint_hex())),
+        "{se}"
+    );
+    assert!(installed().contains("hello@0.1.0"));
+    // --publisher must match what is served...
+    let out = install(
+        "acme/hello:0.3.0",
+        &["--publisher", &publisher.fingerprint_hex()],
+    );
+    assert!(!out.status.success());
+    assert!(s(&out).1.contains("ENTANGLE-E0945"), "{}", s(&out).1);
+    // ...and stating the new publisher re-pins the repository. (The default
+    // directory refuses another publisher's package, so use --out.)
+    let out = install(
+        "acme/hello:0.3.0",
+        &[
+            "--publisher",
+            &rival.fingerprint_hex(),
+            "--out",
+            home.path().join("rival").to_str().unwrap(),
+        ],
+    );
+    assert!(out.status.success(), "{}", s(&out).1);
+    let pins = std::fs::read_to_string(home.path().join(".entangle/oci-publishers.toml")).unwrap();
+    assert!(
+        pins.contains(&rival.fingerprint_hex()) && !pins.contains(&publisher.fingerprint_hex()),
+        "{pins}"
+    );
+    // --publisher is for oci:// only.
+    let out = entangle(&home)
+        .args(["plugins", "install", "./x.tar.zst", "--publisher"])
+        .arg(publisher.fingerprint_hex())
+        .output()
+        .unwrap();
+    assert!(!out.status.success() && s(&out).1.contains("--publisher"));
+}
+
+/// With mirror keys configured, a floating tag is resolved through the
+/// verified signed listing: a source whose listing does not verify (here the
+/// mirror's, unsigned) cannot serve it, and the digest the listing names is
+/// what is pulled from the origin.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn oci_floating_tags_resolve_through_the_verified_listing() {
+    let mirror = MockRegistry::start(MockOptions::default()).await;
+    let origin = MockRegistry::start(MockOptions::default()).await;
+    let home = TempDir::new().unwrap();
+    let publisher = kp(1);
+    let mirror_key = kp(50);
+    trust(&home, &[&publisher]);
+    let v1 = pack(&files(&publisher, "tool", 1, "1.0.0")).unwrap();
+    let v2 = pack(&files(&publisher, "tool", 1, "2.0.0")).unwrap();
+    // The mirror's `latest` is the old release; the origin's is the new one,
+    // and the origin's signed listing says so.
+    seed(&mirror, "acme/tool", "latest", &v1);
+    seed(&origin, "acme/tool", "2.0.0", &v2);
+    seed(&origin, "acme/tool", "latest", &v2);
+    let mut keys = MirrorKeyring::new();
+    keys.add_public_key(&mirror_key.public(), "mirror");
+    keys.save(&home.path().join(".entangle/mirror-keys.toml"))
+        .unwrap();
+    let reference =
+        Reference::parse(&format!("oci://{}/acme/tool:latest", origin.registry())).unwrap();
+    let client = OciClient::for_reference(&reference, Default::default()).unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let digest = entangle_oci::Digest::of(&origin.manifest_bytes("acme/tool", "2.0.0").unwrap());
+    let listing = MirrorListing {
+        version: 1,
+        repository: "acme/tool".into(),
+        tags: [("latest".to_owned(), digest.clone())].into(),
+        generated_at: now - 60,
+        expires_at: now + 86_400,
+    };
+    publish_listing(&client, &reference, &listing, &mirror_key)
+        .await
+        .unwrap();
+    std::fs::write(
+        home.path().join(".entangle/mirror.toml"),
+        format!("url = \"{}\"\n", mirror.origin()),
+    )
+    .unwrap();
+    let out = entangle(&home)
+        .env("ENTANGLE_ALLOW_LOCAL", "1")
+        .args([
+            "plugins",
+            "install",
+            &format!("oci://{}/acme/tool:latest", origin.registry()),
+        ])
+        .arg("--no-load")
+        .output()
+        .unwrap();
+    let (so, se) = s(&out);
+    assert!(out.status.success(), "{so}\n{se}");
+    assert!(
+        se.contains("ENTANGLE-E0945") && se.contains("unsigned"),
+        "{se}"
+    );
+    assert!(so.contains(&format!("tag latest -> {digest}")), "{so}");
+    assert!(origin
+        .requests()
+        .iter()
+        .any(|r| r.path == format!("/v2/acme/tool/manifests/{digest}")));
+    assert!(
+        std::fs::read_to_string(home.path().join(".entangle/plugins/tool/entangle.toml"))
+            .unwrap()
+            .contains("tool@2.0.0")
+    );
 }
 
 /// Two signed listings through the CLI: after the newer one has been seen,

@@ -194,6 +194,22 @@ kernel and the command says so — the signed package still persists on disk, so
         /// `entangle keyring add` command for its key is printed instead.
         #[arg(long)]
         trust_pack_keys: bool,
+        /// For download URLs only: the `<publisher>/<name>@<version>` the
+        /// package must be. Needed when the URL's file name is not
+        /// `<name>-<version>.tar.zst`; otherwise the file name is the check.
+        #[arg(long, value_name = "PUBLISHER/NAME@VERSION")]
+        expect: Option<String>,
+        /// For `oci://` references only: the publisher key fingerprint (32
+        /// hex) the package must be signed by. The first install from a
+        /// repository pins the publisher that signed it; this flag also
+        /// re-pins a repository to a new publisher.
+        #[arg(long, value_name = "FINGERPRINT")]
+        publisher: Option<String>,
+        /// Allow replacing an installed plugin of the same publisher with a
+        /// LOWER version (refused by default with ENTANGLE-E0946: an old
+        /// release is still validly signed, so a server could roll you back).
+        #[arg(long)]
+        allow_downgrade: bool,
     },
     /// Publish a signed plugin package (a build `dist/` directory or packed
     /// `.tar.zst`) to an OCI registry: `publish <PACKAGE> oci://host/repo:tag`.
@@ -399,6 +415,9 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             no_load,
             insecure_registry,
             trust_pack_keys,
+            expect,
+            publisher,
+            allow_downgrade,
         } => {
             let source = InstallSource::classify(&name);
             if let Some(kind) = source.describe() {
@@ -432,6 +451,18 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
             if trust_pack_keys && source != InstallSource::Pack {
                 anyhow::bail!("--trust-pack-keys only applies to .entanglepack files");
             }
+            if expect.is_some() && source != InstallSource::Url {
+                anyhow::bail!("--expect only applies to download URLs");
+            }
+            if publisher.is_some() && source != InstallSource::Oci {
+                anyhow::bail!("--publisher only applies to oci:// references");
+            }
+            if allow_downgrade && source == InstallSource::Catalog {
+                anyhow::bail!(
+                    "--allow-downgrade only applies to signed packages (URL, oci://, archive, \
+                     pack), not to catalog builds"
+                );
+            }
             match source {
                 InstallSource::Oci => {
                     crate::cmd::oci::install(crate::cmd::oci::InstallOptions {
@@ -439,6 +470,8 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
                         insecure_registry,
                         out,
                         no_load,
+                        publisher,
+                        allow_downgrade,
                     })
                     .await
                 }
@@ -447,6 +480,8 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
                         url: name,
                         out,
                         no_load,
+                        expect,
+                        allow_downgrade,
                     })
                     .await
                 }
@@ -456,11 +491,18 @@ pub async fn run(args: PluginsArgs) -> anyhow::Result<()> {
                         out,
                         no_load,
                         trust_pack_keys,
+                        allow_downgrade,
                     })
                     .await
                 }
                 InstallSource::ArchiveFile => {
-                    crate::cmd::dist::install_archive_file(Path::new(&name), out, no_load).await
+                    crate::cmd::dist::install_archive_file(
+                        Path::new(&name),
+                        out,
+                        no_load,
+                        allow_downgrade,
+                    )
+                    .await
                 }
                 InstallSource::Catalog => {
                     crate::cmd::catalog::install(crate::cmd::catalog::InstallOptions {

@@ -517,11 +517,17 @@ fetched from the same URL plus `.sig` and checked before the archive is opened:
 entangle plugins install https://example.org/releases/v0.1/hello-0.1.0.tar.zst
 ```
 
-The `.sig` file is a small TOML document (`version`, `algorithm = "ed25519"`,
-`publisher_fingerprint`, `archive_sha256`, `signature`): an Ed25519 signature
-by your publisher key over the archive's SHA-256, with a domain prefix. It is
-deterministic, and it belongs to exactly those archive bytes: if you rebuild
-with `--threads`, publish the `.sig` written by that build. Plain `http://`
+The `.sig` file is a small TOML document (`version = 2`, `algorithm =
+"ed25519"`, `publisher_fingerprint`, `plugin_id`, `archive_sha256`,
+`signature`): an Ed25519 signature by your publisher key over a domain
+prefix, the plugin id and the archive's SHA-256. It is deterministic, and it
+belongs to exactly those archive bytes: if you rebuild with `--threads`,
+publish the `.sig` written by that build. Keep the file name `plugins build`
+gives the archive: the installer requires the URL to end in
+`<name>-<version>.tar.zst` matching the signed id, so that a server cannot
+hand out another plugin or an older release under your URL. For a URL that
+cannot keep that name, consumers pass `--expect
+<publisher>/<name>@<version>`. Plain `http://`
 URLs are refused (except on loopback), as are redirects that change scheme.
 
 ### Offline: `.entanglepack`
@@ -642,7 +648,9 @@ alone with `= 4`).
 | `the wasm32-wasip2 target is not installed` | `rustup target add wasm32-wasip2` |
 | `ENTANGLE-E0943: rust-toolchain.toml missing` / `not an exact release` / `pins Rust X, but the compiler … is Rust Y` | pin the compiler exactly and build with it; see [What a project must pin](#what-a-project-must-pin) |
 | `ENTANGLE-E0942: floating WIT import` | give every listed import (and `[build] wit_world`) a full `@x.y.z` version |
-| `ENTANGLE-E0823` on `install https://…` | the `<url>.sig` file is missing, is not the one written for that archive, or is by another publisher |
+| `ENTANGLE-E0823` on `install https://…` | the `<url>.sig` file is missing, is a version 1 document (rebuild), is not the one written for that archive, or is by another publisher |
+| `ENTANGLE-E0945` on `install https://…` | the URL's file name is not the signed `<name>-<version>.tar.zst`; keep the name `plugins build` wrote, or install with `--expect <publisher>/<name>@<version>` |
+| `ENTANGLE-E0946` on `install` | the package is older than the installed version; `--allow-downgrade` if you mean it |
 | `ENTANGLE-E0940` on `install <file>.entanglepack` | the pack holds a package from a publisher you have not trusted; add the key it prints, or pass `--trust-pack-keys` |
 | `… does not declare crate-type = ["cdylib"]` | restore the `[lib]` block in `Cargo.toml` |
 | `identity key not found at ~/.entangle/identity.key` | `entangle init` |

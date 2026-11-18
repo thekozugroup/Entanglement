@@ -58,6 +58,17 @@ pub struct InstallArgs {
     /// your keyring after printing their fingerprints.
     #[arg(long, requires = "source")]
     pub trust_pack_keys: bool,
+    /// With a download-URL SOURCE: the `<publisher>/<name>@<version>` the
+    /// package must be (when the file name is not `<name>-<version>.tar.zst`).
+    #[arg(long, requires = "source", value_name = "PUBLISHER/NAME@VERSION")]
+    pub expect: Option<String>,
+    /// With an `oci://` SOURCE: the publisher fingerprint the package must be
+    /// signed by (also re-pins the repository).
+    #[arg(long, requires = "source", value_name = "FINGERPRINT")]
+    pub publisher: Option<String>,
+    /// With SOURCE: allow replacing an installed plugin with a lower version.
+    #[arg(long, requires = "source")]
+    pub allow_downgrade: bool,
     /// Install the shell wrappers without asking.
     #[arg(long, conflicts_with = "no_wrapper")]
     pub wrapper: bool,
@@ -85,6 +96,9 @@ async fn install_plugin(source: String, a: &InstallArgs) -> Result<i32> {
             no_load: a.no_load,
             insecure_registry: a.insecure_registry,
             trust_pack_keys: a.trust_pack_keys,
+            expect: a.expect.clone(),
+            publisher: a.publisher.clone(),
+            allow_downgrade: a.allow_downgrade,
         },
     })
     .await?;

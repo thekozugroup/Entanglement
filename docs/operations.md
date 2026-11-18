@@ -364,7 +364,7 @@ canonical range table, maintained in
 | E0880–E0899 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0891: the 1.62.0 Tailscale floor, E0893: a Tailscale version that cannot be read; both also enforced by the daemon), `keys gen`, pairing UX, `install` / `uninstall` / `agent host cleanup` — see §26–§31 |
 | E0900 | I/O |
 | E0920–E0939 | Operator log and trace stores (`entangle_observability::QueryError`, `entangle logs`, `entangle trace task`; see §14d, §14e): unknown log source (E0920), a plugin name matching several plugins (E0921), an invalid log query parameter (E0922), no spans recorded for a task or trace id (E0923), an id that is neither a task UUID nor a trace id (E0924) |
-| E0940–E0949 | Plugin distribution, CLI side (`entangle-cli` `cmd::dist`, `cmd::pack`, `cmd::mirror`, `cmd::repro`) — see §13, §19: a pack holding packages from publishers not in the keyring (E0940); `entangle pack` cannot resolve or write what was asked (E0941); a floating WIT import in a plugin project (E0942); a missing, inexact or overridden `rust-toolchain.toml` (E0943); a damaged mirror setting (E0944) |
+| E0940–E0949 | Plugin distribution, CLI side (`entangle-cli` `cmd::dist`, `cmd::pack`, `cmd::mirror`, `cmd::repro`) — see §13, §19: a pack holding packages from publishers not in the keyring (E0940); `entangle pack` cannot resolve or write what was asked (E0941); a floating WIT import in a plugin project (E0942); a missing, inexact or overridden `rust-toolchain.toml` (E0943); a damaged mirror setting (E0944); a package that is not what was asked for (E0945); a refused downgrade (E0946); an OCI publisher pin mismatch or a damaged pin file (E0947) |
 | E9999 | Internal / unexpected |
 
 A handful of other crates layer additional codes into gaps in that range for
@@ -420,6 +420,9 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0942` | `plugins build`: a WIT import (or `[build] wit_world`) does not name an exact `@x.y.z` version; the message lists each one. Nothing was built (§19). |
 | `ENTANGLE-E0943` | `plugins build`: no `rust-toolchain.toml` in the project or its workspace root, a `channel` that is not an exact release, or a pin that is not the compiler in use. Nothing was built (§19). |
 | `ENTANGLE-E0944` | `~/.entangle/mirror.toml` is unreadable or malformed; rewrite it with `entangle mirror set` or remove it with `entangle mirror unset` (§13). |
+| `ENTANGLE-E0945` | `plugins install`: the validly signed package is not what was asked for: a URL whose file name is not the signed `<name>-<version>.tar.zst` (or that differs from `--expect`), an `oci://` repository/version tag that does not match the plugin, a floating tag with mirror keys configured but no verified listing, or a package not signed by `--publisher`. Nothing was written (§13). |
+| `ENTANGLE-E0946` | `plugins install`: the package is an older version than the one installed for the same publisher; `--allow-downgrade` permits it (§13). |
+| `ENTANGLE-E0947` | `plugins install oci://…`: the repository is pinned to another publisher (`~/.entangle/oci-publishers.toml`); `--publisher <FP>` re-pins it. Also: that file is unreadable or malformed (§13). |
 | `ENTANGLE-W0214` | **Warning (audit).** A plugin was unloaded and disabled because `max_tier_allowed` was lowered below its tier; one entry per plugin (§16). |
 | `ENTANGLE-I0215` | **Info (audit).** Summary written after a ceiling lowering completes (§16). |
 | `ENTANGLE-I0216` | **Info (audit).** The operator cancelled a ceiling lowering; the previous ceiling stays (§16). |
@@ -918,8 +921,35 @@ signed the bytes, not that they are the plugin you named, so the install also
 requires the package's plugin name to equal the last component of the
 repository (`oci://r/acme/hello:1.0.0` must serve a plugin named `hello`) and,
 when the tag is a full `MAJOR.MINOR.PATCH` version, the package's version to
-equal it. Floating tags (`latest`, `stable`) and digests make no version
-claim. The package is staged in a sibling directory and swapped into place, so
+equal it (`ENTANGLE-E0945`). A digest makes no version claim. A floating tag
+(`latest`, `stable`) makes none either, unless mirror keys are configured
+(`~/.entangle/mirror-keys.toml`): then it is resolved to a digest through
+that source's signed listing, which must verify and must not be older than
+the newest listing seen (see "Listing rollback protection"); a source whose
+listing does not qualify cannot serve the tag (`ENTANGLE-E0945`) and the
+next source is tried.
+
+**Publisher pin.** The first install from a repository records the publisher
+that signed it in `~/.entangle/oci-publishers.toml` (mode `0600`, replaced
+atomically, read-modify-write under an advisory lock on
+`oci-publishers.toml.lock`), keyed on the origin's `registry/repository`. A
+later install from that repository signed by another publisher is refused
+(`ENTANGLE-E0947`), even if that publisher is also in your keyring: two
+trusted publishers can both ship a plugin called `tool`.
+`--publisher <FINGERPRINT>` states which publisher you expect (a package by
+anyone else is refused, `ENTANGLE-E0945`) and re-pins the repository to it;
+that is also the way to accept a repository that changed hands, after
+confirming the new fingerprint with its owner. Deleting the file forgets
+every pin.
+
+**No silent downgrade.** On every install path (OCI, URL, local archive,
+pack) a package whose version is lower than the one installed for the same
+publisher and name, in the destination directory or in
+`~/.entangle/plugins/<name>`, is refused (`ENTANGLE-E0946`): an old release is
+still validly signed, so a server could otherwise roll you back to a version
+with a known flaw. `--allow-downgrade` permits it.
+
+The package is staged in a sibling directory and swapped into place, so
 a failed install never leaves a half-written directory. Without `--out`, an
 existing `~/.entangle/plugins/<name>` that holds another publisher's plugin is
 not overwritten; pass `--out`. Catalog-only flags (`--catalog`, `--key`,
@@ -1082,11 +1112,21 @@ $ entangle mirror unset
   no credentials, query or fragment (`ENTANGLE-E0825`). Credentials for a
   private mirror go in `~/.entangle/oci-auth.toml` under the mirror's host;
   the origin's credentials are never sent to the mirror.
-- For `plugins install oci://…` a source is skipped, with a warning on
-  stderr, when it is unreachable (including a TLS failure), does not have the
-  artifact, or serves bytes that do not verify against your keyring. The
-  mirror is a CDN for bytes: it can fail to deliver, it cannot substitute. If
-  every source fails the error lists each attempt.
+- For `plugins install oci://…` every check runs per source: a source is
+  skipped, with a warning on stderr, when it is unreachable (including a TLS
+  failure), does not have the artifact, serves bytes that do not verify
+  against your keyring, or serves a validly signed package that fails a later
+  check (policy, the name/version binding, a floating tag without a verified
+  listing, the publisher pin, a downgrade). The next source (the origin) is
+  then tried. If every source fails the error lists each attempt.
+- What a mirror can still do. It cannot make an unsigned or tampered package
+  install, and with the checks above it cannot substitute another plugin,
+  another publisher's plugin (once the repository is pinned) or a version
+  older than the one installed. It can withhold packages, and serve stale
+  listings within the rollback rules. For a floating tag without mirror keys
+  it chooses which validly signed version of the plugin you get, as long as
+  it is not older than the installed one; pull an exact version, a digest,
+  or configure mirror keys to rule that out.
 - For `plugins tags` the first source that answers is used; the listing is
   verified against `mirror-keys.toml` and the rollback record whichever
   source served it. The output says `served by: mirror <url>` (JSON:
@@ -1117,15 +1157,25 @@ What happens, in order; nothing is written unless all of it passes:
    a body with no length is cut off at the cap, `ENTANGLE-E0808`).
 2. The detached signature is checked against your publisher keyring **on the
    raw archive bytes**, before the archive is decompressed or parsed. Missing
-   or malformed signature, or one over different bytes: `ENTANGLE-E0823`.
-   Unknown publisher: `ENTANGLE-E0101`, with the fingerprint the signature
-   names.
-3. The package is verified as on every other path (the signature inside it
-   binds artifact and manifest), and its signer must be the publisher that
-   signed the archive.
-4. `max_tier_allowed` (`ENTANGLE-E0043`), `[plugins] disabled`
-   (`ENTANGLE-E0759`) and the runtime-kind check (`ENTANGLE-E0507`).
-5. The package is staged and swapped into `~/.entangle/plugins/<name>` (or
+   or malformed signature, one of format version 1, or one over different
+   bytes: `ENTANGLE-E0823`. Unknown publisher: `ENTANGLE-E0101`, with the
+   fingerprint the signature names. The signature (format version 2) covers
+   the plugin id as well as the archive's SHA-256, so the installer knows
+   which plugin and version the publisher vouched for before opening it.
+3. That signed id is bound to what you asked for: the URL's last path
+   segment must be exactly `<name>-<version>.tar.zst` (as `plugins build`
+   names the archive) with the signed name and version, or, for any other
+   URL, `--expect <publisher>/<name>@<version>` must equal the signed id
+   (`ENTANGLE-E0945`). A web host cannot answer one URL with another plugin
+   or an older release.
+4. The package is verified as on every other path (the signature inside it
+   binds artifact and manifest); its signer must be the publisher that
+   signed the archive and its id the one the detached signature names
+   (`ENTANGLE-E0823`).
+5. `max_tier_allowed` (`ENTANGLE-E0043`), `[plugins] disabled`
+   (`ENTANGLE-E0759`), the runtime-kind check (`ENTANGLE-E0507`) and the
+   downgrade check (`ENTANGLE-E0946`, `--allow-downgrade`).
+6. The package is staged and swapped into `~/.entangle/plugins/<name>` (or
    `--out`), then loaded unless `--no-load`.
 
 Transport rules: the URL must be `https://`. `http://` is accepted only for a
@@ -1136,8 +1186,9 @@ the same roots as registry access (bundled web roots plus the system store;
 `SSL_CERT_FILE` names a private CA). There is no option that disables
 certificate verification.
 
-A package archive already on disk installs the same way, minus steps 1 and 2:
-`entangle plugins install ./hello-0.1.0.tar.zst`.
+A package archive already on disk installs the same way, minus steps 1 to 3
+(it carries no detached signature; the signature inside it is what is
+checked): `entangle plugins install ./hello-0.1.0.tar.zst`.
 
 ### Offline installs: `entangle pack` and `.entanglepack`
 

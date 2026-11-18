@@ -63,6 +63,111 @@ pub struct InstallOptions {
     pub out: Option<PathBuf>,
     /// Verify and write, but do not load.
     pub no_load: bool,
+    /// The publisher fingerprint (32 hex) the package must be signed by;
+    /// also (re)pins the repository to it.
+    pub publisher: Option<String>,
+    /// Allow replacing an installed plugin with a lower version.
+    pub allow_downgrade: bool,
+}
+
+/// `~/.entangle/oci-publishers.toml`: the publisher each OCI repository is
+/// pinned to (trust on first install).
+pub fn publisher_pins_path() -> PathBuf {
+    config::entangle_dir().join("oci-publishers.toml")
+}
+
+/// The publisher pinned per OCI repository (`registry/repository` of the
+/// origin, whichever source delivered the bytes).
+///
+/// The first install from a repository records the publisher whose key
+/// signed the package; later installs from it must be signed by the same
+/// publisher (`ENTANGLE-E0947`), so a registry, mirror or name squatter
+/// cannot answer `oci://…/tool` with another trusted publisher's `tool`.
+/// `--publisher <FP>` states the publisher explicitly and re-pins the
+/// repository to it. The file is TOML, mode 0600, replaced atomically, and
+/// the read-modify-write runs under an advisory lock on `<file>.lock`.
+pub struct PublisherPins {
+    path: PathBuf,
+}
+
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PinsFile {
+    version: u32,
+    #[serde(default)]
+    repositories: std::collections::BTreeMap<String, String>,
+}
+
+impl PublisherPins {
+    /// Pins stored at `path`.
+    pub fn at(path: impl Into<PathBuf>) -> Self {
+        Self { path: path.into() }
+    }
+
+    fn damaged(&self, e: impl std::fmt::Display) -> anyhow::Error {
+        anyhow::anyhow!(
+            "ENTANGLE-E0947: {}: {e}. Fix or delete the file (every OCI repository is then \
+             pinned afresh on its next install)",
+            self.path.display()
+        )
+    }
+
+    fn load(&self) -> Result<PinsFile> {
+        match std::fs::read_to_string(&self.path) {
+            Ok(t) => {
+                let f: PinsFile = toml::from_str(&t).map_err(|e| self.damaged(e))?;
+                if f.version != 1 {
+                    return Err(self.damaged(format!("unsupported version {}", f.version)));
+                }
+                Ok(f)
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(PinsFile {
+                version: 1,
+                ..PinsFile::default()
+            }),
+            Err(e) => Err(self.damaged(e)),
+        }
+    }
+
+    /// The publisher `repository` is pinned to, if any.
+    pub fn get(&self, repository: &str) -> Result<Option<String>> {
+        Ok(self.load()?.repositories.get(repository).cloned())
+    }
+
+    /// Check `signer` against the pin for `repository`: no pin, the same
+    /// publisher, or an explicit `--publisher` equal to `signer` pass.
+    pub fn check(&self, repository: &str, signer: &str, explicit: bool) -> Result<()> {
+        match self.get(repository)? {
+            Some(pinned) if pinned != signer && !explicit => bail!(
+                "ENTANGLE-E0947: {repository} is pinned to publisher {pinned} (since its first \
+                 install), but the package served is signed by {signer}; it was NOT \
+                 installed. Both keys are in your keyring, but this repository has always come \
+                 from {pinned}. If the repository really changed hands, confirm the new \
+                 fingerprint with its owner and re-run with --publisher {signer}, which \
+                 re-pins it (the pins are in {})",
+                self.path.display()
+            ),
+            _ => Ok(()),
+        }
+    }
+
+    /// Record `signer` for `repository` under the lock. Without `explicit`,
+    /// a pin that changed since [`Self::check`] (another install) is an
+    /// error, not overwritten.
+    pub fn record(&self, repository: &str, signer: &str, explicit: bool) -> Result<()> {
+        let _lock = crate::fsutil::lock_exclusive(&self.path)?;
+        let mut file = self.load()?;
+        match file.repositories.get(repository) {
+            Some(p) if p == signer => return Ok(()),
+            Some(_) if !explicit => return self.check(repository, signer, false),
+            _ => {}
+        }
+        file.repositories
+            .insert(repository.to_owned(), signer.to_owned());
+        let text = toml::to_string(&file).map_err(|e| self.damaged(e))?;
+        crate::fsutil::write_private_atomically(&self.path, text.as_bytes())
+            .with_context(|| format!("writing {}", self.path.display()))
+    }
 }
 
 /// Does `tag` look like a full `MAJOR.MINOR.PATCH` version (optionally `v`-prefixed)?
@@ -77,7 +182,7 @@ fn version_like(tag: &str) -> Option<&str> {
     .then_some(t)
 }
 
-/// Bind the verified package to what the user asked for.
+/// Bind the verified package to what the user asked for (`ENTANGLE-E0945`).
 ///
 /// Signature verification proves *who* signed the bytes, not that they are the
 /// plugin the user named: a registry or mirror could answer any tag with some
@@ -93,7 +198,7 @@ fn check_binding(reference: &Reference, id: &PluginId) -> Result<()> {
         .unwrap_or(&reference.repository);
     if id.name != last {
         bail!(
-            "the package served for {reference} is the plugin `{id}`, whose name does not match \
+            "ENTANGLE-E0945: the package served for {reference} is the plugin `{id}`, whose name does not match \
              the request (repository `{last}`); the signature is valid but this is not what you \
              asked for, so it was NOT installed"
         );
@@ -102,7 +207,7 @@ fn check_binding(reference: &Reference, id: &PluginId) -> Result<()> {
         if let Some(want) = version_like(tag) {
             if want != id.version.to_string() {
                 bail!(
-                    "the package served for {reference} is `{id}` (version {}), which does not \
+                    "ENTANGLE-E0945: the package served for {reference} is `{id}` (version {}), which does not \
                      match the requested version {want}; it was NOT installed",
                     id.version
                 );
@@ -166,25 +271,98 @@ fn sources_for(reference: &Reference, insecure: bool) -> Result<Vec<Source>> {
     Ok(sources)
 }
 
+/// Resolve a floating tag (`latest`, `stable`: anything but a full
+/// version) to a digest through `source`'s signed listing, when mirror keys
+/// are configured. The listing must verify against the mirror keyring and
+/// must not be older than the newest one seen (rollback state); otherwise
+/// this source cannot be used for the tag (`ENTANGLE-E0945`). Returns the
+/// reference to pull: by digest when resolved, unchanged otherwise.
+async fn resolve_floating(
+    source: &Source,
+    reference: &Reference,
+    keys: &MirrorKeyring,
+) -> Result<Reference> {
+    let Selector::Tag(tag) = &reference.selector else {
+        return Ok(reference.clone());
+    };
+    if version_like(tag).is_some() || keys.entries().next().is_none() {
+        return Ok(reference.clone());
+    }
+    let opts = ListOptions {
+        state: Some(ListingState::at(listing_state_path())),
+        ..ListOptions::default()
+    };
+    let listing = list_tags(&source.client, reference, keys, &opts).await?;
+    if !matches!(listing.verification, ListingVerification::Verified { .. }) {
+        bail!(
+            "ENTANGLE-E0945: {reference} names the floating tag `{tag}`, and mirror keys are \
+             configured, so it is resolved only through a verified signed listing; the \
+             listing from {} is {}. Pull a full version (`:1.2.3`) or a digest instead",
+            source.label,
+            listing.verification
+        );
+    }
+    let Some(Some(digest)) = listing.tags.get(tag) else {
+        bail!(
+            "ENTANGLE-E0945: the verified listing from {} has no tag `{tag}` for {}",
+            source.label,
+            reference.repository
+        );
+    };
+    println!("      tag {tag} -> {digest} (from the verified signed listing)");
+    Ok(reference.with_selector(Selector::Digest(digest.clone())))
+}
+
+/// Everything decided about one source's package before anything is
+/// written.
+struct Accepted {
+    cleared: dist::Cleared,
+    out: PathBuf,
+}
+
 /// `entangle plugins install oci://…`.
 ///
-/// Sources are tried in order (the configured mirror, then the origin). A
-/// source that cannot be reached, does not have the artifact, or serves bytes
-/// that do not verify against the publisher keyring is skipped with a
-/// warning: a mirror is a CDN for bytes, so the worst it can do is fail to
-/// deliver, and the same publisher signature is required whoever delivers.
+/// Sources are tried in order (the configured mirror, then the origin). For
+/// each, the whole decision runs inside the attempt: pull, publisher
+/// signature against the keyring, policy (tier, disabled, runtime kind),
+/// binding to the request (name, version tag, floating tag through a verified
+/// listing when mirror keys are configured), the repository's publisher pin
+/// and the downgrade check. A source that fails any of them is skipped with
+/// a warning and the next one is tried; nothing is written until one passes.
+///
+/// A mirror cannot make an unsigned or tampered package install, nor (with
+/// these checks) another plugin, another publisher's plugin or an older
+/// version than the one installed; for a floating tag without mirror keys
+/// it can still choose which validly signed version of this plugin, no older
+/// than the installed one, you get. Pull an exact version to rule that out.
 pub async fn install(opts: InstallOptions) -> Result<()> {
     let reference = Reference::parse(&opts.reference)?;
     let sources = sources_for(&reference, opts.insecure_registry)?;
     let keyring = Keyring::load(&config::keyring_path())?;
+    let mirror_keys = MirrorKeyring::load(&mirror_keys_path())?;
+    let pins = PublisherPins::at(publisher_pins_path());
+    let pin_key = format!("{}/{}", reference.registry, reference.repository);
+    let explicit = match &opts.publisher {
+        Some(p) => {
+            let p = p.trim().to_ascii_lowercase();
+            if p.len() != 32 || !p.bytes().all(|b| b.is_ascii_hexdigit()) {
+                bail!(
+                    "--publisher takes a publisher key fingerprint (32 hex characters), got {p:?}"
+                );
+            }
+            Some(p)
+        }
+        None => None,
+    };
 
-    let mut cleared = None;
+    let mut accepted = None;
     let mut failures: Vec<String> = Vec::new();
     let last = sources.len() - 1;
     for (i, source) in sources.iter().enumerate() {
         println!("[1/4] pulling {reference} from {}", source.label);
         let attempt = async {
-            let pulled = pull_artifact(&source.client, &reference).await?;
+            let pull_ref = resolve_floating(source, &reference, &mirror_keys).await?;
+            let pulled = pull_artifact(&source.client, &pull_ref).await?;
             println!(
                 "      manifest {}  package {} ({} bytes)",
                 pulled.manifest_digest,
@@ -199,11 +377,28 @@ pub async fn install(opts: InstallOptions) -> Result<()> {
                      with `entangle keyring add <PUBLIC_KEY_HEX> --name <NAME>`"
                 )
             })?;
-            anyhow::Ok(verified)
+            println!(
+                "      {} signed by trusted key {}",
+                verified.plugin_id, verified.signer_fingerprint
+            );
+            let cleared = dist::check_policy(verified)?;
+            check_binding(&reference, &cleared.id)?;
+            let signer = cleared.verified.signer_fingerprint.clone();
+            if let Some(want) = &explicit {
+                if *want != signer {
+                    bail!(
+                        "ENTANGLE-E0945: {reference} served a package signed by {signer}, but \
+                         --publisher asked for {want}; it was NOT installed"
+                    );
+                }
+            }
+            pins.check(&pin_key, &signer, explicit.is_some())?;
+            let out = dist::destination(&cleared, opts.out.as_deref(), opts.allow_downgrade)?;
+            anyhow::Ok(Accepted { cleared, out })
         };
         match attempt.await {
-            Ok(verified) => {
-                cleared = Some(verified);
+            Ok(a) => {
+                accepted = Some(a);
                 break;
             }
             Err(e) if i < last => {
@@ -226,15 +421,9 @@ pub async fn install(opts: InstallOptions) -> Result<()> {
         }
     }
     // The loop either breaks with a package or returns the last error.
-    let Some(verified) = cleared else {
+    let Some(Accepted { cleared, out }) = accepted else {
         bail!("no source for {reference}");
     };
-    println!(
-        "      {} signed by trusted key {}",
-        verified.plugin_id, verified.signer_fingerprint
-    );
-
-    let cleared = dist::check_policy(verified)?;
     println!(
         "      effective tier {} (max_tier_allowed {})",
         cleared.tier,
@@ -242,8 +431,11 @@ pub async fn install(opts: InstallOptions) -> Result<()> {
             .security
             .max_tier_allowed
     );
-    check_binding(&reference, &cleared.id)?;
-    let out = dist::destination(&cleared, opts.out.as_deref())?;
+    pins.record(
+        &pin_key,
+        &cleared.verified.signer_fingerprint,
+        explicit.is_some(),
+    )?;
     println!("[3/4] writing package to {}", out.display());
     dist::write_verified(&cleared, &out)?;
     dist::load_installed("[4/4]", &out, &cleared.verified.plugin_id, opts.no_load).await

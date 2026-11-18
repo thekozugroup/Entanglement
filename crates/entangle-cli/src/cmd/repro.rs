@@ -1073,7 +1073,8 @@ pub fn write_archive(
     let path = dist.join(format!("{stem}.tar.zst"));
     std::fs::write(&path, &bytes).with_context(|| format!("writing {}", path.display()))?;
     let signature = dist.join(format!("{stem}.tar.zst.sig"));
-    let sig = entangle_oci::sign_archive(&bytes, keypair).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let sig = entangle_oci::sign_archive(&bytes, plugin_id, keypair)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
     std::fs::write(&signature, sig).with_context(|| format!("writing {}", signature.display()))?;
     Ok(ArchiveInfo {
         path,

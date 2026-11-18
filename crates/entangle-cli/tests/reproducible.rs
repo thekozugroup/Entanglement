@@ -1490,15 +1490,13 @@ fn threads_flag_warns_and_the_default_build_writes_a_verifying_detached_signatur
         added_at: 0,
         note: String::new(),
     });
-    let signer = entangle_oci::verify_archive_signature(&default_bytes, &default_sig, &ring)
+    let checked = entangle_oci::verify_archive_signature(&default_bytes, &default_sig, &ring)
         .expect("detached signature verifies");
-    assert_eq!(signer, kp.fingerprint_hex());
-    assert_eq!(
-        entangle_oci::verify_package(&default_bytes, &ring)
-            .unwrap()
-            .signer_fingerprint,
-        signer
-    );
+    assert_eq!(checked.signer, kp.fingerprint_hex());
+    let verified = entangle_oci::verify_package(&default_bytes, &ring).unwrap();
+    assert_eq!(verified.signer_fingerprint, checked.signer);
+    // The detached signature vouches for the package's own id (format v2).
+    assert_eq!(checked.plugin_id, verified.plugin_id);
     // Rebuilding gives the same archive and the same signature file.
     let out = build_tiny_raw(home.path(), &project, &[]);
     assert!(out.status.success());

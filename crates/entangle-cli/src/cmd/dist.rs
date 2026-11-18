@@ -179,18 +179,71 @@ fn write_package_atomically(files: &entangle_oci::PackageFiles, out: &Path) -> R
     Ok(())
 }
 
+/// The plugin id recorded in an installed package directory, if any.
+fn installed_id(dir: &Path) -> Option<PluginId> {
+    let text = std::fs::read_to_string(dir.join("entangle.toml")).ok()?;
+    toml::from_str::<toml::Value>(&text)
+        .ok()
+        .and_then(|v| v.get("plugin")?.get("id")?.as_str().map(str::to_owned))
+        .and_then(|s| PluginId::from_str(&s).ok())
+}
+
+/// Refuse to replace an installed plugin of the same publisher and name with
+/// a **lower** version (`ENTANGLE-E0946`) unless `allow_downgrade`.
+///
+/// "Installed" means the package in the destination directory and the one
+/// in the default directory `~/.entangle/plugins/<name>`. A validly signed
+/// old release is still a validly signed package, so the signature alone
+/// cannot stop a mirror, web host or pack from rolling a plugin back to a
+/// version with a known flaw; this check does, on every install path.
+pub(crate) fn refuse_downgrade(id: &PluginId, out: &Path, allow_downgrade: bool) -> Result<()> {
+    let default = crate::cmd::catalog::default_out_dir(&id.name);
+    for dir in [out, default.as_path()] {
+        let Some(old) = installed_id(dir) else {
+            continue;
+        };
+        if old.publisher != id.publisher || old.name != id.name || old.version <= id.version {
+            continue;
+        }
+        if allow_downgrade {
+            println!(
+                "      note: downgrading {} from {} to {} (--allow-downgrade)",
+                id.name, old.version, id.version
+            );
+            continue;
+        }
+        bail!(
+            "ENTANGLE-E0946: {} already holds `{old}`; the package offered is the older `{id}`. \
+             A downgrade is refused: an old release is still validly signed, so whoever served \
+             it may be rolling you back. Nothing was written. If you mean to go back to {}, \
+             re-run with --allow-downgrade",
+            dir.display(),
+            id.version
+        );
+    }
+    Ok(())
+}
+
 /// Where a cleared package goes: `out`, or `~/.entangle/plugins/<name>`.
 /// The default directory is guarded against a different publisher's plugin
-/// of the same name; an explicit `--out` is the user's own choice.
-pub(crate) fn destination(cleared: &Cleared, out: Option<&Path>) -> Result<PathBuf> {
-    match out {
-        Some(p) => Ok(p.to_path_buf()),
+/// of the same name; an explicit `--out` must be empty, absent or hold a
+/// plugin package. Either way a lower version over an
+/// installed one is refused unless `allow_downgrade` ([`refuse_downgrade`]).
+pub(crate) fn destination(
+    cleared: &Cleared,
+    out: Option<&Path>,
+    allow_downgrade: bool,
+) -> Result<PathBuf> {
+    let dir = match out {
+        Some(p) => p.to_path_buf(),
         None => {
             let dir = crate::cmd::catalog::default_out_dir(&cleared.id.name);
             refuse_other_publishers_install(&dir, &cleared.id)?;
-            Ok(dir)
+            dir
         }
-    }
+    };
+    refuse_downgrade(&cleared.id, &dir, allow_downgrade)?;
+    Ok(dir)
 }
 
 /// Write a cleared package to `out`, whole or not at all.
@@ -261,12 +314,59 @@ fn read_capped(path: &Path, limit: u64, what: &str) -> Result<Vec<u8>> {
 
 /// Options for [`install_url`].
 pub struct UrlInstallOptions {
-    /// `https://…/<name>.tar.zst` (plain `http://` for a loopback host only).
+    /// `https://…/<name>-<version>.tar.zst` (plain `http://` for a loopback
+    /// host only).
     pub url: String,
     /// Where to write the verified package (default `~/.entangle/plugins/<name>`).
     pub out: Option<PathBuf>,
     /// Verify and write, but do not load.
     pub no_load: bool,
+    /// `<publisher>/<name>@<version>` the package must be, for a URL whose
+    /// file name is not `<name>-<version>.tar.zst`.
+    pub expect: Option<String>,
+    /// Allow replacing an installed plugin with a lower version.
+    pub allow_downgrade: bool,
+}
+
+/// Bind the plugin id a detached signature vouches for to what the user
+/// asked for, before the archive is opened (`ENTANGLE-E0945`).
+///
+/// Without `expect`, the URL's last path segment must be exactly
+/// `<name>-<version>.tar.zst` as `entangle plugins build` names the archive,
+/// with the signed name and version. With `expect` (`<publisher>/<name>@<version>`),
+/// the signed id must equal it and the file name is not consulted. Either
+/// way a web host cannot answer one plugin's URL with another plugin, or
+/// with an older release of the same one.
+pub(crate) fn check_url_binding(
+    url: &url::Url,
+    signed: &PluginId,
+    expect: Option<&PluginId>,
+) -> Result<()> {
+    if let Some(want) = expect {
+        if want != signed {
+            bail!(
+                "ENTANGLE-E0945: {url} serves `{signed}`, but --expect asked for `{want}`; the \
+                 signature is valid but this is not the package you asked for. Nothing was \
+                 written"
+            );
+        }
+        return Ok(());
+    }
+    let file = url
+        .path_segments()
+        .and_then(|mut s| s.next_back())
+        .unwrap_or_default();
+    let want = format!("{}-{}.tar.zst", signed.name, signed.version);
+    if file != want {
+        bail!(
+            "ENTANGLE-E0945: {url} serves `{signed}`, whose archive is named `{want}`, but the \
+             URL names `{file}`. The URL must end in `<name>-<version>.tar.zst` (as `entangle \
+             plugins build` names it) and match the signed package, so that a web host cannot \
+             substitute another plugin or an older release. If the file name is right for \
+             another reason, say what you expect with --expect {signed}. Nothing was written"
+        );
+    }
+    Ok(())
 }
 
 /// `entangle plugins install <URL>`: fetch `<URL>.sig` and `<URL>`, check the
@@ -312,9 +412,19 @@ pub async fn install_url(opts: UrlInstallOptions) -> Result<()> {
         hex::encode(<sha2::Sha256 as sha2::Digest>::digest(&archive))
     );
 
+    let expect = opts
+        .expect
+        .as_deref()
+        .map(|e| {
+            PluginId::from_str(e).map_err(|err| {
+                anyhow::anyhow!("--expect {e:?} is not `<publisher>/<name>@<version>`: {err}")
+            })
+        })
+        .transpose()?;
+
     println!("[2/5] checking the detached signature against your keyring (the archive is not opened yet)");
     let keyring = Keyring::load(&config::keyring_path())?;
-    let detached_signer = verify_archive_signature(&archive, &sig, &keyring)
+    let detached = verify_archive_signature(&archive, &sig, &keyring)
         .map_err(anyhow::Error::from)
         .with_context(|| match archive_signature_signer(&sig) {
             Some(fp) => format!(
@@ -323,7 +433,22 @@ pub async fn install_url(opts: UrlInstallOptions) -> Result<()> {
             ),
             None => format!("{url} was NOT installed. {TRUST_HINT}"),
         })?;
-    println!("      archive signed by trusted key {detached_signer}");
+    let detached_signer = detached.signer.clone();
+    let signed_id = PluginId::from_str(&detached.plugin_id).map_err(|e| {
+        OciError::DetachedSignature(format!(
+            "it names plugin id {:?}, which is not valid: {e}",
+            detached.plugin_id
+        ))
+    })?;
+    if signed_id.publisher != detached_signer {
+        return Err(OciError::DetachedSignature(format!(
+            "the detached signature is by {detached_signer} but vouches for `{signed_id}`; the \
+             signer and the plugin's publisher must be the same publisher. It was NOT installed"
+        ))
+        .into());
+    }
+    check_url_binding(&url, &signed_id, expect.as_ref())?;
+    println!("      archive signed by trusted key {detached_signer} for {signed_id}");
 
     println!("[3/5] verifying the package (publisher signature over artifact and manifest)");
     let verified = verify_package(&archive, &keyring)
@@ -336,13 +461,21 @@ pub async fn install_url(opts: UrlInstallOptions) -> Result<()> {
         ))
         .into());
     }
+    if verified.plugin_id != detached.plugin_id {
+        return Err(OciError::DetachedSignature(format!(
+            "the detached signature vouches for `{}`, but the package inside is `{}`. It was \
+             NOT installed",
+            detached.plugin_id, verified.plugin_id
+        ))
+        .into());
+    }
     let cleared = check_policy(verified)?;
     println!(
         "      {} signed by trusted key {} (effective tier {})",
         cleared.verified.plugin_id, cleared.verified.signer_fingerprint, cleared.tier
     );
 
-    let out = destination(&cleared, opts.out.as_deref())?;
+    let out = destination(&cleared, opts.out.as_deref(), opts.allow_downgrade)?;
     println!("[4/5] writing package to {}", out.display());
     write_verified(&cleared, &out)?;
     load_installed("[5/5]", &out, &cleared.verified.plugin_id, opts.no_load).await
@@ -353,7 +486,12 @@ pub async fn install_url(opts: UrlInstallOptions) -> Result<()> {
 // ---------------------------------------------------------------------------
 
 /// `entangle plugins install <FILE.tar.zst>`: a package archive on disk.
-pub async fn install_archive_file(path: &Path, out: Option<PathBuf>, no_load: bool) -> Result<()> {
+pub async fn install_archive_file(
+    path: &Path,
+    out: Option<PathBuf>,
+    no_load: bool,
+    allow_downgrade: bool,
+) -> Result<()> {
     println!("[1/4] reading {}", path.display());
     let archive = read_capped(path, MAX_ARCHIVE_BYTES, "package archive")?;
     println!("[2/4] verifying the publisher signature against your keyring");
@@ -365,7 +503,7 @@ pub async fn install_archive_file(path: &Path, out: Option<PathBuf>, no_load: bo
         "      {} signed by trusted key {} (effective tier {})",
         cleared.verified.plugin_id, cleared.verified.signer_fingerprint, cleared.tier
     );
-    let out = destination(&cleared, out.as_deref())?;
+    let out = destination(&cleared, out.as_deref(), allow_downgrade)?;
     println!("[3/4] writing package to {}", out.display());
     write_verified(&cleared, &out)?;
     load_installed("[4/4]", &out, &cleared.verified.plugin_id, no_load).await
@@ -387,6 +525,8 @@ pub struct PackInstallOptions {
     /// Add the pack's publisher keys that are not yet in the keyring, after
     /// printing their fingerprints.
     pub trust_pack_keys: bool,
+    /// Allow replacing an installed plugin with a lower version.
+    pub allow_downgrade: bool,
 }
 
 /// `entangle plugins install <FILE.entanglepack>`: verify every package in
@@ -531,8 +671,12 @@ pub async fn install_pack(opts: PackInstallOptions) -> Result<()> {
     let mut targets = Vec::with_capacity(cleared.len());
     for c in &cleared {
         let out = match &opts.out {
-            Some(parent) => parent.join(&c.id.name),
-            None => destination(c, None)?,
+            Some(parent) => {
+                let out = parent.join(&c.id.name);
+                refuse_downgrade(&c.id, &out, opts.allow_downgrade)?;
+                out
+            }
+            None => destination(c, None, opts.allow_downgrade)?,
         };
         if targets.contains(&out) {
             bail!(
