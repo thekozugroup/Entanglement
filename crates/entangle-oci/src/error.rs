@@ -1,4 +1,6 @@
-//! Error type for OCI distribution. Codes `ENTANGLE-E0800`..`E0829`.
+//! Error type for OCI distribution. Codes `ENTANGLE-E0800`..`E0829`
+//! (`E0820`..`E0825`: listing rollback state, plain-HTTPS downloads, detached
+//! archive signatures, offline packs).
 
 use entangle_signing::VerificationError;
 
@@ -153,6 +155,58 @@ pub enum OciError {
     /// `ENTANGLE-E0819` — a feature of the OCI spec this client does not implement.
     #[error("ENTANGLE-E0819: unsupported: {0}")]
     Unsupported(String),
+
+    /// `ENTANGLE-E0820` — a correctly signed mirror listing is older than one
+    /// already seen for the same repository (rollback / freeze attack, or a
+    /// mirror restored from an old backup).
+    #[error(
+        "ENTANGLE-E0820: mirror listing rollback for {repository}: the listing offered was \
+         generated at {offered} but a newer one (generated at {newest_seen}) was already seen"
+    )]
+    ListingRollback {
+        /// `registry/repository` the listing describes.
+        repository: String,
+        /// `generated_at` (unix seconds) of the newest listing recorded.
+        newest_seen: u64,
+        /// `generated_at` (unix seconds) of the listing that was refused.
+        offered: u64,
+    },
+
+    /// `ENTANGLE-E0821` — the listing-state file (newest listing seen per
+    /// repository) is unreadable, malformed or cannot be written.
+    #[error("ENTANGLE-E0821: mirror listing state error: {0}")]
+    ListingState(String),
+
+    /// `ENTANGLE-E0822` — a download URL is not acceptable: not `https://`
+    /// (plain `http://` is allowed for loopback hosts only), carries
+    /// credentials or a fragment, or cannot be parsed.
+    #[error("ENTANGLE-E0822: refusing URL {url:?}: {reason}")]
+    UrlRefused {
+        /// The URL as given (credentials, if any, removed).
+        url: String,
+        /// Why it was refused.
+        reason: String,
+    },
+
+    /// `ENTANGLE-E0823` — the detached archive signature (`<url>.sig`) is
+    /// missing, malformed, or does not cover the archive that was fetched.
+    #[error("ENTANGLE-E0823: detached archive signature rejected: {0}")]
+    DetachedSignature(String),
+
+    /// `ENTANGLE-E0824` — a `.entanglepack` file is malformed (not a pack,
+    /// unsupported version, unexpected entry, index/content disagreement).
+    #[error("ENTANGLE-E0824: invalid .entanglepack: {0}")]
+    InvalidPack(String),
+
+    /// `ENTANGLE-E0825` — a mirror URL is not usable (bad scheme, credentials,
+    /// query or fragment).
+    #[error("ENTANGLE-E0825: invalid mirror URL {url:?}: {reason}")]
+    InvalidMirror {
+        /// The URL as given (credentials, if any, removed).
+        url: String,
+        /// Why it was refused.
+        reason: String,
+    },
 }
 
 /// Result alias for this crate.

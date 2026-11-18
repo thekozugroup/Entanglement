@@ -74,6 +74,14 @@ pub struct ClientConfig {
     pub chunk_size: usize,
     /// Maximum redirects followed per request.
     pub max_redirects: u8,
+    /// Extra TLS trust anchors, for tests that run a real TLS handshake
+    /// against an in-process registry with a throw-away CA.
+    ///
+    /// Exists only with the `testing` feature, which release builds never
+    /// enable. It can only add trust anchors: certificate-chain, validity and
+    /// host-name verification always run.
+    #[cfg(feature = "testing")]
+    pub test_roots: Vec<rustls::pki_types::CertificateDer<'static>>,
 }
 
 impl Default for ClientConfig {
@@ -87,6 +95,8 @@ impl Default for ClientConfig {
             timeout: Duration::from_secs(30),
             chunk_size: 4 * 1024 * 1024,
             max_redirects: 5,
+            #[cfg(feature = "testing")]
+            test_roots: Vec::new(),
         }
     }
 }
@@ -161,15 +171,76 @@ impl OciClient {
                 reason: e.to_string(),
             }
         })?;
+        Ok(Self::from_base(base, cfg))
+    }
+
+    /// Create a client for a registry reached at `base`, an `http(s)://`
+    /// URL that may carry a path prefix: `https://mirror.example.org/oci`
+    /// serves repository `acme/tool` under
+    /// `https://mirror.example.org/oci/v2/acme/tool/...`. Used for mirrors.
+    ///
+    /// The scheme rules are the same as for [`OciClient::new`]: plain HTTP
+    /// only to loopback, or with [`ClientConfig::insecure_registry`].
+    pub fn with_base_url(base: &str, cfg: ClientConfig) -> Result<Self> {
+        let refused = |reason: &str| OciError::InvalidMirror {
+            url: redact_url(base),
+            reason: reason.to_owned(),
+        };
+        let mut url = Url::parse(base).map_err(|e| refused(&e.to_string()))?;
+        if !matches!(url.scheme(), "https" | "http") {
+            return Err(refused("the scheme must be https (http only for loopback)"));
+        }
+        if url.host().is_none() {
+            return Err(refused("no host"));
+        }
+        if !url.username().is_empty() || url.password().is_some() {
+            return Err(refused(
+                "credentials in the URL are not supported; use oci-auth.toml",
+            ));
+        }
+        if url.query().is_some() || url.fragment().is_some() {
+            return Err(refused("a query or fragment is not allowed"));
+        }
+        if url.scheme() == "http" && !cfg.insecure_registry && !crate::http::url_is_loopback(&url) {
+            return Err(OciError::InsecureTransport {
+                host: authority(&url),
+            });
+        }
+        if !url.path().ends_with('/') {
+            let p = format!("{}/", url.path());
+            url.set_path(&p);
+        }
+        Ok(Self::from_base(url, cfg))
+    }
+
+    fn from_base(base: Url, cfg: ClientConfig) -> Self {
         let transport = Transport::new(cfg.insecure_registry, cfg.timeout);
-        Ok(Self {
+        #[cfg(feature = "testing")]
+        let transport = transport.with_test_roots(cfg.test_roots.clone());
+        Self {
             registry: authority(&base),
             base,
             cfg,
             transport,
             tokens: Mutex::new(HashMap::new()),
             basic_challenged: AtomicBool::new(false),
-        })
+        }
+    }
+
+    /// The key under which listing state for `repository` on this registry
+    /// is remembered: `host:port[/prefix]/repository`.
+    pub fn listing_scope(&self, repository: &str) -> String {
+        let prefix = self.base.path().trim_matches('/');
+        if prefix.is_empty() {
+            format!("{}/{repository}", self.registry)
+        } else {
+            format!("{}/{prefix}/{repository}", self.registry)
+        }
+    }
+
+    /// The URL requests are sent under (scheme, host, optional path prefix).
+    pub fn base_url(&self) -> &Url {
+        &self.base
     }
 
     /// Create a client for the registry named by `reference`.
@@ -281,9 +352,19 @@ impl OciClient {
                             self.cfg.max_redirects
                         )));
                     }
-                    url = url.join(&loc).map_err(|e| {
+                    let next = url.join(&loc).map_err(|e| {
                         OciError::Redirect(format!("unparseable Location {loc:?}: {e}"))
                     })?;
+                    // Never follow an HTTPS response down to plain HTTP: the
+                    // TLS-protected hop would hand the request to a cleartext one.
+                    if url.scheme() == "https" && next.scheme() != "https" {
+                        return Err(OciError::Redirect(format!(
+                            "{here} redirected an https request to {}://{}",
+                            next.scheme(),
+                            authority(&next)
+                        )));
+                    }
+                    url = next;
                     if status == 303 || (matches!(status, 301 | 302) && method == Method::POST) {
                         method = Method::GET;
                         body = Bytes::new();
@@ -933,6 +1014,23 @@ enum Raw {
     Index(ImageIndex, Digest),
 }
 
+/// `url` without any embedded credentials, for error messages.
+pub(crate) fn redact_url(url: &str) -> String {
+    match Url::parse(url) {
+        Ok(mut u) => {
+            if !u.username().is_empty() || u.password().is_some() {
+                let _ = u.set_username("");
+                let _ = u.set_password(None);
+            }
+            u.to_string()
+        }
+        Err(_) => match url.split_once('@') {
+            Some((_, rest)) if url.contains("://") => format!("<redacted>@{rest}"),
+            _ => url.to_owned(),
+        },
+    }
+}
+
 fn basic_header(username: &str, password: &Secret) -> String {
     use base64::Engine as _;
     let raw = format!("{username}:{}", password.expose());
@@ -943,7 +1041,7 @@ fn basic_header(username: &str, password: &Secret) -> String {
 }
 
 /// Read a body fully but never more than `limit` bytes, with an idle timeout.
-async fn read_limited(
+pub(crate) async fn read_limited(
     mut body: Incoming,
     limit: u64,
     what: &str,

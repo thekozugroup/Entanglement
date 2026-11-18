@@ -52,7 +52,7 @@ pub(crate) fn is_loopback_host(host_port: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn url_is_loopback(url: &Url) -> bool {
+pub(crate) fn url_is_loopback(url: &Url) -> bool {
     match url.host() {
         Some(Host::Domain(d)) => d.eq_ignore_ascii_case("localhost"),
         Some(Host::Ipv4(a)) => a.is_loopback(),
@@ -66,6 +66,9 @@ pub(crate) struct Transport {
     tls: std::sync::OnceLock<std::result::Result<Arc<rustls::ClientConfig>, String>>,
     allow_plain_http: bool,
     timeout: Duration,
+    /// Extra trust anchors (tests only; see [`Transport::with_test_roots`]).
+    #[cfg(feature = "testing")]
+    test_roots: Vec<rustls::pki_types::CertificateDer<'static>>,
 }
 
 impl Transport {
@@ -74,7 +77,40 @@ impl Transport {
             tls: std::sync::OnceLock::new(),
             allow_plain_http,
             timeout,
+            #[cfg(feature = "testing")]
+            test_roots: Vec::new(),
         }
+    }
+
+    /// Trust `roots` in addition to the bundled and system roots.
+    ///
+    /// Compiled only with the `testing` feature, which release builds of the
+    /// binaries never enable: it lets a test talk real TLS to an in-process
+    /// server whose certificate chains to a throw-away CA. It adds trust
+    /// anchors; chain, validity and host-name verification are unchanged, and
+    /// there is no switch anywhere that turns verification off.
+    #[cfg(feature = "testing")]
+    pub(crate) fn with_test_roots(
+        mut self,
+        roots: Vec<rustls::pki_types::CertificateDer<'static>>,
+    ) -> Self {
+        self.test_roots = roots;
+        self
+    }
+
+    #[cfg(feature = "testing")]
+    fn build_tls(&self) -> std::result::Result<rustls::ClientConfig, String> {
+        tls_config(&self.test_roots)
+    }
+
+    #[cfg(not(feature = "testing"))]
+    fn build_tls(&self) -> std::result::Result<rustls::ClientConfig, String> {
+        tls_config(&[])
+    }
+
+    /// May this transport speak plain HTTP to a non-loopback host?
+    pub(crate) fn allows_plain_http(&self) -> bool {
+        self.allow_plain_http
     }
 
     pub(crate) fn timeout(&self) -> Duration {
@@ -189,7 +225,7 @@ impl Transport {
                 .map_err(|e| transport_err(format!("bad TLS server name: {e}")))?;
             let cfg = self
                 .tls
-                .get_or_init(|| tls_config().map(Arc::new))
+                .get_or_init(|| self.build_tls().map(Arc::new))
                 .clone()
                 .map_err(|e| transport_err(format!("TLS configuration: {e}")))?;
             let connector = tokio_rustls::TlsConnector::from(cfg);
@@ -346,9 +382,16 @@ fn tls_server_name(
     }
 }
 
-fn tls_config() -> std::result::Result<rustls::ClientConfig, String> {
+fn tls_config(
+    extra_roots: &[rustls::pki_types::CertificateDer<'static>],
+) -> std::result::Result<rustls::ClientConfig, String> {
     let mut roots = rustls::RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    for cert in extra_roots {
+        roots
+            .add(cert.clone())
+            .map_err(|e| format!("extra root certificate: {e}"))?;
+    }
     // System roots too (corporate CAs; honours SSL_CERT_FILE). Failures to
     // load are not fatal: the bundled roots still apply.
     for cert in rustls_native_certs::load_native_certs().certs {

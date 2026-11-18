@@ -30,7 +30,10 @@ fn mirror_keys(kp: &entangle_signing::IdentityKeyPair) -> MirrorKeyring {
 }
 
 fn opts() -> ListOptions {
-    ListOptions { now: Some(NOW) }
+    ListOptions {
+        now: Some(NOW),
+        ..ListOptions::default()
+    }
 }
 
 /// Craft a listing artifact by hand (tamper / unsigned / foreign-signed cases).
@@ -167,6 +170,7 @@ async fn atc_mir_2_expired_listing_is_flagged_and_not_used_for_digests() {
     // The same listing is fine before it expires.
     let early = ListOptions {
         now: Some(NOW - 3600),
+        ..ListOptions::default()
     };
     let tl = list_tags(&c, &r, &mirror_keys(&mirror), &early)
         .await
@@ -206,6 +210,7 @@ async fn atc_mir_2_tampered_listing_is_invalid_even_if_also_expired() {
     // Tampered AND past its expiry: still Invalid (signature is checked first).
     let late = ListOptions {
         now: Some(NOW + 10 * 3600),
+        ..ListOptions::default()
     };
     let tl = list_tags(&c, &r, &mirror_keys(&mirror), &late)
         .await
@@ -291,6 +296,227 @@ async fn atc_mir_2_listing_artifact_of_the_wrong_type_is_invalid() {
         "{:?}",
         tl.verification
     );
+}
+
+// ---------------------------------------------------------------------------
+// Rollback protection
+// ---------------------------------------------------------------------------
+
+fn with_state(state: &ListingState) -> ListOptions {
+    ListOptions {
+        now: Some(NOW),
+        state: Some(state.clone()),
+        ..ListOptions::default()
+    }
+}
+
+/// Two correctly signed, unexpired listings: once the newer one has been
+/// seen, the older one is refused although its signature and expiry are
+/// fine, its digests are not used, and the record is unchanged.
+#[tokio::test]
+async fn an_older_signed_listing_is_refused_once_a_newer_one_was_seen() {
+    let (mock, c, r) = setup().await;
+    let mirror = keypair(50);
+    let keys = mirror_keys(&mirror);
+    let dir = tempfile::tempdir().unwrap();
+    let state = ListingState::at(dir.path().join("mirror-listing-state.toml"));
+    let scope = c.listing_scope("mirror/tool");
+
+    let mut old = listing_for(&mock, "mirror/tool");
+    old.generated_at = NOW - 5000;
+    old.tags.remove("1.1.0"); // the old listing predates 1.1.0
+    let mut new = listing_for(&mock, "mirror/tool");
+    new.generated_at = NOW - 100;
+
+    // First the old one: accepted and recorded (nothing newer is known).
+    publish_listing(&c, &r, &old, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+    assert_eq!(
+        state.newest(&scope).unwrap().unwrap().generated_at,
+        NOW - 5000
+    );
+
+    // Then the new one: accepted, the record moves forward.
+    publish_listing(&c, &r, &new, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+    assert!(tl.tags.contains_key("1.1.0"));
+    let seen = state.newest(&scope).unwrap().unwrap();
+    assert_eq!(seen.generated_at, NOW - 100);
+    assert_eq!(seen.key_fingerprint, mirror.fingerprint_hex());
+
+    // The mirror (or someone in front of it) serves the old listing again.
+    publish_listing(&c, &r, &old, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert_eq!(
+        tl.verification,
+        ListingVerification::RolledBack {
+            newest_seen: NOW - 100,
+            offered: NOW - 5000,
+        }
+    );
+    let text = tl.verification.to_string();
+    assert!(text.contains("ENTANGLE-E0820"), "{text}");
+    // Its digests are not used; the unauthenticated tag names are shown instead.
+    assert!(tl.tags.values().all(|d| d.is_none()));
+    assert!(tl.tags.contains_key("1.1.0"), "{:?}", tl.tags);
+    assert_eq!(
+        state.newest(&scope).unwrap().unwrap().generated_at,
+        NOW - 100
+    );
+
+    // Without a state file there is no memory, so the old listing verifies:
+    // the protection is exactly the recorded state.
+    let tl = list_tags(&c, &r, &keys, &opts()).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+
+    // The same newest listing again is fine (equal is not older).
+    publish_listing(&c, &r, &new, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+}
+
+/// The operator's reset: `accept_older` takes the older listing and makes it
+/// the new baseline; `forget` drops the record.
+#[tokio::test]
+async fn an_operator_can_accept_an_older_listing_or_forget_the_record() {
+    let (mock, c, r) = setup().await;
+    let mirror = keypair(50);
+    let keys = mirror_keys(&mirror);
+    let dir = tempfile::tempdir().unwrap();
+    let state = ListingState::at(dir.path().join("state.toml"));
+    let scope = c.listing_scope("mirror/tool");
+
+    let mut new = listing_for(&mock, "mirror/tool");
+    new.generated_at = NOW - 100;
+    let mut old = new.clone();
+    old.generated_at = NOW - 5000;
+    publish_listing(&c, &r, &new, &mirror).await.unwrap();
+    list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    publish_listing(&c, &r, &old, &mirror).await.unwrap();
+    let refused = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert!(matches!(
+        refused.verification,
+        ListingVerification::RolledBack { .. }
+    ));
+
+    let accept = ListOptions {
+        accept_older: true,
+        ..with_state(&state)
+    };
+    let tl = list_tags(&c, &r, &keys, &accept).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+    assert_eq!(
+        state.newest(&scope).unwrap().unwrap().generated_at,
+        NOW - 5000
+    );
+    // From now on it verifies without the flag.
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+
+    assert!(state.forget(&scope).unwrap());
+    assert_eq!(state.newest(&scope).unwrap(), None);
+}
+
+/// Only a listing that verified can move the baseline: a forged "newer"
+/// listing (unknown key), an unsigned one and an expired one leave the
+/// record alone, so nobody without a mirror key can lock a client out of
+/// the real listing or lower the bar.
+#[tokio::test]
+async fn unverified_listings_never_touch_the_recorded_state() {
+    let (mock, c, r) = setup().await;
+    let (mirror, attacker) = (keypair(50), keypair(51));
+    let keys = mirror_keys(&mirror);
+    let dir = tempfile::tempdir().unwrap();
+    let state = ListingState::at(dir.path().join("state.toml"));
+    let scope = c.listing_scope("mirror/tool");
+
+    let genuine = listing_for(&mock, "mirror/tool");
+    publish_listing(&c, &r, &genuine, &mirror).await.unwrap();
+    list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    let baseline = state.newest(&scope).unwrap().unwrap();
+
+    // Far in the future, signed by a key that is not a mirror key.
+    let mut forged = genuine.clone();
+    forged.generated_at = NOW + 1_000_000;
+    forged.expires_at = NOW + 2_000_000;
+    publish_listing(&c, &r, &forged, &attacker).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Invalid { .. }
+    ));
+    assert_eq!(state.newest(&scope).unwrap().unwrap(), baseline);
+
+    // Unsigned.
+    put_listing(
+        &mock,
+        "mirror/tool",
+        &serde_json::to_vec(&forged).unwrap(),
+        None,
+    );
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert_eq!(tl.verification, ListingVerification::Unsigned);
+    assert_eq!(state.newest(&scope).unwrap().unwrap(), baseline);
+
+    // Genuine but expired, and older: reported as expired, record untouched.
+    let mut expired = genuine.clone();
+    expired.generated_at = NOW - 9000;
+    expired.expires_at = NOW - 1;
+    publish_listing(&c, &r, &expired, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert_eq!(tl.verification, ListingVerification::Expired);
+    assert_eq!(state.newest(&scope).unwrap().unwrap(), baseline);
+
+    // The genuine listing still verifies afterwards.
+    publish_listing(&c, &r, &genuine, &mirror).await.unwrap();
+    let tl = list_tags(&c, &r, &keys, &with_state(&state)).await.unwrap();
+    assert!(matches!(
+        tl.verification,
+        ListingVerification::Verified { .. }
+    ));
+}
+
+/// A damaged state file fails the listing loudly instead of silently
+/// dropping the protection.
+#[tokio::test]
+async fn a_damaged_state_file_fails_closed() {
+    let (mock, c, r) = setup().await;
+    let mirror = keypair(50);
+    publish_listing(&c, &r, &listing_for(&mock, "mirror/tool"), &mirror)
+        .await
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("state.toml");
+    std::fs::write(&path, "this is not the state file").unwrap();
+    let e = list_tags(
+        &c,
+        &r,
+        &mirror_keys(&mirror),
+        &with_state(&ListingState::at(&path)),
+    )
+    .await
+    .unwrap_err();
+    assert!(e.to_string().starts_with("ENTANGLE-E0821"), "{e}");
 }
 
 #[test]

@@ -90,6 +90,59 @@ impl PackageFiles {
 /// zstd stream (level [`ZSTD_LEVEL`], content size pledged, checksum on, no
 /// long-distance matching, no dictionary).
 pub fn pack(files: &PackageFiles) -> Result<Vec<u8>> {
+    zstd_deterministic(&package_tar(files))
+        .map_err(|e| OciError::InvalidPackage(format!("zstd compression failed: {e}")))
+}
+
+/// Smallest slice of the tar stream given to one compression thread by
+/// [`pack_with_threads`].
+const MIN_THREAD_CHUNK: usize = 64 * 1024;
+
+/// Like [`pack`], but compress with up to `threads` threads.
+///
+/// `threads <= 1` is exactly [`pack`]. Otherwise the tar stream is cut into
+/// `threads` equal slices (none smaller than 64 KiB), each slice is
+/// compressed on its own thread with the same parameters as [`pack`], and
+/// the resulting zstd frames are concatenated; a zstd decoder reads
+/// concatenated frames as one stream, so [`unpack`] accepts the result
+/// unchanged.
+///
+/// **Not bit-stable across thread counts.** The bytes depend on where the
+/// slices fall, i.e. on `threads`: an archive packed with `--threads 4`
+/// differs from the default single-threaded one and from `--threads 8`, and
+/// so does its SHA-256 and its detached signature. (For one given `threads`
+/// value the output is still a pure function of the input.) The reproducible
+/// archive a third party can re-derive is the single-threaded one.
+pub fn pack_with_threads(files: &PackageFiles, threads: u32) -> Result<Vec<u8>> {
+    if threads <= 1 {
+        return pack(files);
+    }
+    let tar = package_tar(files);
+    let chunk = tar.len().div_ceil(threads as usize).max(MIN_THREAD_CHUNK);
+    let frames: Vec<std::io::Result<Vec<u8>>> = std::thread::scope(|scope| {
+        let workers: Vec<_> = tar
+            .chunks(chunk)
+            .map(|slice| scope.spawn(move || zstd_deterministic(slice)))
+            .collect();
+        workers
+            .into_iter()
+            .map(|w| {
+                w.join()
+                    .unwrap_or_else(|_| Err(std::io::Error::other("a compression thread panicked")))
+            })
+            .collect()
+    });
+    let mut out = Vec::new();
+    for frame in frames {
+        out.extend(
+            frame.map_err(|e| OciError::InvalidPackage(format!("zstd compression failed: {e}")))?,
+        );
+    }
+    Ok(out)
+}
+
+/// The normalised ustar stream [`pack`] compresses.
+fn package_tar(files: &PackageFiles) -> Vec<u8> {
     let mut tar = Vec::new();
     for (name, data) in [
         (FILE_MANIFEST, &files.manifest),
@@ -102,8 +155,7 @@ pub fn pack(files: &PackageFiles) -> Result<Vec<u8>> {
         tar_entry(&mut tar, FILE_PROVENANCE, p);
     }
     tar.extend_from_slice(&[0u8; 1024]);
-    zstd_deterministic(&tar)
-        .map_err(|e| OciError::InvalidPackage(format!("zstd compression failed: {e}")))
+    tar
 }
 
 fn zstd_deterministic(tar: &[u8]) -> std::io::Result<Vec<u8>> {
@@ -122,7 +174,7 @@ pub fn pack_dir(dir: &Path) -> Result<Vec<u8>> {
     pack(&PackageFiles::read_dir(dir)?)
 }
 
-fn tar_entry(out: &mut Vec<u8>, name: &str, data: &[u8]) {
+pub(crate) fn tar_entry(out: &mut Vec<u8>, name: &str, data: &[u8]) {
     let mut h = [0u8; 512];
     h[..name.len()].copy_from_slice(name.as_bytes());
     h[100..108].copy_from_slice(b"0000644\0");
@@ -157,19 +209,45 @@ pub fn unpack(bytes: &[u8]) -> Result<PackageFiles> {
     }
 
     let (mut manifest, mut wasm, mut signature, mut provenance) = (None, None, None, None);
+    for (name, data) in tar_entries(&tar).map_err(bad)? {
+        let slot = match name {
+            FILE_MANIFEST => &mut manifest,
+            FILE_WASM => &mut wasm,
+            FILE_SIGNATURE => &mut signature,
+            FILE_PROVENANCE => &mut provenance,
+            other => return Err(bad(format!("unexpected entry {other:?}"))),
+        };
+        if slot.is_some() {
+            return Err(bad(format!("duplicate entry {name:?}")));
+        }
+        *slot = Some(data.to_vec());
+    }
+    let need =
+        |v: Option<Vec<u8>>, n: &str| v.ok_or_else(|| bad(format!("package is missing {n}")));
+    Ok(PackageFiles {
+        manifest: need(manifest, FILE_MANIFEST)?,
+        wasm: need(wasm, FILE_WASM)?,
+        signature: need(signature, FILE_SIGNATURE)?,
+        provenance,
+    })
+}
+
+/// The regular-file entries of an uncompressed ustar archive, in order, as
+/// `(name, contents)`. Anything but a plain regular file with a short name
+/// (links, directories, extended headers, a `prefix` field) is refused, as is
+/// a truncated archive or a bad header checksum.
+pub(crate) fn tar_entries(tar: &[u8]) -> std::result::Result<Vec<(&str, &[u8])>, String> {
+    let mut out = Vec::new();
     let mut pos = 0usize;
     loop {
-        let Some(h) = tar.get(pos..pos + 512) else {
-            return Err(bad(
-                "truncated archive (missing end-of-archive blocks)".into()
-            ));
+        let Some(h) = pos.checked_add(512).and_then(|end| tar.get(pos..end)) else {
+            return Err("truncated archive (missing end-of-archive blocks)".into());
         };
         if h.iter().all(|b| *b == 0) {
-            break;
+            return Ok(out);
         }
         // Header checksum: sum with the chksum field as spaces.
-        let stored =
-            parse_octal(&h[148..156]).ok_or_else(|| bad("bad header checksum field".into()))?;
+        let stored = parse_octal(&h[148..156]).ok_or("bad header checksum field")?;
         let sum: u64 = h
             .iter()
             .enumerate()
@@ -182,47 +260,28 @@ pub fn unpack(bytes: &[u8]) -> Result<PackageFiles> {
             })
             .sum();
         if sum != stored {
-            return Err(bad("tar header checksum mismatch".into()));
+            return Err("tar header checksum mismatch".into());
         }
         if !matches!(h[156], b'0' | 0) {
-            return Err(bad(format!(
+            return Err(format!(
                 "entry type {:?} is not a regular file (links, directories and extended headers are refused)",
                 h[156] as char
-            )));
+            ));
         }
         let name_end = h[..100].iter().position(|b| *b == 0).unwrap_or(100);
-        let name =
-            std::str::from_utf8(&h[..name_end]).map_err(|_| bad("non-UTF-8 entry name".into()))?;
+        let name = std::str::from_utf8(&h[..name_end]).map_err(|_| "non-UTF-8 entry name")?;
         if h[345..500].iter().any(|b| *b != 0) {
-            return Err(bad("tar prefix field is not supported".into()));
+            return Err("tar prefix field is not supported".into());
         }
-        let size = parse_octal(&h[124..136]).ok_or_else(|| bad("bad entry size".into()))?;
+        let size = parse_octal(&h[124..136]).ok_or("bad entry size")?;
         let start = pos + 512;
         let end = start
-            .checked_add(usize::try_from(size).map_err(|_| bad("entry too large".into()))?)
+            .checked_add(usize::try_from(size).map_err(|_| "entry too large")?)
             .filter(|e| *e <= tar.len())
-            .ok_or_else(|| bad(format!("entry {name:?} runs past the end of the archive")))?;
-        let slot = match name {
-            FILE_MANIFEST => &mut manifest,
-            FILE_WASM => &mut wasm,
-            FILE_SIGNATURE => &mut signature,
-            FILE_PROVENANCE => &mut provenance,
-            other => return Err(bad(format!("unexpected entry {other:?}"))),
-        };
-        if slot.is_some() {
-            return Err(bad(format!("duplicate entry {name:?}")));
-        }
-        *slot = Some(tar[start..end].to_vec());
+            .ok_or_else(|| format!("entry {name:?} runs past the end of the archive"))?;
+        out.push((name, &tar[start..end]));
         pos = start + (end - start).div_ceil(512) * 512;
     }
-    let need =
-        |v: Option<Vec<u8>>, n: &str| v.ok_or_else(|| bad(format!("package is missing {n}")));
-    Ok(PackageFiles {
-        manifest: need(manifest, FILE_MANIFEST)?,
-        wasm: need(wasm, FILE_WASM)?,
-        signature: need(signature, FILE_SIGNATURE)?,
-        provenance,
-    })
 }
 
 fn parse_octal(field: &[u8]) -> Option<u64> {
@@ -356,6 +415,38 @@ mod tests {
         sorted.sort();
         assert_eq!(names, sorted, "entries are in alphabetical order");
         assert_eq!(names.len(), 4);
+    }
+
+    /// `--threads N`: several frames, still one valid package; the bytes
+    /// depend on N (which is why the CLI warns), not on scheduling.
+    #[test]
+    fn multi_threaded_pack_unpacks_identically_but_is_not_the_single_threaded_bytes() {
+        let mut f = sample();
+        // Incompressible, so every slice is a frame of real size.
+        let mut x = 0x9E37_79B9_7F4A_7C15u64;
+        f.wasm = (0..600_000)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 7;
+                x ^= x << 17;
+                (x >> 24) as u8
+            })
+            .collect();
+        let single = pack(&f).unwrap();
+        assert_eq!(pack_with_threads(&f, 0).unwrap(), single);
+        assert_eq!(pack_with_threads(&f, 1).unwrap(), single);
+        let four = pack_with_threads(&f, 4).unwrap();
+        let three = pack_with_threads(&f, 3).unwrap();
+        assert_eq!(unpack(&four).unwrap(), f);
+        assert_eq!(unpack(&three).unwrap(), f);
+        assert_ne!(four, single, "4 threads: different bytes from the default");
+        assert_ne!(four, three, "the bytes depend on the thread count");
+        assert_eq!(four, pack_with_threads(&f, 4).unwrap(), "stable for one N");
+        // A tiny package is one slice whatever N is.
+        assert_eq!(
+            pack_with_threads(&sample(), 8).unwrap(),
+            pack(&sample()).unwrap()
+        );
     }
 
     #[test]

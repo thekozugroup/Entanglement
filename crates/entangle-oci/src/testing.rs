@@ -46,6 +46,93 @@ pub enum MockAuth {
     },
 }
 
+/// A throw-away certificate authority and one server certificate it issued,
+/// for tests that need a real TLS handshake with an in-process server.
+///
+/// Generated afresh in memory by [`TestCa::generate`]; nothing is read from
+/// or written to disk, and no private key outlives the test process. The
+/// server certificate is valid for the DNS name `localhost` **only** (not
+/// for `127.0.0.1`), so a test can also show that a name mismatch is refused.
+///
+/// A client trusts it through [`crate::ClientConfig::test_roots`] /
+/// [`crate::FetchOptions::test_roots`] (in-process, `testing` feature), or,
+/// for a child process, by pointing the standard `SSL_CERT_FILE` variable at
+/// [`TestCa::root_pem`] (the system trust-store override that
+/// `rustls-native-certs` honours). Both only add a trust anchor; certificate
+/// verification itself is never switched off.
+#[derive(Clone)]
+pub struct TestCa {
+    root: rustls::pki_types::CertificateDer<'static>,
+    server_cert: rustls::pki_types::CertificateDer<'static>,
+    server_key_pkcs8: Vec<u8>,
+}
+
+impl std::fmt::Debug for TestCa {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("TestCa { .. }")
+    }
+}
+
+impl TestCa {
+    /// Generate a CA and a `localhost` server certificate (ECDSA P-256).
+    pub fn generate() -> Self {
+        use rcgen::{BasicConstraints, CertificateParams, DnType, IsCa, KeyPair, KeyUsagePurpose};
+        let mut ca = CertificateParams::new(Vec::<String>::new()).expect("ca params");
+        ca.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        ca.distinguished_name
+            .push(DnType::CommonName, "entangle test CA (not for production)");
+        ca.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
+        let ca_key = KeyPair::generate().expect("ca key");
+        let ca_cert = ca.self_signed(&ca_key).expect("self-signed ca");
+
+        let mut leaf = CertificateParams::new(vec!["localhost".to_owned()]).expect("leaf params");
+        leaf.distinguished_name
+            .push(DnType::CommonName, "entangle test server");
+        let leaf_key = KeyPair::generate().expect("leaf key");
+        let leaf_cert = leaf
+            .signed_by(&leaf_key, &ca_cert, &ca_key)
+            .expect("leaf signed by ca");
+        Self {
+            root: ca_cert.der().clone(),
+            server_cert: leaf_cert.der().clone(),
+            server_key_pkcs8: leaf_key.serialize_der(),
+        }
+    }
+
+    /// The CA certificate, to hand to a client as a trust anchor.
+    pub fn root(&self) -> rustls::pki_types::CertificateDer<'static> {
+        self.root.clone()
+    }
+
+    /// The CA certificate as a PEM `CERTIFICATE` block.
+    pub fn root_pem(&self) -> String {
+        use base64::Engine as _;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(self.root.as_ref());
+        let mut out = String::from("-----BEGIN CERTIFICATE-----\n");
+        for line in b64.as_bytes().chunks(64) {
+            out.push_str(std::str::from_utf8(line).expect("base64 is ASCII"));
+            out.push('\n');
+        }
+        out.push_str("-----END CERTIFICATE-----\n");
+        out
+    }
+
+    /// A TLS acceptor presenting the `localhost` certificate.
+    pub fn acceptor(&self) -> tokio_rustls::TlsAcceptor {
+        use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+        let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(self.server_key_pkcs8.clone()));
+        let cfg = rustls::ServerConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .expect("protocol versions")
+        .with_no_client_auth()
+        .with_single_cert(vec![self.server_cert.clone()], key)
+        .expect("server certificate");
+        tokio_rustls::TlsAcceptor::from(Arc::new(cfg))
+    }
+}
+
 /// Mock registry options.
 #[derive(Clone, Debug)]
 pub struct MockOptions {
@@ -55,6 +142,14 @@ pub struct MockOptions {
     pub cdn: bool,
     /// Page size for `tags/list` (enables `Link: rel="next"`).
     pub tag_page_size: Option<usize>,
+    /// Serve the registry listener over TLS with this CA's `localhost`
+    /// certificate (reach it as `https://localhost:<port>`). The CDN
+    /// listener, if any, stays plain HTTP.
+    pub tls: Option<TestCa>,
+    /// Serve the registry API under this path prefix (`"/oci"` serves
+    /// `/oci/v2/...`), as a mirror behind a shared host does. Paths outside
+    /// it (and the plain files of [`MockRegistry::put_file`]) are unaffected.
+    pub path_prefix: Option<String>,
 }
 
 impl Default for MockOptions {
@@ -63,6 +158,8 @@ impl Default for MockOptions {
             auth: MockAuth::None,
             cdn: false,
             tag_page_size: None,
+            tls: None,
+            path_prefix: None,
         }
     }
 }
@@ -128,6 +225,21 @@ struct State {
     /// Upload sessions that already received a chunk shorter than `chunk_min`
     /// (only the last chunk may be short).
     short_chunk: Mutex<std::collections::HashSet<String>>,
+    /// Plain files served by exact path (see [`MockRegistry::put_file`]).
+    files: Mutex<HashMap<String, PlainFile>>,
+}
+
+/// What a plain path answers with.
+#[derive(Clone)]
+enum PlainFile {
+    /// 200 with these bytes (and a `Content-Length`).
+    Bytes(Vec<u8>),
+    /// 302 to this `Location`.
+    Redirect(String),
+    /// 200 with this many bytes, chunked, no `Content-Length`.
+    Endless(u64),
+    /// 200 claiming this `Content-Length` (and sending nothing useful).
+    ClaimedLength(u64),
 }
 
 /// A running mock registry (and optional CDN listener).
@@ -192,7 +304,8 @@ impl MockRegistry {
             *lock(&state.cdn_addr) = cdn_addr;
             spawn_server(l, state.clone(), "cdn");
         }
-        spawn_server(reg_listener, state.clone(), "registry");
+        let tls = lock(&state.opts).tls.as_ref().map(TestCa::acceptor);
+        spawn_server_with(reg_listener, state.clone(), "registry", tls);
         Self {
             state,
             addr,
@@ -203,6 +316,42 @@ impl MockRegistry {
     /// `127.0.0.1:<port>` of the registry.
     pub fn registry(&self) -> String {
         self.addr.to_string()
+    }
+
+    /// `https://localhost:<port>` (TLS mocks) or `http://127.0.0.1:<port>`:
+    /// the origin to prepend to a path served by this mock.
+    pub fn origin(&self) -> String {
+        if lock(&self.state.opts).tls.is_some() {
+            format!("https://localhost:{}", self.addr.port())
+        } else {
+            format!("http://{}", self.addr)
+        }
+    }
+
+    /// Serve `bytes` for `GET <path>` (an absolute path such as
+    /// `/dl/tool-0.1.0.tar.zst`), like an ordinary web server would.
+    pub fn put_file(&self, path: &str, bytes: &[u8]) {
+        lock(&self.state.files).insert(path.to_owned(), PlainFile::Bytes(bytes.to_vec()));
+    }
+
+    /// Answer `GET <path>` with a 302 to `location`.
+    pub fn redirect_file(&self, path: &str, location: &str) {
+        lock(&self.state.files).insert(path.to_owned(), PlainFile::Redirect(location.to_owned()));
+    }
+
+    /// Answer `GET <path>` with `total` bytes, chunked, no `Content-Length`.
+    pub fn serve_endless_file(&self, path: &str, total: u64) {
+        lock(&self.state.files).insert(path.to_owned(), PlainFile::Endless(total));
+    }
+
+    /// Answer `GET <path>` with a `Content-Length: <len>` header.
+    pub fn claim_file_length(&self, path: &str, len: u64) {
+        lock(&self.state.files).insert(path.to_owned(), PlainFile::ClaimedLength(len));
+    }
+
+    /// Stop serving `path`.
+    pub fn remove_file(&self, path: &str) {
+        lock(&self.state.files).remove(path);
     }
 
     /// `127.0.0.1:<port>` of the CDN listener, if enabled.
@@ -343,17 +492,37 @@ fn resolve(state: &State, repo: &str, reference: &str) -> Option<String> {
 }
 
 fn spawn_server(listener: TcpListener, state: Arc<State>, role: &'static str) {
+    spawn_server_with(listener, state, role, None);
+}
+
+fn spawn_server_with(
+    listener: TcpListener,
+    state: Arc<State>,
+    role: &'static str,
+    tls: Option<tokio_rustls::TlsAcceptor>,
+) {
     tokio::spawn(async move {
         loop {
             let Ok((stream, _)) = listener.accept().await else {
                 return;
             };
             let state = state.clone();
+            let tls = tls.clone();
             tokio::spawn(async move {
                 let svc = service_fn(move |req| handle(state.clone(), role, req));
-                let _ = hyper::server::conn::http1::Builder::new()
-                    .serve_connection(TokioIo::new(stream), svc)
-                    .await;
+                let http = hyper::server::conn::http1::Builder::new();
+                match tls {
+                    Some(acceptor) => {
+                        // A failed handshake (a client that does not trust
+                        // the test CA) just drops the connection.
+                        if let Ok(stream) = acceptor.accept(stream).await {
+                            let _ = http.serve_connection(TokioIo::new(stream), svc).await;
+                        }
+                    }
+                    None => {
+                        let _ = http.serve_connection(TokioIo::new(stream), svc).await;
+                    }
+                }
             });
         }
     });
@@ -475,6 +644,50 @@ fn route_inner(
 
     let opts = lock(&state.opts).clone();
     let reg_addr = lock(&state.registry_addr).expect("registry addr set before serving");
+
+    // Plain files, served like an ordinary web server would.
+    if *method == Method::GET {
+        if let Some(file) = lock(&state.files).get(path).cloned() {
+            return match file {
+                PlainFile::Bytes(b) => status(200)
+                    .header("content-length", b.len().to_string())
+                    .body(full(b))
+                    .expect("response"),
+                PlainFile::Redirect(loc) => status(302)
+                    .header("location", loc)
+                    .body(full(""))
+                    .expect("response"),
+                PlainFile::Endless(total) => status(200)
+                    .body(
+                        Endless {
+                            remaining: total,
+                            state: state.clone(),
+                        }
+                        .boxed(),
+                    )
+                    .expect("response"),
+                PlainFile::ClaimedLength(len) => status(200)
+                    .header("content-length", len.to_string())
+                    .body(
+                        Endless {
+                            remaining: len,
+                            state: state.clone(),
+                        }
+                        .boxed(),
+                    )
+                    .expect("response"),
+            };
+        }
+    }
+
+    // A registry mounted under a path prefix (a mirror on a shared host).
+    let path = match opts.path_prefix.as_deref() {
+        Some(prefix) => match path.strip_prefix(prefix) {
+            Some(rest) if rest.starts_with('/') => rest,
+            _ => return status(404).body(full("")).expect("response"),
+        },
+        None => path,
+    };
 
     // Token endpoint.
     if path == "/token" {

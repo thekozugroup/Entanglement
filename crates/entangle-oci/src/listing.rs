@@ -34,6 +34,7 @@ use serde::{Deserialize, Serialize};
 use crate::artifact::{check_artifact_type, push_layers};
 use crate::client::OciClient;
 use crate::error::{OciError, Result};
+use crate::listing_state::{ListingState, SeenListing};
 use crate::reference::{Digest, Reference, Selector};
 use crate::types::*;
 
@@ -87,6 +88,16 @@ pub enum ListingVerification {
     },
     /// Correctly signed, but past `expires_at`.
     Expired,
+    /// Correctly signed and not expired, but **older** than a listing already
+    /// seen for this repository (`ENTANGLE-E0820`; see
+    /// [`crate::listing_state`]). Treated like an invalid listing: its tags
+    /// and digests are not used.
+    RolledBack {
+        /// `generated_at` (unix seconds) of the newest listing recorded.
+        newest_seen: u64,
+        /// `generated_at` (unix seconds) of the listing just offered.
+        offered: u64,
+    },
 }
 
 impl std::fmt::Display for ListingVerification {
@@ -98,6 +109,14 @@ impl std::fmt::Display for ListingVerification {
             Self::Unsigned => f.write_str("unsigned"),
             Self::Invalid { reason } => write!(f, "INVALID: {reason}"),
             Self::Expired => f.write_str("EXPIRED"),
+            Self::RolledBack {
+                newest_seen,
+                offered,
+            } => write!(
+                f,
+                "ROLLED BACK (ENTANGLE-E0820): this listing was generated at {offered}, but a \
+                 newer one (generated at {newest_seen}) was already seen for this repository"
+            ),
         }
     }
 }
@@ -290,6 +309,16 @@ pub struct TagListing {
 pub struct ListOptions {
     /// Override "now" (unix seconds); `None` uses the system clock.
     pub now: Option<u64>,
+    /// Where the newest listing seen per repository is remembered. With it, a
+    /// verified listing older than the recorded one is reported as
+    /// [`ListingVerification::RolledBack`], and a newer one is recorded.
+    /// `None` disables rollback protection (the listing is judged on its
+    /// signature and expiry alone).
+    pub state: Option<ListingState>,
+    /// Accept a verified listing even when it is older than the recorded
+    /// one, and record it as the new baseline. The operator's explicit reset
+    /// for a mirror that was legitimately rebuilt from an older snapshot.
+    pub accept_older: bool,
 }
 
 /// List a repository's tags and record whether its listing is trustworthy.
@@ -310,13 +339,41 @@ pub async fn list_tags(
         .filter(|t| t != LISTING_TAG)
         .collect();
 
-    let (verification, listing) = match fetch_listing_layers(client, reference).await? {
+    let (mut verification, listing) = match fetch_listing_layers(client, reference).await? {
         Fetched::Absent => (ListingVerification::Unsigned, None),
         Fetched::Bad(reason) => (ListingVerification::Invalid { reason }, None),
         Fetched::Layers { listing, signature } => {
             verify_listing(&listing, signature.as_deref(), repo, mirror_keys, now)
         }
     };
+
+    // Rollback protection: only a listing that verified is compared or
+    // recorded, so nobody without a mirror key can move the baseline.
+    if let (Some(state), ListingVerification::Verified { key_fingerprint }, Some(l)) =
+        (&opts.state, &verification, &listing)
+    {
+        let scope = client.listing_scope(repo);
+        let newest = state.newest(&scope)?;
+        match newest {
+            Some(seen) if l.generated_at < seen.generated_at && !opts.accept_older => {
+                verification = ListingVerification::RolledBack {
+                    newest_seen: seen.generated_at,
+                    offered: l.generated_at,
+                };
+            }
+            Some(seen) if l.generated_at == seen.generated_at => {}
+            _ => {
+                state.record(
+                    &scope,
+                    SeenListing {
+                        generated_at: l.generated_at,
+                        key_fingerprint: key_fingerprint.clone(),
+                        recorded_at: now_secs(),
+                    },
+                )?;
+            }
+        }
+    }
 
     let tags = match (&verification, &listing) {
         (ListingVerification::Verified { .. }, Some(l)) => l

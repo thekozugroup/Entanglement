@@ -14,7 +14,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 # In-process mock registry (`entangle_oci::testing`) for tests, here and in entangle-cli.
-testing = []
+# Also brings in `rcgen`, used only to mint a throw-away CA for TLS tests.
+testing = ["dep:rcgen"]
 
 [dependencies]
 entangle-types = { workspace = true }
@@ -38,6 +39,8 @@ rustls = { workspace = true }
 tokio-rustls = { workspace = true }
 webpki-roots = { workspace = true }
 rustls-native-certs = { workspace = true }
+# Test-only (feature `testing`): generates the throw-away CA of `testing::TestCa`.
+rcgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 # Self dev-dependency: turns on the mock registry for this crate's own tests
