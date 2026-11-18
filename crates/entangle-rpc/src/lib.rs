@@ -19,7 +19,6 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-/// Connection authentication: the per-start token next to the socket.
 pub mod auth;
 /// Typed async client for the `entangled` Unix-domain socket.
 pub mod client;
