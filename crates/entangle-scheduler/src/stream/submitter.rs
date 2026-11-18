@@ -37,6 +37,7 @@ use entangle_types::peer_id::PeerId;
 use entangle_types::task::{PartialResultPolicy, StreamingTask, TaskId};
 
 use super::error::{Reason, Side, StreamError};
+use super::executor::MAX_STALL_EXTENSION;
 use super::frame::{
     AcceptedFrame, ChunkFrame, EndFrame, Frame, InputFrame, OpenFrame, Signature64, WireChannel,
     CHUNK_FRAME_OVERHEAD, CONTROL_FRAME_MAX,
@@ -204,14 +205,21 @@ pub struct SubmitterMachine {
     /// The credit-exhaustion timeout in force (the smaller of the declared
     /// one and the executor's).
     credit_timeout: Duration,
-    /// When the stream last moved: `Accepted`, a chunk, or an extension.
+    /// When the stream last moved: `Accepted`, a chunk, an extension, or
+    /// the end of this end's input.
     last_progress: Instant,
     /// Since when the executor has had no output credit.
     zero_credit_since: Option<Instant>,
+    /// When the next credit stall is reported after an `Extend` was sent:
+    /// before that extension runs out at the executor (see
+    /// [`SubmitterMachine::extend_stall`]). Cleared when credit returns.
+    credit_stall_at: Option<Instant>,
     /// The stall being reported, until the stream moves again.
     stalled: Option<StallKind>,
     /// Stalls so far.
     stalls: u32,
+    /// Producer stalls so far (credit stalls are this end's doing).
+    producer_stalls: u32,
     expected_output_bytes: Option<u64>,
 }
 
@@ -286,8 +294,10 @@ impl SubmitterMachine {
             credit_timeout: Duration::from_millis(declared.credit_exhaustion_timeout_ms),
             last_progress: now,
             zero_credit_since: None,
+            credit_stall_at: None,
             stalled: None,
             stalls: 0,
+            producer_stalls: 0,
             expected_output_bytes: task.expected_output_bytes,
         };
         machine.outbox.push_back(Frame::Open(open));
@@ -316,8 +326,15 @@ impl SubmitterMachine {
     }
 
     /// Ask the executor to extend its stall timeout by `by` (an `Extend`
-    /// frame), and give the stream as long again before this end reports
-    /// the next stall. No-op unless the stream is active.
+    /// frame), and report the next stall before that extension runs out.
+    /// No-op unless the stream is active.
+    ///
+    /// The executor grants at most [`MAX_STALL_EXTENSION`] per frame, from
+    /// when the frame arrives. The next credit stall is therefore reported
+    /// a margin (a quarter of the grant, at most 30 s) **before** the
+    /// granted time is up — not a whole credit-exhaustion timeout later,
+    /// which would be at or after the executor's cancellation — so a
+    /// further extension, if the reaction allows one, lands in time.
     pub fn extend_stall(&mut self, by: Duration, now: Instant) {
         if self.state != SubmitterState::Active {
             return;
@@ -329,7 +346,25 @@ impl SubmitterMachine {
         self.last_progress = now;
         if self.zero_credit_since.is_some() {
             self.zero_credit_since = Some(now);
+            let granted = by.min(MAX_STALL_EXTENSION);
+            let margin = (granted / 4).min(Duration::from_secs(30));
+            self.credit_stall_at = Some(now + (granted - margin));
         }
+    }
+
+    /// When a credit stall is due, if the executor has no credit.
+    fn credit_stall_due(&self) -> Option<Instant> {
+        let z = self.zero_credit_since?;
+        Some(self.credit_stall_at.unwrap_or(z + self.credit_timeout))
+    }
+
+    /// Whether a producer stall can be told apart from the executor
+    /// waiting for this end: only once all input has been sent — before
+    /// that, an executor holding credit and sending nothing may simply be
+    /// waiting for the next input (a multi-turn stream), and blaming it
+    /// for the submitter's pace would be wrong.
+    fn producer_stall_possible(&self) -> bool {
+        self.in_finished && self.executor_credit() > 0
     }
 
     /// The scheduler preempts the stream (spec §7.1 `Stalled → Cancelled`):
@@ -352,10 +387,10 @@ impl SubmitterMachine {
         if self.state != SubmitterState::Active || self.stalled.is_some() {
             return None;
         }
-        let credit = self.zero_credit_since.map(|z| z + self.credit_timeout);
+        let credit = self.credit_stall_due();
         let producer = self
             .stall_after
-            .filter(|_| self.executor_credit() > 0)
+            .filter(|_| self.producer_stall_possible())
             .map(|after| self.last_progress + after);
         match (credit, producer) {
             (Some(a), Some(b)) => Some(a.min(b)),
@@ -370,11 +405,11 @@ impl SubmitterMachine {
         }
         let credit = self
             .zero_credit_since
-            .filter(|z| now >= *z + self.credit_timeout)
+            .filter(|_| self.credit_stall_due().is_some_and(|at| now >= at))
             .map(|z| (StallKind::Credit, now.saturating_duration_since(z)));
         let producer = self
             .stall_after
-            .filter(|after| self.executor_credit() > 0 && now >= self.last_progress + *after)
+            .filter(|after| self.producer_stall_possible() && now >= self.last_progress + *after)
             .map(|_| {
                 (
                     StallKind::Producer,
@@ -384,6 +419,9 @@ impl SubmitterMachine {
         if let Some((kind, waited)) = credit.or(producer) {
             self.stalled = Some(kind);
             self.stalls += 1;
+            if kind == StallKind::Producer {
+                self.producer_stalls += 1;
+            }
             let report = StallReport {
                 task_id: self.task_id,
                 executor: PeerId::from_public_key_bytes(&self.executor_key),
@@ -392,6 +430,7 @@ impl SubmitterMachine {
                 bytes: self.received_bytes,
                 waited,
                 count: self.stalls,
+                producer_count: self.producer_stalls,
             };
             tracing::warn!(
                 target: super::STREAM_TRACE_TARGET,
@@ -618,6 +657,7 @@ impl SubmitterMachine {
                     self.ungranted = 0;
                     // The executor has credit again.
                     self.zero_credit_since = None;
+                    self.credit_stall_at = None;
                     if self.stalled == Some(StallKind::Credit) {
                         self.stalled = None;
                     }
@@ -682,14 +722,17 @@ impl SubmitterMachine {
         Ok(InputSend::Sent { seq })
     }
 
-    /// Tell the executor no more input follows. `Ok(false)` while the stream
-    /// is still opening (retry after `Accepted`); idempotent once sent.
-    pub fn finish_input(&mut self) -> Result<bool, StreamError> {
+    /// Tell the executor no more input follows (at `now`: the executor has
+    /// its last input from then on, and a producer stall is counted from
+    /// then at the earliest). `Ok(false)` while the stream is still opening
+    /// (retry after `Accepted`); idempotent once sent.
+    pub fn finish_input(&mut self, now: Instant) -> Result<bool, StreamError> {
         match self.state {
             SubmitterState::Opening => Ok(false),
             SubmitterState::Active => {
                 if !self.in_finished {
                     self.in_finished = true;
+                    self.last_progress = self.last_progress.max(now);
                     self.outbox.push_back(Frame::InputEnd {
                         chunks: self.in_seq,
                         bytes: self.in_bytes,

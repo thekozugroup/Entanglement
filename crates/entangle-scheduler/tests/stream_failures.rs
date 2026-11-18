@@ -25,7 +25,7 @@ use entangle_scheduler::stream::{
     StreamCeilings, StreamError, StreamHandle, StreamOpener, StreamOptions, StreamServer,
     SubmitterOptions, SupervisedPoll, SupervisedStream,
 };
-use entangle_scheduler::{ReputationReason, ReputationStore, RetryCause, StaticAllowlist};
+use entangle_scheduler::{ReputationStore, RetryCause, StaticAllowlist};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::peer_id::PeerId;
 use entangle_types::plugin_id::PluginId;
@@ -570,6 +570,45 @@ async fn a_credit_stall_is_extended_through_a_control_frame() {
     assert_eq!(stalls(&reg, "extended"), 1.0);
 }
 
+/// `Extend { times: 3 }` gives three effective extensions even when each
+/// is no longer than the credit-exhaustion timeout: the submitter re-extends
+/// before the extension it sent runs out, so the executor never cancels
+/// the stream as unresponsive in between.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn every_extension_lands_before_the_previous_one_runs_out() {
+    let s = setup(&[Behaviour::Healthy]).await;
+    let reg = Registry::new();
+    let mut task = s.task(12);
+    task.channel.credit_window = 2;
+    task.channel.credit_exhaustion_timeout_ms = 400;
+    task.retry = RetryPolicy::never();
+    let options = StreamOptions {
+        stall: StallPolicy {
+            reaction: StallReaction::Extend {
+                by: Duration::from_millis(300),
+                times: 3,
+            },
+            ..StallPolicy::default()
+        },
+        ..s.options(&reg)
+    };
+    let mut handle = s.opener.open(s.peers[0], &task, options).await.unwrap();
+    handle.finish_input().await.unwrap();
+    // Unextended, the executor gives up at about 800 ms (twice the
+    // timeout); three extensions of 300 ms carry the stream past 1 s.
+    tokio::time::sleep(Duration::from_millis(1_000)).await;
+    let mut n = 0;
+    let end = loop {
+        match deadline("next", handle.next()).await {
+            ChunkPoll::Chunk(_) => n += 1,
+            other => break other,
+        }
+    };
+    assert!(matches!(end, ChunkPoll::Ended(_)), "{end:?}");
+    assert_eq!(n, 12);
+    assert_eq!(stalls(&reg, "extended"), 3.0);
+}
+
 // ═════════════════════════════════════════════════════════════════════════
 // Stall blame
 // ═════════════════════════════════════════════════════════════════════════
@@ -622,8 +661,23 @@ async fn stalling_late_or_repeatedly_costs_reputation() {
         let mut task = s.task(3);
         task.expected_output_bytes = Some(1_000);
         task.retry = RetryPolicy::never();
+        let preempted = stalls(&reg, "preempted");
         let mut stream = s.supervise(task, options.clone()).await;
-        let _ = drain(&mut stream).await;
+        let (chunks, end) = drain(&mut stream).await;
+        // The stall was seen (and preempted) both times: the first round's
+        // "no blame" is the repeat rule, not a stall that went unnoticed.
+        assert_eq!(chunks.len(), 3, "round {round}");
+        assert!(
+            matches!(
+                end,
+                SupervisedPoll::Closed(StreamError::Preempted {
+                    kind: StallKind::Producer,
+                    ..
+                })
+            ),
+            "round {round}: {end:?}"
+        );
+        assert_eq!(stalls(&reg, "preempted"), preempted + 1.0, "round {round}");
         let record = store.record(&early, PolicyKind::None);
         match round {
             0 => assert_eq!(record.total, 0, "an early first stall is not blamed"),
@@ -634,5 +688,102 @@ async fn stalling_late_or_repeatedly_costs_reputation() {
             ),
         }
     }
-    let _ = ReputationReason::StalledStream.as_str();
+}
+
+/// A credit stall is the consumer's doing: it never counts towards the
+/// executor's repeated-stall blame. Here the consumer stops reading (a
+/// credit stall), resumes, and only then does the executor stall while
+/// holding credit — its first producer stall, which is not blamed.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_credit_stall_never_counts_towards_producer_stall_blame() {
+    let s = setup(&[Behaviour::StallAfter(2)]).await;
+    let executor = s.peers[0];
+    let reg = Registry::new();
+    let store = Arc::new(ReputationStore::new());
+    let options = StreamOptions {
+        submitter: SubmitterOptions {
+            stall_after: Some(Duration::from_millis(200)),
+            ..SubmitterOptions::default()
+        },
+        reputation: Some(Arc::clone(&store)),
+        ..s.options(&reg)
+    };
+    let mut task = s.task(2);
+    task.channel.credit_window = 2;
+    task.channel.credit_exhaustion_timeout_ms = 200;
+    task.expected_output_bytes = Some(1_000);
+    task.retry = RetryPolicy::never();
+    let mut handle = s.opener.open(executor, &task, options).await.unwrap();
+    handle.finish_input().await.unwrap();
+    // The consumer takes nothing: the executor has used its window.
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert_eq!(stalls(&reg, "waited"), 1.0, "the credit stall was seen");
+    // The consumer resumes; the executor now holds credit and sends nothing.
+    for _ in 0..2 {
+        match deadline("next", handle.next()).await {
+            ChunkPoll::Chunk(_) => {}
+            other => panic!("expected a chunk, got {other:?}"),
+        }
+    }
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert_eq!(stalls(&reg, "waited"), 2.0, "the producer stall was seen");
+    let record = store.record(&executor, PolicyKind::None);
+    assert_eq!(
+        record.total, 0,
+        "one producer stall (after a credit stall) is not a repeated stall"
+    );
+    handle.cancel().await;
+}
+
+/// An executor that has answered and waits for the submitter's next input
+/// is not a stalled producer, however long the submitter takes: a
+/// multi-turn stream with `stall_after` set is neither preempted nor
+/// blamed while the submitter is slow, and runs to its end.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn waiting_for_the_submitters_next_input_is_not_a_producer_stall() {
+    let s = setup(&[Behaviour::Healthy]).await;
+    let executor = s.peers[0];
+    let reg = Registry::new();
+    let store = Arc::new(ReputationStore::new());
+    let options = StreamOptions {
+        submitter: SubmitterOptions {
+            stall_after: Some(Duration::from_millis(200)),
+            ..SubmitterOptions::default()
+        },
+        stall: StallPolicy {
+            reaction: StallReaction::Preempt,
+            ..StallPolicy::default()
+        },
+        reputation: Some(Arc::clone(&store)),
+        ..s.options(&reg)
+    };
+    let mut task = s.task(1);
+    task.retry = RetryPolicy::never();
+    let mut handle = s.opener.open(executor, &task, options).await.unwrap();
+    let mut chunks = 0;
+    for turn in ["turn 1\n", "turn 2\n"] {
+        match deadline("next", handle.next()).await {
+            ChunkPoll::Chunk(_) => chunks += 1,
+            other => panic!("expected a chunk before {turn:?}, got {other:?}"),
+        }
+        // The human takes a while to type the next turn.
+        tokio::time::sleep(Duration::from_millis(700)).await;
+        handle
+            .send_input(turn.as_bytes().to_vec())
+            .await
+            .expect("the stream is still open");
+    }
+    handle.finish_input().await.expect("still open");
+    let end = loop {
+        match deadline("next", handle.next()).await {
+            ChunkPoll::Chunk(_) => chunks += 1,
+            other => break other,
+        }
+    };
+    assert!(matches!(end, ChunkPoll::Ended(_)), "{end:?}");
+    assert_eq!(chunks, 3, "the initial line and one per turn");
+    assert_eq!(stalls(&reg, "preempted"), 0.0);
+    // The completed stream credits the executor; nothing penalised it.
+    let record = store.record(&executor, PolicyKind::None);
+    assert_eq!(record.total, record.correct, "{record:?}");
 }

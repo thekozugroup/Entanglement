@@ -145,6 +145,10 @@ pub struct StallReport {
     pub waited: Duration,
     /// Stalls of this stream so far, this one included.
     pub count: u32,
+    /// Producer stalls of this stream so far (this one included when it
+    /// is one): what repeated-stall blame counts. Credit stalls — this
+    /// end not consuming — never count.
+    pub producer_count: u32,
 }
 
 /// Something a stream end reports while it runs.

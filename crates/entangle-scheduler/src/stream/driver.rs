@@ -551,8 +551,13 @@ pub enum StallReaction {
     /// Extend the executor's stall timeout by `by` with an `Extend` control
     /// frame, at most `times` times per stream; after that, wait.
     Extend {
-        /// Asked for per extension (the executor grants at most its
-        /// credit-exhaustion timeout per frame).
+        /// Asked for per extension (the executor grants at most
+        /// [`MAX_STALL_EXTENSION`](super::executor::MAX_STALL_EXTENSION),
+        /// 30 minutes, per frame and honours at most
+        /// [`MAX_STALL_EXTENSIONS`](super::executor::MAX_STALL_EXTENSIONS)
+        /// frames per stream). The next extension is sent a margin before
+        /// this one runs out, so `times` extensions buy about `times × by`
+        /// (less the margins) beyond the first stall.
         by: Duration,
         /// Extensions per stream.
         times: u32,
@@ -910,8 +915,10 @@ fn react_to_stall(
                 .expected_output_bytes()
                 .is_some_and(|expected| expected > 0 && report.bytes.saturating_mul(2) >= expected);
             let recent = store.note_stall(&executor, Instant::now());
-            let repeated =
-                recent.max(report.count as usize) >= options.stall.repeat_blame.max(1) as usize;
+            // Producer stalls only: `report.count` includes credit stalls,
+            // which are this end's doing.
+            let repeated = recent.max(report.producer_count as usize)
+                >= options.stall.repeat_blame.max(1) as usize;
             if late || repeated {
                 let score =
                     store.penalize(&executor, m.policy_kind(), ReputationReason::StalledStream);
@@ -1014,7 +1021,7 @@ async fn drive_submitter(
         }
         if pending_input.is_none() {
             if let Some(tx) = pending_finish.take() {
-                match m.finish_input() {
+                match m.finish_input(Instant::now()) {
                     Ok(true) => {
                         let _ = tx.send(Ok(()));
                     }
@@ -1128,7 +1135,7 @@ async fn drive_submitter(
         let _ = tx.send(Err(StreamError::Closed(closed.reason())));
     }
     if let Some(tx) = pending_finish.take() {
-        let _ = tx.send(m.finish_input().map(|_| ()));
+        let _ = tx.send(m.finish_input(Instant::now()).map(|_| ()));
     }
     if let Some(tx) = pending_next.take() {
         let _ = tx.send(m.next_chunk());
