@@ -318,9 +318,12 @@ impl RemoteDispatch {
         let span = tracing::info_span!(
             "remote.dispatch",
             otel.kind = "client",
+            task_id = %task.id,
             peer = %peer,
             plugin = %task.plugin,
             transport = tracing::field::Empty,
+            otel.status_code = tracing::field::Empty,
+            otel.status_message = tracing::field::Empty,
         );
         let RoundTrip {
             response,
@@ -350,6 +353,9 @@ impl RemoteDispatch {
                 message,
             }),
         });
+        if let Err(e) = &result {
+            entangle_observability::context::record_error(&span, &e.to_string());
+        }
         // Only a failure is retryable.
         let cause = if result.is_err() { cause } else { None };
         RemoteAttempt {
@@ -1184,14 +1190,24 @@ impl RemoteTaskServer {
         let span = tracing::info_span!(
             "remote.task.execute",
             otel.kind = "server",
+            task_id = %uuid::Uuid::from_bytes(request.task_id),
             peer = %from,
             plugin = %request.plugin,
             transport = transport.as_str(),
+            otel.status_code = tracing::field::Empty,
+            otel.status_message = tracing::field::Empty,
         );
         if let Some(tp) = request.traceparent.as_deref() {
             entangle_observability::context::set_remote_parent(&span, tp);
         }
-        self.run_task_inner(from, request).instrument(span).await
+        let response = self
+            .run_task_inner(from, request)
+            .instrument(span.clone())
+            .await;
+        if let RemoteOutcome::Err { code, message } = &response.outcome {
+            entangle_observability::context::record_error(&span, &format!("{code}: {message}"));
+        }
+        response
     }
 
     async fn run_task_inner(&self, from: PeerId, request: RemoteTaskRequest) -> RemoteTaskResponse {

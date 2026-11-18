@@ -173,6 +173,13 @@ impl Supervisor {
             }
             Ok(Ok(Exchange::Response(payload))) => {
                 self.reap(&mut child, pid, deadline).await;
+                // The leader is gone and its group killed, so stderr reaches
+                // EOF at once: let the forwarder finish, so what the plugin
+                // printed is in the log (and `entangle logs`) by the time the
+                // call returns. Bounded, as on the no-response path.
+                if let Some(task) = stderr_task {
+                    let _ = tokio::time::timeout(Duration::from_millis(500), task).await;
+                }
                 match frame::decode_response(payload) {
                     Ok(Ok(out)) => Ok(out),
                     Ok(Err(msg)) => Err(SupervisorError::PluginError(msg)),

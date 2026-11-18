@@ -17,6 +17,8 @@
 //! - [`maintenance`] — built-in tier-2 maintenance loop (log rotation, GC, nags).
 //! - [`mesh`] — multi-transport scheduling: shared task/stream servers,
 //!   the per-peer transport router, mDNS sightings as `local` routes.
+//! - [`obs`] — `logs/read` and `trace/get`: the operator read paths over the
+//!   in-memory log buffers and span store.
 //! - [`methods`] — JSON-RPC 2.0 method dispatch (`version`, `plugins/*`).
 //! - [`remote`] — cross-node scheduler transport: serving work to trusted
 //!   peers and dispatching work to them. Off unless configured.
@@ -32,6 +34,7 @@ pub mod maintenance;
 pub mod mesh;
 pub mod methods;
 pub mod metrics_server;
+pub mod obs;
 pub mod perms;
 pub mod plugin_state;
 pub mod remote;

@@ -85,7 +85,8 @@ impl ResourceLimits {
 /// can wire up the WASI 0.2 host implementations.
 ///
 /// The WASI context is minimal unless the broker granted more: no
-/// environment variables, no arguments, stdin closed, stderr inherited. A
+/// environment variables, no arguments, stdin closed, stdout and stderr captured
+/// as log events (see [`crate::output`]). A
 /// [`WasiGrants`] (derived from broker grants, see [`crate::capability`])
 /// adds exactly its preopens and socket rules; without one there are no
 /// filesystem preopens and TCP, UDP and DNS are disabled.
@@ -124,7 +125,7 @@ impl HostState {
     /// Create a new [`HostState`] with a minimal WASI context and the default
     /// [`ResourceLimits`].
     ///
-    /// Only stderr is inherited; there are no filesystem preopens, environment
+    /// Stdout and stderr become log events; there are no filesystem preopens, environment
     /// variables, or pre-opened sockets by default.
     pub fn new(plugin_id: PluginId, effective_tier: Tier) -> Self {
         Self::with_limits(plugin_id, effective_tier, ResourceLimits::default())
@@ -137,8 +138,10 @@ impl HostState {
     /// `capability.fetch` is refused.
     pub fn with_limits(plugin_id: PluginId, effective_tier: Tier, limits: ResourceLimits) -> Self {
         let mut builder = WasiCtxBuilder::new();
-        // Inherit the host stderr so plugin panics/traps surface in logs.
-        builder.inherit_stderr();
+        // Plugin stdout/stderr become log events for this plugin (see
+        // `crate::output`), visible with `entangle logs <plugin-id>`.
+        let (out, err) = crate::output::CapturedOutput::pair(&plugin_id);
+        builder.stdout(out).stderr(err);
         // No network: no TCP, no UDP, no DNS (addresses are denied by
         // default too; this makes the refusal explicit).
         builder
@@ -170,7 +173,8 @@ impl HostState {
         ctx: Option<CapabilityContext>,
     ) -> Result<Self, HostError> {
         let mut builder = WasiCtxBuilder::new();
-        builder.inherit_stderr();
+        let (out, err) = crate::output::CapturedOutput::pair(&plugin_id);
+        builder.stdout(out).stderr(err);
         for p in &grants.preopens {
             let (dir, file) = if p.writable {
                 (DirPerms::all(), FilePerms::all())
@@ -264,9 +268,10 @@ impl HostState {
     /// Append a log line, enforcing the [`MAX_LOG_LINES`] / [`MAX_LOG_BYTES`]
     /// caps.
     ///
-    /// Once either cap is reached a single truncation marker is appended and
-    /// all further lines are dropped, so a misbehaving guest cannot balloon
-    /// host memory through the logging import.
+    /// Once either cap is reached a single truncation marker is appended (and
+    /// emitted as plugin output, like every accepted line) and all further
+    /// lines are dropped, so a misbehaving guest cannot balloon host memory
+    /// through the logging import.
     pub fn push_log(&mut self, level: &str, message: String) {
         if self.log_truncated {
             return;
@@ -275,13 +280,16 @@ impl HostState {
             || self.log_bytes.saturating_add(message.len()) > MAX_LOG_BYTES
         {
             self.log_truncated = true;
-            self.log_buffer.push((
-                "warn".to_string(),
-                format!("[log truncated: exceeded {MAX_LOG_LINES} lines or {MAX_LOG_BYTES} bytes]"),
-            ));
+            let marker =
+                format!("[log truncated: exceeded {MAX_LOG_LINES} lines or {MAX_LOG_BYTES} bytes]");
+            // Shown in `entangle logs <plugin>` too, so the operator can tell
+            // the later lines were dropped.
+            crate::output::emit_line(&self.plugin_id, "warn", "log", &marker);
+            self.log_buffer.push(("warn".to_string(), marker));
             return;
         }
         self.log_bytes += message.len();
+        crate::output::emit_line(&self.plugin_id, level, "log", &message);
         self.log_buffer.push((level.to_string(), message));
     }
 }
@@ -340,6 +348,58 @@ mod tests {
         let (level, msg) = state.log_buffer.last().unwrap();
         assert_eq!(level, "warn");
         assert!(msg.contains("log truncated"), "unexpected marker: {msg}");
+    }
+
+    /// The guest `log` import's truncation is visible in `entangle logs`:
+    /// the marker is emitted as plugin output, once, and nothing after it.
+    #[test]
+    fn push_log_truncation_is_emitted_as_plugin_output() {
+        use std::sync::{Arc, Mutex};
+        use tracing_subscriber::prelude::*;
+
+        #[derive(Clone, Default)]
+        struct Messages(Arc<Mutex<Vec<(tracing::Level, String)>>>);
+        struct V(String);
+        impl tracing::field::Visit for V {
+            fn record_debug(&mut self, f: &tracing::field::Field, v: &dyn std::fmt::Debug) {
+                if f.name() == "message" {
+                    self.0 = format!("{v:?}");
+                }
+            }
+        }
+        impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for Messages {
+            fn on_event(
+                &self,
+                e: &tracing::Event<'_>,
+                _: tracing_subscriber::layer::Context<'_, S>,
+            ) {
+                if e.metadata().target() == crate::output::TARGET {
+                    let mut v = V(String::new());
+                    e.record(&mut v);
+                    self.0.lock().unwrap().push((*e.metadata().level(), v.0));
+                }
+            }
+        }
+
+        let sink = Messages::default();
+        let sub = tracing_subscriber::registry().with(sink.clone());
+        tracing::subscriber::with_default(sub, || {
+            let mut state = test_state();
+            for i in 0..(MAX_LOG_LINES + 500) {
+                state.push_log("info", format!("line {i}"));
+            }
+        });
+        let got = sink.0.lock().unwrap().clone();
+        assert_eq!(got.len(), MAX_LOG_LINES + 1, "cap plus one marker");
+        let (level, last) = got.last().unwrap();
+        assert_eq!(*level, tracing::Level::WARN);
+        assert!(last.contains("log truncated"), "{last}");
+        assert_eq!(
+            got.iter()
+                .filter(|(_, m)| m.contains("log truncated"))
+                .count(),
+            1
+        );
     }
 
     #[test]

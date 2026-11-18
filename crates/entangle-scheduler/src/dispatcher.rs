@@ -514,13 +514,21 @@ impl Dispatcher {
         let kind = task.integrity.kind();
         let span = tracing::info_span!(
             "task.dispatch",
+            // What `entangle trace task <id>` looks a trace up by.
+            task_id = %task.id,
             plugin = %task.plugin,
             policy = %kind,
             input_bytes = task.input.len() as u64,
+            otel.status_code = tracing::field::Empty,
+            otel.status_message = tracing::field::Empty,
         );
         self.inflight.fetch_add(1, Ordering::Relaxed);
-        let result = self.dispatch_checked(task).instrument(span).await;
+        let result = self.dispatch_checked(task).instrument(span.clone()).await;
         self.inflight.fetch_sub(1, Ordering::Relaxed);
+        if let Err(e) = &result {
+            entangle_observability::context::record_error(&span, &e.to_string());
+        }
+        drop(span);
         if let Some(reg) = &self.metrics {
             let outcome = match &result {
                 Ok(_) => "accepted",

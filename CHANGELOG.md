@@ -57,6 +57,8 @@ Operations
 - `entangle backup` / `entangle restore`: passphrase-encrypted archive (Argon2id, XChaCha20-Poly1305, header as associated data) of identity, keyring and paired peers; restore is all-or-nothing and needs `--force` to replace an identity (`ENTANGLE-E0860`..`E0867`).
 - Daemon `/metrics` endpoint (disabled by default, loopback by default); real metrics with bounded labels; `entangle metrics` over RPC.
 - OTLP/HTTP JSON trace exporter (`http://` endpoints only); `traceparent` on the scheduler wire.
+- `entangle logs` (per-plugin and per-subsystem log buffers in the daemon, `--follow`, filters, redaction) and `entangle trace task <id>` (in-daemon span store); RPC `logs/read`, `trace/get`; `[logs]` and `[telemetry.trace_store]` settings; `ENTANGLE-E0920`..`E0924`.
+- `cargo xtask loc-budget` and the `trust-footprint` CI job (spec §2.3, §10); 10,000-case tier property test (spec §4.3); docs/release/reproducibility-checklist.md and docs/risk/phase-1-fallbacks.md.
 
 Agents
 - MCP gateway HTTP server in `entangle-agent-host`: bearer auth, allow/deny policy, audit, stdio downstream servers, connection and size limits.
@@ -109,7 +111,7 @@ Tests
 - Runtime lifecycle: panics on Tokio's blocking pool exit the daemon; `mesh.tailscale` accept loops are not supervised; WIT `init`/`activate`/`idle`/`shutdown` exports; an old version's id runs the new version after a hot reload.
 - OCI listing rollback protection (listings expire, but an older unexpired listing is accepted); a TLS handshake test for the OCI client.
 - `RLIMIT_NPROC`, `RLIMIT_FSIZE`, cgroups and a per-host `net.wan` allowlist for native plugins.
-- `entangle logs`, `entangle upgrade`, `entangle trace task`.
+- `entangle upgrade`.
 - `[node] data_dir` and `identity` (paths are fixed under `~/.entangle`); init does not open firewall ports.
 - Bus-factor check fails by design (one holder per role).
 - No published release; `install.sh` and Homebrew need a `v0.1.0` tag.

@@ -32,6 +32,7 @@ mod lookup;
 pub mod metric;
 pub mod migrate;
 pub mod net;
+pub mod output;
 pub mod plugin;
 pub mod runtime_kind;
 pub mod state;

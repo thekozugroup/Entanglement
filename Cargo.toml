@@ -98,6 +98,7 @@ semver = { version = "1", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 hex = "0.4"
 tempfile = "3"
+proptest = { version = "1", default-features = false, features = ["std"] }
 # `entangle backup` archive: Argon2id KDF + XChaCha20-Poly1305 AEAD (RustCrypto,
 # MIT/Apache-2.0). aead 0.5 is already in the lock file.
 # `zeroize`: `Block: Zeroize`, so the KDF work area can be wiped (backup.rs).

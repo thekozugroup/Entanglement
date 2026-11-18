@@ -40,6 +40,8 @@ pub struct Config {
     pub metrics: MetricsSection,
     /// Tracing export (daemon-only section; off by default).
     pub telemetry: TelemetrySection,
+    /// In-memory log ring buffers behind `entangle logs` (daemon-only section).
+    pub logs: LogsSection,
     /// Trust policy for remote requests (daemon-only section).
     pub trust: TrustSection,
 }
@@ -259,6 +261,97 @@ impl Default for MetricsSection {
 pub struct TelemetrySection {
     /// OTLP/HTTP trace exporter.
     pub otlp: OtlpSection,
+    /// The in-memory span store behind `entangle trace task` (always on).
+    pub trace_store: TraceStoreSection,
+}
+
+/// `[telemetry.trace_store]` — bounds of the in-memory span store.
+///
+/// ```toml
+/// [telemetry.trace_store]
+/// max_spans = 10000      # whole traces are evicted beyond either bound,
+/// max_traces = 2000      # finished task-less ones (RPC calls) first
+/// ```
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct TraceStoreSection {
+    /// Spans kept in total (clamped to 64..=1 000 000).
+    pub max_spans: usize,
+    /// Traces kept at once (clamped to 1..=1 000 000).
+    pub max_traces: usize,
+}
+
+impl Default for TraceStoreSection {
+    fn default() -> Self {
+        Self {
+            max_spans: entangle_observability::traces::TraceConfig::DEFAULT_SPANS,
+            max_traces: entangle_observability::traces::TraceConfig::DEFAULT_TRACES,
+        }
+    }
+}
+
+impl TraceStoreSection {
+    /// The store configuration.
+    pub fn trace_config(&self) -> entangle_observability::traces::TraceConfig {
+        entangle_observability::traces::TraceConfig {
+            max_spans: self.max_spans,
+            max_traces: self.max_traces,
+        }
+    }
+}
+
+/// `[logs]` — the per-plugin and per-subsystem ring buffers `entangle logs`
+/// reads.
+///
+/// ```toml
+/// [logs]
+/// lines_per_source = 1000   # per plugin and per subsystem (16..=100000)
+/// max_plugin_sources = 128  # plugins with their own buffer at once
+/// capture_level = "info"    # trace | debug | info | warn | error
+/// ```
+///
+/// The buffers are memory only: they start empty when the daemon starts and
+/// are not written to disk.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, deny_unknown_fields)]
+pub struct LogsSection {
+    /// Lines kept per buffer.
+    pub lines_per_source: usize,
+    /// Plugin buffers kept at once; the one written to longest ago is
+    /// dropped for a new plugin.
+    pub max_plugin_sources: usize,
+    /// Events below this level are not buffered.
+    pub capture_level: String,
+}
+
+impl Default for LogsSection {
+    fn default() -> Self {
+        let d = entangle_observability::logs::LogConfig::default();
+        Self {
+            lines_per_source: d.lines_per_source,
+            max_plugin_sources: d.max_plugin_sources,
+            capture_level: d.capture_level.as_str().to_owned(),
+        }
+    }
+}
+
+impl LogsSection {
+    /// The hub configuration; an unknown `capture_level` is an error so a
+    /// typo stops the daemon at startup instead of silently capturing less.
+    pub fn log_config(&self) -> Result<entangle_observability::logs::LogConfig, String> {
+        let capture_level = entangle_observability::logs::LogLevel::parse(&self.capture_level)
+            .ok_or_else(|| {
+                format!(
+                    "[logs] capture_level = {:?} is not one of trace, debug, info, warn, error",
+                    self.capture_level
+                )
+            })?;
+        Ok(entangle_observability::logs::LogConfig {
+            lines_per_source: self.lines_per_source,
+            max_plugin_sources: self.max_plugin_sources,
+            capture_level,
+        })
+    }
 }
 
 /// `[telemetry.otlp]` — see [`TelemetrySection`].
@@ -1175,6 +1268,44 @@ max_tier_allowed = 2
         let again: Config = toml::from_str(&toml::to_string_pretty(&cfg).unwrap()).unwrap();
         assert_eq!(again.metrics, cfg.metrics);
         assert_eq!(again.telemetry, cfg.telemetry);
+    }
+
+    #[test]
+    fn logs_and_trace_store_sections_default_parse_and_reject_unknown_keys() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert_eq!(cfg.logs.lines_per_source, 1000);
+        assert_eq!(
+            cfg.logs.log_config().unwrap().capture_level.as_str(),
+            "info"
+        );
+        assert_eq!(cfg.telemetry.trace_store.max_spans, 10_000);
+        let cfg: Config = toml::from_str(
+            "[logs]\nlines_per_source = 50\ncapture_level = \"debug\"\n\
+             [telemetry.trace_store]\nmax_spans = 500\n",
+        )
+        .unwrap();
+        let lc = cfg.logs.log_config().unwrap();
+        assert_eq!(
+            (lc.lines_per_source, lc.capture_level.as_str()),
+            (50, "debug")
+        );
+        assert_eq!(cfg.telemetry.trace_store.trace_config().max_spans, 500);
+        assert!(toml::from_str::<Config>("[logs]\nbogus = 1\n").is_err());
+        let bad: Config = toml::from_str("[logs]\ncapture_level = \"loud\"\n").unwrap();
+        assert!(bad.logs.log_config().unwrap_err().contains("capture_level"));
+    }
+
+    #[test]
+    fn trace_store_max_traces_is_configurable() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert_eq!(
+            cfg.telemetry.trace_store.trace_config().max_traces,
+            entangle_observability::traces::TraceConfig::DEFAULT_TRACES
+        );
+        let cfg: Config =
+            toml::from_str("[telemetry.trace_store]\nmax_spans = 500\nmax_traces = 50\n").unwrap();
+        let tc = cfg.telemetry.trace_store.trace_config();
+        assert_eq!((tc.max_spans, tc.max_traces), (500, 50));
     }
 
     #[test]
