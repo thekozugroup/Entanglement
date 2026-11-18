@@ -476,6 +476,7 @@ mod tests {
             policy_hash: PolicyHash([policy; 32]),
             traceparent: None,
             capability: None,
+            report_component: false,
         }
     }
 

@@ -14,10 +14,17 @@
 //!   validation, the output-size short-circuit (INV-INT-2), hash quorum and
 //!   `SemanticEquivalent` metric verification (spec §7.5).
 //! * [`reputation`] — per-peer, per-policy-variant correctness reputation.
+//! * [`rtt`] — measured round-trip times to workers for placement
+//!   ([`RttProber`]).
+//! * [`retry`] — failure handling (spec §7.6): the precise rule for what is
+//!   retried and where, and speculative backup copies of stragglers.
 //! * [`spot_check`] — the Layer-2 spot-check (spec §7.5): a sample of
 //!   accepted `Deterministic` / `SemanticEquivalent` tasks re-run on another
 //!   executor after the result is returned; a mismatch downranks the
 //!   replicas behind the accepted output.
+//! * [`submit`] — submit-time checks (a `Deterministic` task for a plugin
+//!   that declares non-determinism is refused) and the spec's reference
+//!   workload presets ([`Workload`]).
 //! * [`stream`] — streaming tasks (spec §7.1): the `entangle/stream/1`
 //!   protocol, credit flow control, heartbeats, chunk signing, and the
 //!   [`StreamServer`] executor.
@@ -49,24 +56,31 @@ pub mod integrity;
 pub mod placement;
 pub mod remote;
 pub mod reputation;
+pub mod retry;
+pub mod rtt;
 pub mod spot_check;
 pub mod stream;
+pub mod submit;
 pub mod transport;
 pub mod wire;
 pub mod work_unit;
 pub mod worker;
 
 pub use capability::{CapabilityGate, CapabilityTokens, HeldToken, StaticTokens};
-pub use dispatcher::{DispatchError, DispatchResult, Dispatcher};
+pub use dispatcher::{
+    Attempt, AttemptKind, AttemptOutcome, DispatchError, DispatchResult, Dispatcher,
+};
 pub use integrity::{
     IntegrityVerifier, OutputSizeExceededWarning, ReplicaReport, ReplicaStatus, TELEMETRY_TARGET,
 };
 pub use placement::{choose, rank, PlacementChoice, PlacementError};
 pub use remote::{
-    send_control_over, serve_tasks, PeerAddressBook, PeerAllowlist, PeerDirectory, RemoteDispatch,
-    RemoteReplica, RemoteTaskServer, StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
+    send_control_over, serve_tasks, PeerAddressBook, PeerAllowlist, PeerDirectory, RemoteAttempt,
+    RemoteDispatch, RemoteReplica, RemoteTaskServer, StaticAllowlist, MAX_REMOTE_TASK_TIMEOUT_MS,
 };
 pub use reputation::{ReputationReason, ReputationStore, ReputationTier};
+pub use retry::{DurationHistory, RetryCause, SpeculationConfig};
+pub use rtt::RttProber;
 pub use spot_check::{
     SpotCheck, SpotCheckConfig, SpotCheckHandle, SpotCheckRecord, SpotCheckVerdict, SpotChecker,
     TieBreak,
@@ -75,6 +89,7 @@ pub use stream::{
     open_stream, serve_streams, validate_submit as validate_stream_submit, StreamError,
     StreamHandle, StreamServer,
 };
+pub use submit::{SubmitError, Workload};
 pub use transport::{
     serve_tailscale, IrohLink, RouteError, RoutePolicy, StreamIo, TailscaleLink, TransportKind,
     TransportRouter,

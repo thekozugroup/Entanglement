@@ -229,6 +229,7 @@ fn task_for(plugin: PluginId, input: &[u8]) -> OneShotTask {
         resources: ResourceSpec::default(),
         integrity: IntegrityPolicy::None,
         timeout_ms: 10_000,
+        retry: Default::default(),
     }
 }
 

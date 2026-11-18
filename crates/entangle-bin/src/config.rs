@@ -413,6 +413,12 @@ impl TelemetrySection {
 /// peers = ["<pubkey-hex>@192.0.2.7:41641"]
 /// spot_check_probability = 0.01     # Layer-2 spot-checks (spec §7.5); 0 disables
 /// spot_check_max_concurrent = 4
+/// speculation = "off"               # backup copies of stragglers (spec §7.6): off | fixed | median
+/// speculation_delay_ms = 10000      # fixed: start a backup after this long
+/// speculation_factor = 3.0          # median: ... after this multiple of the plugin's median
+/// speculation_min_samples = 5       # median: durations needed first
+/// speculation_floor_ms = 1000       # median: never earlier than this
+/// rtt_probe_interval_secs = 60      # measured worker RTT for placement; 0 disables
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -442,6 +448,41 @@ pub struct SchedulerConfig {
     /// queued. Validated when the file is loaded.
     #[serde(deserialize_with = "de_concurrency")]
     pub spot_check_max_concurrent: usize,
+    /// Speculative backup copies of slow remote attempts (spec §7.6):
+    /// `off` (the default — a backup is a second execution of the task on
+    /// another machine, which an operator should opt into), `fixed` (a
+    /// backup once an attempt has run `speculation_delay_ms`) or `median`
+    /// (once it has run `speculation_factor` times the median duration of
+    /// that plugin's recent successful attempts on this node).
+    pub speculation: SpeculationMode,
+    /// `fixed`: how long an attempt runs before a backup starts (ms, ≥ 1).
+    #[serde(deserialize_with = "de_positive_ms")]
+    pub speculation_delay_ms: u64,
+    /// `median`: the multiple of the median (finite, > 1).
+    #[serde(deserialize_with = "de_factor")]
+    pub speculation_factor: f64,
+    /// `median`: successful durations needed before the median is used.
+    pub speculation_min_samples: usize,
+    /// `median`: the earliest a backup may start (ms).
+    pub speculation_floor_ms: u64,
+    /// Seconds between rounds of round-trip-time probes to the live workers
+    /// (spec §7.3: placement's link quality is measured locally); at most 16
+    /// workers per round, 4 at a time. `0` disables the probes: placement
+    /// then uses the advertised constants (5 ms LAN, 20 ms tailnet).
+    pub rtt_probe_interval_secs: u64,
+}
+
+/// `[scheduler] speculation`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SpeculationMode {
+    /// No backup copies.
+    #[default]
+    Off,
+    /// After `speculation_delay_ms`.
+    Fixed,
+    /// After `speculation_factor` × the plugin's median duration.
+    Median,
 }
 
 impl Default for SchedulerConfig {
@@ -452,11 +493,33 @@ impl Default for SchedulerConfig {
             relay: true,
             spot_check_probability: entangle_scheduler::spot_check::DEFAULT_PROBABILITY,
             spot_check_max_concurrent: entangle_scheduler::spot_check::DEFAULT_MAX_CONCURRENT,
+            speculation: SpeculationMode::Off,
+            speculation_delay_ms: 10_000,
+            speculation_factor: 3.0,
+            speculation_min_samples: 5,
+            speculation_floor_ms: 1_000,
+            rtt_probe_interval_secs: 60,
         }
     }
 }
 
 impl SchedulerConfig {
+    /// The dispatcher's speculation settings.
+    pub fn speculation(&self) -> entangle_scheduler::SpeculationConfig {
+        use std::time::Duration;
+        match self.speculation {
+            SpeculationMode::Off => entangle_scheduler::SpeculationConfig::Off,
+            SpeculationMode::Fixed => entangle_scheduler::SpeculationConfig::After(
+                Duration::from_millis(self.speculation_delay_ms),
+            ),
+            SpeculationMode::Median => entangle_scheduler::SpeculationConfig::MedianMultiple {
+                factor: self.speculation_factor,
+                min_samples: self.speculation_min_samples.max(1),
+                floor: Duration::from_millis(self.speculation_floor_ms),
+            },
+        }
+    }
+
     /// The dispatcher's spot-check settings.
     pub fn spot_checks(&self) -> entangle_scheduler::SpotCheckConfig {
         entangle_scheduler::SpotCheckConfig {
@@ -474,6 +537,28 @@ fn de_probability<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Erro
         )));
     }
     Ok(p)
+}
+
+fn de_positive_ms<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
+    let ms = u64::deserialize(d)?;
+    if ms == 0 {
+        return Err(serde::de::Error::custom(
+            "[scheduler] speculation_delay_ms must be at least 1 (set speculation = \"off\" to \
+             disable backup copies)",
+        ));
+    }
+    Ok(ms)
+}
+
+fn de_factor<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
+    let f = f64::deserialize(d)?;
+    if !f.is_finite() || f <= 1.0 {
+        return Err(serde::de::Error::custom(format!(
+            "[scheduler] speculation_factor must be a finite number above 1, got {f} (a backup \
+             before the median attempt is done would double most work)"
+        )));
+    }
+    Ok(f)
 }
 
 fn de_concurrency<'de, D: serde::Deserializer<'de>>(d: D) -> Result<usize, D::Error> {
@@ -922,6 +1007,46 @@ max_tier_allowed = 2
         // The old (pre-WP5) daemon-only knob locations also fail loudly.
         assert!(toml::from_str::<Config>("[runtime]\nmulti_node = true\n").is_err());
         assert!(toml::from_str::<Config>("[runtime]\nmax_tier = \"native\"\n").is_err());
+    }
+
+    #[test]
+    fn speculation_is_off_by_default_and_validated() {
+        let cfg: Config = toml::from_str("").unwrap();
+        assert_eq!(
+            cfg.scheduler.speculation(),
+            entangle_scheduler::SpeculationConfig::Off
+        );
+        let fixed: Config =
+            toml::from_str("[scheduler]\nspeculation = \"fixed\"\nspeculation_delay_ms = 250\n")
+                .unwrap();
+        assert_eq!(
+            fixed.scheduler.speculation(),
+            entangle_scheduler::SpeculationConfig::After(std::time::Duration::from_millis(250))
+        );
+        let median: Config = toml::from_str(
+            "[scheduler]\nspeculation = \"median\"\nspeculation_factor = 2.5\n\
+             speculation_min_samples = 0\n",
+        )
+        .unwrap();
+        assert_eq!(
+            median.scheduler.speculation(),
+            entangle_scheduler::SpeculationConfig::MedianMultiple {
+                factor: 2.5,
+                min_samples: 1,
+                floor: std::time::Duration::from_millis(1_000),
+            }
+        );
+        for bad in [
+            "speculation = \"sometimes\"",
+            "speculation_delay_ms = 0",
+            "speculation_factor = 0.5",
+            "speculation_factor = nan",
+        ] {
+            assert!(
+                toml::from_str::<Config>(&format!("[scheduler]\n{bad}\n")).is_err(),
+                "{bad}"
+            );
+        }
     }
 
     #[test]

@@ -647,7 +647,7 @@ fn input_flows_under_input_credit_and_ends_with_input_end() {
         p.sub.send_input(b"3".to_vec()).unwrap(),
         InputSend::Sent { seq: 2 }
     );
-    assert!(p.sub.finish_input().unwrap());
+    assert!(p.sub.finish_input(Instant::now()).unwrap());
     p.pump();
     assert_eq!(p.exec.next_input(), InputPoll::Chunk(b"2".to_vec()));
     assert_eq!(p.exec.next_input(), InputPoll::Chunk(b"3".to_vec()));

@@ -130,7 +130,7 @@ pub struct MeshStatusResult {
 /// Integrity mode for a compute dispatch request.
 ///
 /// Serialised as a tagged union with `kind` discriminant (kebab-case).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum ComputeIntegrity {
     /// No integrity checking; accept the first response.
@@ -185,6 +185,14 @@ pub struct ComputeDispatchParams {
     pub gpu_vram_min_bytes: u64,
     /// Integrity policy to enforce.
     pub integrity: ComputeIntegrity,
+    /// The task's `max_output_bytes` (a workload preset sets it; spec §7.1).
+    /// Absent: the 16 MiB default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_output_bytes: Option<u64>,
+    /// The task's retry policy `max_attempts` (spec §7.6; absent: the
+    /// default of 3, `1` never retries).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_attempts: Option<u8>,
 }
 
 /// Result of the `compute/dispatch` RPC method.
@@ -220,6 +228,39 @@ pub struct ComputeDispatchResult {
     /// from daemons that predate spot-checks.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_check: Option<String>,
+    /// Every attempt the scheduler made, per replica: first attempts,
+    /// retries after a lost worker, speculative backup copies (spec §7.6).
+    /// Absent from daemons that predate failure handling.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attempts: Vec<ComputeAttempt>,
+    /// Hex BLAKE3 of the component that produced the output, when known
+    /// (spec §7.5 `TrustedExecutor`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub executed_component: Option<String>,
+}
+
+/// One attempt of a `compute/dispatch` task (see
+/// [`ComputeDispatchResult::attempts`]).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ComputeAttempt {
+    /// The replica it belongs to, in dispatch order.
+    pub replica: usize,
+    /// Hex peer id of whoever ran it.
+    pub peer: String,
+    /// `false` when it ran on the daemon's own kernel.
+    pub remote: bool,
+    /// `first`, `retry` or `speculative`.
+    pub kind: String,
+    /// For a retry: why (`lost_after_send`, `unreachable`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cause: Option<String>,
+    /// `used`, `failed` or `cancelled`.
+    pub outcome: String,
+    /// Why it failed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// How long it ran, in milliseconds.
+    pub elapsed_ms: u64,
 }
 
 /// One replica of a `compute/dispatch` task, as audited by the submitter.

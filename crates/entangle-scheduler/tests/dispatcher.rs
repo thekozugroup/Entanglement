@@ -111,6 +111,7 @@ async fn dispatch_with_empty_pool_falls_back_to_local_when_no_resources_required
         resources: ResourceSpec::default(), // zero resources → triggers local fallback
         integrity: entangle_types::task::IntegrityPolicy::None,
         timeout_ms: 30_000,
+        retry: Default::default(),
     };
 
     let result = dispatcher
@@ -162,6 +163,7 @@ async fn strict_remote_returns_not_implemented_when_placement_picks_remote_peer(
         resources: ResourceSpec::default(),
         integrity: entangle_types::task::IntegrityPolicy::None,
         timeout_ms: 5_000,
+        retry: Default::default(),
     };
 
     let err = dispatcher

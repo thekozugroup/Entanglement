@@ -620,6 +620,7 @@ async fn a_remote_dispatch_trace_has_dispatch_transport_and_invoke_in_one_tree()
         resources: ResourceSpec::default(),
         integrity: IntegrityPolicy::None,
         timeout_ms: 10_000,
+        retry: Default::default(),
     };
     let task_id = task.id.to_string();
     let result = tokio::time::timeout(Duration::from_secs(30), dispatcher.dispatch_one_shot(task))
@@ -802,6 +803,7 @@ fn failing_task(plugin: &PluginId) -> OneShotTask {
         resources: ResourceSpec::default(),
         integrity: IntegrityPolicy::None,
         timeout_ms: 10_000,
+        retry: Default::default(),
     }
 }
 

@@ -230,6 +230,79 @@ mod hex32 {
     }
 }
 
+/// How often, and how patiently, a task is re-run after a failure that is
+/// not its own fault (spec §7.1 `retry: RetryPolicy`, §7.6 "crash → retry
+/// per policy").
+///
+/// The **scheduler** decides what is retryable, not the task: only a failure
+/// that says nothing about the task itself — the worker crashed, the peer
+/// was lost, or the transport failed after the request was sent and before
+/// any answer arrived — is retried. A policy refusal, an integrity mismatch,
+/// a capability-token refusal, a plugin error or a timeout the task itself
+/// ran into never is (see `entangle_scheduler::retry` for the exact rule).
+///
+/// Every attempt counts, the first one included: `max_attempts = 1` never
+/// retries. Waits grow from `backoff_ms`, doubling per retry up to
+/// `max_backoff_ms`, and are cut short by the task's own deadline — no retry
+/// starts after `timeout_ms`, measured from the first attempt, has passed.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct RetryPolicy {
+    /// Attempts in all, the first included (1 = never retry). Values above
+    /// [`RetryPolicy::MAX_ATTEMPTS`] are treated as that, 0 as 1.
+    pub max_attempts: u8,
+    /// Wait before the first retry, in milliseconds; each later wait doubles.
+    pub backoff_ms: u64,
+    /// The longest single wait, in milliseconds.
+    pub max_backoff_ms: u64,
+}
+
+impl RetryPolicy {
+    /// The most attempts any task gets, whatever it asks for.
+    pub const MAX_ATTEMPTS: u8 = 8;
+    /// Default `max_attempts` (3: the first attempt and two retries).
+    pub const DEFAULT_MAX_ATTEMPTS: u8 = 3;
+    /// Default `backoff_ms` (200 ms).
+    pub const DEFAULT_BACKOFF_MS: u64 = 200;
+    /// Default `max_backoff_ms` (5 s).
+    pub const DEFAULT_MAX_BACKOFF_MS: u64 = 5_000;
+
+    /// A policy that never retries.
+    pub const fn never() -> Self {
+        Self {
+            max_attempts: 1,
+            backoff_ms: 0,
+            max_backoff_ms: 0,
+        }
+    }
+
+    /// `max_attempts`, clamped to `1..=MAX_ATTEMPTS`.
+    pub fn attempts(&self) -> u8 {
+        self.max_attempts.clamp(1, Self::MAX_ATTEMPTS)
+    }
+
+    /// How long to wait before retry number `retry` (1 for the first retry):
+    /// `backoff_ms * 2^(retry - 1)`, at most `max_backoff_ms`.
+    pub fn backoff(&self, retry: u32) -> std::time::Duration {
+        let shift = retry.saturating_sub(1).min(16);
+        let ms = self
+            .backoff_ms
+            .saturating_mul(1u64 << shift)
+            .min(self.max_backoff_ms);
+        std::time::Duration::from_millis(ms)
+    }
+}
+
+impl Default for RetryPolicy {
+    fn default() -> Self {
+        Self {
+            max_attempts: Self::DEFAULT_MAX_ATTEMPTS,
+            backoff_ms: Self::DEFAULT_BACKOFF_MS,
+            max_backoff_ms: Self::DEFAULT_MAX_BACKOFF_MS,
+        }
+    }
+}
+
 /// A single-input / single-output task invocation.
 ///
 /// # §7.1
@@ -251,6 +324,10 @@ pub struct OneShotTask {
     pub integrity: IntegrityPolicy,
     /// Wall-clock timeout in milliseconds.
     pub timeout_ms: u64,
+    /// What to do after a failure that is not the task's own fault (spec
+    /// §7.1, §7.6). Defaults to [`RetryPolicy::default`] when absent.
+    #[serde(default)]
+    pub retry: RetryPolicy,
 }
 
 impl OneShotTask {
@@ -272,6 +349,7 @@ impl OneShotTask {
             resources: ResourceSpec::default(),
             integrity: IntegrityPolicy::None,
             timeout_ms: Self::DEFAULT_TIMEOUT_MS,
+            retry: RetryPolicy::default(),
         }
     }
 }
@@ -372,6 +450,27 @@ pub struct StreamingTask {
     pub timeout_ms: u64,
     /// Partial-result retention policy.
     pub partial_result: PartialResultPolicy,
+    /// What to do when the stream fails for a reason that is not its own
+    /// fault (spec §7.1: "retries restart from `initial_inputs` only"). A
+    /// stream that fails before the consumer received any chunk is restarted
+    /// from [`StreamingTask::input`] on another executor; one that already
+    /// delivered chunks only with [`StreamingTask::restart_after_delivery`].
+    #[serde(default)]
+    pub retry: RetryPolicy,
+    /// Opt in to restarting a stream that already delivered chunks. Every
+    /// chunk of a restart carries a new attempt **epoch** and starts again
+    /// at sequence 0, so the consumer can tell a re-delivered chunk from a
+    /// new one and discard the duplicates. Default `false`: a stream that
+    /// delivered output is never restarted behind the consumer's back.
+    #[serde(default)]
+    pub restart_after_delivery: bool,
+    /// The output the submitter expects, in bytes, if it knows (e.g. an
+    /// LLM's `max_tokens` times a typical token length). Only used to judge
+    /// stalls: an executor that stalls after delivering at least half of it
+    /// loses reputation (spec §7.1, "stall blame"). Never sent to the
+    /// executor.
+    #[serde(default)]
+    pub expected_output_bytes: Option<u64>,
 }
 
 impl StreamingTask {
@@ -397,6 +496,9 @@ impl StreamingTask {
             integrity: IntegrityPolicy::None,
             timeout_ms: Self::DEFAULT_TIMEOUT_MS,
             partial_result: PartialResultPolicy::Keep,
+            retry: RetryPolicy::default(),
+            restart_after_delivery: false,
+            expected_output_bytes: None,
         }
     }
 }
@@ -442,6 +544,57 @@ mod tests {
         assert_eq!(back.input, b"prompt");
         assert_eq!(back.id, task.id);
         assert_eq!(back.channel, task.channel);
+    }
+
+    #[test]
+    fn retry_policy_defaults_backoff_and_clamps() {
+        let p = RetryPolicy::default();
+        assert_eq!(p.attempts(), 3);
+        assert_eq!(p.backoff(1).as_millis(), 200);
+        assert_eq!(p.backoff(2).as_millis(), 400);
+        assert_eq!(p.backoff(3).as_millis(), 800);
+        assert_eq!(p.backoff(30).as_millis(), 5_000, "capped at max_backoff_ms");
+        assert_eq!(RetryPolicy::never().attempts(), 1);
+        let wild = RetryPolicy {
+            max_attempts: 200,
+            ..RetryPolicy::default()
+        };
+        assert_eq!(wild.attempts(), RetryPolicy::MAX_ATTEMPTS);
+        let zero = RetryPolicy {
+            max_attempts: 0,
+            ..RetryPolicy::default()
+        };
+        assert_eq!(zero.attempts(), 1, "0 attempts still runs the task once");
+    }
+
+    /// A task serialised before `retry` existed gets the default policy;
+    /// a partial policy fills in the rest.
+    #[test]
+    fn retry_policy_is_optional_on_the_wire() {
+        let plugin: PluginId = "0123456789abcdef0123456789abcdef/s@0.1.0".parse().unwrap();
+        let task = OneShotTask::with_defaults(plugin.clone(), b"x".to_vec());
+        let mut json = serde_json::to_value(&task).unwrap();
+        json.as_object_mut().unwrap().remove("retry");
+        let back: OneShotTask = serde_json::from_value(json).unwrap();
+        assert_eq!(back.retry, RetryPolicy::default());
+        let partial: RetryPolicy = serde_json::from_str(r#"{"max_attempts":1}"#).unwrap();
+        assert_eq!(
+            partial,
+            RetryPolicy {
+                max_attempts: 1,
+                ..RetryPolicy::default()
+            }
+        );
+
+        let stream = StreamingTask::with_defaults(plugin, b"p".to_vec());
+        let mut json = serde_json::to_value(&stream).unwrap();
+        for k in ["retry", "restart_after_delivery", "expected_output_bytes"] {
+            json.as_object_mut().unwrap().remove(k);
+        }
+        let back: StreamingTask = serde_json::from_value(json).unwrap();
+        assert_eq!(back.retry, RetryPolicy::default());
+        assert!(!back.restart_after_delivery);
+        assert_eq!(back.expected_output_bytes, None);
     }
 
     #[test]

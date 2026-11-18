@@ -54,6 +54,12 @@ pub enum RouteError {
         transport: TransportKind,
         /// The transport's error.
         reason: String,
+        /// The transport's own per-request timeout ran out
+        /// ([`super::LinkError::TimedOut`]): the peer may be alive and
+        /// still running the request. A scheduler retry treats this as a
+        /// timeout — final — rather than as a lost peer
+        /// ([`crate::retry`]).
+        timed_out: bool,
     },
 
     /// `ENTANGLE-E0433` — a frame (ours, or the peer's answer) was over the
@@ -137,6 +143,7 @@ mod tests {
                 peer,
                 transport: TransportKind::Tailscale,
                 reason: "x".into(),
+                timed_out: false,
             },
             RouteError::FrameTooLarge {
                 peer,

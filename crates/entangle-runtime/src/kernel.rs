@@ -109,6 +109,13 @@ pub struct PluginSource {
     pub manifest_digest: String,
     /// Its `[lifecycle]`.
     pub lifecycle: Lifecycle,
+    /// What the verified manifest declares about determinism
+    /// ([`entangle_manifest::determinism::nondeterminism`]), read from the
+    /// very bytes that were verified at load — not from the file, which
+    /// may change afterwards. `Err` (the parser's message) when the
+    /// declaration keys have the wrong type: nothing can then be said, and
+    /// a check must fail closed.
+    pub nondeterminism: Result<Vec<String>, String>,
 }
 
 /// A running invocation's (one-shot or stream) share of
@@ -775,6 +782,12 @@ impl Kernel {
         let effective_tier = manifest.effective_tier;
         let artifact_digest = blake3::hash(&pkg.bytes).to_hex().to_string();
         let manifest_digest = blake3::hash(&pkg.manifest_bytes).to_hex().to_string();
+        // Spec §7.5: what these verified bytes declare about determinism.
+        let nondeterminism = std::str::from_utf8(&pkg.manifest_bytes)
+            .map_err(|e| e.to_string())
+            .and_then(|text| {
+                entangle_manifest::determinism::nondeterminism(text).map_err(|e| e.to_string())
+            });
 
         // The package the caller expects, or nothing at all.
         if let Some(exp) = expected {
@@ -1058,6 +1071,7 @@ impl Kernel {
                             artifact_digest,
                             manifest_digest,
                             lifecycle,
+                            nondeterminism,
                         },
                     });
                     if let Some(m) = &self.metrics {

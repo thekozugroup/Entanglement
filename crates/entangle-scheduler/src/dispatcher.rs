@@ -20,6 +20,19 @@
 //! are fewer eligible remote workers than `N` (or no transport) run on the
 //! local kernel. All replicas run concurrently.
 //!
+//! # Failure handling (spec §7.6)
+//!
+//! Every remote replica runs as a **slot** ([`crate::retry`]): an attempt
+//! that fails in a way that says nothing about the task — the worker
+//! crashed, the peer was lost, or the transport failed after the request
+//! was sent — is retried per the task's [`RetryPolicy`] on another eligible
+//! worker, never one that holds a replica of the same task; and with
+//! [`Dispatcher::with_speculation`] a slow attempt gets a backup copy on
+//! another worker, the first valid result winning and the other copy being
+//! cancelled. Every attempt is listed in [`DispatchResult::attempts`].
+//!
+//! [`RetryPolicy`]: entangle_types::task::RetryPolicy
+//!
 //! # Layer-2 spot-checks (spec §7.5)
 //!
 //! With [`Dispatcher::with_spot_checks`], an accepted `Deterministic` or
@@ -29,6 +42,7 @@
 //! is returned first and never changed by the check
 //! ([`DispatchResult::spot_check`] says what was decided).
 
+use crate::retry::{DurationHistory, RetryCause, SpeculationConfig};
 use crate::{
     integrity::{
         canonical_operands, replica_count, IntegrityVerifier, OutputSizeExceededWarning,
@@ -52,10 +66,16 @@ use entangle_types::{
     peer_id::PeerId,
     task::{IntegrityPolicy, OneShotTask, PolicyKind, TaskId},
 };
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::Instrument as _;
+
+/// How long a `Cancel` control frame to the losing copy of a speculative
+/// pair may take before it is given up on (it is best effort: the losing
+/// copy's request is dropped either way).
+pub const CANCEL_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Errors that can arise during task dispatch.
 #[derive(Debug, thiserror::Error)]
@@ -138,6 +158,12 @@ pub enum DispatchError {
     /// [`DispatchError::OutputSizeExceeded`] instead.
     #[error("{0}")]
     Integrity(#[from] IntegrityError),
+    /// The task was refused at submit time by [`crate::submit`]: a
+    /// `Deterministic` task for a plugin that declares non-determinism
+    /// (`ENTANGLE-E0470`), or a workload preset that cannot apply
+    /// (`E0471`–`E0473`). Nothing was placed or sent.
+    #[error("{0}")]
+    Submit(#[from] crate::submit::SubmitError),
 }
 
 /// Combines a placement decision with the task output bytes.
@@ -158,6 +184,84 @@ pub struct DispatchResult {
     /// never changes it; await its verdict through
     /// [`SpotCheck::handle`].
     pub spot_check: SpotCheck,
+    /// Every attempt made, per replica, in the order they started: the
+    /// first attempt of each replica, its retries and any speculative
+    /// backup copy (see [`crate::retry`]).
+    pub attempts: Vec<Attempt>,
+    /// BLAKE3 digest of the component artifact that produced the returned
+    /// output, when known (spec §7.5 `TrustedExecutor`: "the work unit's
+    /// signed component CID is recorded with the result for after-the-fact
+    /// audit"): this node's own loaded artifact when it ran the task, the
+    /// executor's report when a `TrustedExecutor` task ran remotely (other
+    /// policies do not ask remote executors for it). The remote value is
+    /// the executor's claim — attributable to it through the transport's
+    /// authentication, not independently verifiable.
+    pub executed_component: Option<[u8; 32]>,
+}
+
+/// Why an attempt was started.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum AttemptKind {
+    /// The replica's first attempt.
+    First,
+    /// A retry after the previous attempt failed with this cause.
+    Retry(RetryCause),
+    /// A speculative backup copy of a slow attempt.
+    Speculative,
+}
+
+impl AttemptKind {
+    /// Stable label: `first`, `retry`, `speculative`.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::First => "first",
+            Self::Retry(_) => "retry",
+            Self::Speculative => "speculative",
+        }
+    }
+}
+
+/// What became of an attempt.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AttemptOutcome {
+    /// Its result is the replica's result (acceptance then judged it).
+    Used,
+    /// It failed; why.
+    Failed(String),
+    /// Another copy of the replica produced a valid result first; this one
+    /// was cancelled (a `Cancel` control frame was sent to its worker).
+    Cancelled,
+}
+
+impl AttemptOutcome {
+    /// Stable label: `used`, `failed`, `cancelled`.
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::Used => "used",
+            Self::Failed(_) => "failed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+/// One attempt at one replica, for audit ([`DispatchResult::attempts`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Attempt {
+    /// The replica (slot) it belongs to, in dispatch order.
+    pub replica: usize,
+    /// Who ran it.
+    pub peer: PeerId,
+    /// Whether that is another node.
+    pub remote: bool,
+    /// The task id it was sent under: the task's own for a first attempt,
+    /// a fresh one for a retry or a backup copy.
+    pub task_id: TaskId,
+    /// Why it was started.
+    pub kind: AttemptKind,
+    /// What became of it.
+    pub outcome: AttemptOutcome,
+    /// How long it ran, until it answered or was cancelled.
+    pub elapsed: Duration,
 }
 
 /// Task dispatcher backed by the local [`Kernel`] and, optionally, a mesh
@@ -190,6 +294,10 @@ pub struct Dispatcher {
     /// Layer-2 spot-checks; `None` (off) until
     /// [`Dispatcher::with_spot_checks`].
     spot: Option<Arc<SpotChecker>>,
+    /// When to start backup copies of slow attempts (off by default).
+    speculation: SpeculationConfig,
+    /// Durations of recent successful attempts, per plugin.
+    history: Arc<DurationHistory>,
 }
 
 /// Metric label for the outcome of a remote replica.
@@ -229,7 +337,28 @@ impl Dispatcher {
             metrics: None,
             inflight: Arc::new(AtomicU64::new(0)),
             spot: None,
+            speculation: SpeculationConfig::Off,
+            history: Arc::new(DurationHistory::new()),
         }
+    }
+
+    /// Start speculative backup copies of slow remote attempts (spec §7.6;
+    /// see [`SpeculationConfig`]). Off by default.
+    #[must_use]
+    pub fn with_speculation(mut self, config: SpeculationConfig) -> Self {
+        self.speculation = config;
+        self
+    }
+
+    /// The speculation settings in force.
+    pub fn speculation(&self) -> SpeculationConfig {
+        self.speculation
+    }
+
+    /// Durations of recent successful attempts, per plugin (the input of
+    /// [`SpeculationConfig::MedianMultiple`]).
+    pub fn durations(&self) -> &Arc<DurationHistory> {
+        &self.history
     }
 
     /// Turn on Layer-2 spot-checks (spec §7.5) with `config`: an accepted
@@ -404,7 +533,7 @@ impl Dispatcher {
             let outcome = match &result {
                 Ok(_) => "accepted",
                 Err(DispatchError::OutputSizeExceeded(_)) => "output_size_exceeded",
-                Err(DispatchError::Integrity(_)) => "rejected",
+                Err(DispatchError::Integrity(_) | DispatchError::Submit(_)) => "rejected",
                 Err(_) => "failed",
             };
             catalog::integrity_verdict(reg, kind.as_str(), outcome);
@@ -426,6 +555,10 @@ impl Dispatcher {
         // Submit-time validation (ATC-INT-2 lives here): nothing has been
         // placed or sent yet.
         let envelope = self.verifier.validate_submit(&task.integrity)?;
+        // §7.5: `Deterministic` is refused for a plugin whose manifest (as
+        // this node's kernel loaded it) declares non-determinism. Executors
+        // check their own copy as well.
+        crate::submit::check_determinism(&self.kernel, &task.plugin, &task.integrity)?;
 
         let replicated = matches!(
             task.integrity,
@@ -489,9 +622,12 @@ impl Dispatcher {
             }
         }
 
-        let replica = if run_local {
+        let mut chosen = chosen;
+        let (replica, attempts) = if run_local {
             // Enforce the task's policy on the local kernel (TrustedExecutor
             // allowlist, Deterministic { 0 | 1 } as a single invocation).
+            let started = Instant::now();
+            let component = self.local_component(&task.plugin);
             let outcome = self
                 .kernel
                 .invoke_with_integrity(&task, self.local_peer_id)
@@ -499,26 +635,52 @@ impl Dispatcher {
                 .map(|bytes| ReplicaBytes {
                     bytes,
                     observed_policy_hash: envelope.recompute_hash(),
+                    component,
                 })
                 .map_err(DispatchError::from);
-            ReplicaResult {
+            let replica = ReplicaResult {
                 peer: self.local_peer_id,
                 remote: false,
                 outcome,
-            }
+            };
+            let attempt = local_attempt(0, &replica, task.id, started.elapsed());
+            (replica, vec![attempt])
         } else {
             tracing::debug!(
                 peer = %chosen.peer_id,
                 plugin = %task.plugin,
                 "dispatching task to remote peer"
             );
-            self.remote_replica(&task, chosen.peer_id, &envelope).await
+            let ctx = Arc::new(SlotCtx {
+                threshold: self.speculation.threshold(&task.plugin, &self.history),
+                deadline: Instant::now() + Duration::from_millis(task.timeout_ms),
+                task: Arc::new(task.clone()),
+                envelope: Arc::new(envelope.clone()),
+                replicated: false,
+                holders: Arc::new(parking_lot::Mutex::new(HashSet::from([chosen.peer_id]))),
+            });
+            let slot = self.run_slot(ctx, 0, chosen.peer_id).await;
+            if slot.replica.peer != chosen.peer_id {
+                chosen = PlacementChoice {
+                    peer_id: slot.replica.peer,
+                    score: chosen.score,
+                    reason: format!(
+                        "{} — failed over from {} (see attempts)",
+                        chosen.reason, chosen.peer_id
+                    ),
+                };
+            }
+            (slot.replica, slot.attempts)
         };
 
         let acceptance = self
             .verifier
             .accept(&task, &envelope, vec![replica])
             .await?;
+        let executed_component = acceptance
+            .reports
+            .get(acceptance.chosen)
+            .and_then(|r| r.component);
         let spot_check = self.schedule_spot_check(
             &task,
             &envelope,
@@ -533,6 +695,8 @@ impl Dispatcher {
             replicas: acceptance.reports,
             pair_agreement: acceptance.pair_agreement,
             spot_check,
+            attempts,
+            executed_component,
         })
     }
 
@@ -616,46 +780,78 @@ impl Dispatcher {
         );
 
         // Run every replica concurrently; keep results in dispatch order.
+        // Remote replicas run as slots (retries, backup copies) that share
+        // one set of replica holders, so no two replicas — first attempts,
+        // retries or backups — ever run on the same worker.
         let task = Arc::new(task);
         let envelope = Arc::new(envelope);
+        let ctx = Arc::new(SlotCtx {
+            threshold: self.speculation.threshold(&task.plugin, &self.history),
+            deadline: Instant::now() + Duration::from_millis(task.timeout_ms),
+            task: Arc::clone(&task),
+            envelope: Arc::clone(&envelope),
+            replicated: true,
+            holders: Arc::new(parking_lot::Mutex::new(
+                targets.iter().map(|t| t.peer_id).collect(),
+            )),
+        });
         let mut set = tokio::task::JoinSet::new();
         for (idx, target) in targets.iter().enumerate() {
             let task = Arc::clone(&task);
             let envelope = Arc::clone(&envelope);
+            let ctx = Arc::clone(&ctx);
             let this = self.clone();
             let peer = target.peer_id;
-            set.spawn(async move {
-                let replica = if peer == this.local_peer_id {
-                    this.local_replica(&task, &envelope).await
-                } else {
-                    this.remote_replica(&task, peer, &envelope).await
-                };
-                (idx, replica)
-            });
+            let span = tracing::Span::current();
+            set.spawn(
+                async move {
+                    let slot = if peer == this.local_peer_id {
+                        let started = Instant::now();
+                        let replica = this.local_replica(&task, &envelope).await;
+                        let attempt = local_attempt(idx, &replica, task.id, started.elapsed());
+                        SlotResult {
+                            replica,
+                            attempts: vec![attempt],
+                        }
+                    } else {
+                        this.run_slot(ctx, idx, peer).await
+                    };
+                    (idx, slot)
+                }
+                .instrument(span),
+            );
         }
-        let mut slots: Vec<Option<ReplicaResult>> = (0..targets.len()).map(|_| None).collect();
+        let mut slots: Vec<Option<SlotResult>> = (0..targets.len()).map(|_| None).collect();
         while let Some(joined) = set.join_next().await {
             match joined {
-                Ok((idx, replica)) => slots[idx] = Some(replica),
+                Ok((idx, slot)) => slots[idx] = Some(slot),
                 Err(e) => tracing::error!(error = %e, "replica task did not complete"),
             }
         }
         // A replica whose task panicked is a failed replica, not a reason to
         // abandon the others.
+        let mut attempts = Vec::new();
         let replicas: Vec<ReplicaResult> = slots
             .into_iter()
             .zip(&targets)
-            .map(|(slot, target)| {
-                slot.unwrap_or_else(|| ReplicaResult {
+            .map(|(slot, target)| match slot {
+                Some(slot) => {
+                    attempts.extend(slot.attempts);
+                    slot.replica
+                }
+                None => ReplicaResult {
                     peer: target.peer_id,
                     remote: target.peer_id != self.local_peer_id,
                     outcome: Err(DispatchError::RemoteTransport {
                         peer: target.peer_id,
                         reason: "replica task did not complete (panicked or cancelled)".into(),
                     }),
-                })
+                },
             })
             .collect();
+        // The peers that ended up producing each replica (a slot may have
+        // failed over to another worker).
+        let final_peers: Vec<PeerId> = replicas.iter().map(|r| r.peer).collect();
 
         // A local replica the remote majority outvotes is a spot-check
         // re-run already in hand (see `schedule_spot_check`); a metric needs
@@ -681,14 +877,441 @@ impl Dispatcher {
             &acceptance.reports,
             local_outputs,
         );
+        let executed_component = acceptance
+            .reports
+            .get(acceptance.chosen)
+            .and_then(|r| r.component);
+        let mut chosen = targets[acceptance.chosen].clone();
+        if let Some(peer) = final_peers.get(acceptance.chosen) {
+            if *peer != chosen.peer_id {
+                chosen.reason = format!(
+                    "{} — failed over from {} (see attempts)",
+                    chosen.reason, chosen.peer_id
+                );
+                chosen.peer_id = *peer;
+            }
+        }
         Ok(DispatchResult {
-            chosen: targets[acceptance.chosen].clone(),
+            chosen,
             output: acceptance.output,
             policy_hash: envelope.hash(),
             replicas: acceptance.reports,
             pair_agreement: acceptance.pair_agreement,
             spot_check,
+            attempts,
+            executed_component,
         })
+    }
+
+    /// Run one remote replica — `first`, then retries and a backup copy as
+    /// [`crate::retry`] allows — until an attempt yields a valid result or
+    /// nothing more may be tried. See the module docs.
+    async fn run_slot(&self, ctx: Arc<SlotCtx>, slot: usize, first: PeerId) -> SlotResult {
+        let mut attempts: Vec<Attempt> = Vec::new();
+        let mut tried: HashSet<PeerId> = HashSet::from([first]);
+        let mut set: tokio::task::JoinSet<AttemptDone> = tokio::task::JoinSet::new();
+        let mut running: HashMap<tokio::task::Id, Running> = HashMap::new();
+        self.launch(
+            &ctx,
+            &mut set,
+            &mut running,
+            &mut attempts,
+            slot,
+            first,
+            AttemptKind::First,
+        );
+        let mut retries: u32 = 0;
+        // A backup copy was considered (the threshold passed) — at most once.
+        let mut speculated = false;
+        // A backup copy was actually started.
+        let mut backup_launched = false;
+        // Results that were not valid, in arrival order.
+        let mut rejected: Vec<ReplicaResult> = Vec::new();
+        loop {
+            // A backup copy is started once, while exactly one attempt runs.
+            let backup_at = match ctx.threshold {
+                Some(t) if !speculated && running.len() == 1 => {
+                    // A threshold beyond what an `Instant` can hold never
+                    // fires.
+                    running
+                        .values()
+                        .next()
+                        .and_then(|r| r.started.checked_add(t))
+                }
+                _ => None,
+            };
+            tokio::select! {
+                joined = set.join_next_with_id(), if !set.is_empty() => {
+                    let Some(joined) = joined else { continue };
+                    let (id, done) = match joined {
+                        Ok((id, done)) => (id, Some(done)),
+                        Err(e) => (e.id(), None),
+                    };
+                    let Some(run) = running.remove(&id) else { continue };
+                    let (replica, cause, took) = match done {
+                        Some((replica, cause, took)) => (replica, cause, took),
+                        None => (
+                            ReplicaResult {
+                                peer: run.peer,
+                                remote: true,
+                                outcome: Err(DispatchError::RemoteTransport {
+                                    peer: run.peer,
+                                    reason: "the attempt did not complete (panicked)".into(),
+                                }),
+                            },
+                            None,
+                            run.started.elapsed(),
+                        ),
+                    };
+                    attempts[run.attempt].elapsed = took;
+                    if is_valid(&replica, &ctx) {
+                        // The first valid result wins; every other copy of
+                        // this replica is cancelled.
+                        attempts[run.attempt].outcome = AttemptOutcome::Used;
+                        self.history.record(&ctx.task.plugin, took);
+                        for (_, other) in running.drain() {
+                            attempts[other.attempt].outcome = AttemptOutcome::Cancelled;
+                            attempts[other.attempt].elapsed = other.started.elapsed();
+                            self.cancel_remote(other.peer, other.task_id);
+                            self.count_speculative("cancelled");
+                        }
+                        set.abort_all();
+                        if backup_launched {
+                            self.count_speculative(if run.kind == AttemptKind::Speculative {
+                                "won"
+                            } else {
+                                "lost"
+                            });
+                        }
+                        // Discarded results never reach acceptance: apply
+                        // the penalties it would have.
+                        for bad in &rejected {
+                            self.penalize_discarded(&ctx, bad);
+                        }
+                        return SlotResult { replica, attempts };
+                    }
+                    attempts[run.attempt].outcome = AttemptOutcome::Failed(describe_failure(&replica));
+                    let answered_invalid = replica.outcome.is_ok();
+                    let failed_peer = replica.peer;
+                    rejected.push(replica);
+                    // Lost after the request was sent: the worker may still
+                    // be running this copy (only the connection was lost).
+                    // Tell it to stop before anything else is tried — never
+                    // run a second copy next to an orphaned first one.
+                    let lost = cause == Some(RetryCause::LostAfterSend) && !answered_invalid;
+                    if !running.is_empty() {
+                        if lost {
+                            self.cancel_remote(failed_peer, run.task_id);
+                        }
+                        // Another copy is still running: it may yet win.
+                        continue;
+                    }
+                    let Some(cause) = cause.filter(|_| !answered_invalid) else { break };
+                    let may_retry = retries + 1 < u32::from(ctx.task.retry.attempts())
+                        && Instant::now() < ctx.deadline;
+                    if lost {
+                        if may_retry {
+                            self.cancel_now(failed_peer, run.task_id).await;
+                        } else {
+                            self.cancel_remote(failed_peer, run.task_id);
+                        }
+                    }
+                    if !may_retry {
+                        break;
+                    }
+                    let now = Instant::now();
+                    if now >= ctx.deadline {
+                        break;
+                    }
+                    let wait = ctx.task.retry.backoff(retries + 1).min(ctx.deadline - now);
+                    tokio::time::sleep(wait).await;
+                    if Instant::now() >= ctx.deadline {
+                        break;
+                    }
+                    // Claimed after the backoff, so the target is eligible
+                    // now (a worker excluded or removed meanwhile is not).
+                    let Some(target) = self.claim_failover(&ctx, &tried, Some((cause, failed_peer))) else {
+                        tracing::info!(
+                            peer = %failed_peer,
+                            cause = cause.label(),
+                            plugin = %ctx.task.plugin,
+                            "attempt failed and may be retried, but no eligible worker is left"
+                        );
+                        break;
+                    };
+                    retries += 1;
+                    tracing::info!(
+                        failed = %failed_peer,
+                        next = %target,
+                        cause = cause.label(),
+                        retry = retries,
+                        waited_ms = wait.as_millis() as u64,
+                        plugin = %ctx.task.plugin,
+                        "retrying a failed attempt"
+                    );
+                    if let Some(reg) = &self.metrics {
+                        catalog::scheduler_retry(reg, "one_shot", cause.label());
+                    }
+                    tried.insert(target);
+                    self.launch(
+                        &ctx,
+                        &mut set,
+                        &mut running,
+                        &mut attempts,
+                        slot,
+                        target,
+                        AttemptKind::Retry(cause),
+                    );
+                }
+                () = sleep_until_opt(backup_at) => {
+                    speculated = true;
+                    match self.claim_failover(&ctx, &tried, None) {
+                        Some(target) => {
+                            tracing::info!(
+                                slow = ?running.values().next().map(|r| r.peer),
+                                backup = %target,
+                                plugin = %ctx.task.plugin,
+                                "attempt is past the speculation threshold; starting a backup copy"
+                            );
+                            tried.insert(target);
+                            backup_launched = true;
+                            self.count_speculative("launched");
+                            self.launch(
+                                &ctx,
+                                &mut set,
+                                &mut running,
+                                &mut attempts,
+                                slot,
+                                target,
+                                AttemptKind::Speculative,
+                            );
+                        }
+                        None => tracing::debug!(
+                            plugin = %ctx.task.plugin,
+                            "attempt is past the speculation threshold, but no other eligible \
+                             worker can take a backup copy"
+                        ),
+                    }
+                }
+            }
+        }
+        // Nothing valid: report the most telling result — an answer that
+        // broke an integrity guard (acceptance penalises and reports it),
+        // else the last failure — and penalise the other discarded answers.
+        let pick = rejected
+            .iter()
+            .position(|r| discarded_penalty(r, &ctx).is_some())
+            .unwrap_or(rejected.len().saturating_sub(1));
+        let replica = if rejected.is_empty() {
+            ReplicaResult {
+                peer: first,
+                remote: true,
+                outcome: Err(DispatchError::RemoteTransport {
+                    peer: first,
+                    reason: "no attempt completed".into(),
+                }),
+            }
+        } else {
+            let replica = rejected.remove(pick);
+            for bad in &rejected {
+                self.penalize_discarded(&ctx, bad);
+            }
+            replica
+        };
+        SlotResult { replica, attempts }
+    }
+
+    /// Start one attempt of slot `slot` on `peer`.
+    #[allow(clippy::too_many_arguments)]
+    fn launch(
+        &self,
+        ctx: &Arc<SlotCtx>,
+        set: &mut tokio::task::JoinSet<AttemptDone>,
+        running: &mut HashMap<tokio::task::Id, Running>,
+        attempts: &mut Vec<Attempt>,
+        slot: usize,
+        peer: PeerId,
+        kind: AttemptKind,
+    ) {
+        let now = Instant::now();
+        // A first attempt goes out as the task; a retry or a backup copy is
+        // a new request — a fresh id (the executor refuses a second frame
+        // with an id it is still running), the time left to the task's
+        // deadline, and, like every request, a fresh per-attempt capability
+        // token (minted when its link connects).
+        let (task_id, timeout_ms) = match kind {
+            AttemptKind::First => (ctx.task.id, ctx.task.timeout_ms),
+            AttemptKind::Retry(_) | AttemptKind::Speculative => (
+                uuid::Uuid::new_v4(),
+                u64::try_from(ctx.deadline.saturating_duration_since(now).as_millis())
+                    .unwrap_or(u64::MAX)
+                    .max(1),
+            ),
+        };
+        let attempt = attempts.len();
+        attempts.push(Attempt {
+            replica: slot,
+            peer,
+            remote: true,
+            task_id,
+            kind,
+            outcome: AttemptOutcome::Failed("still running".into()),
+            elapsed: Duration::ZERO,
+        });
+        let this = self.clone();
+        let ctx = Arc::clone(ctx);
+        // The attempt runs on its own task, inside the dispatch's span, so
+        // its `remote.dispatch` span (and the worker's) stays in the
+        // submitter's trace.
+        let span = tracing::Span::current();
+        let handle = set.spawn(
+            async move {
+                let started = Instant::now();
+                let attempt_task;
+                let task: &OneShotTask = if task_id == ctx.task.id {
+                    &ctx.task
+                } else {
+                    attempt_task = OneShotTask {
+                        id: task_id,
+                        timeout_ms,
+                        ..(*ctx.task).clone()
+                    };
+                    &attempt_task
+                };
+                let (replica, cause) = this.remote_attempt(task, peer, &ctx.envelope).await;
+                (replica, cause, started.elapsed())
+            }
+            .instrument(span),
+        );
+        running.insert(
+            handle.id(),
+            Running {
+                peer,
+                task_id,
+                kind,
+                started: now,
+                attempt,
+            },
+        );
+    }
+
+    /// A worker for a retry (`retry`: the cause and the worker that failed)
+    /// or a backup copy (`None`), claimed as a replica holder: the
+    /// best-ranked eligible live worker that holds no replica of the task
+    /// and was not tried for this one; for a single-replica task lost after
+    /// the request was sent, the same worker when there is no other.
+    fn claim_failover(
+        &self,
+        ctx: &SlotCtx,
+        tried: &HashSet<PeerId>,
+        retry: Option<(RetryCause, PeerId)>,
+    ) -> Option<PeerId> {
+        let mut holders = ctx.holders.lock();
+        let candidate = self
+            .failover_candidates(&ctx.task)
+            .into_iter()
+            .find(|p| !tried.contains(p) && !holders.contains(p));
+        if let Some(peer) = candidate {
+            holders.insert(peer);
+            return Some(peer);
+        }
+        match retry {
+            // Only while it is still eligible: live in the pool, its
+            // reputation not `Excluded`, resources and allowlist as before.
+            Some((cause, last))
+                if !ctx.replicated
+                    && cause.may_return_to_same_worker()
+                    && self.failover_candidates(&ctx.task).contains(&last) =>
+            {
+                Some(last)
+            }
+            _ => None,
+        }
+    }
+
+    /// Live remote workers eligible to run `task`, best-ranked first: they
+    /// fit its resources, are on its `TrustedExecutor` allowlist when it
+    /// has one, and their reputation for its policy is not `Excluded`.
+    fn failover_candidates(&self, task: &OneShotTask) -> Vec<PeerId> {
+        if self.remote.is_none() {
+            return Vec::new();
+        }
+        let kind = task.integrity.kind();
+        let mut live = self.workers.live(self.worker_ttl);
+        if let IntegrityPolicy::TrustedExecutor { allowlist } = &task.integrity {
+            live.retain(|w| allowlist.contains(&w.peer_id));
+        }
+        let Ok(ranked) = rank(&live, &task.resources) else {
+            return Vec::new();
+        };
+        ranked
+            .into_iter()
+            .map(|c| c.peer_id)
+            .filter(|p| *p != self.local_peer_id && self.verifier.reputation().is_eligible(p, kind))
+            .collect()
+    }
+
+    /// Tell `peer` to stop running `task_id` (best effort, in the
+    /// background).
+    fn cancel_remote(&self, peer: PeerId, task_id: TaskId) {
+        let Some(remote) = self.remote.clone() else {
+            return;
+        };
+        tokio::spawn(async move {
+            if let Err(e) = remote.send_cancel(peer, task_id, CANCEL_TIMEOUT).await {
+                tracing::debug!(%peer, task = %task_id, error = %e, "cancel frame not acknowledged");
+            }
+        });
+    }
+
+    /// Tell `peer` to stop running `task_id` and wait for its answer (at most
+    /// [`CANCEL_TIMEOUT`]): used before a retry, so a worker that lost only
+    /// its connection has stopped the orphaned copy first.
+    async fn cancel_now(&self, peer: PeerId, task_id: TaskId) {
+        let Some(remote) = self.remote.clone() else {
+            return;
+        };
+        if let Err(e) = remote.send_cancel(peer, task_id, CANCEL_TIMEOUT).await {
+            tracing::debug!(%peer, task = %task_id, error = %e, "cancel frame not acknowledged");
+        }
+    }
+
+    /// Apply the penalty acceptance would have applied to a result that was
+    /// discarded because another copy of its replica won.
+    fn penalize_discarded(&self, ctx: &SlotCtx, replica: &ReplicaResult) {
+        if !replica.remote {
+            return;
+        }
+        if let Some(reason) = discarded_penalty(replica, ctx) {
+            if reason == ReputationReason::OversizedOutput {
+                let actual = match &replica.outcome {
+                    Ok(out) => out.bytes.len() as u64,
+                    Err(DispatchError::OutputSizeExceeded(EntangleError::OutputSizeExceeded {
+                        actual,
+                        ..
+                    })) => *actual,
+                    Err(_) => 0,
+                };
+                OutputSizeExceededWarning {
+                    peer_id: replica.peer,
+                    declared: ctx.task.max_output_bytes,
+                    actual,
+                }
+                .emit();
+                if let Some(reg) = &self.metrics {
+                    catalog::output_size_exceeded(reg);
+                }
+            }
+            self.verifier
+                .reputation()
+                .penalize(&replica.peer, ctx.task.integrity.kind(), reason);
+        }
+    }
+
+    fn count_speculative(&self, event: &str) {
+        if let Some(reg) = &self.metrics {
+            catalog::scheduler_speculative(reg, event);
+        }
     }
 
     /// Decide the Layer-2 spot-check of an accepted result and, when it is
@@ -1208,6 +1831,7 @@ impl Dispatcher {
     /// One replica on the local kernel: exactly one invocation, no policy
     /// applied (verification happens in the acceptance pipeline).
     async fn local_replica(&self, task: &OneShotTask, envelope: &PolicyEnvelope) -> ReplicaResult {
+        let component = self.local_component(&task.plugin);
         let outcome = self
             .kernel
             .invoke(&task.plugin, &task.input, task.timeout_ms)
@@ -1215,6 +1839,7 @@ impl Dispatcher {
             .map(|bytes| ReplicaBytes {
                 bytes,
                 observed_policy_hash: envelope.recompute_hash(),
+                component,
             })
             .map_err(DispatchError::from);
         ReplicaResult {
@@ -1224,6 +1849,15 @@ impl Dispatcher {
         }
     }
 
+    /// BLAKE3 of the artifact this node's kernel would run for `plugin`
+    /// (the version answering for it after a hot reload).
+    fn local_component(&self, plugin: &entangle_types::plugin_id::PluginId) -> Option<[u8; 32]> {
+        let source = self.kernel.loaded_source(&self.kernel.resolve(plugin)?)?;
+        let mut digest = [0u8; 32];
+        hex::decode_to_slice(&source.artifact_digest, &mut digest).ok()?;
+        Some(digest)
+    }
+
     /// One replica on `peer`. Only called when a transport is configured.
     async fn remote_replica(
         &self,
@@ -1231,31 +1865,144 @@ impl Dispatcher {
         peer: PeerId,
         envelope: &PolicyEnvelope,
     ) -> ReplicaResult {
-        let outcome = match &self.remote {
+        self.remote_attempt(task, peer, envelope).await.0
+    }
+
+    /// One attempt on `peer`, with why its failure may be retried.
+    async fn remote_attempt(
+        &self,
+        task: &OneShotTask,
+        peer: PeerId,
+        envelope: &PolicyEnvelope,
+    ) -> (ReplicaResult, Option<RetryCause>) {
+        let (outcome, cause) = match &self.remote {
             Some(remote) => {
-                let (raw, transport) = remote.dispatch_sealed_routed(task, peer, envelope).await;
+                let attempt = remote.dispatch_attempt(task, peer, envelope).await;
                 if let Some(reg) = &self.metrics {
                     catalog::remote_dispatch(
                         reg,
-                        &remote_outcome(&raw),
-                        crate::transport::TransportKind::label(transport),
+                        &remote_outcome(&attempt.result),
+                        crate::transport::TransportKind::label(attempt.transport),
                     );
                 }
-                raw.map(|r| ReplicaBytes {
-                    bytes: r.output,
-                    observed_policy_hash: r.observed_policy_hash,
-                })
+                (
+                    attempt.result.map(|r| ReplicaBytes {
+                        bytes: r.output,
+                        observed_policy_hash: r.observed_policy_hash,
+                        component: r.component,
+                    }),
+                    attempt.cause,
+                )
             }
-            None => Err(DispatchError::RemoteNotImplemented {
-                peer,
-                reason: "no mesh transport configured".into(),
-            }),
+            None => (
+                Err(DispatchError::RemoteNotImplemented {
+                    peer,
+                    reason: "no mesh transport configured".into(),
+                }),
+                None,
+            ),
         };
-        ReplicaResult {
-            peer,
-            remote: true,
-            outcome,
+        (
+            ReplicaResult {
+                peer,
+                remote: true,
+                outcome,
+            },
+            cause,
+        )
+    }
+}
+
+/// What every slot of one task shares.
+struct SlotCtx {
+    task: Arc<OneShotTask>,
+    envelope: Arc<PolicyEnvelope>,
+    /// No retry starts after this: the first attempt plus `timeout_ms`.
+    deadline: Instant,
+    /// Whether the task has several replicas (a retry then never goes back
+    /// to the worker it left).
+    replicated: bool,
+    /// Every worker holding (or that held) a replica of the task, across
+    /// all its slots: no retry or backup copy goes to one.
+    holders: Arc<parking_lot::Mutex<HashSet<PeerId>>>,
+    /// When to start a backup copy of a slow attempt, if at all.
+    threshold: Option<Duration>,
+}
+
+/// An attempt in flight.
+struct Running {
+    peer: PeerId,
+    task_id: TaskId,
+    kind: AttemptKind,
+    started: Instant,
+    /// Its index in the slot's attempts.
+    attempt: usize,
+}
+
+/// What an attempt's task returns.
+type AttemptDone = (ReplicaResult, Option<RetryCause>, Duration);
+
+/// A slot's result: the replica to judge and every attempt made for it.
+struct SlotResult {
+    replica: ReplicaResult,
+    attempts: Vec<Attempt>,
+}
+
+/// Whether `replica` passes the guards acceptance applies first: it has an
+/// output, within `max_output_bytes`, and echoes the dispatched policy hash.
+fn is_valid(replica: &ReplicaResult, ctx: &SlotCtx) -> bool {
+    matches!(&replica.outcome, Ok(out)
+        if out.bytes.len() as u64 <= ctx.task.max_output_bytes
+            && out.observed_policy_hash == ctx.envelope.hash())
+}
+
+/// The penalty acceptance applies to `replica`, if any: an oversized output
+/// or a policy-hash mismatch.
+fn discarded_penalty(replica: &ReplicaResult, ctx: &SlotCtx) -> Option<ReputationReason> {
+    match &replica.outcome {
+        Ok(out) if out.bytes.len() as u64 > ctx.task.max_output_bytes => {
+            Some(ReputationReason::OversizedOutput)
         }
+        Ok(out) if out.observed_policy_hash != ctx.envelope.hash() => {
+            Some(ReputationReason::PolicyHashMismatch)
+        }
+        Err(DispatchError::OutputSizeExceeded(_)) => Some(ReputationReason::OversizedOutput),
+        _ => None,
+    }
+}
+
+/// One line on why `replica` is not usable.
+fn describe_failure(replica: &ReplicaResult) -> String {
+    match &replica.outcome {
+        Err(e) => e.to_string(),
+        Ok(out) => format!(
+            "answered with {} bytes that do not pass the output-size or policy-hash guard",
+            out.bytes.len()
+        ),
+    }
+}
+
+/// The attempt record of a replica run on this node's kernel.
+fn local_attempt(slot: usize, replica: &ReplicaResult, task_id: TaskId, took: Duration) -> Attempt {
+    Attempt {
+        replica: slot,
+        peer: replica.peer,
+        remote: false,
+        task_id,
+        kind: AttemptKind::First,
+        outcome: match &replica.outcome {
+            Ok(_) => AttemptOutcome::Used,
+            Err(e) => AttemptOutcome::Failed(e.to_string()),
+        },
+        elapsed: took,
+    }
+}
+
+/// Sleep until `at`, or forever without one.
+async fn sleep_until_opt(at: Option<Instant>) {
+    match at {
+        Some(at) => tokio::time::sleep_until(tokio::time::Instant::from_std(at)).await,
+        None => std::future::pending().await,
     }
 }
 

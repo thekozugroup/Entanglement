@@ -219,6 +219,11 @@ pub enum LinkError {
     /// The connection was up and the request may have reached the peer.
     /// Never retried elsewhere.
     Transport(String),
+    /// The link's own per-request timeout ran out after the request was
+    /// sent: the peer may well be alive and still running it (a task that
+    /// is merely slow). Never retried elsewhere; a scheduler retry treats it
+    /// as a timeout, not as a lost peer ([`crate::retry`]).
+    TimedOut(String),
 }
 
 /// Builds the bytes of one request for one attempt: called by the link
@@ -915,6 +920,15 @@ impl TransportRouter {
                         peer,
                         transport: kind,
                         reason,
+                        timed_out: false,
+                    })
+                }
+                Err(LinkError::TimedOut(reason)) => {
+                    return Err(RouteError::Failed {
+                        peer,
+                        transport: kind,
+                        reason,
+                        timed_out: true,
                     })
                 }
             }
@@ -1003,13 +1017,14 @@ impl TransportRouter {
                         .to_string(),
                     ));
                 }
-                Err(LinkError::Transport(reason)) => {
+                Err(LinkError::Transport(reason)) | Err(LinkError::TimedOut(reason)) => {
                     self.count_stream("transport_error", Some(kind));
                     return Err(StreamError::Transport(
                         RouteError::Failed {
                             peer,
                             transport: kind,
                             reason,
+                            timed_out: false,
                         }
                         .to_string(),
                     ));

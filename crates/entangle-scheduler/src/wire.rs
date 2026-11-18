@@ -81,6 +81,18 @@ pub const TRACE_EXTENSION_TAG: u8 = 0xE1;
 /// most [`crate::capability::MAX_TOKEN_BYTES`]).
 pub const CAPABILITY_EXTENSION_TAG: u8 = 0xE2;
 
+/// Tag of the executed-component extension (spec §7.5 `TrustedExecutor`:
+/// "the work unit's signed component CID is recorded with the result").
+///
+/// On a **task frame** the tag alone (no payload) asks the executor to
+/// report which component it ran; on an `Ok` **response** it is followed by
+/// the 32-byte BLAKE3 digest of the component artifact the executor
+/// resolved the plugin id to. A frame without it is byte for byte a plain
+/// v2 frame. An executor that predates the block refuses a frame carrying
+/// it as malformed (trailing bytes); the submitter then resends without it,
+/// as for the trace block, and records no digest.
+pub const COMPONENT_EXTENSION_TAG: u8 = 0xE3;
+
 /// The most bytes a capability-token extension block adds to a task frame:
 /// the tag, the token's length prefix (a postcard varint, at most 5 bytes)
 /// and a token of [`crate::capability::MAX_TOKEN_BYTES`].
@@ -165,9 +177,27 @@ pub enum ControlAction {
         /// `SHA-256(policy)`.
         policy_hash: PolicyHash,
     },
+    /// Stop executing the task: the submitter no longer needs its result
+    /// (another copy already answered — speculative execution, spec §7.6).
+    ///
+    /// Answered with [`RemoteOutcome::Ack`] when the task was executing
+    /// here (it is stopped at its next await point and its own frame is
+    /// answered [`RemoteErrorCode::Cancelled`]), and with
+    /// [`RemoteErrorCode::UnknownTask`] when it was not (already finished,
+    /// or never arrived). Like every control frame it only ever addresses
+    /// the sending peer's own tasks and never executes anything.
+    Cancel,
 }
 
 impl ControlFrame {
+    /// A `Cancel` frame for `task_id`.
+    pub fn cancel(task_id: TaskId) -> Self {
+        Self {
+            task_id: *task_id.as_bytes(),
+            action: ControlAction::Cancel,
+        }
+    }
+
     /// A `SetPolicy` frame for `task_id` proposing `envelope`'s policy.
     pub fn set_policy(task_id: TaskId, envelope: &PolicyEnvelope) -> Self {
         Self {
@@ -232,6 +262,13 @@ pub struct RemoteTaskRequest {
     /// before anything else ([`crate::capability::CapabilityGate`]).
     #[serde(skip)]
     pub capability: Option<Vec<u8>>,
+    /// Ask the executor to report the digest of the component it ran
+    /// ([`COMPONENT_EXTENSION_TAG`]).
+    ///
+    /// **Not part of the postcard envelope** (`serde(skip)`): it travels as
+    /// the tag alone, after the envelope.
+    #[serde(skip)]
+    pub report_component: bool,
 }
 
 impl RemoteTaskRequest {
@@ -248,7 +285,15 @@ impl RemoteTaskRequest {
             policy_hash: envelope.hash(),
             traceparent: None,
             capability: None,
+            report_component: false,
         }
+    }
+
+    /// Ask the executor to report the digest of the component it ran.
+    #[must_use]
+    pub fn with_component_report(mut self, report: bool) -> Self {
+        self.report_component = report;
+        self
     }
 
     /// Attach the submitter's W3C `traceparent`.
@@ -273,9 +318,24 @@ pub struct RemoteTaskResponse {
     pub v: u16,
     /// Success payload or structured failure.
     pub outcome: RemoteOutcome,
+    /// BLAKE3 of the component artifact that produced an `Ok` output, when
+    /// the request asked for it ([`COMPONENT_EXTENSION_TAG`]). A claim by
+    /// the executor, recorded for audit; it decides nothing.
+    ///
+    /// **Not part of the postcard envelope** (`serde(skip)`).
+    #[serde(skip)]
+    pub component: Option<[u8; 32]>,
 }
 
 impl RemoteTaskResponse {
+    /// Attach the executed component's digest (only an `Ok` response
+    /// carries it on the wire).
+    #[must_use]
+    pub fn with_component(mut self, component: Option<[u8; 32]>) -> Self {
+        self.component = component;
+        self
+    }
+
     /// A successful task response at the current [`WIRE_VERSION`], echoing
     /// the policy hash the executor observed.
     pub fn ok(output: Vec<u8>, observed_policy_hash: PolicyHash) -> Self {
@@ -285,6 +345,7 @@ impl RemoteTaskResponse {
                 output,
                 observed_policy_hash,
             },
+            component: None,
         }
     }
 
@@ -296,6 +357,7 @@ impl RemoteTaskResponse {
                 task_id,
                 observed_policy_hash,
             },
+            component: None,
         }
     }
 
@@ -307,6 +369,7 @@ impl RemoteTaskResponse {
                 code,
                 message: message.into(),
             },
+            component: None,
         }
     }
 }
@@ -384,6 +447,13 @@ pub enum RemoteErrorCode {
     /// `E0463`, `E0412`; the message says which check failed). **No work
     /// was done.**
     CapabilityRejected,
+    /// The submitter cancelled the task with a [`ControlAction::Cancel`]
+    /// frame while it ran; it produced no output.
+    Cancelled,
+    /// The task frame's policy is `Deterministic` and this executor's copy
+    /// of the plugin declares non-determinism (`ENTANGLE-E0470`, spec
+    /// §7.5). **No work was done.**
+    Nondeterministic,
 }
 
 impl RemoteErrorCode {
@@ -404,6 +474,8 @@ impl RemoteErrorCode {
             Self::DuplicateTask => "duplicate-task",
             Self::CapabilityRequired => "capability-required",
             Self::CapabilityRejected => "capability-rejected",
+            Self::Cancelled => "cancelled",
+            Self::Nondeterministic => "nondeterministic",
         }
     }
 }
@@ -476,6 +548,11 @@ pub fn encode_request(req: &RemoteRequest) -> Result<Vec<u8>, WireError> {
                 );
             }
         }
+        if task.report_component {
+            bytes.push(COMPONENT_EXTENSION_TAG);
+        }
+        // The capability block is always the last one (see
+        // `append_capability`).
         if let Some(token) = &task.capability {
             append_capability(&mut bytes, token)?;
         }
@@ -519,8 +596,21 @@ pub fn append_capability(frame: &mut Vec<u8>, token: &[u8]) -> Result<(), WireEr
 }
 
 /// Encode a response, refusing anything that could not be sent as one frame.
+/// An `Ok` response with a [`RemoteTaskResponse::component`] carries it as
+/// the [`COMPONENT_EXTENSION_TAG`] block.
 pub fn encode_response(resp: &RemoteTaskResponse) -> Result<Vec<u8>, WireError> {
-    encode(resp)
+    let mut bytes = encode(resp)?;
+    if let (RemoteOutcome::Ok { .. }, Some(digest)) = (&resp.outcome, &resp.component) {
+        if bytes.len() + 33 > MAX_FRAME_BYTES {
+            return Err(WireError::FrameTooLarge {
+                actual: bytes.len() + 33,
+                max: MAX_FRAME_BYTES,
+            });
+        }
+        bytes.push(COMPONENT_EXTENSION_TAG);
+        bytes.extend_from_slice(digest);
+    }
+    Ok(bytes)
 }
 
 fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, WireError> {
@@ -561,6 +651,10 @@ pub fn decode_request(bytes: &[u8]) -> Result<RemoteRequest, WireError> {
                     return Err(WireError::Malformed("trace extension too long".into()));
                 }
                 task.traceparent = Some(tp);
+                rest = after;
+            }
+            [COMPONENT_EXTENSION_TAG, after @ ..] if !task.report_component => {
+                task.report_component = true;
                 rest = after;
             }
             [CAPABILITY_EXTENSION_TAG, ext @ ..] if task.capability.is_none() => {
@@ -626,7 +720,7 @@ pub fn decode_response(
     bytes: &[u8],
     max_output_bytes: u64,
 ) -> Result<RemoteTaskResponse, WireError> {
-    let (resp, rest) = decode_prefix::<RemoteTaskResponse>(bytes)?;
+    let (mut resp, mut rest) = decode_prefix::<RemoteTaskResponse>(bytes)?;
     if let RemoteOutcome::Ok { output, .. } = &resp.outcome {
         let actual = output.len() as u64;
         if actual > max_output_bytes {
@@ -634,6 +728,16 @@ pub fn decode_response(
                 declared: max_output_bytes,
                 actual,
             });
+        }
+        // The executed-component block: exactly 32 bytes, at most once.
+        if let [COMPONENT_EXTENSION_TAG, after @ ..] = rest {
+            let (digest, after) = after
+                .split_at_checked(32)
+                .ok_or_else(|| WireError::Malformed("truncated executed-component block".into()))?;
+            let mut component = [0u8; 32];
+            component.copy_from_slice(digest);
+            resp.component = Some(component);
+            rest = after;
         }
     }
     reject_trailing(rest)?;
@@ -685,6 +789,66 @@ fn decode_prefix<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<(T, &[u8]
     }
 
     postcard::take_from_bytes::<T>(bytes).map_err(|e| WireError::Malformed(format!("decode: {e}")))
+}
+
+#[cfg(test)]
+mod component_tests {
+    use super::*;
+    use crate::work_unit::PolicyHash;
+
+    /// The executed-component block round-trips on both frames, is absent
+    /// unless asked for, and cannot be smuggled onto a refusal or repeated.
+    #[test]
+    fn the_component_block_round_trips_and_is_bounded() {
+        let task: OneShotTask = OneShotTask::with_defaults(
+            "0123456789abcdef0123456789abcdef/demo@1.0.0"
+                .parse()
+                .expect("id"),
+            b"x".to_vec(),
+        );
+        let env = PolicyEnvelope::seal(&task.integrity).expect("seal");
+        let plain = encode_request(&RemoteRequest::task(RemoteTaskRequest::sealed(&task, &env)))
+            .expect("encode");
+        let asking = encode_request(&RemoteRequest::task(
+            RemoteTaskRequest::sealed(&task, &env).with_component_report(true),
+        ))
+        .expect("encode");
+        assert_eq!(asking.len(), plain.len() + 1);
+        assert_eq!(
+            asking[..plain.len()],
+            plain[..],
+            "an extension follows the v2 frame"
+        );
+        let RequestFrame::Task(t) = decode_request(&asking).expect("decode").frame else {
+            panic!("task frame")
+        };
+        assert!(t.report_component);
+        let mut twice = asking.clone();
+        twice.push(COMPONENT_EXTENSION_TAG);
+        assert!(decode_request(&twice).is_err(), "at most once");
+
+        let ok = RemoteTaskResponse::ok(b"out".to_vec(), PolicyHash([1; 32]))
+            .with_component(Some([7; 32]));
+        let bytes = encode_response(&ok).expect("encode");
+        let back = decode_response(&bytes, 16).expect("decode");
+        assert_eq!(back.component, Some([7; 32]));
+        assert_eq!(back, ok);
+        assert!(
+            decode_response(&bytes[..bytes.len() - 1], 16).is_err(),
+            "a truncated digest is malformed"
+        );
+        let refusal =
+            RemoteTaskResponse::err(RemoteErrorCode::Execution, "no").with_component(Some([7; 32]));
+        let bytes = encode_response(&refusal).expect("encode");
+        assert_eq!(decode_response(&bytes, 16).expect("decode").component, None);
+        let mut smuggled = bytes.clone();
+        smuggled.push(COMPONENT_EXTENSION_TAG);
+        smuggled.extend_from_slice(&[7; 32]);
+        assert!(
+            decode_response(&smuggled, 16).is_err(),
+            "only after an Ok outcome"
+        );
+    }
 }
 
 #[cfg(test)]

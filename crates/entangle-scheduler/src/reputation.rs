@@ -116,6 +116,12 @@ pub enum ReputationReason {
     /// output that an independent tie-breaking re-run then reproduced: it
     /// lost the tie.
     SpotCheckDissent,
+    /// As a stream executor, it stopped producing while it held credit —
+    /// after delivering at least half of the stream's expected output, or
+    /// not for the first time (spec §7.1 stall blame: "a peer that
+    /// consistently stalls after 50% completion is reputation-downranked
+    /// separately from peers that fail-fast").
+    StalledStream,
 }
 
 impl ReputationReason {
@@ -130,6 +136,7 @@ impl ReputationReason {
             Self::StreamProtocolViolation => "stream-protocol-violation",
             Self::SpotCheckMismatch => "spot-check-mismatch",
             Self::SpotCheckDissent => "spot-check-dissent",
+            Self::StalledStream => "stalled-stream",
         }
     }
 }
@@ -160,7 +167,16 @@ impl Default for PeerRecord {
 pub struct ReputationStore {
     alpha: f64,
     records: RwLock<HashMap<(PeerId, PolicyKind), PeerRecord>>,
+    /// Recent stream stalls per executor ([`ReputationStore::note_stall`]).
+    stalls: parking_lot::Mutex<HashMap<PeerId, std::collections::VecDeque<std::time::Instant>>>,
 }
+
+/// How long a stream stall counts towards "stalls repeatedly".
+pub const STALL_WINDOW: std::time::Duration = std::time::Duration::from_secs(3600);
+
+/// Executors whose recent stalls are remembered; beyond it the store
+/// forgets the peer whose latest stall is oldest.
+pub const STALL_PEERS: usize = 4096;
 
 impl Default for ReputationStore {
     fn default() -> Self {
@@ -185,7 +201,36 @@ impl ReputationStore {
         Self {
             alpha,
             records: RwLock::new(HashMap::new()),
+            stalls: parking_lot::Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Note that `peer` stalled a stream at `now`; returns how many stalls
+    /// of it fall within [`STALL_WINDOW`], this one included. Bounded:
+    /// at most 64 stalls per peer and [`STALL_PEERS`] peers are kept.
+    pub fn note_stall(&self, peer: &PeerId, now: std::time::Instant) -> usize {
+        let mut stalls = self.stalls.lock();
+        if !stalls.contains_key(peer) && stalls.len() >= STALL_PEERS {
+            let oldest = stalls
+                .iter()
+                .min_by_key(|(_, at)| at.back().copied())
+                .map(|(p, _)| *p);
+            if let Some(p) = oldest {
+                stalls.remove(&p);
+            }
+        }
+        let at = stalls.entry(*peer).or_default();
+        while at
+            .front()
+            .is_some_and(|t| now.saturating_duration_since(*t) > STALL_WINDOW)
+        {
+            at.pop_front();
+        }
+        if at.len() >= 64 {
+            at.pop_front();
+        }
+        at.push_back(now);
+        at.len()
     }
 
     /// How many observed peers sit in each tier, per policy kind: one entry

@@ -298,6 +298,8 @@ async fn scrape_after_real_activity_has_the_expected_families() {
             gpu_required: false,
             gpu_vram_min_bytes: 0,
             integrity: ComputeIntegrity::None,
+            max_output_bytes: None,
+            max_attempts: None,
         })
         .await
         .expect("dispatch");

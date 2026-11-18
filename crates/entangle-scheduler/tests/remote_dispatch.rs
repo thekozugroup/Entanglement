@@ -150,11 +150,16 @@ struct Node {
 impl Node {
     /// Start a node whose kernel trusts `publisher` but has nothing loaded.
     async fn start(publisher: &IdentityKeyPair) -> Self {
+        Self::start_with(publisher, loopback_config()).await
+    }
+
+    /// [`Node::start`] with its endpoint configured by `config`.
+    async fn start_with(publisher: &IdentityKeyPair, config: MeshIrohConfig) -> Self {
         let identity = IdentityKeyPair::generate();
         let kernel =
             Arc::new(Kernel::new(KernelConfig::default(), keyring_for(publisher)).expect("kernel"));
         let transport = Arc::new(
-            MeshIroh::start(loopback_config(), &identity)
+            MeshIroh::start(config, &identity)
                 .await
                 .expect("loopback endpoint must bind"),
         );
@@ -181,8 +186,13 @@ impl Node {
 
     /// Load the hello-pong fixture into this node's kernel.
     async fn load_hello_pong(&mut self, publisher: &IdentityKeyPair) -> PluginId {
+        self.load_wasm(publisher, &hello_pong_wasm()).await
+    }
+
+    /// Load `wasm` into this node's kernel.
+    async fn load_wasm(&mut self, publisher: &IdentityKeyPair, wasm: &[u8]) -> PluginId {
         let dir = tempfile::tempdir().expect("tempdir");
-        let plugin_id = write_plugin_package(dir.path(), publisher, &hello_pong_wasm());
+        let plugin_id = write_plugin_package(dir.path(), publisher, wasm);
         self.kernel
             .load_plugin_from_dir(dir.path())
             .await
@@ -272,6 +282,7 @@ fn task_for(plugin: PluginId, input: &[u8]) -> OneShotTask {
         resources: ResourceSpec::default(),
         integrity: IntegrityPolicy::None,
         timeout_ms: 10_000,
+        retry: Default::default(),
     }
 }
 
@@ -779,6 +790,63 @@ async fn an_unreachable_peer_fails_with_a_typed_error_under_a_deadline() {
         "must fail fast, took {:?}",
         started.elapsed()
     );
+}
+
+/// `spin:<ms>` busy-loops for that long, then echoes.
+const STRESS_WASM: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../entangle-host/tests/fixtures/stress.wasm"
+);
+
+/// A task still running when the **transport's own per-request timeout**
+/// cuts its request (iroh's `request_timeout`, here 400 ms, well inside the
+/// task's 10 s) is not a lost worker: the worker is alive and still running
+/// it. The failure is final, like any timeout (spec §7.6 retry rule) — it
+/// is neither retried on the same worker under a fresh id, which would run
+/// the task several times at once there, nor counted as `lost_after_send`.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_transport_request_timeout_is_final_and_never_retried() {
+    let publisher = IdentityKeyPair::generate();
+    let node_a = Node::start_with(
+        &publisher,
+        MeshIrohConfig {
+            request_timeout: Duration::from_millis(400),
+            ..loopback_config()
+        },
+    )
+    .await;
+    let mut node_b = Node::start(&publisher).await;
+    let stress = std::fs::read(STRESS_WASM).expect("stress fixture");
+    let plugin_id = node_b.load_wasm(&publisher, &stress).await;
+    let server = node_b.serve(StaticAllowlist::new().allow(node_a.peer_id));
+
+    let registry = Registry::new();
+    let dispatcher = dispatcher_for(&node_a, &node_b).with_metrics(registry.clone());
+    let mut task = task_for(plugin_id, b"spin:3000");
+    task.retry = entangle_types::task::RetryPolicy {
+        max_attempts: 3,
+        backoff_ms: 10,
+        max_backoff_ms: 10,
+    };
+    let err = deadline("dispatch", dispatcher.dispatch_one_shot(task))
+        .await
+        .expect_err("the transport cut the request at 400 ms");
+    // Only the first copy ever reached B: one execution in flight there.
+    let running = server.in_flight_len();
+    match &err {
+        DispatchError::RemoteTransport { reason, .. } => {
+            assert!(reason.contains("timed out"), "{reason}");
+        }
+        other => panic!("expected the transport's timeout, got {other:?}"),
+    }
+    let retries = registry
+        .value(
+            names::SCHEDULER_RETRIES,
+            &[("kind", "one_shot"), ("cause", "lost_after_send")],
+        )
+        .unwrap_or(0.0);
+    assert_eq!(retries, 0.0, "a timeout is not a lost worker: not retried");
+    assert_eq!(running, 1, "B runs the task once, not once per retry");
 }
 
 /// Placement picks a peer this node has no address for. That is a typed

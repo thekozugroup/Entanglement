@@ -76,19 +76,35 @@ impl WorkerInfo {
 }
 
 /// Worker pool with TTL-based liveness.
+///
+/// The pool also keeps the round-trip times this node **measured** to its
+/// workers ([`WorkerPool::set_measured_rtt`], fed by
+/// [`RttProber`](crate::rtt::RttProber)): a measurement younger than
+/// [`MEASURED_RTT_MAX_AGE`] replaces the `rtt_ms` an advertisement carries
+/// (the feeders can only put a constant there — 5 ms on the LAN, 20 ms on
+/// the tailnet), and the constant is used again once there is none. A
+/// probe that got no answer is recorded as the probe timeout, so the
+/// constant stands only for a worker not yet probed.
 #[derive(Clone)]
 pub struct WorkerPool {
     inner: Arc<RwLock<HashMap<PeerId, (WorkerInfo, Instant)>>>,
     /// Hard cap on the number of distinct workers retained. Prevents an
     /// unauthenticated peer from flooding the pool with fresh identities.
     max_workers: usize,
+    /// Measured RTT (ms) per worker, and when it was measured. Only kept
+    /// for workers in the pool, so bounded by `max_workers`.
+    measured: Arc<RwLock<HashMap<PeerId, (u32, Instant)>>>,
 }
+
+/// How long a measured round-trip time stands in for the advertised one.
+pub const MEASURED_RTT_MAX_AGE: Duration = Duration::from_secs(10 * 60);
 
 impl Default for WorkerPool {
     fn default() -> Self {
         Self {
             inner: Arc::new(RwLock::new(HashMap::new())),
             max_workers: Self::DEFAULT_MAX_WORKERS,
+            measured: Arc::default(),
         }
     }
 }
@@ -107,7 +123,41 @@ impl WorkerPool {
         Self {
             inner: Arc::new(RwLock::new(HashMap::new())),
             max_workers,
+            measured: Arc::default(),
         }
+    }
+
+    /// Record a measured round-trip time to `peer` (a pool member): its
+    /// entry's `rtt_ms` becomes it now, and every later advertisement of
+    /// the peer is corrected to it while it is younger than
+    /// [`MEASURED_RTT_MAX_AGE`]. The entry's liveness is not refreshed (a
+    /// probe answer is not an advertisement). Returns whether `peer` is in
+    /// the pool.
+    pub fn set_measured_rtt(&self, peer: &PeerId, rtt: Duration) -> bool {
+        let ms = u32::try_from(rtt.as_millis()).unwrap_or(u32::MAX).max(1);
+        let mut inner = self.inner.write();
+        let Some((info, _)) = inner.get_mut(peer) else {
+            return false;
+        };
+        info.rtt_ms = ms;
+        self.measured.write().insert(*peer, (ms, Instant::now()));
+        true
+    }
+
+    /// Forget the measured round-trip time to `peer` (its probes stopped
+    /// answering): its advertisements' own `rtt_ms` applies again from the
+    /// next one.
+    pub fn clear_measured_rtt(&self, peer: &PeerId) {
+        self.measured.write().remove(peer);
+    }
+
+    /// The measured round-trip time to `peer`, in ms, if it is recent.
+    pub fn measured_rtt(&self, peer: &PeerId) -> Option<u32> {
+        self.measured
+            .read()
+            .get(peer)
+            .filter(|(_, at)| at.elapsed() < MEASURED_RTT_MAX_AGE)
+            .map(|(ms, _)| *ms)
     }
 
     /// Insert or refresh a worker, returning whether the pool was updated.
@@ -123,6 +173,10 @@ impl WorkerPool {
         if info.validate().is_err() {
             return false;
         }
+        let mut info = info;
+        if let Some(ms) = self.measured_rtt(&info.peer_id) {
+            info.rtt_ms = ms;
+        }
         let mut guard = self.inner.write();
         if !guard.contains_key(&info.peer_id) && guard.len() >= self.max_workers {
             return false;
@@ -133,6 +187,7 @@ impl WorkerPool {
 
     /// Remove a worker (peer revoked, network gone, etc.).
     pub fn remove(&self, peer_id: &PeerId) -> Option<WorkerInfo> {
+        self.measured.write().remove(peer_id);
         self.inner.write().remove(peer_id).map(|(info, _)| info)
     }
 
@@ -176,6 +231,9 @@ impl WorkerPool {
         let mut guard = self.inner.write();
         let before = guard.len();
         guard.retain(|_, (_, ts)| now.duration_since(*ts) < ttl);
+        self.measured
+            .write()
+            .retain(|peer, _| guard.contains_key(peer));
         before - guard.len()
     }
 }
@@ -183,6 +241,36 @@ impl WorkerPool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_measured_rtt_overrides_the_advertised_constant_until_cleared() {
+        let pool = WorkerPool::new();
+        let p = make_peer(9);
+        assert!(
+            !pool.set_measured_rtt(&p, Duration::from_millis(40)),
+            "not a member"
+        );
+        let mut advert = make_worker(p);
+        advert.rtt_ms = 5;
+        pool.upsert(advert.clone());
+        assert!(pool.set_measured_rtt(&p, Duration::from_millis(40)));
+        assert_eq!(pool.live(Duration::MAX)[0].rtt_ms, 40);
+        // The next advertisement still carries the constant: corrected.
+        pool.upsert(advert.clone());
+        assert_eq!(pool.live(Duration::MAX)[0].rtt_ms, 40);
+        assert_eq!(pool.measured_rtt(&p), Some(40));
+        pool.clear_measured_rtt(&p);
+        pool.upsert(advert);
+        assert_eq!(
+            pool.live(Duration::MAX)[0].rtt_ms,
+            5,
+            "back to the advertised value"
+        );
+        // Leaving the pool forgets the measurement.
+        pool.set_measured_rtt(&p, Duration::from_millis(7));
+        pool.remove(&p);
+        assert_eq!(pool.measured_rtt(&p), None);
+    }
 
     fn make_peer(byte: u8) -> PeerId {
         PeerId::from_public_key_bytes(&[byte; 32])
