@@ -9,6 +9,7 @@
 #![warn(missing_docs)]
 
 pub mod adapters;
+pub mod builtin;
 pub mod errors;
 pub mod gateway;
 mod http_downstream;
@@ -18,6 +19,7 @@ pub use adapters::{
     find_adapter, known_adapter_names, registry, Adapter, ConfigFormat, LaunchPlan, McpServerSpec,
     SandboxPaths, Snapshot,
 };
+pub use builtin::{BuiltinServer, EntangleTools, PluginBackend, PluginTool, ENTANGLE_SERVER_NAME};
 pub use errors::{AdapterError, SessionError};
 pub use gateway::{
     generate_bearer_token, AuditDecision, AuditOutcome, AuditRecord, Decision, Gateway,

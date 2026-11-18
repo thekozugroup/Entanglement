@@ -114,6 +114,36 @@ impl Adapter for CodexAdapter {
             .collect())
     }
 
+    fn with_extra_server(&self, original: &Snapshot, name: &str) -> Result<Snapshot, AdapterError> {
+        let mut doc: toml::Value = if original.original_bytes.is_empty() {
+            toml::Value::Table(toml::map::Map::new())
+        } else {
+            let s = std::str::from_utf8(&original.original_bytes)
+                .map_err(|e| AdapterError::Parse(e.to_string()))?;
+            toml::from_str(s).map_err(|e| AdapterError::Parse(e.to_string()))?
+        };
+        let servers = doc
+            .as_table_mut()
+            .ok_or_else(|| AdapterError::Parse("not a table".into()))?
+            .entry("mcp_servers".to_string())
+            .or_insert_with(|| toml::Value::Table(toml::map::Map::new()))
+            .as_table_mut()
+            .ok_or_else(|| AdapterError::Parse("mcp_servers not a table".into()))?;
+        // Placeholder: replaced by the gateway route in the rewrite.
+        let mut entry = toml::map::Map::new();
+        entry.insert(
+            "url".into(),
+            toml::Value::String("http://127.0.0.1/".into()),
+        );
+        servers.insert(name.to_owned(), toml::Value::Table(entry));
+        Ok(Snapshot {
+            original_bytes: toml::to_string(&doc)
+                .map_err(|e| AdapterError::Parse(e.to_string()))?
+                .into_bytes(),
+            format: original.format,
+        })
+    }
+
     fn rewrite_for_gateway(
         &self,
         original: &Snapshot,

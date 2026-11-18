@@ -128,6 +128,31 @@ impl Adapter for ClaudeCodeAdapter {
             .unwrap_or_default())
     }
 
+    fn with_extra_server(&self, original: &Snapshot, name: &str) -> Result<Snapshot, AdapterError> {
+        let mut root: Value = if original.original_bytes.is_empty() {
+            json!({})
+        } else {
+            serde_json::from_slice(&original.original_bytes)
+                .map_err(|e| AdapterError::Parse(e.to_string()))?
+        };
+        root.as_object_mut()
+            .ok_or_else(|| AdapterError::Parse("root not an object".into()))?
+            .entry("mcpServers")
+            .or_insert_with(|| json!({}))
+            .as_object_mut()
+            .ok_or_else(|| AdapterError::Parse("mcpServers not an object".into()))?
+            // Placeholder: replaced by the gateway route in the rewrite.
+            .insert(
+                name.to_owned(),
+                json!({"type": "http", "url": "http://127.0.0.1/"}),
+            );
+        Ok(Snapshot {
+            original_bytes: serde_json::to_vec(&root)
+                .map_err(|e| AdapterError::Parse(e.to_string()))?,
+            format: original.format,
+        })
+    }
+
     fn rewrite_for_gateway(
         &self,
         original: &Snapshot,

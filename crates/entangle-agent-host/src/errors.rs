@@ -27,6 +27,13 @@ pub enum SessionError {
     /// The session was used out of order (e.g. launch plan requested before activation).
     #[error("ENTANGLE-E0669: session not activated")]
     NotActivated,
+    /// A built-in gateway server cannot be added to the session because the
+    /// agent's config already declares a server of that name.
+    #[error(
+        "ENTANGLE-E0687: the built-in server name {0:?} is already used by an MCP server in \
+         the agent's config; rename that server or run without the built-in one"
+    )]
+    BuiltinNameTaken(String),
     /// The underlying adapter returned an error.
     #[error("adapter: {0}")]
     Adapter(#[from] AdapterError),

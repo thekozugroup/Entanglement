@@ -99,6 +99,20 @@ pub trait Adapter: Send + Sync {
             .unwrap_or_else(|_| format!("the {} MCP config", self.name()))
     }
 
+    /// A copy of `original` that additionally declares an MCP server called
+    /// `name`, in this agent's own config format, so that
+    /// [`rewrite_for_gateway`](Self::rewrite_for_gateway) emits a gateway
+    /// route for it. Used for servers the gateway implements itself (the
+    /// built-in `entangle` server): the placeholder entry is only ever
+    /// rewritten, never run. Default: not supported.
+    fn with_extra_server(&self, original: &Snapshot, name: &str) -> Result<Snapshot, AdapterError> {
+        let _ = original;
+        Err(AdapterError::Unsupported(format!(
+            "the {} adapter cannot add the gateway's built-in server {name:?} to a session",
+            self.name()
+        )))
+    }
+
     /// Produce the session config: the user's config with **every** MCP
     /// server entry replaced by one pointing at
     /// `<gateway_base_url>/<server-name>`. The bearer token is never written

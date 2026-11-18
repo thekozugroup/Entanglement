@@ -239,6 +239,16 @@ pub enum GatewayError {
     /// `max_in_flight` is zero, so no request could ever be served.
     #[error("ENTANGLE-E0624: max_in_flight must be at least 1")]
     ZeroMaxInFlight,
+    /// A built-in server's route name is also the name of a configured
+    /// downstream server.
+    #[error(
+        "ENTANGLE-E0687: the built-in server name {name:?} is already used by an MCP server \
+         in the agent's config; rename that server or run without the built-in one"
+    )]
+    BuiltinNameTaken {
+        /// The contested route name.
+        name: String,
+    },
     /// A policy pattern has a shape that can never match a call.
     #[error("ENTANGLE-E0625: invalid policy pattern {pattern:?}: {reason}")]
     InvalidPolicyPattern {
@@ -1061,6 +1071,9 @@ struct Downstream {
     max_message: usize,
     /// State of an HTTP (`url`) route; `None` for stdio routes.
     http: Option<HttpRoute>,
+    /// A server implemented in-process (see [`crate::builtin`]); `spec` is
+    /// then a placeholder that is never started.
+    builtin: Option<Arc<dyn crate::builtin::BuiltinServer>>,
 }
 
 /// One HTTP downstream: the validated target (or why it was refused) and the
@@ -1463,7 +1476,27 @@ impl Downstream {
         Ok((p, client_init.map(|_| resp)))
     }
 
+    /// One request to a built-in server: the same per-request timeout and
+    /// reply-size cap as a proxied one.
+    async fn builtin_call(
+        &self,
+        server: &Arc<dyn crate::builtin::BuiltinServer>,
+        msg: Value,
+    ) -> Result<Value, DsError> {
+        let reply = tokio::time::timeout(self.timeout, server.handle(msg, self.timeout))
+            .await
+            .map_err(|_| DsError::Timeout)?;
+        let size = serde_json::to_vec(&reply).map_or(usize::MAX, |b| b.len());
+        if size > self.max_message {
+            return Err(DsError::Oversize(self.max_message));
+        }
+        Ok(reply)
+    }
+
     async fn call(&self, msg: Value) -> Result<Value, DsError> {
+        if let Some(server) = &self.builtin {
+            return self.builtin_call(server, msg).await;
+        }
         if let Some(route) = &self.http {
             return route
                 .unless_closing(self.http_call(route, msg))
@@ -1494,6 +1527,10 @@ impl Downstream {
     }
 
     async fn notify(&self, msg: &Value) {
+        if self.builtin.is_some() {
+            // Built-in servers keep no session state: nothing to notify.
+            return;
+        }
         if let Some(route) = &self.http {
             route.unless_closing(self.http_notify(route, msg)).await;
             return;
@@ -1534,6 +1571,9 @@ impl Downstream {
     }
 
     async fn shutdown(&self) {
+        if self.builtin.is_some() {
+            return;
+        }
         if let Some(route) = &self.http {
             self.http_shutdown(route).await;
             return;
@@ -2110,6 +2150,8 @@ pub struct Gateway {
     max_connections: usize,
     /// See [`Gateway::with_durable_config_hint`].
     durable_config_hint: Option<String>,
+    /// See [`Gateway::with_builtin_server`].
+    builtins: BTreeMap<String, Arc<dyn crate::builtin::BuiltinServer>>,
 }
 
 impl Gateway {
@@ -2127,7 +2169,23 @@ impl Gateway {
             header_read_timeout: Duration::from_secs(30),
             max_connections: 128,
             durable_config_hint: None,
+            builtins: BTreeMap::new(),
         }
+    }
+
+    /// Serve `server` in-process on the route `name` (see
+    /// [`crate::builtin`]). The route gets the same authentication, policy
+    /// hooks, audit, body cap, timeout and reply cap as a proxied server.
+    /// [`Gateway::start`] refuses (`ENTANGLE-E0687`) a name that a
+    /// configured downstream server also uses.
+    #[must_use]
+    pub fn with_builtin_server(
+        mut self,
+        name: impl Into<String>,
+        server: Arc<dyn crate::builtin::BuiltinServer>,
+    ) -> Self {
+        self.builtins.insert(name.into(), server);
+        self
     }
 
     /// Name the durable config file a user edits to add an MCP server
@@ -2223,11 +2281,14 @@ impl Gateway {
         if self.config.max_in_flight == 0 {
             return Err(GatewayError::ZeroMaxInFlight);
         }
+        if let Some(name) = self.builtins.keys().find(|n| self.servers.contains_key(*n)) {
+            return Err(GatewayError::BuiltinNameTaken { name: name.clone() });
+        }
         if let Some(policy) = &self.policy {
             policy.validate()?;
             for pat in policy.allow.iter().chain(&policy.deny) {
                 let known = pat == "*"
-                    || self.servers.keys().any(|n| {
+                    || self.servers.keys().chain(self.builtins.keys()).any(|n| {
                         pat.strip_prefix(n.as_str())
                             .is_some_and(|r| r.starts_with('/'))
                     });
@@ -2262,9 +2323,31 @@ impl Gateway {
                         client_version: Mutex::new(None),
                         max_message: self.max_downstream_message,
                         http: HttpRoute::new(spec),
+                        builtin: None,
                     }),
                 )
             })
+            .chain(self.builtins.iter().map(|(name, server)| {
+                // Never started: `call` dispatches to `builtin` first.
+                let spec = McpServerSpec::Stdio {
+                    command: String::new(),
+                    args: Vec::new(),
+                    env: BTreeMap::new(),
+                };
+                (
+                    name.clone(),
+                    Arc::new(Downstream {
+                        name: name.clone(),
+                        spec,
+                        timeout: self.request_timeout,
+                        proc: tokio::sync::Mutex::new(None),
+                        client_version: Mutex::new(None),
+                        max_message: self.max_downstream_message,
+                        http: None,
+                        builtin: Some(server.clone()),
+                    }),
+                )
+            }))
             .collect();
         let shared = Arc::new(Shared {
             token: self.config.bearer_token.clone().into_bytes(),

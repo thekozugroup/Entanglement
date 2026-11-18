@@ -6,8 +6,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use camino::Utf8PathBuf;
 use clap::{Args, Subcommand};
 use entangle_agent_host::{
-    find_adapter, generate_bearer_token, known_adapter_names, registry, AgentSession, Gateway,
-    GatewayConfig, McpServerSpec, Policy,
+    find_adapter, generate_bearer_token, known_adapter_names, registry, AgentSession,
+    EntangleTools, Gateway, GatewayConfig, McpServerSpec, Policy, ENTANGLE_SERVER_NAME,
 };
 use std::io::IsTerminal;
 use std::path::PathBuf;
@@ -93,6 +93,14 @@ struct RunArgs {
     /// listed and need a `y` at a terminal prompt.
     #[arg(long)]
     trust_project_servers: bool,
+    /// Also give the agent the plugins loaded in the local daemon as MCP
+    /// tools, through a built-in gateway server named `entangle`. Off by
+    /// default. Calls go through the same policy (`--allow` / `--deny`
+    /// patterns such as `entangle/*`), audit, size caps and timeouts as any
+    /// other server, and are run by the daemon (`plugins/invoke`), which
+    /// must be running.
+    #[arg(long)]
+    entangle_tools: bool,
     /// Run the agent WITHOUT the OS sandbox (Linux: Landlock filesystem
     /// allowlist, seccomp socket filter, no_new_privs). The agent can then
     /// read and write every file you can. A warning is printed.
@@ -320,6 +328,30 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
             source = session.source_path(),
         );
     }
+    // The built-in capability server (opt-in). Checked before anything is
+    // started: the daemon must answer, and the name must be free.
+    let entangle_tools = if args.entangle_tools {
+        let backend = crate::cmd::agent_tools::DaemonPlugins::new(
+            crate::cmd::agent_tools::DaemonPlugins::default_socket(),
+        );
+        let loaded = backend.loaded().await.map_err(|e| {
+            anyhow!(
+                "ENTANGLE-E0685: --entangle-tools: {e}. Start the daemon (`entangled`) or run \
+                 without --entangle-tools"
+            )
+        })?;
+        session
+            .add_builtin_server(ENTANGLE_SERVER_NAME)
+            .context("--entangle-tools")?;
+        eprintln!(
+            "entangle tools: {} loaded plugin(s) exposed to the agent as MCP server \
+             '{ENTANGLE_SERVER_NAME}' (policy patterns: {ENTANGLE_SERVER_NAME}/<tool>)",
+            loaded.len()
+        );
+        Some(backend)
+    } else {
+        None
+    };
     let servers = session.servers().clone();
     for (name, spec) in &servers {
         if let Err(why) = entangle_agent_host::gateway::check_downstream(spec) {
@@ -336,17 +368,24 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
     let mut stop = watch_stop_signals()?;
 
     let token = generate_bearer_token();
-    let gateway = Gateway::new(GatewayConfig {
+    let mut gateway = Gateway::new(GatewayConfig {
         bearer_token: token.clone(),
         ..GatewayConfig::default()
-    })
-    .with_servers(servers)
-    .with_policy(Policy {
-        allow: args.allow.clone(),
-        deny: args.deny.clone(),
-    })
-    .with_durable_config_hint(session.durable_config_hint())
-    .with_request_timeout(Duration::from_secs(120));
+    });
+    if let Some(backend) = entangle_tools {
+        gateway = gateway.with_builtin_server(
+            ENTANGLE_SERVER_NAME,
+            std::sync::Arc::new(EntangleTools::new(backend)),
+        );
+    }
+    let gateway = gateway
+        .with_servers(servers)
+        .with_policy(Policy {
+            allow: args.allow.clone(),
+            deny: args.deny.clone(),
+        })
+        .with_durable_config_hint(session.durable_config_hint())
+        .with_request_timeout(Duration::from_secs(120));
     let handle = gateway.start().await.context("starting MCP gateway")?;
 
     let session_id = new_session_id();

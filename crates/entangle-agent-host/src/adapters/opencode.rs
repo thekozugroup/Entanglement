@@ -220,6 +220,25 @@ impl Adapter for OpenCodeAdapter {
         Ok(names)
     }
 
+    fn with_extra_server(&self, original: &Snapshot, name: &str) -> Result<Snapshot, AdapterError> {
+        let mut root = parse_root(original)?;
+        let mut mcp = mcp_entries(&root).map_err(AdapterError::Parse)?;
+        // Placeholder: replaced by the gateway route in the rewrite, where
+        // only servers the adapter reports (enabled ones) stay enabled.
+        mcp.insert(
+            name.to_owned(),
+            json!({"type": "remote", "url": "http://127.0.0.1/", "enabled": true}),
+        );
+        root.as_object_mut()
+            .ok_or_else(|| AdapterError::Parse("root not an object".into()))?
+            .insert("mcp".into(), Value::Object(mcp));
+        Ok(Snapshot {
+            original_bytes: serde_json::to_vec(&root)
+                .map_err(|e| AdapterError::Parse(e.to_string()))?,
+            format: original.format,
+        })
+    }
+
     fn rewrite_for_gateway(
         &self,
         original: &Snapshot,

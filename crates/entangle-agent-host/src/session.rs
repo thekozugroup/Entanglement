@@ -35,6 +35,12 @@ pub struct AgentSession {
     session_dir: Option<Utf8PathBuf>,
     active: Option<LaunchPlan>,
     finished: bool,
+    /// The snapshot with placeholder entries for the gateway's built-in
+    /// servers ([`add_builtin_server`](Self::add_builtin_server)); what the
+    /// session config is generated from. `snapshot` stays the user's
+    /// original, for the unchanged check.
+    rewrite_from: Option<Snapshot>,
+    builtin_servers: Vec<String>,
 }
 
 impl AgentSession {
@@ -72,7 +78,36 @@ impl AgentSession {
             session_dir: None,
             active: None,
             finished: false,
+            rewrite_from: None,
+            builtin_servers: Vec::new(),
         })
+    }
+
+    /// Give the session config a route for a server the gateway implements
+    /// itself (e.g. the built-in `entangle` capability server), next to the
+    /// user's own servers. Call before [`activate`](Self::activate) and
+    /// register the same name with
+    /// [`Gateway::with_builtin_server`](crate::Gateway::with_builtin_server).
+    ///
+    /// Refused with `ENTANGLE-E0687` when the user's config (or another
+    /// config the agent merges) already declares a server of that name.
+    pub fn add_builtin_server(&mut self, name: &str) -> Result<(), SessionError> {
+        if self.servers.contains_key(name)
+            || self.unmediated.contains_key(name)
+            || self.builtin_servers.iter().any(|n| n == name)
+        {
+            return Err(SessionError::BuiltinNameTaken(name.to_owned()));
+        }
+        let base = self.rewrite_from.as_ref().unwrap_or(&self.snapshot);
+        self.rewrite_from = Some(self.adapter.with_extra_server(base, name)?);
+        self.builtin_servers.push(name.to_owned());
+        Ok(())
+    }
+
+    /// The built-in servers added with
+    /// [`add_builtin_server`](Self::add_builtin_server).
+    pub fn builtin_servers(&self) -> &[String] {
+        &self.builtin_servers
     }
 
     /// Write the session-scoped config under `session_dir` pointing every
@@ -97,9 +132,11 @@ impl AgentSession {
     ) -> Result<&LaunchPlan, SessionError> {
         self.active = None;
         self.remove_session_dir();
-        let text = self
-            .adapter
-            .rewrite_for_gateway(&self.snapshot, gateway_base_url, token_env)?;
+        let text = self.adapter.rewrite_for_gateway(
+            self.rewrite_from.as_ref().unwrap_or(&self.snapshot),
+            gateway_base_url,
+            token_env,
+        )?;
         create_private_dir(session_dir)?;
         self.session_dir = Some(session_dir.to_path_buf());
         let plan = match self
