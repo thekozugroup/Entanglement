@@ -258,3 +258,65 @@ fn doctor_reports_the_agent_sandbox() {
     );
     assert!(line.contains("NO filesystem allowlist"), "{line}");
 }
+
+/// Spec §8.3 wrapper item 3: the informational shell-history note. Counts
+/// only — the commands themselves never appear in the output.
+#[test]
+fn doctor_shell_history_note_counts_without_printing_commands() {
+    let home = tempfile::tempdir().unwrap();
+    fs::write(
+        home.path().join(".bash_history"),
+        "ls\nclaude --resume SECRET-SESSION-NAME\nentangle agent run claude-code\n\
+         codex exec 'private prompt text'\nclaude\n",
+    )
+    .unwrap();
+    let line_of = |out: &std::process::Output| {
+        let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+        let line = stdout
+            .lines()
+            .find(|l| l.contains("shell history"))
+            .unwrap_or_else(|| panic!("no shell history line:\n{stdout}"))
+            .to_owned();
+        (stdout, line)
+    };
+    let out = doctor(home.path())
+        .env_remove("HISTFILE")
+        .env_remove("ENTANGLE_DOCTOR_NO_HISTORY")
+        .output()
+        .unwrap();
+    let (stdout, line) = line_of(&out);
+    assert!(
+        line.contains("[ok]"),
+        "informational, not a warning: {line}"
+    );
+    assert!(line.contains("3 of the last 5 history entries"), "{line}");
+    assert!(
+        line.contains("claude: 2") && line.contains("codex: 1"),
+        "{line}"
+    );
+    assert!(line.contains("ENTANGLE_DOCTOR_NO_HISTORY"), "{line}");
+    let all = format!("{stdout}{}", String::from_utf8_lossy(&out.stderr));
+    assert!(!all.contains("SECRET-SESSION-NAME") && !all.contains("private prompt"));
+
+    // Opt-out: the file is not read.
+    let out = doctor(home.path())
+        .env_remove("HISTFILE")
+        .env("ENTANGLE_DOCTOR_NO_HISTORY", "1")
+        .output()
+        .unwrap();
+    let (_, line) = line_of(&out);
+    assert!(
+        line.contains("[skip]") && line.contains("not read"),
+        "{line}"
+    );
+
+    // No history file at all.
+    let empty = tempfile::tempdir().unwrap();
+    let out = doctor(empty.path())
+        .env_remove("HISTFILE")
+        .env_remove("ENTANGLE_DOCTOR_NO_HISTORY")
+        .output()
+        .unwrap();
+    let (_, line) = line_of(&out);
+    assert!(line.contains("no shell history file found"), "{line}");
+}

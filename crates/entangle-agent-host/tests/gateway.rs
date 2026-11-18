@@ -1024,6 +1024,66 @@ async fn allow_list_blocks_unlisted_tools() {
     f.gw.shutdown().await;
 }
 
+/// Spec §8.3: a server that is not in the session config (e.g. one added by
+/// hand to the session's temporary config) is refused, and the error points
+/// at the durable config file to edit.
+#[tokio::test]
+async fn unknown_server_refusal_points_at_the_durable_config() {
+    let token = generate_bearer_token();
+    let gw = Gateway::new(GatewayConfig {
+        bearer_token: token.clone(),
+        ..GatewayConfig::default()
+    })
+    .with_durable_config_hint("~/.claude/settings.json")
+    .start()
+    .await
+    .unwrap();
+    let bearer = format!("Bearer {token}");
+    let body = json!({"jsonrpc":"2.0","id":1,"method":"tools/call",
+                      "params":{"name":"x","arguments":{}}})
+    .to_string();
+    let (status, text) = http(
+        gw.addr,
+        "POST",
+        "/mcp/added%20by%20hand",
+        Some(&bearer),
+        &body,
+    )
+    .await;
+    assert_eq!(status, 404);
+    let v: Value = serde_json::from_str(&text).unwrap();
+    let msg = v["error"]["message"].as_str().unwrap();
+    assert!(
+        msg.starts_with("ENTANGLE-E0668: unknown MCP server \"added by hand\""),
+        "{msg}"
+    );
+    assert!(msg.contains("~/.claude/settings.json"), "{msg}");
+    assert!(msg.contains("entangle agent run"), "{msg}");
+    // A hostile name is quoted and clipped, never echoed raw.
+    let long = "a".repeat(500);
+    let (_, text) = http(
+        gw.addr,
+        "POST",
+        &format!("/mcp/{long}"),
+        Some(&bearer),
+        &body,
+    )
+    .await;
+    assert!(text.len() < 600, "{}", text.len());
+    assert!(text.contains("truncated"), "{text}");
+    gw.shutdown().await;
+
+    // Without a hint the refusal is unchanged in kind.
+    let f = fixture().await;
+    let bearer = format!("Bearer {}", f.token);
+    let (status, text) = http(f.gw.addr, "POST", "/mcp/nope", Some(&bearer), &body).await;
+    assert_eq!(status, 404);
+    assert!(
+        text.contains("ENTANGLE-E0668: unknown MCP server"),
+        "{text}"
+    );
+}
+
 #[tokio::test]
 async fn unknown_server_and_bad_routes() {
     let f = fixture().await;

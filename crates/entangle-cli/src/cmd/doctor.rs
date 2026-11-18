@@ -898,6 +898,63 @@ async fn check_wrappers() -> CheckResult {
 }
 
 // ---------------------------------------------------------------------------
+// Shell-history note (spec §8.3 wrapper item 3)
+// ---------------------------------------------------------------------------
+
+/// Informational: how many recent shell-history entries started an agent
+/// binary directly, outside `entangle agent run`. Never a warning or a
+/// failure, and never prints a command — only counts per binary. Skipped
+/// (without opening any file) when `ENTANGLE_DOCTOR_NO_HISTORY` is set.
+fn check_shell_history() -> CheckResult {
+    use super::shell_history as sh;
+    const NAME: &str = "shell history";
+    if sh::opted_out() {
+        return CheckResult::skip(NAME, format!("not read ({} is set)", sh::OPT_OUT_ENV));
+    }
+    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+        return CheckResult::skip(NAME, "HOME is not set");
+    };
+    let files = sh::history_files(&home);
+    if files.is_empty() {
+        return CheckResult::skip(NAME, "no shell history file found");
+    }
+    let bins: Vec<String> = super::rcblock::hosts_from_adapters()
+        .into_iter()
+        .map(|h| h.binary)
+        .collect();
+    let (count, unreadable) = sh::count_files(&files, &bins);
+    if unreadable == files.len() {
+        return CheckResult::skip(NAME, "the shell history could not be read");
+    }
+    if count.total() == 0 {
+        return CheckResult::ok(
+            NAME,
+            format!(
+                "no agent was started directly in the last {} history entries",
+                count.entries
+            ),
+        );
+    }
+    let per: Vec<String> = count
+        .direct
+        .iter()
+        .map(|(bin, n)| format!("{bin}: {n}"))
+        .collect();
+    CheckResult::ok(
+        NAME,
+        format!(
+            "note: {} of the last {} history entries started an agent directly ({}), outside \
+             `entangle agent run`: those runs had no gateway, audit or sandbox. Informational; \
+             set {}=1 to skip this check",
+            count.total(),
+            count.entries,
+            per.join(", "),
+            sh::OPT_OUT_ENV
+        ),
+    )
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -927,6 +984,7 @@ pub async fn run() -> anyhow::Result<()> {
     results.push(check_clock_skew(daemon_reachable).await);
     results.push(check_tailscale().await);
     results.push(check_wrappers().await);
+    results.push(check_shell_history());
 
     for r in &results {
         print_check(r, color);

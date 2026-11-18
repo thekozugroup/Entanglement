@@ -345,6 +345,7 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
         allow: args.allow.clone(),
         deny: args.deny.clone(),
     })
+    .with_durable_config_hint(session.durable_config_hint())
     .with_request_timeout(Duration::from_secs(120));
     let handle = gateway.start().await.context("starting MCP gateway")?;
 

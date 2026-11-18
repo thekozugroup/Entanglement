@@ -34,6 +34,7 @@ pub mod repro;
 pub mod routes;
 pub mod scaffold;
 pub mod security;
+pub mod shell_history;
 pub mod trace;
 pub mod ui;
 pub mod version;

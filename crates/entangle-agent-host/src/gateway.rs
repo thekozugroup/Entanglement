@@ -1558,9 +1558,26 @@ struct Shared {
     /// Total number of permits in `permits`.
     max_in_flight: u32,
     max_body: usize,
+    durable_config_hint: Option<String>,
 }
 
 impl Shared {
+    /// The `ENTANGLE-E0668` text for a request naming a server that is not
+    /// in the session config.
+    fn unknown_server(&self, seg: &str) -> String {
+        // The name comes from the request path: clipped and debug-quoted.
+        let name = crate::adapters::decode_server_name(seg).unwrap_or_else(|| seg.to_owned());
+        let name = clip(name, 64);
+        match &self.durable_config_hint {
+            Some(hint) => format!(
+                "unknown MCP server {name:?}: it is not in this session's config, and a server \
+                 added to the session's temporary config is not routed. Add it to {hint} and \
+                 start a new session with `entangle agent run`"
+            ),
+            None => format!("unknown MCP server {name:?}"),
+        }
+    }
+
     fn record(&self, mut rec: AuditRecord) {
         // Bounded: AUDIT_CAPACITY records of bounded size.
         rec.tool = clip(rec.tool, AUDIT_TOOL_CAP);
@@ -1672,13 +1689,14 @@ async fn handle_inner(sh: Arc<Shared>, req: Request<Incoming>) -> Response<Full<
     let Some(seg) = req.uri().path().strip_prefix("/mcp/") else {
         return http_error(StatusCode::NOT_FOUND, "ENTANGLE-E0668", "no such route");
     };
-    let ds = crate::adapters::decode_server_name(seg.trim_end_matches('/'))
+    let seg = seg.trim_end_matches('/');
+    let ds = crate::adapters::decode_server_name(seg)
         .and_then(|n| sh.servers.get(&n).cloned().map(|d| (n, d)));
     let Some((name, ds)) = ds else {
         return http_error(
             StatusCode::NOT_FOUND,
             "ENTANGLE-E0668",
-            "unknown MCP server",
+            &sh.unknown_server(seg),
         );
     };
     if req.method() != Method::POST {
@@ -2090,6 +2108,8 @@ pub struct Gateway {
     max_downstream_message: usize,
     header_read_timeout: Duration,
     max_connections: usize,
+    /// See [`Gateway::with_durable_config_hint`].
+    durable_config_hint: Option<String>,
 }
 
 impl Gateway {
@@ -2106,7 +2126,20 @@ impl Gateway {
             max_downstream_message: 64 * 1024 * 1024,
             header_read_timeout: Duration::from_secs(30),
             max_connections: 128,
+            durable_config_hint: None,
         }
+    }
+
+    /// Name the durable config file a user edits to add an MCP server
+    /// (e.g. `~/.claude/settings.json`). A request for a server that is not
+    /// in the session config is refused with `ENTANGLE-E0668` either way;
+    /// with a hint the error says where the durable change belongs (spec
+    /// §8.3: a server added to the session's temporary config by hand is
+    /// not routed).
+    #[must_use]
+    pub fn with_durable_config_hint(mut self, hint: impl Into<String>) -> Self {
+        self.durable_config_hint = Some(hint.into());
+        self
     }
 
     /// Set the downstream servers, keyed by route name.
@@ -2242,6 +2275,7 @@ impl Gateway {
             permits: Arc::new(Semaphore::new(max_in_flight as usize)),
             max_in_flight,
             max_body: self.max_body_bytes,
+            durable_config_hint: self.durable_config_hint.clone(),
         });
 
         let (stop, mut stop_rx) = watch::channel(false);
