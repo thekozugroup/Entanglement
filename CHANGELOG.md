@@ -76,6 +76,10 @@ Distribution and release
 - OCI registry client (token and basic auth, digest and size checks, redirects without leaking credentials); push and pull; `entangle plugins install oci://...`, `plugins publish`, `plugins tags`.
 - Signed, expiring mirror listings with separate mirror keys (ATC-MIR-1/2); `entangle plugins mirror-sign`.
 - Reproducible plugin archives, provenance, `entangle plugins verify --rebuild`; `Cargo.lock` required.
+- `plugins install https://…tar.zst` with a detached `.sig` bound to the plugin id; local `.tar.zst` installs; `entangle pack` and `.entanglepack` offline installs; downgrade refusal on every install path (`--allow-downgrade`); OCI publisher pin per repository (`--publisher`).
+- `entangle mirror set|get|unset`, mirror-then-origin fallback; mirror listing rollback record per repository and key; a TLS handshake test for the OCI client.
+- Packager rules: exact toolchain pin that must be the compiler in use, no compiler wrappers, no floating WIT imports, `--threads` warning, reproducible native archives. Workspace, CI and example plugins pin Rust 1.91.1. `ENTANGLE-E0820`..`E0825`, `E0940`..`E0949`.
+- Fix: the daemon binds its RPC socket before any supervised task starts, so an early core fault cannot leave a stale socket.
 - `entangle release verify` (Ed25519 release key and cosign; the cosign identity is pinned to the artifact's tag, from `--tag` or the file name); `entangle release key split|combine` (Shamir secret sharing, 2-of-3 by default).
 - `cargo xtask bus-factor` and `cargo xtask rotation-note-check`; `.github/workflows/reproducibility.yml`; `wasm32-wasip2` target in the CI test job.
 
@@ -116,7 +120,6 @@ Tests
 - Cross-host reproducibility and real cosign run only in CI; cosign identity is not pinned to the specific tag.
 - Capability revocations last until the plugin is loaded again (daemon restarts re-apply them).
 - Runtime lifecycle: panics on Tokio's blocking pool exit the daemon; `mesh.tailscale` accept loops are not supervised; WIT `init`/`activate`/`idle`/`shutdown` exports; an old version's id runs the new version after a hot reload.
-- OCI listing rollback protection (listings expire, but an older unexpired listing is accepted); a TLS handshake test for the OCI client.
 - `RLIMIT_NPROC`, `RLIMIT_FSIZE`, cgroups and a per-host `net.wan` allowlist for native plugins.
 - `entangle upgrade`.
 - `[node] data_dir` and `identity` (paths are fixed under `~/.entangle`); init does not open firewall ports.
