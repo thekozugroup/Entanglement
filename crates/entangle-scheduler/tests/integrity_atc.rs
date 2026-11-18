@@ -1279,7 +1279,11 @@ async fn stdlib_metric_components_match_their_documented_math() {
         f64::INFINITY,
         "a vector against text is incomparable"
     );
-    assert_eq!(registry.instantiations(&cosine), 5);
+    // A bare number is an answer, compared as text: two different numbers
+    // do not agree just because they share a sign.
+    let scalars = registry.compare(&cosine, b"42", b"1").await.unwrap();
+    assert!(scalars > 0.5, "{scalars}");
+    assert_eq!(registry.instantiations(&cosine), 6);
 }
 
 /// A worker refuses a work unit whose metric reference names one publisher
