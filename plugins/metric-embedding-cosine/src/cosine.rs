@@ -4,11 +4,12 @@
 //!
 //! An output is embedded one of two ways:
 //!
-//! * **A vector already.** UTF-8 text holding a flat list of finite numbers
-//!   — comma- or whitespace-separated, optionally in one pair of square
-//!   brackets, so a JSON array such as `[0.12, -0.5, 3e-2]` works — is taken
-//!   as the embedding itself (a workload that returns sentence embeddings
-//!   computed by its own model is compared directly).
+//! * **A vector already.** UTF-8 text holding a flat list of at least
+//!   [`MIN_VECTOR_LEN`] finite numbers in one pair of square brackets —
+//!   comma- or whitespace-separated, so a JSON array such as
+//!   `[0.12, -0.5, 3e-2]` works — is taken as the embedding itself (a
+//!   workload that returns sentence embeddings computed by its own model is
+//!   compared directly).
 //! * **Text.** Anything else that is valid UTF-8 is embedded with a pinned,
 //!   self-contained **feature-hashing** model: the text is lower-cased and
 //!   split into words (maximal runs of alphanumeric characters); every word
@@ -20,6 +21,12 @@
 //!   download and no randomness: the same bytes embed to the same vector on
 //!   every node, which is what "pinned" means for a metric whose digest the
 //!   submitter pins.
+//!
+//! A bare number (`42`), a one-element array (`[42]`) and an unbracketed
+//! list of numbers (`1 2 3`) are **text**: they are answers, not
+//! embeddings. Read as vectors, any two same-sign numbers would be at
+//! distance 0 (every pair of one-dimensional vectors is collinear), so a
+//! wrong numeric answer would agree with the right one.
 //!
 //! Word order does not matter (a bag of words and trigrams); spelling
 //! variants and inflections share trigrams, so `"The cat sat."` and `"the
@@ -41,6 +48,10 @@
 
 /// Buckets of the text embedding.
 pub const DIMENSIONS: usize = 512;
+
+/// The fewest numbers a bracketed list must hold to be taken as a vector
+/// (see the module docs: a single number is an answer, compared as text).
+pub const MIN_VECTOR_LEN: usize = 2;
 
 /// Weight of a word feature.
 const WORD_WEIGHT: f64 = 1.0;
@@ -99,17 +110,13 @@ pub fn embed_text(text: &str) -> Vec<f64> {
     v
 }
 
-/// Parse an output as a flat list of finite numbers, or `None`.
+/// Parse an output as a bracketed flat list of at least
+/// [`MIN_VECTOR_LEN`] finite numbers (or `[]`, the empty vector), or `None`.
 fn parse_vector(text: &str) -> Option<Vec<f64>> {
-    let text = text.trim();
-    let body = match (text.strip_prefix('['), text.ends_with(']')) {
-        (Some(rest), true) => rest.strip_suffix(']')?,
-        (None, false) => text,
-        _ => return None,
-    };
+    let body = text.trim().strip_prefix('[')?.strip_suffix(']')?;
     if body.trim().is_empty() {
         // `[]` is the empty vector; empty text is text with no words.
-        return text.starts_with('[').then(Vec::new);
+        return Some(Vec::new());
     }
     let mut out = Vec::new();
     for field in body.split(',') {
@@ -126,7 +133,7 @@ fn parse_vector(text: &str) -> Option<Vec<f64>> {
             return None;
         }
     }
-    Some(out)
+    (out.len() >= MIN_VECTOR_LEN).then_some(out)
 }
 
 /// Embed one output, or `None` if it is not UTF-8.
@@ -206,15 +213,43 @@ mod tests {
 
     #[test]
     fn vectors_compare_by_cosine() {
-        assert!(distance(b"[1, 0]", b"[0, 1]") - 1.0 < 1e-12);
+        assert!((distance(b"[1, 0]", b"[0, 1]") - 1.0).abs() < 1e-12);
         assert!((distance(b"[1, 0]", b"[-1, 0]") - 2.0).abs() < 1e-12);
         assert!(
-            distance(b"[1, 2, 3]", b"2 4 6").abs() < 1e-12,
+            distance(b"[1, 2, 3]", b"[2 4 6]").abs() < 1e-12,
             "scale-invariant"
         );
         let d = distance(b"[3, 4]", b"[4, 3]");
         assert!((d - (1.0 - 24.0 / 25.0)).abs() < 1e-12, "{d}");
         assert!(distance(b"[1e308, 1e308]", b"[1e308, 1e308]").abs() < 1e-12);
+    }
+
+    /// A bare number is an answer, not a 1-D embedding: two different
+    /// numeric answers must not agree just because they have the same sign
+    /// (every pair of 1-D vectors is at cosine distance 0 or 2).
+    #[test]
+    fn scalar_answers_are_compared_as_text() {
+        for (a, b) in [
+            (&b"42"[..], &b"1"[..]),
+            (b"42", b"7"),
+            (b"2024", b"1999"),
+            (b"3.14", b"314"),
+            (b"[42]", b"[7]"),
+            (b"1 2 3", b"100 200 300"),
+        ] {
+            let d = distance(a, b);
+            assert!(
+                d > 0.5,
+                "{:?} vs {:?}: {d}",
+                std::str::from_utf8(a),
+                std::str::from_utf8(b)
+            );
+        }
+        assert!(distance(b"42", b"42").abs() < 1e-12);
+        assert!(matches!(embed(b"42"), Some(Embedding::Text(_))));
+        assert!(matches!(embed(b"[42]"), Some(Embedding::Text(_))));
+        assert!(matches!(embed(b"1 2 3"), Some(Embedding::Text(_))));
+        assert!(matches!(embed(b"[1, 2]"), Some(Embedding::Vector(_))));
     }
 
     #[test]

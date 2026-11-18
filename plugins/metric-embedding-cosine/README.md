@@ -12,10 +12,13 @@ embeddings.
 
 ## Embedding
 
-* An output that is **a flat list of finite numbers** (comma- or
-  whitespace-separated, optionally one pair of square brackets — a JSON array
-  such as `[0.12, -0.5, 3e-2]`) is taken as its own embedding: a workload that
-  returns embeddings from its own model is compared directly.
+* An output that is **a bracketed flat list of at least two finite numbers**
+  (comma- or whitespace-separated inside one pair of square brackets — a JSON
+  array such as `[0.12, -0.5, 3e-2]`) is taken as its own embedding: a
+  workload that returns embeddings from its own model is compared directly.
+  A bare number (`42`), a one-element array (`[42]`) or an unbracketed list
+  (`1 2 3`) is an *answer*, compared as text: read as one-dimensional
+  vectors, any two same-sign numbers would agree.
 * Any other **UTF-8 text** is embedded with a pinned **feature-hashing**
   model: lower-cased words (runs of alphanumeric characters) at weight 1.0 and
   their space-padded character trigrams at weight 0.5, each hashed (64-bit
