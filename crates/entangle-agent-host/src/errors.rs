@@ -30,7 +30,10 @@ pub enum SessionError {
     #[error("ENTANGLE-E0669: session not activated")]
     NotActivated,
     /// A built-in gateway server cannot be added to the session because the
-    /// agent's config already declares a server of that name.
+    /// agent's config already declares a server of that name. Shares
+    /// E0687 with `GatewayError::BuiltinNameTaken` on purpose: the same
+    /// failure, caught when the session is prepared instead of when a
+    /// gateway is started (registered in the error-code contract test).
     #[error(
         "ENTANGLE-E0687: the built-in server name {0:?} is already used by an MCP server in \
          the agent's config; rename that server or run without the built-in one"

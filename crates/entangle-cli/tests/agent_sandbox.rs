@@ -324,6 +324,32 @@ fn doctor_shell_history_note_counts_without_printing_commands() {
         .unwrap();
     let (_, line) = line_of(&out);
     assert!(line.contains("no shell history file found"), "{line}");
+
+    // Review finding 14: with the wrapper shim enabled a history entry may
+    // have been a wrapped run; the note says the count may include those.
+    assert!(!line_of(
+        &doctor(home.path())
+            .env_remove("HISTFILE")
+            .env_remove("ENTANGLE_DOCTOR_NO_HISTORY")
+            .output()
+            .unwrap()
+    )
+    .1
+    .contains("may include runs"));
+    fs::create_dir_all(home.path().join(".entangle")).unwrap();
+    fs::write(
+        home.path().join(".entangle/config.toml"),
+        "[wrappers]\ninstall = true\n",
+    )
+    .unwrap();
+    let out = doctor(home.path())
+        .env_remove("HISTFILE")
+        .env_remove("ENTANGLE_DOCTOR_NO_HISTORY")
+        .output()
+        .unwrap();
+    let (_, line) = line_of(&out);
+    assert!(line.contains("may include runs"), "{line}");
+    assert!(line.contains("3 of the last 5 history entries"), "{line}");
 }
 
 /// Spec §8.3.1: Aider, Cline and Continue are deferred (their MCP config

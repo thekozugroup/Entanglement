@@ -325,3 +325,128 @@ fn every_covered_code_is_in_a_registered_range() {
          — add a row for the domain:\n{report}"
     );
 }
+
+/// Agent-session codes (range E0680–E0699) that are emitted as string
+/// literals (`bail!`, JSON-RPC error text) rather than `#[error]`
+/// attributes, so [`error_codes_are_unique`] cannot see them. Each code
+/// names one failure; this registry is checked against the sources below in
+/// both directions, so a new literal code in the range must be listed here
+/// (and in docs/operations.md §6).
+const AGENT_LITERAL_CODES: &[(&str, &str)] = &[
+    // Same failure as `entangle_sandbox::AgentSandboxError::Path`, raised by
+    // the CLI for a missing `--sandbox-read`/`--sandbox-write` path.
+    ("E0682", "unusable agent sandbox path"),
+    (
+        "E0680",
+        "--require-sandbox on a host that cannot engage every sandbox layer",
+    ),
+    (
+        "E0683",
+        "sandboxed session whose project directory is $HOME or /",
+    ),
+    (
+        "E0684",
+        "new or changed user-level MCP server without consent",
+    ),
+    (
+        "E0685",
+        "daemon unreachable for the built-in `entangle` server",
+    ),
+    ("E0686", "no such plugin tool, or bad tool arguments"),
+    (
+        "E0687",
+        "built-in server name already taken (see AGENT_SHARED_CODES)",
+    ),
+    (
+        "E0688",
+        "plugin invocation through the built-in server failed",
+    ),
+    ("E0689", "agent whose adapter is deferred"),
+];
+
+/// Codes deliberately declared by more than one enum: the same failure seen
+/// at two layers. E0687 is raised by `AgentSession::add_builtin_server`
+/// (`SessionError::BuiltinNameTaken`) when the session is prepared and by
+/// `Gateway::start` (`GatewayError::BuiltinNameTaken`) for a gateway built
+/// without a session; both mean "the name `entangle` is already a
+/// configured server".
+const AGENT_SHARED_CODES: &[&str] = &["E0687"];
+
+/// Sources that emit agent-session codes, relative to this crate.
+const AGENT_SOURCES: &[&str] = &[
+    "../entangle-cli/src/cmd/agent.rs",
+    "../entangle-cli/src/cmd/agent_sandbox.rs",
+    "../entangle-cli/src/cmd/agent_consent.rs",
+    "../entangle-cli/src/cmd/agent_tools.rs",
+    "../entangle-agent-host/src/builtin.rs",
+    "../entangle-agent-host/src/gateway.rs",
+    "../entangle-agent-host/src/session.rs",
+    "../entangle-agent-host/src/errors.rs",
+];
+
+/// Codes E0680–E0699 in non-comment lines before the `#[cfg(test)]` module.
+fn agent_codes_in(file: &'static str) -> BTreeMap<String, usize> {
+    let src = read_source(file);
+    let mut out = BTreeMap::new();
+    for line in src.lines() {
+        let t = line.trim_start();
+        if t.starts_with("#[cfg(test)]") {
+            break;
+        }
+        if t.starts_with("//") {
+            continue;
+        }
+        let mut rest = t;
+        while let Some(i) = rest.find("ENTANGLE-E06") {
+            let digits: String = rest[i + 10..].chars().take(4).collect();
+            if let Ok(n) = digits.parse::<u16>() {
+                if (680..=699).contains(&n) {
+                    *out.entry(format!("E{digits}")).or_insert(0) += 1;
+                }
+            }
+            rest = &rest[i + 12..];
+        }
+    }
+    out
+}
+
+#[test]
+fn agent_literal_codes_are_registered() {
+    let mut found: BTreeMap<String, Vec<&str>> = BTreeMap::new();
+    for file in AGENT_SOURCES {
+        for code in agent_codes_in(file).into_keys() {
+            found.entry(code).or_default().push(file);
+        }
+    }
+    let registered: BTreeMap<&str, &str> = AGENT_LITERAL_CODES.iter().copied().collect();
+    for (code, files) in &found {
+        assert!(
+            registered.contains_key(code.as_str()),
+            "ENTANGLE-{code} is emitted in {files:?} but not listed in AGENT_LITERAL_CODES"
+        );
+    }
+    for code in registered.keys() {
+        assert!(
+            found.contains_key(*code),
+            "ENTANGLE-{code} is listed in AGENT_LITERAL_CODES but no agent source emits it"
+        );
+    }
+    // A code emitted by two `#[error]` enums must be a declared shared one.
+    let mut enum_sites: BTreeMap<String, usize> = BTreeMap::new();
+    for file in [
+        "../entangle-agent-host/src/gateway.rs",
+        "../entangle-agent-host/src/errors.rs",
+    ] {
+        for (code, _) in declarations(file, &read_source(file)) {
+            if code.as_str() >= "E0680" && code.as_str() <= "E0699" {
+                *enum_sites.entry(code).or_insert(0) += 1;
+            }
+        }
+    }
+    for (code, n) in enum_sites {
+        assert!(
+            n == 1 || AGENT_SHARED_CODES.contains(&code.as_str()),
+            "ENTANGLE-{code} is declared by {n} enums; list it in AGENT_SHARED_CODES with the reason"
+        );
+    }
+}

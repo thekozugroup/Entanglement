@@ -138,3 +138,27 @@ async fn test_malformed_missing_result_field() {
         "expected RpcError::Malformed, got {err:?}"
     );
 }
+
+/// A capped client refuses a response line over the cap instead of
+/// buffering it, and accepts one at the cap.
+#[tokio::test]
+async fn max_response_bytes_refuses_an_oversized_reply() {
+    const REPLY: &str = r#"{"jsonrpc":"2.0","id":1,"result":{"output":[1,2,3,4,5,6,7,8]}}"#;
+    let dir = tempfile::tempdir().unwrap();
+    let sock = dir.path().join("big.sock");
+    fake_server(sock.clone(), REPLY).await;
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    let client = Client::new(&sock).with_max_response_bytes(REPLY.len() - 1);
+    let err = client.plugins_invoke("p", vec![], 1000).await.unwrap_err();
+    assert!(
+        matches!(&err, RpcError::Malformed(m) if m.contains("larger than")),
+        "{err}"
+    );
+
+    let sock = dir.path().join("fits.sock");
+    fake_server(sock.clone(), REPLY).await;
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    let client = Client::new(&sock).with_max_response_bytes(REPLY.len());
+    let out = client.plugins_invoke("p", vec![], 1000).await.unwrap();
+    assert_eq!(out.output, vec![1, 2, 3, 4, 5, 6, 7, 8]);
+}

@@ -19,6 +19,7 @@ pub struct Client {
     socket_path: PathBuf,
     next_id: AtomicU64,
     connect_timeout: Duration,
+    max_response_bytes: Option<usize>,
 }
 
 impl Client {
@@ -29,7 +30,17 @@ impl Client {
             socket_path: socket_path.into(),
             next_id: AtomicU64::new(1),
             connect_timeout: DEFAULT_CONNECT_TIMEOUT,
+            max_response_bytes: None,
         }
+    }
+
+    /// Refuse (`RpcError::Malformed`) a response line longer than `n`
+    /// bytes instead of buffering it: a caller that forwards replies under
+    /// a size cap (the agent gateway's built-in server) never holds more
+    /// than that in memory. Unlimited by default.
+    pub fn with_max_response_bytes(mut self, n: usize) -> Self {
+        self.max_response_bytes = Some(n);
+        self
     }
 
     /// Override the connect timeout used for every call.
@@ -83,11 +94,33 @@ impl Client {
         wr.write_all(b"\n").await?;
         wr.flush().await?;
 
-        let mut lines = BufReader::new(rd).lines();
-        let resp_line = lines
-            .next_line()
-            .await?
-            .ok_or_else(|| RpcError::Malformed("empty response".into()))?;
+        let resp_line = match self.max_response_bytes {
+            None => BufReader::new(rd)
+                .lines()
+                .next_line()
+                .await?
+                .ok_or_else(|| RpcError::Malformed("empty response".into()))?,
+            Some(cap) => {
+                use tokio::io::AsyncReadExt as _;
+                let mut buf = Vec::new();
+                let limit = u64::try_from(cap).unwrap_or(u64::MAX).saturating_add(1);
+                BufReader::new(rd.take(limit))
+                    .read_until(b'\n', &mut buf)
+                    .await?;
+                if buf.last() == Some(&b'\n') {
+                    buf.pop();
+                } else if buf.len() > cap {
+                    return Err(RpcError::Malformed(format!(
+                        "response larger than {cap} bytes"
+                    )));
+                }
+                if buf.is_empty() {
+                    return Err(RpcError::Malformed("empty response".into()));
+                }
+                String::from_utf8(buf)
+                    .map_err(|_| RpcError::Malformed("response is not UTF-8".into()))?
+            }
+        };
 
         let resp: serde_json::Value = serde_json::from_str(&resp_line)?;
 

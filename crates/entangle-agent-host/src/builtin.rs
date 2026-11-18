@@ -75,9 +75,18 @@ const TOOL_NAME_MAX: usize = 64;
 const SUPPORTED_PROTOCOLS: [&str; 3] = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
 /// The built-in `entangle` MCP server: loaded plugins as tools.
+///
+/// Tool names are fixed for the life of the server (one session): the first
+/// listing assigns them as [`tool_names`] does, a plugin seen later gets a
+/// name that was never used before, and a name never changes its plugin —
+/// so a plugin loaded mid-session cannot take over a name the agent and the
+/// `--allow`/`--deny` patterns already know as another plugin. The name of
+/// a plugin that was unloaded stays reserved.
 #[derive(Debug)]
 pub struct EntangleTools<B> {
     backend: B,
+    /// Tool name → plugin id, every assignment made so far.
+    names: parking_lot::Mutex<BTreeMap<String, String>>,
 }
 
 /// The tool name for a plugin id: the `<name>` part (or the whole id when
@@ -107,19 +116,41 @@ fn base_tool_name(plugin_id: &str) -> String {
 /// id order, and a name already taken (two publishers, or two versions, of
 /// one plugin name) gets a numeric suffix.
 pub fn tool_names(plugins: &[PluginTool]) -> BTreeMap<String, PluginTool> {
+    let mut assigned = BTreeMap::new();
+    assign_names(&mut assigned, plugins)
+}
+
+/// Extend `assigned` (tool name → plugin id) with names for the plugins of
+/// `plugins` that have none yet, never reusing a name, and return the
+/// loaded plugins by name.
+fn assign_names(
+    assigned: &mut BTreeMap<String, String>,
+    plugins: &[PluginTool],
+) -> BTreeMap<String, PluginTool> {
     let mut sorted: Vec<&PluginTool> = plugins.iter().collect();
     sorted.sort_by(|a, b| a.plugin_id.cmp(&b.plugin_id));
     let mut out: BTreeMap<String, PluginTool> = BTreeMap::new();
     for p in sorted {
-        let base = base_tool_name(&p.plugin_id);
-        let mut name = base.clone();
-        let mut n = 2;
-        while out.contains_key(&name) {
-            let suffix = format!("_{n}");
-            let keep = TOOL_NAME_MAX.saturating_sub(suffix.len()).min(base.len());
-            name = format!("{}{suffix}", &base[..keep]);
-            n += 1;
-        }
+        let existing = assigned
+            .iter()
+            .find(|(_, id)| **id == p.plugin_id)
+            .map(|(n, _)| n.clone());
+        let name = match existing {
+            Some(n) => n,
+            None => {
+                let base = base_tool_name(&p.plugin_id);
+                let mut name = base.clone();
+                let mut n = 2;
+                while assigned.contains_key(&name) {
+                    let suffix = format!("_{n}");
+                    let keep = TOOL_NAME_MAX.saturating_sub(suffix.len()).min(base.len());
+                    name = format!("{}{suffix}", &base[..keep]);
+                    n += 1;
+                }
+                assigned.insert(name.clone(), p.plugin_id.clone());
+                name
+            }
+        };
         out.insert(name, p.clone());
     }
     out
@@ -237,7 +268,15 @@ fn input_bytes(arguments: Option<&Value>) -> Result<Vec<u8>, String> {
 impl<B: PluginBackend> EntangleTools<B> {
     /// A server over `backend`.
     pub fn new(backend: B) -> Self {
-        Self { backend }
+        Self {
+            backend,
+            names: parking_lot::Mutex::new(BTreeMap::new()),
+        }
+    }
+
+    /// The loaded `plugins` by their (fixed) tool names.
+    fn named(&self, plugins: &[PluginTool]) -> BTreeMap<String, PluginTool> {
+        assign_names(&mut self.names.lock(), plugins)
     }
 
     async fn tools_list(&self, id: &Value) -> Value {
@@ -245,7 +284,8 @@ impl<B: PluginBackend> EntangleTools<B> {
             Ok(p) => p,
             Err(e) => return err(id, -32603, format!("ENTANGLE-E0685: {e}")),
         };
-        let tools: Vec<Value> = tool_names(&plugins)
+        let tools: Vec<Value> = self
+            .named(&plugins)
             .into_iter()
             .map(|(name, p)| {
                 let tier = p.tier.map(|t| format!(" (tier {t})")).unwrap_or_default();
@@ -281,7 +321,7 @@ impl<B: PluginBackend> EntangleTools<B> {
             Ok(p) => p,
             Err(e) => return tool_error(id, format!("ENTANGLE-E0685: {e}")),
         };
-        let Some(plugin) = tool_names(&plugins).remove(name) else {
+        let Some(plugin) = self.named(&plugins).remove(name) else {
             return err(
                 id,
                 -32602,
@@ -432,6 +472,43 @@ mod tests {
         let mut rev = ps.to_vec();
         rev.reverse();
         assert_eq!(tool_names(&rev), names);
+    }
+
+    /// Review finding 10: a plugin loaded mid-session must not take over a
+    /// tool name the agent (and the policy) already know as another plugin.
+    #[tokio::test]
+    async fn a_plugin_loaded_mid_session_never_takes_over_a_name() {
+        let fake = leak(&["bbbb/hash-it@0.1.0"]);
+        let server = EntangleTools::new(fake);
+        let list = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/list"});
+        let r = server.handle(list.clone(), Duration::from_secs(5)).await;
+        assert_eq!(r["result"]["tools"][0]["name"], "hash-it");
+        // A plugin whose id sorts first is loaded during the session.
+        fake.plugins.lock().push(plugin("aaaa/hash-it@0.2.0"));
+        let call = json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": {"name": "hash-it", "arguments": {"input": "x"}}});
+        let r = server.handle(call, Duration::from_secs(5)).await;
+        assert_eq!(r["result"]["isError"], false, "{r}");
+        assert_eq!(
+            fake.calls.lock().last().unwrap().0,
+            "bbbb/hash-it@0.1.0",
+            "the name keeps its plugin"
+        );
+        let r = server.handle(list, Duration::from_secs(5)).await;
+        let names: Vec<(String, String)> = r["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| {
+                (
+                    t["name"].as_str().unwrap().to_owned(),
+                    t["description"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect();
+        assert_eq!(names.len(), 2);
+        assert!(names[0].0 == "hash-it" && names[0].1.contains("bbbb/hash-it"));
+        assert!(names[1].0 == "hash-it_2" && names[1].1.contains("aaaa/hash-it"));
     }
 
     #[test]

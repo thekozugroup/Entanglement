@@ -27,10 +27,13 @@ impl std::fmt::Debug for DaemonPlugins {
 }
 
 impl DaemonPlugins {
-    /// A backend talking to the daemon at `socket`.
-    pub(crate) fn new(socket: PathBuf) -> Self {
+    /// A backend talking to the daemon at `socket`. A daemon response
+    /// longer than `max_reply` bytes is refused while it is read, not
+    /// after: pass the gateway's reply cap so plugin output is never held
+    /// in memory beyond what the gateway would forward.
+    pub(crate) fn new(socket: PathBuf, max_reply: usize) -> Self {
         Self {
-            client: entangle_rpc::Client::new(&socket),
+            client: entangle_rpc::Client::new(&socket).with_max_response_bytes(max_reply),
             socket,
         }
     }

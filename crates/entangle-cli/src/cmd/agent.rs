@@ -35,7 +35,9 @@ directory (the enclosing git work tree, else the current directory), temporary
 directories and its own state directories, and can read only those, the system
 directories and its install paths (add more with --sandbox-read and
 --sandbox-write). Network access is NOT restricted. --no-sandbox turns the
-sandbox off; --require-sandbox refuses to start where it cannot be enforced.
+sandbox off; --require-sandbox refuses to start unless every layer is
+engaged. The sandbox is defence in depth, not a containment boundary: local
+Unix sockets (D-Bus, ssh-agent, Docker, the daemon) stay reachable.
 
 Your own agent config is read but never modified: a rewritten copy is written
 to a session directory (removed on exit) and the agent is launched against it.
@@ -112,8 +114,9 @@ struct RunArgs {
     /// read and write every file you can. A warning is printed.
     #[arg(long, conflicts_with = "require_sandbox")]
     no_sandbox: bool,
-    /// Refuse to start (ENTANGLE-E0680) when this host cannot confine the
-    /// agent's filesystem access, instead of starting with a warning.
+    /// Refuse to start (ENTANGLE-E0680) unless every sandbox layer is
+    /// engaged (Landlock ABI 3 or later, seccomp, no_new_privs), instead of
+    /// starting with a warning.
     #[arg(long)]
     require_sandbox: bool,
     /// Also let the sandboxed agent read (and execute from) this file or
@@ -191,6 +194,11 @@ pub(crate) fn sessions_root() -> PathBuf {
     }
     crate::config::entangle_dir().join("sessions")
 }
+
+/// The largest reply the session gateway takes from a server (the gateway's
+/// default), also the cap on a daemon response read by the built-in
+/// `entangle` server's backend.
+const GATEWAY_REPLY_CAP: usize = 64 * 1024 * 1024;
 
 fn new_session_id() -> String {
     use rand_core::{OsRng, RngCore};
@@ -365,6 +373,7 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
     let entangle_tools = if args.entangle_tools {
         let backend = crate::cmd::agent_tools::DaemonPlugins::new(
             crate::cmd::agent_tools::DaemonPlugins::default_socket(),
+            GATEWAY_REPLY_CAP,
         );
         let loaded = backend.loaded().await.map_err(|e| {
             anyhow!(
@@ -403,7 +412,8 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
     let mut gateway = Gateway::new(GatewayConfig {
         bearer_token: token.clone(),
         ..GatewayConfig::default()
-    });
+    })
+    .with_max_downstream_message_bytes(GATEWAY_REPLY_CAP);
     if let Some(backend) = entangle_tools {
         gateway = gateway.with_builtin_server(
             ENTANGLE_SERVER_NAME,

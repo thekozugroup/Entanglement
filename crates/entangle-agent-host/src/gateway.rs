@@ -240,7 +240,8 @@ pub enum GatewayError {
     #[error("ENTANGLE-E0624: max_in_flight must be at least 1")]
     ZeroMaxInFlight,
     /// A built-in server's route name is also the name of a configured
-    /// downstream server.
+    /// downstream server. Shares E0687 with `SessionError::BuiltinNameTaken`
+    /// on purpose (same failure, caught at gateway start).
     #[error(
         "ENTANGLE-E0687: the built-in server name {name:?} is already used by an MCP server \
          in the agent's config; rename that server or run without the built-in one"

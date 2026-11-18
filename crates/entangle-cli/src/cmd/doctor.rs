@@ -940,12 +940,21 @@ fn check_shell_history() -> CheckResult {
         .iter()
         .map(|(bin, n)| format!("{bin}: {n}"))
         .collect();
+    // With the wrapper shim installed, a history entry `claude` may have
+    // been a wrapped run (the shim only warns), so the count is an upper
+    // bound; say so instead of overstating.
+    let wrapped = if super::wrapper::wrappers_enabled() {
+        " The wrapper shim is enabled, so this count may include runs that went through the \
+         shim (history records the command typed, not what ran)."
+    } else {
+        ""
+    };
     CheckResult::ok(
         NAME,
         format!(
             "note: {} of the last {} history entries started an agent directly ({}), outside \
-             `entangle agent run`: those runs had no gateway, audit or sandbox. Informational; \
-             set {}=1 to skip this check",
+             `entangle agent run`: those runs had no gateway, audit or sandbox.{wrapped} \
+             Informational; set {}=1 to skip this check",
             count.total(),
             count.entries,
             per.join(", "),

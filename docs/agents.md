@@ -343,7 +343,11 @@ implements itself: its tools are the plugins loaded in the local daemon.
 * `tools/list` returns one tool per loaded plugin. The tool name is the
   plugin's name (characters outside `[A-Za-z0-9_-]` become `_`, at most 64
   characters; a second plugin with the same name gets `_2`, in plugin-id
-  order). The description carries the full plugin id and its tier. Plugin
+  order). Names are fixed for the session: a plugin loaded later gets a
+  name never used before in the session, and a name never moves to another
+  plugin, so an `--allow entangle/<tool>` pattern keeps meaning the plugin
+  it meant (the name of an unloaded plugin stays reserved). The description
+  carries the full plugin id and its tier. Plugin
   manifests declare no input schema, so every tool has the same generic
   one: `input` (UTF-8 text) or `input_base64` (binary), both optional.
 * `tools/call` runs the plugin through the daemon's `plugins/invoke` RPC on
@@ -354,7 +358,11 @@ implements itself: its tools are the plugins loaded in the local daemon.
 * It is a gateway route like any other: the bearer token, `--allow` /
   `--deny` (patterns `entangle/<tool>`, `entangle/*`), the audit log, the
   4 MiB request cap, the 120 s timeout (also passed to the daemon as the
-  invocation timeout) and the 64 MiB reply cap all apply.
+  invocation timeout) and the 64 MiB reply cap all apply. The daemon's
+  response is read under the same 64 MiB cap and refused while it is read,
+  so plugin output is never held in memory beyond it (the RPC encodes
+  output as a JSON array of numbers, so the largest usable output is
+  roughly a quarter of that).
 * The daemon decides what exists. A plugin over `[security]
   max_tier_allowed`, or listed in `[plugins] disabled`, is not loaded, so it
   is neither listed nor callable; a plugin unloaded during the session stops
