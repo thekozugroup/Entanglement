@@ -21,8 +21,10 @@ pub enum SessionError {
     #[error("ENTANGLE-E0610: unknown agent: {0}")]
     UnknownAgent(String),
     /// The user's original agent config changed during the session. The
-    /// gateway never writes to it, so something else did (spec §8.3).
-    #[error("ENTANGLE-E0660: original agent config {0} was modified during the session")]
+    /// gateway never writes to it, so something else did (spec §8.3). The
+    /// text names the file and, where it parses, which parts changed (MCP
+    /// servers, hooks and notify commands, other keys).
+    #[error("ENTANGLE-E0660: original agent config modified during the session: {0}")]
     OriginalModified(String),
     /// The session was used out of order (e.g. launch plan requested before activation).
     #[error("ENTANGLE-E0669: session not activated")]

@@ -83,7 +83,38 @@ and then:
   (default No);
 * otherwise refuses with an error naming `--trust-project-servers`.
 
-A file named with `--config` is your own choice and is not prompted for.
+A file named with `--config` is your own choice and is not prompted for
+here; it is covered by the next section.
+
+### User-level MCP servers need consent when they change
+
+The sandboxed agent can write its own config (`~/.claude.json`,
+`~/.codex/config.toml`): it keeps its state there. A stdio server it adds
+there would be started by the gateway of your *next* session, outside the
+sandbox. So `entangle agent run` keeps a record of the user-level servers you
+have approved — one SHA-256 digest per server over its command, arguments
+and environment (values included) or its URL and header names, per agent and
+config file — in `~/.entangle/agent-host/approved-servers.json`, which the
+agent cannot reach. At session start, for any config that is not a project
+config:
+
+* the first session of an agent with a config file lists its servers once
+  (name and command or URL) and records them;
+* afterwards an unchanged set (or one with servers removed) starts without a
+  prompt;
+* a server that is new or whose definition changed is listed in full (as for
+  project servers) and needs `--trust-new-servers` or a `y` at the terminal
+  prompt; without a terminal the session is refused with `ENTANGLE-E0684`.
+  Approving records the new set; refusing records nothing.
+
+At the end of a session, if the agent's config file changed, the
+`ENTANGLE-E0660` warning names which top-level parts changed (MCP servers,
+hooks/notify, other keys). **Hooks and `notify` commands an agent writes
+into its own config run when you later start that agent directly**, outside
+any sandbox and without the gateway; review them when the warning names
+them. Claude Code keeps hooks in `~/.claude/settings.json`, which is inside
+the writable `~/.claude` directory and is not checked at the end of a
+session.
 
 Note: the spec's example uses `CLAUDE_CONFIG_DIR`; the Claude Code adapter
 reads the project `.mcp.json`, so it uses `--mcp-config` instead (setting
@@ -466,7 +497,8 @@ downstream URL or header was refused (it used to mean "HTTP unsupported").
 Sandbox, built-in server and adapters: E0680 `--require-sandbox` on a host
 that cannot engage every layer, E0681 the sandbox could not be prepared,
 E0682 an unusable sandbox path, E0683 a sandboxed session whose project
-directory would be the home directory or `/`, E0685 the daemon cannot be reached for
+directory would be the home directory or `/`, E0684 a new or changed user-level MCP
+server without consent, E0685 the daemon cannot be reached for
 `--entangle-tools`, E0686 a plugin tool that does not exist (or bad tool
 arguments), E0687 the name `entangle` is already taken by a configured
 server, E0688 a plugin invocation failed, E0689 an agent whose adapter is

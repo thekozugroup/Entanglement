@@ -274,9 +274,81 @@ impl AgentSession {
         if self.original_unchanged() {
             Ok(())
         } else {
-            Err(SessionError::OriginalModified(self.source_path.to_string()))
+            let now = std::fs::read(&self.source_path).unwrap_or_default();
+            let parts = changed_parts(&self.snapshot.original_bytes, &now);
+            let mut text = self.source_path.to_string();
+            if !parts.is_empty() {
+                text.push_str(&format!(" (changed: {})", parts.join("; ")));
+            }
+            if parts.iter().any(|p| p.starts_with("hooks")) {
+                text.push_str(
+                    ". Hooks and notify commands in this file run when you start the agent \
+                     directly, outside any sandbox: review them",
+                );
+            }
+            Err(SessionError::OriginalModified(text))
         }
     }
+
+    /// Whether the session's config came from the project directory (the
+    /// adapter's project-scoped default, e.g. `.mcp.json`) rather than from
+    /// the user's own config or a file the caller named.
+    pub fn is_project_scoped(&self) -> bool {
+        self.project_scoped
+    }
+}
+
+/// Which parts of an agent config changed between `before` and `after`,
+/// for the end-of-session warning: the top-level keys (JSON or TOML) that
+/// differ, grouped as `MCP servers`, `hooks/notify` and `other`. Empty when
+/// either version does not parse (the caller then names only the file).
+pub fn changed_parts(before: &[u8], after: &[u8]) -> Vec<String> {
+    fn top_level(bytes: &[u8]) -> Option<BTreeMap<String, String>> {
+        let text = std::str::from_utf8(bytes).ok()?;
+        if text.trim().is_empty() {
+            return Some(BTreeMap::new());
+        }
+        if let Ok(serde_json::Value::Object(m)) = serde_json::from_str(text) {
+            return Some(m.into_iter().map(|(k, v)| (k, v.to_string())).collect());
+        }
+        let t: toml::Table = toml::from_str(text).ok()?;
+        Some(t.into_iter().map(|(k, v)| (k, v.to_string())).collect())
+    }
+    let (Some(a), Some(b)) = (top_level(before), top_level(after)) else {
+        return Vec::new();
+    };
+    let mut keys: Vec<&String> = a
+        .keys()
+        .chain(b.keys())
+        .filter(|k| a.get(*k) != b.get(*k))
+        .collect();
+    keys.sort();
+    keys.dedup();
+    let (mut servers, mut hooks, mut other) = (Vec::new(), Vec::new(), Vec::new());
+    for k in keys {
+        // A nested section (Claude Code's per-project `projects`) can hold
+        // servers or hooks too: look at the new value as well as the key.
+        let l = format!("{k} {}", b.get(k).map(String::as_str).unwrap_or(""));
+        let l = l.to_ascii_lowercase();
+        if l.contains("mcp") {
+            servers.push(k.as_str());
+        } else if l.contains("hook") || l.contains("notify") {
+            hooks.push(k.as_str());
+        } else {
+            other.push(k.as_str());
+        }
+    }
+    let mut out = Vec::new();
+    for (label, list) in [
+        ("MCP servers", servers),
+        ("hooks/notify", hooks),
+        ("other", other),
+    ] {
+        if !list.is_empty() {
+            out.push(format!("{label}: {}", list.join(", ")));
+        }
+    }
+    out
 }
 
 /// Create `dir` with mode `0700` (unix), and any missing parents likewise.

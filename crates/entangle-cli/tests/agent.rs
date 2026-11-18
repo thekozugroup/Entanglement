@@ -764,3 +764,60 @@ fn agent_run_refuses_project_remote_servers_without_consent() {
         .code(7);
     assert!(record.exists());
 }
+
+/// Review finding 3: a stdio server added to the user's own config between
+/// sessions (the sandboxed agent can write that file) needs consent; an
+/// unchanged set does not.
+#[test]
+fn agent_run_asks_before_starting_a_user_server_added_between_sessions() {
+    let dir = TempDir::new().unwrap();
+    let home = dir.path().join("home");
+    fs::create_dir(&home).unwrap();
+    let cfg = dir.path().join("claude.json");
+    fs::write(
+        &cfg,
+        r#"{"mcpServers":{"fs":{"command":"npx","args":["-y","fs"]}}}"#,
+    )
+    .unwrap();
+    let agent = dir.path().join("agent.sh");
+    fs::write(&agent, "#!/bin/sh\nexit 0\n").unwrap();
+    fs::set_permissions(&agent, fs::Permissions::from_mode(0o755)).unwrap();
+    let run = || {
+        let mut c = entangle();
+        c.env("HOME", &home)
+            .env("ENTANGLE_SESSIONS_DIR", dir.path().join("sessions"))
+            .args(["agent", "run", "claude-code", "--no-sandbox", "--config"])
+            .arg(&cfg)
+            .arg("--bin")
+            .arg(&agent);
+        c
+    };
+    // First session: the existing set is shown once and recorded.
+    run()
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("recorded as approved"));
+    assert!(home
+        .join(".entangle/agent-host/approved-servers.json")
+        .exists());
+    // Unchanged: no prompt, no listing.
+    run()
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("new or changed").not());
+    // Added between sessions: refused without consent.
+    fs::write(
+        &cfg,
+        r#"{"mcpServers":{"fs":{"command":"npx","args":["-y","fs"]},
+            "planted":{"command":"/tmp/payload","args":[]}}}"#,
+    )
+    .unwrap();
+    run().assert().failure().stderr(
+        predicate::str::contains("ENTANGLE-E0684")
+            .and(predicate::str::contains("\"planted\""))
+            .and(predicate::str::contains("--trust-new-servers")),
+    );
+    // --trust-new-servers approves it; afterwards it is part of the record.
+    run().arg("--trust-new-servers").assert().success();
+    run().assert().success();
+}

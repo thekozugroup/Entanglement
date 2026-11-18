@@ -643,3 +643,26 @@ fn unparseable_server_entry_is_not_run_but_stays_behind_the_gateway() {
     assert!(!text.contains("carrier-pigeon"), "{text}");
     s.cleanup().unwrap();
 }
+
+#[test]
+fn changed_parts_names_servers_hooks_and_other_keys() {
+    use entangle_agent_host::changed_parts;
+    let before = br#"{"mcpServers":{"a":{}},"hooks":{},"theme":"dark","n":1}"#;
+    let after = br#"{"mcpServers":{"a":{},"evil":{}},"hooks":{"Stop":[]},"theme":"dark","n":2}"#;
+    let parts = changed_parts(before, after);
+    assert_eq!(
+        parts,
+        vec!["MCP servers: mcpServers", "hooks/notify: hooks", "other: n"]
+    );
+    // TOML (codex): `notify` and `mcp_servers`.
+    let parts = changed_parts(
+        b"model = \"x\"\n",
+        b"model = \"x\"\nnotify = [\"sh\"]\n[mcp_servers.e]\ncommand = \"sh\"\n",
+    );
+    assert_eq!(
+        parts,
+        vec!["MCP servers: mcp_servers", "hooks/notify: notify"]
+    );
+    // Unparseable: nothing to say beyond the file name.
+    assert!(changed_parts(b"{", b"}").is_empty());
+}

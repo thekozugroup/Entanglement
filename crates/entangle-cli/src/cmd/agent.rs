@@ -93,6 +93,12 @@ struct RunArgs {
     /// listed and need a `y` at a terminal prompt.
     #[arg(long)]
     trust_project_servers: bool,
+    /// Start user-level MCP servers that are new or changed since you last
+    /// approved them (e.g. added to `~/.claude.json` between sessions,
+    /// possibly by the agent itself) without asking. Without this flag they
+    /// are listed and need a `y` at a terminal prompt.
+    #[arg(long)]
+    trust_new_servers: bool,
     /// Also give the agent the plugins loaded in the local daemon as MCP
     /// tools, through a built-in gateway server named `entangle`. Off by
     /// default. Calls go through the same policy (`--allow` / `--deny`
@@ -334,6 +340,18 @@ async fn run_agent(args: RunArgs) -> Result<i32> {
         .with_context(|| format!("reading {} MCP config", args.agent))?;
 
     confirm_project_servers(&session, args.trust_project_servers)?;
+    if !session.is_project_scoped() {
+        crate::cmd::agent_consent::confirm_user_servers(
+            &crate::cmd::agent_consent::record_path(),
+            session.agent(),
+            &std::fs::canonicalize(session.source_path())
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| session.source_path().to_string()),
+            session.servers(),
+            args.trust_new_servers,
+            std::io::stdin().is_terminal(),
+        )?;
+    }
     for (name, file) in session.unmediated_servers() {
         eprintln!(
             "warning: MCP server '{name}' is declared in {file}, not in {source}; it is \

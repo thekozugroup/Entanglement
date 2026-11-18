@@ -25,4 +25,4 @@ pub use gateway::{
     generate_bearer_token, AuditDecision, AuditOutcome, AuditRecord, Decision, Gateway,
     GatewayConfig, GatewayError, GatewayHandle, GatewayHooks, Policy, ToolCall,
 };
-pub use session::AgentSession;
+pub use session::{changed_parts, AgentSession};

@@ -1,6 +1,7 @@
 //! Command handlers for the `entangle` CLI.
 
 pub mod agent;
+pub mod agent_consent;
 pub mod agent_sandbox;
 pub mod agent_tools;
 pub mod backup;
