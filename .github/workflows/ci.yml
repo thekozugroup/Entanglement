@@ -47,6 +47,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       RUSTFLAGS: -D warnings
+      # The agent-sandbox enforcement tests skip (and pass) on a kernel
+      # without Landlock; on the Linux runner a missing Landlock must fail.
+      ENTANGLE_REQUIRE_LANDLOCK_TESTS: ${{ matrix.os == 'ubuntu-24.04' && '1' || '' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch (no version tags)

@@ -79,6 +79,11 @@ impl Fixture {
 fn landlock() -> bool {
     let has = entangle_sandbox::probe().landlock_abi.is_some();
     if !has {
+        // Set in CI on Linux: there a skipped enforcement test is a failure.
+        assert!(
+            std::env::var("ENTANGLE_REQUIRE_LANDLOCK_TESTS").map_or(true, |v| v != "1"),
+            "ENTANGLE_REQUIRE_LANDLOCK_TESTS=1 but this kernel has no Landlock"
+        );
         eprintln!("skipping: this kernel has no Landlock");
     }
     has

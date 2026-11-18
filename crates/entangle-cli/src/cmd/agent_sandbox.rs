@@ -16,7 +16,9 @@ use std::path::{Path, PathBuf};
 /// Diagnostic override: `no-landlock` makes this process plan as if the
 /// kernel had no Landlock, so the degraded path can be exercised (and
 /// tested) on a kernel that has it. It can only remove a layer, and the
-/// degraded warning is printed as on a real such host.
+/// degraded warning is printed as on a real such host. Honoured in debug
+/// builds only: in a release build a project's `.envrc` could otherwise
+/// switch the filesystem allowlist off.
 pub(crate) const PROBE_ENV: &str = "ENTANGLE_AGENT_SANDBOX_PROBE";
 
 /// The user's sandbox choices for one session.
@@ -38,7 +40,9 @@ pub(crate) struct SandboxOptions {
 
 /// What this host offers an agent session, with [`PROBE_ENV`] applied.
 pub(crate) fn host_support() -> HostSupport {
+    #[allow(unused_mut)] // mutated in debug builds only
     let mut host = entangle_sandbox::probe().clone();
+    #[cfg(debug_assertions)]
     if std::env::var(PROBE_ENV).is_ok_and(|v| v == "no-landlock") {
         host.landlock_abi = None;
     }
@@ -87,7 +91,15 @@ pub(crate) fn project_dir(cwd: &Path, home: Option<&Path>) -> PathBuf {
 /// the main repository's `.git/worktrees/`), the main repository's git
 /// directory: `git` in the work tree reads and writes objects and refs
 /// there. `None` for an ordinary repository or no repository.
-pub(crate) fn linked_worktree_git_dir(project: &Path) -> Option<PathBuf> {
+///
+/// The `.git` file and `commondir` are project files the agent of an earlier
+/// session could have written, so the answer is trusted only when the
+/// layout is the one `git worktree add` creates: `<gitdir>/gitdir` points
+/// back to `<project>/.git`, `<gitdir>` lies directly under
+/// `<common>/worktrees/`, and `<common>` holds `HEAD`, `objects/` and
+/// `refs/`. A directory that equals or contains a [`sensitive_roots`] entry
+/// is never returned.
+pub(crate) fn linked_worktree_git_dir(project: &Path, home: Option<&Path>) -> Option<PathBuf> {
     let text = std::fs::read_to_string(project.join(".git")).ok()?;
     let gitdir = text.lines().next()?.strip_prefix("gitdir:")?.trim();
     let gitdir = if Path::new(gitdir).is_absolute() {
@@ -95,6 +107,13 @@ pub(crate) fn linked_worktree_git_dir(project: &Path) -> Option<PathBuf> {
     } else {
         project.join(gitdir)
     };
+    let gitdir = std::fs::canonicalize(gitdir).ok()?;
+    // `<gitdir>/gitdir` names the work tree's `.git` file.
+    let back = std::fs::read_to_string(gitdir.join("gitdir")).ok()?;
+    let back = std::fs::canonicalize(back.trim()).ok()?;
+    if back != std::fs::canonicalize(project.join(".git")).ok()? {
+        return None;
+    }
     // `<gitdir>/commondir` holds the path of the shared git directory,
     // usually `../..`.
     let common = std::fs::read_to_string(gitdir.join("commondir")).ok()?;
@@ -104,37 +123,110 @@ pub(crate) fn linked_worktree_git_dir(project: &Path) -> Option<PathBuf> {
     } else {
         gitdir.join(common)
     };
-    std::fs::canonicalize(common).ok()
+    let common = std::fs::canonicalize(common).ok()?;
+    if gitdir.parent() != Some(common.join("worktrees").as_path()) {
+        return None;
+    }
+    let looks_like_git = common.join("HEAD").is_file()
+        && common.join("objects").is_dir()
+        && common.join("refs").is_dir();
+    if !looks_like_git || is_sensitive(&common, home) {
+        return None;
+    }
+    Some(common)
 }
 
-/// The sandbox profile of one session.
+/// The canonical home directory (`$HOME`, symbolic links resolved), or
+/// `None` when it is unset, relative or does not exist.
+pub(crate) fn canonical_home() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .filter(|h| h.is_absolute())
+        .and_then(|h| std::fs::canonicalize(h).ok())
+}
+
+/// Locations an implicit grant must never equal or contain: the filesystem
+/// root, the home directory, and the directories in it that hold keys,
+/// tokens and Entanglement's own state.
+pub(crate) fn sensitive_roots(home: Option<&Path>) -> Vec<PathBuf> {
+    let mut out = vec![PathBuf::from("/")];
+    if let Some(h) = home {
+        out.push(h.to_path_buf());
+        for d in [".entangle", ".ssh", ".aws", ".gnupg"] {
+            out.push(h.join(d));
+        }
+    }
+    out
+}
+
+/// Whether granting `path` would grant a [`sensitive_roots`] entry (the
+/// path equals or contains one). Compared after canonicalisation when the
+/// path exists.
+pub(crate) fn is_sensitive(path: &Path, home: Option<&Path>) -> bool {
+    let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    sensitive_roots(home).iter().any(|s| s.starts_with(&p))
+}
+
+/// The sandbox profile of one session, and the warnings to print about it
+/// (implicit grants that were skipped, explicit grants of sensitive paths).
+///
+/// Refuses (`ENTANGLE-E0683`) a session whose project directory is the home
+/// directory or the filesystem root: the project is writable, so that would
+/// make everything writable.
 pub(crate) fn build_profile(
     program: &Path,
     cwd: &Path,
     session_dir: &Path,
     adapter: &SandboxPaths,
     opts: &SandboxOptions,
-) -> Result<AgentProfile> {
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .filter(|h| h.is_absolute());
-    let project = project_dir(cwd, home.as_deref());
+) -> Result<(AgentProfile, Vec<String>)> {
+    let home = canonical_home();
+    let cwd = std::fs::canonicalize(cwd).unwrap_or_else(|_| cwd.to_path_buf());
+    let project = project_dir(&cwd, home.as_deref());
+    if project.parent().is_none() || home.as_deref() == Some(project.as_path()) {
+        bail!(
+            "ENTANGLE-E0683: the sandboxed agent would get write access to {} (the project \
+             directory is the {}); cd into a project directory, name what it may write with \
+             --sandbox-write <dir>, or pass --no-sandbox",
+            project.display(),
+            if project.parent().is_none() {
+                "filesystem root"
+            } else {
+                "home directory"
+            }
+        );
+    }
     let mut p = AgentProfile::new(program, &project);
+    let mut warnings = Vec::new();
+    let mut implicit_read = |p: &mut AgentProfile, dir: PathBuf, why: &str| {
+        if is_sensitive(&dir, home.as_deref()) {
+            warnings.push(format!(
+                "sandbox: not granting read access to {} ({why}): it is or contains your home \
+                 directory, the filesystem root or a key directory; use --sandbox-read to grant \
+                 it explicitly",
+                dir.display()
+            ));
+        } else {
+            p.read_only.push(dir);
+        }
+    };
 
     // Tools: every directory on PATH, and the trees the agent itself is
     // installed in.
     if let Some(path) = std::env::var_os("PATH") {
         for dir in std::env::split_paths(&path).filter(|d| d.is_absolute()) {
-            p.read_only.push(dir);
+            implicit_read(&mut p, dir, "a PATH entry");
         }
     }
-    p.read_only.extend(install_roots(program));
+    for dir in install_roots(program) {
+        implicit_read(&mut p, dir, "the agent's install tree");
+    }
     // git reads the user's identity and settings; it never needs to write them.
     if let Some(home) = &home {
         p.read_only.push(home.join(".gitconfig"));
         p.read_only.push(home.join(".config/git"));
     }
-    if let Some(git_dir) = linked_worktree_git_dir(&project) {
+    if let Some(git_dir) = linked_worktree_git_dir(&project, home.as_deref()) {
         p.read_write.push(git_dir);
     }
 
@@ -170,6 +262,13 @@ pub(crate) fn build_profile(
                     path.display()
                 )
             })?;
+            if is_sensitive(&abs, home.as_deref()) {
+                warnings.push(format!(
+                    "warning: {flag} {}: this is or contains your home directory, the \
+                     filesystem root or a key directory; the agent can reach it",
+                    abs.display()
+                ));
+            }
             list.push(abs);
         }
     }
@@ -180,7 +279,7 @@ pub(crate) fn build_profile(
     if let Some(n) = opts.max_open_files {
         p.limits.open_files = Some(n);
     }
-    Ok(p)
+    Ok((p, warnings))
 }
 
 /// The outcome of [`engage`], for the session-start report.
@@ -200,23 +299,25 @@ pub(crate) enum Engaged {
 /// Engage the sandbox on `cmd` according to `opts`, or refuse.
 ///
 /// - `--no-sandbox`: nothing is engaged.
-/// - `--require-sandbox` on a host that cannot enforce the filesystem
-///   allowlist: `ENTANGLE-E0680`, the agent is not started.
+/// - `--require-sandbox` on a host that cannot engage every layer (a
+///   Landlock allowlist at ABI ≥ 3, the seccomp filter, `no_new_privs`):
+///   `ENTANGLE-E0680`, the agent is not started.
 /// - Otherwise whatever the host offers is engaged; the caller prints the
 ///   report, which names every missing layer.
 pub(crate) fn engage(
     cmd: &mut std::process::Command,
-    profile: &AgentProfile,
+    profile: Option<&AgentProfile>,
     opts: &SandboxOptions,
 ) -> Result<Engaged> {
-    if opts.disabled {
+    let Some(profile) = profile.filter(|_| !opts.disabled) else {
         return Ok(Engaged::Disabled);
-    }
+    };
     let plan = host_plan();
-    if opts.required && !plan.filesystem_confined() {
+    if opts.required && !plan.enforces_every_layer() {
         bail!(
-            "ENTANGLE-E0680: --require-sandbox: this host cannot confine the agent's filesystem \
-             access ({}); the agent was not started. See `entangle doctor`",
+            "ENTANGLE-E0680: --require-sandbox: this host cannot engage every layer of the agent \
+             sandbox (Landlock ABI >= 3, seccomp, no_new_privs): {}; the agent was not started. \
+             See `entangle doctor`",
             plan.describe()
         );
     }
@@ -229,6 +330,25 @@ pub(crate) fn engage(
         },
         plan,
     })
+}
+
+/// After a sandboxed agent exited with a non-zero status: one hint that a
+/// sandbox denial may be the cause. Claude Code, for one, rewrites
+/// `~/.claude.json` through a temporary file in the home directory, which
+/// the allowlist does not permit; real agent sessions are untested here.
+pub(crate) fn exit_hint(engaged: &Engaged, code: i32) {
+    if code == 0 {
+        return;
+    }
+    if let Engaged::Plan { plan, .. } = engaged {
+        if plan.filesystem_confined() {
+            eprintln!(
+                "note: the agent exited with status {code} inside the OS sandbox. If it failed \
+                 on a file it may not write, grant that path with --sandbox-write <path>, or run \
+                 it with --no-sandbox."
+            );
+        }
+    }
 }
 
 /// Print the sandbox status of a starting session on stderr.
@@ -263,6 +383,12 @@ pub(crate) fn report(engaged: &Engaged) {
                      (see the line above and `entangle doctor`)"
                 );
             }
+            eprintln!(
+                "note: the sandbox limits files and socket families; it is not a containment \
+                 boundary. Through local sockets (D-Bus, ssh-agent, Docker, the Entanglement \
+                 daemon) and the environment variables it inherits, the agent can still act as \
+                 you. See docs/agents.md."
+            );
         }
     }
 }
@@ -291,21 +417,169 @@ mod tests {
         assert_eq!(project_dir(&home, Some(&home)), home);
     }
 
-    #[test]
-    fn linked_worktree_finds_the_main_git_dir() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = std::fs::canonicalize(dir.path()).unwrap();
+    /// A main repository with a linked work tree, laid out as
+    /// `git worktree add` does. Returns (root, main .git, work tree).
+    fn worktree_fixture(root: &Path) -> (PathBuf, PathBuf) {
         let main_git = root.join("main/.git");
         let wt_meta = main_git.join("worktrees/wt");
         std::fs::create_dir_all(&wt_meta).unwrap();
+        std::fs::create_dir_all(main_git.join("objects")).unwrap();
+        std::fs::create_dir_all(main_git.join("refs")).unwrap();
+        std::fs::write(main_git.join("HEAD"), "ref: refs/heads/main\n").unwrap();
         std::fs::write(wt_meta.join("commondir"), "../..\n").unwrap();
         let wt = root.join("wt");
         std::fs::create_dir(&wt).unwrap();
         std::fs::write(wt.join(".git"), format!("gitdir: {}\n", wt_meta.display())).unwrap();
-        assert_eq!(linked_worktree_git_dir(&wt), Some(main_git));
+        std::fs::write(
+            wt_meta.join("gitdir"),
+            format!("{}\n", wt.join(".git").display()),
+        )
+        .unwrap();
+        (main_git, wt)
+    }
+
+    #[test]
+    fn linked_worktree_finds_the_main_git_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(dir.path()).unwrap();
+        let (main_git, wt) = worktree_fixture(&root);
+        assert_eq!(linked_worktree_git_dir(&wt, None), Some(main_git));
         // An ordinary repository (a `.git` directory) and no repository.
-        assert_eq!(linked_worktree_git_dir(&root.join("main")), None);
-        assert_eq!(linked_worktree_git_dir(&root), None);
+        assert_eq!(linked_worktree_git_dir(&root.join("main"), None), None);
+        assert_eq!(linked_worktree_git_dir(&root, None), None);
+    }
+
+    /// Finding: a `.git` file written by an earlier session's agent named
+    /// any directory as the "common dir" and the next session granted it
+    /// read-write.
+    #[test]
+    fn a_crafted_git_file_grants_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(dir.path()).unwrap();
+        let home = root.join("home");
+        std::fs::create_dir_all(home.join(".ssh")).unwrap();
+
+        // 1. commondir pointing at the home directory.
+        let evil = root.join("evil");
+        std::fs::create_dir_all(&evil).unwrap();
+        let proj = root.join("proj");
+        std::fs::create_dir(&proj).unwrap();
+        std::fs::write(evil.join("commondir"), format!("{}\n", home.display())).unwrap();
+        std::fs::write(
+            evil.join("gitdir"),
+            format!("{}\n", proj.join(".git").display()),
+        )
+        .unwrap();
+        std::fs::write(proj.join(".git"), format!("gitdir: {}\n", evil.display())).unwrap();
+        assert_eq!(linked_worktree_git_dir(&proj, Some(&home)), None);
+
+        // 2. Even a home directory that looks like a git dir (dotfiles repo)
+        //    with a matching worktrees/ entry is never granted.
+        for d in ["objects", "refs", "worktrees/x"] {
+            std::fs::create_dir_all(home.join(d)).unwrap();
+        }
+        std::fs::write(home.join("HEAD"), "x").unwrap();
+        let meta = home.join("worktrees/x");
+        std::fs::write(meta.join("commondir"), "../..\n").unwrap();
+        std::fs::write(
+            meta.join("gitdir"),
+            format!("{}\n", proj.join(".git").display()),
+        )
+        .unwrap();
+        std::fs::write(proj.join(".git"), format!("gitdir: {}\n", meta.display())).unwrap();
+        assert_eq!(linked_worktree_git_dir(&proj, Some(&home)), None);
+
+        // 3. A real layout whose back-pointer names another work tree.
+        let (_, wt) = worktree_fixture(&root);
+        let meta = root.join("main/.git/worktrees/wt");
+        std::fs::write(
+            meta.join("gitdir"),
+            format!("{}\n", proj.join(".git").display()),
+        )
+        .unwrap();
+        assert_eq!(linked_worktree_git_dir(&wt, Some(&home)), None);
+
+        // 4. A common dir that is not a git directory.
+        let (main_git, wt2) = {
+            let r2 = root.join("r2");
+            std::fs::create_dir(&r2).unwrap();
+            worktree_fixture(&r2)
+        };
+        std::fs::remove_dir(main_git.join("objects")).unwrap();
+        assert_eq!(linked_worktree_git_dir(&wt2, Some(&home)), None);
+    }
+
+    #[test]
+    fn sensitive_roots_cover_home_root_and_key_directories() {
+        let home = Path::new("/nonexistent-home/u");
+        for p in [
+            "/",
+            "/nonexistent-home",
+            "/nonexistent-home/u",
+            "/nonexistent-home/u/.ssh",
+            "/nonexistent-home/u/.entangle",
+            "/nonexistent-home/u/.aws",
+            "/nonexistent-home/u/.gnupg",
+        ] {
+            assert!(is_sensitive(Path::new(p), Some(home)), "{p}");
+        }
+        for p in [
+            "/usr/bin",
+            "/nonexistent-home/u/.local/bin",
+            "/nonexistent-home/u/proj",
+        ] {
+            assert!(!is_sensitive(Path::new(p), Some(home)), "{p}");
+        }
+    }
+
+    #[test]
+    fn a_session_in_the_root_or_home_directory_is_refused() {
+        let sess = tempfile::tempdir().unwrap();
+        let adapter = SandboxPaths::default();
+        let err = build_profile(
+            Path::new("/bin/sh"),
+            Path::new("/"),
+            sess.path(),
+            &adapter,
+            &SandboxOptions::default(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("ENTANGLE-E0683"), "{err}");
+        assert!(err.to_string().contains("--no-sandbox"), "{err}");
+        if let Some(home) = canonical_home() {
+            let err = build_profile(
+                Path::new("/bin/sh"),
+                &home,
+                sess.path(),
+                &adapter,
+                &SandboxOptions::default(),
+            )
+            .unwrap_err();
+            assert!(err.to_string().contains("home directory"), "{err}");
+        }
+    }
+
+    /// Nothing in the default profile reads or writes the home directory as
+    /// a whole, the root, or a key directory.
+    #[test]
+    fn default_profile_grants_no_sensitive_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(dir.path()).unwrap();
+        let (cwd, session) = (root.join("proj"), root.join("sess"));
+        std::fs::create_dir(&cwd).unwrap();
+        std::fs::create_dir(&session).unwrap();
+        let (p, _) = build_profile(
+            Path::new("/bin/sh"),
+            &cwd,
+            &session,
+            &SandboxPaths::default(),
+            &SandboxOptions::default(),
+        )
+        .unwrap();
+        let home = canonical_home();
+        for g in p.read_only.iter().chain(&p.read_write) {
+            assert!(!is_sensitive(g, home.as_deref()), "granted {}", g.display());
+        }
     }
 
     #[test]
@@ -330,7 +604,7 @@ mod tests {
             max_memory_mb: Some(8),
             ..SandboxOptions::default()
         };
-        let p = build_profile(Path::new("/bin/sh"), &cwd, &session, &adapter, &opts).unwrap();
+        let (p, _) = build_profile(Path::new("/bin/sh"), &cwd, &session, &adapter, &opts).unwrap();
         assert_eq!(p.project_dir, cwd);
         assert!(p.read_write.contains(&state) && p.read_write.contains(&extra));
         // The session config is read-only unless the adapter writes there.
@@ -341,7 +615,7 @@ mod tests {
             session_dir_writable: true,
             ..SandboxPaths::default()
         };
-        let p = build_profile(
+        let (p, _) = build_profile(
             Path::new("/bin/sh"),
             &cwd,
             &session,

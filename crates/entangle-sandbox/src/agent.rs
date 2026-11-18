@@ -222,10 +222,60 @@ impl AgentPlan {
         self.filesystem_confined() || self.seccomp || self.no_new_privs
     }
 
+    /// The Landlock ABI in force, if any.
+    pub fn landlock_abi(&self) -> Option<u32> {
+        match self.filesystem {
+            AgentFilesystem::Landlock { abi } => Some(abi),
+            AgentFilesystem::NotConfined { .. } => None,
+        }
+    }
+
+    /// `true` when every layer `--require-sandbox` asks for is engaged: a
+    /// Landlock allowlist at ABI ≥ 3 (below 3 truncation is not restricted,
+    /// so a read-only file can still be emptied), the seccomp filter, and
+    /// `no_new_privs`.
+    pub fn enforces_every_layer(&self) -> bool {
+        self.landlock_abi()
+            .is_some_and(|abi| abi >= MIN_FULL_LANDLOCK_ABI)
+            && self.seccomp
+            && self.no_new_privs
+    }
+
     /// `true` when a layer of the full profile is missing on this host: no
-    /// filesystem allowlist, no socket filter, or no signal scoping.
+    /// filesystem allowlist, Landlock below ABI 3, no socket filter, or no
+    /// signal scoping.
     pub fn is_degraded(&self) -> bool {
-        !self.filesystem_confined() || !self.seccomp || !self.scopes
+        !self.enforces_every_layer() || !self.scopes
+    }
+
+    /// What Landlock at `abi` does not restrict, for the operator. Empty
+    /// when there is no Landlock. The last entries hold at every ABI.
+    pub fn landlock_gaps(&self) -> Vec<&'static str> {
+        let Some(abi) = self.landlock_abi() else {
+            return Vec::new();
+        };
+        let mut gaps = Vec::new();
+        if abi < 2 {
+            gaps.push("files cannot be renamed or linked across directories (Landlock ABI 1)");
+        }
+        if abi < 3 {
+            gaps.push("truncation NOT restricted (Landlock ABI < 3)");
+        }
+        if abi < 5 {
+            gaps.push("device ioctls NOT restricted (Landlock ABI < 5)");
+        }
+        if abi < 6 {
+            gaps.push(
+                "signals and abstract Unix sockets NOT scoped (Landlock ABI < 6: the agent can \
+                 signal your other processes)",
+            );
+        }
+        gaps.push("chmod, chown, timestamps and extended attributes NOT restricted by Landlock");
+        gaps.push(
+            "local Unix sockets (D-Bus, ssh-agent, tmux, X11, Docker, the Entanglement daemon) \
+             stay reachable",
+        );
+        gaps
     }
 
     /// Operator-facing summary. Always ends by stating that network egress
@@ -247,11 +297,9 @@ impl AgentPlan {
             layers.push("no_new_privs".to_owned());
         }
         let mut out = layers.join(" + ");
-        if self.filesystem_confined() && !self.scopes {
-            out.push_str(
-                "; signals NOT scoped (Landlock ABI < 6: the agent can signal your other \
-                 processes)",
-            );
+        for gap in self.landlock_gaps() {
+            out.push_str("; ");
+            out.push_str(gap);
         }
         if self.engages_anything() && !self.seccomp {
             out.push_str("; NO seccomp: socket families are NOT filtered");
@@ -260,6 +308,10 @@ impl AgentPlan {
         out
     }
 }
+
+/// The lowest Landlock ABI `--require-sandbox` accepts: ABI 3 adds
+/// `LANDLOCK_ACCESS_FS_TRUNCATE`.
+pub const MIN_FULL_LANDLOCK_ABI: u32 = 3;
 
 /// Choose the layers for an agent session on `host`.
 ///
@@ -468,7 +520,41 @@ mod tests {
     fn old_landlock_abi_reports_unscoped_signals() {
         let p = agent_plan(&linux(Some(3), true));
         assert!(p.filesystem_confined() && !p.scopes && p.is_degraded());
-        assert!(p.describe().contains("signals NOT scoped"));
+        assert!(p
+            .describe()
+            .contains("signals and abstract Unix sockets NOT scoped"));
+    }
+
+    #[test]
+    fn landlock_below_abi_3_is_degraded_and_names_the_gaps() {
+        for abi in [1, 2] {
+            let p = agent_plan(&linux(Some(abi), true));
+            assert!(p.filesystem_confined() && p.is_degraded());
+            assert!(!p.enforces_every_layer(), "ABI {abi}");
+            let d = p.describe();
+            assert!(d.contains("truncation NOT restricted"), "{d}");
+            assert!(d.contains("chmod, chown"), "{d}");
+        }
+        assert!(agent_plan(&linux(Some(1), true))
+            .describe()
+            .contains("renamed or linked across directories"));
+        let p = agent_plan(&linux(Some(3), true));
+        assert!(p.enforces_every_layer());
+        assert!(!p.describe().contains("truncation"));
+        // No ABI closes the Unix-socket gap.
+        let p = agent_plan(&linux(Some(7), true));
+        assert!(
+            p.describe().contains("local Unix sockets"),
+            "{}",
+            p.describe()
+        );
+        assert!(!p.describe().contains("NOT scoped"));
+    }
+
+    #[test]
+    fn every_layer_needs_seccomp_too() {
+        assert!(!agent_plan(&linux(Some(7), false)).enforces_every_layer());
+        assert!(!agent_plan(&linux(None, true)).enforces_every_layer());
     }
 
     #[test]

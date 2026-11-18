@@ -560,14 +560,22 @@ async fn launch(
     }
     let opts = args.sandbox_options();
     let cwd = std::env::current_dir().context("resolving the current directory")?;
-    let profile = agent_sandbox::build_profile(
-        &program,
-        &cwd,
-        dir.as_std_path(),
-        &session.sandbox_paths(),
-        &opts,
-    )?;
-    let engaged = agent_sandbox::engage(cmd.as_std_mut(), &profile, &opts)?;
+    let profile = if opts.disabled {
+        None
+    } else {
+        let (profile, warnings) = agent_sandbox::build_profile(
+            &program,
+            &cwd,
+            dir.as_std_path(),
+            &session.sandbox_paths(),
+            &opts,
+        )?;
+        for w in warnings {
+            eprintln!("{w}");
+        }
+        Some(profile)
+    };
+    let engaged = agent_sandbox::engage(cmd.as_std_mut(), profile.as_ref(), &opts)?;
     agent_sandbox::report(&engaged);
     let mut child = cmd.spawn().with_context(not_found)?;
 
@@ -582,7 +590,11 @@ async fn launch(
     let interactive = std::io::stdin().is_terminal();
     loop {
         tokio::select! {
-            status = child.wait() => return Ok(exit_code(status.context("waiting for agent")?)),
+            status = child.wait() => {
+                let code = exit_code(status.context("waiting for agent")?);
+                agent_sandbox::exit_hint(&engaged, code);
+                return Ok(code);
+            }
             stop = next_signal(stop) => {
                 if stop == Stop::Interrupt {
                     if !interactive {

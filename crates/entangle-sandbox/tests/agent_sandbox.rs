@@ -53,6 +53,12 @@ fn host_plan() -> Option<AgentPlan> {
     if plan.filesystem_confined() {
         Some(plan)
     } else {
+        // Set in CI on Linux: there a skipped enforcement test is a failure.
+        assert!(
+            std::env::var("ENTANGLE_REQUIRE_LANDLOCK_TESTS").map_or(true, |v| v != "1"),
+            "ENTANGLE_REQUIRE_LANDLOCK_TESTS=1 but the agent sandbox has no Landlock here: {}",
+            plan.describe()
+        );
         eprintln!("skipping: {}", plan.describe());
         None
     }
@@ -152,6 +158,52 @@ async fn agent_keeps_the_network_and_sessions_but_not_raw_sockets_or_namespaces(
         let e = errno(call(&profile, &plan, "unshare").await);
         assert_eq!(e, 1, "unshare(CLONE_NEWUSER|CLONE_NEWNET) must be EPERM");
     }
+}
+
+/// TIOCSTI would let the agent type commands into the user's shell after it
+/// exits (it shares the terminal). On a non-terminal the kernel answers
+/// ENOTTY; the filter answers EPERM before the kernel looks at the file.
+#[tokio::test(flavor = "multi_thread")]
+async fn agent_cannot_inject_terminal_input() {
+    let Some(plan) = host_plan() else { return };
+    if !plan.seccomp {
+        eprintln!("skipping: no seccomp on this host");
+        return;
+    }
+    let project = dir();
+    let profile = AgentProfile::new(testchild(), project.path());
+    // Unconfined, the request reaches the kernel.
+    let mut cmd = std::process::Command::new(testchild());
+    let r = Supervisor::new("agent-testchild", InvokeLimits::default())
+        .invoke(
+            {
+                cmd.env_clear();
+                cmd
+            },
+            b"tiocsti:/dev/null",
+        )
+        .await;
+    assert_eq!(errno(r), 25, "ENOTTY without the sandbox");
+    let e = errno(call(&profile, &plan, "tiocsti:/dev/null").await);
+    assert_eq!(e, 1, "TIOCSTI must be EPERM inside the sandbox");
+}
+
+/// Documents a known gap (docs/agents.md, "What the sandbox does not
+/// contain"): Landlock below ABI 6 does not mediate `connect()` to a
+/// path-named Unix socket, so a socket outside the allowlist is reachable.
+/// If this starts failing, the gap closed and the docs must be updated.
+#[tokio::test(flavor = "multi_thread")]
+async fn path_named_unix_sockets_outside_the_allowlist_stay_reachable() {
+    let Some(plan) = host_plan() else { return };
+    let project = dir();
+    let outside = dir();
+    let sock = outside.path().join("daemon.sock");
+    let _listener = std::os::unix::net::UnixListener::bind(&sock).unwrap();
+    let profile = AgentProfile::new(testchild(), project.path());
+    let out = call(&profile, &plan, &format!("unix:{}", sock.display()))
+        .await
+        .expect("connect to a path-named socket outside the allowlist");
+    assert_eq!(out, b"connected");
 }
 
 #[tokio::test(flavor = "multi_thread")]

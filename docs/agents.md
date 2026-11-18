@@ -144,8 +144,25 @@ it executes. The status is printed at session start and by `entangle doctor`
 ("agent sandbox"):
 
 ```
-sandbox: Landlock ABI 7 filesystem allowlist + seccomp socket filter + no_new_privs; network egress NOT restricted; writable: /home/you/project, /tmp, /var/tmp, /home/you/.claude, /home/you/.claude.json
+sandbox: Landlock ABI 7 filesystem allowlist + seccomp socket filter + no_new_privs; chmod, chown, timestamps and extended attributes NOT restricted by Landlock; local Unix sockets (D-Bus, ssh-agent, tmux, X11, Docker, the Entanglement daemon) stay reachable; network egress NOT restricted; writable: /home/you/project, /tmp, /var/tmp, /home/you/.claude, /home/you/.claude.json
+note: the sandbox limits files and socket families; it is not a containment boundary. ...
 ```
+
+**Read this first: the sandbox is defence in depth, not a containment
+boundary.** It restricts which files the agent can open and which socket
+families it can create. It does not stop the agent from talking to programs
+that run outside the sandbox as you, and through them an agent can act
+outside it: see [What the sandbox does not contain](#what-the-sandbox-does-not-contain).
+Run an agent you do not trust on a machine or account you do not mind it
+controlling.
+
+**Untested with real agent sessions.** The allowlist was exercised with test
+programs and with `claude --version`; no full Claude Code, Codex or OpenCode
+session has been run under it. Claude Code in particular rewrites
+`~/.claude.json` through a temporary file in the home directory, which the
+allowlist does not permit, so saving its settings may fail. When a sandboxed
+agent exits with a non-zero status, `entangle agent run` prints a hint naming
+`--sandbox-write <path>` and `--no-sandbox`.
 
 What is enforced:
 
@@ -153,9 +170,16 @@ What is enforced:
   execute in:
   - the **project directory**: the git work tree that contains the current
     directory, else the current directory. The home directory or `/` is
-    never taken as the project because of a `.git` there. For a linked git
-    work tree, the main repository's git directory is writable too (git
-    keeps the work tree's objects and refs there);
+    never taken as the project because of a `.git` there, and a session
+    started *in* the home directory or `/` is refused (`ENTANGLE-E0683`):
+    `cd` into a project, or pass `--no-sandbox`. For a linked git work tree,
+    the main repository's git directory is writable too (git keeps the work
+    tree's objects and refs there), but only when the layout is the one
+    `git worktree add` creates (the work tree's metadata points back to its
+    `.git` file and lies under `<common>/worktrees/`, and the common
+    directory holds `HEAD`, `objects/` and `refs/`) and the directory is not
+    the home directory, `/` or a key directory: the `.git` file is a project
+    file an earlier agent could have rewritten;
   - the temporary directories `/tmp`, `/var/tmp` and `$TMPDIR`, and
     `/dev/shm`;
   - the agent's own state: `~/.claude` and `~/.claude.json` (claude-code);
@@ -174,10 +198,16 @@ What is enforced:
   `~/.config/git`, the session config directory, OpenCode's global config
   directory, and anything you add with `--sandbox-read <path>` (repeatable).
   The terminal devices (`/dev/tty`, `/dev/ptmx`, `/dev/pts`) are usable.
+  An implicit read grant (a `PATH` entry, the agent's install tree) that is
+  or contains `/`, the home directory, `~/.entangle`, `~/.ssh`, `~/.aws` or
+  `~/.gnupg` is skipped with a warning; naming such a path with
+  `--sandbox-read`/`--sandbox-write` is allowed but warned about. Home is
+  compared after resolving symbolic links.
 
-  **Everything else is out of reach**, for reading as well as writing: the
-  rest of your home directory (`~/.ssh`, `~/.aws`, browser profiles, other
-  projects). A tool the agent runs that needs more — a toolchain under
+  **No other file can be opened**, for reading or writing: the rest of your
+  home directory (`~/.ssh`, `~/.aws`, browser profiles, other projects).
+  (Opening files is all this covers; see the next section for what is still
+  reachable.) A tool the agent runs that needs more — a toolchain under
   `~/.cargo` or `~/.rustup`, a package cache such as `~/.npm` or
   `~/.cache/pip`, your SSH keys for `git push` — fails with "Permission
   denied" until you name the path with `--sandbox-read` or
@@ -187,9 +217,13 @@ What is enforced:
 * **`no_new_privs`, no capabilities.** Setuid programs gain nothing, so
   `sudo` does not work inside a session; an agent started by root holds no
   capabilities.
-* **Socket filter (seccomp).** Sockets can be created only for Unix-domain,
-  IPv4, IPv6 and netlink (name resolution); raw and packet sockets and every
-  other family (Bluetooth, CAN, `AF_ALG`, …) are refused. `io_uring` is
+* **Syscall filter (seccomp).** Sockets can be created only for Unix-domain,
+  IPv4, IPv6 and netlink with protocol `NETLINK_ROUTE` (name resolution,
+  `ip`); raw and packet sockets, other netlink protocols (audit, uevent,
+  netfilter, sock_diag, generic) and every other family (Bluetooth, CAN,
+  `AF_ALG`, …) are refused. The `TIOCSTI` and `TIOCLINUX` terminal ioctls
+  are refused, so the agent cannot push keystrokes into your shell through
+  the terminal it shares with you. `io_uring` is
   refused (it can create sockets unfiltered) and so is creating or joining
   namespaces, so tools that build their own sandbox from user namespaces
   (bubblewrap, Chromium's sandbox, rootless containers) do not work inside a
@@ -198,18 +232,46 @@ What is enforced:
   (address space; off by default because JavaScript runtimes reserve very
   large virtual regions) and `--sandbox-max-open-files` are optional.
 
-What is **not** enforced — stated plainly:
+### What the sandbox does not contain
 
+Stated plainly:
+
+* **Local Unix sockets are reachable, and through them the agent can act
+  outside the sandbox.** Landlock does not mediate `connect()` to a
+  path-named Unix socket, and the agent needs Unix sockets, so anything your
+  user can connect to is reachable from inside the sandbox, for example:
+  the D-Bus session bus (`$XDG_RUNTIME_DIR/bus`: `systemd-run --user` starts
+  an unconfined process, the Secret Service hands out stored passwords),
+  tmux and screen sockets (send keys to another shell), X11 and Wayland
+  sockets, the Docker socket (root on the host), the ssh-agent socket (signs
+  with your keys), and the **Entanglement daemon's RPC socket** (every
+  daemon method, without the gateway's policy or audit). A test
+  (`path_named_unix_sockets_outside_the_allowlist_stay_reachable`) pins this
+  gap so the docs change when it closes.
+* **Secrets in environment variables reach the agent.** The agent inherits
+  your environment: `SSH_AUTH_SOCK`, `DBUS_SESSION_BUS_ADDRESS`, `AWS_*`,
+  `GH_TOKEN`, `GITHUB_TOKEN`, API keys. Unset what it should not have before
+  starting the session.
+* **What Landlock never restricts:** changing permissions, owner,
+  timestamps and extended attributes of files the agent can reach. Below
+  ABI 3 it also does not restrict truncation (a readable file can be
+  emptied), below ABI 5 device ioctls, below ABI 6 signals to your other
+  processes and abstract Unix sockets; ABI 1 refuses renaming or linking
+  files across directories altogether. The status line names the gaps of
+  the running ABI, and below ABI 3 the sandbox counts as degraded.
+* **Hooks an agent writes into its own config.** The agent's state
+  directories are writable (below). Hooks, `notify` commands and MCP
+  servers it adds there run when you later start that agent *directly*,
+  outside any sandbox. `entangle agent run` asks before using new or
+  changed user-level MCP servers (see [User-level MCP servers need
+  consent](#user-level-mcp-servers-need-consent)) and reports at the end of a
+  session which parts of the config changed.
 * **Network egress is not restricted.** The agent keeps normal network
   access to every host. Restricting it to the gateway plus an allowlist of
   hosts (spec §8.3) needs a network namespace and a filtering proxy, which
   are not implemented. A tool call the gateway denies can therefore still be
   attempted by the agent over its own network connection if it has another
   way to reach the service.
-* **Path-named Unix sockets are reachable.** Landlock does not mediate
-  `connect()` on them, and the agent needs Unix sockets, so anything your
-  user can connect to — the Entanglement daemon's RPC socket, a Docker
-  socket, an SSH agent socket — is reachable from inside the sandbox.
 * The agent's own state directories are writable, including the files that
   hold its credentials.
 * macOS and other platforms: no sandbox is engaged for agents (the Seatbelt
@@ -221,7 +283,7 @@ Flags:
 | Flag | Effect |
 |---|---|
 | `--no-sandbox` | Start the agent without the sandbox. A warning is printed. Tool calls still go through the gateway. |
-| `--require-sandbox` | Refuse to start (`ENTANGLE-E0680`) if this host cannot enforce the filesystem allowlist, instead of starting with a warning. |
+| `--require-sandbox` | Refuse to start (`ENTANGLE-E0680`) unless every layer is engaged — a Landlock allowlist at ABI 3 or later, the seccomp filter and `no_new_privs` — instead of starting with a warning. It does not close the gaps listed above. |
 | `--sandbox-read <path>` / `--sandbox-write <path>` | Extend the allowlist (repeatable). |
 | `--sandbox-max-memory-mb <n>` / `--sandbox-max-open-files <n>` | Optional rlimits. |
 
@@ -229,12 +291,14 @@ Flags:
 Landlock not enabled at boot) there is no filesystem allowlist. The agent
 is still started, with `no_new_privs`, the capability drop, the socket
 filter and the rlimits, and a warning says that its filesystem access is
-not confined and why; `--require-sandbox` turns that into a refusal.
-Landlock below ABI 6 (no signal scoping) or a host without seccomp is
+not confined and why; `--require-sandbox` turns that into a refusal (as it
+does for Landlock below ABI 3 and a host without seccomp). Landlock below
+ABI 6 (no signal scoping) or below ABI 3, or a host without seccomp, is
 reported as "reduced isolation". `entangle doctor` shows the same status
-without starting anything. (`ENTANGLE_AGENT_SANDBOX_PROBE=no-landlock` makes
-a session or `doctor` behave as on a kernel without Landlock, to try the
-degraded path.)
+without starting anything. (In debug builds only,
+`ENTANGLE_AGENT_SANDBOX_PROBE=no-landlock` makes a session or `doctor`
+behave as on a kernel without Landlock, to try the degraded path; release
+builds ignore it.)
 
 A failure to build the sandbox (`ENTANGLE-E0681`) stops the session before
 the agent starts: the agent never runs half-confined.
@@ -400,8 +464,9 @@ E0671 HTTP downstream status/protocol failure. E0664 now means an HTTP
 downstream URL or header was refused (it used to mean "HTTP unsupported").
 
 Sandbox, built-in server and adapters: E0680 `--require-sandbox` on a host
-that cannot confine the filesystem, E0681 the sandbox could not be prepared,
-E0682 an unusable sandbox path, E0685 the daemon cannot be reached for
+that cannot engage every layer, E0681 the sandbox could not be prepared,
+E0682 an unusable sandbox path, E0683 a sandboxed session whose project
+directory would be the home directory or `/`, E0685 the daemon cannot be reached for
 `--entangle-tools`, E0686 a plugin tool that does not exist (or bad tool
 arguments), E0687 the name `entangle` is already taken by a configured
 server, E0688 a plugin invocation failed, E0689 an agent whose adapter is

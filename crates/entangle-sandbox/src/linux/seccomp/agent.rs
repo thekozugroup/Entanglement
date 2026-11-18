@@ -11,8 +11,14 @@
 //!   nr == clone3              -> ERRNO(ENOSYS)  (libc falls back to clone)
 //!   nr == setns               -> ERRNO(EPERM)
 //!   nr == unshare|clone with a CLONE_NEW* flag -> ERRNO(EPERM)
+//!   nr == ioctl:
+//!     request is TIOCSTI | TIOCLINUX  -> ERRNO(EPERM)   (terminal input injection)
+//!     otherwise                       -> ALLOW
 //!   nr == socket|socketpair:
-//!     AF_UNIX | AF_NETLINK            -> ALLOW
+//!     AF_UNIX                         -> ALLOW
+//!     AF_NETLINK:
+//!       protocol == NETLINK_ROUTE     -> ALLOW          (getaddrinfo, `ip`)
+//!       otherwise                     -> ERRNO(EACCES)
 //!     AF_INET | AF_INET6:
 //!       type is SOCK_RAW | SOCK_PACKET -> ERRNO(EACCES)
 //!       otherwise                      -> ALLOW
@@ -35,21 +41,56 @@ const SOCK_TYPE_MASK: u32 = 0xf;
 /// `SOCK_PACKET` (obsolete packet interface on `AF_INET`).
 const SOCK_PACKET: u32 = 10;
 
+/// Offset of the low word of `args[2]` in `struct seccomp_data`
+/// (little-endian; the parent module's offsets assume the same).
+const OFF_ARG2_LO: u32 = 32;
+
+/// `TIOCSTI`: push a byte into the terminal's input queue.
+const TIOCSTI: u32 = 0x5412;
+/// `TIOCLINUX`: virtual-console subcommands, including paste-selection.
+const TIOCLINUX: u32 = 0x541C;
+
+/// `ioctl` is not in the shared [`super::Nr`] table (the native-plugin
+/// program does not filter it): 16 on x86_64, 29 in the generic table that
+/// aarch64 and riscv64 use.
+fn ioctl_nr(arch: Arch) -> u32 {
+    if arch.audit_arch == super::X86_64.audit_arch {
+        16
+    } else {
+        29
+    }
+}
+
+/// Block for `ioctl`: the kernel takes the request as `unsigned int`, so the
+/// low word of `args[1]` is the whole request.
+fn ioctl_block() -> [libc::sock_filter; 5] {
+    [
+        stmt(LD_W_ABS, OFF_ARG1_LO),
+        jump(JEQ_K, TIOCSTI, 2, 0),
+        jump(JEQ_K, TIOCLINUX, 1, 0),
+        stmt(RET_K, RET_ALLOW),
+        stmt(RET_K, RET_EPERM),
+    ]
+}
+
 /// Block for `socket`/`socketpair`: see the module docs.
-fn socket_block() -> [libc::sock_filter; 12] {
+fn socket_block() -> [libc::sock_filter; 15] {
     [
         /*  0 */ stmt(LD_W_ABS, OFF_ARG0_LO),
-        /*  1 */ jump(JEQ_K, libc::AF_UNIX as u32, 8, 0),
-        /*  2 */ jump(JEQ_K, libc::AF_NETLINK as u32, 7, 0),
-        /*  3 */ jump(JEQ_K, libc::AF_INET as u32, 2, 0),
-        /*  4 */ jump(JEQ_K, libc::AF_INET6 as u32, 1, 0),
+        /*  1 */ jump(JEQ_K, libc::AF_UNIX as u32, 11, 0),
+        /*  2 */ jump(JEQ_K, libc::AF_NETLINK as u32, 3, 0),
+        /*  3 */ jump(JEQ_K, libc::AF_INET as u32, 5, 0),
+        /*  4 */ jump(JEQ_K, libc::AF_INET6 as u32, 4, 0),
         /*  5 */ stmt(RET_K, RET_EACCES),
-        /*  6 */ stmt(LD_W_ABS, OFF_ARG1_LO),
-        /*  7 */ stmt(AND_K, SOCK_TYPE_MASK),
-        /*  8 */ jump(JEQ_K, libc::SOCK_RAW as u32, 2, 0),
-        /*  9 */ jump(JEQ_K, SOCK_PACKET, 1, 0),
-        /* 10 */ stmt(RET_K, RET_ALLOW),
-        /* 11 */ stmt(RET_K, RET_EACCES),
+        /*  6 */ stmt(LD_W_ABS, OFF_ARG2_LO),
+        /*  7 */ jump(JEQ_K, libc::NETLINK_ROUTE as u32, 5, 0),
+        /*  8 */ stmt(RET_K, RET_EACCES),
+        /*  9 */ stmt(LD_W_ABS, OFF_ARG1_LO),
+        /* 10 */ stmt(AND_K, SOCK_TYPE_MASK),
+        /* 11 */ jump(JEQ_K, libc::SOCK_RAW as u32, 2, 0),
+        /* 12 */ jump(JEQ_K, SOCK_PACKET, 1, 0),
+        /* 13 */ stmt(RET_K, RET_ALLOW),
+        /* 14 */ stmt(RET_K, RET_EACCES),
     ]
 }
 
@@ -71,6 +112,7 @@ pub(crate) fn assemble(arch: Arch) -> Vec<libc::sock_filter> {
     deny(&mut p, nr.setns, RET_EPERM);
     guarded(&mut p, nr.unshare, &flags_block(NAMESPACE_FLAGS));
     guarded(&mut p, nr.clone, &flags_block(NAMESPACE_FLAGS & !CSIGNAL));
+    guarded(&mut p, ioctl_nr(arch), &ioctl_block());
     let sockets = socket_block();
     guarded(&mut p, nr.socket, &sockets);
     guarded(&mut p, nr.socketpair, &sockets);
@@ -93,6 +135,17 @@ mod tests {
 
     /// A classic-BPF interpreter for the instructions the assembler emits.
     fn run(prog: &[libc::sock_filter], arch: u32, nr: u32, arg0: u32, arg1: u32) -> u32 {
+        run3(prog, arch, nr, arg0, arg1, 0)
+    }
+
+    fn run3(
+        prog: &[libc::sock_filter],
+        arch: u32,
+        nr: u32,
+        arg0: u32,
+        arg1: u32,
+        arg2: u32,
+    ) -> u32 {
         const JSET_K: u16 = (libc::BPF_JMP | libc::BPF_JSET | libc::BPF_K) as u16;
         let mut a = 0u32;
         let mut pc = 0usize;
@@ -105,6 +158,7 @@ mod tests {
                         OFF_ARCH => arch,
                         OFF_ARG0_LO => arg0,
                         OFF_ARG1_LO => arg1,
+                        32 => arg2,
                         other => panic!("unexpected load offset {other}"),
                     };
                     pc += 1;
@@ -204,6 +258,58 @@ mod tests {
             RET_KILL_PROCESS
         );
         assert_eq!(call(a.nr.socket | X32_SYSCALL_BIT, 2), RET_EPERM);
+    }
+
+    /// TIOCSTI / TIOCLINUX push input into the controlling terminal; the
+    /// agent shares the user's terminal, so both are refused. Other ioctls
+    /// (window size, raw mode) still work.
+    #[test]
+    fn terminal_injection_ioctls_are_refused() {
+        // ioctl is 16 on x86_64, 29 in the generic table (aarch64, riscv64).
+        for (arch, ioctl) in [(X86_64, 16u32), (AARCH64, 29u32)] {
+            let p = assemble(arch);
+            let io = |req: u32| run(&p, arch.audit_arch, ioctl, 0, req);
+            assert_eq!(io(libc::TIOCSTI as u32), RET_EPERM);
+            assert_eq!(io(0x541C), RET_EPERM); // TIOCLINUX
+            assert_eq!(io(libc::TIOCGWINSZ as u32), RET_ALLOW);
+            assert_eq!(io(libc::TCGETS as u32), RET_ALLOW);
+        }
+    }
+
+    #[test]
+    fn ioctl_number_matches_libc() {
+        if let Some(arch) = super::super::NATIVE {
+            assert_eq!(libc::c_long::from(ioctl_nr(arch)), libc::SYS_ioctl);
+        }
+    }
+
+    /// Only NETLINK_ROUTE (what getaddrinfo and `ip` use) is allowed among
+    /// netlink protocols.
+    #[test]
+    fn only_netlink_route_is_allowed() {
+        for arch in [X86_64, AARCH64] {
+            let p = assemble(arch);
+            let nl = |proto: i32| {
+                run3(
+                    &p,
+                    arch.audit_arch,
+                    arch.nr.socket,
+                    libc::AF_NETLINK as u32,
+                    (libc::SOCK_RAW | libc::SOCK_CLOEXEC) as u32,
+                    proto as u32,
+                )
+            };
+            assert_eq!(nl(libc::NETLINK_ROUTE), RET_ALLOW);
+            for proto in [
+                libc::NETLINK_AUDIT,
+                libc::NETLINK_KOBJECT_UEVENT,
+                libc::NETLINK_NETFILTER,
+                libc::NETLINK_SOCK_DIAG,
+                libc::NETLINK_GENERIC,
+            ] {
+                assert_eq!(nl(proto), RET_EACCES, "protocol {proto}");
+            }
+        }
     }
 
     /// Unlike the native-plugin program: job control and sessions work.

@@ -131,6 +131,7 @@ fn handle(req: &str) -> Result<Vec<u8>, String> {
         "keyring" => keyring_read(arg),
         "caps" => caps(),
         "ioctl" => ioctl_tcgets(arg),
+        "tiocsti" => ioctl_tiocsti(arg),
         "setsid" => {
             // SAFETY: this helper is single-threaded, so the child may run
             // arbitrary code; it only calls setsid and _exit.
@@ -356,6 +357,29 @@ fn ioctl_tcgets(path: &str) -> Result<Vec<u8>, String> {
         return Err(errno_msg(&io::Error::last_os_error()));
     }
     Ok(b"tty".to_vec())
+}
+
+/// `ioctl(TIOCSTI)` on `path`, which need not be a terminal: on a
+/// non-terminal the kernel answers ENOTTY, so EPERM shows a filter.
+#[cfg(target_os = "linux")]
+fn ioctl_tiocsti(path: &str) -> Result<Vec<u8>, String> {
+    use std::os::fd::AsRawFd;
+    let f = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(|e| errno_msg(&e))?;
+    let c: libc::c_char = b'x' as libc::c_char;
+    // SAFETY: valid descriptor and a pointer to one byte, as TIOCSTI takes.
+    if unsafe { libc::ioctl(f.as_raw_fd(), libc::TIOCSTI, &c) } != 0 {
+        return Err(errno_msg(&io::Error::last_os_error()));
+    }
+    Ok(b"injected".to_vec())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn ioctl_tiocsti(_path: &str) -> Result<Vec<u8>, String> {
+    Err("unsupported".into())
 }
 
 #[cfg(not(target_os = "linux"))]
