@@ -275,6 +275,22 @@ then a summary (`crates/entangle-cli/src/cmd/doctor.rs`):
 13. `disk-space` — warns below 1 GiB free on the filesystem hosting `~/.entangle` (or `/tmp` if that dir doesn't exist yet).
 14. `clock-skew` — compares the daemon's clock to the local clock via a `time` RPC; `warn` above 2s drift, **`fail`** above 30s (biscuit-auth tokens have only ±60s allowance, so severe drift breaks cross-node auth and pairing TOFU).
 
+Further lines follow these: `agent sandbox` (after `sandbox trial`) reports
+what `entangle agent run` would engage on an agent subprocess on this host —
+the Landlock filesystem allowlist, the seccomp socket filter and
+`no_new_privs` — and always states that network egress is not restricted. It
+**warns** when the filesystem cannot be confined (no Landlock: agents can
+then read and write every file you can) or when isolation is reduced
+(Landlock below ABI 6, no seccomp). See [agents.md](agents.md#the-os-sandbox).
+`tailscale` and `wrapper` are described in §10 and §15. `shell history` is
+informational (always `[ok]` or `[skip]`): it reports how many of the last
+500 entries of your shell history files (`$HISTFILE`, `~/.bash_history`,
+`~/.zsh_history`, fish's `fish_history`) started an agent binary directly
+instead of through `entangle agent run`, as counts per binary. The files
+are opened read-only, only their last 256 KiB are read, and no command is
+ever printed or stored. Set `ENTANGLE_DOCTOR_NO_HISTORY=1` to skip it; the
+files are then not opened.
+
 Exit code is `1` if any check is `fail`, else `0` — `warn` never fails the
 command. Because check 9 (daemon reachability) only warns, **`entangle
 doctor` is not a substitute for a liveness probe** — a hung daemon that still
@@ -385,6 +401,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0450`–`E0463` | Remote-request capability tokens (`mesh.peer`, see §21): E0450 no token while `[trust] require_capability_tokens = true` (re-pair with `entangle pair`); E0451 not a biscuit or too large; E0452 does not verify under this node's identity key; E0453 issued to another peer than the presenter; E0454 does not grant `mesh.peer`; E0455 per-request expiry missing or more than 60 s (+30 s skew) ahead (a large frame's late-arrival grace extends acceptance past the per-request expiry, never this window); E0456 bound to another request; E0457 not exactly one nonce; E0458 replayed nonce; E0459 replay cache full (retry shortly); E0460 revoked on this node; E0461 a block holds content other than the accepted facts; E0462 a template restriction (`gpu_job`, `agent_session`) is not met; E0463 `revoked-tokens.toml` unreadable, so every token is refused. Expiry failures use `ENTANGLE-E0412`. |
 | `ENTANGLE-E0420`–`E0425` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch (E0420–E0424); E0425 is a relay whose cumulative `total_bytes_cap` budget is exhausted. |
 | `ENTANGLE-E0620`–`E0624`, `E0660`–`E0671` | MCP gateway and agent sessions — see [agents.md](agents.md). E0620 is retired. |
+| `ENTANGLE-E0680`–`E0689` | Agent sessions, continued (range E0680–E0699) — see [agents.md](agents.md): `--require-sandbox` on a host that cannot confine the agent's filesystem (E0680), the agent sandbox could not be prepared (E0681), an unusable sandbox path (E0682), the daemon cannot be reached for `--entangle-tools` (E0685), no such plugin tool or bad tool arguments (E0686), the built-in server name `entangle` is already used by a configured server (E0687), a plugin invocation through the gateway failed (E0688), an agent whose adapter is deferred — Aider, Cline, Continue (E0689). E0683, E0684 and E0690–E0699 are unassigned. |
 | `ENTANGLE-E0630`, `E0640` | Retired `NotImplemented` codes for `mesh.iroh` and `mesh.tailscale`; both transports are implemented. |
 | `ENTANGLE-E0651`–`E0654` | OTLP trace export: invalid `[telemetry.otlp]` endpoint (E0651; `https://` is not supported), empty `service_name` (E0652), an out-of-range exporter setting (E0653), the export thread could not start (E0654). `E0650` is retired. See §14. |
 | `ENTANGLE-E0655`–`E0657` | Metrics endpoint: `[metrics] listen` is not an `ip:port` (E0655), a non-loopback `listen` without `allow_non_loopback = true` (E0656), the socket could not be bound (E0657). See §14. |
@@ -1847,7 +1864,9 @@ to change). Limits:
   does not re-read is not;
 - it checks the shell you run doctor from, not every shell on the machine;
 - the "shell history shows recent unwrapped invocations" note from the spec is
-  not implemented.
+  a separate `shell history` line (§4): it counts direct invocations of agent
+  binaries in recent history whether or not a session is active, never
+  prints the commands, and `ENTANGLE_DOCTOR_NO_HISTORY=1` skips it.
 
 **Differences from the spec text (§8.3).** The wrapper is opt-in through
 `entangle wrapper enable` only: there is no first-run wizard question and no

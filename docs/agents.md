@@ -15,6 +15,11 @@ entangle agent run claude-code --trust-project-servers   # see "Project MCP serv
 Arguments after `--` go to the agent unchanged. The exit code of the agent
 is the exit code of `entangle agent run`.
 
+On Linux the agent process runs inside an OS sandbox (see
+[The OS sandbox](#the-os-sandbox)). **The sandbox does not restrict network
+access**: the agent can connect to any host, as it could when started
+directly.
+
 ## What happens
 
 1. Your agent's MCP config is read (never written) and every declared MCP
@@ -27,7 +32,9 @@ is the exit code of `entangle agent run`.
    `http://127.0.0.1:<port>/mcp/<name>`. The token is **not** written to disk;
    the config references the `ENTANGLE_SESSION_TOKEN` environment variable.
 4. The agent is started with `ENTANGLE_SESSION_ID` and `ENTANGLE_SESSION_TOKEN`
-   set, pointed at the session config.
+   set, pointed at the session config, inside the OS sandbox (Linux). One
+   line on stderr reports which sandbox layers are engaged and what is
+   writable.
 5. On exit the gateway stops, downstream MCP server processes are killed,
    and the session directory is deleted. If the original config changed
    meanwhile, a warning (`ENTANGLE-E0660`) is printed, also when the agent
@@ -129,6 +136,152 @@ is not put in the environment). An OpenCode that merges the project file
 last and ignores `OPENCODE_CONFIG_CONTENT` would let a project entry that
 itself sets `type`, `command` and `"enabled": true` win over the override.
 
+## The OS sandbox
+
+On Linux, `entangle agent run` confines the agent process (and everything it
+starts: shells, compilers, test runs, MCP servers it launches itself) before
+it executes. The status is printed at session start and by `entangle doctor`
+("agent sandbox"):
+
+```
+sandbox: Landlock ABI 7 filesystem allowlist + seccomp socket filter + no_new_privs; network egress NOT restricted; writable: /home/you/project, /tmp, /var/tmp, /home/you/.claude, /home/you/.claude.json
+```
+
+What is enforced:
+
+* **Filesystem allowlist (Landlock).** The agent can read, write and
+  execute in:
+  - the **project directory**: the git work tree that contains the current
+    directory, else the current directory. The home directory or `/` is
+    never taken as the project because of a `.git` there. For a linked git
+    work tree, the main repository's git directory is writable too (git
+    keeps the work tree's objects and refs there);
+  - the temporary directories `/tmp`, `/var/tmp` and `$TMPDIR`, and
+    `/dev/shm`;
+  - the agent's own state: `~/.claude` and `~/.claude.json` (claude-code);
+    `~/.codex` and the session directory, which holds its `CODEX_HOME`
+    (codex); `~/.local/share/opencode`, `~/.cache/opencode` and
+    `~/.local/state/opencode` (opencode — these three are OpenCode's
+    documented defaults and were not checked against a live OpenCode);
+  - anything you add with `--sandbox-write <path>` (repeatable).
+
+  It can read and execute, but not write: the system directories (`/usr`,
+  `/bin`, `/sbin`, `/lib*`, `/etc`, `/opt`, `/nix`, `/snap`, `/proc`,
+  `/sys`), every directory on your `PATH`, the directories the agent is
+  installed in (the directory of its executable; for an npm-installed agent
+  its package directory and the `bin` next to it; for a `<root>/bin/`
+  executable also `<root>/lib` and `<root>/libexec`), `~/.gitconfig` and
+  `~/.config/git`, the session config directory, OpenCode's global config
+  directory, and anything you add with `--sandbox-read <path>` (repeatable).
+  The terminal devices (`/dev/tty`, `/dev/ptmx`, `/dev/pts`) are usable.
+
+  **Everything else is out of reach**, for reading as well as writing: the
+  rest of your home directory (`~/.ssh`, `~/.aws`, browser profiles, other
+  projects). A tool the agent runs that needs more — a toolchain under
+  `~/.cargo` or `~/.rustup`, a package cache such as `~/.npm` or
+  `~/.cache/pip`, your SSH keys for `git push` — fails with "Permission
+  denied" until you name the path with `--sandbox-read` or
+  `--sandbox-write`. A named path must exist (`ENTANGLE-E0682`).
+  On Landlock ABI 6 and later the agent also cannot signal processes outside
+  the sandbox or connect to their abstract Unix sockets.
+* **`no_new_privs`, no capabilities.** Setuid programs gain nothing, so
+  `sudo` does not work inside a session; an agent started by root holds no
+  capabilities.
+* **Socket filter (seccomp).** Sockets can be created only for Unix-domain,
+  IPv4, IPv6 and netlink (name resolution); raw and packet sockets and every
+  other family (Bluetooth, CAN, `AF_ALG`, …) are refused. `io_uring` is
+  refused (it can create sockets unfiltered) and so is creating or joining
+  namespaces, so tools that build their own sandbox from user namespaces
+  (bubblewrap, Chromium's sandbox, rootless containers) do not work inside a
+  session.
+* **Resource limits.** Core dumps are disabled. `--sandbox-max-memory-mb`
+  (address space; off by default because JavaScript runtimes reserve very
+  large virtual regions) and `--sandbox-max-open-files` are optional.
+
+What is **not** enforced — stated plainly:
+
+* **Network egress is not restricted.** The agent keeps normal network
+  access to every host. Restricting it to the gateway plus an allowlist of
+  hosts (spec §8.3) needs a network namespace and a filtering proxy, which
+  are not implemented. A tool call the gateway denies can therefore still be
+  attempted by the agent over its own network connection if it has another
+  way to reach the service.
+* **Path-named Unix sockets are reachable.** Landlock does not mediate
+  `connect()` on them, and the agent needs Unix sockets, so anything your
+  user can connect to — the Entanglement daemon's RPC socket, a Docker
+  socket, an SSH agent socket — is reachable from inside the sandbox.
+* The agent's own state directories are writable, including the files that
+  hold its credentials.
+* macOS and other platforms: no sandbox is engaged for agents (the Seatbelt
+  profile of spec §8.2 is not implemented for them); the session start says
+  so.
+
+Flags:
+
+| Flag | Effect |
+|---|---|
+| `--no-sandbox` | Start the agent without the sandbox. A warning is printed. Tool calls still go through the gateway. |
+| `--require-sandbox` | Refuse to start (`ENTANGLE-E0680`) if this host cannot enforce the filesystem allowlist, instead of starting with a warning. |
+| `--sandbox-read <path>` / `--sandbox-write <path>` | Extend the allowlist (repeatable). |
+| `--sandbox-max-memory-mb <n>` / `--sandbox-max-open-files <n>` | Optional rlimits. |
+
+**Degraded mode.** On a kernel without Landlock (older than 5.13, or
+Landlock not enabled at boot) there is no filesystem allowlist. The agent
+is still started, with `no_new_privs`, the capability drop, the socket
+filter and the rlimits, and a warning says that its filesystem access is
+not confined and why; `--require-sandbox` turns that into a refusal.
+Landlock below ABI 6 (no signal scoping) or a host without seccomp is
+reported as "reduced isolation". `entangle doctor` shows the same status
+without starting anything. (`ENTANGLE_AGENT_SANDBOX_PROBE=no-landlock` makes
+a session or `doctor` behave as on a kernel without Landlock, to try the
+degraded path.)
+
+A failure to build the sandbox (`ENTANGLE-E0681`) stops the session before
+the agent starts: the agent never runs half-confined.
+
+## Entanglement plugins as tools (`--entangle-tools`)
+
+Off by default. With `entangle agent run <agent> --entangle-tools` the
+session gets one more MCP server, named `entangle`, that the gateway
+implements itself: its tools are the plugins loaded in the local daemon.
+
+* `tools/list` returns one tool per loaded plugin. The tool name is the
+  plugin's name (characters outside `[A-Za-z0-9_-]` become `_`, at most 64
+  characters; a second plugin with the same name gets `_2`, in plugin-id
+  order). The description carries the full plugin id and its tier. Plugin
+  manifests declare no input schema, so every tool has the same generic
+  one: `input` (UTF-8 text) or `input_base64` (binary), both optional.
+* `tools/call` runs the plugin through the daemon's `plugins/invoke` RPC on
+  this machine and returns its output: as text when it is UTF-8, otherwise
+  as a base64 `resource` blob. A plugin failure is a tool error
+  (`isError: true`, `ENTANGLE-E0688` followed by the daemon's error).
+  Dispatch to other nodes is not offered through this server.
+* It is a gateway route like any other: the bearer token, `--allow` /
+  `--deny` (patterns `entangle/<tool>`, `entangle/*`), the audit log, the
+  4 MiB request cap, the 120 s timeout (also passed to the daemon as the
+  invocation timeout) and the 64 MiB reply cap all apply.
+* The daemon decides what exists. A plugin over `[security]
+  max_tier_allowed`, or listed in `[plugins] disabled`, is not loaded, so it
+  is neither listed nor callable; a plugin unloaded during the session stops
+  being callable at once (`ENTANGLE-E0686`). Capabilities are whatever the
+  daemon granted the plugin; the agent gets none of its own.
+* The daemon must be running when the session starts (`ENTANGLE-E0685`
+  otherwise), and your agent config must not already have a server called
+  `entangle` (`ENTANGLE-E0687`).
+
+There is no config key for this yet: it is per session, by flag.
+
+## Agents that are not supported yet
+
+The spec (§8.3.1) also lists Aider, Cline and Continue. No adapter ships for
+them: an adapter has to know exactly how the agent declares MCP servers and
+how to hand it a session-scoped config, and for these three that could not
+be confirmed from material available offline when the adapters were
+written. A guessed format would leave tool calls outside the gateway without
+anyone noticing, so `entangle agent run aider` (or `cline`, `continue`)
+stops with `ENTANGLE-E0689` and the reason, `entangle agent list` shows them
+as "not supported yet", and the shell wrapper installs no shim for them.
+
 ## Gateway behaviour
 
 * `POST /mcp/<server>` with MCP JSON-RPC 2.0 (single message or batch),
@@ -209,7 +362,12 @@ itself sets `type`, `command` and `"enabled": true` win over the override.
 * Limits: 16 requests in flight (excess get `503`, `ENTANGLE-E0665`), 4 MiB
   body (`413`, E0667), 120 s downstream timeout (E0663, covering both
   writing the request to the server's stdin and waiting for its reply),
-  unknown server `404`, bad token `401` (E0670). A server whose stdin write
+  unknown server `404` (E0668), bad token `401` (E0670). A request for a
+  server that is not in the session config — for example one added by hand
+  to the session's temporary config — is refused, and the error names the
+  durable file to edit instead (`~/.claude/settings.json` or the project's
+  `.mcp.json` for claude-code, `~/.codex/config.toml`, OpenCode's
+  `opencode.json`, or the `--config` file) and says to start a new session. A server whose stdin write
   is cut short (it stopped reading) is killed and restarted on the next
   request, and so is one that writes a single message over 64 MiB (its
   in-flight calls fail with E0663).
@@ -240,6 +398,14 @@ config modified, E0661-E0668
 JSON-RPC/HTTP failures listed above, E0669 session not activated, E0670 auth,
 E0671 HTTP downstream status/protocol failure. E0664 now means an HTTP
 downstream URL or header was refused (it used to mean "HTTP unsupported").
+
+Sandbox, built-in server and adapters: E0680 `--require-sandbox` on a host
+that cannot confine the filesystem, E0681 the sandbox could not be prepared,
+E0682 an unusable sandbox path, E0685 the daemon cannot be reached for
+`--entangle-tools`, E0686 a plugin tool that does not exist (or bad tool
+arguments), E0687 the name `entangle` is already taken by a configured
+server, E0688 a plugin invocation failed, E0689 an agent whose adapter is
+deferred.
 
 Running the agent directly (without `entangle agent run`) bypasses all of this
 by design.
