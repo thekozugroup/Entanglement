@@ -16,6 +16,12 @@
 //!    deadline (killing the process group), an output cap, and logging the
 //!    child's stderr through `tracing`.
 //!
+//! 5. [`agent`] is the separate profile `entangle agent run` engages on an
+//!    agent subprocess (spec §8.2): the same Landlock, capability and
+//!    seccomp primitives, but an interactive program keeps its environment,
+//!    terminal, process group and network. Nothing below about native
+//!    plugins applies to it; see that module's docs.
+//!
 //! # Linux enforcement layers
 //! A child that is not granted the network and runs under Landlock gets:
 //! - **Landlock** filesystem allowlist: its program (read+exec), the minimal

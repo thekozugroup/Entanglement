@@ -43,7 +43,7 @@ Arguments after `--` are passed to the agent unchanged.
 
 Example:
   entangle agent run claude-code --deny 'fs/delete_file' -- --model opus")]
-    Run(RunArgs),
+    Run(Box<RunArgs>),
     /// List the supported agents and where their MCP config lives.
     List,
     /// Agent-host maintenance (`cleanup`).
@@ -150,7 +150,7 @@ pub async fn run(a: AgentArgs) -> Result<i32> {
             list();
             Ok(0)
         }
-        AgentCmd::Run(r) => run_agent(r).await,
+        AgentCmd::Run(r) => run_agent(*r).await,
         AgentCmd::Host(HostCmd::Cleanup { all, json }) => {
             crate::cmd::install::run_cleanup(all, json)?;
             Ok(0)

@@ -133,14 +133,17 @@ impl AgentProfile {
     /// A profile for `program` working in `project_dir`, with no extra
     /// paths and no resource limits beyond disabled core dumps.
     pub fn new(program: impl Into<PathBuf>, project_dir: impl Into<PathBuf>) -> Self {
-        // Start from the default so limits added to `ResourceLimits` later
-        // keep their own defaults; the three coarse ones are off for agents
-        // (V8 reserves a large address space, sessions run for hours, and
-        // language servers hold many descriptors).
-        let mut limits = ResourceLimits::default();
-        limits.address_space_bytes = None;
-        limits.cpu_time_secs = None;
-        limits.open_files = None;
+        // The three coarse limits are off for agents (V8 reserves a large
+        // address space, sessions run for hours, and language servers hold
+        // many descriptors). The struct update keeps the default of any
+        // limit added to `ResourceLimits` later; today it sets nothing.
+        #[allow(clippy::needless_update)]
+        let limits = ResourceLimits {
+            address_space_bytes: None,
+            cpu_time_secs: None,
+            open_files: None,
+            ..ResourceLimits::default()
+        };
         Self {
             program: program.into(),
             project_dir: project_dir.into(),
