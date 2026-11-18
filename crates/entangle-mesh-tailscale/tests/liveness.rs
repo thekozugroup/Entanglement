@@ -601,12 +601,15 @@ esac
             f.sync_all().unwrap();
         }
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let src = CliStatusSource::new(script.display().to_string())
-            .with_timeout(Duration::from_millis(300));
+        // 2 s, not a few hundred ms: `status` hangs for 30 s either way, but
+        // the quick `version` call must not time out too on a loaded machine
+        // (that would report an unreadable version instead of the timeout).
+        let src =
+            CliStatusSource::new(script.display().to_string()).with_timeout(Duration::from_secs(2));
         let started = std::time::Instant::now();
         let o = src.observe().await;
         assert!(
-            started.elapsed() < Duration::from_secs(5),
+            started.elapsed() < Duration::from_secs(15),
             "{:?}",
             started.elapsed()
         );
