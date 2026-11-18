@@ -639,6 +639,7 @@ pub fn build_wasm_in(
     repro::require_lockfile(project)?;
     // Spec §9.3 "Toolchain": an exact pin that is also the compiler in use.
     repro::require_pinned_toolchain(project, pin_policy)?;
+    repro::require_no_compiler_override(project, pin_policy)?;
     ensure_target_installed(target, project)?;
 
     let info = cargo_metadata(cargo_manifest)?;
@@ -659,13 +660,20 @@ pub fn build_wasm_in(
     std::fs::create_dir_all(&target_root)
         .with_context(|| format!("creating {}", target_root.display()))?;
     // Spec §9.3 "WIT versions": the project's own WIT and that of the path
-    // dependencies it is built against (the SDK's, in this repository).
+    // dependencies it is built against.
     let mut wit_dirs = vec![project.to_path_buf()];
     wit_dirs.extend(
         repro::path_dependencies(cargo_manifest, &cargo_bin())?
             .into_iter()
             .map(|(_, dir)| dir),
     );
+    // ...and the WIT those crates' `wit_bindgen::generate!` read by `path:`
+    // (the SDK's comes from `crates/entangle-wit/wit`, not a path dependency).
+    let generated: Vec<PathBuf> = wit_dirs
+        .iter()
+        .flat_map(|d| repro::wit_bindgen_paths(d))
+        .collect();
+    wit_dirs.extend(generated);
     repro::require_pinned_wit_imports(&wit_dirs)?;
     let prepared = repro::prepare_build(
         cargo_manifest,
@@ -813,6 +821,7 @@ pub fn build_native_in(
     let project = project_dir_for(cargo_manifest);
     repro::require_lockfile(&project)?;
     repro::require_pinned_toolchain(&project, pin_policy)?;
+    repro::require_no_compiler_override(&project, pin_policy)?;
     let info = cargo_metadata(cargo_manifest)?;
     let bin = native_bin(cargo_manifest, &info)?;
     let target_root = match target_dir {

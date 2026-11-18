@@ -391,6 +391,94 @@ fn check_pinned_toolchain(project: &Path, rustc: &std::ffi::OsStr) -> Result<Str
     Ok(channel)
 }
 
+/// Environment variables that make cargo run something other than (or
+/// around) the pinned compiler.
+const COMPILER_OVERRIDE_VARS: &[&str] = &[
+    "RUSTC_WRAPPER",
+    "RUSTC_WORKSPACE_WRAPPER",
+    "CARGO_BUILD_RUSTC",
+    "CARGO_BUILD_RUSTC_WRAPPER",
+    "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER",
+];
+
+/// `[build]` keys of a cargo config file with the same effect.
+const COMPILER_OVERRIDE_KEYS: &[&str] = &["rustc", "rustc-wrapper", "rustc-workspace-wrapper"];
+
+/// Every setting that would make cargo compile `project` with something
+/// other than the pinned toolchain's `rustc`: the environment variables in
+/// [`COMPILER_OVERRIDE_VARS`] (non-empty; `env` looks them up) and the
+/// `[build] rustc`, `rustc-wrapper` and `rustc-workspace-wrapper` keys of
+/// `.cargo/config.toml` / `.cargo/config` from the project directory up to
+/// its workspace root (bounded like [`toolchain_file`]). A wrapper runs
+/// arbitrary code around each compilation, and the toolchain recorded in
+/// provenance (`rustc -vV`) would no longer describe what compiled the
+/// package.
+pub fn compiler_overrides(project: &Path, env: &dyn Fn(&str) -> Option<String>) -> Vec<String> {
+    let mut found = Vec::new();
+    for var in COMPILER_OVERRIDE_VARS {
+        if let Some(v) = env(var).filter(|v| !v.trim().is_empty()) {
+            found.push(format!("environment variable {var}={v}"));
+        }
+    }
+    let root = workspace_root(project);
+    let bounded = project.starts_with(&root);
+    for dir in project.ancestors() {
+        if !bounded && dir != project {
+            break;
+        }
+        for name in ["config.toml", "config"] {
+            let file = dir.join(".cargo").join(name);
+            let Ok(text) = std::fs::read_to_string(&file) else {
+                continue;
+            };
+            let Ok(doc) = toml::from_str::<toml::Table>(&text) else {
+                found.push(format!(
+                    "{} (not valid TOML, so it cannot be checked)",
+                    file.display()
+                ));
+                continue;
+            };
+            if let Some(build) = doc.get("build").and_then(|b| b.as_table()) {
+                for key in COMPILER_OVERRIDE_KEYS {
+                    if let Some(v) = build.get(*key) {
+                        found.push(format!("{}: [build] {key} = {v}", file.display()));
+                    }
+                }
+            }
+        }
+        if dir == root {
+            break;
+        }
+    }
+    found
+}
+
+/// Refuse (or, with [`PinPolicy::Warn`], warn about) a build whose compiler
+/// is overridden by a wrapper or a `rustc` setting ([`compiler_overrides`]),
+/// with `ENTANGLE-E0943`. Reads the environment and config files only.
+pub fn require_no_compiler_override(project: &Path, policy: PinPolicy) -> Result<()> {
+    let project = std::fs::canonicalize(project)
+        .with_context(|| format!("resolving {}", project.display()))?;
+    let found = compiler_overrides(&project, &|k| std::env::var(k).ok());
+    if found.is_empty() {
+        return Ok(());
+    }
+    let msg = format!(
+        "ENTANGLE-E0943: the compiler for {} is overridden:\n  {}\n\
+         A reproducible package is compiled by the pinned toolchain's rustc itself; a wrapper \
+         or another rustc would run unrecorded code and make the toolchain in provenance.json \
+         untrue. Unset the variable or remove the setting and build again. Nothing was built \
+         or written.",
+        project.display(),
+        found.join("\n  ")
+    );
+    if policy == PinPolicy::Warn {
+        eprintln!("warning: {msg}");
+        return Ok(());
+    }
+    bail!(msg)
+}
+
 // ---------------------------------------------------------------------------
 // Exact WIT versions (spec §9.3 "WIT versions")
 // ---------------------------------------------------------------------------
@@ -472,16 +560,70 @@ fn strip_wit_comments(text: &str) -> String {
 /// The floating references in one WIT file: `(line, reference)` for every
 /// `import` / `export` / `use` / `include` of another package's item that
 /// does not name an exact `@x.y.z` version.
+///
+/// WIT allows whitespace (and line breaks) between the tokens of a
+/// reference (`wasi : io / streams @ 0.2.0`), so whitespace next to `:`,
+/// `/` and `@` is dropped before the text is split into words; a reference
+/// is reported at the line it starts on. This reads `.wit` files only: WIT
+/// written inline in Rust (`wit_bindgen::generate!({ inline: ... })`) is
+/// not scanned.
 pub fn floating_wit_references(text: &str) -> Vec<(usize, String)> {
     let clean = strip_wit_comments(text);
-    let mut out = Vec::new();
-    for (n, line) in clean.lines().enumerate() {
-        for word in line.split(|c: char| c.is_whitespace() || ";{},()<>=".contains(c)) {
-            if wit_reference_is_pinned(word) == Some(false) {
-                out.push((n + 1, word.trim_end_matches('.').to_owned()));
+    // (char, line) of the text with the joining whitespace removed.
+    let chars: Vec<(char, usize)> = {
+        let mut line = 1;
+        clean
+            .chars()
+            .map(|c| {
+                let here = line;
+                if c == '\n' {
+                    line += 1;
+                }
+                (c, here)
+            })
+            .collect()
+    };
+    let joiner = |c: char| matches!(c, ':' | '/' | '@');
+    let mut joined: Vec<(char, usize)> = Vec::with_capacity(chars.len());
+    let mut i = 0;
+    while i < chars.len() {
+        let (c, l) = chars[i];
+        if c.is_whitespace() {
+            let mut j = i;
+            while j < chars.len() && chars[j].0.is_whitespace() {
+                j += 1;
             }
+            let before = joined.last().is_some_and(|&(p, _)| joiner(p));
+            let after = j < chars.len() && joiner(chars[j].0);
+            if !(before || after) {
+                joined.push((' ', l));
+            }
+            i = j;
+            continue;
+        }
+        joined.push((c, l));
+        i += 1;
+    }
+    let mut out = Vec::new();
+    let mut word = String::new();
+    let mut start = 0;
+    let mut flush = |word: &mut String, start: usize| {
+        if wit_reference_is_pinned(word) == Some(false) {
+            out.push((start, word.trim_end_matches('.').to_owned()));
+        }
+        word.clear();
+    };
+    for &(c, l) in &joined {
+        if c.is_whitespace() || ";{},()<>=".contains(c) {
+            flush(&mut word, start);
+        } else {
+            if word.is_empty() {
+                start = l;
+            }
+            word.push(c);
         }
     }
+    flush(&mut word, start);
     out
 }
 
@@ -545,7 +687,11 @@ pub fn require_pinned_wit_imports(dirs: &[PathBuf]) -> Result<()> {
     let mut findings = Vec::new();
     for dir in dirs {
         let mut files = Vec::new();
-        collect_wit_files(dir, true, &mut files);
+        if dir.is_file() {
+            files.push(dir.clone());
+        } else {
+            collect_wit_files(dir, true, &mut files);
+        }
         for file in files {
             let Ok(text) = std::fs::read_to_string(&file) else {
                 continue;
@@ -567,6 +713,80 @@ pub fn require_pinned_wit_imports(dirs: &[PathBuf]) -> Result<()> {
         if findings.len() == 1 { "" } else { "s" },
         findings.join("\n")
     )
+}
+
+/// The WIT locations a crate's `wit_bindgen::generate!` invocations name
+/// with `path: "…"` (or `path: ["…", …]`), resolved against the crate
+/// directory as wit-bindgen resolves them, that exist on disk. Found by a
+/// plain text scan of the crate's `src/**/*.rs`; WIT passed inline
+/// (`inline: "…"`) is not covered.
+///
+/// This is how the repository's plugins get their WIT: the SDK's
+/// `generate!` reads `../entangle-wit/wit`, which is not a cargo path
+/// dependency, so scanning path dependencies alone would never see it.
+pub fn wit_bindgen_paths(crate_dir: &Path) -> Vec<PathBuf> {
+    fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
+        let Ok(rd) = std::fs::read_dir(dir) else {
+            return;
+        };
+        let mut entries: Vec<_> = rd.flatten().collect();
+        entries.sort_by_key(|e| e.file_name());
+        for e in entries {
+            let p = e.path();
+            match e.file_type() {
+                Ok(t) if t.is_dir() => rust_files(&p, out),
+                Ok(t) if t.is_file() && p.extension().is_some_and(|x| x == "rs") => out.push(p),
+                _ => {}
+            }
+        }
+    }
+    /// The string literals right after `path:` in `body`.
+    fn path_literals(body: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        let Some(at) = body.find("path") else {
+            return out;
+        };
+        let rest = body[at + 4..].trim_start();
+        let Some(rest) = rest.strip_prefix(':') else {
+            return out;
+        };
+        let rest = rest.trim_start();
+        let list = if let Some(r) = rest.strip_prefix('[') {
+            r.split(']').next().unwrap_or("")
+        } else {
+            rest.split([',', '}']).next().unwrap_or("")
+        };
+        for part in list.split(',') {
+            let part = part.trim();
+            if let Some(lit) = part.strip_prefix('"').and_then(|p| p.strip_suffix('"')) {
+                out.push(lit.to_owned());
+            }
+        }
+        out
+    }
+    let mut files = Vec::new();
+    rust_files(&crate_dir.join("src"), &mut files);
+    let mut found = Vec::new();
+    for file in files {
+        let Ok(text) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let mut from = 0;
+        while let Some(i) = text[from..].find("generate!") {
+            let start = from + i;
+            let body: String = text[start..].chars().take(4000).collect();
+            let body = body.split("});").next().unwrap_or(&body);
+            for lit in path_literals(body) {
+                let p = crate_dir.join(&lit);
+                let p = std::fs::canonicalize(&p).unwrap_or(p);
+                if p.exists() && !found.contains(&p) {
+                    found.push(p);
+                }
+            }
+            from = start + "generate!".len();
+        }
+    }
+    found
 }
 
 // ---------------------------------------------------------------------------
@@ -978,6 +1198,13 @@ pub struct Provenance {
     pub git_commit: Option<String>,
     /// Build recipe; `None` when a pre-built artifact was packaged (`--wasm`).
     pub build: Option<BuildRecipe>,
+    /// `true` when the artifact was supplied pre-built (`plugins build --wasm`
+    /// or `--bin`): nothing was compiled, so the packager's source rules
+    /// (lockfile, toolchain pin, WIT versions) were not applied and the
+    /// source digest says nothing about how the artifact was made. Omitted
+    /// from the JSON when `false`, so built packages are unchanged.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub prebuilt: bool,
     /// BLAKE3 (hex) of the artifact (`plugin.wasm` or `plugin.bin`).
     pub artifact_blake3: String,
     /// BLAKE3 (hex) of `entangle.toml`.
@@ -1013,6 +1240,7 @@ pub fn make_provenance(
         source_digest: source_digest(project)?,
         path_dependencies: deps,
         git_commit: git_commit(project),
+        prebuilt: recipe.is_none(),
         build: recipe,
         artifact_blake3: blake3::hash(wasm).to_hex().to_string(),
         manifest_blake3: blake3::hash(manifest).to_hex().to_string(),
@@ -1671,6 +1899,115 @@ mod tests {
             toolchain_file(&member, &root),
             Some(member.join("rust-toolchain.toml"))
         );
+    }
+
+    /// Wrappers and `rustc` overrides, from the environment or a cargo
+    /// config file between the project and its workspace root, are found;
+    /// an empty variable is cargo's "unset".
+    #[test]
+    fn compiler_overrides_are_found_in_the_environment_and_cargo_config() {
+        let d = tempfile::tempdir().unwrap();
+        let ws = std::fs::canonicalize(d.path()).unwrap();
+        write(&ws.join("Cargo.toml"), "[workspace]\nmembers = [\"m\"]\n");
+        write(&ws.join("m/Cargo.toml"), PKG);
+        let m = ws.join("m");
+        let none = |_: &str| None;
+        assert!(compiler_overrides(&m, &none).is_empty());
+        let wrapped = |k: &str| (k == "RUSTC_WRAPPER").then(|| "sccache".to_owned());
+        let f = compiler_overrides(&m, &wrapped);
+        assert!(
+            f.len() == 1 && f[0].contains("RUSTC_WRAPPER=sccache"),
+            "{f:?}"
+        );
+        let empty = |k: &str| (k == "RUSTC_WRAPPER").then(String::new);
+        assert!(compiler_overrides(&m, &empty).is_empty());
+
+        write(
+            &ws.join(".cargo/config.toml"),
+            "[build]\nrustc-wrapper = \"/bin/evil\"\n",
+        );
+        write(
+            &m.join(".cargo/config"),
+            "[build]\nrustc = \"/opt/rustc\"\n",
+        );
+        let f = compiler_overrides(&m, &none);
+        assert_eq!(f.len(), 2, "{f:?}");
+        assert!(f.iter().any(|x| x.contains("rustc-wrapper")), "{f:?}");
+        assert!(f.iter().any(|x| x.contains("[build] rustc =")), "{f:?}");
+        // Above the workspace root: not this project's configuration.
+        std::fs::remove_file(ws.join(".cargo/config.toml")).unwrap();
+        std::fs::remove_file(m.join(".cargo/config")).unwrap();
+        assert!(compiler_overrides(&m, &none).is_empty());
+        let e = {
+            write(
+                &m.join(".cargo/config.toml"),
+                "[build]\nrustc-workspace-wrapper = \"x\"\n",
+            );
+            require_no_compiler_override(&m, PinPolicy::Require)
+                .unwrap_err()
+                .to_string()
+        };
+        assert!(
+            e.starts_with("ENTANGLE-E0943") && e.contains("overridden"),
+            "{e}"
+        );
+        assert!(require_no_compiler_override(&m, PinPolicy::Warn).is_ok());
+    }
+
+    /// Whitespace and line breaks between a reference's tokens do not hide
+    /// it, and pinned ones written that way pass.
+    #[test]
+    fn floating_references_split_by_whitespace_are_found() {
+        let wit = "package a:b@0.1.0;\nworld w {\n  import wasi : io / streams;\n  import wasi:cli/\n    stdin;\n  import wasi : clocks / wall-clock @ 0.2.0;\n  use wasi:io/error @ 0.2;\n  record r { name : string, }\n}\n";
+        let found = floating_wit_references(wit);
+        assert_eq!(
+            found,
+            vec![
+                (3, "wasi:io/streams".to_owned()),
+                (4, "wasi:cli/stdin".to_owned()),
+                (7, "wasi:io/error@0.2".to_owned()),
+            ]
+        );
+    }
+
+    /// The WIT a crate's `generate!` reads is found from its `path:`, and a
+    /// floating import in it is refused.
+    #[test]
+    fn wit_named_by_generate_paths_is_scanned() {
+        let d = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(d.path()).unwrap();
+        let sdk = root.join("sdk");
+        write(
+            &sdk.join("src/lib.rs"),
+            "mod wasm {\n    wit_bindgen::generate!({\n        world: \"plugin\",\n        \
+             path: \"../wit\",\n    });\n}\n",
+        );
+        write(
+            &root.join("wit/world.wit"),
+            "package a:b@0.1.0;\nworld plugin {\n  import wasi:io/streams;\n}\n",
+        );
+        let found = wit_bindgen_paths(&sdk);
+        assert_eq!(found, vec![root.join("wit")]);
+        let e = require_pinned_wit_imports(&found).unwrap_err().to_string();
+        assert!(
+            e.starts_with("ENTANGLE-E0942") && e.contains("wasi:io/streams"),
+            "{e}"
+        );
+        // The list form and a single file.
+        write(
+            &sdk.join("src/more.rs"),
+            "wit_bindgen::generate!({ path: [\"../wit/world.wit\", \"../missing\"], world: \"x\" });\n",
+        );
+        let found = wit_bindgen_paths(&sdk);
+        assert!(found.contains(&root.join("wit/world.wit")), "{found:?}");
+        // This repository's SDK resolves to the real WIT package, which pins.
+        let real = Path::new(env!("CARGO_MANIFEST_DIR")).join("../entangle-sdk");
+        let found = wit_bindgen_paths(&real);
+        assert!(
+            found.iter().any(|p| p.ends_with("entangle-wit/wit")),
+            "{found:?}"
+        );
+        require_pinned_wit_imports(&found).unwrap();
     }
 
     #[test]

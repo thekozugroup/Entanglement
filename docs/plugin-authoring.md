@@ -360,7 +360,8 @@ these open:
 | A committed `Cargo.lock` | `ENTANGLE-E0830` | `cargo generate-lockfile` |
 | A `rust-toolchain.toml` in the project (or its cargo workspace root) whose `channel` is an exact release, and which is the compiler in use; not both `rust-toolchain` and `rust-toolchain.toml` in one directory | `ENTANGLE-E0943` | `channel = "1.91.1"`, not `"stable"`, `"nightly"` or `"1.91"` |
 | `[build] wit_world` names an exact version | `ENTANGLE-E0942` | `entangle:plugin@0.1.0/plugin` |
-| Every WIT `import` / `export` / `use` / `include` of another package's item names an exact version, in the project's `.wit` files and those of its path dependencies | `ENTANGLE-E0942`, listing each as `file:line: reference` | `import wasi:io/streams@0.2.0;` |
+| Every WIT `import` / `export` / `use` / `include` of another package's item names an exact version, in the project's `.wit` files, those of its path dependencies, and the WIT their `wit_bindgen::generate!` names by `path:` (inline WIT is not scanned) | `ENTANGLE-E0942`, listing each as `file:line: reference` | `import wasi:io/streams@0.2.0;` |
+| No compiler wrapper or other `rustc`: `RUSTC_WRAPPER`, `RUSTC_WORKSPACE_WRAPPER`, `CARGO_BUILD_RUSTC*`, or `[build] rustc` / `rustc-wrapper` / `rustc-workspace-wrapper` in `.cargo/config.toml` up to the workspace root | `ENTANGLE-E0943` | unset it for the release build |
 
 `entangle plugins new` writes a `rust-toolchain.toml` for the release you are
 using and a manifest with a pinned `wit_world`:
@@ -398,7 +399,7 @@ Flags (`entangle plugins build --help`):
 | `<DIR>` | project directory (default `.`) |
 | `--key <PEM>` | signing key (default `~/.entangle/identity.key`) |
 | `--out <DIR>` | output directory (default `<DIR>/dist`) |
-| `--wasm <FILE>` | package a pre-built artifact instead of running cargo (no lockfile or toolchain pin needed; the WIT rule still applies) |
+| `--wasm <FILE>` | package a pre-built artifact instead of running cargo: the lockfile, toolchain-pin and WIT-import rules are not applied (only `[build] wit_world` is checked), and `provenance.json` records `"prebuilt": true` |
 | `--target <TRIPLE>` | build target (default `wasm32-wasip2`) |
 | `--threads <N>` | compress the archive with N threads (default 1). Prints a warning: with N > 1 the archive is **not bit-stable across thread counts**, so its sha256 and `.sig` differ from the default archive's. Contents are identical |
 

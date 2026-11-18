@@ -364,7 +364,7 @@ canonical range table, maintained in
 | E0880–E0899 | Operator CLI flows: `config set/get/unset`, the `init` wizard and Tailscale detection (E0891: the 1.62.0 Tailscale floor, E0893: a Tailscale version that cannot be read; both also enforced by the daemon), `keys gen`, pairing UX, `install` / `uninstall` / `agent host cleanup` — see §26–§31 |
 | E0900 | I/O |
 | E0920–E0939 | Operator log and trace stores (`entangle_observability::QueryError`, `entangle logs`, `entangle trace task`; see §14d, §14e): unknown log source (E0920), a plugin name matching several plugins (E0921), an invalid log query parameter (E0922), no spans recorded for a task or trace id (E0923), an id that is neither a task UUID nor a trace id (E0924) |
-| E0940–E0949 | Plugin distribution, CLI side (`entangle-cli` `cmd::dist`, `cmd::pack`, `cmd::mirror`, `cmd::repro`) — see §13, §19: a pack holding packages from publishers not in the keyring (E0940); `entangle pack` cannot resolve or write what was asked (E0941); a floating WIT import in a plugin project (E0942); a missing, inexact or overridden `rust-toolchain.toml` (E0943); a damaged mirror setting (E0944); a package that is not what was asked for (E0945); a refused downgrade (E0946); an OCI publisher pin mismatch or a damaged pin file (E0947); a `--trust-pack-keys` list that is not the pack's unknown keys (E0948); an `--out` that exists and is not a package directory (E0949) |
+| E0940–E0949 | Plugin distribution, CLI side (`entangle-cli` `cmd::dist`, `cmd::pack`, `cmd::mirror`, `cmd::repro`) — see §13, §19: a pack holding packages from publishers not in the keyring (E0940); `entangle pack` cannot resolve or write what was asked (E0941); a floating WIT import in a plugin project (E0942); a missing, inexact, ambiguous or overridden toolchain pin, or a compiler wrapper (E0943); a damaged mirror setting (E0944); a package that is not what was asked for (E0945); a refused downgrade (E0946); an OCI publisher pin mismatch or a damaged pin file (E0947); a `--trust-pack-keys` list that is not the pack's unknown keys (E0948); an `--out` that exists and is not a package directory (E0949) |
 | E9999 | Internal / unexpected |
 
 A handful of other crates layer additional codes into gaps in that range for
@@ -418,7 +418,7 @@ only), but each is still a stable, grep-able code:
 | `ENTANGLE-E0940` | `plugins install <pack>`: a package is signed by a publisher key that is not in your keyring. The message gives the fingerprint and the `entangle keyring add` command; `--trust-pack-keys <FP>[,<FP>...]` adds exactly those keys. Nothing was installed (§13). |
 | `ENTANGLE-E0941` | `entangle pack`: an argument is not a package, matches no (or several) installed plugins, two packages have one plugin name, or the output file exists (`--force`) (§13). |
 | `ENTANGLE-E0942` | `plugins build`: a WIT import (or `[build] wit_world`) does not name an exact `@x.y.z` version; the message lists each one. Nothing was built (§19). |
-| `ENTANGLE-E0943` | `plugins build`: no `rust-toolchain.toml` in the project or its workspace root, a `channel` that is not an exact release, or a pin that is not the compiler in use. Nothing was built (§19). |
+| `ENTANGLE-E0943` | `plugins build`: no `rust-toolchain.toml` in the project or its workspace root, a `channel` that is not an exact release, a pin that is not the compiler in use (or a pinned toolchain that is not installed), both `rust-toolchain` and `rust-toolchain.toml` in one directory, or a compiler wrapper / `rustc` override. Nothing was built (§19). For `plugins install NAME`, `quickstart` and `verify --rebuild` the same text is a warning. |
 | `ENTANGLE-E0944` | `~/.entangle/mirror.toml` is unreadable or malformed; rewrite it with `entangle mirror set` or remove it with `entangle mirror unset` (§13). |
 | `ENTANGLE-E0945` | `plugins install`: the validly signed package is not what was asked for: a URL whose file name is not the signed `<name>-<version>.tar.zst` (or that differs from `--expect`), an `oci://` repository/version tag that does not match the plugin, a floating tag with mirror keys configured but no verified listing, or a package not signed by `--publisher`. Nothing was written (§13). |
 | `ENTANGLE-E0946` | `plugins install`: the package is an older version than the one installed for the same publisher; `--allow-downgrade` permits it (§13). |
@@ -2125,21 +2125,34 @@ source produce the same bytes: absolute paths are remapped out of the wasm
   (`verify --rebuild` still fails when the recorded toolchain differs from the local
   one). `plugins new` writes the file for the release in use. With rustup, an exact pin makes cargo use (and if necessary
   download) exactly that toolchain in the project directory; list the wasm target in the
-  file (`targets = ["wasm32-wasip2"]`) so it is installed with it. Packaging a pre-built
-  artifact (`--wasm`, `--bin`) compiles nothing and needs no pin.
+  file (`targets = ["wasm32-wasip2"]`) so it is installed with it. A wrapper or
+  another compiler is refused the same way (`ENTANGLE-E0943`): the
+  `RUSTC_WRAPPER`, `RUSTC_WORKSPACE_WRAPPER`, `CARGO_BUILD_RUSTC`,
+  `CARGO_BUILD_RUSTC_WRAPPER` and `CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER` variables, and
+  `[build] rustc` / `rustc-wrapper` / `rustc-workspace-wrapper` in a
+  `.cargo/config.toml` (or `.cargo/config`) between the project and its workspace root,
+  since the toolchain recorded in provenance would otherwise not be what compiled the
+  package.
+* Packaging a pre-built artifact (`--wasm`, `--bin`) compiles nothing, so the lockfile,
+  toolchain-pin, compiler-override and WIT-import rules do not apply (only `[build]
+  wit_world` is checked); `provenance.json` then says `"prebuilt": true` and has no
+  build recipe, and `verify --rebuild` reports that there is nothing to rebuild.
 * WIT versions must be exact: `[build] wit_world` in `entangle.toml` and every
   `import` / `export` / `use` / `include` of another package's item in a `.wit` file of
-  the project or of a path dependency must name `@x.y.z`
-  (`wasi:io/streams@0.2.0`; not `wasi:io/streams`, not `@0.2`). Otherwise the build stops
-  with `ENTANGLE-E0942`, listing each import as `file:line: reference`.
+  the project, of a path dependency, or named by `path:` in one of their
+  `wit_bindgen::generate!` invocations (how the SDK reads `crates/entangle-wit/wit`) must
+  name `@x.y.z` (`wasi:io/streams@0.2.0`; not `wasi:io/streams`, not `@0.2`; whitespace
+  between the tokens does not hide a reference). Otherwise the build stops with
+  `ENTANGLE-E0942`, listing each import as `file:line: reference`. WIT given inline to
+  `generate!` (`inline: "…"`) is not scanned.
 * The archive is compressed with zstd level 19 on one thread. `--threads N` uses N
   threads and prints a warning: the archive is then N independent zstd frames and is
   **not bit-stable across thread counts**, so its sha256 and detached signature differ
   from the default archive's (the contents are identical). Publish the default archive
   where someone is expected to reproduce the digest.
 * Next to the archive the build writes its detached signature,
-  `<name>-<version>.tar.zst.sig` (Ed25519 by the publisher key over the archive's
-  SHA-256; deterministic). Serving both files from one HTTPS location is all a plain
+  `<name>-<version>.tar.zst.sig` (format version 2: Ed25519 by the publisher key over
+  the plugin id and the archive's SHA-256; deterministic). Serving both files from one HTTPS location is all a plain
   HTTPS install needs (§13).
 * Native plugins (`runtime = "native"`) follow the same rules and the same recipe (path
   remapping, `SOURCE_DATE_EPOCH`, `--locked`, the pinned toolchain) and get the same
