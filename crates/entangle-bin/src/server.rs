@@ -54,8 +54,24 @@ const MAX_CONSECUTIVE_ACCEPT_ERRORS: u32 = 128;
 /// Upper bound on the per-error accept backoff sleep.
 const ACCEPT_BACKOFF_CAP: Duration = Duration::from_secs(1);
 
+/// A bound RPC socket, already restricted to its owner: what [`bind`]
+/// returns and [`serve_listener`] accepts on.
+pub struct BoundSocket {
+    listener: UnixListener,
+    owner_uid: u32,
+    path: PathBuf,
+}
+
+impl BoundSocket {
+    /// The socket's path.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
 /// Bind a Unix-domain socket at `socket_path` and accept connections
-/// indefinitely, spawning a task per client.
+/// indefinitely, spawning a task per client: [`bind`] then
+/// [`serve_listener`].
 ///
 /// All RPC handlers receive the full `Arc<DaemonState>` so they can reach
 /// the kernel, dispatcher, peer store, and identity without rebuilding them
@@ -65,6 +81,16 @@ const ACCEPT_BACKOFF_CAP: Duration = Duration::from_secs(1);
 /// be restricted to owner-only, or if `accept()` fails
 /// `MAX_CONSECUTIVE_ACCEPT_ERRORS` times in a row.
 pub async fn serve(socket_path: PathBuf, state: Arc<DaemonState>) -> anyhow::Result<()> {
+    let bound = bind(&socket_path)?;
+    serve_listener(bound, state).await
+}
+
+/// Create the socket's private parent directory, replace a stale socket,
+/// bind, and restrict the socket to mode `0600`. Synchronous, so a daemon can
+/// have the socket on disk (and registered for removal on a fault exit)
+/// before it starts any task that could fail. Must run inside a Tokio
+/// runtime (the listener registers with its reactor).
+pub fn bind(socket_path: &Path) -> anyhow::Result<BoundSocket> {
     // Ensure the parent directory exists and is private to the owner.
     if let Some(parent) = socket_path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -98,12 +124,26 @@ pub async fn serve(socket_path: PathBuf, state: Arc<DaemonState>) -> anyhow::Res
         }
     }
 
-    let listener = UnixListener::bind(&socket_path)
+    let listener = UnixListener::bind(socket_path)
         .with_context(|| format!("failed to bind {}", socket_path.display()))?;
 
     // Restrict permissions to owner-only (0o600) so only the current user
     // can connect; refuse to serve if that does not stick.
-    let owner_uid = restrict_socket(&socket_path)?;
+    let owner_uid = restrict_socket(socket_path)?;
+    Ok(BoundSocket {
+        listener,
+        owner_uid,
+        path: socket_path.to_path_buf(),
+    })
+}
+
+/// Accept connections on a socket from [`bind`] until a fatal accept error.
+pub async fn serve_listener(bound: BoundSocket, state: Arc<DaemonState>) -> anyhow::Result<()> {
+    let BoundSocket {
+        listener,
+        owner_uid,
+        path: socket_path,
+    } = bound;
 
     tracing::info!(socket_path = %socket_path.display(), "RPC server listening");
 

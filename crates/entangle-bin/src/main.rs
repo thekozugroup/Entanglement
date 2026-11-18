@@ -421,18 +421,26 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     // ── 4. Shutdown channel (shared with maintenance loop) ────────────────────
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
-    // ── 5. Spawn maintenance loop ─────────────────────────────────────────────
+    // ── 5. Bind the socket and register it for removal on a fault exit
+    // BEFORE any supervised task runs: a core task that faults early must
+    // find the socket already on disk and registered, never create-after-
+    // removal (a stale socket after a real fault).
+    // A bind failure still ends the daemon as a core fault (status 70) through
+    // the rpc-server task below, as before.
+    let bound = server::bind(&socket_path)
+        .map_err(|e| tracing::error!(error = %e, "RPC server fatal error"))
+        .ok();
+    entangle_core::fault::remove_on_fault_exit(socket_path.clone());
+
+    // ── 6. Spawn maintenance loop and the RPC accept loop ─────────────────────
     let maint = MaintenanceLoop::new(Default::default())
         .with_worker_pool(state.worker_pool.clone())
         .with_aot_cache(state.kernel.aot_cache());
     supervisor.spawn("maintenance", maint.run(shutdown_rx.clone()));
-
-    // ── 6. Bind socket and spawn RPC accept loop ──────────────────────────────
-    let socket_path_clone = socket_path.clone();
     let state_clone = state.clone();
-    entangle_core::fault::remove_on_fault_exit(socket_path.clone());
     supervisor.spawn("rpc-server", async move {
-        if let Err(e) = server::serve(socket_path_clone, state_clone).await {
+        let Some(bound) = bound else { return };
+        if let Err(e) = server::serve_listener(bound, state_clone).await {
             tracing::error!(error = %e, "RPC server fatal error");
         }
     });
