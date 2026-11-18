@@ -320,3 +320,41 @@ fn doctor_shell_history_note_counts_without_printing_commands() {
     let (_, line) = line_of(&out);
     assert!(line.contains("no shell history file found"), "{line}");
 }
+
+/// Spec §8.3.1: Aider, Cline and Continue are deferred (their MCP config
+/// formats could not be verified). Asking for one says so, with the reason,
+/// instead of "unknown agent"; and no wrapper shim is generated for them.
+#[test]
+fn deferred_agents_are_refused_with_the_reason() {
+    for agent in ["aider", "cline", "continue"] {
+        let out = entangle().args(["agent", "run", agent]).output().unwrap();
+        let err = stderr(&out);
+        assert!(!out.status.success());
+        assert!(err.contains("ENTANGLE-E0689"), "{err}");
+        assert!(err.contains("not supported yet"), "{err}");
+        assert!(err.contains("could not be confirmed offline"), "{err}");
+        assert!(
+            err.contains("claude-code"),
+            "lists what is supported: {err}"
+        );
+    }
+    let out = entangle().args(["agent", "list"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    assert!(
+        stdout.contains("aider") && stdout.contains("not supported yet"),
+        "{stdout}"
+    );
+
+    let home = tempfile::tempdir().unwrap();
+    let out = entangle()
+        .env("HOME", home.path())
+        .args(["wrapper", "status"])
+        .output()
+        .unwrap();
+    let all = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!all.contains("aider"), "no shim for a deferred host: {all}");
+}

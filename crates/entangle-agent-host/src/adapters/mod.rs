@@ -399,6 +399,59 @@ pub enum ConfigFormat {
     Jsonc,
 }
 
+/// An agent host the spec lists (§8.3.1) for which no adapter ships yet,
+/// and why. Kept as data so `entangle agent run <name>` can say so instead
+/// of "unknown agent", and so the reason is in one place.
+///
+/// No adapter is registered for these, so they get no gateway session and
+/// no wrapper shim (a shim would tell the user to run a command that does
+/// not exist).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DeferredAdapter {
+    /// Agent name as the spec's adapter table has it.
+    pub name: &'static str,
+    /// The config location the spec names for it.
+    pub spec_config: &'static str,
+    /// Why there is no adapter.
+    pub reason: &'static str,
+}
+
+/// The deferred agent hosts. An adapter must know, exactly, how the agent
+/// declares MCP servers and how to point it at a session-scoped config;
+/// for none of these could that be established from material available
+/// when the adapters were written (no network access, no copy of the tool
+/// or its documentation), and a guessed format would silently leave tool
+/// calls outside the gateway.
+pub const DEFERRED_ADAPTERS: &[DeferredAdapter] = &[
+    DeferredAdapter {
+        name: "aider",
+        spec_config: "~/.aider.conf.yml",
+        reason: "how Aider declares MCP servers (the keys of ~/.aider.conf.yml, if any, and \
+                 whether it can be pointed at a session-scoped config) could not be confirmed \
+                 offline, so there is nothing the gateway could route without guessing",
+    },
+    DeferredAdapter {
+        name: "cline",
+        spec_config: "VS Code workspace config",
+        reason: "Cline runs inside VS Code rather than as a subprocess `entangle agent run` \
+                 can start, and the location and format of its MCP settings could not be \
+                 confirmed offline (spec: stretch)",
+    },
+    DeferredAdapter {
+        name: "continue",
+        spec_config: "~/.continue/config.json",
+        reason: "the MCP server format of Continue's config and a way to give it a \
+                 session-scoped config could not be confirmed offline (spec: stretch)",
+    },
+];
+
+/// Look up a deferred agent host by name (case-insensitive).
+pub fn find_deferred(name: &str) -> Option<&'static DeferredAdapter> {
+    DEFERRED_ADAPTERS
+        .iter()
+        .find(|d| d.name.eq_ignore_ascii_case(name))
+}
+
 /// Returns one adapter instance per supported agent.
 pub fn registry() -> Vec<Box<dyn Adapter>> {
     vec![
@@ -503,6 +556,27 @@ mod tests {
             spec(serde_json::json!({"url": "https://x/m", "headers": {"A": "s3cret"}}))
         );
         assert!(dbg.contains("\"A\"") && !dbg.contains("s3cret"), "{dbg}");
+    }
+
+    /// Spec §8.3.1 lists Aider, Cline and Continue; none has an adapter
+    /// (their MCP config formats were not verifiable), and none may be half
+    /// present: not in the registry, so no session and no wrapper shim.
+    #[test]
+    fn deferred_adapters_are_named_with_reasons_and_are_not_registered() {
+        for name in ["aider", "cline", "continue"] {
+            let d = find_deferred(name).unwrap_or_else(|| panic!("{name} not recorded"));
+            assert!(
+                d.reason.contains("could not be confirmed offline"),
+                "{name}"
+            );
+            assert!(
+                find_adapter(name).is_none(),
+                "{name} must not be half-registered"
+            );
+            assert!(registry().iter().all(|a| a.binary() != d.name));
+        }
+        assert!(find_deferred("AIDER").is_some());
+        assert!(find_deferred("claude-code").is_none());
     }
 
     #[test]

@@ -166,6 +166,12 @@ fn list() {
             .map_or_else(|_| "-".to_string(), |p| p.to_string());
         println!("{:<12} {:<10} {}", ad.name(), ad.binary(), cfg);
     }
+    for d in entangle_agent_host::DEFERRED_ADAPTERS {
+        println!(
+            "{:<12} {:<10} not supported yet ({}): {}",
+            d.name, "-", d.spec_config, d.reason
+        );
+    }
 }
 
 /// Directory holding per-session directories (`entangle agent host
@@ -308,6 +314,14 @@ fn forward_signal(child: &tokio::process::Child, stop: Stop) {
 fn forward_signal(_child: &tokio::process::Child, _stop: Stop) {}
 
 async fn run_agent(args: RunArgs) -> Result<i32> {
+    if let Some(d) = entangle_agent_host::find_deferred(&args.agent) {
+        bail!(
+            "ENTANGLE-E0689: agent '{}' is not supported yet: {}. Supported agents: {}",
+            d.name,
+            d.reason,
+            known_adapter_names()
+        );
+    }
     if find_adapter(&args.agent).is_none() {
         bail!(
             "unknown agent '{}'. Known agents: {}",

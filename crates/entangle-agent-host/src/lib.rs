@@ -16,8 +16,8 @@ mod http_downstream;
 pub mod session;
 
 pub use adapters::{
-    find_adapter, known_adapter_names, registry, Adapter, ConfigFormat, LaunchPlan, McpServerSpec,
-    SandboxPaths, Snapshot,
+    find_adapter, find_deferred, known_adapter_names, registry, Adapter, ConfigFormat,
+    DeferredAdapter, LaunchPlan, McpServerSpec, SandboxPaths, Snapshot, DEFERRED_ADAPTERS,
 };
 pub use builtin::{BuiltinServer, EntangleTools, PluginBackend, PluginTool, ENTANGLE_SERVER_NAME};
 pub use errors::{AdapterError, SessionError};
