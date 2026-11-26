@@ -2,6 +2,23 @@
 
 The dispatch benchmark times a task from the client’s Unix-socket RPC call through decoding its response. It verifies the executor ID and output for every call. The local route submits directly to the daemon that has the plugin. The remote route submits to a separate daemon with an empty plugin registry, which schedules the task on the same executor over authenticated loopback QUIC. Both processes run on the same host with relays disabled.
 
+## Linux loopback results, 26 November 2026
+
+Three fresh daemon pairs completed **12,288 timed dispatches** on an x86-64 Linux 6.18.57 VM reporting an Intel Xeon Platinum 8573C. The VM exposed five virtual CPUs with a four-core cgroup quota and a 32 GiB memory limit. The release used Rust 1.91.1, Wasmtime 36.0.23, and iroh 1.5.0. The measured daemon’s SHA-256 was `882373f6fcc85e50b5812b5225156ab907001b8b61a73787b3a402a997e14cdb`.
+
+Each row includes 1,024 warmed calls in each of three trials to one executor. The p50, p95, and throughput columns report the median of the three per-trial values. The ranges show the lowest and highest trial results.
+
+| Route | Concurrent clients | p50 (ms) | p95 (ms) | p95 range (ms) | Tasks/s | Tasks/s range |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Local | 1 | 0.264 | 0.488 | 0.352–0.500 | 3,287 | 2,993–3,929 |
+| Local | 4 | 0.504 | 0.898 | 0.763–1.083 | 7,349 | 5,928–7,548 |
+| Remote over QUIC | 1 | 1.942 | 3.290 | 3.012–3.590 | 456 | 451–475 |
+| Remote over QUIC | 4 | 3.832 | 6.900 | 5.318–7.218 | 912 | 872–1,012 |
+
+The first signed package load took **47.095–106.698 ms** across the three fresh executors. The first local dispatch took 0.812–1.154 ms and the first successful remote dispatch took 2.198–7.020 ms.
+
+In the separate in-process Criterion run, compiling and pre-instantiating the fixture took **44.413 ms** (95% confidence interval 41.752–46.892 ms). Invoking the preloaded signed component through `Kernel::invoke` with a five-byte input took **39.175 µs** (95% confidence interval 34.876–44.918 µs). These intervals describe Criterion’s estimates over 30 samples per benchmark.
+
 ## Reproduce
 
 From the repository root on Linux or macOS, run the following commands on an otherwise idle host.
