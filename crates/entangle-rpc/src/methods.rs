@@ -167,6 +167,8 @@ pub struct ComputeDispatchResult {
 
 /// Method name constants — kept in sync between client and server.
 pub mod method {
+    /// Render metrics from the live daemon.
+    pub const METRICS: &str = "metrics";
     /// `version` — return daemon / runtime / types version strings.
     pub const VERSION: &str = "version";
     /// `time` — daemon's view of wall-clock UNIX epoch milliseconds.

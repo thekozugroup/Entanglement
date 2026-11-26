@@ -22,6 +22,7 @@ async-trait        = { workspace = true }
 thiserror          = { workspace = true }
 tracing            = { workspace = true }
 serde              = { workspace = true, features = ["derive"] }
+serde_json         = { workspace = true }
 uuid               = { workspace = true }
 # Compact binary serde codec for the cross-node task envelope. Already in the
 # workspace dependency graph (iroh pulls it in), so this adds no new build
@@ -32,5 +33,4 @@ postcard           = { version = "1", default-features = false, features = ["use
 tokio            = { workspace = true, features = ["full"] }
 tempfile         = { workspace = true }
 toml             = { workspace = true }
-serde_json       = { workspace = true }
 entangle-signing = { workspace = true }

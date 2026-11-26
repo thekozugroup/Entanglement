@@ -6,15 +6,14 @@ use std::time::SystemTime;
 
 /// Hardware capability advertisement encoded in mDNS TXT records.
 ///
-/// All fields are best-effort; a missing value is represented by `0` or
-/// `None`.  Populated by `detect_hardware()` in the daemon and carried in
-/// [`LocalPeer`] so the scheduler can pre-filter workers without an extra
-/// round trip (spec §6.1 + §7).
+/// The daemon publishes best-effort values, using `0` or `None` for unknown
+/// measurements. The remote scheduler obtains worker inventory over an
+/// authenticated connection before assigning work.
 #[derive(Clone, Debug)]
 pub struct HardwareAdvert {
-    /// Number of logical CPU cores (fractional allowed).
+    /// CPU capacity in logical cores (fractional quotas allowed).
     pub cpu_cores: f32,
-    /// Total host memory in bytes; `0` = unknown.
+    /// Memory capacity in bytes, bounded by the daemon's limits when known; `0` = unknown.
     pub memory_bytes: u64,
     /// GPU backend, if one is present.
     pub gpu_backend: Option<entangle_types::resource::GpuBackend>,
@@ -35,11 +34,11 @@ pub struct LocalPeer {
     pub peer_id: PeerId,
     /// Human-friendly hostname; user-overridable.
     pub display_name: String,
-    /// ENet/QUIC port; placeholder until Phase 2.
+    /// UDP service port published in the mDNS SRV record.
     pub port: u16,
     /// `env!("CARGO_PKG_VERSION")` of entangled.
     pub version: String,
-    /// Hardware advertisement for the scheduler's worker pool.
+    /// Best-effort hardware description shown in discovery.
     pub hardware: Option<HardwareAdvert>,
 }
 

@@ -5,14 +5,14 @@ use crate::{
     peer::{HardwareAdvert, LocalPeer, PeerSeen, TransportAdvert},
 };
 use entangle_types::peer_id::PeerId;
-use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
-use parking_lot::Mutex;
+use mdns_sd::{IfKind, ServiceDaemon, ServiceEvent, ServiceInfo};
+use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 use tracing::{debug, warn};
 
@@ -107,6 +107,7 @@ pub struct Discovery {
     service_type: String,
     /// Dialable transport advertisement, when the caller attached one.
     transport: Option<TransportAdvert>,
+    transport_ip: Option<IpAddr>,
     /// Set once [`Discovery::start_announcing`] has registered the service, so
     /// a second call is rejected instead of double-registering.
     announcing: AtomicBool,
@@ -133,6 +134,7 @@ impl Discovery {
             instance_name,
             service_type: SERVICE_TYPE.to_string(),
             transport: None,
+            transport_ip: None,
             announcing: AtomicBool::new(false),
             browser: Mutex::new(None),
         })
@@ -176,6 +178,15 @@ impl Discovery {
         self
     }
 
+    /// Publish the actual scheduler socket in both the SRV and TXT records.
+    /// A wildcard socket advertises current interface addresses of its family.
+    #[must_use]
+    pub fn with_bound_transport(mut self, key: [u8; 32], socket: SocketAddr) -> Self {
+        self.local.port = socket.port();
+        self.transport_ip = Some(socket.ip());
+        self.with_transport_advert(TransportAdvert::new(key, socket.port()))
+    }
+
     /// The mDNS service type this handle uses.
     pub fn service_type(&self) -> &str {
         &self.service_type
@@ -211,18 +222,38 @@ impl Discovery {
 
     /// Build the mDNS [`ServiceInfo`] for this node and hand it to the daemon.
     fn register_service(&self) -> Result<(), DiscoveryError> {
-        let host_ip = local_ipv4().unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED));
-        let hostname = format!("{}.local.", hostname(&self.local.peer_id));
-        let txt = self.txt_map();
-        let info = ServiceInfo::new(
+        let concrete = match self.transport_ip {
+            Some(ip) => (!ip.is_unspecified()).then_some(ip),
+            None => Some(local_ipv4().unwrap_or(IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED))),
+        };
+        let hostname = format!(
+            "{}.local.",
+            host_label(&self.local.display_name, &self.local.peer_id)
+        );
+        let txt = Self::txt_map(&self.local, self.transport.as_ref());
+        let mut info = ServiceInfo::new(
             &self.service_type,
             &self.instance_name,
             &hostname,
-            host_ip,
+            concrete.as_slice(),
             self.local.port,
             txt,
         )
         .map_err(|e| DiscoveryError::Mdns(e.to_string()))?;
+
+        if let Some(bind) = self.transport_ip {
+            let interface = if bind.is_unspecified() {
+                info = info.enable_addr_auto();
+                if bind.is_ipv4() {
+                    IfKind::IPv4
+                } else {
+                    IfKind::IPv6
+                }
+            } else {
+                IfKind::Addr(bind)
+            };
+            info.set_interfaces(vec![interface]);
+        }
 
         self.daemon
             .register(info)
@@ -263,7 +294,7 @@ impl Discovery {
                                 if peer.peer_id == self_id {
                                     continue; // skip our own announcement
                                 }
-                                let mut map = peers.write().await;
+                                let mut map = peers.write();
                                 let evt = if map.contains_key(&peer.peer_id) {
                                     DiscoveryEvent::PeerUpdated(peer.clone())
                                 } else {
@@ -271,25 +302,22 @@ impl Discovery {
                                 };
                                 map.insert(peer.peer_id, peer);
                                 let _ = sender.send(evt);
+                            } else {
+                                // A malformed replacement must not preserve an old dial target.
+                                remove_sighting(&peers, &sender, info.get_fullname());
                             }
                         }
                         ServiceEvent::ServiceRemoved(_, fullname) => {
-                            // fullname: "<instance>.<service-type>"; instance == peer_id hex
-                            if let Some((instance, _)) = fullname.split_once('.') {
-                                if let Ok(peer_id) = PeerId::from_hex(instance) {
-                                    let mut map = peers.write().await;
-                                    if let Some(p) = map.remove(&peer_id) {
-                                        let _ = sender.send(DiscoveryEvent::PeerDisappeared {
-                                            peer_id,
-                                            display_name: p.display_name,
-                                        });
-                                    }
-                                }
-                            }
+                            remove_sighting(&peers, &sender, &fullname);
+                        }
+                        ServiceEvent::SearchStopped(_) => {
+                            peers.write().clear();
+                            break;
                         }
                         _ => {} // SearchStarted, ServiceFound — not actionable here
                     },
                     Err(_) => {
+                        peers.write().clear();
                         debug!("mDNS browse channel closed; browser task exiting");
                         break;
                     }
@@ -309,6 +337,7 @@ impl Discovery {
         match self.browser.lock().take() {
             Some(handle) => {
                 handle.abort();
+                self.peers.write().clear();
                 Ok(())
             }
             None => Err(DiscoveryError::NotRunning),
@@ -320,9 +349,23 @@ impl Discovery {
         self.sender.subscribe()
     }
 
+    /// Get one current sighting, including changes since the last event a
+    /// broadcast subscriber received. Removed or expired services are absent.
+    pub fn lookup_peer(&self, id: &PeerId) -> Option<PeerSeen> {
+        if self
+            .browser
+            .lock()
+            .as_ref()
+            .is_none_or(JoinHandle::is_finished)
+        {
+            return None;
+        }
+        self.peers.read().get(id).cloned()
+    }
+
     /// Return a point-in-time snapshot of all currently known remote peers.
     pub async fn snapshot_peers(&self) -> Vec<PeerSeen> {
-        self.peers.read().await.values().cloned().collect()
+        self.peers.read().values().cloned().collect()
     }
 
     /// Unregister the mDNS service and shut down the daemon.
@@ -333,28 +376,33 @@ impl Discovery {
         if let Some(handle) = self.browser.lock().take() {
             handle.abort();
         }
+        self.peers.write().clear();
         self.announcing.store(false, Ordering::SeqCst);
+        // The daemon sends mDNS goodbyes on its own thread. Let it finish
+        // before a caller exits the process, with a bound for a stalled thread.
         self.daemon
             .shutdown()
-            .map_err(|e| DiscoveryError::Mdns(e.to_string()))?;
+            .map_err(|e| DiscoveryError::Mdns(e.to_string()))?
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .map_err(|e| DiscoveryError::Mdns(format!("waiting for mDNS shutdown: {e}")))?;
         Ok(())
     }
 
     // ── private helpers ──────────────────────────────────────────────────────
 
-    fn txt_map(&self) -> HashMap<String, String> {
+    fn txt_map(local: &LocalPeer, transport: Option<&TransportAdvert>) -> HashMap<String, String> {
         let mut m = HashMap::new();
-        m.insert("peer_id".into(), self.local.peer_id.to_hex());
-        m.insert("display_name".into(), self.local.display_name.clone());
-        m.insert("version".into(), self.local.version.clone());
+        m.insert("peer_id".into(), local.peer_id.to_hex());
+        m.insert("display_name".into(), local.display_name.clone());
+        m.insert("version".into(), local.version.clone());
         // The two keys that make a sighting dialable (see `TransportAdvert`):
         // the raw Ed25519 public key, which a `peer_id` cannot be inverted
         // back into, and the QUIC port, which need not equal the service port.
-        if let Some(t) = &self.transport {
+        if let Some(t) = transport {
             m.insert("public_key".into(), hex::encode(t.public_key));
             m.insert("mesh_port".into(), t.mesh_port.to_string());
         }
-        if let Some(hw) = &self.local.hardware {
+        if let Some(hw) = &local.hardware {
             m.insert("cpu_cores".into(), hw.cpu_cores.to_string());
             m.insert("memory_bytes".into(), hw.memory_bytes.to_string());
             if let Some(backend) = hw.gpu_backend {
@@ -383,6 +431,25 @@ impl Discovery {
 
 // ── free functions ────────────────────────────────────────────────────────────
 
+fn remove_sighting(
+    peers: &RwLock<HashMap<PeerId, PeerSeen>>,
+    sender: &broadcast::Sender<DiscoveryEvent>,
+    fullname: &str,
+) {
+    let Some((instance, _)) = fullname.split_once('.') else {
+        return;
+    };
+    let Ok(peer_id) = PeerId::from_hex(instance) else {
+        return;
+    };
+    if let Some(peer) = peers.write().remove(&peer_id) {
+        let _ = sender.send(DiscoveryEvent::PeerDisappeared {
+            peer_id,
+            display_name: peer.display_name,
+        });
+    }
+}
+
 /// Parse a [`mdns_sd::ResolvedService`] into a [`PeerSeen`], returning `None`
 /// if mandatory TXT fields are missing or malformed.
 fn parse_service(info: &mdns_sd::ResolvedService) -> Option<PeerSeen> {
@@ -391,6 +458,12 @@ fn parse_service(info: &mdns_sd::ResolvedService) -> Option<PeerSeen> {
     let peer_id = PeerId::from_hex(peer_id_hex)
         .map_err(|e| warn!("bad peer_id in mDNS TXT: {e}"))
         .ok()?;
+    // ServiceRemoved (including TTL expiry) carries only the instance name.
+    // Accept records whose TXT identity can be removed by that same name.
+    let (instance, _) = info.get_fullname().split_once('.')?;
+    if PeerId::from_hex(instance).ok()? != peer_id {
+        return None;
+    }
     // display_name / version are untrusted and flow into CLI output and logs;
     // strip control chars and bound their length before storing them.
     let display_name = sanitize_label(txt.get_property_val_str("display_name").unwrap_or(""));
@@ -542,41 +615,17 @@ fn sanitize_label(input: &str) -> String {
     out
 }
 
-/// Return a DNS-safe host label for this node's mDNS address record.
-///
-/// Preference order:
-/// 1. `$HOSTNAME` / `$HOST` (explicit override, e.g. in containers),
-/// 2. the trimmed contents of `/etc/hostname`,
-/// 3. `entangled-<peer_id_hex[..8]>` as a guaranteed-unique last resort.
-///
-/// The literal `"entangled"` is intentionally *not* used as a fallback: under
-/// systemd neither env var is set, so every node would advertise
-/// `entangled.local.` and mdns-sd would merge all colliding nodes' `A` records
-/// into each peer's address list. The chosen value is always sanitized to the
-/// DNS label charset.
-fn hostname(peer_id: &PeerId) -> String {
-    if let Ok(env_host) = std::env::var("HOSTNAME").or_else(|_| std::env::var("HOST")) {
-        let label = sanitize_hostname_label(&env_host);
-        if !label.is_empty() {
-            return label;
-        }
+/// Give each advertising identity its own SRV target. Two daemons may share a
+/// hostname or display name. A goodbye from either must only expire its own
+/// address records in the other browsers' mDNS caches.
+fn host_label(display_name: &str, peer_id: &PeerId) -> String {
+    let suffix = peer_id.to_hex();
+    let mut label = sanitize_hostname_label(display_name);
+    if label.is_empty() {
+        label.push_str("entangled");
     }
-
-    if let Ok(contents) = std::fs::read_to_string("/etc/hostname") {
-        let label = sanitize_hostname_label(contents.trim());
-        if !label.is_empty() {
-            return label;
-        }
-    }
-
-    unique_fallback_hostname(peer_id)
-}
-
-/// Guaranteed-unique-on-the-link host label derived from the peer id.
-fn unique_fallback_hostname(peer_id: &PeerId) -> String {
-    let hex = peer_id.to_hex();
-    let suffix = &hex[..hex.len().min(8)];
-    format!("entangled-{suffix}")
+    label.truncate(MAX_HOSTNAME_LEN - suffix.len() - 1);
+    format!("{}-{suffix}", label.trim_end_matches('-'))
 }
 
 /// Reduce an arbitrary string to a single DNS host label: keep only ASCII
@@ -618,6 +667,41 @@ impl Drop for Discovery {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mdns_sd::IntoTxtProperties;
+
+    #[test]
+    fn hardware_capacity_round_trips_in_existing_txt_fields() {
+        let mut local = DiscoveryConfig::default().local;
+        local.hardware = Some(HardwareAdvert {
+            cpu_cores: 1.5,
+            memory_bytes: 2 << 30,
+            gpu_backend: None,
+            gpu_vram_bytes: 0,
+            network_bandwidth_bps: 0,
+            npu_vendor: None,
+        });
+
+        let txt = Discovery::txt_map(&local, None).into_txt_properties();
+        assert_eq!(txt.get_property_val_str("cpu_cores"), Some("1.5"));
+        assert_eq!(txt.get_property_val_str("memory_bytes"), Some("2147483648"));
+        let hardware = parse_hardware(&txt).unwrap();
+        assert_eq!(hardware.cpu_cores, 1.5);
+        assert_eq!(hardware.memory_bytes, 2 << 30);
+    }
+
+    #[test]
+    fn hardware_txt_keeps_old_cpu_only_records_usable() {
+        let txt = &[("cpu_cores", "4")][..];
+        let hardware = parse_hardware(&txt.into_txt_properties()).unwrap();
+        assert_eq!(hardware.cpu_cores, 4.0);
+        assert_eq!(hardware.memory_bytes, 0);
+        assert!(hardware.gpu_backend.is_none());
+        assert!(hardware.npu_vendor.is_none());
+
+        let local = DiscoveryConfig::default().local;
+        let txt = Discovery::txt_map(&local, None).into_txt_properties();
+        assert!(parse_hardware(&txt).is_none());
+    }
 
     #[test]
     fn cpu_cores_rejects_poisoned_values() {
@@ -803,19 +887,14 @@ mod tests {
     }
 
     #[test]
-    fn unique_fallback_hostname_is_per_peer_and_dns_safe() {
-        let id = PeerId::from_public_key_bytes(&[0x11; 32]);
-        let label = unique_fallback_hostname(&id);
-        assert!(label.starts_with("entangled-"));
-        assert!(label.ends_with(&id.to_hex()[..8]));
-        // The label already conforms to the DNS charset.
-        assert_eq!(sanitize_hostname_label(&label), label);
-
-        // Distinct peers get distinct labels (no address-list merging).
-        let other = PeerId::from_public_key_bytes(&[0x22; 32]);
-        assert_ne!(
-            unique_fallback_hostname(&id),
-            unique_fallback_hostname(&other)
-        );
+    fn dns_host_labels_are_scoped_to_the_entire_peer_id() {
+        let first = PeerId::from_hex("00000000000000000000000000000001").unwrap();
+        let second = PeerId::from_hex("00000000000000000000000000000002").unwrap();
+        for name in ["", "two daemons", &"x".repeat(90)] {
+            let label = host_label(name, &first);
+            assert!(label.ends_with(&first.to_hex()));
+            assert_eq!(label, sanitize_hostname_label(&label));
+            assert_ne!(label, host_label(name, &second));
+        }
     }
 }

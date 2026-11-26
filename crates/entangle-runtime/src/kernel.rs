@@ -13,7 +13,7 @@ use entangle_signing::{verify_artifact, Keyring, SignatureBundle, VerificationEr
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -59,9 +59,11 @@ struct LoadedRecord {
 pub struct Kernel {
     #[allow(dead_code)] // retained for future daemon config queries
     config: KernelConfig,
+    metrics: entangle_observability::Registry,
     engine: HostEngine,
     broker: Broker,
     keyring: Arc<RwLock<Keyring>>,
+    keyring_path: Option<PathBuf>,
     plugins: RwLock<HashMap<PluginId, LoadedRecord>>,
     bus: Bus<LifecycleEvent>,
     /// The single topic every lifecycle event is published on. Built once so
@@ -72,6 +74,9 @@ pub struct Kernel {
 impl Kernel {
     /// Construct a new kernel with the given config and trusted keyring.
     pub fn new(config: KernelConfig, keyring: Keyring) -> Result<Self, RuntimeError> {
+        if config.bus_capacity == 0 || config.bus_capacity > usize::MAX / 2 {
+            return Err(RuntimeError::InvalidBusCapacity(config.bus_capacity));
+        }
         let policy = BrokerPolicy {
             max_tier_allowed: config.max_tier_allowed,
             multi_node: config.multi_node,
@@ -82,11 +87,31 @@ impl Kernel {
             bus: Bus::new(config.bus_capacity),
             lifecycle_topic: Topic::new(LIFECYCLE_TOPIC).expect("static topic is valid"),
             broker: Broker::new(policy),
+            metrics: entangle_observability::Registry::new(),
             engine,
             keyring: Arc::new(RwLock::new(keyring)),
+            keyring_path: None,
             plugins: RwLock::new(HashMap::new()),
             config,
         })
+    }
+
+    /// Construct a kernel that verifies each new package against the current
+    /// publisher keyring at `path`. Removing the file leaves no trusted publishers.
+    pub fn from_keyring_file(config: KernelConfig, path: PathBuf) -> Result<Self, RuntimeError> {
+        let mut kernel = Self::new(config, Keyring::load(&path)?)?;
+        kernel.keyring_path = Some(path);
+        Ok(kernel)
+    }
+
+    /// Operator metrics for work performed during this kernel's lifetime.
+    pub fn metrics(&self) -> &entangle_observability::Registry {
+        &self.metrics
+    }
+
+    /// Current number of loaded components.
+    pub fn loaded_plugin_count(&self) -> usize {
+        self.plugins.read().len()
     }
 
     /// Access the capability broker.
@@ -99,7 +124,8 @@ impl Kernel {
         &self.bus
     }
 
-    /// Clone the keyring handle.
+    /// Clone the in-memory keyring supplied to [`Kernel::new`].
+    /// File-backed kernels use the on-disk keyring for load verification.
     pub fn keyring(&self) -> Arc<RwLock<Keyring>> {
         self.keyring.clone()
     }
@@ -161,10 +187,13 @@ impl Kernel {
             ))
         })?;
 
-        let signer_fingerprint = {
-            let kr = self.keyring.read();
-            let entry = verify_artifact(&pkg.bytes, &pkg.manifest_bytes, &bundle, &kr)?;
-            hex::encode(entry.fingerprint)
+        let verify_publisher = |keys: &Keyring| {
+            verify_artifact(&pkg.bytes, &pkg.manifest_bytes, &bundle, keys)
+                .map(|entry| hex::encode(entry.fingerprint))
+        };
+        let signer_fingerprint = match &self.keyring_path {
+            Some(path) => verify_publisher(&Keyring::load(path)?)?,
+            None => verify_publisher(&self.keyring.read())?,
         };
 
         // ── Step 2b: Publisher binding ───────────────────────────────────────
@@ -265,7 +294,15 @@ impl Kernel {
         };
 
         self.emit(plugin_id, effective_tier, LifecyclePhase::Activated);
+        let started = std::time::Instant::now();
         let result = plugin.run_one_shot(&self.engine, input, timeout_ms).await;
+        self.metrics.observe_histogram(
+            "entangle_wasm_invocation_seconds",
+            "Time spent running loaded WASI components on this worker",
+            &[("result", if result.is_ok() { "ok" } else { "error" })],
+            &[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 30.0, 300.0],
+            started.elapsed().as_secs_f64(),
+        );
         self.emit(plugin_id, effective_tier, LifecyclePhase::Idled);
 
         Ok(result?.output)
@@ -348,6 +385,11 @@ impl Kernel {
         self.broker.unregister_plugin(plugin)?;
         self.emit(plugin, record.effective_tier, LifecyclePhase::Unloaded);
         Ok(())
+    }
+
+    /// Whether this kernel currently has the requested plugin loaded.
+    pub fn has_plugin(&self, plugin: &PluginId) -> bool {
+        self.plugins.read().contains_key(plugin)
     }
 
     /// Return the ids of all currently loaded plugins, sorted by their

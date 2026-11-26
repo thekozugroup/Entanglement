@@ -33,7 +33,6 @@ pub struct LoadedPlugin {
 impl Clone for LoadedPlugin {
     fn clone(&self) -> Self {
         Self {
-            // PluginPre is cheaply cloneable in wasmtime 43 (Arc-backed).
             pre: self.pre.clone(),
             plugin_id: self.plugin_id.clone(),
             effective_tier: self.effective_tier,
@@ -57,15 +56,21 @@ impl LoadedPlugin {
     ///
     /// This validates the component and compiles it to native code using the
     /// provided [`HostEngine`], then pre-instantiates it against the engine's
-    /// shared linker. Returns [`HostError::Compile`] if the bytes are not a
-    /// valid component, and [`HostError::Instantiate`] if the component's
-    /// imports cannot be satisfied or it lacks the required `run` export.
+    /// shared linker. ELF artifacts fail with [`HostError::RuntimeKindMismatch`].
+    /// Invalid WebAssembly fails with [`HostError::Compile`], and unsatisfied
+    /// imports or a missing `run` export fail with [`HostError::Instantiate`].
     pub fn from_bytes(
         engine: &HostEngine,
         bytes: &[u8],
         plugin_id: PluginId,
         effective_tier: Tier,
     ) -> Result<Self, HostError> {
+        if bytes.starts_with(b"\x7fELF") {
+            return Err(HostError::RuntimeKindMismatch {
+                declared: "wasm-component",
+                observed: "ELF",
+            });
+        }
         let component = Component::from_binary(engine.engine(), bytes)?;
         // Resolve imports + validate exports once, at load time. This moves
         // linker work out of the invocation hot path (previously ~29% of
@@ -73,8 +78,8 @@ impl LoadedPlugin {
         let instance_pre = engine
             .linker()
             .instantiate_pre(&component)
-            .map_err(|e| HostError::Instantiate(e.into()))?;
-        let pre = PluginPre::new(instance_pre).map_err(|e| HostError::Instantiate(e.into()))?;
+            .map_err(HostError::Instantiate)?;
+        let pre = PluginPre::new(instance_pre).map_err(HostError::Instantiate)?;
         Ok(Self {
             pre,
             plugin_id,
@@ -135,19 +140,18 @@ impl LoadedPlugin {
         store.set_epoch_deadline(timeout_ms.div_ceil(EPOCH_TICK_MS).max(1));
 
         let invoke = async {
-            // Instantiate the pre-linked component (async — bindgen! with
-            // `async: true`).
+            // Instantiate the pre-linked component in the async store.
             let plugin = self
                 .pre
                 .instantiate_async(&mut store)
                 .await
-                .map_err(|e| classify_instantiate_error(e.into(), timeout_ms))?;
+                .map_err(|e| classify_instantiate_error(e, timeout_ms))?;
 
             // Call the `run` export.
             plugin
                 .call_run(&mut store, input)
                 .await
-                .map_err(|e| classify_call_error(e.into(), timeout_ms))
+                .map_err(|e| classify_call_error(e, timeout_ms))
         };
 
         let backstop = Duration::from_millis(timeout_ms.saturating_add(TIMEOUT_BACKSTOP_SLACK_MS));
@@ -186,8 +190,8 @@ impl LoadedPlugin {
 /// `true` when `err`'s chain shows a denial from the store's resource limiter
 /// (memory/table growth, or the instance/table/memory count caps).
 ///
-/// wasmtime does not expose a typed error for limiter denials, so this matches
-/// the message text produced by wasmtime 43: `StoreLimits` with
+/// Wasmtime does not expose a typed error for limiter denials, so this matches
+/// the message text produced by Wasmtime's `StoreLimits` with
 /// `trap_on_grow_failure` ("forcing trap when growing …" / "… growth failure
 /// to be a trap"), instantiation-time minimum-size checks ("… exceeds
 /// memory/table limits"), and store count caps ("resource limit exceeded: …").

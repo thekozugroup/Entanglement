@@ -74,6 +74,23 @@ fn atc_man_1_tier_under_declared_rejected() {
     }
 }
 
+/// The acceptance example specifically requires a tier-3 capability.
+#[test]
+fn atc_man_1_tier_one_rejects_tier_three_capability() {
+    let mut manifest = minimal_manifest("network-under-declared", 1, Runtime::Wasm);
+    manifest
+        .capabilities
+        .insert("net.lan".into(), toml::Value::Table(Default::default()));
+    assert!(matches!(
+        validate(manifest),
+        Err(ValidationError::TierBelowCapability {
+            declared: Tier::Pure,
+            implied: Tier::Networked,
+            capability,
+        }) if capability == "net.lan"
+    ));
+}
+
 // ── ATC-MAN-2 ────────────────────────────────────────────────────────────────
 
 /// §16 ATC-MAN-2 — over-declared tier is allowed; effective_tier equals declared.
@@ -112,6 +129,20 @@ fn atc_man_2_tier_over_declared_ok() {
         vm.implied_tier,
         vm.declared_tier
     );
+}
+
+/// A tier-5 manifest may declare only a tier-1 private storage capability.
+#[test]
+fn atc_man_2_tier_five_accepts_only_tier_one_capabilities() {
+    let mut manifest = minimal_manifest("pure-cap-native-ceiling", 5, Runtime::Native);
+    manifest.capabilities.insert(
+        "storage.local".into(),
+        toml::Value::Table(Default::default()),
+    );
+    let validated = validate(manifest).expect("over-declaration is allowed");
+    assert_eq!(validated.implied_tier, Tier::Pure);
+    assert_eq!(validated.declared_tier, Tier::Native);
+    assert_eq!(validated.effective_tier, Tier::Native);
 }
 
 // ── ATC-MAN-3 (out-of-scope stub) ────────────────────────────────────────────

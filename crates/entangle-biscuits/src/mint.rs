@@ -1,6 +1,6 @@
 //! Biscuit minting and attenuation helpers (spec §6).
 //!
-//! [`mint`] creates a new root biscuit from a `biscuit_auth::KeyPair` and an initial [`ClaimSet`].
+//! [`mint`] creates a new root biscuit from a `biscuit_auth::PrivateKey` and an initial [`ClaimSet`].
 //! [`attenuate_biscuit`] appends an attenuation block signed by a fresh ephemeral key.
 
 use biscuit_auth::{builder::BlockBuilder, Biscuit, PublicKey};
@@ -10,7 +10,7 @@ use crate::{claims::ClaimSet, errors::BiscuitError};
 /// Mint a new biscuit token from `root_keypair` with the given claim set as the
 /// authority block.
 pub fn mint(
-    root_keypair: &biscuit_auth::KeyPair,
+    root_keypair: &biscuit_auth::PrivateKey,
     claims: &ClaimSet,
 ) -> Result<Vec<u8>, BiscuitError> {
     let mut builder = Biscuit::builder();

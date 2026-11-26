@@ -94,6 +94,15 @@ fn multi_node_with_populated_peer_store_starts() {
     policy
         .check_startup()
         .expect("multi-node with a populated allowlist must start");
+
+    store.revoke(&peer_id).unwrap();
+    assert_eq!(store.len(), 1);
+    let policy = BrokerPolicy::new(cfg.security.max_tier_allowed, true, &store);
+    assert!(policy
+        .check_startup()
+        .unwrap_err()
+        .to_string()
+        .contains("ENTANGLE-E0050"));
 }
 
 #[test]

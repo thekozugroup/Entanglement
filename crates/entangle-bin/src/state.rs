@@ -31,6 +31,8 @@ pub struct DaemonState {
     pub local_display_name: String,
     /// Ed25519 identity keypair (signing, pairing).
     pub identity: IdentityKeyPair,
+    /// Scheduler transports currently available, refreshed by the route monitor.
+    pub scheduler_transports: Option<tokio::sync::watch::Receiver<Vec<String>>>,
     /// mDNS discovery handle; `None` when `mesh.local` transport is disabled.
     pub discovery: Option<Arc<Discovery>>,
 }
@@ -58,8 +60,22 @@ impl DaemonState {
             local_peer_id,
             local_display_name: display_name,
             identity,
+            scheduler_transports: None,
             discovery: None,
         }
+    }
+
+    /// Render a Prometheus snapshot shared by the control socket and HTTP scraper.
+    pub fn render_metrics(&self) -> String {
+        let metrics = self.kernel.metrics();
+        metrics.set_gauge("entangle_daemon_up", "Daemon is serving requests", &[], 1.0);
+        metrics.set_gauge(
+            "entangle_plugins_loaded",
+            "Components currently loaded on this worker",
+            &[],
+            self.kernel.loaded_plugin_count() as f64,
+        );
+        metrics.render()
     }
 
     /// Attach a running [`Discovery`] handle.  Called after construction when

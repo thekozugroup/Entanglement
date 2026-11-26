@@ -146,32 +146,27 @@ pub fn ensure_trusted(
     let fp_hex = pk.fingerprint_hex();
 
     let path = config::keyring_path();
-    let mut kr =
-        Keyring::load(&path).with_context(|| format!("reading keyring at {}", path.display()))?;
-
-    if let Some(existing) = kr.lookup(&fingerprint) {
-        return Ok(TrustOutcome::AlreadyTrusted {
-            fp_hex,
-            name: existing.publisher_name.clone(),
+    Keyring::edit_file(&path, |kr| {
+        if let Some(existing) = kr.lookup(&fingerprint) {
+            return TrustOutcome::AlreadyTrusted {
+                fp_hex,
+                name: existing.publisher_name.clone(),
+            };
+        }
+        let added_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        kr.add(TrustEntry {
+            fingerprint,
+            public_key: key_bytes,
+            publisher_name: name.to_owned(),
+            added_at,
+            note: note.to_owned(),
         });
-    }
-
-    let added_at = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-
-    kr.add(TrustEntry {
-        fingerprint,
-        public_key: key_bytes,
-        publisher_name: name.to_owned(),
-        added_at,
-        note: note.to_owned(),
-    });
-    kr.save(&path)
-        .with_context(|| format!("writing keyring at {}", path.display()))?;
-
-    Ok(TrustOutcome::Added { fp_hex })
+        TrustOutcome::Added { fp_hex }
+    })
+    .with_context(|| format!("updating keyring at {}", path.display()))
 }
 
 async fn add(public_key_hex: String, name: String, note: Option<String>) -> anyhow::Result<()> {
@@ -203,10 +198,8 @@ async fn remove(fingerprint_hex: String) -> anyhow::Result<()> {
     let fp: [u8; 16] = bytes.try_into().expect("length checked above");
 
     let path = config::keyring_path();
-    let mut kr = Keyring::load(&path)?;
-    match kr.remove(&fp) {
+    match Keyring::edit_file(&path, |kr| kr.remove(&fp))? {
         Some(e) => {
-            kr.save(&path)?;
             println!("removed {} \"{}\"", fingerprint_hex, e.publisher_name);
             Ok(())
         }

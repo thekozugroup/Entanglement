@@ -3,7 +3,7 @@
 //! Uses `wasmtime::component::bindgen!` to generate typed host-side bindings
 //! for the `plugin` world.  The macro reads the WIT files at compile time and
 //! emits:
-//!   - A `Plugin` struct with `add_to_linker_async` / `instantiate_async` helpers.
+//!   - A `Plugin` struct with `add_to_linker` and `instantiate_async` helpers.
 //!   - `Host` traits for each imported interface the host must implement.
 //!
 //! In async bindgen mode, WIT host functions become `async fn` on the `Host`
@@ -17,7 +17,6 @@ wasmtime::component::bindgen!({
     // Path is relative to the crate's Cargo.toml (crates/entangle-host/).
     path: "../entangle-wit/wit",
     world: "plugin",
-    // async: true is the wasmtime ≥44 syntax; wasmtime 43 uses per-section flags.
     imports: { default: async },
     exports: { default: async },
 });

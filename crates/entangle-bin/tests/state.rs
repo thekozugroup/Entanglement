@@ -139,9 +139,8 @@ async fn mesh_status_includes_real_local_peer_id() {
 /// Two trusted peers in the store + discovery not wired (None) → both appear
 /// with `trusted=true` and empty addresses (the trusted-but-not-sighted path).
 ///
-/// The full sighted-and-trusted merge path requires a live Discovery with a
-/// mutable internal peer map that is not publicly accessible, so the half that
-/// exercises the sighted view is marked `#[ignore]`.
+/// The two-daemon LAN test in `daemon_compute` checks address discovery,
+/// authoritative peer names, mDNS goodbye, and revocation while still visible.
 #[tokio::test]
 async fn mesh_peers_merges_trusted_only_when_no_discovery() {
     let store = PeerStore::new();
@@ -173,17 +172,6 @@ async fn mesh_peers_merges_trusted_only_when_no_discovery() {
     }
 }
 
-/// Full merge: sighted AND trusted peers both appear, with correct flags.
-///
-/// Ignored because `Discovery`'s internal peer map is not publicly mutable.
-/// Run manually with: `cargo test -p entangle-bin -- --ignored mesh_peers_merges_sighted_and_trusted`
-#[tokio::test]
-#[ignore]
-async fn mesh_peers_merges_sighted_and_trusted() {
-    // This test requires a controllable Discovery mock; deferred to Phase 2
-    // when the internal peer map will have a test-injection API.
-}
-
 /// `mesh/status` trusted_peer_count reflects the live store.
 #[tokio::test]
 async fn mesh_status_trusted_peer_count() {
@@ -213,4 +201,57 @@ async fn mesh_status_trusted_peer_count() {
         serde_json::json!([]),
         "no transport configured → empty transport list"
     );
+}
+
+#[tokio::test]
+async fn mesh_views_reflect_changes_from_another_store_and_report_read_errors() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("peers.toml");
+    let writer = PeerStore::open(&path).unwrap();
+    let peer = make_trusted_peer(31, "first name");
+    let peer_id = peer.peer_id;
+    writer.add(peer.clone()).unwrap();
+    let state = build_state_with_store(PeerStore::open(&path).unwrap());
+
+    async fn request(state: &Arc<DaemonState>, method: &str) -> serde_json::Value {
+        let req = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": method});
+        serde_json::from_str(&methods::dispatch(&req.to_string(), state).await).unwrap()
+    }
+
+    writer.revoke(&peer_id).unwrap();
+    assert_eq!(
+        request(&state, "mesh/status").await["result"]["trusted_peer_count"],
+        0
+    );
+    assert_eq!(
+        request(&state, "mesh/peers").await["result"]["peers"],
+        serde_json::json!([])
+    );
+
+    let mut renamed = peer;
+    renamed.display_name = "updated name".to_owned();
+    writer.add(renamed).unwrap();
+    assert_eq!(
+        request(&state, "mesh/status").await["result"]["trusted_peer_count"],
+        1
+    );
+    assert_eq!(
+        request(&state, "mesh/peers").await["result"]["peers"][0]["display_name"],
+        "updated name"
+    );
+
+    writer.remove(&peer_id).unwrap();
+    assert_eq!(
+        request(&state, "mesh/status").await["result"]["trusted_peer_count"],
+        0
+    );
+    assert_eq!(
+        request(&state, "mesh/peers").await["result"]["peers"],
+        serde_json::json!([])
+    );
+
+    std::fs::write(&path, "invalid = [").unwrap();
+    for method in ["mesh/status", "mesh/peers"] {
+        assert_eq!(request(&state, method).await["error"]["code"], -32603);
+    }
 }

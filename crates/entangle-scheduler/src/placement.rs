@@ -9,8 +9,8 @@
 //! Where:
 //! - `resource_fit` = 1.0 if all required resources are present and sufficient; 0.0 otherwise.
 //! - `locality` = 1.0 if rtt_ms < 5 (LAN); decays linearly to 0 at rtt_ms = 200.
-//! - `bandwidth_match` = clamp(actual_bw / required_bw, 0, 1).
-//! - `load` = current load reported by worker.
+//! - `bandwidth_match` = 1.0 after filtering workers below the bandwidth minimum.
+//! - `load` includes reported load plus in-flight submissions per advertised CPU core.
 //! - `cost` = relative cost factor.
 
 use std::cmp::Ordering;
@@ -49,33 +49,29 @@ pub fn choose(
     workers: &[WorkerInfo],
     spec: &ResourceSpec,
 ) -> Result<PlacementChoice, PlacementError> {
-    if workers.is_empty() {
+    choose_from(workers.iter().map(|w| (w, 0, ())), spec).map(|(choice, ())| choice)
+}
+
+pub(crate) fn choose_from<'a, T>(
+    workers: impl Iterator<Item = (&'a WorkerInfo, usize, T)>,
+    spec: &ResourceSpec,
+) -> Result<(PlacementChoice, T), PlacementError> {
+    let mut workers = workers.peekable();
+    if workers.peek().is_none() {
         return Err(PlacementError::NoWorkers);
-    }
-
-    let candidates: Vec<&WorkerInfo> = workers.iter().filter(|w| satisfies(w, spec)).collect();
-
-    if candidates.is_empty() {
-        return Err(PlacementError::NoMatch(format!("{spec:?}")));
     }
 
     let (w_fit, w_local, w_bw, w_load, w_cost) = (1.0_f32, 0.6, 0.4, 0.5, 0.3);
 
-    let scored: Vec<(f32, &&WorkerInfo)> = candidates
-        .iter()
-        .map(|w| {
-            let fit = 1.0_f32; // already filtered by satisfies()
+    let best = workers
+        .filter(|(w, _, _)| satisfies(w, spec))
+        .map(|(w, in_flight, reservation)| {
             let locality = if w.rtt_ms < 5 {
                 1.0
             } else if w.rtt_ms >= 200 {
                 0.0
             } else {
                 1.0 - (w.rtt_ms.saturating_sub(5) as f32) / 195.0
-            };
-            let bw = if spec.network_bandwidth_bps == 0 {
-                1.0
-            } else {
-                (w.network_bandwidth_bps as f32 / spec.network_bandwidth_bps as f32).min(1.0)
             };
             // A poisoned advert can carry a non-finite `load` (e.g. "NaN"/"inf"
             // parsed from an unauthenticated mDNS packet). `f32::clamp` returns
@@ -89,44 +85,36 @@ pub fn choose(
             // Clamp `cost` at 0 so a negative (or NaN) cost cannot turn the
             // `- w_cost * cost` penalty into an unbounded score *bonus*.
             let cost = w.cost.max(0.0);
-            let score =
-                w_fit * fit + w_local * locality + w_bw * bw + w_load * load_term - w_cost * cost;
-            (score, w)
+            // Eligible workers receive the full resource-fit and bandwidth weights.
+            let pending_load = in_flight as f32 / w.cpu_cores.max(1.0);
+            let score = w_fit + w_local * locality + w_bw + w_load * (load_term - pending_load)
+                - w_cost * cost;
+            (score, w, in_flight, reservation)
         })
-        .collect();
-
-    // Select the highest score using `total_cmp` (a total order over f32 that
-    // never collapses to `Equal` the way `partial_cmp().unwrap_or(Equal)` does),
-    // with a deterministic tie-break on `peer_id` so identical workers always
-    // yield the same, lowest-`peer_id` winner regardless of pool iteration
-    // order. Non-finite scores are filtered out first; if that leaves nothing,
-    // placement fails *closed* with `NoMatch`.
-    let best = scored
-        .iter()
-        .filter(|(score, _)| score.is_finite())
+        .filter(|(score, ..)| score.is_finite())
         .max_by(|a, b| {
             a.0.total_cmp(&b.0)
+                .then_with(|| b.2.cmp(&a.2))
                 .then_with(|| b.1.peer_id.cmp(&a.1.peer_id))
-        })
-        .copied();
+        });
 
-    let (top_score, top_worker) = match best {
-        Some(pair) => pair,
-        None => {
-            return Err(PlacementError::NoMatch(format!(
-                "all candidate scores non-finite: {spec:?}"
-            )))
-        }
-    };
+    let (top_score, top_worker, in_flight, reservation) =
+        best.ok_or_else(|| PlacementError::NoMatch(format!("{spec:?}")))?;
 
-    Ok(PlacementChoice {
-        peer_id: top_worker.peer_id,
-        score: top_score,
-        reason: format!(
-            "fit ok, rtt={}ms, bw={} bps, load={:.2}, cost={:.2}",
-            top_worker.rtt_ms, top_worker.network_bandwidth_bps, top_worker.load, top_worker.cost,
-        ),
-    })
+    Ok((
+        PlacementChoice {
+            peer_id: top_worker.peer_id,
+            score: top_score,
+            reason: format!(
+                "fit ok, rtt={}ms, bw={} bps, load={:.2}, cost={:.2}, in_flight={in_flight}",
+                top_worker.rtt_ms,
+                top_worker.network_bandwidth_bps,
+                top_worker.load,
+                top_worker.cost,
+            ),
+        },
+        reservation,
+    ))
 }
 
 /// Returns `true` if `w` meets all hard resource constraints in `spec`.
@@ -141,7 +129,7 @@ fn satisfies(w: &WorkerInfo, spec: &ResourceSpec) -> bool {
     ) {
         return false;
     }
-    if w.memory_bytes < spec.memory_bytes {
+    if w.memory_bytes < spec.memory_bytes || w.network_bandwidth_bps < spec.network_bandwidth_bps {
         return false;
     }
     if let Some(req) = &spec.gpu {
@@ -274,6 +262,25 @@ mod tests {
         };
         let result = choose(&workers, &spec).unwrap();
         assert_eq!(result.peer_id, p2);
+    }
+
+    #[test]
+    fn bandwidth_minimum_is_required_even_when_the_slower_worker_scores_better() {
+        let mut slower = worker(peer(1), 1, 0.0, 4.0, 1024, None, None, 0.0);
+        slower.network_bandwidth_bps = 999;
+        let mut exact = worker(peer(2), 200, 1.0, 4.0, 1024, None, None, 5.0);
+        exact.network_bandwidth_bps = 1000;
+        let spec = ResourceSpec {
+            network_bandwidth_bps: 1000,
+            ..basic_spec()
+        };
+
+        assert!(matches!(
+            choose(std::slice::from_ref(&slower), &spec),
+            Err(PlacementError::NoMatch(_))
+        ));
+        let expected = exact.peer_id;
+        assert_eq!(choose(&[slower, exact], &spec).unwrap().peer_id, expected);
     }
 
     #[test]

@@ -13,6 +13,12 @@ You sign releases with the project's release key (2-of-3 Shamir per spec §12.1)
 3. Walk a dry-run release: build, package, sign locally, verify the signature with a clean keyring.
 4. Read the slip-policy section in §12.2. Internalize that public ship-date moves transparently are a feature.
 
+Record each monthly rotation review in `docs/governance/rotations.md` under a
+`## YYYY-MM-DD` heading, with a bullet for each role such as
+`- release-lead: @first-holder, @second-holder`. The release check matches
+those handles against the committed roster, CODEOWNERS, and recent merged
+pull requests to crates owned by each role.
+
 ## Decisions you can make solo
 
 - Cutting a patch release (x.y.Z) when the change is a clean bugfix with no public API impact and CI is green.

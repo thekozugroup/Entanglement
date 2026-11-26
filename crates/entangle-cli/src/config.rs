@@ -6,48 +6,22 @@
 
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
+pub use entangle_runtime::config::{
+    load_config as load, MeshConfig, SchedulerConfig, SecurityConfig,
+};
+use serde::Serialize;
 
 // ---------------------------------------------------------------------------
 // Schema
 // ---------------------------------------------------------------------------
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct Config {
-    #[serde(default)]
+/// The sections written on first initialization. Later loads use the full shared schema.
+#[derive(Serialize)]
+pub struct InitialConfig {
     pub mesh: MeshConfig,
-    #[serde(default)]
     pub security: SecurityConfig,
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct MeshConfig {
-    /// Active transport backends. Phase 1 only supports "local".
-    #[serde(default)]
-    pub transports: Vec<String>,
-    /// When `true` the daemon requires at least one trusted peer before starting
-    /// (spec §11 #16).  Relevant to `doctor` check #5.
-    #[serde(default)]
-    pub multi_node: bool,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SecurityConfig {
-    /// Maximum plugin tier accepted at runtime (1..=5).
-    #[serde(default = "default_max_tier")]
-    pub max_tier_allowed: u8,
-}
-
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        Self {
-            max_tier_allowed: default_max_tier(),
-        }
-    }
-}
-
-fn default_max_tier() -> u8 {
-    5
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scheduler: Option<SchedulerConfig>,
 }
 
 // ---------------------------------------------------------------------------
@@ -82,18 +56,17 @@ pub fn keyring_path() -> PathBuf {
 // I/O
 // ---------------------------------------------------------------------------
 
-/// Load config from `path`. Returns `Ok(Default::default())` if file is absent.
-pub fn load(path: &Path) -> anyhow::Result<Config> {
-    if !path.exists() {
-        return Ok(Config::default());
-    }
-    let raw = std::fs::read_to_string(path)?;
-    let cfg: Config = toml::from_str(&raw)?;
-    Ok(cfg)
+/// Start the short-lived CLI worker with the same execution policy as the daemon.
+pub fn local_kernel() -> anyhow::Result<entangle_runtime::Kernel> {
+    let cfg = load(&config_path())?;
+    Ok(entangle_runtime::Kernel::from_keyring_file(
+        cfg.kernel_config(),
+        keyring_path(),
+    )?)
 }
 
 /// Serialize `c` to `path`, creating parent directories as needed.
-pub fn save(path: &Path, c: &Config) -> anyhow::Result<()> {
+pub fn save(path: &Path, c: &InitialConfig) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }

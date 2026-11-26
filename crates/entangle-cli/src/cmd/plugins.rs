@@ -20,8 +20,7 @@ use anyhow::Context as _;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use clap::{Args, Subcommand};
 use entangle_rpc::{Client as RpcClient, RpcError};
-use entangle_runtime::{Kernel, KernelConfig};
-use entangle_signing::Keyring;
+use entangle_runtime::Kernel;
 use entangle_types::plugin_id::PluginId;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -289,17 +288,6 @@ fn allow_local() -> bool {
 use crate::daemon_not_running_error;
 
 // ---------------------------------------------------------------------------
-// Local-kernel helpers (fallback path)
-// ---------------------------------------------------------------------------
-
-fn build_kernel() -> anyhow::Result<Kernel> {
-    let kr_path = config::keyring_path();
-    let keyring = Keyring::load(&kr_path)?;
-    let kernel = Kernel::new(KernelConfig::default(), keyring)?;
-    Ok(kernel)
-}
-
-// ---------------------------------------------------------------------------
 // Session — one connection used for several operations in a row
 // ---------------------------------------------------------------------------
 
@@ -335,7 +323,9 @@ impl Session {
         let client = rpc_client();
         match client.plugins_list().await {
             Ok(_) => Ok(Session::Daemon(Box::new(client))),
-            Err(RpcError::DaemonNotRunning(_)) => Ok(Session::Local(Box::new(build_kernel()?))),
+            Err(RpcError::DaemonNotRunning(_)) => {
+                Ok(Session::Local(Box::new(config::local_kernel()?)))
+            }
             Err(e) => Err(e.into()),
         }
     }
@@ -467,7 +457,7 @@ async fn list(json: bool) -> anyhow::Result<()> {
 }
 
 async fn list_local(json: bool) -> anyhow::Result<()> {
-    let kernel = build_kernel()?;
+    let kernel = config::local_kernel()?;
     let ids = kernel.list_plugins();
     let ids_str: Vec<String> = ids.iter().map(|i| i.to_string()).collect();
     if json {
@@ -508,7 +498,7 @@ async fn load(dir: String) -> anyhow::Result<()> {
 }
 
 async fn load_local(dir: String) -> anyhow::Result<()> {
-    let kernel = build_kernel()?;
+    let kernel = config::local_kernel()?;
     let id = kernel.load_plugin_from_dir(Path::new(&dir)).await?;
     println!("loaded {id}");
     Ok(())
@@ -539,7 +529,7 @@ async fn unload(plugin_id: String) -> anyhow::Result<()> {
 async fn unload_local(plugin_id: String) -> anyhow::Result<()> {
     let id =
         PluginId::from_str(&plugin_id).map_err(|e| anyhow::anyhow!("invalid plugin id: {e}"))?;
-    let kernel = build_kernel()?;
+    let kernel = config::local_kernel()?;
     kernel.unload(&id).await?;
     println!("unloaded {plugin_id}");
     Ok(())
@@ -589,7 +579,7 @@ async fn invoke_local(
 ) -> anyhow::Result<()> {
     let id =
         PluginId::from_str(&plugin_id).map_err(|e| anyhow::anyhow!("invalid plugin id: {e}"))?;
-    let kernel = build_kernel()?;
+    let kernel = config::local_kernel()?;
     let output = kernel.invoke(&id, &input_bytes, timeout_ms).await?;
     sink.write(&output)
 }
@@ -621,7 +611,7 @@ impl OutputSink {
     }
 
     /// Deliver `output`, reporting where it went when that is not obvious.
-    fn write(&self, output: &[u8]) -> anyhow::Result<()> {
+    pub(crate) fn write(&self, output: &[u8]) -> anyhow::Result<()> {
         match self {
             Self::Pretty => {
                 match std::str::from_utf8(output) {

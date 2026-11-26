@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
 
 env:
   CARGO_TERM_COLOR: always
@@ -28,7 +29,7 @@ jobs:
     name: clippy
     strategy:
       matrix:
-        os: [ubuntu-24.04, macos-14]
+        os: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -37,13 +38,13 @@ jobs:
           toolchain: "1.91"
           components: clippy
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy --workspace --locked --all-targets -- -D warnings
 
   test:
     name: test
     strategy:
       matrix:
-        os: [ubuntu-24.04, macos-14]
+        os: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.os }}
     env:
       RUSTFLAGS: -D warnings
@@ -53,7 +54,10 @@ jobs:
         with:
           toolchain: "1.91"
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - run: cargo test --workspace
+      - run: cargo test --workspace --locked
+      - name: Discover paired LAN worker and dispatch over QUIC
+        if: runner.os == 'Linux'
+        run: cargo test --locked -p entangle-bin --test daemon_compute -- --ignored --exact discovers_and_runs_work_without_a_configured_peer_address
 
   build-wasm:
     name: build-wasm
@@ -65,20 +69,24 @@ jobs:
           toolchain: "1.91"
           targets: wasm32-wasip2
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - name: Build hello-world wasm
-        working-directory: examples/hello-world
-        run: cargo build --release --target wasm32-wasip2
-      - name: Verify non-empty .wasm output
+      - name: Build, sign and execute the hello-world component
+        run: cargo test --locked -p entangle-runtime --test hello_world_e2e -- --ignored
+      - name: Scaffold a component and run the catalog quickstart
         run: |
-          WASM=$(find examples/hello-world/target/wasm32-wasip2/release -name "*.wasm" | head -1)
-          if [ -z "$WASM" ]; then
-            echo "No .wasm file found" && exit 1
-          fi
-          SIZE=$(stat -c%s "$WASM")
-          echo "Wasm size: $SIZE bytes"
-          if [ "$SIZE" -eq 0 ]; then
-            echo "Wasm file is empty" && exit 1
-          fi
+          export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}" RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}"
+          cargo test --locked -p entangle-cli --test authoring --test catalog -- --ignored
+      - name: Test JSON Pointer conformance
+        working-directory: plugins/json-pointer
+        run: cargo test --locked
+      - name: Verify signed WASI catalog workloads on the daemon
+        env:
+          CARGO_PROFILE_DEV_DEBUG: "0"
+        run: |
+          cargo build --locked -p entangle-cli -p entangle-bin
+          python3 scripts/tests/live-publisher.py target/debug
+          python3 -m venv target/catalog-smoke-python
+          target/catalog-smoke-python/bin/pip install Pillow==12.2.0 zxing-cpp==2.3.0
+          target/catalog-smoke-python/bin/python plugins/smoke_test.py target/debug/entangle target/debug/entangled --two-node
 
   deny:
     name: cargo-deny
@@ -87,13 +95,32 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
+          rust-version: "1.91"
+          arguments: --all-features --locked
           command: check advisories bans licenses sources
+
+  catalog-advisories:
+    name: Plugin advisories (${{ matrix.plugin }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: [compress, csv-stats, image-resize, json-pointer, json-query, markdown-html, qr-encode]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          rust-version: "1.91"
+          manifest-path: ./plugins/${{ matrix.plugin }}/Cargo.toml
+          arguments: --locked
+          command: check advisories
+          command-arguments: --config deny.toml
 
   docs:
     name: docs
     strategy:
       matrix:
-        os: [ubuntu-24.04, macos-14]
+        os: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.os }}
     env:
       RUSTDOCFLAGS: -D warnings
@@ -103,7 +130,7 @@ jobs:
         with:
           toolchain: "1.91"
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - run: cargo doc --workspace --no-deps
+      - run: cargo doc --workspace --locked --no-deps
 
   docker-build:
     name: docker-build (smoke)

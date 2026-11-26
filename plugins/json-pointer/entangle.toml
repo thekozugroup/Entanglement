@@ -1,0 +1,12 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/json-pointer@0.1.0"
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "Resolve RFC 6901 JSON Pointers against JSON documents"
+
+[capabilities]
+
+[build]
+wit_world = "entangle:plugin@0.1.0/plugin"
+target = "wasm32-wasip2"

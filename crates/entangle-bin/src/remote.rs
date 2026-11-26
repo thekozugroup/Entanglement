@@ -1,11 +1,11 @@
 //! Cross-node scheduler wiring for the daemon.
 //!
-//! Two halves, both **off unless `[mesh] transports` contains `"iroh"`**:
+//! Two halves, enabled by `"iroh"` or `"tailscale"` in `[mesh] transports`:
 //!
 //! * **server** — [`spawn_task_server`] serves
-//!   [`ALPN_SCHEDULER`](entangle_mesh_iroh::ALPN_SCHEDULER) so trusted peers
+//!   [`ALPN_SCHEDULER`] so trusted peers
 //!   can run work on this node's kernel;
-//! * **client** — [`directory_from_config`] turns configured peer addresses
+//! * **client** — [`prepare_scheduler`] turns configured peer addresses
 //!   into an address book so this node can send work out.
 //!
 //! # The authorization gate
@@ -19,34 +19,39 @@
 //!    it is not a claim the peer makes in its payload; **and**
 //! 2. that exact `PeerId` is present in the persisted `PeerStore` (the
 //!    `entangle mesh trust` allowlist); **and**
-//! 3. its trust level is not [`TrustLevel::Revoked`].
+//! 3. its trust level is [`Trusted`](entangle_peers::TrustLevel::Trusted).
 //!
 //! Anything else — unknown peer, revoked peer, empty store — is refused
 //! before the request payload is even parsed. A node that has paired with
 //! nobody executes work for nobody.
 
+mod routes;
+pub use routes::{prepare_scheduler, LanRoutes, PreparedScheduler};
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use entangle_mesh_iroh::{
-    parse_node_addr, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER,
+    parse_node_addr, IrohPeer, MeshIroh, MeshIrohConfig, MeshTransport, ALPN_SCHEDULER,
 };
-use entangle_peers::{PeerStore, TrustLevel};
+use entangle_peers::PeerStore;
 use entangle_runtime::Kernel;
-use entangle_scheduler::{PeerAllowlist, PeerDirectory, RemoteTaskServer};
+use entangle_scheduler::{PeerAllowlist, PeerDirectory, RemoteTaskServer, WorkerInfo};
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
 
 use crate::config::SchedulerConfig;
 
-/// `true` when the daemon should run the `mesh.iroh` scheduler transport.
+/// `true` when the daemon should run a scheduler transport.
 ///
 /// Mirrors how the `"local"` (mDNS) transport is selected: a transport is on
 /// only when it is named in `[mesh] transports`. Absent that, this whole
 /// module does nothing and the daemon behaves exactly as a single-machine
 /// node.
 pub fn scheduler_transport_enabled(transports: &[String]) -> bool {
-    transports.iter().any(|t| t == "iroh")
+    transports
+        .iter()
+        .any(|t| matches!(t.as_str(), "iroh" | "tailscale"))
 }
 
 /// The daemon's [`PeerAllowlist`]: the persisted, operator-curated peer store.
@@ -67,16 +72,14 @@ impl PeerStoreAllowlist {
 impl std::fmt::Debug for PeerStoreAllowlist {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PeerStoreAllowlist")
-            .field("trusted_peers", &self.store.len())
+            .field("active_peers", &self.store.active_count())
             .finish()
     }
 }
 
 impl PeerAllowlist for PeerStoreAllowlist {
     fn is_authorized(&self, peer: &PeerId) -> bool {
-        // Fails closed: `get` returning `None` (unknown peer) and a `Revoked`
-        // trust level both fall through to `false`.
-        matches!(self.store.get(peer), Some(p) if p.trust != TrustLevel::Revoked)
+        self.store.is_currently_trusted(peer)
     }
 }
 
@@ -89,15 +92,24 @@ pub async fn start_scheduler_transport(
     cfg: &SchedulerConfig,
     identity: &IdentityKeyPair,
 ) -> anyhow::Result<Arc<MeshIroh>> {
-    let bind: SocketAddr = cfg
-        .bind
-        .parse()
-        .map_err(|e| anyhow::anyhow!("[scheduler] bind = {:?} is not host:port: {e}", cfg.bind))?;
+    bind_scheduler(parse_bind(cfg)?, cfg.relay, identity).await
+}
 
+fn parse_bind(cfg: &SchedulerConfig) -> anyhow::Result<SocketAddr> {
+    cfg.bind
+        .parse()
+        .map_err(|e| anyhow::anyhow!("[scheduler] bind = {:?} is not host:port: {e}", cfg.bind))
+}
+
+async fn bind_scheduler(
+    bind: SocketAddr,
+    relay: bool,
+    identity: &IdentityKeyPair,
+) -> anyhow::Result<Arc<MeshIroh>> {
     let transport = MeshIroh::start(
         MeshIrohConfig {
             bind,
-            allow_derp_relay: cfg.relay,
+            allow_derp_relay: relay,
             alpn: ALPN_SCHEDULER.to_vec(),
             ..MeshIrohConfig::default()
         },
@@ -108,7 +120,7 @@ pub async fn start_scheduler_transport(
     tracing::info!(
         peer_id = %transport.local_peer_id(),
         addrs = ?transport.local_addrs(),
-        relay = cfg.relay,
+        relay,
         "mesh.iroh scheduler transport listening",
     );
     Ok(Arc::new(transport))
@@ -125,12 +137,22 @@ pub fn spawn_task_server(
     local_peer_id: PeerId,
 ) -> tokio::task::JoinHandle<()> {
     let allowlist = Arc::new(PeerStoreAllowlist::new(store));
-    tracing::info!(
-        trusted_peers = ?allowlist,
-        "serving scheduler tasks for trusted peers",
-    );
     let server = Arc::new(RemoteTaskServer::new(kernel, allowlist, local_peer_id));
     tokio::spawn(entangle_scheduler::serve_tasks(transport, server))
+}
+
+/// Serve scheduler work and report local capacity to currently trusted peers.
+pub fn spawn_task_server_with_capabilities(
+    transport: Arc<MeshIroh>,
+    kernel: Arc<Kernel>,
+    store: PeerStore,
+    local_peer_id: PeerId,
+    capabilities: WorkerInfo,
+) -> tokio::task::JoinHandle<()> {
+    let allowlist = Arc::new(PeerStoreAllowlist::new(store));
+    let server =
+        RemoteTaskServer::new(kernel, allowlist, local_peer_id).with_capabilities(capabilities);
+    tokio::spawn(entangle_scheduler::serve_tasks(transport, Arc::new(server)))
 }
 
 /// Build the outbound address book from `[scheduler] peers`.
@@ -149,30 +171,30 @@ pub fn directory_from_config(
     local_peer_id: PeerId,
 ) -> PeerDirectory {
     let directory = PeerDirectory::new();
-    for entry in &cfg.peers {
-        let peer = match parse_node_addr(entry) {
-            Ok(p) => p,
-            Err(e) => {
-                tracing::warn!(entry = %entry, error = %e, "[scheduler] peers: skipping unparseable address");
-                continue;
-            }
-        };
-        if peer.peer_id == local_peer_id {
-            tracing::debug!(entry = %entry, "[scheduler] peers: skipping our own address");
-            continue;
+    for peer in configured_peers(cfg, local_peer_id) {
+        if store.is_currently_trusted(&peer.peer_id) {
+            directory.insert(peer);
+        } else {
+            tracing::warn!(peer_id = %peer.peer_id, "[scheduler] peers: skipping untrusted peer");
         }
-        if !matches!(store.get(&peer.peer_id), Some(p) if p.trust != TrustLevel::Revoked) {
-            tracing::warn!(
-                peer_id = %peer.peer_id,
-                "[scheduler] peers: skipping an address for a peer that is not trusted \
-                 (pair it with `entangle mesh trust` first)"
-            );
-            continue;
-        }
-        tracing::info!(peer_id = %peer.peer_id, addr = %peer.addr, "scheduler peer address loaded");
-        directory.insert(peer);
     }
     directory
+}
+
+fn configured_peers(
+    cfg: &SchedulerConfig,
+    local_peer_id: PeerId,
+) -> impl Iterator<Item = IrohPeer> + '_ {
+    cfg.peers
+        .iter()
+        .filter_map(move |entry| match parse_node_addr(entry) {
+            Ok(peer) if peer.peer_id != local_peer_id => Some(peer),
+            Ok(_) => None,
+            Err(e) => {
+                tracing::warn!(error = %e, "[scheduler] peers: skipping unparseable address");
+                None
+            }
+        })
 }
 
 #[cfg(test)]
@@ -195,6 +217,7 @@ mod tests {
     fn transport_is_off_unless_explicitly_named() {
         assert!(!scheduler_transport_enabled(&[]));
         assert!(!scheduler_transport_enabled(&["local".to_owned()]));
+        assert!(scheduler_transport_enabled(&["tailscale".to_owned()]));
         assert!(scheduler_transport_enabled(&[
             "local".to_owned(),
             "iroh".to_owned()

@@ -7,7 +7,7 @@
 //!   2. The plugin's manifest must also declare the capability (biscuit grants
 //!      are not a manifest bypass).
 
-use biscuit_auth::KeyPair as BiscuitKp;
+use biscuit_auth::PrivateKey as BiscuitKp;
 use entangle_biscuits::claims::ClaimSet;
 use entangle_broker::{
     errors::BrokerError,

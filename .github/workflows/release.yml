@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to release (e.g. v0.1.0) — leave blank to use latest git tag"
+        description: "Tag to package (e.g. v0.1.0). Defaults to the latest tag reachable from the selected ref."
         required: false
         default: ""
   push:
@@ -33,9 +33,9 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-24.04
             target: aarch64-unknown-linux-gnu
-          - os: macos-14
+          - os: macos-15
             target: aarch64-apple-darwin
-          - os: macos-14
+          - os: macos-15-intel
             target: x86_64-apple-darwin
 
     outputs:
@@ -43,6 +43,31 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout tagged source and determine version
+        id: version
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ -n "${INPUT_TAG}" ]; then
+            VERSION="${INPUT_TAG}"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION=$(git describe --tags --abbrev=0)
+          fi
+
+          # The installer reconstructs the asset name from a release tag.
+          if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Version '${VERSION}' is not an installable vX.Y.Z release tag" >&2
+            exit 1
+          fi
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            git checkout --detach "refs/tags/${VERSION}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch (no version tags)
         with:
@@ -73,40 +98,6 @@ jobs:
             brew install b3sum
           fi
 
-      - name: Determine version
-        id: version
-        env:
-          # Move the workflow_dispatch input into an env var before use so it
-          # cannot break out of the shell (script-injection hardening).
-          INPUT_TAG: ${{ github.event.inputs.tag }}
-        run: |
-          if [ -n "${INPUT_TAG}" ]; then
-            VERSION="${INPUT_TAG}"
-          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/}"
-          else
-            VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
-          fi
-
-          # VERSION becomes part of every published asset name
-          # (entanglement-${VERSION}-${target}.tar.gz), and scripts/install.sh
-          # reconstructs those names from a release tag. A version that is not a
-          # clean `vX.Y.Z[-suffix]` tag — e.g. the `git describe` fallback's
-          # `v0.1.0-3-gabc123-dirty` — yields assets no installer can address.
-          # Publishing runs are gated on refs/tags/v*, so this only guards a
-          # mistyped workflow_dispatch input or a future non-tag publish path.
-          # The prerelease suffix deliberately excludes `-`, so a legitimate
-          # `v1.2.3-rc1` passes while git-describe's `v0.1.0-3-gabc123-dirty`
-          # (multiple dash-separated segments) is rejected.
-          if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
-            if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] || [[ "$GITHUB_REF" == refs/tags/* ]]; then
-              echo "::error::Version '${VERSION}' is not a vX.Y.Z release tag; assets built from it would not be installable." >&2
-              exit 1
-            fi
-            echo "::warning::Version '${VERSION}' is a dev build; its assets are not installable via scripts/install.sh."
-          fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
       # Binaries come out already stripped: the root Cargo.toml sets
       # `strip = "symbols"` on [profile.release], which rustc applies per target
       # (`--strip-all` via the linker for ELF, `strip -x` on Apple platforms).
@@ -127,17 +118,21 @@ jobs:
           NAME="entanglement-${VERSION}-${TARGET}"
           TARBALL="${NAME}.tar.gz"
 
-          # Stage into a clean top-level directory so the tarball extracts nicely
-          # on both GNU tar (Linux) and BSD tar (macOS).
-          STAGE="pkg/${NAME}"
+          # Stage both required executables in a fresh directory so a missing
+          # build output cannot produce a partial release artifact.
+          STAGE_ROOT="$(mktemp -d)"
+          trap 'rm -rf "${STAGE_ROOT}"' EXIT
+          STAGE="${STAGE_ROOT}/${NAME}"
           mkdir -p "${STAGE}"
           for bin in entangled entangle; do
-            [ -f "${BINDIR}/${bin}" ] && cp "${BINDIR}/${bin}" "${STAGE}/"
+            if [ ! -x "${BINDIR}/${bin}" ]; then
+              echo "::error::Missing executable ${BINDIR}/${bin}" >&2
+              exit 1
+            fi
+            install -m 0755 "${BINDIR}/${bin}" "${STAGE}/${bin}"
           done
-          for f in LICENSE README.md docs/architecture.md docs/tutorial.md; do
-            [ -f "$f" ] && cp "$f" "${STAGE}/"
-          done
-          tar -czf "${TARBALL}" -C pkg "${NAME}"
+          cp LICENSE README.md docs/architecture.md docs/tutorial.md "${STAGE}/"
+          tar -czf "${TARBALL}" -C "${STAGE_ROOT}" "${NAME}"
 
           # SHA-256
           if command -v sha256sum >/dev/null 2>&1; then
@@ -146,14 +141,29 @@ jobs:
             shasum -a 256 "${TARBALL}" > "${TARBALL}.sha256"
           fi
 
-          # BLAKE3 sidecar (b3sum is installed above; skip gracefully if absent)
-          if command -v b3sum >/dev/null 2>&1; then
-            b3sum "${TARBALL}" > "${TARBALL}.b3"
-          else
-            echo "b3sum not available — skipping BLAKE3" >&2
-          fi
+          b3sum "${TARBALL}" > "${TARBALL}.b3"
 
           echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test unpacked native binaries
+        env:
+          TARBALL: ${{ steps.package.outputs.tarball }}
+          TARGET: ${{ matrix.target }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          HOST="$(rustc -vV | sed -n 's/^host: //p')"
+          if [ "${HOST}" = "${TARGET}" ]; then
+            EXTRACT="$(mktemp -d)"
+            trap 'rm -rf "${EXTRACT}"' EXIT
+            tar -xzf "${TARBALL}" -C "${EXTRACT}"
+            for bin in entangled entangle; do
+              actual="$("${EXTRACT}/${TARBALL%.tar.gz}/${bin}" --version)"
+              if [ "${actual}" != "${bin} ${VERSION#v}" ]; then
+                echo "::error::Unexpected version in ${TARBALL}: ${actual}" >&2
+                exit 1
+              fi
+            done
+          fi
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -165,12 +175,35 @@ jobs:
             entanglement-*.tar.gz.b3
           if-no-files-found: error
 
+  release-governance:
+    name: Release governance
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Check active maintainers and rotation review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-release-governance.py
+
+  release-ci:
+    name: Validate tagged source
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
   # ─────────────────────────────────────────────────────────────────────────────
   # Job 2: Sigstore attestation + cosign signing
   # ─────────────────────────────────────────────────────────────────────────────
   sigstore-attest:
     name: Sigstore / SLSA attestation
-    needs: build
+    needs: [build, release-governance, release-ci]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -219,8 +252,7 @@ jobs:
     name: GitHub Release
     needs: sigstore-attest
     runs-on: ubuntu-24.04
-    # Only publish when a real tag was pushed (not manual dispatch without a tag)
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write       # create GH release + upload assets
       id-token: write       # inherited for attestation context
@@ -298,9 +330,9 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   docker-publish:
     name: Publish image (ghcr, multi-arch)
-    needs: build
+    needs: sigstore-attest
     runs-on: ubuntu-24.04
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: read
       packages: write       # push to ghcr.io/<owner>/<repo>

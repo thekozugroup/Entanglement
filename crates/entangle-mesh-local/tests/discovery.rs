@@ -187,7 +187,7 @@ fn double_start_announcing_is_already_running() {
 async fn manual_two_instances_see_each_other() {
     use tokio::time::{timeout, Duration};
 
-    let config_a = make_config(&KEY_A, 17701, "node-a");
+    let config_a = make_config_with_hardware(&KEY_A, 17701, "node-a");
     let config_b = make_config(&KEY_B, 17702, "node-b");
 
     let id_a = config_a.local.peer_id;
@@ -210,7 +210,8 @@ async fn manual_two_instances_see_each_other() {
         loop {
             match rx_a.recv().await {
                 Ok(entangle_mesh_local::DiscoveryEvent::PeerAppeared(p)) if p.peer_id == id_b => {
-                    break true
+                    assert!(p.hardware.is_none());
+                    break true;
                 }
                 _ => {}
             }
@@ -223,7 +224,10 @@ async fn manual_two_instances_see_each_other() {
         loop {
             match rx_b.recv().await {
                 Ok(entangle_mesh_local::DiscoveryEvent::PeerAppeared(p)) if p.peer_id == id_a => {
-                    break true
+                    let hardware = p.hardware.expect("node-a advertised its hardware");
+                    assert_eq!(hardware.cpu_cores, 8.0);
+                    assert_eq!(hardware.memory_bytes, 16_000_000_000);
+                    break true;
                 }
                 _ => {}
             }

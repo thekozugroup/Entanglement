@@ -13,13 +13,15 @@
 //! `rate_limit_bps`, `total_bytes_cap`, `bridge(true)`) are honored from all
 //! blocks and merged so that the *tightest* value wins.
 //!
-//! **Workaround**: rather than driving a `biscuit-auth` `Authorizer`
-//! with typed rules (which requires `TryFrom<Fact>` impls per fact arity that
-//! are not yet wired up), we re-parse each block's `print_block_source()`
-//! text directly. This is robust and avoids the full authorizer machinery.
+//! Typed fact extraction retains each fact's block of origin. The upstream
+//! authorizer separately evaluates every signed Datalog check under Biscuit's
+//! normal scope and execution limits.
 
-use biscuit_auth::{Biscuit, PublicKey};
+use biscuit_auth::{
+    builder_ext::AuthorizerExt, AuthorizerBuilder, AuthorizerLimits, Biscuit, PublicKey,
+};
 use entangle_types::peer_id::PeerId;
+use std::time::Duration;
 
 use crate::errors::BiscuitError;
 
@@ -198,7 +200,7 @@ fn parse_string_term(inner: &str) -> Option<String> {
 ///    future.
 /// 4. Ensure `require_capability` appears in the **authority** capability
 ///    list.
-/// 5. Return [`ExtractedFacts`].
+/// 5. Enforce the signed Datalog checks, then return [`ExtractedFacts`].
 pub fn verify(
     biscuit: &Biscuit,
     ctx: &VerifyContext,
@@ -240,6 +242,21 @@ pub fn verify(
             "required capability '{require_capability}' not present in authority block"
         )));
     }
+
+    // The typed grant and restrictions above establish our allow policy.
+    // Biscuit checks can narrow it further. Only token facts are available
+    // to these checks; unsupported ambient predicates fail closed.
+    AuthorizerBuilder::new()
+        // The upstream 1 ms wall-clock deadline can elapse during ordinary
+        // thread preemption. Retain its fact and iteration bounds.
+        .set_limits(AuthorizerLimits {
+            max_time: Duration::from_millis(100),
+            ..Default::default()
+        })
+        .allow_all()
+        .build(biscuit)
+        .and_then(|mut authorizer| authorizer.authorize())
+        .map_err(|error| BiscuitError::Verify(format!("Datalog authorization: {error}")))?;
 
     Ok(facts)
 }

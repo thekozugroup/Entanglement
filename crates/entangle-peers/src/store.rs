@@ -68,14 +68,55 @@ impl PeerStore {
         self.inner.read().get(peer_id).cloned()
     }
 
+    /// Check whether a peer currently has permission to submit work.
+    ///
+    /// Persistent stores read the authoritative on-disk snapshot on every
+    /// check, so changes made by another process take effect without a daemon
+    /// restart. Missing, unreadable, or malformed stores fail closed. This is
+    /// synchronous file I/O; async callers should run it on a blocking worker.
+    pub fn is_currently_trusted(&self, peer_id: &PeerId) -> bool {
+        match &self.path {
+            Some(path) => {
+                load_map(path)
+                    .ok()
+                    .and_then(|map| map.get(peer_id).map(|peer| peer.trust))
+                    == Some(TrustLevel::Trusted)
+            }
+            None => {
+                self.inner.read().get(peer_id).map(|peer| peer.trust) == Some(TrustLevel::Trusted)
+            }
+        }
+    }
+
     /// Return all peers in an unspecified order.
     pub fn list(&self) -> Vec<TrustedPeer> {
         self.inner.read().values().cloned().collect()
     }
 
+    /// Read the current authoritative peer list, including changes by other
+    /// processes. Persistent stores perform synchronous file I/O and return
+    /// an error on unreadable or malformed data; async callers should offload
+    /// this operation to a blocking worker.
+    pub fn list_current(&self) -> Result<Vec<TrustedPeer>, PeerStoreError> {
+        match &self.path {
+            Some(path) => Ok(load_map(path)?.into_values().collect()),
+            None => Ok(self.list()),
+        }
+    }
+
     /// `true` when no peers are present.
     pub fn is_empty(&self) -> bool {
         self.inner.read().is_empty()
+    }
+
+    /// Number of paired peers permitted on the allowlist, including observers.
+    /// Revoked records remain available in the store for auditing.
+    pub fn active_count(&self) -> usize {
+        self.inner
+            .read()
+            .values()
+            .filter(|peer| peer.trust != TrustLevel::Revoked)
+            .count()
     }
 
     /// Number of peers in the store.
@@ -137,12 +178,11 @@ impl PeerStore {
         }
         // Serialize concurrent writers; released when `_lock` drops.
         let _lock = FileLock::acquire(path)?;
-        let mut map = self.inner.write();
-        // Refresh from disk under the lock so we don't overwrite changes made
-        // by another process since we last read.
-        *map = load_map(path)?;
-        let result = f(&mut map)?;
-        save_map(path, &map)?;
+        // Publish the new snapshot in memory only after persistence succeeds.
+        let mut updated = load_map(path)?;
+        let result = f(&mut updated)?;
+        save_map(path, &updated)?;
+        *self.inner.write() = updated;
         Ok(result)
     }
 }
@@ -159,10 +199,11 @@ impl PeerStore {
 /// cannot block daemon startup. Malformed TOML still surfaces as
 /// [`PeerStoreError::Parse`].
 fn load_map(path: &Path) -> Result<HashMap<PeerId, TrustedPeer>, PeerStoreError> {
-    if !path.exists() {
-        return Ok(HashMap::new());
-    }
-    let s = std::fs::read_to_string(path)?;
+    let s = match std::fs::read_to_string(path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(HashMap::new()),
+        Err(error) => return Err(error.into()),
+    };
     let parsed: DiskFormat = toml::from_str(&s)?;
     let mut map = HashMap::with_capacity(parsed.peers.len());
     for peer in parsed.peers {
@@ -323,6 +364,49 @@ mod tests {
         assert!(!store.is_empty());
         let got = store.get(&id).expect("peer should be present");
         assert_eq!(got, peer);
+    }
+
+    #[test]
+    fn current_trust_observes_separate_store_changes_and_fails_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("peers.toml");
+        let writer = PeerStore::open(&path).unwrap();
+        let peer = make_peer(42, "alice");
+        let id = peer.peer_id;
+        writer.add(peer.clone()).unwrap();
+        let reader = PeerStore::open(&path).unwrap();
+        assert!(reader.is_currently_trusted(&id));
+
+        writer.revoke(&id).unwrap();
+        assert!(!reader.is_currently_trusted(&id));
+        writer.add(peer.clone()).unwrap();
+        assert!(reader.is_currently_trusted(&id));
+        writer.remove(&id).unwrap();
+        assert!(!reader.is_currently_trusted(&id));
+
+        writer.add(peer).unwrap();
+        std::fs::write(&path, "not valid toml = [").unwrap();
+        assert!(!reader.is_currently_trusted(&id));
+        std::fs::remove_file(&path).unwrap();
+        assert!(!reader.is_currently_trusted(&id));
+    }
+
+    #[test]
+    fn current_trust_requires_trusted_level_in_memory_and_on_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let stores = [
+            PeerStore::new(),
+            PeerStore::open(dir.path().join("peers.toml")).unwrap(),
+        ];
+        for store in stores {
+            let mut peer = make_peer(43, "observer");
+            let id = peer.peer_id;
+            peer.trust = TrustLevel::Observer;
+            store.add(peer).unwrap();
+            assert!(!store.is_currently_trusted(&id));
+            store.revoke(&id).unwrap();
+            assert!(!store.is_currently_trusted(&id));
+        }
     }
 
     #[test]

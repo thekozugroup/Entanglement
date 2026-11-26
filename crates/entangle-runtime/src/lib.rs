@@ -20,6 +20,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod config;
 pub mod errors;
 pub mod integrity;
 pub mod kernel;

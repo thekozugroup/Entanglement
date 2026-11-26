@@ -239,3 +239,35 @@ async fn sequential_connections_recycle_permits() {
         // Dropping the stream closes the connection and frees the permit.
     }
 }
+
+#[tokio::test]
+async fn duplicate_starters_leave_the_active_socket_reachable() {
+    let dir = tempfile::tempdir().unwrap();
+    let sock = dir.path().join("sock");
+    let (a, b) = tokio::join!(
+        server::RpcListener::bind(sock.clone()),
+        server::RpcListener::bind(sock.clone()),
+    );
+    assert_ne!(a.is_ok(), b.is_ok());
+    let owner = a.or(b).unwrap();
+    assert!(UnixStream::connect(&sock).await.is_ok());
+    drop(owner);
+    assert!(!sock.exists());
+    assert!(server::RpcListener::bind(sock).await.is_ok());
+}
+
+#[tokio::test]
+async fn live_legacy_listener_and_replacement_paths_are_preserved() {
+    let dir = tempfile::tempdir().unwrap();
+    let sock = dir.path().join("legacy");
+    let legacy = tokio::net::UnixListener::bind(&sock).unwrap();
+    assert!(server::RpcListener::bind(sock.clone()).await.is_err());
+    assert!(UnixStream::connect(&sock).await.is_ok());
+    drop(legacy);
+    let owner = server::RpcListener::bind(sock.clone()).await.unwrap();
+    // Move the live socket before replacing the pathname so its inode stays allocated.
+    std::fs::rename(&sock, dir.path().join("old")).unwrap();
+    std::fs::write(&sock, "replacement").unwrap();
+    drop(owner);
+    assert_eq!(std::fs::read_to_string(sock).unwrap(), "replacement");
+}

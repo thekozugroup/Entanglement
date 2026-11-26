@@ -1,6 +1,6 @@
 [package]
 name = "entangle-mesh-tailscale"
-description = "Tailscale-tailnet mesh transport for Entanglement (scaffold; real wiring is Phase 2)"
+description = "Read-only discovery of tailnet nodes for Entanglement"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,7 +15,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 entangle-types = { workspace = true }
 thiserror = { workspace = true }
-tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tempfile = { workspace = true }

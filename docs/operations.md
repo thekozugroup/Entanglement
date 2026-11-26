@@ -101,14 +101,14 @@ systemd unit's `Type=simple` and the Docker `ENTRYPOINT`/`CMD` rely on.
 
 Path: `~/.entangle/config.toml` (TOML). Absent file → all defaults. Every
 section uses **`deny_unknown_fields`** — a typo'd key is a loud startup/parse
-error, not a silently-ignored setting (`crates/entangle-bin/src/config.rs`).
+error. The runtime validates the same file for daemon and local execution.
 
 ```toml
 [runtime]
 bus_capacity = 1024        # default 1024
 
 [mesh]
-transports = ["local"]     # default: [] (empty)
+transports = ["local", "iroh"]  # written by entangle init
 multi_node = false         # default: false
 
 [security]
@@ -117,33 +117,125 @@ max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
 
 | Section | Key | Type | Default | Meaning |
 |---|---|---|---|---|
+| `[runtime]` | `metrics_bind` | socket address | disabled | Local Prometheus HTTP endpoint, for example `127.0.0.1:9898`. Requires a loopback IP. |
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
-| `[mesh]` | `transports` | array of strings | `[]` | Active mesh transport backends. Phase 1 supports only `"local"` (mDNS on `_entangle._udp.local`). Listing `"iroh"`/`"tailscale"` here does not activate them — those crates are Phase-2 scaffolds. |
+| `[runtime]` | `plugins` | array of strings | `[]` | Absolute paths to signed plugin package directories to load at startup. |
+| `[mesh]` | `transports` | array of strings | `[]` | `local` enables LAN mDNS, `iroh` enables configured QUIC routes, and `tailscale` enables routes discovered through the local Tailscale client. Select both `local` and `iroh` for automatic routes to paired LAN workers. |
+| `[scheduler]` | `bind` | socket address | `0.0.0.0:0` | Scheduler UDP listener. LAN discovery advertises the assigned port, including when `:0` selects it. Static and tailnet routes require a known worker port. |
+| `[scheduler]` | `peers` | array of strings | `[]` | Static Iroh worker addresses in `<public-key-hex>@<ip>:<port>` form. Paired workers discovered on the LAN can use an empty list. |
+| `[scheduler]` | `tailnet_peers` | array of tables | `[]` | Stable Tailscale node ID, Entanglement public key and scheduler port for each worker. |
+| `[scheduler]` | `relay` | bool | `true` | Allow Iroh relay fallback when the `iroh` transport is enabled. |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043`. Out-of-range values (`0` or `>5`) fail to parse. |
 
-Notes:
+The daemon and CLI read the same configuration schema. Both validate `max_tier_allowed` as an integer from 1 through 5. Installing a plugin checks the tier ceiling before building or trusting the publisher. The temporary worker used by `--allow-local` also applies the ceiling when loading a signed package. Build-only installations (`--no-load`) can prepare components for a different device.
 
-- The `[mesh]` and `[security]` sections are **field-for-field shared** with
-  the CLI's own config schema (`crates/entangle-cli/src/config.rs`), which is
-  what actually writes the file (via `entangle init` or `entangle mesh
-  trust`/`untrust`). A round-trip test in `entangle-bin` pins this
-  compatibility so the two schemas cannot silently drift.
-  - One asymmetry to know about: the CLI stores `max_tier_allowed` as a bare
-    `u8` (default `5`), while the daemon deserializes it into the `Tier` enum,
-    which gets range validation for free — the wire representation (an
-    integer 1–5) is identical either way.
-- `[runtime]` is daemon-only; the CLI never writes it. Two keys that *used to*
-  live under `[runtime]` (`multi_node`, `max_tier`) were relocated to `[mesh]`
-  and `[security]` respectively — the old locations are now hard parse errors
-  thanks to `deny_unknown_fields`, not silently-ignored dead settings.
-- There is no daemon `--config` flag. The path is always
-  `<default_config_dir>/config.toml`, where the default config dir is
-  `$HOME/.entangle` — see §3 for the exact resolution rules (the config dir
-  has no `$XDG_RUNTIME_DIR` fallback the way the socket path does; it hard-errors
-  if no home directory can be found at all).
+`entangle init` enables LAN discovery and QUIC scheduling, with `[scheduler] relay = false` for this LAN configuration. It preserves existing configuration files. Set `multi_node` under `[mesh]` and `max_tier_allowed` under `[security]`. Older configurations that place these keys under `[runtime]` produce a configuration error. [Configuration schema](../crates/entangle-runtime/src/config.rs)
+
+The daemon reads `~/.entangle/config.toml` and requires a resolvable home directory. Section 3 describes path resolution for the config and socket.
 
 ---
+
+### Running a worker on the LAN
+
+Pair the Entanglement identities on the two hosts with `entangle pair` and verify their fingerprints. Merge these settings into `~/.entangle/config.toml` on both hosts, then restart both daemons.
+
+```toml
+[mesh]
+transports = ["local", "iroh"]
+multi_node = true
+
+[scheduler]
+bind = "0.0.0.0:0"
+relay = false
+```
+
+The daemons advertise their assigned UDP ports over multicast DNS. Both hosts need multicast DNS on the same link and must be able to reach each other's scheduler UDP ports. If the firewall requires a fixed port, set `bind` to an address such as `0.0.0.0:7443` and allow that port. On an IPv6 LAN, `[::]:7443` supports global and unique-local addresses.
+
+Load a signed plugin on the worker. On the coordinator, `entangle mesh peers` shows sightings. Within a polling cycle, the coordinator checks a paired worker's identity over QUIC and retrieves its hardware and loaded plugin versions. To run the JSON Pointer plugin on a specific worker, use its paired ID and the publisher shown by `entangle plugins list` on that worker.
+
+```sh
+entangle compute dispatch '<publisher>/json-pointer@0.1.0' \
+  --input '{"pointer":"/job/id","data":{"job":{"id":42}}}' \
+  --cpu-cores 0.25 --integrity trusted-executor --allow '<worker-entanglement-peer-id>'
+```
+
+The result includes the chosen worker's peer ID. LAN routes follow mDNS changes and expire with the service record. Static Iroh routes and tailnet mappings keep their own lifetimes.
+
+From a source checkout on a Linux host with multicast enabled, run the two-daemon check to verify this setup, including signed plugin execution and live revocation.
+
+```sh
+cargo test --locked -p entangle-bin --test daemon_compute -- --ignored --exact discovers_and_runs_work_without_a_configured_peer_address
+```
+
+### Monitoring work
+
+Run `entangle metrics` as the daemon user to read Prometheus text over the control socket. For an HTTP scraper, set `metrics_bind = "127.0.0.1:9898"` under `[runtime]`, restart the daemon and scrape `GET /metrics`. The listener is accessible to other processes on the same host. Leave it disabled on a shared host when only the daemon owner should read metrics.
+
+| Series | Meaning |
+|---|---|
+| `entangle_daemon_up` | The responding daemon is serving requests. |
+| `entangle_plugins_loaded` | Components currently loaded on this worker. |
+| `entangle_wasm_invocation_seconds` | Histogram of completed invocations on this worker, labeled `ok` or `error`. Includes jobs received from peers. |
+| `entangle_compute_dispatch_seconds` | Histogram of requests submitted to this daemon's scheduler, labeled `local`, `remote` or `error`. Parameter validation occurs before timing begins. |
+
+For a binary result such as a resized image, use `entangle compute dispatch <plugin-id> --input-file request.bin --output-file result.png`. Use `--raw` to pipe the result bytes to another program. Both modes print the selected worker to standard error.
+
+Histogram counts and sums start at daemon startup. The first observation creates each labeled series.
+
+### Restoring plugins on a worker
+
+Keep each signed package in a stable directory readable by the daemon user. Add
+its publisher's public key to that user's keyring, then list the absolute
+package directory in `~/.entangle/config.toml`.
+
+```toml
+[runtime]
+plugins = ["/var/lib/entangle/plugins/json-pointer"]
+```
+
+On restart, the daemon verifies and loads these packages before serving requests
+or advertising plugin availability. An invalid package or duplicate plugin ID
+fails startup with the package path and error. The default empty list leaves
+plugin loading to `entangle plugins load` or `entangle plugins install`.
+Remove an entry to keep its package unloaded on future restarts.
+
+### Running a worker on a tailnet
+
+1. Connect both hosts to your tailnet using the host Tailscale client. Each daemon needs a local tailnet interface and permission to run `tailscale status --json`. Allow the worker's scheduler UDP port in your tailnet policy.
+2. Pair the Entanglement identities and verify their fingerprints using `entangle pair`. On the coordinator, `entangle mesh tailnet --json` lists visible Tailscale nodes with their stable `node_id`. Find the worker's paired Entanglement `public_key_hex` in `~/.entangle/peers.toml`. These two identifiers come from independent systems.
+3. On **both** hosts, add the following settings to `~/.entangle/config.toml`. Merge them with any existing sections. A Tailscale-only scheduler resolves the wildcard to the host's tailnet interface and disables Iroh relays.
+
+```toml
+[mesh]
+transports = ["tailscale"]
+
+[scheduler]
+bind = "0.0.0.0:7443"
+```
+
+4. On the **coordinator**, add one mapping for each worker. Replace both placeholders with the identifiers from step 2. Add the reverse mapping if the worker should also send jobs back.
+
+```toml
+[[scheduler.tailnet_peers]]
+node_id = "<worker-stable-tailscale-node-id>"
+public_key = "<worker-64-digit-entanglement-public-key>"
+port = 7443
+```
+
+5. Configure the worker's signed plugin package as shown above and restart both Entanglement daemons. Check `entangle mesh status` for `tailscale` on each and allow a capability polling cycle. On the coordinator, the following command restricts execution to the paired worker and prints the chosen peer and result.
+
+```sh
+entangle compute dispatch '<publisher>/json-pointer@0.1.0' \
+  --input '{"pointer":"/job/id","data":{"job":{"id":42}}}' \
+  --cpu-cores 0.25 --integrity trusted-executor --allow '<worker-entanglement-peer-id>'
+```
+
+The daemon refreshes tailnet address hints every 30 seconds and polls configured workers for hardware and loaded plugin versions every 15 seconds. Each scheduler connection authenticates the worker's Entanglement key. Both sides consult the persisted trust store when authorizing work. A mapping can remain in the configuration after revocation.
+
+The default address family is IPv4. Use `[::]:7443` on hosts using Tailscale IPv6. If Tailscale was offline when a Tailscale-only daemon started, or its local bound IP changed, restart Entanglement after the interface is ready. In mixed `["iroh", "tailscale"]` mode the ordinary Iroh listener and relay policy apply. Linux and macOS host deployments can use this mode with a working Tailscale interface. Userspace-only SOCKS deployments and MagicDNS service publication are outside this implementation.
+
+Run the two-device acceptance check to verify the selected peer and plugin output over a live tailnet. [Tailnet compute test](testing/tailnet-compute.md)
 
 ## 3. File / directory layout and required permissions
 
@@ -213,6 +305,24 @@ exit (0) only means the socket accepted a connection and one full response
 line was read — it does not additionally inspect that line for a JSON-RPC
 `error` object, so it prints the raw response for you to eyeball.
 
+### Reproduce the catalog and cross-node smoke test
+
+From a checkout with Rust 1.91, Python 3.11+, and OpenSSL installed:
+
+```bash
+rustup target add wasm32-wasip2
+cargo build --locked -p entangle-cli -p entangle-bin
+python3 -m venv target/catalog-smoke-python
+target/catalog-smoke-python/bin/pip install Pillow==12.2.0 zxing-cpp==2.3.0
+target/catalog-smoke-python/bin/python plugins/smoke_test.py \
+  target/debug/entangle target/debug/entangled --two-node
+```
+
+The test builds and signs all seven plugins in temporary profiles, verifies
+their output on a local daemon, then repeats the workloads through an empty
+coordinator and a trusted worker over loopback QUIC. Omit `--two-node` to run
+only the local phase.
+
 ---
 
 ## 5. Multi-node startup requirement (`ENTANGLE-E0050`)
@@ -267,7 +377,7 @@ canonical range table, maintained in
 | E0200–E0201 | Manifest / plugin id validation |
 | E0300–E0301 | Task execution (output-size limit, timeout) |
 | E0302–E0305 | Integrity policy enforcement (`entangle-runtime`) |
-| E0500–E0506 | Wasm host errors (`entangle-host`) |
+| E0500–E0507 | Wasm host errors (`entangle-host`) |
 | E0600–E0699 | Agent-host adapter (`entangle-agent-host`) |
 | E0900 | I/O |
 | E9999 | Internal / unexpected |
@@ -281,11 +391,12 @@ only), but each is still a stable, grep-able code:
 | Code | Meaning |
 |---|---|
 | `ENTANGLE-E0050` | Multi-node mode with an empty peer allowlist — daemon refuses to start (§5). |
-| `ENTANGLE-E0400` | Cross-node dispatch attempted but the remote transport is not implemented (Phase 2 scaffold). |
+| `ENTANGLE-E0400` | Strict remote placement selected a remote worker without a configured transport. |
 | `ENTANGLE-E0401` | Task input exceeds the dispatcher's configured `max_input_bytes`. |
 | `ENTANGLE-E0410`–`E0413` | Biscuit-auth parse / mint / verify / malformed-claim failures. |
 | `ENTANGLE-E0420`–`E0424` | Bridge (cross-node relay) biscuit attenuation violations — missing fact, TTL/rate/byte-cap ceiling exceeded, or destination-pin mismatch. |
-| `ENTANGLE-E0620`, `E0630`, `E0640`, `E0650` | `NotImplemented` stubs for the MCP gateway, `mesh.iroh`, `mesh.tailscale`, and OpenTelemetry export respectively — all Phase 2+. |
+| `ENTANGLE-E0641` | The configured Tailscale executable is unavailable. Check the daemon's PATH. |
+| `ENTANGLE-E0620`, `E0650` | MCP gateway and OpenTelemetry export stubs. |
 
 If you hit a code not listed above, the fastest way to find its exact meaning
 and the crate that owns it is:

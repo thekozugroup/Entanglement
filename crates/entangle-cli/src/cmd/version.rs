@@ -8,6 +8,8 @@ use entangle_rpc::{Client as RpcClient, RpcError};
 
 /// Single workspace version shared by all first-party crates.
 const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
+// Wasmtime 36 does not expose its version through a public API.
+const WASMTIME_VERSION: &str = "36.0.23";
 
 pub async fn run() -> anyhow::Result<()> {
     let profile = if cfg!(debug_assertions) {
@@ -71,8 +73,7 @@ pub async fn run() -> anyhow::Result<()> {
     println!("Build");
     println!("  {:<18} {profile}", "Profile");
     println!("  {:<18} {rustc}", "Toolchain");
-    let wt = wasmtime_version();
-    println!("  {:<18} {wt}", "Wasmtime");
+    println!("  {:<18} {WASMTIME_VERSION}", "Wasmtime");
     println!("  {:<18} 0.2", "WASI");
     println!();
     println!("Identity");
@@ -87,13 +88,6 @@ fn rustc_version_string() -> String {
     option_env!("RUSTC_VERSION")
         .map(|s| s.to_string())
         .unwrap_or_else(|| "unknown".to_string())
-}
-
-fn wasmtime_version() -> String {
-    // WASMTIME_VERSION can be set by a build script; otherwise use the pinned major.
-    option_env!("WASMTIME_VERSION")
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| "43.x".to_string())
 }
 
 fn load_fingerprint(id_path: &std::path::Path) -> String {

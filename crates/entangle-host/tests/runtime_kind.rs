@@ -1,0 +1,32 @@
+//! ATC-MAN-3 from architecture §15.
+
+use entangle_host::{HostEngine, HostError, LoadedPlugin};
+use entangle_types::tier::Tier;
+
+// The 64-byte ELF header of /usr/bin/true on Linux x86-64.
+const ELF_HEADER: [u8; 64] = [
+    0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x03, 0x00, 0x3e, 0x00, 0x01, 0x00, 0x00, 0x00, 0xe0, 0x27, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x28, 0xa2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x38, 0x00, 0x0e, 0x00, 0x40, 0x00, 0x1e, 0x00, 0x1d, 0x00,
+];
+
+#[test]
+fn lie_at_instantiation_rejected() {
+    let engine = HostEngine::new().unwrap();
+    let id = "aabbccddeeff00112233445566778899/elf-fixture@0.1.0"
+        .parse()
+        .unwrap();
+    let error = match LoadedPlugin::from_bytes(&engine, &ELF_HEADER, id, Tier::Pure) {
+        Ok(_) => panic!("the Wasm host accepted an ELF artifact"),
+        Err(error) => error,
+    };
+    assert!(matches!(
+        error,
+        HostError::RuntimeKindMismatch {
+            declared: "wasm-component",
+            observed: "ELF",
+        }
+    ));
+    assert!(error.to_string().starts_with("ENTANGLE-E0507"));
+}

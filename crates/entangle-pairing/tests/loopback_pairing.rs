@@ -187,6 +187,46 @@ async fn correct_code_pairs_both_devices_over_quic() {
     dialer_transport.shutdown().await;
 }
 
+/// The responder's CLI shuts its endpoint down immediately after wait returns.
+/// Hold the dialer's connection open after accepting the final reply to verify
+/// that a completed proof alone cannot release the responder.
+#[tokio::test]
+async fn responder_waits_for_the_final_reply_to_drain() {
+    use entangle_pairing::net::{Dialer, PairingWire};
+
+    let host = listener(Duration::from_secs(30), 5).await;
+    let key = IdentityKeyPair::generate();
+    let client = transport(&key).await;
+    let conn = client.connect(&dialable(&host)).await.unwrap();
+    let dialer = Dialer::new(&key, "worker", host.code());
+    let reply = conn
+        .request(&dialer.hello().encode().unwrap())
+        .await
+        .unwrap();
+    let PairingWire::Offer(offer) = PairingWire::decode(&reply).unwrap() else {
+        panic!("expected pairing offer");
+    };
+    let accept = PairingWire::Accept(dialer.accept_for(&offer))
+        .encode()
+        .unwrap();
+    let reply = conn.request(&accept).await.unwrap();
+    assert!(matches!(
+        PairingWire::decode(&reply),
+        Ok(PairingWire::Finalize(_))
+    ));
+    assert!(host.session().outcome().is_some());
+    assert!(tokio::time::timeout(Duration::from_millis(40), host.wait())
+        .await
+        .is_err());
+    conn.close();
+    let paired = deadline("listener after final reply", host.wait())
+        .await
+        .unwrap();
+    assert_eq!(paired.peer_id, client.local_peer_id());
+    host.shutdown().await;
+    client.shutdown().await;
+}
+
 // ---------------------------------------------------------------------------
 // 2. A wrong code is refused.
 // ---------------------------------------------------------------------------

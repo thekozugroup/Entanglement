@@ -504,6 +504,12 @@ pub fn default_out_dir(name: &str) -> PathBuf {
 /// so it happens here — idempotently, via
 /// [`crate::cmd::keyring::ensure_trusted`].
 pub fn prepare(entry: &CatalogEntry, opts: &InstallOptions) -> Result<Prepared> {
+    // A build-only package may target a different worker. An installation
+    // that will execute here must respect this operator's policy before writing to disk.
+    if !opts.no_load {
+        config::load(&config::config_path())?.check_plugin_tier(entry.tier.try_into()?)?;
+    }
+
     // Fail before the slow build when there is no key to sign with.
     let key_path = opts.key.clone().unwrap_or_else(config::identity_path);
     if !key_path.exists() {

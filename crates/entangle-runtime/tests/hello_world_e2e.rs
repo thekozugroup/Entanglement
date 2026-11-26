@@ -5,9 +5,7 @@
 //!
 //!   cargo test -p entangle-runtime --test hello_world_e2e -- --ignored
 //!
-//! The test does NOT invoke the wasm `run` export (that requires host-side
-//! bindgen, deferred to a later iteration). Instantiation succeeding — and all
-//! four lifecycle events arriving — is the acceptance criterion.
+//! Checks the actual component output and the complete load, invoke and unload lifecycle.
 
 use std::time::Duration;
 
@@ -60,85 +58,34 @@ description = "e2e test — hello-world"
 }
 
 // ---------------------------------------------------------------------------
-// Step 1: run cargo build for the hello-world example.
-// Returns the path to the produced wasm artifact, or None if build failed.
-// ---------------------------------------------------------------------------
-fn build_hello_world() -> Option<std::path::PathBuf> {
-    // Locate workspace root: this file is at crates/entangle-runtime/tests/,
-    // so workspace root is three levels up from the file's directory.
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent() // crates/
-        .and_then(|p| p.parent()) // workspace root
-        .expect("workspace root")
-        .to_owned();
-
-    let manifest = workspace_root.join("examples/hello-world/Cargo.toml");
-    let example_dir = workspace_root.join("examples/hello-world");
-
-    // Check wasm32-wasip2 is installed.
-    let installed = std::process::Command::new("rustup")
-        .args(["target", "list", "--installed"])
-        .output()
-        .ok()?;
-    let out = String::from_utf8_lossy(&installed.stdout);
-    if !out.contains("wasm32-wasip2") {
-        eprintln!("[hello_world_e2e] wasm32-wasip2 not installed — skipping build step");
-        return None;
-    }
-
-    let status = std::process::Command::new("cargo")
+// Build the signed guest from its own locked project using a separate target
+// directory so the parent workspace Cargo invocation can run concurrently.
+fn build_hello_world() -> Vec<u8> {
+    let example =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/hello-world");
+    let target = example.join("target");
+    let status = std::process::Command::new(env!("CARGO"))
+        .current_dir(&example)
         .args([
             "build",
+            "--locked",
             "--release",
             "--target",
             "wasm32-wasip2",
-            "--manifest-path",
+            "--target-dir",
         ])
-        .arg(&manifest)
+        .arg(&target)
         .status()
-        .ok()?;
-
-    if !status.success() {
-        eprintln!("[hello_world_e2e] cargo build failed");
-        return None;
-    }
-
-    let wasm = example_dir.join("target/wasm32-wasip2/release/entangle_hello_world.wasm");
-    if wasm.exists() {
-        Some(wasm)
-    } else {
-        None
-    }
+        .expect("start Cargo for the WASI example");
+    assert!(status.success(), "hello-world WASI build failed: {status}");
+    std::fs::read(target.join("wasm32-wasip2/release/entangle_hello_world.wasm"))
+        .expect("read built hello-world component")
 }
 
-// ---------------------------------------------------------------------------
-// The test itself.
-// ---------------------------------------------------------------------------
-
-/// Full pipeline: build → sign (in-test key) → load via kernel → assert lifecycle events.
-///
-/// Run with:  cargo test -p entangle-runtime --test hello_world_e2e -- --ignored
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "requires wasm32-wasip2 target and runs cargo build out-of-process"]
 async fn hello_world_full_pipeline() {
-    // Step 1: build (or fall back to minimal wasm component bytes for CI).
-    let wasm_bytes: Vec<u8> = match build_hello_world() {
-        Some(path) => {
-            println!("[hello_world_e2e] using built wasm: {}", path.display());
-            std::fs::read(&path).expect("read wasm")
-        }
-        None => {
-            println!("[hello_world_e2e] using minimal component wasm (build step skipped)");
-            // Smallest valid WebAssembly component binary.
-            match wat::parse_str("(component)") {
-                Ok(b) => b,
-                Err(_) => vec![
-                    0x00, 0x61, 0x73, 0x6d, // \0asm
-                    0x0a, 0x00, 0x01, 0x00, // component-model version
-                ],
-            }
-        }
-    };
+    let wasm_bytes = build_hello_world();
 
     // Step 3: generate in-test IdentityKeyPair.
     let keypair = IdentityKeyPair::generate();
@@ -174,12 +121,20 @@ async fn hello_world_full_pipeline() {
         "plugin must appear in list after load"
     );
 
-    // Step 8: assert the 4 lifecycle events arrive in order.
+    let result = kernel
+        .invoke(&plugin_id, b"release test", 5000)
+        .await
+        .unwrap();
+    assert_eq!(result, b"Hello, release test!");
+
+    // Check the load and invocation lifecycle in order.
     let expected_phases = [
         LifecyclePhase::ManifestValidated,
         LifecyclePhase::SignatureVerified,
         LifecyclePhase::Registered,
         LifecyclePhase::Loaded,
+        LifecyclePhase::Activated,
+        LifecyclePhase::Idled,
     ];
 
     for expected_phase in expected_phases {

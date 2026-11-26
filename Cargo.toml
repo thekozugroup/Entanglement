@@ -72,8 +72,9 @@ is-terminal = "0.4"
 # Cryptography
 ed25519-dalek = { version = "2", features = ["serde", "pkcs8", "pem", "rand_core"] }
 blake3 = "1"
-biscuit-auth = "6"
-biscuit-quote = "0.3"
+# 6.0.0 requires vulnerable crypto-bigint 0.5. The exact upstream candidate
+# uses the patched 0.7 line and supports our runtime Datalog API without macros.
+biscuit-auth = { version = "=7.0.0-alpha.4", default-features = false, features = ["regex-full", "pem"] }
 rand_core = "0.6"
 
 # CLI
@@ -92,34 +93,19 @@ async-trait = "0.1"
 parking_lot = "0.12"
 num_cpus = "1"
 
-# WebAssembly
-wasmtime = { version = "43.0.2", features = ["component-model"] }
-wasmtime-wasi = "43.0.2"
+# WebAssembly (patched LTS compatible with the workspace MSRV)
+wasmtime = { version = "=36.0.23", default-features = false, features = [
+    "async", "component-model", "cranelift", "gc-drc", "gc-null",
+    "parallel-compilation", "runtime", "std", "threads", "wat",
+] }
+wasmtime-wasi = { version = "=36.0.23", default-features = false }
 wit-parser = "0.245"
 
 # Networking
 mdns-sd = "0.19"
-# Iroh QUIC P2P transport (mesh.iroh, architecture.md §6.1).
-#
-# The 1.0 line, not the 0.95 line the scaffold's docs guessed at, for two
-# reasons:
-#   * 0.95.1 hard-pins `ed25519-dalek = "=3.0.0-pre.1"`, which no longer
-#     compiles against the released `ed25519 3.0.0` support crate it floats
-#     onto (`pkcs8::Error::KeyMalformed` changed from a unit to a tuple
-#     variant). Fixing that needs an `=` pin on a transitive pre-release.
-#     iroh 1.0 depends on `ed25519-dalek >=3.0.0-rc.0` and resolves onto the
-#     released 3.0.0.
-#   * 1.0 is the stable API; 0.95 is pre-1.0 churn.
-#
-# MSRV: iroh 1.0 declares `rust-version = "1.91"`. The workspace MSRV was
-# raised from 1.85 to 1.91 to match (see `workspace.package.rust-version`
-# above), so the declared floor is one this workspace actually builds on.
-#
-# `default-features = false` + `tls-ring` drops `metrics` and the aws-lc-rs
-# crypto backend (ring builds faster and has no C toolchain requirement);
-# `portmapper` is kept because NAT-PMP/PCP/UPnP port mapping is load-bearing
-# for the WAN hole-punching this transport exists to do.
-iroh = { version = "1.0", default-features = false, features = [
+# Iroh 1.5 uses the maintained DNS and netlink dependencies and supports Rust 1.91.
+# Keep the ring TLS provider and NAT-PMP/PCP/UPnP port mapping for WAN peers.
+iroh = { version = "1.5", default-features = false, features = [
     "tls-ring",
     "portmapper",
 ] }

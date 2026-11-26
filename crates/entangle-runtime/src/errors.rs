@@ -5,6 +5,10 @@ use entangle_types::plugin_id::PluginId;
 /// Top-level error type for runtime operations.
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
+    /// The lifecycle event bus requires a positive, representable channel capacity.
+    #[error("invalid runtime.bus_capacity: {0}")]
+    InvalidBusCapacity(usize),
+
     /// Manifest could not be loaded from disk.
     #[error("manifest: {0}")]
     Manifest(#[from] entangle_manifest::loader::LoadError),
@@ -12,6 +16,10 @@ pub enum RuntimeError {
     /// Manifest failed semantic validation.
     #[error("manifest validation: {0}")]
     ManifestValidate(#[from] entangle_manifest::ValidationError),
+
+    /// The current publisher keyring could not be read or parsed.
+    #[error("publisher keyring: {0}")]
+    Keyring(#[from] entangle_signing::KeyringError),
 
     /// Artifact signature verification failed.
     #[error("signature: {0}")]

@@ -138,3 +138,23 @@ async fn test_malformed_missing_result_field() {
         "expected RpcError::Malformed, got {err:?}"
     );
 }
+
+#[tokio::test]
+async fn metrics_rejects_mismatched_response_envelopes() {
+    let dir = tempfile::tempdir().unwrap();
+    for (idx, reply) in [
+        r#"{"jsonrpc":"2.0","id":2,"result":"metrics"}"#,
+        r#"{"jsonrpc":"1.0","id":1,"result":"metrics"}"#,
+        r#"{"jsonrpc":"2.0","id":1,"result":"metrics","error":{}}"#,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let socket = dir.path().join(idx.to_string());
+        fake_server(socket.clone(), reply).await;
+        assert!(matches!(
+            Client::new(socket).metrics().await,
+            Err(RpcError::Malformed(_))
+        ));
+    }
+}

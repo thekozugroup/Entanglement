@@ -17,6 +17,11 @@ name = "entangled"
 path = "src/main.rs"
 
 [dependencies]
+rustix = { version = "1", features = ["fs"] }
+http-body-util = "0.1"
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+entangle-mesh-tailscale = { path = "../entangle-mesh-tailscale" }
 entangle-types      = { workspace = true }
 entangle-rpc        = { path = "../entangle-rpc" }
 entangle-runtime    = { workspace = true }
@@ -28,6 +33,7 @@ entangle-peers          = { path = "../entangle-peers" }
 entangle-mesh-local     = { workspace = true }
 entangle-mesh-iroh      = { workspace = true }
 entangle-observability  = { workspace = true }
+hex = { workspace = true }
 num_cpus = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 anyhow = { workspace = true }
@@ -47,4 +53,3 @@ entangle-signing = { workspace = true }
 entangle-peers   = { path = "../entangle-peers" }
 entangle-mesh-iroh = { workspace = true }
 serde_json       = { workspace = true }
-hex              = { workspace = true }

@@ -7,8 +7,7 @@
 //! what is under test is the exchange itself and both sides' persistence.
 //!
 //! The copy-paste (`--manual`) tests below cover the escape-hatch channel's
-//! error paths. The two full manual round-trips still need a two-process
-//! harness and remain `#[ignore]`d.
+//! success and rejection by passing the displayed blobs between two CLI processes.
 
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -270,13 +269,107 @@ fn pair_over_the_network_rejects_a_wrong_code() {
 // 2. Copy-paste channel (the escape hatch) still works.
 // ---------------------------------------------------------------------------
 
-#[test]
-#[ignore = "two-process harness required; run with: cargo test --test pair -- --ignored"]
-fn pair_round_trip_happy_path() {}
+async fn manual_pairing(correct_code: bool) {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader as AsyncReader};
+    use tokio::process::Command as AsyncCommand;
+    let initiator_home = TempDir::new().unwrap();
+    let responder_home = TempDir::new().unwrap();
+    let command = |home: &TempDir, name: &str| {
+        let mut cmd = AsyncCommand::new(binary());
+        cmd.args(["pair", "--manual", "--display-name", name])
+            .env("HOME", home.path())
+            .env("TOKIO_WORKER_THREADS", "1")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        cmd
+    };
 
-#[test]
-#[ignore = "two-process harness required; run with: cargo test --test pair -- --ignored"]
-fn pair_wrong_code_aborts() {}
+    let mut initiator = command(&initiator_home, "manual-origin").spawn().unwrap();
+    let mut banner = AsyncReader::new(initiator.stderr.take().unwrap()).lines();
+    let code = loop {
+        let line = banner
+            .next_line()
+            .await
+            .unwrap()
+            .expect("initiator pairing banner");
+        if let Some(code) = line.strip_prefix("Code:") {
+            break code.split_whitespace().next().unwrap().to_owned();
+        }
+    };
+    let mut origin = AsyncReader::new(initiator.stdout.take().unwrap()).lines();
+    let request = origin.next_line().await.unwrap().unwrap();
+    assert!(request.starts_with("ENT-REQ-"));
+
+    let wrong_code = if code == "999-999" {
+        "000-000"
+    } else {
+        "999-999"
+    };
+    let mut responder = command(&responder_home, "manual-worker")
+        .args([
+            "--responder",
+            "--code",
+            if correct_code { &code } else { wrong_code },
+        ])
+        .spawn()
+        .unwrap();
+    let mut worker_input = responder.stdin.take().unwrap();
+    worker_input
+        .write_all(format!("{request}\n").as_bytes())
+        .await
+        .unwrap();
+    let mut origin_input = initiator.stdin.take().unwrap();
+    let peers_file = |home: &TempDir| home.path().join(".entangle/peers.toml");
+    if correct_code {
+        let mut worker = AsyncReader::new(responder.stdout.take().unwrap()).lines();
+        let line = worker.next_line().await.unwrap().expect("responder ACCEPT");
+        let (_, blob) = line.split_once("ENT-ACC-").unwrap();
+        origin_input
+            .write_all(format!("ENT-ACC-{blob}\n").as_bytes())
+            .await
+            .unwrap();
+        let line = origin
+            .next_line()
+            .await
+            .unwrap()
+            .expect("initiator FINALIZE");
+        let (_, blob) = line.split_once("ENT-FIN-").unwrap();
+        worker_input
+            .write_all(format!("ENT-FIN-{blob}\n").as_bytes())
+            .await
+            .unwrap();
+        assert!(initiator.wait().await.unwrap().success());
+        assert!(responder.wait().await.unwrap().success());
+        assert!(std::fs::read_to_string(peers_file(&initiator_home))
+            .unwrap()
+            .contains("manual-worker"));
+        assert!(std::fs::read_to_string(peers_file(&responder_home))
+            .unwrap()
+            .contains("manual-origin"));
+    } else {
+        assert!(!responder.wait().await.unwrap().success());
+        drop(origin_input);
+        assert!(!initiator.wait().await.unwrap().success());
+        assert!(!peers_file(&initiator_home).exists());
+        assert!(!peers_file(&responder_home).exists());
+    }
+}
+
+#[tokio::test]
+async fn pair_round_trip_happy_path() {
+    tokio::time::timeout(Duration::from_secs(20), manual_pairing(true))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn pair_wrong_code_aborts() {
+    tokio::time::timeout(Duration::from_secs(20), manual_pairing(false))
+        .await
+        .unwrap();
+}
 
 /// Tampered request blob (bad JSON payload) → error.
 #[test]

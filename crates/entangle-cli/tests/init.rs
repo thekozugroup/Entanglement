@@ -34,6 +34,15 @@ fn init_non_interactive_creates_all_files() {
     let dir = entangle_dir(&tmp);
     assert!(dir.join("identity.key").exists(), "identity.key missing");
     assert!(dir.join("config.toml").exists(), "config.toml missing");
+    let cfg = entangle_runtime::config::load_config(&dir.join("config.toml")).unwrap();
+    assert_eq!(cfg.mesh.transports, ["local", "iroh"]);
+    assert_eq!(
+        cfg.security.max_tier_allowed,
+        entangle_types::tier::Tier::Native
+    );
+    assert!(!cfg.mesh.multi_node);
+    assert!(!cfg.scheduler.relay);
+    assert!(cfg.scheduler.peers.is_empty());
     assert!(dir.join("keyring.toml").exists(), "keyring.toml missing");
     assert!(dir.join("peers.toml").exists(), "peers.toml missing");
 }

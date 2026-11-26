@@ -533,3 +533,47 @@ async fn compile_failure_rolls_back_broker_registration() {
     // ...and the kernel holds no record either.
     assert!(kernel.list_plugins().is_empty());
 }
+
+#[tokio::test]
+async fn subsequent_loads_observe_current_publisher_trust() {
+    let dir = tempfile::tempdir().unwrap();
+    let keys = dir.path().join("keyring.toml");
+    let signer = IdentityKeyPair::generate();
+    write_plugin_package(dir.path(), &signer, &loadable_wasm(), 1);
+    let kernel = Kernel::from_keyring_file(KernelConfig::default(), keys.clone()).unwrap();
+    let load = || kernel.load_plugin_from_dir(dir.path());
+
+    assert!(matches!(
+        load().await,
+        Err(crate::RuntimeError::Signing(
+            entangle_signing::VerificationError::UnknownPublisher
+        ))
+    ));
+    keyring_for(&signer).save(&keys).unwrap();
+    let id = load().await.unwrap();
+    kernel.unload(&id).await.unwrap();
+    std::fs::write(&keys, "[[").unwrap();
+    assert!(matches!(load().await, Err(crate::RuntimeError::Keyring(_))));
+    std::fs::remove_file(&keys).unwrap();
+    assert!(matches!(
+        load().await,
+        Err(crate::RuntimeError::Signing(
+            entangle_signing::VerificationError::UnknownPublisher
+        ))
+    ));
+    keyring_for(&signer).save(&keys).unwrap();
+    assert_eq!(load().await.unwrap(), id);
+}
+
+#[test]
+fn invalid_lifecycle_capacity_returns_a_configuration_error() {
+    for bus_capacity in [0, usize::MAX] {
+        let config = KernelConfig {
+            bus_capacity,
+            ..KernelConfig::default()
+        };
+        assert!(
+            matches!(Kernel::new(config, Keyring::new()), Err(crate::RuntimeError::InvalidBusCapacity(n)) if n == bus_capacity)
+        );
+    }
+}

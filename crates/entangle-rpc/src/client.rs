@@ -91,7 +91,17 @@ impl Client {
 
         let resp: serde_json::Value = serde_json::from_str(&resp_line)?;
 
+        if resp["jsonrpc"] != "2.0" || resp["id"].as_u64() != Some(id) {
+            return Err(RpcError::Malformed(
+                "unexpected JSON-RPC version or response id".into(),
+            ));
+        }
         if let Some(err) = resp.get("error") {
+            if resp.get("result").is_some() {
+                return Err(RpcError::Malformed(
+                    "response contains both result and error".into(),
+                ));
+            }
             let code = err.get("code").and_then(|c| c.as_i64()).unwrap_or(-32000) as i32;
             let message = err
                 .get("message")
@@ -108,6 +118,11 @@ impl Client {
 
         let typed: R = serde_json::from_value(result)?;
         Ok(typed)
+    }
+
+    /// Retrieve Prometheus exposition from the running daemon.
+    pub async fn metrics(&self) -> Result<String, RpcError> {
+        self.call(method::METRICS, serde_json::Value::Null).await
     }
 
     /// `version` — return daemon / runtime / types version strings.
@@ -175,9 +190,9 @@ impl Client {
     /// `compute/dispatch` — dispatch a one-shot task via the scheduler.
     pub async fn compute_dispatch(
         &self,
-        params: ComputeDispatchParams,
+        params: impl std::borrow::Borrow<ComputeDispatchParams>,
     ) -> Result<ComputeDispatchResult, RpcError> {
-        self.call(method::COMPUTE_DISPATCH, params).await
+        self.call(method::COMPUTE_DISPATCH, params.borrow()).await
     }
 }
 

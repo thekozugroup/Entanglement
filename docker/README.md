@@ -15,6 +15,10 @@ Run from the **repository root** (the build context must include `crates/` and `
 docker build -f docker/Dockerfile -t entangledev/entangle .
 ```
 
+The Rust builder and slim runtime both use Debian 13 (trixie) so the
+runtime includes the glibc symbols the build links against. The build
+runs both packaged executables as the non-root `entangle` user.
+
 ## Run the daemon
 
 ```bash
@@ -26,8 +30,8 @@ docker run -d \
 
 The daemon resolves its socket from `$HOME/.entangle/sock` (no config-dir flag;
 see `crates/entangle-bin/src/config.rs`), and the image sets `HOME=/var/lib/entangle`,
-so inside the container the socket is at `/var/lib/entangle/.entangle/sock`. In
-Phase 1 there are no exposed TCP ports.
+so inside the container the socket is at `/var/lib/entangle/.entangle/sock`.
+The optional mesh transports use UDP for mDNS or QUIC.
 
 Config, identity, keyring, and peer allowlist live under the same
 `/var/lib/entangle/.entangle/` directory (`config.toml`, `identity.key`,
@@ -46,8 +50,9 @@ docker compose -f docker/docker-compose.yml up --build
 `docker-compose.yml` sets `network_mode: host` so the `entangled` daemon can
 participate in `mesh.local` mDNS discovery on the LAN.
 
-**Linux hosts**: this works as intended — the daemon binds directly to the host
-network interface and mDNS multicast packets reach the physical LAN.
+**Linux hosts**: with rootful Docker, host networking gives the daemon access
+to the physical LAN for mDNS multicast. Rootless Docker can use a separate
+network namespace.
 
 **Mac + Docker Desktop**: `network_mode: host` does NOT bridge to the macOS
 network stack. Docker Desktop runs inside a lightweight Linux VM, so "host" means
@@ -92,13 +97,13 @@ resolves `$HOME/.entangle`; there is no config-dir flag), `StateDirectory=entang
 `PrivateTmp`, dropped capabilities, …). Install steps are in the unit's header
 comment.
 
-## Phase-1 caveats
+## Accessing the daemon
 
-- No mesh ports are exposed, and the daemon listens **only** on a Unix-domain
-  socket (`$HOME/.entangle/sock`) — there is no TCP listener, so the image no
-  longer `EXPOSE`s a port. Phase 2 will add Iroh/mDNS transport ports.
-- Single-binary mode only: `entangle` CLI is baked in but must exec inside the container.
-- The daemon runs as a non-root `entangle` system user; the data directory is `chmod 700`.
+Run the bundled CLI inside the container to reach the daemon's Unix socket.
+
+```bash
+docker exec entangled entangle mesh status
+```
 
 ## Verifying without building
 

@@ -3,17 +3,12 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Path to spec relative to this file's manifest dir, walking up to repo root.
 const SPEC_REL: &str = "docs/architecture.md";
 
-/// Phase 1.5 status: 14/34 §16 IDs covered directly; 2 deferred (ignored);
-/// 19 sub-groups extend coverage (ATC-CAP-*, ATC-SIG-*, ATC-AUDIT-*,
-/// ATC-MAX-TIER-*, ATC-OUT-*, ATC-REP-*, ATC-INT-6, ATC-BRG-7..10, ...);
-/// 18 uncovered remain (ATC-BUS-*, ATC-MAN-3/4, ATC-MAX-*, ATC-MIR-*,
-/// ATC-PKG-*, ATC-REL-*, ATC-WRP-*) — deferred to Phase 2.
+/// Name-based inventory only: a matching test name does not prove the test
+/// exercises the specified acceptance criterion. Mixed active and ignored
+/// matches are shown explicitly for manual review.
 ///
-/// Sub-group extension rule: if §16 defines ATC-FOO-* (any numeric suffix) and
-/// the implementation has ATC-FOO-BAR-N, that test is counted as a child group,
-/// NOT orphaned. The matrix prints a dedicated section for these.
-///
-/// Hard-fail on uncovered/orphaned resumes in Phase 2.
+/// Numeric IDs outside the acceptance definitions are listed separately.
+/// Malformed names are not detected by this name-based inventory.
 /// Run with: `cargo test -p entangle-atc-matrix -- --ignored --nocapture`
 #[test]
 #[ignore = "Phase-1.5 coverage gap is intentional; matrix is informational, not gating"]
@@ -37,21 +32,23 @@ fn atc_matrix_full_coverage() {
 
     // -----------------------------------------------------------------------
     // 1. Collect expected ATC IDs from the spec.
-    //    §16 uses plain `ATC-XXX-N` (not **bold**).
-    //    We restrict to the §16 block to avoid counting forward-references.
+    //    Collect definition lines only, inside the acceptance section.
     // -----------------------------------------------------------------------
-    let id_re = regex::Regex::new(r"ATC-([A-Z]+(?:-[A-Z]+)?)-(\d+)").unwrap();
+    let id_re = regex::Regex::new(r"^\s*ATC-([A-Z]+(?:-[A-Z]+)?)-(\d+)(?:\s|$)").unwrap();
 
-    // Find the line where §16 starts so we only count definition-site IDs.
+    // Find the acceptance section heading so we only count definition-site IDs.
     let section16_start = spec
         .lines()
         .enumerate()
-        .find(|(_, l)| l.starts_with("## 16.") || l.starts_with("# 16."))
+        .find(|(_, l)| l.starts_with("## ") && l.contains("Acceptance criteria"))
         .map(|(i, _)| i)
-        .unwrap_or(0);
+        .expect("acceptance criteria heading not found");
 
     let mut expected: BTreeMap<String, usize> = BTreeMap::new();
-    for (lineno, line) in spec.lines().enumerate().skip(section16_start) {
+    for (lineno, line) in spec.lines().enumerate().skip(section16_start + 1) {
+        if line.starts_with("## ") {
+            break;
+        }
         for cap in id_re.captures_iter(line) {
             let id = format!("ATC-{}-{}", &cap[1], &cap[2]);
             expected.entry(id).or_insert(lineno + 1);
@@ -60,7 +57,7 @@ fn atc_matrix_full_coverage() {
 
     assert!(
         !expected.is_empty(),
-        "No ATC IDs found in §16 of spec — check the regex or spec path ({:?})",
+        "No ATC IDs found in the acceptance section — check the regex or spec path ({:?})",
         spec_path
     );
 
@@ -73,9 +70,10 @@ fn atc_matrix_full_coverage() {
     let fn_re = regex::Regex::new(r#"fn\s+atc_([a-z]+(?:_[a-z]+)*)_([0-9]+)[_( ]"#).unwrap();
 
     let crates_dir = workspace_root.join("crates");
-    let mut implemented: BTreeMap<String, (String, bool)> = BTreeMap::new();
+    let mut implemented: BTreeMap<String, Vec<(String, bool)>> = BTreeMap::new();
 
     for entry in walkdir::WalkDir::new(&crates_dir)
+        .sort_by_file_name()
         .into_iter()
         .filter_map(Result::ok)
     {
@@ -116,87 +114,49 @@ fn atc_matrix_full_coverage() {
                 .to_string_lossy()
                 .to_string();
 
-            // First occurrence wins (stable across runs via BTreeMap iteration order)
-            implemented.entry(id).or_insert((rel_path, ignored));
+            implemented
+                .entry(id)
+                .or_default()
+                .push((format!("{rel_path}:{}", i + 1), ignored));
         }
     }
 
     // -----------------------------------------------------------------------
-    // 3. Reconcile: classify impl IDs as direct, sub-group, or truly orphaned.
-    //
-    //    Impl IDs not present in §16 fall into one of two categories:
-    //
-    //    SUB-GROUP EXTENSION — the impl extends a §16 group with:
-    //      a) A higher numeric suffix on the same group (ATC-BRG-7 extends ATC-BRG-*)
-    //      b) An additional word segment (ATC-MAX-TIER-1 extends ATC-MAX-*)
-    //      c) An entirely new group coined by batch B-H tests (ATC-CAP-*, ATC-SIG-*,
-    //         ATC-AUDIT-*, ATC-OUT-*, ATC-REP-*) — these extend §16's nominal coverage
-    //         rather than contradicting it; they are NOT typos.
-    //
-    //    TRULY ORPHANED — an ID with a non-numeric last segment or otherwise
-    //    malformed IDs that suggest a typo (not currently observed in the codebase).
-    //
-    //    Policy: any impl ID not in §16 whose last hyphen-delimited segment is a
-    //    pure integer is a sub-group extension.  Only IDs with a non-numeric tail
-    //    segment are truly orphaned (these would indicate a likely typo).
+    // 3. Reconcile names; an extra ID may be an extension or a typo.
+    // The regex only finds well-formed names and cannot detect malformed IDs.
     // -----------------------------------------------------------------------
     let expected_ids: BTreeSet<&String> = expected.keys().collect();
     let impl_ids: BTreeSet<&String> = implemented.keys().collect();
-
-    // Helper: an impl ID not in §16 is a sub-group extension if its trailing
-    // segment is a valid integer (i.e. it follows the ATC-GROUP-N naming pattern).
-    // This covers:
-    //   • Same group, higher N   (ATC-BRG-7 where §16 has ATC-BRG-1..6)
-    //   • Sub-word group         (ATC-MAX-TIER-1 where §16 has ATC-MAX-*)
-    //   • Entirely new group     (ATC-CAP-1, ATC-SIG-2, ATC-AUDIT-1, ...)
-    let is_subgroup_ext = |id: &str| -> bool {
-        let without_atc = match id.strip_prefix("ATC-") {
-            Some(s) => s,
-            None => return false,
-        };
-        // Last hyphen-separated segment must be numeric (e.g. "1", "10")
-        let last = without_atc.split('-').next_back().unwrap_or("");
-        last.parse::<u32>().is_ok()
-    };
-
-    let mut uncovered: Vec<&String> = expected_ids.difference(&impl_ids).copied().collect();
-    uncovered.sort();
-
-    // Partition orphaned into: real orphans vs sub-group extensions
-    let potential_orphans: Vec<&String> = impl_ids.difference(&expected_ids).copied().collect();
-    let mut subgroup_extensions: Vec<&String> = potential_orphans
-        .iter()
-        .copied()
-        .filter(|id| is_subgroup_ext(id))
-        .collect();
-    subgroup_extensions.sort();
-    let mut orphaned: Vec<&String> = potential_orphans
-        .iter()
-        .copied()
-        .filter(|id| !is_subgroup_ext(id))
-        .collect();
-    orphaned.sort();
+    let uncovered: Vec<&String> = expected_ids.difference(&impl_ids).copied().collect();
+    let extra_ids: Vec<&String> = impl_ids.difference(&expected_ids).copied().collect();
 
     // -----------------------------------------------------------------------
     // 4. Print the matrix as a Markdown table (always, for --nocapture view)
     // -----------------------------------------------------------------------
-    println!("\n## ATC coverage matrix\n");
+    println!("\n## ATC name inventory\n");
     println!("| ATC ID | Spec line | Status | File |");
     println!("|---|---|---|---|");
 
     for (id, spec_line) in &expected {
-        let (file, ignored) = implemented
-            .get(id)
-            .map(|(f, i)| (f.as_str(), *i))
-            .unwrap_or(("(missing)", false));
-        let status = if file == "(missing)" {
-            "UNCOVERED"
-        } else if ignored {
-            "IGNORED (deferred)"
-        } else {
-            "COVERED"
+        let matches = implemented.get(id);
+        let status = match matches {
+            None => "NO MATCH",
+            Some(entries) if entries.iter().all(|(_, ignored)| *ignored) => "IGNORED ONLY",
+            Some(entries) if entries.iter().any(|(_, ignored)| *ignored) => "MIXED; REVIEW",
+            Some(_) => "ACTIVE MATCH; REVIEW",
         };
-        println!("| {id} | §16 L{spec_line} | {status} | {file} |");
+        let files = matches
+            .map(|entries| {
+                entries
+                    .iter()
+                    .map(|(path, ignored)| {
+                        format!("{path}{}", if *ignored { " [ignored]" } else { "" })
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_else(|| "(missing)".to_owned());
+        println!("| {id} | L{spec_line} | {status} | {files} |");
     }
 
     // Summary counts
@@ -205,7 +165,7 @@ fn atc_matrix_full_coverage() {
         .filter(|id| {
             implemented
                 .get(id.as_str())
-                .map(|(_, ig)| !ig)
+                .map(|entries| entries.iter().all(|(_, ig)| !ig))
                 .unwrap_or(false)
         })
         .count();
@@ -214,76 +174,42 @@ fn atc_matrix_full_coverage() {
         .filter(|id| {
             implemented
                 .get(id.as_str())
-                .map(|(_, ig)| *ig)
+                .map(|entries| entries.iter().all(|(_, ig)| *ig))
                 .unwrap_or(false)
         })
         .count();
 
     println!();
     println!(
-        "**Summary**: expected={}, covered={}, ignored(deferred)={}, covered-via-subgroup={}, uncovered={}, orphaned(true)={}",
+        "**Name inventory (not proof of coverage)**: expected={}, active-only={}, ignored-only={}, mixed={}, extra-ids={}, no-match={}",
         expected.len(),
         covered_count,
         ignored_count,
-        subgroup_extensions.len(),
-        uncovered.len(),
-        orphaned.len()
+        expected.len() - covered_count - ignored_count - uncovered.len(),
+        extra_ids.len(),
+        uncovered.len()
     );
 
     println!(
-        "Implementation extended {} ATC sub-groups beyond §16 nominal coverage",
-        subgroup_extensions.len()
+        "Found {} matching IDs outside the acceptance definitions (not coverage claims)",
+        extra_ids.len()
     );
 
-    if !subgroup_extensions.is_empty() {
+    if !extra_ids.is_empty() {
         println!();
-        println!("### SUB-GROUP EXTENSIONS ({}):", subgroup_extensions.len());
-        for id in &subgroup_extensions {
-            let (f, ignored) = &implemented[*id];
-            let flag = if *ignored { " [deferred]" } else { "" };
-            println!("  {id}{flag} in {f}");
-        }
-    }
-
-    if !uncovered.is_empty() || !orphaned.is_empty() {
-        println!();
-        if !uncovered.is_empty() {
-            println!("### UNCOVERED ({}):", uncovered.len());
-            for id in &uncovered {
-                println!("  {} (spec line {})", id, expected[*id]);
-            }
-        }
-        if !orphaned.is_empty() {
-            println!(
-                "### TRULY ORPHANED ({}) (possible typo or dropped spec entry):",
-                orphaned.len()
-            );
-            for id in &orphaned {
-                let (f, _) = &implemented[*id];
-                println!("  {id} in {f}");
+        println!("### EXTRA IDS ({}):", extra_ids.len());
+        for id in &extra_ids {
+            for (f, ignored) in &implemented[*id] {
+                let flag = if *ignored { " [deferred]" } else { "" };
+                println!("  {id}{flag} in {f}");
             }
         }
     }
 
-    // -----------------------------------------------------------------------
-    // 5. Assertions
-    //
-    // Phase 1.5: uncovered §16 IDs are expected (deferred to Phase 2).
-    // Only hard-fail on truly orphaned IDs (non-numeric tail = likely typo).
-    // -----------------------------------------------------------------------
-
-    // Informational — not a hard failure in Phase 1.5.
     if !uncovered.is_empty() {
-        println!(
-            "NOTE: {} uncovered §16 IDs are deferred to Phase 2 (see UNCOVERED list above)",
-            uncovered.len()
-        );
+        println!("\n### NO MATCHING TEST NAME ({}):", uncovered.len());
+        for id in &uncovered {
+            println!("  {} (spec line {})", id, expected[*id]);
+        }
     }
-
-    assert!(
-        orphaned.is_empty(),
-        "{} test fn(s) have non-standard ATC ID format (possible typo): {:?}",
-        orphaned.len(),
-        orphaned
-    );
 }

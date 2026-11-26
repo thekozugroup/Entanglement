@@ -157,8 +157,6 @@ impl HostState {
     }
 }
 
-// wasmtime-wasi 43: WasiView has a single `ctx(&mut self) -> WasiCtxView<'_>`
-// method. `ResourceTable` is now embedded inside WasiCtxView alongside WasiCtx.
 impl WasiView for HostState {
     fn ctx(&mut self) -> WasiCtxView<'_> {
         WasiCtxView {

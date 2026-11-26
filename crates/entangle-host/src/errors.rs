@@ -2,11 +2,11 @@
 
 /// Errors produced by the Wasmtime host during plugin lifecycle.
 ///
-/// Wasmtime 43 returns `wasmtime::Error` (an alias for `anyhow::Error`) from
+/// Wasmtime returns `wasmtime::Error` (an alias for `anyhow::Error`) from
 /// its APIs. We store that directly so callers can inspect the root cause via
 /// standard `anyhow` chaining.
 ///
-/// The stable code block `ENTANGLE-E0500`–`ENTANGLE-E0506` is reserved for this
+/// The stable code block `ENTANGLE-E0500`–`ENTANGLE-E0507` is reserved for this
 /// enum; see the range table in `entangle-types::errors` for the workspace map.
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
@@ -42,4 +42,13 @@ pub enum HostError {
     /// instantiation or mid-execution.
     #[error("ENTANGLE-E0506: resource limit exceeded: {0}")]
     ResourceExhausted(anyhow::Error),
+
+    /// ENTANGLE-E0507: the artifact format is incompatible with the declared runtime.
+    #[error("ENTANGLE-E0507: declared runtime {declared} but artifact uses {observed} format")]
+    RuntimeKindMismatch {
+        /// Runtime kind selected by the plugin manifest.
+        declared: &'static str,
+        /// Format identified from the artifact header.
+        observed: &'static str,
+    },
 }

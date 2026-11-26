@@ -331,6 +331,213 @@ async fn task_executes_on_the_other_node_and_output_comes_back() {
     );
 }
 
+/// The best advertised score can belong to a peer outside the task allowlist.
+#[tokio::test(flavor = "multi_thread")]
+async fn trusted_executor_places_on_the_allowed_worker() {
+    let publisher = IdentityKeyPair::generate();
+    let a = Node::start(&publisher).await;
+    let mut b = Node::start(&publisher).await;
+    let plugin = b.load_hello_pong(&publisher).await;
+    b.serve(StaticAllowlist::new().allow(a.peer_id));
+
+    let pool = WorkerPool::new();
+    pool.upsert(worker_for(a.peer_id));
+    let mut allowed = worker_for(b.peer_id);
+    allowed.cost = 3.0;
+    pool.upsert(allowed);
+
+    let directory = PeerDirectory::new();
+    directory.insert(b.address());
+    let client = RemoteDispatch::new(a.transport.clone(), Arc::new(directory));
+    let dispatcher =
+        Dispatcher::new(pool, a.kernel.clone(), a.peer_id).with_remote(Arc::new(client));
+    let mut task = task_for(plugin, b"trusted worker");
+    task.integrity = IntegrityPolicy::TrustedExecutor {
+        allowlist: vec![b.peer_id],
+    };
+
+    let result = deadline("trusted dispatch", dispatcher.dispatch_one_shot(task))
+        .await
+        .expect("the allowed remote worker must execute");
+    assert_eq!(result.chosen.peer_id, b.peer_id);
+    assert_eq!(result.output, b"Hello, trusted worker!");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn direct_client_checks_integrity_before_resolving_the_peer() {
+    let publisher = IdentityKeyPair::generate();
+    let a = Node::start(&publisher).await;
+    let client = RemoteDispatch::new(a.transport.clone(), Arc::new(PeerDirectory::new()));
+    let peer = PeerId::from_public_key_bytes(&[0x42; 32]);
+    let plugin = "0123456789abcdef0123456789abcdef/demo@1.0.0"
+        .parse()
+        .unwrap();
+    let mut task = task_for(plugin, b"input");
+    for (policy, code) in [
+        (
+            IntegrityPolicy::TrustedExecutor {
+                allowlist: vec![a.peer_id],
+            },
+            "ENTANGLE-E0303",
+        ),
+        (
+            IntegrityPolicy::Deterministic { replicas: 2 },
+            "ENTANGLE-E0304",
+        ),
+        (
+            IntegrityPolicy::Attested { tee: "sgx".into() },
+            "ENTANGLE-E0304",
+        ),
+        (
+            IntegrityPolicy::SemanticEquivalent {
+                metric: "cosine".into(),
+                threshold: 0.9,
+            },
+            "ENTANGLE-E0304",
+        ),
+    ] {
+        task.integrity = policy;
+        let err = client
+            .dispatch(&task, peer)
+            .await
+            .expect_err("policy must be enforced before sending");
+        assert!(matches!(err, DispatchError::Runtime(_)), "{err}");
+        assert!(err.to_string().contains(code), "{err}");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn remote_descriptor_must_name_the_selected_key() {
+    let publisher = IdentityKeyPair::generate();
+    let a = Node::start(&publisher).await;
+    let mut entry = a.address();
+    let peer = PeerId::from_public_key_bytes(&[0x42; 32]);
+    entry.peer_id = peer;
+    let directory = PeerDirectory::new();
+    directory.insert(entry);
+    let client = RemoteDispatch::new(a.transport.clone(), Arc::new(directory));
+    let plugin = "0123456789abcdef0123456789abcdef/demo@1.0.0"
+        .parse()
+        .unwrap();
+    let mut task = task_for(plugin, b"input");
+    task.integrity = IntegrityPolicy::TrustedExecutor {
+        allowlist: vec![peer],
+    };
+
+    let err = client
+        .dispatch(&task, peer)
+        .await
+        .expect_err("refuse inconsistent descriptor");
+    assert!(
+        matches!(err, DispatchError::RemoteTransport { peer: p, reason } if p == peer && reason.contains("identity"))
+    );
+}
+
+/// Observe requests before allowing the workers to execute them so the overlap is
+/// reproducible without timing sleeps or assumptions about machine speed.
+#[tokio::test(flavor = "multi_thread")]
+async fn overlapping_dispatches_spread_and_release_their_slots() {
+    let publisher = IdentityKeyPair::generate();
+    let a = Node::start(&publisher).await;
+    let mut b = Node::start(&publisher).await;
+    let mut c = Node::start(&publisher).await;
+    let plugin = b.load_hello_pong(&publisher).await;
+    assert_eq!(c.load_hello_pong(&publisher).await, plugin);
+    let (arrivals, mut received) = tokio::sync::mpsc::unbounded_channel();
+    let pool = WorkerPool::new();
+    let directory = PeerDirectory::new();
+    for node in [&b, &c] {
+        pool.upsert(worker_for(node.peer_id));
+        directory.insert(node.address());
+        let id = node.peer_id;
+        let arrivals = arrivals.clone();
+        let server = Arc::new(RemoteTaskServer::new(
+            node.kernel.clone(),
+            Arc::new(StaticAllowlist::new().allow(a.peer_id)),
+            id,
+        ));
+        tokio::spawn(entangle_mesh_iroh::serve(
+            node.transport.clone(),
+            move |peer, bytes| {
+                let arrivals = arrivals.clone();
+                let server = server.clone();
+                async move {
+                    let (release, wait) = tokio::sync::oneshot::channel();
+                    arrivals.send((id, release)).unwrap();
+                    let _ = wait.await;
+                    server.handle(peer, bytes).await
+                }
+            },
+        ));
+    }
+    let client = RemoteDispatch::new(a.transport.clone(), Arc::new(directory));
+    let dispatcher =
+        Dispatcher::new(pool, a.kernel.clone(), a.peer_id).with_remote(Arc::new(client));
+    let submit = |task| {
+        let dispatcher = dispatcher.clone();
+        tokio::spawn(async move { dispatcher.dispatch_one_shot(task).await })
+    };
+    let task = || task_for(plugin.clone(), b"batch");
+    let requests: Vec<_> = (0..4).map(|_| submit(task())).collect();
+    let mut held = Vec::new();
+    for _ in 0..requests.len() {
+        held.push(deadline("worker arrival", received.recv()).await.unwrap());
+    }
+    assert_eq!(held.iter().filter(|(id, _)| *id == b.peer_id).count(), 2);
+    assert_eq!(held.iter().filter(|(id, _)| *id == c.peer_id).count(), 2);
+    for (_, release) in held {
+        release.send(()).unwrap();
+    }
+    for request in requests {
+        assert_eq!(
+            deadline("batch completion", request)
+                .await
+                .unwrap()
+                .unwrap()
+                .output,
+            b"Hello, batch!"
+        );
+    }
+
+    // Fully idle workers tie by identity again, including after cancellation
+    // of a request and after a peer returns an execution error.
+    let lowest = b.peer_id.min(c.peer_id);
+    let cancelled = submit(task());
+    let (peer, release) = deadline("pending request", received.recv()).await.unwrap();
+    assert_eq!(peer, lowest);
+    cancelled.abort();
+    assert!(cancelled.await.unwrap_err().is_cancelled());
+    let _ = release.send(());
+
+    let mut unknown = task();
+    unknown.plugin = "0123456789abcdef0123456789abcdef/missing@1.0.0"
+        .parse()
+        .unwrap();
+    let failed = submit(unknown);
+    let (peer, release) = deadline("error request", received.recv()).await.unwrap();
+    assert_eq!(peer, lowest);
+    release.send(()).unwrap();
+    assert!(matches!(
+        deadline("failed request", failed).await.unwrap(),
+        Err(DispatchError::RemoteRejected {
+            code: RemoteErrorCode::PluginNotLoaded,
+            ..
+        })
+    ));
+
+    let healthy = submit(task());
+    let (peer, release) = deadline("final request", received.recv()).await.unwrap();
+    assert_eq!(peer, lowest);
+    release.send(()).unwrap();
+    let result = deadline("final completion", healthy)
+        .await
+        .unwrap()
+        .unwrap();
+    let idle = entangle_scheduler::choose(&[worker_for(lowest)], &ResourceSpec::default()).unwrap();
+    assert_eq!(result.chosen.score, idle.score);
+    assert_eq!(result.output, b"Hello, batch!");
+}
+
 /// The same round trip twice on the same pair of nodes, with different inputs.
 /// Guards against a handler that works only for the first request, or that
 /// leaks state between invocations.
@@ -954,6 +1161,7 @@ async fn without_a_transport_non_strict_mode_still_falls_back_to_local() {
     )
     .await
     .expect("the historical local fallback must still work");
+    assert_eq!(result.chosen.peer_id, node_a.peer_id);
     assert_eq!(result.output, b"Hello, world!");
 }
 

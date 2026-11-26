@@ -1,10 +1,6 @@
-//! `entangle mesh` subcommands — peers, status, trust, untrust, revoke.
-//!
-//! Iter 9: RPC-backed `peers` and `status`; direct on-disk writes for
-//! `trust` / `untrust` / `revoke` (spec §6.3 — these never go through RPC).
-//!
-//! The daemon picks up `~/.entangle/peers.toml` changes on next start (or,
-//! future iter, via file-watch reload).
+//! Mesh status and peers use the local daemon RPC. Trust changes are written
+//! to the persisted peer store, which the scheduler reads for authorization.
+//! The tailnet command queries the local Tailscale installation directly.
 
 use anyhow::bail;
 use clap::{Args, Subcommand};
@@ -36,6 +32,12 @@ pub enum MeshCmd {
     /// Show local mesh state: own peer id, active transports, peer counts.
     Status {
         /// Emit machine-readable JSON instead of the plain-text summary.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Inspect the local Tailscale backend and list visible nodes and their stable IDs.
+    Tailnet {
+        /// Emit machine-readable JSON.
         #[arg(long)]
         json: bool,
     },
@@ -71,6 +73,7 @@ pub async fn run(args: MeshArgs) -> anyhow::Result<()> {
     match args.cmd {
         MeshCmd::Peers { json } => peers(json).await,
         MeshCmd::Status { json } => status(json).await,
+        MeshCmd::Tailnet { json } => tailnet(json).await,
         MeshCmd::Trust {
             peer_id,
             public_key_hex,
@@ -80,6 +83,35 @@ pub async fn run(args: MeshArgs) -> anyhow::Result<()> {
         MeshCmd::Untrust { peer_id } => untrust(peer_id),
         MeshCmd::Revoke { peer_id } => revoke(peer_id),
     }
+}
+
+async fn tailnet(json: bool) -> anyhow::Result<()> {
+    let status = entangle_mesh_tailscale::MeshTailscale::default()
+        .status()
+        .await?;
+    if json {
+        println!("{}", serde_json::to_string(&status)?);
+    } else {
+        println!(
+            "Tailscale backend: {}",
+            status.backend_state.escape_default()
+        );
+        for node in status.peers {
+            let name = if node.magic_dns.is_empty() {
+                node.hostname
+            } else {
+                node.magic_dns
+            };
+            println!(
+                "{}  {}  {}  {:?}",
+                node.node_id.escape_default(),
+                name.escape_default(),
+                if node.online { "online" } else { "offline" },
+                node.ips
+            );
+        }
+    }
+    Ok(())
 }
 
 // ── `peers` ──────────────────────────────────────────────────────────────────

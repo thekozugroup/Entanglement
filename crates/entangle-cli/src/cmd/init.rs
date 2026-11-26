@@ -5,7 +5,7 @@
 //! preserving the original silent behaviour for scripted use.
 
 use crate::{
-    config::{self, entangle_dir, Config, MeshConfig, SecurityConfig},
+    config::{self, entangle_dir, InitialConfig, MeshConfig, SecurityConfig},
     identity::ensure_identity,
 };
 use anyhow::Context;
@@ -300,13 +300,15 @@ fn run_wizard() -> anyhow::Result<WizardAnswers> {
     println!();
     println!("[2/4] Choose mesh transports to enable. Multiple separated by commas.");
     println!("      Choices:");
-    println!("        local       LAN-only mDNS discovery (Phase 1, recommended)");
-    println!("        iroh        QUIC mesh with NAT hole-punching (Phase 2, scaffolded)");
-    println!("        tailscale   Use your existing tailnet (Phase 2, scaffolded)");
-    println!("      Default: local");
+    println!("        local       Advertise and discover nearby devices with mDNS");
+    println!("        iroh        Run jobs on paired workers using authenticated QUIC");
+    println!(
+        "        tailscale   Use your existing tailnet (configure worker mappings in [scheduler])"
+    );
+    println!("      Default: local,iroh (automatic dispatch on the LAN)");
     let transport_input: String = Input::new()
         .with_prompt("     ")
-        .default("local".to_string())
+        .default("local,iroh".to_string())
         .interact_text()
         .context("transports prompt")?;
     let transports: Vec<String> = transport_input
@@ -315,7 +317,7 @@ fn run_wizard() -> anyhow::Result<WizardAnswers> {
         .filter(|s| !s.is_empty())
         .collect();
     let transports = if transports.is_empty() {
-        vec!["local".to_string()]
+        vec!["local".to_string(), "iroh".to_string()]
     } else {
         transports
     };
@@ -405,7 +407,7 @@ pub(crate) async fn ensure_initialised(
     let answers = if args.non_interactive {
         WizardAnswers {
             display_name: system_hostname(),
-            transports: vec!["local".to_string()],
+            transports: vec!["local".to_string(), "iroh".to_string()],
             max_tier: 5,
             action: IdentityAction::Generate,
         }
@@ -492,13 +494,20 @@ pub(crate) async fn ensure_initialised(
 
     // --- config.toml ---
     if !cfg_path.exists() {
-        let cfg = Config {
+        let use_lan = ["local", "iroh"]
+            .into_iter()
+            .all(|name| answers.transports.iter().any(|value| value == name));
+        let cfg = InitialConfig {
+            scheduler: use_lan.then(|| config::SchedulerConfig {
+                relay: false,
+                ..Default::default()
+            }),
             mesh: MeshConfig {
                 transports: answers.transports,
                 multi_node: false,
             },
             security: SecurityConfig {
-                max_tier_allowed: answers.max_tier,
+                max_tier_allowed: answers.max_tier.try_into()?,
             },
         };
         config::save(&cfg_path, &cfg)?;
@@ -517,7 +526,7 @@ pub(crate) async fn ensure_initialised(
 
     // --- keyring.toml ---
     if !kr_path.exists() {
-        Keyring::new().save(&kr_path)?;
+        Keyring::edit_file(&kr_path, |_| ())?;
         println!("  Wrote {} (empty)", kr_path.display());
     } else {
         println!("  Kept existing {}", kr_path.display());

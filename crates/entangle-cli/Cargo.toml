@@ -13,6 +13,7 @@ name = "entangle"
 path = "src/main.rs"
 
 [dependencies]
+entangle-mesh-tailscale = { path = "../entangle-mesh-tailscale" }
 entangle-types     = { workspace = true }
 entangle-runtime   = { workspace = true }
 entangle-signing   = { workspace = true }

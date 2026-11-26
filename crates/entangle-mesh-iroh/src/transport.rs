@@ -16,6 +16,9 @@ use crate::framing::{read_frame, write_frame};
 use crate::peer::IrohPeer;
 use crate::{MeshIrohConfig, MeshTransport};
 
+#[cfg(test)]
+mod relay_test;
+
 /// A live `mesh.iroh` transport.
 ///
 /// Cheap to clone-by-`Arc`; the underlying [`Endpoint`] is itself a handle.

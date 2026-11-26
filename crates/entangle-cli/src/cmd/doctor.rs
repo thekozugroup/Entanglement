@@ -199,11 +199,11 @@ fn check_peers() -> CheckResult {
     match PeerStore::open(&peers_path) {
         Err(e) => CheckResult::fail("peers", "parse error", format!("{e}")),
         Ok(store) => {
-            let n = store.len();
-            if multi_node && store.is_empty() {
+            let n = store.active_count();
+            if multi_node && n == 0 {
                 CheckResult::warn(
                     "peers",
-                    "multi_node enabled but peers.toml empty",
+                    "multi_node enabled but no active peers",
                     "daemon will refuse to start — run `entangle pair` to add peers",
                 )
             } else {

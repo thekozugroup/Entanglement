@@ -1,6 +1,6 @@
 //! ATC-BRG-* acceptance tests for bridge cap attenuation rules (spec §6.4, §16).
 
-use biscuit_auth::KeyPair;
+use biscuit_auth::PrivateKey;
 use entangle_biscuits::{
     attenuate_biscuit,
     bridge::{BridgeError, BridgeVerifyContext, BRIDGE_RATE_LIMIT_MAX_BPS},
@@ -11,8 +11,8 @@ use entangle_types::peer_id::PeerId;
 
 // ─── Test fixtures ───────────────────────────────────────────────────────────
 
-fn root_keypair() -> KeyPair {
-    KeyPair::new()
+fn root_keypair() -> PrivateKey {
+    PrivateKey::new()
 }
 
 /// A deterministic peer derived from a fixed byte pattern.
@@ -25,7 +25,7 @@ const GOOD_EXPIRES: i64 = NOW + 1_800; // 30 min — within 1-hour ceiling
 const CAP: &str = "compute.gpu";
 
 /// Mint a base capability biscuit (authority block only).
-fn base_biscuit(kp: &KeyPair, _dest: PeerId) -> Vec<u8> {
+fn base_biscuit(kp: &PrivateKey, _dest: PeerId) -> Vec<u8> {
     // Bridge base tokens do not carry `issued_to`; destination binding is
     // enforced by the `dest_pin` attenuation fact (spec §6.4).
     let claims = ClaimSet::new().capability(CAP);
@@ -35,7 +35,7 @@ fn base_biscuit(kp: &KeyPair, _dest: PeerId) -> Vec<u8> {
 /// Build a full bridge-attenuated biscuit.
 fn full_bridge_biscuit(
     base: &[u8],
-    kp: &KeyPair,
+    kp: &PrivateKey,
     dest: PeerId,
     expires: i64,
     rate_bps: u64,
@@ -283,4 +283,27 @@ fn atc_brg_10_capability_required_passes_through() {
     let facts =
         verify_bridge_cap(&token, &kp.public(), &ctx).expect("compute.gpu cap must pass through");
     assert!(facts.capabilities.contains(&"compute.gpu".to_string()));
+}
+
+#[test]
+fn bridge_verification_enforces_additional_signed_checks() {
+    use biscuit_auth::builder::BlockBuilder;
+
+    let key = root_keypair();
+    let dest = peer(0xAA);
+    let complete = full_bridge_biscuit(
+        &base_biscuit(&key, dest),
+        &key,
+        dest,
+        GOOD_EXPIRES,
+        1024,
+        4096,
+    );
+    let parsed = entangle_biscuits::parse(&complete, &key.public()).unwrap();
+    let check = BlockBuilder::new()
+        .check(r#"check if capability("compute.cpu")"#)
+        .unwrap();
+    let bytes = parsed.append(check).unwrap().to_vec().unwrap();
+    let err = verify_bridge_cap(&bytes, &key.public(), &bridge_ctx(dest)).unwrap_err();
+    assert!(err.to_string().contains("Datalog authorization"), "{err}");
 }

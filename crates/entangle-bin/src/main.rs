@@ -3,6 +3,9 @@
 //! Phase-1: foreground-only process. Manages the runtime kernel and serves a
 //! Unix-domain-socket JSON-RPC 2.0 interface for the CLI and operators.
 
+mod hardware;
+mod metrics;
+
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use entangle_bin::{config, maintenance::MaintenanceLoop, remote, server, state::DaemonState};
@@ -12,12 +15,12 @@ use entangle_mesh_local::{
     Discovery, DiscoveryConfig, DiscoveryEvent, HardwareAdvert, LocalPeer, PeerSeen,
 };
 use entangle_peers::{PeerStore, TrustLevel};
-use entangle_runtime::{Kernel, KernelConfig};
+use entangle_runtime::Kernel;
 use entangle_scheduler::{Dispatcher, RemoteDispatch, WorkerInfo, WorkerPool};
-use entangle_signing::{IdentityKeyPair, Keyring};
+use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
 use entangle_types::resource::GpuRequirement;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -97,17 +100,13 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         "entangled starting",
     );
 
+    let listener = server::RpcListener::bind(socket_path).await?;
+
     // ── 2. Load config + keyring ──────────────────────────────────────────────
     let cfg = config::load_config(&config_path)
         .with_context(|| format!("loading config from {}", config_path.display()))?;
 
-    let keyring = if keyring_path.exists() {
-        Keyring::load(&keyring_path)
-            .with_context(|| format!("loading keyring from {}", keyring_path.display()))?
-    } else {
-        tracing::debug!("keyring file absent — starting with empty keyring");
-        Keyring::new()
-    };
+    let metrics_listener = metrics::bind(cfg.runtime.metrics_bind).await?;
 
     // ── 2b. Identity keypair ──────────────────────────────────────────────────
     let identity_path = config_dir.join("identity.key");
@@ -130,59 +129,70 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         .context("startup policy check failed (spec §11 #16)")?;
 
     // ── 3. Build kernel ───────────────────────────────────────────────────────
-    let kernel_cfg = KernelConfig {
-        max_tier_allowed: cfg.security.max_tier_allowed,
-        multi_node: cfg.mesh.multi_node,
-        bus_capacity: cfg.runtime.bus_capacity,
-    };
-    let kernel = Arc::new(Kernel::new(kernel_cfg, keyring).context("initializing runtime kernel")?);
+    let kernel = Arc::new(
+        Kernel::from_keyring_file(cfg.kernel_config(), keyring_path)
+            .context("initializing runtime kernel")?,
+    );
+
+    for package in &cfg.runtime.plugins {
+        anyhow::ensure!(
+            package.is_absolute(),
+            "startup plugin package path {} must be absolute",
+            package.display()
+        );
+        let plugin_id = kernel
+            .load_plugin_from_dir(package)
+            .await
+            .with_context(|| format!("loading startup plugin package {}", package.display()))?;
+        tracing::info!(%plugin_id, package = %package.display(), "loaded startup plugin");
+    }
 
     // ── 3b. Worker pool + Dispatcher ─────────────────────────────────────────
     let worker_pool = WorkerPool::new();
     let local_peer_id =
         entangle_types::peer_id::PeerId::from_public_key_bytes(identity.public().as_bytes());
 
-    // Optional `mesh.iroh` scheduler transport. Absent it, the dispatcher is
-    // local-only and this daemon behaves exactly as a single-machine node.
-    let scheduler_mesh = if remote::scheduler_transport_enabled(&cfg.mesh.transports) {
-        match remote::start_scheduler_transport(&cfg.scheduler, &identity).await {
-            Ok(t) => Some(t),
-            Err(e) => {
-                // A transport that will not bind is a degraded node, not a
-                // dead one: keep serving local work rather than refusing to
-                // start.
-                tracing::error!(error = %e, "mesh.iroh scheduler transport failed to start — remote dispatch disabled");
-                None
-            }
+    let display_name = std::env::var("HOSTNAME")
+        .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_owned()))
+        .unwrap_or_else(|_| "entangled".to_owned());
+    let hardware = detect_hardware();
+    let scheduler_mesh = remote::prepare_scheduler(&cfg, &identity, &peer_store, local_peer_id)
+        .await
+        .unwrap_or_else(|err| {
+            tracing::error!(error = %err, "scheduler endpoint unavailable; serving local requests");
+            None
+        });
+
+    let mut local_worker =
+        worker_info_from_hardware(local_peer_id, display_name.clone(), &hardware);
+    local_worker.rtt_ms = 0;
+    let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id)
+        .with_local_worker(local_worker.clone());
+    let mut capability_task = None;
+    if let Some(mesh) = &scheduler_mesh {
+        let client = Arc::new(RemoteDispatch::new(
+            mesh.transport.clone(),
+            mesh.addresses.clone(),
+        ));
+        dispatcher = dispatcher.with_remote(client.clone());
+        if !mesh.peer_ids.is_empty() || mesh.lan.is_some() {
+            capability_task = Some(tokio::spawn(poll_capabilities(
+                client,
+                mesh.peer_ids.clone(),
+                mesh.lan.clone(),
+                worker_pool.clone(),
+            )));
         }
-    } else {
-        None
-    };
-
-    let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id);
-    if let Some(transport) = &scheduler_mesh {
-        // Client half: this node may send work to configured, trusted peers.
-        let directory = remote::directory_from_config(&cfg.scheduler, &peer_store, local_peer_id);
-        dispatcher = dispatcher.with_remote(Arc::new(RemoteDispatch::new(
-            Arc::clone(transport) as Arc<dyn MeshTransport>,
-            Arc::new(directory),
-        )));
-
-        // Server half: trusted peers may run work here. The peer store is the
-        // authorization gate — see `remote::PeerStoreAllowlist`.
-        remote::spawn_task_server(
-            Arc::clone(transport),
+        remote::spawn_task_server_with_capabilities(
+            mesh.transport.clone(),
             kernel.clone(),
             peer_store.clone(),
             local_peer_id,
+            local_worker,
         );
     }
     let dispatcher = Arc::new(dispatcher);
 
-    // ── 3c. Assemble shared DaemonState ──────────────────────────────────────
-    let display_name = std::env::var("HOSTNAME")
-        .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_owned()))
-        .unwrap_or_else(|_| "entangled".to_owned());
     let mut daemon_state = DaemonState::new(
         kernel.clone(),
         dispatcher,
@@ -192,6 +202,10 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         display_name,
     );
 
+    if let Some(mesh) = &scheduler_mesh {
+        daemon_state.scheduler_transports = Some(mesh.active_transports.clone());
+    }
+
     // ── 3d. Spawn mDNS discovery (when `mesh.local` transport is configured) ─
     // The discovery handle is stored in DaemonState so RPC handlers can call
     // `snapshot_peers()` directly; the browser task handle lives inside
@@ -200,9 +214,9 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         let local = LocalPeer {
             peer_id: daemon_state.local_peer_id,
             display_name: daemon_state.local_display_name.clone(),
-            port: 7001, // Phase 1 placeholder; real port wiring is Phase 2 transport
+            port: 7001, // Discovery-only records retain their original service port.
             version: env!("CARGO_PKG_VERSION").into(),
-            hardware: Some(detect_hardware()),
+            hardware: Some(hardware),
         };
         let discovery_cfg = DiscoveryConfig {
             local,
@@ -211,6 +225,19 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         };
         match Discovery::new(discovery_cfg) {
             Ok(d) => {
+                let lan_mesh = scheduler_mesh.as_ref().filter(|mesh| mesh.lan.is_some());
+                let d = match lan_mesh.and_then(|mesh| {
+                    mesh.transport
+                        .local_addrs()
+                        .into_iter()
+                        .next()
+                        .map(|addr| (mesh, addr))
+                }) {
+                    Some((mesh, addr)) => {
+                        d.with_bound_transport(mesh.transport.local_public_key(), addr)
+                    }
+                    None => d,
+                };
                 if let Err(e) = d.start_announcing() {
                     tracing::warn!(error = %e, "mDNS announce failed — discovery disabled");
                 } else {
@@ -219,12 +246,16 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
                     }
                     let d = Arc::new(d);
                     daemon_state.set_discovery(d.clone());
-                    spawn_discovery_feeder(
-                        d,
-                        daemon_state.worker_pool.clone(),
-                        daemon_state.peer_store.clone(),
-                        daemon_state.local_peer_id,
-                    );
+                    if let Some(lan) = lan_mesh.and_then(|mesh| mesh.lan.as_ref()) {
+                        lan.attach(d);
+                    } else if !remote::scheduler_transport_enabled(&cfg.mesh.transports) {
+                        spawn_discovery_feeder(
+                            d,
+                            daemon_state.worker_pool.clone(),
+                            daemon_state.peer_store.clone(),
+                            daemon_state.local_peer_id,
+                        );
+                    }
                 }
             }
             Err(e) => {
@@ -248,33 +279,28 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         MaintenanceLoop::new(Default::default()).with_worker_pool(state.worker_pool.clone());
     let maint_task = tokio::spawn(maint.run(shutdown_rx.clone()));
 
-    // ── 6. Bind socket and spawn RPC accept loop ──────────────────────────────
-    let socket_path_clone = socket_path.clone();
-    let state_clone = state.clone();
-    let rpc_task = tokio::spawn(async move {
-        if let Err(e) = server::serve(socket_path_clone, state_clone).await {
-            tracing::error!(error = %e, "RPC server fatal error");
-        }
-    });
-
-    // ── 7. Block on shutdown signal ───────────────────────────────────────────
-    wait_for_shutdown().await;
+    let rpc_result = tokio::select! {
+        result = listener.run(state.clone()) => result,
+        result = metrics::serve(metrics_listener, state.clone()) => result,
+        () = wait_for_shutdown() => Ok(()),
+    };
 
     tracing::info!("shutting down entangled");
 
     // Signal the maintenance loop (and any other watchers) to stop.
     shutdown_tx.send(true).ok();
 
-    // Abort the accept loop; in-flight client tasks will finish naturally.
-    rpc_task.abort();
-    let _ = rpc_task.await;
     let _ = maint_task.await;
 
     // Close the scheduler endpoint, flushing connection-close frames so peers
     // see a deliberate shutdown rather than a timeout. This also terminates
     // the accept loop (`accept` yields `Ok(None)` once closed).
-    if let Some(transport) = &scheduler_mesh {
-        transport.shutdown().await;
+    if let Some(task) = capability_task {
+        task.abort();
+        let _ = task.await;
+    }
+    if let Some(mesh) = &scheduler_mesh {
+        mesh.transport.shutdown().await;
     }
 
     // Unregister from mDNS (sends a goodbye) and stop the browse task so
@@ -285,11 +311,8 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         }
     }
 
-    // Remove the socket file on clean shutdown.
-    let _ = std::fs::remove_file(&socket_path);
-
     tracing::info!("entangled stopped");
-    Ok(())
+    rpc_result
 }
 
 /// Wait for SIGTERM or Ctrl-C (SIGINT).
@@ -312,36 +335,77 @@ async fn wait_for_shutdown() {
 // ── `status` subcommand ───────────────────────────────────────────────────────
 
 async fn status(args: StatusArgs) -> anyhow::Result<()> {
-    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-    use tokio::net::UnixStream;
-
-    let socket_path = match args.socket {
+    let socket = match args.socket {
         Some(path) => path,
         None => config::default_socket_path().context("resolving default socket path")?,
     };
-
-    let mut stream = UnixStream::connect(&socket_path)
+    let client = entangle_rpc::Client::new(socket);
+    let version = tokio::time::timeout(Duration::from_secs(3), client.version())
         .await
-        .with_context(|| format!("connecting to {}", socket_path.display()))?;
-
-    let req = r#"{"jsonrpc":"2.0","id":1,"method":"version","params":{}}"#;
-    stream.write_all(req.as_bytes()).await?;
-    stream.write_all(b"\n").await?;
-    stream.flush().await?;
-
-    let mut reader = BufReader::new(stream);
-    let mut line = String::new();
-    reader.read_line(&mut line).await?;
-    println!("{line}");
+        .context("daemon version check timed out")??;
+    println!(
+        "{}",
+        serde_json::json!({"jsonrpc":"2.0","id":1,"result":version})
+    );
     Ok(())
 }
 
 // ── Discovery → worker-pool feeder ────────────────────────────────────────────
 
+/// Refresh known worker capabilities independently of multicast discovery.
+async fn poll_capabilities(
+    client: Arc<RemoteDispatch>,
+    configured: Vec<PeerId>,
+    lan: Option<Arc<remote::LanRoutes>>,
+    pool: WorkerPool,
+) {
+    let configured: BTreeSet<_> = configured.into_iter().collect();
+    let mut previous = BTreeSet::new();
+    let mut timer = tokio::time::interval(Duration::from_secs(15));
+    timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        timer.tick().await;
+        let mut peers = configured.clone();
+        if let Some(lan) = lan.clone() {
+            peers.extend(
+                tokio::task::spawn_blocking(move || lan.peer_ids())
+                    .await
+                    .unwrap_or_default(),
+            );
+        }
+        // An authenticated report learned solely through LAN discovery has no
+        // remaining route after service removal. Independently configured
+        // peers remain candidates even when their mDNS record disappears.
+        for retired in previous.difference(&peers) {
+            pool.remove(retired);
+        }
+        let mut probes = tokio::task::JoinSet::new();
+        for &peer in &peers {
+            if probes.len() == 8 {
+                probes.join_next().await;
+            }
+            let client = client.clone();
+            let pool = pool.clone();
+            probes.spawn(async move {
+                match client.capabilities(peer).await {
+                    Ok(worker) => {
+                        pool.upsert_authenticated(worker);
+                    }
+                    Err(err) => {
+                        tracing::debug!(%peer, error = %err, "worker capability query unavailable")
+                    }
+                }
+            });
+        }
+        probes.join_all().await;
+        previous = peers;
+    }
+}
+
 /// Forward mDNS [`DiscoveryEvent`]s into the scheduler's [`WorkerPool`].
 ///
 /// **Trust gate:** mDNS sightings are unauthenticated, so only peers present
-/// in the trusted peer store with trust ≠ [`TrustLevel::Revoked`] are admitted
+/// in the trusted peer store with [`TrustLevel::Trusted`] are admitted
 /// to the pool. The full unauthenticated sighting list stays available for
 /// display/status via [`Discovery::snapshot_peers`] — it never feeds placement.
 ///
@@ -401,35 +465,51 @@ fn apply_discovery_event(
             }
         }
         DiscoveryEvent::PeerDisappeared { peer_id, .. } => {
-            pool.remove(&peer_id);
+            pool.remove_discovered(&peer_id);
         }
     }
 }
 
 /// `true` when `peer_id` is in the allowlist and not revoked.
 fn is_trusted(peer_store: &PeerStore, peer_id: &PeerId) -> bool {
-    matches!(peer_store.get(peer_id), Some(p) if p.trust != TrustLevel::Revoked)
+    matches!(peer_store.get(peer_id), Some(p) if p.trust == TrustLevel::Trusted)
 }
 
 /// Convert an mDNS sighting into a [`WorkerInfo`], or `None` when the peer
 /// advertises no hardware (nothing to schedule onto).
 fn worker_info_from_sighting(p: &PeerSeen) -> Option<WorkerInfo> {
-    let hw = p.hardware.as_ref()?;
-    Some(WorkerInfo {
-        peer_id: p.peer_id,
-        display_name: p.display_name.clone(),
+    Some(worker_info_from_hardware(
+        p.peer_id,
+        p.display_name.clone(),
+        p.hardware.as_ref()?,
+    ))
+}
+
+fn worker_info_from_hardware(
+    peer_id: PeerId,
+    display_name: String,
+    hw: &HardwareAdvert,
+) -> WorkerInfo {
+    WorkerInfo {
+        peer_id,
+        display_name,
         cpu_cores: hw.cpu_cores,
         memory_bytes: hw.memory_bytes,
         gpu: hw.gpu_backend.map(|backend| GpuRequirement {
             vram_min_bytes: hw.gpu_vram_bytes,
             backend,
         }),
-        npu: None, // Phase 2: NPU advertisement
+        npu: hw
+            .npu_vendor
+            .as_ref()
+            .map(|vendor| entangle_types::resource::NpuRequirement {
+                vendor: vendor.clone(),
+            }),
         network_bandwidth_bps: hw.network_bandwidth_bps,
-        rtt_ms: 5, // Phase 1 estimate; real RTT in Phase 2
+        rtt_ms: 5, // Initial LAN estimate. Authenticated probes measure their own RTT.
         load: 0.0,
         cost: 1.0,
-    })
+    }
 }
 
 /// Authoritatively rebuild the worker pool from a discovery snapshot after
@@ -450,7 +530,7 @@ fn resync_pool_from_snapshot(
     // `Duration::MAX` TTL = every entry currently in the pool, expired or not.
     for existing in pool.live(Duration::MAX) {
         if !desired.contains_key(&existing.peer_id) {
-            pool.remove(&existing.peer_id);
+            pool.remove_discovered(&existing.peer_id);
         }
     }
     for info in desired.into_values() {
@@ -460,16 +540,13 @@ fn resync_pool_from_snapshot(
 
 // ── Identity helper ───────────────────────────────────────────────────────────
 
-/// Best-effort detection of local hardware for mDNS advertisement.
-///
-/// Phase 1: only CPU core count is reliable.  Memory, GPU, and network
-/// bandwidth are stubbed at 0 and will be filled in Phase 2 via `sysinfo`
-/// and `wgpu` probing.
+/// Best-effort detection of local hardware for worker advertisements.
 fn detect_hardware() -> HardwareAdvert {
+    let (cpu_cores, memory_bytes) = hardware::cpu_and_memory();
     HardwareAdvert {
-        cpu_cores: num_cpus::get() as f32,
-        memory_bytes: 0,   // Phase 2: sysinfo crate
-        gpu_backend: None, // Phase 2: wgpu detection
+        cpu_cores,
+        memory_bytes,
+        gpu_backend: None,
         gpu_vram_bytes: 0,
         network_bandwidth_bps: 0,
         npu_vendor: npu::detect(),

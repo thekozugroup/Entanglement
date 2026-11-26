@@ -21,6 +21,4 @@ rand_core = { workspace = true, features = ["getrandom"] }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
 thiserror = { workspace = true }
-
-[dev-dependencies]
 tempfile = { workspace = true }

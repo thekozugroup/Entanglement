@@ -25,7 +25,7 @@ use entangle_mesh_local::{
 };
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
-use tokio::sync::Notify;
+use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tokio::time::Instant as TokioInstant;
 use tracing::{debug, warn};
@@ -123,6 +123,9 @@ pub async fn start_pairing_transport_with(
 
 // ── Listener (the device that shows the code) ────────────────────────────────
 
+// Published once, after the connection carrying the terminal reply is drained.
+type FinalReply = Option<Result<(), String>>;
+
 /// A short-lived listener that waits for another device to pair with it.
 ///
 /// Owns its own QUIC endpoint — it does **not** need the daemon to be running —
@@ -132,9 +135,8 @@ pub struct PairingListener {
     transport: Arc<MeshIroh>,
     session: Arc<HostSession>,
     beacon: Option<Discovery>,
-    /// Woken after every handled frame so [`PairingListener::wait`] observes
-    /// state changes immediately instead of polling.
-    progress: Arc<Notify>,
+    /// Set after the connection that finished the exchange has drained.
+    completed: watch::Receiver<FinalReply>,
     /// The accept loop. It keeps answering (with refusals) after the session
     /// ends, so a late dialer is told *why* rather than left hanging, and it
     /// stops when the endpoint is shut down.
@@ -189,17 +191,17 @@ impl PairingListener {
         } else {
             None
         };
-        let progress = Arc::new(Notify::new());
+        let (complete, completed) = watch::channel(None);
         let server = tokio::spawn(serve_loop(
             Arc::clone(&transport),
             Arc::clone(&session),
-            Arc::clone(&progress),
+            complete,
         ));
         Ok(Self {
             transport,
             session,
             beacon,
-            progress,
+            completed,
             server,
         })
     }
@@ -238,25 +240,34 @@ impl PairingListener {
     /// observes it. Returns the peer that proved knowledge of the code.
     pub async fn wait(&self) -> Result<PairedPeer, PairingMeshError> {
         let ttl = self.session.ttl();
-        let deadline = TokioInstant::now() + self.session.time_remaining();
-        loop {
-            if let Some(peer) = self.session.outcome() {
-                return Ok(peer);
-            }
-            if self.session.is_finished() {
+        let mut completed = self.completed.clone();
+        // The session records a verified peer before its signed final response
+        // is sent. Wait for the serving connection to finish that exchange so a
+        // caller may immediately shut down the endpoint when this returns.
+        let wait = completed.wait_for(Option::is_some);
+        if tokio::time::timeout(self.session.time_remaining(), wait)
+            .await
+            .is_err()
+        {
+            self.session.is_finished(); // Materialize expiry if still accepting proofs.
+            if self.session.ended() == Some(crate::net::SessionEnd::Expired) {
                 return Err(finished_error(&self.session, ttl));
             }
-            // Register before re-checking so a wake-up between the check above
-            // and the await here cannot be lost.
-            let woken = self.progress.notified();
-            tokio::select! {
-                () = woken => {}
-                () = tokio::time::sleep_until(deadline) => {
-                    // Materialise the expiry, then report it.
-                    let _ = self.session.is_finished();
-                    return Err(finished_error(&self.session, ttl));
-                }
-            }
+            // A valid proof arrived before expiry. Give its final response the
+            // same bounded delivery grace as any other successful exchange.
+            let _ = tokio::time::timeout(LINGER, completed.wait_for(Option::is_some)).await;
+        }
+        let delivery = completed.borrow();
+        match &*delivery {
+            Some(Ok(())) => self
+                .session
+                .outcome()
+                .ok_or_else(|| finished_error(&self.session, ttl)),
+            Some(Err(error)) => Err(MeshIrohError::Stream(format!(
+                "sending final pairing response: {error}"
+            ))
+            .into()),
+            None => Err(PairingMeshError::Timeout(ttl)),
         }
     }
 
@@ -277,10 +288,23 @@ impl PairingListener {
 /// Connections are served one at a time. The protocol is two round-trips long
 /// and a pairing listener has exactly one job, so serialising them also bounds
 /// how fast a hostile peer can spend the session's attempt budget.
-async fn serve_loop(transport: Arc<MeshIroh>, session: Arc<HostSession>, progress: Arc<Notify>) {
+async fn serve_loop(
+    transport: Arc<MeshIroh>,
+    session: Arc<HostSession>,
+    complete: watch::Sender<FinalReply>,
+) {
     loop {
         match transport.accept().await {
-            Ok(Some(conn)) => serve_connection(&session, &conn, &progress).await,
+            Ok(Some(conn)) => {
+                let delivery = serve_connection(&session, &conn).await;
+                conn.close();
+                if let Err(error) = &delivery {
+                    debug!(%error, "pairing listener: response failed");
+                }
+                if session.is_finished() && complete.borrow().is_none() {
+                    complete.send_replace(Some(delivery.map_err(|e| e.to_string())));
+                }
+            }
             // The endpoint was shut down.
             Ok(None) => return,
             Err(e) => {
@@ -292,7 +316,7 @@ async fn serve_loop(transport: Arc<MeshIroh>, session: Arc<HostSession>, progres
 }
 
 /// Answer frames on one connection until it closes.
-async fn serve_connection(session: &HostSession, conn: &MeshConn, progress: &Notify) {
+async fn serve_connection(session: &HostSession, conn: &MeshConn) -> Result<(), MeshIrohError> {
     let remote_key = conn.remote_public_key();
     // One honest exchange is two frames. The cap stops a single connection
     // from being an unbounded work source; the attempt cap in `HostSession`
@@ -308,19 +332,19 @@ async fn serve_connection(session: &HostSession, conn: &MeshConn, progress: &Not
         };
         let response = session.handle(remote_key, request.payload());
         let finished = session.is_finished();
-        if let Err(e) = request.respond(&response).await {
-            debug!(error = %e, "pairing listener: response failed");
-            break;
-        }
-        progress.notify_waiters();
+        let budget = if finished { LINGER } else { ROUND_TRIP_TIMEOUT };
+        let deadline = TokioInstant::now() + budget;
+        tokio::time::timeout_at(deadline, request.respond(&response))
+            .await
+            .map_err(|_| MeshIrohError::RequestTimeout(budget))??;
         if finished {
             // Let the peer read that last frame and close, rather than having
             // the response discarded by an abrupt teardown.
-            let _ = tokio::time::timeout(LINGER, conn.closed()).await;
+            let _ = tokio::time::timeout_at(deadline, conn.closed()).await;
             break;
         }
     }
-    conn.close();
+    Ok(())
 }
 
 fn finished_error(session: &HostSession, ttl: Duration) -> PairingMeshError {

@@ -1,144 +1,7 @@
-//! Daemon configuration — mirrors the CLI's `~/.entangle/config.toml` schema.
-//!
-//! The `[mesh]` and `[security]` sections MUST stay field-for-field compatible
-//! with `entangle-cli`'s `Config` (`crates/entangle-cli/src/config.rs`): the
-//! CLI writes the file, the daemon reads it. The round-trip test at the bottom
-//! of this file pins the shared shape so the two schemas cannot silently
-//! drift. The `[runtime]` section is daemon-only tuning.
-//!
-//! Every section uses `deny_unknown_fields`, so a stale or typo'd key is a
-//! loud startup error instead of a silently ignored setting.
+//! Daemon configuration and per-user paths.
 
-use entangle_types::tier::Tier;
-use serde::{Deserialize, Serialize};
+pub use entangle_runtime::config::*;
 use std::path::PathBuf;
-
-/// Top-level daemon configuration (deserialized from `~/.entangle/config.toml`).
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Config {
-    /// Runtime-specific tuning knobs (daemon-only section).
-    pub runtime: RuntimeConfig,
-    /// Mesh transport configuration (shared with the CLI schema).
-    pub mesh: MeshConfig,
-    /// Security policy (shared with the CLI schema).
-    pub security: SecurityConfig,
-    /// Cross-node scheduler settings (daemon-only section).
-    ///
-    /// Inert unless `[mesh] transports` contains `"iroh"`, so a config
-    /// written by an older CLI — which omits this section entirely — leaves
-    /// the daemon single-machine, exactly as before.
-    pub scheduler: SchedulerConfig,
-}
-
-/// Cross-node scheduler settings (daemon-only).
-///
-/// This section only matters when `"iroh"` appears in `[mesh] transports`.
-/// Turning that on does two things, and both are gated on the peer store:
-/// this node begins **serving** work to peers in its allowlist, and it may
-/// **send** work to the peers listed here.
-///
-/// ```toml
-/// [mesh]
-/// transports = ["local", "iroh"]
-///
-/// [scheduler]
-/// bind = "0.0.0.0:0"
-/// peers = ["<pubkey-hex>@192.0.2.7:41641"]
-/// ```
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct SchedulerConfig {
-    /// UDP socket for the scheduler QUIC endpoint. `:0` picks an ephemeral
-    /// port.
-    pub bind: String,
-    /// Long addresses (`<pubkey-hex>@host:port`) of peers this node may
-    /// dispatch work to.
-    ///
-    /// An entry is used only if that peer is *also* trusted in the peer
-    /// store, so listing an address here does not by itself grant anything.
-    pub peers: Vec<String>,
-    /// Whether to allow relay fallback when hole-punching fails. Disable for
-    /// a LAN-only deployment that must never touch third-party relays.
-    pub relay: bool,
-}
-
-impl Default for SchedulerConfig {
-    fn default() -> Self {
-        Self {
-            bind: "0.0.0.0:0".to_owned(),
-            peers: Vec::new(),
-            relay: true,
-        }
-    }
-}
-
-/// Mesh-layer configuration.
-///
-/// Mirrors `entangle-cli`'s `MeshConfig` exactly.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct MeshConfig {
-    /// Active transport backends.  Phase 1 supports `"local"` (mDNS).
-    /// Example in `config.toml`: `transports = ["local"]`
-    pub transports: Vec<String>,
-    /// When `true` the daemon requires at least one trusted peer before
-    /// starting (spec §11 #16, enforced via ENTANGLE-E0050 at startup).
-    pub multi_node: bool,
-}
-
-/// Security policy configuration.
-///
-/// Mirrors `entangle-cli`'s `SecurityConfig` exactly. The CLI stores the tier
-/// as a bare `u8`; [`Tier`] serializes to/from the same integer wire form
-/// (1..=5), so the two representations are interchangeable on disk while the
-/// daemon gets range validation for free at parse time.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct SecurityConfig {
-    /// Maximum tier plugins may declare (1..=5). Defaults to tier 5 (native),
-    /// matching the CLI default.
-    pub max_tier_allowed: Tier,
-}
-
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        Self {
-            max_tier_allowed: Tier::Native,
-        }
-    }
-}
-
-/// Runtime-related configuration knobs (daemon-only).
-///
-/// Note: `multi_node` and `max_tier` used to live here but were never the
-/// operator-facing knobs — the CLI writes `[mesh] multi_node` and
-/// `[security] max_tier_allowed`. Those sections are now authoritative; a
-/// leftover key here fails loudly thanks to `deny_unknown_fields`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct RuntimeConfig {
-    /// Lifecycle event bus capacity (number of buffered envelopes).
-    pub bus_capacity: usize,
-}
-
-impl Default for RuntimeConfig {
-    fn default() -> Self {
-        Self { bus_capacity: 1024 }
-    }
-}
-
-/// Load configuration from a TOML file, or return defaults if the file does
-/// not exist. Returns an error only on parse failures.
-pub fn load_config(path: &std::path::Path) -> anyhow::Result<Config> {
-    if !path.exists() {
-        tracing::debug!(path = %path.display(), "config file absent — using defaults");
-        return Ok(Config::default());
-    }
-    let raw = std::fs::read_to_string(path)?;
-    let cfg: Config = toml::from_str(&raw)?;
-    Ok(cfg)
-}
 
 /// Resolve the default socket path.
 ///
@@ -183,6 +46,7 @@ pub fn default_config_dir() -> anyhow::Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use entangle_types::tier::Tier;
 
     /// Byte-for-byte what `entangle-cli`'s `config::save` writes
     /// (`toml::to_string_pretty` of its `Config`). If this fixture stops
@@ -221,6 +85,7 @@ max_tier_allowed = 2
         assert!(!cfg.mesh.multi_node);
         assert!(cfg.mesh.transports.is_empty());
         assert_eq!(cfg.runtime.bus_capacity, 1024);
+        assert!(cfg.runtime.plugins.is_empty());
     }
 
     #[test]
@@ -245,5 +110,6 @@ max_tier_allowed = 2
         let cfg = load_config(&dir.path().join("config.toml")).unwrap();
         assert_eq!(cfg.security.max_tier_allowed, Tier::Native);
         assert!(!cfg.mesh.multi_node);
+        assert!(cfg.runtime.plugins.is_empty());
     }
 }

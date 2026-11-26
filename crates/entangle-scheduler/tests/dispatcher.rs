@@ -5,7 +5,7 @@ use entangle_scheduler::{DispatchError, Dispatcher, WorkerInfo, WorkerPool};
 use entangle_signing::{sign_artifact, IdentityKeyPair, Keyring, TrustEntry};
 use entangle_types::{
     peer_id::PeerId,
-    resource::ResourceSpec,
+    resource::{GpuBackend, GpuRequirement, NpuRequirement, ResourceSpec},
     task::{IntegrityPolicy, OneShotTask},
 };
 use std::sync::Arc;
@@ -135,6 +135,88 @@ fn make_remote_worker(byte: u8) -> WorkerInfo {
     }
 }
 
+#[tokio::test]
+async fn placement_scores_local_hardware_only_while_the_requested_plugin_is_loaded() {
+    let keypair = IdentityKeyPair::generate();
+    let dir = tempfile::tempdir().unwrap();
+    let plugin = write_plugin_package(dir.path(), &keypair, &hello_pong_wasm())
+        .parse()
+        .unwrap();
+    let kernel = Arc::new(Kernel::new(KernelConfig::default(), build_keyring(&keypair)).unwrap());
+    let pool = WorkerPool::new();
+    let local = make_remote_worker(0xab);
+    let mut remote = make_remote_worker(0x42);
+    remote.cost = local.cost + 2.0;
+    pool.upsert(remote.clone());
+    let mut dispatcher = Dispatcher::new(pool.clone(), kernel.clone(), local_peer())
+        .with_local_worker(local)
+        .with_strict_remote(true);
+    let mut task = OneShotTask::with_defaults(plugin, b"local".to_vec());
+    task.resources.cpu_cores = 2.0;
+    task.resources.memory_bytes = 1024;
+
+    let err = dispatcher
+        .dispatch_one_shot(task.clone())
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, DispatchError::RemoteNotImplemented { peer, .. } if peer == remote.peer_id)
+    );
+
+    kernel.load_plugin_from_dir(dir.path()).await.unwrap();
+    let result = dispatcher.dispatch_one_shot(task.clone()).await.unwrap();
+    assert_eq!(result.chosen.peer_id, local_peer());
+    assert_eq!(result.output, b"Hello, local!");
+
+    // A better-scoring remote remains eligible while the local plugin is loaded.
+    remote.cost = 0.0;
+    pool.upsert(remote.clone());
+    let err = dispatcher
+        .dispatch_one_shot(task.clone())
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, DispatchError::RemoteNotImplemented { peer, .. } if peer == remote.peer_id)
+    );
+
+    // A network observation claiming this node's ID cannot replace its known hardware.
+    let mut stale_local = make_remote_worker(0xab);
+    stale_local.cpu_cores = 64.0;
+    pool.upsert(stale_local);
+    task.resources.cpu_cores = 32.0;
+    let err = dispatcher
+        .dispatch_one_shot(task.clone())
+        .await
+        .unwrap_err();
+    assert!(matches!(err, DispatchError::Placement(_)), "{err}");
+    task.resources.cpu_cores = 2.0;
+
+    // Only network observations expire. The local hardware persists independently.
+    dispatcher.worker_ttl = std::time::Duration::ZERO;
+    assert!(pool.live(dispatcher.worker_ttl).is_empty());
+    assert_eq!(
+        dispatcher
+            .dispatch_one_shot(task.clone())
+            .await
+            .unwrap()
+            .chosen
+            .peer_id,
+        local_peer()
+    );
+
+    task.resources.cpu_cores = 17.0;
+    let err = dispatcher
+        .dispatch_one_shot(task.clone())
+        .await
+        .unwrap_err();
+    assert!(matches!(err, DispatchError::Placement(_)), "{err}");
+
+    task.resources.cpu_cores = 2.0;
+    kernel.unload(&task.plugin).await.unwrap();
+    let err = dispatcher.dispatch_one_shot(task).await.unwrap_err();
+    assert!(matches!(err, DispatchError::Placement(_)), "{err}");
+}
+
 /// In strict-remote mode the dispatcher refuses to silently rerun a remote
 /// placement on the local kernel; it returns `RemoteNotImplemented`.
 #[tokio::test]
@@ -195,6 +277,53 @@ fn nothing_plugin_id(keypair: &IdentityKeyPair) -> entangle_types::plugin_id::Pl
     format!("{}/nothing@0.1.0", keypair.fingerprint_hex())
         .parse()
         .expect("parse plugin id")
+}
+
+#[tokio::test]
+async fn fallback_requires_evidence_of_local_resources() {
+    let keypair = IdentityKeyPair::generate();
+    let kernel = Arc::new(Kernel::new(KernelConfig::default(), build_keyring(&keypair)).unwrap());
+    let pool = WorkerPool::new();
+    let dispatcher = Dispatcher::new(pool.clone(), kernel, local_peer());
+    let gpu = GpuRequirement {
+        backend: GpuBackend::Cuda,
+        vram_min_bytes: 1024,
+    };
+    let npu = NpuRequirement {
+        vendor: "apple".into(),
+    };
+    let mut task = OneShotTask::with_defaults(nothing_plugin_id(&keypair), vec![]);
+    for resources in [
+        ResourceSpec {
+            gpu: Some(gpu.clone()),
+            ..Default::default()
+        },
+        ResourceSpec {
+            npu: Some(npu),
+            ..Default::default()
+        },
+        ResourceSpec {
+            network_bandwidth_bps: 1,
+            ..Default::default()
+        },
+    ] {
+        task.resources = resources;
+        let err = dispatcher
+            .dispatch_one_shot(task.clone())
+            .await
+            .unwrap_err();
+        assert!(matches!(err, DispatchError::Placement(_)), "{err}");
+    }
+
+    let mut remote = make_remote_worker(0x42);
+    remote.gpu = Some(gpu.clone());
+    pool.upsert(remote);
+    task.resources = ResourceSpec {
+        gpu: Some(gpu),
+        ..Default::default()
+    };
+    let err = dispatcher.dispatch_one_shot(task).await.unwrap_err();
+    assert!(matches!(err, DispatchError::Placement(_)), "{err}");
 }
 
 /// A `TrustedExecutor` policy whose allowlist omits the local peer must refuse

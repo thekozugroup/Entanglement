@@ -1,12 +1,15 @@
 //! Worker advertisement and pool management.
 
+use crate::placement::{choose_from, PlacementChoice, PlacementError};
+use entangle_types::plugin_id::PluginId;
 use entangle_types::{
     peer_id::PeerId,
-    resource::{GpuRequirement, NpuRequirement},
+    resource::{GpuRequirement, NpuRequirement, ResourceSpec},
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -19,7 +22,7 @@ pub struct WorkerInfo {
     pub display_name: String,
     /// Number of logical CPU cores available (fractional allowed).
     pub cpu_cores: f32,
-    /// Total host memory in bytes.
+    /// Memory capacity in bytes, including a known container limit.
     pub memory_bytes: u64,
     /// GPU capability, if present.
     pub gpu: Option<GpuRequirement>,
@@ -78,10 +81,62 @@ impl WorkerInfo {
 /// Worker pool with TTL-based liveness.
 #[derive(Clone)]
 pub struct WorkerPool {
-    inner: Arc<RwLock<HashMap<PeerId, (WorkerInfo, Instant)>>>,
+    inner: Arc<RwLock<HashMap<PeerId, Observations>>>,
     /// Hard cap on the number of distinct workers retained. Prevents an
     /// unauthenticated peer from flooding the pool with fresh identities.
     max_workers: usize,
+}
+
+/// Hardware and loaded plugin inventory from an authenticated scheduler endpoint.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WorkerCapabilities {
+    /// Resource capacities used by placement.
+    pub worker: WorkerInfo,
+    /// Exact plugin versions this worker can run.
+    pub plugins: HashSet<PluginId>,
+}
+
+/// Shared only by dispatches using this observation (or the permanent local worker).
+#[derive(Clone, Default)]
+pub(crate) struct InFlight(Arc<AtomicUsize>);
+
+impl InFlight {
+    pub(crate) fn reserve(&self) -> Reservation {
+        self.0.fetch_add(1, Ordering::Relaxed);
+        Reservation(Arc::clone(&self.0))
+    }
+}
+
+/// A running dispatch owns one reservation until its future finishes or is dropped.
+pub(crate) struct Reservation(Arc<AtomicUsize>);
+
+impl Drop for Reservation {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+#[derive(Default)]
+struct Observations {
+    in_flight: InFlight,
+    discovered: Option<(WorkerInfo, Instant)>,
+    authenticated: Option<(WorkerCapabilities, Instant)>,
+}
+
+impl Observations {
+    fn live(&self, now: Instant, ttl: Duration, plugin: Option<&PluginId>) -> Option<&WorkerInfo> {
+        if let Some((report, seen)) = &self.authenticated {
+            if now.duration_since(*seen) < ttl {
+                return plugin
+                    .is_none_or(|id| report.plugins.contains(id))
+                    .then_some(&report.worker);
+            }
+        }
+        self.discovered
+            .as_ref()
+            .filter(|(_, seen)| now.duration_since(*seen) < ttl)
+            .map(|(worker, _)| worker)
+    }
 }
 
 impl Default for WorkerPool {
@@ -123,17 +178,47 @@ impl WorkerPool {
         if info.validate().is_err() {
             return false;
         }
-        let mut guard = self.inner.write();
-        if !guard.contains_key(&info.peer_id) && guard.len() >= self.max_workers {
+        self.record(info.peer_id, |entry| {
+            entry.discovered = Some((info, Instant::now()))
+        })
+    }
+
+    /// Record the authenticated worker's current plugin inventory and hardware.
+    pub fn upsert_authenticated(&self, report: WorkerCapabilities) -> bool {
+        if report.worker.validate().is_err() {
             return false;
         }
-        guard.insert(info.peer_id, (info, Instant::now()));
+        self.record(report.worker.peer_id, |entry| {
+            entry.authenticated = Some((report, Instant::now()))
+        })
+    }
+
+    fn record(&self, peer: PeerId, update: impl FnOnce(&mut Observations)) -> bool {
+        let mut workers = self.inner.write();
+        if !workers.contains_key(&peer) && workers.len() >= self.max_workers {
+            return false;
+        }
+        update(workers.entry(peer).or_default());
         true
     }
 
     /// Remove a worker (peer revoked, network gone, etc.).
     pub fn remove(&self, peer_id: &PeerId) -> Option<WorkerInfo> {
-        self.inner.write().remove(peer_id).map(|(info, _)| info)
+        let old = self.inner.write().remove(peer_id)?;
+        old.authenticated
+            .map(|(report, _)| report.worker)
+            .or_else(|| old.discovered.map(|(worker, _)| worker))
+    }
+
+    /// Forget a LAN sighting while retaining independent mesh observations.
+    pub fn remove_discovered(&self, peer_id: &PeerId) {
+        let mut workers = self.inner.write();
+        if let Some(entry) = workers.get_mut(peer_id) {
+            entry.discovered = None;
+            if entry.authenticated.is_none() {
+                workers.remove(peer_id);
+            }
+        }
     }
 
     /// Return all workers whose last update was within `ttl`.
@@ -146,9 +231,32 @@ impl WorkerPool {
         self.inner
             .read()
             .values()
-            .filter(|(_, ts)| now.duration_since(*ts) < ttl)
-            .map(|(info, _)| info.clone())
+            .filter_map(|entry| entry.live(now, ttl, None).cloned())
             .collect()
+    }
+
+    /// Score live eligible workers without cloning each advertisement.
+    pub(crate) fn choose(
+        &self,
+        ttl: Duration,
+        spec: &ResourceSpec,
+        plugin: &PluginId,
+        local: Option<(&WorkerInfo, &InFlight)>,
+        eligible: impl Fn(&PeerId) -> bool,
+    ) -> Result<(PlacementChoice, Reservation), PlacementError> {
+        // Only one upgradable reader can select/reserve at once. Ordinary pool
+        // readers remain independent and no lock is held during execution.
+        let workers = self.inner.upgradable_read();
+        let now = Instant::now();
+        let candidates = workers
+            .values()
+            .filter_map(|entry| Some((entry.live(now, ttl, Some(plugin))?, &entry.in_flight)))
+            .filter(|(worker, _)| local.is_none_or(|(own, _)| own.peer_id != worker.peer_id))
+            .chain(local)
+            .filter(|(info, _)| eligible(&info.peer_id))
+            .map(|(info, counter)| (info, counter.0.load(Ordering::Relaxed), counter));
+        let (choice, counter) = choose_from(candidates, spec)?;
+        Ok((choice, counter.reserve()))
     }
 
     /// Number of workers currently retained, **including entries that have
@@ -175,7 +283,7 @@ impl WorkerPool {
         let now = Instant::now();
         let mut guard = self.inner.write();
         let before = guard.len();
-        guard.retain(|_, (_, ts)| now.duration_since(*ts) < ttl);
+        guard.retain(|_, entry| entry.live(now, ttl, None).is_some());
         before - guard.len()
     }
 }
@@ -201,6 +309,68 @@ mod tests {
             load: 0.1,
             cost: 1.0,
         }
+    }
+
+    #[test]
+    fn authenticated_inventory_controls_placement_across_lan_updates() {
+        let pool = WorkerPool::new();
+        let ttl = Duration::from_secs(60);
+        let id = make_peer(1);
+        let plugin: PluginId = "aabbccddeeff00112233445566778899/available@1.0.0"
+            .parse()
+            .unwrap();
+        let missing: PluginId = "aabbccddeeff00112233445566778899/absent@1.0.0"
+            .parse()
+            .unwrap();
+        let fits = |plugin| {
+            pool.choose(ttl, &ResourceSpec::default(), plugin, None, |_| true)
+                .is_ok()
+        };
+
+        let mut worker = make_worker(id);
+        pool.upsert_authenticated(WorkerCapabilities {
+            worker: worker.clone(),
+            plugins: [plugin.clone()].into(),
+        });
+        worker.memory_bytes = 0;
+        pool.upsert(worker);
+        assert!(fits(&plugin));
+        assert!(!fits(&missing));
+        assert!(pool.live(ttl)[0].memory_bytes > 0);
+
+        pool.remove_discovered(&id);
+        assert!(fits(&plugin));
+        assert!(pool.remove(&id).is_some());
+        assert!(!fits(&plugin));
+    }
+
+    #[test]
+    fn dropping_a_reservation_after_expiry_cannot_release_a_new_workers_slot() {
+        let pool = WorkerPool::new();
+        let worker = make_worker(make_peer(1));
+        let plugin: PluginId = "0123456789abcdef0123456789abcdef/demo@1.0.0"
+            .parse()
+            .unwrap();
+        let reserve = || {
+            pool.choose(
+                Duration::from_secs(60),
+                &ResourceSpec::default(),
+                &plugin,
+                None,
+                |_| true,
+            )
+            .unwrap()
+        };
+        pool.upsert(worker.clone());
+        let (_, expired) = reserve();
+        assert_eq!(pool.remove_stale(Duration::ZERO), 1);
+        pool.upsert(worker);
+        let (new_choice, current) = reserve();
+        drop(expired);
+        let (busy, _) = reserve();
+        assert!(busy.score < new_choice.score);
+        drop(current);
+        assert_eq!(reserve().0.score, new_choice.score);
     }
 
     #[test]

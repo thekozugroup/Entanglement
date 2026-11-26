@@ -2,10 +2,8 @@
 //! `entangle plugins available`, `entangle plugins install <NAME>`, and
 //! `entangle quickstart`.
 //!
-//! Every test builds its **own** temporary catalog. Nothing here depends on the
-//! repository's `plugins/` directory existing — a test that reads the real
-//! catalog would be a test of someone else's file layout, and would fail or pass
-//! for reasons unrelated to this code.
+//! The default tests use temporary catalogs. The opt-in smoke test uses the
+//! repository's `plugins/` catalog to verify the full plugin lifecycle.
 //!
 //! Compiling wasm is never exercised by default: the install tests package a
 //! pre-built (fake) artifact via `--wasm`, and the one test that runs a real
@@ -94,6 +92,47 @@ fn keyring_entries(tmp: &TempDir) -> Vec<String> {
     kr.entries()
         .map(|e| format!("{}:{}", hex::encode(e.fingerprint), e.publisher_name))
         .collect()
+}
+
+#[test]
+fn install_rejects_above_ceiling_before_writing_a_package_or_trusting_the_key() {
+    let tmp = TempDir::new().unwrap();
+    init(&tmp);
+    let home = entangle_dir(&tmp);
+    std::fs::write(
+        home.join("config.toml"),
+        "[security]\nmax_tier_allowed = 2\n",
+    )
+    .unwrap();
+    let keyring = std::fs::read(home.join("keyring.toml")).unwrap();
+    let catalog = tmp.path().join("catalog");
+    let project = catalog_plugin(&catalog, "networked", 3, "requires tier 3");
+    let dist = tmp.path().join("dist");
+    let install = || {
+        let mut cmd = entangle(&tmp);
+        cmd.args(["plugins", "install", "networked", "--catalog"])
+            .arg(&catalog)
+            .arg("--wasm")
+            .arg(project.join("prebuilt.wasm"))
+            .arg("--out")
+            .arg(&dist);
+        cmd
+    };
+    install()
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0043"));
+    assert!(!dist.exists());
+    assert_eq!(std::fs::read(home.join("keyring.toml")).unwrap(), keyring);
+
+    // It is legitimate to package this component for a different device.
+    install().arg("--no-load").assert().success();
+    entangle(&tmp)
+        .args(["--allow-local", "plugins", "load"])
+        .arg(&dist)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ENTANGLE-E0043"));
 }
 
 // ---------------------------------------------------------------------------
@@ -669,6 +708,7 @@ fn quickstart_against_the_repository_catalog() {
         .timeout(std::time::Duration::from_secs(900))
         .assert()
         .success()
+        .stdout(predicate::str::contains("\n\"entanglement\"\n"))
         .stdout(predicate::str::contains("What just happened"))
         .stdout(predicate::str::contains("What to try next"));
 
@@ -680,4 +720,27 @@ fn quickstart_against_the_repository_catalog() {
         .assert()
         .success()
         .stdout(predicate::str::contains("already trusted"));
+
+    entangle(&tmp)
+        .args(["quickstart", "--plugin", "json-pointer", "--catalog"])
+        .arg(&repo_plugins)
+        .timeout(std::time::Duration::from_secs(900))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\n\"Healthy\"\n"));
+    entangle(&tmp)
+        .args([
+            "quickstart",
+            "--plugin",
+            "json-pointer",
+            "--input",
+            "invalid JSON",
+            "--catalog",
+        ])
+        .arg(&repo_plugins)
+        .timeout(std::time::Duration::from_secs(900))
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("sample invocation"))
+        .stdout(predicate::str::contains("What just happened").not());
 }

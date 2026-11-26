@@ -41,7 +41,14 @@ const INVOKE_TIMEOUT_MS: u64 = 30_000;
 /// `image-resize` is deliberately absent: its input is a binary image, which
 /// makes a poor one-line demo.
 const STARTERS: &[(&str, &str)] = &[
-    ("json-query", r#"{"hello":"entanglement","tier":1}"#),
+    (
+        "json-query",
+        r#"{"query":"hello","data":{"hello":"entanglement","tier":1}}"#,
+    ),
+    (
+        "json-pointer",
+        r##"{"pointer":"#/paths/~1health/get/responses/200/description","data":{"paths":{"/health":{"get":{"responses":{"200":{"description":"Healthy"}}}}}}}"##,
+    ),
     ("markdown-html", "# Hello from Entanglement\n"),
     ("csv-stats", "name,score\nalice,10\nbob,32\n"),
     ("compress", "entanglement runs signed wasm plugins"),
@@ -97,8 +104,7 @@ fn sample_input_for(name: &str) -> Option<&'static str> {
 
 /// Choose which catalog entry to demo.
 ///
-/// Prefers [`STARTERS`] order, then any wasm plugin, then whatever is first —
-/// the six bundled plugins are not assumed to exist.
+/// Prefers [`STARTERS`] order, then any wasm plugin, then the first entry.
 pub fn pick_starter(entries: &[CatalogEntry]) -> Result<&CatalogEntry> {
     for (name, _) in STARTERS {
         if let Some(e) = entries.iter().find(|e| e.name.eq_ignore_ascii_case(name)) {
@@ -226,35 +232,18 @@ pub async fn run(args: QuickstartArgs) -> Result<()> {
         "      entangle plugins invoke {} --input {:?}",
         report.id, input
     );
-    match session
+    let output = session
         .invoke_bytes(&report.id, input.as_bytes(), INVOKE_TIMEOUT_MS)
         .await
-    {
-        Ok(output) => {
-            println!();
-            println!("{}", render_output(&output));
-            print_summary(&prepared, &report.id, &input, session.is_daemon());
-        }
-        Err(e) => {
-            // The plugin is installed and loaded; only the sample input failed.
-            // Say exactly that, and hand back a command the user can retry.
-            eprintln!();
-            eprintln!("warning: the sample invocation failed: {e:#}");
-            eprintln!(
-                "         {} is installed, signed, and trusted — only this input was rejected.",
-                report.id
-            );
-            eprintln!("         Try your own input:");
-            eprintln!(
-                "           entangle plugins invoke {} --input '<your input>'",
-                report.id
-            );
-            if let Ok(readme) = readme_hint(&entry) {
-                eprintln!("         Input format: {readme}");
-            }
-            print_summary(&prepared, &report.id, &input, session.is_daemon());
-        }
-    }
+        .map_err(|error| {
+            let hint = readme_hint(&entry)
+                .map(|path| format!("\nInput format: {path}"))
+                .unwrap_or_default();
+            error.context(format!("sample invocation of {} failed{hint}", report.id))
+        })?;
+    println!();
+    println!("{}", render_output(&output));
+    print_summary(&prepared, &report.id, &input, session.is_daemon());
 
     Ok(())
 }
@@ -334,13 +323,13 @@ mod tests {
         let entries = vec![
             entry("zzz-last", "wasm"),
             entry("csv-stats", "wasm"),
+            entry("json-pointer", "wasm"),
             entry("json-query", "wasm"),
         ];
         assert_eq!(pick_starter(&entries).unwrap().name, "json-query");
     }
 
-    /// The bundled six are a preference, not a requirement: an unrelated catalog
-    /// still gets a starter.
+    /// A catalog of unrelated plugins still gets a starter.
     #[test]
     fn an_unknown_catalog_still_yields_a_starter() {
         let entries = vec![

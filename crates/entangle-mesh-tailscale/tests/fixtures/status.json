@@ -1,0 +1,24 @@
+{
+  "Version": "1.92.0",
+  "BackendState": "Running",
+  "TailscaleIPs": ["100.64.0.1", "fd7a:115c:a1e0::1"],
+  "Self": {"ID": "nLocal", "Online": true},
+  "CurrentTailnet": {"MagicDNSSuffix": "mesh.example.ts.net"},
+  "Peer": {
+    "nodekey:02": {
+      "ID": "nWorker",
+      "HostName": "worker",
+      "DNSName": "worker.mesh.example.ts.net.",
+      "TailscaleIPs": ["100.64.0.2", "fd7a:115c:a1e0::2"],
+      "AllowedIPs": ["10.0.0.0/8", "0.0.0.0/0"],
+      "Online": true
+    },
+    "nodekey:01": {
+      "ID": "nOffline",
+      "HostName": "laptop",
+      "TailscaleIPs": null,
+      "Online": false
+    }
+  },
+  "User": {"1": {"LoginName": "operator@example.test"}}
+}

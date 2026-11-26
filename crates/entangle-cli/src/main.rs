@@ -77,7 +77,7 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Print the detected platform and the sandbox primitive that would be used
     /// for tier-5 plugins on this host (spec §0.2).
     PrintPlatform,
-    /// Print Prometheus exposition for the in-process metrics registry.
+    /// Print Prometheus exposition from the running daemon.
     ///
     /// Phase 1: prints the daemon's own counter/gauge/histogram families
     /// (still empty in the CLI process — wired to the daemon's registry in
@@ -142,7 +142,7 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Pair(a) => cmd::pair::run(a).await,
         Cmd::Compute(a) => cmd::compute::run(a).await,
         Cmd::PrintPlatform => print_platform(),
-        Cmd::Metrics => print_metrics(),
+        Cmd::Metrics => print_metrics().await,
         Cmd::Completions { shell } => generate_completions(shell),
     }
 }
@@ -167,17 +167,11 @@ fn generate_completions(shell: clap_complete::Shell) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn print_metrics() -> anyhow::Result<()> {
-    let registry = entangle_observability::Registry::new();
-    // Seed a few zero-valued series so the output is recognisable even when
-    // the daemon's registry isn't yet wired through RPC (Phase 2).
-    registry.inc_counter(
-        "entangle_cli_invocations_total",
-        "entangle CLI subcommands run since daemon start",
-        &[("subcommand", "metrics")],
-        1.0,
-    );
-    print!("{}", registry.render());
+async fn print_metrics() -> anyhow::Result<()> {
+    let client = entangle_rpc::Client::new(entangle_rpc::Client::default_socket());
+    let metrics =
+        tokio::time::timeout(std::time::Duration::from_secs(3), client.metrics()).await??;
+    print!("{metrics}");
     Ok(())
 }
 

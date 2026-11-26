@@ -7,7 +7,7 @@
 //! must merge restriction facts tightest-wins so an appended block can only
 //! narrow the grant.
 
-use biscuit_auth::KeyPair;
+use biscuit_auth::PrivateKey;
 use entangle_biscuits::{
     attenuate_biscuit, claims::ClaimSet, make_bridge_attenuation, mint, parse, verify,
     verify_bridge_cap, BiscuitError, BridgeVerifyContext, VerifyContext,
@@ -31,7 +31,7 @@ fn ctx(local: PeerId) -> VerifyContext {
 
 #[test]
 fn appended_capability_is_not_granted() {
-    let kp = KeyPair::new();
+    let kp = PrivateKey::new();
     let pubkey = kp.public();
 
     // Authority grants only compute.cpu to peer A.
@@ -74,7 +74,7 @@ fn appended_capability_is_not_granted() {
 
 #[test]
 fn appended_peer_cannot_rebind() {
-    let kp = KeyPair::new();
+    let kp = PrivateKey::new();
     let pubkey = kp.public();
 
     // Authority binds the token to peer A.
@@ -112,7 +112,7 @@ fn appended_peer_cannot_rebind() {
 
 #[test]
 fn appended_rate_limit_cannot_raise_bridge_limit() {
-    let kp = KeyPair::new();
+    let kp = PrivateKey::new();
     let pubkey = kp.public();
     let dest = peer(0x01);
 
@@ -155,7 +155,7 @@ fn appended_rate_limit_cannot_raise_bridge_limit() {
 
 #[test]
 fn appended_expires_keeps_tighter_authority_expiry() {
-    let kp = KeyPair::new();
+    let kp = PrivateKey::new();
     let pubkey = kp.public();
 
     // Authority expires in 100s.
@@ -194,7 +194,7 @@ fn appended_expires_keeps_tighter_authority_expiry() {
 
 #[test]
 fn appended_dest_pin_cannot_repin_destination() {
-    let kp = KeyPair::new();
+    let kp = PrivateKey::new();
     let pubkey = kp.public();
     let dest = peer(0x01);
     let attacker_dest = peer(0x02);

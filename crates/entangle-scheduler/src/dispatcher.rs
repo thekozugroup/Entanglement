@@ -6,13 +6,18 @@
 //! dispatch existed, governed by [`Dispatcher::strict_remote`].
 
 use crate::{
-    placement::{choose, PlacementChoice, PlacementError},
+    placement::{PlacementChoice, PlacementError},
     remote::RemoteDispatch,
     wire::RemoteErrorCode,
-    worker::WorkerPool,
+    worker::{InFlight, WorkerInfo, WorkerPool},
 };
 use entangle_runtime::Kernel;
-use entangle_types::{peer_id::PeerId, task::OneShotTask};
+use entangle_types::{
+    peer_id::PeerId,
+    resource::ResourceSpec,
+    task::{IntegrityPolicy, OneShotTask},
+};
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -110,6 +115,9 @@ pub struct Dispatcher {
     kernel: Arc<Kernel>,
     /// Local peer id — if placement chooses this peer, run in-process.
     local_peer_id: PeerId,
+    /// Locally measured hardware, independent of network observation lifetimes.
+    local_worker: Option<WorkerInfo>,
+    local_in_flight: InFlight,
     /// Cross-node dispatch client. `None` — the default — means this node has
     /// no mesh transport configured and behaves exactly as a local-only node.
     remote: Option<Arc<RemoteDispatch>>,
@@ -135,10 +143,25 @@ impl Dispatcher {
             workers,
             kernel,
             local_peer_id,
+            local_worker: None,
+            local_in_flight: InFlight::default(),
             remote: None,
             worker_ttl: Duration::from_secs(60),
             strict_remote: false,
         }
+    }
+
+    /// Include this node's hardware in placement when its kernel has the requested plugin.
+    /// Local hardware does not expire with network advertisements. A descriptor with
+    /// invalid hardware values or a different peer identity is discarded.
+    #[must_use]
+    pub fn with_local_worker(mut self, worker: WorkerInfo) -> Self {
+        if worker.peer_id == self.local_peer_id && worker.validate().is_ok() {
+            self.local_worker = Some(worker);
+        } else {
+            tracing::warn!(peer = %worker.peer_id, "discarding invalid local worker descriptor");
+        }
+        self
     }
 
     /// Enable strict remote enforcement.
@@ -180,7 +203,8 @@ impl Dispatcher {
     /// * with no transport and `strict_remote` set, the call fails with
     ///   [`DispatchError::RemoteNotImplemented`];
     /// * with no transport and `strict_remote` clear, execution falls back to
-    ///   the local kernel with a warning — the historical behaviour.
+    ///   the local kernel if the task has no resource requirements or a
+    ///   live local advertisement satisfies them.
     pub async fn dispatch_one_shot(
         &self,
         task: OneShotTask,
@@ -195,23 +219,48 @@ impl Dispatcher {
             });
         }
 
-        let live = self.workers.live(self.worker_ttl);
-
-        let chosen = choose(&live, &task.resources).or_else(|e| {
-            match e {
-                // No live workers and no resources required → use local kernel directly.
-                PlacementError::NoWorkers
-                    if task.resources.cpu_cores == 0.0 && task.resources.memory_bytes == 0 =>
-                {
-                    Ok(PlacementChoice {
-                        peer_id: self.local_peer_id,
-                        score: 0.0,
-                        reason: "no workers — falling back to local".into(),
-                    })
-                }
-                _ => Err(e),
+        let trusted: Option<HashSet<_>> = match &task.integrity {
+            IntegrityPolicy::TrustedExecutor { allowlist } => Some(allowlist.iter().collect()),
+            _ => None,
+        };
+        let unconstrained = matches!(
+            task.resources,
+            ResourceSpec {
+                cpu_cores: 0.0,
+                memory_bytes: 0,
+                gpu: None,
+                npu: None,
+                network_bandwidth_bps: 0,
             }
-        })?;
+        );
+        let local = self
+            .local_worker
+            .as_ref()
+            .filter(|_| self.kernel.has_plugin(&task.plugin))
+            .map(|worker| (worker, &self.local_in_flight));
+        let local_allowed = self.local_worker.is_none() || local.is_some();
+        let chosen = self.workers.choose(
+            self.worker_ttl,
+            &task.resources,
+            &task.plugin,
+            local,
+            |peer| {
+                (*peer != self.local_peer_id || local_allowed)
+                    && trusted.as_ref().is_none_or(|peers| peers.contains(peer))
+            },
+        );
+        let (mut chosen, mut _reservation) = match chosen {
+            Ok(chosen) => chosen,
+            Err(PlacementError::NoWorkers) if unconstrained && local_allowed => (
+                PlacementChoice {
+                    peer_id: self.local_peer_id,
+                    score: 0.0,
+                    reason: "no eligible workers — falling back to local".into(),
+                },
+                self.local_in_flight.reserve(),
+            ),
+            Err(e) => return Err(e.into()),
+        };
 
         if chosen.peer_id != self.local_peer_id {
             match &self.remote {
@@ -242,14 +291,33 @@ impl Dispatcher {
                 None if self.strict_remote => {
                     return Err(DispatchError::RemoteNotImplemented {
                         peer: chosen.peer_id,
-                        reason: chosen.reason.clone(),
+                        reason: chosen.reason,
                     });
                 }
                 None => {
                     tracing::warn!(
                         ?chosen,
-                        "no mesh transport configured; falling back to local execution"
+                        "no mesh transport configured; checking local fallback"
                     );
+                    (chosen, _reservation) = if unconstrained && local_allowed {
+                        (
+                            PlacementChoice {
+                                peer_id: self.local_peer_id,
+                                score: 0.0,
+                                reason: "no mesh transport — falling back to local".into(),
+                            },
+                            self.local_in_flight.reserve(),
+                        )
+                    } else {
+                        // A remote advert says nothing about the local hardware.
+                        self.workers.choose(
+                            self.worker_ttl,
+                            &task.resources,
+                            &task.plugin,
+                            local,
+                            |peer| *peer == self.local_peer_id && local_allowed,
+                        )?
+                    };
                 }
             }
         }

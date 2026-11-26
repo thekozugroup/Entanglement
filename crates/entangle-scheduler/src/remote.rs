@@ -39,7 +39,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use entangle_mesh_iroh::{DynMeshTransport, IrohPeer, MeshIroh};
-use entangle_runtime::{Kernel, RuntimeError};
+use entangle_runtime::{check_trusted_executor, IntegrityError, Kernel, RuntimeError};
 use entangle_types::peer_id::PeerId;
 use entangle_types::plugin_id::PluginId;
 use entangle_types::resource::ResourceSpec;
@@ -47,6 +47,12 @@ use entangle_types::task::{IntegrityPolicy, OneShotTask};
 use parking_lot::RwLock;
 
 use crate::dispatcher::DispatchError;
+use crate::worker::{WorkerCapabilities, WorkerInfo};
+
+const MAX_CAPABILITIES_BYTES: usize = 256 * 1024;
+
+// A leading zero is disjoint from every valid v1 task. Match the entire frame.
+const CAPABILITIES_REQUEST: &[u8] = b"\0entangle/worker-capabilities/1";
 use crate::wire::{
     decode_request, decode_response, encode_request, encode_response, RemoteErrorCode,
     RemoteOutcome, RemoteTaskRequest, RemoteTaskResponse, WireError,
@@ -158,6 +164,77 @@ impl RemoteDispatch {
         self.transport.local_peer_id()
     }
 
+    async fn address(&self, peer: PeerId) -> Result<IrohPeer, DispatchError> {
+        let addresses = self.addresses.clone();
+        let addr = tokio::task::spawn_blocking(move || addresses.lookup(&peer))
+            .await
+            .map_err(|err| DispatchError::RemoteTransport {
+                peer,
+                reason: err.to_string(),
+            })?
+            .ok_or_else(|| DispatchError::RemoteTransport {
+                peer,
+                reason: "no known network address for this peer (not paired, or no address \
+                         learned yet)"
+                    .to_owned(),
+            })?;
+
+        // QUIC authenticates the descriptor's public key. Bind that key to
+        // the peer whose eligibility placement and the integrity policy checked.
+        if addr.peer_id != peer || PeerId::from_public_key_bytes(&addr.public_key) != peer {
+            return Err(DispatchError::RemoteTransport {
+                peer,
+                reason: "address book returned a different peer identity".into(),
+            });
+        }
+
+        Ok(addr)
+    }
+
+    /// Read this trusted worker's hardware advertisement over identity-bound QUIC.
+    /// The RTT includes connection setup. Peers implementing only task wire v1
+    /// answer this extension with an unsupported-version error.
+    pub async fn capabilities(&self, peer: PeerId) -> Result<WorkerCapabilities, DispatchError> {
+        let addr = self.address(peer).await?;
+        let invalid = |reason: String| DispatchError::RemoteTransport { peer, reason };
+        let start = std::time::Instant::now();
+        let raw = tokio::time::timeout(
+            Duration::from_secs(5),
+            self.transport.request(&addr, CAPABILITIES_REQUEST),
+        )
+        .await
+        .map_err(|_| invalid("capability request timed out".into()))?
+        .map_err(|e| invalid(e.to_string()))?;
+        if raw.len() > MAX_CAPABILITIES_BYTES + 32 {
+            return Err(invalid("oversized capability response".into()));
+        }
+        let response = decode_response(&raw, MAX_CAPABILITIES_BYTES as u64)
+            .map_err(|e| invalid(e.to_string()))?;
+        let bytes = match response.outcome {
+            RemoteOutcome::Ok { output } => output,
+            RemoteOutcome::Err { code, message } => {
+                return Err(DispatchError::RemoteRejected {
+                    peer,
+                    code,
+                    message,
+                })
+            }
+        };
+        let mut report: WorkerCapabilities =
+            serde_json::from_slice(&bytes).map_err(|e| invalid(e.to_string()))?;
+        if report.worker.peer_id != peer {
+            return Err(invalid(
+                "capability report identifies a different peer".into(),
+            ));
+        }
+        report
+            .worker
+            .validate()
+            .map_err(|e| invalid(e.to_string()))?;
+        report.worker.rtt_ms = start.elapsed().as_millis().min(u32::MAX.into()) as u32;
+        Ok(report)
+    }
+
     /// Ship `task` to `peer` and return the output bytes it produced.
     ///
     /// The whole exchange is bounded by `task.timeout_ms` plus the configured
@@ -168,16 +245,25 @@ impl RemoteDispatch {
         task: &OneShotTask,
         peer: PeerId,
     ) -> Result<Vec<u8>, DispatchError> {
-        let addr = self
-            .addresses
-            .lookup(&peer)
-            .ok_or_else(|| DispatchError::RemoteTransport {
-                peer,
-                reason: "no known network address for this peer (not paired, or no address \
-                         learned yet)"
-                    .to_owned(),
-            })?;
+        // The wire request asks for exactly one execution. Verify the caller's
+        // policy before sharing its input, including for direct client calls.
+        let unsupported = match &task.integrity {
+            IntegrityPolicy::TrustedExecutor { .. } => {
+                check_trusted_executor(&task.integrity, &peer).map_err(RuntimeError::from)?;
+                None
+            }
+            IntegrityPolicy::None | IntegrityPolicy::Deterministic { replicas: 0 | 1 } => None,
+            IntegrityPolicy::Deterministic { .. } => {
+                Some("remote Deterministic with multiple replicas")
+            }
+            IntegrityPolicy::SemanticEquivalent { .. } => Some("SemanticEquivalent"),
+            IntegrityPolicy::Attested { .. } => Some("Attested"),
+        };
+        if let Some(policy) = unsupported {
+            return Err(RuntimeError::Integrity(IntegrityError::NotImplemented(policy)).into());
+        }
 
+        let addr = self.address(peer).await?;
         let request = RemoteTaskRequest::for_task(task);
         let frame = encode_request(&request).map_err(|e| DispatchError::RemoteTransport {
             peer,
@@ -292,6 +378,7 @@ pub const MAX_REMOTE_TASK_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
 /// Clone is cheap; one instance serves every inbound connection.
 #[derive(Clone)]
 pub struct RemoteTaskServer {
+    capabilities: Option<WorkerInfo>,
     kernel: Arc<Kernel>,
     allowlist: Arc<dyn PeerAllowlist>,
     local_peer_id: PeerId,
@@ -320,6 +407,7 @@ impl RemoteTaskServer {
         local_peer_id: PeerId,
     ) -> Self {
         Self {
+            capabilities: None,
             kernel,
             allowlist,
             local_peer_id,
@@ -327,6 +415,12 @@ impl RemoteTaskServer {
             max_input_bytes: OneShotTask::DEFAULT_MAX_INPUT_BYTES,
             max_output_bytes: OneShotTask::DEFAULT_MAX_OUTPUT_BYTES,
         }
+    }
+
+    /// Advertise this worker to authorized peers that request its capabilities.
+    pub fn with_capabilities(mut self, capabilities: WorkerInfo) -> Self {
+        self.capabilities = Some(capabilities);
+        self
     }
 
     /// Lower the timeout ceiling. Values above [`MAX_REMOTE_TASK_TIMEOUT_MS`]
@@ -401,7 +495,11 @@ impl RemoteTaskServer {
         // `from` is the identity QUIC authenticated during the handshake.
         // Check it before decoding: an unauthorized peer must not even get
         // this node's parser as an attack surface, let alone its kernel.
-        if !self.allowlist.is_authorized(&from) {
+        let allowlist = self.allowlist.clone();
+        let authorized = tokio::task::spawn_blocking(move || allowlist.is_authorized(&from))
+            .await
+            .unwrap_or(false);
+        if !authorized {
             tracing::warn!(
                 peer = %from,
                 "scheduler: refused task from a peer that is not in the trusted allowlist"
@@ -410,6 +508,31 @@ impl RemoteTaskServer {
                 RemoteErrorCode::NotAuthorized,
                 "peer is not in this node's trusted peer allowlist",
             );
+        }
+
+        if payload == CAPABILITIES_REQUEST {
+            return match &self.capabilities {
+                Some(worker) => match serde_json::to_vec(&WorkerCapabilities {
+                    worker: worker.clone(),
+                    plugins: self.kernel.list_plugins().into_iter().collect(),
+                }) {
+                    Ok(bytes) if bytes.len() <= MAX_CAPABILITIES_BYTES => {
+                        RemoteTaskResponse::ok(bytes)
+                    }
+                    Ok(_) => RemoteTaskResponse::err(
+                        RemoteErrorCode::OutputTooLarge,
+                        "capability inventory too large",
+                    ),
+                    Err(_) => RemoteTaskResponse::err(
+                        RemoteErrorCode::Internal,
+                        "invalid local capabilities",
+                    ),
+                },
+                None => RemoteTaskResponse::err(
+                    RemoteErrorCode::UnsupportedVersion,
+                    "worker capabilities unavailable",
+                ),
+            };
         }
 
         let request = match decode_request(&payload) {

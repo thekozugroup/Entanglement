@@ -399,9 +399,7 @@ install -m0755 "entanglement-${TAG}-${TARGET}/entangle"  ~/.local/bin/
 install -m0755 "entanglement-${TAG}-${TARGET}/entangled" ~/.local/bin/
 ```
 
-`verify-release.sh` needs `sha256sum` (coreutils), plus `b3sum` and `cosign` for
-the BLAKE3 and signature checks — it warns and skips those two if the tools are
-missing, so install them if you want the full check to actually run.
+Official verification requires `sha256sum` or `shasum`, plus `cosign` and the release's Sigstore bundle. Install `b3sum` to check a published BLAKE3 sidecar. For an unsigned local build, `./scripts/verify-release.sh --checksums-only "$TARBALL"` checks the digest without authenticating the publisher.
 
 ---
 
@@ -443,7 +441,7 @@ hand:
 
 ```bash
 entangle init                      # interactive wizard
-entangle init --non-interactive    # accept defaults: transports=local, max_tier=5, new identity
+entangle init --non-interactive    # initialize LAN discovery and QUIC, with public relays disabled
 ```
 
 `init` creates `~/.entangle/` at mode 0700 containing:
@@ -487,32 +485,31 @@ entangle completions fish > ~/.config/fish/completions/entangle.fish
 
 ### Your first plugin
 
-The plugin subcommands available in this revision are `new`, `build`, `list`,
-`load`, `unload`, and `invoke`:
+From the repository root, use quickstart to build, sign, load, and invoke the
+bundled JSON Pointer plugin.
 
 ```bash
-rustup target add wasm32-wasip2                 # once
-cargo xtask hello-world build                   # prints your publisher fingerprint
-entangle keyring add <fingerprint> --name self
-entangle plugins load examples/hello-world/dist/ --allow-local
-entangle plugins invoke <fingerprint>/hello-world@0.1.0 --input world
+rustup target add wasm32-wasip2
+entangle quickstart --plugin json-pointer
 ```
 
-`entangle plugins new <name>` scaffolds a fresh plugin project that builds and
-loads as-is, and `entangle plugins build <dir>` builds and signs any plugin
-directory — not just the bundled examples.
+The sample resolves `#/paths/~1health/get/responses/200/description` in an OpenAPI
+`paths` object and prints `"Healthy"`. Quickstart trusts your signing key and
+saves the signed package under `~/.entangle/plugins/json-pointer/`. A running daemon reads the current publisher keyring on each new plugin load. Removing a publisher blocks subsequent loads of its packages. Use `entangle plugins unload <PLUGIN_ID>` to stop an already loaded package. Quickstart uses an in-process kernel when the daemon is stopped. It exits successfully after the sample invocation succeeds and returns an error if that invocation fails.
 
-> **Landing separately, not verified here.** A `entangle quickstart` command, an
-> `entangle plugins install <NAME>` / `entangle plugins available` pair, and a
-> plugin catalog resolved from `--catalog`, `$ENTANGLE_CATALOG`, `./plugins`, or
-> `~/.entangle/catalog` — plus a top-level `plugins/` directory of ready-made
-> plugins (json-query, csv-stats, markdown-html, image-resize, qr-encode,
-> compress) — are being added in parallel with this document. They did **not**
-> exist in the revision this page was written and tested against, so none of
-> those commands were run. Treat the intended flow as
-> `entangle quickstart` → `entangle plugins available` →
-> `entangle plugins install <NAME>`, and check `entangle plugins --help` for
-> what your build actually has.
+List the available plugin projects or build, sign, and load one by name.
+
+```bash
+entangle plugins available
+entangle plugins install csv-stats
+```
+
+Start `entangled run` before installing to keep the plugin loaded across CLI
+commands. Catalog commands search `--catalog <DIR>`, `$ENTANGLE_CATALOG`,
+`./plugins`, and `~/.entangle/catalog` in that order.
+
+Use `entangle plugins new <name>` to scaffold a project and
+`entangle plugins build <dir>` to build and sign it. [Plugin authoring guide](plugin-authoring.md)
 
 ---
 
@@ -617,16 +614,7 @@ expected result today: there are no published releases. Use
 [method 1](#1-from-source-recommended-today) or [method 2](#2-docker). The
 script's own error text lists both.
 
-**`error: failed to update submodule 'tools/graphify'`** (from
-`cargo install --git`) — a repository defect, not your setup. See
-[method 3](#3-cargo-install---git-currently-broken) for the cause and the
-workaround (clone, then `cargo install --path`).
-
-**`fatal: no submodule mapping found in .gitmodules for path 'tools/graphify'`**
-— the same defect, surfacing if you run `git submodule update --init` in a
-clone. You do not need to: nothing in the workspace builds from
-`tools/graphify`, and it is not a workspace member. Ignore it and build
-normally.
+Older checkouts with a stale `tools/graphify` gitlink can fail during `cargo install --git`. Use the current revision or build from the checkout. [Git installation](#3-cargo-install---git)
 
 **`Rust X.Y.Z is too old`** (from `bootstrap.sh`) — the workspace MSRV is
 **1.91** because iroh 1.0 requires it. With rustup, `rust-toolchain.toml`
@@ -702,19 +690,4 @@ see [`docs/operations.md`](./operations.md).
 
 ## What a `v0.1.0` release unblocks
 
-Cutting and pushing a `v0.1.0` tag runs
-[`.github/workflows/release.yml`](../.github/workflows/release.yml) and turns on,
-with no further doc changes:
-
-- `curl … | sh` via [`scripts/install.sh`](../scripts/install.sh) — the script is
-  already correct and only fails today because tag resolution finds nothing.
-- Homebrew, once the release job substitutes `version` and the four `sha256`
-  values into [`packaging/homebrew/entangle.rb`](../packaging/homebrew/entangle.rb)
-  and copies it into the tap.
-- `docker pull ghcr.io/thekozugroup/entanglement:<version>`.
-- `scripts/verify-release.sh` against real `.sha256` / `.b3` / `.sigstore`
-  sidecars.
-
-A release does **not** fix `cargo install --git` — that needs the
-`tools/graphify` gitlink removed (or a `.gitmodules` entry added) in a separate
-commit.
+A successful tagged release makes the platform tarballs, checksums, Sigstore bundles and container image available. Release authorization depends on the project’s maintainer and signing requirements. Homebrew also requires a populated formula in the tap. [Release workflow](../.github/workflows/release.yml)

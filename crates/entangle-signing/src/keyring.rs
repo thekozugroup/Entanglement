@@ -2,7 +2,7 @@
 //!
 //! Default path: `~/.entangle/keyring.toml`
 
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, io::Write, path::Path};
 
 use thiserror::Error;
 
@@ -18,13 +18,16 @@ pub enum KeyringError {
     /// TOML serialization failure.
     #[error("toml serialize: {0}")]
     Serialize(#[from] toml::ser::Error),
+    /// A persisted publisher entry has an invalid key or mismatched fingerprint.
+    #[error("invalid publisher key for fingerprint {0}")]
+    InvalidPublisher(String),
     /// Hex decode failure (e.g. on raw bytes from a loaded file).
     #[error("hex decode: {0}")]
     Hex(String),
 }
 
 /// A single trusted-publisher record.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TrustEntry {
     /// 16-byte BLAKE3 fingerprint of the publisher key (hex-encoded on disk).
     #[serde(
@@ -90,16 +93,46 @@ impl Keyring {
 
     /// Load keyring from a TOML file. Missing file returns an empty keyring.
     pub fn load(path: &Path) -> Result<Self, KeyringError> {
-        if !path.exists() {
-            return Ok(Self::new());
-        }
-        let raw = std::fs::read_to_string(path)?;
+        let raw = match std::fs::read_to_string(path) {
+            Ok(raw) => raw,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Self::new()),
+            Err(error) => return Err(error.into()),
+        };
         let file: KeyringFile = toml::from_str(&raw)?;
         let mut kr = Self::new();
         for e in file.entries {
+            let publisher = crate::IdentityPublicKey::from_bytes(&e.public_key)
+                .map_err(|_| KeyringError::InvalidPublisher(hex::encode(e.fingerprint)))?;
+            if publisher.fingerprint() != e.fingerprint {
+                return Err(KeyringError::InvalidPublisher(hex::encode(e.fingerprint)));
+            }
             kr.add(e);
         }
         Ok(kr)
+    }
+
+    /// Apply a read-modify-write operation under a lock shared by CLI writers.
+    /// When the file is absent, initialize it using the edited keyring.
+    pub fn edit_file<T>(path: &Path, edit: impl FnOnce(&mut Self) -> T) -> Result<T, KeyringError> {
+        let parent = parent_dir(path);
+        std::fs::create_dir_all(parent)?;
+        let lock_path = path.with_added_extension("lock");
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true).write(true).create(true).truncate(false);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let lock = options.open(lock_path)?;
+        lock.lock()?;
+        let original = Self::load(path)?;
+        let mut current = original.clone();
+        let result = edit(&mut current);
+        if original.entries != current.entries || !path.try_exists()? {
+            current.save(path)?;
+        }
+        Ok(result)
     }
 
     /// Persist keyring to a TOML file, creating parent directories as needed.
@@ -109,41 +142,26 @@ impl Keyring {
     /// plugins load, so other users must not be able to tamper with or
     /// pre-seed them.
     pub fn save(&self, path: &Path) -> Result<(), KeyringError> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        let parent = parent_dir(path);
+        std::fs::create_dir_all(parent)?;
         let file = KeyringFile {
             entries: self.entries.values().cloned().collect(),
         };
         let raw = toml::to_string_pretty(&file)?;
-        write_owner_only(path, raw.as_bytes())?;
+        // Live daemons read this path during signature verification. Publish a
+        // complete snapshot in one rename, using a private sibling temp file.
+        let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
+        tmp.write_all(raw.as_bytes())?;
+        tmp.as_file().sync_all()?;
+        tmp.persist(path).map_err(|failure| failure.error)?;
         Ok(())
     }
 }
 
-/// Write `contents` to `path` with owner-only (`0600`) permissions on Unix.
-#[cfg(unix)]
-fn write_owner_only(path: &Path, contents: &[u8]) -> std::io::Result<()> {
-    use std::io::Write as _;
-    use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
-
-    let mut f = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(path)?;
-    f.write_all(contents)?;
-    // `.mode()` only applies when the file is created; enforce 0600 for
-    // pre-existing files too.
-    f.set_permissions(std::fs::Permissions::from_mode(0o600))?;
-    Ok(())
-}
-
-/// Non-Unix fallback: plain write (no POSIX permission bits to set).
-#[cfg(not(unix))]
-fn write_owner_only(path: &Path, contents: &[u8]) -> std::io::Result<()> {
-    std::fs::write(path, contents)
+fn parent_dir(path: &Path) -> &Path {
+    path.parent()
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .unwrap_or(Path::new("."))
 }
 
 // ---------------------------------------------------------------------------
@@ -193,13 +211,42 @@ mod tests {
     use super::*;
 
     fn entry(byte: u8) -> TrustEntry {
+        let publisher = crate::IdentityKeyPair::from_seed(&[byte; 32]).public();
         TrustEntry {
-            fingerprint: [byte; 16],
-            public_key: [byte; 32],
+            fingerprint: publisher.fingerprint(),
+            public_key: *publisher.as_bytes(),
             publisher_name: format!("publisher-{byte}"),
             added_at: 0,
             note: String::new(),
         }
+    }
+
+    #[test]
+    fn file_edits_preserve_concurrent_additions() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keyring.toml");
+        std::thread::scope(|scope| {
+            for id in 0..8 {
+                let path = &path;
+                scope.spawn(move || Keyring::edit_file(path, |keys| keys.add(entry(id))).unwrap());
+            }
+        });
+        assert_eq!(Keyring::load(&path).unwrap().entries().count(), 8);
+    }
+
+    #[test]
+    fn rejects_inconsistent_persisted_fingerprints() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("keyring.toml");
+        let mut publisher = entry(1);
+        publisher.fingerprint = entry(2).fingerprint;
+        let mut keys = Keyring::new();
+        keys.add(publisher);
+        keys.save(&path).unwrap();
+        assert!(matches!(
+            Keyring::load(&path),
+            Err(KeyringError::InvalidPublisher(_))
+        ));
     }
 
     #[cfg(unix)]
@@ -252,7 +299,7 @@ mod tests {
         kr.save(&path).unwrap();
 
         let loaded = Keyring::load(&path).unwrap();
-        assert!(loaded.lookup(&[3u8; 16]).is_some());
-        assert!(loaded.lookup(&[4u8; 16]).is_some());
+        assert!(loaded.lookup(&entry(3).fingerprint).is_some());
+        assert!(loaded.lookup(&entry(4).fingerprint).is_some());
     }
 }

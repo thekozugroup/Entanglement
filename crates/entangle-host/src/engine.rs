@@ -5,8 +5,9 @@ use crate::state::HostState;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+
+use anyhow::Context as _;
 use wasmtime::component::Linker;
-use wasmtime::error::Context as _;
 use wasmtime::{Config, Engine};
 
 /// Interval, in milliseconds, at which the engine-wide ticker advances the
@@ -64,7 +65,7 @@ impl HostEngine {
     pub fn new() -> anyhow::Result<Self> {
         let mut cfg = Config::new();
         cfg.wasm_component_model(true);
-        // async_support is deprecated in wasmtime 43 (async is always on); omitted.
+        cfg.async_support(true);
         // We cap execution via epoch deadlines + a tokio backstop, not fuel (spec v6 §2).
         cfg.consume_fuel(false);
         cfg.epoch_interruption(true);

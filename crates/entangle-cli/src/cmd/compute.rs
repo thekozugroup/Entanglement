@@ -5,20 +5,15 @@
 //!   - The daemon is not running (`RpcError::DaemonNotRunning`), AND
 //!   - The user passed `--allow-local` (or `ENTANGLE_ALLOW_LOCAL=1`).
 //!
-//! Phase 1 note: the daemon's WorkerPool is empty — dispatches with zero
-//! resource requirements fall back to local kernel execution. Tasks that
-//! specify non-zero resources will fail until the pool is populated via
-//! mesh-local advertisement.
+//! The daemon matches local hardware and discovered workers against task requirements.
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use clap::{Args, Subcommand};
 use entangle_rpc::{
-    methods::{ComputeDispatchParams, ComputeIntegrity},
+    methods::{ComputeDispatchParams, ComputeDispatchResult, ComputeIntegrity},
     Client as RpcClient, RpcError,
 };
-use entangle_runtime::{Kernel, KernelConfig};
 use entangle_scheduler::{Dispatcher, WorkerPool};
-use entangle_signing::Keyring;
 use entangle_types::{
     peer_id::PeerId,
     plugin_id::PluginId,
@@ -27,6 +22,7 @@ use entangle_types::{
 };
 use std::str::FromStr;
 
+use crate::cmd::plugins::OutputSink;
 use crate::config;
 use crate::daemon_not_running_error;
 
@@ -43,51 +39,62 @@ pub struct ComputeArgs {
 #[derive(Subcommand)]
 pub enum ComputeCmd {
     /// Dispatch a one-shot plugin invocation via the scheduler.
-    Dispatch {
-        /// Plugin ID in `<publisher>/<name>@<version>` format.
-        plugin_id: String,
+    Dispatch(DispatchArgs),
+}
 
-        /// Inline input string (UTF-8). Mutually exclusive with --input-file.
-        #[arg(long, conflicts_with = "input_file")]
-        input: Option<String>,
+#[derive(Args)]
+pub struct DispatchArgs {
+    /// Plugin ID in `<publisher>/<name>@<version>` format.
+    plugin_id: String,
 
-        /// Path to a file whose contents are used as input bytes.
-        #[arg(long, conflicts_with = "input")]
-        input_file: Option<String>,
+    /// Inline input string (UTF-8). Mutually exclusive with --input-file.
+    #[arg(long, conflicts_with = "input_file")]
+    input: Option<String>,
 
-        /// Maximum wall-clock time for the invocation in milliseconds.
-        #[arg(long, default_value_t = 30_000)]
-        timeout_ms: u64,
+    /// Path to a file whose contents are used as input bytes.
+    #[arg(long, conflicts_with = "input")]
+    input_file: Option<String>,
 
-        /// Required CPU cores (fractional; 0 = no requirement).
-        #[arg(long, default_value_t = 0.0)]
-        cpu_cores: f32,
+    /// Write the exact result bytes to stdout. Placement details go to stderr.
+    #[arg(long, conflicts_with = "output_file")]
+    raw: bool,
 
-        /// Required host memory in bytes (0 = no requirement).
-        #[arg(long, default_value_t = 0)]
-        memory_bytes: u64,
+    /// Save the exact result bytes to a file.
+    #[arg(long, value_name = "PATH")]
+    output_file: Option<String>,
 
-        /// Require a GPU (any backend).
-        #[arg(long)]
-        gpu: bool,
+    /// Maximum wall-clock time for the invocation in milliseconds.
+    #[arg(long, default_value_t = 30_000)]
+    timeout_ms: u64,
 
-        /// Minimum GPU VRAM required in mebibytes (0 = no requirement).
-        #[arg(long, default_value_t = 0)]
-        gpu_vram_min_mib: u64,
+    /// Required CPU cores (fractional; 0 = no requirement).
+    #[arg(long, default_value_t = 0.0)]
+    cpu_cores: f32,
 
-        /// Integrity policy: none | deterministic | trusted-executor.
-        #[arg(long, default_value = "none")]
-        integrity: String,
+    /// Required host memory in bytes (0 = no requirement).
+    #[arg(long, default_value_t = 0)]
+    memory_bytes: u64,
 
-        /// Number of replicas for --integrity deterministic.
-        #[arg(long, default_value_t = 2)]
-        replicas: u8,
+    /// Require a GPU (any backend).
+    #[arg(long)]
+    gpu: bool,
 
-        /// Allow-listed peer hex ids for --integrity trusted-executor.
-        /// May be repeated.
-        #[arg(long = "allow")]
-        allow: Vec<String>,
-    },
+    /// Minimum GPU VRAM required in mebibytes (0 = no requirement).
+    #[arg(long, default_value_t = 0)]
+    gpu_vram_min_mib: u64,
+
+    /// Integrity policy: none | deterministic | trusted-executor.
+    #[arg(long, default_value = "none")]
+    integrity: String,
+
+    /// Number of replicas for --integrity deterministic.
+    #[arg(long, default_value_t = 2)]
+    replicas: u8,
+
+    /// Allow-listed peer hex ids for --integrity trusted-executor.
+    /// May be repeated.
+    #[arg(long = "allow")]
+    allow: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -96,34 +103,7 @@ pub enum ComputeCmd {
 
 pub async fn run(args: ComputeArgs) -> anyhow::Result<()> {
     match args.cmd {
-        ComputeCmd::Dispatch {
-            plugin_id,
-            input,
-            input_file,
-            timeout_ms,
-            cpu_cores,
-            memory_bytes,
-            gpu,
-            gpu_vram_min_mib,
-            integrity,
-            replicas,
-            allow,
-        } => {
-            dispatch(
-                plugin_id,
-                input,
-                input_file,
-                timeout_ms,
-                cpu_cores,
-                memory_bytes,
-                gpu,
-                gpu_vram_min_mib,
-                integrity,
-                replicas,
-                allow,
-            )
-            .await
-        }
+        ComputeCmd::Dispatch(args) => dispatch(args).await,
     }
 }
 
@@ -137,15 +117,8 @@ fn rpc_client() -> RpcClient {
 
 fn allow_local() -> bool {
     std::env::var("ENTANGLE_ALLOW_LOCAL")
-        .map(|v| !v.is_empty())
+        .map(|v| !v.is_empty() && v != "0")
         .unwrap_or(false)
-}
-
-fn build_kernel() -> anyhow::Result<Kernel> {
-    let kr_path = config::keyring_path();
-    let keyring = Keyring::load(&kr_path)?;
-    Kernel::new(KernelConfig::default(), keyring)
-        .map_err(|e| anyhow::anyhow!("failed to build kernel: {e}"))
 }
 
 fn parse_integrity(
@@ -173,33 +146,44 @@ fn parse_integrity(
     }
 }
 
-fn print_dispatch_output(chosen_peer: &str, score: f32, reason: &str, output: &[u8]) {
-    println!("Chosen: {chosen_peer} (score={score:.2})");
-    println!("Reason: {reason}");
-    match std::str::from_utf8(output) {
-        Ok(s) if !s.contains('\x00') => println!("Output: {s}"),
-        _ => println!("Output: {}", BASE64.encode(output)),
+fn write_dispatch_output(result: ComputeDispatchResult, sink: OutputSink) -> anyhow::Result<()> {
+    let placement = format!(
+        "Chosen: {} (score={:.2})\nReason: {}",
+        result.chosen_peer, result.score, result.reason
+    );
+    if sink != OutputSink::Pretty {
+        eprintln!("{placement}");
+        return sink.write(&result.output);
     }
+
+    println!("{placement}");
+    match std::str::from_utf8(&result.output) {
+        Ok(text) if !text.contains('\0') => println!("Output: {text}"),
+        _ => println!("Output: {}", BASE64.encode(&result.output)),
+    }
+    Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// dispatch implementation
-// ---------------------------------------------------------------------------
-
-#[allow(clippy::too_many_arguments)]
-async fn dispatch(
-    plugin_id: String,
-    input: Option<String>,
-    input_file: Option<String>,
-    timeout_ms: u64,
-    cpu_cores: f32,
-    memory_bytes: u64,
-    gpu: bool,
-    gpu_vram_min_mib: u64,
-    integrity: String,
-    replicas: u8,
-    allow: Vec<String>,
-) -> anyhow::Result<()> {
+async fn dispatch(args: DispatchArgs) -> anyhow::Result<()> {
+    let DispatchArgs {
+        plugin_id,
+        input,
+        input_file,
+        timeout_ms,
+        cpu_cores,
+        memory_bytes,
+        gpu,
+        gpu_vram_min_mib,
+        integrity,
+        replicas,
+        allow,
+        raw,
+        output_file,
+    } = args;
+    anyhow::ensure!(
+        cpu_cores.is_finite() && cpu_cores >= 0.0,
+        "--cpu-cores must be finite and nonnegative"
+    );
     let input_bytes: Vec<u8> = match (input.as_deref(), input_file.as_deref()) {
         (Some(s), _) => s.as_bytes().to_vec(),
         (_, Some(path)) => tokio::fs::read(path)
@@ -209,11 +193,12 @@ async fn dispatch(
     };
 
     let integrity_rpc = parse_integrity(&integrity, replicas, &allow)?;
-    let gpu_vram_min_bytes = gpu_vram_min_mib * 1024 * 1024;
-
+    let gpu_vram_min_bytes = gpu_vram_min_mib
+        .checked_mul(1024 * 1024)
+        .ok_or_else(|| anyhow::anyhow!("--gpu-vram-min-mib exceeds the supported byte range"))?;
     let params = ComputeDispatchParams {
-        plugin_id: plugin_id.clone(),
-        input: input_bytes.clone(),
+        plugin_id,
+        input: input_bytes,
         timeout_ms,
         cpu_cores,
         memory_bytes,
@@ -223,61 +208,35 @@ async fn dispatch(
     };
 
     let client = rpc_client();
-    match client.compute_dispatch(params).await {
-        Ok(r) => {
-            print_dispatch_output(&r.chosen_peer, r.score, &r.reason, &r.output);
-            Ok(())
-        }
-        Err(RpcError::DaemonNotRunning(_)) => {
-            if allow_local() {
-                dispatch_local(
-                    plugin_id,
-                    input_bytes,
-                    timeout_ms,
-                    cpu_cores,
-                    memory_bytes,
-                    gpu,
-                    gpu_vram_min_bytes,
-                    &integrity,
-                    replicas,
-                    &allow,
-                )
-                .await
-            } else {
-                Err(daemon_not_running_error())
-            }
-        }
-        Err(e) => Err(e.into()),
-    }
+    let result = match client.compute_dispatch(&params).await {
+        Ok(result) => result,
+        Err(RpcError::DaemonNotRunning(_)) if allow_local() => dispatch_local(params).await?,
+        Err(RpcError::DaemonNotRunning(_)) => return Err(daemon_not_running_error()),
+        Err(error) => return Err(error.into()),
+    };
+    write_dispatch_output(result, OutputSink::from_flags(output_file, raw))
 }
 
-// ---------------------------------------------------------------------------
-// Local-kernel fallback (--allow-local)
-// ---------------------------------------------------------------------------
-
-#[allow(clippy::too_many_arguments)]
-async fn dispatch_local(
-    plugin_id: String,
-    input_bytes: Vec<u8>,
-    timeout_ms: u64,
-    cpu_cores: f32,
-    memory_bytes: u64,
-    gpu: bool,
-    gpu_vram_min_bytes: u64,
-    integrity: &str,
-    replicas: u8,
-    allow: &[String],
-) -> anyhow::Result<()> {
+async fn dispatch_local(params: ComputeDispatchParams) -> anyhow::Result<ComputeDispatchResult> {
     use std::sync::Arc;
-
-    let kernel = Arc::new(build_kernel()?);
+    let kernel = Arc::new(config::local_kernel()?);
+    let ComputeDispatchParams {
+        plugin_id,
+        input,
+        timeout_ms,
+        cpu_cores,
+        memory_bytes,
+        gpu_required,
+        gpu_vram_min_bytes,
+        integrity,
+    } = params;
 
     // Parse plugin id.
     let pid =
         PluginId::from_str(&plugin_id).map_err(|e| anyhow::anyhow!("invalid plugin id: {e}"))?;
 
     // Build ResourceSpec.
-    let gpu_req = if gpu || gpu_vram_min_bytes > 0 {
+    let gpu_req = if gpu_required || gpu_vram_min_bytes > 0 {
         Some(GpuRequirement {
             vram_min_bytes: gpu_vram_min_bytes,
             backend: GpuBackend::Any,
@@ -294,9 +253,9 @@ async fn dispatch_local(
 
     // Map integrity.
     let integrity_policy = match integrity {
-        "none" => IntegrityPolicy::None,
-        "deterministic" => IntegrityPolicy::Deterministic { replicas },
-        "trusted-executor" => {
+        ComputeIntegrity::None => IntegrityPolicy::None,
+        ComputeIntegrity::Deterministic { replicas } => IntegrityPolicy::Deterministic { replicas },
+        ComputeIntegrity::TrustedExecutor { allowlist: allow } => {
             // Hard-error on any malformed entry instead of silently dropping it.
             let peers: Vec<PeerId> = allow
                 .iter()
@@ -307,11 +266,10 @@ async fn dispatch_local(
                 .collect::<anyhow::Result<_>>()?;
             IntegrityPolicy::TrustedExecutor { allowlist: peers }
         }
-        other => return Err(anyhow::anyhow!("unknown integrity mode '{other}'")),
     };
 
     let local_peer_id = PeerId::from_public_key_bytes(&[0u8; 32]);
-    let mut task = OneShotTask::with_defaults(pid, input_bytes);
+    let mut task = OneShotTask::with_defaults(pid, input);
     task.resources = resources;
     task.integrity = integrity_policy;
     task.timeout_ms = timeout_ms;
@@ -322,11 +280,10 @@ async fn dispatch_local(
         .await
         .map_err(|e| anyhow::anyhow!("dispatch error: {e}"))?;
 
-    print_dispatch_output(
-        &result.chosen.peer_id.to_hex(),
-        result.chosen.score,
-        &result.chosen.reason,
-        &result.output,
-    );
-    Ok(())
+    Ok(ComputeDispatchResult {
+        chosen_peer: result.chosen.peer_id.to_hex(),
+        score: result.chosen.score,
+        reason: result.chosen.reason,
+        output: result.output,
+    })
 }

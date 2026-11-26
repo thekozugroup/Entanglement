@@ -60,7 +60,7 @@ Entanglement init
   Writing ~/.entangle/config.toml
   Writing ~/.entangle/keyring.toml
 
-Identity fingerprint: a3f9…c7d1   ← your public key, hex-encoded SHA-256
+Identity fingerprint: a3f9…c7d1   ← fingerprint derived from your Ed25519 public key
 
 Done. Run `entangle version` to verify.
 ```
@@ -189,8 +189,7 @@ plugins: checking tier constraints...
 plugins: registered a3f9c7d1/hash-it@0.1.0
 ```
 
-`--allow-local` permits plugins whose manifest `id` was built from a local
-keyring entry. In a production flow you would publish to the registry instead.
+`--allow-local` permits a temporary in-process worker when the daemon is offline. Both paths verify the signed package against the publisher keyring. Start the daemon to keep the loaded component available across CLI calls.
 
 If you see `ENTANGLE-E0011: unknown publisher`, make sure you ran step 5 first.
 
@@ -466,16 +465,13 @@ protocol's threat model.
 
 ---
 
-## 12. What Is NOT in Phase 1
+## 12. Cross-device compute and planned features
 
-Phase 1 covers local single-machine operation. The following are explicitly out
-of scope and will ship in later phases:
+Pair two devices on the same LAN and load a signed package on the worker. A freshly initialized coordinator discovers that worker, checks its advertised components over QUIC, and can invoke one using `entangle compute dispatch`. An existing tailnet can carry the same jobs after the operator maps worker identities. [LAN and Tailscale configuration](./operations.md#running-a-worker-on-the-lan)
 
-| Feature | Spec section | Target phase |
+| Planned feature | Spec section | Target phase |
 |---------|-------------|--------------|
-| Mesh transport over iroh (NAT-traversing P2P) | architecture.md §10 mesh.iroh | Phase 2 |
-| Mesh transport over Tailscale | architecture.md §10 mesh.tailscale | Phase 2 |
-| Distributed compute over real remote workers | architecture.md §11 | Phase 2 |
+| Automatic MagicDNS SRV/TXT registration | architecture.md §6.1.1 | Planned |
 | MCP gateway server for agent-host integration | architecture.md §12 | Phase 2 |
 | Plugin registry (publish / discover / update) | architecture.md §13 | Phase 3 |
 | Audit log streaming to external SIEM | architecture.md §14 | Phase 3 |

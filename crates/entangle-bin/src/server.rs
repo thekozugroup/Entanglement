@@ -65,125 +65,204 @@ const ACCEPT_BACKOFF_CAP: Duration = Duration::from_secs(1);
 /// be restricted to owner-only, or if `accept()` fails
 /// `MAX_CONSECUTIVE_ACCEPT_ERRORS` times in a row.
 pub async fn serve(socket_path: PathBuf, state: Arc<DaemonState>) -> anyhow::Result<()> {
-    // Ensure the parent directory exists and is private to the owner.
-    if let Some(parent) = socket_path.parent() {
-        if !parent.as_os_str().is_empty() {
-            let mut builder = std::fs::DirBuilder::new();
-            builder.recursive(true).mode(0o700);
-            builder.create(parent).with_context(|| {
-                format!("failed to create socket directory {}", parent.display())
-            })?;
+    RpcListener::bind(socket_path).await?.run(state).await
+}
+
+/// A bound socket and the process lock protecting its pathname.
+pub struct RpcListener {
+    listener: UnixListener,
+    path: PathBuf,
+    identity: (u64, u64),
+    owner_uid: u32,
+    _lock: std::fs::File,
+}
+
+impl Drop for RpcListener {
+    fn drop(&mut self) {
+        if let Ok(meta) = std::fs::symlink_metadata(&self.path) {
+            if (meta.dev(), meta.ino()) == self.identity {
+                let _ = std::fs::remove_file(&self.path);
+            }
         }
     }
+}
 
-    // Remove a stale socket file so bind succeeds after a crash — but only
-    // if the existing path really is a socket. Anything else (regular file,
-    // directory, symlink) is suspicious and must not be unlinked blindly.
-    match std::fs::symlink_metadata(&socket_path) {
-        Ok(meta) if meta.file_type().is_socket() => {
-            std::fs::remove_file(&socket_path).with_context(|| {
-                format!("failed to remove stale socket {}", socket_path.display())
-            })?;
-        }
-        Ok(meta) => anyhow::bail!(
-            "refusing to replace {}: existing path is not a socket ({:?})",
-            socket_path.display(),
-            meta.file_type()
-        ),
-        Err(e) if e.kind() == ErrorKind::NotFound => {}
-        Err(e) => {
-            return Err(e).with_context(|| {
-                format!("failed to inspect socket path {}", socket_path.display())
-            });
-        }
-    }
-
-    let listener = UnixListener::bind(&socket_path)
-        .with_context(|| format!("failed to bind {}", socket_path.display()))?;
-
-    // Restrict permissions to owner-only (0o600) so only the current user
-    // can connect; refuse to serve if that does not stick.
-    let owner_uid = restrict_socket(&socket_path)?;
-
-    tracing::info!(socket_path = %socket_path.display(), "RPC server listening");
-
-    let clients = Arc::new(Semaphore::new(MAX_CONCURRENT_CLIENTS));
-    let mut consecutive_accept_errors: u32 = 0;
-
-    loop {
-        // Acquire the connection permit before accepting, so excess clients
-        // queue in the listen backlog rather than piling up as tasks.
-        let permit = clients
-            .clone()
-            .acquire_owned()
-            .await
-            .expect("client semaphore is never closed");
-
-        let stream = match listener.accept().await {
-            Ok((stream, _addr)) => {
-                consecutive_accept_errors = 0;
-                stream
+impl RpcListener {
+    /// Acquire this socket before initializing node identity or starting mesh services.
+    pub async fn bind(socket_path: PathBuf) -> anyhow::Result<Self> {
+        // Ensure the parent directory exists and is private to the owner.
+        if let Some(parent) = socket_path.parent() {
+            if !parent.as_os_str().is_empty() {
+                let mut builder = std::fs::DirBuilder::new();
+                builder.recursive(true).mode(0o700);
+                builder.create(parent).with_context(|| {
+                    format!("failed to create socket directory {}", parent.display())
+                })?;
             }
-            Err(e)
-                if matches!(
-                    e.kind(),
-                    ErrorKind::ConnectionAborted | ErrorKind::Interrupted
-                ) =>
-            {
-                // Per-connection transient failure; keep accepting.
-                continue;
+        }
+
+        // Keep this inode in place between runs. Unlinking a lock file can
+        // let concurrent starters acquire locks on different inodes.
+        use rustix::fs::{open, Mode, OFlags};
+        let mut lock_path = socket_path.as_os_str().to_owned();
+        lock_path.push(".lock");
+        let lock = std::fs::File::from(
+            open(
+                Path::new(&lock_path),
+                OFlags::CREATE
+                    | OFlags::RDWR
+                    | OFlags::CLOEXEC
+                    | OFlags::NOFOLLOW
+                    | OFlags::NONBLOCK,
+                Mode::RUSR | Mode::WUSR,
+            )
+            .context("opening RPC socket lock")?,
+        );
+        anyhow::ensure!(
+            lock.metadata()?.is_file(),
+            "RPC socket lock must be a regular file"
+        );
+        lock.try_lock().with_context(|| {
+            format!(
+                "could not acquire daemon lock for {}",
+                socket_path.display()
+            )
+        })?;
+
+        // Remove a stale socket file so bind succeeds after a crash — but only
+        // if the existing path really is a socket. Anything else (regular file,
+        // directory, symlink) is suspicious and must not be unlinked blindly.
+        match std::fs::symlink_metadata(&socket_path) {
+            Ok(meta) if meta.file_type().is_socket() => {
+                // Older daemons and unrelated listeners may have no sibling lock.
+                match tokio::time::timeout(
+                    Duration::from_secs(1),
+                    UnixStream::connect(&socket_path),
+                )
+                .await
+                {
+                    Ok(Err(e)) if e.kind() == ErrorKind::ConnectionRefused => {}
+                    Ok(Err(e)) => return Err(e).context("checking existing RPC listener"),
+                    _ => anyhow::bail!("socket {} is in use", socket_path.display()),
+                }
+                std::fs::remove_file(&socket_path).with_context(|| {
+                    format!("failed to remove stale socket {}", socket_path.display())
+                })?;
             }
+            Ok(meta) => anyhow::bail!(
+                "refusing to replace {}: existing path is not a socket ({:?})",
+                socket_path.display(),
+                meta.file_type()
+            ),
+            Err(e) if e.kind() == ErrorKind::NotFound => {}
             Err(e) => {
-                // Resource exhaustion (EMFILE/ENFILE) surfaces as
-                // `ErrorKind::Uncategorized` on stable, so we cannot match it
-                // by kind: back off on the catch-all instead of terminating
-                // the control plane, and give up only after a long streak.
-                consecutive_accept_errors += 1;
-                if consecutive_accept_errors >= MAX_CONSECUTIVE_ACCEPT_ERRORS {
-                    return Err(e).with_context(|| {
-                        format!(
+                return Err(e).with_context(|| {
+                    format!("failed to inspect socket path {}", socket_path.display())
+                });
+            }
+        }
+
+        let listener = UnixListener::bind(&socket_path)
+            .with_context(|| format!("failed to bind {}", socket_path.display()))?;
+
+        // Restrict permissions to owner-only (0o600) so only the current user
+        // can connect; refuse to serve if that does not stick.
+        let owner_uid = restrict_socket(&socket_path)?;
+
+        tracing::info!(socket_path = %socket_path.display(), "RPC server listening");
+
+        let meta = std::fs::symlink_metadata(&socket_path)?;
+        Ok(Self {
+            listener,
+            path: socket_path,
+            identity: (meta.dev(), meta.ino()),
+            owner_uid,
+            _lock: lock,
+        })
+    }
+
+    /// Accept RPC clients until shutdown or a fatal listener error.
+    pub async fn run(&self, state: Arc<DaemonState>) -> anyhow::Result<()> {
+        let listener = &self.listener;
+        let owner_uid = self.owner_uid;
+        let clients = Arc::new(Semaphore::new(MAX_CONCURRENT_CLIENTS));
+        let mut consecutive_accept_errors: u32 = 0;
+
+        loop {
+            // Acquire the connection permit before accepting, so excess clients
+            // queue in the listen backlog rather than piling up as tasks.
+            let permit = clients
+                .clone()
+                .acquire_owned()
+                .await
+                .expect("client semaphore is never closed");
+
+            let stream = match listener.accept().await {
+                Ok((stream, _addr)) => {
+                    consecutive_accept_errors = 0;
+                    stream
+                }
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        ErrorKind::ConnectionAborted | ErrorKind::Interrupted
+                    ) =>
+                {
+                    // Per-connection transient failure; keep accepting.
+                    continue;
+                }
+                Err(e) => {
+                    // Resource exhaustion (EMFILE/ENFILE) surfaces as
+                    // `ErrorKind::Uncategorized` on stable, so we cannot match it
+                    // by kind: back off on the catch-all instead of terminating
+                    // the control plane, and give up only after a long streak.
+                    consecutive_accept_errors += 1;
+                    if consecutive_accept_errors >= MAX_CONSECUTIVE_ACCEPT_ERRORS {
+                        return Err(e).with_context(|| {
+                            format!(
                             "accept failed {consecutive_accept_errors} times in a row; giving up"
                         )
-                    });
+                        });
+                    }
+                    let backoff = accept_backoff(consecutive_accept_errors);
+                    tracing::warn!(
+                        error = %e,
+                        consecutive = consecutive_accept_errors,
+                        backoff_ms = backoff.as_millis() as u64,
+                        "accept error; backing off"
+                    );
+                    tokio::time::sleep(backoff).await;
+                    continue;
                 }
-                let backoff = accept_backoff(consecutive_accept_errors);
-                tracing::warn!(
-                    error = %e,
-                    consecutive = consecutive_accept_errors,
-                    backoff_ms = backoff.as_millis() as u64,
-                    "accept error; backing off"
-                );
-                tokio::time::sleep(backoff).await;
-                continue;
-            }
-        };
+            };
 
-        // Defense-in-depth on top of the 0600 socket mode: only serve peers
-        // running as the socket owner's uid (SO_PEERCRED).
-        match stream.peer_cred() {
-            Ok(cred) if cred.uid() == owner_uid => {}
-            Ok(cred) => {
-                tracing::warn!(
-                    peer_uid = cred.uid(),
-                    owner_uid,
-                    "rejecting connection from foreign uid"
-                );
-                continue;
+            // Defense-in-depth on top of the 0600 socket mode: only serve peers
+            // running as the socket owner's uid (SO_PEERCRED).
+            match stream.peer_cred() {
+                Ok(cred) if cred.uid() == owner_uid => {}
+                Ok(cred) => {
+                    tracing::warn!(
+                        peer_uid = cred.uid(),
+                        owner_uid,
+                        "rejecting connection from foreign uid"
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "failed to read peer credentials; rejecting connection");
+                    continue;
+                }
             }
-            Err(e) => {
-                tracing::warn!(error = %e, "failed to read peer credentials; rejecting connection");
-                continue;
-            }
+
+            let s = state.clone();
+            tokio::spawn(async move {
+                // Hold the permit for the lifetime of the connection.
+                let _permit = permit;
+                if let Err(e) = serve_client(stream, s, CLIENT_READ_TIMEOUT).await {
+                    tracing::warn!(error = %e, "client task ended with error");
+                }
+            });
         }
-
-        let s = state.clone();
-        tokio::spawn(async move {
-            // Hold the permit for the lifetime of the connection.
-            let _permit = permit;
-            if let Err(e) = serve_client(stream, s, CLIENT_READ_TIMEOUT).await {
-                tracing::warn!(error = %e, "client task ended with error");
-            }
-        });
     }
 }
 

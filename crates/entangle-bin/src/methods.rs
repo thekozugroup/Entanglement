@@ -105,6 +105,7 @@ pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
     tracing::debug!(method = %req.method, "RPC dispatch");
 
     match req.method.as_str() {
+        m if m == method::METRICS => ok_resp(req.id, state.render_metrics()),
         m if m == method::VERSION => handle_version(req.id),
         m if m == method::TIME => handle_time(req.id),
         m if m == method::PLUGINS_LIST => handle_plugins_list(req.id, state),
@@ -248,14 +249,18 @@ async fn handle_compute_dispatch(
         Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
     };
 
+    if !p.cpu_cores.is_finite() || p.cpu_cores < 0.0 {
+        return error_resp(id, -32602, "cpu_cores must be finite and nonnegative");
+    }
+
     // Parse plugin id.
     let plugin_id: PluginId = match p.plugin_id.parse() {
         Ok(pid) => pid,
         Err(e) => return error_resp(id, -32602, format!("invalid plugin id: {e}")),
     };
 
-    // Verify the plugin is loaded before dispatching.
-    if !state.kernel.list_plugins().contains(&plugin_id) {
+    // With remote execution enabled, a plugin can be loaded solely on a worker.
+    if !state.dispatcher.has_remote() && !state.kernel.has_plugin(&plugin_id) {
         return error_resp(id, -32000, "plugin not loaded");
     }
 
@@ -311,7 +316,21 @@ async fn handle_compute_dispatch(
     // Use the shared Dispatcher — no ephemeral construction per call.
     let dispatcher = state.dispatcher.clone();
 
-    match dispatcher.dispatch_one_shot(task).await {
+    let start = std::time::Instant::now();
+    let dispatched = dispatcher.dispatch_one_shot(task).await;
+    let outcome = match &dispatched {
+        Ok(r) if r.chosen.peer_id == state.local_peer_id => "local",
+        Ok(_) => "remote",
+        Err(_) => "error",
+    };
+    state.kernel.metrics().observe_histogram(
+        "entangle_compute_dispatch_seconds",
+        "Duration of compute requests submitted to the scheduler",
+        &[("result", outcome)],
+        &[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 30.0, 300.0],
+        start.elapsed().as_secs_f64(),
+    );
+    match dispatched {
         Ok(result) => {
             let out = ComputeDispatchResult {
                 chosen_peer: result.chosen.peer_id.to_hex(),
@@ -378,9 +397,11 @@ async fn handle_mesh_peers(id: serde_json::Value, state: &Arc<DaemonState>) -> S
     use std::time::SystemTime;
 
     // ── 1. Collect trusted peers from PeerStore ───────────────────────────
-    let trusted_map: HashMap<PeerId, _> = state
-        .peer_store
-        .list()
+    let current = match current_peers(state).await {
+        Ok(peers) => peers,
+        Err(e) => return error_resp(id, -32603, e),
+    };
+    let trusted_map: HashMap<PeerId, _> = current
         .into_iter()
         .filter(|p| p.trust != TrustLevel::Revoked)
         .map(|p| (p.peer_id, p))
@@ -463,24 +484,29 @@ async fn handle_mesh_peers(id: serde_json::Value, state: &Arc<DaemonState>) -> S
 /// the live non-revoked count from the PeerStore, while `seen_peer_count` is
 /// the live count of discovery sightings (which may include untrusted peers) —
 /// the two are distinct and must not be conflated. `transports_active`
-/// reflects what is actually running: `["local"]` when mDNS discovery is up,
-/// `[]` when no transport is configured.
+/// includes live scheduler transports and LAN discovery when active.
 async fn handle_mesh_status(id: serde_json::Value, state: &Arc<DaemonState>) -> String {
     use entangle_peers::TrustLevel;
 
-    let trusted_peer_count = state
-        .peer_store
-        .list()
+    let current = match current_peers(state).await {
+        Ok(peers) => peers,
+        Err(e) => return error_resp(id, -32603, e),
+    };
+    let trusted_peer_count = current
         .into_iter()
         .filter(|p| p.trust != TrustLevel::Revoked)
         .count();
 
     // Derive both the seen count and the transport list from the live
     // discovery handle rather than hardcoding either.
-    let (seen_peer_count, transports_active) = match &state.discovery {
+    let (seen_peer_count, mut transports_active) = match &state.discovery {
         Some(d) => (d.snapshot_peers().await.len(), vec!["local".to_owned()]),
         None => (0, vec![]),
     };
+
+    if let Some(transports) = &state.scheduler_transports {
+        transports_active.extend_from_slice(&transports.borrow());
+    }
 
     ok_resp(
         id,
@@ -492,4 +518,13 @@ async fn handle_mesh_status(id: serde_json::Value, state: &Arc<DaemonState>) -> 
             trusted_peer_count,
         },
     )
+}
+
+/// Read a fresh peer snapshot without blocking an async runtime worker.
+async fn current_peers(state: &DaemonState) -> Result<Vec<entangle_peers::TrustedPeer>, String> {
+    let store = state.peer_store.clone();
+    tokio::task::spawn_blocking(move || store.list_current())
+        .await
+        .map_err(|e| format!("peer store read task failed: {e}"))?
+        .map_err(|e| format!("cannot read peer store: {e}"))
 }
