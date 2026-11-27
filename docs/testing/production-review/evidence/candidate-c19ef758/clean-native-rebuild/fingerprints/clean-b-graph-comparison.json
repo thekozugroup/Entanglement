@@ -1,0 +1,86 @@
+{
+  "collected_utc": "2026-11-27T07:31:32.934832+00:00",
+  "cached_roots_entangle_and_entangled": {
+    "entangle-cli-1438826a0f3d5a99/bin-entangle.json": {
+      "rustc": 4826714390000139368,
+      "features": "[]",
+      "declared_features": "[]",
+      "target": 12085010837776461558,
+      "profile": 15554077317781803009,
+      "path": 9405001579759665737,
+      "rustflags": [],
+      "config": 2069994364910194474,
+      "compile_kind": 0
+    },
+    "entangle-bin-86c910d20e950a7b/bin-entangled.json": {
+      "rustc": 4826714390000139368,
+      "features": "[]",
+      "declared_features": "[]",
+      "target": 17229762502485340609,
+      "profile": 15554077317781803009,
+      "path": 12946875014458103603,
+      "rustflags": [],
+      "config": 2069994364910194474,
+      "compile_kind": 0
+    }
+  },
+  "cached_reachable_units": 611,
+  "cached_unresolved_dependency_refs": [
+    [
+      "build_script_build",
+      4072401522188601959,
+      2
+    ],
+    [
+      "build_script_build",
+      4660798848278663595,
+      2
+    ]
+  ],
+  "available_in_clean_B_by_same_unit_path": 611,
+  "cached_and_clean_B_feature_or_compiler_setting_differences": [],
+  "cached_and_clean_B_dependency_token_differences": [
+    {
+      "unit": "entangle-cli-1438826a0f3d5a99/bin-entangle.json",
+      "dependency_names_with_different_fingerprints": [
+        "entangle_oci"
+      ]
+    },
+    {
+      "unit": "entangle-oci-97a18aadb1de0165/lib-entangle_oci.json",
+      "dependency_names_with_different_fingerprints": [
+        "zstd"
+      ]
+    },
+    {
+      "unit": "zstd-40ede6aa9cc00580/lib-zstd.json",
+      "dependency_names_with_different_fingerprints": [
+        "zstd_safe"
+      ]
+    },
+    {
+      "unit": "zstd-safe-126000e02bb489e0/run-build-script-build-script-build.json",
+      "dependency_names_with_different_fingerprints": [
+        "build_script_build"
+      ]
+    },
+    {
+      "unit": "zstd-safe-9399842e398b4862/lib-zstd_safe.json",
+      "dependency_names_with_different_fingerprints": [
+        "build_script_build",
+        "zstd_sys"
+      ]
+    },
+    {
+      "unit": "zstd-sys-21a1614dc603d0fd/lib-zstd_sys.json",
+      "dependency_names_with_different_fingerprints": [
+        "build_script_build"
+      ]
+    }
+  ],
+  "clean_B_matched_root_configs": {
+    "entangle-cli-1438826a0f3d5a99/bin-entangle.json": true,
+    "entangle-bin-86c910d20e950a7b/bin-entangled.json": true
+  },
+  "clean_B_missing_at_sampling": []
+}

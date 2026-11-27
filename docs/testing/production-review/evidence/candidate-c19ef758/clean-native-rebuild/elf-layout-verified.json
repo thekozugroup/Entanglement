@@ -1,0 +1,3674 @@
+{
+  "arms": {
+    "entangle": {
+      "A": {
+        "comment": [
+          "Linker: LLD 21.1.2 (/checkout/src/llvm-project/llvm 8c30b9c5098bdff1d3d9a2d460ee091cd1171e60)",
+          "GCC: (Debian 14.2.0-19) 14.2.0",
+          "",
+          "rustc version 1.91.1 (ed61e7d7e 2025-11-07)",
+          ""
+        ],
+        "embedded_generated_and_std_paths": [
+          {
+            "offset": 1799078,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-pulley.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1803757,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/inst_builder.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1815417,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-x86.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1846859,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_x64.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1896360,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_opt.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1908038,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1911960,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_pulley_shared.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1798255,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/iter.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1802438,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/num/wrapping.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1809863,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1810574,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/option.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1811628,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/unix/net/stream.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1815526,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/local.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1817805,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1818525,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/os_str/bytes.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1819094,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone/uninit.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1820709,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/stdio.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1826079,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/node.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1826278,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1832521,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cmp.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1834319,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/future/ready.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1836692,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/slice.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1851359,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/binary_heap/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1855024,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/raw_vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1862324,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map/entry.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1870617,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1872585,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/exact_size.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1872676,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/vec_deque/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1881703,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/result.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1884185,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/io/io_slice/iovec.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1884544,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/sync/once/futex.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1887176,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/thread_local/native/lazy.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1890777,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/borrow.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1896082,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1899583,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1900110,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/once_lock.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1900941,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/poison/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1901635,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1902529,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/adapters/step_by.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1910785,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1911736,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/rc.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1912809,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/sync.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1913196,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/task/poll.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1915290,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/fd/raw.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1917955,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/io/borrowed_buf.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1923197,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/pattern.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1924496,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/env.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1929978,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ops/function.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1932891,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/string.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1938439,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ptr/mut_ptr.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1938640,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/navigate.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1938736,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/time.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1940434,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1941739,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/sort/stable/quicksort.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1944157,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/boxed.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1951995,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/search.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1952870,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/iterator.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1953333,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/str.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1958821,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/char/methods.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1959697,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/spec_from_iter_nested.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1964459,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/boxed/convert.rs",
+            "section": ".rodata"
+          }
+        ],
+        "file_size": 38280576,
+        "gnu_build_id_note_hex": "040000001400000003000000474e55000ff1ce1d6637abcd141923bf8e82bb3cc2d8d97e",
+        "sections": {
+          ".comment": {
+            "bytes": 170,
+            "offset": 38277968,
+            "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+          },
+          ".data": {
+            "bytes": 62464,
+            "offset": 38215504,
+            "sha256": "154b2da79b99b5201603cdfcf52496806291173b2890db9ea00866ae90e079bc"
+          },
+          ".data.rel.ro": {
+            "bytes": 1182336,
+            "offset": 36969456,
+            "sha256": "75ba7bce84733e6f92ccb9c8df594a2e3a00f9715356c0ce6870bdb7ce44a9b4"
+          },
+          ".dynamic": {
+            "bytes": 480,
+            "offset": 38151792,
+            "sha256": "b88cc6ba0432f44ec31b5153a7ca3b6a445c3e989303325a3bc08132aabc7f86"
+          },
+          ".dynstr": {
+            "bytes": 2850,
+            "offset": 6660,
+            "sha256": "728bc9ce105d0e3e85b0aa00c4f979454197c2f4e036589503263c45e08bea91"
+          },
+          ".dynsym": {
+            "bytes": 4848,
+            "offset": 832,
+            "sha256": "0d4f97b65916d4bc34c48bb0b6d2958db16cdb39d5398e187d627e36193d5c7f"
+          },
+          ".eh_frame": {
+            "bytes": 2544524,
+            "offset": 5518368,
+            "sha256": "db3118a33cefb4382a9c02a27c94626dd6b0dc7833088ebeaef53e6bdc8b307d"
+          },
+          ".eh_frame_hdr": {
+            "bytes": 332764,
+            "offset": 5185604,
+            "sha256": "317f50ad0fb2e5995f1724a2a8c76fad2437ebb49f56fb5eb69455e606fbc60a"
+          },
+          ".fini": {
+            "bytes": 9,
+            "offset": 36969012,
+            "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+          },
+          ".fini_array": {
+            "bytes": 8,
+            "offset": 36969432,
+            "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+          },
+          ".gcc_except_table": {
+            "bytes": 1014108,
+            "offset": 4171496,
+            "sha256": "d4c8dd0351f9fe6788e5d60e60ae4723902062149a5aa080b98655546caabeb6"
+          },
+          ".gnu.hash": {
+            "bytes": 28,
+            "offset": 6632,
+            "sha256": "a23bc6e993a0c71d685aa0b860c314b55a6264085711b276fcb72f6e977933ee"
+          },
+          ".gnu.version": {
+            "bytes": 404,
+            "offset": 5680,
+            "sha256": "9c5176fa4fa1ee3fcd706cdc4d2fb12d33a9dd058e4ea6dddca4f34d9fb10c6d"
+          },
+          ".gnu.version_r": {
+            "bytes": 544,
+            "offset": 6084,
+            "sha256": "cd7d6ae0f3cd32a4b21996d8596c4bb8b42d07bbc3f315d9176da8a19e617d6a"
+          },
+          ".got": {
+            "bytes": 63128,
+            "offset": 38152272,
+            "sha256": "3cc050b5a4d02dc498c4943c1096b09afa903bd9d2e61444a0ca97cbfd87f08f"
+          },
+          ".got.plt": {
+            "bytes": 104,
+            "offset": 38215400,
+            "sha256": "e9d2972940076b3a4f8e65bbe4b9008e72560f4c04324e321daa472c4a3a1538"
+          },
+          ".init": {
+            "bytes": 23,
+            "offset": 36968988,
+            "sha256": "63d44920047944d7b700818c3f9cf021d25bc1b720cc0c1eadf9edf7af53c7fe"
+          },
+          ".init_array": {
+            "bytes": 16,
+            "offset": 36969440,
+            "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+          },
+          ".interp": {
+            "bytes": 28,
+            "offset": 736,
+            "sha256": "9097c98ea70f6f3b01d50145eb72bf55ad1f4e9713bccf27bd6405d6254eed00"
+          },
+          ".note.ABI-tag": {
+            "bytes": 32,
+            "offset": 764,
+            "sha256": "6e48317ad93a8ac2dc04321465ede06d1274543fc8ab172e68171a9d684bb313"
+          },
+          ".note.gnu.build-id": {
+            "bytes": 36,
+            "offset": 796,
+            "sha256": "0130a31db232ba28d247b41c2d66775398adc15deb4e97383084d706443b190c"
+          },
+          ".plt": {
+            "bytes": 176,
+            "offset": 36969024,
+            "sha256": "3648a765ef50c8d68d57c2ce2ad49a36be27ff9bd6e57c2ae35e000b4776b3f0"
+          },
+          ".rela.dyn": {
+            "bytes": 1786104,
+            "offset": 9512,
+            "sha256": "683ca8895612750f2ef8777f30b6ff993cb5ac1e4da71e17c7690a7fe0e71528"
+          },
+          ".rela.plt": {
+            "bytes": 240,
+            "offset": 1795616,
+            "sha256": "96bb12f52ccc883ee26cba7263e6ff094f37914f829785d150dd5b8af6f55d7a"
+          },
+          ".rodata": {
+            "bytes": 2373352,
+            "offset": 1798144,
+            "sha256": "a0dacf8ad6f7e3213d3b8c5bfeee8ebabe0a5f07398a54eb4a01e085051d9cbd"
+          },
+          ".shstrtab": {
+            "bytes": 323,
+            "offset": 38278138,
+            "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+          },
+          ".tdata": {
+            "bytes": 232,
+            "offset": 36969200,
+            "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+          },
+          ".text": {
+            "bytes": 28906076,
+            "offset": 8062912,
+            "sha256": "ae0b15f55036b0e3309266112d42e329d1db14c1f39e5de306cbf8d6235ae6fb"
+          },
+          ".tm_clone_table": {
+            "bytes": 0,
+            "offset": 38215504,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        "sha256": "da639233d9603b2e2da34913b90b04e401dc86b13b7cdc70422256a01d10541a"
+      },
+      "B": {
+        "comment": [
+          "Linker: LLD 21.1.2 (/checkout/src/llvm-project/llvm 8c30b9c5098bdff1d3d9a2d460ee091cd1171e60)",
+          "GCC: (Debian 14.2.0-19) 14.2.0",
+          "",
+          "rustc version 1.91.1 (ed61e7d7e 2025-11-07)",
+          ""
+        ],
+        "embedded_generated_and_std_paths": [
+          {
+            "offset": 1835942,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/inst_builder.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1855668,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_opt.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1872221,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_pulley_shared.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1901424,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-pulley.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1912264,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1929510,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_x64.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1953797,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-x86.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1798255,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/iter.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1802326,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/num/wrapping.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1809642,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1810353,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/option.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1811407,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/unix/net/stream.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1815196,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/local.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1817475,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1818195,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/os_str/bytes.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1818764,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone/uninit.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1820379,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/stdio.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1825749,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/node.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1825948,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1832191,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cmp.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1833989,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/future/ready.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1836471,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/slice.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1851033,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/binary_heap/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1854698,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/raw_vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1862103,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map/entry.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1870396,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1872479,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/exact_size.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1872570,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/vec_deque/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1881597,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/result.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1884079,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/io/io_slice/iovec.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1884438,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/sync/once/futex.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1887070,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/thread_local/native/lazy.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1890671,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/borrow.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1895976,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1899372,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1899899,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/once_lock.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1900730,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/poison/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1901536,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1902430,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/adapters/step_by.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1910581,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1911532,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/rc.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1912595,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/sync.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1912982,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/task/poll.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1915076,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/fd/raw.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1917741,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/io/borrowed_buf.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1922983,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/pattern.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1924282,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/env.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1929869,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ops/function.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1932782,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/string.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1938330,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ptr/mut_ptr.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1938531,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/navigate.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1938627,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/time.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1940325,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1941630,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/sort/stable/quicksort.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1944048,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/boxed.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1951886,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/search.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1952761,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/iterator.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1953224,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/str.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1958821,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/char/methods.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1959697,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/spec_from_iter_nested.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1964459,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/boxed/convert.rs",
+            "section": ".rodata"
+          }
+        ],
+        "file_size": 38280576,
+        "gnu_build_id_note_hex": "040000001400000003000000474e5500da5b4fb761f4d6a15082417cb10fd3072a2aacf4",
+        "sections": {
+          ".comment": {
+            "bytes": 170,
+            "offset": 38277968,
+            "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+          },
+          ".data": {
+            "bytes": 62464,
+            "offset": 38215504,
+            "sha256": "154b2da79b99b5201603cdfcf52496806291173b2890db9ea00866ae90e079bc"
+          },
+          ".data.rel.ro": {
+            "bytes": 1182336,
+            "offset": 36969456,
+            "sha256": "75ba7bce84733e6f92ccb9c8df594a2e3a00f9715356c0ce6870bdb7ce44a9b4"
+          },
+          ".dynamic": {
+            "bytes": 480,
+            "offset": 38151792,
+            "sha256": "b88cc6ba0432f44ec31b5153a7ca3b6a445c3e989303325a3bc08132aabc7f86"
+          },
+          ".dynstr": {
+            "bytes": 2850,
+            "offset": 6660,
+            "sha256": "728bc9ce105d0e3e85b0aa00c4f979454197c2f4e036589503263c45e08bea91"
+          },
+          ".dynsym": {
+            "bytes": 4848,
+            "offset": 832,
+            "sha256": "0d4f97b65916d4bc34c48bb0b6d2958db16cdb39d5398e187d627e36193d5c7f"
+          },
+          ".eh_frame": {
+            "bytes": 2544524,
+            "offset": 5518368,
+            "sha256": "db3118a33cefb4382a9c02a27c94626dd6b0dc7833088ebeaef53e6bdc8b307d"
+          },
+          ".eh_frame_hdr": {
+            "bytes": 332764,
+            "offset": 5185604,
+            "sha256": "317f50ad0fb2e5995f1724a2a8c76fad2437ebb49f56fb5eb69455e606fbc60a"
+          },
+          ".fini": {
+            "bytes": 9,
+            "offset": 36969012,
+            "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+          },
+          ".fini_array": {
+            "bytes": 8,
+            "offset": 36969432,
+            "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+          },
+          ".gcc_except_table": {
+            "bytes": 1014108,
+            "offset": 4171496,
+            "sha256": "d4c8dd0351f9fe6788e5d60e60ae4723902062149a5aa080b98655546caabeb6"
+          },
+          ".gnu.hash": {
+            "bytes": 28,
+            "offset": 6632,
+            "sha256": "a23bc6e993a0c71d685aa0b860c314b55a6264085711b276fcb72f6e977933ee"
+          },
+          ".gnu.version": {
+            "bytes": 404,
+            "offset": 5680,
+            "sha256": "9c5176fa4fa1ee3fcd706cdc4d2fb12d33a9dd058e4ea6dddca4f34d9fb10c6d"
+          },
+          ".gnu.version_r": {
+            "bytes": 544,
+            "offset": 6084,
+            "sha256": "cd7d6ae0f3cd32a4b21996d8596c4bb8b42d07bbc3f315d9176da8a19e617d6a"
+          },
+          ".got": {
+            "bytes": 63128,
+            "offset": 38152272,
+            "sha256": "3cc050b5a4d02dc498c4943c1096b09afa903bd9d2e61444a0ca97cbfd87f08f"
+          },
+          ".got.plt": {
+            "bytes": 104,
+            "offset": 38215400,
+            "sha256": "e9d2972940076b3a4f8e65bbe4b9008e72560f4c04324e321daa472c4a3a1538"
+          },
+          ".init": {
+            "bytes": 23,
+            "offset": 36968988,
+            "sha256": "63d44920047944d7b700818c3f9cf021d25bc1b720cc0c1eadf9edf7af53c7fe"
+          },
+          ".init_array": {
+            "bytes": 16,
+            "offset": 36969440,
+            "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+          },
+          ".interp": {
+            "bytes": 28,
+            "offset": 736,
+            "sha256": "9097c98ea70f6f3b01d50145eb72bf55ad1f4e9713bccf27bd6405d6254eed00"
+          },
+          ".note.ABI-tag": {
+            "bytes": 32,
+            "offset": 764,
+            "sha256": "6e48317ad93a8ac2dc04321465ede06d1274543fc8ab172e68171a9d684bb313"
+          },
+          ".note.gnu.build-id": {
+            "bytes": 36,
+            "offset": 796,
+            "sha256": "63c1800b4ffac1e5b27ce66dad31d25bb13322bd1913f503fa8e58e1de04afc7"
+          },
+          ".plt": {
+            "bytes": 176,
+            "offset": 36969024,
+            "sha256": "3648a765ef50c8d68d57c2ce2ad49a36be27ff9bd6e57c2ae35e000b4776b3f0"
+          },
+          ".rela.dyn": {
+            "bytes": 1786104,
+            "offset": 9512,
+            "sha256": "b0ddaed529f9fa86a0c25b223dccc8b5f0c224ed300740e59438bb2fa7f286dd"
+          },
+          ".rela.plt": {
+            "bytes": 240,
+            "offset": 1795616,
+            "sha256": "96bb12f52ccc883ee26cba7263e6ff094f37914f829785d150dd5b8af6f55d7a"
+          },
+          ".rodata": {
+            "bytes": 2373352,
+            "offset": 1798144,
+            "sha256": "0f2122f79d0bf5cf408cb8ea02c8b03f74688695de1c2d0b17aca9ea5fc2de2c"
+          },
+          ".shstrtab": {
+            "bytes": 323,
+            "offset": 38278138,
+            "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+          },
+          ".tdata": {
+            "bytes": 232,
+            "offset": 36969200,
+            "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+          },
+          ".text": {
+            "bytes": 28906076,
+            "offset": 8062912,
+            "sha256": "259faf019811b98514c9c5e7ce747e6dc61236c51e74c8fa3edef676b10fa6c6"
+          },
+          ".tm_clone_table": {
+            "bytes": 0,
+            "offset": 38215504,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        "sha256": "629ecfe9101c3f77370b80e77496fddfad8665002af9db8ee92c24a10824fc60"
+      },
+      "canonical": {
+        "comment": [
+          "Linker: LLD 21.1.2 (/checkout/src/llvm-project/llvm 8c30b9c5098bdff1d3d9a2d460ee091cd1171e60)",
+          "GCC: (Debian 14.2.0-19) 14.2.0",
+          "",
+          "rustc version 1.91.1 (ed61e7d7e 2025-11-07)",
+          ""
+        ],
+        "embedded_generated_and_std_paths": [
+          {
+            "offset": 1852976,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-x86.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1873911,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/inst_builder.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1893964,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1919897,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_pulley_shared.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1927156,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-pulley.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1933261,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_opt.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1946532,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_x64.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1798587,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/poison/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1798721,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/iter.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1802460,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/num/wrapping.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1809776,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/navigate.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1809922,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/str.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1810545,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1811385,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/option.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1811810,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/unix/net/stream.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1814865,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/borrow.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1814991,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/slice.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1815850,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/local.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1815930,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/vec_deque/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1818274,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1818994,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/os_str/bytes.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1821097,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/stdio.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1826467,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/node.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1826666,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1827415,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/sync.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1832378,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/map/entry.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1833180,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cmp.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1833445,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/env.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1835946,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/future/ready.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1837472,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/slice.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1837705,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/iter/traits/iterator.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1840577,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/once_lock.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1843278,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/local.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1847522,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/map.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1849320,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/iter/adapters/step_by.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1849949,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/ready.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1852570,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/iter.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1853076,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/binary_heap/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1854604,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1856869,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/raw_vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1863329,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1864294,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map/entry.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1865157,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/io/io_slice/iovec.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1867860,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/clone/uninit.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1868746,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/time.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1872980,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1875048,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/exact_size.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1875205,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/io/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1875329,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1877406,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/vec_deque/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1880229,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/io/stdio.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1884423,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/search.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1889907,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/thread_local/native/lazy.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1891835,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/sync/once/futex.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1895230,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/borrow.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1898996,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1899641,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1902052,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/binary_heap/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1902670,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1903946,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1904687,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/poison/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1904771,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1909354,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/char/methods.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1910853,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/sort/stable/quicksort.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1910999,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/rc.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1914125,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1917153,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/sync.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1918365,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/fd/raw.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1926399,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/node.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1926541,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/pattern.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1928873,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/boxed/convert.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1933478,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/sync/once/futex.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1934155,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1935018,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ops/function.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1936291,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/thread_local/native/lazy.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1936562,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mut_ptr.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1936692,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/spec_from_iter_nested.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1937071,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/string.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1937642,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1938623,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/boxed.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1942992,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/navigate.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1943088,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/time.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1946013,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/sort/stable/quicksort.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1947773,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/io/borrowed_buf.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1951827,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/string.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1951953,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/str/pattern.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1954381,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/task/poll.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1957472,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/os/fd/raw.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1957716,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/iterator.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1958299,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/str.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1964462,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/spec_from_iter_nested.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1969224,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/boxed/convert.rs",
+            "section": ".rodata"
+          }
+        ],
+        "file_size": 38284672,
+        "gnu_build_id_note_hex": "040000001400000003000000474e5500ee7f0d2ed455510040d18a9594c8e6ca335bb456",
+        "sections": {
+          ".comment": {
+            "bytes": 170,
+            "offset": 38282064,
+            "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+          },
+          ".data": {
+            "bytes": 62464,
+            "offset": 38219600,
+            "sha256": "154b2da79b99b5201603cdfcf52496806291173b2890db9ea00866ae90e079bc"
+          },
+          ".data.rel.ro": {
+            "bytes": 1182336,
+            "offset": 36973552,
+            "sha256": "cfc0380a477a00ff76965c01c3887e9afb6ada21626ff3721398873fbd1774cb"
+          },
+          ".dynamic": {
+            "bytes": 480,
+            "offset": 38155888,
+            "sha256": "37620fc6dff76406d3c20e023fbba626d6f9fa3319d5f20895fbdabfd142042c"
+          },
+          ".dynstr": {
+            "bytes": 2850,
+            "offset": 6660,
+            "sha256": "728bc9ce105d0e3e85b0aa00c4f979454197c2f4e036589503263c45e08bea91"
+          },
+          ".dynsym": {
+            "bytes": 4848,
+            "offset": 832,
+            "sha256": "0d4f97b65916d4bc34c48bb0b6d2958db16cdb39d5398e187d627e36193d5c7f"
+          },
+          ".eh_frame": {
+            "bytes": 2544524,
+            "offset": 5522464,
+            "sha256": "db3118a33cefb4382a9c02a27c94626dd6b0dc7833088ebeaef53e6bdc8b307d"
+          },
+          ".eh_frame_hdr": {
+            "bytes": 332764,
+            "offset": 5189700,
+            "sha256": "317f50ad0fb2e5995f1724a2a8c76fad2437ebb49f56fb5eb69455e606fbc60a"
+          },
+          ".fini": {
+            "bytes": 9,
+            "offset": 36973108,
+            "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+          },
+          ".fini_array": {
+            "bytes": 8,
+            "offset": 36973528,
+            "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+          },
+          ".gcc_except_table": {
+            "bytes": 1014108,
+            "offset": 4175592,
+            "sha256": "d4c8dd0351f9fe6788e5d60e60ae4723902062149a5aa080b98655546caabeb6"
+          },
+          ".gnu.hash": {
+            "bytes": 28,
+            "offset": 6632,
+            "sha256": "a23bc6e993a0c71d685aa0b860c314b55a6264085711b276fcb72f6e977933ee"
+          },
+          ".gnu.version": {
+            "bytes": 404,
+            "offset": 5680,
+            "sha256": "9c5176fa4fa1ee3fcd706cdc4d2fb12d33a9dd058e4ea6dddca4f34d9fb10c6d"
+          },
+          ".gnu.version_r": {
+            "bytes": 544,
+            "offset": 6084,
+            "sha256": "cd7d6ae0f3cd32a4b21996d8596c4bb8b42d07bbc3f315d9176da8a19e617d6a"
+          },
+          ".got": {
+            "bytes": 63128,
+            "offset": 38156368,
+            "sha256": "3cc050b5a4d02dc498c4943c1096b09afa903bd9d2e61444a0ca97cbfd87f08f"
+          },
+          ".got.plt": {
+            "bytes": 104,
+            "offset": 38219496,
+            "sha256": "84e793ef996e174cb0ebafde6b685a47ac1228815162717860a567dc8c955f50"
+          },
+          ".init": {
+            "bytes": 23,
+            "offset": 36973084,
+            "sha256": "63d44920047944d7b700818c3f9cf021d25bc1b720cc0c1eadf9edf7af53c7fe"
+          },
+          ".init_array": {
+            "bytes": 16,
+            "offset": 36973536,
+            "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+          },
+          ".interp": {
+            "bytes": 28,
+            "offset": 736,
+            "sha256": "9097c98ea70f6f3b01d50145eb72bf55ad1f4e9713bccf27bd6405d6254eed00"
+          },
+          ".note.ABI-tag": {
+            "bytes": 32,
+            "offset": 764,
+            "sha256": "6e48317ad93a8ac2dc04321465ede06d1274543fc8ab172e68171a9d684bb313"
+          },
+          ".note.gnu.build-id": {
+            "bytes": 36,
+            "offset": 796,
+            "sha256": "8ba2a0e145d84c79349306bc0e057580b5d062aa003b9e5390c556ade9588801"
+          },
+          ".plt": {
+            "bytes": 176,
+            "offset": 36973120,
+            "sha256": "3648a765ef50c8d68d57c2ce2ad49a36be27ff9bd6e57c2ae35e000b4776b3f0"
+          },
+          ".rela.dyn": {
+            "bytes": 1786104,
+            "offset": 9512,
+            "sha256": "f850d2a29b92fd052b19f33d2b60499985ca7afc9b290c80552be7a9110f3a9f"
+          },
+          ".rela.plt": {
+            "bytes": 240,
+            "offset": 1795616,
+            "sha256": "45af1543943457f99ef7d6c8b421722b27335a28620cc250314bd203ada6aae3"
+          },
+          ".rodata": {
+            "bytes": 2377448,
+            "offset": 1798144,
+            "sha256": "846c2cd32c2dc6e53908186d0b59f13b3dc93132030e2e860827845d40539c47"
+          },
+          ".shstrtab": {
+            "bytes": 323,
+            "offset": 38282234,
+            "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+          },
+          ".tdata": {
+            "bytes": 232,
+            "offset": 36973296,
+            "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+          },
+          ".text": {
+            "bytes": 28906076,
+            "offset": 8067008,
+            "sha256": "405f1272558381c0ddab8e51861e54e6b8028da15580419e6e3c97efd895ae2b"
+          },
+          ".tm_clone_table": {
+            "bytes": 0,
+            "offset": 38219600,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        "sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33"
+      }
+    },
+    "entangled": {
+      "A": {
+        "comment": [
+          "Linker: LLD 21.1.2 (/checkout/src/llvm-project/llvm 8c30b9c5098bdff1d3d9a2d460ee091cd1171e60)",
+          "GCC: (Debian 14.2.0-19) 14.2.0",
+          "",
+          "rustc version 1.91.1 (ed61e7d7e 2025-11-07)",
+          ""
+        ],
+        "embedded_generated_and_std_paths": [
+          {
+            "offset": 1823654,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-pulley.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1828194,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/inst_builder.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1839190,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-x86.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1869148,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_x64.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1917164,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_opt.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1928393,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1932215,
+            "path": "/tmp/entangle-c19-clean-target-lhat0d6t/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_pulley_shared.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1822831,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/iter.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1826875,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/num/wrapping.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1834020,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1834613,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/option.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1835522,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/unix/net/stream.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1839299,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/local.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1841445,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1842165,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/os_str/bytes.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1842734,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone/uninit.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1844349,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/stdio.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1849544,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/node.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1849636,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1856444,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/future/ready.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1857223,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cmp.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1859564,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/slice.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1873763,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/binary_heap/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1877421,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/raw_vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1884399,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map/entry.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1892468,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1894436,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/exact_size.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1894527,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/vec_deque/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1903319,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/result.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1905596,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/sync/once/futex.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1906371,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/thread_local/native/lazy.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1906807,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/io/io_slice/iovec.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1911863,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/borrow.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1916886,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1917871,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/once_lock.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1920360,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1921636,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/poison/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1922206,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1931040,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1931991,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/rc.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1932951,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/sync.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1933407,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/task/poll.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1935396,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/fd/raw.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1939190,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/io/borrowed_buf.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1943210,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/pattern.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1950197,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ops/function.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1952782,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/string.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1958346,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ptr/mut_ptr.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1958547,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/navigate.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1958643,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/time.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1960103,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1961363,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/sort/stable/quicksort.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1971235,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/search.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1972110,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/iterator.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1972573,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/str.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1978017,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/char/methods.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1981236,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/spec_from_iter_nested.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1983600,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/boxed/convert.rs",
+            "section": ".rodata"
+          }
+        ],
+        "file_size": 38528200,
+        "gnu_build_id_note_hex": "040000001400000003000000474e55008944e38df6b16d6b42939deeb27137d171007e92",
+        "sections": {
+          ".comment": {
+            "bytes": 170,
+            "offset": 38525592,
+            "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+          },
+          ".data": {
+            "bytes": 63304,
+            "offset": 38462288,
+            "sha256": "0ba62a3783fa204e863923462d378009c83c93737f56cc7f063ac12339802e22"
+          },
+          ".data.rel.ro": {
+            "bytes": 1207072,
+            "offset": 37192208,
+            "sha256": "7220fe7eda88c518eafcf62e49ed60cd173a4beb8f48622b6e63944316c20eb8"
+          },
+          ".dynamic": {
+            "bytes": 480,
+            "offset": 38399280,
+            "sha256": "17694a67c8106f94d08b1378d886ed13525206e2aefa45ed1b8ee7973a566368"
+          },
+          ".dynstr": {
+            "bytes": 2670,
+            "offset": 6292,
+            "sha256": "ee24de6222dc4cd2c258d73bb6e5d5c310b8f174e3cad6047aa7057f63af2f51"
+          },
+          ".dynsym": {
+            "bytes": 4536,
+            "offset": 832,
+            "sha256": "97faedc47436fbde5109983e95c94ec493e5d93676138f393515646f5946d038"
+          },
+          ".eh_frame": {
+            "bytes": 2651648,
+            "offset": 5551824,
+            "sha256": "a6ce3338482b94316acbb8abf422a9c98e34deb25a1f5072c2969b1dc3a9a601"
+          },
+          ".eh_frame_hdr": {
+            "bytes": 344012,
+            "offset": 5207812,
+            "sha256": "38677a40b00b16f5b163721ef2fb8b00a089171174c26368bb9e087475beef63"
+          },
+          ".fini": {
+            "bytes": 9,
+            "offset": 37191860,
+            "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+          },
+          ".fini_array": {
+            "bytes": 8,
+            "offset": 37192184,
+            "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+          },
+          ".gcc_except_table": {
+            "bytes": 1060892,
+            "offset": 4146920,
+            "sha256": "118fa26caa77c2b7e4c2937a3ca9873f29741a39cb1112b3f79cd3f65c97968a"
+          },
+          ".gnu.hash": {
+            "bytes": 28,
+            "offset": 6264,
+            "sha256": "faba897eba9e491744449d96309c68f99d52445fd138a6fce28fe09ca08848f4"
+          },
+          ".gnu.version": {
+            "bytes": 378,
+            "offset": 5368,
+            "sha256": "7cdb884a88f1d0af8273f76aa39e3c0d91daa55030f3666faf361dcd2489e0a6"
+          },
+          ".gnu.version_r": {
+            "bytes": 512,
+            "offset": 5748,
+            "sha256": "c592da1725e3eeb0ae69c83c07eec777a1d1a5de689e24ff4d83028410a73e85"
+          },
+          ".got": {
+            "bytes": 62472,
+            "offset": 38399760,
+            "sha256": "6f33d43398de11c8e418875a7598e7e10cf68fd052dba37b35e4b169dde4e124"
+          },
+          ".got.plt": {
+            "bytes": 56,
+            "offset": 38462232,
+            "sha256": "5f1f6686f510ef65e559f41d2bf56684ce7cfb3ecb081292ba48e67b9ce331d8"
+          },
+          ".init": {
+            "bytes": 23,
+            "offset": 37191836,
+            "sha256": "6faf421ec7030d30c80ce4875a39447fae26955b80f25e8ab91fd263cb89986c"
+          },
+          ".init_array": {
+            "bytes": 16,
+            "offset": 37192192,
+            "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+          },
+          ".interp": {
+            "bytes": 28,
+            "offset": 736,
+            "sha256": "9097c98ea70f6f3b01d50145eb72bf55ad1f4e9713bccf27bd6405d6254eed00"
+          },
+          ".note.ABI-tag": {
+            "bytes": 32,
+            "offset": 764,
+            "sha256": "6e48317ad93a8ac2dc04321465ede06d1274543fc8ab172e68171a9d684bb313"
+          },
+          ".note.gnu.build-id": {
+            "bytes": 36,
+            "offset": 796,
+            "sha256": "6fc0404dfce03971a254f76e6e706bfdae22cc4adc5ed7fd041f6d34f3676eab"
+          },
+          ".plt": {
+            "bytes": 80,
+            "offset": 37191872,
+            "sha256": "d0ad145cb9f2fa005ab429e84b64e3c161696e3120f97ce20d35dfef69c1f4b4"
+          },
+          ".rela.dyn": {
+            "bytes": 1810512,
+            "offset": 8968,
+            "sha256": "ce1a838494ef1a853123e41ed3b389def1cd71763409f1c27f03608f17800807"
+          },
+          ".rela.plt": {
+            "bytes": 96,
+            "offset": 1819480,
+            "sha256": "f9c7d2cc287af174111134260262017842d68ace44649ccd771a0b8ba175c4e8"
+          },
+          ".rodata": {
+            "bytes": 2324200,
+            "offset": 1822720,
+            "sha256": "59137b5b16ca9741a3a034c2052b0f99bc9648dad66b3521d09436f3cd554db8"
+          },
+          ".shstrtab": {
+            "bytes": 323,
+            "offset": 38525762,
+            "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+          },
+          ".tdata": {
+            "bytes": 232,
+            "offset": 37191952,
+            "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+          },
+          ".text": {
+            "bytes": 28988316,
+            "offset": 8203520,
+            "sha256": "0b88cb3acc63d69dca97e469c55ba64a4f3b0e5096192efe3be219abbafa4915"
+          },
+          ".tm_clone_table": {
+            "bytes": 0,
+            "offset": 38462288,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        "sha256": "596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b"
+      },
+      "B": {
+        "comment": [
+          "Linker: LLD 21.1.2 (/checkout/src/llvm-project/llvm 8c30b9c5098bdff1d3d9a2d460ee091cd1171e60)",
+          "GCC: (Debian 14.2.0-19) 14.2.0",
+          "",
+          "rustc version 1.91.1 (ed61e7d7e 2025-11-07)",
+          ""
+        ],
+        "embedded_generated_and_std_paths": [
+          {
+            "offset": 1858837,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/inst_builder.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1878065,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_opt.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1894072,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_pulley_shared.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1921995,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-pulley.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1932519,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1949479,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_x64.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1973037,
+            "path": "/tmp/entangle-c19-clean-target-wq6vbgk3/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-x86.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1822831,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/iter.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1826763,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/num/wrapping.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1833799,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1834392,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/option.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1835301,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/unix/net/stream.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1838969,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/local.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1841115,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1841835,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/os_str/bytes.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1842404,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone/uninit.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1844019,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/stdio.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1849214,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/node.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1849306,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1856114,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/future/ready.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1856893,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cmp.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1859343,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/slice.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1873437,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/binary_heap/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1877095,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/raw_vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1884178,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map/entry.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1892247,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1894330,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/exact_size.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1894421,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/vec_deque/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1903213,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/result.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1905490,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/sync/once/futex.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1906265,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/thread_local/native/lazy.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1906701,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/io/io_slice/iovec.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1911757,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/borrow.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1916780,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1917660,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/once_lock.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1920149,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1921425,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/poison/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1922107,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1930836,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1931787,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/rc.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1932737,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/sync.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1933193,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/task/poll.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1935182,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/fd/raw.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1938976,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/io/borrowed_buf.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1942996,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/pattern.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1950088,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ops/function.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1952673,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/string.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1958237,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ptr/mut_ptr.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1958438,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/navigate.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1958534,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/time.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1959994,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1961254,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/sort/stable/quicksort.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1971126,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/search.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1972001,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/iterator.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1972464,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/str.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1978017,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/char/methods.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1981236,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/spec_from_iter_nested.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1983600,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/boxed/convert.rs",
+            "section": ".rodata"
+          }
+        ],
+        "file_size": 38528200,
+        "gnu_build_id_note_hex": "040000001400000003000000474e5500e1b4c1aaa5cc6b9bc46ec800a4559c420bc09c26",
+        "sections": {
+          ".comment": {
+            "bytes": 170,
+            "offset": 38525592,
+            "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+          },
+          ".data": {
+            "bytes": 63304,
+            "offset": 38462288,
+            "sha256": "0ba62a3783fa204e863923462d378009c83c93737f56cc7f063ac12339802e22"
+          },
+          ".data.rel.ro": {
+            "bytes": 1207072,
+            "offset": 37192208,
+            "sha256": "7220fe7eda88c518eafcf62e49ed60cd173a4beb8f48622b6e63944316c20eb8"
+          },
+          ".dynamic": {
+            "bytes": 480,
+            "offset": 38399280,
+            "sha256": "17694a67c8106f94d08b1378d886ed13525206e2aefa45ed1b8ee7973a566368"
+          },
+          ".dynstr": {
+            "bytes": 2670,
+            "offset": 6292,
+            "sha256": "ee24de6222dc4cd2c258d73bb6e5d5c310b8f174e3cad6047aa7057f63af2f51"
+          },
+          ".dynsym": {
+            "bytes": 4536,
+            "offset": 832,
+            "sha256": "97faedc47436fbde5109983e95c94ec493e5d93676138f393515646f5946d038"
+          },
+          ".eh_frame": {
+            "bytes": 2651648,
+            "offset": 5551824,
+            "sha256": "a6ce3338482b94316acbb8abf422a9c98e34deb25a1f5072c2969b1dc3a9a601"
+          },
+          ".eh_frame_hdr": {
+            "bytes": 344012,
+            "offset": 5207812,
+            "sha256": "38677a40b00b16f5b163721ef2fb8b00a089171174c26368bb9e087475beef63"
+          },
+          ".fini": {
+            "bytes": 9,
+            "offset": 37191860,
+            "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+          },
+          ".fini_array": {
+            "bytes": 8,
+            "offset": 37192184,
+            "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+          },
+          ".gcc_except_table": {
+            "bytes": 1060892,
+            "offset": 4146920,
+            "sha256": "118fa26caa77c2b7e4c2937a3ca9873f29741a39cb1112b3f79cd3f65c97968a"
+          },
+          ".gnu.hash": {
+            "bytes": 28,
+            "offset": 6264,
+            "sha256": "faba897eba9e491744449d96309c68f99d52445fd138a6fce28fe09ca08848f4"
+          },
+          ".gnu.version": {
+            "bytes": 378,
+            "offset": 5368,
+            "sha256": "7cdb884a88f1d0af8273f76aa39e3c0d91daa55030f3666faf361dcd2489e0a6"
+          },
+          ".gnu.version_r": {
+            "bytes": 512,
+            "offset": 5748,
+            "sha256": "c592da1725e3eeb0ae69c83c07eec777a1d1a5de689e24ff4d83028410a73e85"
+          },
+          ".got": {
+            "bytes": 62472,
+            "offset": 38399760,
+            "sha256": "6f33d43398de11c8e418875a7598e7e10cf68fd052dba37b35e4b169dde4e124"
+          },
+          ".got.plt": {
+            "bytes": 56,
+            "offset": 38462232,
+            "sha256": "5f1f6686f510ef65e559f41d2bf56684ce7cfb3ecb081292ba48e67b9ce331d8"
+          },
+          ".init": {
+            "bytes": 23,
+            "offset": 37191836,
+            "sha256": "6faf421ec7030d30c80ce4875a39447fae26955b80f25e8ab91fd263cb89986c"
+          },
+          ".init_array": {
+            "bytes": 16,
+            "offset": 37192192,
+            "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+          },
+          ".interp": {
+            "bytes": 28,
+            "offset": 736,
+            "sha256": "9097c98ea70f6f3b01d50145eb72bf55ad1f4e9713bccf27bd6405d6254eed00"
+          },
+          ".note.ABI-tag": {
+            "bytes": 32,
+            "offset": 764,
+            "sha256": "6e48317ad93a8ac2dc04321465ede06d1274543fc8ab172e68171a9d684bb313"
+          },
+          ".note.gnu.build-id": {
+            "bytes": 36,
+            "offset": 796,
+            "sha256": "c7064740f052b1cdfbcbf6e9388c413fa9e35757acd1923ce930cb198175c871"
+          },
+          ".plt": {
+            "bytes": 80,
+            "offset": 37191872,
+            "sha256": "d0ad145cb9f2fa005ab429e84b64e3c161696e3120f97ce20d35dfef69c1f4b4"
+          },
+          ".rela.dyn": {
+            "bytes": 1810512,
+            "offset": 8968,
+            "sha256": "481adfbc14f92e1387bbbd9b76bac4fae85d0f12c1d7cd514876e228739ca1de"
+          },
+          ".rela.plt": {
+            "bytes": 96,
+            "offset": 1819480,
+            "sha256": "f9c7d2cc287af174111134260262017842d68ace44649ccd771a0b8ba175c4e8"
+          },
+          ".rodata": {
+            "bytes": 2324200,
+            "offset": 1822720,
+            "sha256": "4a0e7a7a05c5bfd21b7ae7bc7663298ef0e4933400f588b2a246f22907398ec4"
+          },
+          ".shstrtab": {
+            "bytes": 323,
+            "offset": 38525762,
+            "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+          },
+          ".tdata": {
+            "bytes": 232,
+            "offset": 37191952,
+            "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+          },
+          ".text": {
+            "bytes": 28988316,
+            "offset": 8203520,
+            "sha256": "bf4816b2526e9704ef63919137bbf5af706b10eac9bac3809cb256cbc34e0ca6"
+          },
+          ".tm_clone_table": {
+            "bytes": 0,
+            "offset": 38462288,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        "sha256": "facc55e82a5837584ccf35a0bf02d2cdc77d5210f57d62228fb4f1e7caf94a45"
+      },
+      "canonical": {
+        "comment": [
+          "Linker: LLD 21.1.2 (/checkout/src/llvm-project/llvm 8c30b9c5098bdff1d3d9a2d460ee091cd1171e60)",
+          "GCC: (Debian 14.2.0-19) 14.2.0",
+          "",
+          "rustc version 1.91.1 (ed61e7d7e 2025-11-07)",
+          ""
+        ],
+        "embedded_generated_and_std_paths": [
+          {
+            "offset": 1875047,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-x86.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1895429,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/inst_builder.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1914591,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1939581,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_pulley_shared.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1946800,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-pulley.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1952932,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_opt.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1965733,
+            "path": "/workspace/Entanglement/target/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_x64.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1823163,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/poison/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1823297,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/iter.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1826897,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/num/wrapping.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1833933,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/navigate.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1834079,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/str.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1834578,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1835405,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/option.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1835704,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/unix/net/stream.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1838638,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/borrow.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1838764,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/slice.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1839623,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/local.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1839703,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/vec_deque/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1841914,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/clone.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1842634,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/os_str/bytes.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1844737,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/stdio.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1849932,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/node.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1850024,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1850588,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/sync.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1855485,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/map/entry.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1858648,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/future/ready.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1860151,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/slice.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1860384,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/iter/traits/iterator.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1861350,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sync/once_lock.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1866112,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/thread/local.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1869869,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/map.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1871762,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/future/ready.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1874641,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/iter.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1875147,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/binary_heap/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1876693,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1878933,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/raw_vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1885093,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1886036,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/map/entry.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1887842,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/io/io_slice/iovec.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1889587,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/clone/uninit.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1890473,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/time.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1894498,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/thread/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1896566,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/exact_size.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1896657,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1896782,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/io/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1898813,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/vec_deque/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1905580,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/search.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1908732,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/thread_local/native/lazy.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1912462,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sys/sync/once/futex.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1915696,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/borrow.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1919341,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/io/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1920912,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1922288,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/binary_heap/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1922906,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1924182,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/raw_vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1924799,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/sync/poison/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1924883,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1929454,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/char/methods.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1930839,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/sort/stable/quicksort.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1930985,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/rc.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1934011,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/cell/once.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1936995,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/sync.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1938102,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/os/fd/raw.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1946043,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/collections/btree/node.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1946185,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/str/pattern.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1947362,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/boxed/convert.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1953354,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/sync/once/futex.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1953861,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/cmp.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1954611,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ops/function.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1955884,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/thread_local/native/lazy.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1956155,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ptr/mut_ptr.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1956285,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/spec_from_iter_nested.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1956664,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/string.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1957235,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1962476,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/collections/btree/navigate.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1962572,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/time.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1965214,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/slice/sort/stable/quicksort.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1968527,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/io/borrowed_buf.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1970976,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/string.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1971102,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/str/pattern.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1973520,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/task/poll.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1976364,
+            "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/os/fd/raw.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1976608,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/iter/traits/iterator.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1977191,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/str.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1985653,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/vec/spec_from_iter_nested.rs",
+            "section": ".rodata"
+          },
+          {
+            "offset": 1988017,
+            "path": "/rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/alloc/src/boxed/convert.rs",
+            "section": ".rodata"
+          }
+        ],
+        "file_size": 38532296,
+        "gnu_build_id_note_hex": "040000001400000003000000474e55003b11825455411aee369bc835ad510b45e667d8f6",
+        "sections": {
+          ".comment": {
+            "bytes": 170,
+            "offset": 38529688,
+            "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+          },
+          ".data": {
+            "bytes": 63304,
+            "offset": 38466384,
+            "sha256": "0ba62a3783fa204e863923462d378009c83c93737f56cc7f063ac12339802e22"
+          },
+          ".data.rel.ro": {
+            "bytes": 1207072,
+            "offset": 37196304,
+            "sha256": "45c365ff0124f395ed73851507964aeb0a2278cdfb6af4f27e2133d66eba0c77"
+          },
+          ".dynamic": {
+            "bytes": 480,
+            "offset": 38403376,
+            "sha256": "03eb444e1f8c2b1e203ad2c82b803f329fa3d5f8434a9ddf27e2c67e268a96b2"
+          },
+          ".dynstr": {
+            "bytes": 2670,
+            "offset": 6292,
+            "sha256": "ee24de6222dc4cd2c258d73bb6e5d5c310b8f174e3cad6047aa7057f63af2f51"
+          },
+          ".dynsym": {
+            "bytes": 4536,
+            "offset": 832,
+            "sha256": "97faedc47436fbde5109983e95c94ec493e5d93676138f393515646f5946d038"
+          },
+          ".eh_frame": {
+            "bytes": 2651648,
+            "offset": 5555920,
+            "sha256": "a6ce3338482b94316acbb8abf422a9c98e34deb25a1f5072c2969b1dc3a9a601"
+          },
+          ".eh_frame_hdr": {
+            "bytes": 344012,
+            "offset": 5211908,
+            "sha256": "38677a40b00b16f5b163721ef2fb8b00a089171174c26368bb9e087475beef63"
+          },
+          ".fini": {
+            "bytes": 9,
+            "offset": 37195956,
+            "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+          },
+          ".fini_array": {
+            "bytes": 8,
+            "offset": 37196280,
+            "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+          },
+          ".gcc_except_table": {
+            "bytes": 1060892,
+            "offset": 4151016,
+            "sha256": "118fa26caa77c2b7e4c2937a3ca9873f29741a39cb1112b3f79cd3f65c97968a"
+          },
+          ".gnu.hash": {
+            "bytes": 28,
+            "offset": 6264,
+            "sha256": "faba897eba9e491744449d96309c68f99d52445fd138a6fce28fe09ca08848f4"
+          },
+          ".gnu.version": {
+            "bytes": 378,
+            "offset": 5368,
+            "sha256": "7cdb884a88f1d0af8273f76aa39e3c0d91daa55030f3666faf361dcd2489e0a6"
+          },
+          ".gnu.version_r": {
+            "bytes": 512,
+            "offset": 5748,
+            "sha256": "c592da1725e3eeb0ae69c83c07eec777a1d1a5de689e24ff4d83028410a73e85"
+          },
+          ".got": {
+            "bytes": 62472,
+            "offset": 38403856,
+            "sha256": "6f33d43398de11c8e418875a7598e7e10cf68fd052dba37b35e4b169dde4e124"
+          },
+          ".got.plt": {
+            "bytes": 56,
+            "offset": 38466328,
+            "sha256": "ce6a37b2000902472e136645acde88445265466997df0429680a4c9194a1fcdb"
+          },
+          ".init": {
+            "bytes": 23,
+            "offset": 37195932,
+            "sha256": "6faf421ec7030d30c80ce4875a39447fae26955b80f25e8ab91fd263cb89986c"
+          },
+          ".init_array": {
+            "bytes": 16,
+            "offset": 37196288,
+            "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+          },
+          ".interp": {
+            "bytes": 28,
+            "offset": 736,
+            "sha256": "9097c98ea70f6f3b01d50145eb72bf55ad1f4e9713bccf27bd6405d6254eed00"
+          },
+          ".note.ABI-tag": {
+            "bytes": 32,
+            "offset": 764,
+            "sha256": "6e48317ad93a8ac2dc04321465ede06d1274543fc8ab172e68171a9d684bb313"
+          },
+          ".note.gnu.build-id": {
+            "bytes": 36,
+            "offset": 796,
+            "sha256": "56cd14c77b47839626521a099091401d2d8abd1921c1c80820b81cc47ea46986"
+          },
+          ".plt": {
+            "bytes": 80,
+            "offset": 37195968,
+            "sha256": "d0ad145cb9f2fa005ab429e84b64e3c161696e3120f97ce20d35dfef69c1f4b4"
+          },
+          ".rela.dyn": {
+            "bytes": 1810512,
+            "offset": 8968,
+            "sha256": "afff1e238e7e1c8f14be03be33de4288029bf799468336f1f1b2fc081b7945ac"
+          },
+          ".rela.plt": {
+            "bytes": 96,
+            "offset": 1819480,
+            "sha256": "a4d9e83dd27c35e6e5bd049f398b69ee4c445fdd70f5ed69bf90247e7769027d"
+          },
+          ".rodata": {
+            "bytes": 2328296,
+            "offset": 1822720,
+            "sha256": "795afdb3a0f5da8d777ccee92801d2874303ddd8f0dfb061f5a7efa56cbb9dd5"
+          },
+          ".shstrtab": {
+            "bytes": 323,
+            "offset": 38529858,
+            "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+          },
+          ".tdata": {
+            "bytes": 232,
+            "offset": 37196048,
+            "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+          },
+          ".text": {
+            "bytes": 28988316,
+            "offset": 8207616,
+            "sha256": "75bdb7cf8a5d8ebdc66c9d963cfc609a82845ad24f00986a6fd0ed4f890bd3c0"
+          },
+          ".tm_clone_table": {
+            "bytes": 0,
+            "offset": 38466384,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        "sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+      }
+    }
+  },
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "comparisons": {
+    "entangle": {
+      "A-to-B": {
+        "changed_section_contents": {
+          ".note.gnu.build-id": {
+            "A": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "0130a31db232ba28d247b41c2d66775398adc15deb4e97383084d706443b190c"
+            },
+            "B": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "63c1800b4ffac1e5b27ce66dad31d25bb13322bd1913f503fa8e58e1de04afc7"
+            }
+          },
+          ".rela.dyn": {
+            "A": {
+              "bytes": 1786104,
+              "offset": 9512,
+              "sha256": "683ca8895612750f2ef8777f30b6ff993cb5ac1e4da71e17c7690a7fe0e71528"
+            },
+            "B": {
+              "bytes": 1786104,
+              "offset": 9512,
+              "sha256": "b0ddaed529f9fa86a0c25b223dccc8b5f0c224ed300740e59438bb2fa7f286dd"
+            }
+          },
+          ".rodata": {
+            "A": {
+              "bytes": 2373352,
+              "offset": 1798144,
+              "sha256": "a0dacf8ad6f7e3213d3b8c5bfeee8ebabe0a5f07398a54eb4a01e085051d9cbd"
+            },
+            "B": {
+              "bytes": 2373352,
+              "offset": 1798144,
+              "sha256": "0f2122f79d0bf5cf408cb8ea02c8b03f74688695de1c2d0b17aca9ea5fc2de2c"
+            }
+          },
+          ".text": {
+            "A": {
+              "bytes": 28906076,
+              "offset": 8062912,
+              "sha256": "ae0b15f55036b0e3309266112d42e329d1db14c1f39e5de306cbf8d6235ae6fb"
+            },
+            "B": {
+              "bytes": 28906076,
+              "offset": 8062912,
+              "sha256": "259faf019811b98514c9c5e7ce747e6dc61236c51e74c8fa3edef676b10fa6c6"
+            }
+          }
+        },
+        "exactly_equal": false,
+        "file_size_difference_bytes": 0,
+        "offline_diagnostic_replay": {
+          "copied_build_id_descriptor_bytes": 20,
+          "equal_to_other_entire_elf_after_replacements": false,
+          "other_elf_sha256": "629ecfe9101c3f77370b80e77496fddfad8665002af9db8ee92c24a10824fc60",
+          "patched_only_embedded_generated_roots": [
+            {
+              "length": 39,
+              "offset": 1799078,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-pulley.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1803757,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/inst_builder.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1815417,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-x86.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1846859,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_x64.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1896360,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_opt.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1908038,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1911960,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_pulley_shared.rs"
+            }
+          ],
+          "reconstructed_sha256": "d1ea8c846cf5b78bee85298a67e4d19e9701531f30b1e8f36a96d58ed6c21107",
+          "remaining_mismatches_count": 173363
+        }
+      },
+      "A-to-canonical": {
+        "changed_section_contents": {
+          ".data.rel.ro": {
+            "A": {
+              "bytes": 1182336,
+              "offset": 36969456,
+              "sha256": "75ba7bce84733e6f92ccb9c8df594a2e3a00f9715356c0ce6870bdb7ce44a9b4"
+            },
+            "canonical": {
+              "bytes": 1182336,
+              "offset": 36973552,
+              "sha256": "cfc0380a477a00ff76965c01c3887e9afb6ada21626ff3721398873fbd1774cb"
+            }
+          },
+          ".dynamic": {
+            "A": {
+              "bytes": 480,
+              "offset": 38151792,
+              "sha256": "b88cc6ba0432f44ec31b5153a7ca3b6a445c3e989303325a3bc08132aabc7f86"
+            },
+            "canonical": {
+              "bytes": 480,
+              "offset": 38155888,
+              "sha256": "37620fc6dff76406d3c20e023fbba626d6f9fa3319d5f20895fbdabfd142042c"
+            }
+          },
+          ".got.plt": {
+            "A": {
+              "bytes": 104,
+              "offset": 38215400,
+              "sha256": "e9d2972940076b3a4f8e65bbe4b9008e72560f4c04324e321daa472c4a3a1538"
+            },
+            "canonical": {
+              "bytes": 104,
+              "offset": 38219496,
+              "sha256": "84e793ef996e174cb0ebafde6b685a47ac1228815162717860a567dc8c955f50"
+            }
+          },
+          ".note.gnu.build-id": {
+            "A": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "0130a31db232ba28d247b41c2d66775398adc15deb4e97383084d706443b190c"
+            },
+            "canonical": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "8ba2a0e145d84c79349306bc0e057580b5d062aa003b9e5390c556ade9588801"
+            }
+          },
+          ".rela.dyn": {
+            "A": {
+              "bytes": 1786104,
+              "offset": 9512,
+              "sha256": "683ca8895612750f2ef8777f30b6ff993cb5ac1e4da71e17c7690a7fe0e71528"
+            },
+            "canonical": {
+              "bytes": 1786104,
+              "offset": 9512,
+              "sha256": "f850d2a29b92fd052b19f33d2b60499985ca7afc9b290c80552be7a9110f3a9f"
+            }
+          },
+          ".rela.plt": {
+            "A": {
+              "bytes": 240,
+              "offset": 1795616,
+              "sha256": "96bb12f52ccc883ee26cba7263e6ff094f37914f829785d150dd5b8af6f55d7a"
+            },
+            "canonical": {
+              "bytes": 240,
+              "offset": 1795616,
+              "sha256": "45af1543943457f99ef7d6c8b421722b27335a28620cc250314bd203ada6aae3"
+            }
+          },
+          ".rodata": {
+            "A": {
+              "bytes": 2373352,
+              "offset": 1798144,
+              "sha256": "a0dacf8ad6f7e3213d3b8c5bfeee8ebabe0a5f07398a54eb4a01e085051d9cbd"
+            },
+            "canonical": {
+              "bytes": 2377448,
+              "offset": 1798144,
+              "sha256": "846c2cd32c2dc6e53908186d0b59f13b3dc93132030e2e860827845d40539c47"
+            }
+          },
+          ".text": {
+            "A": {
+              "bytes": 28906076,
+              "offset": 8062912,
+              "sha256": "ae0b15f55036b0e3309266112d42e329d1db14c1f39e5de306cbf8d6235ae6fb"
+            },
+            "canonical": {
+              "bytes": 28906076,
+              "offset": 8067008,
+              "sha256": "405f1272558381c0ddab8e51861e54e6b8028da15580419e6e3c97efd895ae2b"
+            }
+          }
+        },
+        "exactly_equal": false,
+        "file_size_difference_bytes": 4096
+      },
+      "B-to-canonical": {
+        "changed_section_contents": {
+          ".data.rel.ro": {
+            "B": {
+              "bytes": 1182336,
+              "offset": 36969456,
+              "sha256": "75ba7bce84733e6f92ccb9c8df594a2e3a00f9715356c0ce6870bdb7ce44a9b4"
+            },
+            "canonical": {
+              "bytes": 1182336,
+              "offset": 36973552,
+              "sha256": "cfc0380a477a00ff76965c01c3887e9afb6ada21626ff3721398873fbd1774cb"
+            }
+          },
+          ".dynamic": {
+            "B": {
+              "bytes": 480,
+              "offset": 38151792,
+              "sha256": "b88cc6ba0432f44ec31b5153a7ca3b6a445c3e989303325a3bc08132aabc7f86"
+            },
+            "canonical": {
+              "bytes": 480,
+              "offset": 38155888,
+              "sha256": "37620fc6dff76406d3c20e023fbba626d6f9fa3319d5f20895fbdabfd142042c"
+            }
+          },
+          ".got.plt": {
+            "B": {
+              "bytes": 104,
+              "offset": 38215400,
+              "sha256": "e9d2972940076b3a4f8e65bbe4b9008e72560f4c04324e321daa472c4a3a1538"
+            },
+            "canonical": {
+              "bytes": 104,
+              "offset": 38219496,
+              "sha256": "84e793ef996e174cb0ebafde6b685a47ac1228815162717860a567dc8c955f50"
+            }
+          },
+          ".note.gnu.build-id": {
+            "B": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "63c1800b4ffac1e5b27ce66dad31d25bb13322bd1913f503fa8e58e1de04afc7"
+            },
+            "canonical": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "8ba2a0e145d84c79349306bc0e057580b5d062aa003b9e5390c556ade9588801"
+            }
+          },
+          ".rela.dyn": {
+            "B": {
+              "bytes": 1786104,
+              "offset": 9512,
+              "sha256": "b0ddaed529f9fa86a0c25b223dccc8b5f0c224ed300740e59438bb2fa7f286dd"
+            },
+            "canonical": {
+              "bytes": 1786104,
+              "offset": 9512,
+              "sha256": "f850d2a29b92fd052b19f33d2b60499985ca7afc9b290c80552be7a9110f3a9f"
+            }
+          },
+          ".rela.plt": {
+            "B": {
+              "bytes": 240,
+              "offset": 1795616,
+              "sha256": "96bb12f52ccc883ee26cba7263e6ff094f37914f829785d150dd5b8af6f55d7a"
+            },
+            "canonical": {
+              "bytes": 240,
+              "offset": 1795616,
+              "sha256": "45af1543943457f99ef7d6c8b421722b27335a28620cc250314bd203ada6aae3"
+            }
+          },
+          ".rodata": {
+            "B": {
+              "bytes": 2373352,
+              "offset": 1798144,
+              "sha256": "0f2122f79d0bf5cf408cb8ea02c8b03f74688695de1c2d0b17aca9ea5fc2de2c"
+            },
+            "canonical": {
+              "bytes": 2377448,
+              "offset": 1798144,
+              "sha256": "846c2cd32c2dc6e53908186d0b59f13b3dc93132030e2e860827845d40539c47"
+            }
+          },
+          ".text": {
+            "B": {
+              "bytes": 28906076,
+              "offset": 8062912,
+              "sha256": "259faf019811b98514c9c5e7ce747e6dc61236c51e74c8fa3edef676b10fa6c6"
+            },
+            "canonical": {
+              "bytes": 28906076,
+              "offset": 8067008,
+              "sha256": "405f1272558381c0ddab8e51861e54e6b8028da15580419e6e3c97efd895ae2b"
+            }
+          }
+        },
+        "exactly_equal": false,
+        "file_size_difference_bytes": 4096
+      }
+    },
+    "entangled": {
+      "A-to-B": {
+        "changed_section_contents": {
+          ".note.gnu.build-id": {
+            "A": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "6fc0404dfce03971a254f76e6e706bfdae22cc4adc5ed7fd041f6d34f3676eab"
+            },
+            "B": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "c7064740f052b1cdfbcbf6e9388c413fa9e35757acd1923ce930cb198175c871"
+            }
+          },
+          ".rela.dyn": {
+            "A": {
+              "bytes": 1810512,
+              "offset": 8968,
+              "sha256": "ce1a838494ef1a853123e41ed3b389def1cd71763409f1c27f03608f17800807"
+            },
+            "B": {
+              "bytes": 1810512,
+              "offset": 8968,
+              "sha256": "481adfbc14f92e1387bbbd9b76bac4fae85d0f12c1d7cd514876e228739ca1de"
+            }
+          },
+          ".rodata": {
+            "A": {
+              "bytes": 2324200,
+              "offset": 1822720,
+              "sha256": "59137b5b16ca9741a3a034c2052b0f99bc9648dad66b3521d09436f3cd554db8"
+            },
+            "B": {
+              "bytes": 2324200,
+              "offset": 1822720,
+              "sha256": "4a0e7a7a05c5bfd21b7ae7bc7663298ef0e4933400f588b2a246f22907398ec4"
+            }
+          },
+          ".text": {
+            "A": {
+              "bytes": 28988316,
+              "offset": 8203520,
+              "sha256": "0b88cb3acc63d69dca97e469c55ba64a4f3b0e5096192efe3be219abbafa4915"
+            },
+            "B": {
+              "bytes": 28988316,
+              "offset": 8203520,
+              "sha256": "bf4816b2526e9704ef63919137bbf5af706b10eac9bac3809cb256cbc34e0ca6"
+            }
+          }
+        },
+        "exactly_equal": false,
+        "file_size_difference_bytes": 0,
+        "offline_diagnostic_replay": {
+          "copied_build_id_descriptor_bytes": 20,
+          "equal_to_other_entire_elf_after_replacements": false,
+          "other_elf_sha256": "facc55e82a5837584ccf35a0bf02d2cdc77d5210f57d62228fb4f1e7caf94a45",
+          "patched_only_embedded_generated_roots": [
+            {
+              "length": 39,
+              "offset": 1823654,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-pulley.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1828194,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/inst_builder.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1839190,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings-x86.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1869148,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_x64.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1917164,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_opt.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1928393,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/settings.rs"
+            },
+            {
+              "length": 39,
+              "offset": 1932215,
+              "suffix": "/release/build/cranelift-codegen-a1cac3dd1aad30bb/out/isle_pulley_shared.rs"
+            }
+          ],
+          "reconstructed_sha256": "195cb371adb87d637382a7083188b0450e93f2f523320d05c3bca44bd8f05b6d",
+          "remaining_mismatches_count": 168124
+        }
+      },
+      "A-to-canonical": {
+        "changed_section_contents": {
+          ".data.rel.ro": {
+            "A": {
+              "bytes": 1207072,
+              "offset": 37192208,
+              "sha256": "7220fe7eda88c518eafcf62e49ed60cd173a4beb8f48622b6e63944316c20eb8"
+            },
+            "canonical": {
+              "bytes": 1207072,
+              "offset": 37196304,
+              "sha256": "45c365ff0124f395ed73851507964aeb0a2278cdfb6af4f27e2133d66eba0c77"
+            }
+          },
+          ".dynamic": {
+            "A": {
+              "bytes": 480,
+              "offset": 38399280,
+              "sha256": "17694a67c8106f94d08b1378d886ed13525206e2aefa45ed1b8ee7973a566368"
+            },
+            "canonical": {
+              "bytes": 480,
+              "offset": 38403376,
+              "sha256": "03eb444e1f8c2b1e203ad2c82b803f329fa3d5f8434a9ddf27e2c67e268a96b2"
+            }
+          },
+          ".got.plt": {
+            "A": {
+              "bytes": 56,
+              "offset": 38462232,
+              "sha256": "5f1f6686f510ef65e559f41d2bf56684ce7cfb3ecb081292ba48e67b9ce331d8"
+            },
+            "canonical": {
+              "bytes": 56,
+              "offset": 38466328,
+              "sha256": "ce6a37b2000902472e136645acde88445265466997df0429680a4c9194a1fcdb"
+            }
+          },
+          ".note.gnu.build-id": {
+            "A": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "6fc0404dfce03971a254f76e6e706bfdae22cc4adc5ed7fd041f6d34f3676eab"
+            },
+            "canonical": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "56cd14c77b47839626521a099091401d2d8abd1921c1c80820b81cc47ea46986"
+            }
+          },
+          ".rela.dyn": {
+            "A": {
+              "bytes": 1810512,
+              "offset": 8968,
+              "sha256": "ce1a838494ef1a853123e41ed3b389def1cd71763409f1c27f03608f17800807"
+            },
+            "canonical": {
+              "bytes": 1810512,
+              "offset": 8968,
+              "sha256": "afff1e238e7e1c8f14be03be33de4288029bf799468336f1f1b2fc081b7945ac"
+            }
+          },
+          ".rela.plt": {
+            "A": {
+              "bytes": 96,
+              "offset": 1819480,
+              "sha256": "f9c7d2cc287af174111134260262017842d68ace44649ccd771a0b8ba175c4e8"
+            },
+            "canonical": {
+              "bytes": 96,
+              "offset": 1819480,
+              "sha256": "a4d9e83dd27c35e6e5bd049f398b69ee4c445fdd70f5ed69bf90247e7769027d"
+            }
+          },
+          ".rodata": {
+            "A": {
+              "bytes": 2324200,
+              "offset": 1822720,
+              "sha256": "59137b5b16ca9741a3a034c2052b0f99bc9648dad66b3521d09436f3cd554db8"
+            },
+            "canonical": {
+              "bytes": 2328296,
+              "offset": 1822720,
+              "sha256": "795afdb3a0f5da8d777ccee92801d2874303ddd8f0dfb061f5a7efa56cbb9dd5"
+            }
+          },
+          ".text": {
+            "A": {
+              "bytes": 28988316,
+              "offset": 8203520,
+              "sha256": "0b88cb3acc63d69dca97e469c55ba64a4f3b0e5096192efe3be219abbafa4915"
+            },
+            "canonical": {
+              "bytes": 28988316,
+              "offset": 8207616,
+              "sha256": "75bdb7cf8a5d8ebdc66c9d963cfc609a82845ad24f00986a6fd0ed4f890bd3c0"
+            }
+          }
+        },
+        "exactly_equal": false,
+        "file_size_difference_bytes": 4096
+      },
+      "B-to-canonical": {
+        "changed_section_contents": {
+          ".data.rel.ro": {
+            "B": {
+              "bytes": 1207072,
+              "offset": 37192208,
+              "sha256": "7220fe7eda88c518eafcf62e49ed60cd173a4beb8f48622b6e63944316c20eb8"
+            },
+            "canonical": {
+              "bytes": 1207072,
+              "offset": 37196304,
+              "sha256": "45c365ff0124f395ed73851507964aeb0a2278cdfb6af4f27e2133d66eba0c77"
+            }
+          },
+          ".dynamic": {
+            "B": {
+              "bytes": 480,
+              "offset": 38399280,
+              "sha256": "17694a67c8106f94d08b1378d886ed13525206e2aefa45ed1b8ee7973a566368"
+            },
+            "canonical": {
+              "bytes": 480,
+              "offset": 38403376,
+              "sha256": "03eb444e1f8c2b1e203ad2c82b803f329fa3d5f8434a9ddf27e2c67e268a96b2"
+            }
+          },
+          ".got.plt": {
+            "B": {
+              "bytes": 56,
+              "offset": 38462232,
+              "sha256": "5f1f6686f510ef65e559f41d2bf56684ce7cfb3ecb081292ba48e67b9ce331d8"
+            },
+            "canonical": {
+              "bytes": 56,
+              "offset": 38466328,
+              "sha256": "ce6a37b2000902472e136645acde88445265466997df0429680a4c9194a1fcdb"
+            }
+          },
+          ".note.gnu.build-id": {
+            "B": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "c7064740f052b1cdfbcbf6e9388c413fa9e35757acd1923ce930cb198175c871"
+            },
+            "canonical": {
+              "bytes": 36,
+              "offset": 796,
+              "sha256": "56cd14c77b47839626521a099091401d2d8abd1921c1c80820b81cc47ea46986"
+            }
+          },
+          ".rela.dyn": {
+            "B": {
+              "bytes": 1810512,
+              "offset": 8968,
+              "sha256": "481adfbc14f92e1387bbbd9b76bac4fae85d0f12c1d7cd514876e228739ca1de"
+            },
+            "canonical": {
+              "bytes": 1810512,
+              "offset": 8968,
+              "sha256": "afff1e238e7e1c8f14be03be33de4288029bf799468336f1f1b2fc081b7945ac"
+            }
+          },
+          ".rela.plt": {
+            "B": {
+              "bytes": 96,
+              "offset": 1819480,
+              "sha256": "f9c7d2cc287af174111134260262017842d68ace44649ccd771a0b8ba175c4e8"
+            },
+            "canonical": {
+              "bytes": 96,
+              "offset": 1819480,
+              "sha256": "a4d9e83dd27c35e6e5bd049f398b69ee4c445fdd70f5ed69bf90247e7769027d"
+            }
+          },
+          ".rodata": {
+            "B": {
+              "bytes": 2324200,
+              "offset": 1822720,
+              "sha256": "4a0e7a7a05c5bfd21b7ae7bc7663298ef0e4933400f588b2a246f22907398ec4"
+            },
+            "canonical": {
+              "bytes": 2328296,
+              "offset": 1822720,
+              "sha256": "795afdb3a0f5da8d777ccee92801d2874303ddd8f0dfb061f5a7efa56cbb9dd5"
+            }
+          },
+          ".text": {
+            "B": {
+              "bytes": 28988316,
+              "offset": 8203520,
+              "sha256": "bf4816b2526e9704ef63919137bbf5af706b10eac9bac3809cb256cbc34e0ca6"
+            },
+            "canonical": {
+              "bytes": 28988316,
+              "offset": 8207616,
+              "sha256": "75bdb7cf8a5d8ebdc66c9d963cfc609a82845ad24f00986a6fd0ed4f890bd3c0"
+            }
+          }
+        },
+        "exactly_equal": false,
+        "file_size_difference_bytes": 4096
+      }
+    }
+  },
+  "raw_build_receipt_sha256": "6582d63f668662f5d8314bf1b139321f8e2ccbc33107add558c0f76df8da4b69",
+  "scope": "Read-only diagnostic of retained unmodified ELF files, private in-memory substitution only. Reconstructed hashes are not newly built artifacts.",
+  "source": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_manifest_sha256": "289c34b0ec24007c9e2a9fb726130a11595079d06005a151df3b4e755feca47e"
+}

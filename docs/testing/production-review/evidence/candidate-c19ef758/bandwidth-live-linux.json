@@ -1,0 +1,75 @@
+{
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "exit_code": 1,
+  "complete": false,
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "artifact_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "harness_sha256": "8357449fceeace79f3bcd3f7ea774bc2447a37c4f99a243453ab3b4208994f93",
+  "observations": [
+    {
+      "phase": "fast-initial-small",
+      "peer": "302f7252cdfcb0350dd5ab28abf43516",
+      "measured_bps": null,
+      "wall_s": 1.1286
+    },
+    {
+      "phase": "fast-train",
+      "peer": "302f7252cdfcb0350dd5ab28abf43516",
+      "measured_bps": null,
+      "wall_s": 0.3556
+    },
+    {
+      "phase": "fast-measure",
+      "peer": "302f7252cdfcb0350dd5ab28abf43516",
+      "measured_bps": 52689170,
+      "wall_s": 0.7936
+    },
+    {
+      "phase": "slow-initial-small",
+      "peer": "7d95a82c2494003d04b316f8faf60b15",
+      "measured_bps": null,
+      "wall_s": 0.1149
+    },
+    {
+      "phase": "slow-train",
+      "peer": "7d95a82c2494003d04b316f8faf60b15",
+      "measured_bps": null,
+      "wall_s": 2.2022
+    },
+    {
+      "phase": "slow-measure",
+      "peer": "7d95a82c2494003d04b316f8faf60b15",
+      "measured_bps": null,
+      "wall_s": 2.113
+    },
+    {
+      "phase": "slow-measure",
+      "peer": "7d95a82c2494003d04b316f8faf60b15",
+      "measured_bps": 3350956,
+      "wall_s": 2.5709
+    },
+    {
+      "phase": "both-eligible",
+      "peer": "7d95a82c2494003d04b316f8faf60b15",
+      "measured_bps": 3178372,
+      "wall_s": 2.077
+    }
+  ],
+  "failure": {
+    "phase": "both-eligible",
+    "chosen": "7d95a82c2494003d04b316f8faf60b15",
+    "reason": "fit ok, rtt=57ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=3178372",
+    "measured_bps": 3178372,
+    "input_bytes": 786515,
+    "nonce": "b2956e4c20a97b7c9d419652",
+    "output": "\"b2956e4c20a97b7c9d419652\"",
+    "wall_s": 2.077
+  },
+  "planned_following_checks": "The harness stopped at the initial two-eligible worker selection. It did not reach reversal of both synthetic pacing rates, subsequent worker reselection, tiny job, or final topology assertion.",
+  "diagnostic": "docs/testing/production-review/evidence/candidate-c19ef758/bandwidth-contract-stderr.log",
+  "diagnostic_sha256": "7f126c3c9987c826cc23463489fa73e326035be9a53e082a6e0cb3e4b065be36"
+}

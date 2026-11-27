@@ -1,0 +1,9 @@
+{"timestamp":"2026-11-27T07:29:13.476807Z","level":"INFO","fields":{"message":"entangled starting","version":"0.1.0","socket":"/tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/sock","pid":946343},"target":"entangled"}
+{"timestamp":"2026-11-27T07:29:13.477275Z","level":"INFO","fields":{"message":"RPC server listening","socket_path":"/tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/sock"},"target":"entangle_bin::server"}
+{"timestamp":"2026-11-27T07:29:13.478644Z","level":"INFO","fields":{"message":"daemon identity ready","local_peer_id":"f1871a387c7da5b9f10a4dbba849a40f"},"target":"entangled"}
+{"timestamp":"2026-11-27T07:29:13.480972Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T07:29:13.580233Z","level":"INFO","fields":{"message":"broker audit","event":"PluginRegistered { plugin: PluginId { publisher: \"f1871a387c7da5b9f10a4dbba849a40f\", name: \"hello-world\", version: Version { major: 0, minor: 1, patch: 0 } }, declared_tier: Pure, implied_tier: Pure, effective_tier: Pure, at: SystemTime { tv_sec: 1795764553, tv_nsec: 580228379 } }"},"target":"entangle::audit"}
+{"timestamp":"2026-11-27T07:29:13.683638Z","level":"INFO","fields":{"message":"received SIGTERM"},"target":"entangled"}
+{"timestamp":"2026-11-27T07:29:13.683659Z","level":"INFO","fields":{"message":"shutting down entangled"},"target":"entangled"}
+{"timestamp":"2026-11-27T07:29:13.683670Z","level":"INFO","fields":{"message":"maintenance loop shut down cleanly"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T07:29:13.683684Z","level":"INFO","fields":{"message":"entangled stopped"},"target":"entangled"}

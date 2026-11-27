@@ -1,0 +1,29 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:58:10.022659+00:00",
+  "finished_utc": "2026-11-27T06:58:19.399927+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "entangle-bin",
+    "--test",
+    "daemon_compute",
+    "discovers_and_runs_work_without_a_configured_peer_address",
+    "--",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "reviewer": "/root/tailroute",
+  "harness_sha256": "5d87ce4db88b18c05270281a2bb35ad011b8751e08aa85ace1fddda1493dae42",
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/lan-mdns-independent.log",
+  "sha256": "02dd517d695d67efc1f14024363e37cedef4486c0dd1c95717cd6058cc93a047",
+  "scope": "Normal Rust integration harness with Cargo debug-profile daemon; release binary behavior is separate."
+}

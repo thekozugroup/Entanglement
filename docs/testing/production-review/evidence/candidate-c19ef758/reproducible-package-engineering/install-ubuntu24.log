@@ -1,0 +1,30 @@
+2026-11-27T06:50:55Z
+sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.5 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo
+glibc 2.39
+x86_64
+
+  platform    linux/x86_64  (target x86_64-unknown-linux-gnu)
+  version     v0.1.0
+  tarball     https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  checksum    https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+  install to  /tmp/ent-native-install.g6Am1Q/home/bin/entangle, /tmp/ent-native-install.g6Am1Q/home/bin/entangled
+
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+/install.sh: 204: curl: Permission denied
+error: download failed: https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  Is v0.1.0 published for x86_64-unknown-linux-gnu? See https://github.com/thekozugroup/Entanglement/releases
+  If that page is empty, no release exists yet — build from source with
+  ./scripts/bootstrap.sh, or use Docker. See docs/install.md.

@@ -1,0 +1,1729 @@
+{
+  "baseline_authorization": "engineering comparison with the preceding distinct daemon build bb70a619; the intervening reviewed candidate a0926c6e is separately checked for byte identity; production-baseline owner approval outstanding",
+  "baseline_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "candidate_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "cli_sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+  "comparisons": {
+    "image local": {
+      "baseline": {
+        "images_s": 42.39003697241476,
+        "p50_ms": 70.18394099577563,
+        "p95_ms": 158.5685750033008
+      },
+      "candidate": {
+        "images_s": 40.26688367040486,
+        "p50_ms": 88.13978899706854,
+        "p95_ms": 158.0648730014218
+      },
+      "meets_engineering_limit": false,
+      "p95_ratio": 0.9968234437254134,
+      "throughput_ratio": 0.9499138605755041
+    },
+    "image one_remote": {
+      "baseline": {
+        "images_s": 34.74907956072335,
+        "p50_ms": 107.71097999531776,
+        "p95_ms": 164.01672700158088
+      },
+      "candidate": {
+        "images_s": 39.49511206257848,
+        "p50_ms": 98.16692300228169,
+        "p95_ms": 117.64601899631089
+      },
+      "meets_engineering_limit": true,
+      "p95_ratio": 0.717280616111654,
+      "throughput_ratio": 1.1365800925334302
+    },
+    "image three_remote": {
+      "baseline": {
+        "images_s": 33.19933482351945,
+        "p50_ms": 109.74543799966341,
+        "p95_ms": 165.48769699875265
+      },
+      "candidate": {
+        "images_s": 34.65261758703082,
+        "p50_ms": 107.1615600012592,
+        "p95_ms": 146.4944050021586
+      },
+      "meets_engineering_limit": true,
+      "p95_ratio": 0.8852283744287214,
+      "throughput_ratio": 1.0437744542544816
+    },
+    "local / 1": {
+      "baseline": {
+        "p50_ms": 0.216,
+        "p95_ms": 0.395,
+        "requests_per_s": 3944.1
+      },
+      "candidate": {
+        "p50_ms": 0.206,
+        "p95_ms": 0.488,
+        "requests_per_s": 3722.1
+      },
+      "meets_engineering_limit": false,
+      "p95_ratio": 1.2354430379746835,
+      "throughput_ratio": 0.943713394690804
+    },
+    "local / 4": {
+      "baseline": {
+        "p50_ms": 0.467,
+        "p95_ms": 0.829,
+        "requests_per_s": 7768.9
+      },
+      "candidate": {
+        "p50_ms": 0.52,
+        "p95_ms": 0.933,
+        "requests_per_s": 6920.9
+      },
+      "meets_engineering_limit": false,
+      "p95_ratio": 1.1254523522316044,
+      "throughput_ratio": 0.8908468380336985
+    },
+    "remote / 1": {
+      "baseline": {
+        "p50_ms": 1.851,
+        "p95_ms": 3.661,
+        "requests_per_s": 454.5
+      },
+      "candidate": {
+        "p50_ms": 1.844,
+        "p95_ms": 3.501,
+        "requests_per_s": 467.4
+      },
+      "meets_engineering_limit": true,
+      "p95_ratio": 0.956296093963398,
+      "throughput_ratio": 1.0283828382838283
+    },
+    "remote / 4": {
+      "baseline": {
+        "p50_ms": 2.772,
+        "p95_ms": 4.837,
+        "requests_per_s": 1263.1
+      },
+      "candidate": {
+        "p50_ms": 2.959,
+        "p95_ms": 5.437,
+        "requests_per_s": 1216.8
+      },
+      "meets_engineering_limit": false,
+      "p95_ratio": 1.1240438288195163,
+      "throughput_ratio": 0.9633441532736917
+    }
+  },
+  "cpu_monitor_samples": [
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "222:containerd": 0.171,
+        "907950:python3": 1.024
+      },
+      "utc": "07:03:24"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056,
+        "907955:daemon_compute-": 0.319,
+        "907959:entangled": 0.686
+      },
+      "utc": "07:03:25"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.066,
+        "907955:daemon_compute-": 0.141,
+        "907959:entangled": 0.669,
+        "907966:entangled": 0.632
+      },
+      "utc": "07:03:26"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.082,
+        "907955:daemon_compute-": 0.2,
+        "907959:entangled": 1.172,
+        "907966:entangled": 1.026
+      },
+      "utc": "07:03:27"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.066
+      },
+      "utc": "07:03:28"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.047,
+        "907977:daemon_compute-": 0.133,
+        "907981:entangled": 0.7,
+        "907988:entangled": 0.71
+      },
+      "utc": "07:03:29"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.222,
+        "907977:daemon_compute-": 0.176,
+        "907981:entangled": 0.82,
+        "907988:entangled": 0.782
+      },
+      "utc": "07:03:31"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.075
+      },
+      "utc": "07:03:32"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056,
+        "907998:daemon_compute-": 0.112,
+        "908002:entangled": 0.533,
+        "908009:entangled": 0.44
+      },
+      "utc": "07:03:33"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.057,
+        "907998:daemon_compute-": 0.076,
+        "908002:entangled": 0.998,
+        "908009:entangled": 0.418
+      },
+      "utc": "07:03:34"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.066,
+        "907998:daemon_compute-": 0.169,
+        "908002:entangled": 0.852,
+        "908009:entangled": 0.824
+      },
+      "utc": "07:03:35"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056
+      },
+      "utc": "07:03:36"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.057,
+        "908019:daemon_compute-": 0.304,
+        "908023:entangled": 0.75,
+        "908030:entangled": 0.513
+      },
+      "utc": "07:03:37"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056,
+        "908019:daemon_compute-": 0.112,
+        "908023:entangled": 0.684,
+        "908030:entangled": 0.581
+      },
+      "utc": "07:03:38"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.065,
+        "908019:daemon_compute-": 0.205,
+        "908023:entangled": 1.11,
+        "908030:entangled": 1.073
+      },
+      "utc": "07:03:39"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.047
+      },
+      "utc": "07:03:40"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.065,
+        "908041:daemon_compute-": 0.121,
+        "908045:entangled": 0.681,
+        "908052:entangled": 0.662
+      },
+      "utc": "07:03:41"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.074,
+        "908041:daemon_compute-": 0.139,
+        "908045:entangled": 0.713,
+        "908052:entangled": 0.676
+      },
+      "utc": "07:03:42"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.057
+      },
+      "utc": "07:03:44"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056,
+        "908098:daemon_compute-": 0.234,
+        "908102:entangled": 0.75,
+        "908109:entangled": 0.581
+      },
+      "utc": "07:03:45"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.047,
+        "908098:daemon_compute-": 0.142,
+        "908102:entangled": 0.664,
+        "908109:entangled": 0.683
+      },
+      "utc": "07:03:46"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.066
+      },
+      "utc": "07:03:47"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.057
+      },
+      "utc": "07:03:48"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.047,
+        "908119:python": 0.095,
+        "908159:entangled": 0.076,
+        "908190:entangled": 0.855
+      },
+      "utc": "07:03:49"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056,
+        "908119:python": 0.6,
+        "908159:entangled": 1.436
+      },
+      "utc": "07:03:50"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.092,
+        "908119:python": 0.293,
+        "908159:entangled": 2.025,
+        "908237:entangled": 0.192
+      },
+      "utc": "07:03:51"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.048,
+        "908119:python": 0.209,
+        "908159:entangled": 0.722,
+        "908190:entangled": 0.855,
+        "908221:entangled": 0.57,
+        "908237:entangled": 0.238
+      },
+      "utc": "07:03:52"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.065,
+        "908119:python": 0.168,
+        "908159:entangled": 1.815,
+        "908190:entangled": 0.552,
+        "908221:entangled": 0.262,
+        "908237:entangled": 0.281
+      },
+      "utc": "07:03:53"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.038,
+        "908119:python": 0.238,
+        "908159:entangled": 2.036,
+        "908190:entangled": 0.409,
+        "908221:entangled": 0.2,
+        "908237:entangled": 0.086
+      },
+      "utc": "07:03:54"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.065,
+        "908119:python": 0.252,
+        "908159:entangled": 0.969,
+        "908190:entangled": 0.857,
+        "908221:entangled": 0.484,
+        "908237:entangled": 0.177
+      },
+      "utc": "07:03:55"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.065,
+        "908119:python": 0.222,
+        "908159:entangled": 2.659,
+        "908237:entangled": 0.166
+      },
+      "utc": "07:03:56"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056
+      },
+      "utc": "07:03:57"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.091,
+        "908311:python": 0.027
+      },
+      "utc": "07:03:58"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.047,
+        "908311:python": 0.632,
+        "908351:entangled": 0.896,
+        "908382:entangled": 0.057,
+        "908413:entangled": 0.057
+      },
+      "utc": "07:04:00"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056,
+        "908311:python": 0.214,
+        "908351:entangled": 2.654,
+        "908439:entangled": 0.14
+      },
+      "utc": "07:04:01"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.055,
+        "908311:python": 0.212,
+        "908351:entangled": 1.486,
+        "908382:entangled": 0.434,
+        "908413:entangled": 0.397,
+        "908439:entangled": 0.231
+      },
+      "utc": "07:04:02"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.075,
+        "908311:python": 0.253,
+        "908351:entangled": 1.966,
+        "908382:entangled": 0.084,
+        "908413:entangled": 0.047,
+        "908439:entangled": 0.225
+      },
+      "utc": "07:04:03"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056,
+        "908311:python": 0.225,
+        "908351:entangled": 1.408,
+        "908382:entangled": 0.413,
+        "908413:entangled": 0.469,
+        "908439:entangled": 0.207
+      },
+      "utc": "07:04:04"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.057,
+        "908311:python": 0.179,
+        "908351:entangled": 1.914,
+        "908382:entangled": 0.368,
+        "908413:entangled": 0.339,
+        "908439:entangled": 0.16
+      },
+      "utc": "07:04:05"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.056,
+        "908311:python": 0.298,
+        "908351:entangled": 1.948,
+        "908382:entangled": 0.093,
+        "908413:entangled": 0.121,
+        "908439:entangled": 0.065
+      },
+      "utc": "07:04:06"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "907950:python3": 0.066,
+        "908311:python": 0.263
+      },
+      "utc": "07:04:07"
+    }
+  ],
+  "daemons": {
+    "baseline": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+    "candidate": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "design": "3 paired fresh clusters per version (baseline first, candidate first, baseline first) for greetings; one cluster per version with three trials per topology for image batch, candidate first. Limits per topology: p95 candidate/baseline <=1.05 and throughput >=0.95. Four-core shared VM measures neither physical 70B nor 8k RAW.",
+  "driver_sha256": "8468d5bcfc16d3ff332ab8fc0dd6839ef99457be533093c492691c4187cd0ecd",
+  "finish_utc": "2026-11-27 07:04:07 UTC",
+  "hello": [
+    {
+      "cold": "first package_load_ms=48.787 local_ms=2.283 remote_ms=3.132",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.184,
+          "p95_ms": 0.395,
+          "requests": 1024,
+          "requests_per_s": 4046.5,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.467,
+          "p95_ms": 0.829,
+          "requests": 1024,
+          "requests_per_s": 7768.9,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.791,
+          "p95_ms": 2.983,
+          "requests": 1024,
+          "requests_per_s": 509.2,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.75,
+          "p95_ms": 6.306,
+          "requests": 1024,
+          "requests_per_s": 1190.8,
+          "route": "remote"
+        }
+      ],
+      "pair": 1,
+      "stage": "baseline",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.73s"
+    },
+    {
+      "cold": "first package_load_ms=48.464 local_ms=0.711 remote_ms=1.975",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.22,
+          "p95_ms": 0.531,
+          "requests": 1024,
+          "requests_per_s": 3553.1,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.52,
+          "p95_ms": 1.401,
+          "requests": 1024,
+          "requests_per_s": 5925.7,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.834,
+          "p95_ms": 3.501,
+          "requests": 1024,
+          "requests_per_s": 467.4,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.909,
+          "p95_ms": 5.437,
+          "requests": 1024,
+          "requests_per_s": 1216.8,
+          "route": "remote"
+        }
+      ],
+      "pair": 1,
+      "stage": "candidate",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.70s"
+    },
+    {
+      "cold": "first package_load_ms=86.921 local_ms=0.689 remote_ms=2.483",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.206,
+          "p95_ms": 0.417,
+          "requests": 1024,
+          "requests_per_s": 3810.0,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.539,
+          "p95_ms": 0.933,
+          "requests": 1024,
+          "requests_per_s": 6920.9,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.881,
+          "p95_ms": 3.547,
+          "requests": 1024,
+          "requests_per_s": 357.8,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.959,
+          "p95_ms": 6.41,
+          "requests": 1024,
+          "requests_per_s": 1053.8,
+          "route": "remote"
+        }
+      ],
+      "pair": 2,
+      "stage": "candidate",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 4.50s"
+    },
+    {
+      "cold": "first package_load_ms=48.927 local_ms=1.285 remote_ms=3.726",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.216,
+          "p95_ms": 0.432,
+          "requests": 1024,
+          "requests_per_s": 3944.1,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.466,
+          "p95_ms": 0.854,
+          "requests": 1024,
+          "requests_per_s": 7258.9,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.851,
+          "p95_ms": 3.715,
+          "requests": 1024,
+          "requests_per_s": 448.1,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.795,
+          "p95_ms": 4.837,
+          "requests": 1024,
+          "requests_per_s": 1263.1,
+          "route": "remote"
+        }
+      ],
+      "pair": 2,
+      "stage": "baseline",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.71s"
+    },
+    {
+      "cold": "first package_load_ms=33.934 local_ms=0.592 remote_ms=1.752",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.247,
+          "p95_ms": 0.351,
+          "requests": 1024,
+          "requests_per_s": 3775.3,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.477,
+          "p95_ms": 0.794,
+          "requests": 1024,
+          "requests_per_s": 7808.5,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.865,
+          "p95_ms": 3.661,
+          "requests": 1024,
+          "requests_per_s": 454.5,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.772,
+          "p95_ms": 4.669,
+          "requests": 1024,
+          "requests_per_s": 1298.7,
+          "route": "remote"
+        }
+      ],
+      "pair": 3,
+      "stage": "baseline",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.65s"
+    },
+    {
+      "cold": "first package_load_ms=36.824 local_ms=1.682 remote_ms=4.775",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.206,
+          "p95_ms": 0.488,
+          "requests": 1024,
+          "requests_per_s": 3722.1,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.421,
+          "p95_ms": 0.67,
+          "requests": 1024,
+          "requests_per_s": 9041.4,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.844,
+          "p95_ms": 3.493,
+          "requests": 1024,
+          "requests_per_s": 479.8,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.963,
+          "p95_ms": 4.804,
+          "requests": 1024,
+          "requests_per_s": 1223.1,
+          "route": "remote"
+        }
+      ],
+      "pair": 3,
+      "stage": "candidate",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.56s"
+    }
+  ],
+  "host": {
+    "cpu": "Intel Xeon Platinum 8573C, five vCPUs, cpu.max 400000 100000",
+    "iroh": "1.5.0",
+    "memory_limit_bytes": 34359738368,
+    "os": "Debian 13, Linux 6.18.57 x86_64",
+    "rust": "1.91.1",
+    "wasmtime": "36.0.23"
+  },
+  "image": {
+    "baseline": {
+      "concurrency": 4,
+      "cpu_affinity": {
+        "coordinator": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "driver": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-0": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-1": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-2": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "daemon_sha256": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+      "images": 24,
+      "input_bytes_per_batch": 3482013,
+      "input_sha256": "ad7339e9a76e3f5778f0a97a55bd77620a54fcab30324e9458282b5fad1ee5ac",
+      "median_images_s": {
+        "local": 42.39003697241476,
+        "one_remote": 34.74907956072335,
+        "three_remote": 33.19933482351945
+      },
+      "pillow_version": "12.2.0",
+      "png_digest_list_sha256": "cc355f03ea0cd50472e113b2b92509bca56458ad637152b33f5fbb28eeac441b",
+      "process_threads_at_warmup": {
+        "coordinator": 9,
+        "driver": 1,
+        "worker-0": 11,
+        "worker-1": 11,
+        "worker-2": 11
+      },
+      "source_sha256": "a8ca6d734765703b09728ab47fe59f473d93ae3967fc24c7c0288c3c7adb7130",
+      "three_over_one_remote": 0.955401847853387,
+      "three_over_one_target": 1.1,
+      "throughput_target_met": false,
+      "trials": [
+        {
+          "images_s": 33.51893390881901,
+          "latency_ms_by_input": [
+            127.83090000448283,
+            117.03360899991821,
+            125.73751399759203,
+            127.79510400287108,
+            103.22084200015524,
+            107.91687200253364,
+            107.74590700020781,
+            106.25917200377444,
+            102.10410400031833,
+            138.65673100372078,
+            132.98915999621386,
+            137.5989070002106,
+            118.86619399592746,
+            134.60404299985385,
+            222.65028399851872,
+            130.6388080047327,
+            85.30186200368917,
+            85.59013799822424,
+            100.16307800106006,
+            134.36290500249015,
+            101.03540799900657,
+            62.147436998202465,
+            80.49009900423698,
+            57.58799400064163
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.06983111231003966,
+            "worker-0": 3.4636231705779634,
+            "worker-1": 0.0,
+            "worker-2": 0.013966222462007932
+          },
+          "p50_ms": 107.91687200253364,
+          "p95_ms": 138.65673100372078,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.7160132259959937,
+          "workers": {
+            "14b1df11ada6869ef5f3fdfa1f7b66b9": 24
+          }
+        },
+        {
+          "images_s": 34.74907956072335,
+          "latency_ms_by_input": [
+            123.31564399937633,
+            138.74943499831716,
+            103.30686600354966,
+            117.81215600058204,
+            95.63068900024518,
+            87.95196300343378,
+            113.12911200366216,
+            116.26493200310506,
+            87.09335499588633,
+            92.5825430022087,
+            103.12507300113793,
+            155.89280200219946,
+            96.53113500098698,
+            138.6958319999394,
+            151.9350089947693,
+            152.1056710043922,
+            101.88037199986866,
+            107.06169399782084,
+            98.58579700085102,
+            67.19534300646046,
+            127.8710519982269,
+            87.57206299924292,
+            95.61164600017946,
+            100.07972799940035
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.2895756630060279,
+            "driver": 0.04343634945090423,
+            "worker-0": 2.895756630060279,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 103.12507300113793,
+          "p95_ms": 152.1056710043922,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6906657759973314,
+          "workers": {
+            "14b1df11ada6869ef5f3fdfa1f7b66b9": 24
+          }
+        },
+        {
+          "images_s": 30.91867850085954,
+          "latency_ms_by_input": [
+            116.99869199946988,
+            138.56832999590551,
+            133.98675300413743,
+            86.99351300310809,
+            100.48333500162698,
+            113.76204899715958,
+            108.55414300021948,
+            120.36572099896148,
+            94.4457820005482,
+            114.96434699802194,
+            75.5192850047024,
+            94.55775399692357,
+            101.82426800020039,
+            99.13320000487147,
+            113.30227900180034,
+            147.3887729953276,
+            128.06302300305106,
+            95.39732099801768,
+            164.33276599855162,
+            165.18802799691912,
+            185.20437899860553,
+            186.41394899896113,
+            128.17763299972285,
+            109.56518199964194
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.28342121959121247,
+            "driver": 0.03864834812607446,
+            "worker-0": 1.4042233152473707,
+            "worker-1": 0.7214358316867227,
+            "worker-2": 0.6183735700171906
+          },
+          "p50_ms": 113.76204899715958,
+          "p95_ms": 185.20437899860553,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.7762298119996558,
+          "workers": {
+            "14b1df11ada6869ef5f3fdfa1f7b66b9": 12,
+            "1e1693fcfdd116f6e8158b65e10ee013": 6,
+            "85521621a83b5545aa8ecf4d0e9cee40": 6
+          }
+        },
+        {
+          "images_s": 34.808381779846975,
+          "latency_ms_by_input": [
+            106.36260200408287,
+            94.65474299940979,
+            116.69186200015247,
+            118.60583800444147,
+            79.36574600171298,
+            171.00353600108065,
+            152.84716799942544,
+            156.7900660011219,
+            95.86070199293317,
+            110.05650799779687,
+            114.11621199658839,
+            164.01672700158088,
+            155.09267399465898,
+            73.50281799881486,
+            107.47942599846283,
+            117.49589099781588,
+            74.44701199710835,
+            110.37472500174772,
+            73.2847609979217,
+            73.87317700340645,
+            113.64042100467486,
+            107.71097999531776,
+            63.80538800294744,
+            100.69791699788766
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.3045733405736611,
+            "driver": 0.04351047722480876,
+            "worker-0": 2.784670542387758,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 107.71097999531776,
+          "p95_ms": 164.01672700158088,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6894891050033038,
+          "workers": {
+            "14b1df11ada6869ef5f3fdfa1f7b66b9": 24
+          }
+        },
+        {
+          "images_s": 36.19947923942803,
+          "latency_ms_by_input": [
+            96.96514099778142,
+            101.04465899348725,
+            130.8337800001027,
+            116.83004500082461,
+            115.89522400026908,
+            77.76499500323553,
+            73.63235100638121,
+            97.69988899643067,
+            89.01658299873816,
+            99.10050400503678,
+            69.61179599602474,
+            110.48435499833431,
+            129.65054400410736,
+            110.64578099467326,
+            83.28302199515747,
+            130.12051099940436,
+            123.50049499946181,
+            105.69068900076672,
+            118.9330470006098,
+            85.6363130005775,
+            107.6846219948493,
+            108.91166899818927,
+            78.8677890013787,
+            107.30562500248197
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.33182855969475694,
+            "driver": 0.04524934904928542,
+            "worker-0": 1.4781454022766454,
+            "worker-1": 0.6636571193895139,
+            "worker-2": 0.754155817488084
+          },
+          "p50_ms": 105.69068900076672,
+          "p95_ms": 130.12051099940436,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6629929629998514,
+          "workers": {
+            "14b1df11ada6869ef5f3fdfa1f7b66b9": 12,
+            "1e1693fcfdd116f6e8158b65e10ee013": 6,
+            "85521621a83b5545aa8ecf4d0e9cee40": 6
+          }
+        },
+        {
+          "images_s": 42.39003697241476,
+          "latency_ms_by_input": [
+            167.74772299686447,
+            63.62570800411049,
+            125.69898200308671,
+            158.5685750033008,
+            104.8582509974949,
+            101.71630499826279,
+            68.53200199839193,
+            97.49384200404165,
+            64.73113300307887,
+            103.70995700213825,
+            102.93478100356879,
+            60.003626997058745,
+            56.52684999949997,
+            61.75204600003781,
+            58.54144699696917,
+            63.666597998235375,
+            124.8627699969802,
+            89.55931600212352,
+            70.18394099577563,
+            154.84907599602593,
+            101.11646500445204,
+            57.59768399730092,
+            65.56047800404485,
+            57.65978900308255
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.05298754621551889,
+            "worker-0": 3.090940195905243,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 70.18394099577563,
+          "p95_ms": 158.5685750033008,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5661707729959744,
+          "workers": {
+            "14b1df11ada6869ef5f3fdfa1f7b66b9": 24
+          }
+        },
+        {
+          "images_s": 33.19933482351945,
+          "latency_ms_by_input": [
+            165.48769699875265,
+            122.44382700009737,
+            194.3080769997323,
+            97.91529499489116,
+            115.13639699842315,
+            113.8803670037305,
+            138.39343799918424,
+            84.7942150066956,
+            103.95037700072862,
+            107.24509200372268,
+            105.22911199950613,
+            98.1509009943693,
+            117.23527000140166,
+            71.63681199745042,
+            97.0849060031469,
+            111.66747700190172,
+            116.02046999905724,
+            97.36009599873796,
+            109.78743500163546,
+            109.74543799966341,
+            126.61617599951569,
+            122.87352400016971,
+            106.18580399750499,
+            98.77292400051374
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.3043272358822618,
+            "driver": 0.04149916852939905,
+            "worker-0": 1.4386378423525086,
+            "worker-1": 0.6639866964703893,
+            "worker-2": 0.6778197526468558
+          },
+          "p50_ms": 109.74543799966341,
+          "p95_ms": 165.48769699875265,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.7229060500030755,
+          "workers": {
+            "14b1df11ada6869ef5f3fdfa1f7b66b9": 12,
+            "1e1693fcfdd116f6e8158b65e10ee013": 6,
+            "85521621a83b5545aa8ecf4d0e9cee40": 6
+          }
+        },
+        {
+          "images_s": 42.596937410993526,
+          "latency_ms_by_input": [
+            63.31710700033,
+            59.20682099531405,
+            159.39382399665192,
+            160.91665199928684,
+            64.77577600162476,
+            125.25772400113055,
+            57.62739900092129,
+            102.83333700499497,
+            98.09194000263233,
+            62.979504000395536,
+            62.33604699809803,
+            58.762202999787405,
+            97.44817200407851,
+            99.63166200031992,
+            102.0113689955906,
+            64.09206899843412,
+            65.18478599900845,
+            103.35525200207485,
+            98.47733499918832,
+            59.1168130049482,
+            60.00391899578972,
+            58.0595489955158,
+            99.79542499786476,
+            99.74673500255449
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.03549744784249464,
+            "worker-0": 3.2480164775882567,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 65.18478599900845,
+          "p95_ms": 159.39382399665192,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5634207870025421,
+          "workers": {
+            "14b1df11ada6869ef5f3fdfa1f7b66b9": 24
+          }
+        },
+        {
+          "images_s": 32.50571560177174,
+          "latency_ms_by_input": [
+            217.16061000188347,
+            70.33378699998138,
+            219.16976400098065,
+            129.0631059964653,
+            181.06045800232096,
+            110.53341899969382,
+            71.36297399847535,
+            131.92517499555834,
+            68.83347799885087,
+            100.69990200281609,
+            73.03926999884425,
+            74.30478699825471,
+            113.55840400210582,
+            112.06347300321795,
+            112.73697399883531,
+            62.643459998071194,
+            73.38069999968866,
+            78.77644999825861,
+            114.78190899651963,
+            108.69897899829084,
+            91.90328899421729,
+            193.82815299468348,
+            158.07196300011128,
+            154.51261200360022
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.24379286701328795,
+            "driver": 0.027088096334809807,
+            "worker-0": 2.627545344476551,
+            "worker-1": 0.013544048167404602,
+            "worker-2": 0.0
+          },
+          "p50_ms": 110.53341899969382,
+          "p95_ms": 217.16061000188347,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.738331692002248,
+          "workers": {
+            "14b1df11ada6869ef5f3fdfa1f7b66b9": 24
+          }
+        }
+      ],
+      "wasm_sha256": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983",
+      "worker_cpu_affinity": false
+    },
+    "candidate": {
+      "concurrency": 4,
+      "cpu_affinity": {
+        "coordinator": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "driver": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-0": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-1": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-2": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "daemon_sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+      "images": 24,
+      "input_bytes_per_batch": 3482013,
+      "input_sha256": "ad7339e9a76e3f5778f0a97a55bd77620a54fcab30324e9458282b5fad1ee5ac",
+      "median_images_s": {
+        "local": 40.26688367040486,
+        "one_remote": 39.49511206257848,
+        "three_remote": 34.65261758703082
+      },
+      "pillow_version": "12.2.0",
+      "png_digest_list_sha256": "cc355f03ea0cd50472e113b2b92509bca56458ad637152b33f5fbb28eeac441b",
+      "process_threads_at_warmup": {
+        "coordinator": 9,
+        "driver": 1,
+        "worker-0": 11,
+        "worker-1": 11,
+        "worker-2": 11
+      },
+      "source_sha256": "a8ca6d734765703b09728ab47fe59f473d93ae3967fc24c7c0288c3c7adb7130",
+      "three_over_one_remote": 0.8773900307492503,
+      "three_over_one_target": 1.1,
+      "throughput_target_met": false,
+      "trials": [
+        {
+          "images_s": 39.49164628465481,
+          "latency_ms_by_input": [
+            162.13170299306512,
+            82.091598000261,
+            172.5326040032087,
+            204.93128299858654,
+            107.17064100026619,
+            64.17002100351965,
+            71.50735500181327,
+            100.34641899983399,
+            102.83873400476296,
+            60.53775100008352,
+            90.06906100694323,
+            61.879012995632365,
+            99.12825399806025,
+            102.052370995807,
+            79.31379199726507,
+            68.0756299989298,
+            99.34115199575899,
+            99.72270199796185,
+            67.07675100187771,
+            81.57980399846565,
+            69.49039299797732,
+            107.53113499959,
+            66.06459199974779,
+            96.02987200196367
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.09872911571163677,
+            "worker-0": 3.2086962606282032,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 90.06906100694323,
+          "p95_ms": 172.5326040032087,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.6077234619951923,
+          "workers": {
+            "d3040a38046ec6cec2fe2036e9213814": 24
+          }
+        },
+        {
+          "images_s": 35.28249891259753,
+          "latency_ms_by_input": [
+            118.24058899946976,
+            296.20720900129527,
+            117.78675499954261,
+            203.48682699841447,
+            89.95247800339712,
+            74.37694699910935,
+            128.1031590042403,
+            152.09278900147183,
+            76.23726000019815,
+            69.94604599458398,
+            113.23847900348483,
+            114.08655099512544,
+            74.37930400192272,
+            99.0558389967191,
+            113.18953600130044,
+            105.53874699689914,
+            70.97259500005748,
+            67.0665670040762,
+            78.69307600049069,
+            106.43656400498003,
+            102.25167400494684,
+            68.24788299854845,
+            67.87503500527237,
+            73.81895599974087
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.3087218654852284,
+            "driver": 0.058804164854329266,
+            "worker-0": 2.6314863772312322,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 99.0558389967191,
+          "p95_ms": 203.48682699841447,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6802239280004869,
+          "workers": {
+            "d3040a38046ec6cec2fe2036e9213814": 24
+          }
+        },
+        {
+          "images_s": 30.87422740652556,
+          "latency_ms_by_input": [
+            69.42198199976701,
+            131.36874399788212,
+            108.43112399743404,
+            73.64501099800691,
+            100.6068119968404,
+            138.4188039955916,
+            125.85677400056738,
+            85.85940000193659,
+            115.27129999740282,
+            95.22870599903399,
+            141.52546300465474,
+            111.4267849989119,
+            120.53044899948873,
+            101.36143400450237,
+            164.99939700588584,
+            134.0061360024265,
+            86.64763900014805,
+            158.9550889984821,
+            144.85126399813453,
+            284.07262499968056,
+            115.45157299406128,
+            62.49221899633994,
+            76.49174299876904,
+            62.15222500031814
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.2958780126458699,
+            "driver": 0.02572852283877132,
+            "worker-0": 0.7589914237437532,
+            "worker-1": 1.1577835277447084,
+            "worker-2": 0.7718556851631391
+          },
+          "p50_ms": 111.4267849989119,
+          "p95_ms": 164.99939700588584,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.7773473869965528,
+          "workers": {
+            "54094b6720c586124b1b887de89e815c": 11,
+            "7c24262cc70508c257b6e51ae8fc6422": 6,
+            "d3040a38046ec6cec2fe2036e9213814": 7
+          }
+        },
+        {
+          "images_s": 39.49511206257848,
+          "latency_ms_by_input": [
+            117.64601899631089,
+            165.95269199751783,
+            105.52576600457542,
+            70.63643199944636,
+            106.76406000129646,
+            98.16692300228169,
+            104.57685800065519,
+            94.3293270029244,
+            98.3304670007783,
+            92.84018100152025,
+            84.6398709982168,
+            78.17876000626711,
+            85.64508600102272,
+            108.24672199669294,
+            105.69977799605113,
+            93.12113999476423,
+            71.14376300160075,
+            99.71738499734784,
+            99.53697199671296,
+            64.9066620026133,
+            99.67720799613744,
+            101.84084399952553,
+            67.66101100220112,
+            95.1320240055793
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.32912593385482053,
+            "driver": 0.049368890078223135,
+            "worker-0": 3.0279585914643494,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 98.16692300228169,
+          "p95_ms": 117.64601899631089,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6076701330021024,
+          "workers": {
+            "d3040a38046ec6cec2fe2036e9213814": 24
+          }
+        },
+        {
+          "images_s": 34.65261758703082,
+          "latency_ms_by_input": [
+            121.7316309994203,
+            105.39128299569711,
+            69.01849299902096,
+            116.46567499701632,
+            88.84231899719452,
+            87.70356499735499,
+            82.63977200113004,
+            137.1175569947809,
+            123.10338799579768,
+            146.4944050021586,
+            117.07304100127658,
+            138.3663229935337,
+            150.899008003762,
+            108.82082299940521,
+            116.85159199987538,
+            102.81940899585607,
+            105.98697100067511,
+            110.7966290001059,
+            106.80231099831872,
+            107.1615600012592,
+            109.14057400077581,
+            92.23146500153234,
+            100.01826599909691,
+            84.87391599919647
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.30321040388651976,
+            "driver": 0.014438590661262532,
+            "worker-0": 0.7363681237244059,
+            "worker-1": 1.4727362474488097,
+            "worker-2": 0.7074909424018792
+          },
+          "p50_ms": 107.1615600012592,
+          "p95_ms": 146.4944050021586,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6925883719959529,
+          "workers": {
+            "54094b6720c586124b1b887de89e815c": 12,
+            "7c24262cc70508c257b6e51ae8fc6422": 6,
+            "d3040a38046ec6cec2fe2036e9213814": 6
+          }
+        },
+        {
+          "images_s": 45.716103473413995,
+          "latency_ms_by_input": [
+            108.80111600272357,
+            107.67961500096135,
+            95.48722000181442,
+            65.8633880011621,
+            63.438463999773376,
+            67.1759809993091,
+            102.85718299564905,
+            105.08093899989035,
+            55.920971994055435,
+            62.774603997240774,
+            56.397442996967584,
+            101.67000100045698,
+            104.82866100210231,
+            60.147696000058204,
+            55.77001100027701,
+            94.67708200099878,
+            56.02483699476579,
+            101.89302299841074,
+            101.58561899879714,
+            65.36181699630106,
+            63.00999000086449,
+            59.62066299980506,
+            102.16752400447149,
+            104.29247599677183
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.057145129341767124,
+            "worker-0": 3.619191524978607,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 67.1759809993091,
+          "p95_ms": 107.67961500096135,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5249791250025737,
+          "workers": {
+            "d3040a38046ec6cec2fe2036e9213814": 24
+          }
+        },
+        {
+          "images_s": 37.499180701479816,
+          "latency_ms_by_input": [
+            92.2774569989997,
+            80.55492299899925,
+            125.51257399900351,
+            119.76754599891137,
+            85.32470900536282,
+            92.0900069977506,
+            107.75731299509062,
+            102.62113500357373,
+            106.06112999812467,
+            108.94457299582427,
+            100.71335799875669,
+            115.07596199953696,
+            108.17015200154856,
+            118.09564800205408,
+            90.28170600504382,
+            117.46220499480842,
+            94.14881699922262,
+            95.34387400344713,
+            111.08918300305959,
+            112.73825199896237,
+            85.35702699737158,
+            111.89446399657754,
+            97.68617499503307,
+            79.73037900228519
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.2968685138867153,
+            "driver": 0.046873975876849466,
+            "worker-0": 0.7968575899064458,
+            "worker-1": 1.42184393493111,
+            "worker-2": 0.8124822485320627
+          },
+          "p50_ms": 102.62113500357373,
+          "p95_ms": 119.76754599891137,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6400139830002445,
+          "workers": {
+            "54094b6720c586124b1b887de89e815c": 11,
+            "7c24262cc70508c257b6e51ae8fc6422": 6,
+            "d3040a38046ec6cec2fe2036e9213814": 7
+          }
+        },
+        {
+          "images_s": 40.26688367040486,
+          "latency_ms_by_input": [
+            64.32616399979452,
+            158.0648730014218,
+            81.67351999873063,
+            165.23151099681854,
+            95.06024599977536,
+            128.86009300564183,
+            76.46925599692622,
+            97.26303500065114,
+            88.13978899706854,
+            89.50177000224357,
+            66.0883210002794,
+            103.46551000111504,
+            102.41789199790219,
+            99.23745199921541,
+            56.25947399676079,
+            57.383289000426885,
+            139.6760030038422,
+            100.59653400094248,
+            81.25102800113382,
+            149.78088899806608,
+            77.5780389958527,
+            62.63590999878943,
+            87.19665199896554,
+            57.373735995497555
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.06711147278400816,
+            "worker-0": 3.053572011672369,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 88.13978899706854,
+          "p95_ms": 158.0648730014218,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5960232779980288,
+          "workers": {
+            "d3040a38046ec6cec2fe2036e9213814": 24
+          }
+        },
+        {
+          "images_s": 42.368544265224145,
+          "latency_ms_by_input": [
+            110.41007400490344,
+            65.77145399933215,
+            74.39586099644657,
+            114.44582499825628,
+            73.19968499359675,
+            64.88396700297017,
+            107.56325700640446,
+            113.66881700087106,
+            62.371281994273886,
+            104.45047399844043,
+            102.44803400564706,
+            73.88664199970663,
+            91.69032800127752,
+            66.67632100288756,
+            72.46765400486765,
+            119.07952199544525,
+            86.89399500144646,
+            111.08576200058451,
+            99.55907899711747,
+            78.55197800381575,
+            103.6259640022763,
+            102.48852799850283,
+            102.1026609960245,
+            74.79154800239485
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.35307120221020116,
+            "driver": 0.03530712022102015,
+            "worker-0": 3.1599872597813023,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 91.69032800127752,
+          "p95_ms": 114.44582499825628,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.5664579799995408,
+          "workers": {
+            "d3040a38046ec6cec2fe2036e9213814": 24
+          }
+        }
+      ],
+      "wasm_sha256": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983",
+      "worker_cpu_affinity": false
+    }
+  },
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_comparison": " crates/entangle-bin/src/capabilities.rs       | 670 ++++++++++++++++++++++++++\n crates/entangle-bin/src/lib.rs                |   1 +\n crates/entangle-bin/src/main.rs               |  65 +--\n crates/entangle-bin/src/methods.rs            |   4 +-\n crates/entangle-bin/src/state.rs              |   5 +-\n crates/entangle-bin/tests/daemon_compute.rs   |  60 +++\n crates/entangle-scheduler/src/dispatcher.rs   |  94 +++-\n crates/entangle-scheduler/src/lib.rs          |   2 +-\n crates/entangle-scheduler/src/placement.rs    |   2 +-\n crates/entangle-scheduler/src/worker.rs       |  21 +\n crates/entangle-scheduler/tests/dispatcher.rs |  18 +\n 11 files changed, 869 insertions(+), 73 deletions(-)\n",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "start_utc": "2026-11-27 07:03:24 UTC"
+}

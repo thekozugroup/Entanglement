@@ -1,0 +1,43 @@
+2026-11-27T06:48:49Z
+5c4ead3de2d22179032a2f6341aa4fb999817849
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+VERSION_ID="13"
+VERSION="13 (trixie)"
+VERSION_CODENAME=trixie
+DEBIAN_VERSION_FULL=13.6
+ID=debian
+HOME_URL="https://www.debian.org/"
+SUPPORT_URL="https://www.debian.org/support"
+BUG_REPORT_URL="https://bugs.debian.org/"
+3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]
+zlib 1.3.2 1.3.2
+a624432942809669ed8cc1be0909139ae85be67ed378ec08dba5cd0b9041db04  scripts/package-native-release.py
+7c2bd17e8eb6af190c7d120239fb3dbc59b4f6984d7a6c01f35fce2c108b8e0d  /tmp/entanglement-release-check.zM5PAQ/usr/bin/b3sum
+Checked-out source committer epoch 1795761610
+entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+sha256:d497f3e5689c500c07dd6c13dee73cd21ed4da604e09ecd99059843c09ab8cd6
+3.12.16 (main, Nov 24 2026, 05:00:06) [GCC 14.2.0]
+zlib 1.3.1 1.3.1
+entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+6f7ae3b18e686ce9187f90a0a0d4c4e1a369d7c945d462da91e8ac8f409c39e8  /tmp/entangle-native-release-proof/host-a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+6f7ae3b18e686ce9187f90a0a0d4c4e1a369d7c945d462da91e8ac8f409c39e8  /tmp/entangle-native-release-proof/host-b/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+6f7ae3b18e686ce9187f90a0a0d4c4e1a369d7c945d462da91e8ac8f409c39e8  /tmp/entangle-native-release-proof/container/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+All archives and both sidecars byte-identical
+entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: OK
+entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: OK
+drwxr-xr-x 0/0               0 2026-11-27 06:40:10 entanglement-v0.1.0-x86_64-unknown-linux-gnu/
+-rw-r--r-- 0/0           11358 2026-11-27 06:40:10 entanglement-v0.1.0-x86_64-unknown-linux-gnu/LICENSE
+-rw-r--r-- 0/0            7108 2026-11-27 06:40:10 entanglement-v0.1.0-x86_64-unknown-linux-gnu/README.md
+-rw-r--r-- 0/0          161319 2026-11-27 06:40:10 entanglement-v0.1.0-x86_64-unknown-linux-gnu/architecture.md
+-rwxr-xr-x 0/0        38284672 2026-11-27 06:40:10 entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+-rwxr-xr-x 0/0        38532296 2026-11-27 06:40:10 entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled
+-rw-r--r-- 0/0           14865 2026-11-27 06:40:10 entanglement-v0.1.0-x86_64-unknown-linux-gnu/tutorial.md
+cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30 LICENSE
+e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0 README.md
+a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0 architecture.md
+dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33 entangle
+ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823 entangled
+795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11 tutorial.md
+2026-11-27T06:49:26Z

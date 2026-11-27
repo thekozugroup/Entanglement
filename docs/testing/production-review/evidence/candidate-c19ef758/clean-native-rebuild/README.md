@@ -1,0 +1,26 @@
+# Native rebuilds on GNU/Linux x86-64
+
+Two complete offline release builds at commit `c19ef7587a2215ef9434b642413bebd0473caf20` produced different CLI, daemon, and archive bytes when they used different empty target paths. The separate fixed-path trial C reproduced both A executables and the archive byte for byte. The successful installed-daemon and signed-plugin check on the identical A bytes therefore also exercises the C binary contents. It was executed once using A.
+
+| Build | CLI SHA-256 | Daemon SHA-256 | Archive SHA-256 |
+|---|---|---|---|
+| published | `dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33` | `ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823` | `1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787` |
+| A | `da639233d9603b2e2da34913b90b04e401dc86b13b7cdc70422256a01d10541a` | `596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b` | `a1ddf7ac6ae8948835171f717e6027139931bfdd6281bbb2e7e07f3943d64483` |
+| B | `629ecfe9101c3f77370b80e77496fddfad8665002af9db8ee92c24a10824fc60` | `facc55e82a5837584ccf35a0bf02d2cdc77d5210f57d62228fb4f1e7caf94a45` | `44c67c5bdaadf491057d0c7e862f6d1652584b59d997fadec7f281766097e153` |
+| C | `da639233d9603b2e2da34913b90b04e401dc86b13b7cdc70422256a01d10541a` | `596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b` | `a1ddf7ac6ae8948835171f717e6027139931bfdd6281bbb2e7e07f3943d64483` |
+
+Each build used the same source checkout, Cargo.lock, native Rust 1.91.1 installation, registry, four-package release selection, optimization settings and four compiler jobs. A and B started from separate empty Cargo target directories. Their builds took 11.86 and 11.69 minutes. C created a new, empty directory with A's original pathname and used the same compiler invocation, taking 9.88 minutes. Each target was deleted only after both binaries were copied out. The release tool then packaged the saved executables. This experiment used one machine and an existing offline dependency cache. A cross-host rebuild remains unverified. [Build commands and tools](results.json) · [Preregistered supplemental comparison](same-path-C-plan.md) · [Fixed-path result](same-path-C.json)
+
+The initial archive step in A and B could not find b3sum. Both failure logs are retained. The correction made the installed checksum executable available and reran the packaging helper against the independently saved ELF pair from that build. Each new SHA-256/BLAKE3 sidecar was checked and the unpacked ELF hashes matched their build outputs. C used the corrected packaging PATH on its first attempt. [A corrected packaging](package-A-corrected.json) · [B corrected packaging](package-B-corrected.json)
+
+## What changed between A and B
+
+Seven generated Cranelift 0.123.23 source locations in each program embed the absolute Cargo target path. These are the `inst_builder`, ISLE and settings sources included via Cranelift's `OUT_DIR`. After replacing those verified prefixes for analysis, the multiset of NUL-delimited read-only values matches exactly in A and B. Their ordering within the ELF differs. Each of the 13,581 CLI and 13,815 daemon dynamic relocation changes points into read-only data. Every corresponding normalized NUL-terminated suffix matches. All relocation offsets and types match. [Raw paths and section digests](elf-layout-verified.json)
+
+GNU objdump identified 1,102 CLI and 1,156 daemon instructions whose bytes differed. In every case the instruction address, length, mnemonic and operands match except for a RIP-relative displacement into read-only data. Nine references in each binary select a different source-path constant for a pointer comparison, `cranelift-codegen/src/ranges.rs` versus the generated `out/settings-x86.rs`. The diagnostic does not establish behavioral equivalence for those individual sites. An in-memory rewrite of the seven path literals and build ID leaves other bytes different. No published or tested artifact was rewritten. [Relocation and disassembly evidence](link-layout-correlation.json)
+
+## Comparison with the published binary
+
+The canonical package had different executables from all clean builds that equaled A. Its cached build uses the same compiler version and release flags. Its compiler installation contains rust-src and its daemon contains absolute standard-library source paths from that installation. The explicit Rust 1.91.1 toolchain used in A–C lacks the optional rust-src tree and uses compiler-commit-prefixed library paths. The canonical target path is also different. These observations identify differing build inputs. They do not isolate a unique explanation for every canonical byte difference. [Raw sections and paths](elf-layout-verified.json)
+
+The functional check ran the frozen installer against A's genuine archive and checksum through a local transport fixture. It verified installed file hashes, the actual running daemon executable and its Unix socket permissions, then loaded an ordinary signed catalog package and compared its full compute/dispatch output with independent expected bytes. The temporary profile, daemon and fixture were removed. [Clean A functional result](clean-A-functional.json) · [Comparison and receipt hashes](comparison-summary.json)

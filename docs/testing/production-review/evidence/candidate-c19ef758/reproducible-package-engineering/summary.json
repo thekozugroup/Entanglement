@@ -1,0 +1,43 @@
+{
+  "packager_commit": "b0ca308e997b9a4da228e99aed92bc5bf326bdec",
+  "packaging_inputs_commit": "5c4ead3de2d22179032a2f6341aa4fb999817849",
+  "epoch_for_reproduction": 1795761610,
+  "frozen_input_binary_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "frozen_input_binaries_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "legacy_archives_sha256": {
+    "baseline-a": "0c60bb0f2c477f3d1cea0813b7027ef6c91cd371f73537197f127e540013b00c",
+    "baseline-b": "a919466829d80d7b360a0bd0c3864b24c4365025149f1f9e2498c2d42e3e7467"
+  },
+  "deterministic_archives_sha256": {
+    "host-a": "6f7ae3b18e686ce9187f90a0a0d4c4e1a369d7c945d462da91e8ac8f409c39e8",
+    "host-b": "6f7ae3b18e686ce9187f90a0a0d4c4e1a369d7c945d462da91e8ac8f409c39e8",
+    "container": "6f7ae3b18e686ce9187f90a0a0d4c4e1a369d7c945d462da91e8ac8f409c39e8"
+  },
+  "deterministic_sidecars_sha256": {
+    ".sha256": "5214ee47e0a1a57d4976cd29d8de2daa0abaef72e320bcc15f0d7b290886744c",
+    ".b3": "007b3983b67cf1fb4e21a597db9af9816a954904aa714dd9504a5524154f131d"
+  },
+  "workflow_extracted_b0ca308_epoch": 1795762202,
+  "workflow_extracted_archive_sha256": "f8be562bb51131fc1fb9e8532f45b43dc493513827fa5f37def2df857e404b84",
+  "installed_and_verified": [
+    "Debian 13 glibc 2.41 native host",
+    "Ubuntu 24.04 glibc 2.39 local network-disabled container"
+  ],
+  "notes": [
+    "The two legacy archives had identical file bodies and differed in directory modes and staging timestamps.",
+    "The same six file bodies, target, tag and epoch yielded identical archives and checksum files in two host repetitions and a container packaging run.",
+    "The Ubuntu test's first attempt used a non-executable test tmpfs. The repeated test supplied an executable private tmpfs and passed.",
+    "Frozen binary inputs were reused. No claim about reproducible compiler builds, Darwin process execution, or upstream publication."
+  ],
+  "logs_sha256": {
+    "original-workflow.log": "97937cccd3f5ee63e70485476e07c6400d6028827547b2880b6d3bc31c779a9a",
+    "canonical-packaging.log": "d45cb142a3a4244b3a6bb98a8d0ac11cdc974341b41808f2b3ba65b33f8b3466",
+    "workflow-extracted.log": "d356d64708b4992e1284ba003ff5d72430ef909b712f88d30a9ddd5e718fac0c",
+    "install-debian13.log": "37288f22a61ed0d2a5475fa4ea9b098c0983e231b8c6f4c3fdf92bf76bfe2785",
+    "install-ubuntu24.log": "b6c1a7f1cd82b8aaddbe57fb265c4d875da0891314bd2c44f725ea4909ddc274",
+    "install-ubuntu24-retry.log": "4f1488ca5dd2c85940ae9e8670ff89f14e2d817df2ec0804bcd47f74fb343d27"
+  }
+}

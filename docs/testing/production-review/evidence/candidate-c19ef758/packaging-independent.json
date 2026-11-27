@@ -1,0 +1,39 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "exit_code": 0,
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "docs/testing/production-review/evidence/candidate-c19ef758/packaging-steps-independent/verify.py",
+    "/tmp/entangle-native-release-proof/combined-workflow-archive"
+  ],
+  "source_date_epoch": 1795762260,
+  "archive_and_sidecars_sha256": {
+    ".tar.gz": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+    ".sha256": "cde998cb44488c5b77d35ea9383518181244d440c09e17b98cbe3f92e4a416e6",
+    ".b3": "10813eb4cf18d1cd8ebceadf37fcfaa6184f2f4cc17a890451484bc0b102a39b"
+  },
+  "verified_member_order": [
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/LICENSE",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/README.md",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/architecture.md",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu/tutorial.md"
+  ],
+  "verified_member_content_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.md": "e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0",
+    "architecture.md": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0",
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+    "tutorial.md": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11"
+  },
+  "log_sha256": "935d25e6a0ce12a849a55ff446d2367eddf7f8dcd219757787712391a1b0e0da",
+  "package_shell_block_sha256": "954f842e5a42a022c1cc936ccc645e0b4f9f1f6faca6e7a3aa0c51094f6ae94c",
+  "smoke_shell_block_sha256": "e6e6990ed71f3ca488e1e473f3692fcaa9fb22e2f94321828c6335bbdefde407",
+  "legacy_comparison_sha256": "19b653706471c14ae821b395db075def78ea0676a1d9367f454f008a0bf79f75",
+  "scope": "Byte-identical packaging from fixed release inputs. This comparison uses preserved native executable bytes."
+}

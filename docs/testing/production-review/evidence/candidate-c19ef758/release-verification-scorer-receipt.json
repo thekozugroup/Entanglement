@@ -1,0 +1,20 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-final-release-check.sh",
+    "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758"
+  ],
+  "started_utc": "2026-11-27T06:53:23.974548+00:00",
+  "finished_utc": "2026-11-27T06:53:31.384398+00:00",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/release-command-run.log",
+  "sha256": "763b9a8dd577a19f59b11e7f061b347217f837f74463f466240f52cd2baecec1",
+  "verification_logs": {
+    "release-and-governance.log": "4baed5d5f58601ca015a0b1afcc55b48dc8b47439155634dec7b5032f5c40987",
+    "installer-portability.log": "8d66164fa82d1ba92e9fb992765d34e208acad30de14dd8bd91eb7e98e4a3557"
+  }
+}

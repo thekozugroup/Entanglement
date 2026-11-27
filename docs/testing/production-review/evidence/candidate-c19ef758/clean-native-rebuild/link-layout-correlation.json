@@ -1,0 +1,314 @@
+{
+  "raw_builds": "6582d63f668662f5d8314bf1b139321f8e2ccbc33107add558c0f76df8da4b69",
+  "results": {
+    "entangle": {
+      "examples_with_additional_differences": [],
+      "instruction_checks": {
+        "both_references_in_rodata": 1102,
+        "normalized_nul_suffix_equal": 1093,
+        "same_instruction_mnemonic": 1102,
+        "same_instruction_text_except_rip_displacement_and_comment": 1102
+      },
+      "instruction_examples": [
+        {
+          "A": "lea    -0x70e0cc(%rip),%rcx        # 1c077d <__cxa_finalize@plt-0x21822d3>",
+          "B": "lea    -0x70e1a9(%rip),%rcx        # 1c06a0 <__cxa_finalize@plt-0x21823b0>",
+          "pc_hex": "0x8ce842"
+        },
+        {
+          "A": "lea    -0x75e499(%rip),%r10        # 1c077d <__cxa_finalize@plt-0x21822d3>",
+          "B": "lea    -0x75e576(%rip),%r10        # 1c06a0 <__cxa_finalize@plt-0x21823b0>",
+          "pc_hex": "0x91ec0f"
+        },
+        {
+          "A": "lea    -0x7798af(%rip),%rax        # 1c077d <__cxa_finalize@plt-0x21822d3>",
+          "B": "lea    -0x77998c(%rip),%rax        # 1c06a0 <__cxa_finalize@plt-0x21823b0>",
+          "pc_hex": "0x93a025"
+        },
+        {
+          "A": "lea    -0x77995e(%rip),%rax        # 1c077d <__cxa_finalize@plt-0x21822d3>",
+          "B": "lea    -0x779a3b(%rip),%rax        # 1c06a0 <__cxa_finalize@plt-0x21823b0>",
+          "pc_hex": "0x93a0d4"
+        }
+      ],
+      "instructions_containing_different_bytes": 1102,
+      "normalized_missing_from_A": 0,
+      "normalized_missing_from_B": 0,
+      "normalized_rodata_tokens": 298333,
+      "normalized_suffix_not_equal": [
+        {
+          "a_target": "0x1dd072",
+          "b_target": "0x1dd005",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0xd44b2c",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1dd072",
+          "b_target": "0x1dd005",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0xd47724",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1dd072",
+          "b_target": "0x1dd005",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0xd4ca3c",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1dd072",
+          "b_target": "0x1dd005",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0xd4f614",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1dd072",
+          "b_target": "0x1dd005",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x1522255",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1dd072",
+          "b_target": "0x1dd005",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x1522e95",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1dd072",
+          "b_target": "0x1dd005",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x16639a9",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1dd072",
+          "b_target": "0x1dd005",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x171cf41",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1dd072",
+          "b_target": "0x1dd005",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x1c2ec7d",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        }
+      ],
+      "relocation_checks": {
+        "both_in_rodata": 13581,
+        "normalized_nul_suffix_equal": 13581
+      },
+      "relocation_offsets_and_types_equal": true,
+      "relocations_with_different_addends": 13581,
+      "size_of_rodata": 2373352,
+      "size_of_text": 28906076,
+      "text_bytes_different": 1913
+    },
+    "entangled": {
+      "examples_with_additional_differences": [],
+      "instruction_checks": {
+        "both_references_in_rodata": 1156,
+        "normalized_nul_suffix_equal": 1147,
+        "same_instruction_mnemonic": 1156,
+        "same_instruction_text_except_rip_displacement_and_comment": 1156
+      },
+      "instruction_examples": [
+        {
+          "A": "lea    -0x718674(%rip),%rcx        # 1c60d5 <__cxa_finalize@plt-0x21b2ffb>",
+          "B": "lea    -0x718751(%rip),%rcx        # 1c5ff8 <__cxa_finalize@plt-0x21b30d8>",
+          "pc_hex": "0x8de742"
+        },
+        {
+          "A": "lea    -0x748061(%rip),%r10        # 1c60d5 <__cxa_finalize@plt-0x21b2ffb>",
+          "B": "lea    -0x74813e(%rip),%r10        # 1c5ff8 <__cxa_finalize@plt-0x21b30d8>",
+          "pc_hex": "0x90e12f"
+        },
+        {
+          "A": "lea    -0x763477(%rip),%rax        # 1c60d5 <__cxa_finalize@plt-0x21b2ffb>",
+          "B": "lea    -0x763554(%rip),%rax        # 1c5ff8 <__cxa_finalize@plt-0x21b30d8>",
+          "pc_hex": "0x929545"
+        },
+        {
+          "A": "lea    -0x763526(%rip),%rax        # 1c60d5 <__cxa_finalize@plt-0x21b2ffb>",
+          "B": "lea    -0x763603(%rip),%rax        # 1c5ff8 <__cxa_finalize@plt-0x21b30d8>",
+          "pc_hex": "0x9295f4"
+        }
+      ],
+      "instructions_containing_different_bytes": 1156,
+      "normalized_missing_from_A": 0,
+      "normalized_missing_from_B": 0,
+      "normalized_rodata_tokens": 284563,
+      "normalized_suffix_not_equal": [
+        {
+          "a_target": "0x1e1b9a",
+          "b_target": "0x1e1b2d",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0xd3404c",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1e1b9a",
+          "b_target": "0x1e1b2d",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0xd36c44",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1e1b9a",
+          "b_target": "0x1e1b2d",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0xd3bf5c",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1e1b9a",
+          "b_target": "0x1e1b2d",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0xd3eb34",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1e1b9a",
+          "b_target": "0x1e1b2d",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x15c68e5",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1e1b9a",
+          "b_target": "0x1e1b2d",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x15c7525",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1e1b9a",
+          "b_target": "0x1e1b2d",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x1708059",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1e1b9a",
+          "b_target": "0x1e1b2d",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x17c1d81",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        },
+        {
+          "a_target": "0x1e1b9a",
+          "b_target": "0x1e1b2d",
+          "common_prefix_bytes": 0,
+          "normalized_nul_suffix_len": [
+            121,
+            108
+          ],
+          "pc_hex": "0x1ccc8ed",
+          "prefix_A_hex": "2f776f726b73706163652f2e656e74616e676c656d656e74",
+          "prefix_B_hex": "5f737461626c655f7461726765745f5f5f5f5f5f5f5f5f5f"
+        }
+      ],
+      "relocation_checks": {
+        "both_in_rodata": 13815,
+        "normalized_nul_suffix_equal": 13815
+      },
+      "relocation_offsets_and_types_equal": true,
+      "relocations_with_different_addends": 13815,
+      "size_of_rodata": 2324200,
+      "size_of_text": 28988316,
+      "text_bytes_different": 2024
+    }
+  },
+  "tool": "GNU objdump (GNU Binutils for Debian) 2.44"
+}

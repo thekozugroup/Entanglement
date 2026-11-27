@@ -1,0 +1,8 @@
+2026-11-27T06:58:56Z
+c19ef7587a2215ef9434b642413bebd0473caf20
+sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644
+sha256:d497f3e5689c500c07dd6c13dee73cd21ed4da604e09ecd99059843c09ab8cd6
+Launching two host copies with varied umask and TZ, plus one offline container copy as uid 0 with no capabilities.
+canonical and all 3 variants are byte-identical for archive and both sidecars: 1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787
+sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644
+2026-11-27T06:59:39Z

@@ -1,0 +1,84 @@
+{
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "exit_code": 0,
+  "scope": "Two distinct authenticated daemon identities and a disposable publisher on one Linux x86_64 host. Pointer selection from JSON, including a pinned OpenAPI example independently converted from its public YAML. No OpenAPI validator or external physical-host claim.",
+  "rfc_6901": {
+    "section_5_json_string_cases": 12,
+    "section_6_fragment_cases": 12,
+    "note": "The normative editor and IETF document URLs returned HTTP 403 from this environment. The published example table was transcribed into the standalone test oracle. Full RFC text was not imported."
+  },
+  "verified_results": {
+    "remote_exact_byte_successes": 30,
+    "public_openapi_example_pointer_selections": 3,
+    "invalid_input_cases": 6,
+    "error_observation_paths": [
+      "CLI no stdout and nonzero return",
+      "typed JSON-RPC -32000 with authenticated worker diagnostic"
+    ],
+    "worker": "3dd8aa3cce878c97941810023d8cd9c4",
+    "successful_and_failed_invocations": {
+      "ok": 30,
+      "error": 12
+    },
+    "coordinator_local_invocations": {
+      "ok": 0,
+      "error": 0
+    },
+    "coordinator_plugin_inventory": []
+  },
+  "exact_operator_command": [
+    "python3",
+    "-B",
+    "docs/testing/production-review/evidence/candidate-c19ef758/json-pointer-interoperability/verify.py",
+    "--repo",
+    ".",
+    "--output",
+    "docs/testing/production-review/evidence/candidate-c19ef758/json-pointer-interoperability",
+    "--archive",
+    "target/release-candidate/c19ef7587a22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "--release-receipt",
+    "docs/testing/production-review/evidence/candidate-c19ef758/linux-archive.json",
+    "--wasm",
+    "/tmp/entangle-rfc6901-wasm.RjZjlP/wasm32-wasip2/release/entangle_json_pointer.wasm",
+    "--petstore",
+    "/tmp/entangle-rfc6901-input.WytdTV/petstore.yaml",
+    "--license",
+    "/tmp/entangle-rfc6901-input.WytdTV/LICENSE",
+    "--source-id",
+    "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644"
+  ],
+  "run_stdout_stderr_sha256": "f0221920ebd91de21143b2750525d405178bdecf0e197a6e9d980afdf2bef7e6",
+  "wasm_build": {
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "--release",
+      "--target",
+      "wasm32-wasip2",
+      "--target-dir",
+      "/tmp/entangle-rfc6901-wasm.RjZjlP",
+      "--manifest-path",
+      "plugins/json-pointer/Cargo.toml"
+    ],
+    "explicit_environment": {
+      "CARGO_HOME": "/workspace/.entanglement-dev/cargo",
+      "RUSTUP_HOME": "/workspace/.entanglement-dev/rustup",
+      "RUSTUP_TOOLCHAIN": "1.91",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_NET_OFFLINE": "true"
+    },
+    "sha256": "209e3a40b333f03a9933d575312e714f8c93fc565e6228c6c75b75719fd0d2c7",
+    "bytes": 156135,
+    "log_sha256": "46e2648186c0b32f8e7eb831edabe648cab22c1329bef8ee4ec563002f908520",
+    "exit_code": 0
+  },
+  "full_result": {
+    "path": "interoperability.json",
+    "sha256": "f96246e063ba4d8ac459db380e923c41e984386155a888bac91479b482085c43"
+  }
+}

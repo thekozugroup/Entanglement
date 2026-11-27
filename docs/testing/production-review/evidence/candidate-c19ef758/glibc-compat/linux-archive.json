@@ -1,0 +1,38 @@
+{
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "archive_path": "/workspace/Entanglement/target/release-candidate/c19ef7587a22-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "sha256": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+  "size": 28917844,
+  "blake3": "3b8ad3d98d6e76b7d5f1d2a2def9b4d27a79255d23a8d49e78b462a760890674",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "scripts/package-native-release.py",
+    "--version",
+    "v0.1.0",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "--bin-dir",
+    "/workspace/entangle-jammy-release-o7k9vcv7/release",
+    "--source-date-epoch",
+    "1795762260",
+    "--output-dir",
+    "/workspace/Entanglement/target/release-candidate/c19ef7587a22-ubuntu22"
+  ],
+  "packager_sha256": "a624432942809669ed8cc1be0909139ae85be67ed378ec08dba5cd0b9041db04",
+  "verify_release_log_sha256": "e61d1ac0deaa332f49539edbb3379f6cbca7ac68caca83a16cf992fd6b93daec",
+  "files_sha256": {
+    "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+    "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.md": "e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0",
+    "architecture.md": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0",
+    "tutorial.md": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11"
+  },
+  "signing_status": "unsigned local compatibility candidate",
+  "tool_sha256": "174a2ad4bc313b42b0ac3e0fb78d21322bd2d2c31a2e83dc9373d6d231c9d018",
+  "build_inputs_receipt_sha256": "e928d4f1af9e21ba607ac79eda21ba75520eb280a51bf518a9bab95d6cee5ec9"
+}

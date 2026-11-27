@@ -1,0 +1,90 @@
+{
+  "actual_sha256": "4fb1ae72476ae3ccd0f5313030a695de63fa3f4d37170265f237466eee3e2580",
+  "actual_utf8": "Hello, c19-clean-A-06fffc7d5e353467e60f0e12!",
+  "arm": "A",
+  "challenge": "c19-clean-A-06fffc7d5e353467e60f0e12",
+  "commands": [
+    {
+      "argv": [
+        "sh",
+        "scripts/install.sh",
+        "--version",
+        "0.1.0",
+        "--prefix",
+        "/tmp/entangle-c19-signed-clean-yk1wfth_/installed"
+      ],
+      "exit": 0,
+      "stderr": "\n  platform    linux/x86_64  (target x86_64-unknown-linux-gnu)\n  version     v0.1.0\n  tarball     https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz\n  checksum    https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256\n  install to  /tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin/entangle, /tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin/entangled\n\n==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz\n==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256\n==> Verifying SHA-256\n    ok: a1ddf7ac6ae8948835171f717e6027139931bfdd6281bbb2e7e07f3943d64483\n==> Extracting\n==> Verifying staged executables\n    entangle 0.1.0\n    entangled 0.1.0\n==> Installing into /tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin\n    /tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin/entangle\n    /tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin/entangled\n\nwarning: /tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin is not on your PATH. Add it, e.g.:\n    echo 'export PATH=\"/tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin:$PATH\"' >> ~/.profile\n    export PATH=\"/tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin:$PATH\"   # for this shell\n\nEntanglement 0.1.0 installed.\n\nNext steps:\n  entangle init          # generate an Ed25519 identity + ~/.entangle/config.toml\n                         # (add --non-interactive to accept the defaults)\n  entangled run          # start the daemon in the foreground\n  entangle doctor        # health check: identity, config, keyring, daemon\n\nThen, in another terminal:\n  entangle mesh status\n  entangle plugins list\n\nShell completions:\n  entangle completions bash   # also zsh, fish, powershell, elvish\n\nRun it as a service (Linux):\n  packaging/entangled.service \u2014 hardened systemd unit; see docs/install.md.\n\nFor independent publisher and Sigstore verification with a trusted Entangle CLI:\n  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz\n  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sig\n  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sigstore\n  entangle release verify entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz --publisher-key /path/to/trusted/release.pub\n",
+      "stdout": ""
+    },
+    {
+      "argv": [
+        "/tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin/entangle",
+        "init",
+        "--non-interactive"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "\nSetting up identity...\n  Identity ready at /tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/identity.key (mode 0600)\n  Fingerprint: f187-1a38-7c7d-a5b9-f10a-4dbb-a849-a40f\n  Wrote /tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/config.toml\n  Wrote /tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/peers.toml (empty)\n  Wrote /tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/keyring.toml (empty)\n\nNext steps:\n  - Install a plugin:        entangle plugins install <NAME>\n  - See what is available:   entangle plugins available\n  - Pair another device:     entangle pair\n  - Start the daemon:        entangled run\n  - Run diagnostics:         entangle doctor\n"
+    },
+    {
+      "argv": [
+        "/tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin/entangle",
+        "plugins",
+        "install",
+        "hello-world",
+        "--catalog",
+        "/workspace/Entanglement/examples",
+        "--wasm",
+        "/workspace/Entanglement/crates/entangle-host/tests/fixtures/hello-pong.wasm"
+      ],
+      "exit": 0,
+      "stderr": "",
+      "stdout": "[1/4] catalog: /workspace/Entanglement/examples (from --catalog)\n      found hello-world v0.1.0 (tier 1, wasm) in /workspace/Entanglement/examples/hello-world\n      \u00a79.3 walkthrough \u2014 hello-world plugin\n[2/4] building and signing with your own identity key\n[entangle] publisher fingerprint: f1871a387c7da5b9f10a4dbba849a40f\n[entangle] plugin id:             f1871a387c7da5b9f10a4dbba849a40f/hello-world@0.1.0\n[entangle] effective tier:        1\n[entangle] wrote /tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/plugins/hello-world/plugin.wasm\n[entangle] wrote /tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/plugins/hello-world/entangle.toml\n[entangle] wrote /tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/plugins/hello-world/plugin.wasm.sig\n      signed package: /tmp/entangle-c19-signed-clean-yk1wfth_/home/.entangle/plugins/hello-world (effective tier 1)\n[3/4] trusting the signing key\n      trusted your own publisher key f1871a387c7da5b9f10a4dbba849a40f as \"self\" (~/.entangle/keyring.toml)\n[4/4] loading\n      loaded f1871a387c7da5b9f10a4dbba849a40f/hello-world@0.1.0 into the entangled daemon\n\nReady. Run it with:\n  entangle plugins invoke f1871a387c7da5b9f10a4dbba849a40f/hello-world@0.1.0 --input '<your input>'\n"
+    },
+    {
+      "argv": [
+        "/tmp/entangle-c19-signed-clean-yk1wfth_/installed/bin/entangle",
+        "compute",
+        "dispatch",
+        "f1871a387c7da5b9f10a4dbba849a40f/hello-world@0.1.0",
+        "--cpu-cores",
+        "0.01",
+        "--input",
+        "c19-clean-A-06fffc7d5e353467e60f0e12",
+        "--output-file",
+        "/tmp/entangle-c19-signed-clean-yk1wfth_/actual.raw"
+      ],
+      "exit": 0,
+      "stderr": "Chosen: f1871a387c7da5b9f10a4dbba849a40f (score=2.20)\nReason: fit ok, rtt=0ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\nwrote 44 bytes to /tmp/entangle-c19-signed-clean-yk1wfth_/actual.raw\n",
+      "stdout": ""
+    }
+  ],
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "daemon_reaped": true,
+  "expected_bytes": 44,
+  "expected_utf8": "Hello, c19-clean-A-06fffc7d5e353467e60f0e12!",
+  "fetch_urls": [
+    "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+  ],
+  "finished_utc": "2026-11-27T07:29:13.891449+00:00",
+  "guest_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+  "installed_sha256": {
+    "entangle": "da639233d9603b2e2da34913b90b04e401dc86b13b7cdc70422256a01d10541a",
+    "entangled": "596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b"
+  },
+  "installer_sha256": "193f44c3551c25864ba8641dd714079805b69db24a7bbf9dfa1e304d62335ab0",
+  "live_exe_sha256": "596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b",
+  "pass": true,
+  "plugin_id": "f1871a387c7da5b9f10a4dbba849a40f/hello-world@0.1.0",
+  "profile_reaped": true,
+  "real_archive_sha256": "a1ddf7ac6ae8948835171f717e6027139931bfdd6281bbb2e7e07f3943d64483",
+  "registry_transport": "local read-only stand-in for the two exact pinned GitHub release URLs (archive and sha256 sidecar)",
+  "script_sha256": "1819c550b84b3c138cbae1ae8b3354f39eeed8058342b9645773e58bf7a213e3",
+  "signed_manifest_sha256": "a1039ae8e4b072b2e82cda541f85d8d4c324264be92841377e14bf45b6845480",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T07:29:11.826540+00:00",
+  "uds_mode": "0o600"
+}

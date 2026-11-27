@@ -1,0 +1,103 @@
+{
+  "variant": "a",
+  "started_utc": "2026-11-27T07:09:47.304306+00:00",
+  "finished_utc": "2026-11-27T07:10:05.754034+00:00",
+  "source_date_epoch": 1795762260,
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/scripts/package-native-release.py",
+    "--version",
+    "v0.1.0",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "--source-date-epoch",
+    "1795762260",
+    "--bin-dir",
+    "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/bin",
+    "--output-dir",
+    "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/out"
+  ],
+  "exit_code": 0,
+  "base_name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "copy_order": [
+    "LICENSE",
+    "README.md",
+    "docs/architecture.md",
+    "bin/entangle",
+    "bin/entangled",
+    "docs/tutorial.md"
+  ],
+  "inputs": {
+    "LICENSE": {
+      "path": "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/LICENSE",
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime_ns": 1795762259000000000,
+      "size": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "README.md": {
+      "path": "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/README.md",
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime_ns": 1795762260000000000,
+      "size": 7108,
+      "sha256": "e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0"
+    },
+    "docs/architecture.md": {
+      "path": "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/docs/architecture.md",
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime_ns": 1795762261000000000,
+      "size": 161319,
+      "sha256": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0"
+    },
+    "bin/entangle": {
+      "path": "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/bin/entangle",
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o755",
+      "mtime_ns": 1795762262000000000,
+      "size": 38284672,
+      "sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33"
+    },
+    "bin/entangled": {
+      "path": "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/bin/entangled",
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o755",
+      "mtime_ns": 1795762263000000000,
+      "size": 38532296,
+      "sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+    },
+    "docs/tutorial.md": {
+      "path": "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/docs/tutorial.md",
+      "uid": 1000,
+      "gid": 1000,
+      "mode": "0o644",
+      "mtime_ns": 1795762264000000000,
+      "size": 14865,
+      "sha256": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11"
+    }
+  },
+  "directory_order": {
+    "docs": [
+      "architecture.md",
+      "tutorial.md"
+    ],
+    "bin": [
+      "entangled",
+      "entangle"
+    ]
+  },
+  "process_uid": 1000,
+  "process_gid": 1000,
+  "umask": "0o22",
+  "timezone": "UTC",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "zlib": "1.3.2"
+}

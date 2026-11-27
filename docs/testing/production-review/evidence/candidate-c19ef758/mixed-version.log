@@ -1,0 +1,26 @@
+{
+  "exit_code": 0,
+  "error": null,
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "rows": {
+    "old-cli-new-daemon": {
+      "path": "old-cli-new-daemon.png",
+      "sha256": "30b96d32f4d317455214762e85f790b9a3cf48ba71b12c421aa65461dc7ffc34",
+      "bytes": 1103,
+      "pixel_sha256": "42e113fb0816f56850cd1b9bb9f4b8d0dd32187a1594cd8017d159ddf7c44f1b",
+      "raw_equals_file": true
+    },
+    "new-cli-old-daemon": {
+      "path": "new-cli-old-daemon.png",
+      "sha256": "30b96d32f4d317455214762e85f790b9a3cf48ba71b12c421aa65461dc7ffc34",
+      "bytes": 1103,
+      "pixel_sha256": "42e113fb0816f56850cd1b9bb9f4b8d0dd32187a1594cd8017d159ddf7c44f1b",
+      "raw_equals_file": true
+    }
+  },
+  "synthetic_raw": {
+    "exit_code": 0,
+    "error": null,
+    "output_sha256": "861be91f8e84a61c92ceb02c63e07ac7155be6341b6ca2324fd9c604d555e169"
+  }
+}

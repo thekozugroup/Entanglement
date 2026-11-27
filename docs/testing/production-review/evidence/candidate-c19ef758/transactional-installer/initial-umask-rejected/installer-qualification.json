@@ -1,0 +1,115 @@
+{
+  "started_at_utc": "2026-11-27T06:55:45+00:00",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "docker_security": [
+    "name=seccomp,profile=builtin",
+    "name=rootless",
+    "name=cgroupns"
+  ],
+  "archives": {
+    "jammy": {
+      "path": "target/release-candidate/c19ef7587a22-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "manifest_sha256": "d03fad02e4ce74e82e13c345d89cb8bf8b2a419d6db6ccd2259ea317e9f24856",
+      "sha256": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+      "blake3": "3b8ad3d98d6e76b7d5f1d2a2def9b4d27a79255d23a8d49e78b462a760890674",
+      "sidecar_sha256": {
+        "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256": "31ee6944fc4bb67990863e3299e8c74cbba4e4ca07ef79b7dbefd50234bc9b6f",
+        "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.b3": "642797f9866acefbaca8d507ed78c963a9738605c06ee501bc30b0619848fd82"
+      },
+      "ELF_sha256": {
+        "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+        "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2"
+      },
+      "GLIBC_requirements": {
+        "entangle": "2.34",
+        "entangled": "2.34"
+      }
+    },
+    "canonical": {
+      "path": "target/release-candidate/c19ef7587a22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "manifest_sha256": "289c34b0ec24007c9e2a9fb726130a11595079d06005a151df3b4e755feca47e",
+      "sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+      "blake3": "c77f097aaa921a50a2629681712aa9e01d63457b0df47e626c1b9163df74acac",
+      "sidecar_sha256": {
+        "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256": "cde998cb44488c5b77d35ea9383518181244d440c09e17b98cbe3f92e4a416e6",
+        "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.b3": "10813eb4cf18d1cd8ebceadf37fcfaa6184f2f4cc17a890451484bc0b102a39b"
+      },
+      "ELF_sha256": {
+        "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+        "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+      },
+      "GLIBC_requirements": {
+        "entangle": "2.39",
+        "entangled": "2.39"
+      }
+    }
+  },
+  "distros": {
+    "22.04": {
+      "cases": {
+        "dry-run": {
+          "exit_code": 0,
+          "requests": []
+        }
+      },
+      "installed_workloads": {},
+      "image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+      "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "libc": "22.04\nglibc 2.35\n",
+      "network": "none",
+      "uid": 65534,
+      "failure": "AssertionError({'name': '22.04:fresh-portable-install', 'command': ['docker', 'exec', '-e', 'HOME=/work/qual.Vz3WEB/home', '-e', 'TMPDIR=/tmp', '-e', 'PATH=/fixture:/usr/bin:/bin', '-e', 'ENTANGLE_ALLOW_LOCAL=0', '-e', 'TOKIO_WORKER_THREADS=2', '-e', 'FIXTURE_ARCHIVE=entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz', '-e', 'FIXTURE_VARIANT=jammy', '-e', 'FIXTURE_REQUESTS=/work/qual.Vz3WEB/home/urls-2', '-e', 'FIXTURE_RENAME_FAILURE=0', 'b7937efab942cb308d3b397f6ac3fcd4ac18b8d3e11e601a62c82660baa06dda', '/bin/sh', '/fixture/install-new.sh', '--version', 'v0.1.0', '--prefix', '/work/qual.Vz3WEB/installation prefix'], 'started_at_utc': '2026-11-27T06:56:32+00:00', 'finished_at_utc': '2026-11-27T06:56:33+00:00', 'exit_code': 1, 'expected_exit_code': 0, 'stdout': '', 'stderr': \"\\n  platform    linux/x86_64  (target x86_64-unknown-linux-gnu)\\n  version     v0.1.0\\n  tarball     https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz\\n  checksum    https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256\\n  install to  /work/qual.Vz3WEB/installation prefix/bin/entangle, /work/qual.Vz3WEB/installation prefix/bin/entangled\\n\\n==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz\\ncp: cannot stat '/fixture/jammy/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz': Permission denied\\nerror: download failed: https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz\\n  Is v0.1.0 published for x86_64-unknown-linux-gnu? See https://github.com/thekozugroup/Entanglement/releases\\n  If that page is empty, no release exists yet \u2014 build from source with\\n  ./scripts/bootstrap.sh, or use Docker. See docs/install.md.\\n\"})"
+    },
+    "24.04": {
+      "cases": {
+        "dry-run": {
+          "exit_code": 0,
+          "requests": []
+        }
+      },
+      "installed_workloads": {},
+      "image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+      "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "libc": "24.04\nglibc 2.39\n",
+      "network": "none",
+      "uid": 65534,
+      "failure": "AssertionError({'name': '24.04:fresh-portable-install', 'command': ['docker', 'exec', '-e', 'HOME=/work/qual.Km40CP/home', '-e', 'TMPDIR=/tmp', '-e', 'PATH=/fixture:/usr/bin:/bin', '-e', 'ENTANGLE_ALLOW_LOCAL=0', '-e', 'TOKIO_WORKER_THREADS=2', '-e', 'FIXTURE_ARCHIVE=entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz', '-e', 'FIXTURE_VARIANT=jammy', '-e', 'FIXTURE_REQUESTS=/work/qual.Km40CP/home/urls-2', '-e', 'FIXTURE_RENAME_FAILURE=0', 'e8380f39efb1b77a4ee49721f5c93bc20e0d73902c848aa89c11beba5c0a56b7', '/bin/sh', '/fixture/install-new.sh', '--version', 'v0.1.0', '--prefix', '/work/qual.Km40CP/installation prefix'], 'started_at_utc': '2026-11-27T06:56:45+00:00', 'finished_at_utc': '2026-11-27T06:56:45+00:00', 'exit_code': 1, 'expected_exit_code': 0, 'stdout': '', 'stderr': \"\\n  platform    linux/x86_64  (target x86_64-unknown-linux-gnu)\\n  version     v0.1.0\\n  tarball     https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz\\n  checksum    https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256\\n  install to  /work/qual.Km40CP/installation prefix/bin/entangle, /work/qual.Km40CP/installation prefix/bin/entangled\\n\\n==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz\\ncp: cannot stat '/fixture/jammy/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz': Permission denied\\nerror: download failed: https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz\\n  Is v0.1.0 published for x86_64-unknown-linux-gnu? See https://github.com/thekozugroup/Entanglement/releases\\n  If that page is empty, no release exists yet \u2014 build from source with\\n  ./scripts/bootstrap.sh, or use Docker. See docs/install.md.\\n\"})"
+    }
+  },
+  "case_limitation": "A pair of different verified builds reporting the same requested version is indistinguishable to the version-only no-op check. --force deliberately reinstalls the selected archive.",
+  "source_inputs_sha256": {
+    "qualification_plan": "410df84983d220879c381b2b99acfa6605055f97895ea1daec991c370cdb0404",
+    "packager": "a624432942809669ed8cc1be0909139ae85be67ed378ec08dba5cd0b9041db04",
+    "runner": "5b9d9cbc193d597f8192acfd71590cbc71ffc1234960b1adaf9a8c78d91c40db",
+    "curl-fixture": "6f8c48d4f4183076ec41e7cf42b554130943573403e8449b6b1a6ae1abbe2fd7",
+    "mv-fixture": "af008ae108317351a4a035f7717ec1647772d8b8cd2cb5b624793e59f4dc55b0",
+    "install-new.sh": "193f44c3551c25864ba8641dd714079805b69db24a7bbf9dfa1e304d62335ab0",
+    "sample/entangle.toml": "14fde18ca8b9328367ac3a935c5e7707c81022ae6ad164439bf31128157f00b6",
+    "sample/hello.wasm": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+    "install-old.sh": "f10a849eb788495cb744ee9a534ffc4fd9d88189f1288d3026ae96009a62a217"
+  },
+  "negative_fixture_digests": {
+    "missing-checksum": {
+      "archive_sha256": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+      "sidecar_sha256": null
+    },
+    "malformed-checksum": {
+      "archive_sha256": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+      "sidecar_sha256": "4d6f3aa0cb1ef3ce54bab7bc3703a5bb890aefa932891224473b09ef3825ef96"
+    },
+    "bad-checksum": {
+      "archive_sha256": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+      "sidecar_sha256": "96ee6702ba4a80d0cd3412cdc3c4dc32a139de235b543417801aa5a5aef6a19e"
+    },
+    "missing-daemon": {
+      "archive_sha256": "aa07922a092f25c78980cd7e39402fbd8b4198d4af913c7df4f79438d7b73cec",
+      "sidecar_sha256": "ffb23766acd73db3230518b3ed9990d49dd862e84c0fbcd1a1e311e91e284c9e"
+    }
+  },
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "commands_log": "commands.jsonl",
+  "commands_sha256": "0fe3df4c6a847ec9968fe88a138274e9bc0b5e040e1e6b1c3479f67f0b70da38",
+  "finished_at_utc": "2026-11-27T06:56:49+00:00",
+  "exit_code": 1
+}

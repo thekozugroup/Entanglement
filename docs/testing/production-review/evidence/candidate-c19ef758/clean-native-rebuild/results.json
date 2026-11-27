@@ -1,0 +1,321 @@
+{
+  "arms": [
+    {
+      "argv": [
+        "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "entangle-cli",
+        "-p",
+        "entangle-bin",
+        "-p",
+        "cargo-entangle",
+        "-p",
+        "xtask",
+        "--offline"
+      ],
+      "arm": "A",
+      "binary_sha256": {
+        "entangle": "da639233d9603b2e2da34913b90b04e401dc86b13b7cdc70422256a01d10541a",
+        "entangled": "596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b"
+      },
+      "build_exit": 0,
+      "build_log_sha256": "16ff9232253f8286c0816d1d774e0ff785c6057fafd4b30a82453bcced7e3ef1",
+      "build_seconds": 711.3943215409963,
+      "empty_target_path": "/tmp/entangle-c19-clean-target-lhat0d6t",
+      "entries_at_start": [],
+      "finished_utc": "2026-11-27T07:19:50.520410+00:00",
+      "free_bytes_after_cleanup": 8575287296,
+      "free_bytes_after_compile": 8197840896,
+      "free_bytes_before": 10983706624,
+      "package_exit": 1,
+      "packager_argv": [
+        "python3",
+        "scripts/package-native-release.py",
+        "--version",
+        "v0.1.0",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--bin-dir",
+        "/tmp/entangle-c19-clean-outputs-hb1briyv/A",
+        "--source-date-epoch",
+        "1795762260",
+        "--output-dir",
+        "/tmp/entangle-c19-clean-outputs-hb1briyv/A/packaged"
+      ],
+      "private_target_reaped": true,
+      "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+      "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+      "started_utc": "2026-11-27T07:07:45.610518+00:00"
+    },
+    {
+      "argv": [
+        "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/cargo",
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "entangle-cli",
+        "-p",
+        "entangle-bin",
+        "-p",
+        "cargo-entangle",
+        "-p",
+        "xtask",
+        "--offline"
+      ],
+      "arm": "B",
+      "binary_sha256": {
+        "entangle": "629ecfe9101c3f77370b80e77496fddfad8665002af9db8ee92c24a10824fc60",
+        "entangled": "facc55e82a5837584ccf35a0bf02d2cdc77d5210f57d62228fb4f1e7caf94a45"
+      },
+      "build_exit": 0,
+      "build_log_sha256": "645eae5db8f4232222b81f61364393db1b073884493305b6de4c2662b2476857",
+      "build_seconds": 701.4983763459968,
+      "empty_target_path": "/tmp/entangle-c19-clean-target-wq6vbgk3",
+      "entries_at_start": [],
+      "finished_utc": "2026-11-27T07:31:43.884821+00:00",
+      "free_bytes_after_cleanup": 7006748672,
+      "free_bytes_after_compile": 5559648256,
+      "free_bytes_before": 8574697472,
+      "package_exit": 1,
+      "packager_argv": [
+        "python3",
+        "scripts/package-native-release.py",
+        "--version",
+        "v0.1.0",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--bin-dir",
+        "/tmp/entangle-c19-clean-outputs-hb1briyv/B",
+        "--source-date-epoch",
+        "1795762260",
+        "--output-dir",
+        "/tmp/entangle-c19-clean-outputs-hb1briyv/B/packaged"
+      ],
+      "private_target_reaped": true,
+      "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+      "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+      "started_utc": "2026-11-27T07:19:50.730374+00:00"
+    }
+  ],
+  "between_clean_builds": {
+    "entangle": {
+      "byte_equal": false,
+      "different_sections": [
+        ".note.gnu.build-id",
+        ".rela.dyn",
+        ".rodata",
+        ".text"
+      ],
+      "embedded_target_path_counts": [
+        7,
+        7
+      ],
+      "equal_after_replacing_exact_target_paths_and_masking_build_id": false,
+      "left_sha256": "da639233d9603b2e2da34913b90b04e401dc86b13b7cdc70422256a01d10541a",
+      "right_sha256": "629ecfe9101c3f77370b80e77496fddfad8665002af9db8ee92c24a10824fc60",
+      "sizes": [
+        38280576,
+        38280576
+      ]
+    },
+    "entangled": {
+      "byte_equal": false,
+      "different_sections": [
+        ".note.gnu.build-id",
+        ".rela.dyn",
+        ".rodata",
+        ".text"
+      ],
+      "embedded_target_path_counts": [
+        7,
+        7
+      ],
+      "equal_after_replacing_exact_target_paths_and_masking_build_id": false,
+      "left_sha256": "596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b",
+      "right_sha256": "facc55e82a5837584ccf35a0bf02d2cdc77d5210f57d62228fb4f1e7caf94a45",
+      "sizes": [
+        38528200,
+        38528200
+      ]
+    }
+  },
+  "both_archives_identical_across_empty_target_dirs": null,
+  "both_binaries_identical_across_empty_target_dirs": false,
+  "build_command": [
+    "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/cargo",
+    "build",
+    "--release",
+    "--locked",
+    "-p",
+    "entangle-cli",
+    "-p",
+    "entangle-bin",
+    "-p",
+    "cargo-entangle",
+    "-p",
+    "xtask",
+    "--offline"
+  ],
+  "build_env": {
+    "CARGO_BUILD_JOBS": "4",
+    "CARGO_HOME": "/workspace/.entanglement-dev/cargo",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "RUSTC": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+    "RUSTDOC": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustdoc",
+    "RUSTUP_HOME": "/workspace/.entanglement-dev/rustup"
+  },
+  "canonical_archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "canonical_binary_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "canonical_command": "cargo build --release --locked -p entangle-cli -p entangle-bin -p cargo-entangle -p xtask",
+  "cargo_lock_sha256": "2ea7955d2dd3a3b91c6a31832d1ea0d0bef4613d8bbce8083cce56675dded0d9",
+  "clean_vs_canonical": {
+    "A": {
+      "entangle": {
+        "byte_equal": false,
+        "different_sections": [
+          ".data.rel.ro",
+          ".dynamic",
+          ".got.plt",
+          ".note.gnu.build-id",
+          ".rela.dyn",
+          ".rela.plt",
+          ".rodata",
+          ".text"
+        ],
+        "embedded_target_path_counts": [
+          7,
+          7
+        ],
+        "equal_after_replacing_exact_target_paths_and_masking_build_id": false,
+        "left_sha256": "da639233d9603b2e2da34913b90b04e401dc86b13b7cdc70422256a01d10541a",
+        "right_sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+        "sizes": [
+          38280576,
+          38284672
+        ]
+      },
+      "entangled": {
+        "byte_equal": false,
+        "different_sections": [
+          ".data.rel.ro",
+          ".dynamic",
+          ".got.plt",
+          ".note.gnu.build-id",
+          ".rela.dyn",
+          ".rela.plt",
+          ".rodata",
+          ".text"
+        ],
+        "embedded_target_path_counts": [
+          7,
+          7
+        ],
+        "equal_after_replacing_exact_target_paths_and_masking_build_id": false,
+        "left_sha256": "596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b",
+        "right_sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+        "sizes": [
+          38528200,
+          38532296
+        ]
+      }
+    },
+    "B": {
+      "entangle": {
+        "byte_equal": false,
+        "different_sections": [
+          ".data.rel.ro",
+          ".dynamic",
+          ".got.plt",
+          ".note.gnu.build-id",
+          ".rela.dyn",
+          ".rela.plt",
+          ".rodata",
+          ".text"
+        ],
+        "embedded_target_path_counts": [
+          7,
+          7
+        ],
+        "equal_after_replacing_exact_target_paths_and_masking_build_id": false,
+        "left_sha256": "629ecfe9101c3f77370b80e77496fddfad8665002af9db8ee92c24a10824fc60",
+        "right_sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+        "sizes": [
+          38280576,
+          38284672
+        ]
+      },
+      "entangled": {
+        "byte_equal": false,
+        "different_sections": [
+          ".data.rel.ro",
+          ".dynamic",
+          ".got.plt",
+          ".note.gnu.build-id",
+          ".rela.dyn",
+          ".rela.plt",
+          ".rodata",
+          ".text"
+        ],
+        "embedded_target_path_counts": [
+          7,
+          7
+        ],
+        "equal_after_replacing_exact_target_paths_and_masking_build_id": false,
+        "left_sha256": "facc55e82a5837584ccf35a0bf02d2cdc77d5210f57d62228fb4f1e7caf94a45",
+        "right_sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+        "sizes": [
+          38528200,
+          38532296
+        ]
+      }
+    }
+  },
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "finished_utc": "2026-11-27T07:31:48.692199+00:00",
+  "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "native_host_target": "x86_64-unknown-linux-gnu",
+  "official_manifest_sha256": "289c34b0ec24007c9e2a9fb726130a11595079d06005a151df3b4e755feca47e",
+  "packager_sha256": "a624432942809669ed8cc1be0909139ae85be67ed378ec08dba5cd0b9041db04",
+  "plan_sha256": "410df84983d220879c381b2b99acfa6605055f97895ea1daec991c370cdb0404",
+  "retained_binaries_and_archives": "/tmp/entangle-c19-clean-outputs-hb1briyv",
+  "script_sha256": "a9f82fd8d720fdb84887956448fc65c5bd731bbc585abc1f72a96ddf3f6b271c",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T07:07:45.214684+00:00",
+  "tools": {
+    "cargo": {
+      "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/cargo",
+      "sha256": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b",
+      "version": "cargo 1.91.1 (ea2d97820 2025-10-10)\nrelease: 1.91.1\ncommit-hash: ea2d97820c16195b0ca3fadb4319fe512c199a43\ncommit-date: 2025-10-10\nhost: x86_64-unknown-linux-gnu\nlibgit2: 1.9.1 (sys:0.20.2 vendored)\nlibcurl: 8.15.0-DEV (sys:0.4.83+curl-8.15.0 vendored ssl:OpenSSL/3.5.2)\nssl: OpenSSL 3.5.2 5 Aug 2025\nos: Debian 13.0.0 [64-bit]"
+    },
+    "cc": {
+      "path": "/usr/bin/cc",
+      "sha256": "a23ecab8ff08f09ad8c80602c2c5df7f49e09c25905cb8975902e101bf72635f",
+      "version": "cc (Debian 14.2.0-19) 14.2.0\nCopyright (C) 2024 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
+    },
+    "ld": {
+      "path": "/usr/bin/ld",
+      "sha256": "d2766988b6a1b1d1518cdc09242e726d1f24e151e16410ada3092b11ffd9081b",
+      "version": "GNU ld (GNU Binutils for Debian) 2.44\nCopyright (C) 2025 Free Software Foundation, Inc.\nThis program is free software; you may redistribute it under the terms of\nthe GNU General Public License version 3 or (at your option) a later version.\nThis program has absolutely no warranty."
+    },
+    "rustc": {
+      "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+      "sha256": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e",
+      "version": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: x86_64-unknown-linux-gnu\nrelease: 1.91.1\nLLVM version: 21.1.2"
+    },
+    "rustdoc": {
+      "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustdoc",
+      "sha256": "f22c571ca4f921e0ac7c2c466de30da574b9018690a3878167cb0ea72249ed7f",
+      "version": "rustdoc 1.91.1 (ed61e7d7e 2025-11-07)"
+    }
+  }
+}

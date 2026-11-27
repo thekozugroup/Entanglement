@@ -1,0 +1,35 @@
+2026-11-27T06:44:45Z
+5c4ead3de2d22179032a2f6341aa4fb999817849
+3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1  /workspace/Entanglement/target/release-candidate/a0926c6ef347/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33  /tmp/entangle-native-release-proof/input/entangle
+ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823  /tmp/entangle-native-release-proof/input/entangled
+0c60bb0f2c477f3d1cea0813b7027ef6c91cd371f73537197f127e540013b00c  /tmp/entangle-native-release-proof/baseline-a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+a919466829d80d7b360a0bd0c3864b24c4365025149f1f9e2498c2d42e3e7467  /tmp/entangle-native-release-proof/baseline-b/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+drwxr-xr-x 1000/1000         0 2026-11-27 06:44:46 entanglement-v0.1.0-x86_64-unknown-linux-gnu/
+-rw------- 1000/1000    161319 2026-11-27 06:44:46 entanglement-v0.1.0-x86_64-unknown-linux-gnu/architecture.md
+-rwxr-xr-x 1000/1000  38532296 2026-11-27 06:44:45 entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled
+-rw------- 1000/1000      7108 2026-11-27 06:44:46 entanglement-v0.1.0-x86_64-unknown-linux-gnu/README.md
+-rw------- 1000/1000     14865 2026-11-27 06:44:46 entanglement-v0.1.0-x86_64-unknown-linux-gnu/tutorial.md
+-rw------- 1000/1000     11358 2026-11-27 06:44:46 entanglement-v0.1.0-x86_64-unknown-linux-gnu/LICENSE
+-rwxr-xr-x 1000/1000  38284672 2026-11-27 06:44:46 entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  entanglement-v0.1.0-x86_64-unknown-linux-gnu/LICENSE
+e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0  entanglement-v0.1.0-x86_64-unknown-linux-gnu/README.md
+a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0  entanglement-v0.1.0-x86_64-unknown-linux-gnu/architecture.md
+dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33  entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823  entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled
+795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11  entanglement-v0.1.0-x86_64-unknown-linux-gnu/tutorial.md
+drwx------ 1000/1000         0 2026-11-27 06:44:52 entanglement-v0.1.0-x86_64-unknown-linux-gnu/
+-rw------- 1000/1000    161319 2026-11-27 06:44:52 entanglement-v0.1.0-x86_64-unknown-linux-gnu/architecture.md
+-rwxr-xr-x 1000/1000  38532296 2026-11-27 06:44:52 entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled
+-rw------- 1000/1000      7108 2026-11-27 06:44:52 entanglement-v0.1.0-x86_64-unknown-linux-gnu/README.md
+-rw------- 1000/1000     14865 2026-11-27 06:44:52 entanglement-v0.1.0-x86_64-unknown-linux-gnu/tutorial.md
+-rw------- 1000/1000     11358 2026-11-27 06:44:52 entanglement-v0.1.0-x86_64-unknown-linux-gnu/LICENSE
+-rwxr-xr-x 1000/1000  38284672 2026-11-27 06:44:52 entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  entanglement-v0.1.0-x86_64-unknown-linux-gnu/LICENSE
+e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0  entanglement-v0.1.0-x86_64-unknown-linux-gnu/README.md
+a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0  entanglement-v0.1.0-x86_64-unknown-linux-gnu/architecture.md
+dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33  entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823  entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled
+795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11  entanglement-v0.1.0-x86_64-unknown-linux-gnu/tutorial.md
+/tmp/entangle-native-release-proof/baseline-a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz /tmp/entangle-native-release-proof/baseline-b/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz differ: byte 167, line 3
+2026-11-27T06:44:59Z

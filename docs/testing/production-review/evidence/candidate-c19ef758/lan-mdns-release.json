@@ -1,0 +1,34 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:59:08.177028+00:00",
+  "finished_utc": "2026-11-27T06:59:24.807373+00:00",
+  "reviewer": "/root/tailroute",
+  "command": [
+    "python3",
+    "-B",
+    "docs/testing/production-review/evidence/candidate-c19ef758/lan-release.py"
+  ],
+  "exit_code": 0,
+  "scope": "Linux-host mDNS announcements and authenticated Iroh over a detected interface; two separate processes, no configured peer addresses, no public relay",
+  "artifact_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "driver_sha256": "2edeb7820a643cf4a6fb765a030328090da26e49b89e04d7621ebbb24f035a4f",
+  "fixture_sha256": "1880a26c440a5bc4c12664feedb89502b5c25b6fe7dfb8b9874aacaa9e308c86",
+  "worker": "a3c9c8c47bed90eb1200d143f1822319",
+  "coordinator": "5ae263f4197da05e419cc3480e66a459",
+  "worker_pid": 892230,
+  "coordinator_pid": 892278,
+  "initial_placement_misses": 56,
+  "matching_nonce": true,
+  "discovered_addresses": 3,
+  "post_revocation_sighting_still_present": true,
+  "post_revocation_dispatch_refused": true,
+  "total_worker_jobs": 1,
+  "total_local_jobs": 0
+}

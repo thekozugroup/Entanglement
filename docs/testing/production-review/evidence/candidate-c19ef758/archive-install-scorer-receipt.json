@@ -1,0 +1,25 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-final-native-release-receipt.sh",
+    "/workspace/Entanglement/target/release-candidate/c19ef7587a22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/linux-release-install.log"
+  ],
+  "started_utc": "2026-11-27T06:54:05.514125+00:00",
+  "finished_utc": "2026-11-27T06:54:57.466809+00:00",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/archive-command-run.log",
+  "sha256": "713625e971abc18a98cb624598abc45d1b414a25beb24e9b647bebd2d289cfa3",
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "binary_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "install_log_sha256": "713625e971abc18a98cb624598abc45d1b414a25beb24e9b647bebd2d289cfa3",
+  "strict_cli_receipt_sha256": "71b30c9f240c6f6079c97fe8dd724e51c19614746edbc33cf5d3a835cca51c48",
+  "strict_cli_probe_sha256": "e53e0650be904d3b496c80748a52307bdce557cb7bc3d1ac4170157b551f4642"
+}

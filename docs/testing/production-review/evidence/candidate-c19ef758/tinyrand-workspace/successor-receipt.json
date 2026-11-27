@@ -1,0 +1,413 @@
+{
+  "started_utc": "2026-11-27T06:55:07Z",
+  "finished_utc": "2026-11-27T06:56:25Z",
+  "elapsed_s": 77.8603155210003,
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--target",
+    "wasm32-wasip2",
+    "--no-fail-fast"
+  ],
+  "daemon_sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+  "cli_sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+  "driver_sha256": "3b8666fa1aa09996e40bee8b3c108317631d8d67edadeb0f106c94fd19271dc7",
+  "rustdoc_observer_sha256": "3f6e3c6cae8314aea78305e32175419c3b36a014d3fee85dfc57dbb5623ef2b7",
+  "sharder_sha256": "c7b8a4cde066f7b591a54a1aaba53a20d241bd052e4885578de45f977bf49a75",
+  "upstream_commit": "8dd18ddefc9b057304441d9a7c112ba36d988dfe",
+  "upstream_diff": "",
+  "dependency_lock_sha256": "74dc28149c697175a17dac75d7a48bef42790ebacfb2066dea641ede2c075929",
+  "exit_code": 0,
+  "candidate_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "native_command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "native_exit": 0,
+  "uncompressed_archive_sha256": {
+    "successor-distributed.json.gz": "b893cde5eb648fd5ded02e0bd5003c4d03823c528920311133a86039df0dc0b4",
+    "successor-distributed-cargo.log.gz": "92be41c1c2063aa8ba0b422b4f37bdabfbe23f8fb342b7eb8821e3d66bed2cba",
+    "successor-native-cargo.log.gz": "b96bf5b00f2e50ba1c9ca033a79aa26535dd705cfcf5da83a5baba19caf291b9"
+  },
+  "native_parity": {
+    "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+    "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+    "upstream_commit": "8dd18ddefc9b057304441d9a7c112ba36d988dfe",
+    "lock_sha256": "74dc28149c697175a17dac75d7a48bef42790ebacfb2066dea641ede2c075929",
+    "known_workspace_members": [
+      "tinyrand",
+      "tinyrand-alloc",
+      "tinyrand-examples",
+      "tinyrand-std",
+      "tinyrand-tools"
+    ],
+    "native_counts": {
+      "ordinary": {
+        "passed": 104
+      },
+      "rustdoc": {
+        "passed": 27
+      }
+    },
+    "remote_counts": {
+      "ordinary": {
+        "passed": 97,
+        "ignored": 7
+      },
+      "rustdoc": {
+        "passed": 27
+      }
+    },
+    "named_inventory_identical": true,
+    "all_dispositions_identical": false,
+    "differences": [
+      {
+        "id": [
+          "tinyrand",
+          "lib",
+          "tinyrand",
+          "duration::tests::empty_duration_range"
+        ],
+        "native": "passed",
+        "distributed": "ignored",
+        "guest": {
+          "name": "duration::tests::empty_duration_range",
+          "status": "ignored",
+          "attempts": [
+            {
+              "attempt": 1,
+              "peer": "d30e2114878c7f702a3fa03933df66ae",
+              "exit_code": 0,
+              "stdout": "\nrunning 1 test\ni\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 57 filtered out; finished in 0.00s\n\n",
+              "stderr": "",
+              "status": "ignored"
+            }
+          ]
+        }
+      },
+      {
+        "id": [
+          "tinyrand",
+          "lib",
+          "tinyrand",
+          "tests::empty_u128_range"
+        ],
+        "native": "passed",
+        "distributed": "ignored",
+        "guest": {
+          "name": "tests::empty_u128_range",
+          "status": "ignored",
+          "attempts": [
+            {
+              "attempt": 1,
+              "peer": "d30e2114878c7f702a3fa03933df66ae",
+              "exit_code": 0,
+              "stdout": "\nrunning 1 test\ni\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 57 filtered out; finished in 0.00s\n\n",
+              "stderr": "",
+              "status": "ignored"
+            }
+          ]
+        }
+      },
+      {
+        "id": [
+          "tinyrand",
+          "lib",
+          "tinyrand",
+          "tests::empty_u64_range"
+        ],
+        "native": "passed",
+        "distributed": "ignored",
+        "guest": {
+          "name": "tests::empty_u64_range",
+          "status": "ignored",
+          "attempts": [
+            {
+              "attempt": 1,
+              "peer": "516241e75c129526ae97e80f885d2107",
+              "exit_code": 0,
+              "stdout": "\nrunning 1 test\ni\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 57 filtered out; finished in 0.00s\n\n",
+              "stderr": "",
+              "status": "ignored"
+            }
+          ]
+        }
+      },
+      {
+        "id": [
+          "tinyrand",
+          "lib",
+          "tinyrand",
+          "tests::probability_panics_gt_1"
+        ],
+        "native": "passed",
+        "distributed": "ignored",
+        "guest": {
+          "name": "tests::probability_panics_gt_1",
+          "status": "ignored",
+          "attempts": [
+            {
+              "attempt": 1,
+              "peer": "d30e2114878c7f702a3fa03933df66ae",
+              "exit_code": 0,
+              "stdout": "\nrunning 1 test\ni\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 57 filtered out; finished in 0.00s\n\n",
+              "stderr": "",
+              "status": "ignored"
+            }
+          ]
+        }
+      },
+      {
+        "id": [
+          "tinyrand",
+          "lib",
+          "tinyrand",
+          "tests::probability_panics_lt_0"
+        ],
+        "native": "passed",
+        "distributed": "ignored",
+        "guest": {
+          "name": "tests::probability_panics_lt_0",
+          "status": "ignored",
+          "attempts": [
+            {
+              "attempt": 1,
+              "peer": "516241e75c129526ae97e80f885d2107",
+              "exit_code": 0,
+              "stdout": "\nrunning 1 test\ni\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 57 filtered out; finished in 0.00s\n\n",
+              "stderr": "",
+              "status": "ignored"
+            }
+          ]
+        }
+      },
+      {
+        "id": [
+          "tinyrand",
+          "lib",
+          "tinyrand",
+          "tests::zero_lim_128"
+        ],
+        "native": "passed",
+        "distributed": "ignored",
+        "guest": {
+          "name": "tests::zero_lim_128",
+          "status": "ignored",
+          "attempts": [
+            {
+              "attempt": 1,
+              "peer": "516241e75c129526ae97e80f885d2107",
+              "exit_code": 0,
+              "stdout": "\nrunning 1 test\ni\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 57 filtered out; finished in 0.00s\n\n",
+              "stderr": "",
+              "status": "ignored"
+            }
+          ]
+        }
+      },
+      {
+        "id": [
+          "tinyrand",
+          "lib",
+          "tinyrand",
+          "tests::zero_lim_64"
+        ],
+        "native": "passed",
+        "distributed": "ignored",
+        "guest": {
+          "name": "tests::zero_lim_64",
+          "status": "ignored",
+          "attempts": [
+            {
+              "attempt": 1,
+              "peer": "d30e2114878c7f702a3fa03933df66ae",
+              "exit_code": 0,
+              "stdout": "\nrunning 1 test\ni\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 57 filtered out; finished in 0.00s\n\n",
+              "stderr": "",
+              "status": "ignored"
+            }
+          ]
+        }
+      }
+    ],
+    "rustdoc_evidence_errors": [],
+    "cargo_exit": 0,
+    "worker_attempts": {
+      "d30e2114878c7f702a3fa03933df66ae": 69,
+      "516241e75c129526ae97e80f885d2107": 62
+    },
+    "native_log_sha256": "b96bf5b00f2e50ba1c9ca033a79aa26535dd705cfcf5da83a5baba19caf291b9",
+    "distributed_report_sha256": "b893cde5eb648fd5ded02e0bd5003c4d03823c528920311133a86039df0dc0b4",
+    "sharder_sha256": "c7b8a4cde066f7b591a54a1aaba53a20d241bd052e4885578de45f977bf49a75",
+    "driver_sha256": "3b8666fa1aa09996e40bee8b3c108317631d8d67edadeb0f106c94fd19271dc7",
+    "rustdoc_observer_sha256": "3f6e3c6cae8314aea78305e32175419c3b36a014d3fee85dfc57dbb5623ef2b7",
+    "ordinary_components": [
+      "08a0c088b3aae233b56f5196630b0ea56af1f7a9dd2d6c101dc029b1ee83defd",
+      "0a982090f7d82977bbffc31ef4a92ee6dca80614e96e8f0a2ec06c8bf29398ae",
+      "0e009c1d03ff9200af392988da58ff8d9a82b41e320084d4f67723ed8e1815f2",
+      "2e1e4ea33a736a1d17ad40a8fe6bafe839b1d4984b07355b5a94e7b14ee7734c",
+      "310d23209823b2da3eb945192a125e4d48bff76327b98855becb55b9cc35a15a",
+      "662c43d5b47184e9faa0e320fe329720460cc208c291c41ccdc6532e8be53021",
+      "96647535cf7ce6c7a15e3e158196892e105cfc0222acf51cbaa868bf53beb54d",
+      "97de9220b1961a69f17028e610e6e54a0996f47f2e5835fd4e4dd05469afeb90",
+      "cadef7d39c56356e4487d16a40602213ff88dd17fa9151b55ed11a7a41568f16",
+      "f79fe3c69f47228aa0a169cc117dbcabc0dd6e548f7717b01a785439dc719e0f",
+      "f8bfe9ed20b0b3888ead6bf595431c16c68ba5406c57f97b7cbaf7f9a8851024",
+      "fa4a65ec3e44a5cd95db75e25601c58df18289b13a5e414ad8337894e5accf66"
+    ],
+    "standalone_doc_components": {
+      "tinyrand-alloc/rustdoc/doctest/tinyrand-alloc/src/mock.rs - mock::echo (line 244)": "a2b800ddd28569caedeea4863936890525c0e046126f587ebd4dbc6571b20caf",
+      "tinyrand-alloc/rustdoc/doctest/tinyrand-alloc/src/mock.rs - mock::Mock<'d>::with_next_u128 (line 86)": "1e49958e778475dc8215326a3d9750f79a57a22c33cc79a3acfed5258b5b8f9d",
+      "tinyrand-alloc/rustdoc/doctest/tinyrand-alloc/src/mock.rs - mock::counter (line 206)": "14ade52b188ebbe28cbc454a027f248ce0d843f086b2592ad1c83c93057fc195",
+      "tinyrand-alloc/rustdoc/doctest/tinyrand-alloc/src/mock.rs - mock::Mock<'d>::with_next_bool (line 105)": "0583dca150052b9b188fc8a4c6e1e8828d09650973c5c3864f7530f31f0d75c1",
+      "tinyrand-alloc/rustdoc/doctest/tinyrand-alloc/src/mock.rs - mock::fixed (line 229)": "8e9ef894dfb757b50ec25c825ded616557af4c24fd78d7de5504721b2406015e",
+      "tinyrand-alloc/rustdoc/doctest/tinyrand-alloc/src/mock.rs - mock::Mock<'d>::with_next_lim_u128 (line 126)": "fa0714c50e92924a09412d7ff7777652ad24ef48e1966d45fc1df9f2a56da425",
+      "tinyrand-std/rustdoc/doctest/tinyrand-std/src/clock_seed.rs - clock_seed::ClockSeed (line 10)": "a538e86688c36acbd5c7582bb2a43a0d2fc1002c0865230006eba8027123f8ef",
+      "tinyrand/rustdoc/doctest/tinyrand/src/counter.rs - counter::Counter (line 8)": "0942a4130b4911b33f712735c5bf4b489f287e9617a0862b8969ce296466158d",
+      "tinyrand/rustdoc/doctest/tinyrand/src/lib.rs - Probability::new (line 200)": "2d2fc29e68f6082b6478cf74191c976fafa722963ac0d5ecf8dae5742daf09c7",
+      "tinyrand/rustdoc/doctest/tinyrand/src/lib.rs - Rand::next_bool (line 80)": "184d55ebc853c3fb11353f812c525f80ed3db1bd50674ddaf0be76afe8e50a6a",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 149)": "91d1f89c2e36603cebf3dc91c6a67bb146c8e6ccfc2c50ef6a54fead00d36c40",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 122)": "ba237ec25d3403be397aa483a3b7291d13432aee3369711b2add5139e4c78015",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 71)": "623b948163d19a48607682b58a1b1540d4f58c118fea2876365677ffe6126fbe",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 83)": "c245413c1a5243020e94fb7769864714dd0451e9b3f839e3863880082178fc7f",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 168)": "bae7a66e2b11f93e570d5768d5facce6004e968bcb41da06a854be571a5da22e",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 222)": "f8ac139bb1dfc405803471d86803a335799e6b68e5af709464203ac6c49dd2ea",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 326)": "a20435e88a45322faae727038ef67a83ba41a4c54d87ac16c57f7080f67d6da1",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 181)": "2c1b1e8715c02808770c87913baeae91a514db823a79f3c7e89e0400aec19750",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 262)": "aaa41f750478e4aae10428b84550b604a08c431decff30544bd5450a077d868f",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 294)": "5c7a2430821313c22c0c6a832c15abe38a1e01762cfffc6ac557ee7dd2f47ad8",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 232)": "994baf138449f9561f2af90f1d79d5f1fb649a042980b6f5bacb2b7bc8aa21d3",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 93)": "55a4222a2771209dfaf1b940e2173ac478e950da6078fda4074e4a303479fcaa",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 105)": "5392243bdaa8337a38bc03a1ecb71ad331e15de739fe4c9c8e0587654e3492a7",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 309)": "6c08e292eed93781320ce22d09c3371f7c4bb43ba37921f71ff40786548a1226",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 209)": "bf2120220c3b2c9269d3c3a4d2a96a5ae9572f0b74e98d6e3c37a268f437f46e",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 249)": "e50b70ec0d3d195c913afc57cdc5b301d7a9f9d8778ed196246127d1d2f8641a",
+      "tinyrand-examples/rustdoc/doctest/tinyrand-examples/src/lib.rs - readme (line 277)": "2d57b6c5fcbb66d52bda8dcfdec88c2fffaa9089a2d4008f26952a5bc4921bea"
+    },
+    "cluster_setup_s": 54.29621445500379,
+    "cargo_elapsed_s": 77.8603155210003,
+    "target_durations": [
+      {
+        "package": "tinyrand",
+        "target": "monobit",
+        "kind": "test",
+        "seconds": 0.24167065099754836
+      },
+      {
+        "package": "tinyrand",
+        "target": "coin_flip",
+        "kind": "test",
+        "seconds": 0.7990027209962136
+      },
+      {
+        "package": "tinyrand",
+        "target": "stats_self_tests",
+        "kind": "test",
+        "seconds": 0.11484308700164547
+      },
+      {
+        "package": "tinyrand-tools",
+        "target": "random",
+        "kind": "bin",
+        "seconds": 0.11014748600427993
+      },
+      {
+        "package": "tinyrand-alloc",
+        "target": "tinyrand_alloc",
+        "kind": "lib",
+        "seconds": 0.42980101099965395
+      },
+      {
+        "package": "tinyrand-std",
+        "target": "tinyrand_std",
+        "kind": "lib",
+        "seconds": 0.14077604599879123
+      },
+      {
+        "package": "tinyrand",
+        "target": "collision",
+        "kind": "test",
+        "seconds": 0.3422845370005234
+      },
+      {
+        "package": "tinyrand-examples",
+        "target": "tinyrand_examples",
+        "kind": "lib",
+        "seconds": 0.20068073100264883
+      },
+      {
+        "package": "tinyrand-tools",
+        "target": "tinyrand_tools",
+        "kind": "lib",
+        "seconds": 0.15442974299367052
+      },
+      {
+        "package": "tinyrand",
+        "target": "bit_flip",
+        "kind": "test",
+        "seconds": 0.6908925309980987
+      },
+      {
+        "package": "tinyrand",
+        "target": "tinyrand",
+        "kind": "lib",
+        "seconds": 1.3341187479963992
+      },
+      {
+        "package": "tinyrand",
+        "target": "sum_convergence",
+        "kind": "test",
+        "seconds": 1.3965071310012718
+      },
+      {
+        "package": "tinyrand-alloc",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 13.072693008005444
+      },
+      {
+        "package": "tinyrand-std",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 2.8361298559975694
+      },
+      {
+        "package": "tinyrand",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 8.475235450998298
+      },
+      {
+        "package": "tinyrand-tools",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 0.09814480099885259
+      },
+      {
+        "package": "tinyrand-examples",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 38.694706684000266
+      }
+    ],
+    "standalone_ready_and_dispatch_s": {
+      "count": 27,
+      "sum": 2.931568640997284,
+      "median": 0.05337955900176894,
+      "max": 0.5927193440002156
+    },
+    "ordinary_worker_execution_note": "Target-specific ignores have no successful guest execution."
+  },
+  "upstream_natural_flaky_transitions": 0
+}

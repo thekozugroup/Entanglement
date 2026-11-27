@@ -1,0 +1,79 @@
+old-install.sh f10a849eb788495cb744ee9a534ffc4fd9d88189f1288d3026ae96009a62a217
+new-install.sh 193f44c3551c25864ba8641dd714079805b69db24a7bbf9dfa1e304d62335ab0
+jammy 7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc
+canonical 3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1
+22.04 ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb
+uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)
+ldd (Ubuntu GLIBC 2.35-0ubuntu3.18) 2.35
+dash
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+==> Extracting
+==> Installing into /work/install-native.gEq4hm/prefix old/bin
+==> Verifying the installed binary
+old jammy installer exit: 0
+==> entangle 0.1.0 is already installed in /work/install-native.gEq4hm/prefix old/bin — nothing to do.
+old jammy installer exit: 0
+old same-version request skipped missing daemon
+==> Replacing entangle 0.1.0 in /work/install-native.gEq4hm/prefix old/bin with 0.1.0
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+==> Extracting
+==> Installing into /work/install-native.gEq4hm/prefix old/bin
+==> Verifying the installed binary
+error: installed /work/install-native.gEq4hm/prefix old/bin/entangle but it failed to run:
+/work/install-native.gEq4hm/prefix old/bin/entangle: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /work/install-native.gEq4hm/prefix old/bin/entangle)
+old canonical installer exit: 1
+old failed replacement left both incompatible ELFs
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+==> Extracting
+==> Verifying staged executables
+==> Installing into /work/install-native.gEq4hm/prefix new/bin
+new jammy installer exit: 0
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+==> Extracting
+==> Verifying staged executables
+==> Installing into /work/install-native.gEq4hm/prefix new/bin
+new jammy installer exit: 0
+new same-version request restored exact daemon
+==> entangle and entangled 0.1.0 are already installed in /work/install-native.gEq4hm/prefix new/bin.
+new jammy installer exit: 0
+new read-only complete prefix remained usable
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+==> Extracting
+==> Verifying staged executables
+error: staged entangle did not pass its version check:
+/work/install-native.gEq4hm/prefix new/bin/.entangle-install.lock/new/entangle: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /work/install-native.gEq4hm/prefix new/bin/.entangle-install.lock/new/entangle)
+new canonical installer exit: 1
+entangle 0.1.0
+entangled 0.1.0
+new failed replacement preserved both original and runnable ELFs
+24.04 ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b
+uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)
+ldd (Ubuntu GLIBC 2.39-0ubuntu8.9) 2.39
+dash
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+==> Extracting
+==> Verifying staged executables
+==> Installing into /work/install-native.aoHsPi/prefix Noble/bin
+new jammy installer exit: 0
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+==> Extracting
+==> Verifying staged executables
+==> Installing into /work/install-native.aoHsPi/prefix Noble/bin
+new canonical installer exit: 0
+entangle 0.1.0
+entangled 0.1.0
+new compatible forced replacement published both exact ELFs

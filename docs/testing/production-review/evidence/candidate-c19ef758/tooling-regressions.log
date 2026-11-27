@@ -1,0 +1,30 @@
+test_corpus_has_distinct_inputs_and_independent_references (test_benchmark_image_batch.ImageGateTests.test_corpus_has_distinct_inputs_and_independent_references) ... ok
+test_missing_worker_and_route_mismatch_are_detected (test_benchmark_image_batch.ImageGateTests.test_missing_worker_and_route_mismatch_are_detected) ... ok
+test_oracle_refuses_wrong_format_dimensions_and_content (test_benchmark_image_batch.ImageGateTests.test_oracle_refuses_wrong_format_dimensions_and_content) ... ok
+test_another_install_keeps_its_staging_directory (test_install_transaction.InstallerTransaction.test_another_install_keeps_its_staging_directory) ... ok
+test_failed_first_install_removes_partial_pair (test_install_transaction.InstallerTransaction.test_failed_first_install_removes_partial_pair) ... ok
+test_forced_publish_failure_restores_original_pair (test_install_transaction.InstallerTransaction.test_forced_publish_failure_restores_original_pair) ... ok
+test_missing_or_unusable_daemon_preserves_previous_pair (test_install_transaction.InstallerTransaction.test_missing_or_unusable_daemon_preserves_previous_pair) ... ok
+test_publication_interrupt_rolls_back (test_install_transaction.InstallerTransaction.test_publication_interrupt_rolls_back) ... ok
+test_restore_failure_retains_recovery_files (test_install_transaction.InstallerTransaction.test_restore_failure_retains_recovery_files) ... ok
+test_same_version_skip_and_repair (test_install_transaction.InstallerTransaction.test_same_version_skip_and_repair) ... ok
+test_archive_and_sidecars_are_byte_identical (test_package_native_release.Packaging.test_archive_and_sidecars_are_byte_identical) ... ok
+test_conflicts_preserve_existing_files_and_remove_only_new_files (test_package_native_release.Packaging.test_conflicts_preserve_existing_files_and_remove_only_new_files) ... ok
+test_missing_or_invalid_binary_publishes_nothing (test_package_native_release.Packaging.test_missing_or_invalid_binary_publishes_nothing) ... ok
+test_all_pass_and_no_average_masking (test_production_score.ProductionScoreTests.test_all_pass_and_no_average_masking) ... ok
+test_frozen_historical_review_and_rubric_are_intact (test_production_score.ProductionScoreTests.test_frozen_historical_review_and_rubric_are_intact) ... ok
+test_missing_and_failed_are_distinct_blockers (test_production_score.ProductionScoreTests.test_missing_and_failed_are_distinct_blockers) ... ok
+test_missing_extra_partial_or_changed_rubric_rejected (test_production_score.ProductionScoreTests.test_missing_extra_partial_or_changed_rubric_rejected) ... ok
+test_pass_needs_intact_exact_source_evidence_and_reviewer (test_production_score.ProductionScoreTests.test_pass_needs_intact_exact_source_evidence_and_reviewer) ... ok
+test_path_escape_rejected (test_production_score.ProductionScoreTests.test_path_escape_rejected) ... ok
+test_strict_threshold_is_not_rounded (test_production_score.ProductionScoreTests.test_strict_threshold_is_not_rounded) ... ok
+test_captured_running_line_does_not_replace_the_libtest_header (test_run_rust_tests.ClassifyTests.test_captured_running_line_does_not_replace_the_libtest_header) ... ok
+test_completed_results_and_panic_abort (test_run_rust_tests.ClassifyTests.test_completed_results_and_panic_abort) ... ok
+test_rejects_ambiguous_or_malformed_results (test_run_rust_tests.ClassifyTests.test_rejects_ambiguous_or_malformed_results) ... ok
+test_ignore_and_retry_keep_attempts_and_outcomes (test_run_rust_tests.RetryTests.test_ignore_and_retry_keep_attempts_and_outcomes) ... ok
+test_listed_and_target_ignores_are_distinct (test_run_rust_tests.SuiteTests.test_listed_and_target_ignores_are_distinct) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 13.924s
+
+OK

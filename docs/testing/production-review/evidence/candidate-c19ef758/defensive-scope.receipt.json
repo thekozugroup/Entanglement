@@ -1,0 +1,90 @@
+{
+  "reviewer": "/root/tailroute",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:51:34.443701+00:00",
+  "finished_utc": "2026-11-27T06:51:35.643258+00:00",
+  "comparison_base": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "changed_product_files": {
+    ".github/workflows/release.yml": "7d5df834378b2e8a56d40caf66c896947b6854610a0d1e7e9488a69f4d96e40d",
+    "docs/install.md": "d784c4c7984ddc08d07dafcb843d28bf1920b88ee3f7153acd1375359afe9caf",
+    "docs/testing/native-release-packaging.md": "0507d7b6cb0f46119039e63eac1746e759cf1290a2b185274deddd2772fb79c5",
+    "scripts/install.sh": "193f44c3551c25864ba8641dd714079805b69db24a7bbf9dfa1e304d62335ab0",
+    "scripts/package-native-release.py": "a624432942809669ed8cc1be0909139ae85be67ed378ec08dba5cd0b9041db04",
+    "scripts/tests/test_install_transaction.py": "57ef496e4ef2fc1652f8d1dbc00daa54a6c3f45373a644284a3bb3a45d33ce01",
+    "scripts/tests/test_package_native_release.py": "f8a3ddd553c2a86e211b575573f4658b608a9827703f78f7045ffbeff3c3e457"
+  },
+  "all_changed_release_scope": [
+    ".github/workflows/release.yml",
+    "docs/install.md",
+    "docs/testing/native-release-packaging.md",
+    "scripts/install.sh",
+    "scripts/package-native-release.py",
+    "scripts/tests/test_install_transaction.py",
+    "scripts/tests/test_package_native_release.py"
+  ],
+  "compared_runtime_input_file_count": 377,
+  "changed_compared_inputs": [],
+  "comparison_tree_ids": {
+    "crates": {
+      "previous": "6f7e09ab220a28f8771c1d352099e126ac23e9e5",
+      "candidate": "6f7e09ab220a28f8771c1d352099e126ac23e9e5"
+    },
+    "Cargo.toml": {
+      "previous": "81a51268b93b619e266e62d39707371d3eb72b7c",
+      "candidate": "81a51268b93b619e266e62d39707371d3eb72b7c"
+    },
+    "Cargo.lock": {
+      "previous": "0ba41d6aba79d6922dc471d2c997336514b20307",
+      "candidate": "0ba41d6aba79d6922dc471d2c997336514b20307"
+    },
+    "rust-toolchain.toml": {
+      "previous": "33712dc487d290cdb0c7cd31da12073cdbcb4e95",
+      "candidate": "33712dc487d290cdb0c7cd31da12073cdbcb4e95"
+    },
+    ".cargo": {
+      "previous": "44fc71c6e4d8775837419ac110d0fafb8b4ac904",
+      "candidate": "44fc71c6e4d8775837419ac110d0fafb8b4ac904"
+    },
+    "plugins": {
+      "previous": "7f8cc5be10e61f331d8514068afcbbcd4ec4993e",
+      "candidate": "7f8cc5be10e61f331d8514068afcbbcd4ec4993e"
+    },
+    "examples": {
+      "previous": "346a89eb6782e59bcc2b1f1c016007d4c8c57d34",
+      "candidate": "346a89eb6782e59bcc2b1f1c016007d4c8c57d34"
+    },
+    "SECURITY.md": {
+      "previous": "58cbf70a9a7ea9b86ee7dcbf203d43b4c1b74b71",
+      "candidate": "58cbf70a9a7ea9b86ee7dcbf203d43b4c1b74b71"
+    },
+    "scripts/tests/recovery.py": {
+      "previous": "3c1ae70f04150aa2bf3430f484048113aa680014",
+      "candidate": "3c1ae70f04150aa2bf3430f484048113aa680014"
+    },
+    "scripts/tests/distributed-rust-tests.py": {
+      "previous": "73d18a7adf0da0e96c2341a8206c09023b10665c",
+      "candidate": "73d18a7adf0da0e96c2341a8206c09023b10665c"
+    }
+  },
+  "command": [
+    [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "-B",
+      "scripts/tests/test_install_transaction.py",
+      "-v"
+    ],
+    [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "-B",
+      "scripts/tests/test_package_native_release.py",
+      "-v"
+    ]
+  ],
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/defensive-scope.log",
+  "sha256": "072864b97073e70a586ce448ba5210c2a0d0d65d38dab2aaad4b72bc77c6a713",
+  "b3sum_sha256": "7c2bd17e8eb6af190c7d120239fb3dbc59b4f6984d7a6c01f35fce2c108b8e0d"
+}

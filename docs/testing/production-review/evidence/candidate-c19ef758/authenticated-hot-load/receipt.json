@@ -1,0 +1,44 @@
+{
+  "reviewer": "/root/tailroute",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:54:01.015961+00:00",
+  "finished_utc": "2026-11-27T06:54:13.171991+00:00",
+  "exit_code": 0,
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "docs/testing/production-review/evidence/candidate-c19ef758/authenticated-hot-load/check-v2.py",
+    "--bin-dir",
+    "/tmp/entangle-release-review-b2lc3c3l/archive-binaries",
+    "--label",
+    "candidate",
+    "--revision",
+    "c19ef7587a2215ef9434b642413bebd0473caf20",
+    "--expected-archive",
+    "docs/testing/production-review/evidence/candidate-c19ef758/linux-archive.json",
+    "--out",
+    "docs/testing/production-review/evidence/candidate-c19ef758/authenticated-hot-load/candidate.json"
+  ],
+  "comparison_command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "docs/testing/production-review/evidence/candidate-c19ef758/authenticated-hot-load/compare.py",
+    "docs/testing/production-review/evidence/candidate-c19ef758/authenticated-hot-load/baseline-v2.json",
+    "docs/testing/production-review/evidence/candidate-c19ef758/authenticated-hot-load/candidate.json",
+    "docs/testing/production-review/evidence/candidate-c19ef758/authenticated-hot-load/comparison.json"
+  ],
+  "verified_linux_archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/authenticated-hot-load/comparison.json",
+  "sha256": "2c67487e9b94347f4422a71effb45b4c35d7170e3635bd9cf678655b79bd5c7d",
+  "supporting_sha256": {
+    "comparison.log": "2c67487e9b94347f4422a71effb45b4c35d7170e3635bd9cf678655b79bd5c7d",
+    "baseline-v2.json": "4e9dfd1452da29dbd874d2ccbc3c3636c5f6fcf4622dacb26576e998e309621a",
+    "comparison.json": "2c67487e9b94347f4422a71effb45b4c35d7170e3635bd9cf678655b79bd5c7d",
+    "candidate.json": "54d607a3fdfc41e8d9aa98f62efe232d6987c454ed7af3a89ba438e6e85cb92d",
+    "run.log": "ae59e77869a02199885da991e00991d26de0de43a26cef9f422d5bc9afea9088",
+    "check-v2.py": "1880a26c440a5bc4c12664feedb89502b5c25b6fe7dfb8b9874aacaa9e308c86",
+    "plan-v2.md": "4ed2760871d2420202f97f9dc6d5295e9eb6c099f59d95d4fd8992275cb881df",
+    "compare.py": "1022714fb961e95d5a62a59bf219fe02a34a425ec777bac0cda6f613ff2b6764"
+  }
+}

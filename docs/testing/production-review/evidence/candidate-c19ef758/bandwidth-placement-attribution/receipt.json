@@ -1,0 +1,106 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T07:07:45.950497+00:00",
+  "finished_utc": "2026-11-27T07:07:47.366608+00:00",
+  "exit_code": 0,
+  "canonical_archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "first_trial_sha256": "4555fd8f936fab9ee389b6bb5d9b95b1b528dd2ecbcab82465dd10d35ee76f78",
+  "first_trial_exit_code": 1,
+  "earlier_passing_trial_sha256": "b0aa1a861e74a1bff631143437acf7e67da73d32862281a021dde699b065f1ad",
+  "prior_passing_measures": [
+    {
+      "phase": "fast-measure",
+      "reason": "fit ok, rtt=11ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=32671709"
+    },
+    {
+      "phase": "slow-measure",
+      "reason": "fit ok, rtt=72ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=2127908"
+    },
+    {
+      "phase": "both-eligible",
+      "reason": "fit ok, rtt=11ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=60918691"
+    }
+  ],
+  "frozen_modules_sha256": {
+    "crates/entangle-scheduler/src/placement.rs": "83fa3761a9893eb3db83a9689a852af07be38187706c5331d7f07706c0edabd4",
+    "crates/entangle-scheduler/src/worker.rs": "f2a1489b0ec8c34398cafc2f89164147415fb7cd6ff638136ad585d3d3c255d7"
+  },
+  "probe_sha256": "93a8a9fb558d26082a4f715b12dc516c2eb864754bbcd6058bd554f27d107700",
+  "rustc": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: x86_64-unknown-linux-gnu\nrelease: 1.91.1\nLLVM version: 21.1.2",
+  "command": [
+    "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/bin/rustc",
+    "--edition",
+    "2021",
+    "-C",
+    "debuginfo=0",
+    "-L",
+    "dependency=/workspace/Entanglement/target/debug/deps",
+    "--extern",
+    "entangle_types=/workspace/Entanglement/target/debug/deps/libentangle_types-1ad8eed94c9cb6ee.rlib",
+    "--extern",
+    "thiserror=/workspace/Entanglement/target/debug/deps/libthiserror-c2cde9f57482e500.rlib",
+    "--extern",
+    "parking_lot=/workspace/Entanglement/target/debug/deps/libparking_lot-53aee4e2e8ce5cd8.rlib",
+    "--extern",
+    "serde=/workspace/Entanglement/target/debug/deps/libserde-b1c5f22edf04499d.rlib",
+    "probe.rs",
+    "-o",
+    "probe"
+  ],
+  "dependencies": {
+    "entangle_types": {
+      "rlib": "libentangle_types-1ad8eed94c9cb6ee.rlib",
+      "sha256": "4ca2deffe53380c2d45231ac78969a0111fa07e094ca75efb53ba9d67d339d84",
+      "cargo_fingerprint": "0b24a26bc483f207"
+    },
+    "thiserror": {
+      "rlib": "libthiserror-c2cde9f57482e500.rlib",
+      "sha256": "80f813fe5e8ac5f74588f62978c36754b8b3331fc04debbef3d479c0c174e5a3",
+      "cargo_fingerprint": "67de3fad8e49bf86"
+    },
+    "parking_lot": {
+      "rlib": "libparking_lot-53aee4e2e8ce5cd8.rlib",
+      "sha256": "cf70cc342d566ce3bc23b943096c3721a8884f05675ad5ca803ff4a611d0571d",
+      "cargo_fingerprint": "8baa0a52557572ee"
+    },
+    "serde": {
+      "rlib": "libserde-b1c5f22edf04499d.rlib",
+      "sha256": "9beb9b22fecb24a73c96d4637b2f0cc0bbfcc6254ca534aee3ef268f837262e1",
+      "cargo_fingerprint": "f31be556763a0b97"
+    }
+  },
+  "prepared_component_states": "Fresh authenticated pool per pair, identical hardware/plugin/load/cost/reservations, retained measured upload rates as controlled inputs. Controlled low RTT and high RTT cases only.",
+  "original_trial_known": "Slower worker selected with RTT 57 ms, correct result, load=0, in_flight=0, cost=1, measured upload 3178372 bps. Earlier fast-only selection reported 52689170 bps.",
+  "original_trial_unknown": "Losing peer eligibility and measured upload EWMA, capability RTT, load and reservation state at the contested instant were not recorded. Parallel link and capability conditions can change.",
+  "bytes": 786515,
+  "fast_input_bps": 52689170,
+  "slow_input_bps": 3178372,
+  "fast_bandwidth_term": 0.2706948899690654,
+  "slow_bandwidth_term": 0.044849734989973494,
+  "bandwidth_delta": 0.22584515497909188,
+  "locality_score_per_ms": 0.003076923076923077,
+  "crossover_rtt_gap_ms": 73.39967536820487,
+  "cases": [
+    {
+      "fast_rtt_ms": "57",
+      "slow_rtt_ms": "57",
+      "fast_score": "1.91069508",
+      "slow_score": "1.68484974",
+      "expected": "302f7252cdfcb0350dd5ab28abf43516",
+      "chosen": "302f7252cdfcb0350dd5ab28abf43516",
+      "reason": "fit ok, rtt=57ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=52689170"
+    },
+    {
+      "fast_rtt_ms": "131",
+      "slow_rtt_ms": "57",
+      "fast_score": "1.68300271",
+      "slow_score": "1.68484974",
+      "expected": "7d95a82c2494003d04b316f8faf60b15",
+      "chosen": "7d95a82c2494003d04b316f8faf60b15",
+      "reason": "fit ok, rtt=57ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=3178372"
+    }
+  ],
+  "scope": "Controlled source-level chooser counterexample to a speed-only oracle; the observed live failure remains a failed independent trial."
+}

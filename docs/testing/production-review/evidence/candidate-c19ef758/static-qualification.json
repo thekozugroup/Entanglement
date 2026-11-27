@@ -1,0 +1,248 @@
+{
+  "git_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "qualification_checked_utc": "2026-11-27T06:59:28+00:00",
+  "execution": "Direct local commands on Linux, with local actionlint for workflow YAML.",
+  "cargo_environment": {
+    "CARGO_HOME": "/workspace/.entanglement-dev/cargo",
+    "RUSTUP_HOME": "/workspace/.entanglement-dev/rustup",
+    "RUSTUP_TOOLCHAIN": "1.91",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_NET_OFFLINE": "true"
+  },
+  "tools": {
+    "rustc": "rustc 1.91.1 (ed61e7d7e 2025-11-07)",
+    "cargo": "cargo 1.91.1 (ea2d97820 2025-10-10)",
+    "rustfmt": "rustfmt 1.8.0-stable (ed61e7d7e2 2025-11-07)",
+    "clippy": "clippy 0.1.91 (ed61e7d7e2 2025-11-07)",
+    "rustdoc": "rustdoc 1.91.1 (ed61e7d7e 2025-11-07)",
+    "actionlint": "1.7.11",
+    "cargo_deny": "cargo-deny 0.18.9"
+  },
+  "static_checks": {
+    "format": {
+      "receipt": "format.json",
+      "receipt_sha256": "2b45fe8ce7ec1e2fe97cf940a9c218f3cc8c99a89d387429eaf3473ebb247d9c",
+      "exit_code": 0
+    },
+    "diff-check": {
+      "receipt": "diff-check.json",
+      "receipt_sha256": "66409c1a2936f1dd5e438f59a0c72a48134f81a59511300ba183f66c49b455b5",
+      "exit_code": 0
+    },
+    "workflows": {
+      "receipt": "workflows.json",
+      "receipt_sha256": "0b317f4d785d5b7dfa54ec795452b46e71536a4ca5196dd4bc73ef8d0c812389",
+      "exit_code": 0
+    },
+    "clippy": {
+      "receipt": "clippy.json",
+      "receipt_sha256": "f4b2f1bb8014e66ff6a7fd64dead7a2d2fc38b681a02349bc7e1d5ad6165b85b",
+      "exit_code": 0
+    },
+    "rustdoc": {
+      "receipt": "rustdoc.json",
+      "receipt_sha256": "faa95a655518c726c308bbbdaab135f5fcbb71ecd3184bdcb4d9cd1108ea21b7",
+      "exit_code": 0,
+      "additional_environment": {
+        "RUSTDOCFLAGS": "-D warnings"
+      }
+    },
+    "rustsec-fetch": {
+      "receipt": "rustsec-fetch.json",
+      "receipt_sha256": "b176f60dff54507cf29062d8a29f1478f17a4f65b80a32198c04638d9d18c3b2",
+      "exit_code": 0
+    }
+  },
+  "locked_graphs": {
+    "count": 16,
+    "rustsec_revision": "c9f6c91a44dbad9d71742329e9df061279f9c4be",
+    "index": "dependencies.json",
+    "index_sha256": "3abde36076d353fb449a8ebf49b4ee7b92e08c021127c8db410306b8cb638586",
+    "effective_policy": "dependency-policy.toml",
+    "criteria_totals": {
+      "advisories": {
+        "passed": 16,
+        "failed": 0
+      },
+      "bans": {
+        "passed": 16,
+        "failed": 0
+      },
+      "licenses": {
+        "passed": 16,
+        "failed": 0
+      },
+      "sources": {
+        "passed": 16,
+        "failed": 0
+      }
+    },
+    "checks": [
+      {
+        "manifest": "Cargo.toml",
+        "receipt": "deny-workspace.json",
+        "receipt_sha256": "87f5bc487cd7efe8cbf599917549d77133e3f66a989960f6fd114c5ebac380f1",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "crates/entangle-host/fixtures-src/hello-pong/Cargo.toml",
+        "receipt": "deny-crates-entangle-host-fixtures-src-hello-pong.json",
+        "receipt_sha256": "544f999d5bc7670f3121bb117442f7f76e40770c7e820b6c28a6b7dd3a2186e1",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "crates/entangle-host/fixtures-src/stress/Cargo.toml",
+        "receipt": "deny-crates-entangle-host-fixtures-src-stress.json",
+        "receipt_sha256": "8d4c15608b8c665cd70c3266846027539cd5a0d4933a4edc86ff11f548c82317",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.toml",
+        "receipt": "deny-docs-testing-production-review-evidence-candidate-864ae27b-wasi-fs-conformance-fs-probe.json",
+        "receipt_sha256": "e30c77002fbe6addfdae749d4e2ff47465fb1a908935ea47e08b2e60a116dd4f",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/Cargo.toml",
+        "receipt": "deny-docs-testing-production-review-evidence-candidate-bb70a619-uds-image-comparison-allocator-probe.json",
+        "receipt_sha256": "da39d2b50c784ba9bf359a55cf4ff5876ab6a45bb2402e4b63dcceb569c47423",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "examples/hash-it/Cargo.toml",
+        "receipt": "deny-examples-hash-it.json",
+        "receipt_sha256": "4b5ed90e0dbff76b2ff83349274f09a73ea6c7b01ea6f6242902d4c0c8de00de",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "examples/hello-world/Cargo.toml",
+        "receipt": "deny-examples-hello-world.json",
+        "receipt_sha256": "b3f0e21ee72e288fc4c9c791da1c6619e59e9807a5f8e231a68cda24afbbd40a",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "examples/stream-lines/Cargo.toml",
+        "receipt": "deny-examples-stream-lines.json",
+        "receipt_sha256": "333e7632493d113a7b6474635b17b2d646e7e1d64a0cd2322ee041450bd153af",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/compress/Cargo.toml",
+        "receipt": "deny-plugins-compress.json",
+        "receipt_sha256": "fd36d272e4fa3f4b034e39e68550179631ff30de6ad2bf0deaeb71028824043f",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/csv-stats/Cargo.toml",
+        "receipt": "deny-plugins-csv-stats.json",
+        "receipt_sha256": "cca7da6d4b473d811f2ff458a55375050aa0ca8464eeb59147bc42d39fc07684",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/image-dehaze/Cargo.toml",
+        "receipt": "deny-plugins-image-dehaze.json",
+        "receipt_sha256": "4f62645dff12edf070fc446b651586ed4898c59af63a338a96bf0ecc5ccb17cb",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/image-resize/Cargo.toml",
+        "receipt": "deny-plugins-image-resize.json",
+        "receipt_sha256": "2c2e345f76e01c682f8781fc65e015811df535c567e8dcd9e97c20cf5330721f",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/json-pointer/Cargo.toml",
+        "receipt": "deny-plugins-json-pointer.json",
+        "receipt_sha256": "76864d961a4a6f4cef8a4e5c9f16cd1a2de1aa9f4ad0572bf49be48f347e6aca",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/json-query/Cargo.toml",
+        "receipt": "deny-plugins-json-query.json",
+        "receipt_sha256": "e16f331b9cd9fd76c2e204d811f9e08534aad5fc11f9e1d5c145c4b227021571",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/markdown-html/Cargo.toml",
+        "receipt": "deny-plugins-markdown-html.json",
+        "receipt_sha256": "5454a004579e9ed8ea6ab6917e67f2295d33bbe918aaad442e99dc58dd704b57",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/qr-encode/Cargo.toml",
+        "receipt": "deny-plugins-qr-encode.json",
+        "receipt_sha256": "49131436faeda5a889126ac4ccdf96ed970558a481bd29443fb76308740be025",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      }
+    ],
+    "exceptions": []
+  }
+}

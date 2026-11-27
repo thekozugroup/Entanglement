@@ -1,0 +1,130 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T07:06:33.866986+00:00",
+  "finished_utc": "2026-11-27T07:07:11.155464+00:00",
+  "reviewer": "/root/tailroute",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/bandwidth-diagnostic/link-test.py",
+    "--bin-dir",
+    "/tmp/entangle-check-c19ef758-archive",
+    "--repo",
+    "/workspace/Entanglement",
+    "--pacer",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/packet-pacer.py"
+  ],
+  "exit_code": 0,
+  "preregistered_plan_sha256": "5a071ce8e7d98edfdd3486ec7ad5bdc2fc5d206e1373c5300360215900570c14",
+  "diagnostic_driver_sha256": "95b6b8340397afa6536839b902e0773832481653de170713bf6e8e5007291972",
+  "reference_driver_sha256": "8357449fceeace79f3bcd3f7ea774bc2447a37c4f99a243453ab3b4208994f93",
+  "pacer_sha256": "fb555e0237b2ca0c7d44f6cc7d7eab5450a65de4338e16213cb29967fae5f912",
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "artifact_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "original_failure_preserved": true,
+  "ttls_s": {
+    "upload": 60,
+    "normal_capability_poll_interval": 15
+  },
+  "all_client_calls": 28,
+  "last_pinned_observations": {
+    "fast": {
+      "sample_shown_before_last_directed_upload_bps": 680814288,
+      "last_directed_reason": "fit ok, rtt=4ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=680814288",
+      "first_training_invocation_start_ns": 36866676606136,
+      "last_directed_call_start_ns": 36866828572755,
+      "last_directed_call_finish_ns": 36866899340448,
+      "gap_last_directed_result_to_first_open_invocation_s": 8.386106379,
+      "upper_interval_last_directed_decision_to_first_open_decision_s": 8.524060296,
+      "max_age_s_of_any_recorded_upload_from_same_fresh_cluster_at_first_open": 8.676026915,
+      "under_60s_entire_training_window": true,
+      "known TTL alone can explain loss of existing sample": false
+    },
+    "slow": {
+      "sample_shown_before_last_directed_upload_bps": 4934853,
+      "last_directed_reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=4934853",
+      "first_training_invocation_start_ns": 36868705887547,
+      "last_directed_call_start_ns": 36873968972687,
+      "last_directed_call_finish_ns": 36875266456229,
+      "gap_last_directed_result_to_first_open_invocation_s": 0.018990598,
+      "upper_interval_last_directed_decision_to_first_open_decision_s": 1.383660364,
+      "max_age_s_of_any_recorded_upload_from_same_fresh_cluster_at_first_open": 6.646745504,
+      "under_60s_entire_training_window": true,
+      "known TTL alone can explain loss of existing sample": false
+    }
+  },
+  "first_open_selection": {
+    "event": "dispatch_result",
+    "mono_ns": 36875352861791,
+    "utc": "2026-11-27T07:06:57.301850+00:00",
+    "phase": "both-eligible",
+    "allowed": [
+      "625c94342f0380aa6fb39a9d30d23d7c",
+      "ecbe1e31e37ddbaae27a5ba276047f54"
+    ],
+    "input_bytes": 786515,
+    "nonce": "7ea8bad712070b0293d1de1f",
+    "start_ns": 36875285446827,
+    "finish_ns": 36875352633051,
+    "exit_code": 0,
+    "no_workers": false,
+    "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+    "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=694705722",
+    "raw_cli_stderr": "Chosen: 625c94342f0380aa6fb39a9d30d23d7c (score=2.18)\nReason: fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=694705722",
+    "measured_bps": 694705722,
+    "matching_nonce": true
+  },
+  "original_initial_assertion": {
+    "event": "first_open_choice_assertion",
+    "mono_ns": 36875353535949,
+    "utc": "2026-11-27T07:06:57.302523+00:00",
+    "passed": true,
+    "chosen": {
+      "phase": "both-eligible",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=694705722",
+      "measured_bps": 694705722,
+      "input_bytes": 786515,
+      "nonce": "7ea8bad712070b0293d1de1f",
+      "output": "\"7ea8bad712070b0293d1de1f\"",
+      "wall_s": 0.0675
+    },
+    "previous_measured_rates": {
+      "fast": 680814288,
+      "slow": 4934853
+    }
+  },
+  "post_failure_observations": {},
+  "illustrative_scores_from_last_pinned_rounded_inputs": {
+    "fast": {
+      "rtt_ms": 4,
+      "cost": 1.0,
+      "reported_load": 0.0,
+      "in_flight": 0,
+      "measured_bps": 680814288,
+      "weighted_bandwidth": 0.38573988990054214,
+      "weighted_locality": 0.6,
+      "illustrative_total_at_display_precision": 2.1857398899005425
+    },
+    "slow": {
+      "rtt_ms": 374,
+      "cost": 1.0,
+      "reported_load": 0.0,
+      "in_flight": 0,
+      "measured_bps": 4934853,
+      "weighted_bandwidth": 0.06557218099404476,
+      "weighted_locality": 0.0,
+      "illustrative_total_at_display_precision": 1.2655721809940448
+    }
+  },
+  "conditional_scope": "Pinned observations precede or follow the actual decision. Concurrent RTT/inventory updates and EWMA changes can alter scoring. The existing RPC exposes no losing-worker same-decision snapshot.",
+  "attempts.jsonl_sha256": "249accdf326a42c0e034f28838c5639681c20bff1e1c52aa3967fa133b80f8ac",
+  "workload.stdout.log_sha256": "94b8daa352a124393a200d9b7e3761170a803cdbced89208f1edfe90f6b4c063",
+  "workload.stderr.log_sha256": "7ec232ccb449b227ddd7caff5adbe6f9d904cc5b7cd0010e83accc8375e09c3f"
+}

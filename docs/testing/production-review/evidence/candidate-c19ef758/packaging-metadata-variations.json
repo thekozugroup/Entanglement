@@ -1,0 +1,50 @@
+{
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "exit_code": 0,
+  "source_date_epoch": 1795762260,
+  "variants": {
+    "a": {
+      "scope": "native host",
+      "uid": 1000,
+      "gid": 1000,
+      "epoch": 1795762260,
+      "umask": "0o22",
+      "timezone": "UTC",
+      "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+      "zlib": "1.3.2",
+      "raw_receipt_sha256": "ababd759e32be417ab3248f26e78f84cc22d3fcf6ee076346617ace1b644406e"
+    },
+    "b": {
+      "scope": "native host",
+      "uid": 1000,
+      "gid": 1000,
+      "epoch": 1795762260,
+      "umask": "0o77",
+      "timezone": "Pacific/Honolulu",
+      "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+      "zlib": "1.3.2",
+      "raw_receipt_sha256": "0fdd4002508a159d38568ee78b1f7645239995a3bed47629fd917e6be41cc200"
+    },
+    "c": {
+      "scope": "isolated container",
+      "uid": 0,
+      "gid": 0,
+      "epoch": 1795762260,
+      "umask": "0o27",
+      "timezone": "Asia/Tokyo",
+      "python": "3.12.16 (main, Nov 24 2026, 05:00:06) [GCC 14.2.0]",
+      "zlib": "1.3.1",
+      "raw_receipt_sha256": "f5c1ee237a7478fb0163af8521661c0e3a14f833c63b6643efff7721f04f64fa"
+    }
+  },
+  "byte_identical_archive_and_sidecars": {
+    ".tar.gz": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+    ".sha256": "cde998cb44488c5b77d35ea9383518181244d440c09e17b98cbe3f92e4a416e6",
+    ".b3": "10813eb4cf18d1cd8ebceadf37fcfaa6184f2f4cc17a890451484bc0b102a39b"
+  },
+  "log_sha256": "3e2cb25648ed2c318b14d40c827189e0083187876b1beceb333a34de199d2002",
+  "variation_driver_sha256": "3728cc9eb7928717892c9c9d40a87af98062d259726db95c586fa58d51f47834",
+  "verified_archive_metadata_sha256": "0ed414fed1000fcc37eaa54b5cc080e0ea2763cdb104876dbc09396c38e39c68"
+}

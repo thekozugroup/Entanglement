@@ -1,0 +1,51 @@
+{
+  "purpose": "Verification of the replay instructions using a fresh unmodified checkout, distinct disposable trace directory and both hash-verified archive variants.",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T07:23:02+00:00",
+  "finished_at_utc": "2026-11-27T07:25:23+00:00",
+  "packaging_and_install_unit_test_log_sha256": "7f4bf8343affc8890eaca73a3d6e5c9446802cf56207503d5f83c89c61a6f826",
+  "runner_input_sha256": {
+    "verify.py": "38791a79c49202029d647ec6c9f4a4a718bde999bb7c17fb33ad747d1cddf877",
+    "curl-fixture.sh": "6f8c48d4f4183076ec41e7cf42b554130943573403e8449b6b1a6ae1abbe2fd7",
+    "mv-fixture.sh": "af008ae108317351a4a035f7717ec1647772d8b8cd2cb5b624793e59f4dc55b0"
+  },
+  "archive_sha256": {
+    "jammy": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+    "canonical": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787"
+  },
+  "cases_by_ubuntu": {
+    "22.04": 16,
+    "24.04": 7
+  },
+  "installed_daemon_used_in_each_phase": {
+    "22.04": [
+      "portable-before",
+      "portable-after-rejection"
+    ],
+    "24.04": [
+      "portable-before",
+      "canonical-after-upgrade"
+    ]
+  },
+  "evidence_directory_untouched_by_harness": true,
+  "result_output": {
+    "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+    "source": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+    "distros": {
+      "22.04": [
+        "portable-before",
+        "portable-after-rejection"
+      ],
+      "24.04": [
+        "portable-before",
+        "canonical-after-upgrade"
+      ]
+    },
+    "exit_code": 0
+  },
+  "independent_raw_command_count": 360,
+  "independent_raw_trace_sha256": "ec4596e882d0a103876c3f65dc1f4c4e241f30a25501ea69900237d4947f5603"
+}

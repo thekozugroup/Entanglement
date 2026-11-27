@@ -1,0 +1,351 @@
+{
+  "initial_nodes": {
+    "coordinator": {
+      "id": "19f4f6cf623052d65f61844476a80c564f378005a243388d2083cc972f8033ec",
+      "daemon_pid": 909475,
+      "mode": "none"
+    },
+    "fast": {
+      "id": "6cdf94c6f0757e29576ff5b9a6b272eb876df83f5cb69021c0116fa4cc3f5dd1",
+      "daemon_pid": 909626,
+      "mode": "none"
+    },
+    "slow": {
+      "id": "b7203d8c9c5a8ce1b36e09c09fb7f7c8cebd7318e9dfa0966425eff4b053b50f",
+      "daemon_pid": 909814,
+      "mode": "none"
+    }
+  },
+  "final_nodes": {
+    "coordinator": {
+      "id": "19f4f6cf623052d65f61844476a80c564f378005a243388d2083cc972f8033ec",
+      "daemon_pid": 909475,
+      "mode": "none"
+    },
+    "fast": {
+      "id": "6cdf94c6f0757e29576ff5b9a6b272eb876df83f5cb69021c0116fa4cc3f5dd1",
+      "daemon_pid": 909626,
+      "mode": "none"
+    },
+    "slow": {
+      "id": "b7203d8c9c5a8ce1b36e09c09fb7f7c8cebd7318e9dfa0966425eff4b053b50f",
+      "daemon_pid": 909814,
+      "mode": "none"
+    }
+  },
+  "scope": "three Linux network-disabled Docker namespaces on one host; no qdisc or host network changes",
+  "initial_upload_rate_limits_bps": {
+    "fast": null,
+    "slow": 8000000
+  },
+  "measured_upload_bps": {
+    "fast": 680814288,
+    "slow": 4934853
+  },
+  "reversed_upload_rate_limits_bps": {
+    "fast": 8000000,
+    "slow": null
+  },
+  "reversed_measured_upload_bps": {
+    "fast": 168479132,
+    "slow": 498835572
+  },
+  "peer_ids": {
+    "coordinator": "a638b95cec0dcdd0a36f49cabeb45d01",
+    "fast": "625c94342f0380aa6fb39a9d30d23d7c",
+    "slow": "ecbe1e31e37ddbaae27a5ba276047f54"
+  },
+  "jobs": [
+    {
+      "phase": "fast-initial-small",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=4ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "measured_bps": null,
+      "input_bytes": 183,
+      "nonce": "f28dd06e8c520b3d35fb1204",
+      "output": "\"f28dd06e8c520b3d35fb1204\"",
+      "wall_s": 0.0171
+    },
+    {
+      "phase": "fast-train",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=4ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=unknown",
+      "measured_bps": "unknown",
+      "input_bytes": 786515,
+      "nonce": "8e0e5fff8b2429a17f9e5d3a",
+      "output": "\"8e0e5fff8b2429a17f9e5d3a\"",
+      "wall_s": 0.1469
+    },
+    {
+      "phase": "fast-measure",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=4ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=680814288",
+      "measured_bps": 680814288,
+      "input_bytes": 786515,
+      "nonce": "5a6d0fa5c8400fc1a9ffb883",
+      "output": "\"5a6d0fa5c8400fc1a9ffb883\"",
+      "wall_s": 0.0711
+    },
+    {
+      "phase": "slow-initial-small",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=14ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "measured_bps": null,
+      "input_bytes": 183,
+      "nonce": "d3a610de2988837e4a0fc16c",
+      "output": "\"d3a610de2988837e4a0fc16c\"",
+      "wall_s": 1.7971
+    },
+    {
+      "phase": "slow-train",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=14ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=unknown",
+      "measured_bps": "unknown",
+      "input_bytes": 786515,
+      "nonce": "f93518a2d3ba5596980de887",
+      "output": "\"f93518a2d3ba5596980de887\"",
+      "wall_s": 1.3026
+    },
+    {
+      "phase": "slow-measure",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=14ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=unknown",
+      "measured_bps": "unknown",
+      "input_bytes": 786515,
+      "nonce": "afa8df9448797842b10f07ee",
+      "output": "\"afa8df9448797842b10f07ee\"",
+      "wall_s": 1.2996
+    },
+    {
+      "phase": "slow-measure",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=14ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=unknown",
+      "measured_bps": "unknown",
+      "input_bytes": 786515,
+      "nonce": "bb2b059383c016e93e80d982",
+      "output": "\"bb2b059383c016e93e80d982\"",
+      "wall_s": 1.3156
+    },
+    {
+      "phase": "slow-measure",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=unknown",
+      "measured_bps": "unknown",
+      "input_bytes": 786515,
+      "nonce": "aec285af4f7a5cff12ee0663",
+      "output": "\"aec285af4f7a5cff12ee0663\"",
+      "wall_s": 1.3206
+    },
+    {
+      "phase": "slow-measure",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=4934853",
+      "measured_bps": 4934853,
+      "input_bytes": 786515,
+      "nonce": "492e0f6b0001452258ff0c08",
+      "output": "\"492e0f6b0001452258ff0c08\"",
+      "wall_s": 1.307
+    },
+    {
+      "phase": "both-eligible",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=694705722",
+      "measured_bps": 694705722,
+      "input_bytes": 786515,
+      "nonce": "7ea8bad712070b0293d1de1f",
+      "output": "\"7ea8bad712070b0293d1de1f\"",
+      "wall_s": 0.0675
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=694705722",
+      "measured_bps": 694705722,
+      "input_bytes": 786515,
+      "nonce": "82c3d8a0abf37286aba2bf95",
+      "output": "\"82c3d8a0abf37286aba2bf95\"",
+      "wall_s": 1.9461
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=4951755",
+      "measured_bps": 4951755,
+      "input_bytes": 786515,
+      "nonce": "ce3cee0342684ad501f224b8",
+      "output": "\"ce3cee0342684ad501f224b8\"",
+      "wall_s": 0.1799
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=521862980",
+      "measured_bps": 521862980,
+      "input_bytes": 786515,
+      "nonce": "9824bb629b3c0d48ded27dcd",
+      "output": "\"9824bb629b3c0d48ded27dcd\"",
+      "wall_s": 1.3692
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=109213713",
+      "measured_bps": 109213713,
+      "input_bytes": 786515,
+      "nonce": "6678e10fe0858b056ae5c4dd",
+      "output": "\"6678e10fe0858b056ae5c4dd\"",
+      "wall_s": 0.0449
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=392588498",
+      "measured_bps": 392588498,
+      "input_bytes": 786515,
+      "nonce": "3b45393974a75515990ddd8c",
+      "output": "\"3b45393974a75515990ddd8c\"",
+      "wall_s": 1.3101
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=311273829",
+      "measured_bps": 311273829,
+      "input_bytes": 786515,
+      "nonce": "eae048dda406bd29bb19afed",
+      "output": "\"eae048dda406bd29bb19afed\"",
+      "wall_s": 0.0418
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=392588498",
+      "measured_bps": 392588498,
+      "input_bytes": 786515,
+      "nonce": "f17ad8df35b054ca15d462f1",
+      "output": "\"f17ad8df35b054ca15d462f1\"",
+      "wall_s": 1.3974
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=311273829",
+      "measured_bps": 311273829,
+      "input_bytes": 786515,
+      "nonce": "d60e6e8d2798e9639135c4d9",
+      "output": "\"d60e6e8d2798e9639135c4d9\"",
+      "wall_s": 0.075
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=295673857",
+      "measured_bps": 295673857,
+      "input_bytes": 786515,
+      "nonce": "5a654b3cf2c052ed7cb2491d",
+      "output": "\"5a654b3cf2c052ed7cb2491d\"",
+      "wall_s": 1.2974
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=390157272",
+      "measured_bps": 390157272,
+      "input_bytes": 786515,
+      "nonce": "43c5c944c97d5c8b12d5b8f1",
+      "output": "\"43c5c944c97d5c8b12d5b8f1\"",
+      "wall_s": 0.0599
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=295673857",
+      "measured_bps": 295673857,
+      "input_bytes": 786515,
+      "nonce": "68d7cd936984370023d98a71",
+      "output": "\"68d7cd936984370023d98a71\"",
+      "wall_s": 1.3189
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=390157272",
+      "measured_bps": 390157272,
+      "input_bytes": 786515,
+      "nonce": "98880db15735512ba129f286",
+      "output": "\"98880db15735512ba129f286\"",
+      "wall_s": 0.0339
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=222989787",
+      "measured_bps": 222989787,
+      "input_bytes": 786515,
+      "nonce": "c1cbbbeac8061e6b7c5e5bec",
+      "output": "\"c1cbbbeac8061e6b7c5e5bec\"",
+      "wall_s": 1.3035
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=374ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=390157272",
+      "measured_bps": 390157272,
+      "input_bytes": 786515,
+      "nonce": "4ccd106fa292ae3bd6a97be3",
+      "output": "\"4ccd106fa292ae3bd6a97be3\"",
+      "wall_s": 0.0393
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "625c94342f0380aa6fb39a9d30d23d7c",
+      "reason": "fit ok, rtt=8ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=168479132",
+      "measured_bps": 168479132,
+      "input_bytes": 786515,
+      "nonce": "b357e7b0b2f650a2d99723be",
+      "output": "\"b357e7b0b2f650a2d99723be\"",
+      "wall_s": 1.2931
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=2ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=498835572",
+      "measured_bps": 498835572,
+      "input_bytes": 786515,
+      "nonce": "b1b819eedde4c8e91ddeb5b6",
+      "output": "\"b1b819eedde4c8e91ddeb5b6\"",
+      "wall_s": 0.0438
+    },
+    {
+      "phase": "both-eligible-after-swap",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=2ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=505473274",
+      "measured_bps": 505473274,
+      "input_bytes": 786515,
+      "nonce": "59975ab0b01f7e08210c4501",
+      "output": "\"59975ab0b01f7e08210c4501\"",
+      "wall_s": 0.0387
+    },
+    {
+      "phase": "tiny-both",
+      "chosen": "ecbe1e31e37ddbaae27a5ba276047f54",
+      "reason": "fit ok, rtt=2ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "measured_bps": null,
+      "input_bytes": 183,
+      "nonce": "15978abefdf4ab487b96138d",
+      "output": "\"15978abefdf4ab487b96138d\"",
+      "wall_s": 0.0073
+    }
+  ],
+  "plugin": "a638b95cec0dcdd0a36f49cabeb45d01/json-pointer@0.1.0",
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "binary_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "network_mode": {
+    "coordinator": "none",
+    "fast": "none",
+    "slow": "none"
+  }
+}

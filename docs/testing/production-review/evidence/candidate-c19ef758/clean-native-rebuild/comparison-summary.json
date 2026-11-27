@@ -1,0 +1,31 @@
+{
+  "actual_clean_A_signed_job_pass": true,
+  "clean_A_vs_canonical": {
+    "archive_equal": false,
+    "cli_equal": false,
+    "daemon_equal": false
+  },
+  "clean_targets_reaped": true,
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "primary_distinct_target_paths": {
+    "archives_equal": false,
+    "cli_equal": false,
+    "daemon_equal": false
+  },
+  "references_sha256": {
+    "clean-A-functional.json": "e1a85a6961e121afa71a63884ea48711120c924eb71f10b47fb7e261b79cfa68",
+    "elf-layout-verified.json": "ef753ed8d1919d520924f78dfb4a92e39f78be76f5541980ef28b9d977b6c0be",
+    "link-layout-correlation.json": "f829c8a4de3712dd25b55140ad374864cd8fa47ae17fa83747bfd5e668ecf42f",
+    "package-A-corrected.json": "d7f2f67e92a4f28e66874d8772b2e2cb8e0a74d1b99e14a3b4d17b9e60db363f",
+    "package-B-corrected.json": "e142c346f80d04dade1109f90bb144ac75d005c7d62f92f0c38f22a749f2533c",
+    "results.json": "6582d63f668662f5d8314bf1b139321f8e2ccbc33107add558c0f76df8da4b69",
+    "same-path-C-plan.md": "00aef60dad6b55958486f6f5393ae5332713dca5cde927eeec98d3d3b817214d",
+    "same-path-C.json": "b64ab3c0e2b649de661f56bc2d9764f6af893fbaae21a6fce3512d35d23185e1"
+  },
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "supplemental_fixed_lexical_path_A_C": {
+    "archives_equal": true,
+    "cli_equal": true,
+    "daemon_equal": true
+  }
+}

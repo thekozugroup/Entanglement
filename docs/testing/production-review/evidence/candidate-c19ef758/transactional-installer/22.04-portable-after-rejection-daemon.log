@@ -1,0 +1,10 @@
+docker exec -e HOME=/work/qual.j6Qm6W/home -e TMPDIR=/tmp -e PATH=/fixture:/usr/bin:/bin -e ENTANGLE_ALLOW_LOCAL=0 -e TOKIO_WORKER_THREADS=2 c4cc7990986c622e216b20e0dfc3f434663b237d0ef52328245bdf5420faf416 /bin/sh -ec 'printf "%s\n" "$$" > "$HOME/daemon.pid"; exec "$1" run' sh '/work/qual.j6Qm6W/installation prefix/bin/entangled'
+{"timestamp":"2026-11-27T06:58:04.097641Z","level":"INFO","fields":{"message":"entangled starting","version":"0.1.0","socket":"/work/qual.j6Qm6W/home/.entangle/sock","pid":579},"target":"entangled"}
+{"timestamp":"2026-11-27T06:58:04.097912Z","level":"INFO","fields":{"message":"RPC server listening","socket_path":"/work/qual.j6Qm6W/home/.entangle/sock"},"target":"entangle_bin::server"}
+{"timestamp":"2026-11-27T06:58:04.101127Z","level":"INFO","fields":{"message":"daemon identity ready","local_peer_id":"23671cd64da336b06485cf9318db7043"},"target":"entangled"}
+{"timestamp":"2026-11-27T06:58:04.101757Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/work/qual.j6Qm6W/home/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T06:58:04.484743Z","level":"INFO","fields":{"message":"broker audit","event":"PluginRegistered { plugin: PluginId { publisher: \"23671cd64da336b06485cf9318db7043\", name: \"hello-world\", version: Version { major: 0, minor: 1, patch: 0 } }, declared_tier: Pure, implied_tier: Pure, effective_tier: Pure, at: SystemTime { tv_sec: 1795762684, tv_nsec: 484735460 } }"},"target":"entangle::audit"}
+{"timestamp":"2026-11-27T06:58:04.785485Z","level":"INFO","fields":{"message":"received SIGTERM"},"target":"entangled"}
+{"timestamp":"2026-11-27T06:58:04.785673Z","level":"INFO","fields":{"message":"shutting down entangled"},"target":"entangled"}
+{"timestamp":"2026-11-27T06:58:04.785785Z","level":"INFO","fields":{"message":"maintenance loop shut down cleanly"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T06:58:04.787540Z","level":"INFO","fields":{"message":"entangled stopped"},"target":"entangled"}

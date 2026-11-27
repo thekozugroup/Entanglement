@@ -1,0 +1,32 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:58:10.111968+00:00",
+  "finished_utc": "2026-11-27T06:59:40.797096+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/link-test.py",
+    "--bin-dir",
+    "/tmp/entangle-check-c19ef758-archive",
+    "--repo",
+    "/workspace/Entanglement",
+    "--pacer",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/packet-pacer.py"
+  ],
+  "exit_code": 1,
+  "reviewer": "/root/tailroute",
+  "harness_sha256": "8357449fceeace79f3bcd3f7ea774bc2447a37c4f99a243453ab3b4208994f93",
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/bandwidth-contract-stderr.log",
+  "sha256": "7f126c3c9987c826cc23463489fa73e326035be9a53e082a6e0cb3e4b065be36",
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "artifact_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "pacer_sha256": "fb555e0237b2ca0c7d44f6cc7d7eab5450a65de4338e16213cb29967fae5f912",
+  "stdout_log": "docs/testing/production-review/evidence/candidate-c19ef758/bandwidth-first-stdout.log",
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

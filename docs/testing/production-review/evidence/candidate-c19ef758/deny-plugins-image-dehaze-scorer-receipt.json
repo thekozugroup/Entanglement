@@ -1,0 +1,10 @@
+{
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:59:13+00:00",
+  "finished_utc": "2026-11-27T06:59:14+00:00",
+  "exit_code": 0,
+  "sha256": "521b6f082dc4cc2674b5b7272428e9d320162ceca2050ae817fe8d767508ed49",
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/deny-plugins-image-dehaze.log.gz",
+  "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/image-dehaze/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/dependency-policy.toml advisories bans licenses sources"
+}

@@ -1,0 +1,61 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:52:41.861085+00:00",
+  "reviewer": "/root/tailroute",
+  "command": [
+    [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "-B",
+      "scripts/package-native-release.py",
+      "--version",
+      "v0.1.0",
+      "--target",
+      "x86_64-unknown-linux-gnu",
+      "--bin-dir",
+      "/tmp/ent-regular-input-check-tc_5gdme/a",
+      "--source-date-epoch",
+      "123456",
+      "--output-dir",
+      "/tmp/ent-regular-input-check-tc_5gdme/out"
+    ],
+    [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "-B",
+      "scripts/package-native-release.py",
+      "--version",
+      "v0.1.0",
+      "--target",
+      "x86_64-unknown-linux-gnu",
+      "--bin-dir",
+      "/tmp/ent-regular-input-check-tc_5gdme/b",
+      "--source-date-epoch",
+      "123456",
+      "--output-dir",
+      "/tmp/ent-regular-input-check-tc_5gdme/out"
+    ]
+  ],
+  "tool_sha256": "a624432942809669ed8cc1be0909139ae85be67ed378ec08dba5cd0b9041db04",
+  "harness_sha256": "7ea5e835546f69cba40e2f614f8a59778b71b24556c2a449c27a06fe55ab69e7",
+  "input_type": "ordinary executable source hardlinked within its known disposable input directory",
+  "input_nlink": 2,
+  "concurrent_return_codes": [
+    1,
+    0
+  ],
+  "published_winner": "b",
+  "both_member_hashes_match_winner": true,
+  "member_sha256": {
+    "entangle": "e89a77ae2c9c3b78306c7239267f7691e2f4e43b77cc05d59a3f4166fd50ffde",
+    "entangled": "1c78c26c0f7827395058393ff34f0f820f6a188579ca398be50c39f400feef07"
+  },
+  "declared_input_hardlink_is_regular_member": true,
+  "other_file_names_included": false,
+  "verified_sha256_and_blake3": true,
+  "archive_sha256": "08bfa027476ab61ab3f4d5e99ea230349997b41499b5eec99ef9c1e6125f1678",
+  "archive_blake3": "138e1219cee5c2b43c4e4db5876b23c88754dceac741a0112b0f700992e8b5c1",
+  "exit_code": 0,
+  "finished_utc": "2026-11-27T06:52:42.030724+00:00"
+}

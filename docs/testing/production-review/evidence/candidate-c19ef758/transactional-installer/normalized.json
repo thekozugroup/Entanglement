@@ -1,0 +1,95 @@
+{
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "path": "installer-qualification.json",
+  "sha256": "5994e863b25b4595ff15810056e659ba70579e10458204983a9f0202303e8be8",
+  "status": "pass",
+  "exit_code": 0,
+  "commands_count": 361,
+  "commands_log_sha256": "0d3484df0fe9d585dc63c412ece9501ab096590e432aa8d3ccb3db0d9e73bdb7",
+  "archive_sha256": {
+    "jammy": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+    "canonical": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787"
+  },
+  "installed_workloads": {
+    "22.04": {
+      "portable-before": {
+        "nonce": "2ed0a67872ab09a6b18e38ef2270baa4",
+        "output": "Hello, 2ed0a67872ab09a6b18e38ef2270baa4!",
+        "socket_peer": "23671cd64da336b06485cf9318db7043",
+        "installed": {
+          "entangle": {
+            "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+            "stat": "755:11"
+          },
+          "entangled": {
+            "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+            "stat": "755:12"
+          }
+        }
+      },
+      "portable-after-rejection": {
+        "nonce": "2831c1e55fc48c522204d050139c2fdf",
+        "output": "Hello, 2831c1e55fc48c522204d050139c2fdf!",
+        "socket_peer": "23671cd64da336b06485cf9318db7043",
+        "installed": {
+          "entangle": {
+            "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+            "stat": "755:11"
+          },
+          "entangled": {
+            "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+            "stat": "755:12"
+          }
+        }
+      }
+    },
+    "24.04": {
+      "portable-before": {
+        "nonce": "3ac09887cab3afcb1b5bdd5324af951d",
+        "output": "Hello, 3ac09887cab3afcb1b5bdd5324af951d!",
+        "socket_peer": "c242bbc6aacfd3dab0e1d007f6954f0f",
+        "installed": {
+          "entangle": {
+            "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+            "stat": "755:11"
+          },
+          "entangled": {
+            "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+            "stat": "755:12"
+          }
+        }
+      },
+      "canonical-after-upgrade": {
+        "nonce": "48e9592e6cfd9b2ff62d9447c7e21f44",
+        "output": "Hello, 48e9592e6cfd9b2ff62d9447c7e21f44!",
+        "socket_peer": "c242bbc6aacfd3dab0e1d007f6954f0f",
+        "installed": {
+          "entangle": {
+            "sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+            "stat": "755:38"
+          },
+          "entangled": {
+            "sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+            "stat": "755:39"
+          }
+        }
+      }
+    }
+  },
+  "case_count": 23,
+  "initial_harness_failure": {
+    "reason": "Bind-mount fixture directories inherited host umask 0077 and were not readable by uid 65534. The corrected runner explicitly grants traversal on its own disposable fixture directories.",
+    "path": "initial-umask-rejected/installer-qualification.json",
+    "sha256": "34dd4e2e1f000e157186b008e40fa3f5ab9010869344658f140878a06fb7a0a6"
+  },
+  "scope": "Actual x86-64 GNU/Linux ELF archives, disconnected Ubuntu 22.04 and 24.04 on one host. Offline delivery of unsigned local release archives. Ordinary signed WASI work through installed executables. No hosted jobs or power-loss guarantee.",
+  "tool_versions": {
+    "docker": "Docker version 29.9.2, build a82e528",
+    "readelf": "GNU readelf (GNU Binutils for Debian) 2.44",
+    "py": "Python 3.12.14",
+    "b3sum": "b3sum 1.8.1"
+  }
+}

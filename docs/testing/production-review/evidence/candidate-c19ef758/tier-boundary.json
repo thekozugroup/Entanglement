@@ -1,0 +1,25 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:58:10.129173+00:00",
+  "finished_utc": "2026-11-27T06:58:18.221689+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/tier-policy-boundary/verify.py",
+    "--archive",
+    "/workspace/Entanglement/target/release-candidate/c19ef7587a22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+  ],
+  "exit_code": 0,
+  "reviewer": "/root/tailroute",
+  "harness_sha256": "7082ab2e38a705e23793161da3b428e2d95464aa476bf186103675f8a7a25576",
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/tier-policy-boundary/receipt.json",
+  "sha256": "2a4f84b3da8b4a039437620852423c18307e1d86177558ab76e1e7adf91dee7c",
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "artifact_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  }
+}

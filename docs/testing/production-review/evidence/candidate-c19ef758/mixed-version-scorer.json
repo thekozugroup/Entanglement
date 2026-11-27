@@ -1,0 +1,26 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:58:10.117307+00:00",
+  "finished_utc": "2026-11-27T06:58:31.788923+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/mixed-version-linux/verify.py",
+    "/workspace/Entanglement",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/mixed-version-linux"
+  ],
+  "exit_code": 0,
+  "reviewer": "/root/tailroute",
+  "harness_sha256": "5afc012bd8cb37c93a7094be2841b1d1f9e9bd3fe398446b7aa1b17250c04e64",
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/mixed-version-linux/receipt.json",
+  "sha256": "b21326bf553942c113a5eacd581e4a68842f39de294e44823df8eb76705f5d12",
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "artifact_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "predecessor_driver_sha256": "56fe5e371c8f858cf0813de21c579b3a3261a17c863b0730a2a38febf65f2918"
+}

@@ -1,0 +1,540 @@
+{
+  "started_at_utc": "2026-11-27T06:57:22+00:00",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "docker_security": [
+    "name=seccomp,profile=builtin",
+    "name=rootless",
+    "name=cgroupns"
+  ],
+  "archives": {
+    "jammy": {
+      "path": "target/release-candidate/c19ef7587a22-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "manifest_sha256": "d03fad02e4ce74e82e13c345d89cb8bf8b2a419d6db6ccd2259ea317e9f24856",
+      "sha256": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+      "blake3": "3b8ad3d98d6e76b7d5f1d2a2def9b4d27a79255d23a8d49e78b462a760890674",
+      "sidecar_sha256": {
+        "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256": "31ee6944fc4bb67990863e3299e8c74cbba4e4ca07ef79b7dbefd50234bc9b6f",
+        "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.b3": "642797f9866acefbaca8d507ed78c963a9738605c06ee501bc30b0619848fd82"
+      },
+      "ELF_sha256": {
+        "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+        "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2"
+      },
+      "GLIBC_requirements": {
+        "entangle": "2.34",
+        "entangled": "2.34"
+      }
+    },
+    "canonical": {
+      "path": "target/release-candidate/c19ef7587a22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "manifest_sha256": "289c34b0ec24007c9e2a9fb726130a11595079d06005a151df3b4e755feca47e",
+      "sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+      "blake3": "c77f097aaa921a50a2629681712aa9e01d63457b0df47e626c1b9163df74acac",
+      "sidecar_sha256": {
+        "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256": "cde998cb44488c5b77d35ea9383518181244d440c09e17b98cbe3f92e4a416e6",
+        "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.b3": "10813eb4cf18d1cd8ebceadf37fcfaa6184f2f4cc17a890451484bc0b102a39b"
+      },
+      "ELF_sha256": {
+        "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+        "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+      },
+      "GLIBC_requirements": {
+        "entangle": "2.39",
+        "entangled": "2.39"
+      }
+    }
+  },
+  "distros": {
+    "22.04": {
+      "cases": {
+        "dry-run": {
+          "exit_code": 0,
+          "requests": []
+        },
+        "fresh-portable-install": {
+          "exit_code": 0,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ]
+        },
+        "complete-same-version-no-op": {
+          "exit_code": 0,
+          "requests": []
+        },
+        "force-incompatible-canonical": {
+          "exit_code": 1,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ],
+          "installed_before": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:11"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:12"
+            }
+          },
+          "installed_after": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:11"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:12"
+            }
+          }
+        },
+        "repair-missing-daemon": {
+          "exit_code": 0,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ]
+        },
+        "repair-incompatible-daemon": {
+          "exit_code": 0,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ]
+        },
+        "repair-missing-cli": {
+          "exit_code": 0,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ]
+        },
+        "old-prepare": {
+          "exit_code": 0,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ]
+        },
+        "old-skip-missing-daemon": {
+          "exit_code": 0,
+          "requests": []
+        },
+        "old-failed-upgrade-clobbers": {
+          "exit_code": 1,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ],
+          "installed_before": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:56"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:57"
+            }
+          },
+          "installed_after": {
+            "entangle": {
+              "sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+              "stat": "755:60"
+            },
+            "entangled": {
+              "sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+              "stat": "755:61"
+            }
+          }
+        },
+        "negative-missing-checksum": {
+          "exit_code": 1,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ],
+          "installed_before": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:51"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:52"
+            }
+          },
+          "installed_after": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:51"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:52"
+            }
+          }
+        },
+        "negative-malformed-checksum": {
+          "exit_code": 1,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ],
+          "installed_before": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:51"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:52"
+            }
+          },
+          "installed_after": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:51"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:52"
+            }
+          }
+        },
+        "negative-bad-checksum": {
+          "exit_code": 1,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ],
+          "installed_before": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:51"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:52"
+            }
+          },
+          "installed_after": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:51"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:52"
+            }
+          }
+        },
+        "negative-missing-daemon": {
+          "exit_code": 1,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ],
+          "installed_before": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:51"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:52"
+            }
+          },
+          "installed_after": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:51"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:52"
+            }
+          }
+        },
+        "complete-read-only-no-op": {
+          "exit_code": 0,
+          "requests": []
+        },
+        "force-read-only-rejected": {
+          "exit_code": 1,
+          "requests": []
+        }
+      },
+      "installed_workloads": {
+        "portable-before": {
+          "installed": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:11"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:12"
+            }
+          },
+          "mesh_status": {
+            "local_peer_id": "23671cd64da336b06485cf9318db7043",
+            "local_display_name": "c4cc7990986c",
+            "transports_active": [],
+            "seen_peer_count": 0,
+            "trusted_peer_count": 0
+          },
+          "nonce": "2ed0a67872ab09a6b18e38ef2270baa4",
+          "expected": "Hello, 2ed0a67872ab09a6b18e38ef2270baa4!",
+          "actual": "Hello, 2ed0a67872ab09a6b18e38ef2270baa4!",
+          "daemon_exit_code": 0,
+          "started_at_utc": "2026-11-27T06:57:49+00:00",
+          "finished_at_utc": "2026-11-27T06:57:51+00:00",
+          "daemon_log": "22.04-portable-before-daemon.log",
+          "daemon_log_sha256": "1a9e35b03f07527787dfc56caaa590451d80d12a29c6e485b382bb00b89ee4dd",
+          "fixture": {
+            "publisher": "357c7d171cca9a5b4b5ce6d826385b772f1c446ca657b2f1ce822c3869a3414e",
+            "plugin": "23671cd64da336b06485cf9318db7043/hello-world@0.1.0",
+            "signed_wasm_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+            "signature_sha256": "4bcf36d6b433049f345488be5de2d3d4ab0102c9c78e776a98a2f4d29b721c3d",
+            "trusted": true
+          }
+        },
+        "portable-after-rejection": {
+          "installed": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:11"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:12"
+            }
+          },
+          "mesh_status": {
+            "local_peer_id": "23671cd64da336b06485cf9318db7043",
+            "local_display_name": "c4cc7990986c",
+            "transports_active": [],
+            "seen_peer_count": 0,
+            "trusted_peer_count": 0
+          },
+          "nonce": "2831c1e55fc48c522204d050139c2fdf",
+          "expected": "Hello, 2831c1e55fc48c522204d050139c2fdf!",
+          "actual": "Hello, 2831c1e55fc48c522204d050139c2fdf!",
+          "daemon_exit_code": 0,
+          "started_at_utc": "2026-11-27T06:58:03+00:00",
+          "finished_at_utc": "2026-11-27T06:58:04+00:00",
+          "daemon_log": "22.04-portable-after-rejection-daemon.log",
+          "daemon_log_sha256": "7b50dc7ee1ee5b9eb88aa415502cafba6bef8865dfa7798b8e8008f26056a4ed",
+          "fixture": {
+            "publisher": "357c7d171cca9a5b4b5ce6d826385b772f1c446ca657b2f1ce822c3869a3414e",
+            "plugin": "23671cd64da336b06485cf9318db7043/hello-world@0.1.0",
+            "signed_wasm_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+            "signature_sha256": "4bcf36d6b433049f345488be5de2d3d4ab0102c9c78e776a98a2f4d29b721c3d",
+            "trusted": true
+          }
+        }
+      },
+      "image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+      "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "libc": "22.04\nglibc 2.35\n",
+      "network": "none",
+      "uid": 65534
+    },
+    "24.04": {
+      "cases": {
+        "dry-run": {
+          "exit_code": 0,
+          "requests": []
+        },
+        "fresh-portable-install": {
+          "exit_code": 0,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ]
+        },
+        "complete-same-version-no-op": {
+          "exit_code": 0,
+          "requests": []
+        },
+        "failed-second-rename": {
+          "exit_code": 1,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ],
+          "installed_before": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:11"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:12"
+            }
+          },
+          "installed_after": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:11"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:12"
+            }
+          }
+        },
+        "force-compatible-canonical": {
+          "exit_code": 0,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ]
+        },
+        "same-version-different-builds-limitation": {
+          "exit_code": 0,
+          "requests": [],
+          "installed_before": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:38"
+            },
+            "entangled": {
+              "sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+              "stat": "755:39"
+            }
+          },
+          "installed_after": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:38"
+            },
+            "entangled": {
+              "sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+              "stat": "755:39"
+            }
+          }
+        },
+        "force-repair-same-version-different-builds": {
+          "exit_code": 0,
+          "requests": [
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+            "https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          ]
+        }
+      },
+      "installed_workloads": {
+        "portable-before": {
+          "installed": {
+            "entangle": {
+              "sha256": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+              "stat": "755:11"
+            },
+            "entangled": {
+              "sha256": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+              "stat": "755:12"
+            }
+          },
+          "mesh_status": {
+            "local_peer_id": "c242bbc6aacfd3dab0e1d007f6954f0f",
+            "local_display_name": "863685dcb05b",
+            "transports_active": [],
+            "seen_peer_count": 0,
+            "trusted_peer_count": 0
+          },
+          "nonce": "3ac09887cab3afcb1b5bdd5324af951d",
+          "expected": "Hello, 3ac09887cab3afcb1b5bdd5324af951d!",
+          "actual": "Hello, 3ac09887cab3afcb1b5bdd5324af951d!",
+          "daemon_exit_code": 0,
+          "started_at_utc": "2026-11-27T06:59:54+00:00",
+          "finished_at_utc": "2026-11-27T06:59:55+00:00",
+          "daemon_log": "24.04-portable-before-daemon.log",
+          "daemon_log_sha256": "e876ffbb4e1e61762dc7919db5120be0b208cc0dd79ce2c18c9ea95e8186b51c",
+          "fixture": {
+            "publisher": "564275786b5ad08baf3f2eb99824857a243c5837c1c3b87e0ec93aa1efa92309",
+            "plugin": "c242bbc6aacfd3dab0e1d007f6954f0f/hello-world@0.1.0",
+            "signed_wasm_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+            "signature_sha256": "6cf4f3aa389bfba5fe6c6aa07b3f0444653b3e18d7436fe617631d59877d1165",
+            "trusted": true
+          }
+        },
+        "canonical-after-upgrade": {
+          "installed": {
+            "entangle": {
+              "sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+              "stat": "755:38"
+            },
+            "entangled": {
+              "sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+              "stat": "755:39"
+            }
+          },
+          "mesh_status": {
+            "local_peer_id": "c242bbc6aacfd3dab0e1d007f6954f0f",
+            "local_display_name": "863685dcb05b",
+            "transports_active": [],
+            "seen_peer_count": 0,
+            "trusted_peer_count": 0
+          },
+          "nonce": "48e9592e6cfd9b2ff62d9447c7e21f44",
+          "expected": "Hello, 48e9592e6cfd9b2ff62d9447c7e21f44!",
+          "actual": "Hello, 48e9592e6cfd9b2ff62d9447c7e21f44!",
+          "daemon_exit_code": 0,
+          "started_at_utc": "2026-11-27T07:00:03+00:00",
+          "finished_at_utc": "2026-11-27T07:00:03+00:00",
+          "daemon_log": "24.04-canonical-after-upgrade-daemon.log",
+          "daemon_log_sha256": "e39a3a8ad8757f749761153937ae11e74374e674ec2cd262a9bd5eaa964da504",
+          "fixture": {
+            "publisher": "564275786b5ad08baf3f2eb99824857a243c5837c1c3b87e0ec93aa1efa92309",
+            "plugin": "c242bbc6aacfd3dab0e1d007f6954f0f/hello-world@0.1.0",
+            "signed_wasm_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+            "signature_sha256": "6cf4f3aa389bfba5fe6c6aa07b3f0444653b3e18d7436fe617631d59877d1165",
+            "trusted": true
+          }
+        }
+      },
+      "image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+      "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "libc": "24.04\nglibc 2.39\n",
+      "network": "none",
+      "uid": 65534
+    }
+  },
+  "case_limitation": "A pair of different verified builds reporting the same requested version is indistinguishable to the version-only no-op check. --force deliberately reinstalls the selected archive.",
+  "source_inputs_sha256": {
+    "qualification_plan": "410df84983d220879c381b2b99acfa6605055f97895ea1daec991c370cdb0404",
+    "packager": "a624432942809669ed8cc1be0909139ae85be67ed378ec08dba5cd0b9041db04",
+    "runner": "38791a79c49202029d647ec6c9f4a4a718bde999bb7c17fb33ad747d1cddf877",
+    "curl-fixture": "6f8c48d4f4183076ec41e7cf42b554130943573403e8449b6b1a6ae1abbe2fd7",
+    "mv-fixture": "af008ae108317351a4a035f7717ec1647772d8b8cd2cb5b624793e59f4dc55b0",
+    "install-new.sh": "193f44c3551c25864ba8641dd714079805b69db24a7bbf9dfa1e304d62335ab0",
+    "sample/entangle.toml": "14fde18ca8b9328367ac3a935c5e7707c81022ae6ad164439bf31128157f00b6",
+    "sample/hello.wasm": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+    "install-old.sh": "f10a849eb788495cb744ee9a534ffc4fd9d88189f1288d3026ae96009a62a217"
+  },
+  "negative_fixture_digests": {
+    "missing-checksum": {
+      "archive_sha256": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+      "sidecar_sha256": null
+    },
+    "malformed-checksum": {
+      "archive_sha256": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+      "sidecar_sha256": "4d6f3aa0cb1ef3ce54bab7bc3703a5bb890aefa932891224473b09ef3825ef96"
+    },
+    "bad-checksum": {
+      "archive_sha256": "c328a9ea40da903f120dbc01716520dc07e698afb6bd618bfafea49923aa9975",
+      "sidecar_sha256": "96ee6702ba4a80d0cd3412cdc3c4dc32a139de235b543417801aa5a5aef6a19e"
+    },
+    "missing-daemon": {
+      "archive_sha256": "429f5577517428d8da5a66d970eb5a8b4444541b30512601d0d45ddeb18506cf",
+      "sidecar_sha256": "d8e5576c27393b25b4a133f052ac7d989a3f8a0e8410f1f3c8011f0c1cd2e580"
+    }
+  },
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "commands_log": "commands.jsonl",
+  "commands_sha256": "0d3484df0fe9d585dc63c412ece9501ab096590e432aa8d3ccb3db0d9e73bdb7",
+  "finished_at_utc": "2026-11-27T07:00:10+00:00",
+  "exit_code": 0
+}

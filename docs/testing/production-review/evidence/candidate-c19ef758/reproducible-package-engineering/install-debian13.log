@@ -1,0 +1,80 @@
+2026-11-27T06:50:55Z
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+VERSION_ID="13"
+VERSION="13 (trixie)"
+VERSION_CODENAME=trixie
+DEBIAN_VERSION_FULL=13.6
+ID=debian
+HOME_URL="https://www.debian.org/"
+SUPPORT_URL="https://www.debian.org/support"
+BUG_REPORT_URL="https://bugs.debian.org/"
+glibc 2.41
+x86_64
+
+  platform    linux/x86_64  (target x86_64-unknown-linux-gnu)
+  version     v0.1.0
+  tarball     https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  checksum    https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+  install to  /tmp/ent-native-install.v2cn6R/home/bin/entangle, /tmp/ent-native-install.v2cn6R/home/bin/entangled
+
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+    ok: 6f7ae3b18e686ce9187f90a0a0d4c4e1a369d7c945d462da91e8ac8f409c39e8
+==> Extracting
+==> Installing into /tmp/ent-native-install.v2cn6R/home/bin
+    /tmp/ent-native-install.v2cn6R/home/bin/entangle
+    /tmp/ent-native-install.v2cn6R/home/bin/entangled
+==> Verifying the installed binary
+    entangle 0.1.0
+
+warning: /tmp/ent-native-install.v2cn6R/home/bin is not on your PATH. Add it, e.g.:
+    echo 'export PATH="/tmp/ent-native-install.v2cn6R/home/bin:$PATH"' >> ~/.profile
+    export PATH="/tmp/ent-native-install.v2cn6R/home/bin:$PATH"   # for this shell
+
+Entanglement 0.1.0 installed.
+
+Next steps:
+  entangle init          # generate an Ed25519 identity + ~/.entangle/config.toml
+                         # (add --non-interactive to accept the defaults)
+  entangled run          # start the daemon in the foreground
+  entangle doctor        # health check: identity, config, keyring, daemon
+
+Then, in another terminal:
+  entangle mesh status
+  entangle plugins list
+
+Shell completions:
+  entangle completions bash   # also zsh, fish, powershell, elvish
+
+Run it as a service (Linux):
+  packaging/entangled.service — hardened systemd unit; see docs/install.md.
+
+For independent publisher and Sigstore verification with a trusted Entangle CLI:
+  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sig
+  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sigstore
+  entangle release verify entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz --publisher-key /path/to/trusted/release.pub
+https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+/tmp/ent-native-install.v2cn6R/home/bin/entangle: OK
+/tmp/ent-native-install.v2cn6R/home/bin/entangled: OK
+entangle 0.1.0
+entangled 0.1.0
+
+Setting up identity...
+  Identity ready at /tmp/ent-native-install.v2cn6R/home/.entangle/identity.key (mode 0600)
+  Fingerprint: 105a-45af-f8fe-81c1-72e0-ed4b-7d0c-2f5e
+  Wrote /tmp/ent-native-install.v2cn6R/home/.entangle/config.toml
+  Wrote /tmp/ent-native-install.v2cn6R/home/.entangle/peers.toml (empty)
+  Wrote /tmp/ent-native-install.v2cn6R/home/.entangle/keyring.toml (empty)
+
+Next steps:
+  - Install a plugin:        entangle plugins install <NAME>
+  - See what is available:   entangle plugins available
+  - Pair another device:     entangle pair
+  - Start the daemon:        entangled run
+  - Run diagnostics:         entangle doctor
+{"local_peer_id":"105a45aff8fe81c172e0ed4b7d0c2f5e","local_display_name":"4195294301b2","transports_active":["local","iroh"],"seen_peer_count":0,"trusted_peer_count":0}
+2026-11-27T06:50:57Z

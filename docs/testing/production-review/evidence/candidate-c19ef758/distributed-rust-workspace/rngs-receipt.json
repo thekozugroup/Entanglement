@@ -1,0 +1,316 @@
+{
+  "started_utc": "2026-11-27T06:55:27Z",
+  "finished_utc": "2026-11-27T06:56:26Z",
+  "elapsed_s": 58.83663821400114,
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--target",
+    "wasm32-wasip2",
+    "--no-fail-fast"
+  ],
+  "daemon_sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+  "cli_sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+  "driver_sha256": "3b8666fa1aa09996e40bee8b3c108317631d8d67edadeb0f106c94fd19271dc7",
+  "rustdoc_observer_sha256": "3f6e3c6cae8314aea78305e32175419c3b36a014d3fee85dfc57dbb5623ef2b7",
+  "sharder_sha256": "c7b8a4cde066f7b591a54a1aaba53a20d241bd052e4885578de45f977bf49a75",
+  "upstream_commit": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+  "upstream_diff": "",
+  "dependency_lock_sha256": "3192202a77857b38733c7594a9a67a8d2970d51c6176487b48c83578c58ea888",
+  "exit_code": 0,
+  "candidate_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "native_command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "native_exit": 0,
+  "uncompressed_archive_sha256": {
+    "rngs-distributed.json.gz": "65ec8a2d269a9e3de16d8eeee27d030c05229157efff99cb70836ff072113c52",
+    "rngs-distributed-cargo.log.gz": "1bd6f572f839cb956eaaf9b00a2b0f7af322664d1979c4214dd0bec4d95b49cf",
+    "rngs-native-cargo.log.gz": "0038d5451dd2d7ce72dc89235a43499ee86f5a7e3a56aa072d01abb44323115f"
+  },
+  "native_parity": {
+    "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+    "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+    "upstream_commit": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+    "lock_sha256": "3192202a77857b38733c7594a9a67a8d2970d51c6176487b48c83578c58ea888",
+    "known_workspace_members": [
+      "rand_chacha",
+      "rand_hc",
+      "rand_isaac",
+      "rand_jitter",
+      "rand_mwcx",
+      "rand_pcg",
+      "rand_sfc",
+      "rand_xorshift",
+      "rand_xoshiro"
+    ],
+    "native_counts": {
+      "ordinary": {
+        "passed": 198
+      },
+      "rustdoc": {
+        "ignored": 2,
+        "passed": 24
+      }
+    },
+    "remote_counts": {
+      "ordinary": {
+        "passed": 198
+      },
+      "rustdoc": {
+        "passed": 24,
+        "ignored": 2
+      }
+    },
+    "named_inventory_identical": true,
+    "all_dispositions_identical": true,
+    "differences": [],
+    "rustdoc_evidence_errors": [],
+    "cargo_exit": 0,
+    "worker_attempts": {
+      "b39559340580e85721ff16314ee0fd10": 121,
+      "1a5bbfa46e16c2ccc81840fb0603c333": 101
+    },
+    "native_log_sha256": "0038d5451dd2d7ce72dc89235a43499ee86f5a7e3a56aa072d01abb44323115f",
+    "distributed_report_sha256": "65ec8a2d269a9e3de16d8eeee27d030c05229157efff99cb70836ff072113c52",
+    "sharder_sha256": "c7b8a4cde066f7b591a54a1aaba53a20d241bd052e4885578de45f977bf49a75",
+    "driver_sha256": "3b8666fa1aa09996e40bee8b3c108317631d8d67edadeb0f106c94fd19271dc7",
+    "rustdoc_observer_sha256": "3f6e3c6cae8314aea78305e32175419c3b36a014d3fee85dfc57dbb5623ef2b7",
+    "ordinary_components": [
+      "128ea19a6be29c1bb88ac90f8f292c8dbe1cbcaeb3ad1b726259c8955a3538f4",
+      "1fe10ae04b1059e5a4ce789c454de63b803f9e3dc56429db51e67611237e1cbc",
+      "2437c492fb405afd84db238f2fa52e769c35054aeee70b63a1be205332125fa0",
+      "24fe100a933021c11eb6f2abf751896acb18dd4a9e5d9264e5f15cc626f5f389",
+      "29b3dde09b5c6f32ad35256651a24c3999561757f732b12d710558e82b9c7f22",
+      "3bb015996df7a0907c3128b422094a21f48761c271220c54f41d0c30c9374d28",
+      "4a053eb3e83fcbba028cd5a67fcb4183a460e4b638911404fd0307f9b2a17357",
+      "5f6fb7a2c44fdf4aa7e289efad4cb08b3890091d3e671284d9781e235cf340b9",
+      "81bf39493345f699ee8780c3563199edb3d1332b47518597a0e8dd78e368c087",
+      "8e318003776dd9651f71e5372469f65652d297d7dfe93356ea8352e1b1b1b0b8",
+      "9ff2a611dfcb487496b827cf77601bf8e6903add01dc3aea6de99729db7c236a",
+      "a019ca5256e15035c2105423da4e9f33d91629fcf94afeed2f374a8b3c784e29",
+      "d82399e19084ea22329003e8713c20a86af4eb7c7c4d3389da32804786d71fa9",
+      "efb783190ee87eff223e1118afec0423f9d2d2242f06711a2a302b0c3b10d125",
+      "f1c117dfe654741d80661573f42c8e9aa60e7f82a4306ebf7d15dae606b8fff1",
+      "f65b82393c106101a4660afdbba6e5664aeead972e5f21305a72a785adbdb349",
+      "f7607972937438c84bc7203e1707416a46b29f5ab49dbc7c5f547ae16d40b3d2"
+    ],
+    "standalone_doc_components": {},
+    "cluster_setup_s": 63.091354272997705,
+    "cargo_elapsed_s": 58.83663821400114,
+    "target_durations": [
+      {
+        "package": "rand_pcg",
+        "target": "lcg64xsh32",
+        "kind": "test",
+        "seconds": 0.18845963200146798
+      },
+      {
+        "package": "rand_xoshiro",
+        "target": "serde",
+        "kind": "test",
+        "seconds": 0.09832481399644166
+      },
+      {
+        "package": "rand_jitter",
+        "target": "mod",
+        "kind": "test",
+        "seconds": 0.10082788900035666
+      },
+      {
+        "package": "rand_xoshiro",
+        "target": "rand_xoshiro",
+        "kind": "lib",
+        "seconds": 8.343649310001638
+      },
+      {
+        "package": "rand_jitter",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 4.261928211999475
+      },
+      {
+        "package": "rand_isaac",
+        "target": "rand_isaac",
+        "kind": "lib",
+        "seconds": 0.2614940769999521
+      },
+      {
+        "package": "rand_xorshift",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 2.5981590200026403
+      },
+      {
+        "package": "rand_chacha",
+        "target": "rand_chacha",
+        "kind": "lib",
+        "seconds": 0.36753534900344675
+      },
+      {
+        "package": "rand_pcg",
+        "target": "mcg128xsl64",
+        "kind": "test",
+        "seconds": 0.1676329670008272
+      },
+      {
+        "package": "rand_sfc",
+        "target": "rand_sfc",
+        "kind": "lib",
+        "seconds": 0.21350792199518764
+      },
+      {
+        "package": "rand_pcg",
+        "target": "lcg128xsl64",
+        "kind": "test",
+        "seconds": 0.21283288399718003
+      },
+      {
+        "package": "rand_pcg",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 2.6308709469958558
+      },
+      {
+        "package": "rand_mwcx",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 3.0293002310063457
+      },
+      {
+        "package": "rand_xorshift",
+        "target": "mod",
+        "kind": "test",
+        "seconds": 0.1614499799979967
+      },
+      {
+        "package": "rand_pcg",
+        "target": "rand_pcg",
+        "kind": "lib",
+        "seconds": 0.12067827200371539
+      },
+      {
+        "package": "rand_jitter",
+        "target": "rand_jitter",
+        "kind": "lib",
+        "seconds": 0.14953457600495312
+      },
+      {
+        "package": "rand_xoshiro",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 2.9036705620019347
+      },
+      {
+        "package": "rand_chacha",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 4.214530443001422
+      },
+      {
+        "package": "rand_xorshift",
+        "target": "rand_xorshift",
+        "kind": "lib",
+        "seconds": 0.10791090899874689
+      },
+      {
+        "package": "rand_mwcx",
+        "target": "serde",
+        "kind": "test",
+        "seconds": 0.10409732400148641
+      },
+      {
+        "package": "rand_pcg",
+        "target": "lcg128cmdxsm64",
+        "kind": "test",
+        "seconds": 0.1612665009961347
+      },
+      {
+        "package": "rand_hc",
+        "target": "rand_hc",
+        "kind": "lib",
+        "seconds": 0.19450241600134177
+      },
+      {
+        "package": "rand_mwcx",
+        "target": "rand_mwcx",
+        "kind": "lib",
+        "seconds": 2.210187717995723
+      },
+      {
+        "package": "rand_sfc",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 0.2729466800010414
+      },
+      {
+        "package": "rand_pcg",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 4.839351576003537
+      },
+      {
+        "package": "rand_hc",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 0.19334891299513401
+      },
+      {
+        "package": "rand_mwcx",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 5.824493091000477
+      },
+      {
+        "package": "rand_xorshift",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 5.120678818995657
+      },
+      {
+        "package": "rand_isaac",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 0.2009365819976665
+      },
+      {
+        "package": "rand_chacha",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 7.0986145439965185
+      },
+      {
+        "package": "rand_xoshiro",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 5.0307493030049955
+      },
+      {
+        "package": "rand_jitter",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 6.41329086299811
+      }
+    ],
+    "standalone_ready_and_dispatch_s": {
+      "count": 0,
+      "sum": 0,
+      "median": null,
+      "max": null
+    },
+    "ordinary_worker_execution_note": "Target-specific ignores have no successful guest execution."
+  },
+  "upstream_natural_flaky_transitions": 0
+}

@@ -1,0 +1,29 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:51:34.443701+00:00",
+  "finished_utc": "2026-11-27T06:55:33.018545+00:00",
+  "reviewer": "/root/tailroute",
+  "command": [
+    "Independent review of the exact release-only source, local operator regressions, extracted canonical runtime behavior and incident rehearsal"
+  ],
+  "exit_code": 0,
+  "sha256": "ff775948c4e0008b27f341baa8f7d44439ad2830909d1cdd5138116a80f9dd6e",
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/successor-security-review.md",
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "supporting_receipts_sha256": {
+    "defensive-scope.receipt.json": "2c953a9bdb88e7abc27c7e64d3b21a3ac301709490aca39a736e3a3adc1664fc",
+    "packaging-output-ownership.json": "5d6bbbcb378e14ba6f9e684f09fdc68080074f72383bdc9c95fefb0ffd82035b",
+    "runtime-behavior-artifact.json": "faa8512e6f49348aae04ac2c08cea0d454794aabff2376af715a70a091d1f93e",
+    "authenticated-hot-load/receipt.json": "69f05d8def71bc2245b2ad9c011f47a13d7d73266747ef7a111bb554b47437b4",
+    "recovery-linux.json": "7c18e91e3bb6e5f8472960734889a1d2f5438d0ffb214c4f16e91909c11cba63",
+    "publisher-incident-exercise.receipt.json": "015f5e5ba92e988046462459b8d61875d918ad435ad96110363cda61a29dd908",
+    "publisher-rotation-rehearsal.receipt.json": "3585b5e114f843fa413b44418e18a72804362980d19a805468c530f6cae3905d",
+    "auth-live-scorer-receipt.json": "6ecf9df13994bc9b05d014597f8f73bb03be3dd9ec85fb804de01a48ba56bb07",
+    "workspace-test.json": "5706ab52ebf0a0573127cf2d3e6d6b60df928a5890398b29f57488853bfdaa75",
+    "linux-archive.json": "289c34b0ec24007c9e2a9fb726130a11595079d06005a151df3b4e755feca47e",
+    "installer-active-reservation.json": "bf7fa341d02f8c521eb06288d4eb9cd36e75664fa7cd1586cfd0b25dd07b1646"
+  }
+}

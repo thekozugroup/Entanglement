@@ -1,0 +1,177 @@
+{
+  "git_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "advisory_db": "c9f6c91a44dbad9d71742329e9df061279f9c4be",
+  "advisory_db_upstream": "https://github.com/RustSec/advisory-db.git",
+  "cargo_deny": "cargo-deny 0.18.9",
+  "configured_policy_sha256": "016a6f6ef88390217741263f6ecb96221a0eb58964ec87a1461bcd75e001e69f",
+  "effective_policy_sha256": "caad722725576195023b58346b7730b85af66f7e05b5b4c46bee960544db4932",
+  "only_override": "local verified RustSec database location",
+  "graph_count": 16,
+  "graphs": [
+    {
+      "manifest": "Cargo.toml",
+      "lock": "Cargo.lock",
+      "sha256": {
+        "Cargo.toml": "1c5830e7d114dffe7a65606045c1a2eff118d6ea0fa59dcfeaeb8aaa4142a10d",
+        "Cargo.lock": "2ea7955d2dd3a3b91c6a31832d1ea0d0bef4613d8bbce8083cce56675dded0d9"
+      },
+      "exit_code": 0,
+      "receipt": "deny-workspace.json"
+    },
+    {
+      "manifest": "crates/entangle-host/fixtures-src/hello-pong/Cargo.toml",
+      "lock": "crates/entangle-host/fixtures-src/hello-pong/Cargo.lock",
+      "sha256": {
+        "crates/entangle-host/fixtures-src/hello-pong/Cargo.toml": "846294b209e02c6be6e40c55cbd8ebf29be0d8d9d24e750fe00d3a4c924dd853",
+        "crates/entangle-host/fixtures-src/hello-pong/Cargo.lock": "36902bdc57798bdb2f1f49895448e07a2cf4275111a020ca961b2766ccd762be"
+      },
+      "exit_code": 0,
+      "receipt": "deny-crates-entangle-host-fixtures-src-hello-pong.json"
+    },
+    {
+      "manifest": "crates/entangle-host/fixtures-src/stress/Cargo.toml",
+      "lock": "crates/entangle-host/fixtures-src/stress/Cargo.lock",
+      "sha256": {
+        "crates/entangle-host/fixtures-src/stress/Cargo.toml": "8a1efd784d3511c26a220d83384557d9b82047b2307aefe0bf3636edb7c50ff9",
+        "crates/entangle-host/fixtures-src/stress/Cargo.lock": "58e2315173057ed866975314ea474a94e287384c96cebcd015e9619855ace076"
+      },
+      "exit_code": 0,
+      "receipt": "deny-crates-entangle-host-fixtures-src-stress.json"
+    },
+    {
+      "manifest": "docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.toml",
+      "lock": "docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.lock",
+      "sha256": {
+        "docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.toml": "275c15c9153eff1d5adf616ec4ae2b71d551087e7c69e1386a4ef8bcb444dfde",
+        "docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.lock": "61bc8a6aa2d982a40b6cea1993e95529bec90f5ada52146c25c04e1b56fc23f3"
+      },
+      "exit_code": 0,
+      "receipt": "deny-docs-testing-production-review-evidence-candidate-864ae27b-wasi-fs-conformance-fs-probe.json"
+    },
+    {
+      "manifest": "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/Cargo.toml",
+      "lock": "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/Cargo.lock",
+      "sha256": {
+        "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/Cargo.toml": "aca6814a756c12a0fa9d59e41b5126aa2c060faa382020dd2c48a7a7745a3c09",
+        "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/Cargo.lock": "f25254665225d915d27bf59afbb61e3b0180a7216ecdceed1cf4bd9abfa94e9f",
+        "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/src/main.rs": "3e025f73c28fed670e80250bd0aaa9bde551c52555e4d7c257a37b392daa10c0",
+        "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/run.log": "300d6236c751f03d9923e18af3f48328f9207d98c623d9f57e36cacc3c60ce2e",
+        "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      "exit_code": 0,
+      "receipt": "deny-docs-testing-production-review-evidence-candidate-bb70a619-uds-image-comparison-allocator-probe.json"
+    },
+    {
+      "manifest": "examples/hash-it/Cargo.toml",
+      "lock": "examples/hash-it/Cargo.lock",
+      "sha256": {
+        "examples/hash-it/Cargo.toml": "6e3987e845647b43d713d5ca168afe9c1d5d30a132eec17603eae45419d29933",
+        "examples/hash-it/Cargo.lock": "06693d41c76a3ef4de12fd1cba437402f0323de3da6d6fc55f94f682ec9912f2"
+      },
+      "exit_code": 0,
+      "receipt": "deny-examples-hash-it.json"
+    },
+    {
+      "manifest": "examples/hello-world/Cargo.toml",
+      "lock": "examples/hello-world/Cargo.lock",
+      "sha256": {
+        "examples/hello-world/Cargo.toml": "9e7996349401265d1e75cf9e049e51d491b21c7ba830259e9aef65c06246cd6c",
+        "examples/hello-world/Cargo.lock": "f39de25a8789fe8c9b12e2b86c1f334223210aafc2ec8598d2a0c7055b8edea1"
+      },
+      "exit_code": 0,
+      "receipt": "deny-examples-hello-world.json"
+    },
+    {
+      "manifest": "examples/stream-lines/Cargo.toml",
+      "lock": "examples/stream-lines/Cargo.lock",
+      "sha256": {
+        "examples/stream-lines/Cargo.toml": "5a2176d46e69e5d9433f1cd564a61daa17aa7a03c00ba63d93b604df8520dd1c",
+        "examples/stream-lines/Cargo.lock": "6a1f8e0fb7d8137ae36034317b1ef1e5dd155773014c34c2599aedddab2bca0b"
+      },
+      "exit_code": 0,
+      "receipt": "deny-examples-stream-lines.json"
+    },
+    {
+      "manifest": "plugins/compress/Cargo.toml",
+      "lock": "plugins/compress/Cargo.lock",
+      "sha256": {
+        "plugins/compress/Cargo.toml": "93f1732e55de4b4af8c1d70ec8908d51cf6fa26b70ad3598bd883c0df7a69407",
+        "plugins/compress/Cargo.lock": "2b56dd191e0554e1bb0513b9760159388770f0bd39fcebfe4645bae990164e5d"
+      },
+      "exit_code": 0,
+      "receipt": "deny-plugins-compress.json"
+    },
+    {
+      "manifest": "plugins/csv-stats/Cargo.toml",
+      "lock": "plugins/csv-stats/Cargo.lock",
+      "sha256": {
+        "plugins/csv-stats/Cargo.toml": "891552afa6cc38a49277d6975b6c5f67d714501192eadeb62e9dd879aeea6c4f",
+        "plugins/csv-stats/Cargo.lock": "fc82d2aa15f56864ffd5b6231a13bc0e0b82be80c94fb536d214f2dabd01f5a7"
+      },
+      "exit_code": 0,
+      "receipt": "deny-plugins-csv-stats.json"
+    },
+    {
+      "manifest": "plugins/image-dehaze/Cargo.toml",
+      "lock": "plugins/image-dehaze/Cargo.lock",
+      "sha256": {
+        "plugins/image-dehaze/Cargo.toml": "f3d6a12a641fa058cfe632deeabe6a914155f6cc674d5e03b5a1789bb7d8f47f",
+        "plugins/image-dehaze/Cargo.lock": "575686a94c5ffaeb3fcceb7efae84c03fe51a08dc0ba32e12f3ea4c0cad1feb8"
+      },
+      "exit_code": 0,
+      "receipt": "deny-plugins-image-dehaze.json"
+    },
+    {
+      "manifest": "plugins/image-resize/Cargo.toml",
+      "lock": "plugins/image-resize/Cargo.lock",
+      "sha256": {
+        "plugins/image-resize/Cargo.toml": "6ae3fce658325f6021cfa8f964f5619f2d77ae1eb5c7d6c02dd880477510b920",
+        "plugins/image-resize/Cargo.lock": "b3ef474211bdf3e0f42ae1491c8c176538711d7871988ffe23e8f2da2334026d"
+      },
+      "exit_code": 0,
+      "receipt": "deny-plugins-image-resize.json"
+    },
+    {
+      "manifest": "plugins/json-pointer/Cargo.toml",
+      "lock": "plugins/json-pointer/Cargo.lock",
+      "sha256": {
+        "plugins/json-pointer/Cargo.toml": "fa20330f95d4232981969627860bc72273511745ce5f4a41b5f5c103703daa2f",
+        "plugins/json-pointer/Cargo.lock": "c8ced81cf27c28e0a2093245e3f95c807756b3a03803d0ebafd4f1d16da62e96"
+      },
+      "exit_code": 0,
+      "receipt": "deny-plugins-json-pointer.json"
+    },
+    {
+      "manifest": "plugins/json-query/Cargo.toml",
+      "lock": "plugins/json-query/Cargo.lock",
+      "sha256": {
+        "plugins/json-query/Cargo.toml": "430a1ab69985d684730df90528acc77626dd1277d03432172bb361422dd5e3dc",
+        "plugins/json-query/Cargo.lock": "cc1c6f79bd2676776e50140a903a97ac3fe3f2ad3e3a6d54ab65d514bab8c832"
+      },
+      "exit_code": 0,
+      "receipt": "deny-plugins-json-query.json"
+    },
+    {
+      "manifest": "plugins/markdown-html/Cargo.toml",
+      "lock": "plugins/markdown-html/Cargo.lock",
+      "sha256": {
+        "plugins/markdown-html/Cargo.toml": "33504d2708abf118eb20bfeef92059a1c1057083daff88de2ba978673c3f8742",
+        "plugins/markdown-html/Cargo.lock": "e5829e5e1119975ec2d937172d2c3f7af568436c556bf44c57a938eb5a14fe41"
+      },
+      "exit_code": 0,
+      "receipt": "deny-plugins-markdown-html.json"
+    },
+    {
+      "manifest": "plugins/qr-encode/Cargo.toml",
+      "lock": "plugins/qr-encode/Cargo.lock",
+      "sha256": {
+        "plugins/qr-encode/Cargo.toml": "962733c87d5162ec464c7f98f68f69d278cf8e62372c8851d3c3a0bf2aa788d6",
+        "plugins/qr-encode/Cargo.lock": "cbd3116b7718916192207dc888a87c80394235c4f8709444013c6f41693a29f6"
+      },
+      "exit_code": 0,
+      "receipt": "deny-plugins-qr-encode.json"
+    }
+  ]
+}

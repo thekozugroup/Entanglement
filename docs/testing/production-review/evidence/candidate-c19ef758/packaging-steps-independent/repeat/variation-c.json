@@ -1,0 +1,103 @@
+{
+  "variant": "c",
+  "started_utc": "2026-11-27T07:10:01.702494+00:00",
+  "finished_utc": "2026-11-27T07:10:15.269529+00:00",
+  "source_date_epoch": 1795762260,
+  "command": [
+    "/usr/local/bin/python3",
+    "-B",
+    "/scratch/cloud-rim/scripts/package-native-release.py",
+    "--version",
+    "v0.1.0",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "--source-date-epoch",
+    "1795762260",
+    "--bin-dir",
+    "/scratch/cloud-rim/bin",
+    "--output-dir",
+    "/scratch/cloud-rim/out"
+  ],
+  "exit_code": 0,
+  "base_name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "copy_order": [
+    "bin/entangle",
+    "bin/entangled",
+    "docs/tutorial.md",
+    "LICENSE",
+    "README.md",
+    "docs/architecture.md"
+  ],
+  "inputs": {
+    "bin/entangle": {
+      "path": "/scratch/cloud-rim/bin/entangle",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o751",
+      "mtime_ns": 1700000123000000000,
+      "size": 38284672,
+      "sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33"
+    },
+    "bin/entangled": {
+      "path": "/scratch/cloud-rim/bin/entangled",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o751",
+      "mtime_ns": 1700000124000000000,
+      "size": 38532296,
+      "sha256": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+    },
+    "docs/tutorial.md": {
+      "path": "/scratch/cloud-rim/docs/tutorial.md",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o640",
+      "mtime_ns": 1700000125000000000,
+      "size": 14865,
+      "sha256": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11"
+    },
+    "LICENSE": {
+      "path": "/scratch/cloud-rim/LICENSE",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o640",
+      "mtime_ns": 1700000126000000000,
+      "size": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "README.md": {
+      "path": "/scratch/cloud-rim/README.md",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o640",
+      "mtime_ns": 1700000127000000000,
+      "size": 7108,
+      "sha256": "e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0"
+    },
+    "docs/architecture.md": {
+      "path": "/scratch/cloud-rim/docs/architecture.md",
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o640",
+      "mtime_ns": 1700000128000000000,
+      "size": 161319,
+      "sha256": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0"
+    }
+  },
+  "directory_order": {
+    "docs": [
+      "architecture.md",
+      "tutorial.md"
+    ],
+    "bin": [
+      "entangled",
+      "entangle"
+    ]
+  },
+  "process_uid": 0,
+  "process_gid": 0,
+  "umask": "0o27",
+  "timezone": "Asia/Tokyo",
+  "python": "3.12.16 (main, Nov 24 2026, 05:00:06) [GCC 14.2.0]",
+  "zlib": "1.3.1"
+}

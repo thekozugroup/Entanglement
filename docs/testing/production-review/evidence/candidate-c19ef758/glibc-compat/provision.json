@@ -1,0 +1,7 @@
+{
+  "workspace": "/workspace/entangle-release-compat-_i4hlf_s",
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+  "method": "verified exact Jammy ELF reuse"
+}

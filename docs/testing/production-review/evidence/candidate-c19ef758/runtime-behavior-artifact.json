@@ -1,0 +1,37 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T06:53:55.578379+00:00",
+  "finished_utc": "2026-11-27T06:54:00.284190+00:00",
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "archive_receipt_sha256": "289c34b0ec24007c9e2a9fb726130a11595079d06005a151df3b4e755feca47e",
+  "candidate_elf_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "previous_release_comparisons": {
+    "native": {
+      "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+      "manifest_sha256": "24079462185cc164b5f7311b8164c547eb1e19709d678d9307bff38bd269a953",
+      "elf_sha256": {
+        "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+        "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+      },
+      "both_elfs_identical": true
+    },
+    "Jammy": {
+      "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+      "manifest_sha256": "812832aa921d98d27db92ff24b63ef0db952a1db12ace2914b99369ffa36d0c5",
+      "elf_sha256": {
+        "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+        "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2"
+      },
+      "both_elfs_identical": false
+    }
+  },
+  "command": "Compare the SHA-256 of two extracted regular archive members with the official local release manifest and both predecessor build receipts.",
+  "reviewer": "/root/tailroute",
+  "scope": "Equality of ELF bytes and fixed source stamp. Compiler reproducibility and cross-platform execution require their own evidence."
+}

@@ -1,0 +1,105 @@
+{
+  "archive_blake3": "78e20a06241d3bc70997aca33cf318f74b958ab7e30137b7a81fedf4712a44e9",
+  "archive_equal_to_A": true,
+  "archive_equal_to_canonical": false,
+  "archive_sha256": "a1ddf7ac6ae8948835171f717e6027139931bfdd6281bbb2e7e07f3943d64483",
+  "b3sum_sha256": "9e075752b536d3bdb338a82c913cad7f4be52c1c791f147a3be57b60c794926c",
+  "binary_sha256": {
+    "entangle": "da639233d9603b2e2da34913b90b04e401dc86b13b7cdc70422256a01d10541a",
+    "entangled": "596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b"
+  },
+  "build_env": {
+    "CARGO_BUILD_JOBS": "4",
+    "CARGO_HOME": "/workspace/.entanglement-dev/cargo",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_NET_OFFLINE": "true",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "RUSTC": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+    "RUSTDOC": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustdoc",
+    "RUSTUP_HOME": "/workspace/.entanglement-dev/rustup"
+  },
+  "build_exit": 0,
+  "build_finished_utc": "2026-11-27T07:42:30.664038+00:00",
+  "build_log_sha256": "24d21336472e0cf8145c7aff1d7074b6ad92e4177dc34b874b9dd52027543a00",
+  "build_seconds": 592.7709063830043,
+  "cargo_lock_sha256": "2ea7955d2dd3a3b91c6a31832d1ea0d0bef4613d8bbce8083cce56675dded0d9",
+  "command": [
+    "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/cargo",
+    "build",
+    "--release",
+    "--locked",
+    "-p",
+    "entangle-cli",
+    "-p",
+    "entangle-bin",
+    "-p",
+    "cargo-entangle",
+    "-p",
+    "xtask",
+    "--offline"
+  ],
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "declared_reference": "A",
+  "finished_utc": "2026-11-27T07:42:41.879076+00:00",
+  "free_bytes_before": 6977691648,
+  "fresh_device_inode": [
+    27,
+    703245
+  ],
+  "label": "Supplemental actual fixed-lexical-path A/C experiment, after primary A/B",
+  "member_equals_A": {
+    "entangle": true,
+    "entangled": true
+  },
+  "package_exit": 0,
+  "package_log_sha256": "f53bb49a7e2892d01d637ce12fb71c8986b4143ad20a7a98ff876dcf85f6f82e",
+  "packager_argv": [
+    "python3",
+    "scripts/package-native-release.py",
+    "--version",
+    "v0.1.0",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "--bin-dir",
+    "/tmp/entangle-c19-clean-outputs-hb1briyv/C",
+    "--source-date-epoch",
+    "1795762260",
+    "--output-dir",
+    "/tmp/entangle-c19-clean-outputs-hb1briyv/C/packaged"
+  ],
+  "script_sha256": "f2511a3a602e7e7a4a8d05c7209d103ab3a88cab47f3f83c8b0bc0126854d0e5",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T07:32:36.127038+00:00",
+  "starting_entries": [],
+  "target_path": "/tmp/entangle-c19-clean-target-lhat0d6t",
+  "target_reaped": true,
+  "tools": {
+    "cargo": {
+      "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/cargo",
+      "sha256": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b",
+      "version": "cargo 1.91.1 (ea2d97820 2025-10-10)\nrelease: 1.91.1\ncommit-hash: ea2d97820c16195b0ca3fadb4319fe512c199a43\ncommit-date: 2025-10-10\nhost: x86_64-unknown-linux-gnu\nlibgit2: 1.9.1 (sys:0.20.2 vendored)\nlibcurl: 8.15.0-DEV (sys:0.4.83+curl-8.15.0 vendored ssl:OpenSSL/3.5.2)\nssl: OpenSSL 3.5.2 5 Aug 2025\nos: Debian 13.0.0 [64-bit]"
+    },
+    "cc": {
+      "path": "/usr/bin/cc",
+      "sha256": "a23ecab8ff08f09ad8c80602c2c5df7f49e09c25905cb8975902e101bf72635f",
+      "version": "cc (Debian 14.2.0-19) 14.2.0\nCopyright (C) 2024 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
+    },
+    "ld": {
+      "path": "/usr/bin/ld",
+      "sha256": "d2766988b6a1b1d1518cdc09242e726d1f24e151e16410ada3092b11ffd9081b",
+      "version": "GNU ld (GNU Binutils for Debian) 2.44\nCopyright (C) 2025 Free Software Foundation, Inc.\nThis program is free software; you may redistribute it under the terms of\nthe GNU General Public License version 3 or (at your option) a later version.\nThis program has absolutely no warranty."
+    },
+    "rustc": {
+      "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustc",
+      "sha256": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e",
+      "version": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: x86_64-unknown-linux-gnu\nrelease: 1.91.1\nLLVM version: 21.1.2"
+    },
+    "rustdoc": {
+      "path": "/workspace/.entanglement-dev/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/bin/rustdoc",
+      "sha256": "f22c571ca4f921e0ac7c2c466de30da574b9018690a3878167cb0ea72249ed7f",
+      "version": "rustdoc 1.91.1 (ed61e7d7e 2025-11-07)"
+    }
+  },
+  "trigger_primary_sha256": "6582d63f668662f5d8314bf1b139321f8e2ccbc33107add558c0f76df8da4b69"
+}

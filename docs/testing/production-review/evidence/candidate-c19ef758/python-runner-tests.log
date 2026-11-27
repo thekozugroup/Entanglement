@@ -1,0 +1,10 @@
+test_captured_running_line_does_not_replace_the_libtest_header (test_run_rust_tests.ClassifyTests.test_captured_running_line_does_not_replace_the_libtest_header) ... ok
+test_completed_results_and_panic_abort (test_run_rust_tests.ClassifyTests.test_completed_results_and_panic_abort) ... ok
+test_rejects_ambiguous_or_malformed_results (test_run_rust_tests.ClassifyTests.test_rejects_ambiguous_or_malformed_results) ... ok
+test_ignore_and_retry_keep_attempts_and_outcomes (test_run_rust_tests.RetryTests.test_ignore_and_retry_keep_attempts_and_outcomes) ... ok
+test_listed_and_target_ignores_are_distinct (test_run_rust_tests.SuiteTests.test_listed_and_target_ignores_are_distinct) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.011s
+
+OK

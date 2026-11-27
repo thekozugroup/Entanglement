@@ -1,0 +1,149 @@
+{
+  "label": "candidate",
+  "revision": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "started_utc": "2026-11-27T06:54:02.076520+00:00",
+  "binaries_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "plan_sha256": "4ed2760871d2420202f97f9dc6d5295e9eb6c099f59d95d4fd8992275cb881df",
+  "harness_sha256": "1880a26c440a5bc4c12664feedb89502b5c25b6fe7dfb8b9874aacaa9e308c86",
+  "component_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+  "trials": [
+    {
+      "trial": 1,
+      "coordinator": "A",
+      "worker": "B",
+      "coordinator_peer": "c833bd78b5c44853083651122da8b163",
+      "worker_peer": "159526260d484157661ac7a53370dcaa",
+      "load_after_first_empty_report_s": 0.3739,
+      "load_to_authenticated_result_s": 0.0697,
+      "queries_to_success": 2,
+      "initial_no_workers_misses": 0,
+      "miss_offsets_s": [],
+      "first_submission": {
+        "start_offset_s": 0.0015,
+        "finish_offset_s": 0.0697,
+        "successful": true,
+        "error": null
+      },
+      "first_job_nonce": "measure-a01c7aae070933f94296a0e3",
+      "first_job_output": "Hello, measure-a01c7aae070933f94296a0e3!",
+      "primary_completed": 1,
+      "parallel_valid_submissions": 4,
+      "parallel_valid_completions": 4,
+      "all_readiness_offsets_relative_to_load_s": [
+        -0.3739,
+        0.0448
+      ],
+      "expected_worker_completions": 5,
+      "actual_worker_completions": 5,
+      "coordinator_completions": 0
+    },
+    {
+      "trial": 2,
+      "coordinator": "B",
+      "worker": "A",
+      "coordinator_peer": "cce25c680ba2422dcbb5cbe008cb66bb",
+      "worker_peer": "ebcf48f6d34dd48aab6acec05a7a81fe",
+      "load_after_first_empty_report_s": 0.4849,
+      "load_to_authenticated_result_s": 0.0234,
+      "queries_to_success": 2,
+      "initial_no_workers_misses": 0,
+      "miss_offsets_s": [],
+      "first_submission": {
+        "start_offset_s": 0.00047,
+        "finish_offset_s": 0.02343,
+        "successful": true,
+        "error": null
+      },
+      "first_job_nonce": "measure-9af3c9a0c0cb40b3fc0e42f4",
+      "first_job_output": "Hello, measure-9af3c9a0c0cb40b3fc0e42f4!",
+      "primary_completed": 1,
+      "parallel_valid_submissions": 4,
+      "parallel_valid_completions": 4,
+      "all_readiness_offsets_relative_to_load_s": [
+        -0.4849,
+        0.0113
+      ],
+      "expected_worker_completions": 5,
+      "actual_worker_completions": 5,
+      "coordinator_completions": 0
+    },
+    {
+      "trial": 3,
+      "coordinator": "A",
+      "worker": "B",
+      "coordinator_peer": "584d336aabefdb3580cd14c420c0dbdc",
+      "worker_peer": "1a5db94aa50276c89b30b52f52dec7af",
+      "load_after_first_empty_report_s": 0.3631,
+      "load_to_authenticated_result_s": 0.0335,
+      "queries_to_success": 2,
+      "initial_no_workers_misses": 0,
+      "miss_offsets_s": [],
+      "first_submission": {
+        "start_offset_s": 0.02181,
+        "finish_offset_s": 0.03354,
+        "successful": true,
+        "error": null
+      },
+      "first_job_nonce": "measure-21ad26d9c76ab052bfc72d55",
+      "first_job_output": "Hello, measure-21ad26d9c76ab052bfc72d55!",
+      "primary_completed": 1,
+      "parallel_valid_submissions": 4,
+      "parallel_valid_completions": 4,
+      "all_readiness_offsets_relative_to_load_s": [
+        -0.3631,
+        0.0291
+      ],
+      "expected_worker_completions": 5,
+      "actual_worker_completions": 5,
+      "coordinator_completions": 0
+    },
+    {
+      "trial": 4,
+      "coordinator": "B",
+      "worker": "A",
+      "coordinator_peer": "47fb72d87881bed0a4738419f66d121c",
+      "worker_peer": "a7d82dfc1363ab93c7051a7bbb113cd6",
+      "load_after_first_empty_report_s": 0.5485,
+      "load_to_authenticated_result_s": 0.0468,
+      "queries_to_success": 2,
+      "initial_no_workers_misses": 0,
+      "miss_offsets_s": [],
+      "first_submission": {
+        "start_offset_s": 0.02719,
+        "finish_offset_s": 0.0468,
+        "successful": true,
+        "error": null
+      },
+      "first_job_nonce": "measure-82dc28775d29d641bdc00b89",
+      "first_job_output": "Hello, measure-82dc28775d29d641bdc00b89!",
+      "primary_completed": 1,
+      "parallel_valid_submissions": 4,
+      "parallel_valid_completions": 4,
+      "guest_execution_error": "dispatch error: ENTANGLE-E0403: peer a7d82dfc1363ab93c7051a7bbb113cd6 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: invalid utf-8 sequence of 1 bytes from index 0",
+      "guest_error_worker_attempts": 1,
+      "parallel_absent_outcomes": 6,
+      "burst_incremental_inventory_reads": 1,
+      "worker_revocation_error": "dispatch error: ENTANGLE-E0403: peer a7d82dfc1363ab93c7051a7bbb113cd6 rejected the task (not-authorized): peer is not in this node's trusted peer allowlist",
+      "revoked_new_completions": 0,
+      "retrust_new_completions": 1,
+      "all_readiness_offsets_relative_to_load_s": [
+        -0.5485,
+        0.0433,
+        2.363
+      ],
+      "expected_worker_completions": 7,
+      "actual_worker_completions": 7,
+      "coordinator_completions": 0
+    }
+  ],
+  "first_submission_successes": 4,
+  "first_submission_under_10s_successes": 4,
+  "median_s": 0.040150000000000005,
+  "max_s": 0.0697,
+  "all_under_10s": true,
+  "complete": true,
+  "finished_utc": "2026-11-27T06:54:12.327266+00:00"
+}

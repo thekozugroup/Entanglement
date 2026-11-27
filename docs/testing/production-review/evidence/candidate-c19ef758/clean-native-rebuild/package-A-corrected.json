@@ -1,0 +1,37 @@
+{
+  "archive_blake3": "78e20a06241d3bc70997aca33cf318f74b958ab7e30137b7a81fedf4712a44e9",
+  "archive_bytes": 28912102,
+  "archive_sha256": "a1ddf7ac6ae8948835171f717e6027139931bfdd6281bbb2e7e07f3943d64483",
+  "argv": [
+    "python3",
+    "scripts/package-native-release.py",
+    "--version",
+    "v0.1.0",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "--bin-dir",
+    "/tmp/entangle-c19-clean-outputs-hb1briyv/A",
+    "--source-date-epoch",
+    "1795762260",
+    "--output-dir",
+    "/tmp/entangle-c19-clean-outputs-hb1briyv/A/packaged-corrected"
+  ],
+  "arm": "A",
+  "b3sum_binary_sha256": "9e075752b536d3bdb338a82c913cad7f4be52c1c791f147a3be57b60c794926c",
+  "b3sum_version": "b3sum 1.8.1",
+  "canonical_archive_equal": false,
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "corrected_log_sha256": "f53bb49a7e2892d01d637ce12fb71c8986b4143ad20a7a98ff876dcf85f6f82e",
+  "exit_code": 0,
+  "extracted_elf_sha256": {
+    "entangle": "da639233d9603b2e2da34913b90b04e401dc86b13b7cdc70422256a01d10541a",
+    "entangled": "596e7c9ea0bf1f78143cf61f90ef496d97aca47f66af3d2d859e717e5ac7523b"
+  },
+  "finished_utc": "2026-11-27T07:21:37.214580+00:00",
+  "original_error_log_sha256": "3fd4691bafb900fbf29f52fe450dd6278b626a072ef36d9431068b93f127fca7",
+  "original_exit": 1,
+  "packaging_tool": "/workspace/.entanglement-dev/release-tools/bin/b3sum",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "started_utc": "2026-11-27T07:21:16.498586+00:00"
+}

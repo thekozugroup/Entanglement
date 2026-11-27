@@ -1,0 +1,41 @@
+{
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "size": 28913419,
+  "sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "blake3": "c77f097aaa921a50a2629681712aa9e01d63457b0df47e626c1b9163df74acac",
+  "signing_status": "unsigned local candidate",
+  "files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.md": "e1ba8b1dc165abe88f908ac892657317ab95fc83fa058d1a60049f249e54f0c0",
+    "architecture.md": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0",
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+    "tutorial.md": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11"
+  },
+  "tool_sha256": "c1315d894fa70143014b6e553270ed9cca4c517ffc32e0cd1b7a7ed9c5eba59c",
+  "command": [
+    "python3",
+    "scripts/package-native-release.py",
+    "--version",
+    "v0.1.0",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--source-date-epoch",
+    "1795762260",
+    "--output-dir",
+    "/workspace/Entanglement/target/release-candidate/c19ef7587a22"
+  ],
+  "started_utc": "2026-11-27T06:53:32.786531+00:00",
+  "finished_utc": "2026-11-27T06:53:54.470854+00:00",
+  "source_date_epoch": 1795762260,
+  "release_helper_sha256": "a624432942809669ed8cc1be0909139ae85be67ed378ec08dba5cd0b9041db04",
+  "previous_daemon_and_cli_byte_equal": {
+    "entangle": true,
+    "entangled": true
+  }
+}

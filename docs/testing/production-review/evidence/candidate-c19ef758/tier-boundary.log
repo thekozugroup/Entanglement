@@ -1,0 +1,18 @@
+{
+  "path": "docs/testing/production-review/evidence/candidate-c19ef758/tier-policy-boundary/policy-boundary.log",
+  "exit_code": 0,
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "exact_5_to_3": {
+    "applied_transitions": 2,
+    "loaded_survivor": true,
+    "affected": 0,
+    "cancel_prompt_reachable": false
+  },
+  "affected_set_5_to_2": {
+    "interactive_default": "unload-and-disable",
+    "cancel_restored": 5,
+    "forced_plugins": 2,
+    "stale_reviews_rejected": 2,
+    "restart_disabled": true
+  }
+}

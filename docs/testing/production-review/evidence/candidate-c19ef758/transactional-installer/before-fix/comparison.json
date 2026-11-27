@@ -1,0 +1,13 @@
+{
+  "type": "pre-freeze engineering comparison",
+  "checkout_commit": "5c4ead3de2d22179032a2f6341aa4fb999817849",
+  "checkout_source": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "previous_install_script_sha256": "f10a849eb788495cb744ee9a534ffc4fd9d88189f1288d3026ae96009a62a217",
+  "replacement_script_sha256": "193f44c3551c25864ba8641dd714079805b69db24a7bbf9dfa1e304d62335ab0",
+  "replacement_matches_frozen_candidate": true,
+  "input_source_note": "Both actual release archives were built for a0926c6e. The pre-freeze replacement script was read from the private worktree in the captured command, with SHA-256 equal to c19ef758. The exact-source qualification using both newly generated c19ef758 archives is in the parent directory.",
+  "evidence_sha256": {
+    "comparison.log": "3d68d5c6d179d555129c50563d8ada061b5a61ca739328a960fda4d07bce04f8",
+    "original-comparison.py": "7e91bf4f9d6b310e91aaceb3013769ba338091c64a074bbba913cb05db1436d7"
+  }
+}

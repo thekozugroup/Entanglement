@@ -1,0 +1,16 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "started_utc": "2026-11-27T06:51:13.932820+00:00",
+  "finished_utc": "2026-11-27T06:52:46.807855+00:00",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-c19ef758/workspace-test.log",
+  "sha256": "3ab55f40dcc4450f3aefc917027401d28ba45fe2a5ba56281995b9c7eca1a6a3"
+}

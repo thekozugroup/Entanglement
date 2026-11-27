@@ -1,0 +1,24 @@
+['/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3', '-B', 'scripts/tests/test_install_transaction.py', '-v']
+test_another_install_keeps_its_staging_directory (__main__.InstallerTransaction.test_another_install_keeps_its_staging_directory) ... ok
+test_failed_first_install_removes_partial_pair (__main__.InstallerTransaction.test_failed_first_install_removes_partial_pair) ... ok
+test_forced_publish_failure_restores_original_pair (__main__.InstallerTransaction.test_forced_publish_failure_restores_original_pair) ... ok
+test_missing_or_unusable_daemon_preserves_previous_pair (__main__.InstallerTransaction.test_missing_or_unusable_daemon_preserves_previous_pair) ... ok
+test_publication_interrupt_rolls_back (__main__.InstallerTransaction.test_publication_interrupt_rolls_back) ... ok
+test_restore_failure_retains_recovery_files (__main__.InstallerTransaction.test_restore_failure_retains_recovery_files) ... ok
+test_same_version_skip_and_repair (__main__.InstallerTransaction.test_same_version_skip_and_repair) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.453s
+
+OK
+
+['/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3', '-B', 'scripts/tests/test_package_native_release.py', '-v']
+test_archive_and_sidecars_are_byte_identical (__main__.Packaging.test_archive_and_sidecars_are_byte_identical) ... ok
+test_conflicts_preserve_existing_files_and_remove_only_new_files (__main__.Packaging.test_conflicts_preserve_existing_files_and_remove_only_new_files) ... ok
+test_missing_or_invalid_binary_publishes_nothing (__main__.Packaging.test_missing_or_invalid_binary_publishes_nothing) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.385s
+
+OK
+

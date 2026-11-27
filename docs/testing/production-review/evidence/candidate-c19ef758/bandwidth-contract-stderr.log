@@ -1,0 +1,16 @@
+fast-initial-small 302f7252cdfcb0350dd5ab28abf43516 None 1.1286
+fast-train 302f7252cdfcb0350dd5ab28abf43516 unknown 0.3556
+fast-measure 302f7252cdfcb0350dd5ab28abf43516 52689170 0.7936
+slow-initial-small 7d95a82c2494003d04b316f8faf60b15 None 0.1149
+slow-train 7d95a82c2494003d04b316f8faf60b15 unknown 2.2022
+slow-measure 7d95a82c2494003d04b316f8faf60b15 unknown 2.113
+slow-measure 7d95a82c2494003d04b316f8faf60b15 3350956 2.5709
+both-eligible 7d95a82c2494003d04b316f8faf60b15 3178372 2.077
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/link-test.py", line 142, in <module>
+    print(json.dumps(exercise(Path(temp),stack),indent=2))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/link-test.py", line 108, in exercise
+    assert chosen and chosen['chosen']==workers['fast'].peer and isinstance(chosen['measured_bps'],int), chosen
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'phase': 'both-eligible', 'chosen': '7d95a82c2494003d04b316f8faf60b15', 'reason': 'fit ok, rtt=57ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=3178372', 'measured_bps': 3178372, 'input_bytes': 786515, 'nonce': 'b2956e4c20a97b7c9d419652', 'output': '"b2956e4c20a97b7c9d419652"', 'wall_s': 2.077}

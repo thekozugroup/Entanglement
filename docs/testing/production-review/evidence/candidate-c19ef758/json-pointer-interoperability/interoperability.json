@@ -1,0 +1,1821 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T07:11:05+00:00",
+  "finished_at_utc": "2026-11-27T07:11:09+00:00",
+  "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "release_elf_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "runner_sha256": "07e07ae8accc4447ac8aaedc52b763c3a6cf6e5ab0f5600523e46ca1d4a81790",
+  "wasm_sha256": "209e3a40b333f03a9933d575312e714f8c93fc565e6228c6c75b75719fd0d2c7",
+  "signed_package_sha256": {
+    "plugin.wasm.sig": "fa45e8129a5d3d182134f876d5aa9b2a1bedb76a7318d723fd499cf04e8ec79b",
+    "plugin.wasm": "209e3a40b333f03a9933d575312e714f8c93fc565e6228c6c75b75719fd0d2c7",
+    "entangle.toml": "1754182191040937a7905d889c92ea2ecb5f9618d81b81ca5d04e1c713bece42"
+  },
+  "plugin": "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+  "peers": {
+    "coordinator": "5e049bcfab923962bf66d82156182941",
+    "worker": "3dd8aa3cce878c97941810023d8cd9c4",
+    "publisher": "8e218615e50c6df6c0c137f5cf1646a6"
+  },
+  "peer_transport": "authenticated Iroh QUIC over explicit loopback route between independent daemon processes",
+  "publisher_public": "9268635c4624dd603aa7078f3ad789297860f2f817a0ca31f9d80bd44e67db25",
+  "worker_inventory_before_and_after": [
+    "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0"
+  ],
+  "coordinator_inventory_before_and_after": [],
+  "worker_counts": {
+    "before": {
+      "ok": 0,
+      "error": 0
+    },
+    "after": {
+      "ok": 30,
+      "error": 12
+    }
+  },
+  "coordinator_counts": {
+    "before": {
+      "ok": 0,
+      "error": 0
+    },
+    "after": {
+      "ok": 0,
+      "error": 0
+    }
+  },
+  "standards": {
+    "rfc_sections": [
+      "https://www.rfc-editor.org/rfc/rfc6901.html#section-5",
+      "https://www.rfc-editor.org/rfc/rfc6901.html#section-6"
+    ],
+    "example_document_sha256": "6a1b279c6770fa264516a3b7271287295ea947625b89df2b40e918954a2b6fcc",
+    "OpenAPI": {
+      "upstream": "OAI/OpenAPI-Specification",
+      "tag": "3.0.3",
+      "commit": "c8e90dfa4ccf8054db1539f7a104c5ccfb1913c3",
+      "document_url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/c8e90dfa4ccf8054db1539f7a104c5ccfb1913c3/examples/v3.0/petstore.yaml",
+      "license_url": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/c8e90dfa4ccf8054db1539f7a104c5ccfb1913c3/LICENSE",
+      "repository_license": "Apache-2.0",
+      "license_sha256": "4948367c65e1ce06690e2cadc6e86fce1a6a6db55ef874ce4b78c0f472ce5f13",
+      "source_yaml_sha256": "ab60f59da478d4ac312cd9fabcc6cbd06f8f975ab8a1a0c2029b2a41f65fedd5",
+      "source_yaml_bytes": 2573,
+      "json_conversion": "PyYAML 6.0.3 safe_load, Python compact UTF-8 JSON",
+      "derived_json_sha256": "d4634195a4fd9f55e3ba660d02483a20d054558d1906b24b18391052f5e742e3",
+      "derived_json_bytes": 1944,
+      "scope": "Pointer selection in a real public OpenAPI example document."
+    }
+  },
+  "cases": [
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "",
+      "input_sha256": "0b57e04d05bdb20bb581076cb8d5582c1e566d49263802200b111df79b3dffa5",
+      "expected_utf8": "{\n  \"foo\": [\"bar\", \"baz\"],\n  \"\": 0,\n  \"a/b\": 1,\n  \"c%d\": 2,\n  \"e^f\": 3,\n  \"g|h\": 4,\n  \"i\\\\j\": 5,\n  \"k\\\"l\": 6,\n  \" \": 7,\n  \"m~n\": 8\n}",
+      "actual_utf8": "{\n  \"foo\": [\"bar\", \"baz\"],\n  \"\": 0,\n  \"a/b\": 1,\n  \"c%d\": 2,\n  \"e^f\": 3,\n  \"g|h\": 4,\n  \"i\\\\j\": 5,\n  \"k\\\"l\": 6,\n  \" \": 7,\n  \"m~n\": 8\n}",
+      "output_sha256": "6a1b279c6770fa264516a3b7271287295ea947625b89df2b40e918954a2b6fcc",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 0,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 1,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#",
+      "input_sha256": "6624e455aa65c787c390b9dba2a5ca021fac4e1478c25f38c2294e954eeeb357",
+      "expected_utf8": "{\n  \"foo\": [\"bar\", \"baz\"],\n  \"\": 0,\n  \"a/b\": 1,\n  \"c%d\": 2,\n  \"e^f\": 3,\n  \"g|h\": 4,\n  \"i\\\\j\": 5,\n  \"k\\\"l\": 6,\n  \" \": 7,\n  \"m~n\": 8\n}",
+      "actual_utf8": "{\n  \"foo\": [\"bar\", \"baz\"],\n  \"\": 0,\n  \"a/b\": 1,\n  \"c%d\": 2,\n  \"e^f\": 3,\n  \"g|h\": 4,\n  \"i\\\\j\": 5,\n  \"k\\\"l\": 6,\n  \" \": 7,\n  \"m~n\": 8\n}",
+      "output_sha256": "6a1b279c6770fa264516a3b7271287295ea947625b89df2b40e918954a2b6fcc",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 1,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 2,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/foo",
+      "input_sha256": "bab40a2fb679918c02c1e96ce675d2dd1db13a4a53d20760b807c04584618468",
+      "expected_utf8": "[\"bar\", \"baz\"]",
+      "actual_utf8": "[\"bar\", \"baz\"]",
+      "output_sha256": "348367b1f8ab83dc2a195c32664b0a1abeeffdbac98dc4e9ff37eb8a6ceb3ac0",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 2,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 3,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/foo",
+      "input_sha256": "0e460c9f41cf11e959c672a3eac9bf023a57ede39020204b5c337324c40d2bd8",
+      "expected_utf8": "[\"bar\", \"baz\"]",
+      "actual_utf8": "[\"bar\", \"baz\"]",
+      "output_sha256": "348367b1f8ab83dc2a195c32664b0a1abeeffdbac98dc4e9ff37eb8a6ceb3ac0",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 3,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 4,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/foo/0",
+      "input_sha256": "7b355e2c3e24e796be8488c867defa7b64d1603181748a0d057d973184579801",
+      "expected_utf8": "\"bar\"",
+      "actual_utf8": "\"bar\"",
+      "output_sha256": "4c293ff010a730f0972761331d1b5678478d425c2dc5cefd16d8f20059e497f3",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 4,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 5,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/foo/0",
+      "input_sha256": "f8ea4da7976e08dab7f4813c5c4b48c3b1a2d9edc76a1c910cb560df331ac9ce",
+      "expected_utf8": "\"bar\"",
+      "actual_utf8": "\"bar\"",
+      "output_sha256": "4c293ff010a730f0972761331d1b5678478d425c2dc5cefd16d8f20059e497f3",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 5,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 6,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/",
+      "input_sha256": "68d4a24fd01909f859511c3010b1bcca505976f08ca4fe07824c8aa94118a71c",
+      "expected_utf8": "0",
+      "actual_utf8": "0",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 6,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 7,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/",
+      "input_sha256": "d576e77120b4848ecf0053e1f8d64e3d21cc99fc15e5bfe9b54a8a41b9027007",
+      "expected_utf8": "0",
+      "actual_utf8": "0",
+      "output_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 7,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 8,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/a~1b",
+      "input_sha256": "5b2cad72988bf4c84d7bb241c22c5316120142d60def3f50356cf5cf4069a584",
+      "expected_utf8": "1",
+      "actual_utf8": "1",
+      "output_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 8,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 9,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/a~1b",
+      "input_sha256": "0c42c2fd946bcd97d08379412e9eb49e31aa226b6b1afacd587f0fdf77b2e4c3",
+      "expected_utf8": "1",
+      "actual_utf8": "1",
+      "output_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 9,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 10,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/c%d",
+      "input_sha256": "ce34712c6a52b85e0398bdf78db77af03495a86f3bcdab01260031b0ff310b4e",
+      "expected_utf8": "2",
+      "actual_utf8": "2",
+      "output_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 10,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 11,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/c%25d",
+      "input_sha256": "72d5534b3ea3b8232fd352d523b0cdb3fc302aa404053f2fa098c0557adcbe3a",
+      "expected_utf8": "2",
+      "actual_utf8": "2",
+      "output_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 11,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 12,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/e^f",
+      "input_sha256": "a8dc2fa52ff3eb161d1aa897b831972e14fb0f5ad73cc0fd9c2579a82ed0c7f9",
+      "expected_utf8": "3",
+      "actual_utf8": "3",
+      "output_sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 12,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 13,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/e%5Ef",
+      "input_sha256": "b8089060b0cc6801f7dbf3f156e59373be8ca012bbebfcce64373cf207c01bd6",
+      "expected_utf8": "3",
+      "actual_utf8": "3",
+      "output_sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 13,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 14,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/g|h",
+      "input_sha256": "4bd72a30aeeb7ce52fc5415a04c5e665fde88a71d32be33dc2416b29d48b635e",
+      "expected_utf8": "4",
+      "actual_utf8": "4",
+      "output_sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 14,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 15,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/g%7Ch",
+      "input_sha256": "abb39cf193f4288f6de6fef3e6c67feb674100324e790b67cd3380c79f8c3fba",
+      "expected_utf8": "4",
+      "actual_utf8": "4",
+      "output_sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 15,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 16,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/i\\j",
+      "input_sha256": "61b623e79dce53e2ab0c0f24b58b48ab9b99508b939f4b6420b0a25f3caad4fd",
+      "expected_utf8": "5",
+      "actual_utf8": "5",
+      "output_sha256": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 16,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 17,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/i%5Cj",
+      "input_sha256": "9447ea59877eb2e00e57f86347177e7111f04f4d6e2e700d3f560c5d52c83d11",
+      "expected_utf8": "5",
+      "actual_utf8": "5",
+      "output_sha256": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 17,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 18,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/k\"l",
+      "input_sha256": "3380c1b54fedf6af5ed008ac4773ee1ff6132120155013507f69c5399ba1bc02",
+      "expected_utf8": "6",
+      "actual_utf8": "6",
+      "output_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 18,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 19,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/k%22l",
+      "input_sha256": "687ae856414c8916d667790053e449add57b98502e9ed85a788853bf5ff45485",
+      "expected_utf8": "6",
+      "actual_utf8": "6",
+      "output_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 19,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 20,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/ ",
+      "input_sha256": "420ae95d1a4d0630878dafe03e995173f090529191993b832b85590b84c9d737",
+      "expected_utf8": "7",
+      "actual_utf8": "7",
+      "output_sha256": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 20,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 21,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/%20",
+      "input_sha256": "54da216d1ab64c8ee347baf5fde233ac6abfebe671b22727f70a0c8f3f7144dc",
+      "expected_utf8": "7",
+      "actual_utf8": "7",
+      "output_sha256": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 21,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 22,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a75 JSON string",
+      "pointer": "/m~0n",
+      "input_sha256": "5d3cc88ce042a23999d4d9c210ecb5ce76f0682cd6e49f8c757b38c9e996b400",
+      "expected_utf8": "8",
+      "actual_utf8": "8",
+      "output_sha256": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 22,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 23,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "RFC 6901 \u00a76 URI fragment",
+      "pointer": "#/m~0n",
+      "input_sha256": "b7f41329820f8b161fad028d71c390018be8e5cc04e1f45994c438f1037dc731",
+      "expected_utf8": "8",
+      "actual_utf8": "8",
+      "output_sha256": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 23,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 24,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "OAI Petstore list operation",
+      "pointer": "/paths/~1pets/get/operationId",
+      "input_sha256": "ba1af7b6344ca5c1adabb4959bf3889ec0cfc241b2f5097c031a6aa9850cc856",
+      "expected_utf8": "\"listPets\"",
+      "actual_utf8": "\"listPets\"",
+      "output_sha256": "460b2efa9f7259a59221e3bc6e4f039a03beb6fd9e304fa1957c6d9101756750",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 24,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 25,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "OAI Petstore operation with RFC 3986 fragment encoding",
+      "pointer": "#/paths/~1pets~1%7BpetId%7D/get/operationId",
+      "input_sha256": "9e7f303fca103f017c441d9f6e26b525546c9d39503ef92be8483f5637d996b9",
+      "expected_utf8": "\"showPetById\"",
+      "actual_utf8": "\"showPetById\"",
+      "output_sha256": "7817765b460abb9dc4586db9ac438ee6fac927b968b2eb98f47c62f1e16a163e",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 25,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 26,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "OAI Petstore real response description",
+      "pointer": "#/paths/~1pets/get/responses/200/description",
+      "input_sha256": "e5fdb7e522e37d1ab85543e890b33d580da2d83d0182f5db8327eba0a0089453",
+      "expected_utf8": "\"A paged array of pets\"",
+      "actual_utf8": "\"A paged array of pets\"",
+      "output_sha256": "3aa2d581283ce8365b3cc7a99ef25f7b022baac8aa8f995deab39cc892594b22",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 26,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 27,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\nwrote 23 bytes to /tmp/jp-remote-k_vqn1zq/selected.json\n",
+      "output_sink": "file"
+    },
+    {
+      "case": "present JSON null",
+      "pointer": "/present",
+      "input_sha256": "4db1493d51b5419bc43053ff59232bc4a57746d36b7ffba09f65183906bbb48b",
+      "expected_utf8": "null",
+      "actual_utf8": "null",
+      "output_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 27,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 28,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "raw JSON escape and number bytes",
+      "pointer": "/preserved",
+      "input_sha256": "bf9ca0f27ca183442fa8f82629605063c98a4872518ce6e95eef54e302ef923c",
+      "expected_utf8": "{ \"unicode\":\"\\u00e9\", \"number\":1e1000 }",
+      "actual_utf8": "{ \"unicode\":\"\\u00e9\", \"number\":1e1000 }",
+      "output_sha256": "67d68c34123d1b4ce3e14421dc5fd5a8d63693744cef0b65ebb88530845a324d",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 28,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 29,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "literal tilde escape applied once",
+      "pointer": "/~01",
+      "input_sha256": "95615bb58dce5c74a612527fbbd1c5d97db26b5730eb46ef52a28b6fd246f5d3",
+      "expected_utf8": "\"tilde one\"",
+      "actual_utf8": "\"tilde one\"",
+      "output_sha256": "1d3726629a72a88f5e285b572930b2e7cf4c30735805ed5aad4adfd4603ec23c",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "worker_counts_before": {
+        "ok": 29,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 30,
+        "error": 0
+      },
+      "cli_exit": 0,
+      "cli_stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "output_sink": "stdout"
+    },
+    {
+      "case": "missing member (not a JSON null result)",
+      "pointer": "/absent",
+      "input_sha256": "30719f82de5fb6ebd8003f7c42bd4a02f21c2cf77824b749a86952e0220ad607",
+      "expected_diagnostic": "object has no member",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "cli_exit": 1,
+      "cli_stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: object has no member \"absent\" at line 1 column 91\n",
+      "rpc_response": {
+        "jsonrpc": "2.0",
+        "id": "jsonptr-67",
+        "error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: object has no member \"absent\" at line 1 column 91"
+        }
+      },
+      "worker_counts_before": {
+        "ok": 30,
+        "error": 0
+      },
+      "worker_counts_after": {
+        "ok": 30,
+        "error": 2
+      }
+    },
+    {
+      "case": "ambiguous object member",
+      "pointer": "/seen",
+      "input_sha256": "0b1d9c247a2cb8f49dc9d8aa18470691a94d4200e1c9eaa9fdad947171a1a790",
+      "expected_diagnostic": "is ambiguous",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "cli_exit": 1,
+      "cli_stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: object member \"seen\" is ambiguous at line 1 column 88\n",
+      "rpc_response": {
+        "jsonrpc": "2.0",
+        "id": "jsonptr-71",
+        "error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: object member \"seen\" is ambiguous at line 1 column 88"
+        }
+      },
+      "worker_counts_before": {
+        "ok": 30,
+        "error": 2
+      },
+      "worker_counts_after": {
+        "ok": 30,
+        "error": 4
+      }
+    },
+    {
+      "case": "invalid leading zero index",
+      "pointer": "/foo/00",
+      "input_sha256": "2987feb8deba265fb37f697a5f98e86946a86a5ba71dd2b82bb0d906d58f6412",
+      "expected_diagnostic": "invalid array index",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "cli_exit": 1,
+      "cli_stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: invalid array index \"00\" at line 2 column 10\n",
+      "rpc_response": {
+        "jsonrpc": "2.0",
+        "id": "jsonptr-75",
+        "error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: invalid array index \"00\" at line 2 column 10"
+        }
+      },
+      "worker_counts_before": {
+        "ok": 30,
+        "error": 4
+      },
+      "worker_counts_after": {
+        "ok": 30,
+        "error": 6
+      }
+    },
+    {
+      "case": "array index out of bounds",
+      "pointer": "/foo/10",
+      "input_sha256": "30ee0be919eeb78e3cb2a747b6d5ee433b77fc0eb3ac12df8e080adc11399c31",
+      "expected_diagnostic": "out of range",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "cli_exit": 1,
+      "cli_stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: array index 10 is out of range at line 2 column 23\n",
+      "rpc_response": {
+        "jsonrpc": "2.0",
+        "id": "jsonptr-79",
+        "error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: array index 10 is out of range at line 2 column 23"
+        }
+      },
+      "worker_counts_before": {
+        "ok": 30,
+        "error": 6
+      },
+      "worker_counts_after": {
+        "ok": 30,
+        "error": 8
+      }
+    },
+    {
+      "case": "invalid UTF-8 fragment escape",
+      "pointer": "#/%FF",
+      "input_sha256": "07a620dcfe2b8c009b34d5394df0542041589e17fd04fca082b5973e364985a0",
+      "expected_diagnostic": "URI fragment must decode to UTF-8",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "cli_exit": 1,
+      "cli_stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: invalid pointer: URI fragment must decode to UTF-8\n",
+      "rpc_response": {
+        "jsonrpc": "2.0",
+        "id": "jsonptr-83",
+        "error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: invalid pointer: URI fragment must decode to UTF-8"
+        }
+      },
+      "worker_counts_before": {
+        "ok": 30,
+        "error": 8
+      },
+      "worker_counts_after": {
+        "ok": 30,
+        "error": 10
+      }
+    },
+    {
+      "case": "invalid JSON Pointer token escape",
+      "pointer": "/~2",
+      "input_sha256": "63f69d92e7c592833e3d22a32dc7d7216fc67ed214695201faa07798caa69ad4",
+      "expected_diagnostic": "a '~' escape must be '~0' or '~1'",
+      "executor_peer": "3dd8aa3cce878c97941810023d8cd9c4",
+      "cli_exit": 1,
+      "cli_stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: invalid pointer: a '~' escape must be '~0' or '~1'\n",
+      "rpc_response": {
+        "jsonrpc": "2.0",
+        "id": "jsonptr-87",
+        "error": {
+          "code": -32000,
+          "message": "dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: invalid pointer: a '~' escape must be '~0' or '~1'"
+        }
+      },
+      "worker_counts_before": {
+        "ok": 30,
+        "error": 10
+      },
+      "worker_counts_after": {
+        "ok": 30,
+        "error": 12
+      }
+    }
+  ],
+  "commands": [
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "mesh",
+        "trust",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--public-key-hex",
+        "5bef0125735881facb608983007cbbb52878589482d3d84a3b36cf787394cbb9",
+        "--display-name",
+        "pointer worker"
+      ],
+      "exit_code": 0,
+      "stdout": "trusted: 3dd8aa3cce878c97941810023d8cd9c4 (pointer worker)\n",
+      "stderr": "",
+      "stdout_sha256": "a27375d68458c8d9a5993acdff4268b76342bb0f7c4e6cec351faaf1c4154679"
+    },
+    {
+      "node": "3dd8aa3cce878c97941810023d8cd9c4",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "mesh",
+        "trust",
+        "5e049bcfab923962bf66d82156182941",
+        "--public-key-hex",
+        "799e4ca9eddba207deecf85c8b5b89b8081c32efacce5107625ca16a92bcdf79",
+        "--display-name",
+        "pointer coordinator"
+      ],
+      "exit_code": 0,
+      "stdout": "trusted: 5e049bcfab923962bf66d82156182941 (pointer coordinator)\n",
+      "stderr": "",
+      "stdout_sha256": "6cdc432e7d665bffebfa92f5167a8132d2868d9e07f738eed50ff044cc7f84d5"
+    },
+    {
+      "node": "8e218615e50c6df6c0c137f5cf1646a6",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "plugins",
+        "build",
+        "/workspace/Entanglement/plugins/json-pointer",
+        "--wasm",
+        "/tmp/entangle-rfc6901-wasm.RjZjlP/wasm32-wasip2/release/entangle_json_pointer.wasm",
+        "--out",
+        "/tmp/jp-remote-k_vqn1zq/signed"
+      ],
+      "exit_code": 0,
+      "stdout": "[entangle] publisher fingerprint: 8e218615e50c6df6c0c137f5cf1646a6\n[entangle] plugin id:             8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0\n[entangle] effective tier:        1\n[entangle] wrote /tmp/jp-remote-k_vqn1zq/signed/plugin.wasm\n[entangle] wrote /tmp/jp-remote-k_vqn1zq/signed/entangle.toml\n[entangle] wrote /tmp/jp-remote-k_vqn1zq/signed/plugin.wasm.sig\n\nNext steps:\n  entangle keyring add 9268635c4624dd603aa7078f3ad789297860f2f817a0ca31f9d80bd44e67db25 --name self\n  entangle plugins load /tmp/jp-remote-k_vqn1zq/signed\n  entangle plugins invoke 8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0 --input 'world'\n",
+      "stderr": "",
+      "stdout_sha256": "29eeb5f7cd39d57dcc271470acedb864c6c199d55a4ce4ae7a85670d9b4849a9"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "mesh",
+        "status",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"local_peer_id\":\"5e049bcfab923962bf66d82156182941\",\"local_display_name\":\"4195294301b2\",\"transports_active\":[\"iroh\"],\"seen_peer_count\":0,\"trusted_peer_count\":1}\n",
+      "stderr": "",
+      "stdout_sha256": "cc09431657fa462976e0f0bb520d4454eead12c14406e1d57f05a69c84d2f785"
+    },
+    {
+      "node": "3dd8aa3cce878c97941810023d8cd9c4",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "mesh",
+        "status",
+        "--json"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"local_peer_id\":\"3dd8aa3cce878c97941810023d8cd9c4\",\"local_display_name\":\"4195294301b2\",\"transports_active\":[\"iroh\"],\"seen_peer_count\":0,\"trusted_peer_count\":1}\n",
+      "stderr": "",
+      "stdout_sha256": "8361afe8536ec508720f697a23a57d8e261d32c4e16105f436aa33d45cbc32da"
+    },
+    {
+      "node": "3dd8aa3cce878c97941810023d8cd9c4",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "plugins",
+        "load",
+        "/tmp/jp-remote-k_vqn1zq/signed"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: rpc -32000: server error: signature: ENTANGLE-E0101: publisher fingerprint not in keyring\n",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "node": "3dd8aa3cce878c97941810023d8cd9c4",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "keyring",
+        "add",
+        "9268635c4624dd603aa7078f3ad789297860f2f817a0ca31f9d80bd44e67db25",
+        "--name",
+        "disposable pointer qualification publisher"
+      ],
+      "exit_code": 0,
+      "stdout": "added 8e218615e50c6df6c0c137f5cf1646a6 \"disposable pointer qualification publisher\"\n",
+      "stderr": "",
+      "stdout_sha256": "dd253836841b96791487de802d3732e89db02ee66b813832f42ceeb32cd259d4"
+    },
+    {
+      "node": "3dd8aa3cce878c97941810023d8cd9c4",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "plugins",
+        "load",
+        "/tmp/jp-remote-k_vqn1zq/signed"
+      ],
+      "exit_code": 0,
+      "stdout": "loaded 8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0\n",
+      "stderr": "",
+      "stdout_sha256": "1f1a99e9fc11ef9bed83e0369fbf702ff2264eb0838c458a9b0485c3ab1ccac1"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"foo\": [\"bar\", \"baz\"],\n  \"\": 0,\n  \"a/b\": 1,\n  \"c%d\": 2,\n  \"e^f\": 3,\n  \"g|h\": 4,\n  \"i\\\\j\": 5,\n  \"k\\\"l\": 6,\n  \" \": 7,\n  \"m~n\": 8\n}",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "6a1b279c6770fa264516a3b7271287295ea947625b89df2b40e918954a2b6fcc"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"foo\": [\"bar\", \"baz\"],\n  \"\": 0,\n  \"a/b\": 1,\n  \"c%d\": 2,\n  \"e^f\": 3,\n  \"g|h\": 4,\n  \"i\\\\j\": 5,\n  \"k\\\"l\": 6,\n  \" \": 7,\n  \"m~n\": 8\n}",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "6a1b279c6770fa264516a3b7271287295ea947625b89df2b40e918954a2b6fcc"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "[\"bar\", \"baz\"]",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "348367b1f8ab83dc2a195c32664b0a1abeeffdbac98dc4e9ff37eb8a6ceb3ac0"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "[\"bar\", \"baz\"]",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "348367b1f8ab83dc2a195c32664b0a1abeeffdbac98dc4e9ff37eb8a6ceb3ac0"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "\"bar\"",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "4c293ff010a730f0972761331d1b5678478d425c2dc5cefd16d8f20059e497f3"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "\"bar\"",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "4c293ff010a730f0972761331d1b5678478d425c2dc5cefd16d8f20059e497f3"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "0",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "0",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "1",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "1",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "2",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "2",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "3",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "3",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "4",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "4",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "5",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "5",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "6",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "6",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "e7f6c011776e8db7cd330b54174fd76f7d0216b612387a5ffcfb81e6f0919683"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "7",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "7",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "7902699be42c8a8e46fbbb4501726517e86b22c56a189f7625a6da49081b2451"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "8",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "8",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "\"listPets\"",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "460b2efa9f7259a59221e3bc6e4f039a03beb6fd9e304fa1957c6d9101756750"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "\"showPetById\"",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "7817765b460abb9dc4586db9ac438ee6fac927b968b2eb98f47c62f1e16a163e"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--output-file",
+        "/tmp/jp-remote-k_vqn1zq/selected.json"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\nwrote 23 bytes to /tmp/jp-remote-k_vqn1zq/selected.json\n",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "null",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "{ \"unicode\":\"\\u00e9\", \"number\":1e1000 }",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "67d68c34123d1b4ce3e14421dc5fd5a8d63693744cef0b65ebb88530845a324d"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "stdout": "\"tilde one\"",
+      "stderr": "Chosen: 3dd8aa3cce878c97941810023d8cd9c4 (score=2.13)\nReason: fit ok, rtt=28ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "stdout_sha256": "1d3726629a72a88f5e285b572930b2e7cf4c30735805ed5aad4adfd4603ec23c"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: object has no member \"absent\" at line 1 column 91\n",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: object member \"seen\" is ambiguous at line 1 column 88\n",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: invalid array index \"00\" at line 2 column 10\n",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: pointer could not be evaluated: array index 10 is out of range at line 2 column 23\n",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: invalid pointer: URI fragment must decode to UTF-8\n",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "node": "5e049bcfab923962bf66d82156182941",
+      "argv": [
+        "/tmp/jp-remote-k_vqn1zq/bin/entangle",
+        "compute",
+        "dispatch",
+        "8e218615e50c6df6c0c137f5cf1646a6/json-pointer@0.1.0",
+        "--input-file",
+        "/tmp/jp-remote-k_vqn1zq/input.json",
+        "--timeout-ms",
+        "10000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "3dd8aa3cce878c97941810023d8cd9c4",
+        "--raw"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 3dd8aa3cce878c97941810023d8cd9c4 rejected the task (execution): host: ENTANGLE-E0505: plugin returned error: invalid-input: invalid pointer: a '~' escape must be '~0' or '~1'\n",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "daemon_logs": {
+    "coordinator": {
+      "path": "coordinator-daemon.log",
+      "sha256": "a441a58dd0f512b45c04c07542adadbfb3749d9c2118a4d20b6cd884ae6cda08"
+    },
+    "worker": {
+      "path": "worker-daemon.log",
+      "sha256": "47f3fcaafda25dc7229b5b229c908567c6340218c703165c4656fe27c441c314"
+    }
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_date_epoch": 1795762260,
+  "started_utc": "2026-11-27T07:12:26.476986+00:00",
+  "finished_utc": "2026-11-27T07:12:36.123481+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "docs/testing/production-review/evidence/candidate-c19ef758/packaging-steps-independent/repeat-seal.py",
+    "/tmp/entangle-c19-metadata-variants",
+    "/tmp/entangle-c19-metadata-repeat.EHoBnd"
+  ],
+  "exit_code": 0,
+  "run_count": 6,
+  "actual_pairwise_comparison_count": 15,
+  "byte_identical_archive_and_sidecars_sha256": {
+    ".tar.gz": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+    ".sha256": "cde998cb44488c5b77d35ea9383518181244d440c09e17b98cbe3f92e4a416e6",
+    ".b3": "10813eb4cf18d1cd8ebceadf37fcfaa6184f2f4cc17a890451484bc0b102a39b"
+  },
+  "canonical_archive_fields_and_member_hashes_match_every_run": true,
+  "packager_sha256": "a624432942809669ed8cc1be0909139ae85be67ed378ec08dba5cd0b9041db04",
+  "seal_helper_sha256": "6f29120b4a69cf0adbc872da8ed8ab047ac3a3b0f05e041ac91bb65bfd980775",
+  "b3sum_sha256": "7c2bd17e8eb6af190c7d120239fb3dbc59b4f6984d7a6c01f35fce2c108b8e0d",
+  "first_group_receipt_sha256": "1350d6a2e9fd350d893ed53881eaf9cd056a30cc319c6ffbe086dd9419a6c485",
+  "second_group_log_sha256": "a51588ee14b0792c27496a6065049baf1ed56502bc667c7b916be7ffe39059ce",
+  "input_controls_sha256": "339692616293e9d36d953d29c04781d59286120f4145d467a1997e82de7176a8",
+  "runs": [
+    {
+      "round": 1,
+      "variation": "a",
+      "output_dir": "/tmp/entangle-c19-metadata-variants/stage a/out",
+      "staging_observation_sha256": "ababd759e32be417ab3248f26e78f84cc22d3fcf6ee076346617ace1b644406e",
+      "observed_uid": 1000,
+      "observed_gid": 1000,
+      "umask": "0o22",
+      "timezone": "UTC",
+      "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+      "archive_blake3": "c77f097aaa921a50a2629681712aa9e01d63457b0df47e626c1b9163df74acac",
+      "checksum_verifier_command": [
+        "bash",
+        "/workspace/Entanglement/scripts/verify-release.sh",
+        "--checksums-only",
+        "/tmp/entangle-c19-metadata-variants/stage a/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+      ],
+      "checksum_verifier_exit_code": 0,
+      "checksum_verifier_output": "/tmp/entangle-c19-metadata-variants/stage a/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: SHA-256 matched\n/tmp/entangle-c19-metadata-variants/stage a/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: BLAKE3 matched\n/tmp/entangle-c19-metadata-variants/stage a/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: checksum verification passed\n"
+    },
+    {
+      "round": 2,
+      "variation": "a",
+      "output_dir": "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/out",
+      "staging_observation_sha256": "22b6e7e9c0685df9c3c1f39ea3bad2a69650c450a495d7f229dc387314cc05fb",
+      "observed_uid": 1000,
+      "observed_gid": 1000,
+      "umask": "0o22",
+      "timezone": "UTC",
+      "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+      "archive_blake3": "c77f097aaa921a50a2629681712aa9e01d63457b0df47e626c1b9163df74acac",
+      "checksum_verifier_command": [
+        "bash",
+        "/workspace/Entanglement/scripts/verify-release.sh",
+        "--checksums-only",
+        "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+      ],
+      "checksum_verifier_exit_code": 0,
+      "checksum_verifier_output": "/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: SHA-256 matched\n/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: BLAKE3 matched\n/tmp/entangle-c19-metadata-repeat.EHoBnd/atlas and ash/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: checksum verification passed\n"
+    },
+    {
+      "round": 1,
+      "variation": "b",
+      "output_dir": "/tmp/entangle-c19-metadata-variants/stage b/out",
+      "staging_observation_sha256": "0fdd4002508a159d38568ee78b1f7645239995a3bed47629fd917e6be41cc200",
+      "observed_uid": 1000,
+      "observed_gid": 1000,
+      "umask": "0o77",
+      "timezone": "Pacific/Honolulu",
+      "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+      "archive_blake3": "c77f097aaa921a50a2629681712aa9e01d63457b0df47e626c1b9163df74acac",
+      "checksum_verifier_command": [
+        "bash",
+        "/workspace/Entanglement/scripts/verify-release.sh",
+        "--checksums-only",
+        "/tmp/entangle-c19-metadata-variants/stage b/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+      ],
+      "checksum_verifier_exit_code": 0,
+      "checksum_verifier_output": "/tmp/entangle-c19-metadata-variants/stage b/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: SHA-256 matched\n/tmp/entangle-c19-metadata-variants/stage b/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: BLAKE3 matched\n/tmp/entangle-c19-metadata-variants/stage b/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: checksum verification passed\n"
+    },
+    {
+      "round": 2,
+      "variation": "b",
+      "output_dir": "/tmp/entangle-c19-metadata-repeat.EHoBnd/bank of snow/out",
+      "staging_observation_sha256": "0c91794072772d95b4d32905ece5cd93d713c009047129eb2ec6997a18c5b6f7",
+      "observed_uid": 1000,
+      "observed_gid": 1000,
+      "umask": "0o77",
+      "timezone": "Pacific/Honolulu",
+      "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+      "archive_blake3": "c77f097aaa921a50a2629681712aa9e01d63457b0df47e626c1b9163df74acac",
+      "checksum_verifier_command": [
+        "bash",
+        "/workspace/Entanglement/scripts/verify-release.sh",
+        "--checksums-only",
+        "/tmp/entangle-c19-metadata-repeat.EHoBnd/bank of snow/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+      ],
+      "checksum_verifier_exit_code": 0,
+      "checksum_verifier_output": "/tmp/entangle-c19-metadata-repeat.EHoBnd/bank of snow/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: SHA-256 matched\n/tmp/entangle-c19-metadata-repeat.EHoBnd/bank of snow/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: BLAKE3 matched\n/tmp/entangle-c19-metadata-repeat.EHoBnd/bank of snow/out/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: checksum verification passed\n"
+    },
+    {
+      "round": 1,
+      "variation": "c",
+      "output_dir": "/tmp/entangle-c19-metadata-variants/stage-c",
+      "staging_observation_sha256": "f5c1ee237a7478fb0163af8521661c0e3a14f833c63b6643efff7721f04f64fa",
+      "observed_uid": 0,
+      "observed_gid": 0,
+      "umask": "0o27",
+      "timezone": "Asia/Tokyo",
+      "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+      "archive_blake3": "c77f097aaa921a50a2629681712aa9e01d63457b0df47e626c1b9163df74acac",
+      "checksum_verifier_command": [
+        "bash",
+        "/workspace/Entanglement/scripts/verify-release.sh",
+        "--checksums-only",
+        "/tmp/entangle-c19-metadata-variants/stage-c/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+      ],
+      "checksum_verifier_exit_code": 0,
+      "checksum_verifier_output": "/tmp/entangle-c19-metadata-variants/stage-c/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: SHA-256 matched\n/tmp/entangle-c19-metadata-variants/stage-c/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: BLAKE3 matched\n/tmp/entangle-c19-metadata-variants/stage-c/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: checksum verification passed\n"
+    },
+    {
+      "round": 2,
+      "variation": "c",
+      "output_dir": "/tmp/entangle-c19-metadata-repeat.EHoBnd/container-output",
+      "staging_observation_sha256": "bbb2c6f13f5729cf3f270688e2edee69c92bdc073730de17d0bfbafb9746153c",
+      "observed_uid": 0,
+      "observed_gid": 0,
+      "umask": "0o27",
+      "timezone": "Asia/Tokyo",
+      "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+      "archive_blake3": "c77f097aaa921a50a2629681712aa9e01d63457b0df47e626c1b9163df74acac",
+      "checksum_verifier_command": [
+        "bash",
+        "/workspace/Entanglement/scripts/verify-release.sh",
+        "--checksums-only",
+        "/tmp/entangle-c19-metadata-repeat.EHoBnd/container-output/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+      ],
+      "checksum_verifier_exit_code": 0,
+      "checksum_verifier_output": "/tmp/entangle-c19-metadata-repeat.EHoBnd/container-output/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: SHA-256 matched\n/tmp/entangle-c19-metadata-repeat.EHoBnd/container-output/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: BLAKE3 matched\n/tmp/entangle-c19-metadata-repeat.EHoBnd/container-output/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: checksum verification passed\n"
+    }
+  ],
+  "scope": "Two packages per staging variation from the same optimized ELF bytes. No independent compile claim."
+}

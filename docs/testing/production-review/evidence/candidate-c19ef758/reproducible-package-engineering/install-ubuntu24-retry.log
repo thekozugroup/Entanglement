@@ -1,0 +1,84 @@
+2026-11-27T06:51:37Z
+sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.5 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo
+glibc 2.39
+x86_64
+
+  platform    linux/x86_64  (target x86_64-unknown-linux-gnu)
+  version     v0.1.0
+  tarball     https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  checksum    https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+  install to  /tmp/ent-native-install.NfsBdj/home/bin/entangle, /tmp/ent-native-install.NfsBdj/home/bin/entangled
+
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+    ok: 6f7ae3b18e686ce9187f90a0a0d4c4e1a369d7c945d462da91e8ac8f409c39e8
+==> Extracting
+==> Installing into /tmp/ent-native-install.NfsBdj/home/bin
+    /tmp/ent-native-install.NfsBdj/home/bin/entangle
+    /tmp/ent-native-install.NfsBdj/home/bin/entangled
+==> Verifying the installed binary
+    entangle 0.1.0
+
+warning: /tmp/ent-native-install.NfsBdj/home/bin is not on your PATH. Add it, e.g.:
+    echo 'export PATH="/tmp/ent-native-install.NfsBdj/home/bin:$PATH"' >> ~/.profile
+    export PATH="/tmp/ent-native-install.NfsBdj/home/bin:$PATH"   # for this shell
+
+Entanglement 0.1.0 installed.
+
+Next steps:
+  entangle init          # generate an Ed25519 identity + ~/.entangle/config.toml
+                         # (add --non-interactive to accept the defaults)
+  entangled run          # start the daemon in the foreground
+  entangle doctor        # health check: identity, config, keyring, daemon
+
+Then, in another terminal:
+  entangle mesh status
+  entangle plugins list
+
+Shell completions:
+  entangle completions bash   # also zsh, fish, powershell, elvish
+
+Run it as a service (Linux):
+  packaging/entangled.service — hardened systemd unit; see docs/install.md.
+
+For independent publisher and Sigstore verification with a trusted Entangle CLI:
+  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sig
+  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sigstore
+  entangle release verify entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz --publisher-key /path/to/trusted/release.pub
+https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+/tmp/ent-native-install.NfsBdj/home/bin/entangle: OK
+/tmp/ent-native-install.NfsBdj/home/bin/entangled: OK
+entangle 0.1.0
+entangled 0.1.0
+
+Setting up identity...
+  Identity ready at /tmp/ent-native-install.NfsBdj/home/.entangle/identity.key (mode 0600)
+  Fingerprint: 5049-938c-c068-a583-a518-d436-6774-b77d
+  Wrote /tmp/ent-native-install.NfsBdj/home/.entangle/config.toml
+  Wrote /tmp/ent-native-install.NfsBdj/home/.entangle/peers.toml (empty)
+  Wrote /tmp/ent-native-install.NfsBdj/home/.entangle/keyring.toml (empty)
+
+Next steps:
+  - Install a plugin:        entangle plugins install <NAME>
+  - See what is available:   entangle plugins available
+  - Pair another device:     entangle pair
+  - Start the daemon:        entangled run
+  - Run diagnostics:         entangle doctor
+{"local_peer_id":"5049938cc068a583a518d4366774b77d","local_display_name":"cb781937bfbe","transports_active":["local","iroh"],"seen_peer_count":0,"trusted_peer_count":0}
+2026-11-27T06:51:41Z

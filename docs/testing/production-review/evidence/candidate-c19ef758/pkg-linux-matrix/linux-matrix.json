@@ -1,0 +1,46 @@
+{
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/pkg-linux-matrix/verify.py --candidate-root /workspace/Entanglement --expected-source sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644 --jammy-container 0a320741a06b898c67063f3ef80265b18d2f2e047e64c082d4493655fef960ce --noble-container 45b52aa486a36583f5d7ab2b4bf8f36a2417c79cdc633d0ba8527cf5a9d7862b --output /workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/pkg-linux-matrix",
+  "started_at_utc": "2026-11-27T06:53:06+00:00",
+  "distros": {
+    "22.04": {
+      "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+      "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "networks": {},
+      "command": "docker exec 0a320741a06b898c67063f3ef80265b18d2f2e047e64c082d4493655fef960ce /bin/bash /fixture/run-in-container.sh 22.04 c19ef7587a2215ef9434b642413bebd0473caf20",
+      "exit_code": 0,
+      "copy_exit_code": 0,
+      "archive_sha256": "374036262367d1bc2eb1f26d45bcd196774ba01a0dc4f4386cc668ee9bbe3394",
+      "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+      "log": "docs/testing/production-review/evidence/candidate-c19ef758/pkg-linux-matrix/ubuntu-22.04-build.log",
+      "log_sha256": "c30797810e15348ff7391e19bec7d7fe71c1e46f039c6481ec238c0523bbb417"
+    },
+    "24.04": {
+      "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+      "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "networks": {},
+      "command": "docker exec 45b52aa486a36583f5d7ab2b4bf8f36a2417c79cdc633d0ba8527cf5a9d7862b /bin/bash /fixture/run-in-container.sh 24.04 c19ef7587a2215ef9434b642413bebd0473caf20",
+      "exit_code": 0,
+      "copy_exit_code": 0,
+      "archive_sha256": "374036262367d1bc2eb1f26d45bcd196774ba01a0dc4f4386cc668ee9bbe3394",
+      "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+      "log": "docs/testing/production-review/evidence/candidate-c19ef758/pkg-linux-matrix/ubuntu-24.04-build.log",
+      "log_sha256": "deb8b904b10749e7cb0cf00fb3664d6eb08f0de27437daf84b5ca68717c933b0"
+    }
+  },
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "docker_security": [
+    "name=seccomp,profile=builtin",
+    "name=rootless",
+    "name=cgroupns"
+  ],
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_matches": true,
+  "archive_digests_match": true,
+  "path": "docs/testing/production-review/evidence/candidate-c19ef758/pkg-linux-matrix/linux-matrix.log",
+  "sha256": "ad867a675ad0369d2a8646c1b6f056224162217ea7efdc0054e72935cd3d8752",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "exit_code": 0,
+  "observed_at_utc": "2026-11-27T07:01:36+00:00",
+  "claim": "Direct reproducibility in separate rootless Ubuntu 22.04 and 24.04 userspaces on one x86_64 Linux host."
+}

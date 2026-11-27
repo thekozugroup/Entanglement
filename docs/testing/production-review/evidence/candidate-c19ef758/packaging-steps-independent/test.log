@@ -1,0 +1,30 @@
+2026-11-27T06:54:04Z
+c19ef7587a2215ef9434b642413bebd0473caf20
+sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644
+1795762260
+test_another_install_keeps_its_staging_directory (__main__.InstallerTransaction.test_another_install_keeps_its_staging_directory) ... ok
+test_failed_first_install_removes_partial_pair (__main__.InstallerTransaction.test_failed_first_install_removes_partial_pair) ... ok
+test_forced_publish_failure_restores_original_pair (__main__.InstallerTransaction.test_forced_publish_failure_restores_original_pair) ... ok
+test_missing_or_unusable_daemon_preserves_previous_pair (__main__.InstallerTransaction.test_missing_or_unusable_daemon_preserves_previous_pair) ... ok
+test_publication_interrupt_rolls_back (__main__.InstallerTransaction.test_publication_interrupt_rolls_back) ... ok
+test_restore_failure_retains_recovery_files (__main__.InstallerTransaction.test_restore_failure_retains_recovery_files) ... ok
+test_same_version_skip_and_repair (__main__.InstallerTransaction.test_same_version_skip_and_repair) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 3.767s
+
+OK
+['bash', '--noprofile', '--norc', '-eo', 'pipefail', '/workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/packaging-steps-independent/package-shell-block.sh']
+...
+----------------------------------------------------------------------
+Ran 3 tests in 3.133s
+
+OK
+Extracted workflow package block exit 0
+['bash', '--noprofile', '--norc', '-eo', 'pipefail', '/workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/packaging-steps-independent/smoke-shell-block.sh']
+Extracted workflow smoke block exit 0
+entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: OK
+entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: OK
+1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787  /tmp/entangle-native-release-proof/combined-workflow-archive/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644
+2026-11-27T06:55:30Z

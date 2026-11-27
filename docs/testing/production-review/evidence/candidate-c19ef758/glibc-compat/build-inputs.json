@@ -1,0 +1,36 @@
+{
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "from_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "prior_build_receipt_sha256": "17dff1fe8ecc0dfa9005a0d3de11c4dcfd02c7a9245bab15db3a9299bd499083",
+  "prior_provision_receipt_sha256": "be45b7792173b6879130f4cab10866874913c5fba12c5fbde09a0e52dccecc0b",
+  "method": "Retained Ubuntu 22.04 ELFs from the prior locked/offline optimized build. The compiler was not run for this release-only successor.",
+  "equal_git_tree_or_blob_ids": {
+    "Cargo.toml": "81a51268b93b619e266e62d39707371d3eb72b7c",
+    "Cargo.lock": "0ba41d6aba79d6922dc471d2c997336514b20307",
+    "rust-toolchain.toml": "33712dc487d290cdb0c7cd31da12073cdbcb4e95",
+    ".cargo": "44fc71c6e4d8775837419ac110d0fafb8b4ac904",
+    "crates": "6f7e09ab220a28f8771c1d352099e126ac23e9e5",
+    "tools": "f507ca4022dfd955d534fe4d09097ef98fa62a0d",
+    "examples": "346a89eb6782e59bcc2b1f1c016007d4c8c57d34",
+    "plugins": "7f8cc5be10e61f331d8514068afcbbcd4ec4993e",
+    "supply-chain": "16d8fb25ec84e58f7f3fd738a962175f39d9a3bf",
+    "docker": "5574e649857438ce8d2eabfa98aa067ff507fba2"
+  },
+  "changed_outside_evidence": [
+    ".github/workflows/release.yml",
+    "docs/install.md",
+    "docs/testing/native-release-packaging.md",
+    "scripts/install.sh",
+    "scripts/package-native-release.py",
+    "scripts/tests/test_install_transaction.py",
+    "scripts/tests/test_package_native_release.py"
+  ],
+  "unchanged_elfs_sha256": {
+    "xtask": "624c8eef5d2f8796394ce8c4554ec28fc565ccd375b5fe1f90cc9317463484b7",
+    "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+    "cargo-entangle": "174a2ad4bc313b42b0ac3e0fb78d21322bd2d2c31a2e83dc9373d6d231c9d018",
+    "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098"
+  }
+}

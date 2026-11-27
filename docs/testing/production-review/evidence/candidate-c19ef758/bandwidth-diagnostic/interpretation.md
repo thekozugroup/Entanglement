@@ -1,0 +1,14 @@
+# One preregistered diagnostic run
+
+The timestamped repetition passed the original initial-selection, rate-reversal, small-request and unchanged-topology assertions, with 28 successful authenticated calls and zero local placement misses. The original c19 qualification run failed its first two-worker decision. Both results are retained. [Original failure](../bandwidth-live-scorer-receipt.json) · [Diagnostic plan](plan.md) · [Diagnostic receipt and monotonic time bounds](receipt.json)
+
+| Timing or decision | Observation |
+|---|---|
+| Last directed fast call to first open choice | 8.386 s elapsed between receiving the directed result and starting the open call. Even counting the full duration of both calls, the decision-to-decision interval was at most 8.524 s. |
+| Last directed slow call to first open choice | 0.019 s from directed response to open call. The corresponding full-call upper bound was 1.384 s. |
+| Oldest possible recorded upload in this diagnostic at the first open decision | At most 8.676 s for fast and 6.647 s for slow, measured from the start of the first large training invocation to the end of the open call. The fresh-cluster timestamps rule out a 60-second upload TTL expiry in this run. |
+| Last directed reasons | Fast reported 680.81 Mb/s and a 4 ms capability RTT. Slow reported 4.93 Mb/s and 374 ms RTT. Both reported cost 1, zero load, zero advertised bandwidth and zero in-flight reservations. |
+| First open choice | The initially faster peer reported 694.71 Mb/s and 8 ms RTT, was selected at displayed score 2.18 and returned the correct nonce. The mesh RPC reported both identities trusted immediately before and after the decision. Its static-route mesh views exposed no per-worker placement metrics. |
+| Pacing reversal | With the same processes still alive, the previously slow worker became faster and was selected. It reported 505.47 Mb/s and 2 ms RTT on that open request. The tiny request returned the correct bytes without a measured-upload term. |
+
+The previous run's chosen slower worker reported 3.18 Mb/s and 57 ms RTT. At that run’s earlier directed rates, the actual frozen chooser favors the fast worker if both RTTs are 57 ms, and can favor the slow worker at 131 ms versus 57 ms. That is a conditional result from the implementation. The failed run did not record its losing worker’s contemporaneous RTT, refreshed EWMA or sample age. The repeat demonstrates that fresh estimates, RTT and bandwidth can all favor the same worker and that the scheduling decision can reverse when the synthetic link changes. It cannot establish which input caused the original miss. These rates are the daemon’s upload estimates on one host’s user-space routes, not measurements from two physical network links. [Independent chooser attribution](../bandwidth-placement-attribution/receipt.json) · [All dispatch reasons and trust snapshots](attempts.jsonl)

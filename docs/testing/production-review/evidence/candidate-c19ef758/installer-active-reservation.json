@@ -1,0 +1,24 @@
+{
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "reviewer": "/root/tailroute",
+  "started_utc": "2026-11-27T06:55:24.009910+00:00",
+  "finished_utc": "2026-11-27T06:55:25.277743+00:00",
+  "command": [
+    "/bin/sh scripts/install.sh --version v1.2.3 --prefix <private shared prefix> --force",
+    "/bin/sh scripts/install.sh --version v1.2.3 --prefix <same prefix>"
+  ],
+  "exit_code": 0,
+  "first_forced_publication": 0,
+  "overlapping_same_version_noop": 1,
+  "active_reservation_untouched": true,
+  "previous_pair_unchanged_while_owner_staging": true,
+  "published_bytes_match_new_fixture": true,
+  "download_adapter_receives": 2,
+  "installer_sha256": "193f44c3551c25864ba8641dd714079805b69db24a7bbf9dfa1e304d62335ab0",
+  "fixture_sha256": "57ef496e4ef2fc1652f8d1dbc00daa54a6c3f45373a644284a3bb3a45d33ce01",
+  "driver_sha256": "b081625af8ac983f94e66575fe0905654b556b9248a75b74da7ff13ee5b78543",
+  "scope": "Two ordinary installer processes, a temporary prefix, existing same-version fixture pair, local-only download fixture paused before the first archive read. The incumbent resumed and successfully published its complete pair."
+}
