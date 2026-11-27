@@ -1,0 +1,31 @@
+{
+  "archives": {
+    "761485d7490a56c7215ad958db81949204c74245": {
+      "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+      "archive_sha256": "da07d6662bda25c9da80974e81d12a62683173f1f67194d841d83c8536145f8a",
+      "elf_sha256": {
+        "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+        "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+      }
+    },
+    "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e": {
+      "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+      "archive_sha256": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf",
+      "elf_sha256": {
+        "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+        "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+      }
+    }
+  },
+  "release_tree_equal_to_archive_elf_bytes": true,
+  "changed_paths_outside_excluded_review_evidence": [
+    "crates/entangle-agent-host/tests/session.rs"
+  ],
+  "identical_inputs_across_revisions_sha256": {
+    "scripts/run-rust-tests.py": "5d5370b11f52530bfcd470473f0360b18539ea65abe759ab803819e76e24dcd6",
+    "scripts/tests/distributed-rust-tests.py": "2244229b57651c6e908c50f4ddc86a43221ac16743dd89429f9e372621f43627",
+    "scripts/tests/fixtures/libtest_retry.rs": "cce93823e7bb2d95cec2e7dedb91c06069d3032a090b37923249ab0b1db345eb",
+    "docs/testing/production-review/evidence/candidate-864ae27b/distributed-rust-workspace/dispatch-cargo-workspace.py": "38b2562db53914da0f6c084db5ec260f7bc3a30ce8b43634566cd4ea483cb8d9",
+    "docs/testing/production-review/evidence/candidate-864ae27b/distributed-rust-workspace/verify-native-parity.py": "14e906dc2b90428e336da669b209cb67f5ebf57941efbe03389b68f5b26bb2a7"
+  }
+}

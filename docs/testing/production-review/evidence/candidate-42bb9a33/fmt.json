@@ -1,0 +1,20 @@
+{
+  "source_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "source_before": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "fixture_before_sha256": "5fb9e907b7573f501464533b938b2796344b56f836ea4edb75d8bf6558189528",
+  "fixture_after_sha256": "5fb9e907b7573f501464533b938b2796344b56f836ea4edb75d8bf6558189528",
+  "started_utc": "2026-11-27T03:55:30.310213+00:00",
+  "finished_utc": "2026-11-27T03:55:31.138974+00:00",
+  "command": [
+    "cargo",
+    "fmt",
+    "--all",
+    "--",
+    "--check"
+  ],
+  "exit_code": 0,
+  "log": "fmt.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "test_threads": null
+}

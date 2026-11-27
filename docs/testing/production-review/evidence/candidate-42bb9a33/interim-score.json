@@ -1,0 +1,228 @@
+{
+  "blockers": [
+    {
+      "id": "ATC-PKG-1",
+      "reason": "Fresh successor serial clean package digest evidence is pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-PKG-2",
+      "reason": "Fresh candidate Ubuntu user-space evidence pending; real macOS-14 and independent host evidence remain absent.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-PKG-4",
+      "reason": "A public detached signed package for this successor and independent public fetch/rebuild have not yet been demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-WRP-1",
+      "reason": "Actual successor release install and fresh-shell opt-in evidence is pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-WRP-3",
+      "reason": "Candidate has new shell wrapper doctor tests; exact release interactive bypass cases are pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MAX-1",
+      "reason": "No actual tier-5 agent-host fixture has been demonstrated for the specified interactive 5 to 3 transition.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MAX-2",
+      "reason": "No actual tier-5 agent-host fixture has been demonstrated for the specified forced 5 to 3 transition.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MAX-3",
+      "reason": "No actual tier-5 agent-host fixture has been demonstrated for the specified canceled 5 to 3 transition.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MIR-1",
+      "reason": "Signed publisher-vs-mirror boundary is tested locally, but named production mirror delivery is not shown.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-REL-1",
+      "reason": "No production signed 1.0 RC artifact and actual keyless inclusion proof is available.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-REL-2",
+      "reason": "No actual documented two-of-three production release key ceremony is available.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-BUS-1",
+      "reason": "Fresh actual bus-factor governance receipt pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-BUS-2",
+      "reason": "Fresh rotation governance receipt pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "COR-PLATFORMS",
+      "reason": "All specified real Linux and macOS candidate runners are not demonstrated; GitHub Actions are forbidden.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "AUTH-LIVE",
+      "reason": "Fresh candidate live trust-revocation and both-direction denial test is pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "AUTH-WASI",
+      "reason": "Full malicious filesystem cases on every supported OS host are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "AUTH-CHAIN",
+      "reason": "Fresh source-bound scans of the root and all standalone lockfiles are pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "REL-RESTART",
+      "reason": "Fresh candidate active-work restart evidence pending; supported macOS host remains absent.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "REL-PARTITION",
+      "reason": "Actual distinct-host link disconnect and transport restart are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "REL-LIMITS",
+      "reason": "Fresh release saturation/recovery evidence pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-LINUX",
+      "reason": "Independent x86-64 and aarch64 Linux host workload results are not both demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-MAC",
+      "reason": "Real Intel and Apple Silicon macOS workloads are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-WAN",
+      "reason": "Independent networks and actual direct NAT traversal plus forced public relay are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-TAILNET",
+      "reason": "Two real tailnet hosts with access control and reconnection are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-LAN",
+      "reason": "Physical distinct-host multicast discovery and authenticated workload are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-LLM",
+      "reason": "Real 70B inference on specified GPU and battery laptop workload is not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-IMAGE",
+      "reason": "8,000 RAW images on three physical desktops and 10x speedup are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-TEST",
+      "reason": "Entire Rust workspace distributed with flaky aggregation is not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-BASELINE",
+      "reason": "Same-VM 761 versus 864 comparison missed proposed limits in six of seven routes (including image-local p95 +50.3% and remote/4 p95 +31.9%); three-trial shared-VM variance limits attribution. No previously approved comparable baseline is recorded, so the formal gate remains unverified.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-RELEASE",
+      "reason": "Four real production signed archives, provenance, rebuilds and installers are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-GOVERNANCE",
+      "reason": "Fresh candidate actual governance receipt pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-RECOVERY",
+      "reason": "Fresh Linux and supported macOS encrypted recovery remain pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-SECURITY",
+      "reason": "Fresh candidate independent review and dated incident rehearsal are pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-CI",
+      "reason": "Real required hosted CI and branch-protection results absent; user prohibited GitHub Actions.",
+      "status": "not_evidenced"
+    }
+  ],
+  "metrics": {
+    "authorization_isolation": {
+      "fail": 0,
+      "not_evidenced": 7,
+      "over_95": false,
+      "pass": 12,
+      "score_percent": 63.1578947368421,
+      "total": 19
+    },
+    "correctness": {
+      "fail": 0,
+      "not_evidenced": 3,
+      "over_95": false,
+      "pass": 7,
+      "score_percent": 70.0,
+      "total": 10
+    },
+    "interoperability": {
+      "fail": 0,
+      "not_evidenced": 5,
+      "over_95": false,
+      "pass": 0,
+      "score_percent": 0.0,
+      "total": 5
+    },
+    "performance": {
+      "fail": 0,
+      "not_evidenced": 4,
+      "over_95": false,
+      "pass": 0,
+      "score_percent": 0.0,
+      "total": 4
+    },
+    "release_operations": {
+      "fail": 0,
+      "not_evidenced": 12,
+      "over_95": false,
+      "pass": 1,
+      "score_percent": 7.6923076923076925,
+      "total": 13
+    },
+    "reliability": {
+      "fail": 0,
+      "not_evidenced": 3,
+      "over_95": false,
+      "pass": 3,
+      "score_percent": 50.0,
+      "total": 6
+    }
+  },
+  "ready_over_95": false,
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_verified_current": true
+}

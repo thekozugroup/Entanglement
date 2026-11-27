@@ -1,0 +1,9 @@
+# Independent real inference validation
+
+Reviewed candidate `42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e`, source ID `sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348`. Input `result.json` SHA-256: `c18285065e2d77f08620bf167ef27e4afc684e1e11824ffb5200834754274b39`.
+
+The independent verifier recalculated both BLAKE3-16 worker identities from their public keys and verified all 139 Ed25519 chunk signatures, sequence numbers, task bindings and payload digests. It reconstructed all six outputs, checked their SHA-256 values, and compared exact text and token counts with the saved separate direct backend JSON. All passed. Candidate CLI and daemon, model, driver, server executable and five recorded shared libraries were independently hashed and matched the receipt. [Verification results](independent-verification.json) · [Verifier](independent-verify.py)
+
+The samples ran three prompts through each of two OpenAI-compatible endpoints against the same local TinyLlama 1.1B quantized CPU backend, two threads and zero GPU layers. They produced 20–24 tokens each. First signed chunk times were 957–4,052 ms and end-to-end rates were 0.78–7.49 tokens/s; these short samples do not establish sustained throughput. The first completion incurred one preplacement refusal and 280 ms of inventory wait before the accepted-open timing; the other five recorded no wait. The direct calls were separate non-streaming greedy requests to the same backend, not an independent model-quality oracle. Other jobs were active on the shared VM, so the timings should not be treated as controlled performance measurements.
+
+**PERF-LLM remains not evidenced.** This is functional real-model inference between separate processes on one Linux x86_64 host, not the frozen 70B GPU workload on an M4 Max or RTX 4090 with a separate battery laptop and the stipulated sustained targets.

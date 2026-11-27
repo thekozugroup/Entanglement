@@ -1,0 +1,29 @@
+{
+  "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_before": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 docs/testing/production-review/evidence/candidate-42bb9a33/real-inference-cancellation/verify.py --root /workspace/Entanglement --bin-dir target/release --expected-source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348 --reference docs/testing/production-review/evidence/candidate-42bb9a33/linux-archive.json --prior-driver docs/testing/production-review/evidence/candidate-42bb9a33/real-inference/verify.py --server /tmp/entanglement-cpu-server-b6910/bin/llama-server --model /tmp/entangle-llama-cpu-model/TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf --output docs/testing/production-review/evidence/candidate-42bb9a33/real-inference-cancellation",
+  "finished_at_utc": "2026-11-27T04:03:20.892+00:00",
+  "elapsed_ms": {
+    "close_rpc_ack": 0.679,
+    "worker_http_disconnect": 1.042,
+    "backend_socket_closed": 1.08,
+    "replacement_mesh_admission": 10.267,
+    "replacement_backend_forwarded": 16.386,
+    "replacement_first_signed_output": 1064.439
+  },
+  "exit_code": 0,
+  "claim": "After verified first TinyLlama output, cancellation closed worker and backend sockets. llama.cpp recorded cancellation and released its single slot, then a different verified request completed with exact direct API parity.",
+  "backend_trace_lines": [
+    167,
+    169,
+    177
+  ],
+  "files_sha256": {
+    "coordinator-daemon.log": "67b9c405da4c69f784bf76ce5af8ad545d6af90f0c20158f46658c7541a978e3",
+    "llama-server.log": "750da4c4e8a87a8c65e98e70d0dce8fd7a390dfd355543d01f6e00a16323c9d4",
+    "result.json": "280273989b814ae0a87c2a91324a644eba5838fe958a7120d61c1216fad43608",
+    "verify.py": "6f1231eb819e4e47794fd8c494946bac9fcb62e72265d8cfcd18451ab689ee4a",
+    "worker-daemon.log": "04bb02f33822f44b7d6de3e5f9165036052419ff08f4865d84e45c86dcd7377e"
+  }
+}

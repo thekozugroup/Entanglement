@@ -1,0 +1,5 @@
+$ /workspace/Entanglement/target/release/entangled run
+{"timestamp":"2026-11-27T04:00:15.874227Z","level":"INFO","fields":{"message":"broker audit","event":"PluginRegistered { plugin: PluginId { publisher: \"678d368fe1fd46a4285213afed691405\", name: \"wasm-tier-three-survivor\", version: Version { major: 0, minor: 1, patch: 0 } }, declared_tier: Networked, implied_tier: Sandboxed, effective_tier: Networked, at: SystemTime { tv_sec: 1795752015, tv_nsec: 874212410 } }"},"target":"entangle::audit"}
+{"timestamp":"2026-11-27T04:00:15.952807Z","level":"INFO","fields":{"message":"tier policy decision","code":"ENTANGLE-I0215","previous":"tier-5","proposed":"tier-3"},"target":"entangle::audit"}
+{"timestamp":"2026-11-27T04:00:15.974636Z","level":"INFO","fields":{"message":"tier policy decision","code":"ENTANGLE-I0215","previous":"tier-3","proposed":"tier-5"},"target":"entangle::audit"}
+{"timestamp":"2026-11-27T04:00:15.983558Z","level":"INFO","fields":{"message":"tier policy decision","code":"ENTANGLE-I0215","previous":"tier-5","proposed":"tier-3"},"target":"entangle::audit"}

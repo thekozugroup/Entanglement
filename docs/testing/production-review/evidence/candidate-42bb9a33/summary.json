@@ -1,0 +1,45 @@
+{
+  "source_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "fixture_sha256": "5fb9e907b7573f501464533b938b2796344b56f836ea4edb75d8bf6558189528",
+  "environment": {
+    "CARGO_HOME": "/workspace/.entanglement-dev/cargo",
+    "RUSTUP_HOME": "/workspace/.entanglement-dev/rustup",
+    "CARGO_TARGET_DIR": "/workspace/Entanglement/target",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_BUILD_JOBS": "4",
+    "TOKIO_WORKER_THREADS": "2",
+    "RAYON_NUM_THREADS": "2"
+  },
+  "checks": [
+    {
+      "name": "fmt",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "workspace-test",
+      "exit_code": 0,
+      "log_sha256": "b06520771c321d60a09df7e4f0250680ecbc31cf01a2107672be23f9da8895ac"
+    },
+    {
+      "name": "focused-clippy",
+      "exit_code": 0,
+      "log_sha256": "68b1f6a8d5fb8490d553082cf8d6b719ec14e39b85fffe2a2f214645eb687ed8"
+    }
+  ],
+  "fresh_57_gate_evaluation": false,
+  "workspace_counts": {
+    "groups": 104,
+    "passed": 756,
+    "failed": 0,
+    "ignored": 28
+  },
+  "new_parallel_session_tests": {
+    "session_start_no_prior_config_restore_removes_file": "passed",
+    "session_start_and_restore_round_trips": "passed"
+  },
+  "scope": "Follow-up test-only change; no fresh 57-gate production assessment."
+}

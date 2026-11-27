@@ -1,0 +1,26 @@
+{
+  "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "command": "python3 scripts/tests/recovery.py --bin-dir /tmp/entangle-check-42bb9a33-archive",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T04:00:40.489519+00:00",
+  "observed_at_utc": "2026-11-27T04:00:47.579599+00:00",
+  "platform": "Linux 6.18.57 x86_64",
+  "artifact_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "archive_sha256": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf",
+  "archive_receipt_sha256": "f3250df52099618cd9e234f5bc76bf758114e4ac5bbe5e1ec0e5025b9008bb0e",
+  "release_receipt_sha256": "6832db07a9382325f8c0506e478cd6fb314a78303b5ab14fa9355d072b4d1f37",
+  "harness_sha256": "1045a76e981ec7b57c7d784bae2d723db3033e122a591466f389a70fb06bb3d6",
+  "observed": {
+    "linux_restored_peer_id": "342d45018a559d2d9a4cbe7137460cd6",
+    "signed_work_before_and_after": "verified",
+    "relocated_startup_package_and_bridge_ledger": "verified",
+    "receiver_rejected_revoked_submitter": "verified",
+    "wrong_passphrase_and_corruption": "rejected without publishing",
+    "occupied_target": "preserved",
+    "private_modes": "verified"
+  }
+}

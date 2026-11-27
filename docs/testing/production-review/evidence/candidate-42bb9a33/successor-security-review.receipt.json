@@ -1,0 +1,35 @@
+{
+  "reviewer": "/root/advert",
+  "source_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "source_before": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "started_utc": "2026-11-27T04:01:38.435651+00:00",
+  "finished_utc": "2026-11-27T04:03:37.419808+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-42bb9a33/successor-security-review.md",
+  "sha256": "799e387479b5f7b7f86bdc979cd8c29a2a54938cf2e0261b1919cee4cc37bb2e",
+  "method": "Independent scoped code review, exact Git object comparison, and source-bound executable proof verification",
+  "archive_sha256": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf",
+  "binary_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "open_high": 0,
+  "open_critical": 0,
+  "supporting_log": "docs/testing/production-review/evidence/candidate-42bb9a33/security-scope-verification.log",
+  "supporting_log_sha256": "e12e92cd0bf8e1ec3e3e5b69bdee82d66a2c83c402f10b1b7155ebc75552d7d7",
+  "evidence_sha256": {
+    "security-scope-verification.log": "e12e92cd0bf8e1ec3e3e5b69bdee82d66a2c83c402f10b1b7155ebc75552d7d7",
+    "workspace-test.log": "b06520771c321d60a09df7e4f0250680ecbc31cf01a2107672be23f9da8895ac",
+    "lan-mdns-independent.log": "1193b291bdc193bc240f74aa387ef4b17d9733803bcc5299abfe72eb07a7b16c",
+    "release-command-run.log": "71c99d8b4b02c3ad7458b3f7f9480c8fce615c14fe16145b52901500b0133729",
+    "archive-command-run.log": "93551cf5b499c487bf30b690c5fed35d096127afdf3922cd51c99bbfea27483f",
+    "installed-uds.log": "360f2944db928f35350f32772d7fe5aded3dfe7abd6d8aedc98ba98a3f63205b",
+    "publisher-rotation-rehearsal.log": "436368464e2c0150c2ed28bdc3c5ac3ae219a173b09f85ca82dc046352cce9df",
+    "publisher-incident-exercise.md": "e77accd4019556803fd7e5c4d593ee0090fb03a556a272d9eb7933404f205181",
+    "auth-live-linux.json": "38a0d79ae61464a70a33663408a259468eccff9f3340e52fb95e77312cfc8beb",
+    "loader-boundary-linux.json": "b9488739c11d7bb4efa9161cc1c6dd4a9bf2b96f5107f17c73e4a17ece6f86c0",
+    "loader-security-disposition.md": "b1683c1813a3f45dae1efd275759457b0401ba4c345bdd9f2261143329b02019",
+    "private-recovery-linux.json": "8540dcaa46d82912920d1ed5fd9f0dbfa31ab92856311f4d5b79672dab2ca970"
+  }
+}

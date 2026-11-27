@@ -1,0 +1,265 @@
+{
+  "candidate_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "candidate_source": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_before_after_equal": true,
+  "official_elf_and_runner_hashes_checked": true,
+  "inputs": {
+    "upstream_revision": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+    "dependency_lock_sha256": "3192202a77857b38733c7594a9a67a8d2970d51c6176487b48c83578c58ea888",
+    "known_target_count": 23,
+    "identical_wasm_inputs_by_kind": {
+      "lib": 9,
+      "test": 8
+    },
+    "target_hashes": [
+      {
+        "kind": "lib",
+        "package": "rand_chacha",
+        "target": "rand_chacha",
+        "prior_sha256": "d82399e19084ea22329003e8713c20a86af4eb7c7c4d3389da32804786d71fa9",
+        "current_sha256": "d82399e19084ea22329003e8713c20a86af4eb7c7c4d3389da32804786d71fa9",
+        "same": true
+      },
+      {
+        "kind": "lib",
+        "package": "rand_hc",
+        "target": "rand_hc",
+        "prior_sha256": "f1c117dfe654741d80661573f42c8e9aa60e7f82a4306ebf7d15dae606b8fff1",
+        "current_sha256": "f1c117dfe654741d80661573f42c8e9aa60e7f82a4306ebf7d15dae606b8fff1",
+        "same": true
+      },
+      {
+        "kind": "lib",
+        "package": "rand_isaac",
+        "target": "rand_isaac",
+        "prior_sha256": "24fe100a933021c11eb6f2abf751896acb18dd4a9e5d9264e5f15cc626f5f389",
+        "current_sha256": "24fe100a933021c11eb6f2abf751896acb18dd4a9e5d9264e5f15cc626f5f389",
+        "same": true
+      },
+      {
+        "kind": "lib",
+        "package": "rand_jitter",
+        "target": "rand_jitter",
+        "prior_sha256": "efb783190ee87eff223e1118afec0423f9d2d2242f06711a2a302b0c3b10d125",
+        "current_sha256": "efb783190ee87eff223e1118afec0423f9d2d2242f06711a2a302b0c3b10d125",
+        "same": true
+      },
+      {
+        "kind": "lib",
+        "package": "rand_mwcx",
+        "target": "rand_mwcx",
+        "prior_sha256": "3bb015996df7a0907c3128b422094a21f48761c271220c54f41d0c30c9374d28",
+        "current_sha256": "3bb015996df7a0907c3128b422094a21f48761c271220c54f41d0c30c9374d28",
+        "same": true
+      },
+      {
+        "kind": "lib",
+        "package": "rand_pcg",
+        "target": "rand_pcg",
+        "prior_sha256": "81bf39493345f699ee8780c3563199edb3d1332b47518597a0e8dd78e368c087",
+        "current_sha256": "81bf39493345f699ee8780c3563199edb3d1332b47518597a0e8dd78e368c087",
+        "same": true
+      },
+      {
+        "kind": "lib",
+        "package": "rand_sfc",
+        "target": "rand_sfc",
+        "prior_sha256": "2437c492fb405afd84db238f2fa52e769c35054aeee70b63a1be205332125fa0",
+        "current_sha256": "2437c492fb405afd84db238f2fa52e769c35054aeee70b63a1be205332125fa0",
+        "same": true
+      },
+      {
+        "kind": "lib",
+        "package": "rand_xorshift",
+        "target": "rand_xorshift",
+        "prior_sha256": "f65b82393c106101a4660afdbba6e5664aeead972e5f21305a72a785adbdb349",
+        "current_sha256": "f65b82393c106101a4660afdbba6e5664aeead972e5f21305a72a785adbdb349",
+        "same": true
+      },
+      {
+        "kind": "lib",
+        "package": "rand_xoshiro",
+        "target": "rand_xoshiro",
+        "prior_sha256": "128ea19a6be29c1bb88ac90f8f292c8dbe1cbcaeb3ad1b726259c8955a3538f4",
+        "current_sha256": "128ea19a6be29c1bb88ac90f8f292c8dbe1cbcaeb3ad1b726259c8955a3538f4",
+        "same": true
+      },
+      {
+        "kind": "rustdoc",
+        "package": "rand_chacha",
+        "target": "doctest",
+        "prior_sha256": "c16e62709369a151b43f3544e67fbcf100b9f2a507e9c8b85f11cc1147c10e62",
+        "current_sha256": "909486ba92870961c17880e7dda02eaeb7466c69ed2eeef42651ac87e9c3d3a1",
+        "same": false
+      },
+      {
+        "kind": "rustdoc",
+        "package": "rand_jitter",
+        "target": "doctest",
+        "prior_sha256": "187ab4cd2bf0933a63e02e51d4c0d814ed0d4cd9552e07592e303b2b51cbf161",
+        "current_sha256": "97112c40209b6e5a7e47802e1b67a6ee50500dbf6223da84033769d6f493e386",
+        "same": false
+      },
+      {
+        "kind": "rustdoc",
+        "package": "rand_mwcx",
+        "target": "doctest",
+        "prior_sha256": "0608017c8a7fd24e37e3ed3a7a92edb1158299d7b35a46979859234de4e4a391",
+        "current_sha256": "3b7be1e79fb465713ed3dd37051c0a277527da451028e0d4ed34322ec27746c5",
+        "same": false
+      },
+      {
+        "kind": "rustdoc",
+        "package": "rand_pcg",
+        "target": "doctest",
+        "prior_sha256": "b3bb4b0b2446cfdb39e07a9165283a2c56a93dd6d5b6dd266ffe148880327734",
+        "current_sha256": "0e912a09eeb0ef606f28b856e21d07bf8e9248db53e572ab851580f67a40288b",
+        "same": false
+      },
+      {
+        "kind": "rustdoc",
+        "package": "rand_xorshift",
+        "target": "doctest",
+        "prior_sha256": "9c683035e7d64e044560f73435afcd95e5430c9cecf66b6b98379874144aaf68",
+        "current_sha256": "b7c03e8e2a25b50c4e51308310c00ed0438570d074f8457721db16526175ad97",
+        "same": false
+      },
+      {
+        "kind": "rustdoc",
+        "package": "rand_xoshiro",
+        "target": "doctest",
+        "prior_sha256": "495c4de1a77dac823297fdcb9f873d67ef7f9cd7b717184e309c689dc82a2f8a",
+        "current_sha256": "1523cb70515cbb189417fcee7cac9f726bf7be7581ad89b9047c7e3352176674",
+        "same": false
+      },
+      {
+        "kind": "test",
+        "package": "rand_jitter",
+        "target": "mod",
+        "prior_sha256": "1fe10ae04b1059e5a4ce789c454de63b803f9e3dc56429db51e67611237e1cbc",
+        "current_sha256": "1fe10ae04b1059e5a4ce789c454de63b803f9e3dc56429db51e67611237e1cbc",
+        "same": true
+      },
+      {
+        "kind": "test",
+        "package": "rand_mwcx",
+        "target": "serde",
+        "prior_sha256": "a019ca5256e15035c2105423da4e9f33d91629fcf94afeed2f374a8b3c784e29",
+        "current_sha256": "a019ca5256e15035c2105423da4e9f33d91629fcf94afeed2f374a8b3c784e29",
+        "same": true
+      },
+      {
+        "kind": "test",
+        "package": "rand_pcg",
+        "target": "lcg128cmdxsm64",
+        "prior_sha256": "8e318003776dd9651f71e5372469f65652d297d7dfe93356ea8352e1b1b1b0b8",
+        "current_sha256": "8e318003776dd9651f71e5372469f65652d297d7dfe93356ea8352e1b1b1b0b8",
+        "same": true
+      },
+      {
+        "kind": "test",
+        "package": "rand_pcg",
+        "target": "lcg128xsl64",
+        "prior_sha256": "9ff2a611dfcb487496b827cf77601bf8e6903add01dc3aea6de99729db7c236a",
+        "current_sha256": "9ff2a611dfcb487496b827cf77601bf8e6903add01dc3aea6de99729db7c236a",
+        "same": true
+      },
+      {
+        "kind": "test",
+        "package": "rand_pcg",
+        "target": "lcg64xsh32",
+        "prior_sha256": "5f6fb7a2c44fdf4aa7e289efad4cb08b3890091d3e671284d9781e235cf340b9",
+        "current_sha256": "5f6fb7a2c44fdf4aa7e289efad4cb08b3890091d3e671284d9781e235cf340b9",
+        "same": true
+      },
+      {
+        "kind": "test",
+        "package": "rand_pcg",
+        "target": "mcg128xsl64",
+        "prior_sha256": "29b3dde09b5c6f32ad35256651a24c3999561757f732b12d710558e82b9c7f22",
+        "current_sha256": "29b3dde09b5c6f32ad35256651a24c3999561757f732b12d710558e82b9c7f22",
+        "same": true
+      },
+      {
+        "kind": "test",
+        "package": "rand_xorshift",
+        "target": "mod",
+        "prior_sha256": "4a053eb3e83fcbba028cd5a67fcb4183a460e4b638911404fd0307f9b2a17357",
+        "current_sha256": "4a053eb3e83fcbba028cd5a67fcb4183a460e4b638911404fd0307f9b2a17357",
+        "same": true
+      },
+      {
+        "kind": "test",
+        "package": "rand_xoshiro",
+        "target": "serde",
+        "prior_sha256": "f7607972937438c84bc7203e1707416a46b29f5ab49dbc7c5f547ae16d40b3d2",
+        "current_sha256": "f7607972937438c84bc7203e1707416a46b29f5ab49dbc7c5f547ae16d40b3d2",
+        "same": true
+      }
+    ]
+  },
+  "workspace": {
+    "distinct_cases": 224,
+    "native_remote_name_and_disposition_match": true,
+    "worker_case_counts": {
+      "372a0a3c28ddf22398f8ac8244884749": 101,
+      "70c279807f9882a042ad24bb50d4e2d3": 121
+    },
+    "native_exit": 0,
+    "cargo_remote_exit": 0,
+    "natural_upstream_flaky_transitions": 0
+  },
+  "separate_retry_control": {
+    "flaky": {
+      "case": "intentionally_fails_on_first_attempt",
+      "disposition": "flaky",
+      "report": "retry_fixture",
+      "attempts": [
+        {
+          "attempt": 1,
+          "peer": "ca943305782e38bc8f192616460fb15f",
+          "status": "failed",
+          "exit_code": null
+        },
+        {
+          "attempt": 2,
+          "peer": "90da47c07a5fbcc268c294ac20a035be",
+          "status": "passed",
+          "exit_code": 0
+        }
+      ]
+    },
+    "failed": {
+      "case": "intentionally_fails_on_every_attempt",
+      "disposition": "failed",
+      "report": "failure",
+      "attempts": [
+        {
+          "attempt": 1,
+          "peer": "ca943305782e38bc8f192616460fb15f",
+          "status": "failed",
+          "exit_code": null
+        },
+        {
+          "attempt": 2,
+          "peer": "90da47c07a5fbcc268c294ac20a035be",
+          "status": "failed",
+          "exit_code": null
+        }
+      ]
+    },
+    "ignored": {
+      "case": "intentionally_fails_on_every_attempt",
+      "disposition": "ignored",
+      "report": "retry_fixture",
+      "attempts": []
+    }
+  },
+  "raw_source_sha256": {
+    "distributed-rust-workspace/rngs-receipt.json": "ee534148d59bcceb27f9ee782da627a872038e20d54144f0c133a23d5cf28e25",
+    "distributed-rust-release.json": "b421e8d558e12c1faab3bb2271a1ee2180790ff98f58d7de1dbb5fb1bf2e64a5",
+    "distributed-rust-release.receipt.json": "0ebe076f8f17d858c5bcfbd87148324180d8100df05835cc2a595e65fb5db0a2",
+    "distributed-rust-workspace/runtime-artifact-identity.json": "3e46e46d8adf36cd8dd2c2a010e65c64735cc602bae8a99777d08a45620644d2"
+  },
+  "scope": "The 198 ordinary upstream cases and separate controls share the exact shipped run_suite/run_test/classify/dispatcher. Merged Rust 2024 doctest executables use the same dispatcher and group-level result aggregation. No spontaneous upstream flaky transition was observed."
+}

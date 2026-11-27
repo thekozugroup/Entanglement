@@ -1,0 +1,54 @@
+{
+  "result_sha256": "7008622f2191dbff9bde4b211b7f96cec85d58a9c4cb2c0edc91983a91bea42b",
+  "verified_ed25519_chunks": 139,
+  "samples": [
+    {
+      "endpoint": "/v1/completions",
+      "peer": "0c98b4e8703a81ac4025515ff22c5023",
+      "chunks": 24,
+      "first_ms": 1031.526,
+      "duration_ms": 2455.96,
+      "tokens": 24
+    },
+    {
+      "endpoint": "/v1/completions",
+      "peer": "0c98b4e8703a81ac4025515ff22c5023",
+      "chunks": 24,
+      "first_ms": 336.713,
+      "duration_ms": 1412.119,
+      "tokens": 24
+    },
+    {
+      "endpoint": "/v1/completions",
+      "peer": "0c98b4e8703a81ac4025515ff22c5023",
+      "chunks": 24,
+      "first_ms": 239.721,
+      "duration_ms": 1340.374,
+      "tokens": 24
+    },
+    {
+      "endpoint": "/v1/chat/completions",
+      "peer": "7fe63d0d8021f9da08a43c823050d151",
+      "chunks": 19,
+      "first_ms": 953.012,
+      "duration_ms": 1999.582,
+      "tokens": 20
+    },
+    {
+      "endpoint": "/v1/chat/completions",
+      "peer": "7fe63d0d8021f9da08a43c823050d151",
+      "chunks": 24,
+      "first_ms": 590.743,
+      "duration_ms": 1788.312,
+      "tokens": 24
+    },
+    {
+      "endpoint": "/v1/chat/completions",
+      "peer": "7fe63d0d8021f9da08a43c823050d151",
+      "chunks": 24,
+      "first_ms": 481.791,
+      "duration_ms": 1690.879,
+      "tokens": 24
+    }
+  ]
+}

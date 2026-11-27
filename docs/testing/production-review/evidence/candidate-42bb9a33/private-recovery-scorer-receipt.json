@@ -1,0 +1,33 @@
+{
+  "source_before": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "started_utc": "2026-11-27T04:00:18.088220+00:00",
+  "finished_utc": "2026-11-27T04:03:15.855404+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-42bb9a33/private-recovery-linux.json",
+  "sha256": "8540dcaa46d82912920d1ed5fd9f0dbfa31ab92856311f4d5b79672dab2ca970",
+  "stderr_log": "docs/testing/production-review/evidence/candidate-42bb9a33/private-recovery-linux.log",
+  "stderr_sha256": "8ca7b5aea5b3ca18aaa87bde9dfce1d231bc7d5151c75464f05f1c4111afe1bc",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "scripts/tests/private-tailnet.py",
+    "--recovery",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--wasm",
+    "/workspace/Entanglement/plugins/json-pointer/target/wasm32-wasip2/release/entangle_json_pointer.wasm"
+  ],
+  "binary_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "release_build_sha256": "6832db07a9382325f8c0506e478cd6fb314a78303b5ab14fa9355d072b4d1f37",
+  "commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "archive_receipt_sha256": "f3250df52099618cd9e234f5bc76bf758114e4ac5bbe5e1ec0e5025b9008bb0e",
+  "runner_sha256": {
+    "private-tailnet.py": "24a0cb1263075d59a10db7365dcb0153fcf43acdcda13663555c30cc915d9fcb",
+    "private_recovery.py": "933a9e97094f215068d75a000eec77e4226ffbfc4bd4f2ff18b9afd966de2023"
+  }
+}

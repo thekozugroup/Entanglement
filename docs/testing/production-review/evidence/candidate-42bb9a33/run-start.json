@@ -1,0 +1,6 @@
+{
+  "commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "started_utc": "2026-11-27T03:55:31.142329+00:00",
+  "note": "Existing exact-source workspace receipt originated in the isolated follow-up worktree; log copied byte-identically and digest checked."
+}

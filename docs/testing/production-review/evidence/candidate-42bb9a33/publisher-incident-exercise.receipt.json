@@ -1,0 +1,20 @@
+{
+  "reviewer": "/root/advert",
+  "source_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "source_before": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "started_utc": "2026-11-27T04:01:28.067211+00:00",
+  "finished_utc": "2026-11-27T04:03:02.951777+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-42bb9a33/publisher-incident-exercise.md",
+  "sha256": "e77accd4019556803fd7e5c4d593ee0090fb03a556a272d9eb7933404f205181",
+  "archive_sha256": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf",
+  "binary_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "transcript": "docs/testing/production-review/evidence/candidate-42bb9a33/publisher-rotation-rehearsal.log",
+  "transcript_sha256": "436368464e2c0150c2ed28bdc3c5ac3ae219a173b09f85ca82dc046352cce9df",
+  "supporting_receipt": "docs/testing/production-review/evidence/candidate-42bb9a33/publisher-rotation-rehearsal.receipt.json",
+  "runnable_helper_sha256": "f5fa8d678f46862e8b6423ba8be2015948ad5dc1a0b8dd9954d585a2b3cfb56b"
+}

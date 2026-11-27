@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "started_utc": "2026-11-27T04:00:58+00:00",
+  "finished_utc": "2026-11-27T04:01:02+00:00",
+  "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/image-resize/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-42bb9a33/dependency-policy.toml advisories bans licenses sources",
+  "exit_code": 0,
+  "log": "deny-plugins-image-resize.log.gz",
+  "log_sha256": "c794fe62d224a673df0cb6740b966de41cefd7ec35d0bacdbfe724a1bb762d18"
+}

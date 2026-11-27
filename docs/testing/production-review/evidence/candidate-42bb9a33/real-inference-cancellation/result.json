@@ -1,0 +1,348 @@
+{
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 docs/testing/production-review/evidence/candidate-42bb9a33/real-inference-cancellation/verify.py --root /workspace/Entanglement --bin-dir target/release --expected-source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348 --reference docs/testing/production-review/evidence/candidate-42bb9a33/linux-archive.json --prior-driver docs/testing/production-review/evidence/candidate-42bb9a33/real-inference/verify.py --server /tmp/entanglement-cpu-server-b6910/bin/llama-server --model /tmp/entangle-llama-cpu-model/TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf --output docs/testing/production-review/evidence/candidate-42bb9a33/real-inference-cancellation",
+  "started_at_utc": "2026-11-27T04:03:11.430+00:00",
+  "source_before": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "release_source_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "release_reference_sha256": "f3250df52099618cd9e234f5bc76bf758114e4ac5bbe5e1ec0e5025b9008bb0e",
+  "release_binaries_before": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "prior_driver_sha256": "83499d28caefa5f6eed054dd1e3b905497661b37ecc311b9852e02b962cbd601",
+  "harness_sha256": "6f1231eb819e4e47794fd8c494946bac9fcb62e72265d8cfcd18451ab689ee4a",
+  "backend_sha256": "a76bd2f23b061182fae9ac025d5f716c156a2b11d5c32bdc074c2a808d9108b9",
+  "model_sha256": "9ee11adf737960ff06123d5c4fba24d12c5b05ba460a7afa88950fbf2b61add0",
+  "model_bytes": 322591712,
+  "backend_library_sha256": {
+    "libggml-base.so": "a828e775abe021b0c32577f87430418b6f79fbd3c80edc9332a5ea23110f44e1",
+    "libggml-cpu.so": "75fea176288c30776628afc797a644f8fe9020c8f28477c315097f09513dd487",
+    "libggml.so": "228b26b67e8859fdbda825a8a5fbd379c0f39d6c784860f4997053368b72cc47",
+    "libllama.so": "f03d70d1855cf1bdd07d913c116be96178eacc009aaf9b993fc6e6af618218b2",
+    "libmtmd.so": "3c1b74ac298b995e8f60504ac183dbc6763aa2437f8463b80d5d0931fb98db05"
+  },
+  "host_scope": "One x86_64 Linux host, two real daemons, pinned TinyLlama CPU model and fixed loopback instrumentation.",
+  "instrumentation": "The proxy forwards the first real content event, then keeps its worker response open until worker TCP EOF or reset. It closes the same real upstream socket before opening the replacement job.",
+  "backend_command": [
+    "/tmp/entanglement-cpu-server-b6910/bin/llama-server",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "37311",
+    "--model",
+    "/tmp/entangle-llama-cpu-model/TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf",
+    "--alias",
+    "tinyllama-cpu-review",
+    "--threads",
+    "2",
+    "--threads-batch",
+    "2",
+    "--parallel",
+    "1",
+    "--ctx-size",
+    "512",
+    "--n-gpu-layers",
+    "0"
+  ],
+  "worker_peer": "a56f89a5dd2f70bc2ec149b3396e6175",
+  "worker_public_key": "9e500057c2953f1c38ec70b7583fe1e831cd6726357673c983bcbf86568c049e",
+  "coordinator_peer": "eee338ad912f4d85ebf2dc69db893c81",
+  "worker_endpoint": "http://127.0.0.1:40327/v1/chat/completions",
+  "backend_endpoint": "http://127.0.0.1:37311/v1/chat/completions",
+  "cancelled": {
+    "task_id": "c70ac50c-1c0f-4350-88b8-9695c0827c6a",
+    "prompt": "Write a very long story about a bicycle trip. Continue the story through many towns.",
+    "max_tokens": 192,
+    "signed_first_chunk": {
+      "seq": 0,
+      "timestamp_ms": 1795752196198,
+      "signature_hex": "a8c8729b7422001aa94edb8615e15a40c93681eb56b902ed82cbd6ba1a50ba2335b1ba8aa86ebf4b4caeff9649c59557fd9d015767afe53c499754ee467bac0d",
+      "payload_hex": "0a",
+      "payload_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "received_monotonic": 25854.25234579
+    },
+    "open_monotonic": 25851.738942442,
+    "close_started_monotonic": 25854.252361643,
+    "close_rpc_ack_monotonic": 25854.253040555
+  },
+  "fresh": {
+    "task_id": "a2fed46b-4934-40ed-b1f6-d95e532b82e4",
+    "prompt": "Write one sentence describing a bicycle.",
+    "signed_chunks": [
+      {
+        "seq": 0,
+        "timestamp_ms": 1795752197262,
+        "signature_hex": "f3fdd26483e0ab8ef95ea264aa4c69dbc2bbff7004bba885fa04b1dec0344df75b45529e0546417e11998dbd56362a2f72cb931ba3fde1e0002d2743dd447c0a",
+        "payload_hex": "0a",
+        "payload_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "received_monotonic": 25855.316800955
+      },
+      {
+        "seq": 1,
+        "timestamp_ms": 1795752197330,
+        "signature_hex": "f8914ebf48082ca5dc9879f48aab25ea90792d76689f46618e1af6ff60accd2a02029cc73e9a824aa1a0c644ca5584c1da37f3440eca1caf859babbcdafde305",
+        "payload_hex": "5772697465",
+        "payload_sha256": "3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+        "received_monotonic": 25855.384383285
+      },
+      {
+        "seq": 2,
+        "timestamp_ms": 1795752197398,
+        "signature_hex": "f1ea02be5dc94b5cdbcc385815be767d354d02ee12b585975c3ad039ae6ba308e817baf63f55cd231992b4261d790be7ae75247fc14b97ac3c963bd2b0394905",
+        "payload_hex": "206f6e65",
+        "payload_sha256": "3a3b3b71e474d80df327eeb214441f45d7a26d185688be83c1f49dd195942fed",
+        "received_monotonic": 25855.450372002
+      },
+      {
+        "seq": 3,
+        "timestamp_ms": 1795752197459,
+        "signature_hex": "0670ac3d7560aa00509c0e630f586d46abd17833626852a5a3f3402e6aa78df0c6cb9d0e4c5c4c21822a91f00441c760f51e84d46bf3140c58701fa8758fe903",
+        "payload_hex": "2073656e74656e6365",
+        "payload_sha256": "197c3071279161f2faa66849fa365d8122506c6a98d796a5574a8415ca992bd8",
+        "received_monotonic": 25855.511777768
+      },
+      {
+        "seq": 4,
+        "timestamp_ms": 1795752197518,
+        "signature_hex": "663c509daeba3c610635aa4f585d0b128da5c55ea40c4465d44433a6a36533f878c08b2b1a257f11d6e2537a61e45af8e5a86a9e7a37ae3677b34f203a985f01",
+        "payload_hex": "2064657363726962696e67",
+        "payload_sha256": "86fc1b762e5c72358a00b04c39f2911d838708e419f44aee881000a214f63487",
+        "received_monotonic": 25855.570397044
+      },
+      {
+        "seq": 5,
+        "timestamp_ms": 1795752197576,
+        "signature_hex": "911ec2c1e020ea0e2803c4283d7a2fb4325d73db493165d1271d9a27873421f80bcc252d7d78c3ff281ba7e13ecf7eb856a7bb66f8309af3a40b98e2cdd5fe04",
+        "payload_hex": "2061",
+        "payload_sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+        "received_monotonic": 25855.627823911
+      },
+      {
+        "seq": 6,
+        "timestamp_ms": 1795752197637,
+        "signature_hex": "c5d04950243abc98c9a9cedd2666c5ac28356f792a9c07863d89ad51f8bbfe97e0a5b4d71144fe78225607275a4b7e9d5a6e5a00b061952268d176c15c8e030c",
+        "payload_hex": "2062",
+        "payload_sha256": "cb6f0a6c7a3223ecb5693627eb3a534fcd5be2103408f78aa19b9c6a079aa810",
+        "received_monotonic": 25855.689095049
+      },
+      {
+        "seq": 7,
+        "timestamp_ms": 1795752197700,
+        "signature_hex": "c422765c8cc5d855561d8f99df9bb146a5ce85aa711c674fbc0efde2bcaa33d21ec3999970ed07b1c05fbbe0e37b37dbef0229f84daccc9e4530952a1707b908",
+        "payload_hex": "696379",
+        "payload_sha256": "6393507a33556ff939295d9a31b1e21b53c391f7c64eefa95226110c39dc56df",
+        "received_monotonic": 25855.752963094
+      },
+      {
+        "seq": 8,
+        "timestamp_ms": 1795752197761,
+        "signature_hex": "f611c917c243961cd986854c3e9283c7273fad20ef5e8a49d0e6f128224e3da81e80cdb598ea98d672b63e34cded27a85af781645ae80bd691de28643e103e08",
+        "payload_hex": "636c65",
+        "payload_sha256": "808701ba8422fa3d839406f5f92d6b5f262b908bf4af6a8010b5440f25ea8c91",
+        "received_monotonic": 25855.813852091
+      },
+      {
+        "seq": 9,
+        "timestamp_ms": 1795752197824,
+        "signature_hex": "6332479bf5c61d60dce0db1f4b9c14768a090af12ca8f74f65ded8ac8d2d665d7bcb11fcb436659dc902297ba11f5a97f31e7d14abbffaf657bce9e59831e203",
+        "payload_hex": "2e",
+        "payload_sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+        "received_monotonic": 25855.876535381
+      },
+      {
+        "seq": 10,
+        "timestamp_ms": 1795752197888,
+        "signature_hex": "8d5a85adfe7284a5064562ce0039c4efa03c1765df54cbc9486a71a2b3728710d4191532031d078fbb5092887f4d807a8a3a8ddc9ff0b42e2a0c26769ac4010c",
+        "payload_hex": "0a",
+        "payload_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "received_monotonic": 25855.940444255
+      },
+      {
+        "seq": 11,
+        "timestamp_ms": 1795752197949,
+        "signature_hex": "54833049613ac113591f0a615d65963505bd3723209bf873662d14eda5c6d789c2c7f7dbb8a4f7fcbb3ea13dc29b787347fc110ebaba183a6907e5c90fb42f0c",
+        "payload_hex": "0a",
+        "payload_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "received_monotonic": 25856.001654792
+      },
+      {
+        "seq": 12,
+        "timestamp_ms": 1795752198010,
+        "signature_hex": "1fe72ca6c9e37999a4c7d12f9b463af830e5f27ecfef481847e93f363ac8ff185062c636f0c9efee4b40f8832d64a5c73c99d96d420d3861da7e0964e9cda80e",
+        "payload_hex": "42",
+        "payload_sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+        "received_monotonic": 25856.064325943
+      },
+      {
+        "seq": 13,
+        "timestamp_ms": 1795752198079,
+        "signature_hex": "adaa50ca4480bc41024d5f86325d7dcc8dc4c9256245b69e3b53c9e73d3c32a57dca0c94bce4268c26c710e0add14d3a5d798820a52caf1ec34beae5392c4701",
+        "payload_hex": "696379",
+        "payload_sha256": "6393507a33556ff939295d9a31b1e21b53c391f7c64eefa95226110c39dc56df",
+        "received_monotonic": 25856.130760468
+      },
+      {
+        "seq": 14,
+        "timestamp_ms": 1795752198141,
+        "signature_hex": "1520d0caa3054ea00f3cf73cb2a43aa3b9ad58c7716b9e3e5f62d4f91c2d511cdbe115ebe8cf5139c410b312d8c2423d563d91e814c085a5886d72eb1af57f05",
+        "payload_hex": "636c65",
+        "payload_sha256": "808701ba8422fa3d839406f5f92d6b5f262b908bf4af6a8010b5440f25ea8c91",
+        "received_monotonic": 25856.196850364
+      },
+      {
+        "seq": 15,
+        "timestamp_ms": 1795752198293,
+        "signature_hex": "f5763f9fa2943f4acdf34403b95340c0d7ffe896f7ba3e23920e476679a7b8764033b733e18ba72eeff61226eb26d8f38007f938a9784127ff1735ffcf9b1d05",
+        "payload_hex": "206973",
+        "payload_sha256": "a8bdfde11f2443a17f53ad0c9eb033c86a916c4575fe9cbce4c6a0d5af432aed",
+        "received_monotonic": 25856.344952091
+      },
+      {
+        "seq": 16,
+        "timestamp_ms": 1795752198353,
+        "signature_hex": "f81e12384d66edc8146d5ccf0eac81c45283f182dae7b137892e71e555cbf5d3b57659188556019120f8c55faf8020091795e58978dfaff709d86e2d759a0209",
+        "payload_hex": "2061",
+        "payload_sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+        "received_monotonic": 25856.404965325
+      },
+      {
+        "seq": 17,
+        "timestamp_ms": 1795752198413,
+        "signature_hex": "9f6fddb85f994d0ba0b97489808dd90fa6da736354da97079df609e547906e9d14f6e56a9af4444a8497f3f83965726b9548c57f4257074e18cbebb20d4a4f0b",
+        "payload_hex": "206d616368696e65",
+        "payload_sha256": "b501bd224e86c1367a1506d07622e5d413ce80c481a526662def8c11cd084343",
+        "received_monotonic": 25856.464943752
+      },
+      {
+        "seq": 18,
+        "timestamp_ms": 1795752198474,
+        "signature_hex": "5fad44859b755b27037c5c1c292e12f4af540869164d9bcadf3b301725153ccdb02e99137decd64bead65d739db2c6a62f92599d2dd24b92d03a090d7c0bd608",
+        "payload_hex": "2074686174",
+        "payload_sha256": "5278bc4f5c21ec7e87673db65518421ddc5113b2360c7a0e915c0d111e29ed11",
+        "received_monotonic": 25856.526172511
+      },
+      {
+        "seq": 19,
+        "timestamp_ms": 1795752198537,
+        "signature_hex": "0037b0c40cba34edd950d2927df1a71d552f22d72db54bd764b4ffc34c0c9b36a07317fd821a6b30c5890a41d40ce30f93ebf12e7f1cf60265ca137900c1cb07",
+        "payload_hex": "20686173",
+        "payload_sha256": "e4417b8003a7b0b452f34e72fbf7ff927882e21a51345859dd43411fe4bb9665",
+        "received_monotonic": 25856.58895891
+      },
+      {
+        "seq": 20,
+        "timestamp_ms": 1795752198617,
+        "signature_hex": "3f5b74a759acdeea273f9bca85079c2b26f07c81e50e82e60a00dbd9bb5bd1e0bf7c40a3865a9c3057a35b9779208e2a32e68350f43302fbca6d4655ccb3bf0a",
+        "payload_hex": "206265656e",
+        "payload_sha256": "a1cf9dacf127a1871cd1bbf39db42e8247d16f0f52e06d68ba3bd160c0e9c2a9",
+        "received_monotonic": 25856.669567779
+      },
+      {
+        "seq": 21,
+        "timestamp_ms": 1795752198684,
+        "signature_hex": "ed44799472eef36b443181bc68bc5a1008dcbc405eaa7c80c3a71429b2a0fc6dc37ea7e43b8faf967bb5e80a29ef9044fa59c1401972b7adbe947f7b18ac4609",
+        "payload_hex": "2075736564",
+        "payload_sha256": "f194a918f0553de844ff9f9c4c8fc63ddedd8e8f211a1974c2a845eddc8fad5e",
+        "received_monotonic": 25856.737003492
+      },
+      {
+        "seq": 22,
+        "timestamp_ms": 1795752198741,
+        "signature_hex": "fa79b4116b20382261093ace87bcd0cba0c4696b608aefeb071b064a1ec16f3258e5dedcb066794845262f8fd0451fb3a346870905476909fc91c987d3d12b03",
+        "payload_hex": "20666f72",
+        "payload_sha256": "a3fa396491822fb5a54491f2162b08d9eb96af80d2fd51d62afb123268a108ea",
+        "received_monotonic": 25856.793349806
+      },
+      {
+        "seq": 23,
+        "timestamp_ms": 1795752198786,
+        "signature_hex": "8ab5960d9f0631afdcb9c0a71815b82b2f50e449ba41a7af5147cb83215c47a6c882d4706e31083ccf7f6a532b83a4b7ac435e119aca4d04a4b5eedfde7b0108",
+        "payload_hex": "207472616e73706f7274",
+        "payload_sha256": "a6d7fabc65cade388b2cb921f53ba7c3ca25dc6b04e7bd3bdd90f87dd6fbccf5",
+        "received_monotonic": 25856.839504571
+      }
+    ],
+    "output": "\nWrite one sentence describing a bicycle.\n\nBicycle is a machine that has been used for transport",
+    "direct_response": {
+      "choices": [
+        {
+          "finish_reason": "length",
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "\nWrite one sentence describing a bicycle.\n\nBicycle is a machine that has been used for transport"
+          }
+        }
+      ],
+      "created": 1795752200,
+      "model": "tinyllama-cpu-review",
+      "system_fingerprint": "b1-5d8bb90",
+      "object": "chat.completion",
+      "usage": {
+        "completion_tokens": 24,
+        "prompt_tokens": 21,
+        "total_tokens": 45
+      },
+      "id": "chatcmpl-5OlOe7FkheaAUmFimRIwEl0149ZZFcmb",
+      "timings": {
+        "cache_n": 20,
+        "prompt_n": 1,
+        "prompt_ms": 48.486,
+        "prompt_per_token_ms": 48.486,
+        "prompt_per_second": 20.624510167883514,
+        "predicted_n": 24,
+        "predicted_ms": 1737.624,
+        "predicted_per_token_ms": 72.401,
+        "predicted_per_second": 13.81196392315023
+      }
+    },
+    "opened_monotonic": 25854.253664195,
+    "admitted_monotonic": 25854.26262827
+  },
+  "elapsed_ms": {
+    "close_rpc_ack": 0.679,
+    "worker_http_disconnect": 1.042,
+    "backend_socket_closed": 1.08,
+    "replacement_mesh_admission": 10.267,
+    "replacement_backend_forwarded": 16.386,
+    "replacement_first_signed_output": 1064.439
+  },
+  "probe_events": [
+    {
+      "event": "backend_request_forwarded",
+      "monotonic": 25851.745121897,
+      "ordinal": 1,
+      "max_tokens": 192
+    },
+    {
+      "event": "first_nonempty_sse_event_forwarded",
+      "monotonic": 25854.249760115
+    },
+    {
+      "event": "worker_http_disconnect_observed",
+      "monotonic": 25854.25340338
+    },
+    {
+      "event": "proxy_backend_socket_closed",
+      "monotonic": 25854.253441196
+    },
+    {
+      "event": "backend_request_forwarded",
+      "monotonic": 25854.268747942,
+      "ordinal": 2,
+      "max_tokens": 24
+    },
+    {
+      "event": "replacement_sse_completed",
+      "monotonic": 25856.837998648
+    }
+  ],
+  "probe_errors": [],
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "release_binaries_after": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "exit_code": 0,
+  "finished_at_utc": "2026-11-27T04:03:20.892+00:00"
+}

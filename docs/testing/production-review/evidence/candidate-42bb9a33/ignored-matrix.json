@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "entangle-atc-matrix",
+    "--",
+    "--ignored",
+    "--nocapture"
+  ],
+  "started_utc": "2026-11-27T04:00:01.564610+00:00",
+  "finished_utc": "2026-11-27T04:00:02.400514+00:00",
+  "source_before": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-42bb9a33/ignored-matrix.log",
+  "sha256": "e6c1fdafd61f12e5bb19f4aa0e86bb1e1fab8c6db55d4a462b2ce75e71fdd231"
+}

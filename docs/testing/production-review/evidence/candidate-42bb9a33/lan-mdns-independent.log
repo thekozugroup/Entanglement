@@ -1,0 +1,58 @@
+42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348 Linux 6.18.57 x86_64
+Compiled test /workspace/Entanglement/target/debug/deps/daemon_compute-694865561f332ffb 00cddcb80aedcfd5a0fa70b972b32226aa97034fbddb10c6d012f7c613f41789
+Embedded debug daemon /workspace/Entanglement/target/debug/entangled 9f59ba9f2c9fbcaf304128f039a1589cb6e1b213fbda2906cc4d3fcc4981b951
+Workspace transcript /workspace/Entanglement/docs/testing/production-review/evidence/candidate-42bb9a33/workspace-test.log b06520771c321d60a09df7e4f0250680ecbc31cf01a2107672be23f9da8895ac
+One Linux host, fresh isolated homes and identities, empty configured peer routes, relay disabled.
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+eth0             UP             1e:a9:61:a3:38:a1 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+eth1             UP             c2:0e:1a:1a:a4:4e <BROADCAST,MULTICAST,UP,LOWER_UP>
+
+Repeat 1 UTC start 2026-11-27T04:00:34.527616+00:00 source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
+timeout 60 /workspace/Entanglement/target/debug/deps/daemon_compute-694865561f332ffb --ignored --exact discovers_and_runs_work_without_a_configured_peer_address --nocapture --test-threads=1
+
+running 1 test
+test discovers_and_runs_work_without_a_configured_peer_address ... {"timestamp":"2026-11-27T04:00:35.932859Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmppY0sAr/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T04:00:39.086684Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmppY0sAr/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 21.83s
+
+Exit 0 UTC finish 2026-11-27T04:00:57.389541+00:00 source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
+
+Repeat 2 UTC start 2026-11-27T04:00:58.683604+00:00 source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
+timeout 60 /workspace/Entanglement/target/debug/deps/daemon_compute-694865561f332ffb --ignored --exact discovers_and_runs_work_without_a_configured_peer_address --nocapture --test-threads=1
+
+running 1 test
+test discovers_and_runs_work_without_a_configured_peer_address ... {"timestamp":"2026-11-27T04:01:00.073110Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpE8ARN0/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T04:01:04.088914Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpE8ARN0/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 22.31s
+
+Exit 0 UTC finish 2026-11-27T04:01:22.109280+00:00 source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
+
+Repeat 3 UTC start 2026-11-27T04:01:23.876982+00:00 source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
+timeout 60 /workspace/Entanglement/target/debug/deps/daemon_compute-694865561f332ffb --ignored --exact discovers_and_runs_work_without_a_configured_peer_address --nocapture --test-threads=1
+
+running 1 test
+test discovers_and_runs_work_without_a_configured_peer_address ... {"timestamp":"2026-11-27T04:01:24.777542Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpppADCO/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T04:01:27.557216Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpppADCO/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 20.37s
+
+Exit 0 UTC finish 2026-11-27T04:01:45.069812+00:00 source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
+
+Repeat 4 UTC start 2026-11-27T04:01:45.762973+00:00 source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
+timeout 60 /workspace/Entanglement/target/debug/deps/daemon_compute-694865561f332ffb --ignored --exact discovers_and_runs_work_without_a_configured_peer_address --nocapture --test-threads=1
+
+running 1 test
+test discovers_and_runs_work_without_a_configured_peer_address ... {"timestamp":"2026-11-27T04:01:46.915117Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpzQuI42/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T04:01:48.387842Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpzQuI42/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 19.19s
+
+Exit 0 UTC finish 2026-11-27T04:02:05.874133+00:00 source sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
+
+4 of 4 independent repetitions passed

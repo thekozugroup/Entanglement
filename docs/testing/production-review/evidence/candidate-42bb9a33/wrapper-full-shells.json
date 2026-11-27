@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "started_utc": "2026-11-27T04:00:20+00:00",
+  "finished_utc": "2026-11-27T04:02:27+00:00",
+  "command": "cargo test --locked -p entangle-cli --test wrapper -- --include-ignored --test-threads=1",
+  "exit_code": 0,
+  "log": "wrapper-full-shells.log",
+  "log_sha256": "e64c527cad09afda627ff74c1e0b3e48ac18b03536fde14b0f4c0049762251dc"
+}

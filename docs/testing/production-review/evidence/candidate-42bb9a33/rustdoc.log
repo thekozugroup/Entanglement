@@ -1,0 +1,4 @@
+    Blocking waiting for file lock on build directory
+ Documenting entangle-agent-host v0.1.0 (/workspace/Entanglement/crates/entangle-agent-host)
+    Finished `dev` profile [unoptimized] target(s) in 21.17s
+   Generated /workspace/Entanglement/target/doc/cargo_entangle/index.html and 26 other files

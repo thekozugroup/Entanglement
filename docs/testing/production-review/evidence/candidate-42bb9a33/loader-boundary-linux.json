@@ -1,0 +1,34 @@
+{
+  "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "command": "python3 docs/testing/production-review/evidence/candidate-42bb9a33/verify-loader.py --bin-dir /tmp/entangle-check-42bb9a33-archive",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T04:00:37.269593+00:00",
+  "observed_at_utc": "2026-11-27T04:00:39.699210+00:00",
+  "platform": "Linux 6.18.57 x86_64",
+  "artifact_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "archive_sha256": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf",
+  "archive_receipt_sha256": "f3250df52099618cd9e234f5bc76bf758114e4ac5bbe5e1ec0e5025b9008bb0e",
+  "release_receipt_sha256": "6832db07a9382325f8c0506e478cd6fb314a78303b5ab14fa9355d072b4d1f37",
+  "harness_sha256": "04ac364ad9a439aa4c7e68dba1318a86cea83c411116bf6e77c33199d61d57f6",
+  "observed": {
+    "direct_rpc_refusals": 6,
+    "configured_startup_refusals": 6,
+    "files_checked": {
+      "entangle.toml": 1048576,
+      "plugin.wasm": 67108864,
+      "plugin.wasm.sig": 65536
+    },
+    "conditions": [
+      "symlink to intact signed member",
+      "sparse regular file one byte above limit"
+    ],
+    "valid_signed_recovery": [
+      "rpc load and invoke",
+      "startup load and invoke"
+    ]
+  }
+}

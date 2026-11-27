@@ -1,0 +1,17 @@
+{
+  "source_before": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "source_after": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "started_utc": "2026-11-27T03:55:31.142329+00:00",
+  "finished_utc": "2026-11-27T03:57:54.770953+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-42bb9a33/workspace-test.log",
+  "sha256": "b06520771c321d60a09df7e4f0250680ecbc31cf01a2107672be23f9da8895ac",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "original_worktree": "/tmp/entangle-scored-followup"
+}

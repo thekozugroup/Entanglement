@@ -1,0 +1,92 @@
+    Finished `test` profile [unoptimized] target(s) in 0.44s
+     Running tests/matrix.rs (target/debug/deps/matrix-d394c2c2daba7633)
+
+running 1 test
+
+## ATC name inventory
+
+| ATC ID | Spec line | Status | File |
+|---|---|---|---|
+| ATC-BRG-1 | L1837 | ACTIVE MATCH; REVIEW | crates/entangle-biscuits/tests/bridge.rs:61 |
+| ATC-BRG-2 | L1843 | ACTIVE MATCH; REVIEW | crates/entangle-biscuits/tests/bridge.rs:81 |
+| ATC-BRG-3 | L1849 | ACTIVE MATCH; REVIEW | crates/entangle-biscuits/tests/bridge.rs:105 |
+| ATC-BRG-4 | L1855 | ACTIVE MATCH; REVIEW | crates/entangle-biscuits/tests/bridge.rs:128 |
+| ATC-BRG-5 | L1861 | ACTIVE MATCH; REVIEW | crates/entangle-biscuits/tests/bridge.rs:151 |
+| ATC-BRG-6 | L1867 | ACTIVE MATCH; REVIEW | crates/entangle-biscuits/tests/bridge.rs:174 |
+| ATC-BUS-1 | L2021 | NO MATCH | (missing) |
+| ATC-BUS-2 | L2029 | NO MATCH | (missing) |
+| ATC-INT-1 | L1878 | ACTIVE MATCH; REVIEW | crates/entangle-runtime/tests/integrity.rs:79, crates/entangle-scheduler/tests/cases/semantic.rs:26 |
+| ATC-INT-2 | L1885 | ACTIVE MATCH; REVIEW | crates/entangle-runtime/tests/integrity.rs:115, crates/entangle-types/tests/atc_spec.rs:68 |
+| ATC-INT-3 | L1891 | ACTIVE MATCH; REVIEW | crates/entangle-runtime/tests/integrity.rs:160, crates/entangle-scheduler/src/work_unit.rs:221, crates/entangle-types/tests/atc_spec.rs:86, crates/entangle-types/tests/atc_spec.rs:99 |
+| ATC-INT-4 | L1898 | MIXED; REVIEW | crates/entangle-runtime/tests/integrity.rs:173, crates/entangle-types/tests/atc_spec.rs:119, crates/entangle-types/tests/atc_spec.rs:239 [ignored] |
+| ATC-INT-5 | L1904 | ACTIVE MATCH; REVIEW | crates/entangle-runtime/tests/integrity.rs:195, crates/entangle-types/tests/atc_spec.rs:38 |
+| ATC-MAN-1 | L1780 | ACTIVE MATCH; REVIEW | crates/entangle-manifest/tests/atc_spec.rs:50, crates/entangle-manifest/tests/atc_spec.rs:79 |
+| ATC-MAN-2 | L1786 | ACTIVE MATCH; REVIEW | crates/entangle-manifest/tests/atc_spec.rs:104, crates/entangle-manifest/tests/atc_spec.rs:136 |
+| ATC-MAN-3 | L1792 | NO MATCH | (missing) |
+| ATC-MAN-4 | L1798 | NO MATCH | (missing) |
+| ATC-MAX-1 | L1964 | NO MATCH | (missing) |
+| ATC-MAX-2 | L1971 | NO MATCH | (missing) |
+| ATC-MAX-3 | L1977 | NO MATCH | (missing) |
+| ATC-MIR-1 | L1988 | NO MATCH | (missing) |
+| ATC-MIR-2 | L1994 | NO MATCH | (missing) |
+| ATC-PKG-1 | L1809 | NO MATCH | (missing) |
+| ATC-PKG-2 | L1815 | NO MATCH | (missing) |
+| ATC-PKG-3 | L1821 | NO MATCH | (missing) |
+| ATC-PKG-4 | L1827 | NO MATCH | (missing) |
+| ATC-REL-1 | L2004 | NO MATCH | (missing) |
+| ATC-REL-2 | L2010 | NO MATCH | (missing) |
+| ATC-STR-1 | L1918 | MIXED; REVIEW | crates/entangle-types/tests/atc_spec.rs:153, crates/entangle-types/tests/atc_spec.rs:260 [ignored] |
+| ATC-STR-2 | L1924 | MIXED; REVIEW | crates/entangle-types/tests/atc_spec.rs:176, crates/entangle-types/tests/atc_spec.rs:270 [ignored] |
+| ATC-STR-3 | L1930 | IGNORED ONLY | crates/entangle-types/tests/atc_spec.rs:280 [ignored] |
+| ATC-WRP-1 | L1941 | NO MATCH | (missing) |
+| ATC-WRP-2 | L1948 | NO MATCH | (missing) |
+| ATC-WRP-3 | L1954 | NO MATCH | (missing) |
+
+**Name inventory (not proof of coverage)**: expected=34, active-only=12, ignored-only=1, mixed=3, extra-ids=19, no-match=18
+Found 19 matching IDs outside the acceptance definitions (not coverage claims)
+
+### EXTRA IDS (19):
+  ATC-AUDIT-1 in crates/entangle-broker/tests/atc_spec.rs:246
+  ATC-AUDIT-2 in crates/entangle-broker/tests/atc_spec.rs:302
+  ATC-BRG-10 in crates/entangle-biscuits/tests/bridge.rs:266
+  ATC-BRG-7 in crates/entangle-biscuits/tests/bridge.rs:198
+  ATC-BRG-8 in crates/entangle-biscuits/tests/bridge.rs:223
+  ATC-BRG-9 in crates/entangle-biscuits/tests/bridge.rs:242
+  ATC-CAP-1 in crates/entangle-broker/tests/atc_spec.rs:72
+  ATC-CAP-2 in crates/entangle-broker/tests/atc_spec.rs:109
+  ATC-CAP-3 in crates/entangle-broker/tests/atc_spec.rs:143
+  ATC-INT-6 in crates/entangle-runtime/tests/integrity.rs:240
+  ATC-INT-6 [deferred] in crates/entangle-types/tests/atc_spec.rs:250
+  ATC-MAX-TIER-1 in crates/entangle-broker/tests/atc_spec.rs:192
+  ATC-MAX-TIER-2 in crates/entangle-broker/tests/atc_spec.rs:225
+  ATC-OUT-1 in crates/entangle-types/tests/atc_spec.rs:203
+  ATC-REP-1 in crates/entangle-signing/tests/atc_spec.rs:214
+  ATC-SIG-1 in crates/entangle-signing/tests/atc_spec.rs:65
+  ATC-SIG-2 in crates/entangle-signing/tests/atc_spec.rs:96
+  ATC-SIG-3 in crates/entangle-signing/tests/atc_spec.rs:123
+  ATC-SIG-4 in crates/entangle-signing/tests/atc_spec.rs:149
+  ATC-SIG-5 in crates/entangle-signing/tests/atc_spec.rs:177
+
+### NO MATCHING TEST NAME (18):
+  ATC-BUS-1 (spec line 2021)
+  ATC-BUS-2 (spec line 2029)
+  ATC-MAN-3 (spec line 1792)
+  ATC-MAN-4 (spec line 1798)
+  ATC-MAX-1 (spec line 1964)
+  ATC-MAX-2 (spec line 1971)
+  ATC-MAX-3 (spec line 1977)
+  ATC-MIR-1 (spec line 1988)
+  ATC-MIR-2 (spec line 1994)
+  ATC-PKG-1 (spec line 1809)
+  ATC-PKG-2 (spec line 1815)
+  ATC-PKG-3 (spec line 1821)
+  ATC-PKG-4 (spec line 1827)
+  ATC-REL-1 (spec line 2004)
+  ATC-REL-2 (spec line 2010)
+  ATC-WRP-1 (spec line 1941)
+  ATC-WRP-2 (spec line 1948)
+  ATC-WRP-3 (spec line 1954)
+test atc_matrix_full_coverage ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+

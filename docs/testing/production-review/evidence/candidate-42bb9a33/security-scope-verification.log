@@ -1,0 +1,183 @@
+2026-11-27T04:01:38.435651+00:00
+42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e
+sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
+git diff --exit-code 761485d7490a56c7215ad958db81949204c74245 42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e -- . ':!docs/testing/production-review' ':!crates/entangle-agent-host/tests/session.rs'
+exit 0
+git diff --name-status 761485d7490a56c7215ad958db81949204c74245 42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e -- . ':!docs/testing/production-review'
+M	crates/entangle-agent-host/tests/session.rs
+exit 0
+git diff 761485d7490a56c7215ad958db81949204c74245 42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e -- crates/entangle-agent-host/tests/session.rs
+diff --git a/crates/entangle-agent-host/tests/session.rs b/crates/entangle-agent-host/tests/session.rs
+index ef844f7..7105786 100644
+--- a/crates/entangle-agent-host/tests/session.rs
++++ b/crates/entangle-agent-host/tests/session.rs
+@@ -1,61 +1,70 @@
+-//! Integration test for `AgentSession` start + restore round-trip.
+-//!
+-//! These tests use the claude-code adapter (project-local `.mcp.json`).
+-//! Because `config_path()` returns a relative path that resolves against the
+-//! process working directory, each test creates a tempdir, changes into it,
+-//! runs the assertions, then restores the original working directory.
+-//!
+-//! ## Why these are `#[ignore]`d
+-//!
+-//! The working directory is *process*-global, so two of these tests running on
+-//! different threads of the same test binary would clobber each other's CWD and
+-//! resolve `.mcp.json` against the wrong tempdir. They therefore require
+-//! `--test-threads=1`, which is not how the default `cargo test` run is
+-//! configured — hence `#[ignore]`, per the `CONTRIBUTING.md` convention for
+-//! tests that mutate `current_dir`.
+-//!
+-//! (An earlier version of this comment claimed the tests were serialised with
+-//! `#[serial]` from the `serial_test` crate. They are not: there is no such
+-//! dev-dependency in `Cargo.toml` and no `#[serial]` attribute below. Making
+-//! them hermetic properly means threading an explicit config path into
+-//! `AgentSession`, i.e. an API change in `src/`, rather than a test-only fix.)
+-//!
+-//! Run them with:
+-//!
+-//!   cargo test -p entangle-agent-host --test session -- --ignored --test-threads=1
++//! Exercise the default Claude Code adapter in a private working directory for each case.
+ 
+ use entangle_agent_host::AgentSession;
+-use std::fs;
+-use tempfile::TempDir;
++use std::{fs, path::Path, process::Command};
+ 
+ const GW: &str = "http://127.0.0.1:9000/mcp";
+ const SRV: &str = "strata";
+ 
+-/// Helper: change CWD into `dir`, run `f`, restore CWD even if `f` panics.
+-fn with_cwd<F: FnOnce()>(dir: &TempDir, f: F) {
+-    let original = std::env::current_dir().unwrap();
+-    std::env::set_current_dir(dir.path()).unwrap();
+-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+-    std::env::set_current_dir(&original).unwrap();
+-    if let Err(e) = result {
+-        std::panic::resume_unwind(e);
++fn with_fixture(test: &str, exercise: impl FnOnce(&Path)) {
++    const CHILD_DIR: &str = "ENTANGLE_AGENT_SESSION_TEST_DIR";
++    const COMPLETE: &str = "session-test-complete";
++    const PREFIX: &str = "entangle-agent-session-test-";
++
++    if let Some(path) = std::env::var_os(CHILD_DIR) {
++        assert!(
++            std::env::args_os().skip(1).eq(["--exact", test]),
++            "child process must select only {test}"
++        );
++        let cwd = std::env::current_dir().unwrap().canonicalize().unwrap();
++        assert_eq!(cwd, Path::new(&path));
++        assert!(cwd
++            .file_name()
++            .unwrap()
++            .to_string_lossy()
++            .starts_with(PREFIX));
++        assert!(
++            fs::read_dir(&cwd).unwrap().next().is_none(),
++            "child working directory must be empty"
++        );
++        exercise(&cwd);
++        fs::File::create_new(cwd.join(COMPLETE)).unwrap();
++        return;
+     }
++
++    let dir = tempfile::Builder::new().prefix(PREFIX).tempdir().unwrap();
++    let child_dir = dir.path().canonicalize().unwrap();
++    let child = Command::new(std::env::current_exe().unwrap())
++        .args(["--exact", test])
++        .current_dir(&child_dir)
++        .env(CHILD_DIR, &child_dir)
++        .output()
++        .unwrap();
++    assert!(
++        child.status.success(),
++        "child test {test} failed:\n{}\n{}",
++        String::from_utf8_lossy(&child.stdout),
++        String::from_utf8_lossy(&child.stderr)
++    );
++    assert!(
++        child_dir.join(COMPLETE).is_file(),
++        "child test {test} finished without exercising the fixture"
++    );
+ }
+ 
+ /// Start a session, verify the gateway URL is injected, restore, verify
+ /// original content is back.
+ #[test]
+-#[ignore = "mutates current_dir; run with: cargo test -p entangle-agent-host --test session -- --ignored --test-threads=1"]
+ fn session_start_and_restore_round_trips() {
+-    let dir = TempDir::new().unwrap();
+-    let original = r#"{"mcpServers":{"user-tool":{"type":"http","url":"http://user"}}}"#;
+-    fs::write(dir.path().join(".mcp.json"), original).unwrap();
++    with_fixture("session_start_and_restore_round_trips", |dir| {
++        let path = dir.join(".mcp.json");
++        let original = r#"{"mcpServers":{"user-tool":{"type":"http","url":"http://user"}}}"#;
++        fs::write(&path, original).unwrap();
+ 
+-    with_cwd(&dir, || {
+         let session =
+             AgentSession::start("claude-code", GW, SRV).expect("session start should succeed");
+ 
+-        let patched = fs::read_to_string(dir.path().join(".mcp.json")).unwrap();
++        let patched = fs::read_to_string(&path).unwrap();
+         let v: serde_json::Value = serde_json::from_str(&patched).unwrap();
+         assert_eq!(v["mcpServers"][SRV]["url"], GW, "gateway URL not injected");
+         assert!(
+@@ -65,7 +74,7 @@ fn session_start_and_restore_round_trips() {
+ 
+         session.restore().expect("restore should succeed");
+ 
+-        let restored = fs::read_to_string(dir.path().join(".mcp.json")).unwrap();
++        let restored = fs::read_to_string(path).unwrap();
+         assert_eq!(
+             restored, original,
+             "restore did not reproduce original content"
+@@ -75,21 +84,21 @@ fn session_start_and_restore_round_trips() {
+ 
+ /// When no `.mcp.json` exists, restore should delete the generated file.
+ #[test]
+-#[ignore = "mutates current_dir; run with: cargo test -p entangle-agent-host --test session -- --ignored --test-threads=1"]
+ fn session_start_no_prior_config_restore_removes_file() {
+-    let dir = TempDir::new().unwrap();
+-    let mcp_path = dir.path().join(".mcp.json");
+-    assert!(!mcp_path.exists());
++    with_fixture(
++        "session_start_no_prior_config_restore_removes_file",
++        |dir| {
++            let mcp_path = dir.join(".mcp.json");
++            assert!(!mcp_path.exists());
++            let session = AgentSession::start("claude-code", GW, SRV)
++                .expect("session start should succeed even with no prior file");
++            assert!(mcp_path.exists(), "gateway config should have been created");
+ 
+-    with_cwd(&dir, || {
+-        let session = AgentSession::start("claude-code", GW, SRV)
+-            .expect("session start should succeed even with no prior file");
+-        assert!(mcp_path.exists(), "gateway config should have been created");
+-
+-        session.restore().expect("restore should succeed");
+-        assert!(
+-            !mcp_path.exists(),
+-            "file should be removed after restore when none existed originally"
+-        );
+-    });
++            session.restore().expect("restore should succeed");
++            assert!(
++                !mcp_path.exists(),
++                "file should be removed after restore when none existed originally"
++            );
++        },
++    );
+ }
+exit 0
+Frozen workspace test passed session_start_and_restore_round_trips
+Frozen workspace test passed session_start_no_prior_config_restore_removes_file
+Frozen workspace test passed terminal_accept_withdraws_service_and_shutdown_interrupts_recovery
+Frozen workspace test passed planned_shutdown_stops_the_active_listener_permanently
+Frozen workspace test passed offline_start_preserves_identity_without_a_listener_and_other_modes_keep_working
+Frozen workspace test passed revoking_a_peer_stops_it_mid_session
+Before and after release ELF entangle SHA-256 dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895
+Before and after release ELF entangled SHA-256 ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd
+Fixture SHA-256 before and after 5fb9e907b7573f501464533b938b2796344b56f836ea4edb75d8bf6558189528
+Workspace transcript SHA-256 b06520771c321d60a09df7e4f0250680ecbc31cf01a2107672be23f9da8895ac
+source after sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348
