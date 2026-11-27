@@ -1,0 +1,43 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling entangle-signing v0.1.0 (/workspace/Entanglement/crates/entangle-signing)
+   Compiling entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+   Compiling entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+   Compiling entangle-oci v0.1.0 (/workspace/Entanglement/crates/entangle-oci)
+   Compiling entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+   Compiling entangle-pairing v0.1.0 (/workspace/Entanglement/crates/entangle-pairing)
+   Compiling entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+    Finished `test` profile [unoptimized] target(s) in 1m 56s
+     Running tests/wrapper.rs (target/debug/deps/wrapper-6ed88c2737ea8922)
+
+running 11 tests
+test bash_doctor_rechecks_actual_alias_function_and_missing_wrapper ... ok
+test disabling_silences_an_already_running_shell_without_changing_forwarding ... ok
+test doctor_fails_when_opted_in_wrapper_was_not_loaded_and_agent_is_on_path ... ok
+test fish_doctor_rechecks_actual_alias_function_and_missing_wrapper ... FAILED
+test fish_wrapper_forwards_and_warns_when_sourced ... ok
+test noninteractive_install_opt_in_and_opt_out_persist_across_reinstall ... ok
+test wrapper_preserves_config_comments_and_other_sections ... ok
+test wrapper_refuses_symlink_and_modified_managed_block_without_clobbering ... ok
+test wrapper_warns_passes_arguments_and_exit_and_disable_restores_user_file ... ok
+test zsh_doctor_rechecks_actual_alias_function_and_missing_wrapper ... ok
+test zsh_wrapper_preserves_arguments_and_exit ... ok
+
+failures:
+
+---- fish_doctor_rechecks_actual_alias_function_and_missing_wrapper stdout ----
+
+thread 'fish_doctor_rechecks_actual_alias_function_and_missing_wrapper' (365959) panicked at crates/entangle-cli/tests/wrapper.rs:21:5:
+error: Fish cannot find its asset files in '/usr/share/fish'.
+Refusing to read configuration because of this.
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    fish_doctor_rechecks_actual_alias_function_and_missing_wrapper
+
+test result: FAILED. 10 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.44s
+
+error: test failed, to rerun pass `-p entangle-cli --test wrapper`

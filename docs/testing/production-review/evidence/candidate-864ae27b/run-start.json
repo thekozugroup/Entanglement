@@ -1,0 +1,16 @@
+{
+  "commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "baseline_commit": "2602ce17ee37416770008fb71f1d6048c828f823",
+  "started_utc": "2026-11-27T02:42:03.485275+00:00",
+  "environment": {
+    "CARGO_HOME": "/workspace/.entanglement-dev/cargo",
+    "RUSTUP_HOME": "/workspace/.entanglement-dev/rustup",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_BUILD_JOBS": "4",
+    "TOKIO_WORKER_THREADS": "2",
+    "RAYON_NUM_THREADS": "2"
+  },
+  "test_diff_sha256": "7ba2b47a0b2ece7067c143c4cce48d85eb94b2e2a55babf44d7b973e3211e450"
+}

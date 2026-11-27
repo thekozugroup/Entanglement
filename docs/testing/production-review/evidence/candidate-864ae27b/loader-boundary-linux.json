@@ -1,0 +1,32 @@
+{
+  "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "command": "python3 docs/testing/production-review/evidence/candidate-864ae27b/verify-loader.py --bin-dir target/release",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T02:53:11.407659+00:00",
+  "observed_at_utc": "2026-11-27T02:53:12.878851+00:00",
+  "platform": "Linux 6.18.57 x86_64",
+  "artifact_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9"
+  },
+  "release_receipt_sha256": "ace66fcdd36166498d69b4588b7e8cd202223a4403141bbc2b8e32a79b86a6ab",
+  "harness_sha256": "04ac364ad9a439aa4c7e68dba1318a86cea83c411116bf6e77c33199d61d57f6",
+  "observed": {
+    "direct_rpc_refusals": 6,
+    "configured_startup_refusals": 6,
+    "files_checked": {
+      "entangle.toml": 1048576,
+      "plugin.wasm": 67108864,
+      "plugin.wasm.sig": 65536
+    },
+    "conditions": [
+      "symlink to intact signed member",
+      "sparse regular file one byte above limit"
+    ],
+    "valid_signed_recovery": [
+      "rpc load and invoke",
+      "startup load and invoke"
+    ]
+  }
+}

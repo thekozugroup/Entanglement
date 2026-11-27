@@ -1,0 +1,194 @@
+{
+  "candidate": "2602ce17ee37416770008fb71f1d6048c828f823",
+  "description": "Alternative examined after the frozen A/B. Isolated parser accepts the actual first signed image-corpus input from scripts/benchmark_image_batch.py (145494 payload bytes) or one 11-byte greeting inside a 361-byte frame. Compares serde_json Value then typed conversion against borrowed raw parameter and typed conversion. Six balanced pairs per size. No Wasmtime, IPC or worker. Prospective recommendation threshold >=25% less image parse time and <=10 microseconds greeting penalty. Shared engineering host, no quiet host claim. Neither the frozen daemon nor the follow-on patch contains this alternative.",
+  "driver": "use std::{fs, hint::black_box as bb, time::Instant};\nuse serde::Deserialize;\nuse serde_json::{value::RawValue, Value};\n#[derive(Deserialize)] struct Request<P> {jsonrpc:String,method:String,id:Value,params:P}\n#[derive(Deserialize)] struct Params {input:Vec<u8>,plugin_id:String,timeout_ms:u64,cpu_cores:f32,memory_bytes:u64,gpu_required:bool,gpu_vram_min_bytes:u64,integrity:Value}\nfn consume(p:Params)->usize{bb((p.plugin_id,p.timeout_ms,p.cpu_cores,p.memory_bytes,p.gpu_required,p.gpu_vram_min_bytes,p.integrity));p.input.len()}\nfn main(){\n let args:Vec<_>=std::env::args().collect();let input=fs::read(&args[1]).unwrap();let loops:usize=args[2].parse().unwrap();\n for n in 0..6 {for mode in if n%2==0{[0,1]}else{[1,0]}{\n  let start=Instant::now();let mut total=0;\n  for _ in 0..loops {\n   total+=if mode==0 {let req:Request<Value>=serde_json::from_slice(bb(&input)).unwrap();bb((req.jsonrpc,req.method,req.id));consume(serde_json::from_value(req.params).unwrap())}else{let req:Request<&RawValue>=serde_json::from_slice(bb(&input)).unwrap();bb((req.jsonrpc,req.method,req.id));consume(serde_json::from_str(req.params.get()).unwrap())};\n  }\n  println!(\"{} {} {} {} {}\",n,mode,loops,start.elapsed().as_nanos()/loops as u128,bb(total));\n }}\n}\n",
+  "measures": {
+    "hello": {
+      "borrowed_raw_ns": 1131.5,
+      "frame_sha256": "312f35245ae5566a39c355bc0730274de4dbd083547fd54f3fdeda7e66473266",
+      "ratio": 0.6127809369076631,
+      "raw_pairs_order_block_variant_loops_ns_verifiedbytes": [
+        [
+          0,
+          0,
+          80000,
+          1849,
+          880000
+        ],
+        [
+          0,
+          1,
+          80000,
+          1129,
+          880000
+        ],
+        [
+          1,
+          1,
+          80000,
+          1135,
+          880000
+        ],
+        [
+          1,
+          0,
+          80000,
+          1859,
+          880000
+        ],
+        [
+          2,
+          0,
+          80000,
+          1848,
+          880000
+        ],
+        [
+          2,
+          1,
+          80000,
+          1133,
+          880000
+        ],
+        [
+          3,
+          1,
+          80000,
+          1131,
+          880000
+        ],
+        [
+          3,
+          0,
+          80000,
+          1845,
+          880000
+        ],
+        [
+          4,
+          0,
+          80000,
+          1838,
+          880000
+        ],
+        [
+          4,
+          1,
+          80000,
+          1118,
+          880000
+        ],
+        [
+          5,
+          1,
+          80000,
+          1132,
+          880000
+        ],
+        [
+          5,
+          0,
+          80000,
+          1815,
+          880000
+        ]
+      ],
+      "value_ns": 1846.5
+    },
+    "image": {
+      "borrowed_raw_ns": 3757883.0,
+      "frame_sha256": "8e22072debb87c6b7f474367d25f3af658a67b10fac3f67d2cef86206c855e85",
+      "ratio": 1.0439291739507393,
+      "raw_pairs_order_block_variant_loops_ns_verifiedbytes": [
+        [
+          0,
+          0,
+          100,
+          3515532,
+          14549400
+        ],
+        [
+          0,
+          1,
+          100,
+          4365317,
+          14549400
+        ],
+        [
+          1,
+          1,
+          100,
+          3747355,
+          14549400
+        ],
+        [
+          1,
+          0,
+          100,
+          3665335,
+          14549400
+        ],
+        [
+          2,
+          0,
+          100,
+          3564377,
+          14549400
+        ],
+        [
+          2,
+          1,
+          100,
+          3767434,
+          14549400
+        ],
+        [
+          3,
+          1,
+          100,
+          3748332,
+          14549400
+        ],
+        [
+          3,
+          0,
+          100,
+          4192189,
+          14549400
+        ],
+        [
+          4,
+          0,
+          100,
+          3635121,
+          14549400
+        ],
+        [
+          4,
+          1,
+          100,
+          3725842,
+          14549400
+        ],
+        [
+          5,
+          1,
+          100,
+          3851905,
+          14549400
+        ],
+        [
+          5,
+          0,
+          100,
+          3545214,
+          14549400
+        ]
+      ],
+      "value_ns": 3599749.0
+    }
+  },
+  "rust": "1.91.1",
+  "serde": "1.0.228",
+  "serde_json": "1.0.149"
+}

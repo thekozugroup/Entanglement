@@ -1,0 +1,17 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-final-native-release-receipt.sh",
+    "/workspace/Entanglement/target/release-candidate/864ae27bf3fd/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/linux-release-install.log"
+  ],
+  "started_utc": "2026-11-27T02:53:05.425195+00:00",
+  "finished_utc": "2026-11-27T02:53:13.281223+00:00",
+  "source_before": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-864ae27b/archive-command-run.log",
+  "sha256": "b1fdb1737642305cb5d0a51446da705e819e4f2615d543e745b8fe72d97b99b4"
+}

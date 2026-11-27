@@ -1,0 +1,62 @@
+{
+  "started_utc": "2026-11-27T02:52:45.657830+00:00",
+  "finished_utc": "2026-11-27T02:53:37.818358+00:00",
+  "before": {
+    "commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+    "source": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+    "cli": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "daemon": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9"
+  },
+  "after": {
+    "commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+    "source": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+    "cli": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "daemon": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9"
+  },
+  "release_build_receipt_sha256": "ace66fcdd36166498d69b4588b7e8cd202223a4403141bbc2b8e32a79b86a6ab",
+  "behavioral_runs": [
+    {
+      "name": "auth-live",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/auth-live.py",
+        "--bin-dir",
+        "/workspace/Entanglement/target/release",
+        "--out",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/auth-live-linux.json"
+      ],
+      "started_utc": "2026-11-27T02:52:45.658229+00:00",
+      "finished_utc": "2026-11-27T02:53:18.007182+00:00",
+      "duration_seconds": 32.349,
+      "exit_code": 0,
+      "log_sha256": "90b4611ff17e702c70ff826b68e49df3b8c63d19118f4b50426d6cd055be3233",
+      "driver_sha256": "aff25cc80ce2f4717736276354a36f412c91a9e924ad1060adc0140cad9cd126",
+      "result_sha256": "483acdfa428c53093cca7b4f4816bfc2f672a18af709454e4cf4f83a83f6f10b"
+    },
+    {
+      "name": "wrapper-live",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "-B",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/wrapper-live.py",
+        "--cli",
+        "/workspace/Entanglement/target/release/entangle",
+        "--fixture",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-2602ce17/package-operator/published-fixture",
+        "--fish-tree",
+        "/tmp/entangle-fish-check/extract",
+        "--out",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/wrapper-live-linux.json"
+      ],
+      "started_utc": "2026-11-27T02:53:18.009069+00:00",
+      "finished_utc": "2026-11-27T02:53:37.575841+00:00",
+      "duration_seconds": 19.567,
+      "exit_code": 0,
+      "log_sha256": "bbfcab750d4ae346ef7472a47f3b28d12c4e78cfe6920a638c0923556505cfc5",
+      "driver_sha256": "3f3ab7cbf6df56ac23ef99fd3012cd3501c96bcf221734a81e6e52d3b47a1c11",
+      "result_sha256": "a8b0c2066986d5e3ab95e9978559ab142502df00db3a27496968794864ffbf69"
+    }
+  ],
+  "fixture_sha256": "bb9e181e36366eaf5a9a9b7d9865f292a159753a7396aa6c47817c4ebbd8fb54"
+}

@@ -1,0 +1,20 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "entangle-runtime",
+    "--lib",
+    "direct_load_"
+  ],
+  "started_utc": "2026-11-27T02:46:43.729313+00:00",
+  "finished_utc": "2026-11-27T02:47:17.414253+00:00",
+  "source_before": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-864ae27b/direct-loader-independent.log",
+  "sha256": "bc1c96d382314dfb419315efc02dd7b605b8dc85ad095a57ae5b506870346804"
+}

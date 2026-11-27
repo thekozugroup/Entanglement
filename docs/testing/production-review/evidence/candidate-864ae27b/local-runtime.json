@@ -1,0 +1,12 @@
+{
+  "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "kernel": "Linux 6.18.57 x86_64",
+  "cpu_quota_and_period_usec": "400000 100000",
+  "nvidia_devices": 0,
+  "render_nodes": 0,
+  "physical_platforms_exercised_here": [
+    "Linux x86_64"
+  ],
+  "github_actions": "prohibited by project owner for this run",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68"
+}

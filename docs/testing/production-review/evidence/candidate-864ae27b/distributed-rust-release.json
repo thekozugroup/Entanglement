@@ -1,0 +1,507 @@
+{
+  "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "archive_sha256": "17f615f3e41ce6179306ffb3f0182c1a452762f105079f6b2902c819e7502e22",
+  "platform": "two independent Linux workers on one host over authenticated Iroh QUIC",
+  "exit": 0,
+  "reports": {
+    "full": {
+      "suites": [
+        {
+          "suite": "d08d26a55ef9cafba26299c5cd5952bd/types-atc@0.1.0",
+          "listing_peers": [
+            "62a97ff02904c2db6fd283d6bbdd51f6",
+            "6155f424e0bfa5ce4c6995a869f04aba"
+          ],
+          "filtered": 0,
+          "counts": {
+            "passed": 8,
+            "flaky": 0,
+            "failed": 0,
+            "ignored": 8,
+            "error": 0
+          },
+          "elapsed_ms": 57,
+          "results": [
+            {
+              "name": "atc_brg_bridge_attenuation_suite",
+              "status": "ignored",
+              "attempts": []
+            },
+            {
+              "name": "atc_bus_rotation_governance_invariants",
+              "status": "ignored",
+              "attempts": []
+            },
+            {
+              "name": "atc_int_2_max_output_bytes_field_carried",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_int_3_integrity_policy_none_toml_round_trip",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_int_3_integrity_policy_trusted_executor_json_round_trip",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_int_4_semantic_equivalent_threshold_not_clamped_at_type_level",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_int_4_streaming_deterministic_rejected_at_submit",
+              "status": "ignored",
+              "attempts": []
+            },
+            {
+              "name": "atc_int_5_max_output_default_16mib",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_int_6_streaming_total_bytes_cap_enforced",
+              "status": "ignored",
+              "attempts": []
+            },
+            {
+              "name": "atc_mirror_release_operational_invariants",
+              "status": "ignored",
+              "attempts": []
+            },
+            {
+              "name": "atc_out_1_output_size_exceeded_display_format",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_str_1_channel_spec_defaults_match_spec",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_str_1_credit_exhaustion_stalls_at_timeout",
+              "status": "ignored",
+              "attempts": []
+            },
+            {
+              "name": "atc_str_2_partial_result_policy_kebab_case_serde",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_str_2_three_missed_pings_close_channel",
+              "status": "ignored",
+              "attempts": []
+            },
+            {
+              "name": "atc_str_3_forged_chunk_rejected",
+              "status": "ignored",
+              "attempts": []
+            }
+          ]
+        },
+        {
+          "suite": "d08d26a55ef9cafba26299c5cd5952bd/manifest-atc@0.1.0",
+          "listing_peers": [
+            "62a97ff02904c2db6fd283d6bbdd51f6",
+            "6155f424e0bfa5ce4c6995a869f04aba"
+          ],
+          "filtered": 0,
+          "counts": {
+            "passed": 6,
+            "flaky": 0,
+            "failed": 0,
+            "ignored": 0,
+            "error": 0
+          },
+          "elapsed_ms": 34,
+          "results": [
+            {
+              "name": "atc_man_1_tier_one_rejects_tier_three_capability",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_man_1_tier_under_declared_rejected",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_man_2_tier_five_accepts_only_tier_one_capabilities",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_man_2_tier_over_declared_ok",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "canonical_under_declaration_names_specific_required_tier",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "separate_runtime_kind_is_recognized_and_conflicting_declarations_are_rejected",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "passed": 14,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 8,
+        "error": 0
+      },
+      "filtered": 0,
+      "elapsed_ms": 92
+    },
+    "filtered": {
+      "suites": [
+        {
+          "suite": "d08d26a55ef9cafba26299c5cd5952bd/types-atc@0.1.0",
+          "listing_peers": [
+            "62a97ff02904c2db6fd283d6bbdd51f6",
+            "6155f424e0bfa5ce4c6995a869f04aba"
+          ],
+          "filtered": 11,
+          "counts": {
+            "passed": 5,
+            "flaky": 0,
+            "failed": 0,
+            "ignored": 0,
+            "error": 0
+          },
+          "elapsed_ms": 47,
+          "results": [
+            {
+              "name": "atc_int_2_max_output_bytes_field_carried",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_int_3_integrity_policy_none_toml_round_trip",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_int_3_integrity_policy_trusted_executor_json_round_trip",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_int_4_semantic_equivalent_threshold_not_clamped_at_type_level",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            },
+            {
+              "name": "atc_int_5_max_output_default_16mib",
+              "status": "passed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "passed": 5,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      },
+      "filtered": 11,
+      "elapsed_ms": 47
+    },
+    "failure": {
+      "suites": [
+        {
+          "suite": "d08d26a55ef9cafba26299c5cd5952bd/retry-fixture@0.1.0",
+          "listing_peers": [
+            "62a97ff02904c2db6fd283d6bbdd51f6",
+            "6155f424e0bfa5ce4c6995a869f04aba"
+          ],
+          "filtered": 1,
+          "counts": {
+            "passed": 0,
+            "flaky": 0,
+            "failed": 1,
+            "ignored": 0,
+            "error": 0
+          },
+          "elapsed_ms": 40,
+          "results": [
+            {
+              "name": "intentionally_fails_on_every_attempt",
+              "status": "failed",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": null,
+                  "stdout": "\nrunning 1 test\n",
+                  "stderr": "\nthread 'main' (1) panicked at scripts/tests/fixtures/libtest_retry.rs:13:5:\nintentional failure on every attempt\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+                  "status": "failed"
+                },
+                {
+                  "attempt": 2,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": null,
+                  "stdout": "\nrunning 1 test\n",
+                  "stderr": "\nthread 'main' (1) panicked at scripts/tests/fixtures/libtest_retry.rs:13:5:\nintentional failure on every attempt\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+                  "status": "failed"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "passed": 0,
+        "flaky": 0,
+        "failed": 1,
+        "ignored": 0,
+        "error": 0
+      },
+      "filtered": 1,
+      "elapsed_ms": 40
+    },
+    "retry_fixture": {
+      "suites": [
+        {
+          "suite": "d08d26a55ef9cafba26299c5cd5952bd/retry-fixture@0.1.0",
+          "listing_peers": [
+            "62a97ff02904c2db6fd283d6bbdd51f6",
+            "6155f424e0bfa5ce4c6995a869f04aba"
+          ],
+          "filtered": 0,
+          "counts": {
+            "passed": 0,
+            "flaky": 1,
+            "failed": 0,
+            "ignored": 1,
+            "error": 0
+          },
+          "elapsed_ms": 30,
+          "results": [
+            {
+              "name": "intentionally_fails_on_every_attempt",
+              "status": "ignored",
+              "attempts": []
+            },
+            {
+              "name": "intentionally_fails_on_first_attempt",
+              "status": "flaky",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "62a97ff02904c2db6fd283d6bbdd51f6",
+                  "exit_code": null,
+                  "stdout": "\nrunning 1 test\n",
+                  "stderr": "\nthread 'main' (1) panicked at scripts/tests/fixtures/libtest_retry.rs:7:5:\nintentional first-attempt failure\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+                  "status": "failed"
+                },
+                {
+                  "attempt": 2,
+                  "peer": "6155f424e0bfa5ce4c6995a869f04aba",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "status": "passed"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "passed": 0,
+        "flaky": 1,
+        "failed": 0,
+        "ignored": 1,
+        "error": 0
+      },
+      "filtered": 0,
+      "elapsed_ms": 30
+    }
+  }
+}

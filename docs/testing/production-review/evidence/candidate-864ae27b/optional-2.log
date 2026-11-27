@@ -1,0 +1,10 @@
+error: no test target named `agent_session` in `entangle-bin` package
+help: available test targets:
+    config_compat
+    config_policy
+    daemon_compute
+    remote_scheduler
+    rpc
+    server_hardening
+    startup_plugins
+    state

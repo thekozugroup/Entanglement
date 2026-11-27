@@ -1,0 +1,37 @@
+    Finished `test` profile [unoptimized] target(s) in 2.14s
+     Running tests/wrapper.rs (target/debug/deps/wrapper-6ed88c2737ea8922)
+
+running 11 tests
+test bash_doctor_rechecks_actual_alias_function_and_missing_wrapper ... ok
+test disabling_silences_an_already_running_shell_without_changing_forwarding ... ok
+test doctor_fails_when_opted_in_wrapper_was_not_loaded_and_agent_is_on_path ... ok
+test fish_doctor_rechecks_actual_alias_function_and_missing_wrapper ... FAILED
+test fish_wrapper_forwards_and_warns_when_sourced ... FAILED
+test noninteractive_install_opt_in_and_opt_out_persist_across_reinstall ... ok
+test wrapper_preserves_config_comments_and_other_sections ... ok
+test wrapper_refuses_symlink_and_modified_managed_block_without_clobbering ... ok
+test wrapper_warns_passes_arguments_and_exit_and_disable_restores_user_file ... ok
+test zsh_doctor_rechecks_actual_alias_function_and_missing_wrapper ... ok
+test zsh_wrapper_preserves_arguments_and_exit ... ok
+
+failures:
+
+---- fish_doctor_rechecks_actual_alias_function_and_missing_wrapper stdout ----
+
+thread 'fish_doctor_rechecks_actual_alias_function_and_missing_wrapper' (372767) panicked at crates/entangle-cli/tests/wrapper.rs:301:10:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- fish_wrapper_forwards_and_warns_when_sourced stdout ----
+
+thread 'fish_wrapper_forwards_and_warns_when_sourced' (372778) panicked at crates/entangle-cli/tests/wrapper.rs:257:26:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+
+failures:
+    fish_doctor_rechecks_actual_alias_function_and_missing_wrapper
+    fish_wrapper_forwards_and_warns_when_sourced
+
+test result: FAILED. 9 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.97s
+
+error: test failed, to rerun pass `-p entangle-cli --test wrapper`

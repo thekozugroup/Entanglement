@@ -1,0 +1,38 @@
+{
+  "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "command": "python3 scripts/tests/private-tailnet.py --bridge --bin-dir target/release",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T02:53:11.287761+00:00",
+  "observed_at_utc": "2026-11-27T02:54:00.593040+00:00",
+  "platform": "Linux 6.18.57 x86_64",
+  "artifact_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9",
+    "entangle_json_pointer.wasm": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb"
+  },
+  "release_receipt_sha256": "ace66fcdd36166498d69b4588b7e8cd202223a4403141bbc2b8e32a79b86a6ab",
+  "harness_sha256": "aad63b75c8f89f4df1d1cc94bfb65cb448cf3d691f5b203f5428a68d8fdc835a",
+  "observed": {
+    "transport": "tailscale",
+    "executor": "d474ae15b80acc1e937cadda38a7d8f0",
+    "plugin_id": "d474ae15b80acc1e937cadda38a7d8f0/json-pointer@0.1.0",
+    "verified_random_plugin_output": true,
+    "worker_side_revocation": "not-authorized",
+    "direct_kernel_wireguard_ping": true,
+    "isolated_docker_network": true,
+    "bridge": {
+      "origin": "5658e695989da756213900d759e7d97e",
+      "bridge": "c976f20b1a1fcbca0612aaa905ce769e",
+      "destination": "bfd3b7f8a55f858a9a4ca4fb34daef38",
+      "transport": "iroh<->tailscale",
+      "bytes_delivered": 64,
+      "exhausted": true
+    },
+    "image_digests": [
+      "headscale/headscale@sha256:cd37b30018575fd62f18419138d4e526bcf894e1d4e1aa1b08699cec1891ac23",
+      "tailscale/tailscale@sha256:4a0aaacee6f28e724c1f80c986e5776c9c979d8f7e19274c2cae2d495cc8d625",
+      "python@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b"
+    ]
+  }
+}

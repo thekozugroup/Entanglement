@@ -1,0 +1,19 @@
+   Compiling entangle-types v0.1.0 (/workspace/Entanglement/crates/entangle-types)
+   Compiling entangle-biscuits v0.1.0 (/workspace/Entanglement/crates/entangle-biscuits)
+   Compiling entangle-peers v0.1.0 (/workspace/Entanglement/crates/entangle-peers)
+   Compiling entangle-manifest v0.1.0 (/workspace/Entanglement/crates/entangle-manifest)
+   Compiling entangle-signing v0.1.0 (/workspace/Entanglement/crates/entangle-signing)
+   Compiling entangle-broker v0.1.0 (/workspace/Entanglement/crates/entangle-broker)
+   Compiling entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+   Compiling entangle-core v0.1.0 (/workspace/Entanglement/crates/entangle-core)
+   Compiling entangle-ipc v0.1.0 (/workspace/Entanglement/crates/entangle-ipc)
+   Compiling entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+    Finished `test` profile [unoptimized] target(s) in 31.36s
+     Running unittests src/lib.rs (target/debug/deps/entangle_runtime-4b9222754cf09c16)
+
+running 2 tests
+test tests::direct_load_rejects_each_oversized_input_before_admission ... ok
+test tests::direct_load_rejects_symlinks_even_when_the_target_is_correctly_signed ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 1.87s
+

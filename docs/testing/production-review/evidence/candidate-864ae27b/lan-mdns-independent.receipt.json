@@ -1,0 +1,20 @@
+{
+  "command": [
+    "timeout",
+    "60",
+    "/workspace/Entanglement/target/debug/deps/daemon_compute-694865561f332ffb",
+    "--ignored",
+    "--exact",
+    "discovers_and_runs_work_without_a_configured_peer_address",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "started_utc": "2026-11-27T02:46:43.718840+00:00",
+  "finished_utc": "2026-11-27T02:47:41.397849+00:00",
+  "source_before": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-864ae27b/lan-mdns-independent.log",
+  "sha256": "9c85cb90c9486c5245f9a7c5901b343d0b44a6faf8b77ee442f1353c36b7d013"
+}

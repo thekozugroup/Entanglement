@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "started_utc": "2026-11-27T02:43:28+00:00",
+  "finished_utc": "2026-11-27T02:43:31+00:00",
+  "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/qr-encode/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/dependency-policy.toml advisories bans licenses sources",
+  "exit_code": 0,
+  "log": "deny-plugins-qr-encode.log.gz",
+  "log_sha256": "5e66e72bc8b425d42af9caef6ac63475edcd35bc18ce0da8c349fa2e65be60ad"
+}

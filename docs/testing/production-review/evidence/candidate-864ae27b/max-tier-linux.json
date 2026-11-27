@@ -1,0 +1,31 @@
+{
+  "source_id": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "command": "python3 scripts/tests/max-tier.py --bin-dir target/release",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T02:53:11.288851+00:00",
+  "observed_at_utc": "2026-11-27T02:53:12.922332+00:00",
+  "platform": "Linux 6.18.57 x86_64",
+  "artifact_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9"
+  },
+  "release_receipt_sha256": "ace66fcdd36166498d69b4588b7e8cd202223a4403141bbc2b8e32a79b86a6ab",
+  "harness_sha256": "e3ceccfda4f38d218550bbf289a6d48a6f9d42b2d4fa110497441191464983f0",
+  "observed": {
+    "interactive_default": "unload-and-disable",
+    "cancel_restored": 5,
+    "forced_plugins": 2,
+    "stale_reviews_rejected": 2,
+    "restart_disabled": true,
+    "initial_ceiling": 5,
+    "requested_ceiling": 2,
+    "signed_wasm_plugin_tiers": [
+      3,
+      3
+    ],
+    "tier5_agent_host_exercised": false,
+    "cross_process_config_writer_reservation": "checked",
+    "per_plugin_force_audit": "checked"
+  }
+}

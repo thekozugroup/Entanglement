@@ -1,0 +1,18 @@
+{
+  "source_before": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "started_utc": "2026-11-27T02:52:46.048436+00:00",
+  "finished_utc": "2026-11-27T02:53:17.961439+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-864ae27b/auth-live-linux.json",
+  "sha256": "483acdfa428c53093cca7b4f4816bfc2f672a18af709454e4cf4f83a83f6f10b",
+  "command": [
+    "python3",
+    "-B",
+    "docs/testing/production-review/evidence/candidate-864ae27b/auth-live.py",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--out",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-864ae27b/auth-live-linux.json"
+  ]
+}

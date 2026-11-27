@@ -1,0 +1,22 @@
+2026-11-27T02:56:40Z
+Comparing 2602ce17ee37416770008fb71f1d6048c828f823 to 864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2
+source before sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68
+command git diff --exit-code 2602ce17ee37416770008fb71f1d6048c828f823 864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2 -- crates/entangle-signing/src/artifact.rs crates/entangle-signing/src/keypair.rs crates/entangle-oci/src/registry.rs crates/entangle-cli/src/cmd/distribution.rs crates/entangle-cli/src/cmd/plugins.rs crates/entangle-cli/src/cmd/keyring.rs crates/entangle-cli/src/cmd/mesh.rs crates/entangle-cli/src/cmd/release.rs crates/entangle-peers/src/store.rs crates/entangle-bin/src/server.rs crates/entangle-bin/src/methods.rs crates/entangle-bin/src/remote.rs crates/entangle-bin/src/remote/routes.rs crates/entangle-bin/src/inference.rs crates/entangle-bin/src/inference crates/entangle-bin/src/streams.rs crates/entangle-scheduler/src/remote.rs crates/entangle-scheduler/src/relay.rs crates/entangle-scheduler/src/stream.rs crates/entangle-scheduler/src/stream scripts/verify-release.sh scripts/verify-release-promotion.py scripts/check-release-governance.py .github/workflows/release.yml 
+file comparison exit 0
+Modified integration files inspected separately
+M	crates/entangle-cli/src/cmd/doctor.rs
+M	crates/entangle-cli/src/cmd/wrapper.rs
+A	crates/entangle-cli/src/cmd/wrapper/doctor.bash
+A	crates/entangle-cli/src/cmd/wrapper/doctor.fish
+A	crates/entangle-cli/src/cmd/wrapper/doctor.zsh
+M	crates/entangle-oci/src/lib.rs
+M	crates/entangle-rpc/src/client.rs
+M	crates/entangle-runtime/src/kernel.rs
+M	crates/entangle-runtime/src/loader.rs
+A	crates/entangle-signing/src/package_io.rs
+Verified source and log digests for workspace regressions, archive and release checks, live wrapper/peer checks, and publisher rotation.
+Verified native binary identity for archive, bilateral live peer authorization and publisher rotation.
+Fresh peer cases: 12 admitted controls and 12 declined calls with unchanged target Wasm completions.
+Fresh containment exercised publisher removal, ENTANGLE-E0101 reload refusal, and same-process recovery.
+source after sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68
+2026-11-27T02:56:40Z

@@ -1,0 +1,24 @@
++ date -u +%FT%TZ
+2026-11-27T02:42:11Z
++ python3 scripts/production_score.py --source-id
+sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68
++ docker info --format '{{json .SecurityOptions}}'
+["name=seccomp,profile=builtin","name=rootless","name=cgroupns"]
++ git bundle create /workspace/entangle-package-864ae27b.UNQT0m/source.bundle HEAD
++ git bundle verify /workspace/entangle-package-864ae27b.UNQT0m/source.bundle
+/workspace/entangle-package-864ae27b.UNQT0m/source.bundle is okay
+The bundle contains this ref:
+864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2 HEAD
+The bundle records a complete history.
+The bundle uses this hash algorithm: sha1
++ cp -al -- /workspace/entangle-package-seed.2uvRiy/toolchain /workspace/entangle-package-seed.2uvRiy/registry /workspace/entangle-package-seed.2uvRiy/public-repro-fixture-seed.pem /workspace/entangle-package-864ae27b.UNQT0m/
++ chmod 0644 /workspace/entangle-package-864ae27b.UNQT0m/source.bundle
++ install -m 0644 docs/testing/production-review/evidence/candidate-864ae27b/pkg-linux-matrix/run-in-container.sh /workspace/entangle-package-864ae27b.UNQT0m/run-in-container.sh
++ sha256sum /workspace/entangle-package-864ae27b.UNQT0m/source.bundle /workspace/entangle-package-864ae27b.UNQT0m/toolchain/bin/cargo /workspace/entangle-package-864ae27b.UNQT0m/toolchain/bin/rustc
+26ccb1218fa12422ebe38010f37c8127b03feb629140df8baf0043f8c1ed8601  /workspace/entangle-package-864ae27b.UNQT0m/source.bundle
+e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b  /workspace/entangle-package-864ae27b.UNQT0m/toolchain/bin/cargo
+5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e  /workspace/entangle-package-864ae27b.UNQT0m/toolchain/bin/rustc
++ python3 scripts/production_score.py --source-id
+sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68
++ date -u +%FT%TZ
+2026-11-27T02:42:14Z

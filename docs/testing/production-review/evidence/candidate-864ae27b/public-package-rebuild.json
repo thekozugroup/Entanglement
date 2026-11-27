@@ -1,0 +1,13 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-public-proof/run-successor.sh"
+  ],
+  "started_utc": "2026-11-27T02:55:57.850981+00:00",
+  "finished_utc": "2026-11-27T02:58:00.525451+00:00",
+  "source_before": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "source_after": "sha256:2a5db79622c3130c68614ca443ad93b86efec77c11bb5b4e84f6ad7c02277c68",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-864ae27b/public-package-rebuild.log",
+  "sha256": "f3fbef9f48e2b48c78dacc0410d259b37bfbe091ba51d5d16864e124c1e6cc97"
+}
