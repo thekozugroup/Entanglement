@@ -131,6 +131,9 @@ class RetryTests(unittest.TestCase):
 
 
 class SchedulingTests(unittest.TestCase):
+    def failed(self, peer, name):
+        return {"peer": peer, **capture(FAILED.replace("case", name), 101)}
+
     def schedule(self, names, peers, retries, dispatch):
         results = {name: {"name": name, "attempts": []} for name in names}
         with ThreadPoolExecutor(max_workers=len(peers)) as executor:
@@ -186,7 +189,7 @@ class SchedulingTests(unittest.TestCase):
             if name == "a_retry" and request["attempt"] == 1:
                 if not long_started.wait(5):
                     raise runner.DispatchError("long case never started")
-                return {"peer": peer, **capture(FAILED, 101)}
+                return self.failed(peer, name)
             if name == "b_long":
                 long_started.set()
                 if not fresh_started.wait(5):
@@ -207,7 +210,7 @@ class SchedulingTests(unittest.TestCase):
         def dispatch(peer, request):
             if request["attempt"] == 1:
                 barrier.wait(timeout=5)
-                return {"peer": peer, **capture(FAILED, 101)}
+                return self.failed(peer, request["name"])
             return {"peer": peer, **capture(PASSED)}
 
         results = self.schedule(["first", "second"], PEERS, 1, dispatch)
@@ -218,7 +221,7 @@ class SchedulingTests(unittest.TestCase):
 
     def test_only_case_on_one_worker_exhausts_bounded_retries(self):
         def dispatch(peer, request):
-            return {"peer": peer, **capture(FAILED, 101)}
+            return self.failed(peer, request["name"])
 
         result = self.schedule(["only"], PEERS[:1], 10, dispatch)["only"]
         self.assertEqual(result["status"], "failed")
@@ -247,13 +250,14 @@ class SuiteTests(unittest.TestCase):
                 calls = {}
 
                 def dispatch(peer, request):
+                    identity = {"artifact_blake3": "1" * 64, "manifest_blake3": "2" * 64}
                     if request["operation"] == "list":
                         stdout = "listed: test\n"
                         if not request.get("ignored"):
                             stdout += "runtime: test\n"
-                        return {"peer": peer, **capture(stdout)}
+                        return {"peer": peer, "suite_identity": identity, **capture(stdout)}
                     calls[request["name"]] = (peer, request["ignored"])
-                    return {"peer": peer, **capture(IGNORED)}
+                    return {"peer": peer, "suite_identity": identity, **capture(IGNORED)}
 
                 args = SimpleNamespace(peer=PEERS, socket=None, timeout_ms=1000, filter=None,
                                        exact=False, skip=[], ignored=False, include_ignored=include_ignored,

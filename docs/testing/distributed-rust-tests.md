@@ -40,6 +40,8 @@ Repeat `--filter` to include test names matching any of the filters. With no fil
 
 The target can also report an ignore after a test is selected, including when `--include-ignored` requests execution. For example, Rust's panic-abort WASI harness can skip a `#[should_panic]` test that passes natively. The report records that ignore with the worker ID, attempt number, and captured libtest output. An ignore on the first attempt completes the selection without retrying. An ignored retry consumes one attempt and leaves any earlier failure or error unresolved until a later pass. A report with only passes and ignores exits successfully. Compare named native and WASI dispositions when checking parity, since a native pass and a WASI ignore are distinct outcomes.
 
+Select a publisher-verified suite using the signed `wasi:cli/command@0.2.0` build world above. Its host adapter supplies the BLAKE3 digests of the signed executable and manifest. The first worker's listing pins those digests, and every later listing, test and retry must match them, even when installed packages have the same ID and list the same tests. The report records the pinned identity and the identities returned with accepted attempts. An identity error ends that test's retries. Upgrade workers that do not report suite identity.
+
 ## Publish test results as JUnit XML
 
 Build systems that ingest JUnit XML can import the distributed test report. Save the runner's exit status so failed tests still fail the build after conversion.

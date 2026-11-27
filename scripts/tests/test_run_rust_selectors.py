@@ -17,20 +17,21 @@ SPEC.loader.exec_module(runner)
 
 NAMES = {"alpha::first", "alpha::second", "alpha::ignored", "beta::first", "beta::second", "gamma"}
 IGNORED = {"alpha::ignored"}
+IDENTITY = {"artifact_blake3": "1" * 64, "manifest_blake3": "2" * 64}
 
 
 class Selectors(unittest.TestCase):
     def select(self, filters, skips=(), *, exact=False, ignored=False):
-        def completed(_dispatch, _peers, _index, name, _listed_as_ignored, _retries):
-            return {"name": name, "status": "passed", "attempts": []}
+        def completed(_dispatch, peer, _name, _listed_as_ignored, attempt):
+            return {"peer": peer, "attempt": attempt, "status": "passed"}
 
         args = SimpleNamespace(peer=["worker-a", "worker-b"], socket=None, timeout_ms=1000,
                                filter=filters, skip=skips, exact=exact, ignored=ignored,
                                include_ignored=False, retries=0)
         with (
             patch.object(runner, "dispatcher"),
-            patch.object(runner, "suite_listing", return_value=(NAMES, IGNORED)),
-            patch.object(runner, "run_test", side_effect=completed),
+            patch.object(runner, "suite_listing", return_value=(NAMES, IGNORED, IDENTITY)),
+            patch.object(runner, "run_attempt", side_effect=completed),
         ):
             report = runner.run_suite(args, "plugin")
         selected = [row["name"] for row in report["results"]]

@@ -16,7 +16,12 @@ class DispatchError(Exception):
     """A transport, worker, or libtest protocol failure."""
 
 
+class SuiteIdentityError(DispatchError):
+    """A worker did not prove the identity of the selected signed suite."""
+
+
 MAX_RPC_LINE = 4 * 1024 * 1024
+SUITE_DIGESTS = {"artifact_blake3", "manifest_blake3"}
 STATUSES = ("passed", "flaky", "failed", "ignored", "error")
 RESULT = re.compile(
     r"^test result: (ok|FAILED)\. ([0-9]+) passed; ([0-9]+) failed; ([0-9]+) ignored; "
@@ -50,6 +55,7 @@ def rpc(socket_path, method, params, timeout):
 
 def dispatcher(socket_path, plugin, timeout_ms):
     def dispatch(peer, operation):
+        expected = operation.get("expected_suite_identity")
         request = {
             "plugin_id": plugin,
             "input": list(json.dumps(operation).encode()),
@@ -60,16 +66,38 @@ def dispatcher(socket_path, plugin, timeout_ms):
             "gpu_vram_min_bytes": 0,
             "integrity": {"kind": "trusted-executor", "allowlist": [peer]},
         }
-        reply = rpc(socket_path, "compute/dispatch", request, timeout_ms / 1000 + 15)
+        upgrade = f"worker {peer} does not report signed libtest suite identity; upgrade the worker daemon"
+        try:
+            reply = rpc(socket_path, "compute/dispatch", request, timeout_ms / 1000 + 15)
+        except DispatchError as error:
+            message = str(error)
+            if "libtest suite identity mismatch" in message:
+                raise SuiteIdentityError(f"worker {peer}: {message}") from error
+            if "expected_suite_identity" in message and "unknown field" in message:
+                raise SuiteIdentityError(upgrade) from error
+            raise
         try:
             if reply["chosen_peer"] != peer:
                 raise DispatchError("scheduler returned a different executor")
             result = json.loads(bytes(reply["output"]))
+            if not isinstance(result, dict):
+                raise DispatchError("invalid WASI libtest response")
+            if "suite_identity" not in result:
+                raise SuiteIdentityError(upgrade)
+            identity = result["suite_identity"]
+            if (not isinstance(identity, dict) or set(identity) != SUITE_DIGESTS
+                    or any(not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                           for digest in identity.values())):
+                raise SuiteIdentityError(f"worker {peer} reported an invalid libtest suite identity")
+            if expected is not None and identity != expected:
+                raise SuiteIdentityError(
+                    f"worker {peer}: libtest suite identity mismatch (expected {expected}, got {identity})"
+                )
             if (not isinstance(result["stdout"], str) or not isinstance(result["stderr"], str)
                     or (result["exit_code"] is not None and type(result["exit_code"]) is not int)):
                 raise DispatchError("invalid WASI libtest response")
             return {"peer": reply["chosen_peer"], "exit_code": result["exit_code"],
-                    "stdout": result["stdout"], "stderr": result["stderr"]}
+                    "stdout": result["stdout"], "stderr": result["stderr"], "suite_identity": identity}
         except (KeyError, TypeError, ValueError) as error:
             raise DispatchError(f"invalid WASI libtest response: {error}") from error
 
@@ -92,11 +120,14 @@ def test_list(result):
 
 
 def suite_listing(dispatch, peer):
-    names = test_list(dispatch(peer, {"operation": "list"}))
-    ignored = test_list(dispatch(peer, {"operation": "list", "ignored": True}))
+    listing = dispatch(peer, {"operation": "list"})
+    names = test_list(listing)
+    identity = listing["suite_identity"]
+    ignored = test_list(dispatch(peer, {"operation": "list", "ignored": True,
+                                       "expected_suite_identity": identity}))
     if not ignored <= names:
         raise DispatchError(f"inconsistent ignored-test listing on {peer}")
-    return names, ignored
+    return names, ignored, identity
 
 
 def classify(result, name):
@@ -160,6 +191,8 @@ def run_attempt(dispatch, peer, name, ignored, attempt):
                                  "attempt": attempt})
         record.update(result)
         record["status"] = classify(result, name)
+    except SuiteIdentityError as error:
+        record.update(status="error", error_kind="suite_identity", error=str(error))
     except DispatchError as error:
         record.update(status="error", error=str(error))
     except Exception as error:
@@ -168,7 +201,10 @@ def run_attempt(dispatch, peer, name, ignored, attempt):
 
 
 def final_status(attempts, retries):
-    outcome = attempts[-1]["status"]
+    last = attempts[-1]
+    if last.get("error_kind") == "suite_identity":
+        return "error"
+    outcome = last["status"]
     if outcome == "passed":
         return "flaky" if any(a["status"] == "failed" for a in attempts[:-1]) else "passed"
     if outcome == "ignored" and len(attempts) == 1:
@@ -218,12 +254,17 @@ def run_suite(args, plugin):
         return name == selector if args.exact else selector in name
 
     peers = args.peer
-    dispatch = dispatcher(args.socket, plugin, args.timeout_ms)
+    request = dispatcher(args.socket, plugin, args.timeout_ms)
     started = time.monotonic()
+    first_listing = suite_listing(request, peers[0])
+    names, ignored, identity = first_listing
+
+    def dispatch(peer, operation):
+        return request(peer, {**operation, "expected_suite_identity": identity})
+
     with ThreadPoolExecutor(max_workers=len(peers)) as executor:
-        listings = list(executor.map(lambda peer: suite_listing(dispatch, peer), peers))
-        names, ignored = listings[0]
-        if any(listing != listings[0] for listing in listings[1:]):
+        listings = list(executor.map(lambda peer: suite_listing(dispatch, peer), peers[1:]))
+        if any(listing != first_listing for listing in listings):
             raise DispatchError("workers disagree about the signed suite's test names or ignores")
         selected = [name for name in sorted(names)
                     if (not filters or any(matches(name, selector) for selector in filters))
@@ -242,7 +283,8 @@ def run_suite(args, plugin):
     counts = dict.fromkeys(STATUSES, 0)
     for result in results.values():
         counts[result["status"]] += 1
-    return {"suite": plugin, "listing_peers": peers, "filtered": len(names) - len(selected),
+    return {"suite": plugin, "suite_identity": identity, "listing_peers": peers,
+            "filtered": len(names) - len(selected),
             "counts": counts, "elapsed_ms": round((time.monotonic() - started) * 1000),
             "results": [results[name] for name in selected]}
 
