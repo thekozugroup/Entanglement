@@ -80,13 +80,15 @@ async fn missing_cli_reports_not_installed() {
 #[cfg(unix)]
 mod command {
     use super::*;
-    use std::{fs, os::unix::fs::PermissionsExt};
+    use std::{os::unix::fs::symlink, path::Path};
 
-    fn fixture(script: &str) -> (tempfile::TempDir, MeshTailscale) {
+    fn fixture(name: &str) -> (tempfile::TempDir, MeshTailscale) {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("tailscale fixture");
-        fs::write(&path, format!("#!/bin/sh\n{script}\n")).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        // Use a checked-in executable so parallel subprocesses cannot inherit a
+        // write descriptor to a just-created script and cause ETXTBSY at exec.
+        let path = dir.path().join(name);
+        let executable = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/status-cli.sh");
+        symlink(executable, &path).unwrap();
         let mesh = MeshTailscale::new(MeshTailscaleConfig {
             tailscale_cli: path.to_str().unwrap().into(),
             ..Default::default()
@@ -96,10 +98,7 @@ mod command {
 
     #[tokio::test]
     async fn calls_only_read_only_status_and_reports_inactive_backend() {
-        let (_dir, mesh) = fixture(
-            r#"[ "$#" = 2 ] && [ "$1" = status ] && [ "$2" = --json ] || exit 1
-printf '%s' '{"BackendState":"NeedsLogin"}'"#,
-        );
+        let (_dir, mesh) = fixture("inactive fixture");
         assert_eq!(mesh.status().await.unwrap().backend_state, "NeedsLogin");
         assert!(matches!(
             mesh.start().await,
@@ -109,7 +108,7 @@ printf '%s' '{"BackendState":"NeedsLogin"}'"#,
 
     #[tokio::test]
     async fn command_failures_do_not_accept_partial_status() {
-        let (_dir, mesh) = fixture(r#"echo '{"BackendState":"Running"}'; exit 42"#);
+        let (_dir, mesh) = fixture("failing fixture");
         assert!(matches!(
             mesh.status().await,
             Err(MeshTailscaleError::CommandFailed(status)) if status.code() == Some(42)
@@ -118,7 +117,7 @@ printf '%s' '{"BackendState":"NeedsLogin"}'"#,
 
     #[tokio::test]
     async fn oversized_cli_output_is_rejected() {
-        let (_dir, mesh) = fixture("exec dd if=/dev/zero bs=1048576 count=17");
+        let (_dir, mesh) = fixture("oversized fixture");
         assert!(matches!(
             mesh.status().await,
             Err(MeshTailscaleError::OutputTooLarge)
@@ -127,7 +126,7 @@ printf '%s' '{"BackendState":"NeedsLogin"}'"#,
 
     #[tokio::test]
     async fn hung_cli_times_out() {
-        let (_dir, mesh) = fixture("exec sleep 60");
+        let (_dir, mesh) = fixture("hung fixture");
         assert!(matches!(
             mesh.status().await,
             Err(MeshTailscaleError::Timeout)

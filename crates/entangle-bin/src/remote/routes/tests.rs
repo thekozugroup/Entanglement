@@ -264,12 +264,14 @@ async fn offline_start_preserves_identity_without_a_listener_and_other_modes_kee
 async fn mixed_listener_reloads_routes_and_status_from_the_local_cli() {
     use entangle_mesh_tailscale::MeshTailscaleConfig;
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::symlink;
+    use std::path::Path;
 
     let dir = tempfile::tempdir().unwrap();
     let executable = dir.path().join("tailscale");
-    fs::write(&executable, "#!/bin/sh\nexec cat \"$0.json\"\n").unwrap();
-    fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../entangle-mesh-tailscale/tests/fixtures/status-cli.sh");
+    symlink(fixture, &executable).unwrap();
     let set_status = |online: bool, remote_ip: &str| {
         let content = serde_json::json!({
             "BackendState": if online { "Running" } else { "Stopped" },
