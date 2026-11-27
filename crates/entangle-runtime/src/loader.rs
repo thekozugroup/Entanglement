@@ -1,5 +1,8 @@
 //! On-disk plugin package loader.
 
+use entangle_signing::package_io::{
+    read_regular_file, COMPONENT_LIMIT, MANIFEST_LIMIT, SIGNATURE_LIMIT,
+};
 use std::path::{Path, PathBuf};
 
 /// An on-disk plugin "package": the bytes + manifest + signature bundle.
@@ -36,8 +39,8 @@ impl PluginPackage {
         let manifest_path = dir.join("entangle.toml");
         let artifact_path = dir.join("plugin.wasm");
         let signature_path = dir.join("plugin.wasm.sig");
-        let bytes = std::fs::read(&artifact_path)?;
-        let manifest_bytes = std::fs::read(&manifest_path)?;
+        let manifest_bytes = read_regular_file(&manifest_path, MANIFEST_LIMIT)?;
+        let bytes = read_regular_file(&artifact_path, COMPONENT_LIMIT)?;
         Ok(Self {
             manifest_path,
             artifact_path,
@@ -45,5 +48,10 @@ impl PluginPackage {
             bytes,
             manifest_bytes,
         })
+    }
+
+    /// Read the signature bundle after the kernel has admitted the manifest identity.
+    pub(crate) fn read_signature(&self) -> std::io::Result<Vec<u8>> {
+        read_regular_file(&self.signature_path, SIGNATURE_LIMIT)
     }
 }

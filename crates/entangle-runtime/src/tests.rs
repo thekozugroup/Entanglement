@@ -688,3 +688,52 @@ async fn native_service_lease_drains_before_a_lower_ceiling_takes_effect() {
         .unwrap();
     assert!(kernel.native_service_lease().await.is_err());
 }
+
+#[tokio::test]
+async fn direct_load_rejects_each_oversized_input_before_admission() {
+    use entangle_signing::package_io::{COMPONENT_LIMIT, MANIFEST_LIMIT, SIGNATURE_LIMIT};
+    let signer = IdentityKeyPair::generate();
+    let kernel = Kernel::new(KernelConfig::default(), keyring_for(&signer)).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    for (name, cap) in [
+        ("entangle.toml", MANIFEST_LIMIT),
+        ("plugin.wasm", COMPONENT_LIMIT),
+        ("plugin.wasm.sig", SIGNATURE_LIMIT),
+    ] {
+        write_plugin_package(dir.path(), &signer, &loadable_wasm(), 1);
+        std::fs::File::create(dir.path().join(name))
+            .unwrap()
+            .set_len(cap as u64 + 1)
+            .unwrap();
+        let err = kernel.load_plugin_from_dir(dir.path()).await.unwrap_err();
+        assert!(
+            matches!(err, crate::RuntimeError::Io(ref e) if e.kind() == std::io::ErrorKind::InvalidData),
+            "{name}: {err}"
+        );
+        assert!(kernel.list_plugins().is_empty());
+    }
+    write_plugin_package(dir.path(), &signer, &loadable_wasm(), 1);
+    kernel.load_plugin_from_dir(dir.path()).await.unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn direct_load_rejects_symlinks_even_when_the_target_is_correctly_signed() {
+    use std::os::unix::fs::symlink;
+    let signer = IdentityKeyPair::generate();
+    let kernel = Kernel::new(KernelConfig::default(), keyring_for(&signer)).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    write_plugin_package(dir.path(), &signer, &loadable_wasm(), 1);
+    for name in ["entangle.toml", "plugin.wasm", "plugin.wasm.sig"] {
+        let path = dir.path().join(name);
+        let real = path.with_extension("signed-original");
+        std::fs::rename(&path, &real).unwrap();
+        symlink(&real, &path).unwrap();
+        let err = kernel.load_plugin_from_dir(dir.path()).await.unwrap_err();
+        assert!(matches!(err, crate::RuntimeError::Io(_)), "{name}: {err}");
+        assert!(kernel.list_plugins().is_empty());
+        std::fs::remove_file(&path).unwrap();
+        std::fs::rename(&real, &path).unwrap();
+    }
+    kernel.load_plugin_from_dir(dir.path()).await.unwrap();
+}

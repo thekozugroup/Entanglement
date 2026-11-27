@@ -24,5 +24,8 @@ toml = { workspace = true }
 thiserror = { workspace = true }
 tempfile = { workspace = true }
 
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1", features = ["fs"] }
+
 [dev-dependencies]
 biscuit-auth = { workspace = true }

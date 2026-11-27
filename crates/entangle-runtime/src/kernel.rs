@@ -220,7 +220,7 @@ impl Kernel {
         );
 
         // ── Step 2: Signature (artifact + manifest) ──────────────────────────
-        let sig_bytes = std::fs::read(&pkg.signature_path)?;
+        let sig_bytes = pkg.read_signature()?;
         let sig_text = std::str::from_utf8(&sig_bytes).map_err(|_| {
             RuntimeError::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,

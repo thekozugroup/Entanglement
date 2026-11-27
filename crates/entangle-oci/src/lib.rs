@@ -8,17 +8,17 @@ pub use registry::list_tags;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{ensure, Context, Result};
 use entangle_manifest::validate;
+use entangle_signing::package_io::{
+    read_bounded, read_regular_file, COMPONENT_LIMIT, MANIFEST_LIMIT, SIGNATURE_LIMIT,
+};
 use entangle_signing::{verify_artifact, IdentityPublicKey, Keyring, Signature, SignatureBundle};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 use sha2::{Digest, Sha256};
 
 /// Maximum accepted compressed package size, including frame headers.
 pub const ARCHIVE_LIMIT: usize = 68 * 1024 * 1024;
-const MANIFEST_LIMIT: usize = 1024 * 1024;
-const COMPONENT_LIMIT: usize = 64 * 1024 * 1024;
-const SIGNATURE_LIMIT: usize = 64 * 1024;
 const PROVENANCE_LIMIT: usize = 1024 * 1024;
 
 const FILES: [(&str, usize); 4] = [
@@ -204,30 +204,5 @@ impl PackageFiles {
 
 /// Read a local regular file up to a hard byte ceiling.
 pub fn read_file(path: &Path, limit: usize) -> Result<Vec<u8>> {
-    let mut options = std::fs::OpenOptions::new();
-    options.read(true);
-    #[cfg(unix)]
-    {
-        use rustix::fs::OFlags;
-        use std::os::unix::fs::OpenOptionsExt;
-        options.custom_flags((OFlags::NONBLOCK | OFlags::NOFOLLOW).bits() as i32);
-    }
-    let file = options
-        .open(path)
-        .with_context(|| format!("opening {}", path.display()))?;
-    ensure!(
-        file.metadata()?.is_file(),
-        "expected a regular file at {}",
-        path.display()
-    );
-    read_bounded(file, limit).with_context(|| format!("reading {}", path.display()))
-}
-
-fn read_bounded(reader: impl Read, limit: usize) -> Result<Vec<u8>> {
-    let mut bytes = Vec::new();
-    reader.take(limit as u64 + 1).read_to_end(&mut bytes)?;
-    if bytes.len() > limit {
-        bail!("file exceeds {limit} bytes");
-    }
-    Ok(bytes)
+    read_regular_file(path, limit).with_context(|| format!("reading {}", path.display()))
 }

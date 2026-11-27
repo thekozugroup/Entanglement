@@ -15,6 +15,7 @@
 pub mod artifact;
 pub mod keypair;
 pub mod keyring;
+pub mod package_io;
 pub mod signature;
 
 pub use artifact::{sign_artifact, verify_artifact, VerificationError};
