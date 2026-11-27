@@ -88,6 +88,8 @@ async fn concurrent_timeouts_do_not_cross_cancel() {
         tokio::spawn(async move { plugin.run_one_shot(&engine, b"spin:10000", 100).await })
     };
 
+    drop(plugin); // Both in-flight invocations own their compiled handles.
+
     let short_result = short.await.expect("short task join");
     match short_result {
         Err(HostError::Timeout(100)) => {}

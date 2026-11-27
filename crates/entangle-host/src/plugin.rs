@@ -6,6 +6,7 @@ use crate::errors::HostError;
 use crate::libtest::{LibtestCapture, LibtestIdentity};
 use crate::state::{HostState, ResourceLimits};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
+use std::sync::Arc;
 use std::time::Duration;
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Store, Trap};
@@ -40,7 +41,13 @@ enum World {
 #[derive(Clone)]
 enum Exports {
     Plugin(PluginPre<HostState>),
-    Libtest(CommandPre<HostState>, Option<LibtestIdentity>),
+    Libtest(Arc<LibtestCommand>),
+}
+
+// Keep the signed identity with its pre-instantiated command for every clone.
+struct LibtestCommand {
+    pre: CommandPre<HostState>,
+    identity: Option<LibtestIdentity>,
 }
 
 impl Clone for LoadedPlugin {
@@ -133,7 +140,7 @@ impl LoadedPlugin {
                     .instantiate_pre(&component)
                     .map_err(HostError::Instantiate)?,
             )
-            .map(|command| Exports::Libtest(command, identity))
+            .map(|pre| Exports::Libtest(Arc::new(LibtestCommand { pre, identity })))
         } else {
             PluginPre::new(
                 engine
@@ -195,9 +202,11 @@ impl LoadedPlugin {
     ) -> Result<PluginRunResult, HostError> {
         let mut state = HostState::with_limits(self.plugin_id.clone(), self.effective_tier, limits);
         let capture = match &self.pre {
-            Exports::Libtest(_, identity) => {
-                Some(LibtestCapture::start(input, &mut state, identity.as_ref())?)
-            }
+            Exports::Libtest(command) => Some(LibtestCapture::start(
+                input,
+                &mut state,
+                command.identity.as_ref(),
+            )?),
             Exports::Plugin(_) => None,
         };
         let mut store = Store::new(engine.engine(), state);
@@ -220,8 +229,9 @@ impl LoadedPlugin {
                         .map_err(|e| classify_call_error(e, timeout_ms))?
                         .map_err(plugin_error)
                 }
-                Exports::Libtest(pre, identity) => {
-                    let command = pre
+                Exports::Libtest(suite) => {
+                    let command = suite
+                        .pre
                         .instantiate_async(&mut store)
                         .await
                         .map_err(|e| classify_instantiate_error(e, timeout_ms))?;
@@ -240,7 +250,7 @@ impl LoadedPlugin {
                     };
                     capture
                         .expect("WASI command has output capture")
-                        .result(exit_code, identity.as_ref())
+                        .result(exit_code, suite.identity.as_ref())
                 }
             }
         };
@@ -330,6 +340,54 @@ mod tests {
         "aabbccddeeff00112233445566778899/test-plugin@0.1.0"
             .parse()
             .unwrap()
+    }
+
+    #[test]
+    fn ordinary_exports_do_not_grow_by_the_libtest_identity() {
+        // Allow space for a tag on targets where Rust cannot use a niche.
+        assert!(
+            std::mem::size_of::<Exports>()
+                <= std::mem::size_of::<PluginPre<HostState>>()
+                    + std::mem::align_of::<PluginPre<HostState>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn standalone_libtest_clones_share_the_command_and_require_a_verified_pin() {
+        let bytes = wat::parse_str(
+            r#"(component
+                (core module $m (func (export "run") (result i32) i32.const 0))
+                (core instance $i (instantiate $m))
+                (func $run (result (result)) (canon lift (core func $i "run")))
+                (instance $command (export "run" (func $run)))
+                (export "wasi:cli/run@0.2.0" (instance $command)))"#,
+        )
+        .unwrap();
+        let engine = HostEngine::new().unwrap();
+        let plugin = LoadedPlugin::from_libtest(&engine, &bytes, test_plugin_id()).unwrap();
+        let cloned = plugin.clone();
+        let (Exports::Libtest(first), Exports::Libtest(second)) = (&plugin.pre, &cloned.pre) else {
+            panic!("expected WASI commands");
+        };
+        assert!(Arc::ptr_eq(first, second));
+        drop(plugin);
+
+        let output = cloned
+            .run_one_shot(&engine, br#"{"operation":"list"}"#, 2000)
+            .await
+            .unwrap();
+        let result: serde_json::Value = serde_json::from_slice(&output.output).unwrap();
+        assert_eq!(result["exit_code"], 0);
+        assert_eq!(result.get("suite_identity"), Some(&serde_json::Value::Null));
+
+        let pin = LibtestIdentity::from_verified_hashes([1; 32], [2; 32]);
+        let request = serde_json::json!({"operation": "list", "expected_suite_identity": pin});
+        assert!(matches!(
+            cloned
+                .run_one_shot(&engine, &serde_json::to_vec(&request).unwrap(), 2000)
+                .await,
+            Err(HostError::LibtestIdentityMismatch)
+        ));
     }
 
     /// Test 1: engine creation succeeds with component-model + async config.
