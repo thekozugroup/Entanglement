@@ -18,11 +18,12 @@ class DispatchError(Exception):
 MAX_RPC_LINE = 4 * 1024 * 1024
 STATUSES = ("passed", "flaky", "failed", "ignored", "error")
 RESULT = re.compile(
-    r"^test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; "
-    r"(\d+) measured; (\d+) filtered out(?:;|$)",
+    r"^test result: (ok|FAILED)\. ([0-9]+) passed; ([0-9]+) failed; ([0-9]+) ignored; "
+    r"([0-9]+) measured; ([0-9]+) filtered out(?:; finished in [0-9]+(?:\.[0-9]+)?s)?$",
     re.MULTILINE,
 )
 PANIC = re.compile(r"^thread '[^'\r\n]*'(?: \(\d+\))? panicked at(?: |$)", re.MULTILINE)
+RUN_HEADER = re.compile(r"running [0-9]+ tests?")
 
 
 def rpc(socket_path, method, params, timeout):
@@ -98,19 +99,31 @@ def suite_listing(dispatch, peer):
 
 
 def classify(result):
-    if result["exit_code"] is None:
+    lines = result["stdout"].splitlines()
+    summaries = [line for line in lines if line.startswith("test result:")]
+    header = next((line for line in lines if line.strip()), "")
+    exit_code = result["exit_code"]
+    if exit_code is None:
+        if summaries:
+            raise DispatchError("WASI libtest trapped after reporting a test summary")
+        if RUN_HEADER.fullmatch(header) and header != "running 1 test":
+            raise DispatchError("exact libtest selector did not report one selected test")
         if PANIC.search(result["stderr"]):
             return "failed"
         raise DispatchError("WASI libtest trapped without a Rust panic report")
-    summary = RESULT.findall(result["stdout"])
-    if len(summary) != 1:
-        raise DispatchError("expected one Rust libtest summary")
-    status, passed, failed, ignored, measured, _ = summary[0]
-    if measured == "0" and ignored == "0":
-        if (status, passed, failed, result["exit_code"]) == ("ok", "1", "0", 0):
+    if len(summaries) != 1 or not (summary := RESULT.fullmatch(summaries[0])):
+        raise DispatchError("expected one valid Rust libtest summary")
+    if header != "running 1 test":
+        raise DispatchError("exact libtest selector did not report one selected test")
+    status, passed, failed, ignored, measured, _ = summary.groups()
+    counts = (passed, failed, ignored, measured)
+    if status == "ok" and exit_code == 0:
+        if counts == ("1", "0", "0", "0"):
             return "passed"
-        if (status, passed, failed) == ("FAILED", "0", "1") and result["exit_code"] != 0:
-            return "failed"
+        if counts == ("0", "0", "1", "0"):
+            return "ignored"
+    if status == "FAILED" and exit_code != 0 and counts == ("0", "1", "0", "0"):
+        return "failed"
     raise DispatchError("exact libtest selector did not report one completed test")
 
 
@@ -130,6 +143,9 @@ def run_test(dispatch, peers, index, name, ignored, retries):
         if record["status"] == "passed":
             flaky = any(item["status"] == "failed" for item in attempts[:-1])
             return {"name": name, "status": "flaky" if flaky else "passed", "attempts": attempts}
+        if record["status"] == "ignored" and attempt == 1:
+            return {"name": name, "status": "ignored", "attempts": attempts}
+        # An ignored retry leaves the earlier failure or error unresolved.
     status = "failed" if any(item["status"] == "failed" for item in attempts) else "error"
     return {"name": name, "status": status, "attempts": attempts}
 

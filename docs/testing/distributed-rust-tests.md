@@ -34,7 +34,9 @@ python3 scripts/run-rust-tests.py "$PLUGIN_ID" --peer "$WORKER_A" --peer "$WORKE
 
 Pass additional signed plugin IDs before the flags to aggregate several suites. The runner compares each suite's test and ignore lists reported by every selected worker, schedules exact test names across the trusted peers, and retries on the next peer. The JSON records the totals, per-suite results, and each attempt with its number and executor ID. The sandbox exposes the 1-based attempt number in `ENTANGLE_LIBTEST_ATTEMPT`, up to 11. A failed test that subsequently passes is `flaky`. A standard Rust panic report from the panic-abort WASI target is a test failure. Other crashes and transport failures are `error`. The runner exits with status 1 if any test stays failed or has no valid result after retries.
 
-List filtering supports one substring or `--exact` and repeatable `--skip`. Ignored tests are reported without execution by default. Use `--include-ignored` to execute them alongside regular tests or `--ignored` to select them exclusively.
+List filtering supports one substring or `--exact` and repeatable `--skip`. By default, a test listed as ignored has status `ignored` and an empty `attempts` array. Use `--include-ignored` to request execution alongside regular tests or `--ignored` to select only tests listed as ignored.
+
+The target can also report an ignore after a test is selected, including when `--include-ignored` requests execution. For example, Rust's panic-abort WASI harness can skip a `#[should_panic]` test that passes natively. The report records that ignore with the worker ID, attempt number, and captured libtest output. An ignore on the first attempt completes the selection without retrying. An ignored retry consumes one attempt and leaves any earlier failure or error unresolved until a later pass. A report with only passes and ignores exits successfully. Compare named native and WASI dispositions when checking parity, since a native pass and a WASI ignore are distinct outcomes.
 
 ## Loopback integration test
 
