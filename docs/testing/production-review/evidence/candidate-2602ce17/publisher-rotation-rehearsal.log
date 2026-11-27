@@ -1,0 +1,28 @@
+{
+  "source_id": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "source_after": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "scope": "isolated publisher rotation exercise on Linux x86_64; no messages or reports sent externally",
+  "binary_sha256": {
+    "entangle": "7796a80a67754f0d96912f68c3aebe938c456aa331ce497165e122682c81216c",
+    "entangled": "ee90123fee6074b3e8358a2bad7ac913d36300953675a7613ee9f75e85c46905"
+  },
+  "actions": [
+    {
+      "step": "Inject private report of suspected signing-key compromise in this exercise",
+      "elapsed_seconds": 0.109,
+      "affected": "8cdb82bf13035d8fce427e8d97f2cdd0/hello-world@0.1.0",
+      "affected_component_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50"
+    },
+    {
+      "step": "Unload affected package, remove publisher trust, and verify reload denial",
+      "elapsed_seconds": 0.125,
+      "code": "ENTANGLE-E0101"
+    },
+    {
+      "step": "Recover using separately generated publisher key; retired package remains denied",
+      "elapsed_seconds": 0.192,
+      "replacement": "7e447a0045c458d7d488fcac490132ec/hello-world@0.1.0",
+      "pid_unchanged": true
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling entangle-types v0.1.0 (/workspace/Entanglement/crates/entangle-types)
+   Compiling entangle-biscuits v0.1.0 (/workspace/Entanglement/crates/entangle-biscuits)
+   Compiling entangle-manifest v0.1.0 (/workspace/Entanglement/crates/entangle-manifest)
+   Compiling entangle-peers v0.1.0 (/workspace/Entanglement/crates/entangle-peers)
+   Compiling entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+   Compiling entangle-signing v0.1.0 (/workspace/Entanglement/crates/entangle-signing)
+   Compiling entangle-broker v0.1.0 (/workspace/Entanglement/crates/entangle-broker)
+   Compiling entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+   Compiling entangle-ipc v0.1.0 (/workspace/Entanglement/crates/entangle-ipc)
+   Compiling entangle-core v0.1.0 (/workspace/Entanglement/crates/entangle-core)
+   Compiling entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+   Compiling entangle-mesh-local v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-local)
+   Compiling entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+   Compiling entangle-rpc v0.1.0 (/workspace/Entanglement/crates/entangle-rpc)
+   Compiling entangle-mesh-tailscale v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-tailscale)
+   Compiling entangle-oci v0.1.0 (/workspace/Entanglement/crates/entangle-oci)
+   Compiling entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+   Compiling entangle-pairing v0.1.0 (/workspace/Entanglement/crates/entangle-pairing)
+   Compiling cargo-entangle v0.1.0 (/workspace/Entanglement/crates/cargo-entangle)
+   Compiling entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+    Finished `release` profile [optimized] target(s) in 11m 45s

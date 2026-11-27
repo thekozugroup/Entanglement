@@ -1,0 +1,22 @@
+{
+  "source_id": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "source_commit": "2602ce17ee37416770008fb71f1d6048c828f823",
+  "command": "python3 scripts/tests/recovery.py --bin-dir target/release",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T02:26:55.437493+00:00",
+  "observed_at_utc": "2026-11-27T02:26:58.781827+00:00",
+  "platform": "Linux 6.18.57 x86_64",
+  "artifact_sha256": {
+    "entangle": "7796a80a67754f0d96912f68c3aebe938c456aa331ce497165e122682c81216c",
+    "entangled": "ee90123fee6074b3e8358a2bad7ac913d36300953675a7613ee9f75e85c46905"
+  },
+  "observed": {
+    "linux_restored_peer_id": "a3a7d403a54434dec5eedc55da28a626",
+    "signed_work_before_and_after": "verified",
+    "relocated_startup_package_and_bridge_ledger": "verified",
+    "receiver_rejected_revoked_submitter": "verified",
+    "wrong_passphrase_and_corruption": "rejected without publishing",
+    "occupied_target": "preserved",
+    "private_modes": "verified"
+  }
+}

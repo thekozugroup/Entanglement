@@ -1,0 +1,7 @@
+
+running 2 tests
+test zsh_wrapper_preserves_arguments_and_exit ... ok
+test fish_wrapper_forwards_and_warns_when_sourced ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.24s
+

@@ -1,0 +1,38 @@
+UTC start 2026-11-27T02:29:41Z
+85850ab1ed1047e14521b9e249f1ce9b804fa2295168d3d89b546435e797af56  /tmp/ent-independent-unload.K8uwm7/check.py
+command PYTHONDONTWRITEBYTECODE=1 python3 /tmp/ent-independent-unload.K8uwm7/check.py
+{
+  "source_id": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "source_after": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "scope": "isolated publisher rotation exercise on Linux x86_64; no messages or reports sent externally",
+  "binary_sha256": {
+    "entangle": "7796a80a67754f0d96912f68c3aebe938c456aa331ce497165e122682c81216c",
+    "entangled": "ee90123fee6074b3e8358a2bad7ac913d36300953675a7613ee9f75e85c46905"
+  },
+  "actions": [
+    {
+      "step": "Inject private report of suspected signing-key compromise in this exercise",
+      "elapsed_seconds": 0.138,
+      "affected": "f6074e1cc45fd745e9f6eea0c425bea1/hello-world@0.1.0",
+      "affected_component_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50"
+    },
+    {
+      "step": "Independent unload check: absent from runtime registry and invoke denied",
+      "elapsed_seconds": 0.171,
+      "retained_component_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50"
+    },
+    {
+      "step": "Unload affected package, remove publisher trust, and verify reload denial",
+      "elapsed_seconds": 0.183,
+      "code": "ENTANGLE-E0101"
+    },
+    {
+      "step": "Recover using separately generated publisher key; retired package remains denied",
+      "elapsed_seconds": 0.265,
+      "replacement": "bdf31d328734e1e2369f2eeb51d7e012/hello-world@0.1.0",
+      "pid_unchanged": true
+    }
+  ]
+}
+exit 0
+UTC finish 2026-11-27T02:29:42Z

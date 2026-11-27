@@ -1,0 +1,36 @@
+{
+  "source_id": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "source_commit": "2602ce17ee37416770008fb71f1d6048c828f823",
+  "command": "python3 scripts/tests/private-tailnet.py --bridge --bin-dir target/release",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T02:26:55.401404+00:00",
+  "observed_at_utc": "2026-11-27T02:27:27.538281+00:00",
+  "platform": "Linux 6.18.57 x86_64",
+  "artifact_sha256": {
+    "entangle": "7796a80a67754f0d96912f68c3aebe938c456aa331ce497165e122682c81216c",
+    "entangled": "ee90123fee6074b3e8358a2bad7ac913d36300953675a7613ee9f75e85c46905",
+    "entangle_json_pointer.wasm": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb"
+  },
+  "observed": {
+    "transport": "tailscale",
+    "executor": "75511c54d310716e4bb0d3ed5d7583b1",
+    "plugin_id": "75511c54d310716e4bb0d3ed5d7583b1/json-pointer@0.1.0",
+    "verified_random_plugin_output": true,
+    "worker_side_revocation": "not-authorized",
+    "direct_kernel_wireguard_ping": true,
+    "isolated_docker_network": true,
+    "bridge": {
+      "origin": "f138697dd21b6ed9b3ba1450deb2a2d0",
+      "bridge": "df583888338f1cd24d97264a0ceb02ca",
+      "destination": "8ac85814164f8d5c2284754f405af794",
+      "transport": "iroh<->tailscale",
+      "bytes_delivered": 64,
+      "exhausted": true
+    },
+    "image_digests": [
+      "headscale/headscale@sha256:cd37b30018575fd62f18419138d4e526bcf894e1d4e1aa1b08699cec1891ac23",
+      "tailscale/tailscale@sha256:4a0aaacee6f28e724c1f80c986e5776c9c979d8f7e19274c2cae2d495cc8d625",
+      "python@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b"
+    ]
+  }
+}

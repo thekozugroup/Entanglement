@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:a57dec755727053de48578c4ab48b9d1230bf2ca36b19b0f8294352f7c9e7c51",
+  "source_after": "sha256:a57dec755727053de48578c4ab48b9d1230bf2ca36b19b0f8294352f7c9e7c51",
+  "started_utc": "2026-11-27T02:12:25+00:00",
+  "finished_utc": "2026-11-27T02:12:25+00:00",
+  "command": "git diff --check 'HEAD^' HEAD",
+  "exit_code": 0,
+  "log": "diff-check.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

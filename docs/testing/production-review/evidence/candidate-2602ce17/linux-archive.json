@@ -1,0 +1,19 @@
+{
+  "source_id": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "source_after": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "source_commit": "2602ce17ee37416770008fb71f1d6048c828f823",
+  "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "size": 28324049,
+  "sha256": "94692b1e5a365e28cb28242c1623ab74b7a26d317fdc750816d761dc92fca02a",
+  "blake3": "4358d3dec95bffeac15f6402fb2af9c24164e43599b2f82b4b915549171bcc7e",
+  "signing_status": "unsigned local candidate",
+  "files_sha256": {
+    "entangle": "7796a80a67754f0d96912f68c3aebe938c456aa331ce497165e122682c81216c",
+    "entangled": "ee90123fee6074b3e8358a2bad7ac913d36300953675a7613ee9f75e85c46905",
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.md": "482cde0aee5babf82baa9fe03f757e439365fd2f5556959dbdcfd8b37b2ac2c7",
+    "architecture.md": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0",
+    "tutorial.md": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11"
+  },
+  "tool_sha256": "88c72d7cc072823a01fd4576fbc71135b924f8830684ee9c856fe6dfdb690233"
+}

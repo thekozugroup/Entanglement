@@ -1,0 +1,29 @@
+{
+  "source_id": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "source_commit": "2602ce17ee37416770008fb71f1d6048c828f823",
+  "command": "python3 scripts/tests/max-tier.py --bin-dir target/release",
+  "exit_code": 0,
+  "started_at_utc": "2026-11-27T02:26:55.443055+00:00",
+  "observed_at_utc": "2026-11-27T02:26:56.389713+00:00",
+  "platform": "Linux 6.18.57 x86_64",
+  "artifact_sha256": {
+    "entangle": "7796a80a67754f0d96912f68c3aebe938c456aa331ce497165e122682c81216c",
+    "entangled": "ee90123fee6074b3e8358a2bad7ac913d36300953675a7613ee9f75e85c46905"
+  },
+  "observed": {
+    "interactive_default": "unload-and-disable",
+    "cancel_restored": 5,
+    "forced_plugins": 2,
+    "stale_reviews_rejected": 2,
+    "restart_disabled": true,
+    "initial_ceiling": 5,
+    "requested_ceiling": 2,
+    "signed_wasm_plugin_tiers": [
+      3,
+      3
+    ],
+    "tier5_agent_host_exercised": false,
+    "cross_process_config_writer_reservation": "checked",
+    "per_plugin_force_audit": "checked"
+  }
+}

@@ -1,0 +1,33 @@
+Source before = sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e
+
+$ /workspace/Entanglement/target/debug/deps/entangle_bin-a46fd8d829142312 inference::tests --nocapture
+
+running 5 tests
+test inference::tests::provider_restricts_loopback_and_supported_api_paths ... ok
+test inference::tests::prompts_cannot_select_endpoints_models_or_credentials ... ok
+test inference::tests::frames_utf8_crlf_comments_and_multiline_data ... ok
+test inference::tests::tier_change_waits_for_readiness_probe ... ok
+test inference::tests::rejects_oversized_sse_lines_and_events ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.03s
+
+
+Exit = 0
+
+$ /workspace/Entanglement/target/debug/deps/daemon_compute-9ce78f9f440f3404 inference::configured_inference_streams_incremental_signed_chunks --exact --nocapture
+
+running 1 test
+{"timestamp":"2026-11-27T02:20:38.611784Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpATE4YL/worker/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T02:20:40.587750Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpATE4YL/coordinator/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T02:20:41.109169Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpq7KsRH/worker/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T02:20:42.161334Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpq7KsRH/coordinator/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+test inference::configured_inference_streams_incremental_signed_chunks ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 4.01s
+
+
+Exit = 0
+
+Source after = sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e
+Binaries stable = True
+Suite exit = 0

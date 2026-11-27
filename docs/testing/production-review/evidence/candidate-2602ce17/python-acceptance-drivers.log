@@ -1,0 +1,15 @@
+test_corpus_has_distinct_inputs_and_independent_references (test_benchmark_image_batch.ImageGateTests.test_corpus_has_distinct_inputs_and_independent_references) ... ok
+test_missing_worker_and_route_mismatch_are_detected (test_benchmark_image_batch.ImageGateTests.test_missing_worker_and_route_mismatch_are_detected) ... ok
+test_oracle_refuses_wrong_format_dimensions_and_content (test_benchmark_image_batch.ImageGateTests.test_oracle_refuses_wrong_format_dimensions_and_content) ... ok
+test_all_pass_and_no_average_masking (test_production_score.ProductionScoreTests.test_all_pass_and_no_average_masking) ... ok
+test_frozen_historical_review_and_rubric_are_intact (test_production_score.ProductionScoreTests.test_frozen_historical_review_and_rubric_are_intact) ... ok
+test_missing_and_failed_are_distinct_blockers (test_production_score.ProductionScoreTests.test_missing_and_failed_are_distinct_blockers) ... ok
+test_missing_extra_partial_or_changed_rubric_rejected (test_production_score.ProductionScoreTests.test_missing_extra_partial_or_changed_rubric_rejected) ... ok
+test_pass_needs_intact_exact_source_evidence_and_reviewer (test_production_score.ProductionScoreTests.test_pass_needs_intact_exact_source_evidence_and_reviewer) ... ok
+test_path_escape_rejected (test_production_score.ProductionScoreTests.test_path_escape_rejected) ... ok
+test_strict_threshold_is_not_rounded (test_production_score.ProductionScoreTests.test_strict_threshold_is_not_rounded) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 1.194s
+
+OK

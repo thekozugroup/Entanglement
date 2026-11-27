@@ -1,0 +1,31 @@
+    Checking entangle-biscuits v0.1.0 (/workspace/Entanglement/crates/entangle-biscuits)
+    Checking entangle-manifest v0.1.0 (/workspace/Entanglement/crates/entangle-manifest)
+    Checking entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+    Checking entangle-rpc v0.1.0 (/workspace/Entanglement/crates/entangle-rpc)
+    Checking entangle-signing v0.1.0 (/workspace/Entanglement/crates/entangle-signing)
+    Checking entangle-broker v0.1.0 (/workspace/Entanglement/crates/entangle-broker)
+ Documenting entangle-agent-host v0.1.0 (/workspace/Entanglement/crates/entangle-agent-host)
+    Checking entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+    Checking entangle-oci v0.1.0 (/workspace/Entanglement/crates/entangle-oci)
+    Checking entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+ Documenting cargo-entangle v0.1.0 (/workspace/Entanglement/crates/cargo-entangle)
+ Documenting entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+ Documenting entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+    Checking entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+error: unclosed HTML tag `name`
+  --> crates/cargo-entangle/src/main.rs:29:57
+   |
+29 |         /// Output archive. Defaults to target/entangle/<name>-<version>.tar.zst in the project.
+   |                                                         ^^^^^^
+   |
+   = note: `-D rustdoc::invalid-html-tags` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(rustdoc::invalid_html_tags)]`
+
+error: unclosed HTML tag `version`
+  --> crates/cargo-entangle/src/main.rs:29:64
+   |
+29 |         /// Output archive. Defaults to target/entangle/<name>-<version>.tar.zst in the project.
+   |                                                                ^^^^^^^^^
+
+error: could not document `cargo-entangle`
+warning: build failed, waiting for other jobs to finish...

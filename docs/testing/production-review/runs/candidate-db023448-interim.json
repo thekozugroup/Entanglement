@@ -1,0 +1,518 @@
+{
+  "name": "candidate-db023448-interim",
+  "captured_at_utc": "2026-11-27T02:11:54Z",
+  "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "observations": {
+    "ATC-MAN-1": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-MAN-2": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-MAN-3": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-MAN-4": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-PKG-1": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-PKG-2": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-PKG-3": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-PKG-4": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-BRG-1": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-BRG-2": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-BRG-3": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-BRG-4": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-BRG-5": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-BRG-6": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-INT-1": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-INT-2": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-INT-3": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-INT-4": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-INT-5": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-STR-1": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-STR-2": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-STR-3": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-WRP-1": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-WRP-2": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-WRP-3": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-MAX-1": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-MAX-2": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-MAX-3": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-MIR-1": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-MIR-2": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-REL-1": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-REL-2": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "ATC-BUS-1": {
+      "status": "fail",
+      "reason": "Governance checker reports one holder for each role, below the required two; live activity was not reached.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/release-and-governance.log",
+          "sha256": "afd9b97c77076fa2f306e2b9d030e2af92e87f369fb91b9a66ee83080a0927ed",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "GITHUB_REPOSITORY=thekozugroup/Entanglement python3 scripts/check-release-governance.py",
+          "exit_code": 1,
+          "claim": "Same-source governance command exited 1; log records missing quorum and rotation note.",
+          "observed_at_utc": "2026-11-27T02:11:54Z"
+        }
+      ]
+    },
+    "ATC-BUS-2": {
+      "status": "fail",
+      "reason": "The specified rotation review file is missing and the release governance check fails.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/release-and-governance.log",
+          "sha256": "afd9b97c77076fa2f306e2b9d030e2af92e87f369fb91b9a66ee83080a0927ed",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "GITHUB_REPOSITORY=thekozugroup/Entanglement python3 scripts/check-release-governance.py",
+          "exit_code": 1,
+          "claim": "Same-source governance command exited 1; log records missing quorum and rotation note.",
+          "observed_at_utc": "2026-11-27T02:11:54Z"
+        }
+      ]
+    },
+    "COR-CLI": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "COR-REMOTE": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "COR-PLATFORMS": {
+      "status": "fail",
+      "reason": "Locked workspace suite failed on the Linux candidate: ENTANGLE-E0506 is assigned to three host failure variants. Hosted CI and other OS targets are also not evidenced.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/workspace-test.log",
+          "sha256": "759a818ef8ea9f364ee504791a8030b5c76614ac1abfe887859a539cd5cfd0d7",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "cargo test --locked --workspace",
+          "exit_code": 101,
+          "claim": "The suite exited 101 on duplicate E0506; before/after source hashes matched.",
+          "observed_at_utc": "2026-11-27T02:11:54Z"
+        }
+      ]
+    },
+    "AUTH-LIVE": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "AUTH-WASI": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "AUTH-CHAIN": {
+      "status": "pass",
+      "reason": "All 13 root and standalone lock graphs passed the configured all-feature cargo-deny checks against the fetched official RustSec snapshot; no ignores. Temporary policy changed only the local database path.",
+      "reviewer": "Independent QA (Codex)",
+      "reviewed_at_utc": "2026-11-27T02:11:54Z",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-crates-entangle-host-fixtures-src-hello-pong.json",
+          "sha256": "9f9055a5477699e6612903672937802c09b9afdb8de02192536e726cdc9406fa",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/hello-pong/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:09+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-crates-entangle-host-fixtures-src-hello-pong.log.gz",
+          "sha256": "b37ff6362b7fa3f2f3cf1450b200c4613bd8b53d43a0d78927387a95a3e8d441",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/hello-pong/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:09+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-crates-entangle-host-fixtures-src-stress.json",
+          "sha256": "3f7452f150c1c02537cb867c5b1e3c8aeb14251d06b9368abbd862d3ab80f12d",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/stress/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:12+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-crates-entangle-host-fixtures-src-stress.log.gz",
+          "sha256": "772ee0da7348af13e99937510b59db535d323fa2c0875751041dbaf2c88040e0",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/stress/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:12+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-examples-hash-it.json",
+          "sha256": "8a8edffce099f3bf883c2ac37514a3195c7052ca5fd81b7961385dd0881d6eeb",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/hash-it/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:14+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-examples-hash-it.log.gz",
+          "sha256": "8021f81595f00263b7f4d178269e8c1ebc887f38c31faa3853a5dd3ab58677ed",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/hash-it/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:14+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-examples-hello-world.json",
+          "sha256": "780c9f0d0c71ccbfc467d52824004c435181ccfc8d5307a27d0d5f725b7ac757",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/hello-world/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:18+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-examples-hello-world.log.gz",
+          "sha256": "35a081d3a714f12e158a940cc9485e1a2913645dbb19f5c61166235ae09203df",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/hello-world/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:18+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-examples-stream-lines.json",
+          "sha256": "952567939ac9825c923e466c2d35a3c21b8010ea7cd54d51a8d144f36c4f206e",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/stream-lines/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:21+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-examples-stream-lines.log.gz",
+          "sha256": "d8ac57620ced512f1134e8ed6f152a78cbd7886021641fa7a82072dc29c9b146",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/stream-lines/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:21+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-compress.json",
+          "sha256": "a59824f57ffd6009f8f1341e1b104690c6cd2b088743d2fed64ac13e1ef6fa28",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/compress/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:25+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-compress.log.gz",
+          "sha256": "226f614a9a88c0fae11fa9890b0c8f2afde41e3b4901f5e89f5a9cf3b6098808",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/compress/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:25+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-csv-stats.json",
+          "sha256": "32a66ff42d17496333a02fd5d97b059d200ecb033a57f0a55cdc76260dd7494f",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/csv-stats/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:27+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-csv-stats.log.gz",
+          "sha256": "a7c9d27cc1c2ca504977c775a0531724df3d6b2f0bd8fd1690a368d013a6f70d",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/csv-stats/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:27+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-image-resize.json",
+          "sha256": "c88df7160d6197812ebb71c6571364c69db7c9b92a2f9782f3cb071a66cdf2a5",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/image-resize/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:31+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-image-resize.log.gz",
+          "sha256": "3578ff0ee941c0c2d44bf08a78ba4868a5b1801e8f76fa3d5b272f421df148c8",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/image-resize/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:31+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-json-pointer.json",
+          "sha256": "b77efe01d96d90949d242c3c01dd51a30ce85e6ea3b70b2f24ccb2792dc9daaa",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/json-pointer/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:34+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-json-pointer.log.gz",
+          "sha256": "a11a53aa88ea4e8840df12b1fe0071a6f61b214694f2058a294ad802093f6994",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/json-pointer/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:34+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-json-query.json",
+          "sha256": "40ba404df133f3b8cf111cf903b53f42d5a96852dca5e1f0c7d2210f6948afb1",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/json-query/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:37+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-json-query.log.gz",
+          "sha256": "f80b57c6ff42ee14f2700d7ed852423af5d8894f6203c40746a42654ac3aae35",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/json-query/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:37+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-markdown-html.json",
+          "sha256": "5ef80ab067aa2bb5aab08f719238e28788f8f6e63e4e911de2b3216fb05d1eaf",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/markdown-html/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:40+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-markdown-html.log.gz",
+          "sha256": "a2eea685ca92ca7e3ff22ea0c1b0eb49be6cc6251fae37587b57ab986333f3c4",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/markdown-html/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:40+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-qr-encode.json",
+          "sha256": "166406f002c14e5cb8dd4c1db2e66d1abd74dc4de57a420928fbbb3bc5d33974",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/qr-encode/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:43+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-plugins-qr-encode.log.gz",
+          "sha256": "7b3aa1acfb2c1775a67d46e2f1e342274ef2bb062ab97018e9536188f13c06f7",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/qr-encode/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:43+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-workspace.json",
+          "sha256": "3e6b8e6aa62a068bfcefdc468ecd3aeeb7bc8ab46578855995652f93fda92842",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Recorded all-feature advisory, bans, licenses and sources pass; compressed log and digest are referenced by this receipt.",
+          "observed_at_utc": "2026-11-27T02:06:06+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/deny-workspace.log.gz",
+          "sha256": "4b9a2f376f253994c932362895b66f15eee88005c0666f9ebc1c67f4c6f0d30f",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-db023448/dependency-policy.toml advisories bans licenses sources",
+          "exit_code": 0,
+          "claim": "Unfiltered compressed cargo-deny output for this graph.",
+          "observed_at_utc": "2026-11-27T02:06:06+00:00"
+        }
+      ]
+    },
+    "REL-RESTART": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "REL-PARTITION": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "REL-LIMITS": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "INTEROP-LINUX": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "INTEROP-MAC": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "INTEROP-WAN": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "INTEROP-TAILNET": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "INTEROP-LAN": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "PERF-LLM": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "PERF-IMAGE": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "PERF-TEST": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "PERF-BASELINE": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "OPS-RELEASE": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "OPS-GOVERNANCE": {
+      "status": "fail",
+      "reason": "The actual roster and rotation prerequisite fail; further activity, ceremony and approval evidence is missing.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-db023448/release-and-governance.log",
+          "sha256": "afd9b97c77076fa2f306e2b9d030e2af92e87f369fb91b9a66ee83080a0927ed",
+          "source_id": "sha256:c1555b500a4182b534dde7ac8b8030efac3c0712cfc5a1d5a9670adc0657321e",
+          "command": "GITHUB_REPOSITORY=thekozugroup/Entanglement python3 scripts/check-release-governance.py",
+          "exit_code": 1,
+          "claim": "Same-source governance command exited 1; log records missing quorum and rotation note.",
+          "observed_at_utc": "2026-11-27T02:11:54Z"
+        }
+      ]
+    },
+    "OPS-RECOVERY": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "OPS-SECURITY": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    },
+    "OPS-CI": {
+      "status": "not_evidenced",
+      "reason": "Full criterion has not yet been independently reviewed with a complete passing receipt for this exact source snapshot."
+    }
+  }
+}

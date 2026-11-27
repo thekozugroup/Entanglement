@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "source_after": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "started_utc": "2026-11-27T02:24:23+00:00",
+  "finished_utc": "2026-11-27T02:24:23+00:00",
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 docs/testing/production-review/evidence/candidate-2602ce17/publisher-rotation-rehearsal.py",
+  "exit_code": 0,
+  "log": "publisher-rotation-rehearsal.log",
+  "log_sha256": "4ec55466e462aeaac478788255dc5947ef8c151b3135206195de7b0c2520fa25"
+}

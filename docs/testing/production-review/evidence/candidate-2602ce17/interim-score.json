@@ -1,0 +1,198 @@
+{
+  "blockers": [
+    {
+      "id": "ATC-PKG-2",
+      "reason": "Actual macOS-14 and Ubuntu 22.04/24.04 independent host hashes are not established.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-PKG-4",
+      "reason": "First-party signed package, independent public fetch and verification with rebuild are pending.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-WRP-3",
+      "reason": "Actual parent-shell wrapper bypass with stale marker produces no doctor warning and exit 0; the literal stated PATH-before-function mechanism is not how normal shell resolution works, and alias/replacement failures are separately demonstrated.",
+      "status": "fail"
+    },
+    {
+      "id": "ATC-MAX-1",
+      "reason": "Real tier-3 fixture is tested at 5 to 2; required tier-5 agent-host and 5 to 3 scenario are unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MAX-2",
+      "reason": "Force-unload fixture covers tier-3 plugins, not the required actual tier-5 agent-host.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MAX-3",
+      "reason": "Cancel fixture covers tier-3 plugins, not the required actual tier-5 agent-host.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MIR-1",
+      "reason": "Publisher versus mirror key separation and local HTTPS registry are tested; the specified named production mirror has not served an artifact.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-REL-1",
+      "reason": "Real dual-verification fixtures passed; an actual 1.0 RC artifact with production signatures is absent.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-REL-2",
+      "reason": "No documented actual two-of-three production key ceremony exists.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-BUS-1",
+      "reason": "Governance checker returns failure: each of five roles has only one named holder; required active-holder gate cannot pass.",
+      "status": "fail"
+    },
+    {
+      "id": "ATC-BUS-2",
+      "reason": "Required governance rotation record is absent; release checker fails.",
+      "status": "fail"
+    },
+    {
+      "id": "COR-PLATFORMS",
+      "reason": "Final macOS hosted or independently operated host evidence is absent.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "AUTH-WASI",
+      "reason": "Linux guest isolation tests exist; full malicious filesystem cases on every supported OS host are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "REL-RESTART",
+      "reason": "Linux release worker kill, bounded stream failure, restart, preserved identity and 102 ms verified recovery passed; supported macOS host remains untested.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "REL-PARTITION",
+      "reason": "Real distinct-host link disconnection, transport restart and reconnection have not been demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-LINUX",
+      "reason": "Only x86-64 Linux native workload is demonstrated; independent aarch64 host remains absent.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-MAC",
+      "reason": "Neither real Intel nor Apple Silicon macOS release workload is demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-WAN",
+      "reason": "No two independent networks with actual direct NAT traversal and forced public relay are demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-TAILNET",
+      "reason": "No two actual tailnet hosts with access controls and disconnection/reconnection are demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-LAN",
+      "reason": "Physical hosts and real multicast discovery without a configured address are not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-LLM",
+      "reason": "Specified real 70B GPU plus battery laptop workload is not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-IMAGE",
+      "reason": "Specified 8000 RAW photos across three physical desktops and 10x speedup is not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-TEST",
+      "reason": "Two real existing Rust targets and flaky aggregation are demonstrated on loopback, but the entire Rust workspace distributed workflow is not.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-BASELINE",
+      "reason": "Final shared-VM paired benchmark observed p95 regressions of 48.0% image local, 34.8% hello local/1, 8.9% hello local/4 and 8.0% hello remote/1. The chosen historical baseline has no recorded prior approval; formal comparable-baseline gate remains unproven.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-RELEASE",
+      "reason": "Only an unsigned Linux local candidate archive exists; all four production artifacts with provenance, signatures and independent rebuilds are absent.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-GOVERNANCE",
+      "reason": "Actual governance check fails on one holder per role and missing rotation record; key ceremony file is absent.",
+      "status": "fail"
+    },
+    {
+      "id": "OPS-RECOVERY",
+      "reason": "Encrypted fresh-node backup and recovery of identity, trust and plugin state is not demonstrated.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-CI",
+      "reason": "Hosted CI and branch protection evidence absent; user prohibited GitHub Actions.",
+      "status": "not_evidenced"
+    }
+  ],
+  "metrics": {
+    "authorization_isolation": {
+      "fail": 0,
+      "not_evidenced": 5,
+      "over_95": false,
+      "pass": 14,
+      "score_percent": 73.6842105263158,
+      "total": 19
+    },
+    "correctness": {
+      "fail": 1,
+      "not_evidenced": 1,
+      "over_95": false,
+      "pass": 8,
+      "score_percent": 80.0,
+      "total": 10
+    },
+    "interoperability": {
+      "fail": 0,
+      "not_evidenced": 5,
+      "over_95": false,
+      "pass": 0,
+      "score_percent": 0.0,
+      "total": 5
+    },
+    "performance": {
+      "fail": 0,
+      "not_evidenced": 4,
+      "over_95": false,
+      "pass": 0,
+      "score_percent": 0.0,
+      "total": 4
+    },
+    "release_operations": {
+      "fail": 3,
+      "not_evidenced": 7,
+      "over_95": false,
+      "pass": 3,
+      "score_percent": 23.076923076923077,
+      "total": 13
+    },
+    "reliability": {
+      "fail": 0,
+      "not_evidenced": 2,
+      "over_95": false,
+      "pass": 4,
+      "score_percent": 66.66666666666667,
+      "total": 6
+    }
+  },
+  "ready_over_95": false,
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "source_id": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "source_verified_current": true
+}

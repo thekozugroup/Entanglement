@@ -1,0 +1,24 @@
++ python3 scripts/production_score.py --source-id
+sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e
++ git bundle create /workspace/entangle-package-seed.2uvRiy/source.bundle HEAD
++ git bundle verify /workspace/entangle-package-seed.2uvRiy/source.bundle
+/workspace/entangle-package-seed.2uvRiy/source.bundle is okay
+The bundle contains this ref:
+2602ce17ee37416770008fb71f1d6048c828f823 HEAD
+The bundle records a complete history.
+The bundle uses this hash algorithm: sha1
++ mkdir -p /workspace/entangle-package-seed.2uvRiy/toolchain/bin /workspace/entangle-package-seed.2uvRiy/toolchain/lib/rustlib /workspace/entangle-package-seed.2uvRiy/registry
++ cp --reflink=auto /workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/bin/cargo /workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/bin/rustc /workspace/entangle-package-seed.2uvRiy/toolchain/bin/
++ cp --reflink=auto /workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/libLLVM-21-rust-1.91.1-stable.so /workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/libLLVM.so.21.1-rust-1.91.1-stable /workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/librustc_driver-39b12c59623303e4.so /workspace/entangle-package-seed.2uvRiy/toolchain/lib/
++ cp -R --reflink=auto /workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu /workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/wasm32-wasip2 /workspace/entangle-package-seed.2uvRiy/toolchain/lib/rustlib/
++ cp -R --reflink=auto /workspace/.entanglement-dev/cargo/registry/cache /workspace/.entanglement-dev/cargo/registry/index /workspace/entangle-package-seed.2uvRiy/registry/
++ python3 - /workspace/entangle-package-seed.2uvRiy
++ chmod -R a+rX /workspace/entangle-package-seed.2uvRiy
++ sha256sum /workspace/entangle-package-seed.2uvRiy/source.bundle /workspace/entangle-package-seed.2uvRiy/toolchain/bin/cargo /workspace/entangle-package-seed.2uvRiy/toolchain/bin/rustc
+6be703117cf423403d307e564ca7fb5ece2d8ac622d4d58f44ff68ff1064447f  /workspace/entangle-package-seed.2uvRiy/source.bundle
+e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b  /workspace/entangle-package-seed.2uvRiy/toolchain/bin/cargo
+5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e  /workspace/entangle-package-seed.2uvRiy/toolchain/bin/rustc
++ du -sh /workspace/entangle-package-seed.2uvRiy
+846M	/workspace/entangle-package-seed.2uvRiy
++ python3 scripts/production_score.py --source-id
+sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e

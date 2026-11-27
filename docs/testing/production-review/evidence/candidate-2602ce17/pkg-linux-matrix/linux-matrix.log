@@ -1,0 +1,36 @@
+Frozen source before = sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e
+Security options = ['name=seccomp,profile=builtin', 'name=rootless', 'name=cgroupns']
+
+Ubuntu 22.04
+{
+  "source_before": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+  "networks": {},
+  "command": "docker exec 3f49de57bb4d875c5b39e3e7e54b791ac4d9bbbd130421486eafdbf94b0a0659 /bin/bash /fixture/run-in-container.sh 22.04 2602ce17ee37416770008fb71f1d6048c828f823",
+  "exit_code": 0,
+  "copy_exit_code": 0,
+  "archive_sha256": "60ff5c285e314f15191c2b3963b459a9fb3bfa31ff699b7775ffc74c6ab70ec1",
+  "source_after": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "log": "docs/testing/production-review/evidence/candidate-2602ce17/pkg-linux-matrix/ubuntu-22.04-build.log",
+  "log_sha256": "5cb855d95c021b80f341bedc6c46706d26794dd3956b2db48e698ad4c81ab077"
+}
+3f49de57bb4d875c5b39e3e7e54b791ac4d9bbbd130421486eafdbf94b0a0659
+
+Ubuntu 24.04
+{
+  "source_before": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+  "networks": {},
+  "command": "docker exec b9cc03f934dede00967549854ef66d81e99eeb06a1e30691aa1095a8799dd3ce /bin/bash /fixture/run-in-container.sh 24.04 2602ce17ee37416770008fb71f1d6048c828f823",
+  "exit_code": 0,
+  "copy_exit_code": 0,
+  "archive_sha256": "60ff5c285e314f15191c2b3963b459a9fb3bfa31ff699b7775ffc74c6ab70ec1",
+  "source_after": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "log": "docs/testing/production-review/evidence/candidate-2602ce17/pkg-linux-matrix/ubuntu-24.04-build.log",
+  "log_sha256": "7d1ba6ab5591b0c7b2045b6ddb923140b85bb08af90ef61ba02a0696eacf0144"
+}
+b9cc03f934dede00967549854ef66d81e99eeb06a1e30691aa1095a8799dd3ce
+
+Archive digests match = True
+Frozen source after = sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e
+Suite exit = 0

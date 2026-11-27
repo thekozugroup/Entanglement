@@ -1,0 +1,47 @@
+{
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 docs/testing/production-review/evidence/candidate-2602ce17/inference-compatibility/verify.py --candidate-root /workspace/Entanglement --expected-source sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e --unit target/debug/deps/entangle_bin-a46fd8d829142312 --integration target/debug/deps/daemon_compute-9ce78f9f440f3404 --daemon target/debug/entangled --output docs/testing/production-review/evidence/candidate-2602ce17/inference-compatibility",
+  "host": {
+    "os": "Linux",
+    "arch": "x86_64",
+    "kernel": "6.18.57"
+  },
+  "commands": [
+    {
+      "argv": [
+        "/workspace/Entanglement/target/debug/deps/entangle_bin-a46fd8d829142312",
+        "inference::tests",
+        "--nocapture"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-9ce78f9f440f3404",
+        "inference::configured_inference_streams_incremental_signed_chunks",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "source_before": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "artifacts_before": {
+    "/workspace/Entanglement/target/debug/deps/entangle_bin-a46fd8d829142312": "70ae5161d40ee0dcd0a74b3b4f123163d2b1df318031c5bcd82d7afd664ab06d",
+    "/workspace/Entanglement/target/debug/deps/daemon_compute-9ce78f9f440f3404": "c5757dcffa6ee79db7ca1da6a3e1011506c5e17bad64ae323cbf726e091923b6",
+    "/workspace/Entanglement/target/debug/entangled": "f853ce74450a93d43d8719045a72cd707d7f9ee7517e36e237851b3938ae9c59"
+  },
+  "source_after": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "artifacts_after": {
+    "/workspace/Entanglement/target/debug/deps/entangle_bin-a46fd8d829142312": "70ae5161d40ee0dcd0a74b3b4f123163d2b1df318031c5bcd82d7afd664ab06d",
+    "/workspace/Entanglement/target/debug/deps/daemon_compute-9ce78f9f440f3404": "c5757dcffa6ee79db7ca1da6a3e1011506c5e17bad64ae323cbf726e091923b6",
+    "/workspace/Entanglement/target/debug/entangled": "f853ce74450a93d43d8719045a72cd707d7f9ee7517e36e237851b3938ae9c59"
+  },
+  "source_matches": true,
+  "artifacts_match": true,
+  "path": "docs/testing/production-review/evidence/candidate-2602ce17/inference-compatibility/inference-compatibility.log",
+  "sha256": "fbc048b058b27ef6fd8cd56d9a7f3347cd5d2780b8110d46b6b2250e2af0b1f4",
+  "source_id": "sha256:c276c15010e510172c5fbf07e6d3dc3c979f8270e0eb0b200026e7b6c5f6770e",
+  "exit_code": 0,
+  "observed_at_utc": "2026-11-27T02:20:43+00:00",
+  "claim": "Standard chat and completions SSE interoperability over authenticated two-daemon loopback, with signed progressive chunks, readiness and tier gating, and signed WASI fallback."
+}

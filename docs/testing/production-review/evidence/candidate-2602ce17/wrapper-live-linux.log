@@ -1,0 +1,3 @@
+WRP-1 interactive authenticated installer and ordinary shell startup passed for Bash, Zsh and Fish.
+WRP-3 doctor statuses {'working': (0, False), 'unloaded-marker-cleared': (1, True), 'marker-inherited-command-only': (0, False), 'later-function': (0, False), 'later-alias': (0, False)}
+Receipt SHA-256 487207792ad5262eefc979e8f6e79f34608738265286b4af6a0607b4aa589302

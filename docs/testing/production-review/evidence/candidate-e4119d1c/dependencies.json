@@ -1,0 +1,74 @@
+{
+  "source_id": "sha256:a57dec755727053de48578c4ab48b9d1230bf2ca36b19b0f8294352f7c9e7c51",
+  "source_after": "sha256:a57dec755727053de48578c4ab48b9d1230bf2ca36b19b0f8294352f7c9e7c51",
+  "advisory_db": "c9f6c91a44dbad9d71742329e9df061279f9c4be",
+  "configured_policy_sha256": "016a6f6ef88390217741263f6ecb96221a0eb58964ec87a1461bcd75e001e69f",
+  "only_override": "local verified RustSec database location",
+  "graphs": [
+    {
+      "manifest": "Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-workspace.json"
+    },
+    {
+      "manifest": "crates/entangle-host/fixtures-src/hello-pong/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-crates-entangle-host-fixtures-src-hello-pong.json"
+    },
+    {
+      "manifest": "crates/entangle-host/fixtures-src/stress/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-crates-entangle-host-fixtures-src-stress.json"
+    },
+    {
+      "manifest": "examples/hash-it/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-examples-hash-it.json"
+    },
+    {
+      "manifest": "examples/hello-world/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-examples-hello-world.json"
+    },
+    {
+      "manifest": "examples/stream-lines/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-examples-stream-lines.json"
+    },
+    {
+      "manifest": "plugins/compress/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-plugins-compress.json"
+    },
+    {
+      "manifest": "plugins/csv-stats/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-plugins-csv-stats.json"
+    },
+    {
+      "manifest": "plugins/image-resize/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-plugins-image-resize.json"
+    },
+    {
+      "manifest": "plugins/json-pointer/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-plugins-json-pointer.json"
+    },
+    {
+      "manifest": "plugins/json-query/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-plugins-json-query.json"
+    },
+    {
+      "manifest": "plugins/markdown-html/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-plugins-markdown-html.json"
+    },
+    {
+      "manifest": "plugins/qr-encode/Cargo.toml",
+      "exit_code": 0,
+      "receipt": "deny-plugins-qr-encode.json"
+    }
+  ]
+}

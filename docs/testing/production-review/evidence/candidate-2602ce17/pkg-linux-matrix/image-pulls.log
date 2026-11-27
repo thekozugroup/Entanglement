@@ -1,0 +1,32 @@
++ date -u +%FT%TZ
+2026-11-27T02:19:09Z
++ docker info --format '{{json .SecurityOptions}}'
+["name=seccomp,profile=builtin","name=rootless","name=cgroupns"]
++ docker pull --platform linux/amd64 docker.io/library/ubuntu:22.04
+22.04: Pulling from library/ubuntu
+ba082564e660: Pulling fs layer
+ba082564e660: Verifying Checksum
+ba082564e660: Download complete
+ba082564e660: Pull complete
+Digest: sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb
+Status: Downloaded newer image for ubuntu:22.04
+docker.io/library/ubuntu:22.04
++ jammy_exit=0
++ docker pull --platform linux/amd64 docker.io/library/ubuntu:24.04
+24.04: Pulling from library/ubuntu
+8e8df94085bf: Pulling fs layer
+8e8df94085bf: Verifying Checksum
+8e8df94085bf: Download complete
+8e8df94085bf: Pull complete
+Digest: sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b
+Status: Downloaded newer image for ubuntu:24.04
+docker.io/library/ubuntu:24.04
++ noble_exit=0
++ docker image inspect ubuntu:22.04 ubuntu:24.04 --format '{{.Os}}/{{.Architecture}} ID={{.Id}} RepoDigests={{join .RepoDigests ","}}'
+linux/amd64 ID=sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938 RepoDigests=ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb
+linux/amd64 ID=sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4 RepoDigests=ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b
++ inspect_exit=0
++ date -u +%FT%TZ
+2026-11-27T02:19:28Z
++ printf 'exits jammy=%s noble=%s inspect=%s\n' 0 0 0
+exits jammy=0 noble=0 inspect=0
