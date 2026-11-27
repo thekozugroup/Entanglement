@@ -19,6 +19,31 @@ use crate::worker::WorkerInfo;
 use entangle_types::peer_id::PeerId;
 use entangle_types::resource::{GpuBackend, ResourceSpec};
 
+/// Tiny tasks keep the latency/load policy and never trigger measurement.
+pub(crate) const MIN_UPLOAD_BYTES: usize = 256 * 1024;
+
+#[derive(Clone, Copy)]
+pub(crate) enum UploadLink {
+    Local,
+    Measured(u64),
+    Unknown,
+}
+
+impl UploadLink {
+    fn score(self, bytes: usize, explore: bool) -> f32 {
+        if bytes < MIN_UPLOAD_BYTES {
+            return 1.0;
+        }
+        match self {
+            Self::Local => 1.0,
+            // Half of the bandwidth weight at 250ms predicted upload time.
+            Self::Measured(bps) => (1.0 / (1.0 + bytes as f64 * 32.0 / bps as f64)) as f32,
+            Self::Unknown if explore => 1.0,
+            Self::Unknown => 0.0,
+        }
+    }
+}
+
 /// The result of a successful placement decision.
 #[derive(Clone, Debug)]
 pub struct PlacementChoice {
@@ -49,12 +74,20 @@ pub fn choose(
     workers: &[WorkerInfo],
     spec: &ResourceSpec,
 ) -> Result<PlacementChoice, PlacementError> {
-    choose_from(workers.iter().map(|w| (w, 0, ())), spec).map(|(choice, ())| choice)
+    choose_from(
+        workers.iter().map(|w| (w, 0, UploadLink::Unknown, ())),
+        spec,
+        0,
+        false,
+    )
+    .map(|(choice, ())| choice)
 }
 
 pub(crate) fn choose_from<'a, T>(
-    workers: impl Iterator<Item = (&'a WorkerInfo, usize, T)>,
+    workers: impl Iterator<Item = (&'a WorkerInfo, usize, UploadLink, T)>,
     spec: &ResourceSpec,
+    upload_bytes: usize,
+    explore: bool,
 ) -> Result<(PlacementChoice, T), PlacementError> {
     let mut workers = workers.peekable();
     if workers.peek().is_none() {
@@ -64,8 +97,8 @@ pub(crate) fn choose_from<'a, T>(
     let (w_fit, w_local, w_bw, w_load, w_cost) = (1.0_f32, 0.6, 0.4, 0.5, 0.3);
 
     let best = workers
-        .filter(|(w, _, _)| satisfies(w, spec))
-        .map(|(w, in_flight, reservation)| {
+        .filter(|(w, ..)| satisfies(w, spec))
+        .map(|(w, in_flight, link, reservation)| {
             let locality = if w.rtt_ms < 5 {
                 1.0
             } else if w.rtt_ms >= 200 {
@@ -85,11 +118,14 @@ pub(crate) fn choose_from<'a, T>(
             // Clamp `cost` at 0 so a negative (or NaN) cost cannot turn the
             // `- w_cost * cost` penalty into an unbounded score *bonus*.
             let cost = w.cost.max(0.0);
-            // Eligible workers receive the full resource-fit and bandwidth weights.
+            // Device-advertised bandwidth only affects the existing hard filter.
             let pending_load = in_flight as f32 / w.cpu_cores.max(1.0);
-            let score = w_fit + w_local * locality + w_bw + w_load * (load_term - pending_load)
+            let score = w_fit
+                + w_local * locality
+                + w_bw * link.score(upload_bytes, explore)
+                + w_load * (load_term - pending_load)
                 - w_cost * cost;
-            (score, w, in_flight, reservation)
+            (score, w, in_flight, link, reservation)
         })
         .filter(|(score, ..)| score.is_finite())
         .max_by(|a, b| {
@@ -98,15 +134,29 @@ pub(crate) fn choose_from<'a, T>(
                 .then_with(|| b.1.peer_id.cmp(&a.1.peer_id))
         });
 
-    let (top_score, top_worker, in_flight, reservation) =
+    let (top_score, top_worker, in_flight, link, reservation) =
         best.ok_or_else(|| PlacementError::NoMatch(format!("{spec:?}")))?;
 
+    let bandwidth_label = if upload_bytes >= MIN_UPLOAD_BYTES {
+        "advertised_bw"
+    } else {
+        "bw"
+    };
+    let upload = if upload_bytes >= MIN_UPLOAD_BYTES {
+        match link {
+            UploadLink::Local => ", upload=local".to_string(),
+            UploadLink::Unknown => ", measured_upload_bps=unknown".to_string(),
+            UploadLink::Measured(bps) => format!(", measured_upload_bps={bps}"),
+        }
+    } else {
+        String::new()
+    };
     Ok((
         PlacementChoice {
             peer_id: top_worker.peer_id,
             score: top_score,
             reason: format!(
-                "fit ok, rtt={}ms, bw={} bps, load={:.2}, cost={:.2}, in_flight={in_flight}",
+                "fit ok, rtt={}ms, {bandwidth_label}={} bps, load={:.2}, cost={:.2}, in_flight={in_flight}{upload}",
                 top_worker.rtt_ms,
                 top_worker.network_bandwidth_bps,
                 top_worker.load,

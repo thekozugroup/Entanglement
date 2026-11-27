@@ -1,6 +1,8 @@
 //! Worker advertisement and pool management.
 
-use crate::placement::{choose_from, PlacementChoice, PlacementError};
+use crate::placement::{
+    choose_from, PlacementChoice, PlacementError, UploadLink, MIN_UPLOAD_BYTES,
+};
 use entangle_types::plugin_id::PluginId;
 use entangle_types::{
     peer_id::PeerId,
@@ -82,6 +84,7 @@ impl WorkerInfo {
 #[derive(Clone)]
 pub struct WorkerPool {
     inner: Arc<RwLock<HashMap<PeerId, Observations>>>,
+    large_placements: Arc<AtomicUsize>,
     /// Hard cap on the number of distinct workers retained. Prevents an
     /// unauthenticated peer from flooding the pool with fresh identities.
     max_workers: usize,
@@ -123,12 +126,19 @@ impl Drop for Reservation {
 struct Observations {
     // Separate from advertisement data: fresh self-reports must not erase a penalty.
     semantic_reputation: Option<f64>,
+    upload: Option<(u64, Instant)>,
     in_flight: InFlight,
     discovered: Option<(WorkerInfo, Instant)>,
     authenticated: Option<(WorkerCapabilities, Instant)>,
 }
 
 impl Observations {
+    fn upload_bps(&self, now: Instant) -> Option<u64> {
+        self.upload
+            .filter(|(_, seen)| now.duration_since(*seen) < Duration::from_secs(60))
+            .map(|(bps, _)| bps)
+    }
+
     fn live(
         &self,
         now: Instant,
@@ -156,6 +166,7 @@ impl Default for WorkerPool {
     fn default() -> Self {
         Self {
             inner: Arc::new(RwLock::new(HashMap::new())),
+            large_placements: Arc::default(),
             max_workers: Self::DEFAULT_MAX_WORKERS,
         }
     }
@@ -174,6 +185,7 @@ impl WorkerPool {
     pub fn with_max_workers(max_workers: usize) -> Self {
         Self {
             inner: Arc::new(RwLock::new(HashMap::new())),
+            large_placements: Arc::default(),
             max_workers,
         }
     }
@@ -220,6 +232,29 @@ impl WorkerPool {
             let previous = entry.semantic_reputation.unwrap_or(1.0);
             entry.semantic_reputation = Some(0.9 * previous + 0.1 * f64::from(agreed));
         }
+    }
+
+    /// Record a completed upload only while the original placement's worker entry still exists.
+    fn record_upload_at(&self, peer: &PeerId, reservation: &Reservation, bps: u64, now: Instant) {
+        // Keep implausible observations, including timer-resolution artifacts, out of scoring.
+        if !(1..=100_000_000_000).contains(&bps) {
+            return;
+        }
+        let mut workers = self.inner.write();
+        if let Some(entry) = workers.get_mut(peer) {
+            if Arc::ptr_eq(&entry.in_flight.0, &reservation.0)
+                && entry.upload.is_none_or(|(_, seen)| now >= seen)
+            {
+                let smoothed = entry
+                    .upload_bps(now)
+                    .map_or(bps, |previous| (3 * previous + bps) / 4);
+                entry.upload = Some((smoothed, now));
+            }
+        }
+    }
+
+    pub(crate) fn record_upload(&self, peer: &PeerId, reservation: &Reservation, bps: u64) {
+        self.record_upload_at(peer, reservation, bps, Instant::now());
     }
 
     /// EWMA of this retained worker's semantic correctness observations.
@@ -270,10 +305,11 @@ impl WorkerPool {
         ttl: Duration,
         spec: &ResourceSpec,
         plugin: &PluginId,
+        upload_bytes: usize,
         local: Option<(&WorkerInfo, &InFlight)>,
         eligible: impl Fn(&PeerId) -> bool,
     ) -> Result<(PlacementChoice, Reservation), PlacementError> {
-        self.choose_for(ttl, spec, (plugin, false), local, eligible)
+        self.choose_for(ttl, spec, (plugin, false), upload_bytes, local, eligible)
     }
 
     pub(crate) fn choose_stream(
@@ -283,7 +319,7 @@ impl WorkerPool {
         plugin: &PluginId,
         eligible: impl Fn(&PeerId) -> bool,
     ) -> Result<(PlacementChoice, Reservation), PlacementError> {
-        self.choose_for(ttl, spec, (plugin, true), None, eligible)
+        self.choose_for(ttl, spec, (plugin, true), 0, None, eligible)
     }
 
     fn choose_for(
@@ -291,6 +327,7 @@ impl WorkerPool {
         ttl: Duration,
         spec: &ResourceSpec,
         plugin: (&PluginId, bool),
+        upload_bytes: usize,
         local: Option<(&WorkerInfo, &InFlight)>,
         eligible: impl Fn(&PeerId) -> bool,
     ) -> Result<(PlacementChoice, Reservation), PlacementError> {
@@ -298,14 +335,26 @@ impl WorkerPool {
         // readers remain independent and no lock is held during execution.
         let workers = self.inner.upgradable_read();
         let now = Instant::now();
+        // One normal foreground selection in sixteen can favor an unmeasured link.
+        // Capability, trust, cost, load, locality and reservations all still apply.
+        let explore = upload_bytes >= MIN_UPLOAD_BYTES
+            && self.large_placements.fetch_add(1, Ordering::Relaxed) % 16 == 15;
         let candidates = workers
             .values()
-            .filter_map(|entry| Some((entry.live(now, ttl, Some(plugin))?, &entry.in_flight)))
-            .filter(|(worker, _)| local.is_none_or(|(own, _)| own.peer_id != worker.peer_id))
-            .chain(local)
-            .filter(|(info, _)| eligible(&info.peer_id))
-            .map(|(info, counter)| (info, counter.0.load(Ordering::Relaxed), counter));
-        let (choice, counter) = choose_from(candidates, spec)?;
+            .filter_map(|entry| {
+                let info = entry.live(now, ttl, Some(plugin))?;
+                if local.is_some_and(|(own, _)| own.peer_id == info.peer_id) {
+                    return None;
+                }
+                let link = entry
+                    .upload_bps(now)
+                    .map_or(UploadLink::Unknown, UploadLink::Measured);
+                Some((info, &entry.in_flight, link))
+            })
+            .chain(local.map(|(info, counter)| (info, counter, UploadLink::Local)))
+            .filter(|(info, _, _)| eligible(&info.peer_id))
+            .map(|(info, counter, link)| (info, counter.0.load(Ordering::Relaxed), link, counter));
+        let (choice, counter) = choose_from(candidates, spec, upload_bytes, explore)?;
         Ok((choice, counter.reserve()))
     }
 
@@ -362,6 +411,97 @@ mod tests {
     }
 
     #[test]
+    fn large_placement_uses_fresh_passive_uploads_and_retains_unknown_routes() {
+        let pool = WorkerPool::new();
+        let plugin = "aabbccddeeff00112233445566778899/fixture@1.0.0"
+            .parse()
+            .unwrap();
+        let ttl = Duration::from_secs(300);
+        let spec = ResourceSpec::default();
+        let mut ids = [make_peer(1), make_peer(2), make_peer(3)];
+        ids.sort(); // legacy tie breaker picks the lexically first eligible worker.
+        for id in ids {
+            assert!(pool.upsert(make_worker(id)));
+        }
+        let observed = |peer, bps, when| {
+            let (_, reservation) = pool
+                .choose(ttl, &spec, &plugin, 0, None, |id| *id == peer)
+                .unwrap();
+            pool.record_upload_at(&peer, &reservation, bps, when);
+        };
+        let choose = |bytes| {
+            pool.choose(ttl, &spec, &plugin, bytes, None, |_| true)
+                .unwrap()
+                .0
+        };
+        let now = Instant::now();
+        observed(ids[0], 1_000_000, now);
+        observed(ids[1], 900_000_000, now);
+        assert_eq!(choose(MIN_UPLOAD_BYTES - 1).peer_id, ids[0]);
+        for _ in 0..15 {
+            let large = choose(MIN_UPLOAD_BYTES);
+            assert_eq!(large.peer_id, ids[1]);
+            assert!(large.reason.contains("measured_upload_bps=900000000"));
+        }
+        let exploration = choose(MIN_UPLOAD_BYTES);
+        assert_eq!(exploration.peer_id, ids[2]);
+        assert!(exploration.reason.contains("measured_upload_bps=unknown"));
+        observed(ids[2], 60_000_000_000, now - Duration::from_secs(61));
+        assert_eq!(choose(MIN_UPLOAD_BYTES).peer_id, ids[1]);
+        // A fast measurement cannot meet an unsatisfied hardware threshold.
+        let mut constrained = make_worker(ids[1]);
+        constrained.memory_bytes = 0;
+        assert!(pool.upsert(constrained));
+        let memory = ResourceSpec {
+            memory_bytes: 1,
+            ..spec
+        };
+        assert_eq!(
+            pool.choose(ttl, &memory, &plugin, MIN_UPLOAD_BYTES, None, |_| true)
+                .unwrap()
+                .0
+                .peer_id,
+            ids[0]
+        );
+    }
+
+    #[test]
+    fn failed_cancelled_and_obsolete_reservations_leave_no_upload_observation() {
+        let pool = WorkerPool::new();
+        let id = make_peer(1);
+        let worker = make_worker(id);
+        pool.upsert(worker.clone());
+        let plugin = "aabbccddeeff00112233445566778899/fixture@1.0.0"
+            .parse()
+            .unwrap();
+        let reserve = || {
+            pool.choose(
+                Duration::from_secs(60),
+                &ResourceSpec::default(),
+                &plugin,
+                MIN_UPLOAD_BYTES,
+                None,
+                |_| true,
+            )
+            .unwrap()
+        };
+        let (_, previous) = reserve();
+        pool.remove(&id);
+        pool.upsert(worker);
+        pool.record_upload(&id, &previous, 1234);
+        let (current, held) = reserve();
+        assert!(current.reason.contains("measured_upload_bps=unknown"));
+        pool.record_upload(&id, &held, 0);
+        pool.record_upload(&id, &held, u64::MAX);
+        drop(held);
+        assert!(reserve().0.reason.contains("measured_upload_bps=unknown"));
+        let (_, current) = reserve();
+        pool.record_upload(&id, &current, 8_000);
+        pool.record_upload(&id, &current, 4_000);
+        assert!(reserve().0.reason.contains("measured_upload_bps=7000"));
+    }
+
+    #[test]
     fn authenticated_inventory_controls_placement_across_lan_updates() {
         let pool = WorkerPool::new();
         let ttl = Duration::from_secs(60);
@@ -373,7 +513,7 @@ mod tests {
             .parse()
             .unwrap();
         let fits = |plugin| {
-            pool.choose(ttl, &ResourceSpec::default(), plugin, None, |_| true)
+            pool.choose(ttl, &ResourceSpec::default(), plugin, 0, None, |_| true)
                 .is_ok()
         };
 
@@ -410,6 +550,7 @@ mod tests {
                 Duration::from_secs(60),
                 &ResourceSpec::default(),
                 &plugin,
+                0,
                 None,
                 |_| true,
             )

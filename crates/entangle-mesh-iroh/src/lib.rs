@@ -213,6 +213,16 @@ pub trait MeshTransport: std::fmt::Debug + Send + Sync {
     /// [`MeshTransport::connect`] instead.
     async fn request(&self, peer: &IrohPeer, payload: &[u8]) -> Result<Vec<u8>, MeshIrohError>;
 
+    /// Complete the original foreground request, optionally reporting locally observed
+    /// upload goodput (application bits per second). An unsupported transport returns None.
+    async fn request_with_upload(
+        &self,
+        peer: &IrohPeer,
+        payload: &[u8],
+    ) -> Result<(Vec<u8>, Option<u64>), MeshIrohError> {
+        self.request(peer, payload).await.map(|bytes| (bytes, None))
+    }
+
     /// Wait for the next inbound connection.
     ///
     /// Returns `Ok(None)` once the transport has been shut down, which is the

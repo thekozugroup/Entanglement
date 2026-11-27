@@ -206,6 +206,23 @@ impl MeshTransport for MeshIroh {
         response
     }
 
+    async fn request_with_upload(
+        &self,
+        peer: &IrohPeer,
+        payload: &[u8],
+    ) -> Result<(Vec<u8>, Option<u64>), MeshIrohError> {
+        let conn = self.connect(peer).await?;
+        if conn.remote_peer_id() != peer.peer_id || conn.remote_public_key() != peer.public_key {
+            conn.close();
+            return Err(MeshIrohError::Identity(
+                "authenticated upload peer mismatch".into(),
+            ));
+        }
+        let result = conn.request_timed(payload, true).await;
+        conn.close();
+        result
+    }
+
     async fn accept(&self) -> Result<Option<MeshConn>, MeshIrohError> {
         let Some(incoming) = self.endpoint.accept().await else {
             // `accept()` yields `None` only once the endpoint is closed.
@@ -298,22 +315,65 @@ impl MeshConn {
     /// Each call uses a fresh QUIC bidirectional stream, so concurrent
     /// requests on one connection do not head-of-line block each other.
     pub async fn request(&self, payload: &[u8]) -> Result<Vec<u8>, MeshIrohError> {
-        match timeout(self.request_timeout, self.request_inner(payload)).await {
+        self.request_timed(payload, false)
+            .await
+            .map(|(response, _)| response)
+    }
+
+    async fn request_timed(
+        &self,
+        payload: &[u8],
+        measure: bool,
+    ) -> Result<(Vec<u8>, Option<u64>), MeshIrohError> {
+        match timeout(self.request_timeout, self.request_inner(payload, measure)).await {
             Ok(result) => result,
             Err(_elapsed) => Err(MeshIrohError::RequestTimeout(self.request_timeout)),
         }
     }
 
-    async fn request_inner(&self, payload: &[u8]) -> Result<Vec<u8>, MeshIrohError> {
+    async fn request_inner(
+        &self,
+        payload: &[u8],
+        measure: bool,
+    ) -> Result<(Vec<u8>, Option<u64>), MeshIrohError> {
         let (mut send, mut recv) = self
             .inner
             .open_bi()
             .await
             .map_err(|e| MeshIrohError::Stream(format!("opening stream: {e}")))?;
+        let selected_path = || {
+            self.inner
+                .paths()
+                .iter()
+                .find(|path| path.is_selected())
+                .map(|path| path.remote_addr().clone())
+        };
+        let measurement = measure.then(|| (selected_path(), std::time::Instant::now()));
         write_frame(&mut send, payload, self.max_frame_bytes).await?;
         send.finish()
             .map_err(|e| MeshIrohError::Stream(format!("finishing request stream: {e}")))?;
-        read_frame(&mut recv, self.max_frame_bytes).await
+        let response = read_frame(&mut recv, self.max_frame_bytes);
+        tokio::pin!(response);
+        let Some((initial_path, started)) = measurement else {
+            return Ok((response.await?, None));
+        };
+        // finish() only queues FIN. stopped()==Ok(None) means the peer ACKed every
+        // stream byte. If the application responds first, return it without waiting
+        // for a delayed ACK. No probe, timer task, or additional frame is sent.
+        let upload = tokio::select! {
+            biased;
+            ack = send.stopped() => {
+                let elapsed = started.elapsed().as_nanos();
+                if matches!(ack, Ok(None)) && elapsed != 0 && initial_path.is_some() && selected_path() == initial_path {
+                    let bps = (payload.len() as u128 * 8_000_000_000) / elapsed;
+                    u64::try_from(bps).ok().filter(|bps| *bps > 0)
+                } else {
+                    None
+                }
+            }
+            answer = &mut response => return Ok((answer?, None)),
+        };
+        Ok((response.await?, upload))
     }
 
     /// Wait for the next inbound request on this connection.

@@ -88,6 +88,58 @@ fn padded_version_request(id: u64, total_len: usize) -> String {
 
 // ── request-size cap ──────────────────────────────────────────────────────────
 
+#[tokio::test]
+async fn compute_socket_decoding_preserves_envelopes_and_validation() {
+    let dir = tempfile::tempdir().unwrap();
+    let stream = start_and_connect(&dir.path().join("compute.sock"), make_state()).await;
+    let mut stream = BufReader::new(stream);
+    let id = serde_json::json!("compute-request");
+    let other_fields = r#""plugin_id":"invalid","timeout_ms":1,"cpu_cores":-1.0,"memory_bytes":0,"gpu_required":false,"gpu_vram_min_bytes":0,"integrity":{"kind":"none"},"extension":{"format":"v1"}"#;
+
+    for (version, input_fields, code, message, response_id) in [
+        (
+            "2.0",
+            r#""input":[0,127,255]"#,
+            -32602,
+            "cpu_cores must be finite and nonnegative",
+            &id,
+        ),
+        ("1.0", r#""input":[1]"#, -32600, "jsonrpc must be", &id),
+        ("2.0", r#""input":[256]"#, -32602, "invalid params", &id),
+        (
+            "2.0",
+            r#""input":[0],"input":[1]"#,
+            -32602,
+            "duplicate field",
+            &id,
+        ),
+        (
+            "2.0",
+            r#""input":[0,]"#,
+            -32700,
+            "parse error",
+            &serde_json::Value::Null,
+        ),
+    ] {
+        // Parameters can precede the method. An escaped slash still names the
+        // same method, and a string id must be echoed without conversion.
+        let line = format!(
+            "{{\"params\":{{{input_fields},{other_fields}}},\"id\":{id},\"method\":\"compute\\u002fdispatch\",\"jsonrpc\":\"{version}\"}}\n"
+        );
+        stream.get_mut().write_all(line.as_bytes()).await.unwrap();
+        let mut line = String::new();
+        stream.read_line(&mut line).await.unwrap();
+        let value: serde_json::Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(value["jsonrpc"], "2.0");
+        assert_eq!(&value["id"], response_id);
+        assert_eq!(value["error"]["code"], code);
+        assert!(value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains(message));
+    }
+}
+
 /// A request line of exactly `MAX_REQUEST_BYTES` (plus its `\n` delimiter)
 /// must be served normally — no off-by-one at the cap.
 #[tokio::test(flavor = "multi_thread")]

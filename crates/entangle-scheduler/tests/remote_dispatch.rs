@@ -255,6 +255,101 @@ fn task_for(plugin: PluginId, input: &[u8]) -> OneShotTask {
 // 1. THE PRODUCT: a task submitted here executes over there.
 // ═════════════════════════════════════════════════════════════════════════════
 
+/// A cancelled or rejected foreground upload must not train the next placement, even if QUIC
+/// already acknowledged its bytes. A successful signed guest invocation over the same route can.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn large_authenticated_upload_only_trains_after_a_successful_response() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let publisher = IdentityKeyPair::generate();
+    let a = Node::start(&publisher).await;
+    let mut b = Node::start(&publisher).await;
+    let plugin = b.load_hello_pong(&publisher).await;
+    let dispatcher = dispatcher_for(&a, &b);
+    let server = Arc::new(RemoteTaskServer::new(
+        b.kernel.clone(),
+        Arc::new(StaticAllowlist::new().allow(a.peer_id)),
+        b.peer_id,
+    ));
+    let received = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let handler_received = received.clone();
+    let handler_release = release.clone();
+    let first = Arc::new(AtomicBool::new(true));
+    let worker = tokio::spawn(entangle_mesh_iroh::serve_requests(
+        b.transport.clone(),
+        move |mut request| {
+            let (server, received, release, first) = (
+                server.clone(),
+                handler_received.clone(),
+                handler_release.clone(),
+                first.clone(),
+            );
+            async move {
+                if first.swap(false, Ordering::Relaxed) {
+                    received.notify_one();
+                    release.notified().await;
+                }
+                // Normal executor/guest delay allows a genuine transport FIN acknowledgement;
+                // no extra transfer or synthetic bandwidth traffic takes place.
+                tokio::time::sleep(Duration::from_millis(80)).await;
+                let from = request.peer_id();
+                let response = server.handle(from, request.take_payload()).await;
+                request.respond(&response).await
+            }
+        },
+    ));
+    let input = vec![b'x'; 512 * 1024];
+    let mut task = task_for(plugin, &input);
+    task.integrity = IntegrityPolicy::TrustedExecutor {
+        allowlist: vec![b.peer_id],
+    };
+    {
+        let pending = dispatcher.dispatch_one_shot(task.clone());
+        tokio::pin!(pending);
+        tokio::select! {
+            _ = deadline("worker received full request", received.notified()) => {}
+            result = &mut pending => panic!("request completed prematurely: {result:?}"),
+        }
+    }
+    release.notify_one();
+    let mut missing = task.clone();
+    missing.plugin = "aabbccddeeff00112233445566778899/missing@1.0.0"
+        .parse()
+        .unwrap();
+    assert!(matches!(
+        deadline("worker rejection", dispatcher.dispatch_one_shot(missing)).await,
+        Err(DispatchError::RemoteRejected { .. })
+    ));
+    let initial = deadline(
+        "first successful upload",
+        dispatcher.dispatch_one_shot(task.clone()),
+    )
+    .await
+    .unwrap();
+    assert!(initial
+        .chosen
+        .reason
+        .contains("measured_upload_bps=unknown"));
+    assert_eq!(initial.chosen.peer_id, b.peer_id);
+    let next = deadline("reuse measured upload", dispatcher.dispatch_one_shot(task))
+        .await
+        .unwrap();
+    let bps: u64 = next
+        .chosen
+        .reason
+        .split("measured_upload_bps=")
+        .nth(1)
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(bps > 0);
+    assert_eq!(
+        next.output,
+        [b"Hello, ".as_slice(), input.as_slice(), b"!"].concat()
+    );
+    worker.abort();
+}
+
 /// Node A dispatches a task; placement routes it to node B; **B** executes the
 /// hello-pong fixture; A receives `Hello, world!`.
 ///

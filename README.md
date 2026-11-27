@@ -78,6 +78,10 @@ troubleshooting: [`docs/install.md`](./docs/install.md).
 
 Linux workers execute signed components locally and on paired peers over QUIC. Operators can inspect the selected worker and scrape daemon metrics. The current acceptance record covers the tested platforms, workloads and outstanding release gates. [Release readiness](./STATUS.md)
 
+The RAW photo batch command develops camera files with LibRaw on the submitting
+machine, distributes dehazing across approved workers, and writes full-resolution
+16-bit PNGs. Each output records the workers that processed it. [Process a RAW photo directory](./docs/operations.md#process-a-directory-of-camera-raw-files)
+
 ## Try it locally
 
 From the repository root with the CLI on your path, run the walkthrough. It builds and signs a component, then invokes it using the running daemon or a temporary in-process kernel.

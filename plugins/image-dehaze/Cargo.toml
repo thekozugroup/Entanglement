@@ -1,0 +1,22 @@
+[workspace]
+# Stand-alone, not a member of the Entanglement workspace.
+
+[package]
+name = "entangle-image-dehaze"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+entangle-sdk = { path = "../../crates/entangle-sdk" }
+png = "=0.18.1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"

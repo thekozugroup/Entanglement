@@ -130,3 +130,41 @@ Before measuring the next comparison, we specified two production-profile binari
 The six matched pairs completed **864 renders**, with identical input and PNG hashes across both builds. Scalar serialization produced a median one-remote p95 of **163.56 ms**; bulk serialization produced **166.80 ms**, **1.98% higher**. Four of the six pairs favored bulk. The per-pair ratios ranged from 0.899× to 1.344×. Median throughput was **35.55 images/s scalar** and **34.51 images/s bulk**, 2.94% lower. The codec-only comparison passed its prespecified p95 limit and the 256 KiB throughput test. The default uses bulk serialization. The larger historical one-remote p95 increase remains unexplained across those integrated binaries. [Pair-level results, individual call latencies, binary digests and live CPU samples](testing/production-review/evidence/codec-isolation-2026-11-27.json)
 
 The comparison used the same source path and Rust release settings. The scalar build omitted only the two `#[serde(with = "serde_bytes")]` field attributes on the v1 request input and successful response output. Both binaries used the same `Cargo.lock` (SHA-256 `22cca61e5bc1535c9d2d5b3f7f9eeb1d56ee77635e1e80c6693ab129def6cd6b`). The daemon had a separate build target name in both builds to preserve the workspace release artifact. The driver used `--route one_remote` alongside the image benchmark arguments shown above. Odd-numbered pairs ran scalar first and even pairs ran bulk first. Each per-run number is the median of three 24-call nearest-rank p95s. The reported p95 compares the median of the six independently initialized runs for each codec. No compiler or build process appeared in the 58 one-second samples between 01:57:00 and 01:57:58 UTC.
+
+## Measure a RAW dehaze batch
+
+Run the benchmark from the submitting machine with two running daemon profiles.
+The single-machine profile loads the signed component and executes locally. The
+mesh profile uses an empty coordinator paired with the desktop workers. Load
+the same signed package on each worker. Both routes use the same input bytes,
+LibRaw settings, tile size, concurrency and output volume. The single-machine
+profile can also be one of the mesh workers.
+
+Prepare a JSON object mapping every relative RAW pathname to its SHA-256.
+Keep this manifest outside the photo tree. For example, a two-photo fixture
+manifest has the form `{"canon_350d.cr2": "<sha256>", "nikon_d40.nef": "<sha256>"}`.
+Use the catalog smoke test’s Python environment with Pillow installed.
+
+```sh
+target/catalog-smoke-python/bin/python scripts/benchmark_raw_batch.py \
+  --cli target/release/entangle --plugin "$PUBLISHER/image-dehaze@0.1.0" \
+  --input-dir /data/raw --manifest /data/inputs.json --scratch /data/bench-tmp \
+  --single-home /profiles/desktop1 --mesh-home /profiles/submitter \
+  --worker "$DESKTOP_ONE" --worker "$DESKTOP_TWO" --worker "$DESKTOP_THREE" \
+  --tile-edge 1024 --jobs 3 --trials 3 --report raw-wall-times.json
+```
+
+The driver warms each route with a complete batch. It then alternates run order
+and times the CLI through final file publication. After each invocation it checks
+the input-to-output mapping, PNG color metadata, file checksums, tile counts and
+selected workers. Each listed worker must render tiles in every mesh trial.
+All routes must produce identical output files. Scratch space must hold one
+complete set of outputs. Each trial uses a fresh directory and removes it after
+verification. The report retains wall times, per-photo latencies, worker tile
+counts and output hashes. It contains relative filenames and peer IDs.
+
+For the architecture gate, retain the 8,000-original manifest, identities of
+three physical desktops, signed package and binary hashes, hardware and link
+details, resource limits, and cache conditions with the report. The target is
+at least 10× median wall-clock speedup. Co-located daemon measurements exercise
+placement and the verification procedure. [Architecture workload B](architecture.md#70-reference-workloads)

@@ -380,6 +380,16 @@ impl RemoteDispatch {
         task: &OneShotTask,
         peer: PeerId,
     ) -> Result<Vec<u8>, DispatchError> {
+        self.dispatch_measured(task, peer)
+            .await
+            .map(|(bytes, _)| bytes)
+    }
+
+    pub(crate) async fn dispatch_measured(
+        &self,
+        task: &OneShotTask,
+        peer: PeerId,
+    ) -> Result<(Vec<u8>, Option<u64>), DispatchError> {
         // The wire request asks for exactly one execution. Verify the caller's
         // policy before sharing its input, including for direct client calls.
         let unsupported = match &task.integrity {
@@ -406,7 +416,17 @@ impl RemoteDispatch {
         })?;
 
         let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
-        let raw = match tokio::time::timeout(budget, self.transport.request(&addr, &frame)).await {
+        let transfer = async {
+            if task.input.len() >= crate::placement::MIN_UPLOAD_BYTES {
+                self.transport.request_with_upload(&addr, &frame).await
+            } else {
+                self.transport
+                    .request(&addr, &frame)
+                    .await
+                    .map(|raw| (raw, None))
+            }
+        };
+        let (raw, upload) = match tokio::time::timeout(budget, transfer).await {
             Ok(Ok(bytes)) => bytes,
             Ok(Err(e)) => {
                 return Err(DispatchError::RemoteTransport {
@@ -444,7 +464,7 @@ impl RemoteDispatch {
         })?;
 
         match response.outcome {
-            RemoteOutcome::Ok { output } => Ok(output),
+            RemoteOutcome::Ok { output } => Ok((output, upload)),
             RemoteOutcome::Err { code, message } => Err(DispatchError::RemoteRejected {
                 peer,
                 code,

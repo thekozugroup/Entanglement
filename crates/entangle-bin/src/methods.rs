@@ -24,6 +24,7 @@ use entangle_rpc::methods::{
     PluginsLoadResult, PluginsUnloadParams,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 use std::sync::Arc;
 
 /// Upper bound (5 minutes) applied to any client-supplied `timeout_ms` before
@@ -35,13 +36,12 @@ const MAX_INVOKE_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
 // ── JSON-RPC envelope types ──────────────────────────────────────────────────
 
 #[derive(Deserialize)]
-struct Req {
-    #[allow(dead_code)]
+struct Req<'a> {
     jsonrpc: String,
     id: serde_json::Value,
     method: String,
-    #[serde(default)]
-    params: serde_json::Value,
+    #[serde(default, borrow)]
+    params: Option<&'a RawValue>,
 }
 
 #[derive(Serialize)]
@@ -85,18 +85,24 @@ fn ok_resp<T: Serialize>(id: serde_json::Value, result: T) -> String {
     serde_json::to_string(&resp).unwrap_or_else(|_| r#"{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"internal serialization error"}}"#.to_owned())
 }
 
+fn parse_error(error: serde_json::Error) -> String {
+    tracing::debug!(%error, "JSON parse error");
+    error_resp(
+        serde_json::Value::Null,
+        -32700,
+        format!("parse error: {error}"),
+    )
+}
+
 // ── dispatch ─────────────────────────────────────────────────────────────────
 
 /// Parse `line` as a JSON-RPC 2.0 request, dispatch to the appropriate handler,
 /// and return a serialized JSON-RPC 2.0 response string.
 pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
     // -32700: Parse error
-    let req: Req = match serde_json::from_str(line) {
+    let req: Req<'_> = match serde_json::from_str(line) {
         Ok(r) => r,
-        Err(e) => {
-            tracing::debug!(error = %e, "JSON parse error");
-            return error_resp(serde_json::Value::Null, -32700, format!("parse error: {e}"));
-        }
+        Err(error) => return parse_error(error),
     };
 
     // -32600: Invalid Request (jsonrpc field must be "2.0")
@@ -106,22 +112,39 @@ pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
 
     tracing::debug!(method = %req.method, "RPC dispatch");
 
+    let params = req.params.map_or("null", RawValue::get);
+    if req.method == method::COMPUTE_DISPATCH {
+        // Deserialize input directly into Vec<u8>. The shared params type
+        // rejects duplicate recognized fields before we can schedule work.
+        return match serde_json::from_str::<ComputeDispatchParams>(params) {
+            Ok(params) => handle_compute_dispatch(req.id, params, state).await,
+            Err(error) if error.is_data() => {
+                error_resp(req.id, -32602, format!("invalid params: {error}"))
+            }
+            Err(error) => parse_error(error),
+        };
+    }
+    let params = match serde_json::from_str(params) {
+        Ok(params) => params,
+        Err(error) => return parse_error(error),
+    };
+
     match req.method.as_str() {
-        m if m == method::TIER_POLICY => tier::dispatch(req.id, req.params, state).await,
+        m if m == method::TIER_POLICY => tier::dispatch(req.id, params, state).await,
         m if m == method::METRICS => ok_resp(req.id, state.render_metrics()),
         m if m == method::VERSION => handle_version(req.id),
         m if m == method::TIME => handle_time(req.id),
         m if m == method::PLUGINS_LIST => handle_plugins_list(req.id, state),
-        m if m == method::PLUGINS_LOAD => handle_plugins_load(req.id, req.params, state).await,
-        m if m == method::PLUGINS_UNLOAD => handle_plugins_unload(req.id, req.params, state).await,
-        m if m == method::PLUGINS_INVOKE => handle_plugins_invoke(req.id, req.params, state).await,
+        m if m == method::PLUGINS_LOAD => handle_plugins_load(req.id, params, state).await,
+        m if m == method::PLUGINS_UNLOAD => handle_plugins_unload(req.id, params, state).await,
+        m if m == method::PLUGINS_INVOKE => handle_plugins_invoke(req.id, params, state).await,
         m if m == method::MESH_PEERS => handle_mesh_peers(req.id, state).await,
         m if m == method::MESH_STATUS => handle_mesh_status(req.id, state).await,
         "mesh/relay/send" => {
             let Some(relay) = &state.relay else {
                 return error_resp(req.id, -32000, "scheduler relay transport unavailable");
             };
-            let frame = match serde_json::from_value(req.params) {
+            let frame = match serde_json::from_value(params) {
                 Ok(f) => f,
                 Err(e) => return error_resp(req.id, -32602, e.to_string()),
             };
@@ -140,13 +163,10 @@ pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
             }
         }
         m @ ("compute/stream/open" | "compute/stream/read" | "compute/stream/close") => {
-            match state.streams.handle(m, req.params, &state.dispatcher).await {
+            match state.streams.handle(m, params, &state.dispatcher).await {
                 Ok(value) => ok_resp(req.id, value),
                 Err(error) => error_resp(req.id, -32000, error),
             }
-        }
-        m if m == method::COMPUTE_DISPATCH => {
-            handle_compute_dispatch(req.id, req.params, state).await
         }
         _ => error_resp(req.id, -32601, format!("method not found: {}", req.method)),
     }
@@ -265,7 +285,7 @@ async fn handle_plugins_invoke(
 /// identity keypair loaded at startup.
 async fn handle_compute_dispatch(
     id: serde_json::Value,
-    params: serde_json::Value,
+    p: ComputeDispatchParams,
     state: &Arc<DaemonState>,
 ) -> String {
     use entangle_types::{
@@ -273,11 +293,6 @@ async fn handle_compute_dispatch(
         plugin_id::PluginId,
         resource::{GpuBackend, GpuRequirement, ResourceSpec},
         task::{IntegrityPolicy, OneShotTask},
-    };
-
-    let p: ComputeDispatchParams = match serde_json::from_value(params) {
-        Ok(v) => v,
-        Err(e) => return error_resp(id, -32602, format!("invalid params: {e}")),
     };
 
     if !p.cpu_cores.is_finite() || p.cpu_cores < 0.0 {

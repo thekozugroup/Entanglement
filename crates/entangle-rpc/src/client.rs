@@ -1,9 +1,9 @@
 use crate::{errors::RpcError, methods::*};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 
 #[derive(Serialize)]
@@ -12,6 +12,77 @@ struct Request<'a, P> {
     jsonrpc: &'static str,
     method: &'a str,
     params: P,
+}
+
+// In JSON an octet can require three decimal digits and a separator. Allow
+// room for the result envelope in addition to a full-size component output.
+const MAX_BINARY_REPLY_BYTES: u64 =
+    4 * entangle_types::task::OneShotTask::DEFAULT_MAX_OUTPUT_BYTES + 64 * 1024;
+
+#[derive(Deserialize)]
+struct Response<'a> {
+    #[serde(default)]
+    jsonrpc: serde_json::Value,
+    #[serde(default)]
+    id: serde_json::Value,
+    #[serde(default, borrow, deserialize_with = "present")]
+    result: Option<&'a serde_json::value::RawValue>,
+    #[serde(default, borrow, deserialize_with = "present")]
+    error: Option<&'a serde_json::value::RawValue>,
+}
+
+// A present JSON null is a valid result for several methods. Only a missing
+// field means the daemon omitted its result.
+fn present<'de, T: Deserialize<'de>, D: Deserializer<'de>>(d: D) -> Result<Option<T>, D::Error> {
+    T::deserialize(d).map(Some)
+}
+
+async fn read_reply(reader: impl AsyncRead + Unpin, max_bytes: u64) -> Result<Vec<u8>, RpcError> {
+    let mut bytes = Vec::new();
+    BufReader::new(reader)
+        .take(max_bytes.saturating_add(1))
+        .read_until(b'\n', &mut bytes)
+        .await?;
+    if bytes.last() == Some(&b'\n') {
+        bytes.pop();
+    }
+    if bytes.is_empty() {
+        return Err(RpcError::Malformed("empty response".into()));
+    }
+    if bytes.len() as u64 > max_bytes {
+        return Err(RpcError::Malformed(
+            "binary reply exceeds the JSON-RPC frame limit".into(),
+        ));
+    }
+    Ok(bytes)
+}
+
+fn decode_reply<R: DeserializeOwned>(bytes: &[u8], id: u64) -> Result<R, RpcError> {
+    // Decode binary arrays directly into Vec<u8>. An intermediate JSON Value
+    // would allocate one tree node for every byte of a returned tile.
+    let reply: Response = serde_json::from_slice(bytes)?;
+    if reply.jsonrpc != "2.0" || reply.id.as_u64() != Some(id) {
+        return Err(RpcError::Malformed(
+            "unexpected JSON-RPC version or response id".into(),
+        ));
+    }
+    match (reply.result, reply.error) {
+        (Some(raw), None) => Ok(serde_json::from_str(raw.get())?),
+        (None, Some(raw)) => {
+            let error: serde_json::Value = serde_json::from_str(raw.get())?;
+            let code = error.get("code").and_then(|c| c.as_i64()).unwrap_or(-32000) as i32;
+            let message = error
+                .get("message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("")
+                .to_owned();
+            Err(RpcError::Rpc { code, message })
+        }
+        (Some(_), Some(_)) => Err(RpcError::Malformed(
+            "response contains both result and error".into(),
+        )),
+        (None, None) => Err(RpcError::Malformed("missing result".into())),
+    }
 }
 
 /// Default connect timeout: 2 seconds. Short enough to fail fast in the CLI;
@@ -70,13 +141,12 @@ impl Client {
         }
 
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        let req = Request {
+        let line = serde_json::to_vec(&Request {
             id,
             jsonrpc: "2.0",
             method,
             params,
-        };
-        let line = serde_json::to_string(&req)?;
+        })?;
 
         let stream =
             tokio::time::timeout(self.connect_timeout, UnixStream::connect(&self.socket_path))
@@ -87,45 +157,16 @@ impl Client {
                 })??;
         let (rd, mut wr) = stream.into_split();
 
-        wr.write_all(line.as_bytes()).await?;
+        wr.write_all(&line).await?;
+        drop(line);
         wr.write_all(b"\n").await?;
         wr.flush().await?;
 
-        let mut lines = BufReader::new(rd).lines();
-        let resp_line = lines
-            .next_line()
-            .await?
-            .ok_or_else(|| RpcError::Malformed("empty response".into()))?;
-
-        let mut resp: serde_json::Value = serde_json::from_str(&resp_line)?;
-
-        if resp["jsonrpc"] != "2.0" || resp["id"].as_u64() != Some(id) {
-            return Err(RpcError::Malformed(
-                "unexpected JSON-RPC version or response id".into(),
-            ));
-        }
-        if let Some(err) = resp.get("error") {
-            if resp.get("result").is_some() {
-                return Err(RpcError::Malformed(
-                    "response contains both result and error".into(),
-                ));
-            }
-            let code = err.get("code").and_then(|c| c.as_i64()).unwrap_or(-32000) as i32;
-            let message = err
-                .get("message")
-                .and_then(|m| m.as_str())
-                .unwrap_or("")
-                .to_string();
-            return Err(RpcError::Rpc { code, message });
-        }
-
-        let result = resp
-            .as_object_mut()
-            .and_then(|object| object.remove("result"))
-            .ok_or_else(|| RpcError::Malformed("missing result".into()))?;
-
-        let typed: R = serde_json::from_value(result)?;
-        Ok(typed)
+        let limit = match method {
+            method::COMPUTE_DISPATCH => MAX_BINARY_REPLY_BYTES,
+            _ => u64::MAX,
+        };
+        decode_reply(&read_reply(rd, limit).await?, id)
     }
 
     /// Retrieve Prometheus exposition from the running daemon.
@@ -234,6 +275,37 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nullable_result_is_distinct_from_a_missing_or_ambiguous_result() {
+        let null = br#"{"id":1,"jsonrpc":"2.0","result":null}"#;
+        assert!(decode_reply::<Option<Vec<u8>>>(null, 1).unwrap().is_none());
+        for invalid in [
+            br#"{"id":1,"jsonrpc":"2.0"}"#.as_slice(),
+            br#"{"id":1,"jsonrpc":"2.0","result":null,"error":null}"#,
+            br#"{"id":1,"jsonrpc":"2.0","result":123,"error":{}}"#,
+            br#"{"id":2,"jsonrpc":"2.0","result":123}"#,
+        ] {
+            assert!(matches!(
+                decode_reply::<()>(invalid, 1),
+                Err(RpcError::Malformed(_))
+            ));
+        }
+        assert!(matches!(
+            decode_reply::<()>(null, 2),
+            Err(RpcError::Malformed(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn reply_frame_accepts_exact_cap_and_refuses_one_more_byte() {
+        assert_eq!(read_reply(&b"abc\n"[..], 3).await.unwrap(), b"abc");
+        assert_eq!(read_reply(&b"abc"[..], 3).await.unwrap(), b"abc");
+        assert!(matches!(
+            read_reply(&b"abcd\n"[..], 3).await,
+            Err(RpcError::Malformed(_))
+        ));
+    }
 
     #[test]
     fn default_connect_timeout_is_two_seconds() {

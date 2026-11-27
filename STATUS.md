@@ -10,6 +10,11 @@ named in their reports. [Performance measurements](./docs/performance.md)
 
 **Recently landed**
 
+- **Distributed RAW dehazing.** A submitting machine develops camera originals
+  with LibRaw. Approved workers dehaze overlapping tiles using a signed tier-1
+  component, and the submitter writes full-resolution RGB16 output. The CLI
+  records worker placement for each tile and verifies completed files on resume.
+  [Operator guide](docs/operations.md#process-a-directory-of-camera-raw-files) · [Camera fixtures and quality criteria](docs/testing/raw-image-fixtures.md)
 - **Real P2P transport.** `entangle-mesh-iroh` is no longer a scaffold: it
   binds a QUIC endpoint keyed by the daemon's own Ed25519 identity, so a
   peer's transport-authenticated identity *is* its `PeerId`

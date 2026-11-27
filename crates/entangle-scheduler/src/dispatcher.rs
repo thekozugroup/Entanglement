@@ -281,6 +281,7 @@ impl Dispatcher {
             self.worker_ttl,
             &task.resources,
             &task.plugin,
+            task.input.len(),
             local,
             |peer| {
                 (*peer != self.local_peer_id || local_allowed)
@@ -310,7 +311,7 @@ impl Dispatcher {
                         plugin = %task.plugin,
                         "dispatching task to remote peer"
                     );
-                    let output = remote.dispatch(&task, chosen.peer_id).await?;
+                    let (output, upload) = remote.dispatch_measured(&task, chosen.peer_id).await?;
 
                     // The peer is untrusted: re-check the size limit against
                     // the task we asked for, naming the peer that broke it.
@@ -323,6 +324,10 @@ impl Dispatcher {
                                 peer: chosen.peer_id.to_hex(),
                             },
                         ));
+                    }
+                    if let Some(bps) = upload {
+                        self.workers
+                            .record_upload(&chosen.peer_id, &_reservation, bps);
                     }
                     return Ok(DispatchResult { chosen, output });
                 }
@@ -352,6 +357,7 @@ impl Dispatcher {
                             self.worker_ttl,
                             &task.resources,
                             &task.plugin,
+                            task.input.len(),
                             local,
                             |peer| *peer == self.local_peer_id && local_allowed,
                         )?

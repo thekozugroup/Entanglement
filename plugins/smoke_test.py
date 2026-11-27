@@ -39,6 +39,7 @@ WASI_TARGET = "wasm32-wasip2"
 PLUGINS = (
     "compress",
     "csv-stats",
+    "image-dehaze",
     "image-resize",
     "json-pointer",
     "json-query",
@@ -138,6 +139,27 @@ def verify_workloads(invoke):
         assert resized.mode == "RGBA", resized.mode
         assert resized.getpixel((20, 45)) == left and resized.getpixel((140, 45)) == right
     print("Verified decoded 160×90 PNG thumbnail and RGBA pixels", flush=True)
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    # Pillow can read RGB16 PNGs but its RGB writer emits 8-bit samples.
+    width, height = 48, 32
+    row = b"\0" + b"".join(struct.pack(">3H", *([level] * 3)) * (width // 2)
+                            for level in (24000, 60000))
+    linear = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">2I5B", width, height, 16, 2, 0, 0, 0))
+              + chunk(b"gAMA", struct.pack(">I", 100000))
+              + chunk(b"cHRM", struct.pack(">8I", 31270, 32900, 64000, 33000, 30000, 60000, 15000, 6000))
+              + chunk(b"IDAT", zlib.compress(row * height)) + chunk(b"IEND", b""))
+    result = invoke("image-dehaze", linear, use_output_file=True)
+    assert result[24:26] == b"\x10\x02"  # RGB, 16 bits per sample on the wire
+    with Image.open(io.BytesIO(result)) as clear:
+        assert clear.format == "PNG" and clear.size == (width, height)
+        assert clear.info["gamma"] == 1.0 and clear.info["chromaticity"] == (
+            .3127, .329, .64, .33, .3, .6, .15, .06)
+        assert clear.getpixel((4, 16)) == (7, 7, 7), clear.getpixel((4, 16))
+        assert clear.getpixel((44, 16)) == (234, 234, 234)
+    print("Verified 16-bit linear RGB PNG dehazing and atmospheric-light preservation", flush=True)
 
     openapi = {
         "openapi": "3.1.0",

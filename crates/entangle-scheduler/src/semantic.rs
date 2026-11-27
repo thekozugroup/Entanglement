@@ -31,11 +31,14 @@ impl Dispatcher {
         let mut selected = HashSet::from([self.local_peer_id]);
         let mut placements = Vec::with_capacity(REPLICAS);
         for _ in 0..REPLICAS {
-            let (choice, reservation) =
-                self.workers
-                    .choose(self.worker_ttl, &task.resources, &task.plugin, None, |p| {
-                        !selected.contains(p)
-                    })?;
+            let (choice, reservation) = self.workers.choose(
+                self.worker_ttl,
+                &task.resources,
+                &task.plugin,
+                task.input.len(),
+                None,
+                |p| !selected.contains(p),
+            )?;
             selected.insert(choice.peer_id);
             placements.push((choice, reservation));
         }

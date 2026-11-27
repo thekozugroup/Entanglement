@@ -379,10 +379,69 @@ target/catalog-smoke-python/bin/python plugins/smoke_test.py \
   target/debug/entangle target/debug/entangled --two-node
 ```
 
-The test builds and signs all seven plugins in temporary profiles, verifies
+The test builds and signs all eight plugins in temporary profiles, verifies
 their output on a local daemon, then repeats the workloads through an empty
 coordinator and a trusted worker over loopback QUIC. Omit `--two-node` to run
 only the local phase.
+
+### Process a directory of camera RAW files
+
+Install the LibRaw tools on the submitting machine. Debian supplies
+`dcraw_emu` and `raw-identify` in `libraw-bin`. Homebrew supplies them in
+`libraw`. The Linux checks used LibRaw 0.21.4. Workers need the Entanglement
+daemon and the signed tier-1 `image-dehaze` component.
+
+Build and sign the package once on the publishing machine. Give each worker
+the same signed directory and the publisher’s public key through your normal
+distribution channel. Each worker must trust that publisher, pair with the
+submitter, and load the package. Use the full plugin ID from the manifest
+and the paired worker IDs in the command below. [Build, trust and load a plugin](plugin-authoring.md#4-build-and-sign)
+
+```sh
+entangle plugins build plugins/image-dehaze
+# On each worker, after adding the publisher's public key:
+entangle plugins load /path/to/signed/image-dehaze
+
+# On the submitting machine, with its daemon running:
+entangle image dehaze --recursive ./raw --output-dir ./developed \
+  --plugin "$PUBLISHER/image-dehaze@0.1.0" \
+  --allow "$DESKTOP_ONE" --allow "$DESKTOP_TWO" --jobs 3 --json
+```
+
+LibRaw develops each source at full resolution with linear transfer, sRGB
+primaries, and automatic brightening disabled. It requests the camera’s
+as-shot white balance and uses LibRaw’s fallback when unavailable. The
+submitter estimates atmospheric light once per image. It sends bounded
+16-bit PNG tiles with a seven-pixel overlap around each core to authorized
+workers over the existing compute route. Workers process the pixels inside
+their Wasm sandbox. The submitter discards the overlaps, assembles the
+lossless linear RGB16 PNG, and records which peer rendered each tile.
+The local RAW file, its pathname and its camera metadata stay on the
+submitting machine. Each selected worker receives photographic pixel data.
+
+A source such as `raw/trip/001.NEF` produces
+`developed/trip/001.NEF.dehazed.png`. Keep the output directory outside the
+input directory. Use `--resume` to verify previous results before skipping
+them. The CLI processes one source at a time, with up to `--jobs` concurrent
+tile dispatches. The native decoder accepts a regular file up to 128 MiB,
+32 million developed pixels and 32,768 pixels per side. Camera model
+coverage depends on the installed LibRaw version. Output uses a linear
+transfer function and carries explicit PNG color tags for color-managed
+viewers. The operation discards source metadata. [Plugin and wire format](../plugins/image-dehaze/README.md)
+
+`--timeout-ms` sets the deadline for each worker invocation. The default
+Iroh transport also limits a complete request to 30 seconds. Use smaller
+`--tile-edge` values on routes that take longer to transfer a tile.
+
+For one-shot inputs of at least 256 KiB, the scheduler also considers how
+quickly each worker acknowledged recent uploads from this submitter. It
+measures ordinary QUIC requests after connecting and retains a sample only
+when the request succeeds and its observed path stays the same through the
+acknowledgement. A response that arrives first proceeds immediately. The
+placement explanation distinguishes measured upload speed from advertised
+bandwidth. Samples expire after 60 seconds. A route change between jobs can
+temporarily leave an older estimate in use. Download speeds and rendering
+times can differ from this upload measurement.
 
 ---
 

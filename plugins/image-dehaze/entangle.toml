@@ -1,0 +1,12 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/image-dehaze@0.1.0"
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "Reduce atmospheric haze in a linear RGB16 PNG using the dark-channel prior"
+
+[capabilities]
+
+[build]
+wit_world = "entangle:plugin@0.1.0/plugin"
+target = "wasm32-wasip2"

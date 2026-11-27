@@ -91,6 +91,9 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Dispatch compute tasks via the scheduler.
     #[command(subcommand_required = true)]
     Compute(ComputeArgs),
+    /// Process photographs with trusted mesh workers.
+    #[command(subcommand_required = true)]
+    Image(cmd::image::ImageArgs),
     /// Verify an Entanglement release archive.
     Release(cmd::release::ReleaseArgs),
     /// Print the detected platform and the sandbox primitive that would be used
@@ -169,6 +172,7 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Mesh(a) => cmd::mesh::run(a).await,
         Cmd::Pair(a) => cmd::pair::run(a).await,
         Cmd::Compute(a) => cmd::compute::run(a).await,
+        Cmd::Image(a) => cmd::image::run(a).await,
         Cmd::Release(a) => cmd::release::run(a),
         Cmd::PrintPlatform => print_platform(),
         Cmd::Metrics => print_metrics().await,

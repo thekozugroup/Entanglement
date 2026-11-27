@@ -38,6 +38,13 @@ impl TailnetTransport {
         }
     }
 
+    fn endpoint_for(&self, peer: &IrohPeer) -> Result<Arc<MeshIroh>, MeshIrohError> {
+        self.current().ok_or_else(|| MeshIrohError::Connect {
+            peer: peer.peer_id,
+            reason: "Tailscale scheduler endpoint unavailable".to_owned(),
+        })
+    }
+
     fn publish(&self, endpoint: Arc<MeshIroh>) -> bool {
         self.state.send_if_modified(|state| {
             if matches!(state, EndpointState::Recovering) {
@@ -86,18 +93,21 @@ impl MeshTransport for TailnetTransport {
     }
 
     async fn connect(&self, peer: &IrohPeer) -> Result<MeshConn, MeshIrohError> {
-        let ep = self.current().ok_or_else(|| MeshIrohError::Connect {
-            peer: peer.peer_id,
-            reason: "Tailscale scheduler endpoint unavailable".to_owned(),
-        })?;
-        ep.connect(peer).await
+        self.endpoint_for(peer)?.connect(peer).await
     }
 
     async fn request(&self, peer: &IrohPeer, payload: &[u8]) -> Result<Vec<u8>, MeshIrohError> {
-        let conn = self.connect(peer).await?;
-        let result = conn.request(payload).await;
-        conn.close();
-        result
+        self.endpoint_for(peer)?.request(peer, payload).await
+    }
+
+    async fn request_with_upload(
+        &self,
+        peer: &IrohPeer,
+        payload: &[u8],
+    ) -> Result<(Vec<u8>, Option<u64>), MeshIrohError> {
+        self.endpoint_for(peer)?
+            .request_with_upload(peer, payload)
+            .await
     }
 
     async fn accept(&self) -> Result<Option<MeshConn>, MeshIrohError> {
