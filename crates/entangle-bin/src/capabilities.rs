@@ -624,32 +624,47 @@ mod tests {
         let _ = poller.await;
     }
 
-    struct SilentRefresh;
+    #[derive(Default)]
+    struct SilentRefresh(AtomicUsize);
 
     #[async_trait]
     impl PlacementRefresh for SilentRefresh {
         async fn refresh(&self, _: &OneShotTask) -> bool {
+            self.0.fetch_add(1, Ordering::Relaxed);
             std::future::pending().await
         }
     }
 
     #[tokio::test]
-    async fn preplacement_refresh_cannot_extend_the_task_deadline() {
+    async fn preplacement_refresh_respects_empty_allowlist_and_task_deadline() {
         let pool = WorkerPool::new();
         let transport = Arc::new(InventoryTransport::default());
         let addresses = Arc::new(PeerDirectory::new());
         let kernel = Arc::new(Kernel::new(KernelConfig::default(), Keyring::new()).unwrap());
         let dispatcher = Dispatcher::new(pool, kernel, peer(0))
             .with_remote(Arc::new(RemoteDispatch::new(transport, addresses)));
+        let refresh = SilentRefresh::default();
+
+        let mut denied = task();
+        denied.integrity = IntegrityPolicy::TrustedExecutor { allowlist: vec![] };
+        denied.timeout_ms = 20;
+        let error = dispatcher
+            .dispatch_one_shot_with_refresh(denied, Some(&refresh))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("ENTANGLE-E0303"));
+        assert_eq!(refresh.0.load(Ordering::Relaxed), 0);
+
         let mut task = task();
         task.resources.cpu_cores = 1.0;
         task.timeout_ms = 20;
         let outcome = time::timeout(
             Duration::from_millis(500),
-            dispatcher.dispatch_one_shot_with_refresh(task, Some(&SilentRefresh)),
+            dispatcher.dispatch_one_shot_with_refresh(task, Some(&refresh)),
         )
         .await
         .unwrap();
         assert!(matches!(outcome, Err(DispatchError::Placement(_))));
+        assert_eq!(refresh.0.load(Ordering::Relaxed), 1);
     }
 }

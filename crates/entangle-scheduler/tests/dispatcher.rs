@@ -351,6 +351,24 @@ async fn trusted_executor_empty_allowlist_refused_e0303() {
     );
 }
 
+#[tokio::test]
+async fn trusted_executor_without_remote_transport_refuses_local_fallback_e0303() {
+    let keypair = IdentityKeyPair::generate();
+    let dispatcher = empty_dispatcher(&keypair);
+    let mut task = OneShotTask::with_defaults(nothing_plugin_id(&keypair), Vec::new());
+    task.integrity = IntegrityPolicy::TrustedExecutor {
+        allowlist: vec![make_remote_worker(0x42).peer_id],
+    };
+
+    let error = dispatcher.dispatch_one_shot(task).await.unwrap_err();
+    assert!(matches!(
+        error,
+        DispatchError::Runtime(entangle_runtime::RuntimeError::Integrity(
+            entangle_runtime::IntegrityError::TrustedExecutorRefused(peer)
+        )) if peer == local_peer().to_hex()
+    ));
+}
+
 /// `Attested` integrity is not implemented in Phase 1; the dispatcher must
 /// surface the stable `ENTANGLE-E0304` NotImplemented error rather than execute.
 #[tokio::test]

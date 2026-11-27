@@ -11,7 +11,7 @@ use crate::{
     wire::RemoteErrorCode,
     worker::{InFlight, WorkerInfo, WorkerPool},
 };
-use entangle_runtime::Kernel;
+use entangle_runtime::{IntegrityError, Kernel, RuntimeError};
 use entangle_types::{
     peer_id::PeerId,
     resource::ResourceSpec,
@@ -294,6 +294,12 @@ impl Dispatcher {
             .filter(|_| self.kernel.has_compute_plugin(&task.plugin))
             .map(|worker| (worker, &self.local_in_flight));
         let local_allowed = self.local_worker.is_none() || local.is_some();
+        let can_fallback_locally = unconstrained && local_allowed;
+        let trusts_local = || {
+            trusted
+                .as_ref()
+                .is_none_or(|peers| peers.contains(&self.local_peer_id))
+        };
         let place = || {
             self.workers.choose(
                 self.worker_ttl,
@@ -309,44 +315,51 @@ impl Dispatcher {
         };
         let (mut chosen, mut _reservation) = match place() {
             Ok(chosen) => chosen,
-            Err(PlacementError::NoWorkers)
-                if unconstrained
-                    && local_allowed
-                    && trusted
-                        .as_ref()
-                        .is_none_or(|peers| peers.contains(&self.local_peer_id)) =>
-            {
-                (
-                    PlacementChoice {
-                        peer_id: self.local_peer_id,
-                        score: 0.0,
-                        reason: "no eligible workers — falling back to local".into(),
-                    },
-                    self.local_in_flight.reserve(),
-                )
-            }
+            Err(PlacementError::NoWorkers) if can_fallback_locally && trusts_local() => (
+                PlacementChoice {
+                    peer_id: self.local_peer_id,
+                    score: 0.0,
+                    reason: "no eligible workers — falling back to local".into(),
+                },
+                self.local_in_flight.reserve(),
+            ),
             Err(initial) => {
+                let reject = || {
+                    // An unauthorized local fallback historically returned E0303.
+                    // The refresh can find an authorized peer before reporting it.
+                    if matches!(initial, PlacementError::NoWorkers)
+                        && can_fallback_locally
+                        && !trusts_local()
+                    {
+                        return RuntimeError::Integrity(IntegrityError::TrustedExecutorRefused(
+                            self.local_peer_id.to_hex(),
+                        ))
+                        .into();
+                    }
+                    initial.into()
+                };
                 let Some(refresh) = refresh.filter(|_| {
                     self.remote.is_some()
                         && matches!(
                             task.integrity,
                             IntegrityPolicy::None | IntegrityPolicy::TrustedExecutor { .. }
                         )
+                        && trusted.as_ref().is_none_or(|peers| !peers.is_empty())
                         && task.timeout_ms > 0
                 }) else {
-                    return Err(initial.into());
+                    return Err(reject());
                 };
                 let start = tokio::time::Instant::now();
                 let budget = Duration::from_millis(task.timeout_ms);
                 let refreshed = tokio::time::timeout(budget, refresh.refresh(&task)).await;
                 if !matches!(refreshed, Ok(true)) {
-                    return Err(initial.into());
+                    return Err(reject());
                 }
                 let remaining_ms = budget.saturating_sub(start.elapsed()).as_millis() as u64;
                 if remaining_ms == 0 {
-                    return Err(initial.into());
+                    return Err(reject());
                 }
-                let chosen = place()?;
+                let chosen = place().map_err(|_| reject())?;
                 task.timeout_ms = remaining_ms;
                 chosen
             }
