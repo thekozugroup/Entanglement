@@ -3,7 +3,9 @@
 This checkout supports trusted one-shot and progressive WASI compute, signed
 semantic replica work and optional tailnet transport. The production rubric
 tracks 34 architecture contracts and 23 operational checks, including native
-hardware and release governance. [Production review](./docs/testing/production-review/README.md)
+hardware and release governance. The latest candidate passed 32 of 57 checks under the
+literal rubric and 31 under the conservative interpretation. The production release is
+on hold. [Current scorecard and evidence](./docs/testing/production-review/evidence/README.md) · [Scoring method](./docs/testing/production-review/README.md)
 
 The earlier release-candidate measurements below apply to the source revisions
 named in their reports. [Performance measurements](./docs/performance.md)

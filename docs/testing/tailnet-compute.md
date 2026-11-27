@@ -23,7 +23,7 @@ ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
 
 For separate terminals, run `python3 scripts/tests/tailnet-compute.py worker` on the worker. Pipe its single JSON line into `python3 scripts/tests/tailnet-compute.py verify` on the coordinator. Both commands exit nonzero on failure.
 
-The coordinator checks that it sees the worker's stable node ID online, that the two daemons have distinct identities, and that the job's plugin is absent locally. It waits up to 60 seconds for the worker inventory to become available, requests 0.01 CPU cores, and lets the scheduler choose the executor. A successful run prints a JSON receipt with `transport`, `chosen_peer`, `plugin_id`, and `verified_output`. Save that receipt with the tested build and host OS versions. The check reads existing configuration and submits one job. Any service setup or pairing occurs before the check.
+The coordinator checks that it sees the worker's stable node ID online, that the two daemons have distinct identities, and that the job's plugin is absent locally. It waits up to 60 seconds for the worker inventory to become available, requests 0.01 CPU cores, and restricts trusted execution to the named worker. It checks the peer selected by the scheduler against that worker's identity. A successful run prints a JSON receipt with `transport`, `chosen_peer`, `plugin_id`, and `verified_output`. Save that receipt with the tested build and host OS versions. The check reads existing configuration and submits one job. Any service setup or pairing occurs before the check.
 
 ## Run on a private WireGuard network
 

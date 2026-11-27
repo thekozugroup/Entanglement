@@ -344,18 +344,24 @@ checks green.
 
 ## 11. Pair a Second Device
 
-Pairing establishes mutual trust-on-first-use (TOFU) between two devices: each
-side records the other's Ed25519 public key and display name in
-`~/.entangle/peers.toml`, gated by a 6-digit code (read aloud / typed
-out-of-band) plus a fingerprint comparison. The exchange happens over a
-manual copy-paste channel in Phase 1. There is **no** `--respond`, `--accept`,
-or `--finalize` flag, and the blobs are not colon-separated — see
-`crates/entangle-cli/src/cmd/pair.rs` for the real implementation.
+Pairing records each device's Ed25519 public key and display name in the
+other device's `~/.entangle/peers.toml`. The default channel uses QUIC and
+discovers the responder over mDNS on the local network. Pairing runs directly
+in the CLI, so you can pair before starting either daemon.
 
-### 11.1 Initiator (device A)
+On device B, run `entangle pair --responder`. On device A, run
+`entangle pair`, select B if prompted, and enter the six-digit code shown on
+B. Compare both fingerprints on the two screens and answer `y` on each
+device. If mDNS discovery is unavailable, A can use a reachable address from
+B's printed `entangle pair --peer <long-address>` commands.
+
+Use the manual copy-and-paste steps below when the devices cannot reach
+each other for pairing.
+
+### 11.1 Manual initiator (device A)
 
 ```bash
-entangle pair
+entangle pair --manual
 ```
 
 Output:
@@ -366,7 +372,7 @@ Code:         123-456  (read aloud — expires in 5 minutes)
 Fingerprint:  a3f9…c7d1
 Display name: alice-laptop
 
-Paste this REQUEST blob to the other device's `entangle pair --responder`:
+Paste this REQUEST blob to the other device's `entangle pair --responder --manual`:
 
 ENT-REQ-eyJpbml0aWF0b3JfcGVlcl9pZCI6Ii4uLiJ9
 
@@ -378,10 +384,10 @@ Read the 6-digit code aloud to whoever is on device B and send them the
 `ENT-REQ-...` blob over whatever out-of-band channel you trust (chat,
 AirDrop, a shared file).
 
-### 11.2 Responder (device B)
+### 11.2 Manual responder (device B)
 
 ```bash
-entangle pair --responder
+entangle pair --responder --manual
 ```
 
 Output:
@@ -406,9 +412,10 @@ Waiting for FINALIZE blob:
 >
 ```
 
-You can type the code with or without the dash — `entangle pair --code
-123456` also works non-interactively. Send the `ENT-ACC-...` blob back to
-the initiator.
+Compare A's fingerprint with A's screen and share B's displayed fingerprint
+over the same trusted channel. You can type the code with or without the
+dash, or start B with `entangle pair --responder --manual --code 123456` to
+supply it on the command line. Send the `ENT-ACC-...` blob back to A.
 
 ### 11.3 Initiator receives the ACCEPT blob
 
@@ -425,7 +432,11 @@ ENT-FIN-eyJzaWduYXR1cmVfaGV4IjoiLi4uIn0
 ✓ added to /home/alice/.entangle/peers.toml
 ```
 
-Send the `ENT-FIN-...` blob back to the responder.
+Compare the responder fingerprint that A prints with B's displayed
+fingerprint before sending the `ENT-FIN-...` blob back to B. If they differ,
+stop and remove the entry that A just saved with
+`entangle mesh untrust <peer-id>`. Use `entangle mesh peers` to find the
+saved peer ID.
 
 ### 11.4 Responder receives the FINALIZE blob
 
@@ -441,13 +452,14 @@ Both devices now have the other's public key and display name in
 run `entangle keyring add <their_pubkey_hex> --name <label>` on each side —
 pairing and publisher trust are separate keyrings.
 
-### 11.5 Non-interactive / scripted pairing
+### 11.5 Scripted manual pairing
 
-Every prompt has a file-based flag so pairing can run in CI or across two
-terminals on the same machine without hand-copying blobs:
+The blob file options select the manual channel automatically. Move the
+three files between the devices in the same order as the interactive steps.
 
 | Flag | Side | Meaning |
 |------|------|---------|
+| `--manual` | either | use the copy-and-paste channel |
 | `--responder` | either | act as the responder instead of the initiator |
 | `--display-name <NAME>` | either | override the display name (default: hostname) |
 | `--emit-request-file <PATH>` | initiator | write the REQUEST blob to a file instead of stdout |
@@ -458,10 +470,7 @@ terminals on the same machine without hand-copying blobs:
 | `--emit-accept-file <PATH>` | responder | write the ACCEPT blob to a file instead of stdout |
 | `--consume-finalize-file <PATH>` | responder | read the FINALIZE blob from a file instead of stdin |
 
-The blob exchange itself stays manual (copy-paste, a shared file, or a QR
-code you generate yourself) — automatic pairing over the mesh transports is
-Phase 2. See [architecture.md §8](architecture.md#8-pairing) for the
-protocol's threat model.
+Compare fingerprints through a channel you already trust. [Pairing architecture](architecture.md#63-pairing--the-user-facing-onboarding-flow)
 
 ---
 
@@ -498,8 +507,9 @@ error reference in [architecture.md §appendix-errors](architecture.md#appendix-
 | `entangle plugins invoke <id> --input <s>` | Call a plugin |
 | `entangled run` | Start the background daemon |
 | `entangle doctor` | Health check |
-| `entangle pair` | Begin device pairing (initiator) |
-| `entangle pair --responder` | Respond to a pairing request |
+| `entangle pair` | Find the responder and pair over the network |
+| `entangle pair --responder` | Show a code and listen for network pairing |
+| `entangle pair --manual` | Start a copy-and-paste pairing. Add `--responder` on the other device. |
 
 ---
 

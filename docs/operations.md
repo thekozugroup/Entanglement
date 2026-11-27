@@ -258,7 +258,16 @@ This is a daemon service using a model server you operate separately. It require
 ### Running a worker on a tailnet
 
 1. Connect both hosts to your tailnet using the host Tailscale client. Each daemon needs a local tailnet interface and permission to run `tailscale status --json`. Allow the worker's scheduler UDP port in your tailnet policy.
-2. Pair the Entanglement identities and verify their fingerprints using `entangle pair`. On the coordinator, `entangle mesh tailnet --json` lists visible Tailscale nodes with their stable `node_id`. Find the worker's paired Entanglement `public_key_hex` in `~/.entangle/peers.toml`. These two identifiers come from independent systems.
+2. Pair the Entanglement identities and compare both fingerprints. For network
+   pairing, run `entangle pair --responder` on the worker, then `entangle pair`
+   on the coordinator and enter the worker's code. If discovery is unavailable,
+   use a reachable address from the worker's printed `--peer` commands. If
+   the temporary pairing listener is unreachable, use `entangle pair --manual`
+   on the coordinator and `entangle pair --responder --manual` on the worker
+   to exchange blobs. On the coordinator, `entangle mesh tailnet --json` lists
+   visible Tailscale nodes with their stable `node_id`. Find the worker's paired
+   Entanglement `public_key_hex` in `~/.entangle/peers.toml`. These identifiers
+   come from independent systems. [Pairing walkthrough](tutorial.md#11-pair-a-second-device)
 3. On **both** hosts, add the following settings to `~/.entangle/config.toml`. Merge them with any existing sections. A Tailscale-only scheduler resolves the wildcard to the host's tailnet interface and disables Iroh relays.
 
 ```toml
