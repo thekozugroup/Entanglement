@@ -1,0 +1,316 @@
+{
+  "started_utc": "2026-11-27T11:29:45Z",
+  "finished_utc": "2026-11-27T11:30:13Z",
+  "elapsed_s": 28.470264057999884,
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--target",
+    "wasm32-wasip2",
+    "--no-fail-fast"
+  ],
+  "daemon_sha256": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8",
+  "cli_sha256": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+  "driver_sha256": "b92a939512e9cc38e2413357fbbc72a389faca59b4898c44d8abba0c0c29b79f",
+  "rustdoc_observer_sha256": "3f6e3c6cae8314aea78305e32175419c3b36a014d3fee85dfc57dbb5623ef2b7",
+  "sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "upstream_commit": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+  "upstream_diff": "",
+  "dependency_lock_sha256": "3192202a77857b38733c7594a9a67a8d2970d51c6176487b48c83578c58ea888",
+  "exit_code": 0,
+  "candidate_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "native_command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "native_exit": 0,
+  "uncompressed_archive_sha256": {
+    "rngs-distributed.json.gz": "0ea7e0317d996229d851f36fe919bfa564cffc9f032d614294dac4b942dd7e79",
+    "rngs-distributed-cargo.log.gz": "fefe13d8ed925d5b271337c5be7d5ad6637b9c654675cc87cfb29e08e89d9d4a",
+    "rngs-native-cargo.log.gz": "0e43b80e7211f31c4b1125539c0aafc62fe4ea86d48eb17ea2a9b6e9a33924bf"
+  },
+  "native_parity": {
+    "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+    "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+    "upstream_commit": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+    "lock_sha256": "3192202a77857b38733c7594a9a67a8d2970d51c6176487b48c83578c58ea888",
+    "known_workspace_members": [
+      "rand_chacha",
+      "rand_hc",
+      "rand_isaac",
+      "rand_jitter",
+      "rand_mwcx",
+      "rand_pcg",
+      "rand_sfc",
+      "rand_xorshift",
+      "rand_xoshiro"
+    ],
+    "native_counts": {
+      "ordinary": {
+        "passed": 198
+      },
+      "rustdoc": {
+        "ignored": 2,
+        "passed": 24
+      }
+    },
+    "remote_counts": {
+      "ordinary": {
+        "passed": 198
+      },
+      "rustdoc": {
+        "passed": 24,
+        "ignored": 2
+      }
+    },
+    "named_inventory_identical": true,
+    "all_dispositions_identical": true,
+    "differences": [],
+    "rustdoc_evidence_errors": [],
+    "cargo_exit": 0,
+    "worker_attempts": {
+      "e7eb04ed7208c92a47c098aa46f539f8": 125,
+      "c950f530a62066ae0a7acec60ff1d100": 97
+    },
+    "native_log_sha256": "0e43b80e7211f31c4b1125539c0aafc62fe4ea86d48eb17ea2a9b6e9a33924bf",
+    "distributed_report_sha256": "0ea7e0317d996229d851f36fe919bfa564cffc9f032d614294dac4b942dd7e79",
+    "sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+    "driver_sha256": "b92a939512e9cc38e2413357fbbc72a389faca59b4898c44d8abba0c0c29b79f",
+    "rustdoc_observer_sha256": "3f6e3c6cae8314aea78305e32175419c3b36a014d3fee85dfc57dbb5623ef2b7",
+    "ordinary_components": [
+      "128ea19a6be29c1bb88ac90f8f292c8dbe1cbcaeb3ad1b726259c8955a3538f4",
+      "1fe10ae04b1059e5a4ce789c454de63b803f9e3dc56429db51e67611237e1cbc",
+      "2437c492fb405afd84db238f2fa52e769c35054aeee70b63a1be205332125fa0",
+      "24fe100a933021c11eb6f2abf751896acb18dd4a9e5d9264e5f15cc626f5f389",
+      "29b3dde09b5c6f32ad35256651a24c3999561757f732b12d710558e82b9c7f22",
+      "3bb015996df7a0907c3128b422094a21f48761c271220c54f41d0c30c9374d28",
+      "4a053eb3e83fcbba028cd5a67fcb4183a460e4b638911404fd0307f9b2a17357",
+      "5f6fb7a2c44fdf4aa7e289efad4cb08b3890091d3e671284d9781e235cf340b9",
+      "81bf39493345f699ee8780c3563199edb3d1332b47518597a0e8dd78e368c087",
+      "8e318003776dd9651f71e5372469f65652d297d7dfe93356ea8352e1b1b1b0b8",
+      "9ff2a611dfcb487496b827cf77601bf8e6903add01dc3aea6de99729db7c236a",
+      "a019ca5256e15035c2105423da4e9f33d91629fcf94afeed2f374a8b3c784e29",
+      "d82399e19084ea22329003e8713c20a86af4eb7c7c4d3389da32804786d71fa9",
+      "efb783190ee87eff223e1118afec0423f9d2d2242f06711a2a302b0c3b10d125",
+      "f1c117dfe654741d80661573f42c8e9aa60e7f82a4306ebf7d15dae606b8fff1",
+      "f65b82393c106101a4660afdbba6e5664aeead972e5f21305a72a785adbdb349",
+      "f7607972937438c84bc7203e1707416a46b29f5ab49dbc7c5f547ae16d40b3d2"
+    ],
+    "standalone_doc_components": {},
+    "cluster_setup_s": 26.815743113998906,
+    "cargo_elapsed_s": 28.470264057999884,
+    "target_durations": [
+      {
+        "package": "rand_pcg",
+        "target": "mcg128xsl64",
+        "kind": "test",
+        "seconds": 0.04315421899809735
+      },
+      {
+        "package": "rand_chacha",
+        "target": "rand_chacha",
+        "kind": "lib",
+        "seconds": 0.0802660850022221
+      },
+      {
+        "package": "rand_pcg",
+        "target": "lcg64xsh32",
+        "kind": "test",
+        "seconds": 0.04646413400041638
+      },
+      {
+        "package": "rand_jitter",
+        "target": "rand_jitter",
+        "kind": "lib",
+        "seconds": 0.03171989399561426
+      },
+      {
+        "package": "rand_xoshiro",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 2.196605750003073
+      },
+      {
+        "package": "rand_mwcx",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 1.689890727000602
+      },
+      {
+        "package": "rand_xoshiro",
+        "target": "serde",
+        "kind": "test",
+        "seconds": 0.03362513699539704
+      },
+      {
+        "package": "rand_mwcx",
+        "target": "rand_mwcx",
+        "kind": "lib",
+        "seconds": 0.8828448720014421
+      },
+      {
+        "package": "rand_xorshift",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 1.7150495210007648
+      },
+      {
+        "package": "rand_chacha",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 1.4820530540018808
+      },
+      {
+        "package": "rand_sfc",
+        "target": "rand_sfc",
+        "kind": "lib",
+        "seconds": 0.03312443300092127
+      },
+      {
+        "package": "rand_pcg",
+        "target": "lcg128xsl64",
+        "kind": "test",
+        "seconds": 0.037561614997684956
+      },
+      {
+        "package": "rand_jitter",
+        "target": "mod",
+        "kind": "test",
+        "seconds": 0.04452046100050211
+      },
+      {
+        "package": "rand_mwcx",
+        "target": "serde",
+        "kind": "test",
+        "seconds": 0.04408962900197366
+      },
+      {
+        "package": "rand_xorshift",
+        "target": "rand_xorshift",
+        "kind": "lib",
+        "seconds": 0.032834378005645704
+      },
+      {
+        "package": "rand_xorshift",
+        "target": "mod",
+        "kind": "test",
+        "seconds": 0.07163619499624474
+      },
+      {
+        "package": "rand_jitter",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 1.6324713659996632
+      },
+      {
+        "package": "rand_hc",
+        "target": "rand_hc",
+        "kind": "lib",
+        "seconds": 0.05533963199559366
+      },
+      {
+        "package": "rand_xoshiro",
+        "target": "rand_xoshiro",
+        "kind": "lib",
+        "seconds": 3.402574036997976
+      },
+      {
+        "package": "rand_pcg",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 1.372933152000769
+      },
+      {
+        "package": "rand_pcg",
+        "target": "lcg128cmdxsm64",
+        "kind": "test",
+        "seconds": 0.05779359900043346
+      },
+      {
+        "package": "rand_pcg",
+        "target": "rand_pcg",
+        "kind": "lib",
+        "seconds": 0.06894767300400417
+      },
+      {
+        "package": "rand_isaac",
+        "target": "rand_isaac",
+        "kind": "lib",
+        "seconds": 0.08323525200103177
+      },
+      {
+        "package": "rand_isaac",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 0.21564958299859427
+      },
+      {
+        "package": "rand_chacha",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 3.1534015749930404
+      },
+      {
+        "package": "rand_xorshift",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 2.90025779500138
+      },
+      {
+        "package": "rand_hc",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 0.2062915950009483
+      },
+      {
+        "package": "rand_jitter",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 3.3679190880066017
+      },
+      {
+        "package": "rand_pcg",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 3.140765612006362
+      },
+      {
+        "package": "rand_mwcx",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 2.805868458999612
+      },
+      {
+        "package": "rand_sfc",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 0.054225511994445696
+      },
+      {
+        "package": "rand_xoshiro",
+        "target": "doctest",
+        "kind": "rustdoc",
+        "seconds": 3.189930602995446
+      }
+    ],
+    "standalone_ready_and_dispatch_s": {
+      "count": 0,
+      "sum": 0,
+      "median": null,
+      "max": null
+    },
+    "ordinary_worker_execution_note": "Target-specific ignores have no successful guest execution."
+  },
+  "upstream_natural_flaky_transitions": 0
+}

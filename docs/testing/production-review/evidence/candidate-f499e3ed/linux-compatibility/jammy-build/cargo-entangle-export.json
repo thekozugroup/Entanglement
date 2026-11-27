@@ -1,0 +1,24 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:49:15.940143+00:00",
+  "finished_utc": "2026-11-27T11:57:01.859279+00:00",
+  "exit_code": 0,
+  "command": [
+    "docker",
+    "exec",
+    "--user",
+    "65534:65534",
+    "247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d",
+    "/bin/cat",
+    "/build-target/target/x86_64-unknown-linux-gnu/release/cargo-entangle"
+  ],
+  "tool_path": "/tmp/entangle-f499e3ed-portable-cargo-entangle",
+  "tool_sha256": "f94d02e60ab0bcc117f14e9761fcba7a0e4e8cd539ac2c29afc9ab5db3eb2a56",
+  "tool_bytes": 4002112,
+  "binary_scope": "Unmodified portable cargo-entangle for private follow-up packaging only",
+  "build_log_sha256": "36fda0f657e02f235317977a6d03603ae0d6b1893d88baa669a6665f3467b19f",
+  "archive_receipt_sha256": "e572fb77fea47b7d6b4b3b927d125e622eac34491f1b14a73adc6b2aba113c8b"
+}

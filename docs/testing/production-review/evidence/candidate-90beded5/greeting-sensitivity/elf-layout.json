@@ -1,0 +1,815 @@
+{
+  "stage": {
+    "baseline": {
+      "path": "/tmp/entangle-link-performance-90beded5/baseline/entangled",
+      "elf_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+      "sections": {
+        "": {
+          "address": 0,
+          "file_offset": 0,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        ".interp": {
+          "address": 736,
+          "file_offset": 736,
+          "bytes": 28,
+          "sha256": "9097c98ea70f6f3b01d50145eb72bf55ad1f4e9713bccf27bd6405d6254eed00"
+        },
+        ".note.ABI-tag": {
+          "address": 764,
+          "file_offset": 764,
+          "bytes": 32,
+          "sha256": "6e48317ad93a8ac2dc04321465ede06d1274543fc8ab172e68171a9d684bb313"
+        },
+        ".note.gnu.build-id": {
+          "address": 796,
+          "file_offset": 796,
+          "bytes": 36,
+          "sha256": "68cafc18b90549d743524967423dea507276cf1e50a37e1250fa1a009813b5f9"
+        },
+        ".dynsym": {
+          "address": 832,
+          "file_offset": 832,
+          "bytes": 4536,
+          "sha256": "dcaea23eb6803a922c23a6e2d38e3c5c7d8a5c4428799de2d1f421c7ffc2f5a0"
+        },
+        ".gnu.version": {
+          "address": 5368,
+          "file_offset": 5368,
+          "bytes": 378,
+          "sha256": "7cdb884a88f1d0af8273f76aa39e3c0d91daa55030f3666faf361dcd2489e0a6"
+        },
+        ".gnu.version_r": {
+          "address": 5748,
+          "file_offset": 5748,
+          "bytes": 512,
+          "sha256": "c592da1725e3eeb0ae69c83c07eec777a1d1a5de689e24ff4d83028410a73e85"
+        },
+        ".gnu.hash": {
+          "address": 6264,
+          "file_offset": 6264,
+          "bytes": 28,
+          "sha256": "faba897eba9e491744449d96309c68f99d52445fd138a6fce28fe09ca08848f4"
+        },
+        ".dynstr": {
+          "address": 6292,
+          "file_offset": 6292,
+          "bytes": 2670,
+          "sha256": "7a8aa47f1a99227b0b7a440d4acc63fb71ac3a75a6726dfbbe8f7499493b4206"
+        },
+        ".rela.dyn": {
+          "address": 8968,
+          "file_offset": 8968,
+          "bytes": 1812240,
+          "sha256": "8f87542e4eef7c6b39a19d5ac79548bd9dc390677884f974d8bcd7948ef888b0"
+        },
+        ".rela.plt": {
+          "address": 1821208,
+          "file_offset": 1821208,
+          "bytes": 96,
+          "sha256": "83e909093e72868b2ea8a75c114d3aff08102a0272d065b8fdd3d5f24b49be6a"
+        },
+        ".rodata": {
+          "address": 1822720,
+          "file_offset": 1822720,
+          "bytes": 2328296,
+          "sha256": "3c2c98138e992ec699e0f3a382845160f16ad6009e0f7bea78c2bcd2a3759822"
+        },
+        ".gcc_except_table": {
+          "address": 4151016,
+          "file_offset": 4151016,
+          "bytes": 1064184,
+          "sha256": "d616faf7654ab298c0965ffde844be639e3f16350f06508999d1679bde63026f"
+        },
+        ".eh_frame_hdr": {
+          "address": 5215200,
+          "file_offset": 5215200,
+          "bytes": 344660,
+          "sha256": "e2c0cb53837eca2524774d71f4cde2949110e7d29bd939af1b16a68e54d4f9ce"
+        },
+        ".eh_frame": {
+          "address": 5559864,
+          "file_offset": 5559864,
+          "bytes": 2656816,
+          "sha256": "fc74a879f54d86036c1d6d4458f60c1baaf4b3e422718d04ea5841c130d02ced"
+        },
+        ".text": {
+          "address": 8220800,
+          "file_offset": 8216704,
+          "bytes": 29036892,
+          "sha256": "02bfba605dd28a61be779a03df0e895ff2dce0871c1d739b4b7d9f58d666a420"
+        },
+        ".init": {
+          "address": 37257692,
+          "file_offset": 37253596,
+          "bytes": 23,
+          "sha256": "cdc2ef4da7e8bef8775714f9cc598f7dad1609d9d0ae5dfea1827a7648e81468"
+        },
+        ".fini": {
+          "address": 37257716,
+          "file_offset": 37253620,
+          "bytes": 9,
+          "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+        },
+        ".plt": {
+          "address": 37257728,
+          "file_offset": 37253632,
+          "bytes": 80,
+          "sha256": "d982d5b546ff859d0928c3472f582fe6fce4d6a772b187a25692d081ca549d66"
+        },
+        ".tdata": {
+          "address": 37261904,
+          "file_offset": 37253712,
+          "bytes": 232,
+          "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+        },
+        ".tbss": {
+          "address": 37262136,
+          "file_offset": 37253944,
+          "bytes": 1488,
+          "sha256": null
+        },
+        ".fini_array": {
+          "address": 37262136,
+          "file_offset": 37253944,
+          "bytes": 8,
+          "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+        },
+        ".init_array": {
+          "address": 37262144,
+          "file_offset": 37253952,
+          "bytes": 16,
+          "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+        },
+        ".data.rel.ro": {
+          "address": 37262160,
+          "file_offset": 37253968,
+          "bytes": 1208328,
+          "sha256": "0cdb0943c984c317e7e928a90e1c3ab37a6675c7a8b7fe42054767195a863f3e"
+        },
+        ".dynamic": {
+          "address": 38470488,
+          "file_offset": 38462296,
+          "bytes": 480,
+          "sha256": "b1d895f0b7272e6fb3d1e6d082453de53493a8662bbab0e7bd55cc82efcc3051"
+        },
+        ".got": {
+          "address": 38470968,
+          "file_offset": 38462776,
+          "bytes": 62544,
+          "sha256": "71cbcf1ac0a0ade206757fa9b7ec69ceccac02f9f636d2d2cc1c1fd0e817ec7c"
+        },
+        ".got.plt": {
+          "address": 38533512,
+          "file_offset": 38525320,
+          "bytes": 56,
+          "sha256": "e958042d587bef6ce9baffa473352e12a9905a756efbe76f170e875b70d80ff8"
+        },
+        ".relro_padding": {
+          "address": 38533568,
+          "file_offset": 38525376,
+          "bytes": 1600,
+          "sha256": null
+        },
+        ".tm_clone_table": {
+          "address": 38537664,
+          "file_offset": 38525376,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        ".data": {
+          "address": 38537664,
+          "file_offset": 38525376,
+          "bytes": 63304,
+          "sha256": "0ba62a3783fa204e863923462d378009c83c93737f56cc7f063ac12339802e22"
+        },
+        ".bss": {
+          "address": 38600968,
+          "file_offset": 38588680,
+          "bytes": 1208,
+          "sha256": null
+        },
+        ".comment": {
+          "address": 0,
+          "file_offset": 38588680,
+          "bytes": 170,
+          "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+        },
+        ".shstrtab": {
+          "address": 0,
+          "file_offset": 38588850,
+          "bytes": 323,
+          "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+        }
+      },
+      "compiler_comment": [
+        "Linker: LLD 21.1.2 (/checkout/src/llvm-project/llvm 8c30b9c5098bdff1d3d9a2d460ee091cd1171e60)",
+        "GCC: (Debian 14.2.0-19) 14.2.0",
+        "",
+        "rustc version 1.91.1 (ed61e7d7e 2025-11-07)",
+        ""
+      ],
+      "build_ids": "Displaying notes found in: .note.ABI-tag\n  Owner                Data size \tDescription\n  GNU                  0x00000010\tNT_GNU_ABI_TAG (ABI version tag)\n    OS: Linux, ABI: 3.2.0\n\nDisplaying notes found in: .note.gnu.build-id\n  Owner                Data size \tDescription\n  GNU                  0x00000014\tNT_GNU_BUILD_ID (unique build ID bitstring)\n    Build ID: b276023196c4a4154d018af3aaadd78cc9a293c4",
+      "indexed_text_start_count": 43081
+    },
+    "candidate": {
+      "path": "/tmp/entangle-link-performance-90beded5/candidate/entangled",
+      "elf_sha256": "0071c6daa1eb6f000f3c0ad8b9ecbc6627d37a6cda0d1680b5bedc165b15238a",
+      "sections": {
+        "": {
+          "address": 0,
+          "file_offset": 0,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        ".interp": {
+          "address": 736,
+          "file_offset": 736,
+          "bytes": 28,
+          "sha256": "9097c98ea70f6f3b01d50145eb72bf55ad1f4e9713bccf27bd6405d6254eed00"
+        },
+        ".note.ABI-tag": {
+          "address": 764,
+          "file_offset": 764,
+          "bytes": 32,
+          "sha256": "6e48317ad93a8ac2dc04321465ede06d1274543fc8ab172e68171a9d684bb313"
+        },
+        ".note.gnu.build-id": {
+          "address": 796,
+          "file_offset": 796,
+          "bytes": 36,
+          "sha256": "2289dfd35266674ef8e3f993c95a3cb9f7ba1ee699b0cb767f7ddb612780d521"
+        },
+        ".dynsym": {
+          "address": 832,
+          "file_offset": 832,
+          "bytes": 4536,
+          "sha256": "dcaea23eb6803a922c23a6e2d38e3c5c7d8a5c4428799de2d1f421c7ffc2f5a0"
+        },
+        ".gnu.version": {
+          "address": 5368,
+          "file_offset": 5368,
+          "bytes": 378,
+          "sha256": "7cdb884a88f1d0af8273f76aa39e3c0d91daa55030f3666faf361dcd2489e0a6"
+        },
+        ".gnu.version_r": {
+          "address": 5748,
+          "file_offset": 5748,
+          "bytes": 512,
+          "sha256": "c592da1725e3eeb0ae69c83c07eec777a1d1a5de689e24ff4d83028410a73e85"
+        },
+        ".gnu.hash": {
+          "address": 6264,
+          "file_offset": 6264,
+          "bytes": 28,
+          "sha256": "faba897eba9e491744449d96309c68f99d52445fd138a6fce28fe09ca08848f4"
+        },
+        ".dynstr": {
+          "address": 6292,
+          "file_offset": 6292,
+          "bytes": 2670,
+          "sha256": "7a8aa47f1a99227b0b7a440d4acc63fb71ac3a75a6726dfbbe8f7499493b4206"
+        },
+        ".rela.dyn": {
+          "address": 8968,
+          "file_offset": 8968,
+          "bytes": 1812240,
+          "sha256": "25cf4d614c7364906f2190090245f9d898e77926d89d935684e48ff7bc55c899"
+        },
+        ".rela.plt": {
+          "address": 1821208,
+          "file_offset": 1821208,
+          "bytes": 96,
+          "sha256": "4bcae6a4b0fd440ab35d703f2ad920a4391394fb3678f4c952de923699f8a079"
+        },
+        ".rodata": {
+          "address": 1822720,
+          "file_offset": 1822720,
+          "bytes": 2328296,
+          "sha256": "c9623df1424fe62cd35fefcff91cb2445d1525b0ec39e6fb76f7945b2a9d5082"
+        },
+        ".gcc_except_table": {
+          "address": 4151016,
+          "file_offset": 4151016,
+          "bytes": 1064184,
+          "sha256": "bf60d817e9fb6ddad4318bf563210cf4224152d9a0f2796830ac50e74b626d66"
+        },
+        ".eh_frame_hdr": {
+          "address": 5215200,
+          "file_offset": 5215200,
+          "bytes": 344660,
+          "sha256": "c79903c701198bc2c8ec478309bf755c552a8aed8d1ea9dfb3fefeccaebd3635"
+        },
+        ".eh_frame": {
+          "address": 5559864,
+          "file_offset": 5559864,
+          "bytes": 2656824,
+          "sha256": "7b84454687671a174c75a1b5c04c52a20b0f8ba91741e27f69ae41528c72240f"
+        },
+        ".text": {
+          "address": 8220800,
+          "file_offset": 8216704,
+          "bytes": 29036956,
+          "sha256": "6cc4c70aae94083b94adbc3089d2a623066e71d1696a771224cc0a071c8f12e9"
+        },
+        ".init": {
+          "address": 37257756,
+          "file_offset": 37253660,
+          "bytes": 23,
+          "sha256": "cdc2ef4da7e8bef8775714f9cc598f7dad1609d9d0ae5dfea1827a7648e81468"
+        },
+        ".fini": {
+          "address": 37257780,
+          "file_offset": 37253684,
+          "bytes": 9,
+          "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+        },
+        ".plt": {
+          "address": 37257792,
+          "file_offset": 37253696,
+          "bytes": 80,
+          "sha256": "d982d5b546ff859d0928c3472f582fe6fce4d6a772b187a25692d081ca549d66"
+        },
+        ".tdata": {
+          "address": 37261968,
+          "file_offset": 37253776,
+          "bytes": 232,
+          "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+        },
+        ".tbss": {
+          "address": 37262200,
+          "file_offset": 37254008,
+          "bytes": 1488,
+          "sha256": null
+        },
+        ".fini_array": {
+          "address": 37262200,
+          "file_offset": 37254008,
+          "bytes": 8,
+          "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+        },
+        ".init_array": {
+          "address": 37262208,
+          "file_offset": 37254016,
+          "bytes": 16,
+          "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+        },
+        ".data.rel.ro": {
+          "address": 37262224,
+          "file_offset": 37254032,
+          "bytes": 1208328,
+          "sha256": "28be42d56b66e8b995f8ffa07d32b0fd4992a7602f8bf74a699c4b61e8597744"
+        },
+        ".dynamic": {
+          "address": 38470552,
+          "file_offset": 38462360,
+          "bytes": 480,
+          "sha256": "51659205606db7cf806fa0872f5eee3bb3529a03cd579619499556ed5ab6d1a3"
+        },
+        ".got": {
+          "address": 38471032,
+          "file_offset": 38462840,
+          "bytes": 62544,
+          "sha256": "71cbcf1ac0a0ade206757fa9b7ec69ceccac02f9f636d2d2cc1c1fd0e817ec7c"
+        },
+        ".got.plt": {
+          "address": 38533576,
+          "file_offset": 38525384,
+          "bytes": 56,
+          "sha256": "ad7d5e325269832f44512b783546361238851a35f254c00761dc00fdb203ccb6"
+        },
+        ".relro_padding": {
+          "address": 38533632,
+          "file_offset": 38525440,
+          "bytes": 1536,
+          "sha256": null
+        },
+        ".tm_clone_table": {
+          "address": 38537728,
+          "file_offset": 38525440,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        ".data": {
+          "address": 38537728,
+          "file_offset": 38525440,
+          "bytes": 63304,
+          "sha256": "0ba62a3783fa204e863923462d378009c83c93737f56cc7f063ac12339802e22"
+        },
+        ".bss": {
+          "address": 38601032,
+          "file_offset": 38588744,
+          "bytes": 1208,
+          "sha256": null
+        },
+        ".comment": {
+          "address": 0,
+          "file_offset": 38588744,
+          "bytes": 170,
+          "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+        },
+        ".shstrtab": {
+          "address": 0,
+          "file_offset": 38588914,
+          "bytes": 323,
+          "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+        }
+      },
+      "compiler_comment": [
+        "Linker: LLD 21.1.2 (/checkout/src/llvm-project/llvm 8c30b9c5098bdff1d3d9a2d460ee091cd1171e60)",
+        "GCC: (Debian 14.2.0-19) 14.2.0",
+        "",
+        "rustc version 1.91.1 (ed61e7d7e 2025-11-07)",
+        ""
+      ],
+      "build_ids": "Displaying notes found in: .note.ABI-tag\n  Owner                Data size \tDescription\n  GNU                  0x00000010\tNT_GNU_ABI_TAG (ABI version tag)\n    OS: Linux, ABI: 3.2.0\n\nDisplaying notes found in: .note.gnu.build-id\n  Owner                Data size \tDescription\n  GNU                  0x00000014\tNT_GNU_BUILD_ID (unique build ID bitstring)\n    Build ID: b7cdb2d028d021a838a1ad6e4cfb88c0acd07dd4",
+      "indexed_text_start_count": 43081
+    }
+  },
+  "section_diff": {
+    ".bss": {
+      "baseline": {
+        "address": 38600968,
+        "file_offset": 38588680,
+        "bytes": 1208,
+        "sha256": null
+      },
+      "candidate": {
+        "address": 38601032,
+        "file_offset": 38588744,
+        "bytes": 1208,
+        "sha256": null
+      }
+    },
+    ".comment": {
+      "baseline": {
+        "address": 0,
+        "file_offset": 38588680,
+        "bytes": 170,
+        "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+      },
+      "candidate": {
+        "address": 0,
+        "file_offset": 38588744,
+        "bytes": 170,
+        "sha256": "97998d0cdc549db4af4f438a81bd03d9a9cc07ae60bb3c060cb5ece16e063c03"
+      }
+    },
+    ".data": {
+      "baseline": {
+        "address": 38537664,
+        "file_offset": 38525376,
+        "bytes": 63304,
+        "sha256": "0ba62a3783fa204e863923462d378009c83c93737f56cc7f063ac12339802e22"
+      },
+      "candidate": {
+        "address": 38537728,
+        "file_offset": 38525440,
+        "bytes": 63304,
+        "sha256": "0ba62a3783fa204e863923462d378009c83c93737f56cc7f063ac12339802e22"
+      }
+    },
+    ".data.rel.ro": {
+      "baseline": {
+        "address": 37262160,
+        "file_offset": 37253968,
+        "bytes": 1208328,
+        "sha256": "0cdb0943c984c317e7e928a90e1c3ab37a6675c7a8b7fe42054767195a863f3e"
+      },
+      "candidate": {
+        "address": 37262224,
+        "file_offset": 37254032,
+        "bytes": 1208328,
+        "sha256": "28be42d56b66e8b995f8ffa07d32b0fd4992a7602f8bf74a699c4b61e8597744"
+      }
+    },
+    ".dynamic": {
+      "baseline": {
+        "address": 38470488,
+        "file_offset": 38462296,
+        "bytes": 480,
+        "sha256": "b1d895f0b7272e6fb3d1e6d082453de53493a8662bbab0e7bd55cc82efcc3051"
+      },
+      "candidate": {
+        "address": 38470552,
+        "file_offset": 38462360,
+        "bytes": 480,
+        "sha256": "51659205606db7cf806fa0872f5eee3bb3529a03cd579619499556ed5ab6d1a3"
+      }
+    },
+    ".eh_frame": {
+      "baseline": {
+        "address": 5559864,
+        "file_offset": 5559864,
+        "bytes": 2656816,
+        "sha256": "fc74a879f54d86036c1d6d4458f60c1baaf4b3e422718d04ea5841c130d02ced"
+      },
+      "candidate": {
+        "address": 5559864,
+        "file_offset": 5559864,
+        "bytes": 2656824,
+        "sha256": "7b84454687671a174c75a1b5c04c52a20b0f8ba91741e27f69ae41528c72240f"
+      }
+    },
+    ".eh_frame_hdr": {
+      "baseline": {
+        "address": 5215200,
+        "file_offset": 5215200,
+        "bytes": 344660,
+        "sha256": "e2c0cb53837eca2524774d71f4cde2949110e7d29bd939af1b16a68e54d4f9ce"
+      },
+      "candidate": {
+        "address": 5215200,
+        "file_offset": 5215200,
+        "bytes": 344660,
+        "sha256": "c79903c701198bc2c8ec478309bf755c552a8aed8d1ea9dfb3fefeccaebd3635"
+      }
+    },
+    ".fini": {
+      "baseline": {
+        "address": 37257716,
+        "file_offset": 37253620,
+        "bytes": 9,
+        "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+      },
+      "candidate": {
+        "address": 37257780,
+        "file_offset": 37253684,
+        "bytes": 9,
+        "sha256": "66e6f54550612182b4ad78f30b140dd08318b968db3878de2db65fef87dc04d7"
+      }
+    },
+    ".fini_array": {
+      "baseline": {
+        "address": 37262136,
+        "file_offset": 37253944,
+        "bytes": 8,
+        "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+      },
+      "candidate": {
+        "address": 37262200,
+        "file_offset": 37254008,
+        "bytes": 8,
+        "sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc"
+      }
+    },
+    ".gcc_except_table": {
+      "baseline": {
+        "address": 4151016,
+        "file_offset": 4151016,
+        "bytes": 1064184,
+        "sha256": "d616faf7654ab298c0965ffde844be639e3f16350f06508999d1679bde63026f"
+      },
+      "candidate": {
+        "address": 4151016,
+        "file_offset": 4151016,
+        "bytes": 1064184,
+        "sha256": "bf60d817e9fb6ddad4318bf563210cf4224152d9a0f2796830ac50e74b626d66"
+      }
+    },
+    ".got": {
+      "baseline": {
+        "address": 38470968,
+        "file_offset": 38462776,
+        "bytes": 62544,
+        "sha256": "71cbcf1ac0a0ade206757fa9b7ec69ceccac02f9f636d2d2cc1c1fd0e817ec7c"
+      },
+      "candidate": {
+        "address": 38471032,
+        "file_offset": 38462840,
+        "bytes": 62544,
+        "sha256": "71cbcf1ac0a0ade206757fa9b7ec69ceccac02f9f636d2d2cc1c1fd0e817ec7c"
+      }
+    },
+    ".got.plt": {
+      "baseline": {
+        "address": 38533512,
+        "file_offset": 38525320,
+        "bytes": 56,
+        "sha256": "e958042d587bef6ce9baffa473352e12a9905a756efbe76f170e875b70d80ff8"
+      },
+      "candidate": {
+        "address": 38533576,
+        "file_offset": 38525384,
+        "bytes": 56,
+        "sha256": "ad7d5e325269832f44512b783546361238851a35f254c00761dc00fdb203ccb6"
+      }
+    },
+    ".init": {
+      "baseline": {
+        "address": 37257692,
+        "file_offset": 37253596,
+        "bytes": 23,
+        "sha256": "cdc2ef4da7e8bef8775714f9cc598f7dad1609d9d0ae5dfea1827a7648e81468"
+      },
+      "candidate": {
+        "address": 37257756,
+        "file_offset": 37253660,
+        "bytes": 23,
+        "sha256": "cdc2ef4da7e8bef8775714f9cc598f7dad1609d9d0ae5dfea1827a7648e81468"
+      }
+    },
+    ".init_array": {
+      "baseline": {
+        "address": 37262144,
+        "file_offset": 37253952,
+        "bytes": 16,
+        "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+      },
+      "candidate": {
+        "address": 37262208,
+        "file_offset": 37254016,
+        "bytes": 16,
+        "sha256": "374708fff7719dd5979ec875d56cd2286f6d3cf7ec317a3b25632aab28ec37bb"
+      }
+    },
+    ".note.gnu.build-id": {
+      "baseline": {
+        "address": 796,
+        "file_offset": 796,
+        "bytes": 36,
+        "sha256": "68cafc18b90549d743524967423dea507276cf1e50a37e1250fa1a009813b5f9"
+      },
+      "candidate": {
+        "address": 796,
+        "file_offset": 796,
+        "bytes": 36,
+        "sha256": "2289dfd35266674ef8e3f993c95a3cb9f7ba1ee699b0cb767f7ddb612780d521"
+      }
+    },
+    ".plt": {
+      "baseline": {
+        "address": 37257728,
+        "file_offset": 37253632,
+        "bytes": 80,
+        "sha256": "d982d5b546ff859d0928c3472f582fe6fce4d6a772b187a25692d081ca549d66"
+      },
+      "candidate": {
+        "address": 37257792,
+        "file_offset": 37253696,
+        "bytes": 80,
+        "sha256": "d982d5b546ff859d0928c3472f582fe6fce4d6a772b187a25692d081ca549d66"
+      }
+    },
+    ".rela.dyn": {
+      "baseline": {
+        "address": 8968,
+        "file_offset": 8968,
+        "bytes": 1812240,
+        "sha256": "8f87542e4eef7c6b39a19d5ac79548bd9dc390677884f974d8bcd7948ef888b0"
+      },
+      "candidate": {
+        "address": 8968,
+        "file_offset": 8968,
+        "bytes": 1812240,
+        "sha256": "25cf4d614c7364906f2190090245f9d898e77926d89d935684e48ff7bc55c899"
+      }
+    },
+    ".rela.plt": {
+      "baseline": {
+        "address": 1821208,
+        "file_offset": 1821208,
+        "bytes": 96,
+        "sha256": "83e909093e72868b2ea8a75c114d3aff08102a0272d065b8fdd3d5f24b49be6a"
+      },
+      "candidate": {
+        "address": 1821208,
+        "file_offset": 1821208,
+        "bytes": 96,
+        "sha256": "4bcae6a4b0fd440ab35d703f2ad920a4391394fb3678f4c952de923699f8a079"
+      }
+    },
+    ".relro_padding": {
+      "baseline": {
+        "address": 38533568,
+        "file_offset": 38525376,
+        "bytes": 1600,
+        "sha256": null
+      },
+      "candidate": {
+        "address": 38533632,
+        "file_offset": 38525440,
+        "bytes": 1536,
+        "sha256": null
+      }
+    },
+    ".rodata": {
+      "baseline": {
+        "address": 1822720,
+        "file_offset": 1822720,
+        "bytes": 2328296,
+        "sha256": "3c2c98138e992ec699e0f3a382845160f16ad6009e0f7bea78c2bcd2a3759822"
+      },
+      "candidate": {
+        "address": 1822720,
+        "file_offset": 1822720,
+        "bytes": 2328296,
+        "sha256": "c9623df1424fe62cd35fefcff91cb2445d1525b0ec39e6fb76f7945b2a9d5082"
+      }
+    },
+    ".shstrtab": {
+      "baseline": {
+        "address": 0,
+        "file_offset": 38588850,
+        "bytes": 323,
+        "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+      },
+      "candidate": {
+        "address": 0,
+        "file_offset": 38588914,
+        "bytes": 323,
+        "sha256": "7510186a71c7089c233b14a6312dc39dea7dc055e0d10db2ee7f133aa1571daf"
+      }
+    },
+    ".tbss": {
+      "baseline": {
+        "address": 37262136,
+        "file_offset": 37253944,
+        "bytes": 1488,
+        "sha256": null
+      },
+      "candidate": {
+        "address": 37262200,
+        "file_offset": 37254008,
+        "bytes": 1488,
+        "sha256": null
+      }
+    },
+    ".tdata": {
+      "baseline": {
+        "address": 37261904,
+        "file_offset": 37253712,
+        "bytes": 232,
+        "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+      },
+      "candidate": {
+        "address": 37261968,
+        "file_offset": 37253776,
+        "bytes": 232,
+        "sha256": "ece059b2b58e479dff18dd0381bd8a4c70b1e437c1340a1209ff1d8ea7a06252"
+      }
+    },
+    ".text": {
+      "baseline": {
+        "address": 8220800,
+        "file_offset": 8216704,
+        "bytes": 29036892,
+        "sha256": "02bfba605dd28a61be779a03df0e895ff2dce0871c1d739b4b7d9f58d666a420"
+      },
+      "candidate": {
+        "address": 8220800,
+        "file_offset": 8216704,
+        "bytes": 29036956,
+        "sha256": "6cc4c70aae94083b94adbc3089d2a623066e71d1696a771224cc0a071c8f12e9"
+      }
+    },
+    ".tm_clone_table": {
+      "baseline": {
+        "address": 38537664,
+        "file_offset": 38525376,
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "candidate": {
+        "address": 38537728,
+        "file_offset": 38525440,
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  "same_index_comparison": {
+    "same_index_span_bytes_equal_count": 3544,
+    "same_index_span_length_equal_count": 43078,
+    "relative_start_difference_histogram": {
+      "0": 7591,
+      "32": 35290,
+      "64": 198,
+      "80": 2
+    },
+    "contiguous_index_shift_ranges": [
+      {
+        "first_index": 0,
+        "first_baseline_PC": "0x7d7080",
+        "shift": 0
+      },
+      {
+        "first_index": 7591,
+        "first_baseline_PC": "0xe03920",
+        "shift": 80
+      },
+      {
+        "first_index": 7593,
+        "first_baseline_PC": "0xe04cb0",
+        "shift": 32
+      },
+      {
+        "first_index": 42883,
+        "first_baseline_PC": "0x2336b00",
+        "shift": 64
+      }
+    ]
+  },
+  "limitation": "Indexed ranges are adjacent sorted unwind-entry starts, not named functions. Code positions may move or reorder. Matching a range by ordinal does not establish its identity or execution by the benchmark. Both artifacts lack a static symbol table."
+}

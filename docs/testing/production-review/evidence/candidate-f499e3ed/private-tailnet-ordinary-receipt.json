@@ -1,0 +1,35 @@
+{
+  "scope": "Private two-node kernel WireGuard over an internal Docker bridge on one Linux host, using real local Headscale and Tailscale and both executables from one optimized archive.",
+  "mode": "ordinary",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "manifest_sha256": "f481ae04806927ab3998e9372624663421c907d410fe7ce21644cad3d7dae49c",
+  "elf_sha256": {
+    "entangle": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+    "entangled": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8"
+  },
+  "harness_sha256": "fb6647b5d583e0aba8af81b8023645b4634eb82c419b96fd33301b44509e2764",
+  "signed_fixture_input_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "started_utc": "2026-11-27T11:29:13.631161+00:00",
+  "runner_sha256": {
+    "private-tailnet.py": "fb6647b5d583e0aba8af81b8023645b4634eb82c419b96fd33301b44509e2764",
+    "tailnet-compute.py": "c18123f302d534129744b7e9fa9db3bdd7a11f5a75d04df05fc6e4159bb7e4d2",
+    "private_recovery.py": "933a9e97094f215068d75a000eec77e4226ffbfc4bd4f2ff18b9afd966de2023",
+    "private_bridge.py": "d99985f5fe65d10c3b25e7233ad01188678fb30efbafd2a5548d6e555f858d81"
+  },
+  "local_container_image_ids": {
+    "headscale/headscale:0.27.1": "sha256:831157d73eabeeb0bf1c1b195b067dc0bbe272faa91fad97045bcb09f271f99a",
+    "tailscale/tailscale:v1.92.5": "sha256:18e84ebd706296e277f93392bfb615d6acbd00b625f6fb4545ce3cffd2bb9752",
+    "python:3.12-slim-trixie": "sha256:d497f3e5689c500c07dd6c13dee73cd21ed4da604e09ecd99059843c09ab8cd6"
+  },
+  "command": "python3 -B scripts/tests/private-tailnet.py --bin-dir <archive-elf-directory> --wasm target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm",
+  "exit_code": 0,
+  "finished_utc": "2026-11-27T11:30:39.099323+00:00",
+  "stdout_sha256": "7ba36d4397c0ea6577cccd60e6c160a822f8be6035ce5ce06d486dd3764d2e88",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/private-tailnet-ordinary-result.json",
+  "sha256": "7ba36d4397c0ea6577cccd60e6c160a822f8be6035ce5ce06d486dd3764d2e88"
+}

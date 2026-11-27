@@ -1,0 +1,17 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:27:59.908552+00:00",
+  "finished_utc": "2026-11-27T11:28:00.344500+00:00",
+  "exit_code": 0,
+  "archives": [
+    {
+      "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+      "target": "x86_64-unknown-linux-gnu",
+      "receipt": "linux-archive.json"
+    }
+  ],
+  "scope": "Exact layout, file types and target architecture of locally built unsigned archives."
+}

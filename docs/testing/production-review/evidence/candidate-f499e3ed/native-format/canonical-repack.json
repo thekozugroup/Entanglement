@@ -1,0 +1,29 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:38:53.562113+00:00",
+  "finished_utc": "2026-11-27T11:39:05.300954+00:00",
+  "exit_code": 0,
+  "command": [
+    "python3",
+    "scripts/package-native-release.py",
+    "--version",
+    "v0.1.0",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--source-date-epoch",
+    "1795778276",
+    "--output-dir",
+    "/tmp/entangle-native-repack-kf33ko94"
+  ],
+  "original_receipt": "../linux-archive.json",
+  "identical_files_sha256": {
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256": "20f7eb2158502721efda7eebdcd7688f2059bc920de21ad6c04ab80d8faf78d2",
+    "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.b3": "0752b3bbb51e6be855a07a1b3e10da0d1a0905f41ec5478a46da59c189b783a1"
+  },
+  "scope": "Fresh native packaging from the same compiled executables and frozen source timestamp."
+}

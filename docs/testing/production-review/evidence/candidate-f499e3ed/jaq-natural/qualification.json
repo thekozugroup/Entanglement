@@ -1,0 +1,62 @@
+{
+  "started_utc": "2026-11-27T11:29:12.967494+00:00",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "release_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "elf_sha256": {
+    "entangle": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+    "entangled": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8"
+  },
+  "preregistration_sha256": "a25064f7571ddd6b48d94feb42eee7481a1b8b3afe40844cd04e0fef2ef93b4f",
+  "jaq_original_protocol_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "candidate_sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "driver_sha256": "e6afb91a667e27a2debf34f9fae6765a2a4158c0c068aa4f8d39f5b5222f16b2",
+  "upstream_revision": "606164eb26420c892c9bac27f7daf77b7a406b6d",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "finished_utc": "2026-11-27T11:31:16.675202+00:00",
+  "full_native_command": [
+    "cargo",
+    "+1.78.0",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "full_native_exit": 0,
+  "full_native_counts": {
+    "passed": 113,
+    "failed": 0,
+    "ignored": 0
+  },
+  "full_remote_exit": 101,
+  "full_reported_cases": {
+    "passed": 105,
+    "flaky": 0,
+    "failed": 8,
+    "ignored": 0,
+    "error": 0
+  },
+  "cohort_exit": 0,
+  "cohort_verifier_exit": 0,
+  "cohort_blocks": 128,
+  "remote_cohort_patterns": {
+    "failed->failed": 58,
+    "failed->passed": 1,
+    "passed": 69
+  },
+  "native_cohort_patterns": {
+    "failed->failed": 50,
+    "failed->passed": 3,
+    "passed": 75
+  },
+  "cross_peer_blocks": [
+    22
+  ],
+  "natural_cross_peer_witness": true,
+  "whole_workspace_native_wasi_parity": false,
+  "sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "independent_verifier_sha256": "86816ca448f9e44856752725247c69c2382397c6c6cd453de6236e50b0380ca6",
+  "workspace_driver_sha256": "437f855493ad5f9f67a7be3ecda127067784eacdd15c41811db21c3ded02f6a6",
+  "cohort_script_sha256": "cb07643b13a09f8481beada5b642a035633f3e83e9dbd6ae16b670ef8a8649b0"
+}

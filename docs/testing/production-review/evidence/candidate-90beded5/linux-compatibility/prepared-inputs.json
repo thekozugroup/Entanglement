@@ -1,0 +1,37 @@
+{
+  "source_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "launch_waits_for_quiet_window_clearance": true,
+  "native_canonical_archive_directory": "/workspace/Entanglement/target/release-candidate/90beded509f9",
+  "portable_evidence_directory": "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/linux-compatibility/jammy-build",
+  "arm_workspace": "/workspace/entangle-emulated-arm-90beded5",
+  "portable_script_sha256": {
+    "build-jammy.sh": "2630d14974c8dcbe8cc7f76c64398169049cc29917643991ae35f8d24a01e9cf",
+    "check-jammy.py": "7b010d182bd0346c6d0a7a3ded463628bbcd30cf05e25f17ef7b9711aa807589",
+    "portable-jammy.py": "14941042f2098632928d484acfb44828f14fe5a1980e3d96cb72194677d11a80",
+    "probe-jammy-tmpfs.py": "6d211c9e8c6f3add2e4c93c5f1ee8e0ca82c0d9aa72044a9c9f7d2f7ab82d00b",
+    "stage-jammy-archive-tools.py": "293276adc7cdb40bf2e7b7e7831421475644a7a6329552671c7f17ad65d937e8",
+    "stage-jammy.py": "2fb4b9f69beb05795933865bde926af5ffb9162c68112eeec5b9a59ec25637bb"
+  },
+  "arm_script_sha256": {
+    "finish.py": "6a146141081881f6a7e46fd54d6fe841c9f910cc70fff7c6ad18946967c4d541",
+    "prepare.py": "fcfb52de7be79c32c86f46477fe5cd9d68413a351236ac66190c17492c31c409",
+    "arm-build-driver.py": "9cdf586476042a3beea75c23cc39404f9747e8dc8d178d655ab60ce33c042374",
+    "cross-build.sh": "d388502f4d1bc2f1af27194033a7c19d7fd089de77a9288f0a4beaf9dc7bfed0",
+    "package-arm.py": "f66643f87b2d082e220ae13a6f0b1189332997b823f46935b0bb5c5f94336f40",
+    "provision-tools.sh": "fb71c0a18558dc2311cac2e105e7f8f46f3de8d9838e0f986b5c54e1a5d837be",
+    "signed-workload.py": "5e7353451f0f20a22a295e44149a3cdd9d3c73c9b5104577bf070df0ca2eddac",
+    "standalone-local.py": "7af2b00cd5975ce309b98e49778525f0de93cd032a75c510f92f14c3cc82ca6c",
+    "provision.py": "055b10313290b07d819c72082390aa6c309a173f9e410707a93cfcf5f088049a"
+  },
+  "unchanged_inputs": {
+    "lockfile": "fb363ad01c1e15697a22aa0261b7c8574f4b6282c3be31c23840fd83c0271f59",
+    "toolchain_manifest": "86df10f67553afb5ae13b20ff7cc513c0b964d057140aa36a94d137c4ef41732"
+  },
+  "free_host_disk_bytes": 2913382400,
+  "launchers_sha256": {
+    "run-arm.sh": "5b4fc26cf32af1bc80558bc0875b4bdeb440dae6fa6d9cbc32d2fef264ee73e3",
+    "run-canonical.sh": "9b8a39306ecf36f962b3945edb2e0e9419dba6ac5d130c52f26f5739b713fbbc",
+    "run-jammy.sh": "8bdb45458e7d7435756a5fcdf8fe57dbf8ee86e85103ce786d3212997eea22a0"
+  }
+}

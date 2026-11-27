@@ -1,0 +1,17 @@
+{
+  "source_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "reviewer": "independent QA (/root/qa)",
+  "reviewed_utc": "2026-11-27T11:10:50.786785+00:00",
+  "report": "qa-failed-iteration.md",
+  "report_sha256": "4588b9bd7cd9391a4921c0ea32cdda4aeb84c62b6054f693dc6618f3c044bac7",
+  "evidence_sha256": {
+    "workspace-tests/run-1/test.log": "b87daeafc7480825f75d5a826f42a78c96d0a7dc9404693684db6ad09ce18c65",
+    "workspace-tests/run-2/test.log": "28f9194b16bd905b44a1f328cd2ef66a3c7b23fdeed190cac7e7d5ded291848d",
+    "workspace-tests/run-3/test.log": "9fe061c210041c928c957f38dc73ff2b8742bb8bbbd5b3bf5c3c9a6fb7cb1bb0",
+    "workspace-tests/index.json": "d6577c7bf10b667b4258c61e62fe7c451ef3ec226fca6fde6e43c84eb18da1b2",
+    "qa-source-review.md": "cdc19b46d19352a5730fb1aa91808cfedee56f9c94d5b404e23fba445a48a21f"
+  },
+  "scope": "Failed qualification; incomplete draft inventories not endorsed as final scores.",
+  "exit_code": 1
+}

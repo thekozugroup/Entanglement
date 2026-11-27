@@ -1,0 +1,12 @@
+{
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:19:01.566501+00:00",
+  "finished_utc": "2026-11-27T11:19:04.853859+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/native-format/controls.json",
+  "sha256": "5887a35d45f58cffacc8757d786cde6e1695e4209770c403b2240d464d4254c6",
+  "command": "Verify signed-byte archive layout and CPU/OS controls independently of signers, using unmodified Linux review archives and small real LLVM-linked Mach-O programs.",
+  "source_receipt": "docs/testing/production-review/evidence/candidate-f499e3ed/native-format/controls.json",
+  "source_receipt_sha256": "5887a35d45f58cffacc8757d786cde6e1695e4209770c403b2240d464d4254c6"
+}

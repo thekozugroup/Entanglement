@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:29:35+00:00",
+  "finished_utc": "2026-11-27T11:29:43+00:00",
+  "command": "python3 scripts/tests/oci-registry.py target/release",
+  "exit_code": 0,
+  "log": "oci-distribution-https.log",
+  "log_sha256": "d7554e1a046a02708e604ff7b7d7023f8379ff194dd71b58833cb61a953542f0"
+}

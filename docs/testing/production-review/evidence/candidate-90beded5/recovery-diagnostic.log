@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/scripts/tests/recovery.py", line 152, in <module>
+    main()
+  File "/workspace/Entanglement/scripts/tests/recovery.py", line 131, in main
+    cli(new, "restore", "--from", str(archive), "--passphrase-stdin", secret=passphrase)
+  File "/workspace/Entanglement/scripts/tests/recovery.py", line 42, in cli
+    check((res.returncode == 0) == success, f"{args}: {res.stderr.decode()}")
+  File "/workspace/Entanglement/scripts/tests/recovery.py", line 20, in check
+    raise RuntimeError(reason)
+RuntimeError: ('restore', '--from', '/tmp/ent-recover-e2stxyph/node.enc', '--passphrase-stdin'): error: No space left on device (os error 28)
+

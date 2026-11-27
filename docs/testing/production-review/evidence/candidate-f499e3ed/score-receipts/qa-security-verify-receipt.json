@@ -1,0 +1,15 @@
+{
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:36:42.698429+00:00",
+  "finished_utc": "2026-11-27T11:36:42.912970+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/qa-security-review.md",
+  "sha256": "c6a775fb38f1d9d439cac840ca5fdf5876ebd4b98b2a5268de5e7a0017bdc5ad",
+  "command": [
+    "python3",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/qa-security-verify.py"
+  ],
+  "source_receipt": "docs/testing/production-review/evidence/candidate-f499e3ed/qa-security-verify-receipt.json",
+  "source_receipt_sha256": "d87566d548cca61c36a56a8a42f88e2429db885eb086ccb1144894bd14e281da"
+}

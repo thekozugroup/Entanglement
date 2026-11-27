@@ -1,0 +1,55 @@
+{
+  "first": {
+    "count": 12,
+    "p50_ms": 7.596127,
+    "p95_ms": 11.705472,
+    "range_ms": [
+      7.023017,
+      11.705472
+    ],
+    "status_calls_each": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "config_replacements": 12,
+    "config_changed": 12
+  },
+  "idempotent": {
+    "count": 12,
+    "p50_ms": 6.2343095,
+    "p95_ms": 11.714707,
+    "range_ms": [
+      5.909093,
+      11.714707
+    ],
+    "status_calls_each": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "config_replacements": 0,
+    "config_changed": 0
+  },
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "cli_sha256": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02"
+}

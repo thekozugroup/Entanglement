@@ -1,0 +1,96 @@
+{
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "driver": "/tmp/entangle-compact-ordinary-perf/greeting-driver",
+  "driver_sha256": "f8392b8aa540ddaa89b81b01eaefb3c5f7b5eee494ea883e7ceb4497b5ffbea0",
+  "command": [
+    "/tmp/entangle-compact-ordinary-perf/greeting-driver",
+    "benchmark::measure_dispatch",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "daemons_sha256": {
+    "A": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+    "B": "0071c6daa1eb6f000f3c0ad8b9ecbc6627d37a6cda0d1680b5bedc165b15238a"
+  },
+  "stages": {
+    "A": "/tmp/entangle-link-performance-90beded5/baseline/entangled",
+    "B": "/tmp/entangle-link-performance-90beded5/candidate/entangled",
+    "X": "/tmp/entangle-link-performance-90beded5/baseline/entangled",
+    "Y": "/tmp/entangle-link-performance-90beded5/baseline/entangled"
+  },
+  "host_before": {
+    "utc": "2026-11-27T11:14:04.728473+00:00",
+    "cpu": {
+      "usage_usec": 98504583622,
+      "user_usec": 83710685318,
+      "system_usec": 14793898303,
+      "nice_usec": 77882137,
+      "nr_periods": 389884,
+      "nr_throttled": 139862,
+      "throttled_usec": 10051201529,
+      "nr_bursts": 0,
+      "burst_usec": 0
+    },
+    "loadavg": "2.29 3.48 2.85 1/1366 1266177",
+    "cgroup_cpu_pressure": null,
+    "host_cpu_stat": [
+      "7688479",
+      "7788",
+      "1467675",
+      "15725705",
+      "14287",
+      "0",
+      "28908",
+      "841001",
+      "0",
+      "0"
+    ],
+    "host_stat_fields": "user nice system idle iowait irq softirq steal guest guest_nice"
+  },
+  "cpu_quota": "400000 100000",
+  "cpu_affinity": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "started_utc": "2026-11-27T11:14:04.728979+00:00",
+  "script_sha256": "28aa06c87195b06a9f04ddf08353020df823ad0021b36444cdc3fbe653f8dac7",
+  "finished_utc": "2026-11-27T11:16:16.551200+00:00",
+  "timed_elapsed_s": 131.81875039399893,
+  "host_after": {
+    "utc": "2026-11-27T11:16:16.551346+00:00",
+    "cpu": {
+      "usage_usec": 98766279502,
+      "user_usec": 83883656333,
+      "system_usec": 14882623169,
+      "nice_usec": 77882137,
+      "nr_periods": 391200,
+      "nr_throttled": 139866,
+      "throttled_usec": 10051269710,
+      "nr_bursts": 0,
+      "burst_usec": 0
+    },
+    "loadavg": "3.24 3.43 2.92 1/1364 1267727",
+    "cgroup_cpu_pressure": null,
+    "host_cpu_stat": [
+      "7704261",
+      "7788",
+      "1475363",
+      "15763973",
+      "14300",
+      "0",
+      "29733",
+      "843587",
+      "0",
+      "0"
+    ],
+    "host_stat_fields": "user nice system idle iowait irq softirq steal guest guest_nice"
+  },
+  "arms_complete": 36,
+  "exit_code": 0,
+  "error": null,
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb"
+}

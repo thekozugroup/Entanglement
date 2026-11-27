@@ -1,0 +1,11 @@
+{"timestamp":"2026-11-27T12:00:32.685454Z","level":"INFO","fields":{"message":"entangled starting","version":"0.1.0","socket":"/private/home-x86/.entangle/sock","pid":10082},"target":"entangled"}
+{"timestamp":"2026-11-27T12:00:32.685800Z","level":"INFO","fields":{"message":"RPC server listening","socket_path":"/private/home-x86/.entangle/sock"},"target":"entangle_bin::server"}
+{"timestamp":"2026-11-27T12:00:32.708629Z","level":"INFO","fields":{"message":"mesh.iroh scheduler transport listening","peer_id":"180678fe1fdaca95ad7288280a81f7fc","addrs":"[127.0.0.1:28443]","relay":false},"target":"entangle_bin::remote"}
+{"timestamp":"2026-11-27T12:00:32.708920Z","level":"INFO","fields":{"message":"daemon identity ready","local_peer_id":"180678fe1fdaca95ad7288280a81f7fc"},"target":"entangled"}
+{"timestamp":"2026-11-27T12:00:32.710439Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/private/home-x86/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T12:00:37.357144Z","level":"INFO","fields":{"message":"broker audit","event":"PluginRegistered { plugin: PluginId { publisher: \"180678fe1fdaca95ad7288280a81f7fc\", name: \"json-pointer\", version: Version { major: 0, minor: 1, patch: 0 } }, declared_tier: Pure, implied_tier: Pure, effective_tier: Pure, at: SystemTime { tv_sec: 1795780837, tv_nsec: 357083114 } }"},"target":"entangle::audit"}
+{"timestamp":"2026-11-27T12:00:38.162234Z","level":"INFO","fields":{"message":"scheduler: executing task for remote peer","peer":"a6eb6c5d8d1b2dafe7f293fe71f1d0c8","plugin":"180678fe1fdaca95ad7288280a81f7fc/json-pointer@0.1.0","input_bytes":97,"timeout_ms":29977},"target":"entangle_scheduler::remote"}
+{"timestamp":"2026-11-27T12:00:38.665443Z","level":"INFO","fields":{"message":"received SIGTERM"},"target":"entangled"}
+{"timestamp":"2026-11-27T12:00:38.665963Z","level":"INFO","fields":{"message":"shutting down entangled"},"target":"entangled"}
+{"timestamp":"2026-11-27T12:00:38.666078Z","level":"INFO","fields":{"message":"maintenance loop shut down cleanly"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T12:00:38.667435Z","level":"INFO","fields":{"message":"entangled stopped"},"target":"entangled"}

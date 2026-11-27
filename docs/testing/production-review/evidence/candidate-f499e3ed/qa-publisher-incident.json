@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/repeat-publisher-incident.py",
+    "--source-id",
+    "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+    "--archive",
+    "/workspace/Entanglement/target/release-candidate/f499e3edf84e/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+  ],
+  "started_utc": "2026-11-27T11:29:22.669360+00:00",
+  "finished_utc": "2026-11-27T11:29:28.897230+00:00",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/qa-publisher-incident.log",
+  "sha256": "0128cf17e8c339ddd22aea3f1bc1a211f793edec826eacbdec6b4aab05f7aa9f",
+  "helper_sha256": "f5fa8d678f46862e8b6423ba8be2015948ad5dc1a0b8dd9954d585a2b3cfb56b",
+  "archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53"
+}

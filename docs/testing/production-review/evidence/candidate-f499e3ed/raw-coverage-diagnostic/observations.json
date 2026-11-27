@@ -1,0 +1,150 @@
+{
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T12:16:07.038647+00:00",
+  "product_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "cli_sha256": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+  "daemon_sha256": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8",
+  "wasm_sha256": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+  "input_sha256": {
+    "canon_350d.cr2": "8cbb84e04d93b005fe082da9c954122a612b5281af00aa088d767850f343fd38",
+    "nikon_d40.nef": "44e88bc77b7a531b22647bcd07b9393c4568062e8f0906d3bbdecb42fbe29e03"
+  },
+  "tool_commit": "b90aac1bf936c71f1ee4cf12893312f530a92b53",
+  "tool_sha256": "8799aa5f8679e54331405fb643e18a0698276052ada641d97f98bb739b8d0012",
+  "plan_sha256": "81cbff759d923b61d6273954df38592c9de94ff32ceda166f35d3956e742faf2",
+  "driver_sha256": "1d61513a8c77969afa95d4bf6f30ef648f63421d3facc7d8e57483c219bf7514",
+  "expected_output_sha256": {
+    "canon_350d.cr2": "2271485f205f0c831ff9b4048b5ca4ea465944a3fb9e4e88e0a2ecbb7ad83849",
+    "nikon_d40.nef": "133fde6d0931c43e8155a5b1970ef7d7bd57b3dfea5f7007265ff1289e12a57a"
+  },
+  "arms": [
+    {
+      "route": "single",
+      "command": [
+        "/workspace/Entanglement/target/release/entangle",
+        "image",
+        "dehaze",
+        "--recursive",
+        "/tmp/raw-coverage-diagnostics-k_ddo_cb/source",
+        "--output-dir",
+        "/tmp/raw-coverage-diagnostics-k_ddo_cb/single",
+        "--plugin",
+        "afa9b082e31bb810760bdf491095430f/image-dehaze@0.1.0",
+        "--jobs",
+        "3",
+        "--tile-edge",
+        "1024",
+        "--json",
+        "--allow",
+        "afa9b082e31bb810760bdf491095430f"
+      ],
+      "specified_workers": [
+        "afa9b082e31bb810760bdf491095430f"
+      ],
+      "started_utc": "2026-11-27T12:16:08.000960+00:00",
+      "wall_s": 11.891529562002688,
+      "cli_exit_code": 0,
+      "finished_utc": "2026-11-27T12:16:19.892524+00:00",
+      "stdout.jsonl_sha256": "18f5bdf5502660d248efd7da741d650aa26cafbaec8089a713dd29f26f58477c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "verified": true,
+      "output_sha256": {
+        "canon_350d.cr2": "2271485f205f0c831ff9b4048b5ca4ea465944a3fb9e4e88e0a2ecbb7ad83849",
+        "nikon_d40.nef": "133fde6d0931c43e8155a5b1970ef7d7bd57b3dfea5f7007265ff1289e12a57a"
+      },
+      "worker_tiles": {
+        "afa9b082e31bb810760bdf491095430f": 18
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 6783.049979,
+          "worker_tiles": {
+            "afa9b082e31bb810760bdf491095430f": 12
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 5083.901408,
+          "worker_tiles": {
+            "afa9b082e31bb810760bdf491095430f": 6
+          }
+        }
+      }
+    },
+    {
+      "route": "mesh",
+      "command": [
+        "/workspace/Entanglement/target/release/entangle",
+        "image",
+        "dehaze",
+        "--recursive",
+        "/tmp/raw-coverage-diagnostics-k_ddo_cb/source",
+        "--output-dir",
+        "/tmp/raw-coverage-diagnostics-k_ddo_cb/mesh",
+        "--plugin",
+        "afa9b082e31bb810760bdf491095430f/image-dehaze@0.1.0",
+        "--jobs",
+        "3",
+        "--tile-edge",
+        "1024",
+        "--json",
+        "--allow",
+        "1b89962463add86d5cdf3c8d41f13143",
+        "--allow",
+        "a2dc6b306d1669343ed41db21b2bb134",
+        "--allow",
+        "afa9b082e31bb810760bdf491095430f"
+      ],
+      "specified_workers": [
+        "1b89962463add86d5cdf3c8d41f13143",
+        "a2dc6b306d1669343ed41db21b2bb134",
+        "afa9b082e31bb810760bdf491095430f"
+      ],
+      "started_utc": "2026-11-27T12:16:22.225725+00:00",
+      "wall_s": 10.511982135001745,
+      "cli_exit_code": 0,
+      "finished_utc": "2026-11-27T12:16:32.737924+00:00",
+      "stdout.jsonl_sha256": "fcd2988af74455fa35507dcb1e64d5a5b2d8686fc592f378f25efe6cf39131a4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "verified": true,
+      "output_sha256": {
+        "canon_350d.cr2": "2271485f205f0c831ff9b4048b5ca4ea465944a3fb9e4e88e0a2ecbb7ad83849",
+        "nikon_d40.nef": "133fde6d0931c43e8155a5b1970ef7d7bd57b3dfea5f7007265ff1289e12a57a"
+      },
+      "worker_tiles": {
+        "1b89962463add86d5cdf3c8d41f13143": 2,
+        "a2dc6b306d1669343ed41db21b2bb134": 5,
+        "afa9b082e31bb810760bdf491095430f": 11
+      },
+      "photos": {
+        "canon_350d.cr2": {
+          "elapsed_ms": 6057.787311,
+          "worker_tiles": {
+            "1b89962463add86d5cdf3c8d41f13143": 2,
+            "afa9b082e31bb810760bdf491095430f": 7,
+            "a2dc6b306d1669343ed41db21b2bb134": 3
+          }
+        },
+        "nikon_d40.nef": {
+          "elapsed_ms": 4422.812662,
+          "worker_tiles": {
+            "afa9b082e31bb810760bdf491095430f": 4,
+            "a2dc6b306d1669343ed41db21b2bb134": 2
+          }
+        }
+      }
+    }
+  ],
+  "coordinator": "fcda7dd034b39c9ba3b45dfca0c35c23",
+  "mesh_workers": [
+    "afa9b082e31bb810760bdf491095430f",
+    "a2dc6b306d1669343ed41db21b2bb134",
+    "1b89962463add86d5cdf3c8d41f13143"
+  ],
+  "single_worker": "afa9b082e31bb810760bdf491095430f",
+  "plugin": "afa9b082e31bb810760bdf491095430f/image-dehaze@0.1.0",
+  "finished_utc": "2026-11-27T12:16:34.851580+00:00",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "error": null,
+  "exit_code": 0
+}

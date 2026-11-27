@@ -1,0 +1,19 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:36:42.698429+00:00",
+  "finished_utc": "2026-11-27T11:36:42.912970+00:00",
+  "exit_code": 0,
+  "command": [
+    "python3",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/qa-security-verify.py"
+  ],
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/qa-security-verify.log",
+  "sha256": "ebd9f079ff9f8623d0083d65c62e7e7053ad1d6f6b2923b4e7ba37c92e901b50",
+  "reviewed_report": "qa-security-review.md",
+  "reviewed_report_sha256": "c6a775fb38f1d9d439cac840ca5fdf5876ebd4b98b2a5268de5e7a0017bdc5ad",
+  "review_json_sha256": "b8ea79891ddbc1ea84238532c98ba648a260e8070f034b93afc4312b2ada6a3d",
+  "verifier_sha256": "b804b783c549b1800f790fc6122828823ede7eee7873ad54eb45ffa8782c5d88"
+}

@@ -1,0 +1,53 @@
+{
+  "adapter_sha256": "cf1ac3e26f348d1983f518b9c115607d723312622ea8fe13668210e2bedebf73",
+  "archive_sha256": "eb481741d88d56263ab99a97979565a0f1d404d9afeac1cb2c895bed7a7113a2",
+  "blocks": 128,
+  "coordinator": "c0d6694686d8fbbf9fd28565d71271c6",
+  "encoder_sha256": "a699ecb7b7c446de7e6300f5d8d9009dfd57c26f26c52efc7518080a5bf23157",
+  "errors": 0,
+  "expected_blocks": 128,
+  "finished_utc": "2026-11-27T11:03:04.073860+00:00",
+  "fixture_sha256": "2244229b57651c6e908c50f4ddc86a43221ac16743dd89429f9e372621f43627",
+  "independent_signed_suite_identity": {
+    "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+    "manifest_blake3": "afb1c196e02dcfd185750527624e10aa60d1546c4dff210840841c94eefd7b46"
+  },
+  "native_executable_sha256": "de058b34145b15b0f19decee76c0a1c6d685ed487446a9ecd80851415fcd2ce7",
+  "native_patterns": {
+    "failed->failed": 54,
+    "failed->passed": 4,
+    "passed": 70
+  },
+  "peers": [
+    "4b21977d914278652fbeb6e91836c446",
+    "bd96b023c2f678ae2dea2083af9a27fd"
+  ],
+  "plan_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "plugin_id": "c0d6694686d8fbbf9fd28565d71271c6/jaq-clock@0.1.0",
+  "raw_sha256": "584d837a5ff877d4a8f335771897e2bfc07f5cbc4925cc547c2c933ef5837cc4",
+  "release_binary_sha256": {
+    "entangle": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02",
+    "entangled": "0071c6daa1eb6f000f3c0ad8b9ecbc6627d37a6cda0d1680b5bedc165b15238a"
+  },
+  "release_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "remote_patterns": {
+    "failed->failed": 57,
+    "failed->passed": 2,
+    "passed": 69
+  },
+  "script_sha256": "cb07643b13a09f8481beada5b642a035633f3e83e9dbd6ae16b670ef8a8649b0",
+  "sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "signed_component_sha256": "453c8cf550ae6547376457d1f1679b5ea444bddc98cf1508d42eadd68680fc1a",
+  "signed_manifest_sha256": "0c225545280a3913b91a9d0708691da021ff3c327b0864c7b13c4fc96a361be2",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_utc": "2026-11-27T11:02:42.336133+00:00",
+  "upstream_case_file_sha256": "0d86802167c266bb9e917d356f65c5c156eeee9df0765bc97e2e9a6b63a110c4",
+  "upstream_lock_sha256": "bc7ec7e5dfab7363f649fa7d76af767e8835a2a110785d939691e06c16255ed6",
+  "upstream_revision": "606164eb26420c892c9bac27f7daf77b7a406b6d",
+  "verified_remote_transitions": [
+    29,
+    55
+  ],
+  "wasm_module_sha256": "7f647b6a4c6ce00194989c679fe90213c15628e3e014cdd76e5f6109874c544c"
+}

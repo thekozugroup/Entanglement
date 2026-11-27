@@ -1,0 +1,231 @@
+{
+  "before": {
+    "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+    "commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+    "utc": "2026-11-27T11:05:19.365110+00:00",
+    "cli_sha256": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02",
+    "driver_sha256": "66f251e32c1b3b8ad75eb439cce3d08a32440af45330576fb3f61cc979d536f9"
+  },
+  "after": {
+    "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+    "commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+    "utc": "2026-11-27T11:05:32.190092+00:00",
+    "cli_sha256": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02",
+    "driver_sha256": "66f251e32c1b3b8ad75eb439cce3d08a32440af45330576fb3f61cc979d536f9"
+  },
+  "archive_sha256": "a64a9ef06e4b50465d02dcfd21e3a933e0e58c4c0b19485131934e744c401ae1",
+  "signature_sha256": "6b36c7a7004038ea2a9095667fa73bb48feebd91f3c4f23e7c2d1c095c321072",
+  "trusted_publisher_public_key_hex": "1bc62530a560145576764871b4d517349185f0e41993acd85ecf7cf54d2a9f93",
+  "fixture_scope": "signed public test package, disposable HOME, controlled claude-code binary exits 23",
+  "fish_image": "debian@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0",
+  "fish_binary_sha256": "c34487ae348686f38f586ba3355eae87d47a66716c01f0bd001371073bef25f8",
+  "reports": {
+    "bash": {
+      "install": {
+        "command": [
+          "entangle",
+          "install",
+          "hello-world-0.1.0.tar.zst"
+        ],
+        "answered": "y",
+        "exit": 0,
+        "transcript": "Installed 2c82c7647eaf74478ebb141f4cf8f5a0/hello-world@0.1.0\n/tmp/ent-wrapper-aa_o7612/bash/.entangle/plugins/installed/ca7decfc76e0dd476f3b289df2dce242dfe7204c3e8496b673a68620db74b80f\nInstall shell warnings for agents launched outside Entanglement sessions? [y/N] \u001b[?25l\u001b[2KInstall shell warnings for agents launched outside Entanglement sessions? yes\n\u001b[?25hWrapper enabled in /tmp/ent-wrapper-aa_o7612/bash/.bashrc. Start a new shell; the warning is not a sandbox.\n"
+      },
+      "resolution": {
+        "exit": 0,
+        "stdout": "function\n",
+        "stderr": "bash: cannot set terminal process group (1237340): Inappropriate ioctl for device\nbash: no job control in this shell\n"
+      },
+      "outside": {
+        "exit": 23,
+        "stdout": "underlying[--version]\n",
+        "stderr": "bash: cannot set terminal process group (1237340): Inappropriate ioctl for device\nbash: no job control in this shell\nwarning: claude-code launched outside Entanglement session.\nTools are not routed through the Entanglement gateway.\n"
+      },
+      "direct": {
+        "exit": 23,
+        "stdout": "underlying[--version]\n",
+        "stderr": "bash: cannot set terminal process group (1237340): Inappropriate ioctl for device\nbash: no job control in this shell\n"
+      },
+      "inside": {
+        "exit": 23,
+        "stdout": "underlying[--version]\n",
+        "stderr": "bash: cannot set terminal process group (1237340): Inappropriate ioctl for device\nbash: no job control in this shell\n"
+      },
+      "doctor": {
+        "working": {
+          "exit": 0,
+          "stdout": "marker=1\nfunction\nunderlying[--version]\ndispatch-exit=23\n[ok]     identity                  Ed25519 keypair, fp c78c-af57-e923-0d52-ab69-42e1-5f14-2d20\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/bash/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/bash/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n\nSummary: 9 ok, 2 warn, 0 fail, 2 skip\n",
+          "stderr": "bash: cannot set terminal process group (1237340): Inappropriate ioctl for device\nbash: no job control in this shell\nwarning: claude-code launched outside Entanglement session.\nTools are not routed through the Entanglement gateway.\n",
+          "commands": "\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle doctor",
+          "doctor_reported_shadow": false
+        },
+        "unloaded-marker-cleared": {
+          "exit": 1,
+          "stdout": "marker=unset\nfile\nunderlying[--version]\ndispatch-exit=23\n[ok]     identity                  Ed25519 keypair, fp c78c-af57-e923-0d52-ab69-42e1-5f14-2d20\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/bash/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/bash/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 9 ok, 2 warn, 1 fail, 2 skip\n",
+          "stderr": "bash: cannot set terminal process group (1237340): Inappropriate ioctl for device\nbash: no job control in this shell\n",
+          "commands": "unset -f claude-code\nunset ENTANGLE_WRAPPER_ACTIVE\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle doctor",
+          "doctor_reported_shadow": true
+        },
+        "marker-inherited-command-only": {
+          "exit": 1,
+          "stdout": "marker=1\nfile\nunderlying[--version]\ndispatch-exit=23\n[ok]     identity                  Ed25519 keypair, fp c78c-af57-e923-0d52-ab69-42e1-5f14-2d20\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/bash/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/bash/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 9 ok, 2 warn, 1 fail, 2 skip\n",
+          "stderr": "bash: cannot set terminal process group (1237340): Inappropriate ioctl for device\nbash: no job control in this shell\n",
+          "commands": "unset -f claude-code\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle doctor",
+          "doctor_reported_shadow": true
+        },
+        "later-function": {
+          "exit": 1,
+          "stdout": "marker=1\nfunction\nindependent-function\ndispatch-exit=47\n[ok]     identity                  Ed25519 keypair, fp c78c-af57-e923-0d52-ab69-42e1-5f14-2d20\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/bash/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/bash/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 9 ok, 2 warn, 1 fail, 2 skip\n",
+          "stderr": "bash: cannot set terminal process group (1237340): Inappropriate ioctl for device\nbash: no job control in this shell\n",
+          "commands": "function claude-code { echo independent-function; return 47; }\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle doctor",
+          "doctor_reported_shadow": true
+        },
+        "later-alias": {
+          "exit": 1,
+          "stdout": "marker=1\nalias\nindependent-alias --version\ndispatch-exit=0\n[ok]     identity                  Ed25519 keypair, fp c78c-af57-e923-0d52-ab69-42e1-5f14-2d20\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/bash/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/bash/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 9 ok, 2 warn, 1 fail, 2 skip\n",
+          "stderr": "bash: cannot set terminal process group (1237340): Inappropriate ioctl for device\nbash: no job control in this shell\n",
+          "commands": "alias claude-code='echo independent-alias'\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle --allow-local doctor",
+          "doctor_reported_shadow": true
+        }
+      }
+    },
+    "zsh": {
+      "install": {
+        "command": [
+          "entangle",
+          "install",
+          "hello-world-0.1.0.tar.zst"
+        ],
+        "answered": "y",
+        "exit": 0,
+        "transcript": "Installed 2c82c7647eaf74478ebb141f4cf8f5a0/hello-world@0.1.0\n/tmp/ent-wrapper-aa_o7612/zsh/.entangle/plugins/installed/ca7decfc76e0dd476f3b289df2dce242dfe7204c3e8496b673a68620db74b80f\nInstall shell warnings for agents launched outside Entanglement sessions? [y/N] \u001b[?25l\u001b[2KInstall shell warnings for agents launched outside Entanglement sessions? yes\n\u001b[?25hWrapper enabled in /tmp/ent-wrapper-aa_o7612/zsh/.zshrc. Start a new shell; the warning is not a sandbox.\n"
+      },
+      "resolution": {
+        "exit": 0,
+        "stdout": "claude-code: function\n",
+        "stderr": ""
+      },
+      "outside": {
+        "exit": 23,
+        "stdout": "underlying[--version]\n",
+        "stderr": "warning: claude-code launched outside Entanglement session.\nTools are not routed through the Entanglement gateway.\n"
+      },
+      "direct": {
+        "exit": 23,
+        "stdout": "underlying[--version]\n",
+        "stderr": ""
+      },
+      "inside": {
+        "exit": 23,
+        "stdout": "underlying[--version]\n",
+        "stderr": ""
+      },
+      "doctor": {
+        "working": {
+          "exit": 0,
+          "stdout": "marker=1\nclaude-code: function\nunderlying[--version]\ndispatch-exit=23\n[ok]     identity                  Ed25519 keypair, fp 88b7-8e52-2fa0-fb6b-081c-01ad-907c-bcdb\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/zsh/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/zsh/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n\nSummary: 9 ok, 2 warn, 0 fail, 2 skip\n",
+          "stderr": "warning: claude-code launched outside Entanglement session.\nTools are not routed through the Entanglement gateway.\n",
+          "commands": "\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\nwhence -w claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle doctor",
+          "doctor_reported_shadow": false
+        },
+        "unloaded-marker-cleared": {
+          "exit": 1,
+          "stdout": "marker=unset\nclaude-code: command\nunderlying[--version]\ndispatch-exit=23\n[ok]     identity                  Ed25519 keypair, fp 88b7-8e52-2fa0-fb6b-081c-01ad-907c-bcdb\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/zsh/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/zsh/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 9 ok, 2 warn, 1 fail, 2 skip\n",
+          "stderr": "",
+          "commands": "unfunction claude-code\nunset ENTANGLE_WRAPPER_ACTIVE\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\nwhence -w claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle doctor",
+          "doctor_reported_shadow": true
+        },
+        "marker-inherited-command-only": {
+          "exit": 1,
+          "stdout": "marker=1\nclaude-code: command\nunderlying[--version]\ndispatch-exit=23\n[ok]     identity                  Ed25519 keypair, fp 88b7-8e52-2fa0-fb6b-081c-01ad-907c-bcdb\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/zsh/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/zsh/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 9 ok, 2 warn, 1 fail, 2 skip\n",
+          "stderr": "",
+          "commands": "unfunction claude-code\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\nwhence -w claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle doctor",
+          "doctor_reported_shadow": true
+        },
+        "later-function": {
+          "exit": 1,
+          "stdout": "marker=1\nclaude-code: function\nindependent-function\ndispatch-exit=47\n[ok]     identity                  Ed25519 keypair, fp 88b7-8e52-2fa0-fb6b-081c-01ad-907c-bcdb\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/zsh/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/zsh/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 9 ok, 2 warn, 1 fail, 2 skip\n",
+          "stderr": "",
+          "commands": "function claude-code { echo independent-function; return 47; }\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\nwhence -w claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle doctor",
+          "doctor_reported_shadow": true
+        },
+        "later-alias": {
+          "exit": 1,
+          "stdout": "marker=1\nclaude-code: alias\nindependent-alias --version\ndispatch-exit=0\n[ok]     identity                  Ed25519 keypair, fp 88b7-8e52-2fa0-fb6b-081c-01ad-907c-bcdb\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/zsh/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/zsh/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[ok]     OS sandbox                Landlock unavailable; bubblewrap present (fallback isolation)\n[ok]     disk-space                1.5 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 9 ok, 2 warn, 1 fail, 2 skip\n",
+          "stderr": "",
+          "commands": "alias claude-code='echo independent-alias'\necho marker=${ENTANGLE_WRAPPER_ACTIVE-unset}\nwhence -w claude-code\neval 'claude-code --version'\necho dispatch-exit=$?\nentangle --allow-local doctor",
+          "doctor_reported_shadow": true
+        }
+      }
+    },
+    "fish": {
+      "install": {
+        "command": [
+          "entangle",
+          "install",
+          "hello-world-0.1.0.tar.zst"
+        ],
+        "answered": "y",
+        "exit": 0,
+        "transcript": "Installed 2c82c7647eaf74478ebb141f4cf8f5a0/hello-world@0.1.0\n/tmp/ent-wrapper-aa_o7612/fish/.entangle/plugins/installed/ca7decfc76e0dd476f3b289df2dce242dfe7204c3e8496b673a68620db74b80f\nInstall shell warnings for agents launched outside Entanglement sessions? [y/N] \u001b[?25l\u001b[2KInstall shell warnings for agents launched outside Entanglement sessions? yes\n\u001b[?25hWrapper enabled in /tmp/ent-wrapper-aa_o7612/fish/.config/fish/conf.d/entangle-wrapper.fish. Start a new shell; the warning is not a sandbox.\n"
+      },
+      "resolution": {
+        "exit": 0,
+        "stdout": "function\n",
+        "stderr": ""
+      },
+      "outside": {
+        "exit": 23,
+        "stdout": "underlying[--version]\n",
+        "stderr": "warning: claude-code launched outside Entanglement session.\nTools are not routed through the Entanglement gateway.\n"
+      },
+      "direct": {
+        "exit": 23,
+        "stdout": "underlying[--version]\n",
+        "stderr": ""
+      },
+      "inside": {
+        "exit": 23,
+        "stdout": "underlying[--version]\n",
+        "stderr": ""
+      },
+      "doctor": {
+        "working": {
+          "exit": 0,
+          "stdout": "marker=1\nfunction\nunderlying[--version]\ndispatch-exit=23\n[ok]     identity                  Ed25519 keypair, fp ec4f-ff78-5b41-1c8d-9e2b-132e-bf79-bb55\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/fish/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/fish/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[warn]   OS sandbox                neither Landlock (kernel \u22656.7) nor bubblewrap available \u2014 tier-5 plugin isolation will be reduced; install bubblewrap or upgrade kernel for Landlock\n[ok]     disk-space                1.2 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n\nSummary: 8 ok, 3 warn, 0 fail, 2 skip\n",
+          "stderr": "warning: claude-code launched outside Entanglement session.\nTools are not routed through the Entanglement gateway.\n",
+          "commands": "\necho marker=$ENTANGLE_WRAPPER_ACTIVE\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$status\nentangle doctor",
+          "doctor_reported_shadow": false
+        },
+        "unloaded-marker-cleared": {
+          "exit": 1,
+          "stdout": "\nfile\nunderlying[--version]\ndispatch-exit=23\n[ok]     identity                  Ed25519 keypair, fp ec4f-ff78-5b41-1c8d-9e2b-132e-bf79-bb55\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/fish/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/fish/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[warn]   OS sandbox                neither Landlock (kernel \u22656.7) nor bubblewrap available \u2014 tier-5 plugin isolation will be reduced; install bubblewrap or upgrade kernel for Landlock\n[ok]     disk-space                1.2 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 8 ok, 3 warn, 1 fail, 2 skip\n",
+          "stderr": "",
+          "commands": "functions -e claude-code\nset -e ENTANGLE_WRAPPER_ACTIVE\necho marker=$ENTANGLE_WRAPPER_ACTIVE\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$status\nentangle doctor",
+          "doctor_reported_shadow": true
+        },
+        "marker-inherited-command-only": {
+          "exit": 1,
+          "stdout": "marker=1\nfile\nunderlying[--version]\ndispatch-exit=23\n[ok]     identity                  Ed25519 keypair, fp ec4f-ff78-5b41-1c8d-9e2b-132e-bf79-bb55\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/fish/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/fish/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[warn]   OS sandbox                neither Landlock (kernel \u22656.7) nor bubblewrap available \u2014 tier-5 plugin isolation will be reduced; install bubblewrap or upgrade kernel for Landlock\n[ok]     disk-space                1.2 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 8 ok, 3 warn, 1 fail, 2 skip\n",
+          "stderr": "",
+          "commands": "functions -e claude-code\necho marker=$ENTANGLE_WRAPPER_ACTIVE\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$status\nentangle doctor",
+          "doctor_reported_shadow": true
+        },
+        "later-function": {
+          "exit": 1,
+          "stdout": "marker=1\nfunction\nindependent-function\ndispatch-exit=47\n[ok]     identity                  Ed25519 keypair, fp ec4f-ff78-5b41-1c8d-9e2b-132e-bf79-bb55\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/fish/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/fish/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[warn]   OS sandbox                neither Landlock (kernel \u22656.7) nor bubblewrap available \u2014 tier-5 plugin isolation will be reduced; install bubblewrap or upgrade kernel for Landlock\n[ok]     disk-space                1.2 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 8 ok, 3 warn, 1 fail, 2 skip\n",
+          "stderr": "",
+          "commands": "function claude-code; echo independent-function; return 47; end\necho marker=$ENTANGLE_WRAPPER_ACTIVE\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$status\nentangle doctor",
+          "doctor_reported_shadow": true
+        },
+        "later-alias": {
+          "exit": 1,
+          "stdout": "marker=1\nfunction\nindependent-alias --version\ndispatch-exit=0\n[ok]     identity                  Ed25519 keypair, fp ec4f-ff78-5b41-1c8d-9e2b-132e-bf79-bb55\n[ok]     identity-perms            mode 0600\n[ok]     config                    /tmp/ent-wrapper-aa_o7612/fish/.entangle/config.toml\n[ok]     keyring                   1 trusted publisher(s)\n[ok]     peers                     0 trusted peer(s)\n[ok]     dir-perms                 mode 0700\n[ok]     rust-toolchain            unknown\n[warn]   wasm32-wasip2             rustup not found \u2014 install rustup to build Wasm plugins\n[warn]   daemon-reachable          not running (start with `entangled run`) \u2014 socket /tmp/ent-wrapper-aa_o7612/fish/.entangle/sock absent\n[skip]   daemon-version-match      skipped (daemon not reachable)\n[warn]   OS sandbox                neither Landlock (kernel \u22656.7) nor bubblewrap available \u2014 tier-5 plugin isolation will be reduced; install bubblewrap or upgrade kernel for Landlock\n[ok]     disk-space                1.2 GiB free\n[skip]   clock-skew                skipped (daemon not reachable)\n[fail]   wrapper                   shadowed or not loaded \u2014 the current shell resolves claude-code outside the installed wrapper\n\nSummary: 8 ok, 3 warn, 1 fail, 2 skip\n",
+          "stderr": "",
+          "commands": "alias claude-code 'echo independent-alias'\necho marker=$ENTANGLE_WRAPPER_ACTIVE\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$status\nentangle --allow-local doctor",
+          "doctor_reported_shadow": true
+        }
+      }
+    }
+  }
+}

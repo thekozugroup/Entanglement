@@ -1,0 +1,29 @@
+{
+  "name": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  "quantization": "IQ2_XXS",
+  "file": "tinyllama-1.1b-chat-v1.0.IQ2_XXS.gguf",
+  "sourceFile": "TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf",
+  "sizeBytes": 322591712,
+  "sha256": "9ee11adf737960ff06123d5c4fba24d12c5b05ba460a7afa88950fbf2b61add0",
+  "license": "Apache-2.0",
+  "source": "https://huggingface.co/imi2/TinyLlama-1.1B-Chat-v1.0-2bit-wikitext-gguf",
+  "sourceRevision": "100bdb2a258189610d8e3056cdfc95cf2b38e0ec",
+  "runtime": "node-llama-cpp",
+  "delivery": "npm-dependency-parts",
+  "parts": [
+    {
+      "package": "slaunt-model-tinyllama-1b-part1",
+      "version": "0.1.0",
+      "file": "model.part",
+      "sizeBytes": 161295856,
+      "sha256": "6d02636f9fb88b3d58f4c20ccb28986a1623c1cbb6a490177751ed25a694285e"
+    },
+    {
+      "package": "slaunt-model-tinyllama-1b-part2",
+      "version": "0.1.0",
+      "file": "model.part",
+      "sizeBytes": 161295856,
+      "sha256": "f9ce535bd5a9df9dc9c903a15c9fdfe13faf32f7f766f32dd8b249e1563017bb"
+    }
+  ]
+}

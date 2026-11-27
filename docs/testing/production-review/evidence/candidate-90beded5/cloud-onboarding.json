@@ -1,0 +1,11 @@
+{
+  "draft_revision": 10,
+  "status": "saved for review",
+  "requires_publish": true,
+  "install_script_sha256": "87eb576bc7425d3548c89f9f5a5626e6a9adf884f1bade7c180ad27e819c882e",
+  "source_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "verified_development_commands": "cloud-health.json",
+  "setup_command_receipt": "environment-setup-replay.json",
+  "operator_command_receipt": "private-tailnet-ordinary-retry-receipt.json"
+}

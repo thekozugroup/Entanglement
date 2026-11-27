@@ -1,0 +1,146 @@
+[
+  {
+    "block": 1,
+    "kind": "BA",
+    "stages": [
+      "B",
+      "A"
+    ]
+  },
+  {
+    "block": 1,
+    "kind": "AA",
+    "stages": [
+      "X",
+      "Y"
+    ]
+  },
+  {
+    "block": 1,
+    "kind": "AB",
+    "stages": [
+      "A",
+      "B"
+    ]
+  },
+  {
+    "block": 2,
+    "kind": "AB",
+    "stages": [
+      "A",
+      "B"
+    ]
+  },
+  {
+    "block": 2,
+    "kind": "BA",
+    "stages": [
+      "B",
+      "A"
+    ]
+  },
+  {
+    "block": 2,
+    "kind": "AA",
+    "stages": [
+      "Y",
+      "X"
+    ]
+  },
+  {
+    "block": 3,
+    "kind": "AB",
+    "stages": [
+      "A",
+      "B"
+    ]
+  },
+  {
+    "block": 3,
+    "kind": "BA",
+    "stages": [
+      "B",
+      "A"
+    ]
+  },
+  {
+    "block": 3,
+    "kind": "AA",
+    "stages": [
+      "X",
+      "Y"
+    ]
+  },
+  {
+    "block": 4,
+    "kind": "BA",
+    "stages": [
+      "B",
+      "A"
+    ]
+  },
+  {
+    "block": 4,
+    "kind": "AB",
+    "stages": [
+      "A",
+      "B"
+    ]
+  },
+  {
+    "block": 4,
+    "kind": "AA",
+    "stages": [
+      "Y",
+      "X"
+    ]
+  },
+  {
+    "block": 5,
+    "kind": "AB",
+    "stages": [
+      "A",
+      "B"
+    ]
+  },
+  {
+    "block": 5,
+    "kind": "BA",
+    "stages": [
+      "B",
+      "A"
+    ]
+  },
+  {
+    "block": 5,
+    "kind": "AA",
+    "stages": [
+      "X",
+      "Y"
+    ]
+  },
+  {
+    "block": 6,
+    "kind": "AB",
+    "stages": [
+      "A",
+      "B"
+    ]
+  },
+  {
+    "block": 6,
+    "kind": "AA",
+    "stages": [
+      "Y",
+      "X"
+    ]
+  },
+  {
+    "block": 6,
+    "kind": "BA",
+    "stages": [
+      "B",
+      "A"
+    ]
+  }
+]

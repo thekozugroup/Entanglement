@@ -1,0 +1,31 @@
+{
+  "command": [
+    "/usr/bin/timeout",
+    "3s",
+    "/usr/bin/bwrap",
+    "--unshare-all",
+    "--die-with-parent",
+    "--new-session",
+    "--ro-bind",
+    "/usr",
+    "/usr",
+    "--symlink",
+    "usr/bin",
+    "/bin",
+    "--symlink",
+    "usr/lib",
+    "/lib",
+    "--symlink",
+    "usr/lib64",
+    "/lib64",
+    "--",
+    "/usr/bin/true"
+  ],
+  "started_utc": "2026-11-27T11:45:09.609806+00:00",
+  "finished_utc": "2026-11-27T11:45:09.868423+00:00",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "exit_code": 1,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/local-bubblewrap-indicator.log",
+  "sha256": "f427400003f1438951931a9e02e12a36f46d63466731694d824cbf9e0d36a5d4"
+}

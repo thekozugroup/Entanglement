@@ -1,0 +1,13 @@
+test_corpus_has_distinct_inputs_and_independent_references (test_benchmark_image_batch.ImageGateTests.test_corpus_has_distinct_inputs_and_independent_references) ... ok
+test_missing_worker_and_route_mismatch_are_detected (test_benchmark_image_batch.ImageGateTests.test_missing_worker_and_route_mismatch_are_detected) ... ok
+test_oracle_refuses_wrong_format_dimensions_and_content (test_benchmark_image_batch.ImageGateTests.test_oracle_refuses_wrong_format_dimensions_and_content) ... ok
+test_absent_reference_entry_is_distinct_from_mismatching_bytes (test_benchmark_raw_batch.RawBenchmarkEvidence.test_absent_reference_entry_is_distinct_from_mismatching_bytes) ... ok
+test_main_persists_failed_arm_without_a_speedup (test_benchmark_raw_batch.RawBenchmarkEvidence.test_main_persists_failed_arm_without_a_speedup) ... ok
+test_missing_output_does_not_mislabel_matching_bytes (test_benchmark_raw_batch.RawBenchmarkEvidence.test_missing_output_does_not_mislabel_matching_bytes) ... ok
+test_missing_source_and_hash_state_without_reference (test_benchmark_raw_batch.RawBenchmarkEvidence.test_missing_source_and_hash_state_without_reference) ... ok
+test_unused_peer_and_digest_mismatch_remain_failures (test_benchmark_raw_batch.RawBenchmarkEvidence.test_unused_peer_and_digest_mismatch_remain_failures) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.762s
+
+OK

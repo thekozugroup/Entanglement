@@ -1,0 +1,26 @@
+{"outcome": "same-source Jammy release build unverified", "locked_registry_tarballs_verified": 616, "free_workspace_bytes": 3802472448}
+PRETTY_NAME="Ubuntu 22.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="22.04"
+VERSION="22.04.5 LTS (Jammy Jellyfish)"
+VERSION_CODENAME=jammy
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=jammy
+glibc 2.35
+Filesystem      1B-blocks  Used  Available Use% Mounted on
+tmpfs          7516192768     0 7516192768   0% /build-target
+178 170 0:57 / /build-target rw,nosuid,nodev,relatime - tmpfs tmpfs rw,size=7340032k,uid=2000,gid=2000
+b60934ec2a4af558986950989ad95912eef896d11ba192237e11a2384425ffbf  Cargo.lock
+   Compiling entangle-tmpfs-smoke v0.0.0 (/build-target/probe)
+    Finished `release` profile [optimized] target(s) in 0.44s
+ca1b2ee61a53160e174f35ed876ab955325b45578bfd70be452c32783dced36e  /build-target/result/wasm32-wasip2/release/entangle-tmpfs-smoke.wasm
+Tmpfs used bytes after build: 143360
+Provisioned disconnected rootless Jammy builder 247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d; no compiler run.
+Python 3.10.12 ready. Jammy builder disconnected and target empty.
+{"archive": "/workspace/Entanglement/target/release-candidate/f499e3edf84e-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz", "sha256": "2bc600a3ed73b23eb240577ed0b9419a664d840c39ae18cf9bb0dc927c0d470b", "b3": "342a0e93fa704ad70bb1a6b3837f70aa54731ca3b7c3fe8ee1ed7f9145ef84de", "peaks": {"max_sampled_builder_rss": 2705842176, "max_sampled_tmpfs_bytes": 2135977984, "min_sampled_host_available_memory": 19842662400}}
+{"ubuntu-22.04": "signed_guest_passed", "debian-12": "signed_guest_passed", "ubuntu-24.04": "signed_guest_passed", "debian-13": "signed_guest_passed"}

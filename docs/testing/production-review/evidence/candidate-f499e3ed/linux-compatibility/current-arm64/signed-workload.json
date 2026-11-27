@@ -1,0 +1,108 @@
+{
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "scope": "Actual AArch64 GNU ELF CLI, daemon, Wasmtime JIT and signed catalog Wasm under explicit QEMU Linux user-mode on one x86_64 Linux host; direct loopback QUIC with native x86_64 coordinator, in the same disconnected container. No physical ARM hardware.",
+  "started_utc": "2026-11-27T12:00:28.629157+00:00",
+  "finished_utc": "2026-11-27T12:00:39.023843+00:00",
+  "exit_code": 0,
+  "arm_executables_sha256": {
+    "entangle": "6a1267da5c255537e481d0e3a8ef622deb8de6dbf29ad28c656656b279a4cd86",
+    "entangled": "4ee3442b5d9e15457f0226467d1cf58ddb9b1c1474d13333d75014852fd32388"
+  },
+  "native_archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "native_executables_sha256": {
+    "entangle": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+    "entangled": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8"
+  },
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "nodes": {
+    "arm": {
+      "public": "63c770b74b5e49e96dc0258d3ffce7f4f7a43b5d30cb7d1ddc071dee866ee47c",
+      "peer": "a6eb6c5d8d1b2dafe7f293fe71f1d0c8",
+      "plugin": "a6eb6c5d8d1b2dafe7f293fe71f1d0c8/json-pointer@0.1.0",
+      "home": "/private/home-arm",
+      "port": 18443,
+      "initial_status": {
+        "libtest_remote_codes": 1,
+        "local_peer_id": "a6eb6c5d8d1b2dafe7f293fe71f1d0c8",
+        "local_display_name": "9f21bcb8ab0b",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "daemon_exit": 0
+    },
+    "x86": {
+      "public": "a37d8010b2b416e54c408b5052d5bcb1b1aeaeb0d972fe2b0291f946e02eea14",
+      "peer": "180678fe1fdaca95ad7288280a81f7fc",
+      "plugin": "180678fe1fdaca95ad7288280a81f7fc/json-pointer@0.1.0",
+      "home": "/private/home-x86",
+      "port": 28443,
+      "initial_status": {
+        "libtest_remote_codes": 1,
+        "local_peer_id": "180678fe1fdaca95ad7288280a81f7fc",
+        "local_display_name": "9f21bcb8ab0b",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "daemon_exit": 0
+    }
+  },
+  "assertions": {
+    "arm_signed_local": {
+      "publisher_before_trust_exit": 1,
+      "before_trust_diagnostic": "error: rpc -32000: server error: signature: ENTANGLE-E0101: publisher fingerprint not in keyring",
+      "plugin": "a6eb6c5d8d1b2dafe7f293fe71f1d0c8/json-pointer@0.1.0",
+      "load_output": "loaded a6eb6c5d8d1b2dafe7f293fe71f1d0c8/json-pointer@0.1.0\n",
+      "input_json": "{\"pointer\": \"/items/0/value\", \"data\": {\"items\": [{\"value\": \"a91472e7bab4eef13b948293fa7b7993\"}]}}",
+      "output": "\"a91472e7bab4eef13b948293fa7b7993\"",
+      "expected": "\"a91472e7bab4eef13b948293fa7b7993\""
+    },
+    "x86_to_emulated_arm": {
+      "coordinator_loaded_plugins": [],
+      "allowlist": [
+        "a6eb6c5d8d1b2dafe7f293fe71f1d0c8"
+      ],
+      "selected_peer": "a6eb6c5d8d1b2dafe7f293fe71f1d0c8",
+      "remote_reason": "Chosen: a6eb6c5d8d1b2dafe7f293fe71f1d0c8 (score=2.16)\nReason: fit ok, rtt=17ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "plugin": "a6eb6c5d8d1b2dafe7f293fe71f1d0c8/json-pointer@0.1.0",
+      "input_json": "{\"pointer\": \"/items/0/value\", \"data\": {\"items\": [{\"value\": \"56cf6e0c722b407c085ad3ddb9412e05\"}]}}",
+      "output": "\"56cf6e0c722b407c085ad3ddb9412e05\"",
+      "expected": "\"56cf6e0c722b407c085ad3ddb9412e05\"",
+      "worker_counts_before": {
+        "arm": 1,
+        "x86": 0
+      },
+      "worker_counts_after": {
+        "arm": 2,
+        "x86": 0
+      }
+    },
+    "arm_to_x86": {
+      "allowlist": [
+        "180678fe1fdaca95ad7288280a81f7fc"
+      ],
+      "selected_peer": "180678fe1fdaca95ad7288280a81f7fc",
+      "plugin": "180678fe1fdaca95ad7288280a81f7fc/json-pointer@0.1.0",
+      "input_json": "{\"pointer\": \"/items/0/value\", \"data\": {\"items\": [{\"value\": \"97893ae13b3f79efd87043bd12a54117\"}]}}",
+      "output": "\"97893ae13b3f79efd87043bd12a54117\"",
+      "expected": "\"97893ae13b3f79efd87043bd12a54117\"",
+      "worker_counts_before": {
+        "arm": 2,
+        "x86": 0
+      },
+      "worker_counts_after": {
+        "arm": 2,
+        "x86": 1
+      },
+      "unloaded_on_coordinator": true
+    }
+  },
+  "harness_sha256": "d9c757f3fb67fca4142efd218fae5fcee596a93a3c472e527d05c0e04c6c4f1a"
+}

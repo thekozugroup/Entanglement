@@ -1,0 +1,31 @@
+{"outcome": "same-source Jammy release build unverified", "locked_registry_tarballs_verified": 616, "free_workspace_bytes": 1756176384}
+PRETTY_NAME="Ubuntu 22.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="22.04"
+VERSION="22.04.5 LTS (Jammy Jellyfish)"
+VERSION_CODENAME=jammy
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=jammy
+glibc 2.35
+Filesystem      1B-blocks  Used  Available Use% Mounted on
+tmpfs          7516192768     0 7516192768   0% /build-target
+613 605 0:160 / /build-target rw,nosuid,nodev,relatime - tmpfs tmpfs rw,size=7340032k,uid=2000,gid=2000
+b60934ec2a4af558986950989ad95912eef896d11ba192237e11a2384425ffbf  Cargo.lock
+   Compiling entangle-tmpfs-smoke v0.0.0 (/build-target/probe)
+    Finished `release` profile [optimized] target(s) in 1.27s
+ca1b2ee61a53160e174f35ed876ab955325b45578bfd70be452c32783dced36e  /build-target/result/wasm32-wasip2/release/entangle-tmpfs-smoke.wasm
+Tmpfs used bytes after build: 143360
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/linux-compatibility/jammy-build/stage-jammy.py", line 75, in <module>
+    cid = run(
+          ^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/linux-compatibility/jammy-build/stage-jammy.py", line 46, in run
+    proc.check_returncode()
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 502, in check_returncode
+    raise CalledProcessError(self.returncode, self.args, self.stdout,
+subprocess.CalledProcessError: Command '['docker', 'create', '--pull=never', '--platform=linux/amd64', '--network=bridge', '--security-opt=no-new-privileges', '--tmpfs=/build-target:rw,exec,nosuid,nodev,mode=1777,size=7g', '--mount', 'type=bind,src=/workspace/entangle-jammy-release-mjuyx5hl/fixture,dst=/seed,readonly', '--mount', 'type=bind,src=/workspace/entangle-jammy-tmpfs-1hgv_m86/source.bundle,dst=/source.bundle,readonly', 'sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938', 'sleep', 'infinity']' returned non-zero exit status 1.

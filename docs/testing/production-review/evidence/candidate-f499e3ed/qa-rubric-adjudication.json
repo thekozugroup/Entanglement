@@ -1,0 +1,35 @@
+{
+  "reviewer": "independent QA (/root/qa)",
+  "reviewed_utc": "2026-11-27T11:40:24.038269+00:00",
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "reviewed_literal_sha256": "56e3ffb26a2c59de2402de348b9396a190b4255c4f831aef1d8d637869f37f03",
+  "reviewed_conservative_sha256": "9b26a95668071e94db2a6d79bada7422e6627f4ebcd341de27784b230d65bba4",
+  "normalized_receipt_index_sha256": "f8979179f5c048d2eb93c905b3c0fed9bc192e71b68226983f8ac5ff5eb71365",
+  "counts": {
+    "literal": {
+      "pass": 32,
+      "not_evidenced": 22,
+      "fail": 3
+    },
+    "conservative": {
+      "pass": 31,
+      "not_evidenced": 23,
+      "fail": 3
+    }
+  },
+  "report": "qa-rubric-adjudication.md",
+  "report_sha256": "862f7f8f84f73d5cb6aa5963f180d1cd05042fc8f7939db7ccec6e0a30a74e4a",
+  "security_review_sha256": "c6a775fb38f1d9d439cac840ca5fdf5876ebd4b98b2a5268de5e7a0017bdc5ad",
+  "scope": "Exact 57-gate handoff; physical and production gaps remain; PERF-TEST differs by documented evidence plan.",
+  "approved_score_outputs": {
+    "literal-score.json": "bb2f76bda9858531b940eede810434cf66c3027195716a64b96c7d0ab44fde15",
+    "conservative-score.json": "6fe41b702914bf2c0ffd2c4c8dfb410ba3b3ff3863a490d0c7820a8a7d9e6dc4"
+  },
+  "scorer_exit_codes": {
+    "literal": 1,
+    "conservative": 1
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "source_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_utc": "2026-11-27T11:05:19.216575+00:00",
+  "finished_utc": "2026-11-27T11:05:32.366814+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/wrapper-live.py",
+    "--cli",
+    "/tmp/entangle-check-90beded5-archive/entangle",
+    "--fixture",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/package-operator/published-fixture",
+    "--fish-tree",
+    "/tmp/entangle-fish-check/extract",
+    "--out",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/operational-retry/wrapper-live-linux.json"
+  ],
+  "exit_code": 0,
+  "first_attempt": "docs/testing/production-review/evidence/candidate-90beded5/wrapper-live-scorer-receipt.json",
+  "first_attempt_sha256": "dc7b033031669bedec32e8f15743c9660d1340a1951e6f768fced19b7f91838b",
+  "log": "docs/testing/production-review/evidence/candidate-90beded5/operational-retry/wrapper-live-linux.json",
+  "sha256": "df4b27923c9b3ae9f48d47d22357e2eb7567153f2de0370fa656cc727fbdc23f",
+  "artifact_sha256": {
+    "entangle": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02",
+    "entangled": "0071c6daa1eb6f000f3c0ad8b9ecbc6627d37a6cda0d1680b5bedc165b15238a"
+  },
+  "archive_sha256": "eb481741d88d56263ab99a97979565a0f1d404d9afeac1cb2c895bed7a7113a2",
+  "archive_receipt_sha256": "aabe4730411b63fb935ae2e71ca224bbf8306215d55465bd828fe145541c169c",
+  "runner_sha256": "66f251e32c1b3b8ad75eb439cce3d08a32440af45330576fb3f61cc979d536f9",
+  "replay_driver_sha256": "c20fff2bc2d54d6f1ba7f8a14d7d73ba66af88ac673a2eab58c1dd9c83016903",
+  "host": "one Linux x86_64 host",
+  "stdout_log_sha256": "88d01fe67b288f88e063ebbe9e5034614b051f39980406e74c564675dd0d5452",
+  "fixture_sha256": "a64a9ef06e4b50465d02dcfd21e3a933e0e58c4c0b19485131934e744c401ae1",
+  "fixture_signature_sha256": "6b36c7a7004038ea2a9095667fa73bb48feebd91f3c4f23e7c2d1c095c321072",
+  "fixture_keyring_sha256": "0fa8af5a181280c66b411ddd0e827bb5c15e36413011e9f945067d8079f6f37d"
+}

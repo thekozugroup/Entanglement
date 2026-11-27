@@ -1,0 +1,68 @@
+[
+  {
+    "core_sha256": "0b0995d5849b3273fdf8f0de9e106254a05c34c87c24ffd84fb56a456d278b58",
+    "signed_component_sha256": "c3e25d8c947224f8c0f4896cca9da87e7b39511e73946edc6c02a226ff82f19e",
+    "signed_manifest_sha256": "6721af068cf3486d7b430e27743d4a2e1ab09096924241ed05a5ce2abf65e9e0",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-0b0995d5849b3273fdf8f0de@0.1.0"
+  },
+  {
+    "core_sha256": "36b56c1b2ab0234ad9e0f1c7706d662a86099689dc248671975f82265484e09f",
+    "signed_component_sha256": "b23621429ca88ee987733797f8651c17304aee2a6f532fe09431774136a2eae3",
+    "signed_manifest_sha256": "55e9cb1b206bb3008f555d4fd8bf8d7c86d91a960532a3bf030d48e92005e17c",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-36b56c1b2ab0234ad9e0f1c7@0.1.0"
+  },
+  {
+    "artifact": "/tmp/entangle-demand-qa/jaq-natural/target178/wasm32-wasip1/debug/deps/jaq-216f5e6711f4217a.wasm",
+    "core_sha256": "72d81cf142f7ad3d3008f64453fcbcaa68593359a5e7ff2e09b9510109b5d412",
+    "error": "Command '['/tmp/entangle-demand-qa/jaq-natural/component-adapter', PosixPath('/tmp/entangle-demand-qa/jaq-natural/target178/wasm32-wasip1/debug/deps/jaq-216f5e6711f4217a.wasm'), '/workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasi-preview1-component-adapter-provider-36.0.23/artefacts/wasi_snapshot_preview1.command.wasm', PosixPath('/tmp/ent-cargo-wasi-3wuxqitd/suite9/command.component.wasm')]' returned non-zero exit status 1.",
+    "status": "preload failed; real Cargo runner will receive the same artifact"
+  },
+  {
+    "core_sha256": "7f647b6a4c6ce00194989c679fe90213c15628e3e014cdd76e5f6109874c544c",
+    "signed_component_sha256": "453c8cf550ae6547376457d1f1679b5ea444bddc98cf1508d42eadd68680fc1a",
+    "signed_manifest_sha256": "23bb72cecb668bc908706f36fcf8eee9050f8706d41beded0dbd1feaaaf11ecc",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-7f647b6a4c6ce00194989c67@0.1.0"
+  },
+  {
+    "core_sha256": "93ae2efcc4875ea4855d1770389de5f54bacee86344c33fe7b2d06fba70d3a63",
+    "signed_component_sha256": "931764c0731ea3cc369baa8ca6595c4148866b9baa556c9a03e5306f876c105f",
+    "signed_manifest_sha256": "51ffb9b6ee84ebfe1754ade00e8f3c103f524b253a4c715ce5699c0719e19e57",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-93ae2efcc4875ea4855d1770@0.1.0"
+  },
+  {
+    "core_sha256": "a12be036cfc4f47aef55cbcd21bb26b70f5872fa016b05a8536128673f56e5d9",
+    "signed_component_sha256": "3ebcb91fa5a0019289ea87eebe3be9277b39c9ad1324ca94e79bbc2c8b96ab9d",
+    "signed_manifest_sha256": "4d23121e7bb1f03f5cfbbdbbc3c4bb2b283640a2fb2e0f2f05edae731ba7abb3",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-a12be036cfc4f47aef55cbcd@0.1.0"
+  },
+  {
+    "core_sha256": "a8dc2ee5178b27074ddee3d355886ecbe1c7f86a988fad5add4dd6e5e5cc7bb8",
+    "signed_component_sha256": "19d453e2c8acbaad1936c490c6e69ffa1143c9f5a3e7b3917d30df8573f07382",
+    "signed_manifest_sha256": "b544daba051767d33d055a402b8eba592dd12a1c237b8a6afa6b1ec90ada3109",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-a8dc2ee5178b27074ddee3d3@0.1.0"
+  },
+  {
+    "core_sha256": "dfc3196e3abdcce088c868ac084bf19630878ee74c4b27c0fa009935a29ab297",
+    "signed_component_sha256": "3662c196364ea4393048adfd1c77f6e89b4b0cb50ec14b454dbec413fe17ea11",
+    "signed_manifest_sha256": "8b31acd72f0e636d35b69e03733998d0d687f0172ded2033d6a563f37c5fa256",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-dfc3196e3abdcce088c868ac@0.1.0"
+  },
+  {
+    "core_sha256": "e6f2a57847e3e218744b8f08927a77d7f0a466964cd734e3c50b0e770a0fe20c",
+    "signed_component_sha256": "7845ea9bcd26e69bacd5c456d44bcd0d7a1fedd0294e628b13198a5b62aa9137",
+    "signed_manifest_sha256": "9024523194004bf157890920090de3d78101ee28e050004646422d1005cdc2b7",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-e6f2a57847e3e218744b8f08@0.1.0"
+  },
+  {
+    "core_sha256": "e7ca9f7634b1c6ad91f0861684bce676a27bb34bb1baf439dfe37eacc9659545",
+    "signed_component_sha256": "b03c4104356aa5650d3d847ca1d1aae807b070258af223492e061ca8466ce6b6",
+    "signed_manifest_sha256": "0f9222e8ec852da7500e0513db536dcccdc2e08b0d63b711fdb663c4aa77f7e5",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-e7ca9f7634b1c6ad91f08616@0.1.0"
+  },
+  {
+    "core_sha256": "edc26a0285a15521f54ff5fc570c0f3f6ab143ae9dcca0b2c7125521335e6472",
+    "signed_component_sha256": "b8f0ae5756c5d14db0e481ce5c6ad3701697b028e5de7c2aa332d03256ef3895",
+    "signed_manifest_sha256": "14a30fbecc5d9ea3ee6ae01451cf4e15b1ca9e2f4e9dff96bfff57c96f15df87",
+    "plugin": "37bb66417698c69222efde8acc11e9ba/test-edc26a0285a15521f54ff5fc@0.1.0"
+  }
+]

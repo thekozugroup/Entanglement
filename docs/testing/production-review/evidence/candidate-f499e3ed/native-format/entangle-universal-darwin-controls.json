@@ -1,0 +1,65 @@
+{
+  "native_format_inputs": "/tmp/entangle-onboard-promotion-review-a727cv7e/darwin-validation/build.json",
+  "validator_sha256": "5f76e0c4cadf5786d0de2f9f5825f28a40bb280ccc098d597b2ea9fbd0b2e8d3",
+  "cases": [
+    {
+      "fat64": false,
+      "target": "x86_64-apple-darwin",
+      "header_tool_description": "Mach-O universal binary with 2 architectures: [x86_64:\\012- Mach-O 64-bit x86_64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE>] [\\012- arm64:\\012- Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE>]",
+      "universal_sha256": "472a60ace3841704cb8daf8f41577df9b00d3eaa47f2de0008f1f7764abef509",
+      "archive_sha256": "fcaafe9097850bb70051538f9b10e96127fc1f23290144020d7885c399cdfd64"
+    },
+    {
+      "fat64": false,
+      "target": "aarch64-apple-darwin",
+      "header_tool_description": "Mach-O universal binary with 2 architectures: [x86_64:\\012- Mach-O 64-bit x86_64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE>] [\\012- arm64:\\012- Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE>]",
+      "universal_sha256": "472a60ace3841704cb8daf8f41577df9b00d3eaa47f2de0008f1f7764abef509",
+      "archive_sha256": "4d04f6fa009d41ab52bc94cc1cd2554385ebc94db92858932feff5cd66dd2f57"
+    },
+    {
+      "fat64": true,
+      "target": "x86_64-apple-darwin",
+      "header_tool_description": "data",
+      "universal_sha256": "9ca4abddce1483d4021650a3b4cc3aa847162ef7f6568316a99c0822dd2e921c",
+      "archive_sha256": "8b09bb020c4d56c99e89669dc31ee4808d1ce12e664ea5be785e25854810bea8"
+    },
+    {
+      "fat64": true,
+      "target": "aarch64-apple-darwin",
+      "header_tool_description": "data",
+      "universal_sha256": "9ca4abddce1483d4021650a3b4cc3aa847162ef7f6568316a99c0822dd2e921c",
+      "archive_sha256": "4413c2d1168eb45dd6a79b0da19cca6b35cdadfba0d98372ac0ebdc6e8741bf2"
+    }
+  ],
+  "scope": "Apple-style big-endian fat32/fat64 containers assembled with the two unchanged LLVM/Darwin-linked Mach-O executables. Header validation on Linux.",
+  "exit_code": 0,
+  "independent_llvm_object_parser": {
+    "library_sha256": "5818b869fb0b23c7f723c9c999b0e856abab8f2a3918a91d456b36e6d364e65f",
+    "recovered_exact_original_slices": [
+      {
+        "fat64": false,
+        "architecture": "x86_64",
+        "exact_bytes": 8312,
+        "slice_sha256": "5870dc55a098f40d5ab618c2ebad646a3a80854a11466900d7589ed1b5bf5fa4"
+      },
+      {
+        "fat64": false,
+        "architecture": "arm64",
+        "exact_bytes": 16800,
+        "slice_sha256": "c733227945a526cc66dbe8d7fcbcf3d7d5ba4c42c0dc1a3c2d9f380d2c70fb76"
+      },
+      {
+        "fat64": true,
+        "architecture": "x86_64",
+        "exact_bytes": 8312,
+        "slice_sha256": "5870dc55a098f40d5ab618c2ebad646a3a80854a11466900d7589ed1b5bf5fa4"
+      },
+      {
+        "fat64": true,
+        "architecture": "arm64",
+        "exact_bytes": 16800,
+        "slice_sha256": "c733227945a526cc66dbe8d7fcbcf3d7d5ba4c42c0dc1a3c2d9f380d2c70fb76"
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/wrapper-live.py", line 207, in <module>
+    main()
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/wrapper-live.py", line 186, in main
+    require(obs["exit"]==int(target) and cases[case]["doctor_reported_shadow"]==target,
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/wrapper-live.py", line 26, in require
+    raise RuntimeError(text)
+RuntimeError: fish/working: {'exit': 125, 'stdout': '', 'stderr': "docker: Error response from daemon: mkdir /home/dockerd/.local/share/docker/vfs/dir/f0d11d21cb6fa6167d733ec8708c68c107e0ac2ab19aa32a18f08fb721877474-init/usr/lib/x86_64-linux-gnu/perl-base/unicore: no space left on device\n\nRun 'docker run --help' for more information\n"}

@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/linux-compatibility/userspaces.py", line 259, in <module>
+    execute(parser.parse_args())
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/linux-compatibility/userspaces.py", line 141, in execute
+    cid = get(*create, label=os_name + ":container")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/linux-compatibility/userspaces.py", line 68, in get
+    return run(*argv, **kwargs).stdout.decode().strip()
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/linux-compatibility/userspaces.py", line 64, in run
+    assert expect is None or proc.returncode == expect, row
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'label': 'ubuntu-24.04:container', 'argv': ['docker', 'run', '-d', '--rm', '--pull=never', '--platform=linux/amd64', '--network=none', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges', '--user=65534:65534', '--env', 'HOME=/work/home', '--env', 'ENTANGLE_ALLOW_LOCAL=0', '--env', 'TOKIO_WORKER_THREADS=2', '--env', 'RAYON_NUM_THREADS=2', '--tmpfs', '/work:rw,nosuid,nodev,noexec,mode=1777,size=64m', '--tmpfs', '/tmp:rw,nosuid,nodev,noexec,mode=1777,size=16m', '--mount', 'type=bind,src=/workspace/entangle-linux-userspace-mt4xyjd_,dst=/fixture,readonly', 'sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4', 'sleep', 'infinity'], 'started_at_utc': '2026-11-27T11:03:35+00:00', 'finished_at_utc': '2026-11-27T11:03:39+00:00', 'exit_code': 125, 'stdout': '', 'stderr': "docker: Error response from daemon: mkdir /home/dockerd/.local/share/docker/vfs/dir/540b89bd5f13402b409cee8046174650a9057b7122402e99646f46ce7df7a323-init/usr/local: no space left on device\n\nRun 'docker run --help' for more information\n"}

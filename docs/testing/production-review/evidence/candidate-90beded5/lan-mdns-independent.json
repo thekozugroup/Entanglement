@@ -1,0 +1,24 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "entangle-bin",
+    "--test",
+    "daemon_compute",
+    "discovers_and_runs_work_without_a_configured_peer_address",
+    "--",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "started_utc": "2026-11-27T11:12:33.821797+00:00",
+  "finished_utc": "2026-11-27T11:13:50.568304+00:00",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-90beded5/lan-mdns-independent.log",
+  "sha256": "ea33a4481784fcf96dde1ff1fd3c56a7e8f30ff9f9fc744b37c3233b4710b343"
+}

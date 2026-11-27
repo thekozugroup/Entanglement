@@ -1,0 +1,23 @@
+{
+  "command": [
+    "target/catalog-smoke-python/bin/python",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/run.py"
+  ],
+  "started_utc": "2026-11-27T12:16:07.038647+00:00",
+  "finished_utc": "2026-11-27T12:16:34.851580+00:00",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "exit_code": 0,
+  "tool_commit": "b90aac1bf936c71f1ee4cf12893312f530a92b53",
+  "tool_sha256": "8799aa5f8679e54331405fb643e18a0698276052ada641d97f98bb739b8d0012",
+  "driver_sha256": "1d61513a8c77969afa95d4bf6f30ef648f63421d3facc7d8e57483c219bf7514",
+  "archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "cli_sha256": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+  "daemon_sha256": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8",
+  "wasm_sha256": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/raw-coverage-diagnostic/observations.json",
+  "sha256": "fcdf6c666b60827ea116d334930aa5130d506a94f68f68eceea139087a909abd",
+  "observer_patch_sha256": "69c621b43ec6cd8de597b26400b80443c0d64e40e2b8ce1c851ae16e5a976d7b",
+  "observer_bundle_sha256": "834613e700878fdf4d570015c9362447e4ac73ee4ac6499ce58fa20425d20797",
+  "scope": "one supplemental single-worker control and one mesh observation, using a corrected evidence observer and the frozen product executables"
+}

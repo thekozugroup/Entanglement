@@ -1,0 +1,33 @@
+{
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "archive_name": "entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz",
+  "artifact_scope": "Cross-compiled release profile ARM64 GNU Linux executables, verified with explicit QEMU user-mode on x86_64. Local unsigned archive.",
+  "elfs_sha256": {
+    "entangle": "6a1267da5c255537e481d0e3a8ef622deb8de6dbf29ad28c656656b279a4cd86",
+    "entangled": "4ee3442b5d9e15457f0226467d1cf58ddb9b1c1474d13333d75014852fd32388"
+  },
+  "archive_sha256": "6298d96c7cd1ce59020e1ecc35b0bdc9b51f9a33e1b20267601acb95e75ee0ef",
+  "size": 26112794,
+  "blake3": "d054a80630cef6d2c3c8da2058b41a067702eaeb1694acf0725e381ea78a9755",
+  "packager_sha256": "49c8e005a5dd7e6bc1ad260aa9f9dff227d03d22eb00af4add4bd3e215b26698",
+  "verifier_sha256": "7607fc0cd747748eaa23731c4871494f18de28417d2da1600246b148e0ad4455",
+  "release_verification_log_sha256": "c5081b15d722f1c53656d16feb0f356d54649565e176289581ea912f7004086e",
+  "command": [
+    "python3",
+    "scripts/package-native-release.py",
+    "--version",
+    "v0.1.0",
+    "--target",
+    "aarch64-unknown-linux-gnu",
+    "--bin-dir",
+    "/workspace/entangle-emulated-arm-f499e3ed-slim/executables",
+    "--source-date-epoch",
+    "1795778276",
+    "--output-dir",
+    "/workspace/entangle-emulated-arm-f499e3ed-slim/release-archive"
+  ],
+  "expected_unsigned_rejection": true,
+  "build_receipt_sha256": "8f46edac5a5f6b6f0a40b859d1169d692a71a32afaa1e77c6f856cca5b06353c"
+}

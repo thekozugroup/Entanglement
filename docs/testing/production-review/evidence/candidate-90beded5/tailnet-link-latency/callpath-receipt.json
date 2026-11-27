@@ -1,0 +1,15 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-90beded5/tailnet-link-latency/check-callpath.py",
+    "/workspace/Entanglement",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/tailnet-link-latency/callpath.json"
+  ],
+  "started_utc": "2026-11-27T11:02:20.012541+00:00",
+  "finished_utc": "2026-11-27T11:02:20.224011+00:00",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-90beded5/tailnet-link-latency/callpath.log",
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

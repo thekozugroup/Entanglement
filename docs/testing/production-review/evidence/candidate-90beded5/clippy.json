@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_utc": "2026-11-27T11:02:54+00:00",
+  "finished_utc": "2026-11-27T11:04:23+00:00",
+  "command": "cargo clippy --workspace --locked --all-targets -- -D warnings",
+  "exit_code": 0,
+  "log": "clippy.log",
+  "log_sha256": "6e2182c8cddfab5eae63fee24fa50052ddb8e07ca94a25f29ca6b1dd0e356bb0"
+}

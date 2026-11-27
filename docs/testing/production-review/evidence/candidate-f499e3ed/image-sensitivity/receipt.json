@@ -1,0 +1,974 @@
+{
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "candidate_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "daemons_sha256": {
+    "A": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+    "B": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8",
+    "X": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+    "Y": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+  },
+  "cli_sha256": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+  "cpu_affinity": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "cpu_budget": "400000 100000",
+  "cpu_before": {
+    "usage_usec": 106963529860,
+    "user_usec": 90978448866,
+    "system_usec": 15985080993,
+    "nice_usec": 77882137,
+    "nr_periods": 418193,
+    "nr_throttled": 150511,
+    "throttled_usec": 10394690293,
+    "nr_bursts": 0,
+    "burst_usec": 0
+  },
+  "started_utc": "2026-11-27T12:02:31.482791+00:00",
+  "schedule": [
+    {
+      "half": 1,
+      "kind": "AB",
+      "order": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "half": 1,
+      "kind": "BA",
+      "order": [
+        "B",
+        "A"
+      ]
+    },
+    {
+      "half": 1,
+      "kind": "YX",
+      "order": [
+        "Y",
+        "X"
+      ]
+    },
+    {
+      "half": 1,
+      "kind": "XY",
+      "order": [
+        "X",
+        "Y"
+      ]
+    },
+    {
+      "half": 1,
+      "kind": "AB",
+      "order": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "half": 2,
+      "kind": "AB",
+      "order": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "half": 2,
+      "kind": "BA",
+      "order": [
+        "B",
+        "A"
+      ]
+    },
+    {
+      "half": 2,
+      "kind": "BA",
+      "order": [
+        "B",
+        "A"
+      ]
+    },
+    {
+      "half": 2,
+      "kind": "YX",
+      "order": [
+        "Y",
+        "X"
+      ]
+    },
+    {
+      "half": 2,
+      "kind": "XY",
+      "order": [
+        "X",
+        "Y"
+      ]
+    }
+  ],
+  "arm_py_sha256": "b4c3a285b8507a09d6fb2cfc3373d6b9fb5860a05666a4636a34be060ca6f112",
+  "source_image_driver_sha256": "c181ac3f2d63b4c2696aa38c1a87eaf3cfc6340a1d69f41ceeca67b4ceda2daf",
+  "original_monitor_sha256": "6e3ae424ac0794f21282b819b44949500b9fc0805fe4114d9583e71361eed4d7",
+  "arms": [
+    {
+      "pair": 1,
+      "kind": "AB",
+      "stage": "A",
+      "started_utc": "2026-11-27T12:02:31.483177+00:00",
+      "cpu_before": {
+        "usage_usec": 106963529860,
+        "user_usec": 90978448866,
+        "system_usec": 15985080993,
+        "nice_usec": 77882137,
+        "nr_periods": 418193,
+        "nr_throttled": 150511,
+        "throttled_usec": 10394690293,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/01-A.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:02:39.321637+00:00",
+      "cpu_after": {
+        "usage_usec": 106982655142,
+        "user_usec": 90994933028,
+        "system_usec": 15987722114,
+        "nice_usec": 77882137,
+        "nr_periods": 418271,
+        "nr_throttled": 150512,
+        "throttled_usec": 10394736072,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "d5a9d52766074c46132685a08ddfb12937ebdb37c01799a3c55c126822ee75bd",
+      "verified": true,
+      "raw": "01-A.json",
+      "raw_sha256": "fd67bc93116f33bd4c98be7fb67be28c19eeacc7f489be30ea22c4f9d9188c9d"
+    },
+    {
+      "pair": 1,
+      "kind": "AB",
+      "stage": "B",
+      "started_utc": "2026-11-27T12:02:39.324400+00:00",
+      "cpu_before": {
+        "usage_usec": 106982658528,
+        "user_usec": 90994935908,
+        "system_usec": 15987722620,
+        "nice_usec": 77882137,
+        "nr_periods": 418271,
+        "nr_throttled": 150512,
+        "throttled_usec": 10394736072,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/candidate",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/01-B.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:02:47.124075+00:00",
+      "cpu_after": {
+        "usage_usec": 107002279171,
+        "user_usec": 91012228033,
+        "system_usec": 15990051138,
+        "nice_usec": 77882137,
+        "nr_periods": 418349,
+        "nr_throttled": 150520,
+        "throttled_usec": 10394806474,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "e246ce35197e1035f2bf5f48d72d2d70fe8cdcc69f4271963ca17ff90830ee53",
+      "verified": true,
+      "raw": "01-B.json",
+      "raw_sha256": "ecc75ef3234a09376cd2300af124c6dae0983d0fb569e33646b619b8fadaefe1"
+    },
+    {
+      "pair": 2,
+      "kind": "BA",
+      "stage": "B",
+      "started_utc": "2026-11-27T12:02:47.127016+00:00",
+      "cpu_before": {
+        "usage_usec": 107002279171,
+        "user_usec": 91012228033,
+        "system_usec": 15990051138,
+        "nice_usec": 77882137,
+        "nr_periods": 418349,
+        "nr_throttled": 150520,
+        "throttled_usec": 10394806474,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/candidate",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/02-B.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:02:54.519010+00:00",
+      "cpu_after": {
+        "usage_usec": 107020458046,
+        "user_usec": 91028515526,
+        "system_usec": 15991942519,
+        "nice_usec": 77882137,
+        "nr_periods": 418423,
+        "nr_throttled": 150525,
+        "throttled_usec": 10394888705,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "e33dda4d06090ae7917ec26ee0e168b4faf859b44609a57c79529a0ad46b168d",
+      "verified": true,
+      "raw": "02-B.json",
+      "raw_sha256": "61c7d650afbeff246097618d798c6031d9ee485b934321142e9c400922df18ba"
+    },
+    {
+      "pair": 2,
+      "kind": "BA",
+      "stage": "A",
+      "started_utc": "2026-11-27T12:02:54.519825+00:00",
+      "cpu_before": {
+        "usage_usec": 107020458046,
+        "user_usec": 91028515526,
+        "system_usec": 15991942519,
+        "nice_usec": 77882137,
+        "nr_periods": 418423,
+        "nr_throttled": 150525,
+        "throttled_usec": 10394888705,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/02-A.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:03:02.371271+00:00",
+      "cpu_after": {
+        "usage_usec": 107040357742,
+        "user_usec": 91045909804,
+        "system_usec": 15994447938,
+        "nice_usec": 77882137,
+        "nr_periods": 418502,
+        "nr_throttled": 150532,
+        "throttled_usec": 10394944697,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "f341120f2f910f71ec2d1f75b1c7d22c02378a84f6839dae53379493a03fd3de",
+      "verified": true,
+      "raw": "02-A.json",
+      "raw_sha256": "e8bfa4f518ff0598fb151539bf4d403bd19aa138045ab725ed8f6013a1b49598"
+    },
+    {
+      "pair": 3,
+      "kind": "YX",
+      "stage": "Y",
+      "started_utc": "2026-11-27T12:03:02.372775+00:00",
+      "cpu_before": {
+        "usage_usec": 107040357742,
+        "user_usec": 91045909804,
+        "system_usec": 15994447938,
+        "nice_usec": 77882137,
+        "nr_periods": 418502,
+        "nr_throttled": 150532,
+        "throttled_usec": 10394944697,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/03-Y.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:03:09.883302+00:00",
+      "cpu_after": {
+        "usage_usec": 107060304011,
+        "user_usec": 91063729714,
+        "system_usec": 15996574297,
+        "nice_usec": 77882137,
+        "nr_periods": 418577,
+        "nr_throttled": 150543,
+        "throttled_usec": 10395099497,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "7285e80a42897b18eb3f75e8704626c92dda29d8ac8488ce13ab75e6404cc716",
+      "verified": true,
+      "raw": "03-Y.json",
+      "raw_sha256": "c898b17e5e13e84f9c7ff44cd759aad07cf12a7fdea0f0e8a9fef5efb19bec5e"
+    },
+    {
+      "pair": 3,
+      "kind": "YX",
+      "stage": "X",
+      "started_utc": "2026-11-27T12:03:09.884324+00:00",
+      "cpu_before": {
+        "usage_usec": 107060304011,
+        "user_usec": 91063729714,
+        "system_usec": 15996574297,
+        "nice_usec": 77882137,
+        "nr_periods": 418577,
+        "nr_throttled": 150543,
+        "throttled_usec": 10395099497,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/03-X.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:03:17.638070+00:00",
+      "cpu_after": {
+        "usage_usec": 107080294701,
+        "user_usec": 91081455477,
+        "system_usec": 15998839223,
+        "nice_usec": 77882137,
+        "nr_periods": 418654,
+        "nr_throttled": 150548,
+        "throttled_usec": 10395127937,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "63c1de2852899e845420ab47c32ff54aa7efa3482b60da82008bb4c2e5f81085",
+      "verified": true,
+      "raw": "03-X.json",
+      "raw_sha256": "f3ec70bef1dd00b6b995ba22e733567c66290c88801608934abdfc5f5540c6f3"
+    },
+    {
+      "pair": 4,
+      "kind": "XY",
+      "stage": "X",
+      "started_utc": "2026-11-27T12:03:17.639081+00:00",
+      "cpu_before": {
+        "usage_usec": 107080294701,
+        "user_usec": 91081455477,
+        "system_usec": 15998839223,
+        "nice_usec": 77882137,
+        "nr_periods": 418654,
+        "nr_throttled": 150548,
+        "throttled_usec": 10395127937,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/04-X.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:03:25.354504+00:00",
+      "cpu_after": {
+        "usage_usec": 107100069771,
+        "user_usec": 91098868251,
+        "system_usec": 16001201520,
+        "nice_usec": 77882137,
+        "nr_periods": 418732,
+        "nr_throttled": 150558,
+        "throttled_usec": 10395422818,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "9f241da4954cf5c6d269e37e33c4e5b061a57c2946dc04d377f7e58d87995351",
+      "verified": true,
+      "raw": "04-X.json",
+      "raw_sha256": "bd4109879222a9f33efbbeffe3f97c3991eb12d9cbb983b07ee91d393c085bb1"
+    },
+    {
+      "pair": 4,
+      "kind": "XY",
+      "stage": "Y",
+      "started_utc": "2026-11-27T12:03:25.355615+00:00",
+      "cpu_before": {
+        "usage_usec": 107100069771,
+        "user_usec": 91098868251,
+        "system_usec": 16001201520,
+        "nice_usec": 77882137,
+        "nr_periods": 418732,
+        "nr_throttled": 150558,
+        "throttled_usec": 10395422818,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/04-Y.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:03:33.242486+00:00",
+      "cpu_after": {
+        "usage_usec": 107120012261,
+        "user_usec": 91116873331,
+        "system_usec": 16003138929,
+        "nice_usec": 77882137,
+        "nr_periods": 418810,
+        "nr_throttled": 150567,
+        "throttled_usec": 10395541308,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "180d4cedc3fedde66b23fa66152bde6271bb6cb56fbd5eae01dece36d8dfc106",
+      "verified": true,
+      "raw": "04-Y.json",
+      "raw_sha256": "38885bd8576a29daa21d4e4d1b634f94d178ce595491b24900fa18bf75659ff8"
+    },
+    {
+      "pair": 5,
+      "kind": "AB",
+      "stage": "A",
+      "started_utc": "2026-11-27T12:03:33.243701+00:00",
+      "cpu_before": {
+        "usage_usec": 107120012261,
+        "user_usec": 91116873331,
+        "system_usec": 16003138929,
+        "nice_usec": 77882137,
+        "nr_periods": 418810,
+        "nr_throttled": 150567,
+        "throttled_usec": 10395541308,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/05-A.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:03:40.983268+00:00",
+      "cpu_after": {
+        "usage_usec": 107139601562,
+        "user_usec": 91134339501,
+        "system_usec": 16005262061,
+        "nice_usec": 77882137,
+        "nr_periods": 418888,
+        "nr_throttled": 150576,
+        "throttled_usec": 10395800371,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "aa44ec3e12ab943b973cb87a40e1b1df719ae05f1cc7f8630aa6899b3a3725e8",
+      "verified": true,
+      "raw": "05-A.json",
+      "raw_sha256": "cecef554f23a59e0d68c4a3ba10b1429bf7d013530cb537d3c9c5176fea1ac09"
+    },
+    {
+      "pair": 5,
+      "kind": "AB",
+      "stage": "B",
+      "started_utc": "2026-11-27T12:03:40.984228+00:00",
+      "cpu_before": {
+        "usage_usec": 107139601562,
+        "user_usec": 91134339501,
+        "system_usec": 16005262061,
+        "nice_usec": 77882137,
+        "nr_periods": 418888,
+        "nr_throttled": 150576,
+        "throttled_usec": 10395800371,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/candidate",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/05-B.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:03:48.468415+00:00",
+      "cpu_after": {
+        "usage_usec": 107157573441,
+        "user_usec": 91150517358,
+        "system_usec": 16007056083,
+        "nice_usec": 77882137,
+        "nr_periods": 418963,
+        "nr_throttled": 150580,
+        "throttled_usec": 10395827979,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "a653c547c1a827b11206f19c61eb5f776ac4c852c618bc094de385cd650ed455",
+      "verified": true,
+      "raw": "05-B.json",
+      "raw_sha256": "e0d40fdc85a7081ee3b305fe827392f3dfe2e3c81956e0cdc7d67831ec76d6d4"
+    },
+    {
+      "pair": 6,
+      "kind": "AB",
+      "stage": "A",
+      "started_utc": "2026-11-27T12:03:48.469377+00:00",
+      "cpu_before": {
+        "usage_usec": 107157574187,
+        "user_usec": 91150518103,
+        "system_usec": 16007056083,
+        "nice_usec": 77882137,
+        "nr_periods": 418963,
+        "nr_throttled": 150580,
+        "throttled_usec": 10395827979,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/06-A.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:03:56.192801+00:00",
+      "cpu_after": {
+        "usage_usec": 107177273646,
+        "user_usec": 91168209731,
+        "system_usec": 16009063914,
+        "nice_usec": 77882137,
+        "nr_periods": 419040,
+        "nr_throttled": 150584,
+        "throttled_usec": 10395870808,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "fa892b11a55dbb2016685bb1bad83facc9e8b80eeb3b1e2aa7bb31f232c99219",
+      "verified": true,
+      "raw": "06-A.json",
+      "raw_sha256": "280252179509b273ca3abf4fdd87cd0328ce42acc894605f9c02da9c985228a7"
+    },
+    {
+      "pair": 6,
+      "kind": "AB",
+      "stage": "B",
+      "started_utc": "2026-11-27T12:03:56.193913+00:00",
+      "cpu_before": {
+        "usage_usec": 107177273646,
+        "user_usec": 91168209731,
+        "system_usec": 16009063914,
+        "nice_usec": 77882137,
+        "nr_periods": 419040,
+        "nr_throttled": 150584,
+        "throttled_usec": 10395870808,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/candidate",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/06-B.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:04:03.821804+00:00",
+      "cpu_after": {
+        "usage_usec": 107196609062,
+        "user_usec": 91185392260,
+        "system_usec": 16011216801,
+        "nice_usec": 77882137,
+        "nr_periods": 419116,
+        "nr_throttled": 150594,
+        "throttled_usec": 10396052096,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "af55bd1141fa15a0a972e0bc64f49d853deb97a7d634a00924ac9393e8d34242",
+      "verified": true,
+      "raw": "06-B.json",
+      "raw_sha256": "1fab063a472b631cb28ca0275bf6245fbf8a1602a1786fdd38331c3057fa9733"
+    },
+    {
+      "pair": 7,
+      "kind": "BA",
+      "stage": "B",
+      "started_utc": "2026-11-27T12:04:03.822634+00:00",
+      "cpu_before": {
+        "usage_usec": 107196609062,
+        "user_usec": 91185392260,
+        "system_usec": 16011216801,
+        "nice_usec": 77882137,
+        "nr_periods": 419116,
+        "nr_throttled": 150594,
+        "throttled_usec": 10396052096,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/candidate",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/07-B.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:04:11.747748+00:00",
+      "cpu_after": {
+        "usage_usec": 107216895071,
+        "user_usec": 91203506942,
+        "system_usec": 16013388128,
+        "nice_usec": 77882137,
+        "nr_periods": 419195,
+        "nr_throttled": 150601,
+        "throttled_usec": 10396133777,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "67ffef1d4724f93b1ec6fd806b7c74138d965314f0f8f983daafb6f26b3ebea7",
+      "verified": true,
+      "raw": "07-B.json",
+      "raw_sha256": "3fec25c5a516fda2f6bb4808ce6ec12faf8d05adb5d77265be172ba66a23cc2f"
+    },
+    {
+      "pair": 7,
+      "kind": "BA",
+      "stage": "A",
+      "started_utc": "2026-11-27T12:04:11.748502+00:00",
+      "cpu_before": {
+        "usage_usec": 107216895071,
+        "user_usec": 91203506942,
+        "system_usec": 16013388128,
+        "nice_usec": 77882137,
+        "nr_periods": 419195,
+        "nr_throttled": 150601,
+        "throttled_usec": 10396133777,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/07-A.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:04:19.705763+00:00",
+      "cpu_after": {
+        "usage_usec": 107236592398,
+        "user_usec": 91220775657,
+        "system_usec": 16015816741,
+        "nice_usec": 77882137,
+        "nr_periods": 419275,
+        "nr_throttled": 150610,
+        "throttled_usec": 10396346071,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "da79b6db4f21c892bf65372e6294f675be07c2772804c5ad1ee44807bba586e8",
+      "verified": true,
+      "raw": "07-A.json",
+      "raw_sha256": "2210e80f0a7374a8bd178cce442b6110061acc1a91340e132f5f6292049a819f"
+    },
+    {
+      "pair": 8,
+      "kind": "BA",
+      "stage": "B",
+      "started_utc": "2026-11-27T12:04:19.706521+00:00",
+      "cpu_before": {
+        "usage_usec": 107236592398,
+        "user_usec": 91220775657,
+        "system_usec": 16015816741,
+        "nice_usec": 77882137,
+        "nr_periods": 419275,
+        "nr_throttled": 150610,
+        "throttled_usec": 10396346071,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/candidate",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/08-B.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:04:27.971788+00:00",
+      "cpu_after": {
+        "usage_usec": 107257044058,
+        "user_usec": 91238570965,
+        "system_usec": 16018473093,
+        "nice_usec": 77882137,
+        "nr_periods": 419358,
+        "nr_throttled": 150618,
+        "throttled_usec": 10396594531,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "d9c16302ab4ec4b2973d01cbba104b3b3b87285b62b825a0e750f5ee6e4b0fa5",
+      "verified": true,
+      "raw": "08-B.json",
+      "raw_sha256": "b1caccf03e1fd86fb1c299a68748d344ae69d2847b889994aa5c8e122ce04fba"
+    },
+    {
+      "pair": 8,
+      "kind": "BA",
+      "stage": "A",
+      "started_utc": "2026-11-27T12:04:27.974914+00:00",
+      "cpu_before": {
+        "usage_usec": 107257047063,
+        "user_usec": 91238570965,
+        "system_usec": 16018476098,
+        "nice_usec": 77882137,
+        "nr_periods": 419358,
+        "nr_throttled": 150618,
+        "throttled_usec": 10396594531,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/08-A.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:04:34.762104+00:00",
+      "cpu_after": {
+        "usage_usec": 107274341318,
+        "user_usec": 91254041699,
+        "system_usec": 16020299618,
+        "nice_usec": 77882137,
+        "nr_periods": 419426,
+        "nr_throttled": 150623,
+        "throttled_usec": 10396701784,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "bc31c22b2cb84f90bbcf4fa5d3a2173c28fec5f01d38c4680fcb80083ebdb2b4",
+      "verified": true,
+      "raw": "08-A.json",
+      "raw_sha256": "54739c398a96a1368b0fc9635931e8878b80c8790bb229818b3d01ce316406bb"
+    },
+    {
+      "pair": 9,
+      "kind": "YX",
+      "stage": "Y",
+      "started_utc": "2026-11-27T12:04:34.763194+00:00",
+      "cpu_before": {
+        "usage_usec": 107274341318,
+        "user_usec": 91254041699,
+        "system_usec": 16020299618,
+        "nice_usec": 77882137,
+        "nr_periods": 419426,
+        "nr_throttled": 150623,
+        "throttled_usec": 10396701784,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/09-Y.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:04:41.992492+00:00",
+      "cpu_after": {
+        "usage_usec": 107292510005,
+        "user_usec": 91270754000,
+        "system_usec": 16021756004,
+        "nice_usec": 77882137,
+        "nr_periods": 419498,
+        "nr_throttled": 150627,
+        "throttled_usec": 10396827017,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "2ae33d5eb118fa288626c1b4027a1f800bac799f03dd76f24d563e8ddaf93159",
+      "verified": true,
+      "raw": "09-Y.json",
+      "raw_sha256": "4bebaf7c78a012aa92f463f2fc41e1da3c27eef20364ac6a7c894f93abe6330f"
+    },
+    {
+      "pair": 9,
+      "kind": "YX",
+      "stage": "X",
+      "started_utc": "2026-11-27T12:04:41.993702+00:00",
+      "cpu_before": {
+        "usage_usec": 107292510638,
+        "user_usec": 91270754633,
+        "system_usec": 16021756004,
+        "nice_usec": 77882137,
+        "nr_periods": 419498,
+        "nr_throttled": 150627,
+        "throttled_usec": 10396827017,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/09-X.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:04:50.109085+00:00",
+      "cpu_after": {
+        "usage_usec": 107313299820,
+        "user_usec": 91289287320,
+        "system_usec": 16024012500,
+        "nice_usec": 77882137,
+        "nr_periods": 419579,
+        "nr_throttled": 150639,
+        "throttled_usec": 10397041307,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "16908d97756a6a0645df1293f97c57c7cc1ba286e5aaaf59ffe58d185e03580e",
+      "verified": true,
+      "raw": "09-X.json",
+      "raw_sha256": "f17daab1aed3193fc01ff9bddcdc59110e1de988098fcb5ed87c9b9212f9c8fd"
+    },
+    {
+      "pair": 10,
+      "kind": "XY",
+      "stage": "X",
+      "started_utc": "2026-11-27T12:04:50.110268+00:00",
+      "cpu_before": {
+        "usage_usec": 107313299820,
+        "user_usec": 91289287320,
+        "system_usec": 16024012500,
+        "nice_usec": 77882137,
+        "nr_periods": 419579,
+        "nr_throttled": 150639,
+        "throttled_usec": 10397041307,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/10-X.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:04:57.585122+00:00",
+      "cpu_after": {
+        "usage_usec": 107331687147,
+        "user_usec": 91305583576,
+        "system_usec": 16026103570,
+        "nice_usec": 77882137,
+        "nr_periods": 419654,
+        "nr_throttled": 150643,
+        "throttled_usec": 10397059497,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "3fd0bcac8c49c8d294b889f80f8bbb7b86d591dd7d92182ea30b529c1f022273",
+      "verified": true,
+      "raw": "10-X.json",
+      "raw_sha256": "6b0c49b721bdc2a7c2c711337fe0dbea63b495d9c4b2c8116d7421df8c806f3e"
+    },
+    {
+      "pair": 10,
+      "kind": "XY",
+      "stage": "Y",
+      "started_utc": "2026-11-27T12:04:57.586108+00:00",
+      "cpu_before": {
+        "usage_usec": 107331687147,
+        "user_usec": 91305583576,
+        "system_usec": 16026103570,
+        "nice_usec": 77882137,
+        "nr_periods": 419654,
+        "nr_throttled": 150643,
+        "throttled_usec": 10397059497,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "command": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/arm.py",
+        "--bin-dir",
+        "/tmp/entangle-link-performance-f499e3ed/baseline",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/image-sensitivity/raw/10-Y.json"
+      ],
+      "exit_code": 0,
+      "finished_utc": "2026-11-27T12:05:05.292913+00:00",
+      "cpu_after": {
+        "usage_usec": 107349951979,
+        "user_usec": 91321971811,
+        "system_usec": 16027980168,
+        "nice_usec": 77882137,
+        "nr_periods": 419731,
+        "nr_throttled": 150648,
+        "throttled_usec": 10397150670,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "log_sha256": "a9d013cf834742454fd950127553444800f8cb4c9efc18282de8b7f2adaa4ef1",
+      "verified": true,
+      "raw": "10-Y.json",
+      "raw_sha256": "03aa7c09826417e8e597f4ed8bcec444cca36133e40e67f28efdad1a5dafe572"
+    }
+  ],
+  "finished_utc": "2026-11-27T12:05:05.369157+00:00",
+  "elapsed_s": 153.88605688900134,
+  "cpu_after": {
+    "usage_usec": 107350028274,
+    "user_usec": 91322016103,
+    "system_usec": 16028012170,
+    "nice_usec": 77882137,
+    "nr_periods": 419732,
+    "nr_throttled": 150648,
+    "throttled_usec": 10397150670,
+    "nr_bursts": 0,
+    "burst_usec": 0
+  },
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "error": null,
+  "exit_code": 0
+}

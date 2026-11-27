@@ -1,0 +1,20 @@
+{
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "scripts/tests",
+    "-p",
+    "test_*.py",
+    "-v"
+  ],
+  "started_utc": "2026-11-27T11:19:01.425464+00:00",
+  "finished_utc": "2026-11-27T11:19:10.001118+00:00",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/tooling-regressions.log",
+  "sha256": "20115fdaa80dfdf9087b73a277ad5eb994940404a4a930ee2abc9cace686a787"
+}

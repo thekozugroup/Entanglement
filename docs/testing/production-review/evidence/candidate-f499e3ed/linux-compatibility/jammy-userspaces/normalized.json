@@ -1,0 +1,55 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:57:04.389206+00:00",
+  "finished_utc": "2026-11-27T11:57:36.447044+00:00",
+  "exit_code": 0,
+  "command": [
+    "python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/userspaces.py",
+    "--repo",
+    "/workspace/Entanglement",
+    "--out",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/jammy-userspaces",
+    "--archive",
+    "/workspace/Entanglement/target/release-candidate/f499e3edf84e-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "--archive-receipt",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/jammy-build/jammy-linux-archive.json",
+    "--wasm",
+    "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm",
+    "--b3sum",
+    "/tmp/entangle-release-followup/tools/b3sum",
+    "--commit",
+    "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+    "--source-id",
+    "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+    "--max-glibc",
+    "2.35"
+  ],
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/jammy-userspaces/userspaces.json",
+  "sha256": "6d44cd92899567f0246fc2aee77a73ca49e260dd3f6e2b37b39ecd946fc9ef06",
+  "run_log_sha256": "de712cfb30169c3e32bcc2dabb579f8edaf68d69b9c68750478ba24743610b5b",
+  "verify_release": [
+    "bash",
+    "scripts/verify-release.sh",
+    "--checksums-only",
+    "/workspace/Entanglement/target/release-candidate/f499e3edf84e-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+  ],
+  "verify_release_log_sha256": "f3246d40f2abd56b1fddbbdcc7177217d8593b84bd7b64f8b21b19b5a3317f96",
+  "verify_release_exit": 0,
+  "archive_sha256": "2bc600a3ed73b23eb240577ed0b9419a664d840c39ae18cf9bb0dc927c0d470b",
+  "archive_build_receipt_sha256": "e572fb77fea47b7d6b4b3b927d125e622eac34491f1b14a73adc6b2aba113c8b",
+  "distro_cases": {
+    "ubuntu-22.04": "signed_guest_passed",
+    "debian-12": "signed_guest_passed",
+    "ubuntu-24.04": "signed_guest_passed",
+    "debian-13": "signed_guest_passed"
+  },
+  "required_glibc": {
+    "entangle": "2.34",
+    "entangled": "2.34"
+  }
+}

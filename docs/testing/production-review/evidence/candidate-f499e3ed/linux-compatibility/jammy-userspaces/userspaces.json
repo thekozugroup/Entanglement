@@ -1,0 +1,161 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_at_utc": "2026-11-27T11:57:04+00:00",
+  "finished_at_utc": "2026-11-27T11:57:36+00:00",
+  "exit_code": 0,
+  "scope": "One x86-64 Linux host and four separate rootless containers with network disabled. Candidate archives are unsigned. WASI guest signatures are verified.",
+  "archive_sha256": "2bc600a3ed73b23eb240577ed0b9419a664d840c39ae18cf9bb0dc927c0d470b",
+  "archive_blake3": "342a0e93fa704ad70bb1a6b3837f70aa54731ca3b7c3fe8ee1ed7f9145ef84de",
+  "archive_path": "/workspace/Entanglement/target/release-candidate/f499e3edf84e-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "archive_receipt_sha256": "e572fb77fea47b7d6b4b3b927d125e622eac34491f1b14a73adc6b2aba113c8b",
+  "sidecars_sha256": {
+    "sha256": "31248cebd90432ec6b5311a0ad6351d09244a54a8558d4f9739cbe985aacf1e9",
+    "b3": "5886f3e7e5c83a662ff389192d5e5ee13a7a98b634dd3b81ab041db9ea818c60"
+  },
+  "fixture": {
+    "component_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+    "manifest_sha256": "7675f1e036b27128efe45ee79779674568c3f944528966bf4857f7ae54627aed",
+    "guest_source_tree": "14a946aac15de3b9952eebe0bba5c82e47565b6a"
+  },
+  "elf": {
+    "entangle": {
+      "sha256": "6ca63d2be55b8554cec7ae9e59fd9e5df48f052f008e3ba25c44e3e1ccd44ee2",
+      "required_glibc": "2.34"
+    },
+    "entangled": {
+      "sha256": "8c8f850c3ba0531fd0f553a910f656f1464033f7318fc4ad4ceec14f346713d6",
+      "required_glibc": "2.34"
+    }
+  },
+  "cases": {
+    "ubuntu-22.04": {
+      "image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+      "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "os_version": "22.04",
+      "glibc": "2.35",
+      "versions": {
+        "entangle": {
+          "exit_code": 0,
+          "stdout": "entangle 0.1.0\n",
+          "stderr": ""
+        },
+        "entangled": {
+          "exit_code": 0,
+          "stdout": "entangled 0.1.0\n",
+          "stderr": ""
+        }
+      },
+      "outcome": "signed_guest_passed",
+      "daemon_exit_code": 0,
+      "daemon_log_sha256": "a97a09a227e535f0266771fcfba70fd653a46bf7664e824d2504f5182d4f73f4",
+      "node": "fa65b75ba26ed3f3be434f1d726775d5",
+      "plugin": "fa65b75ba26ed3f3be434f1d726775d5/json-pointer@0.1.0",
+      "publisher_public_key": "9c049475f66806456a8ca810453675fc592c2e8f50a6634b5bb50deae421cd6a",
+      "untrusted_load_exit": 1,
+      "signed_component_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+      "exact_utf8_output": "\"Caf\u00e9 JSON Pointer da1a41b369c066cce9330979d4613caf\"",
+      "expected_output": "\"Caf\u00e9 JSON Pointer da1a41b369c066cce9330979d4613caf\"",
+      "output_sha256": "731337d2235a618d0ba16dbbd802447a72a898414e7e0f3b2b0d0022774b4c4c",
+      "null_output": "null",
+      "missing_property_exit": 1
+    },
+    "debian-12": {
+      "image": "debian@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e",
+      "image_id": "sha256:b1cc73e64d14d8ef890b767427fe0cc67eb4b78ee513cc7166e739f25e2de095",
+      "os_version": "12",
+      "glibc": "2.36",
+      "versions": {
+        "entangle": {
+          "exit_code": 0,
+          "stdout": "entangle 0.1.0\n",
+          "stderr": ""
+        },
+        "entangled": {
+          "exit_code": 0,
+          "stdout": "entangled 0.1.0\n",
+          "stderr": ""
+        }
+      },
+      "outcome": "signed_guest_passed",
+      "daemon_exit_code": 0,
+      "daemon_log_sha256": "97365ab47912b548f71c54c1b218cfde9c24522a9ea899dddcd457732a3b6ef0",
+      "node": "01afcb7bd14d1fb8ba93172d9ceed7fa",
+      "plugin": "01afcb7bd14d1fb8ba93172d9ceed7fa/json-pointer@0.1.0",
+      "publisher_public_key": "fcf44dd953e68214dd4d44bf76e23ec9c13287838a89d0ee6d4254b29f6ba0b2",
+      "untrusted_load_exit": 1,
+      "signed_component_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+      "exact_utf8_output": "\"Caf\u00e9 JSON Pointer 8216ae3b74ed804fbad28256908bedf2\"",
+      "expected_output": "\"Caf\u00e9 JSON Pointer 8216ae3b74ed804fbad28256908bedf2\"",
+      "output_sha256": "0c06186ad678889f82c409624eac5d810a9f23b87a41f2bbd987036f65d6c723",
+      "null_output": "null",
+      "missing_property_exit": 1
+    },
+    "ubuntu-24.04": {
+      "image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+      "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "os_version": "24.04",
+      "glibc": "2.39",
+      "versions": {
+        "entangle": {
+          "exit_code": 0,
+          "stdout": "entangle 0.1.0\n",
+          "stderr": ""
+        },
+        "entangled": {
+          "exit_code": 0,
+          "stdout": "entangled 0.1.0\n",
+          "stderr": ""
+        }
+      },
+      "outcome": "signed_guest_passed",
+      "daemon_exit_code": 0,
+      "daemon_log_sha256": "1aa9a6ab6e34c21d66aa89be4efffb4854d5b70a08adbf352786815742da7818",
+      "node": "c6c040580fdd77cf9dcd1f1134bff91b",
+      "plugin": "c6c040580fdd77cf9dcd1f1134bff91b/json-pointer@0.1.0",
+      "publisher_public_key": "8a0f48376a054b571cd8c98ac697fb0df4ef8dadeae153d610c061b47716117d",
+      "untrusted_load_exit": 1,
+      "signed_component_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+      "exact_utf8_output": "\"Caf\u00e9 JSON Pointer 6c7449648357b9663e9a735bf60fe93b\"",
+      "expected_output": "\"Caf\u00e9 JSON Pointer 6c7449648357b9663e9a735bf60fe93b\"",
+      "output_sha256": "d0e1c8757672134ffb0e5b73304867bc1da817818e09ff7d41ff08656f05c6b7",
+      "null_output": "null",
+      "missing_property_exit": 1
+    },
+    "debian-13": {
+      "image": "debian@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0",
+      "image_id": "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+      "os_version": "13",
+      "glibc": "2.41",
+      "versions": {
+        "entangle": {
+          "exit_code": 0,
+          "stdout": "entangle 0.1.0\n",
+          "stderr": ""
+        },
+        "entangled": {
+          "exit_code": 0,
+          "stdout": "entangled 0.1.0\n",
+          "stderr": ""
+        }
+      },
+      "outcome": "signed_guest_passed",
+      "daemon_exit_code": 0,
+      "daemon_log_sha256": "d4368d23c8e91658159e0324232414413b824e7593396d976ead34a630f43537",
+      "node": "ae5bb0348925ed5e2bf158762ff16301",
+      "plugin": "ae5bb0348925ed5e2bf158762ff16301/json-pointer@0.1.0",
+      "publisher_public_key": "2aafe7e8aa6ad07d72dc71a05c3e1f77541948a4c95d8ba65aa4edfb4372898e",
+      "untrusted_load_exit": 1,
+      "signed_component_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+      "exact_utf8_output": "\"Caf\u00e9 JSON Pointer d83961849a2d5478aa96ea0ef49ea92f\"",
+      "expected_output": "\"Caf\u00e9 JSON Pointer d83961849a2d5478aa96ea0ef49ea92f\"",
+      "output_sha256": "78a9bf9f9d6bb59417a2502d298d7ece132ab7de636e730974392bf921e02b49",
+      "null_output": "null",
+      "missing_property_exit": 1
+    }
+  },
+  "runner_sha256": "d1fdf0fbb1ce3377bf1a8ad566655cb7aa55439beb81479451409658e20bd915",
+  "command_log_sha256": "f94bee1093648964abd4868bb9dfd52f98302416754dc88de241b0bf94acc62b"
+}

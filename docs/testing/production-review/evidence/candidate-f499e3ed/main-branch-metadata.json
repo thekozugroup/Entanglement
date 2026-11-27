@@ -1,0 +1,18 @@
+{
+  "command": [
+    "gh",
+    "api",
+    "--method",
+    "GET",
+    "repos/thekozugroup/Entanglement/branches/main",
+    "--jq",
+    "{name: .name, protected: .protected, sha: .commit.sha, required_checks: .protection.required_status_checks.contexts}"
+  ],
+  "started_utc": "2026-11-27T11:24:05.628394+00:00",
+  "finished_utc": "2026-11-27T11:24:06.196310+00:00",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "exit_code": 1,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/main-branch-metadata.log",
+  "sha256": "230028db697ad7f6b7d2f3cb55c5441147fddfa5a82544eaa2cb5f335bcc144d"
+}

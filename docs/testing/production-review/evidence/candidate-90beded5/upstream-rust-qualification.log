@@ -1,0 +1,9 @@
+jaq 128 paired cohort 0 0 {'failed->failed': 57, 'failed->passed': 2, 'passed': 69}
+rngs Cargo/packing 0 0
+rngs complete 2026-11-27T11:03:58.932605+00:00
+jaq failed RuntimeError('full jaq adapter did not return its detailed result')
+Traceback (most recent call last):
+  File "/tmp/entangle-fresh-score.TBHRPGcg/upstream-rust-qualification.py", line 158, in <module>
+    assert all((run/(name+'-complete.json')).exists()for name in jobs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

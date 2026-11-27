@@ -1,0 +1,134 @@
+{
+  "checked_blocks": 128,
+  "peer_distinct": true,
+  "all_attempts_classified": true,
+  "patterns": {
+    "native": {
+      "failed->failed": 54,
+      "passed": 70,
+      "failed->passed": 4
+    },
+    "remote": {
+      "failed->failed": 57,
+      "passed": 69,
+      "failed->passed": 2
+    }
+  },
+  "real_cross_peer_recoveries": [
+    {
+      "block": 29,
+      "attempts": [
+        {
+          "elapsed_s": 0.02290276300482219,
+          "peer": "4b21977d914278652fbeb6e91836c446",
+          "request": {
+            "attempt": 1,
+            "expected_suite_identity": {
+              "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+              "manifest_blake3": "afb1c196e02dcfd185750527624e10aa60d1546c4dff210840841c94eefd7b46"
+            },
+            "ignored": false,
+            "name": "now",
+            "operation": "test"
+          },
+          "result": {
+            "exit_code": null,
+            "peer": "4b21977d914278652fbeb6e91836c446",
+            "stderr": "thread 'main' panicked at jaq-core/tests/common/mod.rs:35:5:\nassertion `left == right` failed\n  left: [Ok(Int(1795777373))]\n right: [Ok(Int(1795777372))]\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+            "stdout": "\nrunning 1 test\n",
+            "suite_identity": {
+              "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+              "manifest_blake3": "afb1c196e02dcfd185750527624e10aa60d1546c4dff210840841c94eefd7b46"
+            }
+          },
+          "utc": "2026-11-27T11:02:52.976873+00:00"
+        },
+        {
+          "elapsed_s": 0.0132009389999439,
+          "peer": "bd96b023c2f678ae2dea2083af9a27fd",
+          "request": {
+            "attempt": 2,
+            "expected_suite_identity": {
+              "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+              "manifest_blake3": "afb1c196e02dcfd185750527624e10aa60d1546c4dff210840841c94eefd7b46"
+            },
+            "ignored": false,
+            "name": "now",
+            "operation": "test"
+          },
+          "result": {
+            "exit_code": 0,
+            "peer": "bd96b023c2f678ae2dea2083af9a27fd",
+            "stderr": "",
+            "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s\n\n",
+            "suite_identity": {
+              "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+              "manifest_blake3": "afb1c196e02dcfd185750527624e10aa60d1546c4dff210840841c94eefd7b46"
+            }
+          },
+          "utc": "2026-11-27T11:02:52.999942+00:00"
+        }
+      ]
+    },
+    {
+      "block": 55,
+      "attempts": [
+        {
+          "elapsed_s": 0.006141375000879634,
+          "peer": "4b21977d914278652fbeb6e91836c446",
+          "request": {
+            "attempt": 1,
+            "expected_suite_identity": {
+              "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+              "manifest_blake3": "afb1c196e02dcfd185750527624e10aa60d1546c4dff210840841c94eefd7b46"
+            },
+            "ignored": false,
+            "name": "now",
+            "operation": "test"
+          },
+          "result": {
+            "exit_code": null,
+            "peer": "4b21977d914278652fbeb6e91836c446",
+            "stderr": "thread 'main' panicked at jaq-core/tests/common/mod.rs:35:5:\nassertion `left == right` failed\n  left: [Ok(Int(1795777376))]\n right: [Ok(Int(1795777375))]\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+            "stdout": "\nrunning 1 test\n",
+            "suite_identity": {
+              "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+              "manifest_blake3": "afb1c196e02dcfd185750527624e10aa60d1546c4dff210840841c94eefd7b46"
+            }
+          },
+          "utc": "2026-11-27T11:02:55.997298+00:00"
+        },
+        {
+          "elapsed_s": 0.005060182003944647,
+          "peer": "bd96b023c2f678ae2dea2083af9a27fd",
+          "request": {
+            "attempt": 2,
+            "expected_suite_identity": {
+              "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+              "manifest_blake3": "afb1c196e02dcfd185750527624e10aa60d1546c4dff210840841c94eefd7b46"
+            },
+            "ignored": false,
+            "name": "now",
+            "operation": "test"
+          },
+          "result": {
+            "exit_code": 0,
+            "peer": "bd96b023c2f678ae2dea2083af9a27fd",
+            "stderr": "",
+            "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s\n\n",
+            "suite_identity": {
+              "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+              "manifest_blake3": "afb1c196e02dcfd185750527624e10aa60d1546c4dff210840841c94eefd7b46"
+            }
+          },
+          "utc": "2026-11-27T11:02:56.003641+00:00"
+        }
+      ]
+    }
+  ],
+  "plan_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "raw_payload_sha256": "584d837a5ff877d4a8f335771897e2bfc07f5cbc4925cc547c2c933ef5837cc4",
+  "candidate_source": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "checked_requests_pinned": true,
+  "witness_criterion_met": true
+}

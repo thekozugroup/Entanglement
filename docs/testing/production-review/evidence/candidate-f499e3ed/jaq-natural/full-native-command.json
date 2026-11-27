@@ -1,0 +1,19 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:29:41.628799+00:00",
+  "finished_utc": "2026-11-27T11:29:48.384932+00:00",
+  "command": [
+    "cargo",
+    "+1.78.0",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "exit_code": 0,
+  "log_sha256": "4f77c0f593d71e457e9f5ed493b8a6404be04a81cd27706f2063899280928ef8",
+  "gzip_log_sha256": "d86ad6e174d2d16e55c9c451a0ab26d6161cb2ed310bb794b5656a6fed83a389"
+}

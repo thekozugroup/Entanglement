@@ -1,0 +1,67 @@
+{
+  "started_utc": "2026-11-27T11:02:41.918471+00:00",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "release_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "archive_sha256": "eb481741d88d56263ab99a97979565a0f1d404d9afeac1cb2c895bed7a7113a2",
+  "elf_sha256": {
+    "entangle": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02",
+    "entangled": "0071c6daa1eb6f000f3c0ad8b9ecbc6627d37a6cda0d1680b5bedc165b15238a"
+  },
+  "preregistration_sha256": "a25064f7571ddd6b48d94feb42eee7481a1b8b3afe40844cd04e0fef2ef93b4f",
+  "jaq_original_protocol_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "candidate_sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "driver_sha256": "598424fa2296243b589d2d15d5e5fff990171709cf6b4bdd14e5189eabdea463",
+  "upstream_revision": "606164eb26420c892c9bac27f7daf77b7a406b6d",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "finished_utc": "2026-11-27T11:07:23.983190+00:00",
+  "full_native_command": [
+    "cargo",
+    "+1.78.0",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "full_native_exit": null,
+  "full_native_status": "failed",
+  "full_native_exit_note": "The original driver recorded the native command output and proceeded to the WASI arm. Its later pre-Cargo failure occurred before it wrote the native subprocess exit code. The untouched native log records the single failed test target.",
+  "full_native_counts": {
+    "passed": 112,
+    "failed": 1,
+    "ignored": 0
+  },
+  "full_remote_exit": 101,
+  "full_reported_cases": {
+    "passed": 104,
+    "flaky": 0,
+    "failed": 9,
+    "ignored": 0,
+    "error": 0
+  },
+  "cohort_exit": 0,
+  "cohort_verifier_exit": 0,
+  "cohort_blocks": 128,
+  "remote_cohort_patterns": {
+    "failed->failed": 57,
+    "failed->passed": 2,
+    "passed": 69
+  },
+  "native_cohort_patterns": {
+    "failed->failed": 54,
+    "failed->passed": 4,
+    "passed": 70
+  },
+  "cross_peer_blocks": [
+    29,
+    55
+  ],
+  "natural_cross_peer_witness": true,
+  "whole_workspace_native_wasi_parity": false,
+  "sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "workspace_driver_sha256": "437f855493ad5f9f67a7be3ecda127067784eacdd15c41811db21c3ded02f6a6",
+  "independent_verifier_sha256": "86816ca448f9e44856752725247c69c2382397c6c6cd453de6236e50b0380ca6",
+  "cohort_script_sha256": "cb07643b13a09f8481beada5b642a035633f3e83e9dbd6ae16b670ef8a8649b0",
+  "qualification_scope": "A failed suite staging operation stopped the first command before Cargo. This runs the previously unstarted distributed Cargo step. The original native and 128-block natural runs are preserved and unrepeated.",
+  "full_remote_after_setup_sha256": "2c8a1e8cf6db93fa56bd78ae8a2300205f0dc10349b22b95e117773f1ba2376c"
+}

@@ -1,0 +1,12 @@
+{
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:34:13+00:00",
+  "finished_utc": "2026-11-27T11:35:53+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/package-operator/package-operator.log",
+  "sha256": "9803d4455940a5bad5e5e057a4f3250cc15785b496a44b594119aeb0178235cd",
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /tmp/entangle-final-package-operator.py --candidate-root /workspace/Entanglement --cargo-entangle /workspace/Entanglement/target/release/cargo-entangle --output /workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/package-operator --expected-source sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_receipt": "docs/testing/production-review/evidence/candidate-f499e3ed/package-operator/package-operator.json",
+  "source_receipt_sha256": "2f2a6fe7ce9b3ce0d1fa1daa9e410290c9087f73d95a87b0425746950e272b34"
+}

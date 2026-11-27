@@ -1,0 +1,30 @@
+{
+  "id": "9f21bcb8ab0b4a0ffe0713a2297e8c02fa0c4b1baa8c602b49443fc19666aa42",
+  "image": "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+  "command": [
+    "docker",
+    "create",
+    "--pull=never",
+    "--name",
+    "entangle-arm64-f499e3ed-slim",
+    "--network",
+    "bridge",
+    "--security-opt",
+    "no-new-privileges",
+    "--cpus",
+    "2",
+    "--memory",
+    "12g",
+    "--tmpfs",
+    "/private:rw,nosuid,nodev,exec,size=6g,mode=1777",
+    "--mount",
+    "type=bind,src=/workspace/entangle-emulated-arm-f499e3ed-slim/frozen,dst=/src,readonly",
+    "--mount",
+    "type=bind,src=/workspace/entangle-jammy-release-mjuyx5hl/fixture,dst=/seed,readonly",
+    "--mount",
+    "type=bind,src=/workspace/entangle-mix-296b.3eCSwyYF/emulator,dst=/emu,readonly",
+    "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+    "sleep",
+    "infinity"
+  ]
+}

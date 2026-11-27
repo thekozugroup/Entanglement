@@ -1,0 +1,30 @@
+["git", "rev-parse", "HEAD"]
+90beded509f93909507c78f2986dea0e085e4f1e
+exit=0
+["python3", "scripts/production_score.py", "--source-id"]
+sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb
+exit=0
+["docker", "info", "--format", "{{json .SecurityOptions}}"]
+["name=seccomp,profile=builtin","name=rootless","name=cgroupns"]
+exit=0
+["docker", "image", "inspect", "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb", "--format", "{{.Id}}"]
+sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938
+exit=0
+["git", "clone", "--shared", "--bare", "--no-tags", "/workspace/Entanglement", "/workspace/entangle-jammy-tmpfs-1hgv_m86/objects.git"]
+Cloning into bare repository '/workspace/entangle-jammy-tmpfs-1hgv_m86/objects.git'...
+done.
+exit=0
+["git", "--git-dir", "/workspace/entangle-jammy-tmpfs-1hgv_m86/objects.git", "update-ref", "refs/heads/frozen-compat", "90beded509f93909507c78f2986dea0e085e4f1e"]
+exit=0
+["git", "--git-dir", "/workspace/entangle-jammy-tmpfs-1hgv_m86/objects.git", "bundle", "create", "/workspace/entangle-jammy-tmpfs-1hgv_m86/source.bundle", "refs/heads/frozen-compat"]
+exit=0
+["git", "bundle", "verify", "/workspace/entangle-jammy-tmpfs-1hgv_m86/source.bundle"]
+The bundle contains this ref:
+90beded509f93909507c78f2986dea0e085e4f1e refs/heads/frozen-compat
+The bundle records a complete history.
+The bundle uses this hash algorithm: sha1
+/workspace/entangle-jammy-tmpfs-1hgv_m86/source.bundle is okay
+exit=0
+["docker", "create", "--pull=never", "--platform=linux/amd64", "--network=bridge", "--security-opt=no-new-privileges", "--tmpfs=/build-target:rw,exec,nosuid,nodev,mode=1777,size=7g", "--mount", "type=bind,src=/workspace/entangle-jammy-release-mjuyx5hl/fixture,dst=/seed,readonly", "--mount", "type=bind,src=/workspace/entangle-jammy-tmpfs-1hgv_m86/source.bundle,dst=/source.bundle,readonly", "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938", "sleep", "infinity"]
+Error response from daemon: open /home/dockerd/.local/share/docker/vfs/dir/3fee46865dd9bb117d75b624f24318ceb32987cf27e6f58dc759c4b8c853361d/usr/lib/x86_64-linux-gnu/gconv/ISO8859-15.so: no space left on device
+exit=1

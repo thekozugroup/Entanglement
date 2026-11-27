@@ -1,0 +1,52 @@
+{
+  "source_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_utc": "2026-11-27T11:00:59.528597+00:00",
+  "runs": [
+    {
+      "name": "daemon status",
+      "command": [
+        "target/debug/entangled",
+        "status"
+      ],
+      "exit_code": 0,
+      "output_sha256": "04157d3aafd7ebd03b725ea03b1645a4eddd794a2698195e3e4aae94f49c7d16"
+    },
+    {
+      "name": "plugin inventory",
+      "command": [
+        "target/debug/entangle",
+        "plugins",
+        "list"
+      ],
+      "exit_code": 0,
+      "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "daemon health",
+      "command": [
+        "target/debug/entangle",
+        "doctor"
+      ],
+      "exit_code": 0,
+      "output_sha256": "b7e1382ec38354dc849e0636ca3f7a8834c495702fe62b6b3a7104bbfdc656e1",
+      "summary": "Summary: 13 ok, 0 warn, 0 fail"
+    },
+    {
+      "name": "Tailscale operator command",
+      "command": [
+        "target/debug/entangle",
+        "mesh",
+        "tailnet",
+        "link",
+        "--help"
+      ],
+      "exit_code": 0,
+      "output_sha256": "359448654046a3e94dcec86523ca49f566255b2fb57e8942e440afa2c5ed42ed",
+      "usage": "Usage: entangle mesh tailnet link [OPTIONS] --peer <PEER> --port <PORT> <NODE_ID>"
+    }
+  ],
+  "finished_utc": "2026-11-27T11:01:00.094246+00:00",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "scope": "Development binaries and already running daemon on the cloud instance. Output digests omit the contents of local identity and plugin records."
+}

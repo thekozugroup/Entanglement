@@ -1,0 +1,52 @@
+{
+  "adapter_sha256": "cf1ac3e26f348d1983f518b9c115607d723312622ea8fe13668210e2bedebf73",
+  "archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "blocks": 128,
+  "coordinator": "d774393a721bf207c37b92635be60b69",
+  "encoder_sha256": "a699ecb7b7c446de7e6300f5d8d9009dfd57c26f26c52efc7518080a5bf23157",
+  "errors": 0,
+  "expected_blocks": 128,
+  "finished_utc": "2026-11-27T11:29:40.531924+00:00",
+  "fixture_sha256": "2244229b57651c6e908c50f4ddc86a43221ac16743dd89429f9e372621f43627",
+  "independent_signed_suite_identity": {
+    "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+    "manifest_blake3": "5b708c7631423e6c86ab07f54cda558de00b44b1c4dd26809782e8eb7c8f9d72"
+  },
+  "native_executable_sha256": "de058b34145b15b0f19decee76c0a1c6d685ed487446a9ecd80851415fcd2ce7",
+  "native_patterns": {
+    "failed->failed": 50,
+    "failed->passed": 3,
+    "passed": 75
+  },
+  "peers": [
+    "cef6e8b4057d75e3f2ba2ea451c08c65",
+    "203e5d1c336a28000930636aedcc7eff"
+  ],
+  "plan_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "plugin_id": "d774393a721bf207c37b92635be60b69/jaq-clock@0.1.0",
+  "raw_sha256": "67bd378447bb196e0542e45de90104aa17ffa59db162add19213516f3a85d1bf",
+  "release_binary_sha256": {
+    "entangle": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+    "entangled": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8"
+  },
+  "release_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "remote_patterns": {
+    "failed->failed": 58,
+    "failed->passed": 1,
+    "passed": 69
+  },
+  "script_sha256": "cb07643b13a09f8481beada5b642a035633f3e83e9dbd6ae16b670ef8a8649b0",
+  "sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "signed_component_sha256": "453c8cf550ae6547376457d1f1679b5ea444bddc98cf1508d42eadd68680fc1a",
+  "signed_manifest_sha256": "1bc67c0e34f1dfbaf3d5adf0d612603e134ad84c509fbef16a878448c550f410",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:29:13.469032+00:00",
+  "upstream_case_file_sha256": "0d86802167c266bb9e917d356f65c5c156eeee9df0765bc97e2e9a6b63a110c4",
+  "upstream_lock_sha256": "bc7ec7e5dfab7363f649fa7d76af767e8835a2a110785d939691e06c16255ed6",
+  "upstream_revision": "606164eb26420c892c9bac27f7daf77b7a406b6d",
+  "verified_remote_transitions": [
+    22
+  ],
+  "wasm_module_sha256": "7f647b6a4c6ce00194989c679fe90213c15628e3e014cdd76e5f6109874c544c"
+}

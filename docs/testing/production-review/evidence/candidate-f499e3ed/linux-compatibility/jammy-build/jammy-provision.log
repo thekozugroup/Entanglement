@@ -1,0 +1,654 @@
+["git", "rev-parse", "HEAD"]
+f499e3edf84e20f550312d05df51b9ea4e7cc699
+exit=0
+["python3", "scripts/production_score.py", "--source-id"]
+sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa
+exit=0
+["docker", "info", "--format", "{{json .SecurityOptions}}"]
+["name=seccomp,profile=builtin","name=rootless","name=cgroupns"]
+exit=0
+["docker", "image", "inspect", "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb", "--format", "{{.Id}}"]
+sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938
+exit=0
+["git", "clone", "--shared", "--bare", "--no-tags", "/workspace/Entanglement", "/workspace/entangle-jammy-tmpfs-munh1ec4/objects.git"]
+Cloning into bare repository '/workspace/entangle-jammy-tmpfs-munh1ec4/objects.git'...
+done.
+exit=0
+["git", "--git-dir", "/workspace/entangle-jammy-tmpfs-munh1ec4/objects.git", "update-ref", "refs/heads/frozen-compat", "f499e3edf84e20f550312d05df51b9ea4e7cc699"]
+exit=0
+["git", "--git-dir", "/workspace/entangle-jammy-tmpfs-munh1ec4/objects.git", "bundle", "create", "/workspace/entangle-jammy-tmpfs-munh1ec4/source.bundle", "refs/heads/frozen-compat"]
+exit=0
+["git", "bundle", "verify", "/workspace/entangle-jammy-tmpfs-munh1ec4/source.bundle"]
+The bundle contains this ref:
+f499e3edf84e20f550312d05df51b9ea4e7cc699 refs/heads/frozen-compat
+The bundle records a complete history.
+The bundle uses this hash algorithm: sha1
+/workspace/entangle-jammy-tmpfs-munh1ec4/source.bundle is okay
+exit=0
+["docker", "create", "--pull=never", "--platform=linux/amd64", "--network=bridge", "--security-opt=no-new-privileges", "--tmpfs=/build-target:rw,exec,nosuid,nodev,mode=1777,size=7g", "--mount", "type=bind,src=/workspace/entangle-jammy-release-mjuyx5hl/fixture,dst=/seed,readonly", "--mount", "type=bind,src=/workspace/entangle-jammy-tmpfs-munh1ec4/source.bundle,dst=/source.bundle,readonly", "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938", "sleep", "infinity"]
+247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d
+exit=0
+["docker", "start", "247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d"]
+247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d
+exit=0
+["docker", "exec", "247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d", "/bin/sh", "-ec", "apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y --no-install-recommends ca-certificates git gcc libc6-dev make pkg-config python3 && apt-get clean"]
+Get:1 http://security.ubuntu.com/ubuntu jammy-security InRelease [129 kB]
+Get:2 http://archive.ubuntu.com/ubuntu jammy InRelease [270 kB]
+Get:3 http://archive.ubuntu.com/ubuntu jammy-updates InRelease [128 kB]
+Get:4 http://security.ubuntu.com/ubuntu jammy-security/restricted amd64 Packages [8139 kB]
+Get:5 http://archive.ubuntu.com/ubuntu jammy-backports InRelease [127 kB]
+Get:6 http://archive.ubuntu.com/ubuntu jammy/restricted amd64 Packages [164 kB]
+Get:7 http://archive.ubuntu.com/ubuntu jammy/main amd64 Packages [1792 kB]
+Get:8 http://archive.ubuntu.com/ubuntu jammy/multiverse amd64 Packages [266 kB]
+Get:9 http://archive.ubuntu.com/ubuntu jammy/universe amd64 Packages [17.5 MB]
+Get:10 http://archive.ubuntu.com/ubuntu jammy-updates/universe amd64 Packages [1632 kB]
+Get:11 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 Packages [4900 kB]
+Get:12 http://archive.ubuntu.com/ubuntu jammy-updates/restricted amd64 Packages [8446 kB]
+Get:13 http://archive.ubuntu.com/ubuntu jammy-updates/multiverse amd64 Packages [104 kB]
+Get:14 http://archive.ubuntu.com/ubuntu jammy-backports/universe amd64 Packages [35.6 kB]
+Get:15 http://archive.ubuntu.com/ubuntu jammy-backports/main amd64 Packages [82.9 kB]
+Get:16 http://security.ubuntu.com/ubuntu jammy-security/multiverse amd64 Packages [96.7 kB]
+Get:17 http://security.ubuntu.com/ubuntu jammy-security/universe amd64 Packages [1331 kB]
+Get:18 http://security.ubuntu.com/ubuntu jammy-security/main amd64 Packages [4564 kB]
+Fetched 49.7 MB in 12s (4105 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  binutils binutils-common binutils-x86-64-linux-gnu cpp cpp-11 gcc-11
+  gcc-11-base git-man libasan6 libatomic1 libbinutils libbrotli1 libc-dev-bin
+  libcc1-0 libcrypt-dev libctf-nobfd0 libctf0 libcurl3-gnutls libdpkg-perl
+  liberror-perl libexpat1 libgcc-11-dev libgdbm-compat4 libgdbm6 libglib2.0-0
+  libgomp1 libisl23 libitm1 libldap-2.5-0 liblsan0 libmpc3 libmpdec3 libmpfr6
+  libnghttp2-14 libnsl-dev libperl5.34 libpsl5 libpython3-stdlib
+  libpython3.10-minimal libpython3.10-stdlib libquadmath0 libreadline8
+  librtmp1 libsasl2-2 libsasl2-modules-db libsqlite3-0 libssh-4 libtirpc-dev
+  libtsan0 libubsan1 linux-libc-dev media-types openssl perl perl-modules-5.34
+  python3-minimal python3.10 python3.10-minimal readline-common rpcsvc-proto
+Suggested packages:
+  binutils-doc cpp-doc gcc-11-locales gcc-multilib manpages-dev autoconf
+  automake libtool flex bison gdb gcc-doc gcc-11-multilib gcc-11-doc
+  gettext-base git-daemon-run | git-daemon-sysvinit git-doc git-email git-gui
+  gitk gitweb git-cvs git-mediawiki git-svn glibc-doc debian-keyring gnupg
+  patch bzr gdbm-l10n make-doc perl-doc libterm-readline-gnu-perl
+  | libterm-readline-perl-perl libtap-harness-archive-perl dpkg-dev
+  python3-doc python3-tk python3-venv python3.10-venv python3.10-doc
+  binfmt-support readline-doc
+Recommended packages:
+  patch less ssh-client manpages manpages-dev libc-devtools
+  libfile-fcntllock-perl liblocale-gettext-perl bzip2 xz-utils libglib2.0-data
+  shared-mime-info xdg-user-dirs libldap-common publicsuffix libsasl2-modules
+  netbase
+The following NEW packages will be installed:
+  binutils binutils-common binutils-x86-64-linux-gnu ca-certificates cpp
+  cpp-11 gcc gcc-11 gcc-11-base git git-man libasan6 libatomic1 libbinutils
+  libbrotli1 libc-dev-bin libc6-dev libcc1-0 libcrypt-dev libctf-nobfd0
+  libctf0 libcurl3-gnutls libdpkg-perl liberror-perl libexpat1 libgcc-11-dev
+  libgdbm-compat4 libgdbm6 libglib2.0-0 libgomp1 libisl23 libitm1
+  libldap-2.5-0 liblsan0 libmpc3 libmpdec3 libmpfr6 libnghttp2-14 libnsl-dev
+  libperl5.34 libpsl5 libpython3-stdlib libpython3.10-minimal
+  libpython3.10-stdlib libquadmath0 libreadline8 librtmp1 libsasl2-2
+  libsasl2-modules-db libsqlite3-0 libssh-4 libtirpc-dev libtsan0 libubsan1
+  linux-libc-dev make media-types openssl perl perl-modules-5.34 pkg-config
+  python3 python3-minimal python3.10 python3.10-minimal readline-common
+  rpcsvc-proto
+0 upgraded, 67 newly installed, 0 to remove and 4 not upgraded.
+Need to get 72.8 MB of archives.
+After this operation, 266 MB of additional disk space will be used.
+Get:1 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpython3.10-minimal amd64 3.10.12-1~22.04.18 [817 kB]
+Get:2 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libexpat1 amd64 2.4.7-1ubuntu0.10 [104 kB]
+Get:3 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 python3.10-minimal amd64 3.10.12-1~22.04.18 [2277 kB]
+Get:4 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 python3-minimal amd64 3.10.6-1~22.04.1 [24.3 kB]
+Get:5 http://archive.ubuntu.com/ubuntu jammy/main amd64 media-types all 7.0.0 [25.5 kB]
+Get:6 http://archive.ubuntu.com/ubuntu jammy/main amd64 libmpdec3 amd64 2.5.1-2build2 [86.8 kB]
+Get:7 http://archive.ubuntu.com/ubuntu jammy/main amd64 readline-common all 8.1.2-1 [53.5 kB]
+Get:8 http://archive.ubuntu.com/ubuntu jammy/main amd64 libreadline8 amd64 8.1.2-1 [153 kB]
+Get:9 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libsqlite3-0 amd64 3.37.2-2ubuntu0.8 [642 kB]
+Get:10 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpython3.10-stdlib amd64 3.10.12-1~22.04.18 [1850 kB]
+Get:11 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 python3.10 amd64 3.10.12-1~22.04.18 [508 kB]
+Get:12 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libpython3-stdlib amd64 3.10.6-1~22.04.1 [6812 B]
+Get:13 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 python3 amd64 3.10.6-1~22.04.1 [22.8 kB]
+Get:14 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 perl-modules-5.34 all 5.34.0-3ubuntu1.10 [2977 kB]
+Get:15 http://archive.ubuntu.com/ubuntu jammy/main amd64 libgdbm6 amd64 1.23-1 [33.9 kB]
+Get:16 http://archive.ubuntu.com/ubuntu jammy/main amd64 libgdbm-compat4 amd64 1.23-1 [6606 B]
+Get:17 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libperl5.34 amd64 5.34.0-3ubuntu1.10 [4796 kB]
+Get:18 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 perl amd64 5.34.0-3ubuntu1.10 [232 kB]
+Get:19 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 openssl amd64 3.0.2-0ubuntu1.30 [1186 kB]
+Get:20 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 ca-certificates all 20260816ubuntu0.22.04.2 [140 kB]
+Get:21 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libglib2.0-0 amd64 2.72.4-0ubuntu2.11 [1469 kB]
+Get:22 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libnghttp2-14 amd64 1.43.0-1ubuntu0.4 [76.9 kB]
+Get:23 http://archive.ubuntu.com/ubuntu jammy/main amd64 libpsl5 amd64 0.21.0-1.2build2 [58.4 kB]
+Get:24 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 binutils-common amd64 2.38-4ubuntu2.14 [223 kB]
+Get:25 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libbinutils amd64 2.38-4ubuntu2.14 [663 kB]
+Get:26 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libctf-nobfd0 amd64 2.38-4ubuntu2.14 [109 kB]
+Get:27 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libctf0 amd64 2.38-4ubuntu2.14 [103 kB]
+Get:28 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 binutils-x86-64-linux-gnu amd64 2.38-4ubuntu2.14 [2328 kB]
+Get:29 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 binutils amd64 2.38-4ubuntu2.14 [3192 B]
+Get:30 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gcc-11-base amd64 11.4.0-1ubuntu1~22.04.3 [216 kB]
+Get:31 http://archive.ubuntu.com/ubuntu jammy/main amd64 libisl23 amd64 0.24-2build1 [727 kB]
+Get:32 http://archive.ubuntu.com/ubuntu jammy/main amd64 libmpfr6 amd64 4.1.0-3build3 [1425 kB]
+Get:33 http://archive.ubuntu.com/ubuntu jammy/main amd64 libmpc3 amd64 1.2.1-2build1 [46.9 kB]
+Get:34 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 cpp-11 amd64 11.4.0-1ubuntu1~22.04.3 [10.0 MB]
+Get:35 http://archive.ubuntu.com/ubuntu jammy/main amd64 cpp amd64 4:11.2.0-1ubuntu1 [27.7 kB]
+Get:36 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libcc1-0 amd64 12.3.0-1ubuntu1~22.04.3 [48.3 kB]
+Get:37 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libgomp1 amd64 12.3.0-1ubuntu1~22.04.3 [127 kB]
+Get:38 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libitm1 amd64 12.3.0-1ubuntu1~22.04.3 [30.2 kB]
+Get:39 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libatomic1 amd64 12.3.0-1ubuntu1~22.04.3 [10.5 kB]
+Get:40 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libasan6 amd64 11.4.0-1ubuntu1~22.04.3 [2283 kB]
+Get:41 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 liblsan0 amd64 12.3.0-1ubuntu1~22.04.3 [1069 kB]
+Get:42 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libtsan0 amd64 11.4.0-1ubuntu1~22.04.3 [2260 kB]
+Get:43 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libubsan1 amd64 12.3.0-1ubuntu1~22.04.3 [976 kB]
+Get:44 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libquadmath0 amd64 12.3.0-1ubuntu1~22.04.3 [154 kB]
+Get:45 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libgcc-11-dev amd64 11.4.0-1ubuntu1~22.04.3 [2517 kB]
+Get:46 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 gcc-11 amd64 11.4.0-1ubuntu1~22.04.3 [20.1 MB]
+Get:47 http://archive.ubuntu.com/ubuntu jammy/main amd64 gcc amd64 4:11.2.0-1ubuntu1 [5112 B]
+Get:48 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libbrotli1 amd64 1.0.9-2ubuntu0.1 [315 kB]
+Get:49 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libsasl2-modules-db amd64 2.1.27+dfsg2-3ubuntu1.2 [20.5 kB]
+Get:50 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libsasl2-2 amd64 2.1.27+dfsg2-3ubuntu1.2 [53.8 kB]
+Get:51 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libldap-2.5-0 amd64 2.5.20+dfsg-0ubuntu0.22.04.1 [184 kB]
+Get:52 http://archive.ubuntu.com/ubuntu jammy/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-2build4 [58.2 kB]
+Get:53 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libssh-4 amd64 0.9.6-2ubuntu0.22.04.9 [188 kB]
+Get:54 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libcurl3-gnutls amd64 7.81.0-1ubuntu1.30 [287 kB]
+Ign:55 http://archive.ubuntu.com/ubuntu jammy/main amd64 liberror-perl all 0.17029-1
+Get:56 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 git-man all 1:2.34.1-1ubuntu1.18 [954 kB]
+Get:57 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 git amd64 1:2.34.1-1ubuntu1.18 [3174 kB]
+Get:58 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libc-dev-bin amd64 2.35-0ubuntu3.18 [20.3 kB]
+Get:59 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 linux-libc-dev amd64 5.15.0-204.214 [1423 kB]
+Get:60 http://archive.ubuntu.com/ubuntu jammy/main amd64 libcrypt-dev amd64 1:4.4.27-1 [112 kB]
+Get:61 http://archive.ubuntu.com/ubuntu jammy/main amd64 rpcsvc-proto amd64 1.4.2-0ubuntu6 [68.5 kB]
+Get:62 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libtirpc-dev amd64 1.3.2-2ubuntu0.1 [192 kB]
+Get:63 http://archive.ubuntu.com/ubuntu jammy/main amd64 libnsl-dev amd64 1.3.0-2build2 [71.3 kB]
+Get:64 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libc6-dev amd64 2.35-0ubuntu3.18 [2100 kB]
+Get:65 http://archive.ubuntu.com/ubuntu jammy-updates/main amd64 libdpkg-perl all 1.21.1ubuntu2.6 [237 kB]
+Get:66 http://archive.ubuntu.com/ubuntu jammy/main amd64 make amd64 4.3-4.1build1 [180 kB]
+Get:67 http://archive.ubuntu.com/ubuntu jammy/main amd64 pkg-config amd64 0.29.2-1ubuntu3 [48.2 kB]
+Get:55 http://archive.ubuntu.com/ubuntu jammy/main amd64 liberror-perl all 0.17029-1 [26.5 kB]
+debconf: delaying package configuration, since apt-utils is not installed
+Fetched 72.8 MB in 1min 22s (884 kB/s)
+Selecting previously unselected package libpython3.10-minimal:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4393 files and directories currently installed.)
+Preparing to unpack .../libpython3.10-minimal_3.10.12-1~22.04.18_amd64.deb ...
+Unpacking libpython3.10-minimal:amd64 (3.10.12-1~22.04.18) ...
+Selecting previously unselected package libexpat1:amd64.
+Preparing to unpack .../libexpat1_2.4.7-1ubuntu0.10_amd64.deb ...
+Unpacking libexpat1:amd64 (2.4.7-1ubuntu0.10) ...
+Selecting previously unselected package python3.10-minimal.
+Preparing to unpack .../python3.10-minimal_3.10.12-1~22.04.18_amd64.deb ...
+Unpacking python3.10-minimal (3.10.12-1~22.04.18) ...
+Setting up libpython3.10-minimal:amd64 (3.10.12-1~22.04.18) ...
+Setting up libexpat1:amd64 (2.4.7-1ubuntu0.10) ...
+Setting up python3.10-minimal (3.10.12-1~22.04.18) ...
+Selecting previously unselected package python3-minimal.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 4697 files and directories currently installed.)
+Preparing to unpack .../0-python3-minimal_3.10.6-1~22.04.1_amd64.deb ...
+Unpacking python3-minimal (3.10.6-1~22.04.1) ...
+Selecting previously unselected package media-types.
+Preparing to unpack .../1-media-types_7.0.0_all.deb ...
+Unpacking media-types (7.0.0) ...
+Selecting previously unselected package libmpdec3:amd64.
+Preparing to unpack .../2-libmpdec3_2.5.1-2build2_amd64.deb ...
+Unpacking libmpdec3:amd64 (2.5.1-2build2) ...
+Selecting previously unselected package readline-common.
+Preparing to unpack .../3-readline-common_8.1.2-1_all.deb ...
+Unpacking readline-common (8.1.2-1) ...
+Selecting previously unselected package libreadline8:amd64.
+Preparing to unpack .../4-libreadline8_8.1.2-1_amd64.deb ...
+Unpacking libreadline8:amd64 (8.1.2-1) ...
+Selecting previously unselected package libsqlite3-0:amd64.
+Preparing to unpack .../5-libsqlite3-0_3.37.2-2ubuntu0.8_amd64.deb ...
+Unpacking libsqlite3-0:amd64 (3.37.2-2ubuntu0.8) ...
+Selecting previously unselected package libpython3.10-stdlib:amd64.
+Preparing to unpack .../6-libpython3.10-stdlib_3.10.12-1~22.04.18_amd64.deb ...
+Unpacking libpython3.10-stdlib:amd64 (3.10.12-1~22.04.18) ...
+Selecting previously unselected package python3.10.
+Preparing to unpack .../7-python3.10_3.10.12-1~22.04.18_amd64.deb ...
+Unpacking python3.10 (3.10.12-1~22.04.18) ...
+Selecting previously unselected package libpython3-stdlib:amd64.
+Preparing to unpack .../8-libpython3-stdlib_3.10.6-1~22.04.1_amd64.deb ...
+Unpacking libpython3-stdlib:amd64 (3.10.6-1~22.04.1) ...
+Setting up python3-minimal (3.10.6-1~22.04.1) ...
+Selecting previously unselected package python3.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5127 files and directories currently installed.)
+Preparing to unpack .../00-python3_3.10.6-1~22.04.1_amd64.deb ...
+Unpacking python3 (3.10.6-1~22.04.1) ...
+Selecting previously unselected package perl-modules-5.34.
+Preparing to unpack .../01-perl-modules-5.34_5.34.0-3ubuntu1.10_all.deb ...
+Unpacking perl-modules-5.34 (5.34.0-3ubuntu1.10) ...
+Selecting previously unselected package libgdbm6:amd64.
+Preparing to unpack .../02-libgdbm6_1.23-1_amd64.deb ...
+Unpacking libgdbm6:amd64 (1.23-1) ...
+Selecting previously unselected package libgdbm-compat4:amd64.
+Preparing to unpack .../03-libgdbm-compat4_1.23-1_amd64.deb ...
+Unpacking libgdbm-compat4:amd64 (1.23-1) ...
+Selecting previously unselected package libperl5.34:amd64.
+Preparing to unpack .../04-libperl5.34_5.34.0-3ubuntu1.10_amd64.deb ...
+Unpacking libperl5.34:amd64 (5.34.0-3ubuntu1.10) ...
+Selecting previously unselected package perl.
+Preparing to unpack .../05-perl_5.34.0-3ubuntu1.10_amd64.deb ...
+Unpacking perl (5.34.0-3ubuntu1.10) ...
+Selecting previously unselected package openssl.
+Preparing to unpack .../06-openssl_3.0.2-0ubuntu1.30_amd64.deb ...
+Unpacking openssl (3.0.2-0ubuntu1.30) ...
+Selecting previously unselected package ca-certificates.
+Preparing to unpack .../07-ca-certificates_20260816ubuntu0.22.04.2_all.deb ...
+Unpacking ca-certificates (20260816ubuntu0.22.04.2) ...
+Selecting previously unselected package libglib2.0-0:amd64.
+Preparing to unpack .../08-libglib2.0-0_2.72.4-0ubuntu2.11_amd64.deb ...
+Unpacking libglib2.0-0:amd64 (2.72.4-0ubuntu2.11) ...
+Selecting previously unselected package libnghttp2-14:amd64.
+Preparing to unpack .../09-libnghttp2-14_1.43.0-1ubuntu0.4_amd64.deb ...
+Unpacking libnghttp2-14:amd64 (1.43.0-1ubuntu0.4) ...
+Selecting previously unselected package libpsl5:amd64.
+Preparing to unpack .../10-libpsl5_0.21.0-1.2build2_amd64.deb ...
+Unpacking libpsl5:amd64 (0.21.0-1.2build2) ...
+Selecting previously unselected package binutils-common:amd64.
+Preparing to unpack .../11-binutils-common_2.38-4ubuntu2.14_amd64.deb ...
+Unpacking binutils-common:amd64 (2.38-4ubuntu2.14) ...
+Selecting previously unselected package libbinutils:amd64.
+Preparing to unpack .../12-libbinutils_2.38-4ubuntu2.14_amd64.deb ...
+Unpacking libbinutils:amd64 (2.38-4ubuntu2.14) ...
+Selecting previously unselected package libctf-nobfd0:amd64.
+Preparing to unpack .../13-libctf-nobfd0_2.38-4ubuntu2.14_amd64.deb ...
+Unpacking libctf-nobfd0:amd64 (2.38-4ubuntu2.14) ...
+Selecting previously unselected package libctf0:amd64.
+Preparing to unpack .../14-libctf0_2.38-4ubuntu2.14_amd64.deb ...
+Unpacking libctf0:amd64 (2.38-4ubuntu2.14) ...
+Selecting previously unselected package binutils-x86-64-linux-gnu.
+Preparing to unpack .../15-binutils-x86-64-linux-gnu_2.38-4ubuntu2.14_amd64.deb ...
+Unpacking binutils-x86-64-linux-gnu (2.38-4ubuntu2.14) ...
+Selecting previously unselected package binutils.
+Preparing to unpack .../16-binutils_2.38-4ubuntu2.14_amd64.deb ...
+Unpacking binutils (2.38-4ubuntu2.14) ...
+Selecting previously unselected package gcc-11-base:amd64.
+Preparing to unpack .../17-gcc-11-base_11.4.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking gcc-11-base:amd64 (11.4.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package libisl23:amd64.
+Preparing to unpack .../18-libisl23_0.24-2build1_amd64.deb ...
+Unpacking libisl23:amd64 (0.24-2build1) ...
+Selecting previously unselected package libmpfr6:amd64.
+Preparing to unpack .../19-libmpfr6_4.1.0-3build3_amd64.deb ...
+Unpacking libmpfr6:amd64 (4.1.0-3build3) ...
+Selecting previously unselected package libmpc3:amd64.
+Preparing to unpack .../20-libmpc3_1.2.1-2build1_amd64.deb ...
+Unpacking libmpc3:amd64 (1.2.1-2build1) ...
+Selecting previously unselected package cpp-11.
+Preparing to unpack .../21-cpp-11_11.4.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking cpp-11 (11.4.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package cpp.
+Preparing to unpack .../22-cpp_4%3a11.2.0-1ubuntu1_amd64.deb ...
+Unpacking cpp (4:11.2.0-1ubuntu1) ...
+Selecting previously unselected package libcc1-0:amd64.
+Preparing to unpack .../23-libcc1-0_12.3.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking libcc1-0:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package libgomp1:amd64.
+Preparing to unpack .../24-libgomp1_12.3.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking libgomp1:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package libitm1:amd64.
+Preparing to unpack .../25-libitm1_12.3.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking libitm1:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package libatomic1:amd64.
+Preparing to unpack .../26-libatomic1_12.3.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking libatomic1:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package libasan6:amd64.
+Preparing to unpack .../27-libasan6_11.4.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking libasan6:amd64 (11.4.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package liblsan0:amd64.
+Preparing to unpack .../28-liblsan0_12.3.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking liblsan0:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package libtsan0:amd64.
+Preparing to unpack .../29-libtsan0_11.4.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking libtsan0:amd64 (11.4.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package libubsan1:amd64.
+Preparing to unpack .../30-libubsan1_12.3.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking libubsan1:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package libquadmath0:amd64.
+Preparing to unpack .../31-libquadmath0_12.3.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking libquadmath0:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package libgcc-11-dev:amd64.
+Preparing to unpack .../32-libgcc-11-dev_11.4.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking libgcc-11-dev:amd64 (11.4.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package gcc-11.
+Preparing to unpack .../33-gcc-11_11.4.0-1ubuntu1~22.04.3_amd64.deb ...
+Unpacking gcc-11 (11.4.0-1ubuntu1~22.04.3) ...
+Selecting previously unselected package gcc.
+Preparing to unpack .../34-gcc_4%3a11.2.0-1ubuntu1_amd64.deb ...
+Unpacking gcc (4:11.2.0-1ubuntu1) ...
+Selecting previously unselected package libbrotli1:amd64.
+Preparing to unpack .../35-libbrotli1_1.0.9-2ubuntu0.1_amd64.deb ...
+Unpacking libbrotli1:amd64 (1.0.9-2ubuntu0.1) ...
+Selecting previously unselected package libsasl2-modules-db:amd64.
+Preparing to unpack .../36-libsasl2-modules-db_2.1.27+dfsg2-3ubuntu1.2_amd64.deb ...
+Unpacking libsasl2-modules-db:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+Selecting previously unselected package libsasl2-2:amd64.
+Preparing to unpack .../37-libsasl2-2_2.1.27+dfsg2-3ubuntu1.2_amd64.deb ...
+Unpacking libsasl2-2:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+Selecting previously unselected package libldap-2.5-0:amd64.
+Preparing to unpack .../38-libldap-2.5-0_2.5.20+dfsg-0ubuntu0.22.04.1_amd64.deb ...
+Unpacking libldap-2.5-0:amd64 (2.5.20+dfsg-0ubuntu0.22.04.1) ...
+Selecting previously unselected package librtmp1:amd64.
+Preparing to unpack .../39-librtmp1_2.4+20151223.gitfa8646d.1-2build4_amd64.deb ...
+Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2build4) ...
+Selecting previously unselected package libssh-4:amd64.
+Preparing to unpack .../40-libssh-4_0.9.6-2ubuntu0.22.04.9_amd64.deb ...
+Unpacking libssh-4:amd64 (0.9.6-2ubuntu0.22.04.9) ...
+Selecting previously unselected package libcurl3-gnutls:amd64.
+Preparing to unpack .../41-libcurl3-gnutls_7.81.0-1ubuntu1.30_amd64.deb ...
+Unpacking libcurl3-gnutls:amd64 (7.81.0-1ubuntu1.30) ...
+Selecting previously unselected package liberror-perl.
+Preparing to unpack .../42-liberror-perl_0.17029-1_all.deb ...
+Unpacking liberror-perl (0.17029-1) ...
+Selecting previously unselected package git-man.
+Preparing to unpack .../43-git-man_1%3a2.34.1-1ubuntu1.18_all.deb ...
+Unpacking git-man (1:2.34.1-1ubuntu1.18) ...
+Selecting previously unselected package git.
+Preparing to unpack .../44-git_1%3a2.34.1-1ubuntu1.18_amd64.deb ...
+Unpacking git (1:2.34.1-1ubuntu1.18) ...
+Selecting previously unselected package libc-dev-bin.
+Preparing to unpack .../45-libc-dev-bin_2.35-0ubuntu3.18_amd64.deb ...
+Unpacking libc-dev-bin (2.35-0ubuntu3.18) ...
+Selecting previously unselected package linux-libc-dev:amd64.
+Preparing to unpack .../46-linux-libc-dev_5.15.0-204.214_amd64.deb ...
+Unpacking linux-libc-dev:amd64 (5.15.0-204.214) ...
+Selecting previously unselected package libcrypt-dev:amd64.
+Preparing to unpack .../47-libcrypt-dev_1%3a4.4.27-1_amd64.deb ...
+Unpacking libcrypt-dev:amd64 (1:4.4.27-1) ...
+Selecting previously unselected package rpcsvc-proto.
+Preparing to unpack .../48-rpcsvc-proto_1.4.2-0ubuntu6_amd64.deb ...
+Unpacking rpcsvc-proto (1.4.2-0ubuntu6) ...
+Selecting previously unselected package libtirpc-dev:amd64.
+Preparing to unpack .../49-libtirpc-dev_1.3.2-2ubuntu0.1_amd64.deb ...
+Unpacking libtirpc-dev:amd64 (1.3.2-2ubuntu0.1) ...
+Selecting previously unselected package libnsl-dev:amd64.
+Preparing to unpack .../50-libnsl-dev_1.3.0-2build2_amd64.deb ...
+Unpacking libnsl-dev:amd64 (1.3.0-2build2) ...
+Selecting previously unselected package libc6-dev:amd64.
+Preparing to unpack .../51-libc6-dev_2.35-0ubuntu3.18_amd64.deb ...
+Unpacking libc6-dev:amd64 (2.35-0ubuntu3.18) ...
+Selecting previously unselected package libdpkg-perl.
+Preparing to unpack .../52-libdpkg-perl_1.21.1ubuntu2.6_all.deb ...
+Unpacking libdpkg-perl (1.21.1ubuntu2.6) ...
+Selecting previously unselected package make.
+Preparing to unpack .../53-make_4.3-4.1build1_amd64.deb ...
+Unpacking make (4.3-4.1build1) ...
+Selecting previously unselected package pkg-config.
+Preparing to unpack .../54-pkg-config_0.29.2-1ubuntu3_amd64.deb ...
+Unpacking pkg-config (0.29.2-1ubuntu3) ...
+Setting up media-types (7.0.0) ...
+Setting up gcc-11-base:amd64 (11.4.0-1ubuntu1~22.04.3) ...
+Setting up libpsl5:amd64 (0.21.0-1.2build2) ...
+Setting up libglib2.0-0:amd64 (2.72.4-0ubuntu2.11) ...
+No schema files found: doing nothing.
+Setting up libbrotli1:amd64 (1.0.9-2ubuntu0.1) ...
+Setting up libsqlite3-0:amd64 (3.37.2-2ubuntu0.8) ...
+Setting up binutils-common:amd64 (2.38-4ubuntu2.14) ...
+Setting up libnghttp2-14:amd64 (1.43.0-1ubuntu0.4) ...
+Setting up linux-libc-dev:amd64 (5.15.0-204.214) ...
+Setting up libctf-nobfd0:amd64 (2.38-4ubuntu2.14) ...
+Setting up libgomp1:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Setting up perl-modules-5.34 (5.34.0-3ubuntu1.10) ...
+Setting up libasan6:amd64 (11.4.0-1ubuntu1~22.04.3) ...
+Setting up libsasl2-modules-db:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+Setting up libtirpc-dev:amd64 (1.3.2-2ubuntu0.1) ...
+Setting up rpcsvc-proto (1.4.2-0ubuntu6) ...
+Setting up make (4.3-4.1build1) ...
+Setting up libmpfr6:amd64 (4.1.0-3build3) ...
+Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2build4) ...
+Setting up libquadmath0:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Setting up libmpc3:amd64 (1.2.1-2build1) ...
+Setting up libatomic1:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Setting up libsasl2-2:amd64 (2.1.27+dfsg2-3ubuntu1.2) ...
+Setting up libssh-4:amd64 (0.9.6-2ubuntu0.22.04.9) ...
+Setting up libubsan1:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Setting up libnsl-dev:amd64 (1.3.0-2build2) ...
+Setting up libcrypt-dev:amd64 (1:4.4.27-1) ...
+Setting up libmpdec3:amd64 (2.5.1-2build2) ...
+Setting up git-man (1:2.34.1-1ubuntu1.18) ...
+Setting up libbinutils:amd64 (2.38-4ubuntu2.14) ...
+Setting up libisl23:amd64 (0.24-2build1) ...
+Setting up libc-dev-bin (2.35-0ubuntu3.18) ...
+Setting up openssl (3.0.2-0ubuntu1.30) ...
+Setting up readline-common (8.1.2-1) ...
+Setting up libcc1-0:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Setting up liblsan0:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Setting up libitm1:amd64 (12.3.0-1ubuntu1~22.04.3) ...
+Setting up libgdbm6:amd64 (1.23-1) ...
+Setting up libtsan0:amd64 (11.4.0-1ubuntu1~22.04.3) ...
+Setting up libctf0:amd64 (2.38-4ubuntu2.14) ...
+Setting up cpp-11 (11.4.0-1ubuntu1~22.04.3) ...
+Setting up libreadline8:amd64 (8.1.2-1) ...
+Setting up libldap-2.5-0:amd64 (2.5.20+dfsg-0ubuntu0.22.04.1) ...
+Setting up libpython3.10-stdlib:amd64 (3.10.12-1~22.04.18) ...
+Setting up ca-certificates (20260816ubuntu0.22.04.2) ...
+Clearing symlinks in /etc/ssl/certs...
+done.
+Updating certificates in /etc/ssl/certs...
+120 added, 0 removed; done.
+Setting up libgdbm-compat4:amd64 (1.23-1) ...
+Setting up libgcc-11-dev:amd64 (11.4.0-1ubuntu1~22.04.3) ...
+Setting up cpp (4:11.2.0-1ubuntu1) ...
+Setting up libc6-dev:amd64 (2.35-0ubuntu3.18) ...
+Setting up libpython3-stdlib:amd64 (3.10.6-1~22.04.1) ...
+Setting up binutils-x86-64-linux-gnu (2.38-4ubuntu2.14) ...
+Setting up libperl5.34:amd64 (5.34.0-3ubuntu1.10) ...
+Setting up python3.10 (3.10.12-1~22.04.18) ...
+Setting up libcurl3-gnutls:amd64 (7.81.0-1ubuntu1.30) ...
+Setting up python3 (3.10.6-1~22.04.1) ...
+Setting up binutils (2.38-4ubuntu2.14) ...
+Setting up perl (5.34.0-3ubuntu1.10) ...
+Setting up libdpkg-perl (1.21.1ubuntu2.6) ...
+Setting up gcc-11 (11.4.0-1ubuntu1~22.04.3) ...
+Setting up gcc (4:11.2.0-1ubuntu1) ...
+Setting up liberror-perl (0.17029-1) ...
+Setting up pkg-config (0.29.2-1ubuntu3) ...
+Setting up git (1:2.34.1-1ubuntu1.18) ...
+Processing triggers for libc-bin (2.35-0ubuntu3.18) ...
+Processing triggers for ca-certificates (20260816ubuntu0.22.04.2) ...
+Updating certificates in /etc/ssl/certs...
+0 added, 0 removed; done.
+Running hooks in /etc/ca-certificates/update.d...
+done.
+exit=0
+["docker", "network", "disconnect", "bridge", "247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d"]
+exit=0
+["docker", "inspect", "247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d", "--format", "{{json .NetworkSettings.Networks}}"]
+{}
+exit=0
+["docker", "exec", "247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d", "sh", "-ec", "\n            set -eu\n            test \"$(wc -l </proc/net/route)\" -eq 1\n            test \"$(df -B1 /build-target | awk 'NR==2{print $2}')\" = 7516192768\n            test -z \"$(ls -A /build-target)\"\n            getconf GNU_LIBC_VERSION\n            gcc -v\n            ld -v\n            sha256sum /source.bundle /seed/toolchain/bin/rustc /seed/toolchain/bin/cargo\n        "]
+glibc 2.35
+GNU ld (GNU Binutils for Ubuntu) 2.38
+6003e29a20f115fcb964e0392bfe67aa55420861a5155972c661526dc77c9528  /source.bundle
+5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e  /seed/toolchain/bin/rustc
+e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b  /seed/toolchain/bin/cargo
+Using built-in specs.
+COLLECT_GCC=gcc
+COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-linux-gnu/11/lto-wrapper
+OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+OFFLOAD_TARGET_DEFAULT=1
+Target: x86_64-linux-gnu
+Configured with: ../src/configure -v --with-pkgversion='Ubuntu 11.4.0-1ubuntu1~22.04.3' --with-bugurl=file:///usr/share/doc/gcc-11/README.Bugs --enable-languages=c,ada,c++,go,brig,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-11 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-11-0odw26/gcc-11-11.4.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-11-0odw26/gcc-11-11.4.0/debian/tmp-gcn/usr --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+Thread model: posix
+Supported LTO compression algorithms: zlib zstd
+gcc version 11.4.0 (Ubuntu 11.4.0-1ubuntu1~22.04.3) 
+exit=0
+["docker", "exec", "--user", "65534:65534", "247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d", "sha256sum", "/source.bundle", "/seed/toolchain/bin/rustc", "/seed/toolchain/bin/cargo"]
+6003e29a20f115fcb964e0392bfe67aa55420861a5155972c661526dc77c9528  /source.bundle
+5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e  /seed/toolchain/bin/rustc
+e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b  /seed/toolchain/bin/cargo
+exit=0
+["docker", "exec", "247b80b6b9ef19cce31ff74cf71d96386025e894307708871e24d4c099cd1f5d", "dpkg-query", "-W", "-f=${binary:Package} ${Version}\\n"]
+adduser 3.118ubuntu5
+apt 2.4.15ubuntu0.1
+base-files 12ubuntu4.7
+base-passwd 3.5.52build1
+bash 5.1-6ubuntu1.1
+binutils 2.38-4ubuntu2.14
+binutils-common:amd64 2.38-4ubuntu2.14
+binutils-x86-64-linux-gnu 2.38-4ubuntu2.14
+bsdutils 1:2.37.2-4ubuntu3.6
+ca-certificates 20260816ubuntu0.22.04.2
+coreutils 8.32-4.1ubuntu1.4
+cpp 4:11.2.0-1ubuntu1
+cpp-11 11.4.0-1ubuntu1~22.04.3
+dash 0.5.11+git20210903+057cd650a4ed-3build1
+debconf 1.5.79ubuntu1
+debianutils 5.5-1ubuntu2
+diffutils 1:3.8-0ubuntu2.1
+dpkg 1.21.1ubuntu2.6
+e2fsprogs 1.46.5-2ubuntu1.2
+findutils 4.8.0-1ubuntu3
+gcc 4:11.2.0-1ubuntu1
+gcc-11 11.4.0-1ubuntu1~22.04.3
+gcc-11-base:amd64 11.4.0-1ubuntu1~22.04.3
+gcc-12-base:amd64 12.3.0-1ubuntu1~22.04.3
+git 1:2.34.1-1ubuntu1.18
+git-man 1:2.34.1-1ubuntu1.18
+gpgv 2.2.27-3ubuntu2.5
+grep 3.7-1build1
+gzip 1.10-4ubuntu4.2
+hostname 3.23ubuntu2
+init-system-helpers 1.62
+libacl1:amd64 2.3.1-1
+libapt-pkg6.0:amd64 2.4.15ubuntu0.1
+libasan6:amd64 11.4.0-1ubuntu1~22.04.3
+libatomic1:amd64 12.3.0-1ubuntu1~22.04.3
+libattr1:amd64 1:2.5.1-1ubuntu0.1
+libaudit-common 1:3.0.7-1ubuntu0.1
+libaudit1:amd64 1:3.0.7-1ubuntu0.1
+libbinutils:amd64 2.38-4ubuntu2.14
+libblkid1:amd64 2.37.2-4ubuntu3.6
+libbrotli1:amd64 1.0.9-2ubuntu0.1
+libbz2-1.0:amd64 1.0.8-5ubuntu0.1
+libc-bin 2.35-0ubuntu3.18
+libc-dev-bin 2.35-0ubuntu3.18
+libc6:amd64 2.35-0ubuntu3.18
+libc6-dev:amd64 2.35-0ubuntu3.18
+libcap-ng0:amd64 0.7.9-2.2build3
+libcap2:amd64 1:2.44-1ubuntu0.22.04.3
+libcc1-0:amd64 12.3.0-1ubuntu1~22.04.3
+libcom-err2:amd64 1.46.5-2ubuntu1.2
+libcrypt-dev:amd64 1:4.4.27-1
+libcrypt1:amd64 1:4.4.27-1
+libctf-nobfd0:amd64 2.38-4ubuntu2.14
+libctf0:amd64 2.38-4ubuntu2.14
+libcurl3-gnutls:amd64 7.81.0-1ubuntu1.30
+libdb5.3:amd64 5.3.28+dfsg1-0.8ubuntu3
+libdebconfclient0:amd64 0.261ubuntu1
+libdpkg-perl 1.21.1ubuntu2.6
+liberror-perl 0.17029-1
+libexpat1:amd64 2.4.7-1ubuntu0.10
+libext2fs2:amd64 1.46.5-2ubuntu1.2
+libffi8:amd64 3.4.2-4
+libgcc-11-dev:amd64 11.4.0-1ubuntu1~22.04.3
+libgcc-s1:amd64 12.3.0-1ubuntu1~22.04.3
+libgcrypt20:amd64 1.9.4-3ubuntu3.3
+libgdbm-compat4:amd64 1.23-1
+libgdbm6:amd64 1.23-1
+libglib2.0-0:amd64 2.72.4-0ubuntu2.11
+libgmp10:amd64 2:6.2.1+dfsg-3ubuntu1
+libgnutls30:amd64 3.7.3-4ubuntu1.9
+libgomp1:amd64 12.3.0-1ubuntu1~22.04.3
+libgpg-error0:amd64 1.43-3
+libgssapi-krb5-2:amd64 1.19.2-2ubuntu0.10
+libhogweed6:amd64 3.7.3-1build2
+libidn2-0:amd64 2.3.2-2build1
+libisl23:amd64 0.24-2build1
+libitm1:amd64 12.3.0-1ubuntu1~22.04.3
+libk5crypto3:amd64 1.19.2-2ubuntu0.10
+libkeyutils1:amd64 1.6.1-2ubuntu3
+libkrb5-3:amd64 1.19.2-2ubuntu0.10
+libkrb5support0:amd64 1.19.2-2ubuntu0.10
+libldap-2.5-0:amd64 2.5.20+dfsg-0ubuntu0.22.04.1
+liblsan0:amd64 12.3.0-1ubuntu1~22.04.3
+liblz4-1:amd64 1.9.3-2build2
+liblzma5:amd64 5.2.5-2ubuntu1.2
+libmount1:amd64 2.37.2-4ubuntu3.6
+libmpc3:amd64 1.2.1-2build1
+libmpdec3:amd64 2.5.1-2build2
+libmpfr6:amd64 4.1.0-3build3
+libncurses6:amd64 6.3-2ubuntu0.3
+libncursesw6:amd64 6.3-2ubuntu0.3
+libnettle8:amd64 3.7.3-1build2
+libnghttp2-14:amd64 1.43.0-1ubuntu0.4
+libnsl-dev:amd64 1.3.0-2build2
+libnsl2:amd64 1.3.0-2build2
+libp11-kit0:amd64 0.24.0-6ubuntu0.1
+libpam-modules:amd64 1.4.0-11ubuntu2.8
+libpam-modules-bin 1.4.0-11ubuntu2.8
+libpam-runtime 1.4.0-11ubuntu2.8
+libpam0g:amd64 1.4.0-11ubuntu2.8
+libpcre2-8-0:amd64 10.39-3ubuntu0.2
+libpcre3:amd64 2:8.39-13ubuntu0.22.04.1
+libperl5.34:amd64 5.34.0-3ubuntu1.10
+libprocps8:amd64 2:3.3.17-6ubuntu2.1
+libpsl5:amd64 0.21.0-1.2build2
+libpython3-stdlib:amd64 3.10.6-1~22.04.1
+libpython3.10-minimal:amd64 3.10.12-1~22.04.18
+libpython3.10-stdlib:amd64 3.10.12-1~22.04.18
+libquadmath0:amd64 12.3.0-1ubuntu1~22.04.3
+libreadline8:amd64 8.1.2-1
+librtmp1:amd64 2.4+20151223.gitfa8646d.1-2build4
+libsasl2-2:amd64 2.1.27+dfsg2-3ubuntu1.2
+libsasl2-modules-db:amd64 2.1.27+dfsg2-3ubuntu1.2
+libseccomp2:amd64 2.5.3-2ubuntu3~22.04.1
+libselinux1:amd64 3.3-1build2
+libsemanage-common 3.3-1build2
+libsemanage2:amd64 3.3-1build2
+libsepol2:amd64 3.3-1build1
+libsmartcols1:amd64 2.37.2-4ubuntu3.6
+libsqlite3-0:amd64 3.37.2-2ubuntu0.8
+libss2:amd64 1.46.5-2ubuntu1.2
+libssh-4:amd64 0.9.6-2ubuntu0.22.04.9
+libssl3:amd64 3.0.2-0ubuntu1.30
+libstdc++6:amd64 12.3.0-1ubuntu1~22.04.3
+libsystemd0:amd64 249.11-0ubuntu3.23
+libtasn1-6:amd64 4.18.0-4ubuntu0.2
+libtinfo6:amd64 6.3-2ubuntu0.3
+libtirpc-common 1.3.2-2ubuntu0.1
+libtirpc-dev:amd64 1.3.2-2ubuntu0.1
+libtirpc3:amd64 1.3.2-2ubuntu0.1
+libtsan0:amd64 11.4.0-1ubuntu1~22.04.3
+libubsan1:amd64 12.3.0-1ubuntu1~22.04.3
+libudev1:amd64 249.11-0ubuntu3.23
+libunistring2:amd64 1.0-1
+libuuid1:amd64 2.37.2-4ubuntu3.6
+libxxhash0:amd64 0.8.1-1
+libzstd1:amd64 1.4.8+dfsg-3build1
+linux-libc-dev:amd64 5.15.0-204.214
+login 1:4.8.1-2ubuntu2.2
+logsave 1.46.5-2ubuntu1.2
+lsb-base 11.1.0ubuntu4
+make 4.3-4.1build1
+mawk 1.3.4.20200120-3
+media-types 7.0.0
+mount 2.37.2-4ubuntu3.6
+ncurses-base 6.3-2ubuntu0.3
+ncurses-bin 6.3-2ubuntu0.3
+openssl 3.0.2-0ubuntu1.30
+passwd 1:4.8.1-2ubuntu2.2
+perl 5.34.0-3ubuntu1.10
+perl-base 5.34.0-3ubuntu1.10
+perl-modules-5.34 5.34.0-3ubuntu1.10
+pkg-config 0.29.2-1ubuntu3
+procps 2:3.3.17-6ubuntu2.1
+python3 3.10.6-1~22.04.1
+python3-minimal 3.10.6-1~22.04.1
+python3.10 3.10.12-1~22.04.18
+python3.10-minimal 3.10.12-1~22.04.18
+readline-common 8.1.2-1
+rpcsvc-proto 1.4.2-0ubuntu6
+sed 4.8-1ubuntu2.1
+sensible-utils 0.0.17
+sysvinit-utils 3.01-1ubuntu1
+tar 1.34+dfsg-1ubuntu0.1.22.04.6
+ubuntu-keyring 2021.03.26
+usrmerge 25ubuntu2
+util-linux 2.37.2-4ubuntu3.6
+zlib1g:amd64 1:1.2.11.dfsg-2ubuntu9.2
+exit=0
+["git", "rev-parse", "HEAD"]
+f499e3edf84e20f550312d05df51b9ea4e7cc699
+exit=0
+["python3", "scripts/production_score.py", "--source-id"]
+sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa
+exit=0

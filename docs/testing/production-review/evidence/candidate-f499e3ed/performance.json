@@ -1,0 +1,1758 @@
+{
+  "archives_sha256": {
+    "baseline": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+    "candidate": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53"
+  },
+  "baseline_authorization": "engineering comparison with preceding frozen a5728c23 daemon; production-baseline owner approval outstanding",
+  "baseline_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "candidate_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "cli_sha256": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+  "comparisons": {
+    "image local": {
+      "baseline": {
+        "images_s": 34.96992504874205,
+        "p50_ms": 107.77423800027464,
+        "p95_ms": 147.87632699881215
+      },
+      "candidate": {
+        "images_s": 40.48356313918241,
+        "p50_ms": 87.86374200280989,
+        "p95_ms": 157.50014800141798
+      },
+      "meets_engineering_limit": false,
+      "p95_ratio": 1.065080200448062,
+      "throughput_ratio": 1.15766799850887
+    },
+    "image one_remote": {
+      "baseline": {
+        "images_s": 35.595969901346166,
+        "p50_ms": 105.13133900531102,
+        "p95_ms": 148.04589199775364
+      },
+      "candidate": {
+        "images_s": 36.920859740210275,
+        "p50_ms": 96.5200740029104,
+        "p95_ms": 159.8954049986787
+      },
+      "meets_engineering_limit": false,
+      "p95_ratio": 1.0800394583127295,
+      "throughput_ratio": 1.0372202202253802
+    },
+    "image three_remote": {
+      "baseline": {
+        "images_s": 33.873346552385755,
+        "p50_ms": 106.65691600297578,
+        "p95_ms": 147.07210900087375
+      },
+      "candidate": {
+        "images_s": 34.868091055172236,
+        "p50_ms": 105.05600699980278,
+        "p95_ms": 138.38214499992318
+      },
+      "meets_engineering_limit": true,
+      "p95_ratio": 0.9409135827317269,
+      "throughput_ratio": 1.0293665847644575
+    },
+    "local / 1": {
+      "baseline": {
+        "p50_ms": 0.223,
+        "p95_ms": 0.456,
+        "requests_per_s": 2840.5
+      },
+      "candidate": {
+        "p50_ms": 0.225,
+        "p95_ms": 0.464,
+        "requests_per_s": 3208.6
+      },
+      "meets_engineering_limit": true,
+      "p95_ratio": 1.0175438596491229,
+      "throughput_ratio": 1.1295898609399753
+    },
+    "local / 4": {
+      "baseline": {
+        "p50_ms": 0.527,
+        "p95_ms": 1.273,
+        "requests_per_s": 5113.3
+      },
+      "candidate": {
+        "p50_ms": 0.505,
+        "p95_ms": 0.865,
+        "requests_per_s": 7155.5
+      },
+      "meets_engineering_limit": true,
+      "p95_ratio": 0.6794972505891596,
+      "throughput_ratio": 1.3993898265308118
+    },
+    "remote / 1": {
+      "baseline": {
+        "p50_ms": 1.9,
+        "p95_ms": 2.646,
+        "requests_per_s": 490.3
+      },
+      "candidate": {
+        "p50_ms": 1.829,
+        "p95_ms": 2.813,
+        "requests_per_s": 470.4
+      },
+      "meets_engineering_limit": false,
+      "p95_ratio": 1.063114134542706,
+      "throughput_ratio": 0.95941260452784
+    },
+    "remote / 4": {
+      "baseline": {
+        "p50_ms": 2.856,
+        "p95_ms": 4.725,
+        "requests_per_s": 1191.5
+      },
+      "candidate": {
+        "p50_ms": 2.869,
+        "p95_ms": 4.317,
+        "requests_per_s": 1321.7
+      },
+      "meets_engineering_limit": true,
+      "p95_ratio": 0.9136507936507937,
+      "throughput_ratio": 1.1092740243390684
+    }
+  },
+  "cpu_after": {
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "cpu_max": "400000 100000",
+    "cpu_stat": "usage_usec 100679854110\nuser_usec 85587709049\nsystem_usec 15092145061\nnice_usec 77882137\nnr_periods 398225\nnr_throttled 142437\nthrottled_usec 10187851405\nnr_bursts 0\nburst_usec 0",
+    "loadavg": "2.45 3.18 3.12 1/1376 1286865",
+    "memory_max": "34359738368"
+  },
+  "cpu_before": {
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "cpu_max": "400000 100000",
+    "cpu_stat": "usage_usec 100581265925\nuser_usec 85511102954\nsystem_usec 15070162971\nnice_usec 77882137\nnr_periods 397793\nnr_throttled 142421\nthrottled_usec 10187450079\nnr_bursts 0\nburst_usec 0",
+    "loadavg": "1.35 3.15 3.11 1/1376 1286324",
+    "memory_max": "34359738368"
+  },
+  "cpu_monitor_samples": [
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1002272:entangled": 0.106,
+        "1286320:python3": 0.958,
+        "1286326:greeting-driver": 0.319
+      },
+      "utc": "11:28:13"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.091,
+        "1286326:greeting-driver": 0.274,
+        "1286330:entangled": 0.913,
+        "1286337:entangled": 0.493
+      },
+      "utc": "11:28:15"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.099,
+        "1286326:greeting-driver": 0.127,
+        "1286330:entangled": 0.669,
+        "1286337:entangled": 0.696
+      },
+      "utc": "11:28:16"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.27
+      },
+      "utc": "11:28:17"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.107
+      },
+      "utc": "11:28:18"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.099,
+        "1286357:greeting-driver": 0.099,
+        "1286365:entangled": 0.655,
+        "1286378:entangled": 0.637
+      },
+      "utc": "11:28:19"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.083,
+        "1286357:greeting-driver": 0.046,
+        "1286365:entangled": 0.22,
+        "1286378:entangled": 0.872
+      },
+      "utc": "11:28:20"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.092
+      },
+      "utc": "11:28:21"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.073,
+        "1286389:greeting-driver": 0.339,
+        "1286393:entangled": 0.869,
+        "1286400:entangled": 0.485
+      },
+      "utc": "11:28:23"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.092,
+        "1286389:greeting-driver": 0.119,
+        "1286393:entangled": 0.623,
+        "1286400:entangled": 0.586
+      },
+      "utc": "11:28:24"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.105,
+        "1286389:greeting-driver": 0.228,
+        "1286393:entangled": 1.175,
+        "1286400:entangled": 1.219
+      },
+      "utc": "11:28:25"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.073
+      },
+      "utc": "11:28:26"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.075,
+        "1286418:greeting-driver": 0.14,
+        "1286422:entangled": 0.671,
+        "1286429:entangled": 0.652
+      },
+      "utc": "11:28:27"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.082,
+        "1286418:greeting-driver": 0.173,
+        "1286422:entangled": 0.866,
+        "1286429:entangled": 0.93
+      },
+      "utc": "11:28:28"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.082
+      },
+      "utc": "11:28:29"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.091,
+        "1286439:greeting-driver": 0.127,
+        "1286443:entangled": 0.743,
+        "1286450:entangled": 0.625
+      },
+      "utc": "11:28:30"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.083,
+        "1286439:greeting-driver": 0.129,
+        "1286443:entangled": 0.708,
+        "1286450:entangled": 0.69
+      },
+      "utc": "11:28:31"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.056
+      },
+      "utc": "11:28:32"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.082,
+        "1286480:greeting-driver": 0.283,
+        "1286484:entangled": 0.812,
+        "1286495:entangled": 0.42
+      },
+      "utc": "11:28:33"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.083,
+        "1286480:greeting-driver": 0.147,
+        "1286484:entangled": 0.707,
+        "1286495:entangled": 0.643
+      },
+      "utc": "11:28:35"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.065
+      },
+      "utc": "11:28:36"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.089,
+        "1286515:python": 0.445
+      },
+      "utc": "11:28:37"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.074,
+        "1286515:python": 0.185,
+        "1286555:entangled": 0.074,
+        "1286586:entangled": 0.667
+      },
+      "utc": "11:28:38"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.115,
+        "1286515:python": 0.416,
+        "1286555:entangled": 1.823
+      },
+      "utc": "11:28:39"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.081,
+        "1286515:python": 0.325,
+        "1286555:entangled": 1.814,
+        "1286586:entangled": 0.09,
+        "1286617:entangled": 0.081,
+        "1286633:entangled": 0.262
+      },
+      "utc": "11:28:40"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.09,
+        "1286515:python": 0.18,
+        "1286555:entangled": 1.726,
+        "1286586:entangled": 0.36,
+        "1286617:entangled": 0.351,
+        "1286633:entangled": 0.297
+      },
+      "utc": "11:28:41"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.082,
+        "1286515:python": 0.182,
+        "1286555:entangled": 1.559,
+        "1286586:entangled": 0.474,
+        "1286617:entangled": 0.492,
+        "1286633:entangled": 0.255
+      },
+      "utc": "11:28:42"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.072,
+        "1286515:python": 0.307,
+        "1286555:entangled": 2.121,
+        "1286586:entangled": 0.153,
+        "1286617:entangled": 0.135,
+        "1286633:entangled": 0.063
+      },
+      "utc": "11:28:43"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.09,
+        "1286515:python": 0.179,
+        "1286555:entangled": 2.096,
+        "1286586:entangled": 0.358,
+        "1286617:entangled": 0.305,
+        "1286633:entangled": 0.116
+      },
+      "utc": "11:28:45"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.082,
+        "1286515:python": 0.367
+      },
+      "utc": "11:28:46"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.128
+      },
+      "utc": "11:28:47"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.099,
+        "1286691:python": 0.171,
+        "1286731:entangled": 0.081
+      },
+      "utc": "11:28:48"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.065,
+        "1286691:python": 0.417,
+        "1286731:entangled": 2.085
+      },
+      "utc": "11:28:49"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.066,
+        "1286691:python": 0.3,
+        "1286731:entangled": 1.976,
+        "1286809:entangled": 0.206
+      },
+      "utc": "11:28:50"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.106,
+        "1286691:python": 0.239,
+        "1286731:entangled": 1.195,
+        "1286762:entangled": 0.425,
+        "1286793:entangled": 0.841,
+        "1286809:entangled": 0.319
+      },
+      "utc": "11:28:51"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.12,
+        "1286691:python": 0.18,
+        "1286731:entangled": 1.373,
+        "1286762:entangled": 0.369,
+        "1286793:entangled": 0.849,
+        "1286809:entangled": 0.283
+      },
+      "utc": "11:28:52"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.113,
+        "1286691:python": 0.314,
+        "1286731:entangled": 1.942,
+        "1286762:entangled": 0.174,
+        "1286793:entangled": 0.375,
+        "1286809:entangled": 0.087
+      },
+      "utc": "11:28:53"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.125,
+        "1286691:python": 0.208,
+        "1286731:entangled": 1.693,
+        "1286762:entangled": 0.317,
+        "1286793:entangled": 0.592,
+        "1286809:entangled": 0.133
+      },
+      "utc": "11:28:55"
+    },
+    {
+      "known_build_processes": [],
+      "top_live_cpu_cores": {
+        "1286320:python3": 0.1,
+        "1286691:python": 0.389,
+        "1286731:entangled": 2.038,
+        "1286809:entangled": 0.208,
+        "530:codex": 0.054
+      },
+      "utc": "11:28:56"
+    }
+  ],
+  "daemon_bytes_identical": false,
+  "daemons": {
+    "baseline": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+    "candidate": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8"
+  },
+  "design": "3 paired fresh clusters per version (baseline first, candidate first, baseline first) for greetings; one cluster per version with three trials per topology for image batch, candidate first. Limits per topology: p95 candidate/baseline <=1.05 and throughput >=0.95. Four-core shared VM measures neither physical 70B nor 8k RAW.",
+  "driver_sha256": "f8392b8aa540ddaa89b81b01eaefb3c5f7b5eee494ea883e7ceb4497b5ffbea0",
+  "files_sha256": {
+    "hello-1-baseline.log": "0025fb609c7117361b8f57c99d9680600980268eb18de9bd96fe9a8bf72d294d",
+    "hello-1-candidate.log": "b1986c29c1cb6b4a3e9595bfece639e8bea6d40ada54678eb101ba1167eb4abf",
+    "hello-2-baseline.log": "2a09e0a78102a358856e7d819d0df8764ed9ebe68c8065f39b7fa4b0c1fcfe3e",
+    "hello-2-candidate.log": "69714b88eee25f9482109e9152782eb1d8c9ec739354307c59caa9abc4fab7da",
+    "hello-3-baseline.log": "0c0690484692421dc3b4c032fc12b5d4ca6a500463a356d1bea135410d57efc2",
+    "hello-3-candidate.log": "ce1036f41a1d2318db7a3f5e23e4f9f7c768ac9c7171ceed3f4bb86107a7c28d",
+    "image-baseline.json": "50ba6f921e2e2330aa2e27baac2b6142ecbcca53d111f6683abb66e5f570973b",
+    "image-baseline.log": "756c869441dbb378b1047ae2f659588f3fd1a2eaaf82a8c87d7aec17a89964f2",
+    "image-candidate.json": "425c2c74d00eb6de00486247663480a91cdced0ad6c814d3dc20a28e8b856f97",
+    "image-candidate.log": "7bd336eb18f9e90cbde0f0108166dcc1089160413f5a6ab94b69bde69547e8a0"
+  },
+  "finish_utc": "2026-11-27 11:28:56 UTC",
+  "hello": [
+    {
+      "cold": "first package_load_ms=38.113 local_ms=1.151 remote_ms=4.241",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.342,
+          "p95_ms": 0.612,
+          "requests": 1024,
+          "requests_per_s": 2098.3,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.716,
+          "p95_ms": 1.273,
+          "requests": 1024,
+          "requests_per_s": 5113.3,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.9,
+          "p95_ms": 2.808,
+          "requests": 1024,
+          "requests_per_s": 490.3,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.856,
+          "p95_ms": 5.842,
+          "requests": 1024,
+          "requests_per_s": 1099.5,
+          "route": "remote"
+        }
+      ],
+      "pair": 1,
+      "stage": "baseline",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 4.00s"
+    },
+    {
+      "cold": "first package_load_ms=39.714 local_ms=0.610 remote_ms=2.059",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.199,
+          "p95_ms": 0.464,
+          "requests": 1024,
+          "requests_per_s": 3208.6,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.515,
+          "p95_ms": 0.865,
+          "requests": 1024,
+          "requests_per_s": 6883.8,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.868,
+          "p95_ms": 2.852,
+          "requests": 1024,
+          "requests_per_s": 362.0,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.869,
+          "p95_ms": 4.317,
+          "requests": 1024,
+          "requests_per_s": 1321.7,
+          "route": "remote"
+        }
+      ],
+      "pair": 1,
+      "stage": "candidate",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 4.29s"
+    },
+    {
+      "cold": "first package_load_ms=36.555 local_ms=0.669 remote_ms=2.468",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.225,
+          "p95_ms": 0.428,
+          "requests": 1024,
+          "requests_per_s": 3835.8,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.501,
+          "p95_ms": 0.822,
+          "requests": 1024,
+          "requests_per_s": 7200.4,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.829,
+          "p95_ms": 2.813,
+          "requests": 1024,
+          "requests_per_s": 470.4,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.872,
+          "p95_ms": 4.89,
+          "requests": 1024,
+          "requests_per_s": 1254.4,
+          "route": "remote"
+        }
+      ],
+      "pair": 2,
+      "stage": "candidate",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.60s"
+    },
+    {
+      "cold": "first package_load_ms=37.582 local_ms=0.626 remote_ms=2.559",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.223,
+          "p95_ms": 0.456,
+          "requests": 1024,
+          "requests_per_s": 2840.5,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.51,
+          "p95_ms": 2.287,
+          "requests": 1024,
+          "requests_per_s": 4078.1,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.783,
+          "p95_ms": 2.452,
+          "requests": 1024,
+          "requests_per_s": 523.1,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 3.077,
+          "p95_ms": 4.725,
+          "requests": 1024,
+          "requests_per_s": 1191.5,
+          "route": "remote"
+        }
+      ],
+      "pair": 2,
+      "stage": "baseline",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.73s"
+    },
+    {
+      "cold": "first package_load_ms=33.736 local_ms=0.889 remote_ms=2.060",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.205,
+          "p95_ms": 0.38,
+          "requests": 1024,
+          "requests_per_s": 4214.1,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.527,
+          "p95_ms": 0.957,
+          "requests": 1024,
+          "requests_per_s": 6786.2,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.907,
+          "p95_ms": 2.646,
+          "requests": 1024,
+          "requests_per_s": 477.9,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.698,
+          "p95_ms": 3.958,
+          "requests": 1024,
+          "requests_per_s": 1420.6,
+          "route": "remote"
+        }
+      ],
+      "pair": 3,
+      "stage": "baseline",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.45s"
+    },
+    {
+      "cold": "first package_load_ms=37.009 local_ms=0.598 remote_ms=2.576",
+      "configurations": [
+        {
+          "concurrency": 1,
+          "p50_ms": 0.318,
+          "p95_ms": 0.604,
+          "requests": 1024,
+          "requests_per_s": 2659.4,
+          "route": "local"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 0.505,
+          "p95_ms": 0.884,
+          "requests": 1024,
+          "requests_per_s": 7155.5,
+          "route": "local"
+        },
+        {
+          "concurrency": 1,
+          "p50_ms": 1.788,
+          "p95_ms": 2.47,
+          "requests": 1024,
+          "requests_per_s": 516.2,
+          "route": "remote"
+        },
+        {
+          "concurrency": 4,
+          "p50_ms": 2.786,
+          "p95_ms": 3.977,
+          "requests": 1024,
+          "requests_per_s": 1359.7,
+          "route": "remote"
+        }
+      ],
+      "pair": 3,
+      "stage": "candidate",
+      "test": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 3.46s"
+    }
+  ],
+  "host": {
+    "cpu": "Intel Xeon Platinum 8573C, five vCPUs, cpu.max 400000 100000",
+    "iroh": "1.5.0",
+    "memory_limit_bytes": 34359738368,
+    "os": "Debian 13, Linux 6.18.57 x86_64",
+    "rust": "1.91.1",
+    "wasmtime": "36.0.23"
+  },
+  "image": {
+    "baseline": {
+      "concurrency": 4,
+      "cpu_affinity": {
+        "coordinator": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "driver": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-0": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-1": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-2": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "daemon_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+      "images": 24,
+      "input_bytes_per_batch": 3482013,
+      "input_sha256": "ad7339e9a76e3f5778f0a97a55bd77620a54fcab30324e9458282b5fad1ee5ac",
+      "median_images_s": {
+        "local": 34.96992504874205,
+        "one_remote": 35.595969901346166,
+        "three_remote": 33.873346552385755
+      },
+      "pillow_version": "12.2.0",
+      "png_digest_list_sha256": "cc355f03ea0cd50472e113b2b92509bca56458ad637152b33f5fbb28eeac441b",
+      "process_threads_at_warmup": {
+        "coordinator": 9,
+        "driver": 1,
+        "worker-0": 11,
+        "worker-1": 11,
+        "worker-2": 11
+      },
+      "source_sha256": "a8ca6d734765703b09728ab47fe59f473d93ae3967fc24c7c0288c3c7adb7130",
+      "three_over_one_remote": 0.9516062252627294,
+      "three_over_one_target": 1.1,
+      "throughput_target_met": false,
+      "trials": [
+        {
+          "images_s": 34.9632925564818,
+          "latency_ms_by_input": [
+            102.9433980002068,
+            67.47873099811841,
+            151.87376699759625,
+            65.62182000197936,
+            112.78970800049137,
+            120.60412499704398,
+            103.9621339950827,
+            109.99376999825472,
+            108.7536760023795,
+            103.71382899757009,
+            101.48254800151335,
+            101.22227799729444,
+            110.78862300200853,
+            107.77423800027464,
+            97.7603299979819,
+            147.87632699881215,
+            114.14691699610557,
+            115.98336099996231,
+            114.14325299847405,
+            116.39360100525664,
+            105.92007100058254,
+            112.52899400278693,
+            105.92239900142886,
+            66.54197000170825
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.05827215426080272,
+            "worker-0": 3.3069447543005697,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 107.77423800027464,
+          "p95_ms": 147.87632699881215,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.6864342069966369,
+          "workers": {
+            "70628cba5ab526b28b92d73f74a7900b": 24
+          }
+        },
+        {
+          "images_s": 31.311848443440212,
+          "latency_ms_by_input": [
+            124.5042669979739,
+            118.67596599768149,
+            125.38661199505441,
+            116.51095299748704,
+            136.9101100062835,
+            110.6475619963021,
+            129.85913600277854,
+            147.32402600202477,
+            80.0653929982218,
+            156.23084799881326,
+            167.11443500389578,
+            136.85700599307893,
+            226.65988899825606,
+            115.13609100074973,
+            75.78929400187917,
+            90.54539300268516,
+            86.88709499983815,
+            85.82318200205918,
+            94.78721900086384,
+            113.6981529998593,
+            75.62857300217729,
+            84.00633500423282,
+            145.96131399594015,
+            112.13803900318453
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.28702527739820194,
+            "driver": 0.0391398105543003,
+            "worker-0": 2.726740135282918,
+            "worker-1": 0.0130466035181001,
+            "worker-2": 0.0
+          },
+          "p50_ms": 115.13609100074973,
+          "p95_ms": 167.11443500389578,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.766483014995174,
+          "workers": {
+            "70628cba5ab526b28b92d73f74a7900b": 24
+          }
+        },
+        {
+          "images_s": 39.46632672681256,
+          "latency_ms_by_input": [
+            113.27880099997856,
+            72.26183499733452,
+            125.46630800352432,
+            73.42829499975778,
+            118.43908700393513,
+            97.27563300111797,
+            115.71055700187571,
+            95.30220000306144,
+            114.35772100230679,
+            107.53346599813085,
+            88.06735600228421,
+            118.00065999705112,
+            141.00873199640773,
+            117.6907589979237,
+            73.99149300181307,
+            94.37612499459647,
+            79.70403500075918,
+            78.96558599895798,
+            112.42564400163246,
+            111.63329999544658,
+            67.79095599631546,
+            86.96178299578605,
+            66.93942000129027,
+            67.9106200041133
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.34533035885960983,
+            "driver": 0.06577721121135433,
+            "worker-0": 0.7728822317334122,
+            "worker-1": 0.7893265345362511,
+            "worker-2": 1.5457644634668253
+          },
+          "p50_ms": 95.30220000306144,
+          "p95_ms": 125.46630800352432,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6081133459956618,
+          "workers": {
+            "1a51d3661c615aece92d8630908f1416": 11,
+            "70628cba5ab526b28b92d73f74a7900b": 6,
+            "708c0749e27f8a195ed20808d289bcdc": 7
+          }
+        },
+        {
+          "images_s": 35.595969901346166,
+          "latency_ms_by_input": [
+            177.4650439983816,
+            107.9209220042685,
+            107.86564899899531,
+            138.0064240001957,
+            112.43469600594835,
+            80.08120599697577,
+            98.8445920011145,
+            69.63609800004633,
+            148.04589199775364,
+            116.74035000032745,
+            75.28200800152263,
+            128.63500399544137,
+            94.90143699804321,
+            91.6176379978424,
+            105.13133900531102,
+            109.87442600162467,
+            65.5917190015316,
+            84.91691300150706,
+            103.25903200282482,
+            107.80297299788799,
+            106.30937299720244,
+            131.30974399973638,
+            78.6600669962354,
+            89.24452999781352
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.4152863155157053,
+            "driver": 0.07415827062780457,
+            "worker-0": 2.892172554484376,
+            "worker-1": 0.0,
+            "worker-2": 0.014831654125560916
+          },
+          "p50_ms": 105.13133900531102,
+          "p95_ms": 148.04589199775364,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6742336300012539,
+          "workers": {
+            "70628cba5ab526b28b92d73f74a7900b": 24
+          }
+        },
+        {
+          "images_s": 33.11149911990938,
+          "latency_ms_by_input": [
+            125.45808099821443,
+            117.28091500117444,
+            119.8525560030248,
+            124.37205700553022,
+            83.55211299931398,
+            79.53653000004124,
+            125.45574300020235,
+            113.35936500108801,
+            74.54292600596091,
+            87.38549600093393,
+            121.97885499335825,
+            139.5759459992405,
+            124.92362799821422,
+            137.8729230054887,
+            135.26786700094817,
+            191.87606000195956,
+            93.08560900535667,
+            223.66222699929494,
+            110.59085400484037,
+            138.78055599343497,
+            129.06657600251492,
+            110.60980200272752,
+            71.74130099883769,
+            74.10648299992317
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.2897256172992071,
+            "driver": 0.06898228983314492,
+            "worker-0": 0.8277874779977353,
+            "worker-1": 0.6898228983314452,
+            "worker-2": 1.5314068342958091
+          },
+          "p50_ms": 119.8525560030248,
+          "p95_ms": 191.87606000195956,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.7248237210005755,
+          "workers": {
+            "1a51d3661c615aece92d8630908f1416": 12,
+            "70628cba5ab526b28b92d73f74a7900b": 6,
+            "708c0749e27f8a195ed20808d289bcdc": 6
+          }
+        },
+        {
+          "images_s": 43.457927440559956,
+          "latency_ms_by_input": [
+            119.85764199926052,
+            120.47222300316207,
+            73.90004500484793,
+            74.35344599798555,
+            87.33923600084381,
+            87.6679700013483,
+            118.76230799680343,
+            128.44271699577803,
+            124.67638299858663,
+            72.79588300298201,
+            57.65269300172804,
+            74.21470200642943,
+            108.06884899648139,
+            115.3673059961875,
+            79.73808200040367,
+            60.320285003399476,
+            102.80901200167136,
+            60.31883000105154,
+            62.97201399866026,
+            105.82634100137511,
+            61.029140997561626,
+            58.359900998766534,
+            88.2990929967491,
+            57.50999800511636
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.05432240930069959,
+            "worker-0": 3.6033864836130967,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 79.73808200040367,
+          "p95_ms": 124.67638299858663,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5522582740013604,
+          "workers": {
+            "70628cba5ab526b28b92d73f74a7900b": 24
+          }
+        },
+        {
+          "images_s": 33.873346552385755,
+          "latency_ms_by_input": [
+            141.27135099988664,
+            140.67651300138095,
+            101.39624000294134,
+            72.00986600219039,
+            131.897036000737,
+            147.07210900087375,
+            129.62221499765292,
+            142.99883099738508,
+            107.73277300177142,
+            106.65691600297578,
+            102.70379499706905,
+            95.9145009983331,
+            99.5528560015373,
+            111.33562600298319,
+            91.021209002065,
+            154.61922200483968,
+            79.48042300267844,
+            104.14455200225348,
+            109.12703999929363,
+            120.88147200120147,
+            75.9632760018576,
+            85.48682399850804,
+            112.12440599774709,
+            97.05405400018208
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.352847359920685,
+            "driver": 0.07056947198413738,
+            "worker-0": 0.8044919806191596,
+            "worker-1": 0.7198086142381976,
+            "worker-2": 1.4396172284763946
+          },
+          "p50_ms": 106.65691600297578,
+          "p95_ms": 147.07210900087375,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.7085216679988662,
+          "workers": {
+            "1a51d3661c615aece92d8630908f1416": 11,
+            "70628cba5ab526b28b92d73f74a7900b": 7,
+            "708c0749e27f8a195ed20808d289bcdc": 6
+          }
+        },
+        {
+          "images_s": 34.96992504874205,
+          "latency_ms_by_input": [
+            61.466030005249195,
+            123.42502499814145,
+            64.83029999799328,
+            138.08524700289126,
+            93.90037700359244,
+            220.3864719995181,
+            108.11162200116087,
+            130.80020099732792,
+            129.08048999815946,
+            131.27914099459304,
+            114.69090100581525,
+            91.76964899961604,
+            66.66293300077086,
+            63.573710998753086,
+            152.46893499715952,
+            162.50038300495362,
+            153.66983599960804,
+            77.2602650031331,
+            115.39709199860226,
+            146.49129900499247,
+            72.42879700061167,
+            80.49193400074728,
+            73.31857600365765,
+            73.99373000225751
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.13113721893278246,
+            "worker-0": 2.9870144312467177,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 108.11162200116087,
+          "p95_ms": 162.50038300495362,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.6863040159951197,
+          "workers": {
+            "70628cba5ab526b28b92d73f74a7900b": 24
+          }
+        },
+        {
+          "images_s": 40.497900013971694,
+          "latency_ms_by_input": [
+            105.68679000425618,
+            140.87524599744938,
+            87.42589699977543,
+            109.59367900068173,
+            113.95609899773262,
+            75.14862500102026,
+            77.88479900045786,
+            106.95958499854896,
+            66.57322699902579,
+            75.84751499962294,
+            136.41972599725705,
+            123.30430599831743,
+            88.57410099881236,
+            85.55005800008075,
+            79.30695800314425,
+            123.29742599831661,
+            121.51023100159364,
+            68.27037000039127,
+            64.93327799398685,
+            82.57417000277201,
+            116.10665500484174,
+            114.25257100199815,
+            70.67987699701916,
+            70.46283799718367
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.3881048751338954,
+            "driver": 0.08437062502910815,
+            "worker-0": 3.087964876065342,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 87.42589699977543,
+          "p95_ms": 136.41972599725705,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.592623321004794,
+          "workers": {
+            "70628cba5ab526b28b92d73f74a7900b": 24
+          }
+        }
+      ],
+      "wasm_sha256": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983",
+      "worker_cpu_affinity": false
+    },
+    "candidate": {
+      "concurrency": 4,
+      "cpu_affinity": {
+        "coordinator": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "driver": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-0": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-1": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "worker-2": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "daemon_sha256": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8",
+      "images": 24,
+      "input_bytes_per_batch": 3482013,
+      "input_sha256": "ad7339e9a76e3f5778f0a97a55bd77620a54fcab30324e9458282b5fad1ee5ac",
+      "median_images_s": {
+        "local": 40.48356313918241,
+        "one_remote": 36.920859740210275,
+        "three_remote": 34.868091055172236
+      },
+      "pillow_version": "12.2.0",
+      "png_digest_list_sha256": "cc355f03ea0cd50472e113b2b92509bca56458ad637152b33f5fbb28eeac441b",
+      "process_threads_at_warmup": {
+        "coordinator": 9,
+        "driver": 1,
+        "worker-0": 11,
+        "worker-1": 11,
+        "worker-2": 11
+      },
+      "source_sha256": "a8ca6d734765703b09728ab47fe59f473d93ae3967fc24c7c0288c3c7adb7130",
+      "three_over_one_remote": 0.9444008427896282,
+      "three_over_one_target": 1.1,
+      "throughput_target_met": false,
+      "trials": [
+        {
+          "images_s": 32.46069148233184,
+          "latency_ms_by_input": [
+            74.16000500234077,
+            81.30841900128871,
+            160.4366539977491,
+            156.4296739961719,
+            89.41089400468627,
+            192.99615600175457,
+            185.16743799409596,
+            225.9817230005865,
+            180.79170700366376,
+            114.83310099720256,
+            68.0391219939338,
+            70.86029499623692,
+            115.2036190032959,
+            162.66401300526923,
+            66.58833899564343,
+            60.38312100281473,
+            77.1002289984608,
+            89.96954499889398,
+            114.12969800585415,
+            79.82679000269854,
+            103.665627000737,
+            99.30875200370792,
+            62.37574999977369,
+            104.5057529991027
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.10820230494110622,
+            "worker-0": 2.7862093522334828,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 99.30875200370792,
+          "p95_ms": 192.99615600175457,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.7393557839968707,
+          "workers": {
+            "03455331e2a9b41f802d3c99263d1ff2": 24
+          }
+        },
+        {
+          "images_s": 36.920859740210275,
+          "latency_ms_by_input": [
+            81.8328199966345,
+            116.15372000233037,
+            130.90227200154914,
+            86.01317900320282,
+            102.09078499610769,
+            95.05662999436026,
+            101.03253700071946,
+            110.30887300148606,
+            70.60430500132497,
+            118.2066479959758,
+            112.5995479960693,
+            79.58878500357969,
+            77.82965600199532,
+            130.15631799498806,
+            111.59799699817086,
+            67.84146899735788,
+            152.04744299990125,
+            159.8954049986787,
+            167.91334699519211,
+            73.34875700325938,
+            89.97508799802745,
+            99.35070099891163,
+            80.44622199668083,
+            77.16539700049907
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.36920859740210277,
+            "driver": 0.04615107467526288,
+            "worker-0": 2.8152155551910325,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 99.35070099891163,
+          "p95_ms": 159.8954049986787,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6500390340006561,
+          "workers": {
+            "03455331e2a9b41f802d3c99263d1ff2": 24
+          }
+        },
+        {
+          "images_s": 34.46587306650557,
+          "latency_ms_by_input": [
+            130.79868799832184,
+            145.55588900111616,
+            97.21192299912218,
+            114.35866299871122,
+            135.94394399842713,
+            101.52526300225873,
+            67.75418899633223,
+            131.30952999927104,
+            70.55307099653874,
+            139.22321699647,
+            135.73639799869852,
+            75.6053970035282,
+            79.87270599551266,
+            107.12066300038714,
+            94.78665499773342,
+            121.93655800365377,
+            117.7912400016794,
+            105.0150119990576,
+            114.1635430030874,
+            98.26389599766117,
+            208.29926599981263,
+            83.33596200100146,
+            104.55850300058955,
+            109.17510500439676
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.3159371697763011,
+            "driver": 0.043082341333132004,
+            "worker-0": 1.407356483548978,
+            "worker-1": 0.7180390222188661,
+            "worker-2": 0.6893174613301114
+          },
+          "p50_ms": 107.12066300038714,
+          "p95_ms": 145.55588900111616,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6963409849995514,
+          "workers": {
+            "03455331e2a9b41f802d3c99263d1ff2": 12,
+            "5037950e2fb64e330686b6dbe3ac6994": 6,
+            "f0c887f283224ceb517356faa7763b72": 6
+          }
+        },
+        {
+          "images_s": 36.816514297564176,
+          "latency_ms_by_input": [
+            106.81406400544802,
+            124.89032300072722,
+            96.5200740029104,
+            80.40277299733134,
+            90.70978900126647,
+            84.10489199741278,
+            116.03173400362721,
+            93.93073499813909,
+            124.77093099732883,
+            77.72148799995193,
+            201.21208699856652,
+            81.85411299928091,
+            161.5128019984695,
+            121.67865600349614,
+            112.67272399709327,
+            72.70071800303413,
+            112.96399899583776,
+            83.5799889973714,
+            122.47126100555761,
+            79.45248300529784,
+            70.64246899972204,
+            110.72933099785587,
+            108.40117299812846,
+            65.95781700161751
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.35282492868499,
+            "driver": 0.046020642871954925,
+            "worker-0": 2.8993005009331787,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 96.5200740029104,
+          "p95_ms": 161.5128019984695,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6518813760048943,
+          "workers": {
+            "03455331e2a9b41f802d3c99263d1ff2": 24
+          }
+        },
+        {
+          "images_s": 34.868091055172236,
+          "latency_ms_by_input": [
+            199.4037090044003,
+            81.1403240004438,
+            78.80870300141396,
+            111.18218000046909,
+            113.80492199532455,
+            79.72564999363385,
+            87.53561299818102,
+            92.42498100502416,
+            124.25371699646348,
+            95.02948600129457,
+            124.65690200042445,
+            135.3796670009615,
+            129.9606290049269,
+            95.45821500068996,
+            113.04370699508581,
+            80.34389700333122,
+            78.7779340025736,
+            105.05600699980278,
+            113.47611399833113,
+            128.72811600391287,
+            98.19439599959878,
+            118.14891600079136,
+            121.76717200054554,
+            97.76928099745419
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.29056742545976855,
+            "driver": 0.02905674254597689,
+            "worker-0": 1.3656668996609118,
+            "worker-1": 0.7845320487413754,
+            "worker-2": 0.7845320487413754
+          },
+          "p50_ms": 105.05600699980278,
+          "p95_ms": 135.3796670009615,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6883084009969025,
+          "workers": {
+            "03455331e2a9b41f802d3c99263d1ff2": 11,
+            "5037950e2fb64e330686b6dbe3ac6994": 7,
+            "f0c887f283224ceb517356faa7763b72": 6
+          }
+        },
+        {
+          "images_s": 40.48356313918241,
+          "latency_ms_by_input": [
+            115.52470499736955,
+            116.60277399641927,
+            96.32853299990529,
+            157.50014800141798,
+            86.83540300262393,
+            124.10398399515543,
+            124.14317700313404,
+            76.79091899626656,
+            63.74399999913294,
+            59.438782001961954,
+            107.9100809947704,
+            108.27047200291418,
+            58.55284700373886,
+            62.38489599491004,
+            58.3960889998707,
+            106.00777299987385,
+            159.49755899782758,
+            61.315441998885944,
+            58.48054499801947,
+            115.92245700012427,
+            60.72091699752491,
+            106.57518500374863,
+            66.85961099719862,
+            83.51168000081088
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.0,
+            "driver": 0.05060445392397768,
+            "worker-0": 3.525443623370468,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 86.83540300262393,
+          "p95_ms": 157.50014800141798,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5928331930044806,
+          "workers": {
+            "03455331e2a9b41f802d3c99263d1ff2": 24
+          }
+        },
+        {
+          "images_s": 36.23248984703841,
+          "latency_ms_by_input": [
+            80.0143209999078,
+            74.02379500126699,
+            138.38214499992318,
+            111.98713699559448,
+            79.16493800439639,
+            80.95981299993582,
+            123.5516410015407,
+            89.33442399575142,
+            122.78351499844575,
+            81.22210099827498,
+            140.7661819976056,
+            113.79763399600051,
+            88.85496699804207,
+            103.20638800476445,
+            103.64283100352623,
+            129.92859900259646,
+            110.8144639947568,
+            95.1468169951113,
+            93.62597400468076,
+            97.52709199528908,
+            122.83020100585418,
+            115.92607400234556,
+            96.98915299668442,
+            89.61019900016254
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.2717436738527883,
+            "driver": 0.04529061230879772,
+            "worker-0": 1.4191058523423397,
+            "worker-1": 0.8303278923279639,
+            "worker-2": 0.7397466677103678
+          },
+          "p50_ms": 97.52709199528908,
+          "p95_ms": 138.38214499992318,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.662388925004052,
+          "workers": {
+            "03455331e2a9b41f802d3c99263d1ff2": 12,
+            "5037950e2fb64e330686b6dbe3ac6994": 6,
+            "f0c887f283224ceb517356faa7763b72": 6
+          }
+        },
+        {
+          "images_s": 40.98659369341605,
+          "latency_ms_by_input": [
+            60.266152999247424,
+            61.87584000144852,
+            117.64911700447556,
+            115.80609600059688,
+            119.25305200566072,
+            127.4599659955129,
+            61.31193000328494,
+            150.62802700413158,
+            59.01552199793514,
+            59.11108699365286,
+            109.50377600238426,
+            57.835378996969666,
+            140.33119999658084,
+            61.765227997966576,
+            57.13160199957201,
+            106.75736700068228,
+            73.14001999475295,
+            60.552470000402536,
+            117.91878999792971,
+            133.82802499836544,
+            149.66636299504898,
+            70.53078099852428,
+            95.74796000379138,
+            87.86374200280989
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.03415549474451303,
+            "driver": 0.034155494744513404,
+            "worker-0": 3.2618497481010276,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 87.86374200280989,
+          "p95_ms": 149.66636299504898,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5855573209992144,
+          "workers": {
+            "03455331e2a9b41f802d3c99263d1ff2": 24
+          }
+        },
+        {
+          "images_s": 42.0199776417726,
+          "latency_ms_by_input": [
+            119.27993100107415,
+            87.67620899743633,
+            76.52064399735536,
+            145.39307499944698,
+            80.05423500435427,
+            65.3544079978019,
+            115.87565599620575,
+            117.72278299758909,
+            73.04315700457664,
+            68.0199479975272,
+            88.0512119983905,
+            72.65864800137933,
+            103.53545899852179,
+            98.10130300320452,
+            83.79602700006217,
+            67.201206999016,
+            116.86048800038407,
+            111.92057200241834,
+            64.38825800432824,
+            85.94751099735731,
+            67.22235000052024,
+            103.04411000106484,
+            101.96927399374545,
+            68.24034499732079
+          ],
+          "max_channel_mae": 0.2352353050595238,
+          "mean_cpu_cores": {
+            "coordinator": 0.3326581563307,
+            "driver": 0.05252497205221618,
+            "worker-0": 3.098973351080728,
+            "worker-1": 0.0,
+            "worker-2": 0.0
+          },
+          "p50_ms": 85.94751099735731,
+          "p95_ms": 119.27993100107415,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.5711568960032309,
+          "workers": {
+            "03455331e2a9b41f802d3c99263d1ff2": 24
+          }
+        }
+      ],
+      "wasm_sha256": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983",
+      "worker_cpu_affinity": false
+    }
+  },
+  "input_sha256": {
+    "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg": "a8ca6d734765703b09728ab47fe59f473d93ae3967fc24c7c0288c3c7adb7130",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/engineering/compare.py": "41e76227dbd204c9ef084353f6d96f2540febf2f54b347e35804979547ef8160",
+    "/workspace/Entanglement/scripts/benchmark_image_batch.py": "c181ac3f2d63b4c2696aa38c1a87eaf3cfc6340a1d69f41ceeca67b4ceda2daf",
+    "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983"
+  },
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_comparison": " crates/entangle-bin/src/remote/routes.rs    |  14 +-\n crates/entangle-cli/src/cmd/doctor.rs       |  21 +-\n crates/entangle-cli/src/cmd/mesh.rs         |  13 +-\n crates/entangle-cli/src/cmd/mesh/tailnet.rs | 312 ++++++++++++++++++++\n crates/entangle-cli/src/main.rs             |   8 +-\n crates/entangle-cli/tests/doctor.rs         |  28 ++\n crates/entangle-cli/tests/tailnet_link.rs   | 429 ++++++++++++++++++++++++++++\n crates/entangle-mesh-tailscale/src/lib.rs   |  11 +\n crates/entangle-runtime/src/os_sandbox.rs   |  83 +++---\n 9 files changed, 845 insertions(+), 74 deletions(-)\n",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "start_utc": "2026-11-27 11:28:13 UTC"
+}

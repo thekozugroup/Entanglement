@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+printf '%s\t%s\n' "$ENTANGLE_TEST_INVOCATION_UTC" "$*" >> "$ENTANGLE_TEST_QUERY_LOG"
+[ "$#" -eq 2 ] && [ "$1" = status ] && [ "$2" = --json ] || exit 64
+exec /bin/cat "$ENTANGLE_TEST_STATUS"

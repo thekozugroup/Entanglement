@@ -1,0 +1,25 @@
+Associate an online Tailscale device with a previously trusted Entanglement worker
+
+Usage: entangle mesh tailnet link [OPTIONS] --peer <PEER> --port <PORT> <NODE_ID>
+
+Arguments:
+  <NODE_ID>
+          Stable Tailscale node ID from `entangle mesh tailnet`
+
+Options:
+      --allow-local
+          Use local in-process kernel (no daemon, no persistent state). For testing only.
+          
+          When the daemon is not running, commands normally fail with an actionable error. Pass this flag (or set ENTANGLE_ALLOW_LOCAL=1) to fall back to a short-lived in-process kernel instead.  State is NOT shared with any running daemon.
+
+      --json
+          Emit machine-readable JSON
+
+      --peer <PEER>
+          Trusted Entanglement peer ID (hex fingerprint)
+
+      --port <PORT>
+          Scheduler UDP port on the worker
+
+  -h, --help
+          Print help (see a summary with '-h')

@@ -1,0 +1,22 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "reviewer": "independent QA (/root/qa)",
+  "reviewed_utc": "2026-11-27T11:35:44.491565+00:00",
+  "exit_code": 0,
+  "report": "qa-security-review.md",
+  "report_sha256": "c6a775fb38f1d9d439cac840ca5fdf5876ebd4b98b2a5268de5e7a0017bdc5ad",
+  "evidence_sha256": {
+    "qa-source-review.md": "03da7228fbbc1743827f192ad4814a9de99446bb40e3164da45871f95ef33556",
+    "workspace-tests/index.json": "4c75c2470670521a7b5241b75930bcddc3d0360997f5649a262f848314242cd1",
+    "auth-live-scorer-receipt.json": "4d11dcff3834ff4d4e1654a6658470826148aecbc511e01f2faa4304486ac528",
+    "qa-publisher-incident.json": "1db39aa0ee081844fc96d67ec23cedca2de31830ad73d7b852e79d11378616a0",
+    "oci-distribution-https.json": "77a29de25df80652cb7c7c72543215e977b70569202cebc87aec7aad70c0c4e9",
+    "live-publisher.json": "8fc882a8d9fe8c23cde9edb1b12016f8ab1b04b18c31197a129bdd89f0103e86",
+    "sigstore-conformance.json": "d36bb02ee5f305c8b47ed6234b34310ae039139159bd786da864cf3b9be2482c",
+    "private-tailnet-ordinary-receipt.json": "9b72c98c7bcf3ba4589170fbe28959abbae91e02590b231025e0148f3f741932",
+    "private-tailnet-bridge-receipt.json": "269b6a99fcbb2227db1f18e7f989153627c3349acd9594889b67ba05d5ca7a5e",
+    "private-tailnet-recovery-receipt.json": "a0d2b81682dd0e6ca6c1f7e41f2ac3500b2363a4bd00d427060cbe5ca1b81bb9"
+  },
+  "scope": "Changed controls and fresh bounded Linux security evidence; excludes physical hosts and production signing."
+}

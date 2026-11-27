@@ -1,0 +1,25 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "reviewer": "independent QA (/root/qa)",
+  "reviewed_utc": "2026-11-27T12:18:00.093427+00:00",
+  "report": "qa-supplement.md",
+  "report_sha256": "d6d515a73ee31dce131d3b510fae4f03edbbd321ffd7cf4e76de39f1a2f91f66",
+  "evidence_sha256": {
+    "linux-compatibility/current-arm64/summary.json": "7c09729aaf503bf4c8ced8cc5ba614e8385d00faf3f9da51358d572c8a84a70c",
+    "linux-compatibility/jammy-build/jammy-linux-archive.json": "e572fb77fea47b7d6b4b3b927d125e622eac34491f1b14a73adc6b2aba113c8b",
+    "linux-compatibility/jammy-userspaces/normalized.json": "776d8e0be8e093e65a7281eb8275d865646266bc99542a5701bab4687623f9f9",
+    "linux-compatibility/linux-userspaces/userspaces.json": "a6f2be1d874f06ca7577d86f4dfd3dd949ed9393762606f703b996fbe63c19ec",
+    "linux-compatibility/ubuntu-guest-package-comparison.json": "8636bedcc309d946082a7f5ed507a144c5e80fc8178f31c2b5863f14543aeb05",
+    "real-inference/independent-verification.json": "8968f1e2a3b566bbbe18dbc483886ab6457e8f2714888f64422251e9fe8eb95a",
+    "raw-batch/wall-times-receipt.json": "8ce3a200a48f48ffb0a6b0e87d086b8da3e6b70bc4b03bbbeb44055bf9e4faaf",
+    "raw-coverage-diagnostic/observations.json": "fcdf6c666b60827ea116d334930aa5130d506a94f68f68eceea139087a909abd",
+    "image-sensitivity/receipt.json": "b12d8d078a0ac2a3f3d6ddfc631cbee6ed9aba6a038f8fca68ddea8f2a829217",
+    "image-sensitivity/results.json": "22ba06da298dad0ac012789a7b10c57ee7485b1b5f1cc86f863005208af6b181",
+    "local-bubblewrap-indicator.json": "483b5344ee3bf7642731c8f9e432fcce1a7e42efa07fda12a8c5402f149e03a2",
+    "local-bubblewrap-indicator.log": "f427400003f1438951931a9e02e12a36f46d63466731694d824cbf9e0d36a5d4",
+    "host-bubblewrap-indicator.json": "465281ba23f276061743c9e98f8160a3599c915fa4c3dc2bd21ef8e558d85409",
+    "host-bubblewrap-indicator.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "scope": "Supplemental evidence only; sealed 57-gate status unchanged."
+}

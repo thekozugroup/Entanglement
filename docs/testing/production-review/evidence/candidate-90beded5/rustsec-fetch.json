@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_utc": "2026-11-27T11:02:50+00:00",
+  "finished_utc": "2026-11-27T11:02:51+00:00",
+  "command": "git -C /tmp/entanglement-rustsec-db fetch --quiet origin main",
+  "exit_code": 0,
+  "log": "rustsec-fetch.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

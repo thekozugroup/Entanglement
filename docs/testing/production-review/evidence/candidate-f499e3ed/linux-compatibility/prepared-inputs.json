@@ -1,0 +1,34 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "arm_workspace": "/workspace/entangle-emulated-arm-f499e3ed-slim",
+  "workspace_available_bytes": 4371714048,
+  "preparation": "Staging only. Docker waits for the performance and private-topology clearance.",
+  "launcher_sha256": {
+    "jammy-build/build-jammy.sh": "2630d14974c8dcbe8cc7f76c64398169049cc29917643991ae35f8d24a01e9cf",
+    "jammy-build/check-jammy.py": "7b010d182bd0346c6d0a7a3ded463628bbcd30cf05e25f17ef7b9711aa807589",
+    "jammy-build/portable-jammy.py": "14941042f2098632928d484acfb44828f14fe5a1980e3d96cb72194677d11a80",
+    "jammy-build/probe-jammy-tmpfs.py": "6d211c9e8c6f3add2e4c93c5f1ee8e0ca82c0d9aa72044a9c9f7d2f7ab82d00b",
+    "jammy-build/stage-jammy-archive-tools.py": "293276adc7cdb40bf2e7b7e7831421475644a7a6329552671c7f17ad65d937e8",
+    "jammy-build/stage-jammy.py": "2fb4b9f69beb05795933865bde926af5ffb9162c68112eeec5b9a59ec25637bb",
+    "portable-smoke.py": "88a48fb0d5cf9dfba79027b2f685b8cc733caabeb42009b21458b2cb2498445e",
+    "prepare-platforms.py": "ed564ab94cc49b1c59b3554680d80b99d5f4b0c2a74c7f407283b5eab41c9633",
+    "run-arm.sh": "0ecac90ca5d1e4fdb023446afd08e2c618bacdeee7e4d6ecde2324a92c9b180c",
+    "run-canonical.sh": "146ffab18eec9943d6effac1135a7a5c67c12c68a66441a7dd92da1ac935e074",
+    "run-jammy.sh": "3db0ddf270ca18c5fdc40a10cee39124b16420ad81f6613ba5afd7732a03f293",
+    "userspaces.py": "d1fdf0fbb1ce3377bf1a8ad566655cb7aa55439beb81479451409658e20bd915"
+  },
+  "arm_input_script_sha256": {
+    "finish.py": "f38ea4b8a14e319b6fb66867214c67b85144158e9a8e173fa46e3419a7bae515",
+    "prepare.py": "ed564ab94cc49b1c59b3554680d80b99d5f4b0c2a74c7f407283b5eab41c9633",
+    "proof/arm-build-driver.py": "f1c3c23b653f47f67c2d3ded156b4041a088a2791b39ab68fa4a8e9b7f064bab",
+    "proof/cross-build.sh": "f3ee476b92c0071c36d3ddc12d261829fb1b871f4df39513b1c9d28a61196790",
+    "proof/package-arm.py": "b1a59fedbf93bb64705983c4e1fb1fcf5f73f5c1ea38000cab5767f1e6c16740",
+    "proof/provision-tools.sh": "c33bf7233cabe322abf9c63ad823662655f3e4ddb56d0f022bf76a6e749ee491",
+    "proof/signed-workload.py": "d9c757f3fb67fca4142efd218fae5fcee596a93a3c472e527d05c0e04c6c4f1a",
+    "proof/standalone-local.py": "7af2b00cd5975ce309b98e49778525f0de93cd032a75c510f92f14c3cc82ca6c",
+    "provision.py": "3aed65d7692833c5b105b622fe2b9e2a45cdea9d161a652b75670ebcbc518593"
+  },
+  "allocation_concurrency": "VFS allocations for ARM provisioning and portable runtime images share a local exclusive file lock. The compilers use separate offline tmpfs and two jobs each."
+}

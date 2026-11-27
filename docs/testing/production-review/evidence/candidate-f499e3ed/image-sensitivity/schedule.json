@@ -1,0 +1,82 @@
+[
+  {
+    "half": 1,
+    "kind": "AB",
+    "order": [
+      "A",
+      "B"
+    ]
+  },
+  {
+    "half": 1,
+    "kind": "BA",
+    "order": [
+      "B",
+      "A"
+    ]
+  },
+  {
+    "half": 1,
+    "kind": "YX",
+    "order": [
+      "Y",
+      "X"
+    ]
+  },
+  {
+    "half": 1,
+    "kind": "XY",
+    "order": [
+      "X",
+      "Y"
+    ]
+  },
+  {
+    "half": 1,
+    "kind": "AB",
+    "order": [
+      "A",
+      "B"
+    ]
+  },
+  {
+    "half": 2,
+    "kind": "AB",
+    "order": [
+      "A",
+      "B"
+    ]
+  },
+  {
+    "half": 2,
+    "kind": "BA",
+    "order": [
+      "B",
+      "A"
+    ]
+  },
+  {
+    "half": 2,
+    "kind": "BA",
+    "order": [
+      "B",
+      "A"
+    ]
+  },
+  {
+    "half": 2,
+    "kind": "YX",
+    "order": [
+      "Y",
+      "X"
+    ]
+  },
+  {
+    "half": 2,
+    "kind": "XY",
+    "order": [
+      "X",
+      "Y"
+    ]
+  }
+]

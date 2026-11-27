@@ -1,0 +1,23 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/monitor.py",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/resource-samples.json",
+    "--",
+    "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/loopback-harness.py",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--wasm",
+    "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+    "--report",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/real-photo-wall-times.json"
+  ],
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T12:01:06.845833+00:00",
+  "finished_utc": "2026-11-27T12:02:22.083647+00:00",
+  "exit_code": 1,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/raw-clock.log",
+  "sha256": "5ad7cc1903197bfc83225e19d403ed3965a26afcae8a18ab132a2a1317c8fa86"
+}

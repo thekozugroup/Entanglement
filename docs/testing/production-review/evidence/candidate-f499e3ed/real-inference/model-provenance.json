@@ -1,0 +1,25 @@
+{
+  "model": "TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf",
+  "sha256": "9ee11adf737960ff06123d5c4fba24d12c5b05ba460a7afa88950fbf2b61add0",
+  "bytes": 322591712,
+  "parts": [
+    {
+      "name": "slaunt-model-tinyllama-1b-part1",
+      "version": "0.1.0",
+      "url": "https://registry.npmjs.org/slaunt-model-tinyllama-1b-part1/-/slaunt-model-tinyllama-1b-part1-0.1.0.tgz",
+      "integrity": "sha512-EzdarfRUbsEhoVaG9G+RZ4R+yNY12LTSRPymcRBskoITKw7NKgwsCkD0/P5Deq37hjiGoPj+SZ8ewWll9jcdCQ==",
+      "license": "Apache-2.0",
+      "byte_count": 161295856,
+      "member": "package/model.part"
+    },
+    {
+      "name": "slaunt-model-tinyllama-1b-part2",
+      "version": "0.1.0",
+      "url": "https://registry.npmjs.org/slaunt-model-tinyllama-1b-part2/-/slaunt-model-tinyllama-1b-part2-0.1.0.tgz",
+      "integrity": "sha512-JwyLJRA6SxRV7yILzquIChKf9JKDARgyh5goN+AlUtKvC/fSDBV3w89ICPKpUetRNn3aV2jMG3dwpp0gtQ458A==",
+      "license": "Apache-2.0",
+      "byte_count": 161295856,
+      "member": "package/model.part"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "gguf_version": 3,
+  "architecture": "llama",
+  "name": "Storage",
+  "tensor_count": 201,
+  "parameter_count": 1100048384,
+  "block_count": 22,
+  "token_count": 32000,
+  "all_offsets_valid": true,
+  "GGML_type_histogram": {
+    "13": 1,
+    "10": 3,
+    "0": 45,
+    "16": 130,
+    "12": 22
+  },
+  "sample_tensors": {
+    "token_embd.weight": {
+      "shape": [
+        2048,
+        32000
+      ],
+      "ggml_type": 10,
+      "sample_unique_bytes": 256
+    },
+    "blk.0.attn_q.weight": {
+      "shape": [
+        2048,
+        2048
+      ],
+      "ggml_type": 16,
+      "sample_unique_bytes": 256
+    },
+    "blk.0.ffn_down.weight": {
+      "shape": [
+        5632,
+        2048
+      ],
+      "ggml_type": 10,
+      "sample_unique_bytes": 256
+    },
+    "blk.0.attn_norm.weight": {
+      "shape": [
+        2048
+      ],
+      "ggml_type": 0,
+      "sample_unique_bytes": 240,
+      "sample_range": [
+        -0.30078125,
+        0.76953125
+      ]
+    },
+    "output.weight": {
+      "shape": [
+        2048,
+        32000
+      ],
+      "ggml_type": 13,
+      "sample_unique_bytes": 256
+    }
+  }
+}

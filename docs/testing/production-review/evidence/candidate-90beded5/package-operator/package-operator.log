@@ -1,0 +1,338 @@
+
+[2026-11-27T11:05:15+00:00] Source before the suite
+  cwd = /workspace/Entanglement
+  $ /opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/production_score.py --source-id
+sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb
+
+  exit = 0
+
+[2026-11-27T11:05:15+00:00] Frozen Git commit
+  cwd = /workspace/Entanglement
+  $ git rev-parse HEAD
+90beded509f93909507c78f2986dea0e085e4f1e
+
+  exit = 0
+
+[2026-11-27T11:05:15+00:00] Git source timestamp
+  cwd = /workspace/Entanglement
+  $ git show -s --format=%ct 90beded509f93909507c78f2986dea0e085e4f1e
+1795777007
+
+  exit = 0
+
+[2026-11-27T11:05:15+00:00] Tool version
+  cwd = /workspace/Entanglement
+  $ cargo -Vv
+cargo 1.91.1 (ea2d97820 2025-10-10)
+release: 1.91.1
+commit-hash: ea2d97820c16195b0ca3fadb4319fe512c199a43
+commit-date: 2025-10-10
+host: x86_64-unknown-linux-gnu
+libgit2: 1.9.1 (sys:0.20.2 vendored)
+libcurl: 8.15.0-DEV (sys:0.4.83+curl-8.15.0 vendored ssl:OpenSSL/3.5.2)
+ssl: OpenSSL 3.5.2 5 Aug 2025
+os: Debian 13.0.0 [64-bit]
+
+  exit = 0
+
+[2026-11-27T11:05:15+00:00] Tool version
+  cwd = /workspace/Entanglement
+  $ rustc -Vv
+rustc 1.91.1 (ed61e7d7e 2025-11-07)
+binary: rustc
+commit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+commit-date: 2025-11-07
+host: x86_64-unknown-linux-gnu
+release: 1.91.1
+LLVM version: 21.1.2
+
+  exit = 0
+
+[2026-11-27T11:05:15+00:00] Tool version
+  cwd = /workspace/Entanglement
+  $ git --version
+git version 2.52.0
+
+  exit = 0
+
+[2026-11-27T11:05:15+00:00] Tool version
+  cwd = /workspace/Entanglement
+  $ zstd --version
+*** Zstandard CLI (64-bit) v1.5.7, by Yann Collet ***
+
+  exit = 0
+
+[2026-11-27T11:05:15+00:00] Tool version
+  cwd = /workspace/Entanglement
+  $ openssl version
+OpenSSL 3.5.7 9 Jun 2026 (Library: OpenSSL 3.5.7 9 Jun 2026)
+
+  exit = 0
+
+[2026-11-27T11:05:16+00:00] Cargo resolves the candidate subcommand
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ cargo entangle --version
+cargo entangle 0.1.0
+
+  exit = 0
+
+[2026-11-27T11:05:16+00:00] Clone frozen source
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ git clone --no-local --no-checkout -- /workspace/Entanglement '/tmp/entangle final signed package d9bnx1jn/first source checkout'
+Cloning into '/tmp/entangle final signed package d9bnx1jn/first source checkout'...
+
+  exit = 0
+
+[2026-11-27T11:05:17+00:00] Check out exact candidate commit
+  cwd = /tmp/entangle final signed package d9bnx1jn/first source checkout
+  $ git checkout --detach 90beded509f93909507c78f2986dea0e085e4f1e
+HEAD is now at 90beded Preserve universal macOS targets in release verification [skip ci]
+
+  exit = 0
+
+[2026-11-27T11:05:18+00:00] Clone frozen source
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ git clone --no-local --no-checkout -- /workspace/Entanglement '/tmp/entangle final signed package d9bnx1jn/independent rebuild checkout'
+Cloning into '/tmp/entangle final signed package d9bnx1jn/independent rebuild checkout'...
+
+  exit = 0
+
+[2026-11-27T11:05:19+00:00] Check out exact candidate commit
+  cwd = /tmp/entangle final signed package d9bnx1jn/independent rebuild checkout
+  $ git checkout --detach 90beded509f93909507c78f2986dea0e085e4f1e
+HEAD is now at 90beded Preserve universal macOS targets in release verification [skip ci]
+
+  exit = 0
+
+[2026-11-27T11:05:20+00:00] Generate ephemeral fixture publisher
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ openssl genpkey -algorithm Ed25519 -out '/tmp/entangle final signed package d9bnx1jn/ephemeral publisher.pem'
+
+  exit = 0
+
+[2026-11-27T11:05:20+00:00] Derive fixture verifying key
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ openssl pkey -in '/tmp/entangle final signed package d9bnx1jn/ephemeral publisher.pem' -pubout -out '/tmp/entangle final signed package d9bnx1jn/publisher public.pem'
+
+  exit = 0
+
+[2026-11-27T11:05:20+00:00] Read verifying key bytes
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ openssl pkey -pubin -in '/tmp/entangle final signed package d9bnx1jn/publisher public.pem' -outform DER
+
+  exit = 0
+
+[2026-11-27T11:05:20+00:00] Package pinned hello-world source in a clean build
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ cargo entangle package '/tmp/entangle final signed package d9bnx1jn/first source checkout/examples/hello-world' --source-url https://github.com/thekozugroup/Entanglement.git --key '/tmp/entangle final signed package d9bnx1jn/ephemeral publisher.pem' --out '/tmp/entangle final signed package d9bnx1jn/first package.tar.zst'
+Package: /tmp/entangle final signed package d9bnx1jn/first package.tar.zst
+SHA-256: bc93be05cf80765bfb42f3984b191cea2913e1bc3b25f5ff03ed9fc884edd233
+   Compiling proc-macro2 v1.0.106
+   Compiling serde_core v1.0.228
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling syn v2.0.117
+   Compiling foldhash v0.2.0
+   Compiling hashbrown v0.17.0
+   Compiling equivalent v1.0.2
+   Compiling indexmap v2.14.0
+   Compiling bitflags v2.11.1
+   Compiling anyhow v1.0.103
+   Compiling semver v1.0.28
+   Compiling zmij v1.0.21
+   Compiling wasmparser v0.247.0
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling serde_derive v1.0.228
+   Compiling prettyplease v0.2.37
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.0
+   Compiling unicode-xid v0.2.6
+   Compiling leb128fmt v0.1.0
+   Compiling id-arena v2.3.0
+   Compiling log v0.4.29
+   Compiling wit-parser v0.247.0
+   Compiling wasm-encoder v0.247.0
+   Compiling wasm-metadata v0.247.0
+   Compiling heck v0.5.0
+   Compiling wit-bindgen-rust v0.57.1
+   Compiling wit-bindgen-core v0.57.1
+   Compiling wit-component v0.247.0
+   Compiling wit-bindgen-rust-macro v0.57.1
+   Compiling wit-bindgen v0.57.1
+   Compiling find-msvc-tools v0.1.9
+   Compiling shlex v1.3.0
+   Compiling cc v1.2.61
+   Compiling cfg-if v1.0.4
+   Compiling getrandom v0.4.2
+   Compiling blake3 v1.8.5
+   Compiling wasip2 v1.0.3+wasi-0.2.9
+   Compiling thiserror v2.0.18
+   Compiling thiserror-impl v2.0.18
+   Compiling arrayref v0.3.9
+   Compiling arrayvec v0.7.6
+   Compiling constant_time_eq v0.4.2
+   Compiling uuid v1.23.1
+   Compiling hex v0.4.3
+   Compiling entangle-types v0.1.0 (/tmp/entangle source SlF04D/checkout/crates/entangle-types)
+   Compiling entangle-sdk v0.1.0 (/tmp/entangle source SlF04D/checkout/crates/entangle-sdk)
+   Compiling entangle-hello-world v0.1.0 (/tmp/entangle source SlF04D/checkout/examples/hello-world)
+    Finished `release` profile [optimized] target(s) in 33.56s
+
+  exit = 0
+
+[2026-11-27T11:05:56+00:00] Package pinned hello-world source in a clean build
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ cargo entangle package '/tmp/entangle final signed package d9bnx1jn/first source checkout/examples/hello-world' --source-url https://github.com/thekozugroup/Entanglement.git --key '/tmp/entangle final signed package d9bnx1jn/ephemeral publisher.pem' --out '/tmp/entangle final signed package d9bnx1jn/second package.tar.zst'
+Package: /tmp/entangle final signed package d9bnx1jn/second package.tar.zst
+SHA-256: bc93be05cf80765bfb42f3984b191cea2913e1bc3b25f5ff03ed9fc884edd233
+   Compiling proc-macro2 v1.0.106
+   Compiling serde_core v1.0.228
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling syn v2.0.117
+   Compiling foldhash v0.2.0
+   Compiling hashbrown v0.17.0
+   Compiling equivalent v1.0.2
+   Compiling indexmap v2.14.0
+   Compiling zmij v1.0.21
+   Compiling anyhow v1.0.103
+   Compiling bitflags v2.11.1
+   Compiling semver v1.0.28
+   Compiling wasmparser v0.247.0
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling serde_derive v1.0.228
+   Compiling itoa v1.0.18
+   Compiling prettyplease v0.2.37
+   Compiling memchr v2.8.0
+   Compiling leb128fmt v0.1.0
+   Compiling log v0.4.29
+   Compiling id-arena v2.3.0
+   Compiling unicode-xid v0.2.6
+   Compiling wit-parser v0.247.0
+   Compiling wasm-encoder v0.247.0
+   Compiling wasm-metadata v0.247.0
+   Compiling wit-bindgen-rust v0.57.1
+   Compiling heck v0.5.0
+   Compiling wit-bindgen-core v0.57.1
+   Compiling wit-component v0.247.0
+   Compiling wit-bindgen-rust-macro v0.57.1
+   Compiling wit-bindgen v0.57.1
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling cc v1.2.61
+   Compiling getrandom v0.4.2
+   Compiling cfg-if v1.0.4
+   Compiling wasip2 v1.0.3+wasi-0.2.9
+   Compiling blake3 v1.8.5
+   Compiling thiserror v2.0.18
+   Compiling thiserror-impl v2.0.18
+   Compiling arrayvec v0.7.6
+   Compiling arrayref v0.3.9
+   Compiling constant_time_eq v0.4.2
+   Compiling uuid v1.23.1
+   Compiling hex v0.4.3
+   Compiling entangle-types v0.1.0 (/tmp/entangle source 9UibbL/checkout/crates/entangle-types)
+   Compiling entangle-sdk v0.1.0 (/tmp/entangle source 9UibbL/checkout/crates/entangle-sdk)
+   Compiling entangle-hello-world v0.1.0 (/tmp/entangle source 9UibbL/checkout/examples/hello-world)
+    Finished `release` profile [optimized] target(s) in 35.05s
+
+  exit = 0
+
+[2026-11-27T11:06:34+00:00] Decompress for archive layout inspection
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ zstd -dc -- '/tmp/entangle final signed package d9bnx1jn/first package.tar.zst'
+
+  exit = 0
+
+[2026-11-27T11:06:34+00:00] Sign the compressed archive
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ cargo entangle sign '/tmp/entangle final signed package d9bnx1jn/first package.tar.zst' --key '/tmp/entangle final signed package d9bnx1jn/ephemeral publisher.pem'
+Signed: /tmp/entangle final signed package d9bnx1jn/first package.tar.zst.sig (64 bytes)
+Publisher key: 8ec37d6e93a76ccc6352796dd8f605018688bcb03c6214b6b722e8309d1316f8
+
+  exit = 0
+
+[2026-11-27T11:06:34+00:00] Independently verify detached Ed25519 over archive SHA-256
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ openssl pkeyutl -verify -pubin -inkey '/tmp/entangle final signed package d9bnx1jn/publisher public.pem' -sigfile '/tmp/entangle final signed package d9bnx1jn/first package.tar.zst.sig' -rawin -in '/tmp/entangle final signed package d9bnx1jn/archive digest.bin'
+Signature Verified Successfully
+
+  exit = 0
+
+[2026-11-27T11:06:34+00:00] Rebuild from an independently checked-out source
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ cargo entangle verify --rebuild '/tmp/entangle final signed package d9bnx1jn/first package.tar.zst' --keyring '/tmp/entangle final signed package d9bnx1jn/fixture keyring.toml' --source '/tmp/entangle final signed package d9bnx1jn/independent rebuild checkout'
+PASS: reproduced SHA-256 bc93be05cf80765bfb42f3984b191cea2913e1bc3b25f5ff03ed9fc884edd233 from 90beded509f93909507c78f2986dea0e085e4f1e
+   Compiling proc-macro2 v1.0.106
+   Compiling serde_core v1.0.228
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling syn v2.0.117
+   Compiling foldhash v0.2.0
+   Compiling hashbrown v0.17.0
+   Compiling equivalent v1.0.2
+   Compiling indexmap v2.14.0
+   Compiling zmij v1.0.21
+   Compiling anyhow v1.0.103
+   Compiling semver v1.0.28
+   Compiling bitflags v2.11.1
+   Compiling wasmparser v0.247.0
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling serde_derive v1.0.228
+   Compiling itoa v1.0.18
+   Compiling prettyplease v0.2.37
+   Compiling memchr v2.8.0
+   Compiling leb128fmt v0.1.0
+   Compiling id-arena v2.3.0
+   Compiling unicode-xid v0.2.6
+   Compiling log v0.4.29
+   Compiling wit-parser v0.247.0
+   Compiling wasm-encoder v0.247.0
+   Compiling wasm-metadata v0.247.0
+   Compiling wit-bindgen-rust v0.57.1
+   Compiling heck v0.5.0
+   Compiling wit-bindgen-core v0.57.1
+   Compiling wit-component v0.247.0
+   Compiling wit-bindgen-rust-macro v0.57.1
+   Compiling wit-bindgen v0.57.1
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling cc v1.2.61
+   Compiling getrandom v0.4.2
+   Compiling cfg-if v1.0.4
+   Compiling blake3 v1.8.5
+   Compiling wasip2 v1.0.3+wasi-0.2.9
+   Compiling thiserror v2.0.18
+   Compiling thiserror-impl v2.0.18
+   Compiling arrayvec v0.7.6
+   Compiling constant_time_eq v0.4.2
+   Compiling arrayref v0.3.9
+   Compiling uuid v1.23.1
+   Compiling hex v0.4.3
+   Compiling entangle-types v0.1.0 (/tmp/entangle source 8MFa0w/checkout/crates/entangle-types)
+   Compiling entangle-sdk v0.1.0 (/tmp/entangle source 8MFa0w/checkout/crates/entangle-sdk)
+   Compiling entangle-hello-world v0.1.0 (/tmp/entangle source 8MFa0w/checkout/examples/hello-world)
+    Finished `release` profile [optimized] target(s) in 51.17s
+
+  exit = 0
+
+[2026-11-27T11:07:30+00:00] Reject tampering before resolving source
+  cwd = /tmp/entangle final signed package d9bnx1jn
+  $ cargo entangle verify --rebuild '/tmp/entangle final signed package d9bnx1jn/first package.tar.zst' --keyring '/tmp/entangle final signed package d9bnx1jn/fixture keyring.toml' --source '/tmp/entangle final signed package d9bnx1jn/nonexistent source'
+FAIL: authenticating the package before rebuilding: archive signature did not verify with any trusted publisher
+
+  exit = 1
+
+[2026-11-27T11:07:30+00:00] Source after the suite
+  cwd = /workspace/Entanglement
+  $ /opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/production_score.py --source-id
+sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb
+
+  exit = 0
+
+Source stable = True
+Binary stable = True
+Suite exit = 0

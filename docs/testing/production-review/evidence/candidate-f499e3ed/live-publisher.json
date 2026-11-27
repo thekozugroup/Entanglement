@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:29:44+00:00",
+  "finished_utc": "2026-11-27T11:29:44+00:00",
+  "command": "python3 scripts/tests/live-publisher.py target/release",
+  "exit_code": 0,
+  "log": "live-publisher.log",
+  "log_sha256": "752b63d4708389b29a298157b0bc68e77d1f1d26134739c8c0ebe2b2ceb5a0c9"
+}

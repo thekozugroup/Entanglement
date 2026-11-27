@@ -1,0 +1,1281 @@
+[
+  {
+    "utc": "12:02:31",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354067:python": 1.053,
+      "1354061:python3": 1.053
+    }
+  },
+  {
+    "utc": "12:02:32",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354067:python": 0.669,
+      "1354061:python3": 0.089
+    }
+  },
+  {
+    "utc": "12:02:33",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354107:entangled": 0.084,
+      "1354061:python3": 0.075,
+      "202:dockerd": 0.056,
+      "1354067:python": 0.037
+    }
+  },
+  {
+    "utc": "12:02:34",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354107:entangled": 1.62,
+      "1354067:python": 0.436,
+      "1354061:python3": 0.107,
+      "202:dockerd": 0.053
+    }
+  },
+  {
+    "utc": "12:02:36",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354107:entangled": 2.07,
+      "1354067:python": 0.333,
+      "1354185:entangled": 0.24,
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:02:37",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354107:entangled": 2.138,
+      "1354067:python": 0.211,
+      "1354185:entangled": 0.15,
+      "1354061:python3": 0.114
+    }
+  },
+  {
+    "utc": "12:02:38",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354107:entangled": 2.867,
+      "1354067:python": 0.237,
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:02:39",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.173
+    }
+  },
+  {
+    "utc": "12:02:40",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.083
+    }
+  },
+  {
+    "utc": "12:02:41",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354220:python": 0.179,
+      "1354061:python3": 0.107,
+      "1354260:entangled": 0.063
+    }
+  },
+  {
+    "utc": "12:02:42",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354260:entangled": 1.695,
+      "1354220:python": 0.453,
+      "1354061:python3": 0.1
+    }
+  },
+  {
+    "utc": "12:02:43",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354260:entangled": 2.766,
+      "1354338:entangled": 0.227,
+      "1354220:python": 0.182,
+      "1354061:python3": 0.082
+    }
+  },
+  {
+    "utc": "12:02:45",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354260:entangled": 2.62,
+      "1354220:python": 0.18,
+      "1354338:entangled": 0.117,
+      "1354061:python3": 0.099
+    }
+  },
+  {
+    "utc": "12:02:46",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354260:entangled": 2.336,
+      "1354220:python": 0.305,
+      "1354061:python3": 0.081,
+      "1354338:entangled": 0.072
+    }
+  },
+  {
+    "utc": "12:02:47",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.107
+    }
+  },
+  {
+    "utc": "12:02:48",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354381:python": 0.668,
+      "1354061:python3": 0.104
+    }
+  },
+  {
+    "utc": "12:02:49",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354381:python": 0.117,
+      "1354061:python3": 0.108,
+      "1354421:entangled": 0.081
+    }
+  },
+  {
+    "utc": "12:02:50",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354421:entangled": 1.785,
+      "1354381:python": 0.543,
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:02:51",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354421:entangled": 2.336,
+      "1354499:entangled": 0.287,
+      "1354381:python": 0.252,
+      "1354061:python3": 0.104
+    }
+  },
+  {
+    "utc": "12:02:52",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354421:entangled": 2.738,
+      "1354381:python": 0.224,
+      "1354499:entangled": 0.103,
+      "1354061:python3": 0.065
+    }
+  },
+  {
+    "utc": "12:02:53",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354421:entangled": 2.362,
+      "1354381:python": 0.3,
+      "1354499:entangled": 0.091,
+      "1354061:python3": 0.082
+    }
+  },
+  {
+    "utc": "12:02:55",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:02:56",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354533:python": 0.322,
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:02:57",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354533:python": 0.381,
+      "1354604:entangled": 0.093,
+      "1354573:entangled": 0.093,
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:02:58",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354573:entangled": 2.337,
+      "1354533:python": 0.225,
+      "1354061:python3": 0.099,
+      "1354651:entangled": 0.054
+    }
+  },
+  {
+    "utc": "12:02:59",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354573:entangled": 2.927,
+      "1354651:entangled": 0.224,
+      "1354533:python": 0.171,
+      "1354061:python3": 0.09
+    }
+  },
+  {
+    "utc": "12:03:00",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354573:entangled": 2.347,
+      "1354533:python": 0.251,
+      "1354061:python3": 0.065,
+      "1354651:entangled": 0.028
+    }
+  },
+  {
+    "utc": "12:03:01",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354573:entangled": 2.533,
+      "1354533:python": 0.234,
+      "1354061:python3": 0.099,
+      "1354651:entangled": 0.072
+    }
+  },
+  {
+    "utc": "12:03:02",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.065
+    }
+  },
+  {
+    "utc": "12:03:03",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354713:python": 0.361,
+      "1354061:python3": 0.088
+    }
+  },
+  {
+    "utc": "12:03:04",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354713:python": 0.437,
+      "1354753:entangled": 0.164,
+      "1354784:entangled": 0.136,
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:03:06",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354753:entangled": 3.039,
+      "1354713:python": 0.189,
+      "1354860:entangled": 0.108,
+      "1354061:python3": 0.072
+    }
+  },
+  {
+    "utc": "12:03:07",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354753:entangled": 2.766,
+      "1354860:entangled": 0.247,
+      "1354713:python": 0.174,
+      "1354061:python3": 0.073
+    }
+  },
+  {
+    "utc": "12:03:08",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354753:entangled": 2.342,
+      "1354713:python": 0.325,
+      "1354061:python3": 0.056
+    }
+  },
+  {
+    "utc": "12:03:09",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354753:entangled": 2.799,
+      "1354713:python": 0.201,
+      "1354860:entangled": 0.109,
+      "1354061:python3": 0.082
+    }
+  },
+  {
+    "utc": "12:03:10",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.08
+    }
+  },
+  {
+    "utc": "12:03:11",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354918:python": 0.351,
+      "1354061:python3": 0.083
+    }
+  },
+  {
+    "utc": "12:03:12",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354918:python": 0.412,
+      "1354994:entangled": 0.281,
+      "1355025:entangled": 0.075,
+      "1354061:python3": 0.056
+    }
+  },
+  {
+    "utc": "12:03:13",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354994:entangled": 2.562,
+      "1354918:python": 0.187,
+      "1355072:entangled": 0.161,
+      "1354061:python3": 0.136
+    }
+  },
+  {
+    "utc": "12:03:14",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354994:entangled": 2.4,
+      "1354918:python": 0.256,
+      "1355072:entangled": 0.247,
+      "1354061:python3": 0.106
+    }
+  },
+  {
+    "utc": "12:03:15",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354994:entangled": 2.775,
+      "1354918:python": 0.262,
+      "1354061:python3": 0.056
+    }
+  },
+  {
+    "utc": "12:03:17",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354994:entangled": 2.713,
+      "1354918:python": 0.181,
+      "1355072:entangled": 0.109,
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:03:18",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.073
+    }
+  },
+  {
+    "utc": "12:03:19",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.173,
+      "1355104:python": 0.165
+    }
+  },
+  {
+    "utc": "12:03:20",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355144:entangled": 0.765,
+      "1355206:entangled": 0.552,
+      "1355104:python": 0.418,
+      "1354061:python3": 0.098,
+      "1355175:entangled": 0.053
+    }
+  },
+  {
+    "utc": "12:03:21",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355144:entangled": 2.612,
+      "1355222:entangled": 0.217,
+      "1355104:python": 0.208,
+      "1354061:python3": 0.09
+    }
+  },
+  {
+    "utc": "12:03:22",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355144:entangled": 2.419,
+      "1355104:python": 0.318,
+      "1355222:entangled": 0.177,
+      "1354061:python3": 0.097
+    }
+  },
+  {
+    "utc": "12:03:23",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355144:entangled": 2.887,
+      "1355104:python": 0.191,
+      "1354061:python3": 0.125
+    }
+  },
+  {
+    "utc": "12:03:25",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355144:entangled": 1.94,
+      "1355104:python": 0.367,
+      "1355222:entangled": 0.224,
+      "1354061:python3": 0.107
+    }
+  },
+  {
+    "utc": "12:03:26",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:03:27",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.098,
+      "1355256:python": 0.08
+    }
+  },
+  {
+    "utc": "12:03:28",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355296:entangled": 0.851,
+      "1355256:python": 0.394,
+      "1355358:entangled": 0.179,
+      "1355327:entangled": 0.099,
+      "1354061:python3": 0.09,
+      "1355374:entangled": 0.045
+    }
+  },
+  {
+    "utc": "12:03:29",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355296:entangled": 2.779,
+      "1355256:python": 0.179,
+      "1355374:entangled": 0.152,
+      "1354061:python3": 0.089
+    }
+  },
+  {
+    "utc": "12:03:30",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355296:entangled": 2.46,
+      "1355256:python": 0.27,
+      "1355374:entangled": 0.186,
+      "1354061:python3": 0.075
+    }
+  },
+  {
+    "utc": "12:03:31",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355296:entangled": 2.609,
+      "1355256:python": 0.256,
+      "1354061:python3": 0.115
+    }
+  },
+  {
+    "utc": "12:03:32",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355296:entangled": 2.848,
+      "1355256:python": 0.169,
+      "1355374:entangled": 0.16,
+      "1354061:python3": 0.08
+    }
+  },
+  {
+    "utc": "12:03:33",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:03:35",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.073,
+      "1355447:python": 0.046
+    }
+  },
+  {
+    "utc": "12:03:36",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355487:entangled": 1.138,
+      "1355447:python": 0.424,
+      "1355549:entangled": 0.124,
+      "1354061:python3": 0.097,
+      "1355518:entangled": 0.071
+    }
+  },
+  {
+    "utc": "12:03:37",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355487:entangled": 2.212,
+      "1355447:python": 0.356,
+      "1355565:entangled": 0.183,
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:03:38",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355487:entangled": 2.279,
+      "1355565:entangled": 0.206,
+      "1355447:python": 0.171,
+      "1354061:python3": 0.108
+    }
+  },
+  {
+    "utc": "12:03:39",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355487:entangled": 2.898,
+      "1355447:python": 0.256,
+      "1354061:python3": 0.082
+    }
+  },
+  {
+    "utc": "12:03:40",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355487:entangled": 2.464,
+      "1355447:python": 0.173,
+      "1355565:entangled": 0.164,
+      "1354061:python3": 0.055
+    }
+  },
+  {
+    "utc": "12:03:41",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.1
+    }
+  },
+  {
+    "utc": "12:03:42",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355633:python": 0.342,
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:03:43",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355633:python": 0.443,
+      "1355673:entangled": 0.092,
+      "1354061:python3": 0.074,
+      "1355704:entangled": 0.055
+    }
+  },
+  {
+    "utc": "12:03:44",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355673:entangled": 2.744,
+      "1355633:python": 0.217,
+      "1355751:entangled": 0.108,
+      "1354061:python3": 0.081
+    }
+  },
+  {
+    "utc": "12:03:45",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355673:entangled": 2.353,
+      "1355633:python": 0.289,
+      "1355751:entangled": 0.271,
+      "1354061:python3": 0.075
+    }
+  },
+  {
+    "utc": "12:03:47",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355673:entangled": 2.52,
+      "1355633:python": 0.237,
+      "1354061:python3": 0.073
+    }
+  },
+  {
+    "utc": "12:03:48",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355673:entangled": 2.376,
+      "1355633:python": 0.283,
+      "1355751:entangled": 0.192,
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:03:49",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.09
+    }
+  },
+  {
+    "utc": "12:03:50",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.082,
+      "1355785:python": 0.064
+    }
+  },
+  {
+    "utc": "12:03:51",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355825:entangled": 1.32,
+      "1355785:python": 0.408,
+      "1354061:python3": 0.08,
+      "1355856:entangled": 0.071,
+      "1355887:entangled": 0.053
+    }
+  },
+  {
+    "utc": "12:03:52",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355825:entangled": 2.547,
+      "1355785:python": 0.218,
+      "1355903:entangled": 0.181,
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:03:53",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355825:entangled": 2.006,
+      "1355785:python": 0.309,
+      "1355903:entangled": 0.163,
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:03:54",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355825:entangled": 3.01,
+      "1355785:python": 0.177,
+      "1354061:python3": 0.065
+    }
+  },
+  {
+    "utc": "12:03:55",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355825:entangled": 2.778,
+      "1355903:entangled": 0.176,
+      "1355785:python": 0.176,
+      "1354061:python3": 0.056
+    }
+  },
+  {
+    "utc": "12:03:56",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.075
+    }
+  },
+  {
+    "utc": "12:03:58",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.097,
+      "1355957:python": 0.026
+    }
+  },
+  {
+    "utc": "12:03:59",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355997:entangled": 0.734,
+      "1355957:python": 0.477,
+      "1356059:entangled": 0.147,
+      "1356028:entangled": 0.092,
+      "1354061:python3": 0.064
+    }
+  },
+  {
+    "utc": "12:04:00",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355997:entangled": 2.503,
+      "1355957:python": 0.184,
+      "1356075:entangled": 0.11,
+      "1354061:python3": 0.083
+    }
+  },
+  {
+    "utc": "12:04:01",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355997:entangled": 2.639,
+      "1356075:entangled": 0.271,
+      "1355957:python": 0.192,
+      "1354061:python3": 0.114
+    }
+  },
+  {
+    "utc": "12:04:02",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355997:entangled": 2.339,
+      "1355957:python": 0.321,
+      "1354061:python3": 0.073
+    }
+  },
+  {
+    "utc": "12:04:03",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1355997:entangled": 2.761,
+      "1355957:python": 0.222,
+      "1356075:entangled": 0.195,
+      "1354061:python3": 0.065
+    }
+  },
+  {
+    "utc": "12:04:04",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.131
+    }
+  },
+  {
+    "utc": "12:04:05",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356148:entangled": 0.969,
+      "1354061:python3": 0.153
+    }
+  },
+  {
+    "utc": "12:04:06",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356148:entangled": 1.465,
+      "1356108:python": 0.415,
+      "1356210:entangled": 0.074,
+      "1354061:python3": 0.064,
+      "1356179:entangled": 0.055
+    }
+  },
+  {
+    "utc": "12:04:08",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356148:entangled": 2.203,
+      "1356226:entangled": 0.2,
+      "1356108:python": 0.2,
+      "1354061:python3": 0.082
+    }
+  },
+  {
+    "utc": "12:04:09",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356148:entangled": 1.838,
+      "1356108:python": 0.323,
+      "1356226:entangled": 0.222,
+      "1354061:python3": 0.065
+    }
+  },
+  {
+    "utc": "12:04:10",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356148:entangled": 3.013,
+      "1356108:python": 0.198,
+      "1354061:python3": 0.09
+    }
+  },
+  {
+    "utc": "12:04:11",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356148:entangled": 2.799,
+      "1356108:python": 0.169,
+      "1356226:entangled": 0.16,
+      "1354061:python3": 0.08
+    }
+  },
+  {
+    "utc": "12:04:12",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:04:13",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.1
+    }
+  },
+  {
+    "utc": "12:04:14",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356300:entangled": 1.354,
+      "1356260:python": 0.393,
+      "1354061:python3": 0.087,
+      "1356362:entangled": 0.061,
+      "1356331:entangled": 0.061
+    }
+  },
+  {
+    "utc": "12:04:15",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356300:entangled": 2.526,
+      "1356260:python": 0.281,
+      "1356378:entangled": 0.178,
+      "1354061:python3": 0.065
+    }
+  },
+  {
+    "utc": "12:04:16",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356300:entangled": 2.087,
+      "1356260:python": 0.256,
+      "1356378:entangled": 0.165,
+      "1354061:python3": 0.092,
+      "153:rootlesskit": 0.037
+    }
+  },
+  {
+    "utc": "12:04:17",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356300:entangled": 2.869,
+      "1356260:python": 0.182,
+      "1354061:python3": 0.073
+    }
+  },
+  {
+    "utc": "12:04:19",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356300:entangled": 2.227,
+      "1354061:python3": 0.2,
+      "1356260:python": 0.184,
+      "1356378:entangled": 0.168
+    }
+  },
+  {
+    "utc": "12:04:20",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:04:21",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356431:python": 0.148,
+      "1354061:python3": 0.104
+    }
+  },
+  {
+    "utc": "12:04:22",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356568:entangled": 1.281,
+      "1356479:entangled": 0.073,
+      "1354061:python3": 0.073
+    }
+  },
+  {
+    "utc": "12:04:23",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356479:entangled": 1.588,
+      "1356431:python": 0.388,
+      "1354061:python3": 0.09,
+      "1356523:entangled": 0.081,
+      "1356568:entangled": 0.054
+    }
+  },
+  {
+    "utc": "12:04:24",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356479:entangled": 1.999,
+      "1356431:python": 0.303,
+      "1356588:entangled": 0.161,
+      "1354061:python3": 0.116
+    }
+  },
+  {
+    "utc": "12:04:25",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356479:entangled": 2.492,
+      "1356431:python": 0.217,
+      "1356588:entangled": 0.181,
+      "1354061:python3": 0.072
+    }
+  },
+  {
+    "utc": "12:04:26",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356479:entangled": 2.647,
+      "1356431:python": 0.276,
+      "1354061:python3": 0.092
+    }
+  },
+  {
+    "utc": "12:04:28",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.083
+    }
+  },
+  {
+    "utc": "12:04:29",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356681:python": 0.59,
+      "1354061:python3": 0.088
+    }
+  },
+  {
+    "utc": "12:04:30",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356681:python": 0.203,
+      "1356721:entangled": 0.074,
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:04:31",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356721:entangled": 2.281,
+      "1356681:python": 0.356,
+      "1354061:python3": 0.091,
+      "1356799:entangled": 0.082
+    }
+  },
+  {
+    "utc": "12:04:32",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356721:entangled": 2.663,
+      "1356799:entangled": 0.285,
+      "1356681:python": 0.184,
+      "1354061:python3": 0.073
+    }
+  },
+  {
+    "utc": "12:04:33",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356721:entangled": 2.584,
+      "1356681:python": 0.278,
+      "1354061:python3": 0.09
+    }
+  },
+  {
+    "utc": "12:04:34",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356681:python": 0.314,
+      "1354061:python3": 0.065
+    }
+  },
+  {
+    "utc": "12:04:35",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:04:36",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "202:dockerd": 0.212,
+      "1356832:python": 0.184,
+      "1354061:python3": 0.074,
+      "1356872:entangled": 0.055
+    }
+  },
+  {
+    "utc": "12:04:37",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356872:entangled": 1.772,
+      "1356832:python": 0.512,
+      "1354061:python3": 0.091,
+      "1356950:entangled": 0.037
+    }
+  },
+  {
+    "utc": "12:04:39",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356872:entangled": 1.966,
+      "1356832:python": 0.345,
+      "1356950:entangled": 0.252,
+      "1354061:python3": 0.065,
+      "222:containerd": 0.037
+    }
+  },
+  {
+    "utc": "12:04:40",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356872:entangled": 2.732,
+      "1356832:python": 0.165,
+      "1356950:entangled": 0.119,
+      "1354061:python3": 0.083
+    }
+  },
+  {
+    "utc": "12:04:41",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356872:entangled": 2.563,
+      "1356832:python": 0.32,
+      "1354061:python3": 0.064
+    }
+  },
+  {
+    "utc": "12:04:42",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.066
+    }
+  },
+  {
+    "utc": "12:04:43",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356983:python": 0.564,
+      "1354061:python3": 0.091
+    }
+  },
+  {
+    "utc": "12:04:44",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357054:entangled": 1.341,
+      "1354061:python3": 0.072
+    }
+  },
+  {
+    "utc": "12:04:45",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357023:entangled": 1.363,
+      "1356983:python": 0.393,
+      "1357085:entangled": 0.11,
+      "1354061:python3": 0.073,
+      "1357054:entangled": 0.064
+    }
+  },
+  {
+    "utc": "12:04:46",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357023:entangled": 2.714,
+      "1356983:python": 0.184,
+      "1357101:entangled": 0.149,
+      "1354061:python3": 0.07
+    }
+  },
+  {
+    "utc": "12:04:47",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357023:entangled": 2.143,
+      "1356983:python": 0.262,
+      "1357101:entangled": 0.234,
+      "1354061:python3": 0.066
+    }
+  },
+  {
+    "utc": "12:04:48",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357023:entangled": 2.783,
+      "1356983:python": 0.272,
+      "1354061:python3": 0.077
+    }
+  },
+  {
+    "utc": "12:04:50",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1356983:python": 0.296,
+      "1354061:python3": 0.083
+    }
+  },
+  {
+    "utc": "12:04:51",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.129
+    }
+  },
+  {
+    "utc": "12:04:52",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.074,
+      "1357188:entangled": 0.065,
+      "1357148:python": 0.037
+    }
+  },
+  {
+    "utc": "12:04:53",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357188:entangled": 1.707,
+      "1357148:python": 0.385,
+      "1354061:python3": 0.073
+    }
+  },
+  {
+    "utc": "12:04:54",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357188:entangled": 2.052,
+      "1357148:python": 0.297,
+      "1357266:entangled": 0.261,
+      "1354061:python3": 0.09
+    }
+  },
+  {
+    "utc": "12:04:55",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357188:entangled": 2.641,
+      "1357148:python": 0.166,
+      "1357266:entangled": 0.12,
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:04:56",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357188:entangled": 2.186,
+      "1357148:python": 0.321,
+      "1354061:python3": 0.083
+    }
+  },
+  {
+    "utc": "12:04:57",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.066
+    }
+  },
+  {
+    "utc": "12:04:58",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357312:python": 0.755,
+      "1354061:python3": 0.108
+    }
+  },
+  {
+    "utc": "12:04:59",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357352:entangled": 0.403,
+      "1357312:python": 0.094,
+      "1354061:python3": 0.056
+    }
+  },
+  {
+    "utc": "12:05:00",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357352:entangled": 2.138,
+      "1357312:python": 0.397,
+      "1354061:python3": 0.09
+    }
+  },
+  {
+    "utc": "12:05:02",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357352:entangled": 1.566,
+      "1357312:python": 0.306,
+      "1357430:entangled": 0.241,
+      "1354061:python3": 0.074
+    }
+  },
+  {
+    "utc": "12:05:03",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357352:entangled": 2.399,
+      "1357312:python": 0.183,
+      "1357430:entangled": 0.165,
+      "1354061:python3": 0.073
+    }
+  },
+  {
+    "utc": "12:05:04",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1357352:entangled": 2.633,
+      "1357312:python": 0.206,
+      "1354061:python3": 0.099
+    }
+  },
+  {
+    "utc": "12:05:05",
+    "known_build_processes": [],
+    "top_live_cpu_cores": {
+      "1354061:python3": 0.074
+    }
+  }
+]

@@ -1,0 +1,42 @@
+{
+  "source_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "/tmp/entangle-demand-qa/jaq-natural/workspace-296.py",
+    "--root",
+    "/workspace/Entanglement",
+    "--workspace",
+    "/tmp/entangle-demand-qa/jaq-natural/upstream",
+    "--metadata",
+    "/tmp/entangle-demand-qa/jaq-natural/workspace-metadata178.json",
+    "--wasm-artifacts",
+    "/tmp/entangle-demand-qa/jaq-natural/original178-wasi-artifacts.jsonl",
+    "--binaries",
+    "/tmp/entangle-fresh-score.TBHRPGcg/90beded5/binaries",
+    "--out",
+    "/tmp/entangle-fresh-score.TBHRPGcg/90beded5/full-remote-after-setup/report.json",
+    "--cargo-log",
+    "/tmp/entangle-fresh-score.TBHRPGcg/90beded5/full-remote-after-setup/cargo.log",
+    "--sharder",
+    "/workspace/Entanglement/scripts/run-rust-tests.py",
+    "--binary-manifest",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/linux-archive.json"
+  ],
+  "started_utc": "2026-11-27T11:06:20.942661+00:00",
+  "finished_utc": "2026-11-27T11:07:23.949193+00:00",
+  "exit_code": 101,
+  "archive_sha256": "eb481741d88d56263ab99a97979565a0f1d404d9afeac1cb2c895bed7a7113a2",
+  "elf_sha256": {
+    "entangle": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02",
+    "entangled": "0071c6daa1eb6f000f3c0ad8b9ecbc6627d37a6cda0d1680b5bedc165b15238a"
+  },
+  "first_setup_log_sha256": "dd807031277bd563a7734fb535391702fbfdec5254bb8d925d3fdcc28463b00b",
+  "first_driver_receipt_sha256": "7567eb9de2f8fad24cae62a868ee1cf648e2e3c9495830b5432b3dfe1d279341",
+  "first_driver_exit_code": 1,
+  "initial_native_log_sha256": "a56682adf8058d6e679da9022ccc3666e7f31579758320baed97d3fdd4825799",
+  "scope": "A failed suite staging operation stopped the first command before Cargo. This runs the previously unstarted distributed Cargo step. The original native and 128-block natural runs are preserved and unrepeated.",
+  "log": "docs/testing/production-review/evidence/candidate-90beded5/jaq-natural/full-launch.log",
+  "sha256": "b97b60043d33b515103b5c392446ddaf5875141eb15539f6979d478b7b3cdc35"
+}

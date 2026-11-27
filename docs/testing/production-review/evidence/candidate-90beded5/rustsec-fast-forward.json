@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_utc": "2026-11-27T11:02:52+00:00",
+  "finished_utc": "2026-11-27T11:02:52+00:00",
+  "command": "git -C /tmp/entanglement-rustsec-db merge --ff-only FETCH_HEAD",
+  "exit_code": 0,
+  "log": "rustsec-fast-forward.log",
+  "log_sha256": "4286b82e5606cfa8e97a63de5f2b6b9a539148ce1f313423745b2e6e8d24312f"
+}

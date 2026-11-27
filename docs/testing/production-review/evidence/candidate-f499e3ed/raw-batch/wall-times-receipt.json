@@ -1,0 +1,44 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/monitor.py",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/resource-samples.json",
+    "--",
+    "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/loopback-harness.py",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--wasm",
+    "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+    "--report",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/real-photo-wall-times.json"
+  ],
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T12:01:06.845833+00:00",
+  "finished_utc": "2026-11-27T12:02:22.083647+00:00",
+  "exit_code": 1,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/real-photo-wall-times.json",
+  "sha256": "a9fe70a60e9cccd62f0abcec65776859dfb8a6d950b3fe94a20d2a8986c65824",
+  "archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "archive_signing_status": "unsigned local candidate",
+  "cli_sha256": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+  "daemon_sha256_checked_at_normalization": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8",
+  "wasm_sha256": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+  "original_receipt_sha256": "2b32411e86a853e4fea4db286d10103cccf4827df5888f169a18a49ca5b8926c",
+  "monitor_sha256": "7f1cd3845c71cefb46997373adc562ba8b232c481a6b50e5f68ae4f08731177f",
+  "input_sha256": {
+    "canon_350d.cr2": "8cbb84e04d93b005fe082da9c954122a612b5281af00aa088d767850f343fd38",
+    "nikon_d40.nef": "44e88bc77b7a531b22647bcd07b9393c4568062e8f0906d3bbdecb42fbe29e03"
+  },
+  "verified_full_arms": 5,
+  "incomplete_arm": {
+    "pair": 2,
+    "route": "mesh",
+    "cli_exit": 0,
+    "benchmark_exit": 1,
+    "error": "batch omitted a source or failed to place work on every specified worker"
+  },
+  "median_wall_speedup": null,
+  "normalized_utc": "2026-11-27T12:10:01.401858+00:00"
+}

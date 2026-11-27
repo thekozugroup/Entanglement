@@ -1,0 +1,60 @@
+{
+  "baseline_commit": "84aa663b26e4a59a408f14c5417b5af0999cb4a7",
+  "checked_tree_head": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "operator_status_callsite_count": 1,
+  "checks": {
+    "crates/entangle-scheduler/src/dispatcher.rs": {
+      "identical": true,
+      "sha256": "8ecda2d680bc9493d3b7fdf586d55863b619d67c19af4fe32516b64565b61ce8"
+    },
+    "crates/entangle-scheduler/src/worker.rs": {
+      "identical": true,
+      "sha256": "f2a1489b0ec8c34398cafc2f89164147415fb7cd6ff638136ad585d3d3c255d7"
+    },
+    "crates/entangle-scheduler/src/placement.rs": {
+      "identical": true,
+      "sha256": "83fa3761a9893eb3db83a9689a852af07be38187706c5331d7f07706c0edabd4"
+    },
+    "crates/entangle-scheduler/src/remote.rs": {
+      "identical": true,
+      "sha256": "f86b0b3906abe93d19491aa8f14119fc4f6782ab9d09c08195aad3d1b7983e95"
+    },
+    "crates/entangle-bin/src/remote/routes/supervisor.rs": {
+      "identical": true,
+      "sha256": "8a70fc455a7f13f930157b444270d2cdc6bcb5066f964cf83d496b6e7c83d742"
+    },
+    "crates/entangle-bin/src/remote/routes/demand.rs": {
+      "identical": true,
+      "sha256": "7c891c81d94f87a03a816336f0cbcc9e012be78dc020cb5f5ada45925f68a164"
+    },
+    "crates/entangle-bin/src/remote/routes.rs::lookup_for_dispatch": {
+      "identical": true,
+      "sha256": "c75edcea0a42554124a8aaf64d351d1830efe4efe9a1f5f92c356c6c9f3f09b3"
+    },
+    "crates/entangle-bin/src/remote/routes.rs::refresh_missing_route": {
+      "identical": true,
+      "sha256": "e14426acd6dfe7353875c89ae1f7718368c3c73a8b271ad480b29b6fc1088ace"
+    },
+    "crates/entangle-bin/src/remote/routes.rs::online_status": {
+      "identical": true,
+      "sha256": "f9a0dff27d16b4bb9d2725f4df3143567fdb3fe398cc4783875ae6f5bdec6297"
+    },
+    "crates/entangle-bin/src/remote/routes.rs::snapshot_routes": {
+      "identical": true,
+      "sha256": "99e1574ea9f749f15eb17913cae02c7cdc941031e2ee38752470b19d32f042cc"
+    },
+    "crates/entangle-bin/src/remote/routes.rs::tailnet_bind": {
+      "identical": true,
+      "sha256": "f267b86ab1682791c33a814e4ee998d9fdd6d1cf846fe13e9d09c226ad23a562"
+    },
+    "crates/entangle-mesh-tailscale/src/lib.rs::status": {
+      "identical": true,
+      "sha256": "3d9157cbc046290fd4e2d0a728d784cf1781d059f6a3346d6039e5bbf9244210"
+    },
+    "moved_address_policy": {
+      "original": "crates/entangle-bin/src/remote/routes.rs",
+      "new": "crates/entangle-mesh-tailscale/src/lib.rs",
+      "same_body_whitespace_insensitive": true
+    }
+  }
+}

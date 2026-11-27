@@ -1,0 +1,64 @@
+UTC start 2026-11-27T11:31:19Z
+source before sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa
+commit f499e3edf84e20f550312d05df51b9ea4e7cc699
+rustc 1.91.1 (ed61e7d7e 2025-11-07)
+Linux 6.18.57 x86_64
+command tar -xzf /workspace/Entanglement/target/release-candidate/f499e3edf84e/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz -C /tmp/entangle-successor-libtest.XaYkHd
+2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca  /tmp/entangle-successor-libtest.XaYkHd/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8  /tmp/entangle-successor-libtest.XaYkHd/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled
+command cargo test --offline --locked --target wasm32-wasip2 --target-dir /tmp/entangle-wasip2-libtest-target --no-run --test atc_spec -p entangle-types -p entangle-manifest --message-format=json
+    Finished `test` profile [unoptimized] target(s) in 1.39s
+command rustc --target wasm32-wasip2 --test scripts/tests/fixtures/libtest_retry.rs -o /tmp/entangle-successor-libtest.XaYkHd/libtest_retry.wasm
+fbe5ae1ae9d2afaf0896a7330d586dfc90f8f89437e8093382225dad4162c190  /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-fad15992387f93fa.wasm
+e233af17248915a82bb5be9d9029ee11ab6c3d094bf90a71eeb5235f02d0a0ac  /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-d69e1d4f32c32f65.wasm
+b83bd884c88d0e3f3a54b1b70cc91e88f4ee74a1d91b39f7fa7f6d6edf7fe3bb  /tmp/entangle-successor-libtest.XaYkHd/libtest_retry.wasm
+command python3 scripts/tests/distributed-rust-tests.py --bin-dir /tmp/entangle-successor-libtest.XaYkHd/entanglement-v0.1.0-x86_64-unknown-linux-gnu --types-wasm /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-fad15992387f93fa.wasm --manifest-wasm /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-d69e1d4f32c32f65.wasm --retry-wasm /tmp/entangle-successor-libtest.XaYkHd/libtest_retry.wasm
+exit 0
+source after sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa
+UTC finish 2026-11-27T11:31:39Z
+{
+  "full": {
+    "counts": {
+      "passed": 14,
+      "flaky": 0,
+      "failed": 0,
+      "ignored": 8,
+      "error": 0
+    },
+    "filtered": 0,
+    "elapsed_ms": 225
+  },
+  "filtered": {
+    "counts": {
+      "passed": 5,
+      "flaky": 0,
+      "failed": 0,
+      "ignored": 0,
+      "error": 0
+    },
+    "filtered": 11,
+    "elapsed_ms": 72
+  },
+  "failure": {
+    "counts": {
+      "passed": 0,
+      "flaky": 0,
+      "failed": 1,
+      "ignored": 0,
+      "error": 0
+    },
+    "filtered": 1,
+    "elapsed_ms": 43
+  },
+  "retry_fixture": {
+    "counts": {
+      "passed": 0,
+      "flaky": 1,
+      "failed": 0,
+      "ignored": 1,
+      "error": 0
+    },
+    "filtered": 0,
+    "elapsed_ms": 48
+  }
+}

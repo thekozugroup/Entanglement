@@ -1,0 +1,166 @@
+{
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_utc": "2026-11-27T10:59:02.309271+00:00",
+  "method": "Verify signed-byte archive layout and CPU/OS controls independently of signers, using unmodified Linux review archives and small real LLVM-linked Mach-O programs.",
+  "scope": "Static file validation on x86-64 Linux. The Darwin inputs return zero from main and were inspected without running on macOS.",
+  "layout_sha256": "5f76e0c4cadf5786d0de2f9f5825f28a40bb280ccc098d597b2ea9fbd0b2e8d3",
+  "packager_sha256": "49c8e005a5dd7e6bc1ad260aa9f9dff227d03d22eb00af4add4bd3e215b26698",
+  "darwin_fixture_build": {
+    "started_utc": "2026-11-27T10:44:18.125764+00:00",
+    "llvm": "libLLVM.so.21.1-rust-1.91.1-stable",
+    "llvm_sha256": "5818b869fb0b23c7f723c9c999b0e856abab8f2a3918a91d456b36e6d364e65f",
+    "linker_sha256": "a2aef2573bc0409403747456072c373523ebfea0d03a832520331a17e8ec65a5",
+    "compile_only": true,
+    "workload": "main returns 0",
+    "outputs": {
+      "x86_64": {
+        "description": "Mach-O 64-bit x86_64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE>",
+        "size": 8312,
+        "sha256": "5870dc55a098f40d5ab618c2ebad646a3a80854a11466900d7589ed1b5bf5fa4",
+        "ir": "target triple = \"x86_64-apple-macos11.0\"\ndefine i32 @main() { ret i32 0 }\n",
+        "link": [
+          "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+          "-flavor",
+          "darwin",
+          "-arch",
+          "x86_64",
+          "-platform_version",
+          "macos",
+          "11.0",
+          "11.0",
+          "-e",
+          "_main",
+          "-o",
+          "/tmp/entangle-onboard-promotion-review-a727cv7e/darwin-validation/x86_64-minimal",
+          "/tmp/entangle-onboard-promotion-review-a727cv7e/darwin-validation/x86_64.o"
+        ]
+      },
+      "arm64": {
+        "description": "Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE>",
+        "size": 16800,
+        "sha256": "c733227945a526cc66dbe8d7fcbcf3d7d5ba4c42c0dc1a3c2d9f380d2c70fb76",
+        "ir": "target triple = \"arm64-apple-macos11.0\"\ndefine i32 @main() { ret i32 0 }\n",
+        "link": [
+          "/workspace/.entanglement-dev/rustup/toolchains/1.91-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+          "-flavor",
+          "darwin",
+          "-arch",
+          "arm64",
+          "-platform_version",
+          "macos",
+          "11.0",
+          "11.0",
+          "-e",
+          "_main",
+          "-o",
+          "/tmp/entangle-onboard-promotion-review-a727cv7e/darwin-validation/arm64-minimal",
+          "/tmp/entangle-onboard-promotion-review-a727cv7e/darwin-validation/arm64.o"
+        ]
+      }
+    },
+    "finished_utc": "2026-11-27T10:44:18.885938+00:00"
+  },
+  "universal_fixture": {
+    "universal32": {
+      "sha256": "3c2ca3d4d36f00e651c3069b9b9507ebb7c44b2a1e19cd627798181ce3a1c9c7",
+      "slice_sha256": [
+        "5870dc55a098f40d5ab618c2ebad646a3a80854a11466900d7589ed1b5bf5fa4",
+        "c733227945a526cc66dbe8d7fcbcf3d7d5ba4c42c0dc1a3c2d9f380d2c70fb76"
+      ],
+      "file": "Mach-O universal binary with 2 architectures: [x86_64:\\012- Mach-O 64-bit x86_64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE>] [\\012- arm64:\\012- Mach-O 64-bit arm64 executable, flags:<NOUNDEFS|DYLDLINK|TWOLEVEL|PIE>]",
+      "offsets": [
+        16384,
+        32768
+      ]
+    },
+    "universal64": {
+      "sha256": "f96c31c54c25f427f1da808ab55c608d273f9d3fa850736492e80a25cc8479f6",
+      "slice_sha256": [
+        "5870dc55a098f40d5ab618c2ebad646a3a80854a11466900d7589ed1b5bf5fa4",
+        "c733227945a526cc66dbe8d7fcbcf3d7d5ba4c42c0dc1a3c2d9f380d2c70fb76"
+      ],
+      "file": "data",
+      "offsets": [
+        16384,
+        32768
+      ]
+    }
+  },
+  "cases": [
+    {
+      "case": "actual earlier Linux candidate archive",
+      "target": "x86_64-unknown-linux-gnu",
+      "archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+      "result": "accepted"
+    },
+    {
+      "case": "actual earlier Linux candidate archive",
+      "target": "aarch64-unknown-linux-gnu",
+      "archive_sha256": "2621efd1f76555a4902ca234b5630bd36737b9f421b8bd8b0ab69fee91f2111c",
+      "result": "accepted"
+    },
+    {
+      "case": "Intel macOS native format",
+      "target": "x86_64-apple-darwin",
+      "archive_sha256": "cc0667ec00f417b8fb8d512b53cbe91cfb14c72c3c6123d22cb894888aca0193",
+      "result": "accepted"
+    },
+    {
+      "case": "Apple Silicon macOS native format",
+      "target": "aarch64-apple-darwin",
+      "archive_sha256": "198383422ea88114c1be9f7f77d713fce784ec4913733535ca55ea0af662e1e6",
+      "result": "accepted"
+    },
+    {
+      "case": "wrong CPU in CLI",
+      "target": "x86_64-apple-darwin",
+      "archive_sha256": "5972122ee5772a948651c6be00608dc32ef82ba9630a673cd50057104e39affb",
+      "result": "entanglement-v0.1.0-check-x86_64-apple-darwin.tar.gz member 'entanglement-v0.1.0-check-x86_64-apple-darwin/entangle' is not a x86_64-apple-darwin native executable"
+    },
+    {
+      "case": "wrong CPU in daemon",
+      "target": "aarch64-apple-darwin",
+      "archive_sha256": "6f2822f16b4ac9c93b721b3fca54adf1b6586ce9b1c00c907de5cccb562cd93d",
+      "result": "entanglement-v0.1.0-check-aarch64-apple-darwin.tar.gz member 'entanglement-v0.1.0-check-aarch64-apple-darwin/entangled' is not a aarch64-apple-darwin native executable"
+    },
+    {
+      "case": "Linux executable in macOS release",
+      "target": "x86_64-apple-darwin",
+      "archive_sha256": "5e5f6d5c671145bbdaa7abf6f3e3ba8e9ef86776a920b8dd55b9860da20e6d16",
+      "result": "entanglement-v0.1.0-check-x86_64-apple-darwin.tar.gz member 'entanglement-v0.1.0-check-x86_64-apple-darwin/entangle' is not a x86_64-apple-darwin native executable"
+    },
+    {
+      "case": "Intel Linux executable in ARM release",
+      "target": "aarch64-unknown-linux-gnu",
+      "archive_sha256": "2c5c6cbae05e37445db624a8c57b6fcc7dd7c86db9372460958aa5dd19673dd4",
+      "result": "entanglement-v0.1.0-check-aarch64-unknown-linux-gnu.tar.gz member 'entanglement-v0.1.0-check-aarch64-unknown-linux-gnu/entangle' is not a aarch64-unknown-linux-gnu native executable"
+    },
+    {
+      "case": "two-architecture universal32 containing x86_64-apple-darwin",
+      "target": "x86_64-apple-darwin",
+      "archive_sha256": "dcd92f44a5dc0792400ddde5398b375c08cd6e157b3bf1a9134af3ae37d88aee",
+      "result": "accepted"
+    },
+    {
+      "case": "two-architecture universal32 containing aarch64-apple-darwin",
+      "target": "aarch64-apple-darwin",
+      "archive_sha256": "348f59419343ee1e361e9e8887d4057719f8c4f5ec6ea653ae1386c0b57553ca",
+      "result": "accepted"
+    },
+    {
+      "case": "two-architecture universal64 containing x86_64-apple-darwin",
+      "target": "x86_64-apple-darwin",
+      "archive_sha256": "67377484594b221368cf1a6e540517eb917baea98d7d5c08e7a9ef5132842b54",
+      "result": "accepted"
+    },
+    {
+      "case": "two-architecture universal64 containing aarch64-apple-darwin",
+      "target": "aarch64-apple-darwin",
+      "archive_sha256": "acc27369d3b384d861126c72061965a55171904f2648cc011b573e0e6c27ee2b",
+      "result": "accepted"
+    }
+  ],
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "finished_utc": "2026-11-27T10:59:04.432799+00:00",
+  "exit_code": 0
+}

@@ -1,0 +1,57 @@
+    Blocking waiting for file lock on build directory
+    Checking entangle-types v0.1.0 (/workspace/Entanglement/crates/entangle-types)
+    Checking crypto-bigint v0.7.11
+    Checking entangle-manifest v0.1.0 (/workspace/Entanglement/crates/entangle-manifest)
+    Checking tracing-subscriber v0.3.23
+    Checking entangle-peers v0.1.0 (/workspace/Entanglement/crates/entangle-peers)
+    Checking entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+    Checking entangle-observability v0.1.0 (/workspace/Entanglement/crates/entangle-observability)
+    Checking elliptic-curve v0.14.3
+    Checking primefield v0.14.0
+    Checking wnaf v0.14.1
+    Checking rfc6979 v0.6.0
+    Checking entangle-ipc v0.1.0 (/workspace/Entanglement/crates/entangle-ipc)
+    Checking primeorder v0.14.0
+    Checking ecdsa v0.17.0
+    Checking entangle-core v0.1.0 (/workspace/Entanglement/crates/entangle-core)
+    Checking entangle-mesh-local v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-local)
+    Checking p256 v0.14.0
+    Checking entangle-rpc v0.1.0 (/workspace/Entanglement/crates/entangle-rpc)
+    Checking biscuit-auth v7.0.0-alpha.4
+    Checking entangle-mesh-tailscale v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-tailscale)
+ Documenting entangle-agent-host v0.1.0 (/workspace/Entanglement/crates/entangle-agent-host)
+ Documenting entangle-sdk v0.1.0 (/workspace/Entanglement/crates/entangle-sdk)
+    Checking entangle-biscuits v0.1.0 (/workspace/Entanglement/crates/entangle-biscuits)
+    Checking entangle-signing v0.1.0 (/workspace/Entanglement/crates/entangle-signing)
+    Checking entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+    Checking entangle-broker v0.1.0 (/workspace/Entanglement/crates/entangle-broker)
+    Checking entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+    Checking entangle-oci v0.1.0 (/workspace/Entanglement/crates/entangle-oci)
+    Checking entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+    Checking entangle-pairing v0.1.0 (/workspace/Entanglement/crates/entangle-pairing)
+ Documenting entangle-bench v0.1.0 (/workspace/Entanglement/crates/entangle-bench)
+    Checking entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+ Documenting entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+ Documenting entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+ Documenting cargo-entangle v0.1.0 (/workspace/Entanglement/crates/cargo-entangle)
+ Documenting entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+ Documenting entangle-pairing v0.1.0 (/workspace/Entanglement/crates/entangle-pairing)
+ Documenting entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+ Documenting entangle-oci v0.1.0 (/workspace/Entanglement/crates/entangle-oci)
+ Documenting entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+ Documenting entangle-broker v0.1.0 (/workspace/Entanglement/crates/entangle-broker)
+ Documenting entangle-signing v0.1.0 (/workspace/Entanglement/crates/entangle-signing)
+ Documenting entangle-biscuits v0.1.0 (/workspace/Entanglement/crates/entangle-biscuits)
+ Documenting xtask v0.1.0 (/workspace/Entanglement/tools/xtask)
+ Documenting entangle-mesh-local v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-local)
+ Documenting entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+ Documenting entangle-observability v0.1.0 (/workspace/Entanglement/crates/entangle-observability)
+ Documenting entangle-ipc v0.1.0 (/workspace/Entanglement/crates/entangle-ipc)
+ Documenting entangle-rpc v0.1.0 (/workspace/Entanglement/crates/entangle-rpc)
+ Documenting entangle-manifest v0.1.0 (/workspace/Entanglement/crates/entangle-manifest)
+ Documenting entangle-peers v0.1.0 (/workspace/Entanglement/crates/entangle-peers)
+ Documenting entangle-mesh-tailscale v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-tailscale)
+ Documenting entangle-core v0.1.0 (/workspace/Entanglement/crates/entangle-core)
+ Documenting entangle-types v0.1.0 (/workspace/Entanglement/crates/entangle-types)
+    Finished `dev` profile [unoptimized] target(s) in 57.91s
+   Generated /workspace/Entanglement/target/doc/cargo_entangle/index.html and 26 other files

@@ -1,0 +1,183 @@
+{
+  "blockers": [
+    {
+      "id": "ATC-PKG-2",
+      "reason": "The pinned hello-world package requires comparable macOS 14, Ubuntu 22.04 and Ubuntu 24.04 executions on the specified hosts with identical digests. A complete matrix is unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MAX-1",
+      "reason": "The requested loaded tier-5 agent-host and interactive 5\u21923 affected list, default unload and cancel reversal have no exact candidate demonstration.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MAX-2",
+      "reason": "The requested loaded tier-5 agent-host 5\u21923 forced unload with its per-plugin W0214 audit has no exact candidate demonstration.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MAX-3",
+      "reason": "The requested loaded tier-5 agent-host 5\u21923 cancellation with persisted tier 5 and I0216 has no exact candidate demonstration.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-MIR-1",
+      "reason": "Fresh probes hit DNS temporary failure and proxy CONNECT 403 before reaching mirror.entanglement.dev. No genuine origin response or mirror artifact trust check was available.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-REL-1",
+      "reason": "A genuine production-signed 1.0 RC with publisher Ed25519 verification and actual Cosign/Rekor inclusion is unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-REL-2",
+      "reason": "The actual recorded two-of-three production release key ceremony and one-share negative reconstruction control are unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "ATC-BUS-1",
+      "reason": "The real governance checker exits 1 because each of the five required roles has one named holder. This violates the required two-active-holder lower bound.",
+      "status": "fail"
+    },
+    {
+      "id": "ATC-BUS-2",
+      "reason": "The real governance checker exits 1 because docs/governance/rotations.md is missing. The freshness requirement therefore fails.",
+      "status": "fail"
+    },
+    {
+      "id": "COR-PLATFORMS",
+      "reason": "Required final-source hosted Linux and macOS test, formatting, Clippy and rustdoc runner results are unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "AUTH-WASI",
+      "reason": "Malicious guest filesystem escape and permissions tests, including symlink, rename and trailing-slash behavior, are lacking on the full supported OS matrix.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "REL-RESTART",
+      "reason": "Fresh Linux active-stream restart restored identity, signed plugins and attribution in 0.620s; the complete supported OS host matrix remains unverified.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "REL-PARTITION",
+      "reason": "Distinct physical hosts with link loss, service restart, bounded failure and authorized attributed recovery are unavailable. On one Linux host, attributed signed work resumed 3.146s after the worker overlay recovered and 1.484s after coordinator overlay recovery. Revoked work returned E0403.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-LINUX",
+      "reason": "Complete release workload checks on independent native x86-64 and aarch64 Linux hosts are unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-MAC",
+      "reason": "Complete release workload checks on independent native Intel and Apple Silicon macOS hosts are unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-WAN",
+      "reason": "Two independent networks with authenticated direct NAT traversal and forced public relay on the intended peer are unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-TAILNET",
+      "reason": "The complete private-tailnet acceptance across two real hosts with ACL and reconnection proof is unavailable. In the exact local private topology, operator link and its idempotent repeat succeeded, and dispatch returned attributed output before live revocation was enforced. On one Linux host, attributed signed work resumed 3.146s after the worker overlay recovered and 1.484s after coordinator overlay recovery. Revoked work returned E0403.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "INTEROP-LAN",
+      "reason": "Fresh Linux host multicast produced authenticated execution without static routes. The two-physical-host requirement remains unmet.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-LLM",
+      "reason": "The actual TinyLlama 1.1B CPU fixture completed six requests and verified 139 Ed25519-signed chunks on one host. The 70B workload, specified GPU and separate battery laptop remain unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-IMAGE",
+      "reason": "The complete 8,000 RAW photo benchmark with three physical desktops and at least 10\u00d7 measured speedup is unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "PERF-BASELINE",
+      "reason": "4/7 routes meet both prespecified engineering limits against the frozen a5728c23 comparator. Routes outside the limits were image local (p95 +6.51%), image one_remote (p95 +8.00%), remote / 1 (p95 +6.31%). No previously approved comparable production baseline was available.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-RELEASE",
+      "reason": "The canonical unsigned Linux x86-64 pair requires GLIBC 2.39. Ubuntu 22.04 and Debian 12 userspaces refused the actual ELFs. Ubuntu 24.04 and Debian 13 each ran the signed workload in isolated containers. Four production-signed releases, provenance, independent rebuilds and native installations remain unavailable. Fresh static CPU and executable format controls passed on Linux for earlier Linux archives and native-format Darwin fixtures.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-GOVERNANCE",
+      "reason": "The actual release governance gate fails on all five holder counts and the missing rotation record.",
+      "status": "fail"
+    },
+    {
+      "id": "OPS-RECOVERY",
+      "reason": "Candidate Linux encrypted restore verified a relocated signed workload, retained peer identity and enforced revocation. Native supported macOS recovery remains unavailable.",
+      "status": "not_evidenced"
+    },
+    {
+      "id": "OPS-CI",
+      "reason": "Both read-only main branch protection requests returned Forbidden before branch details. Required hosted CI was unavailable for this candidate.",
+      "status": "not_evidenced"
+    }
+  ],
+  "metrics": {
+    "authorization_isolation": {
+      "fail": 0,
+      "not_evidenced": 5,
+      "over_95": false,
+      "pass": 14,
+      "score_percent": 73.6842105263158,
+      "total": 19
+    },
+    "correctness": {
+      "fail": 0,
+      "not_evidenced": 1,
+      "over_95": false,
+      "pass": 9,
+      "score_percent": 90.0,
+      "total": 10
+    },
+    "interoperability": {
+      "fail": 0,
+      "not_evidenced": 5,
+      "over_95": false,
+      "pass": 0,
+      "score_percent": 0.0,
+      "total": 5
+    },
+    "performance": {
+      "fail": 0,
+      "not_evidenced": 3,
+      "over_95": false,
+      "pass": 1,
+      "score_percent": 25.0,
+      "total": 4
+    },
+    "release_operations": {
+      "fail": 3,
+      "not_evidenced": 6,
+      "over_95": false,
+      "pass": 4,
+      "score_percent": 30.76923076923077,
+      "total": 13
+    },
+    "reliability": {
+      "fail": 0,
+      "not_evidenced": 2,
+      "over_95": false,
+      "pass": 4,
+      "score_percent": 66.66666666666667,
+      "total": 6
+    }
+  },
+  "ready_over_95": false,
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_verified_current": true
+}

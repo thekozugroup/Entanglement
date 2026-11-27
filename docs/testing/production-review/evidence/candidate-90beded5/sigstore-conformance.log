@@ -1,0 +1,21 @@
+   Compiling entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+    Finished `test` profile [unoptimized] target(s) in 7.88s
+     Running unittests src/main.rs (target/debug/deps/entangle-86ac9481e4402f62)
+
+running 1 test
+Verified OK
+Verified OK
+Error: failed to verify signature: could not verify message: invalid signature when validating ASN.1 encoded signature
+error during command execution: failed to verify signature: could not verify message: invalid signature when validating ASN.1 encoded signature
+Error: failed to verify certificate identity: no matching CertificateIdentity found, last error: expected SAN value "https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@refs/tags/v1.0.0", got "https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main"
+error during command execution: failed to verify certificate identity: no matching CertificateIdentity found, last error: expected SAN value "https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@refs/tags/v1.0.0", got "https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main"
+Error: inclusion proof missing in bundle (required for bundle v0.2)
+error during command execution: inclusion proof missing in bundle (required for bundle v0.2)
+test cmd::release::tests::dual_sig_pass ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 65 filtered out; finished in 0.51s
+
+Verified OK
+Error: none of the expected identities matched what was in the certificate, got subjects [https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main] with issuer https://token.actions.githubusercontent.com
+error during command execution: none of the expected identities matched what was in the certificate, got subjects [https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main] with issuer https://token.actions.githubusercontent.com
+error: invalid Sigstore release bundle: Only base64 data is allowed

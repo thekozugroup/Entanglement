@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/real-inference/verify.py",
+    "--server",
+    "/tmp/entanglement-cpu-server-b6910/bin/llama-server",
+    "--model",
+    "/tmp/entangle-llama-cpu-model/TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf",
+    "--bin-dir",
+    "/tmp/ent-llama-release-extract-6043mast/entanglement-v0.1.0-x86_64-unknown-linux-gnu",
+    "--output",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/real-inference/result.json"
+  ],
+  "started_utc": "2026-11-27T11:30:27.813172+00:00",
+  "finished_utc": "2026-11-27T11:31:44.189595+00:00",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/real-inference-run.log",
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

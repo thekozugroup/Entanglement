@@ -1,0 +1,22 @@
+{
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T11:29:45Z",
+  "finished_utc": "2026-11-27T11:30:13Z",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/distributed-rust-workspace/rngs-receipt.json",
+  "sha256": "bd73d834efbeb7ce48ef4c15b597df546fe7f64bddda91031680c757d9562e91",
+  "command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--target",
+    "wasm32-wasip2",
+    "--no-fail-fast"
+  ],
+  "source_receipt": "docs/testing/production-review/evidence/candidate-f499e3ed/distributed-rust-workspace/rngs-receipt.json",
+  "source_receipt_sha256": "bd73d834efbeb7ce48ef4c15b597df546fe7f64bddda91031680c757d9562e91"
+}

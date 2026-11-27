@@ -1,0 +1,26 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-fresh-score.TBHRPGcg/controlled-wasi.sh",
+    "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+    "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+    "/workspace/Entanglement/target/release-candidate/f499e3edf84e/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed"
+  ],
+  "started_utc": "2026-11-27T11:31:18.972179+00:00",
+  "finished_utc": "2026-11-27T11:31:40.286799+00:00",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_commit_after": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "archive_receipt_sha256": "f481ae04806927ab3998e9372624663421c907d410fe7ce21644cad3d7dae49c",
+  "startup_free_bytes": 3079458816,
+  "executables_sha256": {
+    "entangle": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+    "entangled": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8"
+  },
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/distributed-rust-release-genuine.log",
+  "sha256": "99bf5bd35cc9757e7f9e2952c1952ea9f187bcb9afcc9cba72545fadb7907a93"
+}

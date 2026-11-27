@@ -1,0 +1,3 @@
+# Qualified release and engineering comparator
+
+Run the registered first seven-route series and offline operator link protocol on f499e3edf84e20f550312d05df51b9ea4e7cc699, source sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa. Keep a5728c23 as the prespecified engineering comparator and verify both release manifests. The 90beded5 primary and separate identical-daemon replication describe their own source. This release includes an additional operator-only platform-reporting change. Record actual ELF digests before measurement. Timing begins in the first coordinated quiet slot after the packaged archive is ready. [Seven-route plan](plan.md) · [Operator timing](../tailnet-link-latency/preregistration.md)

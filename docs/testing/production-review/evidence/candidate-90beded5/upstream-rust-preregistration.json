@@ -1,0 +1,21 @@
+{
+  "candidate_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "candidate_source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "registered_utc": "2026-11-27T10:57:04.907438+00:00",
+  "protocol_sha256": "a25064f7571ddd6b48d94feb42eee7481a1b8b3afe40844cd04e0fef2ef93b4f",
+  "original_jaq_protocol_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "driver_sha256": "598424fa2296243b589d2d15d5e5fff990171709cf6b4bdd14e5189eabdea463",
+  "controlled_driver_sha256": "ac22c76070484ecf15446f4789d0a86808edc26b306f4bbc0ed90e0718c73478",
+  "upstreams": {
+    "rngs": {
+      "revision": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+      "lock_sha256": "3192202a77857b38733c7594a9a67a8d2970d51c6176487b48c83578c58ea888"
+    },
+    "jaq": {
+      "revision": "606164eb26420c892c9bac27f7daf77b7a406b6d",
+      "lock_sha256": "bc7ec7e5dfab7363f649fa7d76af767e8835a2a110785d939691e06c16255ed6"
+    }
+  },
+  "start_condition": "Both released executable hashes, exact source and the official archive manifest match. Coordinate with all timed-test owners before starting."
+}

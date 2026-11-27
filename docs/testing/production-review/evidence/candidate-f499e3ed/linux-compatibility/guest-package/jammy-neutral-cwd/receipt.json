@@ -1,0 +1,68 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T12:08:35.358724+00:00",
+  "os_version": "22.04",
+  "glibc": "2.35",
+  "base_image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+  "native_packager_sha256": "f94d02e60ab0bcc117f14e9761fcba7a0e4e8cd539ac2c29afc9ab5db3eb2a56",
+  "native_build_receipt": "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/jammy-build/jammy-linux-archive.json",
+  "native_build_receipt_sha256": "e572fb77fea47b7d6b4b3b927d125e622eac34491f1b14a73adc6b2aba113c8b",
+  "compiler_sha256": {
+    "cargo": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b",
+    "rustc": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e"
+  },
+  "source_bundle_sha256": "6003e29a20f115fcb964e0392bfe67aa55420861a5155972c661526dc77c9528",
+  "helper_sha256": "b84fc92f146b2cc09e0c1415f11863f0028b73db0dcefb69f5253325556ed6e8",
+  "runner_sha256": "0e473deba025900d234f6ebf365df4d17c37d7c7bfdc6036a4ca6cc750b3170c",
+  "command": [
+    "cargo",
+    "entangle",
+    "package",
+    "<fresh-checkout>/examples/hello-world",
+    "--source-url",
+    "https://github.com/thekozugroup/Entanglement.git",
+    "--key",
+    "/public-repro-fixture.pem",
+    "--out",
+    "/build/hello-world.tar.zst"
+  ],
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/guest-package/jammy-neutral-cwd/build.log",
+  "exit_code": 0,
+  "base_image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+  "archive_sha256": "7db5cdb0e44745cf0a58612e02a04e12cc8b96aaa98669889b0c74d9bebe3a19",
+  "archive_size": 20909,
+  "members": {
+    "entangle.toml": {
+      "sha256": "879b68b0595ca0edaa5364995fe8b3a651fabd359f8036fa44dbcf2eccffe12d",
+      "size": 261
+    },
+    "plugin.wasm": {
+      "sha256": "aedd0d4e99e8fe2d43cac522916901f2fdeb4b4137ca30da0a76443d5abd8286",
+      "size": 51707
+    },
+    "plugin.wasm.sig": {
+      "sha256": "75eca9d065bf0b78a188be13e09d47bd3ed39e9ad155546f6e3db794793a4274",
+      "size": 430
+    },
+    "rebuild.json": {
+      "sha256": "ee24b09698621c25e2056bc8fe65ea6e5c617a98dab5fbe970f762536b40938f",
+      "size": 347
+    }
+  },
+  "signed_rebuild_record": {
+    "version": 1,
+    "source_url": "https://github.com/thekozugroup/Entanglement.git",
+    "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+    "project": "examples/hello-world",
+    "source_date_epoch": 1795778276,
+    "rust_toolchain": "1.91.1",
+    "lock_sha256": "f39de25a8789fe8c9b12e2b86c1f334223210aafc2ec8598d2a0c7055b8edea1",
+    "zstd_version": "1.6.0",
+    "zstd_threads": 1
+  },
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "finished_utc": "2026-11-27T12:10:59.842554+00:00",
+  "sha256": "9037b77f1fccf4ea05050e069d12a86a65f1862ddc4881cc22b3e0383cfd7798"
+}

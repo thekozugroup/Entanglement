@@ -1,0 +1,64 @@
+{
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "started_utc": "2026-11-27T12:15:44.701113+00:00",
+  "finished_utc": "2026-11-27T12:15:45.117557+00:00",
+  "exit_code": 0,
+  "command": [
+    "python3",
+    "-B",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/guest-package/compare.py",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/guest-package/jammy-neutral-cwd",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/guest-package/noble",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/ubuntu-guest-package-comparison.json"
+  ],
+  "archive_size_equal": true,
+  "archive_sha256_equal": true,
+  "archives_byte_identical": true,
+  "component_size_and_sha256_equal": true,
+  "observations": {
+    "22.04": {
+      "archive_size": 20909,
+      "archive_sha256": "7db5cdb0e44745cf0a58612e02a04e12cc8b96aaa98669889b0c74d9bebe3a19",
+      "component": {
+        "sha256": "aedd0d4e99e8fe2d43cac522916901f2fdeb4b4137ca30da0a76443d5abd8286",
+        "size": 51707
+      },
+      "base_image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+      "native_packager_sha256": "f94d02e60ab0bcc117f14e9761fcba7a0e4e8cd539ac2c29afc9ab5db3eb2a56",
+      "receipt": "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/guest-package/jammy-neutral-cwd/receipt.json",
+      "receipt_sha256": "d5f5cba4472862c3b224b325051f9ac1e97d3bf0f0fde9e6f1180b9200d14267",
+      "source_bundle_sha256": "6003e29a20f115fcb964e0392bfe67aa55420861a5155972c661526dc77c9528",
+      "rust_toolchain_digests": {
+        "cargo": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b",
+        "rustc": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e"
+      }
+    },
+    "24.04": {
+      "archive_size": 20909,
+      "archive_sha256": "7db5cdb0e44745cf0a58612e02a04e12cc8b96aaa98669889b0c74d9bebe3a19",
+      "component": {
+        "sha256": "aedd0d4e99e8fe2d43cac522916901f2fdeb4b4137ca30da0a76443d5abd8286",
+        "size": 51707
+      },
+      "base_image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+      "native_packager_sha256": "c1315d894fa70143014b6e553270ed9cca4c517ffc32e0cd1b7a7ed9c5eba59c",
+      "receipt": "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/guest-package/noble/receipt.json",
+      "receipt_sha256": "0e8782abe6198149b2c9ea631fc2ed90c2e1aa197b62b50740255415b6c4269e",
+      "source_bundle_sha256": "6003e29a20f115fcb964e0392bfe67aa55420861a5155972c661526dc77c9528",
+      "rust_toolchain_digests": {
+        "cargo": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b",
+        "rustc": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e"
+      }
+    }
+  },
+  "scope": "Partial ATC-PKG-2. Separate pinned Ubuntu 22.04 and 24.04 userspaces on one x86_64 Linux host, using two exact native package executables, Rust 1.91.1 and the same public test signer. macOS 14 and independent physical hardware remain unverified.",
+  "initial_jammy_attempt": {
+    "receipt": "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/guest-package/jammy/receipt.json",
+    "receipt_sha256": "5e3cb2cfa4027237cc449484cb13233c3a2ddaa6449ef67969dc2e3fb3053123",
+    "exit_code": 1,
+    "scope": "The first helper invoked Cargo inside the repository, where its development alias shadowed the verified external packager. The command stopped before compilation. Both measured arms invoked the external packager from a neutral directory."
+  }
+}

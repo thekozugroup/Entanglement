@@ -1,0 +1,29 @@
+{
+  "source_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_utc": "2026-11-27T11:05:14.373665+00:00",
+  "finished_utc": "2026-11-27T11:05:18.905276+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/scripts/tests/recovery.py",
+    "--bin-dir",
+    "/tmp/entangle-check-90beded5-archive"
+  ],
+  "exit_code": 0,
+  "first_attempt": "docs/testing/production-review/evidence/candidate-90beded5/recovery-linux.json",
+  "first_attempt_sha256": "5b7b2f835bd0c73e0c62a2f363f5b870ce8590c07f2c16b58d3c3797a357d709",
+  "log": "docs/testing/production-review/evidence/candidate-90beded5/operational-retry/recovery-linux.log",
+  "sha256": "1ffa73d981f65211786b4a8cbadde59c285662499f578fe632133c846a324096",
+  "artifact_sha256": {
+    "entangle": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02",
+    "entangled": "0071c6daa1eb6f000f3c0ad8b9ecbc6627d37a6cda0d1680b5bedc165b15238a"
+  },
+  "archive_sha256": "eb481741d88d56263ab99a97979565a0f1d404d9afeac1cb2c895bed7a7113a2",
+  "archive_receipt_sha256": "aabe4730411b63fb935ae2e71ca224bbf8306215d55465bd828fe145541c169c",
+  "runner_sha256": "1045a76e981ec7b57c7d784bae2d723db3033e122a591466f389a70fb06bb3d6",
+  "replay_driver_sha256": "c20fff2bc2d54d6f1ba7f8a14d7d73ba66af88ac673a2eab58c1dd9c83016903",
+  "host": "one Linux x86_64 host"
+}

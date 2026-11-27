@@ -1,0 +1,86 @@
+info: syncing channel updates for 1.91-x86_64-unknown-linux-gnu
+info: latest update on 2025-11-10 for version 1.91.1 (ed61e7d7e 2025-11-07)
+info: component clippy is up to date
+info: component rust-std for target wasm32-wasip2 is up to date
+info: component rustfmt is up to date
+
+  1.91-x86_64-unknown-linux-gnu unchanged - rustc 1.91.1 (ed61e7d7e 2025-11-07)
+
+info: checking for self-update (current version: 1.29.3)
+rustc 1.91.1 (ed61e7d7e 2025-11-07)
+    Blocking waiting for file lock on build directory
+   Compiling jobserver v0.1.35
+   Compiling digest v0.10.7
+   Compiling cipher v0.4.4
+   Compiling aead v0.5.2
+   Compiling filetime v0.2.30
+   Compiling sha2 v0.10.9
+   Compiling curve25519-dalek v4.1.3
+   Compiling cc v1.2.61
+   Compiling ctr v0.9.2
+   Compiling aes v0.8.4
+   Compiling thiserror-impl v1.0.69
+   Compiling ed25519-dalek v2.2.0
+   Compiling aes-gcm v0.10.3
+   Compiling tar v0.4.46
+   Compiling chacha20 v0.9.1
+   Compiling blake2 v0.10.6
+   Compiling thiserror v1.0.69
+   Compiling console v0.15.11
+   Compiling poly1305 v0.8.0
+   Compiling blake3 v1.8.5
+   Compiling ring v0.17.14
+   Compiling wasmtime-internal-fiber v36.0.23
+   Compiling wasmtime v36.0.23
+   Compiling zstd-sys v2.2.0+zstd.1.6.0
+   Compiling entangle-types v0.1.0 (/workspace/Entanglement/crates/entangle-types)
+   Compiling entangle-biscuits v0.1.0 (/workspace/Entanglement/crates/entangle-biscuits)
+   Compiling entangle-signing v0.1.0 (/workspace/Entanglement/crates/entangle-signing)
+   Compiling entangle-manifest v0.1.0 (/workspace/Entanglement/crates/entangle-manifest)
+   Compiling entangle-peers v0.1.0 (/workspace/Entanglement/crates/entangle-peers)
+   Compiling entangle-broker v0.1.0 (/workspace/Entanglement/crates/entangle-broker)
+   Compiling rustls v0.23.46
+   Compiling entangle-core v0.1.0 (/workspace/Entanglement/crates/entangle-core)
+   Compiling entangle-ipc v0.1.0 (/workspace/Entanglement/crates/entangle-ipc)
+   Compiling entangle-mesh-local v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-local)
+   Compiling entangle-rpc v0.1.0 (/workspace/Entanglement/crates/entangle-rpc)
+   Compiling rustls-webpki v0.103.17
+   Compiling entangle-mesh-tailscale v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-tailscale)
+   Compiling password-hash v0.5.0
+   Compiling dialoguer v0.11.0
+   Compiling argon2 v0.5.3
+   Compiling chacha20poly1305 v0.10.1
+   Compiling clap_complete v4.6.8
+   Compiling zstd-safe v7.4.2
+   Compiling tokio-rustls v0.26.4
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling hyper-rustls v0.27.9
+   Compiling noq-proto v1.5.0
+   Compiling reqwest v0.13.4
+   Compiling tokio-websockets v0.13.3
+   Compiling wasmtime-wasi-io v36.0.23
+   Compiling n0-dns-resolver v0.1.1
+   Compiling wasmtime-wasi v36.0.23
+   Compiling iroh-dns v1.5.0
+   Compiling noq v1.5.0
+   Compiling zstd v0.13.6
+   Compiling entangle-oci v0.1.0 (/workspace/Entanglement/crates/entangle-oci)
+   Compiling iroh-relay v1.5.0
+   Compiling iroh v1.5.0
+   Compiling entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+   Compiling entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+   Compiling entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+   Compiling entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+   Compiling entangle-pairing v0.1.0 (/workspace/Entanglement/crates/entangle-pairing)
+   Compiling entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+   Compiling entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+    Finished `dev` profile [unoptimized] target(s) in 4m 26s
+info: syncing channel updates for 1.91-x86_64-unknown-linux-gnu
+info: latest update on 2025-11-10 for version 1.91.1 (ed61e7d7e 2025-11-07)
+info: downloading component rust-src
+    Finished `release` profile [optimized] target(s) in 0.17s
+Requirement already satisfied: Pillow==12.2.0 in /workspace/.entanglement-dev/catalog-python/lib/python3.12/site-packages (12.2.0)
+Requirement already satisfied: zxing-cpp==2.3.0 in /workspace/.entanglement-dev/catalog-python/lib/python3.12/site-packages (2.3.0)
+/workspace/.entanglement-dev/libraw/usr/bin/dcraw_emu
+/workspace/.entanglement-dev/libraw/usr/bin/raw-identify
+b3sum 1.8.1

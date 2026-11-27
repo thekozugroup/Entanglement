@@ -1,0 +1,881 @@
+{
+  "command": [
+    "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/loopback-harness.py",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--wasm",
+    "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+    "--report",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/real-photo-wall-times.json"
+  ],
+  "exit_code": 1,
+  "cpu_quota_period": "400000 100000",
+  "method": "Sum RSS across concurrent processes with the same name. Shared pages can be counted multiple times. Short processes and peaks between samples may be missed.",
+  "samples": [
+    {
+      "utc": "2026-11-27T12:01:08.306136+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 182517760
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.057
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:09.372226+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 216584192,
+        "entangle": 9453568,
+        "dcraw_emu": 91226112
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.066,
+        "python": 0.056
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:10.452622+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 216584192,
+        "entangle": 58675200
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.074,
+        "entangle": 0.454
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:11.557378+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 338063360,
+        "entangle": 125136896
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.213,
+        "python3": 0.091,
+        "entangle": 0.643
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:12.651184+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 337530880,
+        "entangle": 170262528
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.527,
+        "python3": 0.082,
+        "entangle": 0.997
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:13.731440+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 296173568,
+        "entangle": 169971712
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.472,
+        "python3": 0.074,
+        "entangle": 0.916
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:14.881432+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 257757184,
+        "entangle": 53002240,
+        "dcraw_emu": 71696384
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.339,
+        "python3": 0.122,
+        "entangle": 0.452
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:15.986605+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 284233728,
+        "entangle": 218808320
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.072,
+        "python3": 0.1,
+        "entangle": 0.679
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:17.078550+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 371875840,
+        "entangle": 179044352
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.392,
+        "python3": 0.082,
+        "entangle": 0.375
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:18.185280+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 354017280,
+        "entangle": 188145664
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.997,
+        "python3": 0.099,
+        "entangle": 0.723
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:19.274898+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 272539648
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.275,
+        "python3": 0.073,
+        "python": 0.431
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:20.388381+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 272539648
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.036,
+        "python3": 0.108,
+        "python": 0.997
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:21.487731+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 272539648,
+        "entangle": 9789440,
+        "dcraw_emu": 91226112
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.091,
+        "python": 0.2
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:22.560546+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 272539648,
+        "entangle": 125014016
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.065,
+        "entangle": 0.727
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:23.680418+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 425902080,
+        "entangle": 145547264
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 2.527,
+        "python3": 0.107,
+        "entangle": 0.438
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:24.844123+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 469999616,
+        "entangle": 162762752
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.959,
+        "python3": 0.129,
+        "entangle": 0.791
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:25.984166+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 337842176,
+        "entangle": 156319744
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.719,
+        "python3": 0.132,
+        "entangle": 0.816
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:27.122346+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 325222400,
+        "entangle": 61788160,
+        "dcraw_emu": 65048576
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.167,
+        "python3": 0.105,
+        "entangle": 0.29
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:28.241767+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 388792320,
+        "entangle": 162344960
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.321,
+        "python3": 0.107,
+        "entangle": 0.67
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:29.340222+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 394166272,
+        "entangle": 173494272
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 2.221,
+        "python3": 0.082,
+        "entangle": 0.801
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:30.434581+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 412868608,
+        "entangle": 168370176
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 2.029,
+        "python3": 0.082,
+        "entangle": 0.448
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:31.518559+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 355741696
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "codex": 0.055,
+        "python3": 0.074,
+        "python": 0.6
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:32.595915+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 355741696
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.065,
+        "python": 0.984
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:33.662814+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 355741696,
+        "entangle": 58343424
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.056
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:34.753337+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 486551552,
+        "entangle": 125050880
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.247,
+        "python3": 0.083,
+        "entangle": 0.569
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:35.886933+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 417017856,
+        "entangle": 166408192
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 2.038,
+        "python3": 0.106,
+        "entangle": 0.759
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:37.094806+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 456884224,
+        "entangle": 180649984
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 2.36,
+        "python3": 0.091,
+        "entangle": 0.522
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:38.157826+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 392220672,
+        "entangle": 56803328,
+        "dcraw_emu": 61472768
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.856,
+        "python3": 0.056,
+        "entangle": 0.988
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:39.293441+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 392220672,
+        "entangle": 130334720
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.123,
+        "entangle": 0.423
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:40.381306+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 576712704,
+        "entangle": 157786112
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 2.178,
+        "python3": 0.074,
+        "entangle": 0.551
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:41.465454+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 530771968,
+        "entangle": 172838912
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.762,
+        "python3": 0.065,
+        "entangle": 0.922
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:42.552691+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 398811136
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.911,
+        "python3": 0.074,
+        "python": 0.239
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:43.615390+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 398811136
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.066,
+        "python": 1.007
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:44.694100+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 398811136,
+        "entangle": 9781248,
+        "dcraw_emu": 91226112
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.065,
+        "python": 0.213
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:45.778381+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 418603008,
+        "entangle": 164519936
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.092,
+        "python3": 0.083,
+        "entangle": 0.738
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:47.052306+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 503926784,
+        "entangle": 163074048
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "containerd": 0.039,
+        "entangled": 1.021,
+        "python3": 0.204,
+        "entangle": 0.063
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:48.116850+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 502222848,
+        "entangle": 132739072
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.845,
+        "python3": 0.066,
+        "entangle": 0.282
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:49.186109+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 483655680,
+        "entangle": 200863744
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.618,
+        "python3": 0.056,
+        "entangle": 0.804
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:50.282482+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 513880064,
+        "entangle": 188194816
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.003,
+        "python3": 0.091,
+        "entangle": 0.027
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:51.348294+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 400007168,
+        "entangle": 118059008
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.976,
+        "python3": 0.056,
+        "entangle": 1.107
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:52.411641+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 400007168,
+        "entangle": 107180032
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.066,
+        "entangle": 0.301
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:53.506415+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 518627328,
+        "entangle": 197742592
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.297,
+        "python3": 0.082,
+        "entangle": 0.639
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:54.581807+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 456982528,
+        "entangle": 223039488
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.939,
+        "python3": 0.056,
+        "entangle": 0.344
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:55.659353+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 480727040,
+        "entangle": 225746944
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.798,
+        "python3": 0.074,
+        "entangle": 0.78
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:56.740102+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 435130368,
+        "entangle": 181506048
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.453,
+        "python3": 0.074,
+        "entangle": 0.472
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:57.841526+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 414908416
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.091,
+        "python": 0.735
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:58.905031+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 414908416,
+        "entangle": 9781248,
+        "dcraw_emu": 19791872
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.066,
+        "python": 0.743
+      }
+    },
+    {
+      "utc": "2026-11-27T12:01:59.978612+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 414908416,
+        "entangle": 59011072
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.065,
+        "entangle": 0.251
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:01.054834+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 511651840,
+        "entangle": 145043456
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.738,
+        "python3": 0.065,
+        "entangle": 0.585
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:02.120982+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 464822272,
+        "entangle": 209760256
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.426,
+        "python3": 0.056,
+        "entangle": 0.844
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:03.210647+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 420024320,
+        "entangle": 178925568
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.744,
+        "python3": 0.073,
+        "entangle": 0.679
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:04.299639+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 391364608,
+        "entangle": 59805696,
+        "dcraw_emu": 71696384
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.404,
+        "python3": 0.083,
+        "entangle": 0.422
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:05.372524+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 431341568,
+        "entangle": 200876032
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.382,
+        "python3": 0.056,
+        "entangle": 0.652
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:06.457509+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 489390080,
+        "entangle": 181219328
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.977,
+        "python3": 0.083,
+        "entangle": 0.166
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:07.552218+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 531116032,
+        "entangle": 197185536
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.987,
+        "python3": 0.082,
+        "entangle": 0.183
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:08.615221+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 466321408,
+        "entangle": 133230592
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.762,
+        "python3": 0.066,
+        "entangle": 0.997
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:09.840433+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 410755072
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.253,
+        "python3": 0.18,
+        "python": 0.498
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:10.931333+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 410755072,
+        "entangle": 9801728
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.092,
+        "python": 0.88
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:12.000680+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 410755072,
+        "entangle": 58822656
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.056,
+        "entangle": 0.14
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:13.065411+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 538288128,
+        "entangle": 125071360
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.362,
+        "python3": 0.056,
+        "entangle": 0.704
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:14.135206+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 476540928,
+        "entangle": 155357184
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 1.982,
+        "python3": 0.056,
+        "entangle": 0.729
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:15.295233+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 450711552,
+        "entangle": 193679360
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 2.25,
+        "python3": 0.129,
+        "entangle": 0.612
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:16.356685+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 399392768,
+        "entangle": 53448704,
+        "dcraw_emu": 71696384
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "rootlesskit": 0.028,
+        "entangled": 0.791,
+        "python3": 0.057,
+        "entangle": 0.763
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:17.450325+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 399392768,
+        "entangle": 124882944
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.027,
+        "python3": 0.082,
+        "entangle": 0.549
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:18.545803+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 510685184,
+        "entangle": 167837696
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 2.492,
+        "python3": 0.082,
+        "entangle": 0.338
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:19.702466+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 551460864,
+        "entangle": 163401728
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 2.058,
+        "python3": 0.112,
+        "entangle": 0.83
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:20.788011+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 482680832
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "entangled": 0.479,
+        "python3": 0.083,
+        "python": 0.442
+      }
+    },
+    {
+      "utc": "2026-11-27T12:02:22.035975+00:00",
+      "summed_observed_rss_bytes_by_name": {
+        "entangled": 32661504
+      },
+      "live_build_processes": [],
+      "cpu_cores_by_name": {
+        "python3": 0.192
+      }
+    }
+  ]
+}

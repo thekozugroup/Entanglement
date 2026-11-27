@@ -1,0 +1,620 @@
+{
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "platform": "two independent Linux workers on one host over authenticated Iroh QUIC",
+  "exit": 0,
+  "reports": {
+    "full": {
+      "suites": [
+        {
+          "suite": "5b6638a8685b5db7a9a875257612aa93/types-atc@0.1.0",
+          "suite_identity": {
+            "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+            "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+          },
+          "listing_peers": [
+            "944db03da1d7dd518591b7d7880cf28e",
+            "6c6ab0a38567e74100c9ce21c5fdba04"
+          ],
+          "filtered": 0,
+          "counts": {
+            "passed": 8,
+            "flaky": 0,
+            "failed": 0,
+            "ignored": 8,
+            "error": 0
+          },
+          "elapsed_ms": 128,
+          "results": [
+            {
+              "name": "atc_brg_bridge_attenuation_suite",
+              "attempts": [],
+              "status": "ignored"
+            },
+            {
+              "name": "atc_bus_rotation_governance_invariants",
+              "attempts": [],
+              "status": "ignored"
+            },
+            {
+              "name": "atc_int_2_max_output_bytes_field_carried",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_int_3_integrity_policy_none_toml_round_trip",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_int_3_integrity_policy_trusted_executor_json_round_trip",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_int_4_semantic_equivalent_threshold_not_clamped_at_type_level",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_int_4_streaming_deterministic_rejected_at_submit",
+              "attempts": [],
+              "status": "ignored"
+            },
+            {
+              "name": "atc_int_5_max_output_default_16mib",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.01s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_int_6_streaming_total_bytes_cap_enforced",
+              "attempts": [],
+              "status": "ignored"
+            },
+            {
+              "name": "atc_mirror_release_operational_invariants",
+              "attempts": [],
+              "status": "ignored"
+            },
+            {
+              "name": "atc_out_1_output_size_exceeded_display_format",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_str_1_channel_spec_defaults_match_spec",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_str_1_credit_exhaustion_stalls_at_timeout",
+              "attempts": [],
+              "status": "ignored"
+            },
+            {
+              "name": "atc_str_2_partial_result_policy_kebab_case_serde",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.01s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_str_2_three_missed_pings_close_channel",
+              "attempts": [],
+              "status": "ignored"
+            },
+            {
+              "name": "atc_str_3_forged_chunk_rejected",
+              "attempts": [],
+              "status": "ignored"
+            }
+          ]
+        },
+        {
+          "suite": "5b6638a8685b5db7a9a875257612aa93/manifest-atc@0.1.0",
+          "suite_identity": {
+            "artifact_blake3": "3ccf13e0562f63e39a5fabb5ec29265fa23e03e361f9a993f28dd8648e63cb23",
+            "manifest_blake3": "24766fff3fafc05647ac95691a0158639f9a05f7cb795f4fd6e3dbc27947d8d0"
+          },
+          "listing_peers": [
+            "944db03da1d7dd518591b7d7880cf28e",
+            "6c6ab0a38567e74100c9ce21c5fdba04"
+          ],
+          "filtered": 0,
+          "counts": {
+            "passed": 6,
+            "flaky": 0,
+            "failed": 0,
+            "ignored": 0,
+            "error": 0
+          },
+          "elapsed_ms": 98,
+          "results": [
+            {
+              "name": "atc_man_1_tier_one_rejects_tier_three_capability",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "3ccf13e0562f63e39a5fabb5ec29265fa23e03e361f9a993f28dd8648e63cb23",
+                    "manifest_blake3": "24766fff3fafc05647ac95691a0158639f9a05f7cb795f4fd6e3dbc27947d8d0"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_man_1_tier_under_declared_rejected",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "3ccf13e0562f63e39a5fabb5ec29265fa23e03e361f9a993f28dd8648e63cb23",
+                    "manifest_blake3": "24766fff3fafc05647ac95691a0158639f9a05f7cb795f4fd6e3dbc27947d8d0"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_man_2_tier_five_accepts_only_tier_one_capabilities",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "3ccf13e0562f63e39a5fabb5ec29265fa23e03e361f9a993f28dd8648e63cb23",
+                    "manifest_blake3": "24766fff3fafc05647ac95691a0158639f9a05f7cb795f4fd6e3dbc27947d8d0"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_man_2_tier_over_declared_ok",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "3ccf13e0562f63e39a5fabb5ec29265fa23e03e361f9a993f28dd8648e63cb23",
+                    "manifest_blake3": "24766fff3fafc05647ac95691a0158639f9a05f7cb795f4fd6e3dbc27947d8d0"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "canonical_under_declaration_names_specific_required_tier",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "3ccf13e0562f63e39a5fabb5ec29265fa23e03e361f9a993f28dd8648e63cb23",
+                    "manifest_blake3": "24766fff3fafc05647ac95691a0158639f9a05f7cb795f4fd6e3dbc27947d8d0"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "separate_runtime_kind_is_recognized_and_conflicting_declarations_are_rejected",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "3ccf13e0562f63e39a5fabb5ec29265fa23e03e361f9a993f28dd8648e63cb23",
+                    "manifest_blake3": "24766fff3fafc05647ac95691a0158639f9a05f7cb795f4fd6e3dbc27947d8d0"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "passed": 14,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 8,
+        "error": 0
+      },
+      "filtered": 0,
+      "elapsed_ms": 225
+    },
+    "filtered": {
+      "suites": [
+        {
+          "suite": "5b6638a8685b5db7a9a875257612aa93/types-atc@0.1.0",
+          "suite_identity": {
+            "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+            "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+          },
+          "listing_peers": [
+            "944db03da1d7dd518591b7d7880cf28e",
+            "6c6ab0a38567e74100c9ce21c5fdba04"
+          ],
+          "filtered": 11,
+          "counts": {
+            "passed": 5,
+            "flaky": 0,
+            "failed": 0,
+            "ignored": 0,
+            "error": 0
+          },
+          "elapsed_ms": 71,
+          "results": [
+            {
+              "name": "atc_int_2_max_output_bytes_field_carried",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_int_3_integrity_policy_none_toml_round_trip",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.01s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_int_3_integrity_policy_trusted_executor_json_round_trip",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_int_4_semantic_equivalent_threshold_not_clamped_at_type_level",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            },
+            {
+              "name": "atc_int_5_max_output_default_16mib",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "80b7226f769d496c559860501c4e22f87b7693651f4190d714767618634be5fe",
+                    "manifest_blake3": "33ad54dbab04cd9eb68ffd5690c8ccb79c7f4e993b712b92daefd6d2133eb01e"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "passed"
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "passed": 5,
+        "flaky": 0,
+        "failed": 0,
+        "ignored": 0,
+        "error": 0
+      },
+      "filtered": 11,
+      "elapsed_ms": 72
+    },
+    "failure": {
+      "suites": [
+        {
+          "suite": "5b6638a8685b5db7a9a875257612aa93/retry-fixture@0.1.0",
+          "suite_identity": {
+            "artifact_blake3": "9dda6b053a1f2a786fa0a4c93fd0a0b7c4d381407375027ead7317cd4cff63ab",
+            "manifest_blake3": "1a7ed97ad9d70d4fdec33d369367cda7c3ea1a595d1df45fa63a808731095e92"
+          },
+          "listing_peers": [
+            "944db03da1d7dd518591b7d7880cf28e",
+            "6c6ab0a38567e74100c9ce21c5fdba04"
+          ],
+          "filtered": 1,
+          "counts": {
+            "passed": 0,
+            "flaky": 0,
+            "failed": 1,
+            "ignored": 0,
+            "error": 0
+          },
+          "elapsed_ms": 43,
+          "results": [
+            {
+              "name": "intentionally_fails_on_every_attempt",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": null,
+                  "stdout": "\nrunning 1 test\n",
+                  "stderr": "\nthread 'main' (1) panicked at scripts/tests/fixtures/libtest_retry.rs:13:5:\nintentional failure on every attempt\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+                  "suite_identity": {
+                    "artifact_blake3": "9dda6b053a1f2a786fa0a4c93fd0a0b7c4d381407375027ead7317cd4cff63ab",
+                    "manifest_blake3": "1a7ed97ad9d70d4fdec33d369367cda7c3ea1a595d1df45fa63a808731095e92"
+                  },
+                  "status": "failed"
+                },
+                {
+                  "attempt": 2,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": null,
+                  "stdout": "\nrunning 1 test\n",
+                  "stderr": "\nthread 'main' (1) panicked at scripts/tests/fixtures/libtest_retry.rs:13:5:\nintentional failure on every attempt\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+                  "suite_identity": {
+                    "artifact_blake3": "9dda6b053a1f2a786fa0a4c93fd0a0b7c4d381407375027ead7317cd4cff63ab",
+                    "manifest_blake3": "1a7ed97ad9d70d4fdec33d369367cda7c3ea1a595d1df45fa63a808731095e92"
+                  },
+                  "status": "failed"
+                }
+              ],
+              "status": "failed"
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "passed": 0,
+        "flaky": 0,
+        "failed": 1,
+        "ignored": 0,
+        "error": 0
+      },
+      "filtered": 1,
+      "elapsed_ms": 43
+    },
+    "retry_fixture": {
+      "suites": [
+        {
+          "suite": "5b6638a8685b5db7a9a875257612aa93/retry-fixture@0.1.0",
+          "suite_identity": {
+            "artifact_blake3": "9dda6b053a1f2a786fa0a4c93fd0a0b7c4d381407375027ead7317cd4cff63ab",
+            "manifest_blake3": "1a7ed97ad9d70d4fdec33d369367cda7c3ea1a595d1df45fa63a808731095e92"
+          },
+          "listing_peers": [
+            "944db03da1d7dd518591b7d7880cf28e",
+            "6c6ab0a38567e74100c9ce21c5fdba04"
+          ],
+          "filtered": 0,
+          "counts": {
+            "passed": 0,
+            "flaky": 1,
+            "failed": 0,
+            "ignored": 1,
+            "error": 0
+          },
+          "elapsed_ms": 48,
+          "results": [
+            {
+              "name": "intentionally_fails_on_every_attempt",
+              "attempts": [],
+              "status": "ignored"
+            },
+            {
+              "name": "intentionally_fails_on_first_attempt",
+              "attempts": [
+                {
+                  "attempt": 1,
+                  "peer": "944db03da1d7dd518591b7d7880cf28e",
+                  "exit_code": null,
+                  "stdout": "\nrunning 1 test\n",
+                  "stderr": "\nthread 'main' (1) panicked at scripts/tests/fixtures/libtest_retry.rs:7:5:\nintentional first-attempt failure\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+                  "suite_identity": {
+                    "artifact_blake3": "9dda6b053a1f2a786fa0a4c93fd0a0b7c4d381407375027ead7317cd4cff63ab",
+                    "manifest_blake3": "1a7ed97ad9d70d4fdec33d369367cda7c3ea1a595d1df45fa63a808731095e92"
+                  },
+                  "status": "failed"
+                },
+                {
+                  "attempt": 2,
+                  "peer": "6c6ab0a38567e74100c9ce21c5fdba04",
+                  "exit_code": 0,
+                  "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n",
+                  "stderr": "",
+                  "suite_identity": {
+                    "artifact_blake3": "9dda6b053a1f2a786fa0a4c93fd0a0b7c4d381407375027ead7317cd4cff63ab",
+                    "manifest_blake3": "1a7ed97ad9d70d4fdec33d369367cda7c3ea1a595d1df45fa63a808731095e92"
+                  },
+                  "status": "passed"
+                }
+              ],
+              "status": "flaky"
+            }
+          ]
+        }
+      ],
+      "counts": {
+        "passed": 0,
+        "flaky": 1,
+        "failed": 0,
+        "ignored": 1,
+        "error": 0
+      },
+      "filtered": 0,
+      "elapsed_ms": 48
+    }
+  }
+}

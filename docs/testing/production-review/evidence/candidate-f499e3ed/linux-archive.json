@@ -1,0 +1,43 @@
+{
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "release_layout_sha256": "5f76e0c4cadf5786d0de2f9f5825f28a40bb280ccc098d597b2ea9fbd0b2e8d3",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "size": 28984035,
+  "sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "blake3": "88768b79e96457314520e129d3a7137cd1686f1c2d3b85b5ef530c8daa55fb7b",
+  "signing_status": "unsigned local candidate",
+  "files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.md": "5f669e185c74b5f6aab812151fd2d997ecade64980f5a3883a3b38730967d25e",
+    "architecture.md": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0",
+    "entangle": "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+    "entangled": "ff7acdb52f527e7ca6a292e1330579ad9b4a3dd9023a44dc5f4241c713c7b2d8",
+    "tutorial.md": "0002d05718a1e4c13cc99d53aa4ee5016440d4812cd02ff4115bd7ad03b59044"
+  },
+  "tool_sha256": "c1315d894fa70143014b6e553270ed9cca4c517ffc32e0cd1b7a7ed9c5eba59c",
+  "command": [
+    "python3",
+    "scripts/package-native-release.py",
+    "--version",
+    "v0.1.0",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--source-date-epoch",
+    "1795778276",
+    "--output-dir",
+    "/workspace/Entanglement/target/release-candidate/f499e3edf84e"
+  ],
+  "started_utc": "2026-11-27T11:26:44.491143+00:00",
+  "finished_utc": "2026-11-27T11:26:57.323707+00:00",
+  "source_date_epoch": 1795778276,
+  "release_helper_sha256": "49c8e005a5dd7e6bc1ad260aa9f9dff227d03d22eb00af4add4bd3e215b26698",
+  "previous_daemon_and_cli_byte_equal": {
+    "entangle": false,
+    "entangled": false
+  }
+}

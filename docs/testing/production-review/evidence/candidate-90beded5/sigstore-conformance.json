@@ -1,0 +1,13 @@
+{
+  "command": [
+    "bash",
+    "scripts/tests/release-verify.sh"
+  ],
+  "started_utc": "2026-11-27T11:05:05.483490+00:00",
+  "finished_utc": "2026-11-27T11:05:15.757419+00:00",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-90beded5/sigstore-conformance.log",
+  "sha256": "028610b997bb95682f57232a723835975f758c1a187f478c1d99539dc9959f46"
+}

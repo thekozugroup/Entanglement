@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/scripts/tests/private-tailnet.py", line 273, in <module>
+    main()
+  File "/workspace/Entanglement/scripts/tests/private-tailnet.py", line 268, in main
+    receipt = run_check(Path(directory), cleanup, args.bin_dir.resolve(), args.wasm.resolve(), args.bridge, args.recovery)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/scripts/tests/private-tailnet.py", line 206, in run_check
+    owner = run("docker", "run", "--rm", "--pull=never", "--network=none",
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/scripts/tests/private-tailnet.py", line 68, in run
+    raise RuntimeError(f"{args[0]} exited {result.returncode}: {result.stderr.strip()}")
+RuntimeError: docker exited 125: docker: Error response from daemon: mkdir /home/dockerd/.local/share/docker/vfs/dir/5986e8d623e2807f923fbfea524918d5f8d3d810ce988fa4bdb0db50679c9bdf/usr/lib/apt/planners: no space left on device
+
+Run 'docker run --help' for more information

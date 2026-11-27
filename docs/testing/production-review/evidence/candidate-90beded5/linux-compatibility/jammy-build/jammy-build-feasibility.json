@@ -1,0 +1,27 @@
+{
+  "source_commit": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_at_utc": "2026-11-27T11:03:02+00:00",
+  "finished_at_utc": "2026-11-27T11:03:08+00:00",
+  "exit_code": 0,
+  "inspection": "Current-source compatibility-build feasibility only.",
+  "jammy_base_image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+  "jammy_base_image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+  "prior_completed_build_sha256": "17dff1fe8ecc0dfa9005a0d3de11c4dcfd02c7a9245bab15db3a9299bd499083",
+  "prior_builder_container_removed": true,
+  "docker_containers_observed": [
+    "9708545a98a1129aec9d9dcabf395e96029634108d727dc2ec943a80c10c38e6 headscale/headscale:0.27.1 Up 2 seconds"
+  ],
+  "compiler": {
+    "cargo": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b",
+    "rustc": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e"
+  },
+  "lock_sha256": "fb363ad01c1e15697a22aa0261b7c8574f4b6282c3be31c23840fd83c0271f59",
+  "locked_registry_tarballs_verified": 616,
+  "free_workspace_bytes": 1756176384,
+  "current_host_release_target_deps_size": "4.1G",
+  "outcome": "same-source Jammy release build unverified",
+  "details": "The authenticated dependency inputs and exact Rust tools remain available. The previous optimized Jammy target and installed GCC userspace were removed, leaving a cold compilation and new apt provisioning. The local workspace has limited staging capacity and is shared with the exact-source release and timing checks. No previous ELF was relabelled as this candidate."
+}

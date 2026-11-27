@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "started_utc": "2026-11-27T11:03:10+00:00",
+  "finished_utc": "2026-11-27T11:03:13+00:00",
+  "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path /tmp/entangle-deny-allocator-iltu5lyv/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-90beded5/dependency-policy.toml advisories bans licenses sources",
+  "exit_code": 4,
+  "log": "deny-docs-testing-production-review-evidence-candidate-bb70a619-uds-image-comparison-allocator-probe.log.gz",
+  "log_sha256": "d4ff2cf6ec615d3b764f63de42413593e8c84893a7bb150e8f1568a758e2b133"
+}

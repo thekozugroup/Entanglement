@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/raw-batch/loopback-harness.py", line 49, in <module>
+    bench()
+  File "/workspace/Entanglement/scripts/benchmark_raw_batch.py", line 180, in main
+    benchmark(args, report)
+  File "/workspace/Entanglement/scripts/benchmark_raw_batch.py", line 150, in benchmark
+    outputs, placement, photos = verify_run(proc.stdout, out, manifest, allowed,
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/scripts/benchmark_raw_batch.py", line 98, in verify_run
+    raise ValueError("batch omitted a source or failed to place work on every specified worker")
+ValueError: batch omitted a source or failed to place work on every specified worker

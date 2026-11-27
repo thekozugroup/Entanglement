@@ -1,0 +1,21 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-f499e3ed/tailnet-link-latency/operator-timing.py",
+    "--root",
+    "/workspace/Entanglement",
+    "--binary",
+    "/workspace/Entanglement/target/release/entangle",
+    "--expected-cli-sha256",
+    "2f2a6bed88c8e4c3b5baec458314103573a9f7ecf3bffc90d8f840844d63ffca",
+    "--output",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-f499e3ed/tailnet-link-latency/release"
+  ],
+  "started_utc": "2026-11-27T11:28:56.901035+00:00",
+  "finished_utc": "2026-11-27T11:28:58.059782+00:00",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/tailnet-link-latency/release.log",
+  "sha256": "4e07a781fb3d8b847e8963271008e6555557f8131f2c9ed5342139126fabdfc5"
+}

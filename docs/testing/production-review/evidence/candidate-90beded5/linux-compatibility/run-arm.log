@@ -1,0 +1,17 @@
+Cloning into '/workspace/entangle-emulated-arm-90beded5/frozen'...
+done.
+HEAD is now at 90beded Preserve universal macOS targets in release verification [skip ci]
+Error response from daemon: mkdir /home/dockerd/.local/share/docker/vfs/dir/6dfdb995195d29a18fed71c643db9bed0e0f8c4fea1ad8bf62063ca02217e575/usr/local/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/libexec: no space left on device
+Traceback (most recent call last):
+  File "/workspace/entangle-emulated-arm-90beded5/provision.py", line 44, in <module>
+    args.extend([IMAGE,'sleep','infinity']);cid=cmd(*args);write('container.json',{'id':cid,'image':IMAGE,'command':args})
+                                                ^^^^^^^^^^
+  File "/workspace/entangle-emulated-arm-90beded5/provision.py", line 9, in cmd
+    def cmd(*args,**kw):return subprocess.check_output(args,text=True,**kw).strip()
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 466, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '('docker', 'create', '--pull=never', '--name', 'entangle-arm64-90beded5-isolated', '--network', 'bridge', '--security-opt', 'no-new-privileges', '--cpus', '2', '--memory', '12g', '--tmpfs', '/private:rw,nosuid,nodev,exec,size=6g,mode=1777', '--mount', 'type=bind,src=/workspace/entangle-emulated-arm-90beded5/frozen,dst=/src,readonly', '--mount', 'type=bind,src=/workspace/entangle-emulated-arm-90beded5/arm-std,dst=/usr/local/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/lib/rustlib/aarch64-unknown-linux-gnu,readonly', '--mount', 'type=bind,src=/workspace/entangle-jammy-release-o7k9vcv7/fixture/registry,dst=/seed-registry,readonly', '--mount', 'type=bind,src=/workspace/entangle-mix-296b.3eCSwyYF/emulator,dst=/emu,readonly', 'sha256:1f6ce03d549c243be74e10c61378f8b9c134cf9463f58f45c3aab4ce016e5769', 'sleep', 'infinity')' returned non-zero exit status 1.

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-90beded5/engineering/compare.py",
+    "/tmp/entangle-compact-ordinary-perf/greeting-driver",
+    "90beded509f93909507c78f2986dea0e085e4f1e",
+    "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb"
+  ],
+  "started_utc": "2026-11-27T11:01:35.797625+00:00",
+  "finished_utc": "2026-11-27T11:02:18.985564+00:00",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-90beded5/performance-primary.log",
+  "sha256": "e0d18a50729f7f1a42716fe32d346ba99c6cbc2d5d40c00641196e3b7c0a5622"
+}

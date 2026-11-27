@@ -1,0 +1,90 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "archive": "/workspace/Entanglement/target/release-candidate/f499e3edf84e-aarch64/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz",
+  "archive_sha256": "6298d96c7cd1ce59020e1ecc35b0bdc9b51f9a33e1b20267601acb95e75ee0ef",
+  "archive_blake3": "d054a80630cef6d2c3c8da2058b41a067702eaeb1694acf0725e381ea78a9755",
+  "archive_size": 26112794,
+  "signing": "unsigned; checksums verified; full verifier rejected missing Sigstore bundle",
+  "host_machine": "x86_64",
+  "executable_machine": "aarch64",
+  "emulated_by": "qemu-aarch64 version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)",
+  "rust_command": "cargo build --release --workspace --bins --locked --target aarch64-unknown-linux-gnu --offline",
+  "rustc": "1.91.1",
+  "native_archive_sha256": "c69a1044d7cb2bbcebc66e147b93cd5abfa1bf1fd7a152a5f70308f6d65a5c53",
+  "standalone": {
+    "plugin": "08a4ec166f6146d3a5fb192af0eb1c70/json-pointer@0.1.0",
+    "expected": "\"9bf5d2335e23d5f52dba16b81a43b84c\"",
+    "actual": "\"9bf5d2335e23d5f52dba16b81a43b84c\"",
+    "untrusted_publisher_rejected": true
+  },
+  "directions": {
+    "x86_to_emulated_arm": {
+      "coordinator_loaded_plugins": [],
+      "allowlist": [
+        "a6eb6c5d8d1b2dafe7f293fe71f1d0c8"
+      ],
+      "selected_peer": "a6eb6c5d8d1b2dafe7f293fe71f1d0c8",
+      "remote_reason": "Chosen: a6eb6c5d8d1b2dafe7f293fe71f1d0c8 (score=2.16)\nReason: fit ok, rtt=17ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "plugin": "a6eb6c5d8d1b2dafe7f293fe71f1d0c8/json-pointer@0.1.0",
+      "input_json": "{\"pointer\": \"/items/0/value\", \"data\": {\"items\": [{\"value\": \"56cf6e0c722b407c085ad3ddb9412e05\"}]}}",
+      "output": "\"56cf6e0c722b407c085ad3ddb9412e05\"",
+      "expected": "\"56cf6e0c722b407c085ad3ddb9412e05\"",
+      "worker_counts_before": {
+        "arm": 1,
+        "x86": 0
+      },
+      "worker_counts_after": {
+        "arm": 2,
+        "x86": 0
+      }
+    },
+    "arm_to_x86": {
+      "allowlist": [
+        "180678fe1fdaca95ad7288280a81f7fc"
+      ],
+      "selected_peer": "180678fe1fdaca95ad7288280a81f7fc",
+      "plugin": "180678fe1fdaca95ad7288280a81f7fc/json-pointer@0.1.0",
+      "input_json": "{\"pointer\": \"/items/0/value\", \"data\": {\"items\": [{\"value\": \"97893ae13b3f79efd87043bd12a54117\"}]}}",
+      "output": "\"97893ae13b3f79efd87043bd12a54117\"",
+      "expected": "\"97893ae13b3f79efd87043bd12a54117\"",
+      "worker_counts_before": {
+        "arm": 2,
+        "x86": 0
+      },
+      "worker_counts_after": {
+        "arm": 2,
+        "x86": 1
+      },
+      "unloaded_on_coordinator": true
+    }
+  },
+  "independent_physical_hosts": 1,
+  "scope": "Offline locked cross-release with independently verified ELF architecture, explicit QEMU Linux user-mode on one x86_64 host. Native and emulated daemons communicate over authenticated loopback QUIC.",
+  "evidence_sha256": {
+    "arm-archive.json": "8830086caa516d08afb94859decd7501cdff58835f532194e1663d26a942b858",
+    "arm-build-driver.py": "f1c3c23b653f47f67c2d3ded156b4041a088a2791b39ab68fa4a8e9b7f064bab",
+    "arm-build.json": "8f46edac5a5f6b6f0a40b859d1169d692a71a32afaa1e77c6f856cca5b06353c",
+    "arm-workload-daemon.log": "947122749fe769d652e0805e5c39a5b608d04a40aaed7e5c85d94596ec35eb10",
+    "cleanup.json": "3669656c552d69fb2c46c86b7db945da8fed0d655f1a717e7e9674f9084d969d",
+    "container.json": "f42374156b6f4fb6c185f3bf4f1312fcc2cbee9ccb905f576e9856fd94b71f47",
+    "cross-build-resources.jsonl": "73f90d50a07719b72296f641969986373305e40952040d9d7d4da93ba2e02e00",
+    "cross-build.log": "3d24e0a074129cf57de72c3047d6abe102f215c8d0186f2151b5db96c7038b6b",
+    "cross-build.sh": "f3ee476b92c0071c36d3ddc12d261829fb1b871f4df39513b1c9d28a61196790",
+    "inputs.json": "f6185e301761e7faceccf0e1551c02373e1b8cf138b8713d2b438be60a25b838",
+    "package-arm.py": "b1a59fedbf93bb64705983c4e1fb1fcf5f73f5c1ea38000cab5767f1e6c16740",
+    "provision-tools.log": "644fc2dd6af7f779d75b44acdc398a32bf3dc65e9d98dbe3032a55dfbd68a202",
+    "provision-tools.sh": "c33bf7233cabe322abf9c63ad823662655f3e4ddb56d0f022bf76a6e749ee491",
+    "provision.json": "49b6bec2cff1032fe84dfb5c142ff772d9c00817c40461e7a0497aa30801e9e6",
+    "signed-workload-run.log": "dd0da57c7555d6c7ebd3e704c75760d3b245e33980b711c05d0dee6133da1081",
+    "signed-workload.json": "3a8bf599db8e1ea96374ef3730e7d85dd4690fce6611dd4997eef4381b84999c",
+    "signed-workload.py": "d9c757f3fb67fca4142efd218fae5fcee596a93a3c472e527d05c0e04c6c4f1a",
+    "standalone-daemon.log": "d2abf96d64b8d40b6b70c65d4a3eddbba6fc47928edd081403db57a34a478ad3",
+    "standalone-local-run.log": "1ff9195ec74295a92195ccaa87a68261a66a4e86165ce678ab6c8d1dfd157804",
+    "standalone-local.json": "b2f9098f3da1d580a985fdb9c898e94ff988bc31716337e1b66733ec4c03835b",
+    "standalone-local.py": "7af2b00cd5975ce309b98e49778525f0de93cd032a75c510f92f14c3cc82ca6c",
+    "verify-arm-archive.log": "c5081b15d722f1c53656d16feb0f356d54649565e176289581ea912f7004086e",
+    "x86-workload-daemon.log": "6121473d4bb69d05ac93d8bfe81a3b0752fbebb197f6d5802de9a62e0c020f58"
+  }
+}

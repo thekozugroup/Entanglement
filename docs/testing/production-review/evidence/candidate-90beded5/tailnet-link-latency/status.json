@@ -1,0 +1,1 @@
+{"BackendState":"Running","TailscaleIPs":["100.64.0.10"],"MagicDNSSuffix":"fixture.example","Self":{"ID":"n12345678900","HostName":"operator","DNSName":"operator.fixture.example.","Online":true,"TailscaleIPs":["100.64.0.10"]},"Peer":{"nodekey:fixture":{"ID":"n12345678901","HostName":"worker","DNSName":"worker.fixture.example.","Online":true,"TailscaleIPs":["100.64.0.11"]}}}

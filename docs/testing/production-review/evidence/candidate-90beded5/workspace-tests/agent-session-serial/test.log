@@ -1,0 +1,39 @@
+   Compiling syn v2.0.117
+   Compiling libc v0.2.186
+   Compiling serde_core v1.0.228
+   Compiling getrandom v0.4.2
+   Compiling parking_lot_core v0.9.12
+   Compiling parking_lot v0.12.5
+   Compiling uuid v1.23.1
+   Compiling semver v1.0.28
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v2.0.18
+   Compiling thiserror v2.0.18
+   Compiling tracing-attributes v0.1.31
+   Compiling getrandom v0.2.17
+   Compiling errno v0.3.14
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling toml_datetime v0.6.11
+   Compiling serde_spanned v0.6.9
+   Compiling entangle-types v0.1.0 (/workspace/Entanglement/crates/entangle-types)
+   Compiling toml_edit v0.22.27
+   Compiling signal-hook-registry v1.4.8
+   Compiling rand_core v0.6.4
+   Compiling tracing v0.1.44
+   Compiling tokio-macros v2.7.0
+   Compiling mio v1.2.0
+   Compiling toml v0.8.23
+   Compiling socket2 v0.6.3
+   Compiling tempfile v3.27.0
+   Compiling tokio v1.54.1
+   Compiling entangle-agent-host v0.1.0 (/workspace/Entanglement/crates/entangle-agent-host)
+    Finished `test` profile [unoptimized] target(s) in 23.50s
+     Running tests/session.rs (target/debug/deps/session-7ce2c002b3a8dbbe)
+
+running 2 tests
+test session_start_and_restore_round_trips ... ok
+test session_start_no_prior_config_restore_removes_file ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

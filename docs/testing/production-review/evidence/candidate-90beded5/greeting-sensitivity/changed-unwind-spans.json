@@ -1,0 +1,82 @@
+{
+  "baseline": [
+    {
+      "sorted_unwind_index": 7590,
+      "start": "0xe035e0",
+      "end": "0xe03920",
+      "size": 832,
+      "directly_referenced_rust_source_locations": [],
+      "directly_referenced_matching_literals": [
+        {
+          "address": "0x259573",
+          "literal": "scheduler bind requires a local Tailscale address in the requested address family"
+        }
+      ],
+      "disassembled_instruction_count_with_alignment": 223,
+      "consecutive_trailing_int3_bytes": 6,
+      "mnemonics_without_trailing_int3_sha256": "3070c2eb719fa2170d1f0db755e773f041b0740b9e060a9034ae8323ef03674f"
+    },
+    {
+      "sorted_unwind_index": 7592,
+      "start": "0xe03da0",
+      "end": "0xe04cb0",
+      "size": 3856,
+      "directly_referenced_rust_source_locations": [],
+      "directly_referenced_matching_literals": [],
+      "disassembled_instruction_count_with_alignment": 831,
+      "consecutive_trailing_int3_bytes": 3,
+      "mnemonics_without_trailing_int3_sha256": "8323014629d8db5a20bc98c5b242868336e60bab059c2566f99a970846922972"
+    },
+    {
+      "sorted_unwind_index": 42882,
+      "start": "0x2336920",
+      "end": "0x2336b00",
+      "size": 480,
+      "directly_referenced_rust_source_locations": [],
+      "directly_referenced_matching_literals": [],
+      "disassembled_instruction_count_with_alignment": 151,
+      "consecutive_trailing_int3_bytes": 29,
+      "mnemonics_without_trailing_int3_sha256": "c8e20e6a8c5f6ba3d6bfa5c7f7089012441eee72859b8dc5734f18ebcf0c6aa7"
+    }
+  ],
+  "candidate": [
+    {
+      "sorted_unwind_index": 7590,
+      "start": "0xe035e0",
+      "end": "0xe03970",
+      "size": 912,
+      "directly_referenced_rust_source_locations": [],
+      "directly_referenced_matching_literals": [
+        {
+          "address": "0x259573",
+          "literal": "scheduler bind requires a local Tailscale address in the requested address family"
+        }
+      ],
+      "disassembled_instruction_count_with_alignment": 239,
+      "consecutive_trailing_int3_bytes": 8,
+      "mnemonics_without_trailing_int3_sha256": "933cc50331fa6c658f613fa56172dffe11e9600700411482c2371a4aa2ef7bd0"
+    },
+    {
+      "sorted_unwind_index": 7592,
+      "start": "0xe03df0",
+      "end": "0xe04cd0",
+      "size": 3808,
+      "directly_referenced_rust_source_locations": [],
+      "directly_referenced_matching_literals": [],
+      "disassembled_instruction_count_with_alignment": 821,
+      "consecutive_trailing_int3_bytes": 3,
+      "mnemonics_without_trailing_int3_sha256": "d6fae373b90fa0f34456b610eb2730fd488ee6540a041f9ce3b39252d4c67501"
+    },
+    {
+      "sorted_unwind_index": 42882,
+      "start": "0x2336940",
+      "end": "0x2336b40",
+      "size": 512,
+      "directly_referenced_rust_source_locations": [],
+      "directly_referenced_matching_literals": [],
+      "disassembled_instruction_count_with_alignment": 183,
+      "consecutive_trailing_int3_bytes": 61,
+      "mnemonics_without_trailing_int3_sha256": "c8e20e6a8c5f6ba3d6bfa5c7f7089012441eee72859b8dc5734f18ebcf0c6aa7"
+    }
+  ]
+}

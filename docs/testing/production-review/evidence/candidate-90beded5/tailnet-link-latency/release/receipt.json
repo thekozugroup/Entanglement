@@ -1,0 +1,138 @@
+{
+  "started_utc": "2026-11-27T11:02:19.134027+00:00",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "git_head": "90beded509f93909507c78f2986dea0e085e4f1e",
+  "cli_path": "/workspace/Entanglement/target/release/entangle",
+  "cli_sha256": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02",
+  "status_runner_sha256": "123667ff65d4fa67af6187488b0dac9f224ff8bba3b9d01d740bade4fda9b7a6",
+  "status_fixture_sha256": "909723ff475bc96374e07f6310c44e7c16461144465bcc4aa5d39e97769d4c20",
+  "protocol_sha256": "203f339ece562ced57f0168eb0fe6405490922171d122b359a508fb91de59638",
+  "script_sha256": "53697ef61219ee7168281f2bd54864348c9954cb9bf906a1024d950446e7fc55",
+  "command_implementation_sha256": {
+    "crates/entangle-cli/src/cmd/mesh/tailnet.rs": "447815340bd154fb3a963533f2c08fd60d2c250ecd66dc9b774146590a50e022",
+    "crates/entangle-cli/src/cmd/mesh.rs": "a2a909e12d1980e12b3c8947b7c9be280130f213d8cbb51c96d8a303c0cb8881",
+    "crates/entangle-mesh-tailscale/src/lib.rs": "acfa5fc1550d315315bcf7b1e42a2c7083f2c9f6b7ec04de03bfd295b2e466a7",
+    "crates/entangle-bin/src/remote/routes.rs": "7f26790e5d13ee5f9a98fb44237df47ba6cd54c27bac42a3d7c69ce58636d4b0"
+  },
+  "filesystem_mode": "temporary isolated HOME; no daemon; offline helper only",
+  "timing": "monotonic elapsed including process spawn and teardown",
+  "cpu_quota": "400000 100000",
+  "affinity": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "active_cargo_rustc_before": [],
+  "system_load_before": "2.57 1.54 1.39 1/1297 1225663",
+  "setup_command": [
+    "/workspace/Entanglement/target/release/entangle",
+    "mesh",
+    "trust",
+    "bba6177d17bd52008d632375409f2e1c",
+    "--public-key-hex",
+    "db206f06a577ef984df02312a5af4b8d7cd9b163ff51b84a50a6361142cc7c3c",
+    "--display-name",
+    "local-approved-operator-target"
+  ],
+  "timed_command": [
+    "/workspace/Entanglement/target/release/entangle",
+    "mesh",
+    "tailnet",
+    "link",
+    "n12345678901",
+    "--peer",
+    "bba6177d17bd52008d632375409f2e1c",
+    "--port",
+    "7443",
+    "--json"
+  ],
+  "stable_peer": "bba6177d17bd52008d632375409f2e1c",
+  "stable_node_id": "n12345678901",
+  "expected_port": 7443,
+  "peer_store_sha256": "6491bccd5244001d1cf87b7780049663a0bbab770ce218551b217cfa6d7a3fd0",
+  "direct_fixture_only_control_ms": {
+    "count": 12,
+    "p50_ms": 2.9407170000000002,
+    "p95_ms": 3.847508,
+    "range_ms": [
+      2.356442,
+      3.847508
+    ],
+    "all_ms": [
+      2.630389,
+      2.377581,
+      2.384389,
+      3.319437,
+      3.251045,
+      2.392005,
+      3.322194,
+      3.299485,
+      2.356442,
+      3.847508,
+      2.489496,
+      3.692087
+    ]
+  },
+  "active_cargo_rustc_after": [],
+  "system_load_after": "2.57 1.54 1.39 1/1297 1225788",
+  "replicates": 12,
+  "first": {
+    "count": 12,
+    "p50_ms": 7.596127,
+    "p95_ms": 11.705472,
+    "range_ms": [
+      7.023017,
+      11.705472
+    ],
+    "status_calls_each": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "config_replacements": 12,
+    "config_changed": 12
+  },
+  "idempotent": {
+    "count": 12,
+    "p50_ms": 6.2343095,
+    "p95_ms": 11.714707,
+    "range_ms": [
+      5.909093,
+      11.714707
+    ],
+    "status_calls_each": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "config_replacements": 0,
+    "config_changed": 0
+  },
+  "finished_utc": "2026-11-27T11:02:19.745227+00:00",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "cli_sha256_after": "4ea6555f951671cee62fa25b5a1da4056f1eed710378e510f3481e0b7b186a02",
+  "raw_sha256": "fa7bc2db2b422e3889b49805dde80f27b8a6e419914786710419b96cce9d16ae",
+  "exit_code": 0,
+  "same_workspace_source_before_after": true,
+  "same_command_sources_before_after": true
+}

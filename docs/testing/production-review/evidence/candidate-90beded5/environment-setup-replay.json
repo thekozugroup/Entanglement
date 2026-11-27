@@ -1,0 +1,13 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-onboard-promotion-review-a727cv7e/cloud-install-exact.sh"
+  ],
+  "started_utc": "2026-11-27T11:09:02.162986+00:00",
+  "finished_utc": "2026-11-27T11:13:32.597313+00:00",
+  "source_before": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "source_after": "sha256:f55d4a44e7f128f7e059ecd7c93625be91e7f56484c49f93b7920e9266cf6cbb",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-90beded5/environment-setup-replay.log",
+  "sha256": "fe08ccbf63e2c5c580799a906496f5331f0775a1f4d6e22b61a8bad194a8937a"
+}

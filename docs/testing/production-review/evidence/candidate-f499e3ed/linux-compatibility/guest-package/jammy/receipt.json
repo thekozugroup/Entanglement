@@ -1,0 +1,38 @@
+{
+  "source_commit": "f499e3edf84e20f550312d05df51b9ea4e7cc699",
+  "source_before": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "source_id": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "started_utc": "2026-11-27T12:05:15.621375+00:00",
+  "os_version": "22.04",
+  "glibc": "2.35",
+  "base_image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+  "native_packager_sha256": "f94d02e60ab0bcc117f14e9761fcba7a0e4e8cd539ac2c29afc9ab5db3eb2a56",
+  "native_build_receipt": "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/jammy-build/jammy-linux-archive.json",
+  "native_build_receipt_sha256": "e572fb77fea47b7d6b4b3b927d125e622eac34491f1b14a73adc6b2aba113c8b",
+  "compiler_sha256": {
+    "cargo": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b",
+    "rustc": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e"
+  },
+  "source_bundle_sha256": "6003e29a20f115fcb964e0392bfe67aa55420861a5155972c661526dc77c9528",
+  "helper_sha256": "57f55fe4d626e8aa10acbe064c599a745a71499b18e74861cef5c9a7e77cee69",
+  "runner_sha256": "0e473deba025900d234f6ebf365df4d17c37d7c7bfdc6036a4ca6cc750b3170c",
+  "command": [
+    "cargo",
+    "entangle",
+    "package",
+    "<fresh-checkout>/examples/hello-world",
+    "--source-url",
+    "https://github.com/thekozugroup/Entanglement.git",
+    "--key",
+    "/public-repro-fixture.pem",
+    "--out",
+    "/build/hello-world.tar.zst"
+  ],
+  "log": "docs/testing/production-review/evidence/candidate-f499e3ed/linux-compatibility/guest-package/jammy/build.log",
+  "exit_code": 1,
+  "base_image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+  "failure": "Command '['docker', 'exec', '-i', '--user=65534:65534', '3a3f7ed9661b94ac68fca71919ae297316b5720b71f4fc4aad007234271f54c1', '/usr/bin/timeout', '--kill-after=10s', '300s', 'sh', '-s', '--', 'f499e3edf84e20f550312d05df51b9ea4e7cc699', '22.04', '2.35']' returned non-zero exit status 101.",
+  "source_after": "sha256:31991c5d25c0e7b2f721aadb7767b89d1e7cc270869322801e7f879d833587aa",
+  "finished_utc": "2026-11-27T12:08:09.243084+00:00",
+  "sha256": "5961cafb02d0cb3b6f8ca48e576b4f585763c176fc6d5e8bdd1d3cbd61894bb7"
+}
