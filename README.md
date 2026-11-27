@@ -23,7 +23,7 @@ The bundled catalog includes compression, CSV statistics, image resizing, JSON P
 - [hash-it](./examples/hash-it/) — tier-2 BLAKE3 hasher with zero declared capabilities.
 
 - Produce lines progressively with a signed streaming guest. [stream-lines](./examples/stream-lines/)
-- Run a preapproved Rust WASI test target across paired workers and retain per-test results. [Distributed Rust tests](./docs/testing/distributed-rust-tests.md)
+- Run a signed Rust WASI test target across paired workers and export results to JSON or JUnit XML. Each result traces a named test to its worker and signed build. [Distributed Rust tests](./docs/testing/distributed-rust-tests.md)
 
 ## Walkthrough
 
