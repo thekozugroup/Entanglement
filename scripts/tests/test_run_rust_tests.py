@@ -18,7 +18,8 @@ RUNNING_ONE = "\nrunning 1 test\n"
 SUFFIX = "0 measured; 57 filtered out; finished in 0.00s\n\n"
 IGNORED = RUNNING_ONE + "i\ntest result: ok. 0 passed; 0 failed; 1 ignored; " + SUFFIX
 PASSED = RUNNING_ONE + ".\ntest result: ok. 1 passed; 0 failed; 0 ignored; " + SUFFIX
-FAILED = RUNNING_ONE + "F\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; " + SUFFIX
+FAILED = (RUNNING_ONE + "case --- FAILED\n\nfailures:\n\nfailures:\n    case\n\n"
+          "test result: FAILED. 0 passed; 1 failed; 0 ignored; " + SUFFIX)
 PANIC = "thread 'case' (1) panicked at fixture.rs:7:5:\nassertion failed\n"
 PEERS = ["worker-a", "worker-b"]
 
@@ -36,7 +37,7 @@ class ClassifyTests(unittest.TestCase):
             ("failed", capture(RUNNING_ONE, None, PANIC)),
         ):
             with self.subTest(expected=expected):
-                self.assertEqual(runner.classify(result), expected)
+                self.assertEqual(runner.classify(result, "case"), expected)
 
     def test_rejects_ambiguous_or_malformed_results(self):
         for result in (
@@ -55,15 +56,36 @@ class ClassifyTests(unittest.TestCase):
             capture("\nrunning 0 tests\n", None, PANIC),
             capture(IGNORED.replace("running 1 test", "running 0 tests")),
             capture(IGNORED.replace("1 ignored", "0 ignored")),
+            capture(PASSED.replace(".\ntest result", "logged 1 passed\ntest result", 1)),
+            capture(PASSED.removesuffix("\n")),
+            capture(PASSED.replace(".\ntest result", "i\ntest result", 1)),
+            capture(FAILED.replace("    case\n", "    different\n"), 1),
+            capture(IGNORED + "test: different, ignore_message: other test\n\n"),
         ):
             with self.subTest(result=result):
                 with self.assertRaises(runner.DispatchError):
-                    runner.classify(result)
+                    runner.classify(result, "case")
 
     def test_captured_running_line_does_not_replace_the_libtest_header(self):
         diagnostic = "running 2 tests\napplication progress\n"
-        self.assertEqual(runner.classify(capture(PASSED.replace(".\n", diagnostic + ".\n", 1))), "passed")
-        self.assertEqual(runner.classify(capture(RUNNING_ONE + diagnostic, None, PANIC)), "failed")
+        self.assertEqual(runner.classify(capture(PASSED.replace(".\n", diagnostic + ".\n", 1)), "case"), "passed")
+        self.assertEqual(runner.classify(capture(RUNNING_ONE + diagnostic, None, PANIC), "case"), "failed")
+
+    def test_captured_result_lines_are_not_libtest_completion(self):
+        diagnostic = "test result: previous parser accepted the input\n"
+        quoted = PASSED.splitlines()[-2] + "\n"
+        for line in (diagnostic, quoted):
+            with self.subTest(line=line):
+                successful = RUNNING_ONE + line + "inline log" + PASSED.removeprefix(RUNNING_ONE)
+                aborted = RUNNING_ONE + line
+                self.assertEqual(runner.classify(capture(successful), "case"), "passed")
+                self.assertEqual(runner.classify(capture(aborted, None, PANIC), "case"), "failed")
+                with self.assertRaises(runner.DispatchError):
+                    runner.classify(capture(aborted), "case")
+
+    def test_ignored_summary_can_have_a_named_reason(self):
+        stdout = IGNORED + "test: case, ignore_message: unavailable on this target\ntest result: not run\n\n"
+        self.assertEqual(runner.classify(capture(stdout), "case"), "ignored")
 
 
 class RetryTests(unittest.TestCase):

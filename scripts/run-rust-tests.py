@@ -99,31 +99,56 @@ def suite_listing(dispatch, peer):
     return names, ignored
 
 
-def classify(result):
-    lines = result["stdout"].splitlines()
-    summaries = [line for line in lines if line.startswith("test result:")]
+def classify(result, name):
+    lines = result["stdout"].split("\n")
     header = next((line for line in lines if line.strip()), "")
+    last = next((index for index in range(len(lines) - 1, -1, -1) if lines[index].strip()), -1)
+    summaries = []
+    # Terse libtest writes a progress marker or failure footer before the
+    # summary and a blank line after it. With --nocapture a test may print
+    # summary-like text, and the final progress dot can follow inline output.
+    for index in range(1, len(lines) - 2):
+        if not lines[index].startswith("test result:") or lines[index + 1] != "":
+            continue
+        previous = lines[index - 1]
+        terminal = index == last
+        if previous.endswith("."):
+            marker = "passed"
+        elif previous == "i":
+            marker = "ignored"
+            # An exact ignored test can emit its reason after the summary.
+            terminal |= (lines[index + 2].startswith(f"test: {name}, ignore_message: ")
+                         and lines[-2:] == ["", ""])
+        elif index >= 3 and lines[index - 3:index] == ["failures:", f"    {name}", ""]:
+            marker = "failed"
+        else:
+            continue
+        summaries.append((RESULT.fullmatch(lines[index]), marker, terminal))
+
     exit_code = result["exit_code"]
     if exit_code is None:
-        if summaries:
+        if any(terminal for _, _, terminal in summaries):
             raise DispatchError("WASI libtest trapped after reporting a test summary")
         if RUN_HEADER.fullmatch(header) and header != "running 1 test":
             raise DispatchError("exact libtest selector did not report one selected test")
         if PANIC.search(result["stderr"]):
             return "failed"
         raise DispatchError("WASI libtest trapped without a Rust panic report")
-    if len(summaries) != 1 or not (summary := RESULT.fullmatch(summaries[0])):
-        raise DispatchError("expected one valid Rust libtest summary")
+    if len(summaries) != 1:
+        raise DispatchError("expected one terminal Rust libtest summary")
+    summary, marker, terminal = summaries[0]
+    if summary is None or not terminal:
+        raise DispatchError("expected one valid terminal Rust libtest summary")
     if header != "running 1 test":
         raise DispatchError("exact libtest selector did not report one selected test")
     status, passed, failed, ignored, measured, _ = summary.groups()
     counts = (passed, failed, ignored, measured)
     if status == "ok" and exit_code == 0:
-        if counts == ("1", "0", "0", "0"):
+        if marker == "passed" and counts == ("1", "0", "0", "0"):
             return "passed"
-        if counts == ("0", "0", "1", "0"):
+        if marker == "ignored" and counts == ("0", "0", "1", "0"):
             return "ignored"
-    if status == "FAILED" and exit_code != 0 and counts == ("0", "1", "0", "0"):
+    if status == "FAILED" and exit_code != 0 and marker == "failed" and counts == ("0", "1", "0", "0"):
         return "failed"
     raise DispatchError("exact libtest selector did not report one completed test")
 
@@ -134,7 +159,7 @@ def run_attempt(dispatch, peer, name, ignored, attempt):
         result = dispatch(peer, {"operation": "test", "name": name, "ignored": ignored,
                                  "attempt": attempt})
         record.update(result)
-        record["status"] = classify(result)
+        record["status"] = classify(result, name)
     except DispatchError as error:
         record.update(status="error", error=str(error))
     except Exception as error:
