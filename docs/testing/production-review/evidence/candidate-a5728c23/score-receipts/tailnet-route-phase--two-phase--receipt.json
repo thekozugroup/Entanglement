@@ -1,0 +1,15 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:25:49.179125+00:00",
+  "finished_utc": "2026-11-27T09:28:57.644303+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/tailnet-route-phase/two-phase/result.json",
+  "sha256": "12fd06b3aa3895e44c8337db7fe2fb02a39f42ecd26b1a8faabe1019abaf44e6",
+  "command": [
+    "/tmp/entangle-revocation-freshness/a5728c23-two-phase/run.py",
+    "/tmp/entangle-revocation-freshness/a5728c23-verified-bin"
+  ],
+  "source_receipt": "docs/testing/production-review/evidence/candidate-a5728c23/tailnet-route-phase/two-phase/receipt.json",
+  "source_receipt_sha256": "0592ee59fe61f5b43fdb86df035e24ac9127441c84a7fba8fc8627b7e4d573d5"
+}

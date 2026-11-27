@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/mixed.py", line 304, in <module>
+    main(ap.parse_args())
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/mixed.py", line 291, in main
+    summary["source_after"]=stamp()
+                            ^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/mixed.py", line 71, in stamp
+    assert actual==source
+           ^^^^^^^^^^^^^^
+AssertionError

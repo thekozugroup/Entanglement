@@ -1,0 +1,64 @@
+{
+  "registered_utc": "2026-11-27T09:00:17.525011+00:00",
+  "before_live_measurement": true,
+  "candidate_commit": "4dd03c6471394d62a0d3d4b5ea8479165ddb87f2",
+  "candidate_source": "sha256:81e0cb3a860d3dc5f3ad1405940811362512774bcbc64e1b45ce98e19974b454",
+  "labels": {
+    "A": "verified 296b427a optimized daemon",
+    "B": "private 4dd03c optimized daemon, same release command",
+    "X": "same verified 296b daemon as A",
+    "Y": "same verified 296b daemon as A",
+    "c19": "verified historical daemon retained only for provenance"
+  },
+  "random_seed_sha256": "85d615305a2a64a0047ffb37cda5d1b8fcd5f06183863d017a0fce2460a563db",
+  "order_generator": "Python random.Random(integer seed). Shuffle [XY,XY,YX,YX], then shuffle each four-block [AB,BA,sham].",
+  "arm_pairs_in_order": [
+    "YX",
+    "AB",
+    "BA",
+    "BA",
+    "XY",
+    "AB",
+    "AB",
+    "BA",
+    "XY",
+    "AB",
+    "YX",
+    "BA"
+  ],
+  "pair_count": {
+    "B/A": 8,
+    "Y/X": 4
+  },
+  "trial_unit": "Fresh cluster per arm. Preserve signed greeting harness defaults for 4 routes and 3 rotated 24-output image batches per each of 3 routes, summarized within arm by median. All arms use the same archived 296b CLI for setup. Each randomized block has both A/B orders and an identical-daemon sham.",
+  "primary_routes": [
+    "image local",
+    "remote / 4"
+  ],
+  "metrics": [
+    "p95_ms",
+    "throughput_per_s"
+  ],
+  "report": "All paired ratios, median/range, count in direction, medians by ordering and eight-pair percentile bootstrap intervals (20,000 cluster pair samples; descriptive). Report four independently interleaved A/A ratios as noise reference, fixed previous engineering bounds 1.05 maximum p95 ratio and 0.95 minimum throughput ratio as context. No formal proof of noninferiority; other five routes descriptive.",
+  "attempts": "One series of 24 arms; stop after 480 seconds or first correctness failure; no reruns.",
+  "host_activity": "Estimate per-second process CPU plus cgroup usage/throttling. Check exported source stamps, driver, ELF and oracle digests before and after. Wait for coordination clearance before launching.",
+  "inputs": {
+    "c19": {
+      "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+      "archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+      "sha256": {
+        "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+        "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+      }
+    },
+    "A": {
+      "commit": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+      "archive_sha256": "871f154179c2387c76a09101e6316d5e242b6f6b144fa4bc98932bb164f31132",
+      "sha256": {
+        "entangle": "bbe332a3da4d23516930d50b3439ffa7fd2f6a0530fd14cd9329f27058baca02",
+        "entangled": "a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e"
+      }
+    },
+    "driver_sha256": "f8392b8aa540ddaa89b81b01eaefb3c5f7b5eee494ea883e7ceb4497b5ffbea0"
+  }
+}

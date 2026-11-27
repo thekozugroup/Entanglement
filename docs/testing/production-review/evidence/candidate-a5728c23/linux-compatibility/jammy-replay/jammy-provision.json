@@ -1,0 +1,163 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:42:47.218787+00:00",
+  "finished_utc": "2026-11-27T09:45:42.498301+00:00",
+  "exit_code": 0,
+  "container": "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+  "image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+  "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+  "network_for_build": {},
+  "tmpfs_cap_bytes": 7516192768,
+  "source_bundle": "/workspace/entangle-jammy-tmpfs-tsh9h7wz/source.bundle",
+  "source_bundle_sha256": "23874d09ce44228acb1eebdfcb85b31d7581bd9a35949e9b82f6e08751c50de2",
+  "compiler": {
+    "cargo": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b",
+    "rustc": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e"
+  },
+  "lock_sha256": "fb363ad01c1e15697a22aa0261b7c8574f4b6282c3be31c23840fd83c0271f59",
+  "locked_registry_tarballs_verified": 616,
+  "runner_sha256": "2fb4b9f69beb05795933865bde926af5ffb9162c68112eeec5b9a59ec25637bb",
+  "provision_log_sha256": "18a8360abbbb16c9a0259b4b162722dde1e3652cf15c1fa5bbb7bfc70fb2e7d5",
+  "system_packages_sha256": "644c9dbda9ff62ca3d6bec6c59f6441cb17c0724d7a3697834fb134a19467ea7",
+  "commands": [
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ],
+    [
+      "docker",
+      "info",
+      "--format",
+      "{{json .SecurityOptions}}"
+    ],
+    [
+      "docker",
+      "image",
+      "inspect",
+      "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+      "--format",
+      "{{.Id}}"
+    ],
+    [
+      "git",
+      "clone",
+      "--shared",
+      "--bare",
+      "--no-tags",
+      "/workspace/Entanglement",
+      "/workspace/entangle-jammy-tmpfs-tsh9h7wz/objects.git"
+    ],
+    [
+      "git",
+      "--git-dir",
+      "/workspace/entangle-jammy-tmpfs-tsh9h7wz/objects.git",
+      "update-ref",
+      "refs/heads/frozen-compat",
+      "a5728c230e5049556b806cae8597fe823dd67987"
+    ],
+    [
+      "git",
+      "--git-dir",
+      "/workspace/entangle-jammy-tmpfs-tsh9h7wz/objects.git",
+      "bundle",
+      "create",
+      "/workspace/entangle-jammy-tmpfs-tsh9h7wz/source.bundle",
+      "refs/heads/frozen-compat"
+    ],
+    [
+      "git",
+      "bundle",
+      "verify",
+      "/workspace/entangle-jammy-tmpfs-tsh9h7wz/source.bundle"
+    ],
+    [
+      "docker",
+      "create",
+      "--pull=never",
+      "--platform=linux/amd64",
+      "--network=bridge",
+      "--security-opt=no-new-privileges",
+      "--tmpfs=/build-target:rw,exec,nosuid,nodev,mode=1777,size=7g",
+      "--mount",
+      "type=bind,src=/workspace/entangle-jammy-release-mjuyx5hl/fixture,dst=/seed,readonly",
+      "--mount",
+      "type=bind,src=/workspace/entangle-jammy-tmpfs-tsh9h7wz/source.bundle,dst=/source.bundle,readonly",
+      "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "sleep",
+      "infinity"
+    ],
+    [
+      "docker",
+      "start",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155"
+    ],
+    [
+      "docker",
+      "exec",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "/bin/sh",
+      "-ec",
+      "apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 update && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 install -y --no-install-recommends ca-certificates git gcc libc6-dev make pkg-config python3 && apt-get clean"
+    ],
+    [
+      "docker",
+      "network",
+      "disconnect",
+      "bridge",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155"
+    ],
+    [
+      "docker",
+      "inspect",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "--format",
+      "{{json .NetworkSettings.Networks}}"
+    ],
+    [
+      "docker",
+      "exec",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "sh",
+      "-ec",
+      "\n            set -eu\n            test \"$(wc -l </proc/net/route)\" -eq 1\n            test \"$(df -B1 /build-target | awk 'NR==2{print $2}')\" = 7516192768\n            test -z \"$(ls -A /build-target)\"\n            getconf GNU_LIBC_VERSION\n            gcc -v\n            ld -v\n            sha256sum /source.bundle /seed/toolchain/bin/rustc /seed/toolchain/bin/cargo\n        "
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "sha256sum",
+      "/source.bundle",
+      "/seed/toolchain/bin/rustc",
+      "/seed/toolchain/bin/cargo"
+    ],
+    [
+      "docker",
+      "exec",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "dpkg-query",
+      "-W",
+      "-f=${binary:Package} ${Version}\\n"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ]
+  ]
+}

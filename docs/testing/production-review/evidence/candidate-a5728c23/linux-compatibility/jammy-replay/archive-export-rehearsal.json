@@ -1,0 +1,131 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "started_utc": "2026-11-27T10:02:25.875095+00:00",
+  "finished_utc": "2026-11-27T10:02:27.276377+00:00",
+  "exit_code": 0,
+  "bytes": 31457280,
+  "commands": [
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ],
+    [
+      "docker",
+      "inspect",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "--format",
+      "{{.State.Running}}"
+    ],
+    [
+      "docker",
+      "inspect",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "--format",
+      "{{.Image}}"
+    ],
+    [
+      "docker",
+      "start",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155"
+    ],
+    [
+      "docker",
+      "inspect",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "--format",
+      "{{json .NetworkSettings.Networks}}"
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "ls",
+      "-A",
+      "/build-target"
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "cat",
+      "/proc/net/route"
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "dd",
+      "if=/dev/urandom",
+      "of=/build-target/export-rehearsal",
+      "bs=1048576",
+      "count=30",
+      "status=none"
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "sha256sum",
+      "/build-target/export-rehearsal"
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "/bin/cat",
+      "/build-target/export-rehearsal"
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "rm",
+      "-f",
+      "/build-target/export-rehearsal"
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "ls",
+      "-A",
+      "/build-target"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ]
+  ],
+  "sha256_from_container": "8f2060d970b75c69c2d3912a22e22bfe5951e8b41e4e212782e26e7b41f4b5e1",
+  "sha256_from_host": "8f2060d970b75c69c2d3912a22e22bfe5951e8b41e4e212782e26e7b41f4b5e1",
+  "scope": "Previously verified offline Jammy system packages were reused. Its build tmpfs started empty. Raw non-PTY docker exec emitted all binary bytes exactly."
+}

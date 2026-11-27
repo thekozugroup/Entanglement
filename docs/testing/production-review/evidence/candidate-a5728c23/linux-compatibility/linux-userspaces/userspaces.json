@@ -1,0 +1,137 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_at_utc": "2026-11-27T09:23:53+00:00",
+  "finished_at_utc": "2026-11-27T09:24:16+00:00",
+  "exit_code": 0,
+  "scope": "One x86-64 Linux host and four separate rootless containers with network disabled. Candidate archives are unsigned. WASI guest signatures are verified.",
+  "archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "archive_blake3": "192d8167e9727f1fee3470c72e251f15b02970c49d36544b9f3f2099db0689e2",
+  "archive_path": "/workspace/Entanglement/target/release-candidate/a5728c230e50/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "archive_receipt_sha256": "801e12b701462a7259650e18555fc111a260d60a0599e3964be0e8ce3d1f478e",
+  "sidecars_sha256": {
+    "sha256": "50849c9352f21e6672c6672720abe15744ae29b1448d45fe9d09ba0c34e85e22",
+    "b3": "ec8deaf1935640b58085ddf84fa69119a2e5fb5c780f38efc828f8efdc21a8cf"
+  },
+  "fixture": {
+    "component_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+    "manifest_sha256": "7675f1e036b27128efe45ee79779674568c3f944528966bf4857f7ae54627aed",
+    "guest_source_tree": "14a946aac15de3b9952eebe0bba5c82e47565b6a"
+  },
+  "elf": {
+    "entangle": {
+      "sha256": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+      "required_glibc": "2.39"
+    },
+    "entangled": {
+      "sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+      "required_glibc": "2.39"
+    }
+  },
+  "cases": {
+    "ubuntu-22.04": {
+      "image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+      "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "os_version": "22.04",
+      "glibc": "2.35",
+      "versions": {
+        "entangle": {
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "/fixture/entangle: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /fixture/entangle)\n"
+        },
+        "entangled": {
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "/fixture/entangled: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /fixture/entangled)\n"
+        }
+      },
+      "outcome": "glibc_loader_refused"
+    },
+    "debian-12": {
+      "image": "debian@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e",
+      "image_id": "sha256:b1cc73e64d14d8ef890b767427fe0cc67eb4b78ee513cc7166e739f25e2de095",
+      "os_version": "12",
+      "glibc": "2.36",
+      "versions": {
+        "entangle": {
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "/fixture/entangle: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /fixture/entangle)\n"
+        },
+        "entangled": {
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "/fixture/entangled: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /fixture/entangled)\n"
+        }
+      },
+      "outcome": "glibc_loader_refused"
+    },
+    "ubuntu-24.04": {
+      "image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+      "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "os_version": "24.04",
+      "glibc": "2.39",
+      "versions": {
+        "entangle": {
+          "exit_code": 0,
+          "stdout": "entangle 0.1.0\n",
+          "stderr": ""
+        },
+        "entangled": {
+          "exit_code": 0,
+          "stdout": "entangled 0.1.0\n",
+          "stderr": ""
+        }
+      },
+      "outcome": "signed_guest_passed",
+      "daemon_exit_code": 0,
+      "daemon_log_sha256": "8a5816e1ee43cb27f9090d6840918be72f9a298a3e5c44727a61524f8d4778ef",
+      "node": "a80d55f112f104468afd40a5fe5abcc1",
+      "plugin": "a80d55f112f104468afd40a5fe5abcc1/json-pointer@0.1.0",
+      "publisher_public_key": "fba917adb97f891b0c92e75238d3a537e0d7d16d0e146d7bb65bd149b73da602",
+      "untrusted_load_exit": 1,
+      "signed_component_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+      "exact_utf8_output": "\"Caf\u00e9 JSON Pointer f74c3334ba893898808ebf38efb9e320\"",
+      "expected_output": "\"Caf\u00e9 JSON Pointer f74c3334ba893898808ebf38efb9e320\"",
+      "output_sha256": "4a7a878bfa7179ca1cfe40dcb20d5d937a630824b3ef63cc1c72138d20023276",
+      "null_output": "null",
+      "missing_property_exit": 1
+    },
+    "debian-13": {
+      "image": "debian@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0",
+      "image_id": "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+      "os_version": "13",
+      "glibc": "2.41",
+      "versions": {
+        "entangle": {
+          "exit_code": 0,
+          "stdout": "entangle 0.1.0\n",
+          "stderr": ""
+        },
+        "entangled": {
+          "exit_code": 0,
+          "stdout": "entangled 0.1.0\n",
+          "stderr": ""
+        }
+      },
+      "outcome": "signed_guest_passed",
+      "daemon_exit_code": 0,
+      "daemon_log_sha256": "3865ad5095dc1d5e31dd08f5034785bbaf580c8ad17512fdefca56e7b964dc7d",
+      "node": "a6b66a7d0da5b506749807a1c4424bd4",
+      "plugin": "a6b66a7d0da5b506749807a1c4424bd4/json-pointer@0.1.0",
+      "publisher_public_key": "f29931c72dc1c3715d609ae9c0a599bb993245b157b066242d034c407eefac57",
+      "untrusted_load_exit": 1,
+      "signed_component_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+      "exact_utf8_output": "\"Caf\u00e9 JSON Pointer cfe5a6bbca1055360bfdf52f70b421da\"",
+      "expected_output": "\"Caf\u00e9 JSON Pointer cfe5a6bbca1055360bfdf52f70b421da\"",
+      "output_sha256": "1aa5db99278fe59ccd870fb97ee702538483babf5fa5e36be431d2189c97996d",
+      "null_output": "null",
+      "missing_property_exit": 1
+    }
+  },
+  "runner_sha256": "d1fdf0fbb1ce3377bf1a8ad566655cb7aa55439beb81479451409658e20bd915",
+  "command_log_sha256": "34683191f18c78c321f25a9f63b7e6e2cf37f797492cc6e549ee8ec0f0ee946f"
+}

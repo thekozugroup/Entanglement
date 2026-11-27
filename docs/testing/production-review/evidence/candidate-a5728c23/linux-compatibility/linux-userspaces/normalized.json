@@ -1,0 +1,49 @@
+{
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:23:53.165859+00:00",
+  "finished_utc": "2026-11-27T09:24:16.369306+00:00",
+  "observed_at_utc": "2026-11-27T09:24:16.369306+00:00",
+  "command": [
+    "python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/userspaces.py",
+    "--repo",
+    "/workspace/Entanglement",
+    "--out",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/linux-userspaces",
+    "--commit",
+    "a5728c230e5049556b806cae8597fe823dd67987",
+    "--source-id",
+    "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+    "--wasm",
+    "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm",
+    "--b3sum",
+    "/tmp/entanglement-release-check.zM5PAQ/usr/bin/b3sum",
+    "--archive",
+    "/workspace/Entanglement/target/release-candidate/a5728c230e50/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "--archive-receipt",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-archive.json"
+  ],
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/linux-userspaces/userspaces.json",
+  "sha256": "ee09ee09afbefb460ab88a21be4874d6252a431f24dc16a0c2dfdee897a1227a",
+  "exit_code": 0,
+  "run_log": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/linux-userspaces/run.log",
+  "run_log_sha256": "94355a9ba098583a63ca9420405163341dd1060608bfbbb50fa0f78e7ecb4047",
+  "commands_log_sha256": "34683191f18c78c321f25a9f63b7e6e2cf37f797492cc6e549ee8ec0f0ee946f",
+  "summary": {
+    "archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+    "required_glibc": {
+      "entangle": "2.39",
+      "entangled": "2.39"
+    },
+    "outcomes": {
+      "ubuntu-22.04": "glibc_loader_refused",
+      "debian-12": "glibc_loader_refused",
+      "ubuntu-24.04": "signed_guest_passed",
+      "debian-13": "signed_guest_passed"
+    }
+  }
+}

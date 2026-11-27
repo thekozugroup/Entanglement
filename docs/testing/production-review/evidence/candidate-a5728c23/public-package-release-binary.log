@@ -1,0 +1,58 @@
+https://github.com/thekozugroup/Entanglement.git
+0f675dd787ac69926c1500272c4fa8eb72235f51
+c1315d894fa70143014b6e553270ed9cca4c517ffc32e0cd1b7a7ed9c5eba59c  /workspace/Entanglement/target/release/cargo-entangle
+26b7b111ffa5f4880d2ce678a4531f9c4c4ddf5d40b2ca0cc4286b008bdd74e4  /tmp/entangle-public-raw-n6RiD9/published/docs/testing/production-review/evidence/candidate-42bb9a33/package-operator/published-fixture/hello-world-0.1.0.tar.zst
+7926641591d874e53c508a0b4032e8e271ee2973352637c9b0b564e4b007da17  /tmp/entangle-public-raw-n6RiD9/published/docs/testing/production-review/evidence/candidate-42bb9a33/package-operator/published-fixture/hello-world-0.1.0.tar.zst.sig
+771c04016bd2dd29d71d258851adad61afe6c9005538211d26fe46462115d7be  /tmp/entangle-public-raw-n6RiD9/published/docs/testing/production-review/evidence/candidate-42bb9a33/package-operator/published-fixture/test-publisher-keyring.toml
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling serde_core v1.0.228
+   Compiling unicode-ident v1.0.24
+   Compiling syn v2.0.117
+   Compiling foldhash v0.2.0
+   Compiling hashbrown v0.17.0
+   Compiling equivalent v1.0.2
+   Compiling indexmap v2.14.0
+   Compiling anyhow v1.0.103
+   Compiling bitflags v2.11.1
+   Compiling semver v1.0.28
+   Compiling zmij v1.0.21
+   Compiling wasmparser v0.247.0
+   Compiling serde v1.0.228
+   Compiling serde_json v1.0.149
+   Compiling serde_derive v1.0.228
+   Compiling itoa v1.0.18
+   Compiling prettyplease v0.2.37
+   Compiling memchr v2.8.0
+   Compiling unicode-xid v0.2.6
+   Compiling log v0.4.29
+   Compiling leb128fmt v0.1.0
+   Compiling id-arena v2.3.0
+   Compiling wit-parser v0.247.0
+   Compiling wasm-encoder v0.247.0
+   Compiling wasm-metadata v0.247.0
+   Compiling wit-bindgen-rust v0.57.1
+   Compiling heck v0.5.0
+   Compiling wit-bindgen-core v0.57.1
+   Compiling wit-component v0.247.0
+   Compiling wit-bindgen-rust-macro v0.57.1
+   Compiling wit-bindgen v0.57.1
+   Compiling find-msvc-tools v0.1.9
+   Compiling shlex v1.3.0
+   Compiling cc v1.2.61
+   Compiling cfg-if v1.0.4
+   Compiling getrandom v0.4.2
+   Compiling blake3 v1.8.5
+   Compiling wasip2 v1.0.3+wasi-0.2.9
+   Compiling thiserror v2.0.18
+   Compiling thiserror-impl v2.0.18
+   Compiling constant_time_eq v0.4.2
+   Compiling arrayref v0.3.9
+   Compiling arrayvec v0.7.6
+   Compiling uuid v1.23.1
+   Compiling hex v0.4.3
+   Compiling entangle-types v0.1.0 (/tmp/entangle source PawNwd/checkout/crates/entangle-types)
+   Compiling entangle-sdk v0.1.0 (/tmp/entangle source PawNwd/checkout/crates/entangle-sdk)
+   Compiling entangle-hello-world v0.1.0 (/tmp/entangle source PawNwd/checkout/examples/hello-world)
+    Finished `release` profile [optimized] target(s) in 51.25s
+PASS: reproduced SHA-256 26b7b111ffa5f4880d2ce678a4531f9c4c4ddf5d40b2ca0cc4286b008bdd74e4 from 42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e

@@ -1,0 +1,115 @@
+09:31:03 1 baseline signed greeting
+09:31:06 1 candidate signed greeting
+09:31:10 2 candidate signed greeting
+09:31:14 2 baseline signed greeting
+09:31:17 3 baseline signed greeting
+09:31:21 3 candidate signed greeting
+09:31:24 candidate image batches
+09:31:34 baseline image batches
+{
+  "local / 1": {
+    "baseline": {
+      "p50_ms": 0.289,
+      "p95_ms": 0.472,
+      "requests_per_s": 3182.5
+    },
+    "candidate": {
+      "p50_ms": 0.262,
+      "p95_ms": 0.498,
+      "requests_per_s": 3039.3
+    },
+    "p95_ratio": 1.055084745762712,
+    "throughput_ratio": 0.9550039277297723,
+    "meets_engineering_limit": false
+  },
+  "local / 4": {
+    "baseline": {
+      "p50_ms": 0.468,
+      "p95_ms": 0.85,
+      "requests_per_s": 7330.3
+    },
+    "candidate": {
+      "p50_ms": 0.52,
+      "p95_ms": 0.908,
+      "requests_per_s": 7060.2
+    },
+    "p95_ratio": 1.0682352941176472,
+    "throughput_ratio": 0.9631529405344937,
+    "meets_engineering_limit": false
+  },
+  "remote / 1": {
+    "baseline": {
+      "p50_ms": 1.859,
+      "p95_ms": 2.565,
+      "requests_per_s": 503.8
+    },
+    "candidate": {
+      "p50_ms": 1.862,
+      "p95_ms": 2.551,
+      "requests_per_s": 489.0
+    },
+    "p95_ratio": 0.9945419103313841,
+    "throughput_ratio": 0.9706232631996824,
+    "meets_engineering_limit": true
+  },
+  "remote / 4": {
+    "baseline": {
+      "p50_ms": 2.888,
+      "p95_ms": 4.457,
+      "requests_per_s": 1290.1
+    },
+    "candidate": {
+      "p50_ms": 2.832,
+      "p95_ms": 4.305,
+      "requests_per_s": 1287.2
+    },
+    "p95_ratio": 0.9658963428315009,
+    "throughput_ratio": 0.9977521122393614,
+    "meets_engineering_limit": true
+  },
+  "image local": {
+    "baseline": {
+      "p50_ms": 82.79055100138066,
+      "p95_ms": 129.4808849997935,
+      "images_s": 40.567579517572575
+    },
+    "candidate": {
+      "p50_ms": 80.45416000095429,
+      "p95_ms": 132.07090100331698,
+      "images_s": 42.5126622992297
+    },
+    "p95_ratio": 1.0200030761569758,
+    "throughput_ratio": 1.0479467299944425,
+    "meets_engineering_limit": true
+  },
+  "image one_remote": {
+    "baseline": {
+      "p50_ms": 107.32815600204049,
+      "p95_ms": 133.05038800172042,
+      "images_s": 35.49113378434372
+    },
+    "candidate": {
+      "p50_ms": 89.04173899645684,
+      "p95_ms": 124.94123999931617,
+      "images_s": 40.01850328880831
+    },
+    "p95_ratio": 0.9390520529538072,
+    "throughput_ratio": 1.1275633946205956,
+    "meets_engineering_limit": true
+  },
+  "image three_remote": {
+    "baseline": {
+      "p50_ms": 112.54502599331317,
+      "p95_ms": 185.23903800087282,
+      "images_s": 32.91827882574581
+    },
+    "candidate": {
+      "p50_ms": 106.99742599535966,
+      "p95_ms": 151.39894500316586,
+      "images_s": 33.91009530884139
+    },
+    "p95_ratio": 0.8173166230892026,
+    "throughput_ratio": 1.0301296580038648,
+    "meets_engineering_limit": true
+  }
+}

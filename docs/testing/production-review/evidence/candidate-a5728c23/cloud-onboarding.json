@@ -1,0 +1,24 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:39:59.817019+00:00",
+  "finished_utc": "2026-11-27T09:40:00.331330+00:00",
+  "doctor_argv": [
+    "entangle",
+    "doctor"
+  ],
+  "exit_code": 0,
+  "doctor_summary": {
+    "ok": 13,
+    "warnings": 0,
+    "failures": 0
+  },
+  "raw_doctor_log_sha256": "288c91dee4564e080d0ca35b5e21ad76a9f4de7178c9520f2b531d9bb7609f83",
+  "projection": "Health counts only. The default development profile fingerprint and filesystem paths were omitted.",
+  "onboarding_draft_revision": 9,
+  "optional_tailnet_start_instructions_verified_against": "private-recovery-scorer-receipt.json",
+  "install_script_sha256": "b11305a88299537e9e71cfce31a2fdc9237779f4e82dfa253dff75d2c6bc11bd",
+  "installation_replay": "cloud-environment-workspace-cache.json",
+  "rpc_suite": "cloud-rpc-check.json",
+  "publication": "Saved draft. Settings review and publication are pending."
+}

@@ -1,0 +1,13 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-release-followup/workspace-pip-cloud-install.sh"
+  ],
+  "started_utc": "2026-11-27T09:37:51.876008+00:00",
+  "finished_utc": "2026-11-27T09:37:56.081617+00:00",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/cloud-environment-workspace-cache.log",
+  "sha256": "66a3b5935696ede0b18d265c379651bacea129f3b3ab1c29468c256223ed6637"
+}

@@ -1,0 +1,14 @@
+    Blocking waiting for file lock on build directory
+    Checking entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+ Documenting entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+    Checking entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+    Checking entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+ Documenting entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+    Checking entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+ Documenting entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+ Documenting entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+ Documenting entangle-bench v0.1.0 (/workspace/Entanglement/crates/entangle-bench)
+ Documenting entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+ Documenting entangle-mesh-tailscale v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-tailscale)
+    Finished `dev` profile [unoptimized] target(s) in 1m 21s
+   Generated /workspace/Entanglement/target/doc/cargo_entangle/index.html and 26 other files

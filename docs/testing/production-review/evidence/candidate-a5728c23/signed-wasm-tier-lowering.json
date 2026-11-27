@@ -1,0 +1,15 @@
+{
+  "command": [
+    "python3",
+    "scripts/tests/max-tier.py",
+    "--bin-dir",
+    "/tmp/entangle-check-a5728c23-archive"
+  ],
+  "started_utc": "2026-11-27T09:41:23.064381+00:00",
+  "finished_utc": "2026-11-27T09:41:24.010180+00:00",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/signed-wasm-tier-lowering.log",
+  "sha256": "46c530ad124fb8e7c9a3ea4cde095f85403c0fa87ccda14f07b818c97e4abf20"
+}

@@ -1,0 +1,12 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:29:21.803164+00:00",
+  "finished_utc": "2026-11-27T09:30:24.031326+00:00",
+  "exit_code": 101,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/jaq-natural/qualification.json",
+  "sha256": "6312776554883600eb5e573a8527280ca2addee5631ec416c384441645ff44f8",
+  "command": "Inspect the recorded whole-jaq native and distributed Cargo outcomes and the independent retry cohort.",
+  "source_receipt": "docs/testing/production-review/evidence/candidate-a5728c23/jaq-natural/qualification.json",
+  "source_receipt_sha256": "6312776554883600eb5e573a8527280ca2addee5631ec416c384441645ff44f8"
+}

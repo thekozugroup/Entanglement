@@ -1,0 +1,742 @@
+Get:1 http://deb.debian.org/debian trixie InRelease [140 kB]
+Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 Packages [9679 kB]
+Get:5 http://deb.debian.org/debian trixie-updates/main amd64 Packages [1108 B]
+Get:6 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [311 kB]
+Fetched 10.2 MB in 2s (5620 kB/s)
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+pkg-config is already the newest version (1.8.1-4).
+The following additional packages will be installed:
+  binutils-aarch64-linux-gnu cpp-14-aarch64-linux-gnu cpp-aarch64-linux-gnu
+  g++-14-aarch64-linux-gnu gcc-14-aarch64-linux-gnu
+  gcc-14-aarch64-linux-gnu-base gcc-14-cross-base git-man libasan8-arm64-cross
+  libatomic1-arm64-cross libbrotli1 libc6-arm64-cross libcom-err2
+  libcurl3t64-gnutls liberror-perl libexpat1 libffi8 libgcc-14-dev-arm64-cross
+  libgcc-s1-arm64-cross libgdbm-compat4t64 libgdbm6t64 libgnutls30t64
+  libgomp1-arm64-cross libgssapi-krb5-2 libhwasan0-arm64-cross
+  libitm1-arm64-cross libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0
+  libldap2 liblsan0-arm64-cross libnghttp2-14 libnghttp3-9 libngtcp2-16
+  libngtcp2-crypto-gnutls8 libp11-kit0 libperl5.40 libpsl5t64 librtmp1
+  libsasl2-2 libsasl2-modules-db libssh2-1t64 libstdc++-14-dev-arm64-cross
+  libstdc++6-arm64-cross libtasn1-6 libtsan2-arm64-cross libubsan1-arm64-cross
+  linux-libc-dev-arm64-cross perl-base perl-modules-5.40
+Suggested packages:
+  binutils-doc gcc-14-locales cpp-14-doc cpp-doc gcc-14-doc manpages-dev
+  autoconf automake libtool flex bison gdb-aarch64-linux-gnu gcc-doc
+  gettext-base git-doc git-email git-gui gitk gitweb git-cvs git-mediawiki
+  git-svn gdbm-l10n gnutls-bin krb5-doc krb5-user sensible-utils make-doc
+  perl-doc libterm-readline-gnu-perl | libterm-readline-perl-perl
+  libtap-harness-archive-perl
+Recommended packages:
+  patch less ssh-client krb5-locales libldap-common publicsuffix
+  libsasl2-modules netbase
+The following NEW packages will be installed:
+  binutils-aarch64-linux-gnu cpp-14-aarch64-linux-gnu cpp-aarch64-linux-gnu
+  g++-14-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-14-aarch64-linux-gnu
+  gcc-14-aarch64-linux-gnu-base gcc-14-cross-base gcc-aarch64-linux-gnu git
+  git-man libasan8-arm64-cross libatomic1-arm64-cross libbrotli1
+  libc6-arm64-cross libc6-dev-arm64-cross libcom-err2 libcurl3t64-gnutls
+  liberror-perl libexpat1 libffi8 libgcc-14-dev-arm64-cross
+  libgcc-s1-arm64-cross libgdbm-compat4t64 libgdbm6t64 libgnutls30t64
+  libgomp1-arm64-cross libgssapi-krb5-2 libhwasan0-arm64-cross
+  libitm1-arm64-cross libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0
+  libldap2 liblsan0-arm64-cross libnghttp2-14 libnghttp3-9 libngtcp2-16
+  libngtcp2-crypto-gnutls8 libp11-kit0 libperl5.40 libpsl5t64 librtmp1
+  libsasl2-2 libsasl2-modules-db libssh2-1t64 libstdc++-14-dev-arm64-cross
+  libstdc++6-arm64-cross libtasn1-6 libtsan2-arm64-cross libubsan1-arm64-cross
+  linux-libc-dev-arm64-cross make perl perl-modules-5.40
+The following packages will be upgraded:
+  perl-base
+1 upgraded, 56 newly installed, 0 to remove and 35 not upgraded.
+Inst perl-base [5.40.1-6] (5.40.1-6+deb13u1 Debian:13.8/stable [amd64])
+Conf perl-base (5.40.1-6+deb13u1 Debian:13.8/stable [amd64])
+Inst libexpat1 (2.9.0-1~deb13u1 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Inst perl-modules-5.40 (5.40.1-6+deb13u1 Debian:13.8/stable [all])
+Inst libgdbm6t64 (1.24-2 Debian:13.8/stable [amd64])
+Inst libgdbm-compat4t64 (1.24-2 Debian:13.8/stable [amd64])
+Inst libperl5.40 (5.40.1-6+deb13u1 Debian:13.8/stable [amd64])
+Inst perl (5.40.1-6+deb13u1 Debian:13.8/stable [amd64])
+Inst binutils-aarch64-linux-gnu (2.44-3 Debian:13.8/stable [amd64])
+Inst gcc-14-aarch64-linux-gnu-base (14.2.0-19cross1 Debian:13.8/stable [amd64])
+Inst cpp-14-aarch64-linux-gnu (14.2.0-19cross1 Debian:13.8/stable [amd64])
+Inst cpp-aarch64-linux-gnu (4:14.2.0-1 Debian:13.8/stable [amd64])
+Inst gcc-14-cross-base (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libc6-arm64-cross (2.41-11cross1 Debian:13.8/stable [all])
+Inst libgcc-s1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libgomp1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libitm1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libatomic1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libasan8-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst liblsan0-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libtsan2-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libstdc++6-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libubsan1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libhwasan0-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst libgcc-14-dev-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst gcc-14-aarch64-linux-gnu (14.2.0-19cross1 Debian:13.8/stable [amd64])
+Inst linux-libc-dev-arm64-cross (6.12.38-1cross1 Debian:13.8/stable [all])
+Inst libc6-dev-arm64-cross (2.41-11cross1 Debian:13.8/stable [all])
+Inst libstdc++-14-dev-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Inst g++-14-aarch64-linux-gnu (14.2.0-19cross1 Debian:13.8/stable [amd64])
+Inst gcc-aarch64-linux-gnu (4:14.2.0-1 Debian:13.8/stable [amd64])
+Inst g++-aarch64-linux-gnu (4:14.2.0-1 Debian:13.8/stable [amd64])
+Inst libbrotli1 (1.1.0-2+deb13u1 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Inst libffi8 (3.4.8-2 Debian:13.8/stable [amd64])
+Inst libp11-kit0 (0.25.5-3 Debian:13.8/stable [amd64])
+Inst libtasn1-6 (4.20.0-2+deb13u1 Debian:13.8/stable [amd64])
+Inst libgnutls30t64 (3.8.9-3+deb13u4 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Inst libkrb5support0 (1.21.3-5+deb13u2 Debian-Security:13/stable-security [amd64])
+Inst libcom-err2 (1.47.2-3+b12 Debian:13.8/stable [amd64])
+Inst libk5crypto3 (1.21.3-5+deb13u2 Debian-Security:13/stable-security [amd64])
+Inst libkeyutils1 (1.6.3-6 Debian:13.8/stable [amd64])
+Inst libkrb5-3 (1.21.3-5+deb13u2 Debian-Security:13/stable-security [amd64])
+Inst libgssapi-krb5-2 (1.21.3-5+deb13u2 Debian-Security:13/stable-security [amd64])
+Inst libsasl2-modules-db (2.1.28+dfsg1-9 Debian:13.8/stable [amd64])
+Inst libsasl2-2 (2.1.28+dfsg1-9 Debian:13.8/stable [amd64])
+Inst libldap2 (2.6.10+dfsg-1 Debian:13.8/stable [amd64])
+Inst libnghttp2-14 (1.64.0-1.1+deb13u2 Debian:13.8/stable [amd64])
+Inst libnghttp3-9 (1.8.0-1 Debian:13.8/stable [amd64])
+Inst libngtcp2-16 (1.11.0-1+deb13u1 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Inst libngtcp2-crypto-gnutls8 (1.11.0-1+deb13u1 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Inst libpsl5t64 (0.21.2-1.1+b1 Debian:13.8/stable [amd64])
+Inst librtmp1 (2.4+20151223.gitfa8646d.1-2+b5 Debian:13.8/stable [amd64])
+Inst libssh2-1t64 (1.11.1-1+deb13u2 Debian:13.8/stable [amd64])
+Inst libcurl3t64-gnutls (8.14.1-2+deb13u7 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Inst liberror-perl (0.17030-1 Debian:13.8/stable [all])
+Inst git-man (1:2.47.3-0+deb13u1 Debian:13.8/stable [all])
+Inst git (1:2.47.3-0+deb13u1 Debian:13.8/stable [amd64])
+Inst make (4.4.1-2 Debian:13.8/stable [amd64])
+Conf libexpat1 (2.9.0-1~deb13u1 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Conf perl-modules-5.40 (5.40.1-6+deb13u1 Debian:13.8/stable [all])
+Conf libgdbm6t64 (1.24-2 Debian:13.8/stable [amd64])
+Conf libgdbm-compat4t64 (1.24-2 Debian:13.8/stable [amd64])
+Conf libperl5.40 (5.40.1-6+deb13u1 Debian:13.8/stable [amd64])
+Conf perl (5.40.1-6+deb13u1 Debian:13.8/stable [amd64])
+Conf binutils-aarch64-linux-gnu (2.44-3 Debian:13.8/stable [amd64])
+Conf gcc-14-aarch64-linux-gnu-base (14.2.0-19cross1 Debian:13.8/stable [amd64])
+Conf cpp-14-aarch64-linux-gnu (14.2.0-19cross1 Debian:13.8/stable [amd64])
+Conf cpp-aarch64-linux-gnu (4:14.2.0-1 Debian:13.8/stable [amd64])
+Conf gcc-14-cross-base (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libc6-arm64-cross (2.41-11cross1 Debian:13.8/stable [all])
+Conf libgcc-s1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libgomp1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libitm1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libatomic1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libasan8-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf liblsan0-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libtsan2-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libstdc++6-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libubsan1-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libhwasan0-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf libgcc-14-dev-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf gcc-14-aarch64-linux-gnu (14.2.0-19cross1 Debian:13.8/stable [amd64])
+Conf linux-libc-dev-arm64-cross (6.12.38-1cross1 Debian:13.8/stable [all])
+Conf libc6-dev-arm64-cross (2.41-11cross1 Debian:13.8/stable [all])
+Conf libstdc++-14-dev-arm64-cross (14.2.0-19cross1 Debian:13.8/stable [all])
+Conf g++-14-aarch64-linux-gnu (14.2.0-19cross1 Debian:13.8/stable [amd64])
+Conf gcc-aarch64-linux-gnu (4:14.2.0-1 Debian:13.8/stable [amd64])
+Conf g++-aarch64-linux-gnu (4:14.2.0-1 Debian:13.8/stable [amd64])
+Conf libbrotli1 (1.1.0-2+deb13u1 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Conf libffi8 (3.4.8-2 Debian:13.8/stable [amd64])
+Conf libp11-kit0 (0.25.5-3 Debian:13.8/stable [amd64])
+Conf libtasn1-6 (4.20.0-2+deb13u1 Debian:13.8/stable [amd64])
+Conf libgnutls30t64 (3.8.9-3+deb13u4 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Conf libkrb5support0 (1.21.3-5+deb13u2 Debian-Security:13/stable-security [amd64])
+Conf libcom-err2 (1.47.2-3+b12 Debian:13.8/stable [amd64])
+Conf libk5crypto3 (1.21.3-5+deb13u2 Debian-Security:13/stable-security [amd64])
+Conf libkeyutils1 (1.6.3-6 Debian:13.8/stable [amd64])
+Conf libkrb5-3 (1.21.3-5+deb13u2 Debian-Security:13/stable-security [amd64])
+Conf libgssapi-krb5-2 (1.21.3-5+deb13u2 Debian-Security:13/stable-security [amd64])
+Conf libsasl2-modules-db (2.1.28+dfsg1-9 Debian:13.8/stable [amd64])
+Conf libsasl2-2 (2.1.28+dfsg1-9 Debian:13.8/stable [amd64])
+Conf libldap2 (2.6.10+dfsg-1 Debian:13.8/stable [amd64])
+Conf libnghttp2-14 (1.64.0-1.1+deb13u2 Debian:13.8/stable [amd64])
+Conf libnghttp3-9 (1.8.0-1 Debian:13.8/stable [amd64])
+Conf libngtcp2-16 (1.11.0-1+deb13u1 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Conf libngtcp2-crypto-gnutls8 (1.11.0-1+deb13u1 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Conf libpsl5t64 (0.21.2-1.1+b1 Debian:13.8/stable [amd64])
+Conf librtmp1 (2.4+20151223.gitfa8646d.1-2+b5 Debian:13.8/stable [amd64])
+Conf libssh2-1t64 (1.11.1-1+deb13u2 Debian:13.8/stable [amd64])
+Conf libcurl3t64-gnutls (8.14.1-2+deb13u7 Debian:13.8/stable, Debian-Security:13/stable-security [amd64])
+Conf liberror-perl (0.17030-1 Debian:13.8/stable [all])
+Conf git-man (1:2.47.3-0+deb13u1 Debian:13.8/stable [all])
+Conf git (1:2.47.3-0+deb13u1 Debian:13.8/stable [amd64])
+Conf make (4.4.1-2 Debian:13.8/stable [amd64])
+Reading package lists...
+Building dependency tree...
+Reading state information...
+pkg-config is already the newest version (1.8.1-4).
+The following additional packages will be installed:
+  binutils-aarch64-linux-gnu cpp-14-aarch64-linux-gnu cpp-aarch64-linux-gnu
+  g++-14-aarch64-linux-gnu gcc-14-aarch64-linux-gnu
+  gcc-14-aarch64-linux-gnu-base gcc-14-cross-base git-man libasan8-arm64-cross
+  libatomic1-arm64-cross libbrotli1 libc6-arm64-cross libcom-err2
+  libcurl3t64-gnutls liberror-perl libexpat1 libffi8 libgcc-14-dev-arm64-cross
+  libgcc-s1-arm64-cross libgdbm-compat4t64 libgdbm6t64 libgnutls30t64
+  libgomp1-arm64-cross libgssapi-krb5-2 libhwasan0-arm64-cross
+  libitm1-arm64-cross libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0
+  libldap2 liblsan0-arm64-cross libnghttp2-14 libnghttp3-9 libngtcp2-16
+  libngtcp2-crypto-gnutls8 libp11-kit0 libperl5.40 libpsl5t64 librtmp1
+  libsasl2-2 libsasl2-modules-db libssh2-1t64 libstdc++-14-dev-arm64-cross
+  libstdc++6-arm64-cross libtasn1-6 libtsan2-arm64-cross libubsan1-arm64-cross
+  linux-libc-dev-arm64-cross perl-base perl-modules-5.40
+Suggested packages:
+  binutils-doc gcc-14-locales cpp-14-doc cpp-doc gcc-14-doc manpages-dev
+  autoconf automake libtool flex bison gdb-aarch64-linux-gnu gcc-doc
+  gettext-base git-doc git-email git-gui gitk gitweb git-cvs git-mediawiki
+  git-svn gdbm-l10n gnutls-bin krb5-doc krb5-user sensible-utils make-doc
+  perl-doc libterm-readline-gnu-perl | libterm-readline-perl-perl
+  libtap-harness-archive-perl
+Recommended packages:
+  patch less ssh-client krb5-locales libldap-common publicsuffix
+  libsasl2-modules netbase
+The following NEW packages will be installed:
+  binutils-aarch64-linux-gnu cpp-14-aarch64-linux-gnu cpp-aarch64-linux-gnu
+  g++-14-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-14-aarch64-linux-gnu
+  gcc-14-aarch64-linux-gnu-base gcc-14-cross-base gcc-aarch64-linux-gnu git
+  git-man libasan8-arm64-cross libatomic1-arm64-cross libbrotli1
+  libc6-arm64-cross libc6-dev-arm64-cross libcom-err2 libcurl3t64-gnutls
+  liberror-perl libexpat1 libffi8 libgcc-14-dev-arm64-cross
+  libgcc-s1-arm64-cross libgdbm-compat4t64 libgdbm6t64 libgnutls30t64
+  libgomp1-arm64-cross libgssapi-krb5-2 libhwasan0-arm64-cross
+  libitm1-arm64-cross libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0
+  libldap2 liblsan0-arm64-cross libnghttp2-14 libnghttp3-9 libngtcp2-16
+  libngtcp2-crypto-gnutls8 libp11-kit0 libperl5.40 libpsl5t64 librtmp1
+  libsasl2-2 libsasl2-modules-db libssh2-1t64 libstdc++-14-dev-arm64-cross
+  libstdc++6-arm64-cross libtasn1-6 libtsan2-arm64-cross libubsan1-arm64-cross
+  linux-libc-dev-arm64-cross make perl perl-modules-5.40
+The following packages will be upgraded:
+  perl-base
+1 upgraded, 56 newly installed, 0 to remove and 35 not upgraded.
+Need to get 84.5 MB of archives.
+After this operation, 365 MB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 perl-base amd64 5.40.1-6+deb13u1 [1666 kB]
+Get:2 http://deb.debian.org/debian trixie/main amd64 libexpat1 amd64 2.9.0-1~deb13u1 [126 kB]
+Get:3 http://deb.debian.org/debian trixie/main amd64 perl-modules-5.40 all 5.40.1-6+deb13u1 [3014 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 libgdbm6t64 amd64 1.24-2 [75.2 kB]
+Get:5 http://deb.debian.org/debian trixie/main amd64 libgdbm-compat4t64 amd64 1.24-2 [50.3 kB]
+Get:6 http://deb.debian.org/debian trixie/main amd64 libperl5.40 amd64 5.40.1-6+deb13u1 [4326 kB]
+Get:7 http://deb.debian.org/debian trixie/main amd64 perl amd64 5.40.1-6+deb13u1 [268 kB]
+Get:8 http://deb.debian.org/debian trixie/main amd64 binutils-aarch64-linux-gnu amd64 2.44-3 [1687 kB]
+Get:9 http://deb.debian.org/debian trixie/main amd64 gcc-14-aarch64-linux-gnu-base amd64 14.2.0-19cross1 [49.7 kB]
+Get:10 http://deb.debian.org/debian trixie/main amd64 cpp-14-aarch64-linux-gnu amd64 14.2.0-19cross1 [11.2 MB]
+Get:11 http://deb.debian.org/debian trixie/main amd64 cpp-aarch64-linux-gnu amd64 4:14.2.0-1 [4844 B]
+Get:12 http://deb.debian.org/debian trixie/main amd64 gcc-14-cross-base all 14.2.0-19cross1 [44.9 kB]
+Get:13 http://deb.debian.org/debian trixie/main amd64 libc6-arm64-cross all 2.41-11cross1 [1168 kB]
+Get:14 http://deb.debian.org/debian trixie/main amd64 libgcc-s1-arm64-cross all 14.2.0-19cross1 [54.1 kB]
+Get:15 http://deb.debian.org/debian trixie/main amd64 libgomp1-arm64-cross all 14.2.0-19cross1 [91.7 kB]
+Get:16 http://deb.debian.org/debian trixie/main amd64 libitm1-arm64-cross all 14.2.0-19cross1 [26.0 kB]
+Get:17 http://deb.debian.org/debian trixie/main amd64 libatomic1-arm64-cross all 14.2.0-19cross1 [10.3 kB]
+Get:18 http://deb.debian.org/debian trixie/main amd64 libasan8-arm64-cross all 14.2.0-19cross1 [436 kB]
+Get:19 http://deb.debian.org/debian trixie/main amd64 liblsan0-arm64-cross all 14.2.0-19cross1 [201 kB]
+Get:20 http://deb.debian.org/debian trixie/main amd64 libtsan2-arm64-cross all 14.2.0-19cross1 [416 kB]
+Get:21 http://deb.debian.org/debian trixie/main amd64 libstdc++6-arm64-cross all 14.2.0-19cross1 [546 kB]
+Get:22 http://deb.debian.org/debian trixie/main amd64 libubsan1-arm64-cross all 14.2.0-19cross1 [186 kB]
+Get:23 http://deb.debian.org/debian trixie/main amd64 libhwasan0-arm64-cross all 14.2.0-19cross1 [256 kB]
+Get:24 http://deb.debian.org/debian trixie/main amd64 libgcc-14-dev-arm64-cross all 14.2.0-19cross1 [2452 kB]
+Get:25 http://deb.debian.org/debian trixie/main amd64 gcc-14-aarch64-linux-gnu amd64 14.2.0-19cross1 [21.6 MB]
+Get:26 http://deb.debian.org/debian trixie/main amd64 linux-libc-dev-arm64-cross all 6.12.38-1cross1 [2446 kB]
+Get:27 http://deb.debian.org/debian trixie/main amd64 libc6-dev-arm64-cross all 2.41-11cross1 [1617 kB]
+Get:28 http://deb.debian.org/debian trixie/main amd64 libstdc++-14-dev-arm64-cross all 14.2.0-19cross1 [2552 kB]
+Get:29 http://deb.debian.org/debian trixie/main amd64 g++-14-aarch64-linux-gnu amd64 14.2.0-19cross1 [12.2 MB]
+Get:30 http://deb.debian.org/debian trixie/main amd64 gcc-aarch64-linux-gnu amd64 4:14.2.0-1 [1448 B]
+Get:31 http://deb.debian.org/debian trixie/main amd64 g++-aarch64-linux-gnu amd64 4:14.2.0-1 [1200 B]
+Get:32 http://deb.debian.org/debian trixie/main amd64 libbrotli1 amd64 1.1.0-2+deb13u1 [304 kB]
+Get:33 http://deb.debian.org/debian trixie/main amd64 libffi8 amd64 3.4.8-2 [24.1 kB]
+Get:34 http://deb.debian.org/debian trixie/main amd64 libp11-kit0 amd64 0.25.5-3 [425 kB]
+Get:35 http://deb.debian.org/debian trixie/main amd64 libtasn1-6 amd64 4.20.0-2+deb13u1 [50.1 kB]
+Get:36 http://deb.debian.org/debian trixie/main amd64 libgnutls30t64 amd64 3.8.9-3+deb13u4 [1469 kB]
+Get:37 http://deb.debian.org/debian-security trixie-security/main amd64 libkrb5support0 amd64 1.21.3-5+deb13u2 [34.0 kB]
+Get:38 http://deb.debian.org/debian trixie/main amd64 libcom-err2 amd64 1.47.2-3+b12 [25.0 kB]
+Get:39 http://deb.debian.org/debian-security trixie-security/main amd64 libk5crypto3 amd64 1.21.3-5+deb13u2 [82.0 kB]
+Get:40 http://deb.debian.org/debian trixie/main amd64 libkeyutils1 amd64 1.6.3-6 [9456 B]
+Get:41 http://deb.debian.org/debian-security trixie-security/main amd64 libkrb5-3 amd64 1.21.3-5+deb13u2 [328 kB]
+Get:42 http://deb.debian.org/debian-security trixie-security/main amd64 libgssapi-krb5-2 amd64 1.21.3-5+deb13u2 [139 kB]
+Get:43 http://deb.debian.org/debian trixie/main amd64 libsasl2-modules-db amd64 2.1.28+dfsg1-9 [19.8 kB]
+Get:44 http://deb.debian.org/debian trixie/main amd64 libsasl2-2 amd64 2.1.28+dfsg1-9 [57.5 kB]
+Get:45 http://deb.debian.org/debian trixie/main amd64 libldap2 amd64 2.6.10+dfsg-1 [194 kB]
+Get:46 http://deb.debian.org/debian trixie/main amd64 libnghttp2-14 amd64 1.64.0-1.1+deb13u2 [75.4 kB]
+Get:47 http://deb.debian.org/debian trixie/main amd64 libnghttp3-9 amd64 1.8.0-1 [67.7 kB]
+Get:48 http://deb.debian.org/debian trixie/main amd64 libngtcp2-16 amd64 1.11.0-1+deb13u1 [132 kB]
+Get:49 http://deb.debian.org/debian trixie/main amd64 libngtcp2-crypto-gnutls8 amd64 1.11.0-1+deb13u1 [29.5 kB]
+Get:50 http://deb.debian.org/debian trixie/main amd64 libpsl5t64 amd64 0.21.2-1.1+b1 [57.2 kB]
+Get:51 http://deb.debian.org/debian trixie/main amd64 librtmp1 amd64 2.4+20151223.gitfa8646d.1-2+b5 [58.8 kB]
+Get:52 http://deb.debian.org/debian trixie/main amd64 libssh2-1t64 amd64 1.11.1-1+deb13u2 [245 kB]
+Get:53 http://deb.debian.org/debian trixie/main amd64 libcurl3t64-gnutls amd64 8.14.1-2+deb13u7 [385 kB]
+Get:54 http://deb.debian.org/debian trixie/main amd64 liberror-perl all 0.17030-1 [26.9 kB]
+Get:55 http://deb.debian.org/debian trixie/main amd64 git-man all 1:2.47.3-0+deb13u1 [2205 kB]
+Get:56 http://deb.debian.org/debian trixie/main amd64 git amd64 1:2.47.3-0+deb13u1 [8862 kB]
+Get:57 http://deb.debian.org/debian trixie/main amd64 make amd64 4.4.1-2 [463 kB]
+Fetched 84.5 MB in 4s (18.8 MB/s)
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 9790 files and directories currently installed.)
+Preparing to unpack .../perl-base_5.40.1-6+deb13u1_amd64.deb ...
+Unpacking perl-base (5.40.1-6+deb13u1) over (5.40.1-6) ...
+Setting up perl-base (5.40.1-6+deb13u1) ...
+Selecting previously unselected package libexpat1:amd64.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 9790 files and directories currently installed.)
+Preparing to unpack .../00-libexpat1_2.9.0-1~deb13u1_amd64.deb ...
+Unpacking libexpat1:amd64 (2.9.0-1~deb13u1) ...
+Selecting previously unselected package perl-modules-5.40.
+Preparing to unpack .../01-perl-modules-5.40_5.40.1-6+deb13u1_all.deb ...
+Unpacking perl-modules-5.40 (5.40.1-6+deb13u1) ...
+Selecting previously unselected package libgdbm6t64:amd64.
+Preparing to unpack .../02-libgdbm6t64_1.24-2_amd64.deb ...
+Unpacking libgdbm6t64:amd64 (1.24-2) ...
+Selecting previously unselected package libgdbm-compat4t64:amd64.
+Preparing to unpack .../03-libgdbm-compat4t64_1.24-2_amd64.deb ...
+Unpacking libgdbm-compat4t64:amd64 (1.24-2) ...
+Selecting previously unselected package libperl5.40:amd64.
+Preparing to unpack .../04-libperl5.40_5.40.1-6+deb13u1_amd64.deb ...
+Unpacking libperl5.40:amd64 (5.40.1-6+deb13u1) ...
+Selecting previously unselected package perl.
+Preparing to unpack .../05-perl_5.40.1-6+deb13u1_amd64.deb ...
+Unpacking perl (5.40.1-6+deb13u1) ...
+Selecting previously unselected package binutils-aarch64-linux-gnu.
+Preparing to unpack .../06-binutils-aarch64-linux-gnu_2.44-3_amd64.deb ...
+Unpacking binutils-aarch64-linux-gnu (2.44-3) ...
+Selecting previously unselected package gcc-14-aarch64-linux-gnu-base:amd64.
+Preparing to unpack .../07-gcc-14-aarch64-linux-gnu-base_14.2.0-19cross1_amd64.deb ...
+Unpacking gcc-14-aarch64-linux-gnu-base:amd64 (14.2.0-19cross1) ...
+Selecting previously unselected package cpp-14-aarch64-linux-gnu.
+Preparing to unpack .../08-cpp-14-aarch64-linux-gnu_14.2.0-19cross1_amd64.deb ...
+Unpacking cpp-14-aarch64-linux-gnu (14.2.0-19cross1) ...
+Selecting previously unselected package cpp-aarch64-linux-gnu.
+Preparing to unpack .../09-cpp-aarch64-linux-gnu_4%3a14.2.0-1_amd64.deb ...
+Unpacking cpp-aarch64-linux-gnu (4:14.2.0-1) ...
+Selecting previously unselected package gcc-14-cross-base.
+Preparing to unpack .../10-gcc-14-cross-base_14.2.0-19cross1_all.deb ...
+Unpacking gcc-14-cross-base (14.2.0-19cross1) ...
+Selecting previously unselected package libc6-arm64-cross.
+Preparing to unpack .../11-libc6-arm64-cross_2.41-11cross1_all.deb ...
+Unpacking libc6-arm64-cross (2.41-11cross1) ...
+Selecting previously unselected package libgcc-s1-arm64-cross.
+Preparing to unpack .../12-libgcc-s1-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libgcc-s1-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package libgomp1-arm64-cross.
+Preparing to unpack .../13-libgomp1-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libgomp1-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package libitm1-arm64-cross.
+Preparing to unpack .../14-libitm1-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libitm1-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package libatomic1-arm64-cross.
+Preparing to unpack .../15-libatomic1-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libatomic1-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package libasan8-arm64-cross.
+Preparing to unpack .../16-libasan8-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libasan8-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package liblsan0-arm64-cross.
+Preparing to unpack .../17-liblsan0-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking liblsan0-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package libtsan2-arm64-cross.
+Preparing to unpack .../18-libtsan2-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libtsan2-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package libstdc++6-arm64-cross.
+Preparing to unpack .../19-libstdc++6-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libstdc++6-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package libubsan1-arm64-cross.
+Preparing to unpack .../20-libubsan1-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libubsan1-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package libhwasan0-arm64-cross.
+Preparing to unpack .../21-libhwasan0-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libhwasan0-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package libgcc-14-dev-arm64-cross.
+Preparing to unpack .../22-libgcc-14-dev-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libgcc-14-dev-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package gcc-14-aarch64-linux-gnu.
+Preparing to unpack .../23-gcc-14-aarch64-linux-gnu_14.2.0-19cross1_amd64.deb ...
+Unpacking gcc-14-aarch64-linux-gnu (14.2.0-19cross1) ...
+Selecting previously unselected package linux-libc-dev-arm64-cross.
+Preparing to unpack .../24-linux-libc-dev-arm64-cross_6.12.38-1cross1_all.deb ...
+Unpacking linux-libc-dev-arm64-cross (6.12.38-1cross1) ...
+Selecting previously unselected package libc6-dev-arm64-cross.
+Preparing to unpack .../25-libc6-dev-arm64-cross_2.41-11cross1_all.deb ...
+Unpacking libc6-dev-arm64-cross (2.41-11cross1) ...
+Selecting previously unselected package libstdc++-14-dev-arm64-cross.
+Preparing to unpack .../26-libstdc++-14-dev-arm64-cross_14.2.0-19cross1_all.deb ...
+Unpacking libstdc++-14-dev-arm64-cross (14.2.0-19cross1) ...
+Selecting previously unselected package g++-14-aarch64-linux-gnu.
+Preparing to unpack .../27-g++-14-aarch64-linux-gnu_14.2.0-19cross1_amd64.deb ...
+Unpacking g++-14-aarch64-linux-gnu (14.2.0-19cross1) ...
+Selecting previously unselected package gcc-aarch64-linux-gnu.
+Preparing to unpack .../28-gcc-aarch64-linux-gnu_4%3a14.2.0-1_amd64.deb ...
+Unpacking gcc-aarch64-linux-gnu (4:14.2.0-1) ...
+Selecting previously unselected package g++-aarch64-linux-gnu.
+Preparing to unpack .../29-g++-aarch64-linux-gnu_4%3a14.2.0-1_amd64.deb ...
+Unpacking g++-aarch64-linux-gnu (4:14.2.0-1) ...
+Selecting previously unselected package libbrotli1:amd64.
+Preparing to unpack .../30-libbrotli1_1.1.0-2+deb13u1_amd64.deb ...
+Unpacking libbrotli1:amd64 (1.1.0-2+deb13u1) ...
+Selecting previously unselected package libffi8:amd64.
+Preparing to unpack .../31-libffi8_3.4.8-2_amd64.deb ...
+Unpacking libffi8:amd64 (3.4.8-2) ...
+Selecting previously unselected package libp11-kit0:amd64.
+Preparing to unpack .../32-libp11-kit0_0.25.5-3_amd64.deb ...
+Unpacking libp11-kit0:amd64 (0.25.5-3) ...
+Selecting previously unselected package libtasn1-6:amd64.
+Preparing to unpack .../33-libtasn1-6_4.20.0-2+deb13u1_amd64.deb ...
+Unpacking libtasn1-6:amd64 (4.20.0-2+deb13u1) ...
+Selecting previously unselected package libgnutls30t64:amd64.
+Preparing to unpack .../34-libgnutls30t64_3.8.9-3+deb13u4_amd64.deb ...
+Unpacking libgnutls30t64:amd64 (3.8.9-3+deb13u4) ...
+Selecting previously unselected package libkrb5support0:amd64.
+Preparing to unpack .../35-libkrb5support0_1.21.3-5+deb13u2_amd64.deb ...
+Unpacking libkrb5support0:amd64 (1.21.3-5+deb13u2) ...
+Selecting previously unselected package libcom-err2:amd64.
+Preparing to unpack .../36-libcom-err2_1.47.2-3+b12_amd64.deb ...
+Unpacking libcom-err2:amd64 (1.47.2-3+b12) ...
+Selecting previously unselected package libk5crypto3:amd64.
+Preparing to unpack .../37-libk5crypto3_1.21.3-5+deb13u2_amd64.deb ...
+Unpacking libk5crypto3:amd64 (1.21.3-5+deb13u2) ...
+Selecting previously unselected package libkeyutils1:amd64.
+Preparing to unpack .../38-libkeyutils1_1.6.3-6_amd64.deb ...
+Unpacking libkeyutils1:amd64 (1.6.3-6) ...
+Selecting previously unselected package libkrb5-3:amd64.
+Preparing to unpack .../39-libkrb5-3_1.21.3-5+deb13u2_amd64.deb ...
+Unpacking libkrb5-3:amd64 (1.21.3-5+deb13u2) ...
+Selecting previously unselected package libgssapi-krb5-2:amd64.
+Preparing to unpack .../40-libgssapi-krb5-2_1.21.3-5+deb13u2_amd64.deb ...
+Unpacking libgssapi-krb5-2:amd64 (1.21.3-5+deb13u2) ...
+Selecting previously unselected package libsasl2-modules-db:amd64.
+Preparing to unpack .../41-libsasl2-modules-db_2.1.28+dfsg1-9_amd64.deb ...
+Unpacking libsasl2-modules-db:amd64 (2.1.28+dfsg1-9) ...
+Selecting previously unselected package libsasl2-2:amd64.
+Preparing to unpack .../42-libsasl2-2_2.1.28+dfsg1-9_amd64.deb ...
+Unpacking libsasl2-2:amd64 (2.1.28+dfsg1-9) ...
+Selecting previously unselected package libldap2:amd64.
+Preparing to unpack .../43-libldap2_2.6.10+dfsg-1_amd64.deb ...
+Unpacking libldap2:amd64 (2.6.10+dfsg-1) ...
+Selecting previously unselected package libnghttp2-14:amd64.
+Preparing to unpack .../44-libnghttp2-14_1.64.0-1.1+deb13u2_amd64.deb ...
+Unpacking libnghttp2-14:amd64 (1.64.0-1.1+deb13u2) ...
+Selecting previously unselected package libnghttp3-9:amd64.
+Preparing to unpack .../45-libnghttp3-9_1.8.0-1_amd64.deb ...
+Unpacking libnghttp3-9:amd64 (1.8.0-1) ...
+Selecting previously unselected package libngtcp2-16:amd64.
+Preparing to unpack .../46-libngtcp2-16_1.11.0-1+deb13u1_amd64.deb ...
+Unpacking libngtcp2-16:amd64 (1.11.0-1+deb13u1) ...
+Selecting previously unselected package libngtcp2-crypto-gnutls8:amd64.
+Preparing to unpack .../47-libngtcp2-crypto-gnutls8_1.11.0-1+deb13u1_amd64.deb ...
+Unpacking libngtcp2-crypto-gnutls8:amd64 (1.11.0-1+deb13u1) ...
+Selecting previously unselected package libpsl5t64:amd64.
+Preparing to unpack .../48-libpsl5t64_0.21.2-1.1+b1_amd64.deb ...
+Unpacking libpsl5t64:amd64 (0.21.2-1.1+b1) ...
+Selecting previously unselected package librtmp1:amd64.
+Preparing to unpack .../49-librtmp1_2.4+20151223.gitfa8646d.1-2+b5_amd64.deb ...
+Unpacking librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b5) ...
+Selecting previously unselected package libssh2-1t64:amd64.
+Preparing to unpack .../50-libssh2-1t64_1.11.1-1+deb13u2_amd64.deb ...
+Unpacking libssh2-1t64:amd64 (1.11.1-1+deb13u2) ...
+Selecting previously unselected package libcurl3t64-gnutls:amd64.
+Preparing to unpack .../51-libcurl3t64-gnutls_8.14.1-2+deb13u7_amd64.deb ...
+Unpacking libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u7) ...
+Selecting previously unselected package liberror-perl.
+Preparing to unpack .../52-liberror-perl_0.17030-1_all.deb ...
+Unpacking liberror-perl (0.17030-1) ...
+Selecting previously unselected package git-man.
+Preparing to unpack .../53-git-man_1%3a2.47.3-0+deb13u1_all.deb ...
+Unpacking git-man (1:2.47.3-0+deb13u1) ...
+Selecting previously unselected package git.
+Preparing to unpack .../54-git_1%3a2.47.3-0+deb13u1_amd64.deb ...
+Unpacking git (1:2.47.3-0+deb13u1) ...
+Selecting previously unselected package make.
+Preparing to unpack .../55-make_4.4.1-2_amd64.deb ...
+Unpacking make (4.4.1-2) ...
+Setting up libexpat1:amd64 (2.9.0-1~deb13u1) ...
+Setting up libkeyutils1:amd64 (1.6.3-6) ...
+Setting up libgdbm6t64:amd64 (1.24-2) ...
+Setting up libgdbm-compat4t64:amd64 (1.24-2) ...
+Setting up libbrotli1:amd64 (1.1.0-2+deb13u1) ...
+Setting up libpsl5t64:amd64 (0.21.2-1.1+b1) ...
+Setting up libnghttp2-14:amd64 (1.64.0-1.1+deb13u2) ...
+Setting up binutils-aarch64-linux-gnu (2.44-3) ...
+Setting up gcc-14-cross-base (14.2.0-19cross1) ...
+Setting up libcom-err2:amd64 (1.47.2-3+b12) ...
+Setting up libkrb5support0:amd64 (1.21.3-5+deb13u2) ...
+Setting up libsasl2-modules-db:amd64 (2.1.28+dfsg1-9) ...
+Setting up make (4.4.1-2) ...
+Setting up libc6-arm64-cross (2.41-11cross1) ...
+Setting up libitm1-arm64-cross (14.2.0-19cross1) ...
+Setting up libk5crypto3:amd64 (1.21.3-5+deb13u2) ...
+Setting up libsasl2-2:amd64 (2.1.28+dfsg1-9) ...
+Setting up libnghttp3-9:amd64 (1.8.0-1) ...
+Setting up linux-libc-dev-arm64-cross (6.12.38-1cross1) ...
+Setting up libffi8:amd64 (3.4.8-2) ...
+Setting up perl-modules-5.40 (5.40.1-6+deb13u1) ...
+Setting up libtasn1-6:amd64 (4.20.0-2+deb13u1) ...
+Setting up git-man (1:2.47.3-0+deb13u1) ...
+Setting up libngtcp2-16:amd64 (1.11.0-1+deb13u1) ...
+Setting up libkrb5-3:amd64 (1.21.3-5+deb13u2) ...
+Setting up libssh2-1t64:amd64 (1.11.1-1+deb13u2) ...
+Setting up gcc-14-aarch64-linux-gnu-base:amd64 (14.2.0-19cross1) ...
+Setting up libldap2:amd64 (2.6.10+dfsg-1) ...
+Setting up libgcc-s1-arm64-cross (14.2.0-19cross1) ...
+Setting up libatomic1-arm64-cross (14.2.0-19cross1) ...
+Setting up liblsan0-arm64-cross (14.2.0-19cross1) ...
+Setting up libgomp1-arm64-cross (14.2.0-19cross1) ...
+Setting up libhwasan0-arm64-cross (14.2.0-19cross1) ...
+Setting up libc6-dev-arm64-cross (2.41-11cross1) ...
+Setting up libstdc++6-arm64-cross (14.2.0-19cross1) ...
+Setting up libperl5.40:amd64 (5.40.1-6+deb13u1) ...
+Setting up perl (5.40.1-6+deb13u1) ...
+Setting up libp11-kit0:amd64 (0.25.5-3) ...
+Setting up libgssapi-krb5-2:amd64 (1.21.3-5+deb13u2) ...
+Setting up cpp-14-aarch64-linux-gnu (14.2.0-19cross1) ...
+Setting up libasan8-arm64-cross (14.2.0-19cross1) ...
+Setting up libtsan2-arm64-cross (14.2.0-19cross1) ...
+Setting up libgnutls30t64:amd64 (3.8.9-3+deb13u4) ...
+Setting up libubsan1-arm64-cross (14.2.0-19cross1) ...
+Setting up liberror-perl (0.17030-1) ...
+Setting up cpp-aarch64-linux-gnu (4:14.2.0-1) ...
+Setting up librtmp1:amd64 (2.4+20151223.gitfa8646d.1-2+b5) ...
+Setting up libgcc-14-dev-arm64-cross (14.2.0-19cross1) ...
+Setting up libstdc++-14-dev-arm64-cross (14.2.0-19cross1) ...
+Setting up gcc-14-aarch64-linux-gnu (14.2.0-19cross1) ...
+Setting up libngtcp2-crypto-gnutls8:amd64 (1.11.0-1+deb13u1) ...
+Setting up gcc-aarch64-linux-gnu (4:14.2.0-1) ...
+Setting up g++-14-aarch64-linux-gnu (14.2.0-19cross1) ...
+Setting up libcurl3t64-gnutls:amd64 (8.14.1-2+deb13u7) ...
+Setting up git (1:2.47.3-0+deb13u1) ...
+Setting up g++-aarch64-linux-gnu (4:14.2.0-1) ...
+Processing triggers for libc-bin (2.41-12) ...
+gcc-aarch64-linux-gnu:
+  Installed: 4:14.2.0-1
+  Candidate: 4:14.2.0-1
+  Version table:
+ *** 4:14.2.0-1 500
+        500 http://deb.debian.org/debian trixie/main amd64 Packages
+        100 /var/lib/dpkg/status
+g++-aarch64-linux-gnu:
+  Installed: 4:14.2.0-1
+  Candidate: 4:14.2.0-1
+  Version table:
+ *** 4:14.2.0-1 500
+        500 http://deb.debian.org/debian trixie/main amd64 Packages
+        100 /var/lib/dpkg/status
+libc6-dev-arm64-cross:
+  Installed: 2.41-11cross1
+  Candidate: 2.41-11cross1
+  Version table:
+ *** 2.41-11cross1 500
+        500 http://deb.debian.org/debian trixie/main amd64 Packages
+        100 /var/lib/dpkg/status
+installed apt 3.0.3
+installed base-files 13.8+deb13u2
+installed base-passwd 3.6.7
+installed bash 5.2.37-2+b5
+installed binutils 2.44-3
+installed binutils-aarch64-linux-gnu 2.44-3
+installed binutils-common 2.44-3
+installed binutils-x86-64-linux-gnu 2.44-3
+installed bsdutils 1:2.41-5
+installed ca-certificates 20250419+deb13u1
+installed coreutils 9.7-3
+installed cpp 4:14.2.0-1
+installed cpp-14 14.2.0-19
+installed cpp-14-aarch64-linux-gnu 14.2.0-19cross1
+installed cpp-14-x86-64-linux-gnu 14.2.0-19
+installed cpp-aarch64-linux-gnu 4:14.2.0-1
+installed cpp-x86-64-linux-gnu 4:14.2.0-1
+installed dash 0.5.12-12
+installed debconf 1.5.91
+installed debian-archive-keyring 2025.1
+installed debianutils 5.23.2
+installed diffutils 1:3.10-4
+installed dpkg 1.22.21
+installed findutils 4.10.0-3
+installed g++-14-aarch64-linux-gnu 14.2.0-19cross1
+installed g++-aarch64-linux-gnu 4:14.2.0-1
+installed gcc 4:14.2.0-1
+installed gcc-14 14.2.0-19
+installed gcc-14-aarch64-linux-gnu 14.2.0-19cross1
+installed gcc-14-aarch64-linux-gnu-base 14.2.0-19cross1
+installed gcc-14-base 14.2.0-19
+installed gcc-14-cross-base 14.2.0-19cross1
+installed gcc-14-x86-64-linux-gnu 14.2.0-19
+installed gcc-aarch64-linux-gnu 4:14.2.0-1
+installed gcc-x86-64-linux-gnu 4:14.2.0-1
+installed git 1:2.47.3-0+deb13u1
+installed git-man 1:2.47.3-0+deb13u1
+installed grep 3.11-4
+installed gzip 1.13-1
+installed hostname 3.25
+installed init-system-helpers 1.69~deb13u1
+installed libacl1 2.3.2-2+b1
+installed libapt-pkg7.0 3.0.3
+installed libasan8 14.2.0-19
+installed libasan8-arm64-cross 14.2.0-19cross1
+installed libatomic1 14.2.0-19
+installed libatomic1-arm64-cross 14.2.0-19cross1
+installed libattr1 1:2.5.2-3
+installed libaudit-common 1:4.0.2-2
+installed libaudit1 1:4.0.2-2+b2
+installed libbinutils 2.44-3
+installed libblkid1 2.41-5
+installed libbrotli1 1.1.0-2+deb13u1
+installed libbsd0 0.12.2-2
+installed libbz2-1.0 1.0.8-6
+installed libc-bin 2.41-12
+installed libc-dev-bin 2.41-12
+installed libc6 2.41-12
+installed libc6-arm64-cross 2.41-11cross1
+installed libc6-dev 2.41-12
+installed libc6-dev-arm64-cross 2.41-11cross1
+installed libcap-ng0 0.8.5-4+b1
+installed libcap2 1:2.75-10+b1
+installed libcc1-0 14.2.0-19
+installed libcom-err2 1.47.2-3+b12
+installed libcrypt-dev 1:4.4.38-1
+installed libcrypt1 1:4.4.38-1
+installed libctf-nobfd0 2.44-3
+installed libctf0 2.44-3
+installed libcurl3t64-gnutls 8.14.1-2+deb13u7
+installed libdb5.3t64 5.3.28+dfsg2-9
+installed libdebconfclient0 0.280
+installed liberror-perl 0.17030-1
+installed libexpat1 2.9.0-1~deb13u1
+installed libffi8 3.4.8-2
+installed libgcc-14-dev 14.2.0-19
+installed libgcc-14-dev-arm64-cross 14.2.0-19cross1
+installed libgcc-s1 14.2.0-19
+installed libgcc-s1-arm64-cross 14.2.0-19cross1
+installed libgdbm-compat4t64 1.24-2
+installed libgdbm6t64 1.24-2
+installed libgmp10 2:6.3.0+dfsg-3
+installed libgnutls30t64 3.8.9-3+deb13u4
+installed libgomp1 14.2.0-19
+installed libgomp1-arm64-cross 14.2.0-19cross1
+installed libgprofng0 2.44-3
+installed libgssapi-krb5-2 1.21.3-5+deb13u2
+installed libhogweed6t64 3.10.1-1
+installed libhwasan0 14.2.0-19
+installed libhwasan0-arm64-cross 14.2.0-19cross1
+installed libidn2-0 2.3.8-2
+installed libisl23 0.27-1
+installed libitm1 14.2.0-19
+installed libitm1-arm64-cross 14.2.0-19cross1
+installed libjansson4 2.14-2+b3
+installed libk5crypto3 1.21.3-5+deb13u2
+installed libkeyutils1 1.6.3-6
+installed libkrb5-3 1.21.3-5+deb13u2
+installed libkrb5support0 1.21.3-5+deb13u2
+installed liblastlog2-2 2.41-5
+installed libldap2 2.6.10+dfsg-1
+installed liblsan0 14.2.0-19
+installed liblsan0-arm64-cross 14.2.0-19cross1
+installed liblz4-1 1.10.0-4
+installed liblzma5 5.8.1-1
+installed libmd0 1.1.0-2+b1
+installed libmount1 2.41-5
+installed libmpc3 1.3.1-1+b3
+installed libmpfr6 4.2.2-1
+installed libnettle8t64 3.10.1-1
+installed libnghttp2-14 1.64.0-1.1+deb13u2
+installed libnghttp3-9 1.8.0-1
+installed libngtcp2-16 1.11.0-1+deb13u1
+installed libngtcp2-crypto-gnutls8 1.11.0-1+deb13u1
+installed libp11-kit0 0.25.5-3
+installed libpam-modules 1.7.0-5
+installed libpam-modules-bin 1.7.0-5
+installed libpam-runtime 1.7.0-5
+installed libpam0g 1.7.0-5
+installed libpcre2-8-0 10.46-1~deb13u1
+installed libperl5.40 5.40.1-6+deb13u1
+installed libpkgconf3 1.8.1-4
+installed libpsl5t64 0.21.2-1.1+b1
+installed libquadmath0 14.2.0-19
+installed librtmp1 2.4+20151223.gitfa8646d.1-2+b5
+installed libsasl2-2 2.1.28+dfsg1-9
+installed libsasl2-modules-db 2.1.28+dfsg1-9
+installed libseccomp2 2.6.0-2
+installed libselinux1 3.8.1-1
+installed libsemanage-common 3.8.1-1
+installed libsemanage2 3.8.1-1
+installed libsepol2 3.8.1-1
+installed libsframe1 2.44-3
+installed libsmartcols1 2.41-5
+installed libsqlite3-0 3.46.1-7
+installed libssh2-1t64 1.11.1-1+deb13u2
+installed libssl-dev 3.5.9-1~deb13u1
+installed libssl3t64 3.5.9-1~deb13u1
+installed libstdc++-14-dev-arm64-cross 14.2.0-19cross1
+installed libstdc++6 14.2.0-19
+installed libstdc++6-arm64-cross 14.2.0-19cross1
+installed libsystemd0 257.9-1~deb13u1
+installed libtasn1-6 4.20.0-2+deb13u1
+installed libtinfo6 6.5+20250216-2
+installed libtsan2 14.2.0-19
+installed libtsan2-arm64-cross 14.2.0-19cross1
+installed libubsan1 14.2.0-19
+installed libubsan1-arm64-cross 14.2.0-19cross1
+installed libudev1 257.9-1~deb13u1
+installed libunistring5 1.3-2
+installed libuuid1 2.41-5
+installed libxxhash0 0.8.3-2
+installed libzstd1 1.5.7+dfsg-1
+installed linux-libc-dev 6.12.57-1
+installed linux-libc-dev-arm64-cross 6.12.38-1cross1
+installed login 1:4.16.0-2+really2.41-5
+installed login.defs 1:4.17.4-2
+installed make 4.4.1-2
+installed mawk 1.3.4.20250131-1
+installed mount 2.41-5
+installed ncurses-base 6.5+20250216-2
+installed ncurses-bin 6.5+20250216-2
+installed openssl 3.5.9-1~deb13u1
+installed openssl-provider-legacy 3.5.9-1~deb13u1
+installed passwd 1:4.17.4-2
+installed perl 5.40.1-6+deb13u1
+installed perl-base 5.40.1-6+deb13u1
+installed perl-modules-5.40 5.40.1-6+deb13u1
+installed pkg-config 1.8.1-4
+installed pkgconf 1.8.1-4
+installed pkgconf-bin 1.8.1-4
+installed rpcsvc-proto 1.4.3-1
+installed sed 4.9-2
+installed sqv 1.3.0-3
+installed sysvinit-utils 3.14-4
+installed tar 1.35+dfsg-3.1
+installed tzdata 2025b-4+deb13u1
+installed util-linux 2.41-5
+installed wget 1.25.0-2
+installed zlib1g 1:1.3.dfsg+really1.3.1-1+b1
+Using built-in specs.
+COLLECT_GCC=aarch64-linux-gnu-gcc
+COLLECT_LTO_WRAPPER=/usr/libexec/gcc-cross/aarch64-linux-gnu/14/lto-wrapper
+Target: aarch64-linux-gnu
+Configured with: ../src/configure -v --with-pkgversion='Debian 14.2.0-19' --with-bugurl=file:///usr/share/doc/gcc-14/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-14 --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --with-sysroot=/ --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-libquadmath --disable-libquadmath-support --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --without-target-system-zlib --enable-multiarch --enable-fix-cortex-a53-843419 --disable-werror --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=aarch64-linux-gnu --program-prefix=aarch64-linux-gnu- --includedir=/usr/aarch64-linux-gnu/include --with-build-config=bootstrap-lto-lean --enable-link-serialization=3
+Thread model: posix
+Supported LTO compression algorithms: zlib zstd
+gcc version 14.2.0 (Debian 14.2.0-19) 
+fb743ca27a77466c91da66047eec879a615993feaabd860aaf3750e7b222b131  /usr/bin/aarch64-linux-gnu-gcc
+ebf50622610283dd2a7ad6b50947bebccb33f994e3e9ba8c11d04d5ab6bd4850  /usr/bin/aarch64-linux-gnu-g++
+bdb57a3334f460af5921b65de134f128642325a2087ff716dafd0adbfcc0778a  /usr/bin/aarch64-linux-gnu-ld
+393ca646b316f6cb31dc82dc72becff344bf6491458f98c07036fea73f1db55e  /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1
+ce67859ef338d8558a7fd7cff9a1effe5677ff9f7eea90641a2c051c51fab7ac  /usr/aarch64-linux-gnu/lib/libc.so.6
+73cc2584f119f9e74c85c0a8549dbb6fd104ae3897a06a7500797f9e5b4d0943  /emu/qemu-aarch64
+qemu-aarch64 version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)
+Copyright (c) 2003-2025 Fabrice Bellard and the QEMU Project developers
+ld.so (Debian GLIBC 2.41-11) stable release version 2.41.
+Copyright (C) 2025 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.
+There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.
+rustc 1.91.1 (ed61e7d7e 2025-11-07)
+binary: rustc
+commit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+commit-date: 2025-11-07
+host: x86_64-unknown-linux-gnu
+release: 1.91.1
+LLVM version: 21.1.2
+cargo 1.91.1 (ea2d97820 2025-10-10)
+release: 1.91.1
+commit-hash: ea2d97820c16195b0ca3fadb4319fe512c199a43
+commit-date: 2025-10-10
+host: x86_64-unknown-linux-gnu
+libgit2: 1.9.1 (sys:0.20.2 vendored)
+libcurl: 8.15.0-DEV (sys:0.4.83+curl-8.15.0 vendored ssl:OpenSSL/3.5.2)
+ssl: OpenSSL 3.5.2 5 Aug 2025
+os: Debian 13.0.0 [64-bit]

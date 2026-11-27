@@ -1,0 +1,66 @@
+{
+  "compress": {
+    "input": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_compress.wasm",
+    "wasm_sha256": "29e190472331647e30aa8eef03b23e8e7f3cce1eb86633385f9d1443d9c31bae",
+    "archive_bytes": 142392,
+    "manifest_sha256": "93f1732e55de4b4af8c1d70ec8908d51cf6fa26b70ad3598bd883c0df7a69407",
+    "lock_sha256": "2b56dd191e0554e1bb0513b9760159388770f0bd39fcebfe4645bae990164e5d",
+    "git_tree": "17bc0a9fc1a35d321f7e7b31a8ee43e338ec7e86"
+  },
+  "csv-stats": {
+    "input": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_csv_stats.wasm",
+    "wasm_sha256": "048934f97be845415ee90a4ded8fab78fd729cf0fcd3cb947fda3034dcd2162d",
+    "archive_bytes": 174452,
+    "manifest_sha256": "891552afa6cc38a49277d6975b6c5f67d714501192eadeb62e9dd879aeea6c4f",
+    "lock_sha256": "fc82d2aa15f56864ffd5b6231a13bc0e0b82be80c94fb536d214f2dabd01f5a7",
+    "git_tree": "7fe6f891b8fa3fa105c2663b2ef62648978980b0"
+  },
+  "image-dehaze": {
+    "input": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+    "wasm_sha256": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+    "archive_bytes": 253551,
+    "manifest_sha256": "f3d6a12a641fa058cfe632deeabe6a914155f6cc674d5e03b5a1789bb7d8f47f",
+    "lock_sha256": "575686a94c5ffaeb3fcceb7efae84c03fe51a08dc0ba32e12f3ea4c0cad1feb8",
+    "git_tree": "215f5fa2b75ed99f01a637eab1f3844f360899f4"
+  },
+  "image-resize": {
+    "input": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+    "wasm_sha256": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983",
+    "archive_bytes": 561183,
+    "manifest_sha256": "6ae3fce658325f6021cfa8f964f5619f2d77ae1eb5c7d6c02dd880477510b920",
+    "lock_sha256": "b3ef474211bdf3e0f42ae1491c8c176538711d7871988ffe23e8f2da2334026d",
+    "git_tree": "f0a20abc17d9788451977a881fe0a51dafdc72ca"
+  },
+  "json-pointer": {
+    "input": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm",
+    "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+    "archive_bytes": 156071,
+    "manifest_sha256": "fa20330f95d4232981969627860bc72273511745ce5f4a41b5f5c103703daa2f",
+    "lock_sha256": "c8ced81cf27c28e0a2093245e3f95c807756b3a03803d0ebafd4f1d16da62e96",
+    "git_tree": "14a946aac15de3b9952eebe0bba5c82e47565b6a"
+  },
+  "json-query": {
+    "input": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_json_query.wasm",
+    "wasm_sha256": "7fb8333c7b72cc5f7785c45e8a5eb9f93ad956261f2d348188ac8c6ba1a0a894",
+    "archive_bytes": 140788,
+    "manifest_sha256": "430a1ab69985d684730df90528acc77626dd1277d03432172bb361422dd5e3dc",
+    "lock_sha256": "cc1c6f79bd2676776e50140a903a97ac3fe3f2ad3e3a6d54ab65d514bab8c832",
+    "git_tree": "9e31282a4930452ce51b761b79406c879773f4b7"
+  },
+  "markdown-html": {
+    "input": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_markdown_html.wasm",
+    "wasm_sha256": "77865dca965cb8bf467d2d9d83b4f877f681828d86cdbd0576673a0564d83245",
+    "archive_bytes": 295535,
+    "manifest_sha256": "33504d2708abf118eb20bfeef92059a1c1057083daff88de2ba978673c3f8742",
+    "lock_sha256": "e5829e5e1119975ec2d937172d2c3f7af568436c556bf44c57a938eb5a14fe41",
+    "git_tree": "75661e2f10faf94fbbd28780f0d753df04dc18fd"
+  },
+  "qr-encode": {
+    "input": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_qr_encode.wasm",
+    "wasm_sha256": "697bbf339ce222161a73568099f9bdbe3e6e174b87eceb31bb935b96e77ac9c6",
+    "archive_bytes": 96364,
+    "manifest_sha256": "962733c87d5162ec464c7f98f68f69d278cf8e62372c8851d3c3a0bf2aa788d6",
+    "lock_sha256": "cbd3116b7718916192207dc888a87c80394235c4f8709444013c6f41693a29f6",
+    "git_tree": "5463aac6db15dfe523e163a74dc2c37904e6c9b8"
+  }
+}

@@ -1,0 +1,13 @@
+    Blocking waiting for file lock on build directory
+   Compiling entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+   Compiling entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+    Finished `test` profile [unoptimized] target(s) in 1m 23s
+     Running tests/daemon_compute.rs (target/debug/deps/daemon_compute-3adfba4b9251a17a)
+
+running 1 test
+{"timestamp":"2026-11-27T09:16:54.366600Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmp04OkFU/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T09:16:55.209062Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmp04OkFU/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+test discovers_and_runs_work_without_a_configured_peer_address ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 18.64s
+

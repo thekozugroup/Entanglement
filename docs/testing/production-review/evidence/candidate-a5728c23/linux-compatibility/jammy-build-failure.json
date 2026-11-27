@@ -1,0 +1,38 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:35:33.566857+00:00",
+  "finished_utc": "2026-11-27T09:35:35.511144+00:00",
+  "exit_code": 1,
+  "build_exit_code": 2,
+  "guard": null,
+  "command": [
+    "docker",
+    "exec",
+    "--user",
+    "65534:65534",
+    "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001",
+    "/usr/bin/timeout",
+    "--signal=TERM",
+    "--kill-after=20s",
+    "42m",
+    "/bin/sh",
+    "/tmp/entangle-build-jammy.sh",
+    "a5728c230e5049556b806cae8597fe823dd67987",
+    "fb363ad01c1e15697a22aa0261b7c8574f4b6282c3be31c23840fd83c0271f59"
+  ],
+  "initial_resources": {
+    "utc": "2026-11-27T09:35:34.452612+00:00",
+    "host_available_memory_bytes": 34324840448,
+    "host_anon_plus_shmem_bytes": 224329728,
+    "oom_kill": 0,
+    "builder_process_rss_sum_bytes": 3420160,
+    "builder_tmpfs_free_bytes": 7516192768,
+    "builder_tmpfs_used_bytes": 0
+  },
+  "recorded_samples": 0,
+  "build_log_sha256": "168b0916a7940aeade5a64f9a0b78e9ef28e160e3d6c834cfd4a878cafddc24d",
+  "resource_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,87 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T10:02:27.502575+00:00",
+  "finished_utc": "2026-11-27T10:17:40.356599+00:00",
+  "exit_code": 0,
+  "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "archive_path": "/workspace/Entanglement/target/release-candidate/a5728c230e50-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "size": 28945709,
+  "sha256": "9a4c23b648ad26f23fa925c5171218094fb6b68247bcfbdc62dc19dca83d592d",
+  "blake3": "27d09797e88a6041ce14ad17cc2f39d688c030a518a767d81167bc3988ec934c",
+  "files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.md": "5f669e185c74b5f6aab812151fd2d997ecade64980f5a3883a3b38730967d25e",
+    "architecture.md": "a9521a567311e27ffad165086f5ebb34e5f6712ff58b6b183c6a81dc1d3901c0",
+    "tutorial.md": "795c60e9adcebb7e1bd73006c27cfdadc7ba787e9adcaa20c53e2aeac55b1f11",
+    "entangle": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+    "entangled": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5"
+  },
+  "command": [
+    "docker",
+    "exec",
+    "--user",
+    "65534:65534",
+    "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+    "/usr/bin/timeout",
+    "--signal=TERM",
+    "--kill-after=20s",
+    "42m",
+    "/bin/sh",
+    "/tmp/entangle-build-jammy.sh",
+    "a5728c230e5049556b806cae8597fe823dd67987",
+    "fb363ad01c1e15697a22aa0261b7c8574f4b6282c3be31c23840fd83c0271f59"
+  ],
+  "build_script_sha256": "2630d14974c8dcbe8cc7f76c64398169049cc29917643991ae35f8d24a01e9cf",
+  "export_commands": [
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "/bin/cat",
+      "/build-target/archive/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "/bin/cat",
+      "/build-target/archive/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256"
+    ],
+    [
+      "docker",
+      "exec",
+      "--user",
+      "65534:65534",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "/bin/cat",
+      "/build-target/archive/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.b3"
+    ]
+  ],
+  "tool_sha256": "f94d02e60ab0bcc117f14e9761fcba7a0e4e8cd539ac2c29afc9ab5db3eb2a56",
+  "build_log_sha256": "ff052041d9af3710369660af3ee321a50372b730ef588b46ad3e729d631c919e",
+  "initial_resources": {
+    "utc": "2026-11-27T10:02:28.434246+00:00",
+    "host_available_memory_bytes": 34323759104,
+    "host_anon_plus_shmem_bytes": 205422592,
+    "oom_kill": 0,
+    "builder_process_rss_sum_bytes": 4091904,
+    "builder_tmpfs_free_bytes": 7516192768,
+    "builder_tmpfs_used_bytes": 0
+  },
+  "resource_log_sha256": "8ac4ed2682c9bf94b475a0fd36b399998d52d68a339651ba3a1e67339be8a013",
+  "provision_receipt_sha256": "19a4f7cd81f6bd12bc50ee2a997dcf7dff47447a12c487d582d62452f22f06a4",
+  "archive_tools_receipt_sha256": "4a45f6bf5dcc10d042e736160bedd57d92620a1407cfd5a08a5935d66d8c2a52",
+  "peaks": {
+    "max_sampled_builder_rss": 2784301056,
+    "max_sampled_tmpfs_bytes": 2140053504,
+    "min_sampled_host_available_memory": 29753880576
+  },
+  "signing_status": "unsigned local compatibility candidate built in pinned Jammy"
+}

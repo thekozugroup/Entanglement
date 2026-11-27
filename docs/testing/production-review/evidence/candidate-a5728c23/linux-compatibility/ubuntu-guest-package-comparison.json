@@ -1,0 +1,30 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "observed_at_utc": "2026-11-27T10:18:31.879237+00:00",
+  "archives_match_by_sha256_and_size": true,
+  "exit_code": 0,
+  "images": {
+    "ubuntu_22_04": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+    "ubuntu_24_04": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b"
+  },
+  "archive_sha256": {
+    "ubuntu_22_04": "901e79e6c5c903c79f51e16fe3cfd2d5e2c040edecd9f1e44f22f126edc210ba",
+    "ubuntu_24_04": "901e79e6c5c903c79f51e16fe3cfd2d5e2c040edecd9f1e44f22f126edc210ba"
+  },
+  "archive_size": {
+    "ubuntu_22_04": 20909,
+    "ubuntu_24_04": 20909
+  },
+  "input_receipt_sha256": {
+    "ubuntu_22_04": "ea4fc97b564f50121fb555998d492e6d7a28b06eb253012f73d127867720eac6",
+    "ubuntu_24_04": "479f2cdd48e3ffa9c062b70f0937150946a68c258ae6df2af03905a529352ffe"
+  },
+  "native_packager_sha256": {
+    "ubuntu_22_04": "f94d02e60ab0bcc117f14e9761fcba7a0e4e8cd539ac2c29afc9ab5db3eb2a56",
+    "ubuntu_24_04": "c1315d894fa70143014b6e553270ed9cca4c517ffc32e0cd1b7a7ed9c5eba59c"
+  },
+  "scope": "Fresh guest builds and local tar.zst packaging under two Ubuntu versions on one x86_64 Linux host. macOS 14 remains unverified."
+}

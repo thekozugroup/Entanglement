@@ -1,0 +1,1252 @@
+{
+  "name": "a5728c23 independently reviewed literal assessment",
+  "captured_at_utc": "2026-11-27T09:38:17.482384+00:00",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "observations": {
+    "ATC-MAN-1": {
+      "status": "pass",
+      "reason": "Tier 1 and net.lan yield typed TierBelowCapability with declared Pure, implied Networked, and the specific capability.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-manifest/tests/atc_spec.rs",
+          "sha256": "74a9690ee089ed9760aa758cc90a62215959dd46a3a233463b40fdb74535a8d8",
+          "test": "atc_man_1_tier_one_rejects_tier_three_capability"
+        }
+      ]
+    },
+    "ATC-MAN-2": {
+      "status": "pass",
+      "reason": "Tier 5 and exclusively tier-1 storage.local are accepted, retaining tier 5 as the ceiling.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-manifest/tests/atc_spec.rs",
+          "sha256": "74a9690ee089ed9760aa758cc90a62215959dd46a3a233463b40fdb74535a8d8",
+          "test": "atc_man_2_tier_five_accepts_only_tier_one_capabilities"
+        }
+      ]
+    },
+    "ATC-MAN-3": {
+      "status": "pass",
+      "reason": "The WASM host rejects the 64-byte header from /usr/bin/true as RuntimeKindMismatch { declared: wasm-component, observed: ELF } with E0507. The checked loader branch depends only on the ELF prefix.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-host/tests/runtime_kind.rs",
+          "sha256": "92a1a86247904df0428358204a17294309dc70302297b58db4dee8e3eabdb597",
+          "test": "lie_at_instantiation_rejected"
+        },
+        {
+          "path": "crates/entangle-host/src/plugin.rs",
+          "sha256": "960864349030be05d6a454905057eb0d464fa4c4eb564ca35f0ef85d3f3275da",
+          "test": null
+        }
+      ]
+    },
+    "ATC-MAN-4": {
+      "status": "pass",
+      "reason": "The actual installer exits unsuccessfully with E0043 on a tier-3 manifest under tier 2. The test checks typed ceiling values, the unchanged config bytes and that no plugin state was created.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-cli/tests/distribution.rs",
+          "sha256": "804a125fbc203b0b2e8d01d8c329783359bcab3d18f44c4b61b0c70970426969",
+          "test": "install_rejects_above_ceiling_without_mutation"
+        }
+      ]
+    },
+    "ATC-PKG-1": {
+      "status": "pass",
+      "reason": "Two serial pinned hello-world commands produced identical compressed archives. Each operator invocation uses its own clean source snapshot and build directory.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/package-operator/package-operator.log",
+          "sha256": "62730d0bfea3facdbe9d150f72dad867937a766e75c1248dc93067b5116f5552",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /tmp/entangle-final-package-operator.py --candidate-root /workspace/Entanglement --cargo-entangle /workspace/Entanglement/target/release/cargo-entangle --output docs/testing/production-review/evidence/candidate-a5728c23/package-operator --expected-source sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "claim": "Fresh candidate package CLI, clean serial hello-world runs and independent detached signature check.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:24:46+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/package-operator--package-operator.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/cargo-entangle/src/source.rs",
+          "sha256": "06768920f0961d9614e64dfedff2f3399dbf16b63a46789a463cb057c08e3085"
+        }
+      ]
+    },
+    "ATC-PKG-2": {
+      "status": "not_evidenced",
+      "reason": "The pinned hello-world package requires comparable macOS 14, Ubuntu 22.04 and Ubuntu 24.04 executions on the specified hosts with identical digests. A complete matrix is unavailable."
+    },
+    "ATC-PKG-3": {
+      "status": "pass",
+      "reason": "The real cargo-entangle package process exits unsuccessfully with \"Cargo.lock missing\" when the lockfile is absent.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/cargo-entangle/tests/package.rs",
+          "sha256": "f9b3840659d12bb088e3c6ecd698791cc3e89c2627720c17bd7b6c08eac0d3b0",
+          "test": "no_lockfile_rejected"
+        }
+      ]
+    },
+    "ATC-PKG-4": {
+      "status": "pass",
+      "reason": "The candidate packaging CLI retrieved and verified a genuinely published signed fixture and independently reproduced its recorded source commit 42bb9a3360ce.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/public-package-release-binary.log",
+          "sha256": "4b4e4c963eeb64203cc36a4736f691b0dbfbad96cbf531fcfc10a24621b45308",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "bash /tmp/entangle-raw-public-rebuild.sh",
+          "claim": "Public signed fixture acquired and rebuilt using the candidate cargo-entangle.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:23:52.173146+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/public-package-release-binary.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00"
+    },
+    "ATC-BRG-1": {
+      "status": "pass",
+      "reason": "The signed bridge vector returns a matching BridgeCap. An independent all-subset check accepts exactly the complete five-fact case.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-signing/tests/bridge_attenuation.rs",
+          "sha256": "a997abc16937f8a79744f91f69a820559fb9436a3bafb5f557b9e6bde8ef7284",
+          "test": "valid_bridge_accepted"
+        },
+        {
+          "path": "crates/entangle-signing/tests/bridge_attenuation.rs",
+          "sha256": "a997abc16937f8a79744f91f69a820559fb9436a3bafb5f557b9e6bde8ef7284",
+          "test": "all_five_signed_attenuations_are_required"
+        }
+      ]
+    },
+    "ATC-BRG-2": {
+      "status": "pass",
+      "reason": "The signed vector without a rate limit returns typed Rate and ENTANGLE-E0118.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-signing/tests/bridge_attenuation.rs",
+          "sha256": "a997abc16937f8a79744f91f69a820559fb9436a3bafb5f557b9e6bde8ef7284",
+          "test": "missing_rate_limit_rejected"
+        }
+      ]
+    },
+    "ATC-BRG-3": {
+      "status": "pass",
+      "reason": "The signed vector addressed to another destination returns typed Destination and ENTANGLE-E0119.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-signing/tests/bridge_attenuation.rs",
+          "sha256": "a997abc16937f8a79744f91f69a820559fb9436a3bafb5f557b9e6bde8ef7284",
+          "test": "wrong_dest_rejected"
+        }
+      ]
+    },
+    "ATC-BRG-4": {
+      "status": "pass",
+      "reason": "The expired signed vector returns typed Expiry and ENTANGLE-E0120.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-signing/tests/bridge_attenuation.rs",
+          "sha256": "a997abc16937f8a79744f91f69a820559fb9436a3bafb5f557b9e6bde8ef7284",
+          "test": "expired_ttl_rejected"
+        }
+      ]
+    },
+    "ATC-BRG-5": {
+      "status": "pass",
+      "reason": "The signed vector without a cumulative byte cap returns typed LifetimeBytes and ENTANGLE-E0122.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-signing/tests/bridge_attenuation.rs",
+          "sha256": "a997abc16937f8a79744f91f69a820559fb9436a3bafb5f557b9e6bde8ef7284",
+          "test": "missing_total_bytes_cap_rejected"
+        }
+      ]
+    },
+    "ATC-BRG-6": {
+      "status": "pass",
+      "reason": "The durable receiver accepts exactly 1,024 signed-budget bytes. After receiver reopen and further attenuation, the next byte is refused as BridgeBudgetExhausted and the sink stays at 1,024 bytes.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-signing/tests/total_bytes_cap.rs",
+          "sha256": "89588b0a0ecdf5af60887a6b0551a8810d936d8cb28cefd813adfa8136970aa7",
+          "test": "exact_boundary_survives_restart_and_further_attenuation"
+        }
+      ]
+    },
+    "ATC-INT-1": {
+      "status": "pass",
+      "reason": "Three signed QUIC replica receipts precede comparison. The comparator instance counters remain zero on all workers and reach three on the submitter for the three comparisons.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-scheduler/tests/cases/semantic.rs",
+          "sha256": "f585868dc084bfebc8092c17eb66ea3a9ae5e29148b36ff3bcbaa846b5d72fbe",
+          "test": "semantic_acceptance::atc_int_1_2_3_5_submitter_only_signed_metric_and_output_guard"
+        }
+      ]
+    },
+    "ATC-INT-2": {
+      "status": "pass",
+      "reason": "Removal of the genuine comparator publisher from the submitter's keyring causes signed component load and scheduler submission to refuse, with MetricNotInKeyring at submission.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-scheduler/tests/cases/semantic.rs",
+          "sha256": "f585868dc084bfebc8092c17eb66ea3a9ae5e29148b36ff3bcbaa846b5d72fbe",
+          "test": "semantic_acceptance::atc_int_1_2_3_5_submitter_only_signed_metric_and_output_guard"
+        }
+      ]
+    },
+    "ATC-INT-3": {
+      "status": "pass",
+      "reason": "An authenticated mutation during live execution returns PolicyMutation. Three distinct signed replica receipts carry the independently computed H for the same task ID.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-scheduler/tests/cases/semantic.rs",
+          "sha256": "f585868dc084bfebc8092c17eb66ea3a9ae5e29148b36ff3bcbaa846b5d72fbe",
+          "test": "semantic_acceptance::atc_int_1_2_3_5_submitter_only_signed_metric_and_output_guard"
+        }
+      ]
+    },
+    "ATC-INT-4": {
+      "status": "pass",
+      "reason": "Deterministic streaming returns InvalidIntegrityForStreaming before route lookup. The same error's declared display text tells the operator to use TrustedExecutor.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-scheduler/tests/cases/stream.rs",
+          "sha256": "4a074a804031256da12524916fd904e6e820fa0a6129e0feb97276d60ffcac15",
+          "test": "stream_acceptance::replicated_stream_integrity_fails_before_route_lookup"
+        },
+        {
+          "path": "crates/entangle-scheduler/src/stream.rs",
+          "sha256": "8c56ba6e1cefe039ce09f0186ac6799b61b90f7fa8fcd1fc83c336c7b4617c70",
+          "test": null
+        }
+      ]
+    },
+    "ATC-INT-5": {
+      "status": "pass",
+      "reason": "A 2,048-byte remote result under a 1,024-byte semantic cap returns typed OutputSizeExceeded, emits a structured warning with exact peer and byte counts, lowers reputation, and leaves comparator counts unchanged.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-scheduler/tests/cases/semantic.rs",
+          "sha256": "f585868dc084bfebc8092c17eb66ea3a9ae5e29148b36ff3bcbaa846b5d72fbe",
+          "test": "semantic_acceptance::atc_int_1_2_3_5_submitter_only_signed_metric_and_output_guard"
+        }
+      ]
+    },
+    "ATC-STR-1": {
+      "status": "pass",
+      "reason": "With no further credit, the real QUIC stream emits Stalled for one 5-byte chunk after 4.5\u20135.5 seconds, increments the worker stall metric, and resumes after credit.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-scheduler/tests/cases/stream.rs",
+          "sha256": "4a074a804031256da12524916fd904e6e820fa0a6129e0feb97276d60ffcac15",
+          "test": "stream_acceptance::credit_exhaustion_stalls_at_timeout_and_verified_credit_resumes"
+        }
+      ]
+    },
+    "ATC-STR-2": {
+      "status": "pass",
+      "reason": "The fixture explicitly withholds three pongs on a live QUIC stream. It asserts PeerLost in the 13\u201317 second window and counts exactly three pings.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-scheduler/tests/cases/stream.rs",
+          "sha256": "4a074a804031256da12524916fd904e6e820fa0a6129e0feb97276d60ffcac15",
+          "test": "stream_acceptance::three_missed_pings_close_channel"
+        }
+      ]
+    },
+    "ATC-STR-3": {
+      "status": "pass",
+      "reason": "The stream verifies genuine worker signatures at two sequence positions and returns typed BadChunkSignature on a chunk signed by an unrelated key.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-scheduler/tests/cases/stream.rs",
+          "sha256": "4a074a804031256da12524916fd904e6e820fa0a6129e0feb97276d60ffcac15",
+          "test": "stream_acceptance::credit_exhaustion_stalls_at_timeout_and_verified_credit_resumes"
+        },
+        {
+          "path": "crates/entangle-scheduler/tests/cases/stream.rs",
+          "sha256": "4a074a804031256da12524916fd904e6e820fa0a6129e0feb97276d60ffcac15",
+          "test": "stream_acceptance::only_authenticated_worker_signatures_deliver_chunks"
+        }
+      ]
+    },
+    "ATC-WRP-1": {
+      "status": "pass",
+      "reason": "Fresh Bash, Zsh and Fish opt-in installs warn outside a session and retain the direct command's exact output and exit. Inside-session controls stay quiet.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/wrapper-live-linux.json",
+          "sha256": "424a4424cfef59c0a8dad72570bf0dec2bea06eab9bb7b454ed654679b20486c",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 -B /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/wrapper-live.py --cli /tmp/entangle-check-a5728c23-archive/entangle --fixture /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/package-operator/published-fixture --fish-tree /tmp/entangle-fish-check/extract --out /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/wrapper-live-linux.json",
+          "claim": "Candidate CLI installed signed fixture and ran Bash, Zsh and Fish opt-in and doctor controls.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:23:41.307972+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/wrapper-live-scorer-receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00"
+    },
+    "ATC-WRP-2": {
+      "status": "pass",
+      "reason": "The already running Bash forwards both commands and exit status 37. It emits exactly one wrapper warning before disable and no second warning.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-cli/tests/wrapper.rs",
+          "sha256": "e638428e8db75cf4ad03256679869a682d5e985a7d57a7e9b3843f77a0678a67",
+          "test": "disabling_silences_an_already_running_shell_without_changing_forwarding"
+        }
+      ]
+    },
+    "ATC-WRP-3": {
+      "status": "pass",
+      "reason": "Fresh Bash, Zsh and Fish resolve actual executable/function bypasses. Doctor reports shadowed with exit 1, and loaded-wrapper controls exit 0.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/wrapper-live-linux.json",
+          "sha256": "424a4424cfef59c0a8dad72570bf0dec2bea06eab9bb7b454ed654679b20486c",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 -B /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/wrapper-live.py --cli /tmp/entangle-check-a5728c23-archive/entangle --fixture /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/package-operator/published-fixture --fish-tree /tmp/entangle-fish-check/extract --out /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/wrapper-live-linux.json",
+          "claim": "Candidate CLI installed signed fixture and ran Bash, Zsh and Fish opt-in and doctor controls.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:23:41.307972+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/wrapper-live-scorer-receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00"
+    },
+    "ATC-MAX-1": {
+      "status": "not_evidenced",
+      "reason": "The requested loaded tier-5 agent-host and interactive 5\u21923 affected list, default unload and cancel reversal have no exact candidate demonstration."
+    },
+    "ATC-MAX-2": {
+      "status": "not_evidenced",
+      "reason": "The requested loaded tier-5 agent-host 5\u21923 forced unload with its per-plugin W0214 audit has no exact candidate demonstration."
+    },
+    "ATC-MAX-3": {
+      "status": "not_evidenced",
+      "reason": "The requested loaded tier-5 agent-host 5\u21923 cancellation with persisted tier 5 and I0216 has no exact candidate demonstration."
+    },
+    "ATC-MIR-1": {
+      "status": "not_evidenced",
+      "reason": "Fresh probes hit DNS temporary failure and proxy CONNECT 403 before reaching mirror.entanglement.dev. No genuine origin response or mirror artifact trust check was available.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/public-mirror-recheck.log",
+          "sha256": "44db16cb2bea0ae2d4b98cd6e0cb0d789d92e8a1af8e0f690f74d4294a263b89",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 /tmp/entangle-a092-mirror.py",
+          "claim": "Direct candidate probe to the named mirror from the available environment.",
+          "exit_code": 22,
+          "observed_at_utc": "2026-11-27T09:19:16.036132+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/public-mirror-recheck.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/public-mirror-approved-recheck.log",
+          "sha256": "dcdae7c1cf10427375fcdb793d0bf1265d3d264f1ce4dabe6e5a78efee249568",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 /tmp/entangle-a092-mirror.py",
+          "claim": "Direct candidate probe to the named mirror from the available environment.",
+          "exit_code": 22,
+          "observed_at_utc": "2026-11-27T09:19:26.724583+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/public-mirror-approved-recheck.json"
+        }
+      ]
+    },
+    "ATC-MIR-2": {
+      "status": "pass",
+      "reason": "A real loopback HTTP mirror fixture yields exact tags and a verified listing signer fingerprint. A different signing key and a different repository both fail.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "crates/entangle-oci/tests/distribution.rs",
+          "sha256": "692c0c609ae26f168997f6928f41959b322d6644caa4370f10670d431c23ef50",
+          "test": "mirror_listing_verified"
+        }
+      ]
+    },
+    "ATC-REL-1": {
+      "status": "not_evidenced",
+      "reason": "A genuine production-signed 1.0 RC with publisher Ed25519 verification and actual Cosign/Rekor inclusion is unavailable."
+    },
+    "ATC-REL-2": {
+      "status": "not_evidenced",
+      "reason": "The actual recorded two-of-three production release key ceremony and one-share negative reconstruction control are unavailable."
+    },
+    "ATC-BUS-1": {
+      "status": "fail",
+      "reason": "The real governance checker exits 1 because each of the five required roles has one named holder. This violates the required two-active-holder lower bound.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/governance-real.log",
+          "sha256": "81f1a12437ebae26e8ca5cb871679793d1fcd5d5dc07645ee2a8832c1425b92d",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 scripts/check-release-governance.py",
+          "claim": "Current actual roster and rotation check.",
+          "exit_code": 1,
+          "observed_at_utc": "2026-11-27T09:14:06.858564+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/governance-real.json"
+        }
+      ]
+    },
+    "ATC-BUS-2": {
+      "status": "fail",
+      "reason": "The real governance checker exits 1 because docs/governance/rotations.md is missing. The freshness requirement therefore fails.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/governance-real.log",
+          "sha256": "81f1a12437ebae26e8ca5cb871679793d1fcd5d5dc07645ee2a8832c1425b92d",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 scripts/check-release-governance.py",
+          "claim": "Current actual roster and rotation check.",
+          "exit_code": 1,
+          "observed_at_utc": "2026-11-27T09:14:06.858564+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/governance-real.json"
+        }
+      ]
+    },
+    "COR-CLI": {
+      "status": "pass",
+      "reason": "All 8 signed bundled plugin workloads passed the local CLI and daemon assertions, with independent result validation.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/native-linux-x86-64.log",
+          "sha256": "3179c93e05bf4ef1210fc0898ac8d794a06af063661b73b556660b918de331c4",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "target/catalog-smoke-python/bin/python scripts/tests/native-release.py x86_64-unknown-linux-gnu target/release /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/native-linux-release.json",
+          "claim": "Candidate native Linux built-in plugin smoke, local and authenticated remote.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:23:00+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/native-linux-x86-64.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "plugins/smoke_test.py",
+          "sha256": "32bbc743fc16014f03fb06be13f3ac0c91e6a6a652f114e0b8abb884e2907369"
+        }
+      ]
+    },
+    "COR-REMOTE": {
+      "status": "pass",
+      "reason": "All 8 signed bundled workloads passed the remote controls. An empty coordinator dispatched to the explicitly trusted worker and the independent output checks passed.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/native-linux-x86-64.log",
+          "sha256": "3179c93e05bf4ef1210fc0898ac8d794a06af063661b73b556660b918de331c4",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "target/catalog-smoke-python/bin/python scripts/tests/native-release.py x86_64-unknown-linux-gnu target/release /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/native-linux-release.json",
+          "claim": "Candidate native Linux built-in plugin smoke, local and authenticated remote.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:23:00+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/native-linux-x86-64.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00",
+      "source_assertions": [
+        {
+          "path": "plugins/smoke_test.py",
+          "sha256": "32bbc743fc16014f03fb06be13f3ac0c91e6a6a652f114e0b8abb884e2907369"
+        }
+      ]
+    },
+    "COR-PLATFORMS": {
+      "status": "not_evidenced",
+      "reason": "Required final-source hosted Linux and macOS test, formatting, Clippy and rustdoc runner results are unavailable."
+    },
+    "AUTH-LIVE": {
+      "status": "pass",
+      "reason": "Across 24 live calls, trusted and recovered exact results succeeded. Revoked, removed, observer, empty, malformed and never-paired peers ran no guest work. Typed inbound denials and outbound route removal occurred on the original daemon processes.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/auth-live-linux.json",
+          "sha256": "716e40651f948cde65163f4d60d6859c41dd483654a4fc2744ed37ac2d353f08",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 -B /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/auth-live.py --bin-dir /tmp/entangle-check-a5728c23-archive --out /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/auth-live-linux.json",
+          "claim": "Live exact-release bidirectional authorization and recovery across running daemons.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:23:13.256955+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/auth-live-scorer-receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00"
+    },
+    "AUTH-WASI": {
+      "status": "not_evidenced",
+      "reason": "Malicious guest filesystem escape and permissions tests, including symlink, rename and trailing-slash behavior, are lacking on the full supported OS matrix."
+    },
+    "AUTH-CHAIN": {
+      "status": "pass",
+      "reason": "The current official RustSec snapshot c9f6c91a44dbad9d71742329e9df061279f9c4be and configured deny policy pass advisories, bans, licenses and sources for all 16 tracked lockfile graphs. Yanked crates are denied and the only policy override is the local advisory cache path.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-workspace.log.gz",
+          "sha256": "e0ef173c5d5609a4db12b67ceede8e454d9f5c3c23252bea3a6dde40dc8a8793",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:16+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-workspace.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-crates-entangle-host-fixtures-src-hello-pong.log.gz",
+          "sha256": "e2d990bb37dc0bc0ebeca75bd48b246a2a9c54c3003e3d45460922647e35bc44",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/hello-pong/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for crates/entangle-host/fixtures-src/hello-pong/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:20+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-crates-entangle-host-fixtures-src-hello-pong.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-crates-entangle-host-fixtures-src-stress.log.gz",
+          "sha256": "ca601971129bec279034588e9891e900080e34d6ea27d8ece17750dbca3495fd",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/stress/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for crates/entangle-host/fixtures-src/stress/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:22+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-crates-entangle-host-fixtures-src-stress.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-docs-testing-production-review-evidence-candidate-864ae27b-wasi-fs-conformance-fs-probe.log.gz",
+          "sha256": "2e4eb9324360fa23fd0c90d1ef9525774d2decb6ce71db73b67b7c572b3b426e",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:25+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-docs-testing-production-review-evidence-candidate-864ae27b-wasi-fs-conformance-fs-probe.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-docs-testing-production-review-evidence-candidate-bb70a619-uds-image-comparison-allocator-probe.log.gz",
+          "sha256": "025cf76fbd09c3b060f799b5aa41c5a5f652511f3520f771a930b96422bfea89",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:26+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-docs-testing-production-review-evidence-candidate-bb70a619-uds-image-comparison-allocator-probe.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-examples-hash-it.log.gz",
+          "sha256": "9901b86f8cbecbc9e931fd94f7545f2991c78873a2ebd045fe63c7a3dc82f83e",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/hash-it/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for examples/hash-it/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:28+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-examples-hash-it.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-examples-hello-world.log.gz",
+          "sha256": "0bb4814f3ae264a1d69fdd24c718ed519b7c25e40e9aa0c8ed4c51bf3b023b90",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/hello-world/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for examples/hello-world/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:30+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-examples-hello-world.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-examples-stream-lines.log.gz",
+          "sha256": "16e2b76fbbfce6d5af369219cdc808f9a37d366100ea6a861460af7863d0e56b",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/stream-lines/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for examples/stream-lines/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:31+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-examples-stream-lines.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-plugins-compress.log.gz",
+          "sha256": "560536d4a60984fb144c1e8f0cccbbd428b962645fff39c909d57338338aae3c",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/compress/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for plugins/compress/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:33+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-plugins-compress.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-plugins-csv-stats.log.gz",
+          "sha256": "c3984de043f780fb3f1280495fcb6a4c4ae7c782454782cc7a1f462802472e4e",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/csv-stats/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for plugins/csv-stats/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:34+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-plugins-csv-stats.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-plugins-image-dehaze.log.gz",
+          "sha256": "8d8e1403a2de1a6be4eeb5695c55c041e4a01b4d252e2739de54e682843b25e9",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/image-dehaze/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for plugins/image-dehaze/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:36+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-plugins-image-dehaze.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-plugins-image-resize.log.gz",
+          "sha256": "3bb9844933a1151810bdd4db5cf55148bfa26f1014cf45f7f8c12b3db9c90af2",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/image-resize/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for plugins/image-resize/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:37+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-plugins-image-resize.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-plugins-json-pointer.log.gz",
+          "sha256": "852e6a77ed28041914778c5d51394046f1f003a73bb6bfbf88aac6256b45d945",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/json-pointer/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for plugins/json-pointer/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:39+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-plugins-json-pointer.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-plugins-json-query.log.gz",
+          "sha256": "8b7c3a8f75d2fb1c673053f086490abe8f9e1064601bde5d67b033971c42e021",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/json-query/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for plugins/json-query/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:40+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-plugins-json-query.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-plugins-markdown-html.log.gz",
+          "sha256": "4db85de33e84bea0ee027e078a03d49b151e9f880ce586b1a875ab8fb0891ac9",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/markdown-html/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for plugins/markdown-html/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:42+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-plugins-markdown-html.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/deny-plugins-qr-encode.log.gz",
+          "sha256": "41590f960cdf3605b391a8721c686795e977851b81710432b3631bf9e6810504",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/qr-encode/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Advisories, bans, licenses and sources for plugins/qr-encode/Cargo.toml.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:14:44+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/deny-plugins-qr-encode.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00"
+    },
+    "REL-RESTART": {
+      "status": "not_evidenced",
+      "reason": "Fresh Linux active-stream restart restored identity, signed plugins and attribution in 0.199s; the complete supported OS host matrix remains unverified."
+    },
+    "REL-PARTITION": {
+      "status": "not_evidenced",
+      "reason": "Two private Linux namespace worker trials recovered signed work 3.410s and 2.598s after overlay up. The unmodified harness measured worker 3.170s and coordinator 1.786s, with E0403 revocation and attributed recovery. The distinct physical-host requirement remains unverified.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/tailnet-route-phase/two-phase/result.json",
+          "sha256": "12fd06b3aa3895e44c8337db7fe2fb02a39f42ecd26b1a8faabe1019abaf44e6",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entangle-revocation-freshness/a5728c23-two-phase/run.py /tmp/entangle-revocation-freshness/a5728c23-verified-bin",
+          "claim": "Scope-limited private tailnet two-phase controlled qualification.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:28:57.644303+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/tailnet-route-phase--two-phase--receipt.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/tailnet-route-phase/fresh-marker/result.json",
+          "sha256": "10c3000a84e6a7c004a9565a77babf06a2fa688396dcf24c2d96aa279a75864a",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entangle-revocation-freshness/a5728c23-fresh-marker/run.py /tmp/entangle-revocation-freshness/a5728c23-verified-bin",
+          "claim": "Scope-limited private tailnet fresh-marker controlled qualification.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:30:37.926380+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/tailnet-route-phase--fresh-marker--receipt.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/private-recovery-linux.json",
+          "sha256": "172b0193f763b203037a5f982ac7a2c28e97ef23ad279ea8087c2735286cc108",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 -B scripts/tests/private-tailnet.py --recovery --bin-dir /workspace/Entanglement/target/release --wasm /workspace/Entanglement/plugins/json-pointer/target/wasm32-wasip2/release/entangle_json_pointer.wasm",
+          "claim": "Unmodified private tailnet acceptance on two same-host Linux namespaces.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:35:08.897157+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/private-recovery-scorer-receipt.json"
+        }
+      ]
+    },
+    "REL-LIMITS": {
+      "status": "pass",
+      "reason": "The worker admitted 32 one-credit streams, refused excess on both submitters, and verified a healthy stream after load cleared. Named workspace cases exercise memory, input, output, timeout and stalled-stream bounds.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/auth-live-linux.json",
+          "sha256": "716e40651f948cde65163f4d60d6859c41dd483654a4fc2744ed37ac2d353f08",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 -B /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/auth-live.py --bin-dir /tmp/entangle-check-a5728c23-archive --out /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/auth-live-linux.json",
+          "claim": "Live exact-release bidirectional authorization and recovery across running daemons.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:23:13.256955+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/auth-live-scorer-receipt.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+          "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Fresh locked workspace run with executable test results.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:43+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/workspace-tests--run-1--receipt.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00"
+    },
+    "INTEROP-LINUX": {
+      "status": "not_evidenced",
+      "reason": "Complete release workload checks on independent native x86-64 and aarch64 Linux hosts are unavailable."
+    },
+    "INTEROP-MAC": {
+      "status": "not_evidenced",
+      "reason": "Complete release workload checks on independent native Intel and Apple Silicon macOS hosts are unavailable."
+    },
+    "INTEROP-WAN": {
+      "status": "not_evidenced",
+      "reason": "Two independent networks with authenticated direct NAT traversal and forced public relay on the intended peer are unavailable."
+    },
+    "INTEROP-TAILNET": {
+      "status": "not_evidenced",
+      "reason": "Authenticated work and real private overlay ACL/reconnection controls passed in two Linux network namespaces on one host. The independent real tailnet host topology remains unavailable.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/tailnet-route-phase/two-phase/result.json",
+          "sha256": "12fd06b3aa3895e44c8337db7fe2fb02a39f42ecd26b1a8faabe1019abaf44e6",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entangle-revocation-freshness/a5728c23-two-phase/run.py /tmp/entangle-revocation-freshness/a5728c23-verified-bin",
+          "claim": "Scope-limited private tailnet two-phase controlled qualification.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:28:57.644303+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/tailnet-route-phase--two-phase--receipt.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/tailnet-route-phase/fresh-marker/result.json",
+          "sha256": "10c3000a84e6a7c004a9565a77babf06a2fa688396dcf24c2d96aa279a75864a",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/tmp/entangle-revocation-freshness/a5728c23-fresh-marker/run.py /tmp/entangle-revocation-freshness/a5728c23-verified-bin",
+          "claim": "Scope-limited private tailnet fresh-marker controlled qualification.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:30:37.926380+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/tailnet-route-phase--fresh-marker--receipt.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/private-recovery-linux.json",
+          "sha256": "172b0193f763b203037a5f982ac7a2c28e97ef23ad279ea8087c2735286cc108",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 -B scripts/tests/private-tailnet.py --recovery --bin-dir /workspace/Entanglement/target/release --wasm /workspace/Entanglement/plugins/json-pointer/target/wasm32-wasip2/release/entangle_json_pointer.wasm",
+          "claim": "Unmodified private tailnet acceptance on two same-host Linux namespaces.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:35:08.897157+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/private-recovery-scorer-receipt.json"
+        }
+      ]
+    },
+    "INTEROP-LAN": {
+      "status": "not_evidenced",
+      "reason": "Fresh Linux host multicast produced authenticated execution without static routes. The two-physical-host requirement remains unmet.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/lan-mdns-independent.log",
+          "sha256": "1abb3c11ebd707c2aef31884ebe8417821613655ae074fc0453e4f4097309401",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo test --offline --locked -p entangle-bin --test daemon_compute discovers_and_runs_work_without_a_configured_peer_address -- --exact --ignored --nocapture",
+          "claim": "Opt-in multicast-bound daemon execution on one Linux host.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:17:13.574039+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/lan-mdns-independent.json"
+        }
+      ]
+    },
+    "PERF-LLM": {
+      "status": "not_evidenced",
+      "reason": "The required real 70B inference run on the specified GPU and separate battery laptop is unavailable."
+    },
+    "PERF-IMAGE": {
+      "status": "not_evidenced",
+      "reason": "Two genuine Canon and Nikon RAW photos produced matching verified outputs, with median 9.963730s on one worker and 9.098992s on three worker processes on one host (1.095037\u00d7). The 8,000-RAW, three physical desktops and 10\u00d7 requirement remains unverified.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/raw-batch/real-photo-wall-times.json",
+          "sha256": "03e11dd291f9cbba475c3aa2f2e41c99cee948cf5cf6c5c1410b0396c80e8a08",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 docs/testing/production-review/evidence/candidate-a5728c23/raw-batch/monitor.py docs/testing/production-review/evidence/candidate-a5728c23/raw-batch/resource-samples.json -- /workspace/Entanglement/target/catalog-smoke-python/bin/python docs/testing/production-review/evidence/candidate-a5728c23/raw-batch/loopback-harness.py --bin-dir /workspace/Entanglement/target/release --wasm /workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm --report /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/raw-batch/real-photo-wall-times.json",
+          "claim": "Source-bound two real RAW images, routed signed plugin and independently verified output digests.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:33:21.353443+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/raw-batch/wall-times-receipt.json"
+        }
+      ]
+    },
+    "PERF-TEST": {
+      "status": "pass",
+      "reason": "The complete 9-member upstream Rust workspace matched 224 native named outcomes, and a separate unchanged upstream test in a preregistered 128-block run retained a genuine failed-to-passed attempt sequence on different authenticated workers. Observed qualifying transitions: 3.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/distributed-rust-workspace/rngs-receipt.json",
+          "sha256": "893230e62e3b29fada6adafbdf5b1e4224bb7bec417640b6ce6395c6b44679ad",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "cargo +1.91.1 test --offline --locked --workspace --target wasm32-wasip2 --no-fail-fast",
+          "claim": "Unmodified 9-member upstream workspace and native named parity.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:30:00Z",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/distributed-rust-workspace--rngs-receipt.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/jaq-natural/cohort-receipt.json",
+          "sha256": "fb55e9a4765260e1549c0fd025e132b7f1bbab2c2f6c8342a8b171b3c3c4991d",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "Verify the complete recorded alternating jaq cohort, raw digest, paired outputs, peer IDs and signed suite pins.",
+          "claim": "Fresh unchanged upstream case that genuinely failed then passed across signed workers.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:29:36.530832+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/jaq-natural--cohort-receipt.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/jaq-natural/all-block-verification.json",
+          "sha256": "34ca8f0d590caed5f7c372ad0180bda151a656e7fff819ce70580cac4d4ac67a",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "Cross-check the separately generated all-block verification and raw signed payload digest.",
+          "claim": "Independent complete-cohort verification with the native/remote attempt patterns and authenticated raw attempts.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:29:36.530832+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/jaq-natural--cohort-receipt.json--for--jaq-natural--all-block-verification.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00"
+    },
+    "PERF-BASELINE": {
+      "status": "not_evidenced",
+      "reason": "5/7 routes meet both prespecified engineering limits against the frozen c19ef758 comparator. Misses: local / 1 (p95 +5.51%), local / 4 (p95 +6.82%). No previously approved comparable production baseline was available.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/performance.json",
+          "sha256": "170c15c739b833253bc4fb513d42925c801fef054b4ea54d283e080591e2c53b",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 docs/testing/production-review/evidence/candidate-a5728c23/engineering/compare.py /tmp/entangle-compact-ordinary-perf/greeting-driver a5728c230e5049556b806cae8597fe823dd67987 sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "claim": "Fresh seven-route same-host engineering comparison; operator baseline approval remains outstanding.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:31:45.860491+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/score-receipts/performance-primary.json"
+        }
+      ]
+    },
+    "OPS-RELEASE": {
+      "status": "not_evidenced",
+      "reason": "The canonical unsigned Linux x86-64 pair requires GLIBC 2.39. Ubuntu 22.04 and Debian 12 userspaces refused the actual ELFs. Four production-signed releases, provenance, independent rebuilds and native installations remain unavailable.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/linux-userspaces/userspaces.json",
+          "sha256": "ee09ee09afbefb460ab88a21be4874d6252a431f24dc16a0c2dfdee897a1227a",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 -B /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/userspaces.py --repo /workspace/Entanglement --out /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/linux-userspaces --commit a5728c230e5049556b806cae8597fe823dd67987 --source-id sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5 --wasm /workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm --b3sum /tmp/entanglement-release-check.zM5PAQ/usr/bin/b3sum --archive /workspace/Entanglement/target/release-candidate/a5728c230e50/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz --archive-receipt /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-archive.json",
+          "claim": "Canonical unsigned Linux x86-64 ELF portability in local isolated userspaces.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:24:16.369306+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/linux-userspaces/normalized.json"
+        }
+      ]
+    },
+    "OPS-GOVERNANCE": {
+      "status": "fail",
+      "reason": "The actual release governance gate fails on all five holder counts and the missing rotation record.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/governance-real.log",
+          "sha256": "81f1a12437ebae26e8ca5cb871679793d1fcd5d5dc07645ee2a8832c1425b92d",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 scripts/check-release-governance.py",
+          "claim": "Current actual roster and rotation check.",
+          "exit_code": 1,
+          "observed_at_utc": "2026-11-27T09:14:06.858564+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/governance-real.json"
+        }
+      ]
+    },
+    "OPS-RECOVERY": {
+      "status": "not_evidenced",
+      "reason": "The complete supported-OS encrypted restore, retained identity/trust/plugin state, live continuity and failure controls are unavailable."
+    },
+    "OPS-SECURITY": {
+      "status": "pass",
+      "reason": "The fresh independent source review declares no unresolved High or Critical findings in its examined scope. An exact Linux release publisher incident rehearsal records containment and recovery actions.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/qa-security-review.md",
+          "sha256": "d124bb5a5ddd64d807cc1cdaf941cadc2de0c271e19603e58db47558a5254335",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "Independent changed-source review, exact archive signed identity and local publisher incident checks",
+          "claim": "Dated, independent candidate security review.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:24:23.111594+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/qa-security-review.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/qa-publisher-incident.log",
+          "sha256": "e6348ef44dcbd71ed5ab79a1b345232f2407473b730eee80d1ef868b96e3ea0f",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/repeat-publisher-incident.py --source-id sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5 --archive /workspace/Entanglement/target/release-candidate/a5728c230e50/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+          "claim": "Dated actual publisher-compromise containment and recovery rehearsal.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:23:15.416666+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/qa-publisher-incident.json"
+        }
+      ],
+      "reviewer": "Independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T09:38:17.482384+00:00"
+    },
+    "OPS-CI": {
+      "status": "not_evidenced",
+      "reason": "Both read-only main branch protection requests returned Forbidden before branch details. Required hosted CI was unavailable for this candidate.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/main-branch-metadata.log",
+          "sha256": "230028db697ad7f6b7d2f3cb55c5441147fddfa5a82544eaa2cb5f335bcc144d",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "gh api --method GET repos/thekozugroup/Entanglement/branches/main --jq '{name: .name, protected: .protected, sha: .commit.sha, required_checks: .protection.required_status_checks.contexts}'",
+          "claim": "Read-only request for main branch protection metadata.",
+          "exit_code": 1,
+          "observed_at_utc": "2026-11-27T09:26:26.530195+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/main-branch-metadata.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/main-branch-metadata-approved.log",
+          "sha256": "230028db697ad7f6b7d2f3cb55c5441147fddfa5a82544eaa2cb5f335bcc144d",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "gh api --method GET repos/thekozugroup/Entanglement/branches/main --jq '{name: .name, protected: .protected, sha: .commit.sha, required_checks: .protection.required_status_checks.contexts}'",
+          "claim": "Read-only request for main branch protection metadata.",
+          "exit_code": 1,
+          "observed_at_utc": "2026-11-27T09:26:41.069083+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/main-branch-metadata-approved.json"
+        }
+      ]
+    }
+  }
+}

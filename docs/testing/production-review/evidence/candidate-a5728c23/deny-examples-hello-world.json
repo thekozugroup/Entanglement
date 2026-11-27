@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:14:29+00:00",
+  "finished_utc": "2026-11-27T09:14:30+00:00",
+  "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/hello-world/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/dependency-policy.toml advisories bans licenses sources",
+  "exit_code": 0,
+  "log": "deny-examples-hello-world.log.gz",
+  "log_sha256": "0bb4814f3ae264a1d69fdd24c718ed519b7c25e40e9aa0c8ed4c51bf3b023b90"
+}

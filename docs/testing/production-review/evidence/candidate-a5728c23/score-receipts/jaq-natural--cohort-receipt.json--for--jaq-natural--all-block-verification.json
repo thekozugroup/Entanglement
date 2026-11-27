@@ -1,0 +1,12 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:29:22.262565+00:00",
+  "finished_utc": "2026-11-27T09:29:36.530832+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/jaq-natural/all-block-verification.json",
+  "sha256": "34ca8f0d590caed5f7c372ad0180bda151a656e7fff819ce70580cac4d4ac67a",
+  "command": "Cross-check the separately generated all-block verification and raw signed payload digest.",
+  "source_receipt": "docs/testing/production-review/evidence/candidate-a5728c23/jaq-natural/cohort-receipt.json",
+  "source_receipt_sha256": "fb55e9a4765260e1549c0fd025e132b7f1bbab2c2f6c8342a8b171b3c3c4991d"
+}

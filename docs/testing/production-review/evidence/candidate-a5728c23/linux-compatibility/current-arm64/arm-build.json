@@ -1,0 +1,87 @@
+{
+  "commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "host_machine": "x86_64",
+  "target": "aarch64-unknown-linux-gnu",
+  "profile": "unmodified release; workspace optimizations and ThinLTO",
+  "command": [
+    "docker",
+    "exec",
+    "ce01e0bdee9d97ac535f2bc3981f257a26fab036bdf37e7363b3ca0ee63432e3",
+    "sh",
+    "/tmp/cross-build.sh"
+  ],
+  "cargo_command": "cargo build --release --workspace --bins --locked --target aarch64-unknown-linux-gnu --offline",
+  "start_utc": "2026-11-27T10:20:52Z",
+  "finish_utc": "2026-11-27T10:32:25Z",
+  "elapsed_s": 693.0,
+  "exit_code": 0,
+  "build_log_sha256": "4787d636517937210bb3416c6f944a7791e0a0b734f5828e0feed79bfb13c356",
+  "script_sha256": "6937e3952a08a4b20d6d5ea75c4c433055b74dcd0e373740e104583e62fd4c9b",
+  "first_export_sha256": "c7f016806a4fe1edc8f7d3f353c8971221768784901245bc46b07c941805724e",
+  "export_method": "Stream finished tmpfs ELF with docker exec and independently verify cryptographic digest, file, and readelf locally.",
+  "executables_sha256": {
+    "entangle": "3816be7bf3bc1362490be34de324701bbfed89461b976705e12e1b2efe72325f",
+    "entangled": "0df9a5bc397d98c825c8de704d67875a913984df79611d83332181b317b3d5cb"
+  },
+  "elf_independent_host_checks": {
+    "entangle": {
+      "machine": "AArch64",
+      "file": "ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, BuildID[sha1]=53423f99629c26869ab23e3d8baf8216de1360e4, for GNU/Linux 3.7.0, stripped",
+      "interpreter": "/lib/ld-linux-aarch64.so.1",
+      "sha256": "3816be7bf3bc1362490be34de324701bbfed89461b976705e12e1b2efe72325f",
+      "bytes": 31521952,
+      "glibc_symbol_max": "2.39",
+      "needed": [
+        "libgcc_s.so.1",
+        "libm.so.6",
+        "libc.so.6"
+      ],
+      "versions": [
+        "2.0",
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.27",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ]
+    },
+    "entangled": {
+      "machine": "AArch64",
+      "file": "ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, BuildID[sha1]=a12867b30f6dc93ebf83d79e0f52e939339317f5, for GNU/Linux 3.7.0, stripped",
+      "interpreter": "/lib/ld-linux-aarch64.so.1",
+      "sha256": "0df9a5bc397d98c825c8de704d67875a913984df79611d83332181b317b3d5cb",
+      "bytes": 32047072,
+      "glibc_symbol_max": "2.39",
+      "needed": [
+        "libgcc_s.so.1",
+        "libm.so.6",
+        "libc.so.6"
+      ],
+      "versions": [
+        "2.0",
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ]
+    }
+  },
+  "private_networks_after": {},
+  "builder_tmpfs": "Filesystem      1B-blocks       Used  Available Use% Mounted on\ntmpfs          6442450944 1738379264 4704071680  27% /private",
+  "target_disk_usage": "1455181996\t/private/target",
+  "cargo_home_disk_usage": "213825120\t/private/cargo"
+}

@@ -1,0 +1,40 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-296b427a/rust-sharder-integration/qualify.py",
+    "identity",
+    "--repo",
+    "/workspace/Entanglement",
+    "--revision",
+    "a5728c230e5049556b806cae8597fe823dd67987",
+    "--source",
+    "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+    "--fixture-dir",
+    "/tmp/entangle-integrated-sharder-qa",
+    "--old-bin-dir",
+    "/tmp/entangle-check-c19ef758-archive",
+    "--out",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/qa-identity.json"
+  ],
+  "started_utc": "2026-11-27T09:23:12.310614+00:00",
+  "finished_utc": "2026-11-27T09:23:32.057178+00:00",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/qa-identity.log",
+  "sha256": "030ede0fd3eab14c891f9a43d0156207c0b80d0129637a55b25747778bb43ca8",
+  "driver_sha256": "22052272463ed3c180375613a593c5068ce46e1347b32a9c89a1ffe79c82a52f",
+  "wrapper_sha256": "03d2d7a6e08f1c98c58c747742f8a403cd1a8b9f405bd45560a90b581dae452c",
+  "fixtures": {
+    "a.wasm": "ec361216fe8e1fe0619c4d9f945d2dd0088422b4606d62e20d8270ca0199f5c8",
+    "b.wasm": "28c63ba3db38b10b9fcc18924cb07f545b37f79fa0e55f5a283d19e87cf2d353",
+    "guarded.rs": "7b7dca2aa1cf87b0edeaff8723d28457ae49b89ba2a1601b03478294130048d4"
+  },
+  "legacy_binaries": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "output_sha256": "66fd0fdb10aab1460827adf37ef8978257fda451ee92abbb928de16ee5b817fd"
+}

@@ -1,0 +1,82 @@
+{
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "started_utc": "2026-11-27T10:23:31.442584+00:00",
+  "finished_utc": "2026-11-27T10:23:37.064164+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/portable-catalog/native-release.log",
+  "sha256": "713e3801e1ff2f6afbfc4999dda812d664e14f389e065394532fe2b71c455f1e",
+  "command": [
+    "/workspace/.entanglement-dev/catalog-python/bin/python",
+    "-B",
+    "scripts/tests/native-release.py",
+    "x86_64-unknown-linux-gnu",
+    "/workspace/entangle-pcatalog-zc4q3yah/release",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/portable-catalog/native-release.json"
+  ],
+  "command_cwd": "/workspace/entangle-pcatalog-zc4q3yah/source",
+  "archive": "/workspace/Entanglement/target/release-candidate/a5728c230e50-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "archive_sha256": "9a4c23b648ad26f23fa925c5171218094fb6b68247bcfbdc62dc19dca83d592d",
+  "archive_blake3": "27d09797e88a6041ce14ad17cc2f39d688c030a518a767d81167bc3988ec934c",
+  "archive_receipt_sha256": "2629b159a2e2887c522619d3d2a7c4d5d4507a6dc9c54f73db822456529a8d9e",
+  "sidecar_sha256": {
+    "sha256": "92a4de04c36cfd5864e6dfe5e320452da46c72455da98064c2af074d5de851e6",
+    "b3": "469a23d5b34c11a55fdafe63f631419c7ffa8027f40d2126d8c9d379a8113651"
+  },
+  "elf": {
+    "entangle": {
+      "sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+      "required_glibc": "2.34",
+      "bytes": 38275232
+    },
+    "entangled": {
+      "sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+      "required_glibc": "2.34",
+      "bytes": 38554936
+    }
+  },
+  "actual_userspace": {
+    "machine": "x86_64",
+    "kernel": "6.18.57",
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "glibc": "glibc 2.41",
+    "openssl": "OpenSSL 3.5.7 9 Jun 2026 (Library: OpenSSL 3.5.7 9 Jun 2026)",
+    "python": "3.12.14",
+    "python_dependencies": {
+      "Pillow": "12.2.0",
+      "zxing-cpp": "2.3.0"
+    }
+  },
+  "native_release_script_sha256": "928c773721ea7ab67e7f683cdc2c328f755ab5b3f272e62d4166131880a2fc13",
+  "frozen_smoke_script_sha256": "32bbc743fc16014f03fb06be13f3ac0c91e6a6a652f114e0b8abb884e2907369",
+  "prebuilt_adapter_sha256": "1f46ffbd2d184902ec1b5453230b35487ba662f0481f7546d326248b01a70cd4",
+  "inputs_sha256": "ba7478cc94d2052ba3b4f7691baa5d5499b57b5fa9fbd9990a2a34382cdf4bfb",
+  "scope": "Both Jammy-built archive executables ran natively on this Debian 13 x86-64 host. The frozen official release smoke and its local and authenticated two-daemon oracles are unchanged. An isolated Cargo adapter staged only the eight existing checksum-pinned WASI inputs. The official CLI signed and installed fresh copies. No Cargo compilation or remote Rust registry was used. This is a loopback two-daemon test on one host.",
+  "official_receipt_sha256": "c0bcd61fa9d15ff06268545a677ac41f1ef35cef18f9fbf6fe694d965ff8e27b",
+  "guest_staging_log_sha256": "15fb77b30848c88982f637bf14345304c75f7aae0aee59bea771b809d61d5da9",
+  "local_oracles": [
+    "compress",
+    "csv-stats",
+    "image-resize",
+    "image-dehaze",
+    "json-pointer",
+    "json-query",
+    "markdown-html",
+    "qr-encode"
+  ],
+  "remote_oracles": [
+    "compress",
+    "csv-stats",
+    "image-resize",
+    "image-dehaze",
+    "json-pointer",
+    "json-query",
+    "markdown-html",
+    "qr-encode"
+  ],
+  "worker_peer_id": "b6fcc57207933569f34c9920c7a5cbf9",
+  "signed_plugins": 8,
+  "no_coordinator_plugins": true
+}

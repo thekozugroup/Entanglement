@@ -1,0 +1,1804 @@
+{
+  "source_commit": "4dd03c6471394d62a0d3d4b5ea8479165ddb87f2",
+  "source_id": "sha256:81e0cb3a860d3dc5f3ad1405940811362512774bcbc64e1b45ce98e19974b454",
+  "elfs": {
+    "A": "a581695b1ac2b939391501d3daef987ad188bddcd85a473ab661a7a1a31e936e",
+    "B": "1b8ea0af4ca7f2c3c05be776ba359cccd0e3676538ebb7c7cd820d0e72b6d6bf"
+  },
+  "started_utc": "2026-11-27T09:04:58.176839+00:00",
+  "end_utc": "2026-11-27T09:10:13.253415+00:00",
+  "results_sha256": "424e2cff6459302f623125c153de043ed4947f06dce9d5ce8c178d208437f87f",
+  "rows": {
+    "local / 1": {
+      "primary": false,
+      "different_daemons": {
+        "p95_ms": {
+          "median_ratio": 0.9354827676927124,
+          "range": [
+            0.3071718538565629,
+            2.3961661341853033
+          ],
+          "median_percent": -6.451723230728756,
+          "favorable_count": 5,
+          "within_reference_count": 6,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 0.963039158670156,
+            "BA": 0.9026530612244898
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 0.49,
+              "denominator": 0.543,
+              "ratio": 0.9023941068139962
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 0.454,
+              "denominator": 1.478,
+              "ratio": 0.3071718538565629
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 0.451,
+              "denominator": 0.539,
+              "ratio": 0.836734693877551
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 0.389,
+              "denominator": 0.38,
+              "ratio": 1.0236842105263158
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 0.339,
+              "denominator": 0.538,
+              "ratio": 0.6301115241635687
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 0.339,
+              "denominator": 0.35,
+              "ratio": 0.9685714285714287
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 0.75,
+              "denominator": 0.313,
+              "ratio": 2.3961661341853033
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 0.959,
+              "denominator": 0.544,
+              "ratio": 1.7628676470588234
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.6301115241635687,
+            1.7628676470588234
+          ]
+        },
+        "throughput": {
+          "median_ratio": 1.0386106185025716,
+          "range": [
+            0.7419096626643796,
+            1.6599497166873054
+          ],
+          "median_percent": 3.8610618502571636,
+          "favorable_count": 4,
+          "within_reference_count": 5,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 1.0386106185025716,
+            "BA": 1.0328640069878148
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 3390.6,
+              "denominator": 3053.7,
+              "ratio": 1.1103251792906965
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 3407.8,
+              "denominator": 2452.8,
+              "ratio": 1.389350945857795
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 3431.6,
+              "denominator": 3013.2,
+              "ratio": 1.138855701579716
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 3779.5,
+              "denominator": 3908.9,
+              "ratio": 0.9668960577144465
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 4423.6,
+              "denominator": 2664.9,
+              "ratio": 1.6599497166873054
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 3728.9,
+              "denominator": 4023.1,
+              "ratio": 0.9268723123959136
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 3244.0,
+              "denominator": 4372.5,
+              "ratio": 0.7419096626643796
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 2697.9,
+              "denominator": 3315.2,
+              "ratio": 0.8137970559845561
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.8137970559845561,
+            1.389350945857795
+          ]
+        }
+      },
+      "same_daemon": {
+        "p95_ms": {
+          "median_ratio": 0.912982683982684,
+          "range": [
+            0.8191214470284237,
+            1.0254237288135593
+          ],
+          "median_percent": -8.701731601731598,
+          "favorable_count": 3,
+          "within_reference_count": 4,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 0.9917118644067796,
+            "YX": 0.8435434074968958
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 0.401,
+              "denominator": 0.462,
+              "ratio": 0.8679653679653679
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 0.479,
+              "denominator": 0.5,
+              "ratio": 0.958
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 0.363,
+              "denominator": 0.354,
+              "ratio": 1.0254237288135593
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 0.317,
+              "denominator": 0.387,
+              "ratio": 0.8191214470284237
+            }
+          ]
+        },
+        "throughput": {
+          "median_ratio": 1.05729674701586,
+          "range": [
+            0.754973565993338,
+            1.1319319319319319
+          ],
+          "median_percent": 5.729674701586007,
+          "favorable_count": 2,
+          "within_reference_count": 3,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 0.8727434462554247,
+            "YX": 1.1280060497230704
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 3757.8,
+              "denominator": 3343.0,
+              "ratio": 1.124080167514209
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 2470.5,
+              "denominator": 3272.3,
+              "ratio": 0.754973565993338
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 4166.0,
+              "denominator": 4205.9,
+              "ratio": 0.9905133265175112
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 4523.2,
+              "denominator": 3996.0,
+              "ratio": 1.1319319319319319
+            }
+          ]
+        }
+      }
+    },
+    "local / 4": {
+      "primary": false,
+      "different_daemons": {
+        "p95_ms": {
+          "median_ratio": 0.6136254231680488,
+          "range": [
+            0.29874706342991386,
+            2.2756680731364276
+          ],
+          "median_percent": -38.63745768319512,
+          "favorable_count": 6,
+          "within_reference_count": 6,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 0.8319174762840508,
+            "BA": 0.5412967397148647
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 1.618,
+              "denominator": 0.711,
+              "ratio": 2.2756680731364276
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 0.864,
+              "denominator": 2.042,
+              "ratio": 0.4231145935357493
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 1.012,
+              "denominator": 1.071,
+              "ratio": 0.9449112978524744
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 0.855,
+              "denominator": 1.713,
+              "ratio": 0.49912434325744304
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 0.976,
+              "denominator": 1.719,
+              "ratio": 0.5677719604421174
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 0.763,
+              "denominator": 2.554,
+              "ratio": 0.29874706342991386
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 0.696,
+              "denominator": 0.635,
+              "ratio": 1.0960629921259841
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 0.734,
+              "denominator": 1.113,
+              "ratio": 0.6594788858939802
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.4231145935357493,
+            1.0960629921259841
+          ]
+        },
+        "throughput": {
+          "median_ratio": 1.2257945068166287,
+          "range": [
+            0.6666871588058821,
+            1.6705416363934658
+          ],
+          "median_percent": 22.57945068166287,
+          "favorable_count": 6,
+          "within_reference_count": 6,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 1.075578799361801,
+            "BA": 1.3883171843124227
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 5422.3,
+              "denominator": 8133.2,
+              "ratio": 0.6666871588058821
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 7575.7,
+              "denominator": 4956.7,
+              "ratio": 1.528375733855186
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 6394.4,
+              "denominator": 6231.2,
+              "ratio": 1.0261907818718705
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 6380.9,
+              "denominator": 5302.7,
+              "ratio": 1.2033303788635978
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 7127.7,
+              "denominator": 4266.7,
+              "ratio": 1.6705416363934658
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 7734.3,
+              "denominator": 4798.3,
+              "ratio": 1.6118833753621074
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 8002.6,
+              "denominator": 8443.1,
+              "ratio": 0.9478272198600041
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 7795.5,
+              "denominator": 6245.1,
+              "ratio": 1.2482586347696594
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.9478272198600041,
+            1.6118833753621074
+          ]
+        }
+      },
+      "same_daemon": {
+        "p95_ms": {
+          "median_ratio": 0.8899716500176427,
+          "range": [
+            0.620050547598989,
+            1.172461752433936
+          ],
+          "median_percent": -11.002834998235734,
+          "favorable_count": 3,
+          "within_reference_count": 3,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 1.0656497624155152,
+            "YX": 0.72057803761859
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 0.817,
+              "denominator": 0.995,
+              "ratio": 0.8211055276381909
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 0.792,
+              "denominator": 0.826,
+              "ratio": 0.9588377723970946
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 0.843,
+              "denominator": 0.719,
+              "ratio": 1.172461752433936
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 0.736,
+              "denominator": 1.187,
+              "ratio": 0.620050547598989
+            }
+          ]
+        },
+        "throughput": {
+          "median_ratio": 1.1357303771356344,
+          "range": [
+            0.8751558886561489,
+            1.299359641651683
+          ],
+          "median_percent": 13.57303771356344,
+          "favorable_count": 3,
+          "within_reference_count": 3,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 0.9654388143598656,
+            "YX": 1.2575493279296848
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 7367.5,
+              "denominator": 6060.1,
+              "ratio": 1.2157390142076863
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 7870.3,
+              "denominator": 7454.9,
+              "ratio": 1.0557217400635823
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 7228.0,
+              "denominator": 8259.1,
+              "ratio": 0.8751558886561489
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 8238.2,
+              "denominator": 6340.2,
+              "ratio": 1.299359641651683
+            }
+          ]
+        }
+      }
+    },
+    "remote / 1": {
+      "primary": false,
+      "different_daemons": {
+        "p95_ms": {
+          "median_ratio": 1.093061470102443,
+          "range": [
+            0.5996732026143791,
+            1.778011794439764
+          ],
+          "median_percent": 9.306147010244302,
+          "favorable_count": 4,
+          "within_reference_count": 4,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 1.1263473082150408,
+            "BA": 1.093061470102443
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 2.459,
+              "denominator": 2.464,
+              "ratio": 0.9979707792207793
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 5.522,
+              "denominator": 4.474,
+              "ratio": 1.2342422887796156
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 2.239,
+              "denominator": 2.422,
+              "ratio": 0.9244426094137076
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 4.221,
+              "denominator": 2.374,
+              "ratio": 1.778011794439764
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 2.202,
+              "denominator": 3.672,
+              "ratio": 0.5996732026143791
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 2.539,
+              "denominator": 2.137,
+              "ratio": 1.1881141787552645
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 3.453,
+              "denominator": 2.752,
+              "ratio": 1.2547238372093024
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 2.506,
+              "denominator": 2.511,
+              "ratio": 0.9980087614496216
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.9244426094137076,
+            1.2547238372093024
+          ]
+        },
+        "throughput": {
+          "median_ratio": 1.0167365154252828,
+          "range": [
+            0.8355324289165583,
+            1.3916709248850283
+          ],
+          "median_percent": 1.673651542528276,
+          "favorable_count": 5,
+          "within_reference_count": 5,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 1.0341823999078579,
+            "BA": 0.9838799418874224
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 543.7,
+              "denominator": 515.6,
+              "ratio": 1.054499612102405
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 404.4,
+              "denominator": 449.9,
+              "ratio": 0.8988664147588353
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 535.6,
+              "denominator": 525.3,
+              "ratio": 1.019607843137255
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 449.6,
+              "denominator": 538.1,
+              "ratio": 0.8355324289165583
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 544.7,
+              "denominator": 391.4,
+              "ratio": 1.3916709248850283
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 541.3,
+              "denominator": 570.9,
+              "ratio": 0.9481520406375897
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 475.3,
+              "denominator": 468.8,
+              "ratio": 1.0138651877133107
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 526.6,
+              "denominator": 510.6,
+              "ratio": 1.0313356835095966
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.8988664147588353,
+            1.054499612102405
+          ]
+        }
+      },
+      "same_daemon": {
+        "p95_ms": {
+          "median_ratio": 0.8477176047255284,
+          "range": [
+            0.7508327781479015,
+            1.2387483926275182
+          ],
+          "median_percent": -15.228239527447162,
+          "favorable_count": 3,
+          "within_reference_count": 3,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 0.9947905853877099,
+            "YX": 0.8477176047255284
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 2.386,
+              "denominator": 2.753,
+              "ratio": 0.8666908826734472
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 2.254,
+              "denominator": 3.002,
+              "ratio": 0.7508327781479015
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 2.89,
+              "denominator": 2.333,
+              "ratio": 1.2387483926275182
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 2.739,
+              "denominator": 3.305,
+              "ratio": 0.8287443267776096
+            }
+          ]
+        },
+        "throughput": {
+          "median_ratio": 1.0213027289475627,
+          "range": [
+            0.9755317146621495,
+            1.1100784799669559
+          ],
+          "median_percent": 2.130272894756269,
+          "favorable_count": 2,
+          "within_reference_count": 4,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 1.0428050973145526,
+            "YX": 1.0213027289475627
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 526.6,
+              "denominator": 502.3,
+              "ratio": 1.0483774636671312
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 537.5,
+              "denominator": 484.2,
+              "ratio": 1.1100784799669559
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 518.3,
+              "denominator": 531.3,
+              "ratio": 0.9755317146621495
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 482.3,
+              "denominator": 485.1,
+              "ratio": 0.9942279942279942
+            }
+          ]
+        }
+      }
+    },
+    "remote / 4": {
+      "primary": true,
+      "different_daemons": {
+        "p95_ms": {
+          "median_ratio": 0.9136996799149166,
+          "range": [
+            0.5776512236416808,
+            1.3236569274269558
+          ],
+          "median_percent": -8.630032008508337,
+          "favorable_count": 5,
+          "within_reference_count": 5,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 0.7807955343749493,
+            "BA": 1.0258070881220482
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 5.037,
+              "denominator": 5.56,
+              "ratio": 0.9059352517985612
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 3.745,
+              "denominator": 6.034,
+              "ratio": 0.6206496519721578
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 5.186,
+              "denominator": 5.628,
+              "ratio": 0.9214641080312722
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 7.022,
+              "denominator": 5.305,
+              "ratio": 1.3236569274269558
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 3.753,
+              "denominator": 6.497,
+              "ratio": 0.5776512236416808
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 4.142,
+              "denominator": 3.665,
+              "ratio": 1.130150068212824
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 4.069,
+              "denominator": 6.206,
+              "ratio": 0.6556558169513373
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 4.981,
+              "denominator": 3.919,
+              "ratio": 1.2709874968104107
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.6206496519721578,
+            1.2709874968104107
+          ]
+        },
+        "throughput": {
+          "median_ratio": 1.0645485325538964,
+          "range": [
+            0.8615570393521808,
+            1.603415770211822
+          ],
+          "median_percent": 6.4548532553896365,
+          "favorable_count": 6,
+          "within_reference_count": 6,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 1.1493792927576414,
+            "BA": 0.958767823004383
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 1201.0,
+              "denominator": 1121.7,
+              "ratio": 1.0706962645983775
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 1459.6,
+              "denominator": 1220.4,
+              "ratio": 1.1960013110455587
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 1213.7,
+              "denominator": 1208.4,
+              "ratio": 1.0043859649122806
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 1163.5,
+              "denominator": 1099.3,
+              "ratio": 1.0584008005094152
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 1445.8,
+              "denominator": 901.7,
+              "ratio": 1.603415770211822
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 1345.8,
+              "denominator": 1473.8,
+              "ratio": 0.9131496810964853
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 1371.5,
+              "denominator": 1116.8,
+              "ratio": 1.2280623209169055
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 1212.9,
+              "denominator": 1407.8,
+              "ratio": 0.8615570393521808
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.9131496810964853,
+            1.2280623209169055
+          ]
+        }
+      },
+      "same_daemon": {
+        "p95_ms": {
+          "median_ratio": 0.8918603415085934,
+          "range": [
+            0.7185573366214549,
+            1.5220091817445316
+          ],
+          "median_percent": -10.813965849140661,
+          "favorable_count": 3,
+          "within_reference_count": 3,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 1.256558544248858,
+            "YX": 0.7555850564427287
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 5.236,
+              "denominator": 6.606,
+              "ratio": 0.7926127762640024
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 5.636,
+              "denominator": 3.703,
+              "ratio": 1.5220091817445316
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 4.124,
+              "denominator": 4.161,
+              "ratio": 0.9911079067531844
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 4.662,
+              "denominator": 6.488,
+              "ratio": 0.7185573366214549
+            }
+          ]
+        },
+        "throughput": {
+          "median_ratio": 1.0392353568928088,
+          "range": [
+            0.8205128205128206,
+            1.1771958243340532
+          ],
+          "median_percent": 3.923535689280877,
+          "favorable_count": 3,
+          "within_reference_count": 3,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 0.9245693873556469,
+            "YX": 1.1135202919605987
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 1251.1,
+              "denominator": 1191.7,
+              "ratio": 1.0498447595871443
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 1206.4,
+              "denominator": 1470.3,
+              "ratio": 0.8205128205128206
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 1347.5,
+              "denominator": 1310.0,
+              "ratio": 1.0286259541984732
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 1308.1,
+              "denominator": 1111.2,
+              "ratio": 1.1771958243340532
+            }
+          ]
+        }
+      }
+    },
+    "image local": {
+      "primary": true,
+      "different_daemons": {
+        "p95_ms": {
+          "median_ratio": 0.9722889187090393,
+          "range": [
+            0.8604623620596801,
+            1.2925470976322218
+          ],
+          "median_percent": -2.771108129096067,
+          "favorable_count": 6,
+          "within_reference_count": 6,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 0.9167503643311967,
+            "BA": 0.993832650586695
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 128.44320699514356,
+              "denominator": 135.02758699905826,
+              "ratio": 0.9512367794592921
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 121.44091799564194,
+              "denominator": 122.25500700151315,
+              "ratio": 0.9933410579587867
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 117.39029899763409,
+              "denominator": 118.06038100621663,
+              "ratio": 0.9943242432146034
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 110.44067200418795,
+              "denominator": 128.3503809972899,
+              "ratio": 0.8604623620596801
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 158.98431799723767,
+              "denominator": 123.00079299893696,
+              "ratio": 1.2925470976322218
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 122.70142500346992,
+              "denominator": 140.46498900279403,
+              "ratio": 0.8735374264759258
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 117.50565100373933,
+              "denominator": 133.18650400469778,
+              "ratio": 0.8822639492031012
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 128.91748100082623,
+              "denominator": 111.35795400332427,
+              "ratio": 1.1576854312263836
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.8735374264759258,
+            1.1576854312263836
+          ]
+        },
+        "throughput": {
+          "median_ratio": 0.9709518510979305,
+          "range": [
+            0.8446396669654676,
+            1.0957158117709522
+          ],
+          "median_percent": -2.9048148902069526,
+          "favorable_count": 3,
+          "within_reference_count": 6,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 0.9417541006763273,
+            "BA": 1.0426335646323912
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 38.10881324082553,
+              "denominator": 45.11842710127369,
+              "ratio": 0.8446396669654676
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 45.88578176977859,
+              "denominator": 43.39209737059239,
+              "ratio": 1.0574686302413263
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 47.277955089847026,
+              "denominator": 43.14800843608706,
+              "ratio": 1.0957158117709522
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 37.62638325853763,
+              "denominator": 40.44337805722489,
+              "ratio": 0.9303471931869443
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 41.10007079477555,
+              "denominator": 41.56801465429816,
+              "ratio": 0.9887426940301507
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 43.476021066586306,
+              "denominator": 42.300140648088366,
+              "ratio": 1.027798499023456
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 41.864101037732425,
+              "denominator": 43.92133194610727,
+              "ratio": 0.9531610081657103
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 44.48825507772705,
+              "denominator": 46.81704643969477,
+              "ratio": 0.9502576189856947
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.9303471931869443,
+            1.0574686302413263
+          ]
+        }
+      },
+      "same_daemon": {
+        "p95_ms": {
+          "median_ratio": 1.0541193907995274,
+          "range": [
+            0.8851436875178028,
+            1.225893328863305
+          ],
+          "median_percent": 5.411939079952743,
+          "favorable_count": 2,
+          "within_reference_count": 2,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 1.0541193907995274,
+            "YX": 1.0555185081905538
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 129.5497079991037,
+              "denominator": 146.36008800152922,
+              "ratio": 0.8851436875178028
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 152.93521599960513,
+              "denominator": 126.89107800542843,
+              "ratio": 1.2052479843623247
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 115.80275899905246,
+              "denominator": 128.24356499913847,
+              "ratio": 0.90299079723673
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 138.6318559962092,
+              "denominator": 113.08639400522225,
+              "ratio": 1.225893328863305
+            }
+          ]
+        },
+        "throughput": {
+          "median_ratio": 0.9638043515838104,
+          "range": [
+            0.915184938773008,
+            1.161444130262071
+          ],
+          "median_percent": -3.6195648416189607,
+          "favorable_count": 1,
+          "within_reference_count": 2,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 0.9638043515838104,
+            "YX": 1.0383145345175395
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 46.270515836109965,
+              "denominator": 39.83877883619712,
+              "ratio": 1.161444130262071
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 41.11400359337443,
+              "denominator": 43.57577603594814,
+              "ratio": 0.9435059414537367
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 45.11794473646196,
+              "denominator": 45.846781953833656,
+              "ratio": 0.984102761713884
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 41.74687415295949,
+              "denominator": 45.61577926416675,
+              "ratio": 0.915184938773008
+            }
+          ]
+        }
+      }
+    },
+    "image one_remote": {
+      "primary": false,
+      "different_daemons": {
+        "p95_ms": {
+          "median_ratio": 0.9354030544872977,
+          "range": [
+            0.7103978457982255,
+            1.3932870671677247
+          ],
+          "median_percent": -6.459694551270234,
+          "favorable_count": 5,
+          "within_reference_count": 5,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 0.842711277186585,
+            "BA": 1.0213823608899648
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 134.5155809976859,
+              "denominator": 173.67354500311194,
+              "ratio": 0.7745312102385865
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 183.8462849991629,
+              "denominator": 131.95147599617485,
+              "ratio": 1.3932870671677247
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 120.20241500431439,
+              "denominator": 125.22196699865162,
+              "ratio": 0.9599147648400118
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 150.00447599595645,
+              "denominator": 121.86217499402119,
+              "ratio": 1.230935489238691
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 123.96611199801555,
+              "denominator": 174.50237600132823,
+              "ratio": 0.7103978457982255
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 125.69515800714726,
+              "denominator": 116.07809300039662,
+              "ratio": 1.082849956939918
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 114.38270199869294,
+              "denominator": 125.57227899378631,
+              "ratio": 0.9108913441345835
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 121.78710800071713,
+              "denominator": 138.1319140054984,
+              "ratio": 0.8816724858809192
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.7960351658395723,
+            1.230935489238691
+          ]
+        },
+        "throughput": {
+          "median_ratio": 0.9802069218501097,
+          "range": [
+            0.87777393262186,
+            1.1312580028674144
+          ],
+          "median_percent": -1.9793078149890286,
+          "favorable_count": 4,
+          "within_reference_count": 5,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 1.021035175431927,
+            "BA": 0.9767519508203678
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 35.416934356595,
+              "denominator": 37.05245640552895,
+              "ratio": 0.955859281472904
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 34.387487887939265,
+              "denominator": 39.17579072464117,
+              "ratio": 0.87777393262186
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 41.525645574297805,
+              "denominator": 41.33737194147667,
+              "ratio": 1.0045545622273153
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 37.09183335224735,
+              "denominator": 39.21808133297964,
+              "ratio": 0.9457839876795742
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 40.56885506585667,
+              "denominator": 36.7961555471974,
+              "ratio": 1.102529719818695
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 40.82538768348441,
+              "denominator": 43.02167248329616,
+              "ratio": 0.9489493394134203
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 39.03804232348745,
+              "denominator": 35.93964692826828,
+              "ratio": 1.0862110693909497
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 40.95921449209475,
+              "denominator": 36.20678429524909,
+              "ratio": 1.1312580028674144
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.9457839876795742,
+            1.102529719818695
+          ]
+        }
+      },
+      "same_daemon": {
+        "p95_ms": {
+          "median_ratio": 1.099916388613471,
+          "range": [
+            0.8755012075853973,
+            1.2947957466232962
+          ],
+          "median_percent": 9.991638861347107,
+          "favorable_count": 1,
+          "within_reference_count": 2,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 0.9394142042493498,
+            "YX": 1.2456506614684681
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 159.29377199790906,
+              "denominator": 123.02617800014559,
+              "ratio": 1.2947957466232962
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 123.2335270033218,
+              "denominator": 122.82486400363268,
+              "ratio": 1.0033272009133023
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 124.91534700529883,
+              "denominator": 142.67866899899673,
+              "ratio": 0.8755012075853973
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 143.6040070038871,
+              "denominator": 120.0195050041657,
+              "ratio": 1.19650557631364
+            }
+          ]
+        },
+        "throughput": {
+          "median_ratio": 0.947436712997751,
+          "range": [
+            0.8941451301964033,
+            1.0341116185752106
+          ],
+          "median_percent": -5.256328700224899,
+          "favorable_count": 1,
+          "within_reference_count": 2,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 1.0135119513623105,
+            "YX": 0.8980531360212476
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 38.11358549139293,
+              "denominator": 42.25634977287805,
+              "ratio": 0.9019611418460919
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 38.318174083791895,
+              "denominator": 38.59170109534661,
+              "ratio": 0.9929122841494102
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 39.82918232874889,
+              "denominator": 38.51536102420469,
+              "ratio": 1.0341116185752106
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 37.22290184250665,
+              "denominator": 41.62959746180182,
+              "ratio": 0.8941451301964033
+            }
+          ]
+        }
+      }
+    },
+    "image three_remote": {
+      "primary": false,
+      "different_daemons": {
+        "p95_ms": {
+          "median_ratio": 0.9939582334982098,
+          "range": [
+            0.6616947887366836,
+            1.040058398455544
+          ],
+          "median_percent": -0.6041766501790224,
+          "favorable_count": 5,
+          "within_reference_count": 8,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 0.9878587105491347,
+            "BA": 1.0036815204282052
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 140.35795300151221,
+              "denominator": 142.6377890020376,
+              "ratio": 0.9840166058624701
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 149.60891300142976,
+              "denominator": 149.02858199639013,
+              "ratio": 1.0038940919739388
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 128.51389800198376,
+              "denominator": 128.06963099865243,
+              "ratio": 1.0034689488824717
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 128.99662400013767,
+              "denominator": 130.07615000242367,
+              "ratio": 0.9917008152357992
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 125.21625999943353,
+              "denominator": 125.69192200317048,
+              "ratio": 0.9962156517606203
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 127.01599200227065,
+              "denominator": 122.12390399508877,
+              "ratio": 1.040058398455544
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 127.9053809994366,
+              "denominator": 193.2996650066343,
+              "ratio": 0.6616947887366836
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 130.73250899469713,
+              "denominator": 137.03064400033327,
+              "ratio": 0.9540384922541791
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.9540384922541791,
+            1.0038940919739388
+          ]
+        },
+        "throughput": {
+          "median_ratio": 0.9873798010387478,
+          "range": [
+            0.9285747966017017,
+            1.305866117223738
+          ],
+          "median_percent": -1.2620198961252216,
+          "favorable_count": 3,
+          "within_reference_count": 6,
+          "total_pairs": 8,
+          "by_order_medians": {
+            "AB": 1.0142265430272166,
+            "BA": 0.9608409340299151
+          },
+          "pair_observations": [
+            {
+              "pair": 2,
+              "order": "AB",
+              "numerator": 36.27731438439024,
+              "denominator": 36.954226891732056,
+              "ratio": 0.9816824064720654
+            },
+            {
+              "pair": 3,
+              "order": "BA",
+              "numerator": 34.42338397131633,
+              "denominator": 37.07000943720399,
+              "ratio": 0.9286046724544
+            },
+            {
+              "pair": 4,
+              "order": "BA",
+              "numerator": 39.18456706958002,
+              "denominator": 39.457725182875755,
+              "ratio": 0.9930771956054303
+            },
+            {
+              "pair": 6,
+              "order": "AB",
+              "numerator": 37.865616130865526,
+              "denominator": 39.778262374702585,
+              "ratio": 0.9519173003129109
+            },
+            {
+              "pair": 7,
+              "order": "AB",
+              "numerator": 38.900814626781504,
+              "denominator": 37.16269034427086,
+              "ratio": 1.046770679582368
+            },
+            {
+              "pair": 8,
+              "order": "BA",
+              "numerator": 37.75731028786655,
+              "denominator": 40.66157128757608,
+              "ratio": 0.9285747966017017
+            },
+            {
+              "pair": 10,
+              "order": "AB",
+              "numerator": 38.670521707530334,
+              "denominator": 29.612929838277438,
+              "ratio": 1.305866117223738
+            },
+            {
+              "pair": 12,
+              "order": "BA",
+              "numerator": 38.15518218799366,
+              "denominator": 35.73070955797436,
+              "ratio": 1.0678540297691403
+            }
+          ],
+          "paired_percentile_interval95": [
+            0.9286046724544,
+            1.0678540297691403
+          ]
+        }
+      },
+      "same_daemon": {
+        "p95_ms": {
+          "median_ratio": 1.0072706346156308,
+          "range": [
+            0.9029549773167469,
+            1.0474643567166282
+          ],
+          "median_percent": 0.7270634615630822,
+          "favorable_count": 2,
+          "within_reference_count": 4,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 0.9476349501166275,
+            "YX": 1.0348453515156908
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 129.63984299858566,
+              "denominator": 123.76539799879538,
+              "ratio": 1.0474643567166282
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 122.8430949995527,
+              "denominator": 123.79446500563063,
+              "ratio": 0.992314922916508
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 133.16066400147974,
+              "denominator": 147.47209699999075,
+              "ratio": 0.9029549773167469
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 126.20283599972026,
+              "denominator": 123.4587979997741,
+              "ratio": 1.0222263463147534
+            }
+          ]
+        },
+        "throughput": {
+          "median_ratio": 1.011099636904673,
+          "range": [
+            0.9597454445342833,
+            1.0289451683363262
+          ],
+          "median_percent": 1.1099636904672971,
+          "favorable_count": 2,
+          "within_reference_count": 4,
+          "total_pairs": 4,
+          "by_order_medians": {
+            "XY": 1.011447451321355,
+            "YX": 0.9939974920186228
+          },
+          "pair_observations": [
+            {
+              "pair": 1,
+              "order": "YX",
+              "numerator": 38.29644848681607,
+              "denominator": 39.90271452176512,
+              "ratio": 0.9597454445342833
+            },
+            {
+              "pair": 5,
+              "order": "XY",
+              "numerator": 37.3253827614375,
+              "denominator": 37.55258588351512,
+              "ratio": 0.9939497343063836
+            },
+            {
+              "pair": 9,
+              "order": "XY",
+              "numerator": 38.31084502442322,
+              "denominator": 37.23312592678481,
+              "ratio": 1.0289451683363262
+            },
+            {
+              "pair": 11,
+              "order": "YX",
+              "numerator": 39.900099129127625,
+              "denominator": 38.803906635751694,
+              "ratio": 1.0282495395029623
+            }
+          ]
+        }
+      }
+    }
+  },
+  "cpu_delta": {
+    "usage_usec": 774708230,
+    "user_usec": 660558777,
+    "system_usec": 114149453,
+    "nice_usec": 0,
+    "nr_periods": 3150,
+    "nr_throttled": 190,
+    "throttled_usec": 3740739,
+    "nr_bursts": 0,
+    "burst_usec": 0
+  },
+  "cpu_sample_count": 288,
+  "observed_processes_above_0.15_core": {
+    "greeting-driver": {
+      "process_intervals": 32,
+      "max_cores": 0.38
+    },
+    "entangled": {
+      "process_intervals": 527,
+      "max_cores": 2.84
+    },
+    "python": {
+      "process_intervals": 169,
+      "max_cores": 0.58
+    },
+    "dockerd": {
+      "process_intervals": 2,
+      "max_cores": 0.23
+    },
+    "python3": {
+      "process_intervals": 5,
+      "max_cores": 0.24
+    }
+  }
+}

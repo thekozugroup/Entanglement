@@ -1,0 +1,15 @@
+{
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "observed_at_utc": "2026-11-27T10:17:51.594468+00:00",
+  "exit_code": 0,
+  "same_sha256": true,
+  "initial_in_container_sha256": "9a4c23b648ad26f23fa925c5171218094fb6b68247bcfbdc62dc19dca83d592d",
+  "exported_archive_sha256": "9a4c23b648ad26f23fa925c5171218094fb6b68247bcfbdc62dc19dca83d592d",
+  "initial_build_log_sha256": "21395418bc75b4c131500e62a59447baa12c51b5160cedc9818d51250750fcad",
+  "initial_failure_receipt_sha256": "c68e8d496703a832807739f6c3e66540ad2942d290cadfb8f7c50ff5bfb1d613",
+  "replay_archive_receipt_sha256": "2629b159a2e2887c522619d3d2a7c4d5d4507a6dc9c54f73db822456529a8d9e",
+  "scope": "Two cold Cargo builds in the same disconnected builder at the same paths. The first archive existed only in its tmpfs. Its in-container SHA-256 is compared with the actual exported second archive bytes."
+}

@@ -1,0 +1,17 @@
+# Qualification of trusted tailnet route discovery and plugin handle storage
+
+Prepared before integration of the private source changes, on 2026-11-27. The reference for this iteration is release source 296b427a and published evidence 0f675dd. Retain the dated protocol and results from the independent reviewers for route recovery, host storage, scorer and paired performance. The frozen 57 checks and the strict greater-than-95% threshold still apply to each metric. Publish missing checks as unverified, and keep a failed timed run alongside any isolated diagnosis.
+
+## Reproducible build and correctness
+
+Record the integrated source commit, source digest before and after each run, exact optimized archive and ELF hashes. Independently verify the two binaries in that archive. Run formatting, strict Clippy, Rust documentation, Python tools, 16 locked dependency graphs, three default-parallel complete Rust workspace runs and the isolated agent session cases. Run the Linux CLI catalog in both ordinary and zero-plugin-coordinator placements, shell wrappers, live trust checks, capacity/restore controls and the signed publisher-incident exercise. Grade each 57-check observation using independently inspected same-source evidence only. Historical Python score ledgers must still score numerically the same in historical mode. All declared execution receipts must match both source stamps, log, SHA-256 and exit and must have ordered UTC times. Inspect ledger compatibility with and without optional receipts.
+
+## Transport and pinned plugins
+
+The route-change reviewer has six separately defined controls, including no work replay, current trust, enabled/disabled policy, healthy routes, singleflight/cancellation, stale snapshot publication and timeout. Repeat the two sampled-offline private Tailscale trials under the previously published successor protocol. Keep both trials irrespective of whether they achieve the intended phase, disclose misses, distinguish local missing-route responses from authenticated refusals and preserve the explicit revocation control. Where available compare matched controls, with real local Tailscale, the signed plugin nonce and single worker execution. The two measured positive recovery times are separate from physical-host qualification.
+
+Measure the compiler-derived ordinary plugin handle layout using the final optimized daemon and its matching Cargo fingerprint chain. Validate normal signed WIT work, clone lifetime, matched vs stale pin, unload/reload/drain, old-coordinator and worker behavior with the real CLI and two actual workers; review for changes to trusted identity verification. Run the libtest selection/pin/terminal and JUnit tooling tests. The separate preregistered 24-arm measurement isolates only the compact-handle change. Report its ratios and same-binary controls with its exact source and binaries. Do not attribute the private A/B experiment to the integrated release or treat an engineering baseline as operator approval. The final integrated release must also run an ordinary workload comparison.
+
+## Platform coverage
+
+This execution has one physical Linux host. Interoperation with a second local daemon or a foreign architecture under emulation does not independently substantiate a second physical workstation. Preserve earlier verified physical/organizational exclusions if the required devices, release signers, governance maintainers or services remain unavailable. No GitHub Actions. Per the owner's authorization only a separately named review branch may be updated.

@@ -1,0 +1,7 @@
+# LoadedPlugin layout in the integrated Linux archive
+
+The optimized x86-64 daemon for a5728c230e5049556b806cae8597fe823dd67987 uses a 136-byte LoadedPlugin handle. The probe verified the archive SHA-256 and its entangled member, matched the ELF to the Cargo binary, followed its dependency fingerprints through entangle_runtime to entangle_host, and obtained the 136-byte LLVM constant from that exact host metadata. The before and after source IDs both equal sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5. [Integrated layout receipt](integrated-release-layout.json) · [Canonical archive manifest](../linux-archive.json)
+
+The separate private 4dd03c64 experiment changed the loaded handle from 208 to 136 bytes on the same target. Its timing report covers the isolated change on a shared Linux VM. The local-image and four-client remote-greeting latency and throughput intervals all include equal performance. The earlier c19ef758 handle was 144 bytes. [Private experiment, methods and bounds](isolated-4dd03c64/README.md) · [Historical release graph and sizes](isolated-4dd03c64/release-layout.json)
+
+The offline verifier in the private evidence directory checks all 24 arms, 98,304 greetings, 5,184 images and the reported paired medians. The integrated proof can be repeated with verify-final-layout.py against the exact archived release and its local Cargo target directory. [Probe source](isolated-4dd03c64/verify-final-layout.py)

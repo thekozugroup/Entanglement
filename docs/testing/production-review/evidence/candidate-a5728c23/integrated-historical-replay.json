@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-a5728c23/score-tool/replay.py"
+  ],
+  "started_utc": "2026-11-27T09:20:11.028209+00:00",
+  "finished_utc": "2026-11-27T09:20:12.636325+00:00",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/integrated-historical-replay.log",
+  "sha256": "e09686998c51263710600bf919714ff5f23d8d664c3eb171586d45335d694be6"
+}

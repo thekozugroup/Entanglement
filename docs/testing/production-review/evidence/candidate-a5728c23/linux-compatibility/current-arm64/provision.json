@@ -1,0 +1,14 @@
+{
+  "rootless": true,
+  "privileged": false,
+  "networks_after_provision": {},
+  "tmpfs": {
+    "/private": "rw,nosuid,nodev,exec,size=6g,mode=1777"
+  },
+  "before_build_disk_available": 945750016,
+  "binfmt_registered": false,
+  "root_image": "sha256:1f6ce03d549c243be74e10c61378f8b9c134cf9463f58f45c3aab4ce016e5769",
+  "cargo_network": "off",
+  "offline_routes": "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT",
+  "package_log_sha256": "9ef279529a464872e1ce3b9908ee9ea77be41c41aa2af838c5165b2a8f60c100"
+}

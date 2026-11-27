@@ -1,0 +1,26 @@
+{
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "exit_code": 0,
+  "started_utc": "2026-11-27T09:22:58.301214+00:00",
+  "finished_utc": "2026-11-27T09:23:00.894879+00:00",
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/jammy-native-preflight.log",
+  "sha256": "eb786118eb4fdc7a0adc8608962e8e59a9282016f82fe6677f3fc67fe8b4ee24",
+  "command": [
+    "docker",
+    "exec",
+    "-i",
+    "--user",
+    "65534:65534",
+    "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001",
+    "/usr/bin/timeout",
+    "--kill-after=3s",
+    "20s",
+    "/bin/sh",
+    "-s"
+  ],
+  "script_sha256": "2f2d7375ab937c8ce005416acb1b80bb3c1b534840627b267b20ced339faae46",
+  "locked_native_tmpfs_probe": true
+}

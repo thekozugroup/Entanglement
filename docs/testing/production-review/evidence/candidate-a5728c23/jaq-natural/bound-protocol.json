@@ -1,0 +1,14 @@
+{
+  "started_utc": "2026-11-27T09:29:21.803164+00:00",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "release_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "elf_sha256": {
+    "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+    "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+  },
+  "preregistration_sha256": "a25064f7571ddd6b48d94feb42eee7481a1b8b3afe40844cd04e0fef2ef93b4f",
+  "jaq_original_protocol_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "candidate_sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "driver_sha256": "598424fa2296243b589d2d15d5e5fff990171709cf6b4bdd14e5189eabdea463"
+}

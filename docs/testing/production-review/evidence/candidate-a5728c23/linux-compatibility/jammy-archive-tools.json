@@ -1,0 +1,96 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:22:07.097175+00:00",
+  "finished_utc": "2026-11-27T09:22:24.592860+00:00",
+  "exit_code": 0,
+  "container": "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001",
+  "python": "Python 3.10.12",
+  "system_packages_sha256": "644c9dbda9ff62ca3d6bec6c59f6441cb17c0724d7a3697834fb134a19467ea7",
+  "provision_receipt_sha256": "1f1f56c7fa44d0c7a1ace3431be225f1ac4eb51d531432c2f5ff10a2c414f38f",
+  "commands": [
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ],
+    [
+      "docker",
+      "inspect",
+      "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001",
+      "--format",
+      "{{json .NetworkSettings.Networks}}"
+    ],
+    [
+      "docker",
+      "network",
+      "connect",
+      "bridge",
+      "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001"
+    ],
+    [
+      "docker",
+      "exec",
+      "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001",
+      "sh",
+      "-ec",
+      "apt-get -o Acquire::Retries=1 update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 && apt-get clean"
+    ],
+    [
+      "docker",
+      "network",
+      "disconnect",
+      "bridge",
+      "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001"
+    ],
+    [
+      "docker",
+      "inspect",
+      "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001",
+      "--format",
+      "{{json .NetworkSettings.Networks}}"
+    ],
+    [
+      "docker",
+      "exec",
+      "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001",
+      "sh",
+      "-ec",
+      "test \"$(wc -l </proc/net/route)\" -eq 1 && test -z \"$(ls -A /build-target)\""
+    ],
+    [
+      "docker",
+      "exec",
+      "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001",
+      "python3",
+      "--version"
+    ],
+    [
+      "docker",
+      "exec",
+      "f6f8ebf10c55787f4a117d4e3207a34af5509d2e971836ce58ba6ca37a8ab001",
+      "dpkg-query",
+      "-W",
+      "-f=${binary:Package} ${Version}\\n"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ]
+  ],
+  "log_sha256": "f2ebba2a600fb25021f88b70ba6c0a1424b694ed8d398cbc44048e2e0cb90f82",
+  "runner_sha256": "3f0f0b85913923db6357674f2083ec4e14222d7fb4d265dfd9245e2f85896ec2"
+}

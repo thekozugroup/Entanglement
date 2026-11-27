@@ -1,0 +1,137 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T10:17:42.846863+00:00",
+  "historical_reference": "candidate-c19ef758/transactional-installer/curl-fixture.sh is the offline adapter design; measurements here are fresh for a5728c23",
+  "exit_code": 0,
+  "archives": {
+    "canonical": {
+      "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+      "blake3": "192d8167e9727f1fee3470c72e251f15b02970c49d36544b9f3f2099db0689e2",
+      "files_sha256": {
+        "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+        "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+      },
+      "receipt_sha256": "801e12b701462a7259650e18555fc111a260d60a0599e3964be0e8ce3d1f478e",
+      "sidecars_sha256": {
+        ".sha256": "50849c9352f21e6672c6672720abe15744ae29b1448d45fe9d09ba0c34e85e22",
+        ".b3": "ec8deaf1935640b58085ddf84fa69119a2e5fb5c780f38efc828f8efdc21a8cf"
+      }
+    },
+    "jammy": {
+      "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "9a4c23b648ad26f23fa925c5171218094fb6b68247bcfbdc62dc19dca83d592d",
+      "blake3": "27d09797e88a6041ce14ad17cc2f39d688c030a518a767d81167bc3988ec934c",
+      "files_sha256": {
+        "entangle": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+        "entangled": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5"
+      },
+      "receipt_sha256": "2629b159a2e2887c522619d3d2a7c4d5d4507a6dc9c54f73db822456529a8d9e",
+      "sidecars_sha256": {
+        ".sha256": "92a4de04c36cfd5864e6dfe5e320452da46c72455da98064c2af074d5de851e6",
+        ".b3": "469a23d5b34c11a55fdafe63f631419c7ffa8027f40d2126d8c9d379a8113651"
+      }
+    }
+  },
+  "mode": "update",
+  "images": {
+    "22.04": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+    "24.04": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b"
+  },
+  "cases": {
+    "22.04": {
+      "container_exit": 0,
+      "observations": {
+        "distro": "22.04",
+        "libc": "glibc 2.35",
+        "uid": "65534",
+        "posix_shell": "/usr/bin/dash",
+        "portable.install_exit": "0",
+        "portable.request_count": "2",
+        "portable.entangle_sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+        "portable.entangled_sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+        "portable.entangle_version": "entangle 0.1.0",
+        "portable.entangled_version": "entangled 0.1.0",
+        "portable.peer": "3e76765d06f9a8f2390e06ddf3f0d574",
+        "portable.plugin_id": "3e76765d06f9a8f2390e06ddf3f0d574/json-pointer@0.1.0",
+        "portable.signature_sha256": "5f11a75122200eea705672679fd13f6a5e93fc8b12a8b215cbb71b1e0c991a4e",
+        "portable.expected_output": "\"ubuntu-22.04-portable\"",
+        "portable.actual_output": "\"ubuntu-22.04-portable\"",
+        "portable.daemon_exit": "0",
+        "canonical_update.install_exit": "1",
+        "canonical_update.request_count": "2",
+        "canonical_update.rejection": "staged entangle version check: GLIBC_2.39 unavailable",
+        "after_rejection.entangle_sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+        "after_rejection.entangled_sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+        "after_rejection.entangle_version": "entangle 0.1.0",
+        "after_rejection.entangled_version": "entangled 0.1.0",
+        "after_rejection.peer": "3e76765d06f9a8f2390e06ddf3f0d574",
+        "after_rejection.plugin_id": "3e76765d06f9a8f2390e06ddf3f0d574/json-pointer@0.1.0",
+        "after_rejection.signature_sha256": "5f11a75122200eea705672679fd13f6a5e93fc8b12a8b215cbb71b1e0c991a4e",
+        "after_rejection.expected_output": "\"ubuntu-22.04-after_rejection\"",
+        "after_rejection.actual_output": "\"ubuntu-22.04-after_rejection\"",
+        "after_rejection.daemon_exit": "0"
+      }
+    },
+    "24.04": {
+      "container_exit": 0,
+      "observations": {
+        "distro": "24.04",
+        "libc": "glibc 2.39",
+        "uid": "65534",
+        "posix_shell": "/usr/bin/dash",
+        "portable.install_exit": "0",
+        "portable.request_count": "2",
+        "portable.entangle_sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+        "portable.entangled_sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+        "portable.entangle_version": "entangle 0.1.0",
+        "portable.entangled_version": "entangled 0.1.0",
+        "portable.peer": "6496d3ce6eefae298c5c1d22a3c4f0c2",
+        "portable.plugin_id": "6496d3ce6eefae298c5c1d22a3c4f0c2/json-pointer@0.1.0",
+        "portable.signature_sha256": "3b4b8c2a3446cf4caf65f2569914359bce9cad75a598b28da1d3727eafc46333",
+        "portable.expected_output": "\"ubuntu-24.04-portable\"",
+        "portable.actual_output": "\"ubuntu-24.04-portable\"",
+        "portable.daemon_exit": "0",
+        "canonical_update.install_exit": "0",
+        "canonical_update.request_count": "2",
+        "after_upgrade.entangle_sha256": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+        "after_upgrade.entangled_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+        "after_upgrade.entangle_version": "entangle 0.1.0",
+        "after_upgrade.entangled_version": "entangled 0.1.0",
+        "after_upgrade.peer": "6496d3ce6eefae298c5c1d22a3c4f0c2",
+        "after_upgrade.plugin_id": "6496d3ce6eefae298c5c1d22a3c4f0c2/json-pointer@0.1.0",
+        "after_upgrade.signature_sha256": "3b4b8c2a3446cf4caf65f2569914359bce9cad75a598b28da1d3727eafc46333",
+        "after_upgrade.expected_output": "\"ubuntu-24.04-after_upgrade\"",
+        "after_upgrade.actual_output": "\"ubuntu-24.04-after_upgrade\"",
+        "after_upgrade.daemon_exit": "0"
+      }
+    }
+  },
+  "installer_sha256": "193f44c3551c25864ba8641dd714079805b69db24a7bbf9dfa1e304d62335ab0",
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "wasm_manifest_sha256": "7675f1e036b27128efe45ee79779674568c3f944528966bf4857f7ae54627aed",
+  "curl_adapter_sha256": "6f8c48d4f4183076ec41e7cf42b554130943573403e8449b6b1a6ae1abbe2fd7",
+  "container_driver_sha256": "5a70aaa2c16d9dfd5333b20ed56a7d070b5e1260eb7a5bdff46bbc44590c69d6",
+  "host_driver_sha256": "d55ac6264a7d9a1295544765c303de496b2497318ef0f9b81f21b08362d803c9",
+  "container_flags": [
+    "--rm",
+    "--pull=never",
+    "--read-only",
+    "--network",
+    "none",
+    "--cap-drop=ALL",
+    "--security-opt",
+    "no-new-privileges",
+    "--user",
+    "65534:65534",
+    "--platform",
+    "linux/amd64",
+    "--tmpfs",
+    "/tmp:rw,nosuid,nodev,noexec,mode=1777",
+    "--tmpfs",
+    "/work:rw,nosuid,nodev,exec,mode=1777"
+  ],
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "finished_utc": "2026-11-27T10:17:59.008591+00:00"
+}

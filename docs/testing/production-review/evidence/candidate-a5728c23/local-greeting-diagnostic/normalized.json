@@ -1,0 +1,34 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T10:19:46.027614+00:00",
+  "finished_utc": "2026-11-27T10:20:04.899467+00:00",
+  "daemon_sha256": {
+    "baseline": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+    "candidate": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+  },
+  "client_elf_sha256": "4bb318daa7551531ac7fa5314ac33225349c3782e4e870fc68917e8d2fc8933f",
+  "fixture_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+  "registered_plan_sha256": "c5fded9c8292fa9eeb95aefc917929b1087df74a957c736cb03c951563197798",
+  "schedule_sha256": "b683e12690173f6eaf1b45b7c3033e7dfc7eb719c9ead190d250cb746293c1eb",
+  "samples_sha256": "a35d2666ee52874f80da91cec381c00294636be879e2338c52ec9830ca6df9a3",
+  "elapsed_s": 18.41119758899731,
+  "command": [
+    "/bin/sh",
+    "-c",
+    "python3 run.py && python3 analyze.py"
+  ],
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/local-greeting-diagnostic/summary.json",
+  "sha256": "e01efc0c0bd3598754b9bc41e1b8eb18cf5b6dffccda03956a43d446de56060a",
+  "summary_sha256": "e01efc0c0bd3598754b9bc41e1b8eb18cf5b6dffccda03956a43d446de56060a",
+  "verified_timed_calls": 65536,
+  "verified_warmup_calls": 8192,
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "primary_grade": "unchanged 5/7",
+  "persistent_adverse_p95_by_preregistered_rule": {
+    "1": false,
+    "4": false
+  },
+  "interpretation_sha256": "bc47386ed00eb2d53a38803e342bc3305541ec54067c5546af2d0b95019beb95"
+}

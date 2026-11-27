@@ -1,0 +1,10 @@
+docker exec -e HOME=/work/x86 -e ENTANGLE_ALLOW_LOCAL=0 -e TOKIO_WORKER_THREADS=2 -e RAYON_NUM_THREADS=2 84d38830dd634e4c69e1f6d6ff0f0250d458baca64dc1ba6fbff1c392fd9b575 /bin/sh -ec 'printf "%s\n" "$$" > "$HOME/daemon.pid"; exec "$@"' start /fixture/x86/entangled run
+{"timestamp":"2026-11-27T09:24:54.361431Z","level":"INFO","fields":{"message":"entangled starting","version":"0.1.0","socket":"/work/x86/.entangle/sock","pid":219},"target":"entangled"}
+{"timestamp":"2026-11-27T09:24:54.361511Z","level":"INFO","fields":{"message":"RPC server listening","socket_path":"/work/x86/.entangle/sock"},"target":"entangle_bin::server"}
+{"timestamp":"2026-11-27T09:24:54.375138Z","level":"INFO","fields":{"message":"mesh.iroh scheduler transport listening","peer_id":"ee3b6758a722024f1f19a2422e6cdc42","addrs":"[127.0.0.1:28443]","relay":false},"target":"entangle_bin::remote"}
+{"timestamp":"2026-11-27T09:24:54.375220Z","level":"INFO","fields":{"message":"daemon identity ready","local_peer_id":"ee3b6758a722024f1f19a2422e6cdc42"},"target":"entangled"}
+{"timestamp":"2026-11-27T09:24:54.376376Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/work/x86/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T09:24:59.054756Z","level":"INFO","fields":{"message":"received SIGTERM"},"target":"entangled"}
+{"timestamp":"2026-11-27T09:24:59.055025Z","level":"INFO","fields":{"message":"shutting down entangled"},"target":"entangled"}
+{"timestamp":"2026-11-27T09:24:59.055072Z","level":"INFO","fields":{"message":"maintenance loop shut down cleanly"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T09:24:59.055458Z","level":"INFO","fields":{"message":"entangled stopped"},"target":"entangled"}

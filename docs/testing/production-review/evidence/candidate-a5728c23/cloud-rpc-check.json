@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "entangle-bin",
+    "--test",
+    "rpc"
+  ],
+  "started_utc": "2026-11-27T09:40:00.441077+00:00",
+  "finished_utc": "2026-11-27T09:40:05.627428+00:00",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/cloud-rpc-check.log",
+  "sha256": "db3237fb8daca778c7eb553b4fea566eb55102656fa78b24797280d39df0b53c"
+}

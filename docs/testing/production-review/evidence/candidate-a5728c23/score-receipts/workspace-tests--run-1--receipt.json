@@ -1,0 +1,18 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:14:06+00:00",
+  "finished_utc": "2026-11-27T09:17:43+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/test.log",
+  "sha256": "66aa8396612cdcf0781950186bea013f96a14f49cc509b54df4d812b911911fc",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ],
+  "source_receipt": "docs/testing/production-review/evidence/candidate-a5728c23/workspace-tests/run-1/receipt.json",
+  "source_receipt_sha256": "576d8ec472aba343c56dc1ce41f3861e777c58829531e87d701e3376acc8f43e"
+}

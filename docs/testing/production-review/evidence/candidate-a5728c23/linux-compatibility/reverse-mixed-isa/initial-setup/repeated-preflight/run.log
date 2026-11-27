@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/reverse-mixed-isa/run.py", line 318, in <module>
+    main(ap.parse_args())
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/reverse-mixed-isa/run.py", line 140, in main
+    prior=json.loads(prior_receipt.read_text())["emulation"]
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/workspace/Entanglement/docs/testing/production-review/evidence/candidate-296b427a/mixed-release-arm64/reverse-mixed-isa.json'

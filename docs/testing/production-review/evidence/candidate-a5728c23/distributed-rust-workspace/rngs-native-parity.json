@@ -1,0 +1,272 @@
+{
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "upstream_commit": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+  "lock_sha256": "3192202a77857b38733c7594a9a67a8d2970d51c6176487b48c83578c58ea888",
+  "known_workspace_members": [
+    "rand_chacha",
+    "rand_hc",
+    "rand_isaac",
+    "rand_jitter",
+    "rand_mwcx",
+    "rand_pcg",
+    "rand_sfc",
+    "rand_xorshift",
+    "rand_xoshiro"
+  ],
+  "native_counts": {
+    "ordinary": {
+      "passed": 198
+    },
+    "rustdoc": {
+      "ignored": 2,
+      "passed": 24
+    }
+  },
+  "remote_counts": {
+    "ordinary": {
+      "passed": 198
+    },
+    "rustdoc": {
+      "passed": 24,
+      "ignored": 2
+    }
+  },
+  "named_inventory_identical": true,
+  "all_dispositions_identical": true,
+  "differences": [],
+  "rustdoc_evidence_errors": [],
+  "cargo_exit": 0,
+  "worker_attempts": {
+    "31a2cb789a43d7dca768b154835a3bd9": 131,
+    "f5ade84f173d24f2f8929b1d8679879d": 91
+  },
+  "native_log_sha256": "eaef254038febab424de1a587c20bc222a4677794c95f81048cf2fedcba145fb",
+  "distributed_report_sha256": "b0ff7527bd1497a6e0fa9c27d8da4bcc7e6f0fce2e9518d95477d0dd741bfcc5",
+  "sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "driver_sha256": "b92a939512e9cc38e2413357fbbc72a389faca59b4898c44d8abba0c0c29b79f",
+  "rustdoc_observer_sha256": "3f6e3c6cae8314aea78305e32175419c3b36a014d3fee85dfc57dbb5623ef2b7",
+  "ordinary_components": [
+    "128ea19a6be29c1bb88ac90f8f292c8dbe1cbcaeb3ad1b726259c8955a3538f4",
+    "1fe10ae04b1059e5a4ce789c454de63b803f9e3dc56429db51e67611237e1cbc",
+    "2437c492fb405afd84db238f2fa52e769c35054aeee70b63a1be205332125fa0",
+    "24fe100a933021c11eb6f2abf751896acb18dd4a9e5d9264e5f15cc626f5f389",
+    "29b3dde09b5c6f32ad35256651a24c3999561757f732b12d710558e82b9c7f22",
+    "3bb015996df7a0907c3128b422094a21f48761c271220c54f41d0c30c9374d28",
+    "4a053eb3e83fcbba028cd5a67fcb4183a460e4b638911404fd0307f9b2a17357",
+    "5f6fb7a2c44fdf4aa7e289efad4cb08b3890091d3e671284d9781e235cf340b9",
+    "81bf39493345f699ee8780c3563199edb3d1332b47518597a0e8dd78e368c087",
+    "8e318003776dd9651f71e5372469f65652d297d7dfe93356ea8352e1b1b1b0b8",
+    "9ff2a611dfcb487496b827cf77601bf8e6903add01dc3aea6de99729db7c236a",
+    "a019ca5256e15035c2105423da4e9f33d91629fcf94afeed2f374a8b3c784e29",
+    "d82399e19084ea22329003e8713c20a86af4eb7c7c4d3389da32804786d71fa9",
+    "efb783190ee87eff223e1118afec0423f9d2d2242f06711a2a302b0c3b10d125",
+    "f1c117dfe654741d80661573f42c8e9aa60e7f82a4306ebf7d15dae606b8fff1",
+    "f65b82393c106101a4660afdbba6e5664aeead972e5f21305a72a785adbdb349",
+    "f7607972937438c84bc7203e1707416a46b29f5ab49dbc7c5f547ae16d40b3d2"
+  ],
+  "standalone_doc_components": {},
+  "cluster_setup_s": 12.180020480998792,
+  "cargo_elapsed_s": 20.92951031999837,
+  "target_durations": [
+    {
+      "package": "rand_xorshift",
+      "target": "rand_xorshift",
+      "kind": "lib",
+      "seconds": 0.04877512500388548
+    },
+    {
+      "package": "rand_xoshiro",
+      "target": "serde",
+      "kind": "test",
+      "seconds": 0.021260790999804158
+    },
+    {
+      "package": "rand_mwcx",
+      "target": "rand_mwcx",
+      "kind": "lib",
+      "seconds": 0.42740323999896646
+    },
+    {
+      "package": "rand_sfc",
+      "target": "rand_sfc",
+      "kind": "lib",
+      "seconds": 0.16117536700039636
+    },
+    {
+      "package": "rand_jitter",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 1.531898628003546
+    },
+    {
+      "package": "rand_xorshift",
+      "target": "mod",
+      "kind": "test",
+      "seconds": 0.04972910299693467
+    },
+    {
+      "package": "rand_pcg",
+      "target": "mcg128xsl64",
+      "kind": "test",
+      "seconds": 0.02625993100082269
+    },
+    {
+      "package": "rand_mwcx",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 0.7334128879956552
+    },
+    {
+      "package": "rand_mwcx",
+      "target": "serde",
+      "kind": "test",
+      "seconds": 0.02317272099753609
+    },
+    {
+      "package": "rand_pcg",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 1.2824765269979252
+    },
+    {
+      "package": "rand_jitter",
+      "target": "rand_jitter",
+      "kind": "lib",
+      "seconds": 0.03864029200485675
+    },
+    {
+      "package": "rand_pcg",
+      "target": "rand_pcg",
+      "kind": "lib",
+      "seconds": 0.04560911300359294
+    },
+    {
+      "package": "rand_pcg",
+      "target": "lcg128cmdxsm64",
+      "kind": "test",
+      "seconds": 0.03924114699475467
+    },
+    {
+      "package": "rand_chacha",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 1.92475271600415
+    },
+    {
+      "package": "rand_pcg",
+      "target": "lcg128xsl64",
+      "kind": "test",
+      "seconds": 0.027326907998940442
+    },
+    {
+      "package": "rand_jitter",
+      "target": "mod",
+      "kind": "test",
+      "seconds": 0.026553745999990497
+    },
+    {
+      "package": "rand_xoshiro",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 1.7930839550026576
+    },
+    {
+      "package": "rand_chacha",
+      "target": "rand_chacha",
+      "kind": "lib",
+      "seconds": 0.06455426800675923
+    },
+    {
+      "package": "rand_hc",
+      "target": "rand_hc",
+      "kind": "lib",
+      "seconds": 0.0303539649976301
+    },
+    {
+      "package": "rand_isaac",
+      "target": "rand_isaac",
+      "kind": "lib",
+      "seconds": 0.05189888699533185
+    },
+    {
+      "package": "rand_pcg",
+      "target": "lcg64xsh32",
+      "kind": "test",
+      "seconds": 0.032201900001382455
+    },
+    {
+      "package": "rand_xorshift",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 1.1131736530005583
+    },
+    {
+      "package": "rand_xoshiro",
+      "target": "rand_xoshiro",
+      "kind": "lib",
+      "seconds": 1.6585239390042261
+    },
+    {
+      "package": "rand_sfc",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 0.09913661499740556
+    },
+    {
+      "package": "rand_jitter",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 2.1769227420008974
+    },
+    {
+      "package": "rand_isaac",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 0.22799520300031872
+    },
+    {
+      "package": "rand_pcg",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 1.9902562179995584
+    },
+    {
+      "package": "rand_xoshiro",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 3.0980575400026282
+    },
+    {
+      "package": "rand_mwcx",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 1.8303490089965635
+    },
+    {
+      "package": "rand_xorshift",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 2.5817646790019353
+    },
+    {
+      "package": "rand_chacha",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 3.0716724379963125
+    },
+    {
+      "package": "rand_hc",
+      "target": "doctest",
+      "kind": "rustdoc",
+      "seconds": 0.08207521899748826
+    }
+  ],
+  "standalone_ready_and_dispatch_s": {
+    "count": 0,
+    "sum": 0,
+    "median": null,
+    "max": null
+  },
+  "ordinary_worker_execution_note": "Target-specific ignores have no successful guest execution."
+}

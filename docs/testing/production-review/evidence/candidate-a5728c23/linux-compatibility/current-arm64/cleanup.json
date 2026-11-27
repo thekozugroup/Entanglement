@@ -1,0 +1,8 @@
+{
+  "temporary_cross_std_and_duplicate_binaries_removed": true,
+  "durable_archive": "/workspace/Entanglement/target/release-candidate/a5728c230e50-aarch64/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz",
+  "builder_removed": true,
+  "tmpfs_target_released": true,
+  "host_binfmt_modified": false,
+  "builder_networks_before_removal": {}
+}

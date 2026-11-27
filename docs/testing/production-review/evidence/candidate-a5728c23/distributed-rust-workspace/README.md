@@ -1,0 +1,5 @@
+# Complete nine-crate upstream Rust workspace
+
+On frozen a5728c23, native Cargo and two authenticated WASI workers matched all 224 named cases in the unchanged rust-random/rngs workspace. The 198 ordinary tests and 24 doctests passed and two doctests were ignored. Workers handled [91, 131] named cases. Hot-loaded signed ordinary suites took the public sharder negotiation path and pinned the artifact and manifest hashes. Merged Rustdoc 2024 commands were dispatched directly to their authenticated worker with locally verified signed hashes. [Native comparison](rngs-native-parity.json) · [Release and command receipt](rngs-receipt.json) · [Complete replies](rngs-distributed.json.gz)
+
+A separate unmodified 17-suite sharder CLI invocation on the same warm workers succeeded on all 198 ordinary cases. The released-source JUnit converter preserved all suite names, case names, statuses and complete attempt histories, including real peer identity. [JUnit XML](multi-suite.xml.gz) · [Input JSON](multi-suite.json.gz) · [Separate invocation and digests](multi-suite-receipt.json)

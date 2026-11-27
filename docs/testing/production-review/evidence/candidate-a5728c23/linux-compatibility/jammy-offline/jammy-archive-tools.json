@@ -1,0 +1,67 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:45:42.553473+00:00",
+  "finished_utc": "2026-11-27T09:45:42.916160+00:00",
+  "exit_code": 0,
+  "container": "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+  "python": "Python 3.10.12",
+  "system_packages_sha256": "644c9dbda9ff62ca3d6bec6c59f6441cb17c0724d7a3697834fb134a19467ea7",
+  "provision_receipt_sha256": "19a4f7cd81f6bd12bc50ee2a997dcf7dff47447a12c487d582d62452f22f06a4",
+  "commands": [
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ],
+    [
+      "docker",
+      "inspect",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "--format",
+      "{{json .NetworkSettings.Networks}}"
+    ],
+    [
+      "docker",
+      "exec",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "sh",
+      "-ec",
+      "test \"$(wc -l </proc/net/route)\" -eq 1 && test -z \"$(ls -A /build-target)\""
+    ],
+    [
+      "docker",
+      "exec",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "python3",
+      "--version"
+    ],
+    [
+      "docker",
+      "exec",
+      "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+      "dpkg-query",
+      "-W",
+      "-f=${binary:Package} ${Version}\\n"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ]
+  ],
+  "log_sha256": "9eed12c3f379f2c6431223dab4d51a7cbb9afd2c4004d1fb70059a92e987051b",
+  "runner_sha256": "293276adc7cdb40bf2e7b7e7831421475644a7a6329552671c7f17ad65d937e8"
+}

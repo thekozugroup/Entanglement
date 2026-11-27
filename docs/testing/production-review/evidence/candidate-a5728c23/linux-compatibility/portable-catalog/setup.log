@@ -1,0 +1,6 @@
+["git", "clone", "--shared", "--no-checkout", "--no-tags", "/workspace/Entanglement", "/workspace/entangle-pcatalog-zc4q3yah/source"]
+Cloning into '/workspace/entangle-pcatalog-zc4q3yah/source'...
+done.
+["git", "sparse-checkout", "set", "--no-cone", "/*", "!/docs/testing/production-review/evidence/", "!/docs/testing/production-review/runs/"]
+["git", "checkout", "--detach", "a5728c230e5049556b806cae8597fe823dd67987"]
+HEAD is now at a5728c2 Refresh missing routes for paired Tailscale workers [skip ci]

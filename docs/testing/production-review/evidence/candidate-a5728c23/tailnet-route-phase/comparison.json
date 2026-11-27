@@ -1,0 +1,369 @@
+{
+  "source_before": {
+    "head": "a5728c230e5049556b806cae8597fe823dd67987",
+    "source": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5"
+  },
+  "source_after": {
+    "head": "a5728c230e5049556b806cae8597fe823dd67987",
+    "source": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5"
+  },
+  "new_archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "baseline_six_arm_manifest": "docs/testing/production-review/evidence/candidate-296b427a/tailnet-route-phase/manifest.json",
+  "baseline_six_arm_manifest_sha256": "d09d4f7722bdd22cdab377ffd1b80522e65a835cef906df5708664d5d4b75a24",
+  "stock_arms": {
+    "A1": {
+      "phase_after_coordinator_healthy_snapshot_s": 1,
+      "stopped_s": 14.0,
+      "route_failures": 0,
+      "overlay_to_success_s": 10.168,
+      "worker_first_sampled_rebound_s": 7.508,
+      "supervisor_read_online": [
+        [
+          -16.349,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -17.04,
+          true
+        ],
+        [
+          -4.1,
+          false
+        ],
+        [
+          -0.023,
+          true
+        ]
+      ]
+    },
+    "B1": {
+      "phase_after_coordinator_healthy_snapshot_s": 21,
+      "stopped_s": 14.001,
+      "route_failures": 0,
+      "overlay_to_success_s": 1.112,
+      "worker_first_sampled_rebound_s": 0.52,
+      "supervisor_read_online": [
+        [
+          -36.603,
+          true,
+          "entangled"
+        ],
+        [
+          -6.422,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -37.47,
+          true
+        ],
+        [
+          -4.177,
+          false
+        ],
+        [
+          -0.065,
+          true
+        ]
+      ]
+    },
+    "B2": {
+      "phase_after_coordinator_healthy_snapshot_s": 21,
+      "stopped_s": 14.001,
+      "route_failures": 0,
+      "overlay_to_success_s": 3.131,
+      "worker_first_sampled_rebound_s": 2.343,
+      "supervisor_read_online": [
+        [
+          -36.6,
+          true,
+          "entangled"
+        ],
+        [
+          -6.387,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -36.954,
+          true
+        ],
+        [
+          -4.542,
+          false
+        ],
+        [
+          0.359,
+          true
+        ]
+      ]
+    },
+    "A2": {
+      "phase_after_coordinator_healthy_snapshot_s": 1,
+      "stopped_s": 14.0,
+      "route_failures": 0,
+      "overlay_to_success_s": 3.163,
+      "worker_first_sampled_rebound_s": 2.35,
+      "supervisor_read_online": [
+        [
+          -16.381,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -17.101,
+          true
+        ],
+        [
+          -4.089,
+          false
+        ],
+        [
+          0.765,
+          true
+        ]
+      ]
+    },
+    "C1": {
+      "phase_after_coordinator_healthy_snapshot_s": 17,
+      "stopped_s": 14.0,
+      "route_failures": 84,
+      "overlay_to_success_s": 28.244,
+      "worker_first_sampled_rebound_s": 2.322,
+      "supervisor_read_online": [
+        [
+          -32.408,
+          true,
+          "entangled"
+        ],
+        [
+          -2.256,
+          false,
+          "entangled"
+        ],
+        [
+          27.893,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -33.1,
+          true
+        ],
+        [
+          -4.644,
+          false
+        ],
+        [
+          0.207,
+          true
+        ]
+      ]
+    },
+    "C2": {
+      "phase_after_coordinator_healthy_snapshot_s": 17,
+      "stopped_s": 14.0,
+      "route_failures": 83,
+      "overlay_to_success_s": 28.004,
+      "worker_first_sampled_rebound_s": 2.358,
+      "supervisor_read_online": [
+        [
+          -32.513,
+          true,
+          "entangled"
+        ],
+        [
+          -2.343,
+          false,
+          "entangled"
+        ],
+        [
+          27.803,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_online_changes": [
+        [
+          -32.776,
+          true
+        ],
+        [
+          -3.532,
+          false
+        ],
+        [
+          0.533,
+          true
+        ]
+      ]
+    }
+  },
+  "base_phase17_exit_code": 1,
+  "new_arms": {
+    "C1": {
+      "outcome": {
+        "old_tailscaled_pid": 1120864,
+        "new_tailscaled_pid": 1123527,
+        "to_overlay_s": 1.604,
+        "overlay_to_job_s": 3.41
+      },
+      "first_dispatch": 0.0,
+      "failures": {},
+      "latest_failed_dispatch": null,
+      "successful_dispatch_began": 0.0,
+      "successful_dispatch_returned": 3.409,
+      "actual_status_on_coordinator": [
+        [
+          -32.735,
+          true,
+          "entangled"
+        ],
+        [
+          -2.569,
+          false,
+          "entangled"
+        ],
+        [
+          0.354,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_status_changes": [
+        [
+          -33.469,
+          true
+        ],
+        [
+          -4.204,
+          false
+        ],
+        [
+          -0.119,
+          true
+        ]
+      ],
+      "worker_bind_changes": [
+        [
+          -33.464,
+          true
+        ],
+        [
+          -13.544,
+          false
+        ],
+        [
+          2.294,
+          true
+        ]
+      ],
+      "coordinator_bind_changes": [
+        [
+          -33.469,
+          true
+        ]
+      ],
+      "offline_duration": 14.000479397000163
+    },
+    "C2": {
+      "outcome": {
+        "old_tailscaled_pid": 1123527,
+        "new_tailscaled_pid": 1125108,
+        "to_overlay_s": 1.371,
+        "overlay_to_job_s": 2.598
+      },
+      "first_dispatch": 0.0,
+      "failures": {
+        "no-route": 3
+      },
+      "latest_failed_dispatch": 1.024,
+      "successful_dispatch_began": 1.275,
+      "successful_dispatch_returned": 2.596,
+      "actual_status_on_coordinator": [
+        [
+          -32.581,
+          true,
+          "entangled"
+        ],
+        [
+          -2.422,
+          false,
+          "entangled"
+        ],
+        [
+          0.267,
+          false,
+          "entangled"
+        ],
+        [
+          1.534,
+          true,
+          "entangled"
+        ]
+      ],
+      "independent_coordinator_status_changes": [
+        [
+          -33.571,
+          true
+        ],
+        [
+          -4.261,
+          false
+        ],
+        [
+          0.602,
+          true
+        ]
+      ],
+      "worker_bind_changes": [
+        [
+          -33.569,
+          true
+        ],
+        [
+          -12.89,
+          false
+        ],
+        [
+          2.384,
+          true
+        ]
+      ],
+      "coordinator_bind_changes": [
+        [
+          -33.571,
+          true
+        ]
+      ],
+      "offline_duration": 14.000155996000103
+    }
+  },
+  "original_primary": {
+    "exit_code": 0,
+    "revoked_worker_refusal": "ENTANGLE-E0403",
+    "receipt_sha256": "0592ee59fe61f5b43fdb86df035e24ac9127441c84a7fba8fc8627b7e4d573d5"
+  },
+  "independent_fresh_marker": {
+    "exit_code": 0,
+    "marker_placement_misses_before_success": 1,
+    "mark_to_explicit_denial_s": 17.924,
+    "worker_count_before_denied_task": 2,
+    "worker_count_after_denied_task": 2,
+    "status": "not-authorized",
+    "repair_selected_and_output_verified": true,
+    "receipt_sha256": "a71ede503b435a8c1d0759c2e3b7cb8ef9717e6b71dc5dfe40f1d78e71b8ede3"
+  },
+  "physical_hosts": 1
+}

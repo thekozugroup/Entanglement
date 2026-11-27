@@ -1,0 +1,1 @@
+{"ubuntu-22.04": "glibc_loader_refused", "debian-12": "glibc_loader_refused", "ubuntu-24.04": "signed_guest_passed", "debian-13": "signed_guest_passed"}

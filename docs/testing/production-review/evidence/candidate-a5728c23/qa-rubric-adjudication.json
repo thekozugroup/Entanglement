@@ -1,0 +1,34 @@
+{
+  "reviewer": "/root/qa",
+  "signed_off_utc": "2026-11-27T09:38:17.482384+00:00",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "drafts": {
+    "literal-draft.json": "e33ad5829586d5fd4270b300fbbdcee44de5c64811843bad4b4861acb2aaebf0",
+    "conservative-draft.json": "10facd1573f0c47a6edddc116864576cd9db743369ad69c03f533db1f73ce222",
+    "literal-score.json": "5ef9d4ae1f8dee34613117721f049b409a85a381a3af39d2bccdc15434dbe53d",
+    "conservative-score.json": "576e6f21e5cf264ed8a76e8f643c3870a669943d3db401233b30dea26051e31e",
+    "draft-normalized-receipts.json": "b932b3019ac4dcc86f900e705fdf1f318b5950d4ac24df288e865efa5ceeba57",
+    "normalized-receipt-index.json": "ef7155c25cbae3c40546b36d9e89963b722ee0d9ca1d79450b0a9d197d9ee662"
+  },
+  "review_path": "docs/testing/production-review/evidence/candidate-a5728c23/qa-rubric-adjudication.md",
+  "review_sha256": "b8dac7aa778511d604ff57b84b7f727b34184a53d3ff18807dc39edf52364430",
+  "source_assertions_checked": 28,
+  "evidence_references_checked": 135,
+  "literal": {
+    "pass_count": 32,
+    "fail_count": 3,
+    "not_evidenced_count": 22,
+    "ready": false
+  },
+  "conservative": {
+    "pass_count": 31,
+    "fail_count": 3,
+    "not_evidenced_count": 23,
+    "ready": false
+  },
+  "notes": "Review attribution; not a cryptographic signature. Same-workspace strict PERF-TEST is an explicitly conservative reading.",
+  "exit_code": 0
+}

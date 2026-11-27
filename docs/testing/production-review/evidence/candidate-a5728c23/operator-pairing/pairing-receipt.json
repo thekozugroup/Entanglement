@@ -1,0 +1,120 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T10:09:17.556181+00:00",
+  "finished_utc": "2026-11-27T10:09:18.997651+00:00",
+  "exit_code": 0,
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "/tmp/entangle-pairing-replay.xEnWCfU3/replay.py",
+    "--repo",
+    "/workspace/Entanglement",
+    "--manifest",
+    "target/release-candidate/a5728c230e50/verification.json",
+    "--archive",
+    "target/release-candidate/a5728c230e50/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "--b3sum",
+    "/tmp/entanglement-release-check.zM5PAQ/usr/bin/b3sum",
+    "--out",
+    "docs/testing/production-review/evidence/candidate-a5728c23/operator-pairing"
+  ],
+  "cli_sha256": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+  "archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "archive_blake3": "192d8167e9727f1fee3470c72e251f15b02970c49d36544b9f3f2099db0689e2",
+  "archive_signing_status": "unsigned local candidate",
+  "archive_manifest_sha256": "801e12b701462a7259650e18555fc111a260d60a0599e3964be0e8ce3d1f478e",
+  "driver_sha256": "2f05472acbbc0e501bde3596913299ad4112d27a26db601c5b74099919ca0692",
+  "help_exact": "Pair this device with another (short-code + fingerprint exchange)\n\nUsage: entangle pair [OPTIONS] [CODE]\n\nArguments:\n  [CODE]\n          The 6-digit code, positionally: `entangle pair 734-291`\n\nOptions:\n      --allow-local\n          Use local in-process kernel (no daemon, no persistent state). For testing only.\n          \n          When the daemon is not running, commands normally fail with an actionable error. Pass this flag (or set ENTANGLE_ALLOW_LOCAL=1) to fall back to a short-lived in-process kernel instead.  State is NOT shared with any running daemon.\n\n      --responder\n          Act as the responder: show a pairing code and wait for the other device\n\n      --display-name <DISPLAY_NAME>\n          Human-readable display name for this device (default: hostname)\n\n      --manual\n          Use the copy-paste blob channel instead of the network.\n          \n          For air-gapped machines, or networks where mDNS/QUIC cannot cross. Implied by any of the `--*-file` blob options.\n\n      --peer <PEER>\n          (Initiator) Pair with this device instead of browsing: either a `<pubkey-hex>@<host>:<port>` long address, or a peer id / name prefix matching one discovered device\n\n      --code <CODE>\n          The 6-digit code shown on the other device (skips the prompt).\n          \n          Spec §6.3 spells the initiator's invocation `entangle pair 734-291`, so the code is also accepted as a positional argument.\n\n  -y, --yes\n          Do not ask for confirmation before storing the peer\n\n      --timeout <SECS>\n          (Responder) Seconds to wait for a device before giving up\n          \n          [default: 300]\n\n      --max-attempts <N>\n          (Responder) Wrong codes tolerated before the session is destroyed\n          \n          [default: 5]\n\n      --discover-secs <SECS>\n          (Initiator) Seconds to browse for devices in pairing mode\n          \n          [default: 4]\n\n      --emit-request-file <PATH>\n          (Initiator) Write the REQUEST blob to this file instead of stdout\n\n      --consume-accept-file <PATH>\n          (Initiator) Read the ACCEPT blob from this file instead of stdin\n\n      --emit-finalize-file <PATH>\n          (Initiator) Write the FINALIZE blob to this file instead of stdout\n\n      --request-file <PATH>\n          (Responder) Read the REQUEST blob from this file instead of stdin\n\n      --emit-accept-file <PATH>\n          (Responder) Write the ACCEPT blob to this file instead of stdout\n\n      --consume-finalize-file <PATH>\n          (Responder) Read the FINALIZE blob from this file instead of stdin\n\n  -h, --help\n          Print help (see a summary with '-h')\n",
+  "cases": {
+    "manual": {
+      "A": {
+        "argv": [
+          "entangle",
+          "pair",
+          "--manual",
+          "--display-name",
+          "fixture-A"
+        ],
+        "exit_code": 0,
+        "transcript": "Generating pairing material...\nCode:         <pairing-code>  (read aloud — expires in 5 minutes)\nFingerprint:  <A-short>\nDisplay name: fixture-A\n\nPaste this REQUEST blob to the other device's `entangle pair --responder --manual`:\n\nENT-REQ-<redacted>\n\nWaiting for ACCEPT blob (paste below, then press Enter):\n> \n✓ Paired with peer 'fixture-B' (<B-short>)\n\nPaste this FINALIZE blob to the other device:\n\nENT-FIN-<redacted>\n✓ added to <disposable-directory>/manual/A/.entangle/peers.toml\n",
+        "persisted_other": {
+          "trusted": true,
+          "matches_other_exact_ed25519_public_key": true,
+          "matches_independent_peer_id": true,
+          "display_name": "fixture-B",
+          "peer_store_mode": "0600"
+        }
+      },
+      "B": {
+        "argv": [
+          "entangle",
+          "pair",
+          "--responder",
+          "--manual",
+          "--display-name",
+          "fixture-B"
+        ],
+        "exit_code": 0,
+        "transcript": "Paste REQUEST blob (then press Enter):\n> \nInitiator:             'fixture-A'\nInitiator fingerprint: <A-short>\nYour fingerprint:      <B-short>\n\nVerify with the other device that BOTH fingerprints match what it shows.\nThen enter the 6-digit code displayed on the initiator: ✓ Code matches\n\nPaste this ACCEPT blob to the initiator:\n\nENT-ACC-<redacted>\n\nWaiting for FINALIZE blob:\n> \n✓ Paired with peer 'fixture-A' (<A-short>)\n✓ added to <disposable-directory>/manual/B/.entangle/peers.toml\n",
+        "persisted_other": {
+          "trusted": true,
+          "matches_other_exact_ed25519_public_key": true,
+          "matches_independent_peer_id": true,
+          "display_name": "fixture-A",
+          "peer_store_mode": "0600"
+        }
+      },
+      "compared_both_independently_derived_short_fingerprints": true
+    },
+    "network-default": {
+      "A": {
+        "argv": [
+          "entangle",
+          "pair",
+          "--bind",
+          "127.0.0.1:0",
+          "--no-mdns",
+          "--display-name",
+          "fixture-A",
+          "--peer",
+          "<printed-loopback-long-address>"
+        ],
+        "exit_code": 0,
+        "transcript": "Enter the 6-digit code shown on <loopback-address> (<B-peer>): \nPairing with <loopback-address> (<B-peer>)…\n2026-11-27T10:09:18.785312Z ERROR iroh::socket::transports::relay: relay_recv_channel closed\n2026-11-27T10:09:18.789303Z ERROR iroh::socket::transports::relay: relay_recv_channel closed\n\n✓ Exchange complete with 'fixture-B'\n  Their fingerprint: <B-short>\n  Your fingerprint:  <A-short>\n  Verify BOTH lines appear, swapped, on the other device.\nDo both fingerprints match the other device's screen? [y/N] ✓ added to <disposable-directory>/network-default/A/.entangle/peers.toml\n",
+        "persisted_other": {
+          "trusted": true,
+          "matches_other_exact_ed25519_public_key": true,
+          "matches_independent_peer_id": true,
+          "display_name": "fixture-B",
+          "peer_store_mode": "0600"
+        }
+      },
+      "B": {
+        "argv": [
+          "entangle",
+          "pair",
+          "--responder",
+          "--bind",
+          "127.0.0.1:0",
+          "--no-mdns",
+          "--display-name",
+          "fixture-B"
+        ],
+        "exit_code": 0,
+        "transcript": "Waiting for another device to pair.\n\n  Pairing code:  <pairing-code>   (expires in 300s)\n  Fingerprint:   <B-short>\n  This device:   fixture-B\n\n(no mDNS beacon — the other device needs --peer)\n  Direct address: entangle pair --peer <printed-loopback-long-address>\n\n\n✓ Exchange complete with 'fixture-A'\n  Their fingerprint: <A-short>\n  Your fingerprint:  <B-short>\n  Verify BOTH lines appear, swapped, on the other device.\n2026-11-27T10:09:18.794357Z ERROR iroh::socket::transports::relay: relay_recv_channel closed\nDo both fingerprints match the other device's screen? [y/N] ✓ added to <disposable-directory>/network-default/B/.entangle/peers.toml\n",
+        "persisted_other": {
+          "trusted": true,
+          "matches_other_exact_ed25519_public_key": true,
+          "matches_independent_peer_id": true,
+          "display_name": "fixture-A",
+          "peer_store_mode": "0600"
+        }
+      },
+      "compared_both_independently_derived_short_fingerprints": true
+    }
+  },
+  "scope": "Disposable homes/Ed25519 keys on a single Linux host. Manual channel uses PTY transfers. Default network channel uses a direct loopback QUIC address with mDNS disabled to isolate the test.",
+  "redactions": "Pairing codes, signed exchange blobs, disposable fingerprints, keys, peer IDs, temporary paths and ephemeral port are replaced. Fixed prompt wording is preserved."
+}

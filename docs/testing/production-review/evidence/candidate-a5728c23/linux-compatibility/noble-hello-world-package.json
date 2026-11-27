@@ -1,0 +1,143 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:35:33.227119+00:00",
+  "finished_utc": "2026-11-27T09:38:56.455878+00:00",
+  "command": [
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ],
+    [
+      "docker",
+      "info",
+      "--format",
+      "{{json .SecurityOptions}}"
+    ],
+    [
+      "docker",
+      "image",
+      "inspect",
+      "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+      "--format",
+      "{{.Id}}"
+    ],
+    [
+      "docker",
+      "create",
+      "--pull=never",
+      "--platform=linux/amd64",
+      "--network=bridge",
+      "--security-opt=no-new-privileges",
+      "--tmpfs=/build-target:rw,exec,nosuid,nodev,mode=1777,size=1g",
+      "--mount",
+      "type=bind,src=/workspace/entangle-jammy-release-mjuyx5hl/fixture,dst=/seed,readonly",
+      "--mount",
+      "type=bind,src=/workspace/entangle-jammy-tmpfs-6wml2nhz/source.bundle,dst=/source.bundle,readonly",
+      "--mount",
+      "type=bind,src=/workspace/entangle-package-seed.2uvRiy/public-repro-fixture-seed.pem,dst=/public-repro-fixture.pem,readonly",
+      "--mount",
+      "type=bind,src=/workspace/Entanglement/target/release/cargo-entangle,dst=/packager/cargo-entangle,readonly",
+      "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "sleep",
+      "infinity"
+    ],
+    [
+      "docker",
+      "start",
+      "604fcef27f445afe54f07f1b81caf06a8208a1b636a7c8a4c41092180e43c4b2"
+    ],
+    [
+      "docker",
+      "exec",
+      "604fcef27f445afe54f07f1b81caf06a8208a1b636a7c8a4c41092180e43c4b2",
+      "sh",
+      "-ec",
+      "apt-get -o Acquire::Retries=1 update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates git gcc libc6-dev make pkg-config && apt-get clean"
+    ],
+    [
+      "docker",
+      "network",
+      "disconnect",
+      "bridge",
+      "604fcef27f445afe54f07f1b81caf06a8208a1b636a7c8a4c41092180e43c4b2"
+    ],
+    [
+      "docker",
+      "inspect",
+      "604fcef27f445afe54f07f1b81caf06a8208a1b636a7c8a4c41092180e43c4b2",
+      "--format",
+      "{{json .NetworkSettings.Networks}}"
+    ],
+    [
+      "docker",
+      "exec",
+      "604fcef27f445afe54f07f1b81caf06a8208a1b636a7c8a4c41092180e43c4b2",
+      "sha256sum",
+      "/packager/cargo-entangle"
+    ],
+    [
+      "docker",
+      "exec",
+      "604fcef27f445afe54f07f1b81caf06a8208a1b636a7c8a4c41092180e43c4b2",
+      "dpkg-query",
+      "-W",
+      "-f=${binary:Package} ${Version}\\n"
+    ],
+    [
+      "docker",
+      "exec",
+      "-i",
+      "--user",
+      "65534:65534",
+      "604fcef27f445afe54f07f1b81caf06a8208a1b636a7c8a4c41092180e43c4b2",
+      "/usr/bin/timeout",
+      "--kill-after=10s",
+      "300s",
+      "/bin/sh",
+      "-s",
+      "--",
+      "a5728c230e5049556b806cae8597fe823dd67987"
+    ],
+    [
+      "docker",
+      "rm",
+      "-f",
+      "604fcef27f445afe54f07f1b81caf06a8208a1b636a7c8a4c41092180e43c4b2"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "python3",
+      "scripts/production_score.py",
+      "--source-id"
+    ]
+  ],
+  "exit_code": 1,
+  "tool_sha256": "c1315d894fa70143014b6e553270ed9cca4c517ffc32e0cd1b7a7ed9c5eba59c",
+  "archive_sha256": null,
+  "archive_size": null,
+  "image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+  "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+  "userspace": "Ubuntu 24.04",
+  "glibc": "2.39",
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/noble-hello-world-package.log",
+  "sha256": "f6f3c61f3c0e1db88b1f27b102a8961941f08f9c4e3a9fdba0090e3538887709",
+  "script_sha256": "0eab241e2f63da8057d9a17e816e60057ba3903137a3eced1d5522a513840bfe",
+  "compiler": {
+    "cargo": "e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b",
+    "rustc": "5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e"
+  },
+  "scope": "Canonical optimized cargo-entangle built on Debian 13. Fresh WASI guest build and tar.zst packaging executed in confined Ubuntu 24.04 glibc 2.39, unprivileged and disconnected, with verified offline Cargo inputs. Disposable inner signer only."
+}

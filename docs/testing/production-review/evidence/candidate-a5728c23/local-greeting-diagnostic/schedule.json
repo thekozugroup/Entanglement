@@ -1,0 +1,290 @@
+[
+  {
+    "block": 1,
+    "kind": "mixed",
+    "label": "B",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 1,
+    "kind": "mixed",
+    "label": "A",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 1,
+    "kind": "control",
+    "label": "X",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 1,
+    "kind": "control",
+    "label": "Y",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 2,
+    "kind": "control",
+    "label": "Y",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 2,
+    "kind": "control",
+    "label": "X",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 2,
+    "kind": "mixed",
+    "label": "B",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 2,
+    "kind": "mixed",
+    "label": "A",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 3,
+    "kind": "control",
+    "label": "X",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 3,
+    "kind": "control",
+    "label": "Y",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 3,
+    "kind": "mixed",
+    "label": "B",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 3,
+    "kind": "mixed",
+    "label": "A",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 4,
+    "kind": "control",
+    "label": "X",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 4,
+    "kind": "control",
+    "label": "Y",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 4,
+    "kind": "mixed",
+    "label": "A",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 4,
+    "kind": "mixed",
+    "label": "B",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 5,
+    "kind": "control",
+    "label": "X",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 5,
+    "kind": "control",
+    "label": "Y",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 5,
+    "kind": "mixed",
+    "label": "B",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 5,
+    "kind": "mixed",
+    "label": "A",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 6,
+    "kind": "mixed",
+    "label": "A",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 6,
+    "kind": "mixed",
+    "label": "B",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 6,
+    "kind": "control",
+    "label": "Y",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 6,
+    "kind": "control",
+    "label": "X",
+    "widths": [
+      4,
+      1
+    ]
+  },
+  {
+    "block": 7,
+    "kind": "mixed",
+    "label": "A",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 7,
+    "kind": "mixed",
+    "label": "B",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 7,
+    "kind": "control",
+    "label": "Y",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 7,
+    "kind": "control",
+    "label": "X",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 8,
+    "kind": "mixed",
+    "label": "A",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 8,
+    "kind": "mixed",
+    "label": "B",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 8,
+    "kind": "control",
+    "label": "Y",
+    "widths": [
+      1,
+      4
+    ]
+  },
+  {
+    "block": 8,
+    "kind": "control",
+    "label": "X",
+    "widths": [
+      1,
+      4
+    ]
+  }
+]

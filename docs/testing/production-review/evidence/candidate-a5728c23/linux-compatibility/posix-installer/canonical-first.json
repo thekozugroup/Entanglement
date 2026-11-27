@@ -1,0 +1,90 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:39:19.168196+00:00",
+  "historical_reference": "candidate-c19ef758/transactional-installer/curl-fixture.sh is the offline adapter design; measurements here are fresh for a5728c23",
+  "exit_code": 0,
+  "archives": {
+    "canonical": {
+      "name": "entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+      "blake3": "192d8167e9727f1fee3470c72e251f15b02970c49d36544b9f3f2099db0689e2",
+      "files_sha256": {
+        "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+        "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+      },
+      "receipt_sha256": "801e12b701462a7259650e18555fc111a260d60a0599e3964be0e8ce3d1f478e",
+      "sidecars_sha256": {
+        ".sha256": "50849c9352f21e6672c6672720abe15744ae29b1448d45fe9d09ba0c34e85e22",
+        ".b3": "ec8deaf1935640b58085ddf84fa69119a2e5fb5c780f38efc828f8efdc21a8cf"
+      }
+    }
+  },
+  "mode": "fresh-canonical",
+  "images": {
+    "22.04": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+    "24.04": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b"
+  },
+  "cases": {
+    "22.04": {
+      "container_exit": 0,
+      "observations": {
+        "distro": "22.04",
+        "libc": "glibc 2.35",
+        "uid": "65534",
+        "posix_shell": "/usr/bin/dash",
+        "canonical.install_exit": "1",
+        "canonical.request_count": "2",
+        "canonical.rejection": "staged entangle version check: GLIBC_2.39 unavailable",
+        "canonical.empty_prefix_after_rejection": "yes"
+      }
+    },
+    "24.04": {
+      "container_exit": 0,
+      "observations": {
+        "distro": "24.04",
+        "libc": "glibc 2.39",
+        "uid": "65534",
+        "posix_shell": "/usr/bin/dash",
+        "canonical.install_exit": "0",
+        "canonical.request_count": "2",
+        "canonical.entangle_sha256": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+        "canonical.entangled_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+        "canonical.entangle_version": "entangle 0.1.0",
+        "canonical.entangled_version": "entangled 0.1.0",
+        "canonical.peer": "09845192ab118d577e669b05cd7207fc",
+        "canonical.plugin_id": "09845192ab118d577e669b05cd7207fc/json-pointer@0.1.0",
+        "canonical.signature_sha256": "84be95b187f238d9091f7c91b136792af47c84813ad9afc294a1f3b8d623ce86",
+        "canonical.expected_output": "\"ubuntu-24.04-canonical\"",
+        "canonical.actual_output": "\"ubuntu-24.04-canonical\"",
+        "canonical.daemon_exit": "0"
+      }
+    }
+  },
+  "installer_sha256": "193f44c3551c25864ba8641dd714079805b69db24a7bbf9dfa1e304d62335ab0",
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "wasm_manifest_sha256": "7675f1e036b27128efe45ee79779674568c3f944528966bf4857f7ae54627aed",
+  "curl_adapter_sha256": "6f8c48d4f4183076ec41e7cf42b554130943573403e8449b6b1a6ae1abbe2fd7",
+  "container_driver_sha256": "e1f17e078c7643dcf24629db163eb56c8fa9c9380aa8294e0430ffcd8f0e3cc5",
+  "host_driver_sha256": "d55ac6264a7d9a1295544765c303de496b2497318ef0f9b81f21b08362d803c9",
+  "container_flags": [
+    "--rm",
+    "--pull=never",
+    "--read-only",
+    "--network",
+    "none",
+    "--cap-drop=ALL",
+    "--security-opt",
+    "no-new-privileges",
+    "--user",
+    "65534:65534",
+    "--platform",
+    "linux/amd64",
+    "--tmpfs",
+    "/tmp:rw,nosuid,nodev,noexec,mode=1777",
+    "--tmpfs",
+    "/work:rw,nosuid,nodev,exec,mode=1777"
+  ],
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "finished_utc": "2026-11-27T09:39:29.621944+00:00"
+}

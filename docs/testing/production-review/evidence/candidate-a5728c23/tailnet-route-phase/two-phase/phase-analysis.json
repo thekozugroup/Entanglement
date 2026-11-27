@@ -1,0 +1,139 @@
+{
+  "C1": {
+    "outcome": {
+      "old_tailscaled_pid": 1120864,
+      "new_tailscaled_pid": 1123527,
+      "to_overlay_s": 1.604,
+      "overlay_to_job_s": 3.41
+    },
+    "first_dispatch": 0.0,
+    "failures": {},
+    "latest_failed_dispatch": null,
+    "successful_dispatch_began": 0.0,
+    "successful_dispatch_returned": 3.409,
+    "actual_status_on_coordinator": [
+      [
+        -32.735,
+        true,
+        "entangled"
+      ],
+      [
+        -2.569,
+        false,
+        "entangled"
+      ],
+      [
+        0.354,
+        true,
+        "entangled"
+      ]
+    ],
+    "independent_coordinator_status_changes": [
+      [
+        -33.469,
+        true
+      ],
+      [
+        -4.204,
+        false
+      ],
+      [
+        -0.119,
+        true
+      ]
+    ],
+    "worker_bind_changes": [
+      [
+        -33.464,
+        true
+      ],
+      [
+        -13.544,
+        false
+      ],
+      [
+        2.294,
+        true
+      ]
+    ],
+    "coordinator_bind_changes": [
+      [
+        -33.469,
+        true
+      ]
+    ],
+    "offline_duration": 14.000479397000163
+  },
+  "C2": {
+    "outcome": {
+      "old_tailscaled_pid": 1123527,
+      "new_tailscaled_pid": 1125108,
+      "to_overlay_s": 1.371,
+      "overlay_to_job_s": 2.598
+    },
+    "first_dispatch": 0.0,
+    "failures": {
+      "no-route": 3
+    },
+    "latest_failed_dispatch": 1.024,
+    "successful_dispatch_began": 1.275,
+    "successful_dispatch_returned": 2.596,
+    "actual_status_on_coordinator": [
+      [
+        -32.581,
+        true,
+        "entangled"
+      ],
+      [
+        -2.422,
+        false,
+        "entangled"
+      ],
+      [
+        0.267,
+        false,
+        "entangled"
+      ],
+      [
+        1.534,
+        true,
+        "entangled"
+      ]
+    ],
+    "independent_coordinator_status_changes": [
+      [
+        -33.571,
+        true
+      ],
+      [
+        -4.261,
+        false
+      ],
+      [
+        0.602,
+        true
+      ]
+    ],
+    "worker_bind_changes": [
+      [
+        -33.569,
+        true
+      ],
+      [
+        -12.89,
+        false
+      ],
+      [
+        2.384,
+        true
+      ]
+    ],
+    "coordinator_bind_changes": [
+      [
+        -33.571,
+        true
+      ]
+    ],
+    "offline_duration": 14.000155996000103
+  }
+}

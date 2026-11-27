@@ -1,0 +1,4 @@
+Error: startup policy check failed (spec §11 #16)
+
+Caused by:
+    ENTANGLE-E0050: daemon is in multi-node mode but peer allowlist is empty

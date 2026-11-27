@@ -1,0 +1,13 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-raw-public-rebuild.sh"
+  ],
+  "started_utc": "2026-11-27T09:22:52.861272+00:00",
+  "finished_utc": "2026-11-27T09:23:52.173146+00:00",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/public-package-release-binary.log",
+  "sha256": "4b4e4c963eeb64203cc36a4736f691b0dbfbad96cbf531fcfc10a24621b45308"
+}

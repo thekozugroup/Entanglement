@@ -1,0 +1,15 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:29:02.048502+00:00",
+  "finished_utc": "2026-11-27T09:30:37.926380+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/tailnet-route-phase/fresh-marker/result.json",
+  "sha256": "10c3000a84e6a7c004a9565a77babf06a2fa688396dcf24c2d96aa279a75864a",
+  "command": [
+    "/tmp/entangle-revocation-freshness/a5728c23-fresh-marker/run.py",
+    "/tmp/entangle-revocation-freshness/a5728c23-verified-bin"
+  ],
+  "source_receipt": "docs/testing/production-review/evidence/candidate-a5728c23/tailnet-route-phase/fresh-marker/receipt.json",
+  "source_receipt_sha256": "a71ede503b435a8c1d0759c2e3b7cb8ef9717e6b71dc5dfe40f1d78e71b8ede3"
+}

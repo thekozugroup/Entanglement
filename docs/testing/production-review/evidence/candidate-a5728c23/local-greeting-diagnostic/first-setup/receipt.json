@@ -1,0 +1,60 @@
+{
+  "registered_plan_sha256": "c5fded9c8292fa9eeb95aefc917929b1087df74a957c736cb03c951563197798",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T10:18:58.088026+00:00",
+  "driver_sha256": "d8d95e6ab2791766a38eb52881edb2d707dbee0ef816b325a3d8f85e5027d396",
+  "client_elf_sha256": "4bb318daa7551531ac7fa5314ac33225349c3782e4e870fc68917e8d2fc8933f",
+  "client_source_sha256": "055daf38570a7b1a2b0de6b15ec6b43cc3a4aaed06eb57fb2f3a21709469e41f",
+  "fixture_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+  "daemon_sha256": {
+    "baseline": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823",
+    "candidate": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+  },
+  "candidate_cli_sha256": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+  "host_cpu_allowed": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "cpu_max": "400000 100000",
+  "cpu_stat_before": {
+    "usage_usec": 92784267115,
+    "user_usec": 78953814850,
+    "system_usec": 13830452265,
+    "nice_usec": 77882137,
+    "nr_periods": 361669,
+    "nr_throttled": 137401,
+    "throttled_usec": 9872337985,
+    "nr_bursts": 0,
+    "burst_usec": 0
+  },
+  "schedule_sha256": "b683e12690173f6eaf1b45b7c3033e7dfc7eb719c9ead190d250cb746293c1eb",
+  "clock_hz": 100,
+  "status": "stopped",
+  "plugin_id": "5cf4f66ad363d44eae3a313eb60aef4c/test-plugin@0.1.0",
+  "oracle_peer": "5cf4f66ad363d44eae3a313eb60aef4c",
+  "signed_package_sha256": {
+    "entangle.toml": "fa4c1cd9380402b7ddb73ea94e2425bfef2d4c2e54a0db94f2cef043fb006606",
+    "plugin.wasm": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+    "plugin.wasm.sig": "662cf26fc7136693405ee59ad0ec7157be00212033c3acc2a98764d6333025cf"
+  },
+  "error": "RuntimeError('Error: startup policy check failed (spec \u00a711 #16)\\n\\nCaused by:\\n    ENTANGLE-E0050: daemon is in multi-node mode but peer allowlist is empty\\n')",
+  "finished_utc": "2026-11-27T10:18:58.727018+00:00",
+  "elapsed_s": 0.2436057869999786,
+  "rows": 0,
+  "cpu_stat_after": {
+    "usage_usec": 92784693612,
+    "user_usec": 78953908973,
+    "system_usec": 13830784638,
+    "nice_usec": 77882137,
+    "nr_periods": 361673,
+    "nr_throttled": 137401,
+    "throttled_usec": 9872337985,
+    "nr_bursts": 0,
+    "burst_usec": 0
+  },
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "samples_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

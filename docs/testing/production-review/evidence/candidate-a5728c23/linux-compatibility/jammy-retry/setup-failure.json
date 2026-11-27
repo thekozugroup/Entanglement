@@ -1,0 +1,17 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_rechecked_after_failure": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "exit_code": 1,
+  "timeout_seconds": 210,
+  "command": [
+    "docker",
+    "exec",
+    "e213896c9564e38a8a1124002d08ca14fc4e163f44a9194652d4fe3eb91b3a5c",
+    "/bin/sh",
+    "-ec",
+    "apt-get -o Acquire::Retries=1 update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates git gcc libc6-dev make pkg-config python3 && apt-get clean"
+  ],
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/jammy-retry/jammy-provision.log",
+  "log_sha256": "d0895c272fbdf53a8ce9a978740ddc7f1a5b3fd3ce1c47080dc0faddbf90649f",
+  "outcome": "subprocess.TimeoutExpired during ordinary authenticated Ubuntu apt package provisioning; ephemeral container was removed and native compilation did not start"
+}

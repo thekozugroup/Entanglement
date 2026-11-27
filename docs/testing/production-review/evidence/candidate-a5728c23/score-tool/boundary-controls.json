@@ -1,0 +1,9 @@
+{
+  "normal": "accepted",
+  "non_utc_bracket": "ValueError: CASE: receipt needs UTC start and finish times",
+  "invalid_time": "ValueError: CASE: receipt needs UTC start and finish times",
+  "nonzero_subsecond_offset": "ValueError: CASE: receipt needs UTC start and finish times",
+  "missing_command": "ValueError: CASE: receipt needs a command or review method",
+  "empty_command": "ValueError: CASE: receipt needs a command or review method",
+  "symlink_loop": "ValueError: CASE: cannot resolve receipt file 'receipt.json'"
+}

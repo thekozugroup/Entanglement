@@ -1,0 +1,24 @@
+{
+  "reviewer": "independent QA (/root/qa)",
+  "reviewed_utc": "2026-11-27T10:35:01.328345+00:00",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "report": "qa-supplement.md",
+  "report_sha256": "78580f98c06d280797b4a5b294f2e6b027cd51a52dd6a68b399e4c725079ab19",
+  "evidence_sha256": {
+    "qa-platform-supplement.json": "a96e987228ab308228175327777b81f201ed6d623a92b29bbbdc2e405a2f0f09",
+    "operator-pairing/pairing-receipt.json": "65127d688f34eab31e16f10c1fc9cc0b2f5b099e790516170c14707e63b3e54e",
+    "real-inference/independent-verification.json": "59ba5dc0803e8acde370ba95573ae1aa3453a66e136dc429f0a65e0bbcadc9f9",
+    "linux-compatibility/current-arm64/summary.json": "e17e71ac06a5b8c2fec25e167561122aabfdf4196a5645f716232508a629e9e5",
+    "linux-compatibility/jammy-replay/jammy-linux-archive.json": "2629b159a2e2887c522619d3d2a7c4d5d4507a6dc9c54f73db822456529a8d9e",
+    "linux-compatibility/jammy-userspaces/normalized.json": "1111f23dc3e76cf706a87864adcab7296b8b76cfd7dee8d467374e50f2c48be9",
+    "linux-compatibility/posix-installer/installer-matrix.json": "d58d24a709ab165841294479cc72c4516551488cd42625713dcd7d4fe3092371",
+    "linux-compatibility/portable-catalog/normalized.json": "df760d987bda138a777d9aed886a11f31827b1e092f1db139cac5f655e5b3339",
+    "linux-compatibility/repeat/mixed-release-arm64/normalized.json": "0626c3f57daeba96d7264aada0b9a3c1444c25c7ab622ae8b4b6059ca66eb644",
+    "linux-compatibility/reverse-mixed-isa/normalized.json": "d9ad4e4302020d4216b619709bb3e36eed09abc2c1fd222951ee1647f343e213",
+    "linux-compatibility/ubuntu-guest-package-comparison.json": "d1296c6789def37f406848618a3177b8aaa80641ef6207a0220ca376f5421af4",
+    "local-greeting-diagnostic/normalized.json": "3d09282f12b6faa4b7881916ec7bff1d23b44968dbcff81b26d08b8d839c3755"
+  },
+  "scope": "Supplemental observations only; 57-gate adjudication unchanged. QEMU and isolated userlands share one x86_64 host; unsigned local archives.",
+  "exit_code": 0
+}

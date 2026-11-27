@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "scripts/check-release-governance.py"
+  ],
+  "started_utc": "2026-11-27T09:14:06.165776+00:00",
+  "finished_utc": "2026-11-27T09:14:06.858564+00:00",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "exit_code": 1,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/governance-real.log",
+  "sha256": "81f1a12437ebae26e8ca5cb871679793d1fcd5d5dc07645ee2a8832c1425b92d"
+}

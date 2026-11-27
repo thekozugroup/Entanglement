@@ -1,0 +1,18 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:31:01.500089+00:00",
+  "finished_utc": "2026-11-27T09:31:45.860491+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/performance.json",
+  "sha256": "170c15c739b833253bc4fb513d42925c801fef054b4ea54d283e080591e2c53b",
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-a5728c23/engineering/compare.py",
+    "/tmp/entangle-compact-ordinary-perf/greeting-driver",
+    "a5728c230e5049556b806cae8597fe823dd67987",
+    "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5"
+  ],
+  "source_receipt": "docs/testing/production-review/evidence/candidate-a5728c23/performance-primary.json",
+  "source_receipt_sha256": "66d5bd37926f9cb068358b897562ab03b6aaa30cbe3a2f2a1ced6e29ea9288f9"
+}

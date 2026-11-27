@@ -1,0 +1,32 @@
+{
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/scripts/tests/recovery.py",
+    "--bin-dir",
+    "/tmp/entangle-check-a5728c23-archive"
+  ],
+  "exit_code": 0,
+  "started_utc": "2026-11-27T09:23:14.376744+00:00",
+  "finished_utc": "2026-11-27T09:23:21.218254+00:00",
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/recovery-linux.log",
+  "sha256": "2e1a5e5109a4815c94428406f6d14084f6ecc2b8f816eb8d4f6e25d8be4133d2",
+  "diagnostic_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "release_receipt_sha256": "fbe112199236fa6efc20f4174e8918e1fffcab574d200dee789f784f72364720",
+  "archive_receipt_sha256": "801e12b701462a7259650e18555fc111a260d60a0599e3964be0e8ce3d1f478e",
+  "artifact_sha256": {
+    "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+    "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+  },
+  "harness_sha256": "1045a76e981ec7b57c7d784bae2d723db3033e122a591466f389a70fb06bb3d6",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "observed": {
+    "verified_work_and_restored_identity": "Recovered peer fbfca65f129770d585968bce3d8ac556. Signed plugin ran before and after relocation. Existing peer revocation enforced.",
+    "scope": "Linux restore relocates signed startup plugin and bridge budget; blocked wrong passphrase, changed archive and occupied target"
+  }
+}

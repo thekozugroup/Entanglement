@@ -1,0 +1,29 @@
+{
+  "command": [
+    "cargo",
+    "build",
+    "--release",
+    "--locked",
+    "-p",
+    "entangle-cli",
+    "-p",
+    "entangle-bin",
+    "-p",
+    "cargo-entangle",
+    "-p",
+    "xtask"
+  ],
+  "source_commit": "4dd03c6471394d62a0d3d4b5ea8479165ddb87f2",
+  "source_before": "sha256:81e0cb3a860d3dc5f3ad1405940811362512774bcbc64e1b45ce98e19974b454",
+  "source_after": "sha256:81e0cb3a860d3dc5f3ad1405940811362512774bcbc64e1b45ce98e19974b454",
+  "started_utc": "2026-11-27T08:59:19.593109+00:00",
+  "completed_utc": "2026-11-27T09:04:19.568258+00:00",
+  "exit_code": 0,
+  "log_sha256": "0744ed6b6f61e8f2919463f2668031393a276c89937e160ccd1b78399823a703",
+  "files_sha256": {
+    "entangle": "1d4f2d891d17e28665926a15774437083df5608c2dd47ed6ad763abd74db7bc6",
+    "entangled": "1b8ea0af4ca7f2c3c05be776ba359cccd0e3676538ebb7c7cd820d0e72b6d6bf",
+    "cargo-entangle": "c1315d894fa70143014b6e553270ed9cca4c517ffc32e0cd1b7a7ed9c5eba59c",
+    "xtask": "3ee5d7423f23bfc5b3a11de3a24efbc3fa78cebb89373467779b817dfe959986"
+  }
+}

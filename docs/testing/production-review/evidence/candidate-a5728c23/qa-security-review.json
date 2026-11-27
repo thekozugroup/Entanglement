@@ -1,0 +1,18 @@
+{
+  "reviewer": "/root/qa",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:23:11.866448+00:00",
+  "finished_utc": "2026-11-27T09:24:23.111594+00:00",
+  "exit_code": 0,
+  "command": "Independent changed-source review, exact archive signed identity and local publisher incident checks",
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/qa-security-review.md",
+  "sha256": "d124bb5a5ddd64d807cc1cdaf941cadc2de0c271e19603e58db47558a5254335",
+  "supporting_sha256": {
+    "qa-identity-receipt.json": "eecbf89050edfd8228df882c6a66ffa8d0f270a1d1c525fad8a388b2fb46321b",
+    "qa-identity.json": "66fd0fdb10aab1460827adf37ef8978257fda451ee92abbb928de16ee5b817fd",
+    "qa-publisher-incident.json": "beef703ee2982d0e8a56e45833a6694f908c179a932098a7d73620de80f59846",
+    "handle-layout/integrated-release-layout.json": "e882ef64e8d4c18ee52dc320d1af546c44d22eb5680ebc443461ef8b32bc560b"
+  }
+}

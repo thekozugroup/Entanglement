@@ -1,0 +1,13 @@
+{
+  "stage": "after successful locked release and QEMU --version, first ELF export",
+  "command": [
+    "docker",
+    "cp",
+    "<container>:/private/target/aarch64-unknown-linux-gnu/release/entangle",
+    "executables/entangle"
+  ],
+  "exit_code": 1,
+  "error": "Error response from daemon: Could not find the file /private/target/aarch64-unknown-linux-gnu/release/entangle in container",
+  "docker_exec_stat": "same file exists on mounted tmpfs",
+  "disposition": "Stream the completed ELF with docker exec cat and compare SHA-256 inside/outside; do not recompile."
+}

@@ -1,0 +1,35 @@
+Building and signing compress
+Building and signing csv-stats
+Building and signing image-dehaze
+Building and signing image-resize
+Building and signing json-pointer
+Building and signing json-query
+Building and signing markdown-html
+Building and signing qr-encode
+Loading compress into entangled
+Loading csv-stats into entangled
+Loading image-dehaze into entangled
+Loading image-resize into entangled
+Loading json-pointer into entangled
+Loading json-query into entangled
+Loading markdown-html into entangled
+Loading qr-encode into entangled
+Verifying local daemon workloads
+Verified gzip interoperability and exact log round trips
+Verified sales CSV statistics with quoted fields and CRLF
+Verified decoded 160×90 PNG thumbnail and RGBA pixels
+Verified 16-bit linear RGB PNG dehazing and atmospheric-light preservation
+Verified RFC 6901 OpenAPI response reference
+Verified JSON telemetry query and wildcard selection
+Verified release notes render to the expected HTML
+Verified QR URL by decoding the generated symbol with ZXing
+Verifying remote workloads on trusted worker b6fcc57207933569f34c9920c7a5cbf9
+Verified gzip interoperability and exact log round trips
+Verified sales CSV statistics with quoted fields and CRLF
+Verified decoded 160×90 PNG thumbnail and RGBA pixels
+Verified 16-bit linear RGB PNG dehazing and atmospheric-light preservation
+Verified RFC 6901 OpenAPI response reference
+Verified JSON telemetry query and wildcard selection
+Verified release notes render to the expected HTML
+Verified QR URL by decoding the generated symbol with ZXing
+{"source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5", "source_commit": "a5728c230e5049556b806cae8597fe823dd67987", "target": "x86_64-unknown-linux-gnu", "os": "Debian GNU/Linux 13 (trixie)", "machine": "x86_64", "cpu": "INTEL(R) XEON(R) PLATINUM 8573C", "runner_arch": null, "runner_image": null, "run_id": null, "binary_sha256": {"entangle": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb", "entangled": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5"}, "command": ["/workspace/.entanglement-dev/catalog-python/bin/python", "/workspace/entangle-pcatalog-zc4q3yah/source/plugins/smoke_test.py", "/workspace/entangle-pcatalog-zc4q3yah/release/entangle", "/workspace/entangle-pcatalog-zc4q3yah/release/entangled", "--two-node"], "exit_code": 0}

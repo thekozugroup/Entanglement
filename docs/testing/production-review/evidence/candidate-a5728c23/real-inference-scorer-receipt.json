@@ -1,0 +1,35 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/real-inference/verify.py",
+    "--server",
+    "/tmp/entanglement-cpu-server-b6910/bin/llama-server",
+    "--model",
+    "/tmp/entangle-llama-cpu-model/TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf",
+    "--bin-dir",
+    "/tmp/ent-llama-release-extract-thoayky4/entanglement-v0.1.0-x86_64-unknown-linux-gnu",
+    "--output",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/real-inference/result.json"
+  ],
+  "started_utc": "2026-11-27T09:47:06.038252+00:00",
+  "finished_utc": "2026-11-27T09:47:37.328095+00:00",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a5728c23/real-inference-run.log",
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "binary_sha256": {
+    "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+    "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+  },
+  "evidence_root": "docs/testing/production-review/evidence/candidate-a5728c23/real-inference",
+  "result_sha256": "5f038a36b7b1c46f0aa09dc810eeaef401a24dae5f2c918b317eb36a6c03d171",
+  "independent_verification_sha256": "59ba5dc0803e8acde370ba95573ae1aa3453a66e136dc429f0a65e0bbcadc9f9",
+  "server_log_sha256": "1a69794db8c43f132534f2a7023bcdaa63465dd37d2f88abf7512f22d2c6e9ae",
+  "auth_live_script_sha256": "aa4db6e591c1767f2472a5e236d1470275b2791d7289f7aad7ab00954ce8b10f",
+  "verified_ed25519_chunks": 139,
+  "verified_direct_completion_tokens": 140
+}

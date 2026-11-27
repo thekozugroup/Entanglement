@@ -1,0 +1,134 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "portable_archive_sha256": "9a4c23b648ad26f23fa925c5171218094fb6b68247bcfbdc62dc19dca83d592d",
+  "canonical_archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "canonical_issuer": "current local frozen release archive",
+  "portable_issuer": "current separately cold-built Ubuntu 22.04 archive",
+  "scope": "No-network rootless x86_64 Docker userlands on one Linux kernel; exact local release assets and checksum sidecars through a file-backed HTTPS-download adapter; temporary unprivileged homes and installation prefixes. The catalog component was signed inside each disposable test home.",
+  "cases": {
+    "fresh-canonical": {
+      "22.04": {
+        "userspace": "glibc 2.35",
+        "container_image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+        "uid": 65534,
+        "installer_shell": "/usr/bin/dash",
+        "archive_cases": {
+          "canonical": {
+            "exit_code": 1,
+            "verified_url_requests": 2,
+            "observed_loader_error": "staged entangle version check: GLIBC_2.39 unavailable"
+          }
+        },
+        "workloads": {}
+      },
+      "24.04": {
+        "userspace": "glibc 2.39",
+        "container_image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+        "uid": 65534,
+        "installer_shell": "/usr/bin/dash",
+        "archive_cases": {
+          "canonical": {
+            "exit_code": 0,
+            "verified_url_requests": 2
+          }
+        },
+        "workloads": {
+          "canonical": {
+            "plugin_id": "d06756c9b8106784a8cf8107d57ba4d3/json-pointer@0.1.0",
+            "signature_sha256": "831e0dfffe5e23b07a918722d15181623efe2ee8d63a2a36cbdecbf4aa2489a1",
+            "local_peer": "d06756c9b8106784a8cf8107d57ba4d3",
+            "exact_json_output": "\"ubuntu-24.04-canonical\"",
+            "entangle_sha256": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+            "entangled_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+            "daemon_exit": 0
+          }
+        }
+      }
+    },
+    "update": {
+      "22.04": {
+        "userspace": "glibc 2.35",
+        "container_image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+        "uid": 65534,
+        "installer_shell": "/usr/bin/dash",
+        "archive_cases": {
+          "portable": {
+            "exit_code": 0,
+            "verified_url_requests": 2
+          },
+          "canonical_update": {
+            "exit_code": 1,
+            "verified_url_requests": 2,
+            "observed_loader_error": "staged entangle version check: GLIBC_2.39 unavailable"
+          }
+        },
+        "workloads": {
+          "portable": {
+            "plugin_id": "3e76765d06f9a8f2390e06ddf3f0d574/json-pointer@0.1.0",
+            "signature_sha256": "5f11a75122200eea705672679fd13f6a5e93fc8b12a8b215cbb71b1e0c991a4e",
+            "local_peer": "3e76765d06f9a8f2390e06ddf3f0d574",
+            "exact_json_output": "\"ubuntu-22.04-portable\"",
+            "entangle_sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+            "entangled_sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+            "daemon_exit": 0
+          },
+          "after_rejection": {
+            "plugin_id": "3e76765d06f9a8f2390e06ddf3f0d574/json-pointer@0.1.0",
+            "signature_sha256": "5f11a75122200eea705672679fd13f6a5e93fc8b12a8b215cbb71b1e0c991a4e",
+            "local_peer": "3e76765d06f9a8f2390e06ddf3f0d574",
+            "exact_json_output": "\"ubuntu-22.04-after_rejection\"",
+            "entangle_sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+            "entangled_sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+            "daemon_exit": 0
+          }
+        },
+        "same_peer_and_signed_plugin_after_update": true
+      },
+      "24.04": {
+        "userspace": "glibc 2.39",
+        "container_image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+        "uid": 65534,
+        "installer_shell": "/usr/bin/dash",
+        "archive_cases": {
+          "portable": {
+            "exit_code": 0,
+            "verified_url_requests": 2
+          },
+          "canonical_update": {
+            "exit_code": 0,
+            "verified_url_requests": 2
+          }
+        },
+        "workloads": {
+          "portable": {
+            "plugin_id": "6496d3ce6eefae298c5c1d22a3c4f0c2/json-pointer@0.1.0",
+            "signature_sha256": "3b4b8c2a3446cf4caf65f2569914359bce9cad75a598b28da1d3727eafc46333",
+            "local_peer": "6496d3ce6eefae298c5c1d22a3c4f0c2",
+            "exact_json_output": "\"ubuntu-24.04-portable\"",
+            "entangle_sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+            "entangled_sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+            "daemon_exit": 0
+          },
+          "after_upgrade": {
+            "plugin_id": "6496d3ce6eefae298c5c1d22a3c4f0c2/json-pointer@0.1.0",
+            "signature_sha256": "3b4b8c2a3446cf4caf65f2569914359bce9cad75a598b28da1d3727eafc46333",
+            "local_peer": "6496d3ce6eefae298c5c1d22a3c4f0c2",
+            "exact_json_output": "\"ubuntu-24.04-after_upgrade\"",
+            "entangle_sha256": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+            "entangled_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+            "daemon_exit": 0
+          }
+        },
+        "same_peer_and_signed_plugin_after_update": true
+      }
+    }
+  },
+  "receipt_sha256": {
+    "fresh-canonical": "49f1b5319255178c46a6a6612522e5c875da3f6b7a7ccc0a381917153c600530",
+    "update": "c1e7a79a2c022e1dad60a350d8dcbc54012e7020393aa4140648592a1e49638f"
+  },
+  "exit_code": 0
+}

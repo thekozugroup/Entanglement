@@ -1,0 +1,6 @@
+cold boot without either Tailscale service: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port denied: error: rpc -32000: dispatch error: placement: no live workers in pool
+worker tailscaled restart offline: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer 8caa8a45f1daf514d4f5f858ff3665c4 failed: no answer before the 11000ms transfer deadline (task timeout 1000ms + 10000ms overhead, including any route refresh)
+coordinator tailscaled restart offline: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer 8caa8a45f1daf514d4f5f858ff3665c4 failed: ENTANGLE-E0633: cannot connect to peer 8caa8a45f1daf514d4f5f858ff3665c4: closed
+coordinator tailscaled restart: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer 8caa8a45f1daf514d4f5f858ff3665c4 failed: no known network address for this peer (not paired, or no address learned yet)
+revoked during disconnect: error: rpc -32000: dispatch error: ENTANGLE-E0403: peer 8caa8a45f1daf514d4f5f858ff3665c4 rejected the task (not-authorized): peer is not in this node's trusted peer allowlist

@@ -1,0 +1,42 @@
+{
+  "private_commit": "4dd03c6471394d62a0d3d4b5ea8479165ddb87f2",
+  "parent": "296b427a3bb2d60615ea3c56b9779f97039c6e24",
+  "source_id": "sha256:81e0cb3a860d3dc5f3ad1405940811362512774bcbc64e1b45ce98e19974b454",
+  "layout": {
+    "profile": "opt-level=3, codegen-units=1, thin LTO; same released explicit dependency targets, features and rustflags",
+    "rustc": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: x86_64-unknown-linux-gnu\nrelease: 1.91.1\nLLVM version: 21.1.2\n",
+    "release_input_metadata": "entangle-host-8af68fcb61ae890b",
+    "measurements": {
+      "frozen": {
+        "size_bytes": 208,
+        "ir": " noundef i64 @signed_host_handle_size() unnamed_addr #0 {\nstart:\n  ret i64 208\n",
+        "src_plugin_sha256": "2dc4fd11c6dac5871efc6061439ca7bc7f0e6d4bed00a07383ba7282d8283d53",
+        "host_meta_sha256": "1b269ce424fd4d44e0ba9d7a1225c92fbe97b14f0afbd799b9e245e642344c10"
+      },
+      "compact": {
+        "size_bytes": 136,
+        "ir": " noundef i64 @signed_host_handle_size() unnamed_addr #0 {\nstart:\n  ret i64 136\n",
+        "src_plugin_sha256": "960864349030be05d6a454905057eb0d464fa4c4eb564ca35f0ef85d3f3275da",
+        "host_meta_sha256": "c76832c87110006621306dd22ea85451a687b19e8a6d5058943d5b39522a38ad"
+      }
+    }
+  },
+  "rust": {
+    "command": "cargo test --locked -p entangle-host -p entangle-runtime -p entangle-scheduler --no-fail-fast",
+    "counts": {
+      "passed": 142,
+      "failed": 0,
+      "ignored": 1
+    },
+    "log_sha256": "4e3c46e3d5eb570f137e6f24db42bdae24d14b6027f954772758a617019b466d"
+  },
+  "python": {
+    "command": "python3 -B -m unittest discover -s scripts/tests -p 'test_run_rust*.py' -v",
+    "passed": 28,
+    "log_sha256": "a5a6b0c2af28cbdd8fcfd4d99cd5961b4ce6fc58cdb0e4173437b6d17704a3d9"
+  },
+  "clippy": {
+    "command": "cargo clippy --locked -p entangle-host --all-targets -- -D warnings",
+    "log_sha256": "6c79ba5b3dc7779708221e99a31d01206e41eda5d6a92595265e704c6b9e0f47"
+  }
+}

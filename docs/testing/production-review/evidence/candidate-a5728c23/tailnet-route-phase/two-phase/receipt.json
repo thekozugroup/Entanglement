@@ -1,0 +1,51 @@
+{
+  "command": [
+    "/tmp/entangle-revocation-freshness/a5728c23-two-phase/run.py",
+    "/tmp/entangle-revocation-freshness/a5728c23-verified-bin"
+  ],
+  "before": {
+    "head": "a5728c230e5049556b806cae8597fe823dd67987",
+    "source": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5"
+  },
+  "after": {
+    "head": "a5728c230e5049556b806cae8597fe823dd67987",
+    "source": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5"
+  },
+  "start": "2026-11-27T09:25:49.179125+00:00",
+  "end": "2026-11-27T09:28:57.644303+00:00",
+  "rc": 0,
+  "sha256": {
+    "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+    "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+  },
+  "archive": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "images": {
+    "headscale/headscale:0.27.1": "sha256:831157d73eabeeb0bf1c1b195b067dc0bbe272faa91fad97045bcb09f271f99a",
+    "tailscale/tailscale:v1.92.5": "sha256:18e84ebd706296e277f93392bfb615d6acbd00b625f6fb4545ce3cffd2bb9752",
+    "python:3.12-slim-trixie": "sha256:d497f3e5689c500c07dd6c13dee73cd21ed4da604e09ecd99059843c09ab8cd6"
+  },
+  "script_sha256": {
+    "private-tailnet.py": "d2c57d3773127f1d90bdee0ac20a116ef3f50411f5069fe4dda47fc570a45113",
+    "analyze_partial.py": "71f888ff88189086779b9548259da343dc0ecd6d92595ebcda9c6de445938a65",
+    "phase.py": "590b3a53f9d03aa269c6e863131fe671ace84fa4c38eefb549a2a092f8c71ec5",
+    "private_recovery.py": "ad4e94daebc175cdb28cb5c1fcff176f0b41c7f5e6dab2fc9a21cbd2f57d5842",
+    "run.py": "642b8d5db1254548e92d842cec5ff4427412ff267b7f91b69dfa8441511a72bf",
+    "status.py": "f7e11f4de39a4db9024d14827331656618cadb054e02f6c81f2531695b188fe8",
+    "stage.py": "a1e530c2d673721643a2e6446b4c892407317de9d26c07a593206dfcf83bb0cb",
+    "analyze.py": "eb25e538a7ed28451a023f93e6be67f6de7ba9f201e6f5865a5ea7a79e8dc585"
+  },
+  "files": {
+    "coordinator-consumed.jsonl": "470f5fdad259db4f67d96af15b9d05099d76f01c7b980d4315c11c6f752d7947",
+    "worker-endpoint.log": "9bce3d1ed43713f974160307a4e19fcf3ea364dad245b20c8e6d30572e20e09e",
+    "events.jsonl": "f906218022d13f3bfc786e16d9b70e0070cc361556fcacbd65e2fd717171d902",
+    "stderr.log": "7d12dba33bdbf433b681f18c63ac8489476fd8d8ef7b55cde71cb575f532fe10",
+    "coordinator-observer.jsonl": "1a5bdcadca66023c63bf34aa2bae5c20f28c9aa83136cc9943a341a81dcd8415",
+    "worker-observer.jsonl": "edee4dfc881b86b95aa158edf759ccb5a83497317fe1481be2e1c5ee097ad60a",
+    "coordinator-endpoint.log": "ac746d18efcda553d2828c3b6a5be1b8ed4a2a8b2b9d677205a029ca5c1fe70c",
+    "result.json": "12fd06b3aa3895e44c8337db7fe2fb02a39f42ecd26b1a8faabe1019abaf44e6",
+    "worker-consumed.jsonl": "5dc4278398046145558533773e71ce881a3c6b5ca519d7ee5d7bdea46ee1fbad"
+  },
+  "remaining_new_containers": [],
+  "topology": "two Linux network namespaces on one x86_64 physical host"
+}

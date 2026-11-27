@@ -1,0 +1,8 @@
+{
+  "candidate_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "candidate_source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "registered_utc": "2026-11-27T09:14:36.028382+00:00",
+  "protocol_sha256": "a25064f7571ddd6b48d94feb42eee7481a1b8b3afe40844cd04e0fef2ef93b4f",
+  "driver_sha256": "598424fa2296243b589d2d15d5e5fff990171709cf6b4bdd14e5189eabdea463",
+  "start_condition": "Recheck frozen source and official published release ELF hashes; coordinate with cold-route timing owner."
+}

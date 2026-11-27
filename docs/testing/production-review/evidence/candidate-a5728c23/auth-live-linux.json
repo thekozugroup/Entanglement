@@ -1,0 +1,1523 @@
+{
+  "before": {
+    "commit": "a5728c230e5049556b806cae8597fe823dd67987",
+    "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+    "binary_sha256": {
+      "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+      "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+    },
+    "driver_sha256": "aa4db6e591c1767f2472a5e236d1470275b2791d7289f7aad7ab00954ce8b10f",
+    "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+    "utc": "2026-11-27T09:22:55.553959+00:00"
+  },
+  "after": {
+    "commit": "a5728c230e5049556b806cae8597fe823dd67987",
+    "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+    "binary_sha256": {
+      "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+      "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+    },
+    "driver_sha256": "aa4db6e591c1767f2472a5e236d1470275b2791d7289f7aad7ab00954ce8b10f",
+    "host": "Linux-6.18.57-x86_64-with-glibc2.41",
+    "utc": "2026-11-27T09:23:12.981141+00:00"
+  },
+  "command": [
+    "python3",
+    "-B",
+    "docs/testing/production-review/evidence/candidate-a5728c23/auth-live.py",
+    "--bin-dir",
+    "/tmp/entangle-check-a5728c23-archive",
+    "--out",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/auth-live-linux.json"
+  ],
+  "loaded_daemons": {
+    "A": {
+      "pid": 1104546,
+      "executable_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+    },
+    "B": {
+      "pid": 1104573,
+      "executable_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+    },
+    "C": {
+      "pid": 1104651,
+      "executable_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+    }
+  },
+  "trust_changes": {
+    "revoked": "candidate CLI mesh revoke",
+    "removed": "candidate CLI mesh untrust",
+    "observer": "atomic replacement of the authoritative paired record trust=observer",
+    "empty-authoritative-store": "atomic publication of an empty peer array",
+    "malformed": "atomic publication of incomplete TOML"
+  },
+  "scope": "separate Linux x86_64 daemons on one host with isolated homes, mutual-authenticated direct Iroh QUIC loopback",
+  "peer_ids": {
+    "A": "5e2a19b5b3255032dfe1d37b997d570b",
+    "B": "4ccedb2ea26ecdc0105b7dc1761603cb",
+    "C": "4ac3a7438540470aa622b83c7f3ee8b8"
+  },
+  "auth_live": [
+    {
+      "state": "never-paired-C",
+      "source": "A",
+      "target": "C",
+      "source_pid": 1104546,
+      "target_pid": 1104651,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ac3a7438540470aa622b83c7f3ee8b8/hello-world@0.1.0",
+        "input": [
+          56,
+          99,
+          55,
+          51,
+          55,
+          48,
+          52,
+          50,
+          101,
+          50,
+          97,
+          100,
+          99,
+          99,
+          54,
+          48,
+          51,
+          55,
+          99,
+          50,
+          98,
+          50,
+          56,
+          99
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ac3a7438540470aa622b83c7f3ee8b8"
+          ]
+        }
+      },
+      "elapsed_ms": 0.484,
+      "worker_wasm_completions_before": 0,
+      "worker_wasm_completions_after": 0,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: placement: no live workers in pool"
+      },
+      "receiver_refusal_observed_for_C": {
+        "message": "scheduler: refused task from a peer that is not in the trusted allowlist",
+        "peer": "4ac3a7438540470aa622b83c7f3ee8b8"
+      }
+    },
+    {
+      "state": "never-paired-C",
+      "source": "C",
+      "target": "A",
+      "source_pid": 1104651,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          51,
+          99,
+          48,
+          98,
+          98,
+          100,
+          52,
+          55,
+          50,
+          54,
+          54,
+          97,
+          50,
+          55,
+          102,
+          48,
+          55,
+          55,
+          57,
+          99,
+          98,
+          50,
+          56,
+          52
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 5.959,
+      "worker_wasm_completions_before": 0,
+      "worker_wasm_completions_after": 0,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: placement: no live workers in pool"
+      },
+      "receiver_refusal_observed_for_C": {
+        "message": "scheduler: refused task from a peer that is not in the trusted allowlist",
+        "peer": "4ac3a7438540470aa622b83c7f3ee8b8"
+      }
+    },
+    {
+      "state": "trusted-before-revoked",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          97,
+          98,
+          52,
+          51,
+          98,
+          48,
+          55,
+          57,
+          98,
+          101,
+          50,
+          97,
+          53,
+          49,
+          102,
+          97,
+          97,
+          101,
+          50,
+          54,
+          51,
+          101,
+          48,
+          52
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 16.595,
+      "worker_wasm_completions_before": 0,
+      "worker_wasm_completions_after": 1,
+      "chosen_peer": "4ccedb2ea26ecdc0105b7dc1761603cb",
+      "received_output": "Hello, ab43b079be2a51faae263e04!",
+      "expected_and_actual_sha256": "9e0a49979efcab14de51d8b160cac18491e35f32bd08ed15c3a89bba7550258a"
+    },
+    {
+      "state": "trusted-before-revoked",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          100,
+          97,
+          97,
+          55,
+          97,
+          99,
+          55,
+          52,
+          99,
+          54,
+          56,
+          101,
+          56,
+          55,
+          100,
+          54,
+          53,
+          97,
+          54,
+          54,
+          98,
+          48,
+          56,
+          99
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 11.011,
+      "worker_wasm_completions_before": 0,
+      "worker_wasm_completions_after": 1,
+      "chosen_peer": "5e2a19b5b3255032dfe1d37b997d570b",
+      "received_output": "Hello, daa7ac74c68e87d65a66b08c!",
+      "expected_and_actual_sha256": "eef8b2af933d3805266eabeaa7d1d4879b423d32a5894a4652af178babf55354"
+    },
+    {
+      "state": "revoked",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          100,
+          100,
+          100,
+          101,
+          48,
+          102,
+          97,
+          57,
+          100,
+          54,
+          50,
+          52,
+          99,
+          55,
+          102,
+          54,
+          102,
+          49,
+          51,
+          102,
+          50,
+          100,
+          49,
+          52
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 1.932,
+      "worker_wasm_completions_before": 1,
+      "worker_wasm_completions_after": 1,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer 5e2a19b5b3255032dfe1d37b997d570b rejected the task (not-authorized): peer is not in this node's trusted peer allowlist",
+        "data": {
+          "remote_code": "not-authorized"
+        }
+      },
+      "ms_since_persist": 2.952,
+      "changed_store_sha256": "e8bec954acb1076a891309307a25cff56e2158a10cf7723ada0fcdd01b6996d5"
+    },
+    {
+      "state": "revoked",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          102,
+          57,
+          49,
+          53,
+          56,
+          51,
+          99,
+          55,
+          101,
+          53,
+          50,
+          97,
+          57,
+          56,
+          51,
+          52,
+          53,
+          48,
+          56,
+          57,
+          55,
+          49,
+          51,
+          49
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 5.094,
+      "worker_wasm_completions_before": 1,
+      "worker_wasm_completions_after": 1,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer 4ccedb2ea26ecdc0105b7dc1761603cb failed: no known network address for this peer (not paired, or no address learned yet)"
+      },
+      "ms_since_persist": 8.665,
+      "changed_store_sha256": "e8bec954acb1076a891309307a25cff56e2158a10cf7723ada0fcdd01b6996d5"
+    },
+    {
+      "state": "trusted-before-removed",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          48,
+          57,
+          99,
+          55,
+          53,
+          50,
+          97,
+          57,
+          100,
+          55,
+          97,
+          97,
+          99,
+          56,
+          52,
+          50,
+          100,
+          57,
+          100,
+          50,
+          48,
+          49,
+          50,
+          56
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 4.941,
+      "worker_wasm_completions_before": 1,
+      "worker_wasm_completions_after": 2,
+      "chosen_peer": "4ccedb2ea26ecdc0105b7dc1761603cb",
+      "received_output": "Hello, 09c752a9d7aac842d9d20128!",
+      "expected_and_actual_sha256": "3a747973eb6a939e271a64c6900d1f96bcfb62d3e1d8240116a730bca81dd5f3"
+    },
+    {
+      "state": "trusted-before-removed",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          51,
+          98,
+          99,
+          100,
+          53,
+          97,
+          100,
+          97,
+          55,
+          54,
+          51,
+          54,
+          97,
+          53,
+          53,
+          102,
+          98,
+          97,
+          50,
+          48,
+          53,
+          56,
+          54,
+          57
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 7.446,
+      "worker_wasm_completions_before": 1,
+      "worker_wasm_completions_after": 2,
+      "chosen_peer": "5e2a19b5b3255032dfe1d37b997d570b",
+      "received_output": "Hello, 3bcd5ada7636a55fba205869!",
+      "expected_and_actual_sha256": "f93aae859bee11699f9e1eb9833995b6292a6764a4fef2070c909addca923ca4"
+    },
+    {
+      "state": "removed",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          98,
+          53,
+          55,
+          56,
+          98,
+          51,
+          50,
+          52,
+          53,
+          57,
+          97,
+          100,
+          55,
+          53,
+          48,
+          100,
+          99,
+          98,
+          48,
+          55,
+          50,
+          56,
+          102,
+          100
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 21.956,
+      "worker_wasm_completions_before": 2,
+      "worker_wasm_completions_after": 2,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer 5e2a19b5b3255032dfe1d37b997d570b rejected the task (not-authorized): peer is not in this node's trusted peer allowlist",
+        "data": {
+          "remote_code": "not-authorized"
+        }
+      },
+      "ms_since_persist": 22.469,
+      "changed_store_sha256": "98fb3bf0a2e08533e82b2968e388a81413c2719b1f9ef98133a443ca5ae176b0"
+    },
+    {
+      "state": "removed",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          48,
+          98,
+          53,
+          99,
+          101,
+          51,
+          101,
+          54,
+          57,
+          102,
+          55,
+          51,
+          53,
+          53,
+          50,
+          54,
+          55,
+          56,
+          54,
+          98,
+          56,
+          99,
+          50,
+          57
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 2.606,
+      "worker_wasm_completions_before": 2,
+      "worker_wasm_completions_after": 2,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer 4ccedb2ea26ecdc0105b7dc1761603cb failed: no known network address for this peer (not paired, or no address learned yet)"
+      },
+      "ms_since_persist": 36.141,
+      "changed_store_sha256": "98fb3bf0a2e08533e82b2968e388a81413c2719b1f9ef98133a443ca5ae176b0"
+    },
+    {
+      "state": "trusted-before-observer",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          55,
+          52,
+          51,
+          50,
+          48,
+          49,
+          99,
+          97,
+          102,
+          48,
+          51,
+          51,
+          55,
+          100,
+          53,
+          55,
+          100,
+          99,
+          51,
+          97,
+          102,
+          57,
+          50,
+          97
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 13.009,
+      "worker_wasm_completions_before": 2,
+      "worker_wasm_completions_after": 3,
+      "chosen_peer": "4ccedb2ea26ecdc0105b7dc1761603cb",
+      "received_output": "Hello, 743201caf0337d57dc3af92a!",
+      "expected_and_actual_sha256": "e6d7b0b263653c3c02328c9d279a5c43916f195b3a7d9fb80fa640db87fce2b6"
+    },
+    {
+      "state": "trusted-before-observer",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          101,
+          51,
+          48,
+          53,
+          49,
+          99,
+          100,
+          48,
+          52,
+          52,
+          55,
+          57,
+          100,
+          51,
+          100,
+          51,
+          97,
+          52,
+          57,
+          54,
+          102,
+          100,
+          51,
+          102
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 4.511,
+      "worker_wasm_completions_before": 2,
+      "worker_wasm_completions_after": 3,
+      "chosen_peer": "5e2a19b5b3255032dfe1d37b997d570b",
+      "received_output": "Hello, e3051cd04479d3d3a496fd3f!",
+      "expected_and_actual_sha256": "0f1b35e9933b41159ef4fd000b8086aab3c8556a3be45a4b0982bbed482a94a5"
+    },
+    {
+      "state": "observer",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          57,
+          57,
+          53,
+          100,
+          99,
+          51,
+          51,
+          49,
+          51,
+          101,
+          102,
+          102,
+          55,
+          100,
+          56,
+          50,
+          102,
+          55,
+          57,
+          53,
+          48,
+          48,
+          57,
+          100
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 3.167,
+      "worker_wasm_completions_before": 3,
+      "worker_wasm_completions_after": 3,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer 5e2a19b5b3255032dfe1d37b997d570b rejected the task (not-authorized): peer is not in this node's trusted peer allowlist",
+        "data": {
+          "remote_code": "not-authorized"
+        }
+      },
+      "ms_since_persist": 9.757,
+      "changed_store_sha256": "d76976952f1292a6f919ccf8181676556bc99ecead360211485dfecf666bf567"
+    },
+    {
+      "state": "observer",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          53,
+          102,
+          56,
+          57,
+          102,
+          49,
+          49,
+          56,
+          51,
+          97,
+          97,
+          100,
+          100,
+          97,
+          52,
+          49,
+          53,
+          102,
+          51,
+          57,
+          97,
+          101,
+          56,
+          102
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 0.385,
+      "worker_wasm_completions_before": 3,
+      "worker_wasm_completions_after": 3,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer 4ccedb2ea26ecdc0105b7dc1761603cb failed: no known network address for this peer (not paired, or no address learned yet)"
+      },
+      "ms_since_persist": 13.613,
+      "changed_store_sha256": "d76976952f1292a6f919ccf8181676556bc99ecead360211485dfecf666bf567"
+    },
+    {
+      "state": "trusted-before-empty-authoritative-store",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          54,
+          99,
+          53,
+          53,
+          54,
+          99,
+          99,
+          97,
+          99,
+          52,
+          56,
+          49,
+          102,
+          99,
+          56,
+          53,
+          99,
+          55,
+          48,
+          51,
+          51,
+          52,
+          49,
+          100
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 2.512,
+      "worker_wasm_completions_before": 3,
+      "worker_wasm_completions_after": 4,
+      "chosen_peer": "4ccedb2ea26ecdc0105b7dc1761603cb",
+      "received_output": "Hello, 6c556ccac481fc85c703341d!",
+      "expected_and_actual_sha256": "c9cc09b37a24c811e29951debedbad95c02f7affafa7554ff5fe3a0c3a20fc16"
+    },
+    {
+      "state": "trusted-before-empty-authoritative-store",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          52,
+          48,
+          57,
+          53,
+          53,
+          97,
+          50,
+          56,
+          53,
+          101,
+          97,
+          48,
+          50,
+          55,
+          98,
+          51,
+          54,
+          53,
+          53,
+          100,
+          51,
+          49,
+          99,
+          102
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 22.526,
+      "worker_wasm_completions_before": 3,
+      "worker_wasm_completions_after": 4,
+      "chosen_peer": "5e2a19b5b3255032dfe1d37b997d570b",
+      "received_output": "Hello, 40955a285ea027b3655d31cf!",
+      "expected_and_actual_sha256": "d08d666f18588333d4a30a3bc864762c0c787c65d9a78382b78a1f0806535750"
+    },
+    {
+      "state": "empty-authoritative-store",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          57,
+          55,
+          54,
+          56,
+          101,
+          52,
+          102,
+          52,
+          54,
+          100,
+          55,
+          51,
+          56,
+          55,
+          100,
+          57,
+          53,
+          102,
+          57,
+          56,
+          57,
+          98,
+          52,
+          99
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 7.112,
+      "worker_wasm_completions_before": 4,
+      "worker_wasm_completions_after": 4,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer 5e2a19b5b3255032dfe1d37b997d570b rejected the task (not-authorized): peer is not in this node's trusted peer allowlist",
+        "data": {
+          "remote_code": "not-authorized"
+        }
+      },
+      "ms_since_persist": 8.045,
+      "changed_store_sha256": "98fb3bf0a2e08533e82b2968e388a81413c2719b1f9ef98133a443ca5ae176b0"
+    },
+    {
+      "state": "empty-authoritative-store",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          101,
+          101,
+          53,
+          53,
+          97,
+          97,
+          99,
+          57,
+          48,
+          53,
+          52,
+          54,
+          51,
+          97,
+          57,
+          51,
+          102,
+          56,
+          57,
+          102,
+          54,
+          56,
+          57,
+          99
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 0.425,
+      "worker_wasm_completions_before": 4,
+      "worker_wasm_completions_after": 4,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer 4ccedb2ea26ecdc0105b7dc1761603cb failed: no known network address for this peer (not paired, or no address learned yet)"
+      },
+      "ms_since_persist": 9.338,
+      "changed_store_sha256": "98fb3bf0a2e08533e82b2968e388a81413c2719b1f9ef98133a443ca5ae176b0"
+    },
+    {
+      "state": "trusted-before-malformed",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          102,
+          98,
+          100,
+          55,
+          50,
+          52,
+          52,
+          53,
+          49,
+          102,
+          53,
+          102,
+          102,
+          48,
+          54,
+          51,
+          48,
+          50,
+          57,
+          99,
+          101,
+          57,
+          48,
+          102
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 7.049,
+      "worker_wasm_completions_before": 4,
+      "worker_wasm_completions_after": 5,
+      "chosen_peer": "4ccedb2ea26ecdc0105b7dc1761603cb",
+      "received_output": "Hello, fbd724451f5ff063029ce90f!",
+      "expected_and_actual_sha256": "d130e2f3cfce3d44b2a1dc8ed8b4e294e057ed88c1a407dd8bce4438ff5fffce"
+    },
+    {
+      "state": "trusted-before-malformed",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          52,
+          102,
+          52,
+          57,
+          52,
+          52,
+          98,
+          98,
+          102,
+          49,
+          101,
+          57,
+          57,
+          49,
+          54,
+          100,
+          57,
+          55,
+          48,
+          98,
+          48,
+          56,
+          48,
+          51
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 7.473,
+      "worker_wasm_completions_before": 4,
+      "worker_wasm_completions_after": 5,
+      "chosen_peer": "5e2a19b5b3255032dfe1d37b997d570b",
+      "received_output": "Hello, 4f4944bbf1e9916d970b0803!",
+      "expected_and_actual_sha256": "64714b64345d42da25d5dd8153875a64667dd186e33eb069aef4d8d2fe3e5812"
+    },
+    {
+      "state": "malformed",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          97,
+          100,
+          52,
+          57,
+          49,
+          50,
+          98,
+          97,
+          101,
+          97,
+          52,
+          56,
+          101,
+          97,
+          100,
+          50,
+          98,
+          49,
+          48,
+          101,
+          51,
+          51,
+          52,
+          57
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 4.579,
+      "worker_wasm_completions_before": 5,
+      "worker_wasm_completions_after": 5,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0403: peer 5e2a19b5b3255032dfe1d37b997d570b rejected the task (not-authorized): peer is not in this node's trusted peer allowlist",
+        "data": {
+          "remote_code": "not-authorized"
+        }
+      },
+      "ms_since_persist": 8.908,
+      "changed_store_sha256": "e2642bb95f5d716564efe34f7c4775aaae024eb6b453b9fb23f7598f9b37c626"
+    },
+    {
+      "state": "malformed",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          102,
+          51,
+          54,
+          54,
+          54,
+          101,
+          98,
+          48,
+          48,
+          97,
+          98,
+          99,
+          56,
+          54,
+          50,
+          99,
+          56,
+          49,
+          56,
+          50,
+          55,
+          50,
+          50,
+          101
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 0.364,
+      "worker_wasm_completions_before": 5,
+      "worker_wasm_completions_after": 5,
+      "rpc_error": {
+        "code": -32000,
+        "message": "dispatch error: ENTANGLE-E0402: remote dispatch to peer 4ccedb2ea26ecdc0105b7dc1761603cb failed: no known network address for this peer (not paired, or no address learned yet)"
+      },
+      "ms_since_persist": 10.885,
+      "changed_store_sha256": "e2642bb95f5d716564efe34f7c4775aaae024eb6b453b9fb23f7598f9b37c626"
+    },
+    {
+      "state": "recovered",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1104573,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          102,
+          54,
+          56,
+          102,
+          48,
+          57,
+          56,
+          54,
+          97,
+          57,
+          50,
+          97,
+          48,
+          101,
+          98,
+          48,
+          101,
+          55,
+          49,
+          100,
+          48,
+          51,
+          98,
+          52
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 4.093,
+      "worker_wasm_completions_before": 5,
+      "worker_wasm_completions_after": 6,
+      "chosen_peer": "4ccedb2ea26ecdc0105b7dc1761603cb",
+      "received_output": "Hello, f68f0986a92a0eb0e71d03b4!",
+      "expected_and_actual_sha256": "57a6aee5463da32364e53b83af5b296ccd6c75c415878c60558770ad225e47bb"
+    },
+    {
+      "state": "recovered",
+      "source": "B",
+      "target": "A",
+      "source_pid": 1104573,
+      "target_pid": 1104546,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "5e2a19b5b3255032dfe1d37b997d570b/hello-world@0.1.0",
+        "input": [
+          48,
+          97,
+          97,
+          98,
+          52,
+          102,
+          48,
+          97,
+          48,
+          56,
+          51,
+          49,
+          49,
+          56,
+          102,
+          51,
+          49,
+          97,
+          57,
+          54,
+          51,
+          97,
+          100,
+          50
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "5e2a19b5b3255032dfe1d37b997d570b"
+          ]
+        }
+      },
+      "elapsed_ms": 17.877,
+      "worker_wasm_completions_before": 5,
+      "worker_wasm_completions_after": 6,
+      "chosen_peer": "5e2a19b5b3255032dfe1d37b997d570b",
+      "received_output": "Hello, 0aab4f0a083118f31a963ad2!",
+      "expected_and_actual_sha256": "581fb524f1cc78d1c200dcd7569197f78f5e4e57a0fc0a03281e8983579a93f5"
+    }
+  ],
+  "rel_restart": {
+    "signal": "SIGKILL",
+    "source_pid": 1104546,
+    "old_worker_pid": 1104573,
+    "new_worker_pid": 1106324,
+    "partial_verified_chunks": 2,
+    "requested_chunks": 12,
+    "source_rpc_error": {
+      "code": -32000,
+      "message": "stream peer lost"
+    },
+    "active_work_failure_ms": 15023.762,
+    "restart_to_verified_remote_result_ms": 199.428,
+    "architecture_under_10s": true,
+    "reloaded_plugins": [
+      "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+      "4ccedb2ea26ecdc0105b7dc1761603cb/stream-lines@0.1.0"
+    ],
+    "restored_dispatch": {
+      "state": "post-restart",
+      "source": "A",
+      "target": "B",
+      "source_pid": 1104546,
+      "target_pid": 1106324,
+      "method": "compute/dispatch",
+      "params": {
+        "plugin_id": "4ccedb2ea26ecdc0105b7dc1761603cb/hello-world@0.1.0",
+        "input": [
+          49,
+          48,
+          97,
+          100,
+          100,
+          99,
+          54,
+          48,
+          102,
+          57,
+          50,
+          55,
+          56,
+          100,
+          100,
+          54,
+          54,
+          51,
+          57,
+          97,
+          53,
+          97,
+          48,
+          48
+        ],
+        "timeout_ms": 1500,
+        "cpu_cores": 0.01,
+        "memory_bytes": 0,
+        "gpu_required": false,
+        "gpu_vram_min_bytes": 0,
+        "integrity": {
+          "kind": "trusted-executor",
+          "allowlist": [
+            "4ccedb2ea26ecdc0105b7dc1761603cb"
+          ]
+        }
+      },
+      "elapsed_ms": 8.781,
+      "worker_wasm_completions_before": 0,
+      "worker_wasm_completions_after": 1,
+      "chosen_peer": "4ccedb2ea26ecdc0105b7dc1761603cb",
+      "received_output": "Hello, 10addc60f9278dd6639a5a00!",
+      "expected_and_actual_sha256": "cdc1a8b54e98a43dcd38f05551f03047e8a222b200d431d114f66d18b4c32125"
+    },
+    "unchanged_public_state_sha256": {
+      "peers.toml": "85219d8ef4323ab1355f43f7eca81b99fdd63ffb1f4bc06a2589e0f07e33436e",
+      "keyring.toml": "cb3596e84bd4f4b9e76d5442d59a2b76ed38b7b4bc639243385fa09cb9b62aeb",
+      "config.toml": "f7fdf1f6e981a20a53dafb8535be0a537b591d5d9ca0d884004e5f36d773c90e"
+    },
+    "same_identity_file": true
+  },
+  "rel_limits": {
+    "pids": {
+      "A": 1104546,
+      "B": 1106324,
+      "C": 1104651
+    },
+    "admitted_simultaneous_worker_sessions": 32,
+    "max_chunk_bytes": 32,
+    "max_total_bytes": 512,
+    "credit_window": 1,
+    "stall_timeout_ms": 60000,
+    "admission_and_first_chunk_ms": 435.927,
+    "excess_request": {
+      "A": {
+        "rpc_error": {
+          "code": -32000,
+          "message": "too many stream sessions"
+        },
+        "elapsed_ms": 0.497
+      },
+      "C": {
+        "rpc_error": {
+          "code": -32000,
+          "message": "stream protocol: worker busy"
+        },
+        "elapsed_ms": 3.705
+      }
+    },
+    "all_recovery_chunks_verified_by_daemon": 12,
+    "freed_worker_slots_to_completed_healthy_stream_ms": 34.97
+  }
+}

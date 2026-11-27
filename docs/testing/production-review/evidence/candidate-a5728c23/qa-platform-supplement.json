@@ -1,0 +1,291 @@
+{
+  "source_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "review_method": "Read-only comparison of exact-source receipts, archived ELF digests and measured workload outcomes by /root/advert.",
+  "reviewed_utc": "2026-11-27T10:23:15.126997+00:00",
+  "independent_rubric_adjudication": {
+    "path": "docs/testing/production-review/evidence/candidate-a5728c23/qa-rubric-adjudication.json",
+    "sha256": "6c216677cbdfa5097832565da75cc91839c3a95412068e4db9d3c932273174fb",
+    "original_handoff_immutable": {
+      "literal-draft.json": "e33ad5829586d5fd4270b300fbbdcee44de5c64811843bad4b4861acb2aaebf0",
+      "conservative-draft.json": "10facd1573f0c47a6edddc116864576cd9db743369ad69c03f533db1f73ce222",
+      "literal-score.json": "5ef9d4ae1f8dee34613117721f049b409a85a381a3af39d2bccdc15434dbe53d",
+      "conservative-score.json": "576e6f21e5cf264ed8a76e8f643c3870a669943d3db401233b30dea26051e31e",
+      "draft-normalized-receipts.json": "b932b3019ac4dcc86f900e705fdf1f318b5950d4ac24df288e865efa5ceeba57",
+      "normalized-receipt-index.json": "ef7155c25cbae3c40546b36d9e89963b722ee0d9ca1d79450b0a9d197d9ee662"
+    }
+  },
+  "supplemental_observations": {
+    "INTEROP-LINUX": {
+      "status": "not_evidenced",
+      "reason": "The current native x86-64 release dispatched a signed plugin once to the AArch64 c19ef758 worker under QEMU on the same host, with exact chosen peer and output. Independent native AArch64 execution of the current release remains unavailable.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/repeat/mixed-release-arm64/mixed-release-arm64.json",
+          "sha256": "a18cf8d3dc244167c22b68ce7034d1ef0a0949881821403ea5c52eb4384f18ca",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 -B /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/mixed-verified.py --repo /workspace/Entanglement --out /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/repeat/mixed-release-arm64 --commit a5728c230e5049556b806cae8597fe823dd67987 --source-id sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5 --wasm /workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm --b3sum /tmp/entanglement-release-check.zM5PAQ/usr/bin/b3sum --work /workspace/entangle-qualify-mixed-cqhcekvl --x86 /workspace/Entanglement/target/release-candidate/a5728c230e50/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz --x86-receipt /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-archive.json --arm /workspace/Entanglement/target/release-candidate/c19ef7587a22-aarch64/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz --arm-receipt /workspace/Entanglement/docs/testing/production-review/evidence/candidate-c19ef758/emulated-linux-arm64/arm-archive.json --emulator /workspace/entangle-mix-296b.3eCSwyYF/emulator --emulator-provenance /workspace/Entanglement/docs/testing/production-review/evidence/candidate-296b427a/mixed-release-arm64",
+          "claim": "Current native x86-64 coordinator to an earlier AArch64 Linux worker under QEMU on one host.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:24:59.654452+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/repeat/mixed-release-arm64/normalized.json"
+        }
+      ]
+    },
+    "OPS-RELEASE": {
+      "status": "not_evidenced",
+      "reason": "The canonical unsigned Linux x86-64 pair requires GLIBC 2.39. Ubuntu 22.04 and Debian 12 userspaces refused the actual ELFs. Four production-signed releases, provenance, independent rebuilds and native installations remain unavailable. A distinct cold Jammy build produced an unsigned portable candidate.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/linux-userspaces/userspaces.json",
+          "sha256": "ee09ee09afbefb460ab88a21be4874d6252a431f24dc16a0c2dfdee897a1227a",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "python3 -B /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/userspaces.py --repo /workspace/Entanglement --out /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/linux-userspaces --commit a5728c230e5049556b806cae8597fe823dd67987 --source-id sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5 --wasm /workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_json_pointer.wasm --b3sum /tmp/entanglement-release-check.zM5PAQ/usr/bin/b3sum --archive /workspace/Entanglement/target/release-candidate/a5728c230e50/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz --archive-receipt /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a5728c23/linux-archive.json",
+          "claim": "Canonical unsigned Linux x86-64 ELF portability in local isolated userspaces.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T09:24:16.369306+00:00",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/linux-userspaces/normalized.json"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/jammy-replay/jammy-linux-archive.json",
+          "sha256": "2629b159a2e2887c522619d3d2a7c4d5d4507a6dc9c54f73db822456529a8d9e",
+          "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+          "command": "docker exec --user 65534:65534 172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155 /usr/bin/timeout --signal=TERM --kill-after=20s 42m /bin/sh /tmp/entangle-build-jammy.sh a5728c230e5049556b806cae8597fe823dd67987 fb363ad01c1e15697a22aa0261b7c8574f4b6282c3be31c23840fd83c0271f59",
+          "claim": "Cold Jammy-built unsigned compatibility archive bound to candidate source.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T10:17:40.356599+00:00",
+          "draft_normalized_receipt_key": "linux-compatibility/jammy-replay/jammy-linux-archive.json"
+        }
+      ]
+    }
+  },
+  "first_jammy_setup_exit_code": 2,
+  "first_jammy_setup_receipt": {
+    "path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/jammy-build-failure.json",
+    "sha256": "63079d2ebdbff0590b2237cb9315cb97616a21bf315f2a8b680c7a17addc6e6b"
+  },
+  "current_portable_archive_exists": true,
+  "portable_retry": {
+    "status": "cold_build_completed",
+    "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/jammy-replay/jammy-linux-archive.json",
+    "receipt_sha256": "2629b159a2e2887c522619d3d2a7c4d5d4507a6dc9c54f73db822456529a8d9e",
+    "archive_sha256": "9a4c23b648ad26f23fa925c5171218094fb6b68247bcfbdc62dc19dca83d592d",
+    "executables_sha256": {
+      "entangle": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+      "entangled": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5"
+    },
+    "signing_status": "unsigned local compatibility candidate built in pinned Jammy",
+    "claim": "Separate portable build evidence. Native installation and workload execution require their own evidence."
+  },
+  "prior_completed_compilation": {
+    "receipt_path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/jammy-offline/jammy-build-failure.json",
+    "receipt_sha256": "c68e8d496703a832807739f6c3e66540ad2942d290cadfb8f7c50ff5bfb1d613",
+    "logged_archive_sha256": "9a4c23b648ad26f23fa925c5171218094fb6b68247bcfbdc62dc19dca83d592d",
+    "claim": "The first locked cold compile and in-container packaging completed. Outer cleanup removed its tmpfs before verified export. The later build starts with a new target directory and reuses the saved apt provisioning layer.",
+    "export_rehearsal_path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/jammy-replay/archive-export-rehearsal.json",
+    "export_rehearsal_sha256": "f1addff56cabe27f763862dc48e1ac922e039b7a14344f7cf110e71d66d8ac2d"
+  },
+  "hello_world_ubuntu_24_04": {
+    "evidence": {
+      "path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/noble-retry/noble-hello-world-package.log",
+      "sha256": "dd597abb0f59c34a7a8d652a790e356391013053af5d600f749bc6a517a05754",
+      "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+      "command": "docker exec -i --user 65534:65534 3822322dd696888758d28699d3193dab652e3b8c90070a5a5f500f7fb92259df /usr/bin/timeout --kill-after=10s 300s /bin/sh -s -- a5728c230e5049556b806cae8597fe823dd67987",
+      "claim": "Pinned hello-world guest built and packaged with the candidate tool inside Ubuntu 24.04 userspace.",
+      "exit_code": 0,
+      "observed_at_utc": "2026-11-27T09:41:54.548916+00:00",
+      "draft_normalized_receipt_key": "linux-compatibility/noble-retry/noble-hello-world-package.json"
+    },
+    "archive_sha256": "901e79e6c5c903c79f51e16fe3cfd2d5e2c040edecd9f1e44f22f126edc210ba",
+    "scope": "One confined Ubuntu 24.04 userspace. The pinned three-host macOS and Ubuntu matrix remains incomplete."
+  },
+  "two_ubuntu_hello_world_packages": {
+    "path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/ubuntu-guest-package-comparison.json",
+    "sha256": "d1296c6789def37f406848618a3177b8aaa80641ef6207a0220ca376f5421af4",
+    "archive_sha256": "901e79e6c5c903c79f51e16fe3cfd2d5e2c040edecd9f1e44f22f126edc210ba",
+    "archive_size": 20909,
+    "scope": "Fresh guest builds and local tar.zst packaging under two Ubuntu versions on one x86_64 Linux host. macOS 14 remains unverified."
+  },
+  "actual_posix_installer_and_signed_workloads": {
+    "path": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/posix-installer/installer-matrix.json",
+    "sha256": "d58d24a709ab165841294479cc72c4516551488cd42625713dcd7d4fe3092371",
+    "raw_receipts_sha256": {
+      "fresh-canonical": "49f1b5319255178c46a6a6612522e5c875da3f6b7a7ccc0a381917153c600530",
+      "update": "c1e7a79a2c022e1dad60a350d8dcbc54012e7020393aa4140648592a1e49638f"
+    },
+    "scope": "No-network rootless x86_64 Docker userlands on one Linux kernel; exact local release assets and checksum sidecars through a file-backed HTTPS-download adapter; temporary unprivileged homes and installation prefixes. The catalog component was signed inside each disposable test home.",
+    "cases": {
+      "fresh-canonical": {
+        "22.04": {
+          "userspace": "glibc 2.35",
+          "container_image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+          "uid": 65534,
+          "installer_shell": "/usr/bin/dash",
+          "archive_cases": {
+            "canonical": {
+              "exit_code": 1,
+              "verified_url_requests": 2,
+              "observed_loader_error": "staged entangle version check: GLIBC_2.39 unavailable"
+            }
+          },
+          "workloads": {}
+        },
+        "24.04": {
+          "userspace": "glibc 2.39",
+          "container_image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+          "uid": 65534,
+          "installer_shell": "/usr/bin/dash",
+          "archive_cases": {
+            "canonical": {
+              "exit_code": 0,
+              "verified_url_requests": 2
+            }
+          },
+          "workloads": {
+            "canonical": {
+              "plugin_id": "d06756c9b8106784a8cf8107d57ba4d3/json-pointer@0.1.0",
+              "signature_sha256": "831e0dfffe5e23b07a918722d15181623efe2ee8d63a2a36cbdecbf4aa2489a1",
+              "local_peer": "d06756c9b8106784a8cf8107d57ba4d3",
+              "exact_json_output": "\"ubuntu-24.04-canonical\"",
+              "entangle_sha256": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+              "entangled_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+              "daemon_exit": 0
+            }
+          }
+        }
+      },
+      "update": {
+        "22.04": {
+          "userspace": "glibc 2.35",
+          "container_image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+          "uid": 65534,
+          "installer_shell": "/usr/bin/dash",
+          "archive_cases": {
+            "portable": {
+              "exit_code": 0,
+              "verified_url_requests": 2
+            },
+            "canonical_update": {
+              "exit_code": 1,
+              "verified_url_requests": 2,
+              "observed_loader_error": "staged entangle version check: GLIBC_2.39 unavailable"
+            }
+          },
+          "workloads": {
+            "portable": {
+              "plugin_id": "3e76765d06f9a8f2390e06ddf3f0d574/json-pointer@0.1.0",
+              "signature_sha256": "5f11a75122200eea705672679fd13f6a5e93fc8b12a8b215cbb71b1e0c991a4e",
+              "local_peer": "3e76765d06f9a8f2390e06ddf3f0d574",
+              "exact_json_output": "\"ubuntu-22.04-portable\"",
+              "entangle_sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+              "entangled_sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+              "daemon_exit": 0
+            },
+            "after_rejection": {
+              "plugin_id": "3e76765d06f9a8f2390e06ddf3f0d574/json-pointer@0.1.0",
+              "signature_sha256": "5f11a75122200eea705672679fd13f6a5e93fc8b12a8b215cbb71b1e0c991a4e",
+              "local_peer": "3e76765d06f9a8f2390e06ddf3f0d574",
+              "exact_json_output": "\"ubuntu-22.04-after_rejection\"",
+              "entangle_sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+              "entangled_sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+              "daemon_exit": 0
+            }
+          },
+          "same_peer_and_signed_plugin_after_update": true
+        },
+        "24.04": {
+          "userspace": "glibc 2.39",
+          "container_image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+          "uid": 65534,
+          "installer_shell": "/usr/bin/dash",
+          "archive_cases": {
+            "portable": {
+              "exit_code": 0,
+              "verified_url_requests": 2
+            },
+            "canonical_update": {
+              "exit_code": 0,
+              "verified_url_requests": 2
+            }
+          },
+          "workloads": {
+            "portable": {
+              "plugin_id": "6496d3ce6eefae298c5c1d22a3c4f0c2/json-pointer@0.1.0",
+              "signature_sha256": "3b4b8c2a3446cf4caf65f2569914359bce9cad75a598b28da1d3727eafc46333",
+              "local_peer": "6496d3ce6eefae298c5c1d22a3c4f0c2",
+              "exact_json_output": "\"ubuntu-24.04-portable\"",
+              "entangle_sha256": "2179a80d319357e0c65cd63029a7c9effb5e6c949f186999140a06d41d15abdb",
+              "entangled_sha256": "7ac7cf75c19eaae7f645580525e1066bfa1ce52407ccd0f0a64abb4898a03ec5",
+              "daemon_exit": 0
+            },
+            "after_upgrade": {
+              "plugin_id": "6496d3ce6eefae298c5c1d22a3c4f0c2/json-pointer@0.1.0",
+              "signature_sha256": "3b4b8c2a3446cf4caf65f2569914359bce9cad75a598b28da1d3727eafc46333",
+              "local_peer": "6496d3ce6eefae298c5c1d22a3c4f0c2",
+              "exact_json_output": "\"ubuntu-24.04-after_upgrade\"",
+              "entangle_sha256": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+              "entangled_sha256": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e",
+              "daemon_exit": 0
+            }
+          },
+          "same_peer_and_signed_plugin_after_update": true
+        }
+      }
+    }
+  },
+  "normalized_receipts": {
+    "linux-compatibility/jammy-replay/jammy-linux-archive.json": {
+      "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+      "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+      "started_utc": "2026-11-27T10:02:27.502575+00:00",
+      "finished_utc": "2026-11-27T10:17:40.356599+00:00",
+      "exit_code": 0,
+      "log": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/jammy-replay/jammy-linux-archive.json",
+      "sha256": "2629b159a2e2887c522619d3d2a7c4d5d4507a6dc9c54f73db822456529a8d9e",
+      "command": [
+        "docker",
+        "exec",
+        "--user",
+        "65534:65534",
+        "172ec1cb001d8a5a466866bab418035fb5be56416b62e9de78380557db834155",
+        "/usr/bin/timeout",
+        "--signal=TERM",
+        "--kill-after=20s",
+        "42m",
+        "/bin/sh",
+        "/tmp/entangle-build-jammy.sh",
+        "a5728c230e5049556b806cae8597fe823dd67987",
+        "fb363ad01c1e15697a22aa0261b7c8574f4b6282c3be31c23840fd83c0271f59"
+      ],
+      "source_receipt": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/jammy-replay/jammy-linux-archive.json",
+      "source_receipt_sha256": "2629b159a2e2887c522619d3d2a7c4d5d4507a6dc9c54f73db822456529a8d9e"
+    },
+    "linux-compatibility/noble-retry/noble-hello-world-package.json": {
+      "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+      "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+      "started_utc": "2026-11-27T09:39:52.737098+00:00",
+      "finished_utc": "2026-11-27T09:41:54.548916+00:00",
+      "exit_code": 0,
+      "log": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/noble-retry/noble-hello-world-package.log",
+      "sha256": "dd597abb0f59c34a7a8d652a790e356391013053af5d600f749bc6a517a05754",
+      "command": [
+        "docker",
+        "exec",
+        "-i",
+        "--user",
+        "65534:65534",
+        "3822322dd696888758d28699d3193dab652e3b8c90070a5a5f500f7fb92259df",
+        "/usr/bin/timeout",
+        "--kill-after=10s",
+        "300s",
+        "/bin/sh",
+        "-s",
+        "--",
+        "a5728c230e5049556b806cae8597fe823dd67987"
+      ],
+      "source_receipt": "docs/testing/production-review/evidence/candidate-a5728c23/linux-compatibility/noble-retry/noble-hello-world-package.json",
+      "source_receipt_sha256": "479f2cdd48e3ffa9c062b70f0937150946a68c258ae6df2af03905a529352ffe"
+    }
+  }
+}

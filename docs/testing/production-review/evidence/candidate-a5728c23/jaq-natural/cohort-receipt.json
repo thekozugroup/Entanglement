@@ -1,0 +1,54 @@
+{
+  "adapter_sha256": "cf1ac3e26f348d1983f518b9c115607d723312622ea8fe13668210e2bedebf73",
+  "archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "blocks": 128,
+  "coordinator": "8a10da728f7d4d7bbafea732ae078ff7",
+  "encoder_sha256": "a699ecb7b7c446de7e6300f5d8d9009dfd57c26f26c52efc7518080a5bf23157",
+  "errors": 0,
+  "expected_blocks": 128,
+  "finished_utc": "2026-11-27T09:29:36.530832+00:00",
+  "fixture_sha256": "2244229b57651c6e908c50f4ddc86a43221ac16743dd89429f9e372621f43627",
+  "independent_signed_suite_identity": {
+    "artifact_blake3": "0429140d1ec228e6a913078d688c9b9bb2c6c06441823216c36094392d295860",
+    "manifest_blake3": "642eb6245722b90c9dfe70e6ed6eff56a9e27cfa8da07461f68fb1d42c624777"
+  },
+  "native_executable_sha256": "de058b34145b15b0f19decee76c0a1c6d685ed487446a9ecd80851415fcd2ce7",
+  "native_patterns": {
+    "failed->failed": 51,
+    "failed->passed": 2,
+    "passed": 75
+  },
+  "peers": [
+    "e8fb3c3cc981115adf486aae88ee3380",
+    "554256d0d13d3f98e3d7f56159d20c87"
+  ],
+  "plan_sha256": "5c611fc83708fe3886157ca4203bbf8fcc6717096ea2dfc0eae6fb387f238a4b",
+  "plugin_id": "8a10da728f7d4d7bbafea732ae078ff7/jaq-clock@0.1.0",
+  "raw_sha256": "c2f7ac8be38bdb9d21b8487061f10c25ad1032cb6d963a908cb846eb5132e8f1",
+  "release_binary_sha256": {
+    "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+    "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+  },
+  "release_commit": "a5728c230e5049556b806cae8597fe823dd67987",
+  "remote_patterns": {
+    "failed->failed": 50,
+    "failed->passed": 3,
+    "passed": 75
+  },
+  "script_sha256": "cb07643b13a09f8481beada5b642a035633f3e83e9dbd6ae16b670ef8a8649b0",
+  "sharder_sha256": "ee3c237f6048507b5bf92b9ac3ae20ee3bd423b3846c0c1d055911ae26e86bcf",
+  "signed_component_sha256": "453c8cf550ae6547376457d1f1679b5ea444bddc98cf1508d42eadd68680fc1a",
+  "signed_manifest_sha256": "78de4015f9bff3e1b322fa5cac7f3ed39e42dd7fadcc89dc93def8c9796780e5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_before": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "started_utc": "2026-11-27T09:29:22.262565+00:00",
+  "upstream_case_file_sha256": "0d86802167c266bb9e917d356f65c5c156eeee9df0765bc97e2e9a6b63a110c4",
+  "upstream_lock_sha256": "bc7ec7e5dfab7363f649fa7d76af767e8835a2a110785d939691e06c16255ed6",
+  "upstream_revision": "606164eb26420c892c9bac27f7daf77b7a406b6d",
+  "verified_remote_transitions": [
+    22,
+    98,
+    120
+  ],
+  "wasm_module_sha256": "7f647b6a4c6ce00194989c679fe90213c15628e3e014cdd76e5f6109874c544c"
+}

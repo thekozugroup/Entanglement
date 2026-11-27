@@ -1,0 +1,35 @@
+{
+  "source_id": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "source_after": "sha256:a43296d252b79d7a0762861de1251b0e2e77fde20af2ea5dd43254617376fce5",
+  "release_archive_sha256": "21f9efbc6a235f25d28235f5da7171c87b52dabd482c0ec63dd01fdc3557f611",
+  "binary_sha256": {
+    "entangle": "23d819d7099d3a75dc40d2b1baa0077640b394269674676b6ee6363c22441766",
+    "entangled": "a36e6b819089db3d50f2dd70660b131731960a29ad8184b9cf108576a381403e"
+  },
+  "template_sha256": "b72959538426162ad815de3a6ee98f4bd28c782a719598f4ae6a8f239f23303c",
+  "scope": "same-host Linux publisher containment rehearsal, disposable identities, no external messages",
+  "actions": [
+    {
+      "step": "Inject private report of suspected signing-key compromise in this exercise",
+      "elapsed_seconds": 0.278,
+      "affected": "399cb2382f224150bec390757704c791/hello-world@0.1.0",
+      "affected_component_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50"
+    },
+    {
+      "step": "Unload blocks invocation; signed bytes are retained",
+      "elapsed_seconds": 0.345,
+      "retained_component_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50"
+    },
+    {
+      "step": "Unload affected package, remove publisher trust, and verify reload denial",
+      "elapsed_seconds": 0.378,
+      "code": "ENTANGLE-E0101"
+    },
+    {
+      "step": "Recover using separately generated publisher key; retired package remains denied",
+      "elapsed_seconds": 0.557,
+      "replacement": "f30e24d110a66298993ac4558cf606d0/hello-world@0.1.0",
+      "pid_unchanged": true
+    }
+  ]
+}
