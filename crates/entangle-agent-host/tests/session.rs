@@ -1,61 +1,70 @@
-//! Integration test for `AgentSession` start + restore round-trip.
-//!
-//! These tests use the claude-code adapter (project-local `.mcp.json`).
-//! Because `config_path()` returns a relative path that resolves against the
-//! process working directory, each test creates a tempdir, changes into it,
-//! runs the assertions, then restores the original working directory.
-//!
-//! ## Why these are `#[ignore]`d
-//!
-//! The working directory is *process*-global, so two of these tests running on
-//! different threads of the same test binary would clobber each other's CWD and
-//! resolve `.mcp.json` against the wrong tempdir. They therefore require
-//! `--test-threads=1`, which is not how the default `cargo test` run is
-//! configured — hence `#[ignore]`, per the `CONTRIBUTING.md` convention for
-//! tests that mutate `current_dir`.
-//!
-//! (An earlier version of this comment claimed the tests were serialised with
-//! `#[serial]` from the `serial_test` crate. They are not: there is no such
-//! dev-dependency in `Cargo.toml` and no `#[serial]` attribute below. Making
-//! them hermetic properly means threading an explicit config path into
-//! `AgentSession`, i.e. an API change in `src/`, rather than a test-only fix.)
-//!
-//! Run them with:
-//!
-//!   cargo test -p entangle-agent-host --test session -- --ignored --test-threads=1
+//! Exercise the default Claude Code adapter in a private working directory for each case.
 
 use entangle_agent_host::AgentSession;
-use std::fs;
-use tempfile::TempDir;
+use std::{fs, path::Path, process::Command};
 
 const GW: &str = "http://127.0.0.1:9000/mcp";
 const SRV: &str = "strata";
 
-/// Helper: change CWD into `dir`, run `f`, restore CWD even if `f` panics.
-fn with_cwd<F: FnOnce()>(dir: &TempDir, f: F) {
-    let original = std::env::current_dir().unwrap();
-    std::env::set_current_dir(dir.path()).unwrap();
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
-    std::env::set_current_dir(&original).unwrap();
-    if let Err(e) = result {
-        std::panic::resume_unwind(e);
+fn with_fixture(test: &str, exercise: impl FnOnce(&Path)) {
+    const CHILD_DIR: &str = "ENTANGLE_AGENT_SESSION_TEST_DIR";
+    const COMPLETE: &str = "session-test-complete";
+    const PREFIX: &str = "entangle-agent-session-test-";
+
+    if let Some(path) = std::env::var_os(CHILD_DIR) {
+        assert!(
+            std::env::args_os().skip(1).eq(["--exact", test]),
+            "child process must select only {test}"
+        );
+        let cwd = std::env::current_dir().unwrap().canonicalize().unwrap();
+        assert_eq!(cwd, Path::new(&path));
+        assert!(cwd
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with(PREFIX));
+        assert!(
+            fs::read_dir(&cwd).unwrap().next().is_none(),
+            "child working directory must be empty"
+        );
+        exercise(&cwd);
+        fs::File::create_new(cwd.join(COMPLETE)).unwrap();
+        return;
     }
+
+    let dir = tempfile::Builder::new().prefix(PREFIX).tempdir().unwrap();
+    let child_dir = dir.path().canonicalize().unwrap();
+    let child = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", test])
+        .current_dir(&child_dir)
+        .env(CHILD_DIR, &child_dir)
+        .output()
+        .unwrap();
+    assert!(
+        child.status.success(),
+        "child test {test} failed:\n{}\n{}",
+        String::from_utf8_lossy(&child.stdout),
+        String::from_utf8_lossy(&child.stderr)
+    );
+    assert!(
+        child_dir.join(COMPLETE).is_file(),
+        "child test {test} finished without exercising the fixture"
+    );
 }
 
 /// Start a session, verify the gateway URL is injected, restore, verify
 /// original content is back.
 #[test]
-#[ignore = "mutates current_dir; run with: cargo test -p entangle-agent-host --test session -- --ignored --test-threads=1"]
 fn session_start_and_restore_round_trips() {
-    let dir = TempDir::new().unwrap();
-    let original = r#"{"mcpServers":{"user-tool":{"type":"http","url":"http://user"}}}"#;
-    fs::write(dir.path().join(".mcp.json"), original).unwrap();
+    with_fixture("session_start_and_restore_round_trips", |dir| {
+        let path = dir.join(".mcp.json");
+        let original = r#"{"mcpServers":{"user-tool":{"type":"http","url":"http://user"}}}"#;
+        fs::write(&path, original).unwrap();
 
-    with_cwd(&dir, || {
         let session =
             AgentSession::start("claude-code", GW, SRV).expect("session start should succeed");
 
-        let patched = fs::read_to_string(dir.path().join(".mcp.json")).unwrap();
+        let patched = fs::read_to_string(&path).unwrap();
         let v: serde_json::Value = serde_json::from_str(&patched).unwrap();
         assert_eq!(v["mcpServers"][SRV]["url"], GW, "gateway URL not injected");
         assert!(
@@ -65,7 +74,7 @@ fn session_start_and_restore_round_trips() {
 
         session.restore().expect("restore should succeed");
 
-        let restored = fs::read_to_string(dir.path().join(".mcp.json")).unwrap();
+        let restored = fs::read_to_string(path).unwrap();
         assert_eq!(
             restored, original,
             "restore did not reproduce original content"
@@ -75,21 +84,21 @@ fn session_start_and_restore_round_trips() {
 
 /// When no `.mcp.json` exists, restore should delete the generated file.
 #[test]
-#[ignore = "mutates current_dir; run with: cargo test -p entangle-agent-host --test session -- --ignored --test-threads=1"]
 fn session_start_no_prior_config_restore_removes_file() {
-    let dir = TempDir::new().unwrap();
-    let mcp_path = dir.path().join(".mcp.json");
-    assert!(!mcp_path.exists());
+    with_fixture(
+        "session_start_no_prior_config_restore_removes_file",
+        |dir| {
+            let mcp_path = dir.join(".mcp.json");
+            assert!(!mcp_path.exists());
+            let session = AgentSession::start("claude-code", GW, SRV)
+                .expect("session start should succeed even with no prior file");
+            assert!(mcp_path.exists(), "gateway config should have been created");
 
-    with_cwd(&dir, || {
-        let session = AgentSession::start("claude-code", GW, SRV)
-            .expect("session start should succeed even with no prior file");
-        assert!(mcp_path.exists(), "gateway config should have been created");
-
-        session.restore().expect("restore should succeed");
-        assert!(
-            !mcp_path.exists(),
-            "file should be removed after restore when none existed originally"
-        );
-    });
+            session.restore().expect("restore should succeed");
+            assert!(
+                !mcp_path.exists(),
+                "file should be removed after restore when none existed originally"
+            );
+        },
+    );
 }
