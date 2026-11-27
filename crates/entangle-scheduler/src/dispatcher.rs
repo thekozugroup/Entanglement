@@ -110,6 +110,13 @@ pub struct DispatchResult {
     pub output: Vec<u8>,
 }
 
+/// Refresh cached worker inventory before an otherwise unplaceable task starts.
+#[async_trait::async_trait]
+pub trait PlacementRefresh: Send + Sync {
+    /// Return true if an eligible peer supplied a fresh authenticated report.
+    async fn refresh(&self, task: &OneShotTask) -> bool;
+}
+
 /// Task dispatcher backed by the local [`Kernel`] and, optionally, a mesh
 /// transport for tasks that placement sends to another machine.
 #[derive(Clone)]
@@ -238,6 +245,16 @@ impl Dispatcher {
         &self,
         task: OneShotTask,
     ) -> Result<DispatchResult, DispatchError> {
+        self.dispatch_one_shot_with_refresh(task, None).await
+    }
+
+    /// After a pre-execution miss, optionally refresh placement information and
+    /// select once more. An attempted invocation is never repeated.
+    pub async fn dispatch_one_shot_with_refresh(
+        &self,
+        mut task: OneShotTask,
+        refresh: Option<&dyn PlacementRefresh>,
+    ) -> Result<DispatchResult, DispatchError> {
         // Reject an oversized input before doing any placement or execution
         // work — an oversized request must never reach the kernel.
         let input_len = task.input.len() as u64;
@@ -277,28 +294,62 @@ impl Dispatcher {
             .filter(|_| self.kernel.has_compute_plugin(&task.plugin))
             .map(|worker| (worker, &self.local_in_flight));
         let local_allowed = self.local_worker.is_none() || local.is_some();
-        let chosen = self.workers.choose(
-            self.worker_ttl,
-            &task.resources,
-            &task.plugin,
-            task.input.len(),
-            local,
-            |peer| {
-                (*peer != self.local_peer_id || local_allowed)
-                    && trusted.as_ref().is_none_or(|peers| peers.contains(peer))
-            },
-        );
-        let (mut chosen, mut _reservation) = match chosen {
-            Ok(chosen) => chosen,
-            Err(PlacementError::NoWorkers) if unconstrained && local_allowed => (
-                PlacementChoice {
-                    peer_id: self.local_peer_id,
-                    score: 0.0,
-                    reason: "no eligible workers — falling back to local".into(),
+        let place = || {
+            self.workers.choose(
+                self.worker_ttl,
+                &task.resources,
+                &task.plugin,
+                task.input.len(),
+                local,
+                |peer| {
+                    (*peer != self.local_peer_id || local_allowed)
+                        && trusted.as_ref().is_none_or(|peers| peers.contains(peer))
                 },
-                self.local_in_flight.reserve(),
-            ),
-            Err(e) => return Err(e.into()),
+            )
+        };
+        let (mut chosen, mut _reservation) = match place() {
+            Ok(chosen) => chosen,
+            Err(PlacementError::NoWorkers)
+                if unconstrained
+                    && local_allowed
+                    && trusted
+                        .as_ref()
+                        .is_none_or(|peers| peers.contains(&self.local_peer_id)) =>
+            {
+                (
+                    PlacementChoice {
+                        peer_id: self.local_peer_id,
+                        score: 0.0,
+                        reason: "no eligible workers — falling back to local".into(),
+                    },
+                    self.local_in_flight.reserve(),
+                )
+            }
+            Err(initial) => {
+                let Some(refresh) = refresh.filter(|_| {
+                    self.remote.is_some()
+                        && matches!(
+                            task.integrity,
+                            IntegrityPolicy::None | IntegrityPolicy::TrustedExecutor { .. }
+                        )
+                        && task.timeout_ms > 0
+                }) else {
+                    return Err(initial.into());
+                };
+                let start = tokio::time::Instant::now();
+                let budget = Duration::from_millis(task.timeout_ms);
+                let refreshed = tokio::time::timeout(budget, refresh.refresh(&task)).await;
+                if !matches!(refreshed, Ok(true)) {
+                    return Err(initial.into());
+                }
+                let remaining_ms = budget.saturating_sub(start.elapsed()).as_millis() as u64;
+                if remaining_ms == 0 {
+                    return Err(initial.into());
+                }
+                let chosen = place()?;
+                task.timeout_ms = remaining_ms;
+                chosen
+            }
         };
 
         if chosen.peer_id != self.local_peer_id {

@@ -8,7 +8,9 @@ mod metrics;
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use entangle_bin::{config, maintenance::MaintenanceLoop, remote, server, state::DaemonState};
+use entangle_bin::{
+    capabilities, config, maintenance::MaintenanceLoop, remote, server, state::DaemonState,
+};
 use entangle_broker::BrokerPolicy;
 use entangle_mesh_local::{
     Discovery, DiscoveryConfig, DiscoveryEvent, HardwareAdvert, LocalPeer, PeerSeen,
@@ -19,7 +21,7 @@ use entangle_scheduler::{Dispatcher, RemoteDispatch, WorkerInfo, WorkerPool};
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
 use entangle_types::resource::GpuRequirement;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -169,6 +171,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id)
         .with_local_worker(local_worker.clone());
     let mut capability_task = None;
+    let mut capability_refresh = None;
     let mut relay_service = None;
     if let Some(mesh) = &mut scheduler_mesh {
         let client = Arc::new(
@@ -186,12 +189,15 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         relay_service = Some(relay);
         dispatcher = dispatcher.with_remote(client.clone());
         if !mesh.peer_ids.is_empty() || mesh.lan.is_some() {
-            capability_task = Some(tokio::spawn(poll_capabilities(
+            let (refresh, task) = capabilities::start(
                 client,
+                mesh.addresses.clone(),
                 mesh.peer_ids.clone(),
                 mesh.lan.clone(),
                 worker_pool.clone(),
-            )));
+            );
+            capability_refresh = refresh;
+            capability_task = Some(task);
         }
         mesh.serve(remote::streaming_task_server(
             kernel.clone(),
@@ -217,6 +223,7 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         display_name,
     );
 
+    daemon_state.capability_refresh = capability_refresh;
     daemon_state.relay = relay_service;
     daemon_state.config_path = Some(config_path);
     if let Some(mesh) = &scheduler_mesh {
@@ -368,56 +375,6 @@ async fn status(args: StatusArgs) -> anyhow::Result<()> {
 }
 
 // ── Discovery → worker-pool feeder ────────────────────────────────────────────
-
-/// Refresh known worker capabilities independently of multicast discovery.
-async fn poll_capabilities(
-    client: Arc<RemoteDispatch>,
-    configured: Vec<PeerId>,
-    lan: Option<Arc<remote::LanRoutes>>,
-    pool: WorkerPool,
-) {
-    let configured: BTreeSet<_> = configured.into_iter().collect();
-    let mut previous = BTreeSet::new();
-    let mut timer = tokio::time::interval(Duration::from_secs(15));
-    timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    loop {
-        timer.tick().await;
-        let mut peers = configured.clone();
-        if let Some(lan) = lan.clone() {
-            peers.extend(
-                tokio::task::spawn_blocking(move || lan.peer_ids())
-                    .await
-                    .unwrap_or_default(),
-            );
-        }
-        // An authenticated report learned solely through LAN discovery has no
-        // remaining route after service removal. Independently configured
-        // peers remain candidates even when their mDNS record disappears.
-        for retired in previous.difference(&peers) {
-            pool.remove(retired);
-        }
-        let mut probes = tokio::task::JoinSet::new();
-        for &peer in &peers {
-            if probes.len() == 8 {
-                probes.join_next().await;
-            }
-            let client = client.clone();
-            let pool = pool.clone();
-            probes.spawn(async move {
-                match client.capabilities(peer).await {
-                    Ok(worker) => {
-                        pool.upsert_authenticated(worker);
-                    }
-                    Err(err) => {
-                        tracing::debug!(%peer, error = %err, "worker capability query unavailable")
-                    }
-                }
-            });
-        }
-        probes.join_all().await;
-        previous = peers;
-    }
-}
 
 /// Forward mDNS [`DiscoveryEvent`]s into the scheduler's [`WorkerPool`].
 ///

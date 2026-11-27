@@ -32,7 +32,7 @@ pub mod wire;
 mod work_unit;
 pub mod worker;
 
-pub use dispatcher::{DispatchError, DispatchResult, Dispatcher};
+pub use dispatcher::{DispatchError, DispatchResult, Dispatcher, PlacementRefresh};
 pub use placement::{choose, PlacementChoice, PlacementError};
 pub use remote::{
     serve_tasks, PeerAddressBook, PeerAllowlist, PeerDirectory, RemoteDispatch, RemoteTaskServer,

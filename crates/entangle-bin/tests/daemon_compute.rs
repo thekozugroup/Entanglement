@@ -218,6 +218,66 @@ async fn first_remote(cluster: &Cluster) -> (entangle_rpc::ComputeDispatchResult
     }
 }
 
+#[tokio::test]
+async fn first_submission_replans_after_a_trusted_worker_hot_load() {
+    let dir = tempfile::tempdir_in("/tmp").unwrap();
+    let cluster = timeout(
+        Duration::from_secs(20),
+        start_cluster(dir.path(), Path::new(env!("CARGO_BIN_EXE_entangled"))),
+    )
+    .await
+    .expect("cold daemon setup did not finish");
+    timeout(Duration::from_secs(8), async {
+        // Ensure the authenticated initial inventory existed before the new package was loaded.
+        first_remote(&cluster).await;
+        let publisher = IdentityKeyPair::generate();
+        let package = dir.path().join("hot-package");
+        fs::create_dir(&package).unwrap();
+        let id = plugin::write_plugin_package(&package, &publisher, &plugin::hello_pong_wasm());
+        for (node, daemon) in [
+            (&cluster.worker, &cluster.executor),
+            (&cluster.coordinator, &cluster.submitter),
+        ] {
+            plugin::keyring_for(&publisher)
+                .save(&node.home.join(".entangle/keyring.toml"))
+                .unwrap();
+            assert_eq!(
+                daemon
+                    .client
+                    .plugins_load(&package)
+                    .await
+                    .unwrap()
+                    .plugin_id,
+                id
+            );
+        }
+        // This deliberately removes the CPU requirement and gives both nodes
+        // the package. An explicit remote allowlist must still exclude self.
+        let allowed = cluster.worker.peer_id().to_hex();
+        let params = ComputeDispatchParams {
+            cpu_cores: 0.0,
+            integrity: ComputeIntegrity::TrustedExecutor {
+                allowlist: vec![allowed.clone()],
+            },
+            ..request(&id)
+        };
+        let result = cluster
+            .submitter
+            .client
+            .compute_dispatch(&params)
+            .await
+            .unwrap();
+        assert_eq!(result.chosen_peer, allowed);
+        assert_eq!(result.output, b"Hello, mesh worker!");
+        let metrics = cluster.executor.client.metrics().await.unwrap();
+        assert!(metrics.contains("entangle_wasm_invocation_seconds_count{result=\"ok\"} 2\n"));
+        let metrics = cluster.submitter.client.metrics().await.unwrap();
+        assert!(!metrics.contains("entangle_wasm_invocation_seconds_count{result=\"ok\"}"));
+    })
+    .await
+    .expect("the first request should complete before the 15-second polling tick");
+}
+
 async fn exercise(dir: &Path) {
     let cluster = start_cluster(dir, Path::new(env!("CARGO_BIN_EXE_entangled"))).await;
     let (result, _) = first_remote(&cluster).await;

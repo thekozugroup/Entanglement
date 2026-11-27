@@ -218,6 +218,27 @@ impl WorkerPool {
         })
     }
 
+    /// Check whether a recently refreshed and authenticated worker advertises
+    /// the requested one-shot plugin and capacity. Actual placement still
+    /// performs its complete selection and reservation.
+    pub fn fits_authenticated(
+        &self,
+        peer: &PeerId,
+        plugin: &PluginId,
+        spec: &ResourceSpec,
+        max_age: Duration,
+    ) -> bool {
+        self.inner
+            .read()
+            .get(peer)
+            .and_then(|entry| entry.authenticated.as_ref())
+            .is_some_and(|(report, seen)| {
+                seen.elapsed() < max_age
+                    && report.plugins.contains(plugin)
+                    && crate::placement::satisfies(&report.worker, spec)
+            })
+    }
+
     fn record(&self, peer: PeerId, update: impl FnOnce(&mut Observations)) -> bool {
         let mut workers = self.inner.write();
         if !workers.contains_key(&peer) && workers.len() >= self.max_workers {

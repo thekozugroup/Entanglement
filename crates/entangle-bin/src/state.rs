@@ -5,7 +5,7 @@
 use entangle_mesh_local::Discovery;
 use entangle_peers::PeerStore;
 use entangle_runtime::Kernel;
-use entangle_scheduler::{Dispatcher, WorkerPool};
+use entangle_scheduler::{Dispatcher, PlacementRefresh, WorkerPool};
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
 use std::sync::Arc;
@@ -28,6 +28,8 @@ pub struct DaemonState {
     pub kernel: Arc<Kernel>,
     /// Shared task dispatcher (wraps the worker pool).
     pub dispatcher: Arc<Dispatcher>,
+    /// Optional refresh for stale authenticated inventory on a local placement miss.
+    pub capability_refresh: Option<Arc<dyn PlacementRefresh>>,
     /// Worker pool: current view of local/remote compute capacity.
     pub worker_pool: WorkerPool,
     /// Trusted peer allowlist, persisted to `~/.entangle/peers.toml`.
@@ -69,6 +71,7 @@ impl DaemonState {
             .to_hex(),
             kernel,
             dispatcher,
+            capability_refresh: None,
             worker_pool,
             peer_store,
             local_peer_id,

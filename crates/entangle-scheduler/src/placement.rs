@@ -168,7 +168,7 @@ pub(crate) fn choose_from<'a, T>(
 }
 
 /// Returns `true` if `w` meets all hard resource constraints in `spec`.
-fn satisfies(w: &WorkerInfo, spec: &ResourceSpec) -> bool {
+pub(crate) fn satisfies(w: &WorkerInfo, spec: &ResourceSpec) -> bool {
     // Reject the worker unless `cpu_cores` is strictly comparable AND at least
     // `spec.cpu_cores`. `partial_cmp` returns `None` for a NaN `cpu_cores`, which
     // fails the `matches!` and rejects the worker — the incomparable case is made

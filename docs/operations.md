@@ -278,7 +278,7 @@ public_key = "<worker-64-digit-entanglement-public-key>"
 port = 7443
 ```
 
-5. Configure the worker's signed plugin package as shown above and restart both Entanglement daemons. Check `entangle mesh status` for `tailscale` on each and allow a capability polling cycle. On the coordinator, the following command restricts execution to the paired worker and prints the chosen peer and result.
+5. Configure the worker's signed plugin package as shown above and restart both Entanglement daemons. Check `entangle mesh status` for `tailscale` on each. On the coordinator, the following command restricts execution to the paired worker and prints the chosen peer and result. If the worker has a trusted route, this command can refresh its inventory before the next scheduled poll.
 
 ```sh
 entangle compute dispatch '<publisher>/json-pointer@0.1.0' \
@@ -290,7 +290,11 @@ The daemon refreshes tailnet address hints every 30 seconds and polls configured
 
 The default address family is IPv4. Use `[::]:7443` on hosts using Tailscale IPv6. A Tailscale-only daemon can start before the local Tailscale service. Local commands remain available while the scheduler waits for a verified tailnet address. During that wait, `entangle mesh status` shows no active scheduler transport and the daemon leaves the scheduler port unbound.
 
-After a successful initial bind, a Tailscale-only daemon can recover from a later `tailscaled` restart. When it detects loss of the listener or local address, it withdraws its routes. It retries the bind at intervals of 1 to 15 seconds using the same Entanglement identity and UDP port. A configured wildcard can select a new local tailnet address in the same IP family. An explicitly configured address must return before the listener can recover. Check `entangle mesh status` on both devices, then submit a fresh job and verify the selected peer. A worker's advertised capabilities can take another polling cycle to return. Interrupted jobs may have executed before the connection failed. Check the job's effects before submitting it again.
+After a successful initial bind, a Tailscale-only daemon can recover from a later `tailscaled` restart. When it detects loss of the listener or local address, it withdraws its routes. It retries the bind at intervals of 1 to 15 seconds using the same Entanglement identity and UDP port. A configured wildcard can select a new local tailnet address in the same IP family. An explicitly configured address must return before the listener can recover. Check `entangle mesh status` on both devices, then submit a fresh job and verify the selected peer. Interrupted jobs may have executed before the connection failed. Check the job's effects before submitting it again.
+
+The daemon polls worker inventory at startup and every 15 seconds. After a placement miss, an ordinary local `compute dispatch` can request an earlier authenticated report from explicitly configured peers with current trusted routes. A trusted-executor request queries only its allowed peers. The daemon waits up to 2.5 seconds, within the original task timeout. When a usable report arrives, it selects once more before execution and subtracts the wait from the task's timeout. A failed selection returns to the caller. An invocation that has already started, including a request whose connection failed before returning output, is never replayed by this refresh.
+
+Demand refreshes share route checks and queries by peer. The daemon keeps up to eight pending peers and probes up to eight concurrently with a two-second deadline per demand query. Extra waves start at least two seconds apart. The ordinary polling lane retains its limit of eight queries, for a combined maximum of 16 during overlap. Successful placement, LAN-only discovery, streaming, and replicated operations keep their existing behavior.
 
 Tailnet policy controls network reachability. Applying a narrower ACL can leave an established UDP flow usable for a time. To withdraw a peer's permission to submit jobs, run `entangle mesh revoke <peer-id>` on the worker. The worker enforces its current trust store when the link returns.
 

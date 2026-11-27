@@ -375,7 +375,9 @@ async fn handle_compute_dispatch(
     let dispatcher = state.dispatcher.clone();
 
     let start = std::time::Instant::now();
-    let dispatched = dispatcher.dispatch_one_shot(task).await;
+    let dispatched = dispatcher
+        .dispatch_one_shot_with_refresh(task, state.capability_refresh.as_deref())
+        .await;
     let outcome = match &dispatched {
         Ok(r) if r.chosen.peer_id == state.local_peer_id => "local",
         Ok(_) => "remote",

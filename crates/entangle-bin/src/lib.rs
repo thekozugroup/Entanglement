@@ -19,6 +19,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod capabilities;
 pub mod config;
 pub mod maintenance;
 pub mod methods;
