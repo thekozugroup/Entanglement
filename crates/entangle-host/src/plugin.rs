@@ -3,7 +3,7 @@
 use crate::bindings::PluginPre;
 use crate::engine::{HostEngine, EPOCH_TICK_MS};
 use crate::errors::HostError;
-use crate::libtest::LibtestCapture;
+use crate::libtest::{LibtestCapture, LibtestIdentity};
 use crate::state::{HostState, ResourceLimits};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 use std::time::Duration;
@@ -32,10 +32,15 @@ pub struct LoadedPlugin {
     effective_tier: Tier,
 }
 
+enum World {
+    Plugin,
+    Libtest(Option<LibtestIdentity>),
+}
+
 #[derive(Clone)]
 enum Exports {
     Plugin(PluginPre<HostState>),
-    Libtest(CommandPre<HostState>),
+    Libtest(CommandPre<HostState>, Option<LibtestIdentity>),
 }
 
 impl Clone for LoadedPlugin {
@@ -73,17 +78,34 @@ impl LoadedPlugin {
         plugin_id: PluginId,
         effective_tier: Tier,
     ) -> Result<Self, HostError> {
-        Self::compile(engine, bytes, plugin_id, effective_tier, false)
+        Self::compile(engine, bytes, plugin_id, effective_tier, World::Plugin)
     }
 
-    /// Compile a pure WASI CLI test component. The runtime selects this only
-    /// when the operator loads a package with a matching signed build world.
+    /// Compile a standalone pure WASI CLI test component without a signed package identity.
+    /// Pinned requests require [`Self::from_verified_libtest`].
     pub fn from_libtest(
         engine: &HostEngine,
         bytes: &[u8],
         plugin_id: PluginId,
     ) -> Result<Self, HostError> {
-        Self::compile(engine, bytes, plugin_id, Tier::Pure, true)
+        Self::compile(engine, bytes, plugin_id, Tier::Pure, World::Libtest(None))
+    }
+
+    /// Compile a libtest module with the package identity that the runtime verified.
+    /// Its host-authored response carries this identity for the lifetime of this loaded object.
+    pub fn from_verified_libtest(
+        engine: &HostEngine,
+        bytes: &[u8],
+        plugin_id: PluginId,
+        identity: LibtestIdentity,
+    ) -> Result<Self, HostError> {
+        Self::compile(
+            engine,
+            bytes,
+            plugin_id,
+            Tier::Pure,
+            World::Libtest(Some(identity)),
+        )
     }
 
     fn compile(
@@ -91,7 +113,7 @@ impl LoadedPlugin {
         bytes: &[u8],
         plugin_id: PluginId,
         effective_tier: Tier,
-        libtest: bool,
+        world: World,
     ) -> Result<Self, HostError> {
         if bytes.starts_with(b"\x7fELF") {
             return Err(HostError::RuntimeKindMismatch {
@@ -103,7 +125,7 @@ impl LoadedPlugin {
         // Resolve imports + validate exports once, at load time. This moves
         // linker work out of the invocation hot path (previously ~29% of
         // invoke latency) and rejects malformed components early.
-        let pre = if libtest {
+        let pre = if let World::Libtest(identity) = world {
             let mut linker = Linker::new(engine.engine());
             wasmtime_wasi::p2::add_to_linker_async(&mut linker).map_err(HostError::LinkerSetup)?;
             CommandPre::new(
@@ -111,7 +133,7 @@ impl LoadedPlugin {
                     .instantiate_pre(&component)
                     .map_err(HostError::Instantiate)?,
             )
-            .map(Exports::Libtest)
+            .map(|command| Exports::Libtest(command, identity))
         } else {
             PluginPre::new(
                 engine
@@ -172,9 +194,12 @@ impl LoadedPlugin {
         limits: ResourceLimits,
     ) -> Result<PluginRunResult, HostError> {
         let mut state = HostState::with_limits(self.plugin_id.clone(), self.effective_tier, limits);
-        let capture = matches!(&self.pre, Exports::Libtest(_))
-            .then(|| LibtestCapture::start(input, &mut state))
-            .transpose()?;
+        let capture = match &self.pre {
+            Exports::Libtest(_, identity) => {
+                Some(LibtestCapture::start(input, &mut state, identity.as_ref())?)
+            }
+            Exports::Plugin(_) => None,
+        };
         let mut store = Store::new(engine.engine(), state);
         // Enforce memory/table/instance caps on everything this store
         // allocates, including instantiation-time initial memories.
@@ -195,7 +220,7 @@ impl LoadedPlugin {
                         .map_err(|e| classify_call_error(e, timeout_ms))?
                         .map_err(plugin_error)
                 }
-                Exports::Libtest(pre) => {
+                Exports::Libtest(pre, identity) => {
                     let command = pre
                         .instantiate_async(&mut store)
                         .await
@@ -215,7 +240,7 @@ impl LoadedPlugin {
                     };
                     capture
                         .expect("WASI command has output capture")
-                        .result(exit_code)
+                        .result(exit_code, identity.as_ref())
                 }
             }
         };

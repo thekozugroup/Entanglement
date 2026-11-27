@@ -326,8 +326,17 @@ impl Kernel {
             )
             .map(LoadedArtifact::Stream)
         } else if libtest_world {
-            LoadedPlugin::from_libtest(&self.engine, &pkg.bytes, plugin_id.clone())
-                .map(LoadedArtifact::Compute)
+            let identity = entangle_host::LibtestIdentity::from_verified_hashes(
+                bundle.artifact_blake3,
+                bundle.manifest_blake3,
+            );
+            LoadedPlugin::from_verified_libtest(
+                &self.engine,
+                &pkg.bytes,
+                plugin_id.clone(),
+                identity,
+            )
+            .map(LoadedArtifact::Compute)
         } else {
             LoadedPlugin::from_bytes(&self.engine, &pkg.bytes, plugin_id.clone(), effective_tier)
                 .map(LoadedArtifact::Compute)

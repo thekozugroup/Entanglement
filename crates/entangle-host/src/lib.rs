@@ -17,7 +17,7 @@ pub mod bindings;
 pub mod engine;
 pub mod errors;
 mod libtest;
-pub use libtest::LIBTEST_WORLD;
+pub use libtest::{LibtestIdentity, LIBTEST_WORLD};
 pub mod metric;
 pub mod plugin;
 pub mod state;
