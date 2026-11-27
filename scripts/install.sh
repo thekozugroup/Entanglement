@@ -276,9 +276,66 @@ resolve_bindir() {
 
 # ── Cleanup ──────────────────────────────────────────────────────────────────
 TMPDIR_INSTALL=""
+INSTALL_STAGE=""
+PUBLISHING=0
+
+rollback_install() {
+    failed=0
+    for bin in entangled entangle; do
+        # A successful same-filesystem rename consumes the staged file.
+        [ ! -f "$INSTALL_STAGE/new/$bin" ] || continue
+        previous="$INSTALL_STAGE/previous/$bin"
+        destination="$BINDIR/$bin"
+        if [ -e "$previous" ] || [ -L "$previous" ]; then
+            if [ -d "$destination" ] || ! mv -f "$previous" "$destination"; then
+                failed=1
+            fi
+        elif ! rm -f "$destination"; then
+            failed=1
+        fi
+    done
+    return "$failed"
+}
+
 cleanup() {
+    trap '' HUP INT TERM
+    if [ -n "$INSTALL_STAGE" ]; then
+        if [ "$PUBLISHING" -eq 0 ] || rollback_install; then
+            rm -rf "$INSTALL_STAGE"
+        else
+            warn "could not restore the previous installation. Recovery files are in $INSTALL_STAGE."
+        fi
+    fi
     [ -n "$TMPDIR_INSTALL" ] && [ -d "$TMPDIR_INSTALL" ] && rm -rf "$TMPDIR_INSTALL"
     return 0
+}
+
+install_signal_traps() {
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+}
+
+verify_version() {
+    if ! reported="$("$1" --version 2>&1)"; then
+        printf '%s\n' "$reported"
+        return 1
+    fi
+    if [ "$reported" != "$2 ${TAG#v}" ]; then
+        printf 'Expected %s %s, got: %s\n' "$2" "${TAG#v}" "$reported"
+        return 1
+    fi
+    printf '%s\n' "$reported"
+}
+
+skip_current_install() {
+    if [ "$FORCE" -eq 0 ] &&
+        verify_version "$BINDIR/entangle" entangle >/dev/null &&
+        verify_version "$BINDIR/entangled" entangled >/dev/null; then
+        step "entangle and entangled ${TAG#v} are already installed in ${BINDIR}."
+        info "Re-run with --force to reinstall, or --version X.Y.Z to change versions."
+        exit 0
+    fi
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -354,28 +411,20 @@ main() {
         exit 0
     fi
 
-    # ── Already installed? ───────────────────────────────────────────────────
-    if [ -x "${BINDIR}/entangle" ]; then
-        installed="$("${BINDIR}/entangle" --version 2>/dev/null | awk 'NR==1 { print $NF }' || true)"
-        if [ -n "$installed" ] && [ "$installed" = "${TAG#v}" ] && [ "$FORCE" -ne 1 ]; then
-            step "entangle ${installed} is already installed in ${BINDIR} — nothing to do."
-            info "Re-run with --force to reinstall, or --version X.Y.Z to change versions."
-            exit 0
-        fi
-        if [ -n "$installed" ]; then
-            step "Replacing entangle ${installed} in ${BINDIR} with ${TAG#v}"
-        else
-            step "Replacing an existing (unrecognized) entangle in ${BINDIR}"
-        fi
-    fi
-
     # ── Writability: never escalate silently ────────────────────────────────
+    stage="$BINDIR/.entangle-install.lock"
+    stage_error="could not reserve ${stage}. Another install may be active or awaiting recovery."
     if [ -d "$BINDIR" ]; then
-        [ -w "$BINDIR" ] || die "${BINDIR} exists but is not writable by $(id -un 2>/dev/null || echo "this user").
+        if [ ! -w "$BINDIR" ]; then
+            # A complete installation in a read-only prefix still needs no changes.
+            [ ! -e "$stage" ] && [ ! -L "$stage" ] || die "$stage_error"
+            skip_current_install
+            die "${BINDIR} exists but is not writable by $(id -un 2>/dev/null || echo "this user").
   Either re-run with a writable prefix:
       install.sh --prefix \"\$HOME/.local\"
   or install there yourself with elevated privileges (this script will not call sudo):
       sudo install.sh --prefix $(dirname "$BINDIR") --allow-root"
+        fi
     else
         parent="$(dirname "$BINDIR")"
         while [ ! -d "$parent" ] && [ "$parent" != "/" ]; do parent="$(dirname "$parent")"; done
@@ -384,8 +433,18 @@ main() {
         mkdir -p "$BINDIR"
     fi
 
+    trap cleanup EXIT
+    # Reserve one private staging directory through publication and rollback.
+    # Ignore signals during the single mkdir until we know whether we own it.
+    trap '' HUP INT TERM
+    if mkdir -m 700 "$stage" 2>/dev/null; then
+        INSTALL_STAGE="$stage"
+    fi
+    install_signal_traps
+    [ -n "$INSTALL_STAGE" ] || die "$stage_error"
+    skip_current_install
+
     TMPDIR_INSTALL="$(mktemp -d 2>/dev/null || mktemp -d -t entangle-install)"
-    trap cleanup EXIT HUP INT TERM
 
     # ── Download ────────────────────────────────────────────────────────────
     step "Downloading ${TARBALL}"
@@ -424,30 +483,50 @@ main() {
         die "failed to extract ${TARBALL}"
 
     # ── Install ─────────────────────────────────────────────────────────────
-    step "Installing into ${BINDIR}"
+    # Stage on the destination filesystem so smoke tests also work with noexec /tmp.
+    mkdir "$INSTALL_STAGE/new" "$INSTALL_STAGE/previous"
     for bin in entangle entangled; do
         src="${TMPDIR_INSTALL}/x/${NAME}/${bin}"
         if [ ! -f "$src" ]; then
             src="$(find "${TMPDIR_INSTALL}/x" -type f -name "$bin" 2>/dev/null | head -n 1 || true)"
         fi
         [ -n "$src" ] && [ -f "$src" ] || die "'${bin}' not found inside ${TARBALL} — unexpected archive layout."
-        # Copy to a temp name in the destination filesystem, then rename: this
-        # is atomic and never leaves a half-written binary on the PATH.
-        cp "$src" "${BINDIR}/.${bin}.new.$$"
-        chmod 0755 "${BINDIR}/.${bin}.new.$$"
-        mv -f "${BINDIR}/.${bin}.new.$$" "${BINDIR}/${bin}"
-        info "    ${BINDIR}/${bin}"
+        cp "$src" "$INSTALL_STAGE/new/$bin"
+        chmod 0755 "$INSTALL_STAGE/new/$bin"
     done
 
     # ── Smoke test ──────────────────────────────────────────────────────────
-    step "Verifying the installed binary"
-    if ! ver_out="$("${BINDIR}/entangle" --version 2>&1)"; then
-        die "installed ${BINDIR}/entangle but it failed to run:
+    step "Verifying staged executables"
+    for bin in entangle entangled; do
+        if ! ver_out="$(verify_version "$INSTALL_STAGE/new/$bin" "$bin")"; then
+            die "staged ${bin} did not pass its version check:
 ${ver_out}
-  This usually means the tarball is for a different libc or architecture.
+  Check the release version, libc and architecture.
   Detected: ${OS}/${ARCH} -> ${TARGET}"
-    fi
-    info "    ${ver_out}"
+        fi
+        info "    ${ver_out}"
+    done
+
+    for bin in entangle entangled; do
+        destination="$BINDIR/$bin"
+        if [ -d "$destination" ]; then
+            die "cannot replace directory $destination with an executable"
+        elif [ -f "$destination" ] || [ -L "$destination" ]; then
+            previous="$INSTALL_STAGE/previous/$bin"
+            ln -P "$destination" "$previous" 2>/dev/null || cp -pP "$destination" "$previous"
+        elif [ -e "$destination" ]; then
+            die "cannot replace non-file $destination with an executable"
+        fi
+    done
+
+    step "Installing into ${BINDIR}"
+    PUBLISHING=1
+    for bin in entangle entangled; do
+        mv -f "$INSTALL_STAGE/new/$bin" "$BINDIR/$bin" || die "could not install ${BINDIR}/$bin"
+    done
+    PUBLISHING=0
+    info "    ${BINDIR}/entangle"
+    info "    ${BINDIR}/entangled"
 
     # ── PATH advice ─────────────────────────────────────────────────────────
     case ":${PATH}:" in

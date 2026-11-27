@@ -340,8 +340,10 @@ What it will do:
 3. Downloads `entanglement-<tag>-<target>.tar.gz` **and** its `.sha256`.
 4. Verifies the SHA-256 digest. On a mismatch it deletes the archive and exits
    non-zero — nothing is ever extracted before the checksum passes.
-5. Installs `entangle` and `entangled` into `$HOME/.local/bin` (or your
-   `--prefix`), then runs `entangle --version` to prove the binary works.
+5. Stages `entangle` and `entangled`, then runs `--version` on each. Both must
+   run and report the requested version before the installer replaces either
+   executable in `$HOME/.local/bin` (or your `--prefix`). An incomplete
+   installation is repaired even when one executable already has that version.
 
 ### Options
 
