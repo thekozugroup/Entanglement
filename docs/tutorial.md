@@ -328,11 +328,11 @@ Expected output (healthy, daemon not running):
 [ok]    wasm32-wasip2             installed
 [warn]  daemon-reachable          not running (start with `entangled run`) — socket /home/alice/.entangle/sock absent
 [skip]  daemon-version-match      skipped (daemon not reachable)
-[ok]    OS sandbox                Landlock available
+[warn]  OS sandbox                This build refuses native plugins because it has no sandboxed native runner. — the kernel lists Landlock in /sys/kernel/security/lsm
 [ok]    disk-space                42.0 GiB free
 [skip]  clock-skew                skipped (daemon not reachable)
 
-Summary: 10 ok, 1 warn, 0 fail, 2 skip
+Summary: 9 ok, 2 warn, 0 fail, 2 skip
 ```
 
 `warn` does not fail the command; `entangle doctor` only exits non-zero if any

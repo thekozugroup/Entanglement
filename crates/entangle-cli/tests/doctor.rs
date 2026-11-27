@@ -17,6 +17,34 @@ fn doctor_cmd(home: &std::path::Path) -> Command {
     cmd
 }
 
+#[test]
+fn sandbox_diagnostics_report_host_observations_and_refuse_native_plugins() {
+    let home = tempfile::tempdir().unwrap();
+    let output = doctor_cmd(home.path()).output().unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let sandbox = stdout
+        .lines()
+        .find(|line| line.contains("OS sandbox"))
+        .unwrap();
+    let probe = entangle_runtime::probe_os_sandbox();
+    let refusal = "This build refuses native plugins because it has no sandboxed native runner.";
+    assert!(sandbox.contains("[warn]"), "{sandbox}");
+    assert!(sandbox.contains(probe.description()), "{sandbox}");
+    assert!(sandbox.contains(refusal), "{sandbox}");
+
+    // The host observations in print-platform do not depend on tools from PATH.
+    let output = Command::cargo_bin("entangle")
+        .unwrap()
+        .arg("print-platform")
+        .env("PATH", home.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let platform = String::from_utf8(output.stdout).unwrap();
+    assert!(platform.contains(probe.description()), "{platform}");
+    assert!(platform.contains(refusal), "{platform}");
+}
+
 // ---------------------------------------------------------------------------
 // Test 1: uninitialized home → identity missing = [fail] = exit 1.
 //         All other fails (if any) must also be identity-related.

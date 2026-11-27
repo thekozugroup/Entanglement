@@ -1,24 +1,22 @@
-//! OS-sandbox probes for tier-5 subprocess plugins (spec §3.4).
+//! Host observations reported by the CLI for tier-5 native plugins.
 //!
-//! This module reports what sandbox primitive the daemon would use for the
-//! local host, *without* actually launching anything. The result is consumed
-//! by the doctor command, the install prompt for tier-5 plugins, and the
-//! supervisor before it spawns a subprocess.
-//!
-//! Phase 1 ships **probes only**: it never engages the sandbox itself. Phase 2
-//! will add a `engage(...)` function that takes a `SandboxProfile` and runs
-//! the child under the chosen primitive.
+//! The probe reads kernel information and system tool metadata. It does not
+//! test sandbox enforcement or enable the native plugin loader.
+
+/// Current native plugin loading behavior shown alongside host observations.
+pub const NATIVE_RUNNER_STATUS: &str =
+    "This build refuses native plugins because it has no sandboxed native runner.";
 
 /// Result of a sandbox probe.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SandboxProbe {
-    /// macOS Seatbelt via `sandbox-exec` is available.
+    /// The system sandbox-exec file has execute permission bits.
     SeatbeltAvailable,
-    /// Linux Landlock (kernel ≥6.7 advertised in `/proc/sys/kernel/landlock/status`).
+    /// The kernel lists Landlock as an active Linux Security Module.
     LandlockAvailable,
-    /// bubblewrap fallback present (used when Landlock is absent on older kernels).
+    /// The system bubblewrap file has execute permission bits.
     BubblewrapFallback,
-    /// No supported sandbox primitive detected for this host.
+    /// No positive indicator was observed on this host.
     NoneAvailable {
         /// Operator-facing reason string.
         reason: &'static str,
@@ -31,7 +29,7 @@ pub enum SandboxProbe {
 }
 
 impl SandboxProbe {
-    /// `true` when the probe found a usable primitive.
+    /// `true` when the probe observed a host indicator. This does not establish enforcement.
     pub const fn is_available(&self) -> bool {
         matches!(
             self,
@@ -42,42 +40,39 @@ impl SandboxProbe {
     /// Short, operator-facing description suitable for `entangle doctor`.
     pub const fn description(&self) -> &'static str {
         match self {
-            Self::SeatbeltAvailable => "macOS Seatbelt (sandbox-exec) available",
-            Self::LandlockAvailable => "Linux Landlock available",
-            Self::BubblewrapFallback => {
-                "Landlock unavailable; bubblewrap present (fallback isolation)"
-            }
+            Self::SeatbeltAvailable => "found /usr/bin/sandbox-exec with execute permission bits",
+            Self::LandlockAvailable => "the kernel lists Landlock in /sys/kernel/security/lsm",
+            Self::BubblewrapFallback => "found /usr/bin/bwrap with execute permission bits",
             Self::NoneAvailable { reason } => reason,
             Self::Unsupported { reason } => reason,
         }
     }
 }
 
-/// Probe the OS sandbox primitive for the current host.
+/// Look for OS sandbox indicators at system paths for the current host.
 ///
-/// The function performs only filesystem reads and `PATH` lookups; it does
-/// **not** spawn any process or engage any sandbox.
+/// The probe never spawns a process or engages a sandbox.
 pub fn probe() -> SandboxProbe {
     #[cfg(target_os = "macos")]
     {
-        if has_command("sandbox-exec") {
+        if has_execute_bits("/usr/bin/sandbox-exec") {
             return SandboxProbe::SeatbeltAvailable;
         }
         return SandboxProbe::NoneAvailable {
-            reason: "sandbox-exec not in PATH — Seatbelt unavailable",
+            reason: "no executable /usr/bin/sandbox-exec observed",
         };
     }
 
     #[cfg(target_os = "linux")]
     {
-        if landlock_in_proc() {
+        if landlock_listed() {
             return SandboxProbe::LandlockAvailable;
         }
-        if has_command("bwrap") {
+        if has_execute_bits("/usr/bin/bwrap") {
             return SandboxProbe::BubblewrapFallback;
         }
         return SandboxProbe::NoneAvailable {
-            reason: "neither Landlock (kernel ≥6.7) nor bubblewrap available",
+            reason: "no Landlock listing or executable /usr/bin/bwrap observed",
         };
     }
 
@@ -94,20 +89,16 @@ pub fn probe() -> SandboxProbe {
     }
 }
 
-#[cfg(unix)]
-fn has_command(name: &str) -> bool {
-    std::process::Command::new("/usr/bin/env")
-        .args(["which", name])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn has_execute_bits(path: &str) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
 }
 
 #[cfg(target_os = "linux")]
-fn landlock_in_proc() -> bool {
-    std::fs::read_to_string("/proc/sys/kernel/landlock/status")
-        .map(|s| s.trim() == "1")
-        .unwrap_or(false)
+fn landlock_listed() -> bool {
+    std::fs::read_to_string("/sys/kernel/security/lsm")
+        .is_ok_and(|list| list.split(',').any(|name| name.trim() == "landlock"))
 }
 
 #[cfg(test)]
@@ -120,6 +111,22 @@ mod tests {
         // Sanity: it must be one of the variants, and its description
         // must be a non-empty string.
         assert!(!p.description().is_empty());
+    }
+
+    #[test]
+    fn positive_indicators_describe_only_the_observed_kernel_or_file_state() {
+        assert_eq!(
+            SandboxProbe::SeatbeltAvailable.description(),
+            "found /usr/bin/sandbox-exec with execute permission bits"
+        );
+        assert_eq!(
+            SandboxProbe::LandlockAvailable.description(),
+            "the kernel lists Landlock in /sys/kernel/security/lsm"
+        );
+        assert_eq!(
+            SandboxProbe::BubblewrapFallback.description(),
+            "found /usr/bin/bwrap with execute permission bits"
+        );
     }
 
     #[test]

@@ -96,8 +96,7 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     Image(cmd::image::ImageArgs),
     /// Verify an Entanglement release archive.
     Release(cmd::release::ReleaseArgs),
-    /// Print the detected platform and the sandbox primitive that would be used
-    /// for tier-5 plugins on this host (spec §0.2).
+    /// Print the host platform, OS sandbox indicators, and native plugin support.
     PrintPlatform,
     /// Print Prometheus exposition from the running daemon.
     ///
@@ -211,10 +210,11 @@ async fn print_metrics() -> anyhow::Result<()> {
 fn print_platform() -> anyhow::Result<()> {
     let probe = entangle_runtime::probe_os_sandbox();
     println!(
-        "{} {} (sandbox: {})",
+        "{} {} (sandbox: {}). {}",
         std::env::consts::OS,
         std::env::consts::ARCH,
-        probe.description()
+        probe.description(),
+        entangle_runtime::os_sandbox::NATIVE_RUNNER_STATUS
     );
     Ok(())
 }

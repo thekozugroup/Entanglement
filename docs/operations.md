@@ -367,7 +367,7 @@ then a summary (`crates/entangle-cli/src/cmd/doctor.rs`):
 8. `wasm32-wasip2` — whether the Wasm target is installed (needed to build plugins, not to run the daemon).
 9. `daemon-reachable` — connects to the RPC socket and calls `version`. **Only warns** (exit code stays 0) if the daemon is unreachable — it does not fail the overall check.
 10. `daemon-version-match` — compares the daemon's reported version to the CLI's own; skipped if the daemon isn't reachable.
-11. `OS sandbox` — availability of Seatbelt/Landlock/Bubblewrap for tier-5 plugin isolation (probe only in Phase 1 — no enforcement yet).
+11. `OS sandbox` reports a warning because this build refuses native subprocess plugins. On Linux it reads the active security module list and checks the system bubblewrap executable if the list supplies no Landlock entry. On macOS it checks the system sandbox-exec executable. Signed WebAssembly plugins run through the Wasmtime host.
 12. `disk-space` — warns below 1 GiB free on the filesystem hosting `~/.entangle` (or `/tmp` if that dir doesn't exist yet).
 13. `clock-skew` — compares the daemon's clock to the local clock via a `time` RPC; `warn` above 2s drift, **`fail`** above 30s (biscuit-auth tokens have only ±60s allowance, so severe drift breaks cross-node auth and pairing TOFU).
 

@@ -254,7 +254,7 @@ fn existing_status_and_new_link_preserve_explicit_transport_selection() {
         .assert()
         .success()
         .stdout(predicate::str::contains("tailscale"))
-        .stdout(predicate::str::contains("Restart entangled"));
+        .stdout(predicate::str::contains("restart entangled"));
 }
 
 #[test]

@@ -348,22 +348,11 @@ async fn check_daemon() -> (CheckResult, CheckResult) {
 // ---------------------------------------------------------------------------
 
 fn check_os_sandbox() -> CheckResult {
-    use entangle_runtime::SandboxProbe;
-    match entangle_runtime::probe_os_sandbox() {
-        p @ (SandboxProbe::SeatbeltAvailable
-        | SandboxProbe::LandlockAvailable
-        | SandboxProbe::BubblewrapFallback) => CheckResult::ok("OS sandbox", p.description()),
-        SandboxProbe::NoneAvailable { reason } => CheckResult::warn(
-            "OS sandbox",
-            reason,
-            "tier-5 plugin isolation will be reduced; install bubblewrap or upgrade kernel for Landlock",
-        ),
-        SandboxProbe::Unsupported { reason } => CheckResult::warn(
-            "OS sandbox",
-            reason,
-            "Windows plugin sandboxing is not yet implemented",
-        ),
-    }
+    CheckResult::warn(
+        "OS sandbox",
+        entangle_runtime::os_sandbox::NATIVE_RUNNER_STATUS,
+        entangle_runtime::probe_os_sandbox().description(),
+    )
 }
 
 // ---------------------------------------------------------------------------
