@@ -88,21 +88,33 @@ fn shell_file(shell: Shell) -> Result<PathBuf> {
     })
 }
 
-fn shell_block(shell: Shell) -> String {
+fn shell_block(shell: Shell, live_doctor: bool) -> String {
     let mut s = format!("{START}\n# Optional warning only; this is not a sandbox.\n");
     match shell {
         Shell::Bash | Shell::Zsh => s.push_str("export ENTANGLE_WRAPPER_ACTIVE=1\n"),
         Shell::Fish => s.push_str("set -gx ENTANGLE_WRAPPER_ACTIVE 1\n"),
     }
     for name in ["claude-code", "codex", "aider"] {
+        let declaration = if live_doctor {
+            format!("function {name}")
+        } else {
+            format!("{name}()")
+        };
         match shell {
             Shell::Bash | Shell::Zsh => s.push_str(&format!(
-                "{name}() {{\n  if [ ! -e \"$HOME/.entangle/wrapper-disabled\" ] && [ -z \"${{ENTANGLE_SESSION_ID:-}}\" ]; then\n    printf '%s\\n' 'warning: {name} launched outside Entanglement session.' 'Tools are not routed through the Entanglement gateway.' >&2\n  fi\n  command {name} \"$@\"\n}}\n"
+                "{declaration} {{\n  if [ ! -e \"$HOME/.entangle/wrapper-disabled\" ] && [ -z \"${{ENTANGLE_SESSION_ID:-}}\" ]; then\n    printf '%s\\n' 'warning: {name} launched outside Entanglement session.' 'Tools are not routed through the Entanglement gateway.' >&2\n  fi\n  command {name} \"$@\"\n}}\n"
             )),
             Shell::Fish => s.push_str(&format!(
                 "function {name}\n  if not test -e \"$HOME/.entangle/wrapper-disabled\"\n    if not set -q ENTANGLE_SESSION_ID; or test -z \"$ENTANGLE_SESSION_ID\"\n      printf '%s\\n' 'warning: {name} launched outside Entanglement session.' 'Tools are not routed through the Entanglement gateway.' >&2\n    end\n  end\n  command {name} $argv\nend\n"
             )),
         }
+    }
+    if live_doctor {
+        s.push_str(match shell {
+            Shell::Bash => include_str!("wrapper/doctor.bash"),
+            Shell::Zsh => include_str!("wrapper/doctor.zsh"),
+            Shell::Fish => include_str!("wrapper/doctor.fish"),
+        });
     }
     s.push_str(END);
     s.push('\n');
@@ -120,13 +132,16 @@ fn without_block(text: &str, shell: Shell) -> Result<(String, bool)> {
     if starts != 1 || ends != 1 {
         bail!("malformed or duplicate Entanglement wrapper markers; edit them manually");
     }
-    let block = shell_block(shell);
-    let marker = format!("\n{block}");
-    let Some(start) = text.find(&marker) else {
-        bail!("Entanglement wrapper block was modified; preserve it and edit it manually");
-    };
+    // Older exact blocks can be upgraded or removed. Preserve modified user code.
+    let (start, len) = [true, false]
+        .into_iter()
+        .find_map(|live_doctor| {
+            let marker = format!("\n{}", shell_block(shell, live_doctor));
+            text.find(&marker).map(|start| (start, marker.len()))
+        })
+        .context("Entanglement wrapper block was modified; preserve it and edit it manually")?;
     let mut output = text.to_owned();
-    output.replace_range(start..start + marker.len(), "");
+    output.replace_range(start..start + len, "");
     Ok((output, true))
 }
 
@@ -202,7 +217,7 @@ pub fn enable(shell: Option<Shell>) -> Result<()> {
     let (clean, _) = without_block(original, shell)?;
     let (cfg_path, cfg) = preference_text(true)?;
     let (disabled_marker, was_disabled) = checked_disabled_marker()?;
-    let next = format!("{clean}\n{}", shell_block(shell));
+    let next = format!("{clean}\n{}", shell_block(shell, true));
     atomic_write(&path, &next)?;
     if let Err(error) = atomic_write(&cfg_path, &cfg) {
         // Keep the startup file as it was if preference persistence fails.
@@ -297,17 +312,32 @@ fn status() -> Result<()> {
     Ok(())
 }
 
-/// Detect a binary in PATH when the opt-in wrapper was not sourced by the
-/// launching shell. Parent-shell aliases/functions cannot be inspected from a
-/// child process, so this is deliberately a conservative diagnostic.
-pub fn shadowed_binary() -> Result<Option<PathBuf>> {
-    if config::load(&config::config_path())?.wrappers.install != Some(true)
-        || std::env::var_os("ENTANGLE_WRAPPER_ACTIVE").is_some_and(|v| v == "1")
-    {
-        return Ok(None);
+pub enum WrapperResolution {
+    Clear,
+    Shadowed(String),
+    Unconfirmed,
+}
+
+/// A shell may report its own resolver for this invocation. Direct CLI callers
+/// can check PATH but cannot inspect aliases or unexported parent functions.
+pub fn wrapper_resolution() -> Result<WrapperResolution> {
+    if config::load(&config::config_path())?.wrappers.install != Some(true) {
+        return Ok(WrapperResolution::Clear);
+    }
+    match std::env::var("ENTANGLE_WRAPPER_RESOLUTION").as_deref() {
+        Ok("active") => return Ok(WrapperResolution::Clear),
+        Ok("shadowed") => {
+            return Ok(WrapperResolution::Shadowed(
+                "the current shell resolves claude-code outside the installed wrapper".into(),
+            ))
+        }
+        _ => {}
+    }
+    if std::env::var_os("ENTANGLE_WRAPPER_ACTIVE").is_some_and(|value| value == "1") {
+        return Ok(WrapperResolution::Unconfirmed);
     }
     let Some(path) = std::env::var_os("PATH") else {
-        return Ok(None);
+        return Ok(WrapperResolution::Clear);
     };
     for dir in std::env::split_paths(&path) {
         let candidate = dir.join("claude-code");
@@ -324,7 +354,31 @@ pub fn shadowed_binary() -> Result<Option<PathBuf>> {
                 continue;
             }
         }
-        return Ok(Some(candidate));
+        return Ok(WrapperResolution::Shadowed(format!(
+            "{} is reachable while the wrapper is not marked active",
+            candidate.display()
+        )));
     }
-    Ok(None)
+    Ok(WrapperResolution::Clear)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn earlier_exact_blocks_upgrade_and_modified_blocks_are_preserved() {
+        for shell in [Shell::Bash, Shell::Zsh, Shell::Fish] {
+            let original = "user startup";
+            let old = format!("{original}\n{}", shell_block(shell, false));
+            let new = format!("{original}\n{}", shell_block(shell, true));
+            for block in [&old, &new] {
+                assert_eq!(
+                    without_block(block, shell).unwrap(),
+                    (original.into(), true)
+                );
+                assert!(without_block(&block.replace("gateway.", "modified."), shell).is_err());
+            }
+        }
+    }
 }

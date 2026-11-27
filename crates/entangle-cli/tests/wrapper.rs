@@ -288,3 +288,156 @@ fn doctor_fails_when_opted_in_wrapper_was_not_loaded_and_agent_is_on_path() {
     assert_eq!(out.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&out.stdout).contains("shadowed"));
 }
+
+fn doctor_shell(home: &Path, executable: &std::ffi::OsStr, script: &str) -> Output {
+    let mut cmd = Command::new(executable);
+    cmd.args(["-ic", script]);
+    cmd.env("HOME", home)
+        .env("ZDOTDIR", home)
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("ENTANGLE_WRAPPER_RESOLUTION")
+        .env("PATH", format!("{}/bin:/usr/bin:/bin", home.display()))
+        .output()
+        .unwrap()
+}
+
+fn verify_live_doctor(shell: &str, executable: &std::ffi::OsStr, shadows: &[&str]) {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    std::fs::create_dir(home.join("bin")).unwrap();
+    std::os::unix::fs::symlink(env!("CARGO_BIN_EXE_entangle"), home.join("bin/entangle")).unwrap();
+    let agent = home.join("bin/claude-code");
+    std::fs::write(&agent, "#!/bin/sh\nexit 0\n").unwrap();
+    std::fs::set_permissions(&agent, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert_ok(&entangle(home, &["init", "--non-interactive"]));
+    assert_ok(&entangle(home, &["wrapper", "enable", "--shell", shell]));
+    assert_ok(&doctor_shell(home, executable, "entangle doctor"));
+    for (i, shadow) in shadows.iter().enumerate() {
+        let command = if i == 0 {
+            "entangle --allow-local doctor"
+        } else {
+            "entangle doctor"
+        };
+        let out = doctor_shell(home, executable, &format!("{shadow}\n{command}"));
+        assert_eq!(
+            out.status.code(),
+            Some(1),
+            "{shadow}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(
+            String::from_utf8_lossy(&out.stdout).contains("shadowed"),
+            "{shadow}"
+        );
+    }
+
+    let disabled = doctor_shell(
+        home,
+        executable,
+        &format!("entangle wrapper disable\n{}\nentangle doctor", shadows[1]),
+    );
+    assert_ok(&disabled);
+    assert!(!String::from_utf8_lossy(&disabled.stdout).contains("shadowed"));
+    assert_ok(&entangle(home, &["wrapper", "enable", "--shell", shell]));
+
+    let alt = home.join("later-bin");
+    std::fs::create_dir(&alt).unwrap();
+    let changed = alt.join("entangle");
+    std::fs::write(&changed, "#!/bin/sh\nprintf '<%s>\\n' \"$@\"\nexit 37\n").unwrap();
+    std::fs::set_permissions(&changed, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path_change = if shell == "fish" {
+        "set -gx PATH \"$HOME/later-bin\" $PATH"
+    } else {
+        "export PATH=\"$HOME/later-bin:$PATH\""
+    };
+    let forwarded = doctor_shell(
+        home,
+        executable,
+        &format!("{path_change}\nentangle inspect 'two words'"),
+    );
+    assert_eq!(forwarded.status.code(), Some(37));
+    assert_eq!(forwarded.stdout, b"<inspect>\n<two words>\n");
+
+    // A user-defined entry point already present when startup runs must retain
+    // its own arguments and exit code, even if it happens to be called doctor.
+    let (startup, user_commands) = match shell {
+        "bash" => (
+            home.join(".bashrc"),
+            [
+                "alias entangle='echo user-alias'",
+                "function entangle { echo user-function; return 47; }",
+            ],
+        ),
+        "zsh" => (
+            home.join(".zshrc"),
+            [
+                "alias entangle='echo user-alias'",
+                "function entangle { echo user-function; return 47; }",
+            ],
+        ),
+        "fish" => (
+            home.join(".config/fish/conf.d/entangle-wrapper.fish"),
+            [
+                "alias entangle 'echo user-alias'",
+                "function entangle; echo user-function; return 47; end",
+            ],
+        ),
+        _ => unreachable!(),
+    };
+    let managed = std::fs::read_to_string(&startup).unwrap();
+    for (prefix, expected, status) in [
+        (user_commands[0], "user-alias doctor", 0),
+        (user_commands[1], "user-function", 47),
+    ] {
+        std::fs::write(&startup, format!("{prefix}\n{managed}")).unwrap();
+        let out = doctor_shell(home, executable, "entangle doctor");
+        assert_eq!(out.status.code(), Some(status), "{prefix}");
+        assert_eq!(
+            String::from_utf8_lossy(&out.stdout).trim(),
+            expected,
+            "{prefix}"
+        );
+    }
+}
+
+#[test]
+fn bash_doctor_rechecks_actual_alias_function_and_missing_wrapper() {
+    verify_live_doctor(
+        "bash",
+        "bash".as_ref(),
+        &[
+            "alias claude-code='echo other'",
+            "function claude-code { return 47; }",
+            "unset -f claude-code",
+        ],
+    );
+}
+
+#[test]
+#[ignore = "requires zsh"]
+fn zsh_doctor_rechecks_actual_alias_function_and_missing_wrapper() {
+    verify_live_doctor(
+        "zsh",
+        "zsh".as_ref(),
+        &[
+            "alias claude-code='echo other'",
+            "function claude-code { return 47; }",
+            "unfunction claude-code",
+        ],
+    );
+}
+
+#[test]
+#[ignore = "requires fish; set ENTANGLE_FISH to its executable and run explicitly"]
+fn fish_doctor_rechecks_actual_alias_function_and_missing_wrapper() {
+    let fish = std::env::var_os("ENTANGLE_FISH").unwrap_or_else(|| "fish".into());
+    verify_live_doctor(
+        "fish",
+        &fish,
+        &[
+            "alias claude-code 'echo other'",
+            "function claude-code; return 47; end",
+            "functions -e claude-code",
+        ],
+    );
+}

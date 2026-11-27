@@ -560,9 +560,12 @@ modified blocks or symlinked startup files are refused for manual review.
 
 A first successful `entangle install` asks only on an interactive terminal when
 no preference exists. Scripts never prompt; `--wrapper` opts in explicitly and
-`--no-wrapper` records an opt-out. `entangle doctor` reports a reachable agent
-binary as potentially shadowed or not loaded when the opt-in exists but the
-launching environment lacks the wrapper marker. A child process cannot inspect
-the parent shell's aliases or functions, and the marker is not proof that an
-alias has not subsequently overridden one. Direct `command claude-code`
-bypasses the warning by design.
+`--no-wrapper` records an opt-out. In a configured shell, `entangle doctor` checks how that
+shell currently resolves `claude-code`. The diagnostic reports a shadowed
+wrapper if a later alias, function, or executable takes precedence. The
+integration preserves existing aliases and functions named `entangle`.
+Invoking the CLI by absolute path or with `command entangle doctor` bypasses
+the shell check and can only report the information available to a child process.
+Run `entangle wrapper repair --shell bash` (or `zsh` / `fish`) and start a fresh
+shell to upgrade an older managed block. Direct `command claude-code`
+bypasses the warning.

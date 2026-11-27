@@ -545,13 +545,16 @@ pub async fn run() -> anyhow::Result<()> {
     results.push(check_os_sandbox());
     results.push(check_disk_space());
     results.push(check_clock_skew(daemon_reachable).await);
-    match super::wrapper::shadowed_binary() {
-        Ok(Some(path)) => results.push(CheckResult::fail(
-            "wrapper",
-            "shadowed or not loaded",
-            format!("{} is reachable while the wrapper is not marked active; start a new configured shell. Parent-shell aliases and functions cannot be inspected by doctor", path.display()),
+    use super::wrapper::WrapperResolution;
+    match super::wrapper::wrapper_resolution() {
+        Ok(WrapperResolution::Shadowed(detail)) => results.push(CheckResult::fail(
+            "wrapper", "shadowed or not loaded", detail,
         )),
-        Ok(None) => {},
+        Ok(WrapperResolution::Unconfirmed) => results.push(CheckResult::warn(
+            "wrapper", "current shell resolution unconfirmed",
+            "run entangle doctor from a shell with the current wrapper integration; use entangle wrapper repair to update older blocks",
+        )),
+        Ok(WrapperResolution::Clear) => {}
         Err(e) => results.push(CheckResult::warn("wrapper", "cannot inspect", e.to_string())),
     }
 
