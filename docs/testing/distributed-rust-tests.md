@@ -38,6 +38,20 @@ List filtering supports one substring or `--exact` and repeatable `--skip`. By d
 
 The target can also report an ignore after a test is selected, including when `--include-ignored` requests execution. For example, Rust's panic-abort WASI harness can skip a `#[should_panic]` test that passes natively. The report records that ignore with the worker ID, attempt number, and captured libtest output. An ignore on the first attempt completes the selection without retrying. An ignored retry consumes one attempt and leaves any earlier failure or error unresolved until a later pass. A report with only passes and ignores exits successfully. Compare named native and WASI dispositions when checking parity, since a native pass and a WASI ignore are distinct outcomes.
 
+## Publish test results as JUnit XML
+
+Build systems that ingest JUnit XML can import the distributed test report. Save the runner's exit status so failed tests still fail the build after conversion.
+
+```sh
+status=0
+python3 scripts/run-rust-tests.py "$PLUGIN_ID" --peer "$WORKER_A" --peer "$WORKER_B" \
+  --retries 1 > rust-test-report.json || status=$?
+python3 scripts/rust-test-junit.py rust-test-report.json rust-test-report.xml || exit $?
+exit "$status"
+```
+
+Each selected test appears once. Permanent assertion failures, infrastructure errors and ignores appear as JUnit failures, errors and skips. A flaky pass appears as a successful case with `"status":"flaky"` in its `system-out` JSON. This field preserves every attempt, executor ID and captured output stream. Suite and run times are wall-clock seconds. Conversion validates the case totals and replaces the XML file only after writing a complete report. A dispatch that stops before producing a JSON report also stops the conversion.
+
 ## Loopback integration test
 
 From the repository root, build the two Entanglement executables and compile both `atc_spec` targets. Set `TYPES_WASM` and `MANIFEST_WASM` to the respective test executable paths in the Cargo compiler artifact output. Run the fixture with Python 3.11 or newer and OpenSSL on Linux.
