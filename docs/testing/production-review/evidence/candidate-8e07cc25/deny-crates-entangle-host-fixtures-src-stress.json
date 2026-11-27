@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:b303a993baa13a6ec89c614795c6e0dc82ab317d8d3579bfb44fe9f3fb2492f4",
+  "source_after": "sha256:b303a993baa13a6ec89c614795c6e0dc82ab317d8d3579bfb44fe9f3fb2492f4",
+  "started_utc": "2026-11-27T05:53:43+00:00",
+  "finished_utc": "2026-11-27T05:53:44+00:00",
+  "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/stress/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml advisories bans licenses sources",
+  "exit_code": 0,
+  "log": "deny-crates-entangle-host-fixtures-src-stress.log.gz",
+  "log_sha256": "a9385480e3eb708bd56e21b276ae48892cae949ed7de47c4cb5da0d652ade45f"
+}

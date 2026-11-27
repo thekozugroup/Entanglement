@@ -1,0 +1,12 @@
+    Checking entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+ Documenting entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+    Checking entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+    Checking entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+ Documenting entangle-bench v0.1.0 (/workspace/Entanglement/crates/entangle-bench)
+ Documenting entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+ Documenting entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+    Checking entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+ Documenting entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+ Documenting entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+    Finished `dev` profile [unoptimized] target(s) in 53.50s
+   Generated /workspace/Entanglement/target/doc/cargo_entangle/index.html and 26 other files

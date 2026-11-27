@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:b303a993baa13a6ec89c614795c6e0dc82ab317d8d3579bfb44fe9f3fb2492f4",
+  "source_after": "sha256:b303a993baa13a6ec89c614795c6e0dc82ab317d8d3579bfb44fe9f3fb2492f4",
+  "started_utc": "2026-11-27T05:52:42+00:00",
+  "finished_utc": "2026-11-27T05:52:44+00:00",
+  "command": "cargo fmt --all -- --check",
+  "exit_code": 0,
+  "log": "format.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

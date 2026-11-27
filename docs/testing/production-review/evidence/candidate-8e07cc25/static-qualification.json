@@ -1,0 +1,255 @@
+{
+  "git_commit": "8e07cc254e0489b882918f2aa2fa71b4c4d9c6ca",
+  "source_before": "sha256:b303a993baa13a6ec89c614795c6e0dc82ab317d8d3579bfb44fe9f3fb2492f4",
+  "source_after": "sha256:b303a993baa13a6ec89c614795c6e0dc82ab317d8d3579bfb44fe9f3fb2492f4",
+  "qualification_checked_utc": "2026-11-27T05:55:48+00:00",
+  "execution": "Direct local commands on Linux, with local actionlint for workflow YAML.",
+  "cargo_environment": {
+    "CARGO_HOME": "/workspace/.entanglement-dev/cargo",
+    "RUSTUP_HOME": "/workspace/.entanglement-dev/rustup",
+    "RUSTUP_TOOLCHAIN": "1.91",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_NET_OFFLINE": "true"
+  },
+  "tools": {
+    "rustc": "rustc 1.91.1 (ed61e7d7e 2025-11-07)",
+    "cargo": "cargo 1.91.1 (ea2d97820 2025-10-10)",
+    "rustfmt": "rustfmt 1.8.0-stable (ed61e7d7e2 2025-11-07)",
+    "clippy": "clippy 0.1.91 (ed61e7d7e2 2025-11-07)",
+    "rustdoc": "rustdoc 1.91.1 (ed61e7d7e 2025-11-07)",
+    "actionlint": "1.7.11",
+    "cargo_deny": "cargo-deny 0.18.9"
+  },
+  "static_checks": {
+    "format": {
+      "receipt": "format.json",
+      "receipt_sha256": "8b0f2a0b7189e85dc62d5c1149339c72fde1a365aa7a2fac69a7f0153169cc49",
+      "exit_code": 0
+    },
+    "diff-check": {
+      "receipt": "diff-check.json",
+      "receipt_sha256": "dc6545eccebac09677cb3edd1065180cefc3c3d650d1cd8f05bd31d945312e7c",
+      "exit_code": 0
+    },
+    "workflows": {
+      "receipt": "workflows.json",
+      "receipt_sha256": "7f76c24515943c9f940571737e307c561c7871f1270e201f1799e7b6922b814b",
+      "exit_code": 0
+    },
+    "clippy": {
+      "receipt": "clippy.json",
+      "receipt_sha256": "d58c728b38216a6f4bb617f23b5227b6f010f1502b8495a78ddb5760f33477ae",
+      "exit_code": 0
+    },
+    "rustdoc": {
+      "receipt": "rustdoc.json",
+      "receipt_sha256": "2922b17ac29530f97d91ddf0c1f674c05bd6b415bc59f69ac258368db9142622",
+      "exit_code": 0,
+      "additional_environment": {
+        "RUSTDOCFLAGS": "-D warnings"
+      }
+    },
+    "rustsec-fetch": {
+      "receipt": "rustsec-fetch.json",
+      "receipt_sha256": "fe06a0ba0b9667e542c8884e89d5e11dcdfe2d4ce5e39ccd71675214a8c7acae",
+      "exit_code": 0
+    }
+  },
+  "locked_graphs": {
+    "count": 16,
+    "rustsec_revision": "c9f6c91a44dbad9d71742329e9df061279f9c4be",
+    "index": "dependencies.json",
+    "index_sha256": "c1ea6a07f6275564d3ecf789eba837f720693d7025bdc20e6f3297d3f7028c61",
+    "effective_policy": "dependency-policy.toml",
+    "criteria_totals": {
+      "advisories": {
+        "passed": 16,
+        "failed": 0
+      },
+      "bans": {
+        "passed": 16,
+        "failed": 0
+      },
+      "licenses": {
+        "passed": 15,
+        "failed": 1
+      },
+      "sources": {
+        "passed": 16,
+        "failed": 0
+      }
+    },
+    "checks": [
+      {
+        "manifest": "Cargo.toml",
+        "receipt": "deny-workspace.json",
+        "receipt_sha256": "0fcc4c121c33e1937387967c6410908ef22a5efdeef5173f60854027c3d9cab9",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "crates/entangle-host/fixtures-src/hello-pong/Cargo.toml",
+        "receipt": "deny-crates-entangle-host-fixtures-src-hello-pong.json",
+        "receipt_sha256": "4164dc29e95c195701f60491c79f6043eecddbf9ea3b90b1256cd0096aa0901b",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "crates/entangle-host/fixtures-src/stress/Cargo.toml",
+        "receipt": "deny-crates-entangle-host-fixtures-src-stress.json",
+        "receipt_sha256": "a250db6d0f810ce6182d0be560281a1b86d709a3d6445c2d2b2f6868b2d5360f",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.toml",
+        "receipt": "deny-docs-testing-production-review-evidence-candidate-864ae27b-wasi-fs-conformance-fs-probe.json",
+        "receipt_sha256": "46aa1b9fea5e4e0141b2ca9c8834b1a53150bd7292e015476f54da7de29fb149",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/Cargo.toml",
+        "receipt": "deny-docs-testing-production-review-evidence-candidate-bb70a619-uds-image-comparison-allocator-probe.json",
+        "receipt_sha256": "58904e0b20ceb3fbb61545ea83527e0c5761745f7d160bb1c4f2529f6d6e3714",
+        "exit_code": 4,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "FAILED",
+        "sources": "ok"
+      },
+      {
+        "manifest": "examples/hash-it/Cargo.toml",
+        "receipt": "deny-examples-hash-it.json",
+        "receipt_sha256": "b17460b6150e1bc6c47e2169cb8566b341e160050434804c01bf998013f24473",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "examples/hello-world/Cargo.toml",
+        "receipt": "deny-examples-hello-world.json",
+        "receipt_sha256": "342eea7054a1d67b1ef0c256d5faa707a2471074931cf39d9b307c23a9526ae6",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "examples/stream-lines/Cargo.toml",
+        "receipt": "deny-examples-stream-lines.json",
+        "receipt_sha256": "33a167047c526349937aaf5f44141b4e439154f2d4dcdc6cc0c54d33e23e252e",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/compress/Cargo.toml",
+        "receipt": "deny-plugins-compress.json",
+        "receipt_sha256": "7cb17f3ba9fa49419bc1f6f27a5cb866993d070f87e9b131073639db49e8ccb2",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/csv-stats/Cargo.toml",
+        "receipt": "deny-plugins-csv-stats.json",
+        "receipt_sha256": "8f6a421bc1b0d96b4f8b031c469d812283b4ee507fe9bb4196bea88338167369",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/image-dehaze/Cargo.toml",
+        "receipt": "deny-plugins-image-dehaze.json",
+        "receipt_sha256": "3266d8da39e39d712781cd8c413b9335fa63722667cf3a944d9a99672a9ed26b",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/image-resize/Cargo.toml",
+        "receipt": "deny-plugins-image-resize.json",
+        "receipt_sha256": "4082d45198107b51ff0c1b1c3517bded18ec264aebc609cdb7c80d858b72ebe7",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/json-pointer/Cargo.toml",
+        "receipt": "deny-plugins-json-pointer.json",
+        "receipt_sha256": "b6550737bfd1ca272a4d30e8ba947ae8b711b974ffa9b8bdcd5ec76a1a0f7fa4",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/json-query/Cargo.toml",
+        "receipt": "deny-plugins-json-query.json",
+        "receipt_sha256": "d10bbe3160d09dafb24de85a16cdab19610f02344408179aaf8d114e89ee95a5",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/markdown-html/Cargo.toml",
+        "receipt": "deny-plugins-markdown-html.json",
+        "receipt_sha256": "8c59cc5937ca934e5ba543021d329eeac6688e8bb041ac33ddd7532d74dc7dcd",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      },
+      {
+        "manifest": "plugins/qr-encode/Cargo.toml",
+        "receipt": "deny-plugins-qr-encode.json",
+        "receipt_sha256": "05bb820503476f7f32ce3201d9f86e5564679a46cedcfa695f626072244b72a0",
+        "exit_code": 0,
+        "advisories": "ok",
+        "bans": "ok",
+        "licenses": "ok",
+        "sources": "ok"
+      }
+    ],
+    "exceptions": [
+      {
+        "manifest": "docs/testing/production-review/evidence/candidate-bb70a619/uds-image-comparison/allocator-probe/Cargo.toml",
+        "errors": [
+          "error[unlicensed]: entangle-compute-memory-probe = 0.0.0 is unlicensed"
+        ]
+      }
+    ]
+  }
+}

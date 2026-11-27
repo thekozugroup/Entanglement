@@ -1,0 +1,56 @@
+8e07cc254e0489b882918f2aa2fa71b4c4d9c6ca
+Linux 6.18.57 x86_64
+Host Linux. Darwin settings exercise installer target/digest selection with synthetic executables.
+9c8a73a97d4af293359a4bbf41fe664cc9316e57728b76af9de769f7f3777395  /tmp/entangle-final-installer-fixture.py
+Python 3.12.14
+sha256sum (GNU coreutils) 9.7
+6.04
+OpenSSL 3.5.7 9 Jun 2026 (Library: OpenSSL 3.5.7 9 Jun 2026)
+
+UTC start 2026-11-27T05:51:56Z
+source before sha256:b303a993baa13a6ec89c614795c6e0dc82ab317d8d3579bfb44fe9f3fb2492f4
+command python3 /tmp/entangle-final-installer-fixture.py
+linux/x86_64 sha256sum mode=positive, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-gmncfj18/l0/home/install/bin -> 0
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 fb70b016a4b6f23ddcd28f5e7dad53e98ba68506757287af9f665929bef889ba
+  entangle 1.2.3-rc.4, installed SHA-256 130ac2e6ffd622fea7e8cd2546ce7255a310f5a6471ba249efc9700d16fac698
+  entangled 1.2.3-rc.4, installed SHA-256 cc5790639b9bd5945ca5ec3e11a27d8b0ffd69abff684160e9302b63b30c110f
+darwin/aarch64 shasum mode=positive, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-gmncfj18/m0/home/install/bin -> 0
+  Entangle override env: OS=darwin ARCH=aarch64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-aarch64-apple-darwin.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 b77163bd30c4a41aa36df39652809756fc39f8968ece147b15822297dd51c369
+  entangle 1.2.3-rc.4, installed SHA-256 130ac2e6ffd622fea7e8cd2546ce7255a310f5a6471ba249efc9700d16fac698
+  entangled 1.2.3-rc.4, installed SHA-256 cc5790639b9bd5945ca5ec3e11a27d8b0ffd69abff684160e9302b63b30c110f
+linux/x86_64 sha256sum mode=mismatch, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-gmncfj18/l1/home/install/bin -> 1
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  rejected before extraction or installation: SHA-256 MISMATCH
+darwin/aarch64 shasum mode=mismatch, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-gmncfj18/m1/home/install/bin -> 1
+  Entangle override env: OS=darwin ARCH=aarch64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-aarch64-apple-darwin.tar.gz and adjacent .sha256, no latest lookup
+  rejected before extraction or installation: SHA-256 MISMATCH
+linux/x86_64 sha256sum mode=missing, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-gmncfj18/l2/home/install/bin -> 1
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  rejected before extraction or installation: checksum file missing
+darwin/aarch64 shasum mode=missing, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-gmncfj18/m2/home/install/bin -> 1
+  Entangle override env: OS=darwin ARCH=aarch64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-aarch64-apple-darwin.tar.gz and adjacent .sha256, no latest lookup
+  rejected before extraction or installation: checksum file missing
+linux/x86_64 openssl mode=positive, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-gmncfj18/openssl/home/install/bin -> 0
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 fcbc07ca513fe29852b76a23d844634e7edb8ebb725c2aad0131fa71883bfef5
+  entangle 1.2.3-rc.4, installed SHA-256 130ac2e6ffd622fea7e8cd2546ce7255a310f5a6471ba249efc9700d16fac698
+  entangled 1.2.3-rc.4, installed SHA-256 cc5790639b9bd5945ca5ec3e11a27d8b0ffd69abff684160e9302b63b30c110f
+exit 0 (expected 0)
+source after sha256:b303a993baa13a6ec89c614795c6e0dc82ab317d8d3579bfb44fe9f3fb2492f4
+UTC finish 2026-11-27T05:51:58Z

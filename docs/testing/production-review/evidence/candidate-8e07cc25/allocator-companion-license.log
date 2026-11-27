@@ -1,0 +1,58 @@
+advisories ok, bans ok, licenses ok, sources ok
+warning[no-license-field]: license expression was not specified in manifest for crate 'entangle-compute-memory-probe = 0.0.0'
+ ├ entangle-compute-memory-probe v0.0.0
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml:29:6
+   │
+29 │     "0BSD",
+   │      ━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml:22:6
+   │
+22 │     "Apache-2.0 WITH LLVM-exception",
+   │      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml:24:6
+   │
+24 │     "BSD-2-Clause",
+   │      ━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml:25:6
+   │
+25 │     "BSD-3-Clause",
+   │      ━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml:32:6
+   │
+32 │     "CDLA-Permissive-2.0",
+   │      ━━━━━━━━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml:26:6
+   │
+26 │     "ISC",
+   │      ━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml:31:6
+   │
+31 │     "MPL-2.0",
+   │      ━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml:27:6
+   │
+27 │     "Unicode-DFS-2016",
+   │      ━━━━━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /workspace/Entanglement/docs/testing/production-review/evidence/candidate-8e07cc25/dependency-policy.toml:30:6
+   │
+30 │     "Zlib",
+   │      ━━━━ unmatched license allowance
+
