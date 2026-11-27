@@ -21,6 +21,12 @@ RELEASE_TARGETS = {
     "x86_64-apple-darwin": ("Mach-O", 0x01000007),
 }
 MACHO_LOAD_COMMAND_LIMIT = 1024 * 1024
+MACHO_FAT_TABLE_LIMIT = 1024 * 1024
+MACHO_64_MAGIC = b"\xcf\xfa\xed\xfe"
+MACHO_FAT_ARCHES = {
+    b"\xca\xfe\xba\xbe": struct.Struct(">5I"),
+    b"\xca\xfe\xba\xbf": struct.Struct(">IIQQII"),
+}
 
 
 def is_elf_executable(stream, size, machine):
@@ -37,13 +43,16 @@ def is_elf_executable(stream, size, machine):
     )
 
 
-def is_macos_executable(stream, size, machine):
-    header = stream.read(32)
-    if len(header) != 32:
+def check_macos_slice(stream, size, machine, expected_subtype=None):
+    if size < 32:
         return False
-    magic, cpu, _, kind, count, length, _, _ = struct.unpack("<8I", header)
-    if (magic != 0xFEEDFACF or cpu != machine or kind != 2
-            or length > min(size - len(header), MACHO_LOAD_COMMAND_LIMIT)):
+    # The caller has consumed this slice's four-byte Mach-O magic.
+    header = stream.read(28)
+    if len(header) != 28:
+        return False
+    cpu, subtype, kind, count, length, _, _ = struct.unpack("<7I", header)
+    if (cpu != machine or kind != 2 or length > min(size - 32, MACHO_LOAD_COMMAND_LIMIT)
+            or (expected_subtype is not None and (subtype ^ expected_subtype) & 0x00FFFFFF)):
         return False
     commands = stream.read(length)
     offset = 0
@@ -66,6 +75,60 @@ def is_macos_executable(stream, size, machine):
             return False
         offset += command_size
     return macos and offset == len(commands) == length
+
+
+def skip_bytes(stream, count):
+    # Tar delivery is forward-only. Never request an entire inter-slice gap.
+    while count > 0:
+        chunk = stream.read(min(count, 64 * 1024))
+        if not chunk:
+            return False
+        count -= len(chunk)
+    return True
+
+
+def is_macos_executable(stream, size, machine):
+    magic = stream.read(4)
+    if magic == MACHO_64_MAGIC:
+        return check_macos_slice(stream, size, machine)
+    layout = MACHO_FAT_ARCHES.get(magic)
+    if layout is None:
+        return False
+    header = stream.read(4)
+    if len(header) != 4:
+        return False
+    count = struct.unpack(">I", header)[0]
+    table_length = count * layout.size
+    if count == 0 or table_length > min(size - 8, MACHO_FAT_TABLE_LIMIT):
+        return False
+    table_end = 8 + table_length
+    slices = []
+    architectures = set()
+    for _ in range(count):
+        record = stream.read(layout.size)
+        if len(record) != layout.size:
+            return False
+        cpu, subtype, offset, length, alignment, *reserved = layout.unpack(record)
+        architecture = (cpu, subtype)
+        if (architecture in architectures or any(reserved) or offset < table_end or length == 0
+                or offset + length > size or alignment > 63 or offset % (1 << alignment)):
+            return False
+        architectures.add(architecture)
+        slices.append((offset, length, cpu, subtype))
+
+    previous_end = table_end
+    found = False
+    for offset, length, cpu, subtype in sorted(slices):
+        if offset < previous_end:
+            return False
+        previous_end = offset + length
+        if cpu != machine:
+            continue
+        if (length < 32 or not skip_bytes(stream, offset - stream.tell())
+                or stream.read(4) != MACHO_64_MAGIC or not check_macos_slice(stream, length, cpu, subtype)):
+            return False
+        found = True
+    return found
 
 
 def verify_archive_layout(artifact: Path, target: str) -> None:

@@ -27,7 +27,7 @@ The coordinator checks that it sees the worker's stable node ID online, that the
 
 ## Run on a private WireGuard network
 
-The Linux Docker acceptance harness starts a private Headscale control plane and two Tailscale daemons on an internal bridge. Each node receives a kernel `tailscale0` interface in its own container network namespace. The application containers use the real Tailscale CLI and local daemon socket. The harness checks the direct WireGuard path, runs the signed remote compute check above and verifies that worker-side revocation denies another job. It creates disposable credentials and removes its containers and network on exit.
+The Linux Docker acceptance harness starts a private Headscale control plane and two Tailscale daemons on an internal bridge. Each node receives a kernel `tailscale0` interface in its own container network namespace. The application containers use the real Tailscale CLI and local daemon socket. Before starting the application daemons, the harness links the paired worker and repeats the command to confirm the saved mapping and peer store remain byte-identical. It checks the direct WireGuard path, runs the signed remote compute check above and verifies that worker-side revocation denies another job. It creates disposable credentials and removes its containers and network on exit.
 
 Use Python 3.11+, OpenSSL, a local Linux Docker engine with access to `/dev/net/tun`, and Linux Entanglement binaries compatible with the test image. Prepare the binaries, Wasm artifact and images before starting the isolated test.
 

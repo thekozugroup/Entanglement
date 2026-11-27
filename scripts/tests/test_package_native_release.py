@@ -17,7 +17,7 @@ import unittest
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
-from native_release_layout import verify_archive_layout
+from native_release_layout import is_macos_executable, verify_archive_layout
 
 
 PACKAGER = SCRIPTS / "package-native-release.py"
@@ -28,12 +28,28 @@ BASE = f"entanglement-{VERSION}-{TARGET}"
 ASSET = BASE + ".tar.gz"
 
 
-def macho_executable(machine=0x0100000C, platform=1, kind=2, legacy=False):
+def macho_executable(machine=0x0100000C, platform=1, kind=2, legacy=False, subtype=0):
     if legacy:
         command = struct.pack("<4I", 0x24, 16, 0x000B0000, 0x000E0000)
     else:
         command = struct.pack("<6I", 0x32, 24, platform, 0x000B0000, 0x000E0000, 0)
-    return struct.pack("<8I", 0xFEEDFACF, machine, 0, kind, 1, len(command), 0, 0) + command
+    return struct.pack("<8I", 0xFEEDFACF, machine, subtype, kind, 1, len(command), 0, 0) + command
+
+
+def universal_macho(slices, wide):
+    magic = 0xCAFEBABF if wide else 0xCAFEBABE
+    records = []
+    contents = bytearray(struct.pack(">2I", magic, len(slices)))
+    for index, (machine, subtype, binary) in enumerate(slices, 1):
+        offset = index * 65536
+        fields = (machine, subtype, offset, len(binary), 16)
+        records.append(struct.pack(">IIQQII", *fields, 0) if wide else struct.pack(">5I", *fields))
+        contents.extend(b"\0" * (offset - len(contents)))
+        contents.extend(binary)
+    # The table need not list the slices in their on-disk order.
+    table = b"".join(reversed(records))
+    contents[8:8 + len(table)] = table
+    return bytes(contents)
 
 
 def elf_executable(machine=62, entry=0x400080):
@@ -197,6 +213,75 @@ class Packaging(unittest.TestCase):
                     else:
                         with self.assertRaisesRegex(ValueError, f"/entangled'.*not a {target} native executable"):
                             verify_archive_layout(destination / name, target)
+
+    def test_promotion_accepts_fat32_and_fat64_macos_executables(self):
+        x86 = 0x01000007
+        arm = 0x0100000C
+        slices = [(x86, 0, macho_executable(x86)), (arm, 0, macho_executable(arm))]
+        for wide in (False, True):
+            with self.subTest(fat64=wide):
+                script, binaries = self.fixture(f"universal-{wide}", 10)
+                for name in ("entangle", "entangled"):
+                    (binaries / name).write_bytes(universal_macho(slices, wide))
+                for target in ("x86_64-apple-darwin", TARGET):
+                    destination = self.root / f"universal-{wide}-{target}"
+                    result = self.package((script, binaries), destination, target=target)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    verify_archive_layout(destination / f"entanglement-{VERSION}-{target}.tar.gz", target)
+
+    def test_universal_macos_rejects_corrupted_tables_or_requested_slices(self):
+        x86 = 0x01000007
+        arm = 0x0100000C
+        thin = macho_executable(arm)
+        for wide in (False, True):
+            valid = universal_macho([(x86, 0, macho_executable(x86)), (arm, 0, thin)], wide)
+            record_size = 32 if wide else 20
+            scalar = ">Q" if wide else ">I"
+            # The reversed table begins with the ARM64 record.
+            controls = {
+                "empty table": valid[:4] + b"\0" * 4,
+                "truncated table": valid[:8 + 2 * record_size - 1],
+                "missing target": universal_macho([(x86, 0, macho_executable(x86))], wide),
+                "wrong CPU in slice": universal_macho([(arm, 0, macho_executable(x86))], wide),
+                "wrong subtype in slice": universal_macho([(arm, 0, macho_executable(arm, subtype=2))], wide),
+                "non-macOS slice": universal_macho([(arm, 0, macho_executable(arm, platform=2))], wide),
+                "nested universal header": universal_macho([(arm, 0, valid)], wide),
+            }
+            for name, offset, value in (
+                ("overlapping slices", 16, 65536),
+                ("misaligned slice", 16, 131073),
+                ("slice begins within table", 16, 0),
+                ("slice extends beyond member", 16 + struct.calcsize(scalar), len(valid)),
+                ("slice truncates Mach-O load commands", 16 + struct.calcsize(scalar), 32),
+            ):
+                changed = bytearray(valid)
+                struct.pack_into(scalar, changed, offset, value)
+                controls[name] = changed
+            if wide:
+                invalid_reserved = bytearray(valid)
+                struct.pack_into(">I", invalid_reserved, 36, 1)
+                controls["nonzero reserved field"] = invalid_reserved
+            for case, payload in controls.items():
+                with self.subTest(fat64=wide, case=case):
+                    self.assertFalse(is_macos_executable(io.BytesIO(payload), len(payload), arm))
+
+    def test_universal_macos_streams_target_variants_with_bounded_skips(self):
+        machine = 0x01000007
+        contents = universal_macho([
+            (machine, 3, macho_executable(machine, subtype=3)),
+            (machine, 8, macho_executable(machine, subtype=8)),
+        ], wide=False)
+
+        class ForwardReader(io.BytesIO):
+            def read(self, count):
+                if not 0 <= count <= 64 * 1024:
+                    raise AssertionError(f"unbounded Mach-O stream read of {count} bytes")
+                return super().read(count)
+
+            def seek(self, *_args):
+                raise AssertionError("Mach-O validation must only read forward")
+
+        self.assertTrue(is_macos_executable(ForwardReader(contents), len(contents), machine))
 
     def test_missing_or_invalid_binary_publishes_nothing(self):
         fixture = self.fixture("invalid", 10)
