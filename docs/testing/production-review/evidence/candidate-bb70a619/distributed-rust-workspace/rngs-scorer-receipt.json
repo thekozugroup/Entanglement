@@ -1,0 +1,20 @@
+{
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "started_utc": "2026-11-27T04:53:40+00:00",
+  "finished_utc": "2026-11-27T04:55:25+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-bb70a619/distributed-rust-workspace/rngs-receipt.json",
+  "sha256": "a4ba09dc5c5f1a9831476d5b3504af158055327d6ad1e7a649cb48b9e5a74fbd",
+  "command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--target",
+    "wasm32-wasip2",
+    "--no-fail-fast"
+  ]
+}

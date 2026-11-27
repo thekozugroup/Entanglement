@@ -1,0 +1,38 @@
+{
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "started_utc": "2026-11-27T04:52:44.875184+00:00",
+  "finished_utc": "2026-11-27T04:53:41.008522+00:00",
+  "exit_code": 0,
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "/workspace/Entanglement/scripts/tests/image-dehaze-batch.py",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--wasm",
+    "/workspace/Entanglement/plugins/image-dehaze/target/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+    "--b3sum",
+    "/tmp/entangle-test-b3sum"
+  ],
+  "log": "docs/testing/production-review/evidence/candidate-bb70a619/image-dehaze-batch.log",
+  "sha256": "7bcdee8e2d19338b0ec04febfa632f11502b2aff0219d4a4a84310358806edf9",
+  "input_hashes_before": {
+    "target/release/entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+    "target/release/entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+    "plugins/image-dehaze/target/wasm32-wasip2/release/entangle_image_dehaze.wasm": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+    "target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+    "scripts/tests/image-dehaze-batch.py": "f290953792d7423090949c945228956db7b650241ac86203227d14d068c74619",
+    "/tmp/entangle-test-b3sum": "ebae78454383069eefc2089520cd248bea47e6874250fb211bc6ec1b2c406d12"
+  },
+  "input_hashes_after": {
+    "target/release/entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+    "target/release/entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+    "plugins/image-dehaze/target/wasm32-wasip2/release/entangle_image_dehaze.wasm": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+    "target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+    "scripts/tests/image-dehaze-batch.py": "f290953792d7423090949c945228956db7b650241ac86203227d14d068c74619",
+    "/tmp/entangle-test-b3sum": "ebae78454383069eefc2089520cd248bea47e6874250fb211bc6ec1b2c406d12"
+  },
+  "wasm_matches_independent_catalog": true,
+  "hash_tool_standard_abc_passed": true,
+  "scope": "Two authenticated local worker daemons; not physical workload-B performance."
+}

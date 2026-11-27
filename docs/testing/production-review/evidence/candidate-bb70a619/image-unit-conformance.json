@@ -1,0 +1,86 @@
+{
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_commit_after": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "fixture_before_sha256": "5fb9e907b7573f501464533b938b2796344b56f836ea4edb75d8bf6558189528",
+  "fixture_after_sha256": "5fb9e907b7573f501464533b938b2796344b56f836ea4edb75d8bf6558189528",
+  "started_utc": "2026-11-27T04:45:53.481334+00:00",
+  "finished_utc": "2026-11-27T04:47:46.209626+00:00",
+  "toolchain": "rustc 1.91.1 (ed61e7d7e 2025-11-07)",
+  "host": "Linux x86_64",
+  "exit_code": 0,
+  "log": "image-unit-conformance.log",
+  "log_sha256": "ceaa2a0fb5d3d6eeb1ddca0ed1183b51dfb583a058e7dd3457755c34c7f6e1c3",
+  "test_threads": "default",
+  "result_sections": 5,
+  "counts": {
+    "passed": 13,
+    "failed": 0,
+    "ignored": 0,
+    "measured": 0,
+    "filtered_out": 63
+  },
+  "runs": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "plugins/image-dehaze/Cargo.toml"
+      ],
+      "started_utc": "2026-11-27T04:45:53.482429+00:00",
+      "finished_utc": "2026-11-27T04:45:54.133028+00:00",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "entangle-cli",
+        "--bin",
+        "entangle",
+        "cmd::image_raw::tests::libraw_camera_samples",
+        "--",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "started_utc": "2026-11-27T04:45:54.133090+00:00",
+      "finished_utc": "2026-11-27T04:47:44.899211+00:00",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "cargo",
+        "+1.91.1",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "--manifest-path",
+        "/tmp/entangle-raster-conformance/Cargo.toml",
+        "--",
+        "--nocapture"
+      ],
+      "started_utc": "2026-11-27T04:47:44.899876+00:00",
+      "finished_utc": "2026-11-27T04:47:46.051976+00:00",
+      "exit_code": 0
+    }
+  ],
+  "whole_vs_tiled_crosscheck": {
+    "host-guest-crosscheck.rs": "60eb89a19a9ce1aeb2c61bff053aed0f91bd241ee5f29ddc7aaf4072a35c133a",
+    "host-guest-crosscheck-manifest.txt": "1894c8e3c9248aed219038ed7115f7ed95adc425f37664c220b92a574d00855c"
+  },
+  "supplemental_harness_lock_sha256": "c01c3dc130409fed8bec4ab1add2e24df39b40c1432adcffdb67200f6b07ac45",
+  "fixture_inputs_sha256": {
+    "canon_350d.cr2": "8cbb84e04d93b005fe082da9c954122a612b5281af00aa088d767850f343fd38",
+    "nikon_d40.nef": "44e88bc77b7a531b22647bcd07b9393c4568062e8f0906d3bbdecb42fbe29e03"
+  },
+  "component_sha256": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973"
+}

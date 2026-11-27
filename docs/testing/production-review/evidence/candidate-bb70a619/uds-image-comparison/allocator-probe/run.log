@@ -1,0 +1,4 @@
+   Compiling entangle-compute-memory-probe v0.0.0 (/tmp/entangle-typed-compute-memory.pXvkRIAW)
+    Finished `release` profile [optimized] target(s) in 2.80s
+     Running `/tmp/entangle-typed-compute-memory.pXvkRIAW/target/release/entangle-compute-memory-probe`
+request_json=33554648 input=8388608 value_size=32 legacy_peak_above_input=276825402 typed_peak_above_input=8388634

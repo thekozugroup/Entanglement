@@ -1,0 +1,464 @@
+{
+  "argv": [
+    "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+    "docs/testing/production-review/evidence/candidate-bb70a619/mixed-version-linux/verify.py",
+    "/workspace/Entanglement",
+    "docs/testing/production-review/evidence/candidate-bb70a619/mixed-version-linux"
+  ],
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "started_utc": "2026-11-27T04:56:12+00:00",
+  "host": [
+    "Linux",
+    "x86_64",
+    "6.18.57",
+    [
+      "glibc",
+      "2.41"
+    ],
+    "12.2.0"
+  ],
+  "harness_sha256": "24d7972df760b276c8e6e44caae51767e0585045783a01c540c065922c88f679",
+  "archives": {
+    "old": {
+      "source_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+      "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+      "path": "/workspace/Entanglement/target/release-candidate/42bb9a3360ce/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "archive_sha256_before": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf",
+      "elf_sha256_before": {
+        "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+        "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+      },
+      "elf_sha256_after": {
+        "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+        "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+      },
+      "archive_sha256_after": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf"
+    },
+    "new": {
+      "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+      "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+      "path": "/workspace/Entanglement/target/release-candidate/bb70a6193f88/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "archive_sha256_before": "e2538c818ff960801f882001023ba0f3601a821944660cf382dfe6ea0d7c5aa2",
+      "elf_sha256_before": {
+        "entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+        "entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042"
+      },
+      "elf_sha256_after": {
+        "entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+        "entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042"
+      },
+      "archive_sha256_after": "e2538c818ff960801f882001023ba0f3601a821944660cf382dfe6ea0d7c5aa2"
+    }
+  },
+  "guests": {
+    "image-resize": {
+      "path": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+      "sha256_before": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983",
+      "bytes": 561183,
+      "signed_package": {
+        "sha256": {
+          "plugin.wasm.sig": "7c720a8f008d9d570c1b3a891f641572645e34b6c084a08c5718cdc533506486",
+          "plugin.wasm": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983",
+          "entangle.toml": "5fd09dda5cff73624d7aa4e681dddc5a9df60b5066f94349dc8904272e514d70"
+        },
+        "manifest": {
+          "build": {
+            "target": "wasm32-wasip2",
+            "wit_world": "entangle:plugin@0.1.0/plugin"
+          },
+          "capabilities": {},
+          "plugin": {
+            "description": "Resample a PNG or JPEG to new dimensions with a choice of filter and fit mode, re-encoding as PNG or JPEG; the compute-heavy flagship for distributed invocation",
+            "id": "ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0",
+            "runtime": "wasm",
+            "tier": 1,
+            "version": "0.1.0"
+          }
+        }
+      },
+      "sha256_after": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983"
+    },
+    "image-dehaze": {
+      "path": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+      "sha256_before": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+      "bytes": 253551,
+      "signed_package": {
+        "sha256": {
+          "plugin.wasm.sig": "ca81701a432e90465f85e211009af00bcb411680e7d7ee2fa5332d1f56e28f2c",
+          "plugin.wasm": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+          "entangle.toml": "aa068118b6ea3dd0fec844e88a7c9bf0c162c0eb31560c1d13204360709ff5f8"
+        },
+        "manifest": {
+          "build": {
+            "target": "wasm32-wasip2",
+            "wit_world": "entangle:plugin@0.1.0/plugin"
+          },
+          "capabilities": {},
+          "plugin": {
+            "description": "Reduce atmospheric haze in a linear RGB16 PNG using the dark-channel prior",
+            "id": "ccf2c124f9348c485c5b513400576ca0/image-dehaze@0.1.0",
+            "runtime": "wasm",
+            "tier": 1,
+            "version": "0.1.0"
+          }
+        }
+      },
+      "sha256_after": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973"
+    }
+  },
+  "rows": {
+    "old-cli-new-daemon": {
+      "commands": [
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/old/entangle",
+            "version"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "",
+          "stdout": "entangle 0.1.0\n  CLI                0.1.0\n  Runtime            0.1.0\n  Types              0.1.0\n  Manifest           0.1.0\n  Signing            0.1.0\n  Wit                0.1.0\n  RPC                0.1.0\n  Pairing            0.1.0\n  Biscuits           0.1.0\n  Scheduler          0.1.0\n  Mesh-local         0.1.0\n  Peers              0.1.0\n\nDaemon\n  Status             reachable\n  Version            0.1.0\n  Socket             /tmp/ent-mixed-jp5u4ond/old-cli-new-daemon/.entangle/sock\n\nBuild\n  Profile            release\n  Toolchain          unknown\n  Wasmtime           36.0.23\n  WASI               0.2\n\nIdentity\n  Fingerprint        c840-d6d2-ae11-0253-b80e-3e07-1e5f-8786 (loaded)\n  Keyring entries    0\n"
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/old/entangle",
+            "plugins",
+            "load",
+            "/tmp/ent-mixed-jp5u4ond/image-resize-package"
+          ],
+          "exit_code": 1,
+          "expected": 1,
+          "stderr": "error: rpc -32000: server error: signature: ENTANGLE-E0101: publisher fingerprint not in keyring\n",
+          "stdout": ""
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/old/entangle",
+            "keyring",
+            "add",
+            "235899b1a55aa5cafc63f301c3779c2be99845dbb58457c3364cf3632a1f8b91",
+            "--name",
+            "Mixed version test publisher"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "",
+          "stdout": "added ccf2c124f9348c485c5b513400576ca0 \"Mixed version test publisher\"\n"
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/old/entangle",
+            "plugins",
+            "load",
+            "/tmp/ent-mixed-jp5u4ond/image-resize-package"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "",
+          "stdout": "loaded ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0\n"
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/old/entangle",
+            "plugins",
+            "list"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "",
+          "stdout": "ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0\n"
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/old/entangle",
+            "compute",
+            "dispatch",
+            "ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0",
+            "--input-file",
+            "/tmp/ent-mixed-jp5u4ond/resize.bin",
+            "--output-file",
+            "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/mixed-version-linux/old-cli-new-daemon.png"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "Chosen: c840d6d2ae110253b80e3e071e5f8786 (score=2.20)\nReason: fit ok, rtt=0ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\nwrote 1103 bytes to /workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/mixed-version-linux/old-cli-new-daemon.png\n",
+          "stdout": ""
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/old/entangle",
+            "compute",
+            "dispatch",
+            "ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0",
+            "--input-file",
+            "/tmp/ent-mixed-jp5u4ond/resize.bin",
+            "--raw"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "Chosen: c840d6d2ae110253b80e3e071e5f8786 (score=2.20)\nReason: fit ok, rtt=0ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+          "stdout": {
+            "sha256": "30b96d32f4d317455214762e85f790b9a3cf48ba71b12c421aa65461dc7ffc34",
+            "bytes": 1103
+          }
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/old/entangle",
+            "compute",
+            "dispatch",
+            "invalid-id",
+            "--input-file",
+            "/tmp/ent-mixed-jp5u4ond/resize.bin",
+            "--output-file",
+            "/tmp/ent-mixed-jp5u4ond/old-cli-new-daemon-unexpected"
+          ],
+          "exit_code": 1,
+          "expected": 1,
+          "stderr": "error: rpc -32602: invalid plugin id: ENTANGLE-E0201: plugin id format invalid: missing '/' in \"invalid-id\"\n",
+          "stdout": ""
+        }
+      ],
+      "peer": "c840d6d2ae110253b80e3e071e5f8786",
+      "cli_sha256": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+      "daemon_sha256": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+      "plugin": "ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0",
+      "version": {
+        "entangled": "0.1.0",
+        "runtime": "0.1.0",
+        "types": "0.1.0"
+      },
+      "output": {
+        "path": "old-cli-new-daemon.png",
+        "sha256": "30b96d32f4d317455214762e85f790b9a3cf48ba71b12c421aa65461dc7ffc34",
+        "bytes": 1103,
+        "pixel_sha256": "42e113fb0816f56850cd1b9bb9f4b8d0dd32187a1594cd8017d159ddf7c44f1b",
+        "raw_equals_file": true
+      },
+      "typed_error": {
+        "jsonrpc": "2.0",
+        "id": "mixed-linux-compatibility",
+        "error": {
+          "code": -32602,
+          "message": "invalid params: invalid value: integer `256`, expected u8 at line 1 column 82"
+        }
+      },
+      "daemon_log_sha256": "88c9f1511b1f9449d1025f81badf6c97666313b6f136ebd3cbb17c341a711bb3"
+    },
+    "new-cli-old-daemon": {
+      "commands": [
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/new/entangle",
+            "version"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "",
+          "stdout": "entangle 0.1.0\n  CLI                0.1.0\n  Runtime            0.1.0\n  Types              0.1.0\n  Manifest           0.1.0\n  Signing            0.1.0\n  Wit                0.1.0\n  RPC                0.1.0\n  Pairing            0.1.0\n  Biscuits           0.1.0\n  Scheduler          0.1.0\n  Mesh-local         0.1.0\n  Peers              0.1.0\n\nDaemon\n  Status             reachable\n  Version            0.1.0\n  Socket             /tmp/ent-mixed-jp5u4ond/new-cli-old-daemon/.entangle/sock\n\nBuild\n  Profile            release\n  Toolchain          unknown\n  Wasmtime           36.0.23\n  WASI               0.2\n\nIdentity\n  Fingerprint        ebc0-1644-8066-251e-7d1b-3e8f-30a2-20d7 (loaded)\n  Keyring entries    0\n"
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/new/entangle",
+            "plugins",
+            "load",
+            "/tmp/ent-mixed-jp5u4ond/image-resize-package"
+          ],
+          "exit_code": 1,
+          "expected": 1,
+          "stderr": "error: rpc -32000: server error: signature: ENTANGLE-E0101: publisher fingerprint not in keyring\n",
+          "stdout": ""
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/new/entangle",
+            "keyring",
+            "add",
+            "235899b1a55aa5cafc63f301c3779c2be99845dbb58457c3364cf3632a1f8b91",
+            "--name",
+            "Mixed version test publisher"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "",
+          "stdout": "added ccf2c124f9348c485c5b513400576ca0 \"Mixed version test publisher\"\n"
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/new/entangle",
+            "plugins",
+            "load",
+            "/tmp/ent-mixed-jp5u4ond/image-resize-package"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "",
+          "stdout": "loaded ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0\n"
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/new/entangle",
+            "plugins",
+            "list"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "",
+          "stdout": "ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0\n"
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/new/entangle",
+            "compute",
+            "dispatch",
+            "ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0",
+            "--input-file",
+            "/tmp/ent-mixed-jp5u4ond/resize.bin",
+            "--output-file",
+            "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/mixed-version-linux/new-cli-old-daemon.png"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "Chosen: ebc016448066251e7d1b3e8f30a220d7 (score=2.20)\nReason: fit ok, rtt=0ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\nwrote 1103 bytes to /workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/mixed-version-linux/new-cli-old-daemon.png\n",
+          "stdout": ""
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/new/entangle",
+            "compute",
+            "dispatch",
+            "ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0",
+            "--input-file",
+            "/tmp/ent-mixed-jp5u4ond/resize.bin",
+            "--raw"
+          ],
+          "exit_code": 0,
+          "expected": 0,
+          "stderr": "Chosen: ebc016448066251e7d1b3e8f30a220d7 (score=2.20)\nReason: fit ok, rtt=0ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+          "stdout": {
+            "sha256": "30b96d32f4d317455214762e85f790b9a3cf48ba71b12c421aa65461dc7ffc34",
+            "bytes": 1103
+          }
+        },
+        {
+          "argv": [
+            "/tmp/ent-mixed-jp5u4ond/new/entangle",
+            "compute",
+            "dispatch",
+            "invalid-id",
+            "--input-file",
+            "/tmp/ent-mixed-jp5u4ond/resize.bin",
+            "--output-file",
+            "/tmp/ent-mixed-jp5u4ond/new-cli-old-daemon-unexpected"
+          ],
+          "exit_code": 1,
+          "expected": 1,
+          "stderr": "error: rpc -32602: invalid plugin id: ENTANGLE-E0201: plugin id format invalid: missing '/' in \"invalid-id\"\n",
+          "stdout": ""
+        }
+      ],
+      "peer": "ebc016448066251e7d1b3e8f30a220d7",
+      "cli_sha256": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+      "daemon_sha256": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd",
+      "plugin": "ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0",
+      "version": {
+        "entangled": "0.1.0",
+        "runtime": "0.1.0",
+        "types": "0.1.0"
+      },
+      "output": {
+        "path": "new-cli-old-daemon.png",
+        "sha256": "30b96d32f4d317455214762e85f790b9a3cf48ba71b12c421aa65461dc7ffc34",
+        "bytes": 1103,
+        "pixel_sha256": "42e113fb0816f56850cd1b9bb9f4b8d0dd32187a1594cd8017d159ddf7c44f1b",
+        "raw_equals_file": true
+      },
+      "typed_error": {
+        "jsonrpc": "2.0",
+        "id": "mixed-linux-compatibility",
+        "error": {
+          "code": -32602,
+          "message": "invalid params: invalid value: integer `256`, expected u8"
+        }
+      },
+      "daemon_log_sha256": "952a0a8d6cad933ee806951b1c5fe3de4dec699d38bb4d519293456e5df307bf"
+    }
+  },
+  "commands": [
+    {
+      "argv": [
+        "/tmp/ent-mixed-jp5u4ond/old/entangle",
+        "plugins",
+        "build",
+        "/workspace/Entanglement/plugins/image-resize",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--out",
+        "/tmp/ent-mixed-jp5u4ond/image-resize-package"
+      ],
+      "exit_code": 0,
+      "expected": 0,
+      "stderr": "",
+      "stdout": "[entangle] publisher fingerprint: ccf2c124f9348c485c5b513400576ca0\n[entangle] plugin id:             ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0\n[entangle] effective tier:        1\n[entangle] wrote /tmp/ent-mixed-jp5u4ond/image-resize-package/plugin.wasm\n[entangle] wrote /tmp/ent-mixed-jp5u4ond/image-resize-package/entangle.toml\n[entangle] wrote /tmp/ent-mixed-jp5u4ond/image-resize-package/plugin.wasm.sig\n\nNext steps:\n  entangle keyring add 235899b1a55aa5cafc63f301c3779c2be99845dbb58457c3364cf3632a1f8b91 --name self\n  entangle plugins load /tmp/ent-mixed-jp5u4ond/image-resize-package\n  entangle plugins invoke ccf2c124f9348c485c5b513400576ca0/image-resize@0.1.0 --input 'world'\n"
+    },
+    {
+      "argv": [
+        "/tmp/ent-mixed-jp5u4ond/old/entangle",
+        "plugins",
+        "build",
+        "/workspace/Entanglement/plugins/image-dehaze",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+        "--out",
+        "/tmp/ent-mixed-jp5u4ond/image-dehaze-package"
+      ],
+      "exit_code": 0,
+      "expected": 0,
+      "stderr": "",
+      "stdout": "[entangle] publisher fingerprint: ccf2c124f9348c485c5b513400576ca0\n[entangle] plugin id:             ccf2c124f9348c485c5b513400576ca0/image-dehaze@0.1.0\n[entangle] effective tier:        1\n[entangle] wrote /tmp/ent-mixed-jp5u4ond/image-dehaze-package/plugin.wasm\n[entangle] wrote /tmp/ent-mixed-jp5u4ond/image-dehaze-package/entangle.toml\n[entangle] wrote /tmp/ent-mixed-jp5u4ond/image-dehaze-package/plugin.wasm.sig\n\nNext steps:\n  entangle keyring add 235899b1a55aa5cafc63f301c3779c2be99845dbb58457c3364cf3632a1f8b91 --name self\n  entangle plugins load /tmp/ent-mixed-jp5u4ond/image-dehaze-package\n  entangle plugins invoke ccf2c124f9348c485c5b513400576ca0/image-dehaze@0.1.0 --input 'world'\n"
+    }
+  ],
+  "fixture_publisher": "235899b1a55aa5cafc63f301c3779c2be99845dbb58457c3364cf3632a1f8b91",
+  "input_sha256": "15bfff9cb5356fdd62dcecad75c9319f1fbbe820dd664e5a49eb7b7406a647bc",
+  "exact_png_bytes_match": true,
+  "synthetic_raw": {
+    "commands": [
+      {
+        "argv": [
+          "/tmp/ent-mixed-jp5u4ond/new/entangle",
+          "image",
+          "dehaze",
+          "--recursive",
+          "/tmp/ent-mixed-jp5u4ond/raw-photos",
+          "--output-dir",
+          "/tmp/ent-mixed-jp5u4ond/raw-result",
+          "--plugin",
+          "ccf2c124f9348c485c5b513400576ca0/image-dehaze@0.1.0",
+          "--allow",
+          "b929b85ba6f1fe9866f44e485799d19d",
+          "--tile-edge",
+          "128",
+          "--jobs",
+          "1",
+          "--json"
+        ],
+        "exit_code": 1,
+        "expected": 0,
+        "stderr": "error: 1 photo(s) failed\n",
+        "stdout": "{\"error\":\"decoding camera RAW photo.dng: missing raw-identify on PATH; install LibRaw tools (Debian: libraw-bin, Homebrew: libraw)\",\"input\":\"photo.dng\",\"input_path_hex\":null,\"status\":\"failed\"}\n{\"status\":\"summary\",\"processed\":0,\"resumed\":0,\"failed\":1,\"skipped\":0}\n"
+      }
+    ],
+    "coordinator_peer": "8eabfda3da2baa4562548a0f3e5a21d9",
+    "worker_peer": "b929b85ba6f1fe9866f44e485799d19d",
+    "daemon_sha256": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd",
+    "client_sha256": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+    "fixture_source_sha256": "f290953792d7423090949c945228956db7b650241ac86203227d14d068c74619",
+    "exit_code": 1,
+    "error": "AssertionError((['/tmp/ent-mixed-jp5u4ond/new/entangle', 'image', 'dehaze', '--recursive', '/tmp/ent-mixed-jp5u4ond/raw-photos', '--output-dir', '/tmp/ent-mixed-jp5u4ond/raw-result', '--plugin', 'ccf2c124f9348c485c5b513400576ca0/image-dehaze@0.1.0', '--allow', 'b929b85ba6f1fe9866f44e485799d19d', '--tile-edge', '128', '--jobs', '1', '--json'], 'error: 1 photo(s) failed\\n'))"
+  },
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "exit_code": 0,
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "finished_utc": "2026-11-27T04:56:18+00:00",
+  "scope": "Mixed archive revisions on one x86_64 Linux machine under JSON-RPC 2.0 and WIT 0.1."
+}

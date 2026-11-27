@@ -1,0 +1,38 @@
+{
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "started_utc": "2026-11-27T04:52:49.527047+00:00",
+  "finished_utc": "2026-11-27T04:55:54.949133+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-bb70a619/private-recovery-linux.json",
+  "sha256": "0fcdad7628c03d23ff9a3897535b38c41d22b3fdff5f52c02323e9c216edadd5",
+  "stderr_log": "docs/testing/production-review/evidence/candidate-bb70a619/private-recovery-linux.log",
+  "stderr_sha256": "c37dd9c09b3ee52cfe017ba279da7b6eab82e459dccca124ef97765138e96ad9",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "scripts/tests/private-tailnet.py",
+    "--recovery",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--wasm",
+    "/workspace/Entanglement/plugins/json-pointer/target/wasm32-wasip2/release/entangle_json_pointer.wasm"
+  ],
+  "binary_sha256": {
+    "entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+    "entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439"
+  },
+  "release_build_sha256": "1d02845529bc6e2970d622140f05b720f19bd2ad1d780e01d6c1bbcf593c797c",
+  "archive_receipt_sha256": "765eee4dd10b83071cffe6388d8a4a4e475a8457c06e5fbfce1b57f5bbd10fca",
+  "commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "runner_sha256": {
+    "private-tailnet.py": "24a0cb1263075d59a10db7365dcb0153fcf43acdcda13663555c30cc915d9fcb",
+    "private_recovery.py": "933a9e97094f215068d75a000eec77e4226ffbfc4bd4f2ff18b9afd966de2023"
+  },
+  "local_container_image_ids": {
+    "headscale/headscale:0.27.1": "sha256:831157d73eabeeb0bf1c1b195b067dc0bbe272faa91fad97045bcb09f271f99a",
+    "tailscale/tailscale:v1.92.5": "sha256:18e84ebd706296e277f93392bfb615d6acbd00b625f6fb4545ce3cffd2bb9752",
+    "python:3.12-slim-trixie": "sha256:d497f3e5689c500c07dd6c13dee73cd21ed4da604e09ecd99059843c09ab8cd6"
+  }
+}

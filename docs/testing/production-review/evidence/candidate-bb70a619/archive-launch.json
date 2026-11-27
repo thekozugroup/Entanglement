@@ -1,0 +1,221 @@
+{
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "archive_sha256": "e2538c818ff960801f882001023ba0f3601a821944660cf382dfe6ea0d7c5aa2",
+  "artifact_sha256": {
+    "entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+    "entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042"
+  },
+  "max_required_glibc": {
+    "entangle": "2.39",
+    "entangled": "2.39"
+  },
+  "platform_scope": "Four isolated local Linux amd64 userspaces on one host; executable launch only",
+  "started_at_utc": "2026-11-27T04:56:54.398226+00:00",
+  "finished_at_utc": "2026-11-27T04:57:19.082172+00:00",
+  "exit_code": 0,
+  "distros": {
+    "ubuntu:22.04": {
+      "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "repo_digests": [
+        "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb"
+      ],
+      "os_release_version": "22.04",
+      "glibc": "2.35",
+      "launches": {
+        "entangle": {
+          "command": [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--read-only",
+            "--security-opt=no-new-privileges",
+            "--mount",
+            "type=bind,src=/tmp/bb70-launch-elfs,dst=/candidate,readonly",
+            "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+            "/candidate/entangle",
+            "--version"
+          ],
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "/candidate/entangle: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /candidate/entangle)\n"
+        },
+        "entangled": {
+          "command": [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--read-only",
+            "--security-opt=no-new-privileges",
+            "--mount",
+            "type=bind,src=/tmp/bb70-launch-elfs,dst=/candidate,readonly",
+            "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+            "/candidate/entangled",
+            "--version"
+          ],
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "/candidate/entangled: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /candidate/entangled)\n"
+        }
+      }
+    },
+    "ubuntu:24.04": {
+      "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "repo_digests": [
+        "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b"
+      ],
+      "os_release_version": "24.04",
+      "glibc": "2.39",
+      "launches": {
+        "entangle": {
+          "command": [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--read-only",
+            "--security-opt=no-new-privileges",
+            "--mount",
+            "type=bind,src=/tmp/bb70-launch-elfs,dst=/candidate,readonly",
+            "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+            "/candidate/entangle",
+            "--version"
+          ],
+          "exit_code": 0,
+          "stdout": "entangle 0.1.0\n",
+          "stderr": ""
+        },
+        "entangled": {
+          "command": [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--read-only",
+            "--security-opt=no-new-privileges",
+            "--mount",
+            "type=bind,src=/tmp/bb70-launch-elfs,dst=/candidate,readonly",
+            "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+            "/candidate/entangled",
+            "--version"
+          ],
+          "exit_code": 0,
+          "stdout": "entangled 0.1.0\n",
+          "stderr": ""
+        }
+      }
+    },
+    "debian:bookworm-slim": {
+      "image_id": "sha256:b1cc73e64d14d8ef890b767427fe0cc67eb4b78ee513cc7166e739f25e2de095",
+      "repo_digests": [
+        "debian@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e"
+      ],
+      "os_release_version": "12",
+      "glibc": "2.36",
+      "launches": {
+        "entangle": {
+          "command": [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--read-only",
+            "--security-opt=no-new-privileges",
+            "--mount",
+            "type=bind,src=/tmp/bb70-launch-elfs,dst=/candidate,readonly",
+            "sha256:b1cc73e64d14d8ef890b767427fe0cc67eb4b78ee513cc7166e739f25e2de095",
+            "/candidate/entangle",
+            "--version"
+          ],
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "/candidate/entangle: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /candidate/entangle)\n"
+        },
+        "entangled": {
+          "command": [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--read-only",
+            "--security-opt=no-new-privileges",
+            "--mount",
+            "type=bind,src=/tmp/bb70-launch-elfs,dst=/candidate,readonly",
+            "sha256:b1cc73e64d14d8ef890b767427fe0cc67eb4b78ee513cc7166e739f25e2de095",
+            "/candidate/entangled",
+            "--version"
+          ],
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "/candidate/entangled: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /candidate/entangled)\n"
+        }
+      }
+    },
+    "debian:trixie-slim": {
+      "image_id": "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+      "repo_digests": [
+        "debian@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0"
+      ],
+      "os_release_version": "13",
+      "glibc": "2.41",
+      "launches": {
+        "entangle": {
+          "command": [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--read-only",
+            "--security-opt=no-new-privileges",
+            "--mount",
+            "type=bind,src=/tmp/bb70-launch-elfs,dst=/candidate,readonly",
+            "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+            "/candidate/entangle",
+            "--version"
+          ],
+          "exit_code": 0,
+          "stdout": "entangle 0.1.0\n",
+          "stderr": ""
+        },
+        "entangled": {
+          "command": [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network=none",
+            "--cap-drop=ALL",
+            "--read-only",
+            "--security-opt=no-new-privileges",
+            "--mount",
+            "type=bind,src=/tmp/bb70-launch-elfs,dst=/candidate,readonly",
+            "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+            "/candidate/entangled",
+            "--version"
+          ],
+          "exit_code": 0,
+          "stdout": "entangled 0.1.0\n",
+          "stderr": ""
+        }
+      }
+    }
+  }
+}

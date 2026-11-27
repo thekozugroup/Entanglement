@@ -1,0 +1,19 @@
+{
+  "command": [
+    "target/catalog-smoke-python/bin/python",
+    "docs/testing/production-review/evidence/candidate-bb70a619/raw-batch/loopback-harness.py",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--wasm",
+    "/workspace/Entanglement/plugins/image-dehaze/target/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+    "--report",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/raw-batch/real-photo-wall-times.json"
+  ],
+  "started_utc": "2026-11-27T05:02:45.983914+00:00",
+  "finished_utc": "2026-11-27T05:04:18.404099+00:00",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-bb70a619/raw-clock.log",
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

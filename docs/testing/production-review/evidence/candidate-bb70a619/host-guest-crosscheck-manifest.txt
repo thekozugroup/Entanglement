@@ -1,0 +1,10 @@
+[package]
+name="entangle-raster-conformance"
+version="0.1.0"
+edition="2021"
+[dependencies]
+anyhow="1"
+rustix={version="1",features=["fs"]}
+png="=0.18.1"
+[dev-dependencies]
+entangle-image-dehaze={path="/workspace/Entanglement/plugins/image-dehaze"}

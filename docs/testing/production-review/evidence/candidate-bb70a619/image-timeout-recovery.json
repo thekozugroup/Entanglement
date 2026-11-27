@@ -1,0 +1,30 @@
+{
+  "revision": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "revision_after": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "started_utc": "2026-11-27T04:52:47.936131+00:00",
+  "finished_utc": "2026-11-27T04:53:03.011635+00:00",
+  "cli_sha256": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+  "daemon_sha256": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+  "wasm_sha256": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+  "host": "Linux x86_64 with isolated loopback QUIC workers",
+  "worker_deadline_ms": 1,
+  "failed_exit": 1,
+  "failed_seconds": 0.982,
+  "error": "dispatching tile 0 at (0, 0): rpc -32000: dispatch error: ENTANGLE-E0403: peer 8911e718f04d3b23fe98f23c1b76161f rejected the task (execution): host: ENTANGLE-E0504: timed out after 1ms",
+  "published_outputs_after_timeout": 0,
+  "published_receipts_after_timeout": 0,
+  "rerun_worker_deadline_ms": 30000,
+  "recovered_exit": 0,
+  "recovered_tile_count": 1,
+  "human_mode_valid_newline_name_is_one_line": true,
+  "human_mode_invalid_tab_name_escaped": true,
+  "rerun_used_assigned_worker": true,
+  "dimensions": [
+    896,
+    768
+  ],
+  "input_sha256": "f4dd6297ca32d24227a260bc53ae650c2eea908212a6ae29481964d03e3d4b8c",
+  "output_sha256": "1e31cb5201356e70b3cf07c0aac811977748e33614959854aa807e8eb26c7463"
+}

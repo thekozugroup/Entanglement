@@ -1,0 +1,9 @@
+# Candidate 83629d47 iteration verdict
+
+**Disqualified for release qualification.** The frozen source ID was `sha256:738070f5bf73d74e6449424a883fc6cb307a35b128d66f4f361454a5c1234025`. The complete locked, default-parallel workspace suite exited 101: 772 passed, one failed, 29 ignored across 104 result sections. The failing `remote::routes::supervisor::tests::outbound_handle_uses_the_new_generation_without_resubmitting_jobs` attempted an immediate same-port rebind and encountered `ENTANGLE-E0632` / socket bind failure. Source, commit and the tracked session fixture matched before and after the suite. [Workspace receipt](workspace-test.json) · [Failure log](workspace-test.log)
+
+The focused image unit-conformance commands passed 13 tests, with no failures; the receipt records individual commands and source-bound logs. The configured locked all-features policy passed advisories, bans, licenses and sources on the root and all 14 standalone lock graphs. Fresh formatting, diff, actionlint, Clippy and rustdoc checks passed. The real governance check still rejected all five single-holder roles and the absent rotation record. [Image unit receipt](image-unit-conformance.json) · [Dependency aggregate](dependencies.json) · [Clippy](clippy.json) · [Rustdoc](rustdoc.json) · [Governance](governance-real.json)
+
+A brief prequalification race left two harness-only diagnostic changes outside the commit. They were saved separately and the committed test file was restored; the exact frozen source hash was independently confirmed before the timestamped workspace and all dependency scans started. That mismatch is not used as release evidence.
+
+This is an iteration verdict, not a completed 57-gate rerating. Release-dependent RAW integration, packaging and hardware prerequisites were not credited for this disqualified revision. A separately frozen successor must rerun its own checks.

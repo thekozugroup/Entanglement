@@ -1,0 +1,21 @@
+pair 1 baseline 2615.36 ms CLI 261996 KiB daemon 260844 KiB
+pair 1 candidate 994.34 ms CLI 43524 KiB daemon 110200 KiB
+pair 2 candidate 1032.44 ms CLI 43536 KiB daemon 110964 KiB
+pair 2 baseline 2021.55 ms CLI 261868 KiB daemon 261572 KiB
+pair 3 baseline 1355.23 ms CLI 261804 KiB daemon 261104 KiB
+pair 3 candidate 1018.07 ms CLI 43380 KiB daemon 110504 KiB
+pair 4 candidate 1031.33 ms CLI 43556 KiB daemon 111228 KiB
+pair 4 baseline 1535.23 ms CLI 261740 KiB daemon 262108 KiB
+pair 5 baseline 1187.13 ms CLI 261916 KiB daemon 258056 KiB
+pair 5 candidate 908.98 ms CLI 43344 KiB daemon 110072 KiB
+pair 6 candidate 1031.56 ms CLI 43312 KiB daemon 110884 KiB
+pair 6 baseline 1826.72 ms CLI 261596 KiB daemon 262604 KiB
+Traceback (most recent call last):
+  File "/tmp/entangle-image-uds-bench.py", line 382, in <module>
+    main()
+  File "/tmp/entangle-image-uds-bench.py", line 377, in main
+    run(args.work.resolve(strict=True), args.candidate_dir.resolve(strict=True),
+  File "/tmp/entangle-image-uds-bench.py", line 346, in run
+    "started_utc": started, "finished_utc": now(), "platform": os.uname()._asdict(),
+                                                               ^^^^^^^^^^^^^^^^^^
+AttributeError: 'posix.uname_result' object has no attribute '_asdict'

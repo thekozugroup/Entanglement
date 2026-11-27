@@ -1,0 +1,653 @@
+{
+  "candidate": {
+    "commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+    "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab"
+  },
+  "candidate_binary_sha256": {
+    "entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+    "entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042"
+  },
+  "candidate_archive": {
+    "name": "/workspace/Entanglement/target/release-candidate/bb70a6193f88/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "sha256": "e2538c818ff960801f882001023ba0f3601a821944660cf382dfe6ea0d7c5aa2",
+    "receipt_sha256": "765eee4dd10b83071cffe6388d8a4a4e475a8457c06e5fbfce1b57f5bbd10fca"
+  },
+  "started_utc": "2026-11-27T05:02:05.496790+00:00",
+  "finished_utc": "2026-11-27T05:02:26.171594+00:00",
+  "platform": {
+    "sysname": "Linux",
+    "nodename": "4195294301b2",
+    "release": "6.18.57",
+    "version": "#1 SMP Tue Oct 20 21:56:04 UTC 2026",
+    "machine": "x86_64"
+  },
+  "allowed_cpus": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "plan": {
+    "prepared_utc": "2026-11-27T04:27:01.480787+00:00",
+    "orders": [
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ]
+    ],
+    "warm_calls_per_process": 3,
+    "timed_calls_per_process": 1,
+    "baseline_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+    "baseline_source": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+    "baseline_archive_sha256": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf",
+    "baseline_binary_sha256": {
+      "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+      "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+    },
+    "plugin_id": "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+    "publisher_key": "04ec9b28f02a777a0b43a3cd4391749049258e439717aa4f87e1f85fe782ed06",
+    "signed_package_sha256": {
+      "entangle.toml": "cf16a30c7fccd60316828ec754f5739ab9eb09a366ad47d643b5ed9c2bedd04e",
+      "plugin.wasm": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+      "plugin.wasm.sig": "0505148ba84b3fbc815b6ac383addd8a7f82f61e0c001d772f807e9959cad395"
+    },
+    "timed_input_bytes": 6294518,
+    "input_sha256": {
+      "warm-64.png": "eb220db108d6e9061037d12a597a14f58585f6cfd2c7d3a63e96ec1bb2acaa30",
+      "timed-1024.png": "64ce38183ddc84e0c52f34eb5423d804a3706118b201c2969bec68147bbf5fd2"
+    },
+    "method": "fresh isolated daemons for all 12 arms, exact local trusted peer, no mesh network",
+    "wall_clock": "starts before launching the CLI and ends after wait4 reaps the child, includes UDS, guest and output-file write",
+    "memory": "Linux wait4 child ru_maxrss KiB; daemon /proc VmHWM KiB before/after each timed call",
+    "scope": "engineering comparator, Linux x86_64, one localhost plugin workload",
+    "measurement_amendment_utc": "2026-11-27T04:28:30.731392+00:00",
+    "original_plan_sha256": "d2ade7c147fd3c9a201974b550f06ea1a6bc9bb922f96cb28243bdebeab73c09",
+    "measurement_amendment": "GNU time is absent. Before any timed call, switched CLI wall time and RSS measurement to Linux wait4; unchanged inputs, mixed order and daemon measurement."
+  },
+  "cgroup_before": {
+    "cpu.max": "400000 100000",
+    "cpu.stat": "usage_usec 53703540874\nuser_usec 45407262652\nsystem_usec 8296278221\nnice_usec 0\nnr_periods 195576\nnr_throttled 90416\nthrottled_usec 6644188813\nnr_bursts 0\nburst_usec 0",
+    "memory.max": "34359738368"
+  },
+  "cgroup_after": {
+    "cpu.max": "400000 100000",
+    "cpu.stat": "usage_usec 53726715778\nuser_usec 45422251516\nsystem_usec 8304464261\nnice_usec 0\nnr_periods 195783\nnr_throttled 90416\nthrottled_usec 6644188813\nnr_bursts 0\nburst_usec 0",
+    "memory.max": "34359738368"
+  },
+  "compiler_observations_at_arm_boundaries": [
+    {
+      "at": "2026-11-27T05:02:05.496809+00:00",
+      "pair": 1,
+      "route": "baseline",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:07.968449+00:00",
+      "pair": 1,
+      "route": "candidate",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:09.352729+00:00",
+      "pair": 2,
+      "route": "candidate",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:10.802749+00:00",
+      "pair": 2,
+      "route": "baseline",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:13.265766+00:00",
+      "pair": 3,
+      "route": "baseline",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:15.228829+00:00",
+      "pair": 3,
+      "route": "candidate",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:16.759261+00:00",
+      "pair": 4,
+      "route": "candidate",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:18.185649+00:00",
+      "pair": 4,
+      "route": "baseline",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:19.819725+00:00",
+      "pair": 5,
+      "route": "baseline",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:21.271962+00:00",
+      "pair": 5,
+      "route": "candidate",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:22.661463+00:00",
+      "pair": 6,
+      "route": "candidate",
+      "started": [],
+      "finished": []
+    },
+    {
+      "at": "2026-11-27T05:02:24.035699+00:00",
+      "pair": 6,
+      "route": "baseline",
+      "started": [],
+      "finished": []
+    }
+  ],
+  "driver_sha256": "3528892fff55a5ac192cf86c7d5e92ccb5a399f16aea7c21f624a7667fb6dc89",
+  "plan_sha256": "2602d0107a1fb8419fe40bc2c9b978aaa2c7870676b212041b90c780223c0718",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "/tmp/entangle-image-uds-bench.py",
+    "run",
+    "--work",
+    "/tmp/entangle-image-uds-plan",
+    "--candidate-dir",
+    "/tmp/entangle-image-uds-plan/candidate/entanglement-v0.1.0-x86_64-unknown-linux-gnu",
+    "--candidate-archive",
+    "/workspace/Entanglement/target/release-candidate/bb70a6193f88/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "--commit",
+    "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+    "--source-id",
+    "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+    "--out",
+    "/tmp/entangle-image-uds-bb70a619.json"
+  ],
+  "all_calls_have_identical_output": {
+    "warm": "4c7ec1f52c30680035b4ce834b16b9a092534995e617f15bd2dbf7b6dc02b883",
+    "timed": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744"
+  },
+  "route_medians": {
+    "baseline": {
+      "wall_ms": 1482.520047,
+      "cli_peak_rss_kib": 261754.0,
+      "daemon_peak_rss_kib": 262282.0,
+      "daemon_warm_peak_rss_kib": 36536.0
+    },
+    "candidate": {
+      "wall_ms": 1030.4660595,
+      "cli_peak_rss_kib": 43482.0,
+      "daemon_peak_rss_kib": 110444.0,
+      "daemon_warm_peak_rss_kib": 35482.0
+    }
+  },
+  "paired_candidate_over_baseline": {
+    "wall_ms": [
+      0.5504176115736477,
+      0.5365075153213564,
+      0.6653465071165242,
+      0.8334093847877972,
+      0.9102726714570886,
+      0.7225796704921074
+    ],
+    "cli_peak_rss_kib": [
+      0.1662593180984969,
+      0.1656707065458269,
+      0.16584665220181524,
+      0.16642960923759273,
+      0.16607784660090236,
+      0.16615769865021682
+    ],
+    "daemon_peak_rss_kib": [
+      0.4262417851138621,
+      0.42490166783547273,
+      0.4132454574580072,
+      0.4171910645660129,
+      0.41948830275927107,
+      0.42089556783751275
+    ],
+    "daemon_warm_peak_rss_kib": [
+      0.9979051819184124,
+      0.983615510649918,
+      0.9065071875342917,
+      0.967618619293906,
+      0.9400624125686,
+      0.9796204442527496
+    ]
+  },
+  "trials": [
+    {
+      "started_utc": "2026-11-27T05:02:05.980092+00:00",
+      "pair": 1,
+      "route": "baseline",
+      "wall_ms": 1880.429805,
+      "chosen_peer": "4d47425acc79d834c45d10d45786ffd3",
+      "daemon_pid": 685955,
+      "command": [
+        "/tmp/entangle-image-uds-plan/baseline/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-1-baseline-r3izhq_0/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "4d47425acc79d834c45d10d45786ffd3"
+      ],
+      "cli_peak_rss_kib": 261856,
+      "cli_user_seconds": 0.19796,
+      "cli_system_seconds": 0.714888,
+      "daemon_warm_peak_rss_kib": 36280,
+      "daemon_warm_rss_kib": 36212,
+      "daemon_peak_rss_kib": 261720,
+      "daemon_after_rss_kib": 44188,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:08.258019+00:00",
+      "pair": 1,
+      "route": "candidate",
+      "wall_ms": 1035.021682,
+      "chosen_peer": "96ee641abe877d5203c37e063307d850",
+      "daemon_pid": 685999,
+      "command": [
+        "/tmp/entangle-image-uds-plan/candidate/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-1-candidate-0jlr8ubs/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "96ee641abe877d5203c37e063307d850"
+      ],
+      "cli_peak_rss_kib": 43536,
+      "cli_user_seconds": 0.221374,
+      "cli_system_seconds": 0.088268,
+      "daemon_warm_peak_rss_kib": 36204,
+      "daemon_warm_rss_kib": 36204,
+      "daemon_peak_rss_kib": 111556,
+      "daemon_after_rss_kib": 44344,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:09.651707+00:00",
+      "pair": 2,
+      "route": "candidate",
+      "wall_ms": 1066.566992,
+      "chosen_peer": "9c9f87268ef9af132493149406b301a5",
+      "daemon_pid": 686032,
+      "command": [
+        "/tmp/entangle-image-uds-plan/candidate/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-2-candidate-ixtwtt1u/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "9c9f87268ef9af132493149406b301a5"
+      ],
+      "cli_peak_rss_kib": 43360,
+      "cli_user_seconds": 0.211556,
+      "cli_system_seconds": 0.056700999999999994,
+      "daemon_warm_peak_rss_kib": 36020,
+      "daemon_warm_rss_kib": 36020,
+      "daemon_peak_rss_kib": 111484,
+      "daemon_after_rss_kib": 45284,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:11.185688+00:00",
+      "pair": 2,
+      "route": "baseline",
+      "wall_ms": 1987.981457,
+      "chosen_peer": "036b35e80ab21a1d65302eab8f308d1f",
+      "daemon_pid": 686073,
+      "command": [
+        "/tmp/entangle-image-uds-plan/baseline/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-2-baseline-mnzv1qme/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "036b35e80ab21a1d65302eab8f308d1f"
+      ],
+      "cli_peak_rss_kib": 261724,
+      "cli_user_seconds": 0.193371,
+      "cli_system_seconds": 0.6957559999999999,
+      "daemon_warm_peak_rss_kib": 36620,
+      "daemon_warm_rss_kib": 36620,
+      "daemon_peak_rss_kib": 262376,
+      "daemon_after_rss_kib": 45132,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:13.571623+00:00",
+      "pair": 3,
+      "route": "baseline",
+      "wall_ms": 1598.93224,
+      "chosen_peer": "6cac53fe10007c4fae2b9c7882151589",
+      "daemon_pid": 686116,
+      "command": [
+        "/tmp/entangle-image-uds-plan/baseline/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-3-baseline-8tdxixth/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "6cac53fe10007c4fae2b9c7882151589"
+      ],
+      "cli_peak_rss_kib": 261784,
+      "cli_user_seconds": 0.21605,
+      "cli_system_seconds": 0.365251,
+      "daemon_warm_peak_rss_kib": 36452,
+      "daemon_warm_rss_kib": 36452,
+      "daemon_peak_rss_kib": 262188,
+      "daemon_after_rss_kib": 44900,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:15.627090+00:00",
+      "pair": 3,
+      "route": "candidate",
+      "wall_ms": 1063.843981,
+      "chosen_peer": "542f496320bb19c07afb355519c4a376",
+      "daemon_pid": 686149,
+      "command": [
+        "/tmp/entangle-image-uds-plan/candidate/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-3-candidate-mr0ndx2p/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "542f496320bb19c07afb355519c4a376"
+      ],
+      "cli_peak_rss_kib": 43416,
+      "cli_user_seconds": 0.246913,
+      "cli_system_seconds": 0.09637899999999999,
+      "daemon_warm_peak_rss_kib": 33044,
+      "daemon_warm_rss_kib": 32908,
+      "daemon_peak_rss_kib": 108348,
+      "daemon_after_rss_kib": 40944,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:17.106190+00:00",
+      "pair": 4,
+      "route": "candidate",
+      "wall_ms": 1025.910437,
+      "chosen_peer": "a69b3748b40a29fdb1efc9cdcb3034e6",
+      "daemon_pid": 686182,
+      "command": [
+        "/tmp/entangle-image-uds-plan/candidate/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-4-candidate-zspn6gdo/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "a69b3748b40a29fdb1efc9cdcb3034e6"
+      ],
+      "cli_peak_rss_kib": 43528,
+      "cli_user_seconds": 0.220465,
+      "cli_system_seconds": 0.06297699999999999,
+      "daemon_warm_peak_rss_kib": 34424,
+      "daemon_warm_rss_kib": 34292,
+      "daemon_peak_rss_kib": 108992,
+      "daemon_after_rss_kib": 41376,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:18.528443+00:00",
+      "pair": 4,
+      "route": "baseline",
+      "wall_ms": 1230.980183,
+      "chosen_peer": "ab99ddeaa9d82ec6af4ed3de203663fd",
+      "daemon_pid": 686223,
+      "command": [
+        "/tmp/entangle-image-uds-plan/baseline/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-4-baseline-qyhh2h9d/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "ab99ddeaa9d82ec6af4ed3de203663fd"
+      ],
+      "cli_peak_rss_kib": 261540,
+      "cli_user_seconds": 0.247055,
+      "cli_system_seconds": 0.299383,
+      "daemon_warm_peak_rss_kib": 35576,
+      "daemon_warm_rss_kib": 35540,
+      "daemon_peak_rss_kib": 261252,
+      "daemon_after_rss_kib": 43992,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:20.108698+00:00",
+      "pair": 5,
+      "route": "baseline",
+      "wall_ms": 1114.505175,
+      "chosen_peer": "a9351ac22b0324fe5bd390923767143f",
+      "daemon_pid": 686256,
+      "command": [
+        "/tmp/entangle-image-uds-plan/baseline/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-5-baseline-h6bqwzy2/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "a9351ac22b0324fe5bd390923767143f"
+      ],
+      "cli_peak_rss_kib": 261540,
+      "cli_user_seconds": 0.20879599999999998,
+      "cli_system_seconds": 0.18079699999999999,
+      "daemon_warm_peak_rss_kib": 37172,
+      "daemon_warm_rss_kib": 37172,
+      "daemon_peak_rss_kib": 262968,
+      "daemon_after_rss_kib": 45624,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:21.557930+00:00",
+      "pair": 5,
+      "route": "candidate",
+      "wall_ms": 1014.503603,
+      "chosen_peer": "871e622ffbd8869ceb10b28284901fc9",
+      "daemon_pid": 686289,
+      "command": [
+        "/tmp/entangle-image-uds-plan/candidate/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-5-candidate-5i919gt3/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "871e622ffbd8869ceb10b28284901fc9"
+      ],
+      "cli_peak_rss_kib": 43436,
+      "cli_user_seconds": 0.213279,
+      "cli_system_seconds": 0.111068,
+      "daemon_warm_peak_rss_kib": 34944,
+      "daemon_warm_rss_kib": 34792,
+      "daemon_peak_rss_kib": 110312,
+      "daemon_after_rss_kib": 43912,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:22.964958+00:00",
+      "pair": 6,
+      "route": "candidate",
+      "wall_ms": 987.121763,
+      "chosen_peer": "8cfed9c2cfa209681c22f9b7460cc780",
+      "daemon_pid": 686333,
+      "command": [
+        "/tmp/entangle-image-uds-plan/candidate/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-6-candidate-16_g3lsd/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "8cfed9c2cfa209681c22f9b7460cc780"
+      ],
+      "cli_peak_rss_kib": 43528,
+      "cli_user_seconds": 0.292201,
+      "cli_system_seconds": 0.081133,
+      "daemon_warm_peak_rss_kib": 36340,
+      "daemon_warm_rss_kib": 36340,
+      "daemon_peak_rss_kib": 110576,
+      "daemon_after_rss_kib": 42996,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    },
+    {
+      "started_utc": "2026-11-27T05:02:24.349380+00:00",
+      "pair": 6,
+      "route": "baseline",
+      "wall_ms": 1366.107854,
+      "chosen_peer": "80195a62d002834ff13dd5b8e93b7fb9",
+      "daemon_pid": 686366,
+      "command": [
+        "/tmp/entangle-image-uds-plan/baseline/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "compute",
+        "dispatch",
+        "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+        "--input-file",
+        "/tmp/entangle-image-uds-plan/timed-1024.png",
+        "--output-file",
+        "/tmp/ent-uds-6-baseline-vzej7bwx/node/timed.png",
+        "--timeout-ms",
+        "30000",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "80195a62d002834ff13dd5b8e93b7fb9"
+      ],
+      "cli_peak_rss_kib": 261968,
+      "cli_user_seconds": 0.22228699999999998,
+      "cli_system_seconds": 0.25456999999999996,
+      "daemon_warm_peak_rss_kib": 37096,
+      "daemon_warm_rss_kib": 37096,
+      "daemon_peak_rss_kib": 262716,
+      "daemon_after_rss_kib": 45532,
+      "output_sha256": "9603f373ea8ae7af287f8956c9a1d59c0c5548a33cdb742a6470d25dcf07f744",
+      "output_size": 6293088
+    }
+  ]
+}

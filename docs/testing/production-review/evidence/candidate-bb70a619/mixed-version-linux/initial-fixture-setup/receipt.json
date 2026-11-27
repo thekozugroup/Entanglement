@@ -1,0 +1,113 @@
+{
+  "argv": [
+    "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+    "docs/testing/production-review/evidence/candidate-bb70a619/mixed-version-linux/verify.py",
+    "/workspace/Entanglement",
+    "docs/testing/production-review/evidence/candidate-bb70a619/mixed-version-linux"
+  ],
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "started_utc": "2026-11-27T04:55:40+00:00",
+  "host": [
+    "Linux",
+    "x86_64",
+    "6.18.57",
+    [
+      "glibc",
+      "2.41"
+    ],
+    "12.2.0"
+  ],
+  "harness_sha256": "585ecb0f06bbe9e7c07d8a44a832925ac46f1c135d66185196492a72cab8f46c",
+  "archives": {
+    "old": {
+      "source_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+      "source_id": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+      "path": "/workspace/Entanglement/target/release-candidate/42bb9a3360ce/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "archive_sha256_before": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf",
+      "elf_sha256_before": {
+        "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+        "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+      }
+    },
+    "new": {
+      "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+      "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+      "path": "/workspace/Entanglement/target/release-candidate/bb70a6193f88/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+      "archive_sha256_before": "e2538c818ff960801f882001023ba0f3601a821944660cf382dfe6ea0d7c5aa2",
+      "elf_sha256_before": {
+        "entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+        "entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042"
+      }
+    }
+  },
+  "guests": {
+    "image-resize": {
+      "path": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+      "sha256_before": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983",
+      "bytes": 561183,
+      "signed_package": {
+        "sha256": {
+          "plugin.wasm.sig": "10d2faf6bd7e583df437ba45d368d0e3cf49344f4b487f42e8310ad7ae57f1cc",
+          "plugin.wasm": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983",
+          "entangle.toml": "e4260472a946b11b02447ea61f38fcbe4abd39e7052eb344beb30eac0ae7d7e1"
+        },
+        "manifest": {
+          "build": {
+            "target": "wasm32-wasip2",
+            "wit_world": "entangle:plugin@0.1.0/plugin"
+          },
+          "capabilities": {},
+          "plugin": {
+            "description": "Resample a PNG or JPEG to new dimensions with a choice of filter and fit mode, re-encoding as PNG or JPEG; the compute-heavy flagship for distributed invocation",
+            "id": "cd8eed01259d94098f4bc85d572df5f8/image-resize@0.1.0",
+            "runtime": "wasm",
+            "tier": 1,
+            "version": "0.1.0"
+          }
+        }
+      },
+      "sha256_after": "b3ad4285a7f71a0377291a4e13676883bb419e815f7fe7e44b9771e615e44983"
+    },
+    "image-dehaze": {
+      "path": "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+      "sha256_before": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+      "bytes": 253551,
+      "sha256_after": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973"
+    }
+  },
+  "rows": {
+    "old-cli-new-daemon": {
+      "commands": [],
+      "peer": "9ce555247565730186276d9afc58f05c",
+      "cli_sha256": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+      "daemon_sha256": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+      "plugin": "cd8eed01259d94098f4bc85d572df5f8/image-resize@0.1.0"
+    }
+  },
+  "commands": [
+    {
+      "argv": [
+        "/tmp/ent-mixed-zuf24q6m/old/entangle",
+        "plugins",
+        "build",
+        "/workspace/Entanglement/plugins/image-resize",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--out",
+        "/tmp/ent-mixed-zuf24q6m/image-resize-package"
+      ],
+      "exit_code": 0,
+      "expected": 0,
+      "stderr": "",
+      "stdout": "[entangle] publisher fingerprint: cd8eed01259d94098f4bc85d572df5f8\n[entangle] plugin id:             cd8eed01259d94098f4bc85d572df5f8/image-resize@0.1.0\n[entangle] effective tier:        1\n[entangle] wrote /tmp/ent-mixed-zuf24q6m/image-resize-package/plugin.wasm\n[entangle] wrote /tmp/ent-mixed-zuf24q6m/image-resize-package/entangle.toml\n[entangle] wrote /tmp/ent-mixed-zuf24q6m/image-resize-package/plugin.wasm.sig\n\nNext steps:\n  entangle keyring add 5c54ee8e5accd933e3da0f9a322bdcbbae65652a04465bbb3af52d06a0c939d4 --name self\n  entangle plugins load /tmp/ent-mixed-zuf24q6m/image-resize-package\n  entangle plugins invoke cd8eed01259d94098f4bc85d572df5f8/image-resize@0.1.0 --input 'world'\n"
+    }
+  ],
+  "fixture_publisher": "5c54ee8e5accd933e3da0f9a322bdcbbae65652a04465bbb3af52d06a0c939d4",
+  "input_sha256": "15bfff9cb5356fdd62dcecad75c9319f1fbbe820dd664e5a49eb7b7406a647bc",
+  "error": "RuntimeError('Error: startup policy check failed (spec \u00a711 #16)\\n\\nCaused by:\\n    ENTANGLE-E0050: daemon is in multi-node mode but peer allowlist is empty\\n')",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "exit_code": 1,
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "finished_utc": "2026-11-27T04:55:42+00:00",
+  "scope": "Mixed archive revisions on one x86_64 Linux machine under JSON-RPC 2.0 and WIT 0.1."
+}

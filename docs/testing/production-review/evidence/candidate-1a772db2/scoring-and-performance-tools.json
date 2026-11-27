@@ -1,0 +1,19 @@
+{
+  "command": [
+    "target/catalog-smoke-python/bin/python",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "scripts/tests",
+    "-p",
+    "test_*.py"
+  ],
+  "started_utc": "2026-11-27T04:41:04.529284+00:00",
+  "finished_utc": "2026-11-27T04:41:07.716362+00:00",
+  "source_before": "sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be",
+  "source_after": "sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-1a772db2/scoring-and-performance-tools.log",
+  "sha256": "d066a7d53eb2f55ad4649bc23aad5702c9acfd18aae99777a5d378df6048def9"
+}

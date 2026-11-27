@@ -1,0 +1,8 @@
+{
+  "commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "started_utc": "2026-11-27T04:45:53.482854+00:00",
+  "finished_utc": "2026-11-27T04:52:58.803831+00:00",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "note": "Existing exact-source suite receipt independently verified, normalized without rerunning."
+}

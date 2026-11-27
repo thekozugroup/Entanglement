@@ -1,0 +1,11 @@
+M	crates/entangle-bin/src/remote/routes/supervisor/tests.rs
+M	crates/entangle-bin/src/remote/routes/tests.rs
+M	crates/entangle-bin/tests/server_hardening.rs
+M	crates/entangle-mesh-tailscale/src/tests.rs
+A	crates/entangle-mesh-tailscale/tests/fixtures/status-cli.sh
+M	crates/entangle-scheduler/tests/remote_dispatch.rs
+A	docs/testing/production-review/evidence/candidate-42bb9a33/package-operator/published-fixture/test-publisher-keyring.toml
+A	docs/testing/production-review/evidence/candidate-42bb9a33/package-operator/published-fixture/test-publisher.pub.pem
+A	plugins/image-dehaze/src/tests.rs
+A	scripts/tests/image-dehaze-batch.py
+A	scripts/tests/image-dehaze-quality.py

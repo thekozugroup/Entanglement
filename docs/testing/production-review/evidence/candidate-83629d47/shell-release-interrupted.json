@@ -1,0 +1,14 @@
+{
+  "source_commit": "83629d47f4f4fe635b34c3849cd966eda45224ff",
+  "source_id": "sha256:738070f5bf73d74e6449424a883fc6cb307a35b128d66f4f361454a5c1234025",
+  "stopped_utc": "2026-11-27T04:37:44.615562+00:00",
+  "result": "interrupted after candidate disqualification and before compiled shell cases executed",
+  "completed_scope": "synthetic installer portability fixture, read-only governance refusal, workflow lint",
+  "unfinished_scope": "full wrapper suite and historical release signature checks were waiting on Cargo; archive jobs were waiting for a release manifest",
+  "retained_partial_logs": [
+    "installer-portability.log",
+    "release-and-governance.log",
+    "release-command-run.log",
+    "wrapper-full-shells.log"
+  ]
+}

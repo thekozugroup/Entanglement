@@ -1,0 +1,20 @@
+{
+  "reviewer": "/root/tailroute",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "started_utc": "2026-11-27T04:52:47.840804+00:00",
+  "finished_utc": "2026-11-27T04:52:52.536090+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-bb70a619/publisher-incident-exercise.md",
+  "sha256": "5a6a1be782221d7cdfb5cbf91f6317a684a530ee371781f6a5254303edfc3a70",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "docs/testing/production-review/evidence/candidate-bb70a619/repeat-publisher-incident.py",
+    "--source-id",
+    "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+    "--archive",
+    "target/release-candidate/bb70a6193f88/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+  ]
+}

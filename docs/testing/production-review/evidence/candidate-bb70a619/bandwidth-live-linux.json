@@ -1,0 +1,281 @@
+{
+  "initial_nodes": {
+    "coordinator": {
+      "id": "c99cfbfcf8d4ab5d8db9ffdc664a11d38006c293466b3923ee4a537cd897037f",
+      "daemon_pid": 653851,
+      "mode": "none"
+    },
+    "fast": {
+      "id": "5812f7d4e461ecc3b2b7b02e6313602f91da317cd7199c22a4c97dbba9e8b7b2",
+      "daemon_pid": 655071,
+      "mode": "none"
+    },
+    "slow": {
+      "id": "f1b5b158bf92ca4ba5cadd30279838fa5e1c2aa2ee60ad5d1e684dfed35d4e2c",
+      "daemon_pid": 656250,
+      "mode": "none"
+    }
+  },
+  "final_nodes": {
+    "coordinator": {
+      "id": "c99cfbfcf8d4ab5d8db9ffdc664a11d38006c293466b3923ee4a537cd897037f",
+      "daemon_pid": 653851,
+      "mode": "none"
+    },
+    "fast": {
+      "id": "5812f7d4e461ecc3b2b7b02e6313602f91da317cd7199c22a4c97dbba9e8b7b2",
+      "daemon_pid": 655071,
+      "mode": "none"
+    },
+    "slow": {
+      "id": "f1b5b158bf92ca4ba5cadd30279838fa5e1c2aa2ee60ad5d1e684dfed35d4e2c",
+      "daemon_pid": 656250,
+      "mode": "none"
+    }
+  },
+  "scope": "three Linux network-disabled Docker namespaces on one host; no qdisc or host network changes",
+  "initial_upload_rate_limits_bps": {
+    "fast": null,
+    "slow": 8000000
+  },
+  "measured_upload_bps": {
+    "fast": 78054793,
+    "slow": 3299928
+  },
+  "reversed_upload_rate_limits_bps": {
+    "fast": 8000000,
+    "slow": null
+  },
+  "reversed_measured_upload_bps": {
+    "fast": 35957735,
+    "slow": 76410446
+  },
+  "peer_ids": {
+    "coordinator": "b0a828927055aba4cca2fde2cfdd235d",
+    "fast": "73e0cf371e2852b96e90e632fd0f1ba8",
+    "slow": "98289858d9f21310f73adcc9c7e4a289"
+  },
+  "jobs": [
+    {
+      "phase": "fast-initial-small",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=1027ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "measured_bps": null,
+      "input_bytes": 183,
+      "nonce": "a1d1d89fe4c5c79c19a908fc",
+      "output": "\"a1d1d89fe4c5c79c19a908fc\"",
+      "wall_s": 0.1229
+    },
+    {
+      "phase": "fast-train",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=1027ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=unknown",
+      "measured_bps": "unknown",
+      "input_bytes": 786515,
+      "nonce": "e39702438877904599f89b22",
+      "output": "\"e39702438877904599f89b22\"",
+      "wall_s": 0.2917
+    },
+    {
+      "phase": "fast-measure",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=1027ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=78054793",
+      "measured_bps": 78054793,
+      "input_bytes": 786515,
+      "nonce": "2d8e5f140c46795c205f69f6",
+      "output": "\"2d8e5f140c46795c205f69f6\"",
+      "wall_s": 0.5305
+    },
+    {
+      "phase": "slow-initial-small",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=3089ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "measured_bps": null,
+      "input_bytes": 183,
+      "nonce": "f5759e8fa44368dc887b2688",
+      "output": "\"f5759e8fa44368dc887b2688\"",
+      "wall_s": 0.0542
+    },
+    {
+      "phase": "slow-train",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=3089ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=unknown",
+      "measured_bps": "unknown",
+      "input_bytes": 786515,
+      "nonce": "0d87d4f1fdceda5786339cc8",
+      "output": "\"0d87d4f1fdceda5786339cc8\"",
+      "wall_s": 2.1588
+    },
+    {
+      "phase": "slow-measure",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=3089ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=3299928",
+      "measured_bps": 3299928,
+      "input_bytes": 786515,
+      "nonce": "53586f9477fea263428bdb93",
+      "output": "\"53586f9477fea263428bdb93\"",
+      "wall_s": 2.3787
+    },
+    {
+      "phase": "both-eligible",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=1027ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=65458944",
+      "measured_bps": 65458944,
+      "input_bytes": 786515,
+      "nonce": "f953f37564d52e3d4edbfb5d",
+      "output": "\"f953f37564d52e3d4edbfb5d\"",
+      "wall_s": 0.3131
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=1027ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=61270114",
+      "measured_bps": 61270114,
+      "input_bytes": 786515,
+      "nonce": "60dc7fff02d291d2431af682",
+      "output": "\"60dc7fff02d291d2431af682\"",
+      "wall_s": 2.0459
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=3089ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=3158429",
+      "measured_bps": 3158429,
+      "input_bytes": 786515,
+      "nonce": "6564e60ddcbdac6336e0e6a1",
+      "output": "\"6564e60ddcbdac6336e0e6a1\"",
+      "wall_s": 0.1354
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=1027ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=61270114",
+      "measured_bps": 61270114,
+      "input_bytes": 786515,
+      "nonce": "856755865aaee9f0c4cfdbe2",
+      "output": "\"856755865aaee9f0c4cfdbe2\"",
+      "wall_s": 2.1543
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=3089ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=36852423",
+      "measured_bps": 36852423,
+      "input_bytes": 786515,
+      "nonce": "535782424b82c94083a0fd68",
+      "output": "\"535782424b82c94083a0fd68\"",
+      "wall_s": 0.3134
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=1027ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=46788684",
+      "measured_bps": 46788684,
+      "input_bytes": 786515,
+      "nonce": "9d85608249ec5fb445830b1c",
+      "output": "\"9d85608249ec5fb445830b1c\"",
+      "wall_s": 2.0251
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=79ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=38018252",
+      "measured_bps": 38018252,
+      "input_bytes": 786515,
+      "nonce": "1a8b8bb567190a1c41e049ef",
+      "output": "\"1a8b8bb567190a1c41e049ef\"",
+      "wall_s": 0.2662
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=413ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=46788684",
+      "measured_bps": 46788684,
+      "input_bytes": 786515,
+      "nonce": "d0f373e34aa74b605f21c84e",
+      "output": "\"d0f373e34aa74b605f21c84e\"",
+      "wall_s": 1.9255
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=79ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=43245174",
+      "measured_bps": 43245174,
+      "input_bytes": 786515,
+      "nonce": "b41b3d2ad8bb5e825ee7e100",
+      "output": "\"b41b3d2ad8bb5e825ee7e100\"",
+      "wall_s": 0.2017
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=413ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=35957735",
+      "measured_bps": 35957735,
+      "input_bytes": 786515,
+      "nonce": "463ab6ec6b7fd780cdbc4a24",
+      "output": "\"463ab6ec6b7fd780cdbc4a24\"",
+      "wall_s": 2.1086
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=79ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=52928904",
+      "measured_bps": 52928904,
+      "input_bytes": 786515,
+      "nonce": "40152f34e487962082827856",
+      "output": "\"40152f34e487962082827856\"",
+      "wall_s": 0.1861
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "73e0cf371e2852b96e90e632fd0f1ba8",
+      "reason": "fit ok, rtt=413ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=35957735",
+      "measured_bps": 35957735,
+      "input_bytes": 786515,
+      "nonce": "a5af44276ac49efad55b986c",
+      "output": "\"a5af44276ac49efad55b986c\"",
+      "wall_s": 2.0328
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=79ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=76410446",
+      "measured_bps": 76410446,
+      "input_bytes": 786515,
+      "nonce": "9a73541095d3bd81421b9230",
+      "output": "\"9a73541095d3bd81421b9230\"",
+      "wall_s": 0.241
+    },
+    {
+      "phase": "both-eligible-after-swap",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=79ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=70259217",
+      "measured_bps": 70259217,
+      "input_bytes": 786515,
+      "nonce": "9677cea9a78d5f135fa93cdb",
+      "output": "\"9677cea9a78d5f135fa93cdb\"",
+      "wall_s": 0.2935
+    },
+    {
+      "phase": "tiny-both",
+      "chosen": "98289858d9f21310f73adcc9c7e4a289",
+      "reason": "fit ok, rtt=79ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "measured_bps": null,
+      "input_bytes": 183,
+      "nonce": "c51aa4f2116809296b475ca1",
+      "output": "\"c51aa4f2116809296b475ca1\"",
+      "wall_s": 0.0963
+    }
+  ],
+  "plugin": "b0a828927055aba4cca2fde2cfdd235d/json-pointer@0.1.0",
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "binary_sha256": {
+    "entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+    "entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042"
+  },
+  "network_mode": {
+    "coordinator": "none",
+    "fast": "none",
+    "slow": "none"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "entangle-cli",
+    "--test",
+    "wrapper",
+    "--",
+    "--include-ignored",
+    "--test-threads=1"
+  ],
+  "started_utc": "2026-11-27T04:40:51.928644+00:00",
+  "finished_utc": "2026-11-27T04:43:44.651459+00:00",
+  "source_before": "sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be",
+  "source_after": "sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be",
+  "source_commit": "1a772db2e69b03e51dc1c03db6feeba28dd234ae",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-1a772db2/wrapper-full-shells.log",
+  "sha256": "d95fe007486542adb1bb0d6fd2f9d2aed01be8d8132e9c57be7ed67f1f9a34e0"
+}

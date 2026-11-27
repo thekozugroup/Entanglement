@@ -1,0 +1,22 @@
+image 1 baseline ['188.28', '214.42', '195.44']
+image 1 candidate ['233.96', '255.93', '255.22']
+image 2 candidate ['205.91', '227.94', '202.67']
+image 2 baseline ['199.97', '195.38', '190.41']
+image 3 baseline ['178.01', '203.50', '219.15']
+image 3 candidate ['148.75', '213.09', '156.52']
+image 4 candidate ['206.05', '348.97', '222.26']
+image 4 baseline ['183.80', '196.38', '211.91']
+image 5 baseline ['179.99', '187.81', '217.43']
+image 5 candidate ['323.98', '138.22', '197.90']
+image 6 candidate ['223.55', '201.83', '199.93']
+image 6 baseline ['234.16', '186.53', '179.14']
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/one-remote-diagnostic/run.py", line 231, in <module>
+    main()
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/one-remote-diagnostic/run.py", line 212, in main
+    "wasm_sha256": sha(WASM), "signed_package_sha256": package_sha256, "driver_sha256": sha(__file__),
+                                                                                        ^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/one-remote-diagnostic/run.py", line 37, in sha
+    with path.open("rb") as reader:
+         ^^^^^^^^^
+AttributeError: 'str' object has no attribute 'open'

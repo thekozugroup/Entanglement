@@ -1,0 +1,33 @@
+cold boot without either Tailscale service: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port denied: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+worker tailscaled restart offline: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer e715453c6a41294b2487890b714bb3b1 failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead)
+coordinator tailscaled restart offline: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer e715453c6a41294b2487890b714bb3b1 failed: ENTANGLE-E0633: cannot connect to peer e715453c6a41294b2487890b714bb3b1: closed
+coordinator tailscaled restart: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer e715453c6a41294b2487890b714bb3b1 failed: no known network address for this peer (not paired, or no address learned yet)
+coordinator tailscaled restart: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer e715453c6a41294b2487890b714bb3b1 failed: no known network address for this peer (not paired, or no address learned yet)
+coordinator tailscaled restart: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer e715453c6a41294b2487890b714bb3b1 failed: no known network address for this peer (not paired, or no address learned yet)
+coordinator tailscaled restart: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer e715453c6a41294b2487890b714bb3b1 failed: no known network address for this peer (not paired, or no address learned yet)
+coordinator tailscaled restart: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer e715453c6a41294b2487890b714bb3b1 failed: no known network address for this peer (not paired, or no address learned yet)
+revoked during disconnect: error: rpc -32000: dispatch error: ENTANGLE-E0403: peer e715453c6a41294b2487890b714bb3b1 rejected the task (not-authorized): peer is not in this node's trusted peer allowlist

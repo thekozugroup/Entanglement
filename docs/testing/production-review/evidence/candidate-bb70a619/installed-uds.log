@@ -1,0 +1,17 @@
+UTC start 2026-11-27T04:52:57.301426+00:00, source sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab
+verified archive SHA-256 e2538c818ff960801f882001023ba0f3601a821944660cf382dfe6ea0d7c5aa2, POSIX installer fixture SHA-256 9c8a73a97d4af293359a4bbf41fe664cc9316e57728b76af9de769f7f3777395
+linux/x86_64 sha256sum mode=positive, native archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version 0.1.0 --prefix /tmp/ent-install-uds-iaq4usvt/native/home/install/bin -> 0
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 e2538c818ff960801f882001023ba0f3601a821944660cf382dfe6ea0d7c5aa2
+  entangle 0.1.0, installed SHA-256 5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439
+  entangled 0.1.0, installed SHA-256 8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042
+/tmp/ent-install-uds-iaq4usvt/native/home/install/bin/entangle init --non-interactive
+exit 0
+/tmp/ent-install-uds-iaq4usvt/native/home/install/bin/entangled run
+/tmp/ent-install-uds-iaq4usvt/native/home/install/bin/entangle mesh status --json
+exit 0
+Installed binary UDS mesh/status {"local_peer_id": "fd21b3ef1d08a0311f1d583d912e9d28", "local_display_name": "4195294301b2", "transports_active": [], "seen_peer_count": 0, "trusted_peer_count": 0}
+installed daemon shutdown exit 0
+UTC finish 2026-11-27T04:53:06.960096+00:00, source sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab

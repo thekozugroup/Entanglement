@@ -1,0 +1,27 @@
+{
+  "artifact_kind": "historical isolated allocator diagnostic corroborated against final source mappings",
+  "fixture": {
+    "json_frame_bytes": 33554648,
+    "payload_bytes": 8388608,
+    "serde_json_value_size_bytes": 32,
+    "legacy_peak_requested_heap_above_frame_bytes": 276825402,
+    "typed_peak_requested_heap_above_frame_bytes": 8388634
+  },
+  "source_mapping": {
+    "legacy": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e, crates/entangle-bin/src/methods.rs Req.params then serde_json::from_value",
+    "typed": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58, crates/entangle-bin/src/methods.rs borrowed RawValue then serde_json::from_str<ComputeDispatchParams>"
+  },
+  "scope": "One valid prebuilt request, one sequential run per implementation. Measures peak additional allocation requests routed through Rust GlobalAlloc. Excludes initial JSON storage, transport, kernel/plugin execution, and process RSS.",
+  "reproduction": [
+    "cargo",
+    "run",
+    "--release",
+    "--locked"
+  ],
+  "sha256": {
+    "Cargo.toml": "aca6814a756c12a0fa9d59e41b5126aa2c060faa382020dd2c48a7a7745a3c09",
+    "Cargo.lock": "f25254665225d915d27bf59afbb61e3b0180a7216ecdceed1cf4bd9abfa94e9f",
+    "src/main.rs": "3e025f73c28fed670e80250bd0aaa9bde551c52555e4d7c257a37b392daa10c0",
+    "run.log": "300d6236c751f03d9923e18af3f48328f9207d98c623d9f57e36cacc3c60ce2e"
+  }
+}

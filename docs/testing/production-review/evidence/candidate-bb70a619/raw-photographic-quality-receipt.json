@@ -1,0 +1,30 @@
+{
+  "candidate_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "report_sha256": "7275026efe08d2ecbfb542aec42ea3c6fe7dc6975af46f29de698df4dcfe82d9",
+  "daemon_sha256": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+  "cli_sha256": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+  "signed_guest_wasm_sha256": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+  "two_peer_ids": [
+    "33fc15c026d5c376998798558a53cddf",
+    "294d424855eb3b40a2291c39d6980b76"
+  ],
+  "registered_checks": {
+    "aggregate_mae": true,
+    "two_scenes_improve": true,
+    "no_scene_above_1_05": true,
+    "clear_control": true,
+    "synthetic_whole_frame": true,
+    "both_raw_bindings_agree": true,
+    "genuine_photo_transform": true,
+    "expected_source_before_and_after": true,
+    "both_configured_workers_executed_photo_tiles": true
+  },
+  "genuine_sensor_files": 2,
+  "genuine_rgb16_channel_samples": 42478146,
+  "native_camera_binding_mismatches": 0,
+  "whole_frame_sample_mismatches": 0,
+  "synthetic_runner": "signed guest accepted strict RGB16 PNG challenges with no externally supplied atmosphere; see per-scene actual and ground-truth MAE",
+  "physical_perf_image_gate": "Unmeasured here; independent one-VM functional photography evidence."
+}

@@ -1,0 +1,26 @@
+{
+  "source_id": "sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be",
+  "source_after": "sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be",
+  "source_commit": "1a772db2e69b03e51dc1c03db6feeba28dd234ae",
+  "started": "2026-11-27T04:43:44.398577+00:00",
+  "ended": "2026-11-27T04:44:22.716661+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "entangle-bin",
+    "--test",
+    "daemon_compute",
+    "discovers_and_runs_work_without_a_configured_peer_address",
+    "--",
+    "--exact",
+    "--ignored",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-1a772db2/lan-mdns-independent.log",
+  "sha256": "a97f3e5eb025ae492d6e791d547e1531fa93abb376fd9750857cb773bb8fd88a",
+  "debug_daemon_sha256": "19b598d3961b46b28077622e3c9e834dfd88f4d9930347a2e1419d58f0a68e65",
+  "scope": "Two independent daemons on one Linux host, local multicast, source-built debug executables."
+}

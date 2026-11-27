@@ -1,0 +1,1469 @@
+{
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "started_utc": "2026-11-27T04:57:50.423348+00:00",
+  "finished_utc": "2026-11-27T04:58:14.148860+00:00",
+  "release_binaries_sha256": {
+    "entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+    "entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042"
+  },
+  "driver_sha256": "83499d28caefa5f6eed054dd1e3b905497661b37ecc311b9852e02b962cbd601",
+  "server_sha256": "a76bd2f23b061182fae9ac025d5f716c156a2b11d5c32bdc074c2a808d9108b9",
+  "server_command": [
+    "/tmp/entanglement-cpu-server-b6910/bin/llama-server",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "46419",
+    "--model",
+    "/tmp/entangle-llama-cpu-model/TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf",
+    "--alias",
+    "tinyllama-cpu-review",
+    "--threads",
+    "2",
+    "--threads-batch",
+    "2",
+    "--parallel",
+    "1",
+    "--ctx-size",
+    "512",
+    "--n-gpu-layers",
+    "0"
+  ],
+  "server_library_sha256": {
+    "libggml-base.so": "a828e775abe021b0c32577f87430418b6f79fbd3c80edc9332a5ea23110f44e1",
+    "libggml-cpu.so": "75fea176288c30776628afc797a644f8fe9020c8f28477c315097f09513dd487",
+    "libggml.so": "228b26b67e8859fdbda825a8a5fbd379c0f39d6c784860f4997053368b72cc47",
+    "libllama.so": "f03d70d1855cf1bdd07d913c116be96178eacc009aaf9b993fc6e6af618218b2",
+    "libmtmd.so": "3c1b74ac298b995e8f60504ac183dbc6763aa2437f8463b80d5d0931fb98db05"
+  },
+  "server_version": "version: 1 (5d8bb90)\nbuilt with cc (Debian 14.2.0-19) 14.2.0 for x86_64-linux-gnu",
+  "model_sha256": "9ee11adf737960ff06123d5c4fba24d12c5b05ba460a7afa88950fbf2b61add0",
+  "model_file_bytes": 322591712,
+  "threads": 2,
+  "gpu_layers": 0,
+  "host_scope": "separate Entanglement processes on one x86_64 Linux host",
+  "endpoints": [
+    {
+      "endpoint": "/v1/completions",
+      "coordinator_peer": "6ee5d7157b949e7bf8342eb716991e95",
+      "worker_peer": "f2f46fee78a71555fa5e9c64c5c4d61b",
+      "samples": [
+        {
+          "task_id": "50ce336d-3a53-4343-8abf-f55d85bb2100",
+          "first_inventory_wait_ms": 0.0,
+          "preplacement_refusals": 0,
+          "executor": "f2f46fee78a71555fa5e9c64c5c4d61b",
+          "public_key_hex": "2842754d45c48922e20664014977ddf7ebee38f9ee191f2894dead9a8c988d55",
+          "output": " fall, and winter again.\n\nStep 2: The next step is to create a new word by using the",
+          "output_sha256": "2480c68b0a3ea621ac6fae29e2a0d392811958f9197c93e82e4b1f069e94e566",
+          "first_signed_chunk_ms": 1357.612,
+          "duration_ms": 3412.967,
+          "chunks": [
+            {
+              "seq": 0,
+              "timestamp_ms": 1795755472308,
+              "sha256": "56df31a72b399c7435d4e63f9689a9ccdcda5ae1b0f879a95cf01e5b8a7fc3f1",
+              "signature_hex": "0c79d5d61fb854b928bfa8968de9ff73067640ac2cb792fc7b5b337ddfc02c0253e21a90e48840b71744ed61be785799ec70db8f3fadbddc94c3c96dbcec3f08",
+              "payload_hex": "2066616c6c",
+              "received_ms": 1357.612
+            },
+            {
+              "seq": 1,
+              "timestamp_ms": 1795755472425,
+              "sha256": "d03502c43d74a30b936740a9517dc4ea2b2ad7168caa0a774cefe793ce0b33e7",
+              "signature_hex": "cbd346b345b871e98dabd1e22e1753cb70c7c00ef4db98622eb03ce09d0562aa0a24d810c6487a2f7303f7e1a42423b312e3cf948487b2ffeacdeeb1290d2201",
+              "payload_hex": "2c",
+              "received_ms": 1472.059
+            },
+            {
+              "seq": 2,
+              "timestamp_ms": 1795755472524,
+              "sha256": "2e5f769687c7731726bb738d6137d86e89691a3a164a80588c046c79ce99d749",
+              "signature_hex": "08ce64818ce08579a19abd839c0ee01e19ea282bcbb31542b376850d40022076ee010bca97a69869e1045e5a0cf865d7bf0e8fa069a85a5d9aecdc7f4805b401",
+              "payload_hex": "20616e64",
+              "received_ms": 1569.245
+            },
+            {
+              "seq": 3,
+              "timestamp_ms": 1795755472630,
+              "sha256": "edf2bc1d10f8d66cfcf9805b7d9707fb8c92908b5e90bc8e8ad7d455f0c6ece4",
+              "signature_hex": "19747cff2d7391c631d8a724ba410105edf13d3b4877f5a30d6234c58f50b7f3125946162d9ca2248834b11da09f83be628d2593b302f4231e7bf96285cc7102",
+              "payload_hex": "2077696e746572",
+              "received_ms": 1675.487
+            },
+            {
+              "seq": 4,
+              "timestamp_ms": 1795755472727,
+              "sha256": "d6fab4a5ef92b89df453ce26b9c7d8d28b71e9b87fc6f58f0e6e2392c947451c",
+              "signature_hex": "01c9ebc9f1350e9b392f62fb7d872cf4a18ce3463718937871c2c07c14d9d76792f1a382765c04fbdfc4a9f1e84279cbae8ef0791d7ae371647a9192f9620a0c",
+              "payload_hex": "20616761696e",
+              "received_ms": 1774.829
+            },
+            {
+              "seq": 5,
+              "timestamp_ms": 1795755472855,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "0dc5ac96e4d00b9bbbe4a5e2308a9579371391489788897fe426e848e7e5c089c58a4615ca651115d885aca08344ebe683afe90894ccc46f8d50d29a97d6290a",
+              "payload_hex": "2e",
+              "received_ms": 1900.635
+            },
+            {
+              "seq": 6,
+              "timestamp_ms": 1795755472958,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "00b2b85a2c8516028f1ad2bd054a7137b18d9151c1e1a8d648d4b19a15ab6c60ca679d46d4019daad4c0973c255bb6c4f6856ae54aa4b216bc1310cb9253dc0a",
+              "payload_hex": "0a",
+              "received_ms": 2004.141
+            },
+            {
+              "seq": 7,
+              "timestamp_ms": 1795755473095,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "0a69576edcb97fb9f15c965ff7a441221edf34e26e47e6779c037a9115e2ab6f0bf5a520257524f3a033b8bed754bf25c6bb981937532f757beb0eb225b2fd0c",
+              "payload_hex": "0a",
+              "received_ms": 2148.303
+            },
+            {
+              "seq": 8,
+              "timestamp_ms": 1795755473273,
+              "sha256": "8e6a6cca7aae1d1e781d3ee04849d6b00f7aaf48f7c642f35105e4bf990a8cb4",
+              "signature_hex": "0bc0890a6d5b5c43b03c392c56dd08ab96211adbbc2c279dbeae4e500ee11e4ef838527d43ae82f09a1af724afd8bb400fa199e38ed8e26bc82d523fdc58c604",
+              "payload_hex": "53746570",
+              "received_ms": 2317.745
+            },
+            {
+              "seq": 9,
+              "timestamp_ms": 1795755473346,
+              "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+              "signature_hex": "8d11df7af1cb36cd6a024f38034f4b44f3530d1074905bb35c289d2d544b76666262fc32b47fadcd0d998004a5f76c090d18ffb95826e9217e10e96d839ff20e",
+              "payload_hex": "20",
+              "received_ms": 2390.331
+            },
+            {
+              "seq": 10,
+              "timestamp_ms": 1795755473416,
+              "sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+              "signature_hex": "0d18cec4fc88a6183e31619d506341458d6e26e104a1a36de03d1c8c076cd4090b83bd5e23dc4e127cf3d6b3bc8dc9b648c0694219aebeff3aae61689c789303",
+              "payload_hex": "32",
+              "received_ms": 2460.143
+            },
+            {
+              "seq": 11,
+              "timestamp_ms": 1795755473496,
+              "sha256": "e7ac0786668e0ff0f02b62bd04f45ff636fd82db63b1104601c975dc005f3a67",
+              "signature_hex": "efd3a598cbcf5cde740c8bf382a9dbbe966ebd19e9089e4a1d8e52d1895aa2f203068e44675e6602faba6746ca6c4fb41492b39ff6c49ac8061dce8654be2400",
+              "payload_hex": "3a",
+              "received_ms": 2541.558
+            },
+            {
+              "seq": 12,
+              "timestamp_ms": 1795755473579,
+              "sha256": "2c16f3cac1d4fb2e478b7c16193cf258ace331e8290ff58596a503540bad790e",
+              "signature_hex": "4f3b9205ef571b5189b4f05dcf05f5d4baab1d81a50cafe8076afe3f56334ee8a5ac717411b1f39c90ef38396bdee5238568ae24e652785073e22bd698923902",
+              "payload_hex": "20546865",
+              "received_ms": 2623.518
+            },
+            {
+              "seq": 13,
+              "timestamp_ms": 1795755473663,
+              "sha256": "d1052e87b6bba8e970d6890b506f948dadd6fc11405aa142139b92fe424b9dcd",
+              "signature_hex": "549995905932a0eb41b1289571bfed252cb378cdddbc8e9a81e746ebf8a39ae742b8a639447e3a3a800b8a30c67d3596f311c0353172666c4b80b105af846c07",
+              "payload_hex": "206e657874",
+              "received_ms": 2707.223
+            },
+            {
+              "seq": 14,
+              "timestamp_ms": 1795755473733,
+              "sha256": "3010c5cfdc70f790eab464e84e8b19b6a5a865c2dcc695ea2a311c4f34b1061e",
+              "signature_hex": "9687accad50470bca35e566316528fbc2fe1efa5865d3a3224ee8a24c9908a84286e29c15e917961694881027c5d2654905731859e02fc46333aac71d505b30e",
+              "payload_hex": "2073746570",
+              "received_ms": 2796.873
+            },
+            {
+              "seq": 15,
+              "timestamp_ms": 1795755473810,
+              "sha256": "a8bdfde11f2443a17f53ad0c9eb033c86a916c4575fe9cbce4c6a0d5af432aed",
+              "signature_hex": "387eec0ef81331c5adc93c1cb378a262a374fabc6cb18c6b3b6d4ea3bd19a9f31931b405dd5392227fc4d4568fcd28366132a86bcd5729e08a352638e56a2c02",
+              "payload_hex": "206973",
+              "received_ms": 2859.618
+            },
+            {
+              "seq": 16,
+              "timestamp_ms": 1795755473887,
+              "sha256": "84d0f765cd51d373f02dd72c742454b26807b93f5a2655ba1c8d905236e43df0",
+              "signature_hex": "362568eeb590cd539e0a08ba6be5f6e0019984655259f8e82588cd6e9806702fe62d403b52051091e715d96c003f11b75dfd5d54a3ababe57a5c615a15164f00",
+              "payload_hex": "20746f",
+              "received_ms": 2936.507
+            },
+            {
+              "seq": 17,
+              "timestamp_ms": 1795755473964,
+              "sha256": "c9da28c472156acbf5ca326453e0f817330d747cfaaad73a5c61c576c538f0e3",
+              "signature_hex": "a92900f35f8736aa0b90ba10824bd6b898e6da135596b32705994f2e4b8520ce9e4cf739d10e84b01c79986f4a0c5ba3ed8bb0a3101ee8ef07df814e5bff6305",
+              "payload_hex": "20637265617465",
+              "received_ms": 3013.892
+            },
+            {
+              "seq": 18,
+              "timestamp_ms": 1795755474027,
+              "sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+              "signature_hex": "3adf9087b0105a14deba9d0dd95e6ddc4181a373b89e995dc43bb7cf71bc0933ec50a4c28675c3096a4a2bb8027aa3e2d23c69ae987147700f36ba40a4af7303",
+              "payload_hex": "2061",
+              "received_ms": 3096.82
+            },
+            {
+              "seq": 19,
+              "timestamp_ms": 1795755474109,
+              "sha256": "faea92a3fb0175f22a4f07aa952def525595f8088fde718427882c7d16644fde",
+              "signature_hex": "0b41df4b6db74aac2aa69027310bec50bb782c2b77fb5a33b9a0cf5fe61da1948f6fcf34393eea7f1856ec9e40c545816bee2c6091aa563d6dbb73a5a5c7020b",
+              "payload_hex": "206e6577",
+              "received_ms": 3156.05
+            },
+            {
+              "seq": 20,
+              "timestamp_ms": 1795755474173,
+              "sha256": "fd1071019aee4e24b061b1b428806a9fc160c0c00f83893bf07948c04fb7bfff",
+              "signature_hex": "32bf59f96db1074f7c83008e6031fc61927f1619c22b06a49b789947b1695c129ebe0f89447902b8897ed653c93809695bac79eb88f1d9887befbe9b95d46305",
+              "payload_hex": "20776f7264",
+              "received_ms": 3216.75
+            },
+            {
+              "seq": 21,
+              "timestamp_ms": 1795755474235,
+              "sha256": "653caee45b20f579fa6be3fe6dee327a1c961177be0ddf12cca4c1ac94f73c22",
+              "signature_hex": "6ed0b5f2fbd372f496f8ec94c26161fe34c27a31d2321a9984fe1640107ee27fe3568bf507351b45b02859e00052d4ac60ec3f51485fae27c6bda510d453f008",
+              "payload_hex": "206279",
+              "received_ms": 3279.291
+            },
+            {
+              "seq": 22,
+              "timestamp_ms": 1795755474292,
+              "sha256": "c87fa1a0441a1833a52e6824f68d15efc16bf6871545c547244de94a081d62e4",
+              "signature_hex": "0ada39f927ea0551be1eb4a762ab3ac59bdd0a28197069b081cc52e1bfecede417db6e1e2e7caaccc85d94251e397a53419b5a08df4e82364185dfa112e78603",
+              "payload_hex": "207573696e67",
+              "received_ms": 3339.947
+            },
+            {
+              "seq": 23,
+              "timestamp_ms": 1795755474365,
+              "sha256": "fe0663fd13cdb08743dca3d2d5d1168762556ea36f77d8ab6009306d12a6f351",
+              "signature_hex": "a0a5da846fe955e6641bb83a00a7b1023372f8f9b112fccde96d079f481d2b426d40f465bcfdabdfeb22a775221547c89e3b5e8245fa2c3232128461335c3a0d",
+              "payload_hex": "20746865",
+              "received_ms": 3412.459
+            }
+          ],
+          "prompt": "Finish the sequence using five words: winter, spring, summer,",
+          "direct_response": {
+            "choices": [
+              {
+                "text": " fall, and winter again.\n\nStep 2: The next step is to create a new word by using the",
+                "index": 0,
+                "logprobs": null,
+                "finish_reason": "length"
+              }
+            ],
+            "created": 1795755475,
+            "model": "tinyllama-cpu-review",
+            "system_fingerprint": "b1-5d8bb90",
+            "object": "text_completion",
+            "usage": {
+              "completion_tokens": 24,
+              "prompt_tokens": 15,
+              "total_tokens": 39
+            },
+            "id": "chatcmpl-CiRjcq4TDIpvIVFEFlBgnPX5pvzXQDQx",
+            "timings": {
+              "cache_n": 14,
+              "prompt_n": 1,
+              "prompt_ms": 64.031,
+              "prompt_per_token_ms": 64.031,
+              "prompt_per_second": 15.617435304774249,
+              "predicted_n": 24,
+              "predicted_ms": 1325.45,
+              "predicted_per_token_ms": 55.22708333333333,
+              "predicted_per_second": 18.107057980308575
+            }
+          },
+          "matched_direct_greedy_output": true,
+          "generated_tokens": 24,
+          "end_to_end_tokens_per_second": 7.03
+        },
+        {
+          "task_id": "761435f1-c1dd-4389-abe7-ff9d27deba24",
+          "first_inventory_wait_ms": 0.0,
+          "preplacement_refusals": 0,
+          "executor": "f2f46fee78a71555fa5e9c64c5c4d61b",
+          "public_key_hex": "2842754d45c48922e20664014977ddf7ebee38f9ee191f2894dead9a8c988d55",
+          "output": "\n\n2. Write a sentence about a bicycle.\n\n3. Write a sentence about a bicy",
+          "output_sha256": "22ec104930c3d50fab9292ec5196c8a791405f5cfb7a8b3784cd250ca34a1b83",
+          "first_signed_chunk_ms": 424.245,
+          "duration_ms": 1942.065,
+          "chunks": [
+            {
+              "seq": 0,
+              "timestamp_ms": 1795755476185,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "0ca578a9b21b376dab58130430b51f6f34a442fa47e82854437d4f66e897fc1a56d02baa27fd39cbdb71ef6372d35155ba7e610839a9f8f2b6db65a7c4d94f04",
+              "payload_hex": "0a",
+              "received_ms": 424.245
+            },
+            {
+              "seq": 1,
+              "timestamp_ms": 1795755476236,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "b6542f076ce11f666a55ac74111036bccaad958ef89424b08e940992c4c490c0f0595ae626392101030c9800096e5f7a840e84c88aa5f2f87079e6cd76e39807",
+              "payload_hex": "0a",
+              "received_ms": 471.713
+            },
+            {
+              "seq": 2,
+              "timestamp_ms": 1795755476295,
+              "sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+              "signature_hex": "a3d2f213863aebc36306a9f266064568ac233d5e074b8753f5404237a8de57f39ac5a68c55b15d8fdc50be1bd598706f382197630d34d8f50d90850ed325af0f",
+              "payload_hex": "32",
+              "received_ms": 533.581
+            },
+            {
+              "seq": 3,
+              "timestamp_ms": 1795755476356,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "3fff18d84152d2a7d5c9a5eeb369243097a2bcd94c61ef3bbc2ac3a2b041ef0e4aef484cadb2103f594eae955b6efa71bb953a4c664a1bd959165000c0e69608",
+              "payload_hex": "2e",
+              "received_ms": 592.301
+            },
+            {
+              "seq": 4,
+              "timestamp_ms": 1795755476419,
+              "sha256": "8ec5048a13254f6919cbe242f07b0b0b2f4224026c89dd9830aedac29421ffa9",
+              "signature_hex": "a0b57739ccc0c9f2a02d6879382890c4c643bd90d75e554c7c808e2ecf8b808cb9fb53734c4f0e5a29b2477ba35ced9298eee6b378f5cac6cb7ec4c82382ec08",
+              "payload_hex": "205772697465",
+              "received_ms": 655.081
+            },
+            {
+              "seq": 5,
+              "timestamp_ms": 1795755476475,
+              "sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+              "signature_hex": "55833e24e7d8e27c0147a2f69f07ab6498868fa4ef83cdcbf58fce81b99c9d91614e628ae8fd3ea9d662409c2f04d49ec6632a77f6593c59438dee5d5135b507",
+              "payload_hex": "2061",
+              "received_ms": 710.406
+            },
+            {
+              "seq": 6,
+              "timestamp_ms": 1795755476535,
+              "sha256": "197c3071279161f2faa66849fa365d8122506c6a98d796a5574a8415ca992bd8",
+              "signature_hex": "c8af67d496bd73422926344f4b0e9271b82f6b759c910d1c1c9712237bd3f92c0e7494b444146f92b680d4adcd431dbfb3d7e9fe91f7d9c1e173304a7d6c2f08",
+              "payload_hex": "2073656e74656e6365",
+              "received_ms": 771.156
+            },
+            {
+              "seq": 7,
+              "timestamp_ms": 1795755476595,
+              "sha256": "0f6e662c21145fc4e8b0bf0970e14b363808ecc519b0a250fcadb4c2cee6e2fc",
+              "signature_hex": "0131c62debf81696b716ca1b74c10b3fe3bd6a10feb7888ae26de728f49350e1847e662a8286aa6a250aa2b3bdff5c100bb12a712f0f25da82e21f58186c6e0d",
+              "payload_hex": "2061626f7574",
+              "received_ms": 831.173
+            },
+            {
+              "seq": 8,
+              "timestamp_ms": 1795755476656,
+              "sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+              "signature_hex": "0ba5d8a207af1265cc2e6b1e9c614488eff23b2a806c66bc36d83163dd6849571af3a0bdb0714f819c995c466a3f7c7b051e9180644355d4ea39b3f2e58ade0e",
+              "payload_hex": "2061",
+              "received_ms": 891.877
+            },
+            {
+              "seq": 9,
+              "timestamp_ms": 1795755476716,
+              "sha256": "cb6f0a6c7a3223ecb5693627eb3a534fcd5be2103408f78aa19b9c6a079aa810",
+              "signature_hex": "f2540cf367c55ba6fdb74a179587a9a0ce837a6baa0bfa48989ba222b41b034d2af20336ddb73eb3803b36515928de9b835485d10d23a7241e81585443208001",
+              "payload_hex": "2062",
+              "received_ms": 952.172
+            },
+            {
+              "seq": 10,
+              "timestamp_ms": 1795755476776,
+              "sha256": "6393507a33556ff939295d9a31b1e21b53c391f7c64eefa95226110c39dc56df",
+              "signature_hex": "a438d41a3d7bc9c0f2eba461e538c083cadc88ea9a75e0f07b554703b7e134fe190dabec0df4c98d59d9a3071b9897f4bd4affe7965c1fd0f25f58b1def25e02",
+              "payload_hex": "696379",
+              "received_ms": 1012.146
+            },
+            {
+              "seq": 11,
+              "timestamp_ms": 1795755476836,
+              "sha256": "808701ba8422fa3d839406f5f92d6b5f262b908bf4af6a8010b5440f25ea8c91",
+              "signature_hex": "dd1557957aadbb718baafc72ef650f6cf96acfe50425269a1a2fa854e33e255c4f3ac4d20ad23b0cf33a700438b8b1939214820414fd59e74cdfa3e00be92306",
+              "payload_hex": "636c65",
+              "received_ms": 1072.013
+            },
+            {
+              "seq": 12,
+              "timestamp_ms": 1795755476899,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "369d3e502bc5ae467d3459181a76a3a323742a0ffffbf1fd5de235d177dd807e9b4940eb5f3213295a6e2d8f535b50a3e729f4889ab795bdc827904d95444708",
+              "payload_hex": "2e",
+              "received_ms": 1135.466
+            },
+            {
+              "seq": 13,
+              "timestamp_ms": 1795755476974,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "b285d71031f1e9c5ba9984eb2f7bd1fcc642b7ca0303fc662ea2d253e776d49dac443c91fb6c90c29ea4d62de61d005a37f6959983dba93afadec9c4cf6b6c03",
+              "payload_hex": "0a",
+              "received_ms": 1210.084
+            },
+            {
+              "seq": 14,
+              "timestamp_ms": 1795755477036,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "4f7164d036c8f86dad566664c8747a8177eaf7d5e9948468bc1e108c4149c7c8d65b3c4b36b67cc0eeb858e3921f1c79209e3fc1e958bf70598710991c856703",
+              "payload_hex": "0a",
+              "received_ms": 1272.516
+            },
+            {
+              "seq": 15,
+              "timestamp_ms": 1795755477107,
+              "sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+              "signature_hex": "45a72b0576b88e2a6bacaf351d67faba160003700a5a35fe535b55cad4ae92e9151372547e5d7bf92db5714666fd82800f10e3fdf4250ee9533c9dc53b6d2807",
+              "payload_hex": "33",
+              "received_ms": 1342.797
+            },
+            {
+              "seq": 16,
+              "timestamp_ms": 1795755477178,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "f2e8581fa778091990d441fb92df11672d8bc386503d100662252c79d79da4e65f7d8822910b4d0946224c33ac10ecdba9cad92cdc2b72a269007e3d55f78a06",
+              "payload_hex": "2e",
+              "received_ms": 1413.941
+            },
+            {
+              "seq": 17,
+              "timestamp_ms": 1795755477260,
+              "sha256": "8ec5048a13254f6919cbe242f07b0b0b2f4224026c89dd9830aedac29421ffa9",
+              "signature_hex": "ccc5c9cfbd609cda9d4da93f1245b6a5f2760e4e3e622ab9045e435dc34bdfe1542141d50f480a9b43cfac2d6c4f02c10c0b1969f8caad8c8a9ba01f76b67609",
+              "payload_hex": "205772697465",
+              "received_ms": 1495.901
+            },
+            {
+              "seq": 18,
+              "timestamp_ms": 1795755477318,
+              "sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+              "signature_hex": "b41a261aa956e4be31bdd1f1821c37ac4b5787f6bcee4671492f7b08ee2fb0d37d5753cfb9021606b265912c22f745d17d76575769c6ae7c3ae00350f1984100",
+              "payload_hex": "2061",
+              "received_ms": 1554.019
+            },
+            {
+              "seq": 19,
+              "timestamp_ms": 1795755477394,
+              "sha256": "197c3071279161f2faa66849fa365d8122506c6a98d796a5574a8415ca992bd8",
+              "signature_hex": "15d6ad678659cd127643c97ce955b95d511e8ddec85fef4a7315b1c0405535a34feea5336b63f6a371a9db8f60d44d232843c304800fc61a4e48c7aba7122605",
+              "payload_hex": "2073656e74656e6365",
+              "received_ms": 1629.912
+            },
+            {
+              "seq": 20,
+              "timestamp_ms": 1795755477471,
+              "sha256": "0f6e662c21145fc4e8b0bf0970e14b363808ecc519b0a250fcadb4c2cee6e2fc",
+              "signature_hex": "9156dbfd4e960cb63d24c2df106e88acad26b78427ebe388f7e165f8bebe3c4e59a2eecca20dfcb5863d1e113367bcf9b290b9bc9cb2edf54555de3f4a5a6f0e",
+              "payload_hex": "2061626f7574",
+              "received_ms": 1707.366
+            },
+            {
+              "seq": 21,
+              "timestamp_ms": 1795755477544,
+              "sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+              "signature_hex": "0b2dc217ca570d56602f0e10d3eb6e9e61f937ad9a2b55cb0c995122643e44e883c8e7bd60a5986b7f47e54819198ab6de62bedcc0be67c3b6c150f702926e04",
+              "payload_hex": "2061",
+              "received_ms": 1782.147
+            },
+            {
+              "seq": 22,
+              "timestamp_ms": 1795755477639,
+              "sha256": "cb6f0a6c7a3223ecb5693627eb3a534fcd5be2103408f78aa19b9c6a079aa810",
+              "signature_hex": "84d3653082bb7f86f098a0bd4f21ffd367a51315c05e7622a9e40578ca107e4a7b16a53a5fb872320cdc977272beb2e7e7ba718f44b2e1e99ebe898937513f0e",
+              "payload_hex": "2062",
+              "received_ms": 1874.795
+            },
+            {
+              "seq": 23,
+              "timestamp_ms": 1795755477705,
+              "sha256": "6393507a33556ff939295d9a31b1e21b53c391f7c64eefa95226110c39dc56df",
+              "signature_hex": "841e99908f25ffa6908af5f3ab69e6fe91c831d824ca03ca0a27e9b90ea01b7be5fc97a438c0d1cfa6160e5d0bb9e7b33f18a5cdddd79104cc5a7b74c010da05",
+              "payload_hex": "696379",
+              "received_ms": 1940.978
+            }
+          ],
+          "prompt": "Write one sentence describing a bicycle.",
+          "direct_response": {
+            "choices": [
+              {
+                "text": "\n\n2. Write a sentence about a bicycle.\n\n3. Write a sentence about a bicy",
+                "index": 0,
+                "logprobs": null,
+                "finish_reason": "length"
+              }
+            ],
+            "created": 1795755479,
+            "model": "tinyllama-cpu-review",
+            "system_fingerprint": "b1-5d8bb90",
+            "object": "text_completion",
+            "usage": {
+              "completion_tokens": 24,
+              "prompt_tokens": 10,
+              "total_tokens": 34
+            },
+            "id": "chatcmpl-17dac4KiRabosIFJJ7eiYxZPdL8tE7ei",
+            "timings": {
+              "cache_n": 9,
+              "prompt_n": 1,
+              "prompt_ms": 74.836,
+              "prompt_per_token_ms": 74.836,
+              "prompt_per_second": 13.362552782083489,
+              "predicted_n": 24,
+              "predicted_ms": 1433.282,
+              "predicted_per_token_ms": 59.72008333333333,
+              "predicted_per_second": 16.74478574348942
+            }
+          },
+          "matched_direct_greedy_output": true,
+          "generated_tokens": 24,
+          "end_to_end_tokens_per_second": 12.36
+        },
+        {
+          "task_id": "5234741e-11cc-4fb2-a6c3-68b0b09f60b6",
+          "first_inventory_wait_ms": 0.0,
+          "preplacement_refusals": 0,
+          "executor": "f2f46fee78a71555fa5e9c64c5c4d61b",
+          "public_key_hex": "2842754d45c48922e20664014977ddf7ebee38f9ee191f2894dead9a8c988d55",
+          "output": " 1, 3, and 3. The first prime number is 3. The first prime number is ",
+          "output_sha256": "c47495f0ad59c1fb2563f8d17dab09b26002e61792149cd5daa534b406124e42",
+          "first_signed_chunk_ms": 300.32,
+          "duration_ms": 1744.764,
+          "chunks": [
+            {
+              "seq": 0,
+              "timestamp_ms": 1795755479516,
+              "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+              "signature_hex": "c12a14c2b877d1284b5c4808e82d3c15e06a3498c2ab87b3e5b39e3f0476e6fa9993cb1ac5fa38edab63b4bd9c946de3b2bbdff80dafb019beed04d48d1e5504",
+              "payload_hex": "20",
+              "received_ms": 300.32
+            },
+            {
+              "seq": 1,
+              "timestamp_ms": 1795755479604,
+              "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+              "signature_hex": "e10d5dfa9795eb52d2cde479df25713b76b66524978f5a8cc4ad22d6c9e08b87a46ebd6f2c22fdb245614a31aae8c169387d7d3d6ca2db31a80d05554ca0720b",
+              "payload_hex": "31",
+              "received_ms": 383.285
+            },
+            {
+              "seq": 2,
+              "timestamp_ms": 1795755479711,
+              "sha256": "d03502c43d74a30b936740a9517dc4ea2b2ad7168caa0a774cefe793ce0b33e7",
+              "signature_hex": "1817ad8552731b7c4c1952ed161c0d15f9225b9579f9e42106d75172efedd3c2884b0c79c0ece033a1728234e9c9ba2db218c1bc88644656655494fd43ae630b",
+              "payload_hex": "2c",
+              "received_ms": 491.927
+            },
+            {
+              "seq": 3,
+              "timestamp_ms": 1795755479775,
+              "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+              "signature_hex": "dfcede07a68fe4c83a53b8eb8113b90f377e0c535337437af515cf2683a7a52eb082a2bcf06450a8142bce00d43acdd820d4e0223cfbc22b5dd6c21f24e35006",
+              "payload_hex": "20",
+              "received_ms": 554.943
+            },
+            {
+              "seq": 4,
+              "timestamp_ms": 1795755479835,
+              "sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+              "signature_hex": "79c12627e2f6b8e9c02ac2a70fd2790f709df84752520a5d9b272b6ecde1e8d02481c7fc4a0da9c0c0f8102960fbd7af296bd28874a6f40d3ae1d4e28d01fa08",
+              "payload_hex": "33",
+              "received_ms": 615.017
+            },
+            {
+              "seq": 5,
+              "timestamp_ms": 1795755479896,
+              "sha256": "d03502c43d74a30b936740a9517dc4ea2b2ad7168caa0a774cefe793ce0b33e7",
+              "signature_hex": "c4f665293fa960047e550924cbbb978f96e5d7882c228e6fc7282a1a335f6a2405855b2645c466ded3940633e524059203f4c5763170236816cea2b4bb7aa006",
+              "payload_hex": "2c",
+              "received_ms": 679.765
+            },
+            {
+              "seq": 6,
+              "timestamp_ms": 1795755479956,
+              "sha256": "2e5f769687c7731726bb738d6137d86e89691a3a164a80588c046c79ce99d749",
+              "signature_hex": "f00147b21aa67ef9d5024f7a7d20e0d0b49c4f41d84541b44d9d7039ed3a604a453dac73c1990d4b387861214d57f34013683aa10fe628795fb1c5fe0b99020a",
+              "payload_hex": "20616e64",
+              "received_ms": 735.718
+            },
+            {
+              "seq": 7,
+              "timestamp_ms": 1795755480016,
+              "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+              "signature_hex": "5dd37677db40a0b2b4cdc9ccf69b4f9bd4b20d339c4deccd85fd34a937e2a1f558a4a9895e8633804e4d96b560ef336978f978ac9e2d6644dd0302c0e680ab0c",
+              "payload_hex": "20",
+              "received_ms": 795.968
+            },
+            {
+              "seq": 8,
+              "timestamp_ms": 1795755480079,
+              "sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+              "signature_hex": "f8ee40c5dfa63da47e233f9ade40ad34e8cb25ab25a7a98ef94396ef5b3343f98e21c9fc518de51923dd48c125c3c616d1d9f755eb062da308c44091e4b4950a",
+              "payload_hex": "33",
+              "received_ms": 859.319
+            },
+            {
+              "seq": 9,
+              "timestamp_ms": 1795755480136,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "4f051c9799d3573585cea2336c64ba42338e72bb894521897179b222affd4f2722a47fdf116c485eed65544382b76ecc84a2a30a6fa4c03f7cd419ff953dd10d",
+              "payload_hex": "2e",
+              "received_ms": 919.795
+            },
+            {
+              "seq": 10,
+              "timestamp_ms": 1795755480198,
+              "sha256": "2c16f3cac1d4fb2e478b7c16193cf258ace331e8290ff58596a503540bad790e",
+              "signature_hex": "42dbc8af5230f9041a004fd79806f4b5eb08797522c8878fc523c873bdd919c6168a63437601ff51b60921fea6abd687a93456e3837c8319dd551a23e9dffa0c",
+              "payload_hex": "20546865",
+              "received_ms": 977.99
+            },
+            {
+              "seq": 11,
+              "timestamp_ms": 1795755480261,
+              "sha256": "390f3d6aeae10b332b72e76467052d8e9e6b121acea3de14b5d475aeadd688d8",
+              "signature_hex": "d5c1cbada096a3331bc1944b92a8365c0614dd7af8e8756955ede6651bdf96a45bdc66ae63ae1b1113e0b199391fd18b17d2704f168d77e47a0ebf40c932a60b",
+              "payload_hex": "206669727374",
+              "received_ms": 1040.589
+            },
+            {
+              "seq": 12,
+              "timestamp_ms": 1795755480320,
+              "sha256": "be7ad1fd18ea984d8bfe3a36fc91200d064df5cfeacc37e653dea8cb0e48261c",
+              "signature_hex": "69621e22d9e9429be7cf21c722546726fe05bbfc17869651a747187f70d3e317cd9ebcf8d41b6ac93bdc91862adda332764c0e2dbf2592f11eaeaddcf59f5b0f",
+              "payload_hex": "207072696d65",
+              "received_ms": 1099.542
+            },
+            {
+              "seq": 13,
+              "timestamp_ms": 1795755480382,
+              "sha256": "57f6cb139b858d57fc2308c3ff73fc497a20cf326e27db1577191d914e436762",
+              "signature_hex": "4f16ada11bc4f663acdc3d8ce23cc86829dc5c1f3cb385c507a0f3e475c783718ab83e24b09e57bd4e532d8081672a5fe55ccc6a77b0534be641bfb3dae38205",
+              "payload_hex": "206e756d626572",
+              "received_ms": 1161.313
+            },
+            {
+              "seq": 14,
+              "timestamp_ms": 1795755480440,
+              "sha256": "a8bdfde11f2443a17f53ad0c9eb033c86a916c4575fe9cbce4c6a0d5af432aed",
+              "signature_hex": "4e8a0d7a78496d60e5d97ad1060858b5045cba145da303cfff23ce05edd536f435446fd9756cc121250cca4249cf4d021e5649e32cb3bbe5880f8da926729305",
+              "payload_hex": "206973",
+              "received_ms": 1219.891
+            },
+            {
+              "seq": 15,
+              "timestamp_ms": 1795755480492,
+              "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+              "signature_hex": "b0cf895ffd6c234fd8a4ccd796cdd986c9cb0e79216f6dae1db526cec69b360d5d831c1902aa95b03adb2c25e55ad669f92fc5d66f7f467b402dabd6fac9ab03",
+              "payload_hex": "20",
+              "received_ms": 1271.497
+            },
+            {
+              "seq": 16,
+              "timestamp_ms": 1795755480549,
+              "sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+              "signature_hex": "36d18eee533b2631b1b0c1e3fd43d0627881898199ea97b3b3511cab94fb559bfae81de9fa80efda1c70667983d4c90caeef970c246c2138500b0fde1fc21100",
+              "payload_hex": "33",
+              "received_ms": 1331.709
+            },
+            {
+              "seq": 17,
+              "timestamp_ms": 1795755480608,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "e16b1c0d85638d42dfc9ec780e291b8cb904c19f6637a39ce6a9f4c4eaf46aa6135bec47d5c6bf90bf47eff2ea47dd667efae954bb827f22dbe8a10da35b8b06",
+              "payload_hex": "2e",
+              "received_ms": 1387.738
+            },
+            {
+              "seq": 18,
+              "timestamp_ms": 1795755480672,
+              "sha256": "2c16f3cac1d4fb2e478b7c16193cf258ace331e8290ff58596a503540bad790e",
+              "signature_hex": "40ab1caac59386649ab81b3b3000fc308c2cf8a85601fd2d4d83667f37456a3b50be75e055c86cb82769f614f31910a8b22bc734907b6221018f5cc19f2ff804",
+              "payload_hex": "20546865",
+              "received_ms": 1451.603
+            },
+            {
+              "seq": 19,
+              "timestamp_ms": 1795755480733,
+              "sha256": "390f3d6aeae10b332b72e76467052d8e9e6b121acea3de14b5d475aeadd688d8",
+              "signature_hex": "dd449b4b60ab674048f6628d0989fba2998917dd25512f86f7d2f97c77eb37707e4dd37271110de262f45bf55615b150bfd52d3d4c1b27e83154c638ad7b9700",
+              "payload_hex": "206669727374",
+              "received_ms": 1513.025
+            },
+            {
+              "seq": 20,
+              "timestamp_ms": 1795755480793,
+              "sha256": "be7ad1fd18ea984d8bfe3a36fc91200d064df5cfeacc37e653dea8cb0e48261c",
+              "signature_hex": "706f67b28c16074cf3ee06483951599eeaecacc2f67d7581d1ed72f37225e70051cfb21989984d1d55ff444eb53f066b54d411d8bff4d6cdf5e3c268a294c701",
+              "payload_hex": "207072696d65",
+              "received_ms": 1572.65
+            },
+            {
+              "seq": 21,
+              "timestamp_ms": 1795755480847,
+              "sha256": "57f6cb139b858d57fc2308c3ff73fc497a20cf326e27db1577191d914e436762",
+              "signature_hex": "8211ce77d675fcf8e633e4756ccafacd9597cf982a186ba19874f01ff69ad0b3db593a45d3b49ddc47ae4bd3a6904972ed5d53d56085e19372fdea9f401dff01",
+              "payload_hex": "206e756d626572",
+              "received_ms": 1626.386
+            },
+            {
+              "seq": 22,
+              "timestamp_ms": 1795755480909,
+              "sha256": "a8bdfde11f2443a17f53ad0c9eb033c86a916c4575fe9cbce4c6a0d5af432aed",
+              "signature_hex": "678361002df0b7bb5b18f55c278b0e938a41da7e8f55c744bd6e71833d7ef0c918e6bd98b18fcffa387b3b68827111a82bd1a0f5ab36d62486643920676e9409",
+              "payload_hex": "206973",
+              "received_ms": 1692.483
+            },
+            {
+              "seq": 23,
+              "timestamp_ms": 1795755480964,
+              "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+              "signature_hex": "85c0660743505c82f61098fa08cb3d3da87c4f44d407f2fda05322aec7ab515cf5d3e56341b21cb3f76e6005b53a921331a78f68ed57a8f711c73d51071b5802",
+              "payload_hex": "20",
+              "received_ms": 1743.831
+            }
+          ],
+          "prompt": "The first three prime numbers are",
+          "direct_response": {
+            "choices": [
+              {
+                "text": " 1, 3, and 3. The first prime number is 3. The first prime number is ",
+                "index": 0,
+                "logprobs": null,
+                "finish_reason": "length"
+              }
+            ],
+            "created": 1795755482,
+            "model": "tinyllama-cpu-review",
+            "system_fingerprint": "b1-5d8bb90",
+            "object": "text_completion",
+            "usage": {
+              "completion_tokens": 24,
+              "prompt_tokens": 7,
+              "total_tokens": 31
+            },
+            "id": "chatcmpl-93zH53hGbxwEi9pC0Mij8bwUYZwJaBUJ",
+            "timings": {
+              "cache_n": 6,
+              "prompt_n": 1,
+              "prompt_ms": 60.873,
+              "prompt_per_token_ms": 60.873,
+              "prompt_per_second": 16.42764444006374,
+              "predicted_n": 24,
+              "predicted_ms": 1398.346,
+              "predicted_per_token_ms": 58.26441666666667,
+              "predicted_per_second": 17.163134159928944
+            }
+          },
+          "matched_direct_greedy_output": true,
+          "generated_tokens": 24,
+          "end_to_end_tokens_per_second": 13.76
+        }
+      ]
+    },
+    {
+      "endpoint": "/v1/chat/completions",
+      "coordinator_peer": "2de709de0f2ced8dcb51bbe2e08bcf3d",
+      "worker_peer": "db2e27fece8c5fd2fbf8ffa5db4649d3",
+      "samples": [
+        {
+          "task_id": "51adf723-a94e-4674-ad40-b6b7f413ade0",
+          "first_inventory_wait_ms": 0.0,
+          "preplacement_refusals": 0,
+          "executor": "db2e27fece8c5fd2fbf8ffa5db4649d3",
+          "public_key_hex": "5f22766eccea3204a3a302f9120a8060dd3b51347307e5aabe59a7da1ec58fdf",
+          "output": "\nWrite a poem using five words: winter, spring, summer, autumn, fall.",
+          "output_sha256": "694b97353c26404b4e6bae295a4fe6a067d3bebd75dcb50682fe42f7f511ecf2",
+          "first_signed_chunk_ms": 1249.221,
+          "duration_ms": 2556.073,
+          "chunks": [
+            {
+              "seq": 0,
+              "timestamp_ms": 1795755483861,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "6c932664bbf2caf6a7bfdb01a9df0f79a1fdc192a9c621afec804a412a4909670530aa3853aa1ff9e547983b8f05630ac4e179f45164bf4e6263804dd2095a00",
+              "payload_hex": "0a",
+              "received_ms": 1249.221
+            },
+            {
+              "seq": 1,
+              "timestamp_ms": 1795755483965,
+              "sha256": "3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+              "signature_hex": "bde5bb39e627ffd239d32e294cd4b6c066a4882253aa9a873b8f1c32a6433ae522f2dfcfd87d0c1d33a31f4a8839ab8ceadc0aa270db68581329b441f26b3b06",
+              "payload_hex": "5772697465",
+              "received_ms": 1369.289
+            },
+            {
+              "seq": 2,
+              "timestamp_ms": 1795755484033,
+              "sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+              "signature_hex": "882ab7268b10b1ee342e3bbe85a103971ee5eb3e8204455b599003d62887eb0cfd82e7ab9a1c3c4ff524e03bc2018974b3863c1348dee43c78ec22717bc98006",
+              "payload_hex": "2061",
+              "received_ms": 1417.072
+            },
+            {
+              "seq": 3,
+              "timestamp_ms": 1795755484090,
+              "sha256": "3c3ecd7a6b18033702e9bf8fec81071c0b43cd8cb0275ca0147b2524d9849039",
+              "signature_hex": "b80aa3693f3d191ccbfb3a1161c5dca940ada984d1ae391937ba3f3535ace1adb1d6a9031d76bba1023a64ce9023464cd43bc5df89b419560936728d54f4f90e",
+              "payload_hex": "20706f656d",
+              "received_ms": 1474.234
+            },
+            {
+              "seq": 4,
+              "timestamp_ms": 1795755484154,
+              "sha256": "c87fa1a0441a1833a52e6824f68d15efc16bf6871545c547244de94a081d62e4",
+              "signature_hex": "eadfdf9bae575213fa90f0c11e701eabaf8eb23b29cf1844b17eba949c3da1c77afb54be2504718453731551137912874e9c97927c4e8f9a6ad6883ccc119304",
+              "payload_hex": "207573696e67",
+              "received_ms": 1537.98
+            },
+            {
+              "seq": 5,
+              "timestamp_ms": 1795755484220,
+              "sha256": "abc4073dcf48d5c737a5ad53cdd689af337e56679b360823478af97fb92e9d58",
+              "signature_hex": "a1f0f16db660ef840264b9bebc2a3aa3e0f389ff947ded93d2031e32b04302cdad9de9a4178217124251b039a723b0b203777cc08d54b3efe5b5080dc57eed0b",
+              "payload_hex": "2066697665",
+              "received_ms": 1608.461
+            },
+            {
+              "seq": 6,
+              "timestamp_ms": 1795755484319,
+              "sha256": "87727425f81eb70f580752497a1404b39b3de27a16e50c37b8a1ce7776fdc46f",
+              "signature_hex": "4fd7853e1b18fa3c6a98905ee330115ee9c5a6b193723c7003f97085669dbce43bc46551e1ef3786ba1b1edd03165d9f9522e5a7d85a648cbb22742323efeb0e",
+              "payload_hex": "20776f726473",
+              "received_ms": 1703.169
+            },
+            {
+              "seq": 7,
+              "timestamp_ms": 1795755484381,
+              "sha256": "e7ac0786668e0ff0f02b62bd04f45ff636fd82db63b1104601c975dc005f3a67",
+              "signature_hex": "d73086555c28620071b3f1a9d704edad6772745ac3c5ddfdb62283673c112bf883c09e9883c7cb817d8d31f1a8b1b4bf29ee5bd098f96f5eed9a3eaf2152ae0e",
+              "payload_hex": "3a",
+              "received_ms": 1765.686
+            },
+            {
+              "seq": 8,
+              "timestamp_ms": 1795755484444,
+              "sha256": "edf2bc1d10f8d66cfcf9805b7d9707fb8c92908b5e90bc8e8ad7d455f0c6ece4",
+              "signature_hex": "fa46e72053cfc947de15f0db281e0246b4839c6c80dca5df6dc3efaca13939f75e77904f89ef75c821efa290ed68ff8bf071fb0ca9b391c6eab4627741751b06",
+              "payload_hex": "2077696e746572",
+              "received_ms": 1828.475
+            },
+            {
+              "seq": 9,
+              "timestamp_ms": 1795755484506,
+              "sha256": "d03502c43d74a30b936740a9517dc4ea2b2ad7168caa0a774cefe793ce0b33e7",
+              "signature_hex": "be573e21986035180bab4164f6223b36cd6d040465b9c7bfd225585c77c7cfa81def4cf0d19fe6660b643fbca59d7bdd7f96e669005c38902d1e498b8c7b200f",
+              "payload_hex": "2c",
+              "received_ms": 1891.132
+            },
+            {
+              "seq": 10,
+              "timestamp_ms": 1795755484567,
+              "sha256": "0935a17bfae2527c7e40d3f188a31522ad32f194f17b467247cda7618d638f5d",
+              "signature_hex": "41261fb07ea7e2427dd154a72249673732bbc9c0d8b1a14e4e11d26b27bd0dad2ab34604d1e413b66ff73aed819102056561a319e1342a198bf446f035ac3e08",
+              "payload_hex": "20737072696e67",
+              "received_ms": 1951.178
+            },
+            {
+              "seq": 11,
+              "timestamp_ms": 1795755484629,
+              "sha256": "d03502c43d74a30b936740a9517dc4ea2b2ad7168caa0a774cefe793ce0b33e7",
+              "signature_hex": "95ae46bca27c878d4005276ff24202bfa0b1da5b3ed3d85d21f820d97c0e40840ea8feeaad6a39c2ea24f6d6985b902d1bb8495a8afdeadb2f71a035fb7c6504",
+              "payload_hex": "2c",
+              "received_ms": 2013.303
+            },
+            {
+              "seq": 12,
+              "timestamp_ms": 1795755484697,
+              "sha256": "d9aa1bde241258ace9121b8bd7f16ffb47af5f29b408731c78417f6de94daf29",
+              "signature_hex": "3a4d440899a5aafcf9d62282eba0cce47208598d9a82c0043bc0d3a3e26ff6ef2e0ebf77936fb2a675bc3bef08ce04d7efce63cf521582a71024cef56e44ba06",
+              "payload_hex": "2073756d6d6572",
+              "received_ms": 2081.249
+            },
+            {
+              "seq": 13,
+              "timestamp_ms": 1795755484756,
+              "sha256": "d03502c43d74a30b936740a9517dc4ea2b2ad7168caa0a774cefe793ce0b33e7",
+              "signature_hex": "105dc80b06d07c91ea28eca45ed4f47c6e57d4084bc1c3a8e56403b3743d9fff287feb16c353110a6900ca6327de1bcd89bf81dc3ea77ccad5941786999c8904",
+              "payload_hex": "2c",
+              "received_ms": 2140.239
+            },
+            {
+              "seq": 14,
+              "timestamp_ms": 1795755484815,
+              "sha256": "7f3ee25ff3a1872954a45662d84ca89554f3aeec6e67c8c3fae305b066920e47",
+              "signature_hex": "223bf61b426a7b71f1ecbbe2f4fd702f7358d18535ec767c839caa50a0c68338924c2ae89e61b7b4c2d1343fa77f16c6822458d1566f4508c756e465241c3e08",
+              "payload_hex": "20617574",
+              "received_ms": 2199.38
+            },
+            {
+              "seq": 15,
+              "timestamp_ms": 1795755484877,
+              "sha256": "c3ea4a887745d482a80fda52e9624223e14e9259471219e9acaad54e4d5e834f",
+              "signature_hex": "064e7ffdcfcb2b8acb81575d3e7c30ecadc3416f850e991c2e93cbe7ca224728265a84432396be4dfb08fdb2dd99a0bf7d9784e1155ce8798adc51aedcf48c0e",
+              "payload_hex": "756d6e",
+              "received_ms": 2261.259
+            },
+            {
+              "seq": 16,
+              "timestamp_ms": 1795755484971,
+              "sha256": "d03502c43d74a30b936740a9517dc4ea2b2ad7168caa0a774cefe793ce0b33e7",
+              "signature_hex": "ed1fd5c4208ab8990fc67a11d14b301e78c67ffabd630cd7930c470923306e4a7457e710231efb62a48fea697d864a5f37b1bb5602cc38051a05884d4d54ee0e",
+              "payload_hex": "2c",
+              "received_ms": 2358.142
+            },
+            {
+              "seq": 17,
+              "timestamp_ms": 1795755485044,
+              "sha256": "56df31a72b399c7435d4e63f9689a9ccdcda5ae1b0f879a95cf01e5b8a7fc3f1",
+              "signature_hex": "9c338f6aa7f5945dc9f577069ba382710dbcadf07df880f70c02d618b69425450b7984af956c9cf2c9bf95f048c49fa7240c5a29cc7ad21f57c188ca5a312207",
+              "payload_hex": "2066616c6c",
+              "received_ms": 2428.297
+            },
+            {
+              "seq": 18,
+              "timestamp_ms": 1795755485103,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "bf9472be3f91155976e34bb3735371ebef877ba0b1aed876400af067c4359954ea71d7262f7d04964ed373cd1ee3e75fac8d3f491b44281b3dc8f09c3f52e709",
+              "payload_hex": "2e",
+              "received_ms": 2487.658
+            }
+          ],
+          "prompt": "Finish the sequence using five words: winter, spring, summer,",
+          "direct_response": {
+            "choices": [
+              {
+                "finish_reason": "stop",
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "\nWrite a poem using five words: winter, spring, summer, autumn, fall."
+                }
+              }
+            ],
+            "created": 1795755486,
+            "model": "tinyllama-cpu-review",
+            "system_fingerprint": "b1-5d8bb90",
+            "object": "chat.completion",
+            "usage": {
+              "completion_tokens": 20,
+              "prompt_tokens": 27,
+              "total_tokens": 47
+            },
+            "id": "chatcmpl-zif2xnL8cuU2aklgHgxHSmilGALRXbwp",
+            "timings": {
+              "cache_n": 26,
+              "prompt_n": 1,
+              "prompt_ms": 59.664,
+              "prompt_per_token_ms": 59.664,
+              "prompt_per_second": 16.760525610083132,
+              "predicted_n": 20,
+              "predicted_ms": 1399.088,
+              "predicted_per_token_ms": 69.95439999999999,
+              "predicted_per_second": 14.29502647438903
+            }
+          },
+          "matched_direct_greedy_output": true,
+          "generated_tokens": 20,
+          "end_to_end_tokens_per_second": 7.82
+        },
+        {
+          "task_id": "fb4f0b4e-f912-4b0f-b318-04f104e4a822",
+          "first_inventory_wait_ms": 0.0,
+          "preplacement_refusals": 0,
+          "executor": "db2e27fece8c5fd2fbf8ffa5db4649d3",
+          "public_key_hex": "5f22766eccea3204a3a302f9120a8060dd3b51347307e5aabe59a7da1ec58fdf",
+          "output": "\nWrite one sentence describing a bicycle.\n\nBicycle is a machine that has been used for transport",
+          "output_sha256": "e563e99e369c45b7858a119c971b474c37e6c5e820df807aed89cdabfe965f7e",
+          "first_signed_chunk_ms": 704.122,
+          "duration_ms": 2082.937,
+          "chunks": [
+            {
+              "seq": 0,
+              "timestamp_ms": 1795755487339,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "515787528dd303f12fdfc751c704a7486c61bcfc332e6ebc7dffb234ca37b195c8e96df0820468a96ea3f5e556f7fa5e06330f4c100e8e4aac10512b01b3f204",
+              "payload_hex": "0a",
+              "received_ms": 704.122
+            },
+            {
+              "seq": 1,
+              "timestamp_ms": 1795755487412,
+              "sha256": "3f00927a719345edd4a8316599d3b328857987547f8884306861161ffa09647e",
+              "signature_hex": "641354838449ebfd734bb78ccaaba5d610e168887c82bd97642cbcfd5f22bb82cc6d731c128ff5d2f674f80d7392dadbf09134783e1d8ccc923a3f5cc2d2cb03",
+              "payload_hex": "5772697465",
+              "received_ms": 776.889
+            },
+            {
+              "seq": 2,
+              "timestamp_ms": 1795755487464,
+              "sha256": "3a3b3b71e474d80df327eeb214441f45d7a26d185688be83c1f49dd195942fed",
+              "signature_hex": "20f353a4c1d47e704274d1c6635cca148a289b2614ad37dd52b3073dce70859985af156e4886eb48f709f338d348001cc7f772e9f3d4964605bb6179be476408",
+              "payload_hex": "206f6e65",
+              "received_ms": 829.229
+            },
+            {
+              "seq": 3,
+              "timestamp_ms": 1795755487514,
+              "sha256": "197c3071279161f2faa66849fa365d8122506c6a98d796a5574a8415ca992bd8",
+              "signature_hex": "bffe21ac7cfb48d1a7ec55fadc179607c786b0b0bb3223437c06b99d76a2f55183f2eb4e435d90f38ae4e70fbd0970f1bf2579bfe7cca6bb60575af477cd6b0b",
+              "payload_hex": "2073656e74656e6365",
+              "received_ms": 878.468
+            },
+            {
+              "seq": 4,
+              "timestamp_ms": 1795755487564,
+              "sha256": "86fc1b762e5c72358a00b04c39f2911d838708e419f44aee881000a214f63487",
+              "signature_hex": "5c6f899dee51453e9b846fdd62027abf8ec125ed7dfbc4dc6b99bacc4d0c8d77319226f8d4b0c83a21c5840e19bfb2b8b8955cd92766a7fb813c79075a541804",
+              "payload_hex": "2064657363726962696e67",
+              "received_ms": 928.766
+            },
+            {
+              "seq": 5,
+              "timestamp_ms": 1795755487618,
+              "sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+              "signature_hex": "b1f284f6e9bcc4b6496516e1ba4b52b0e66e7b61daf03e0b228a420875a9f832f9038b5873772eec300ca48e62b7ec5968f6d9f24d7780359cf599b17cbaff0b",
+              "payload_hex": "2061",
+              "received_ms": 982.581
+            },
+            {
+              "seq": 6,
+              "timestamp_ms": 1795755487683,
+              "sha256": "cb6f0a6c7a3223ecb5693627eb3a534fcd5be2103408f78aa19b9c6a079aa810",
+              "signature_hex": "10fe997f59d674c019c9f6561bebdf39ab6aaa5638d92d1173188158aa08384c01b85638b64b57ac6f906795f8f55ff6f2498133269711e982db3c2c6d639305",
+              "payload_hex": "2062",
+              "received_ms": 1048.566
+            },
+            {
+              "seq": 7,
+              "timestamp_ms": 1795755487748,
+              "sha256": "6393507a33556ff939295d9a31b1e21b53c391f7c64eefa95226110c39dc56df",
+              "signature_hex": "80cb3532031f9e7d9481fed67ca09e0e84f169b91bc00f78c6aa4abd397ddf6e5e83ec81b4110929bb13aedfcd268d2d03dbad663e5d29357e39a278fd503208",
+              "payload_hex": "696379",
+              "received_ms": 1113.681
+            },
+            {
+              "seq": 8,
+              "timestamp_ms": 1795755487801,
+              "sha256": "808701ba8422fa3d839406f5f92d6b5f262b908bf4af6a8010b5440f25ea8c91",
+              "signature_hex": "12d3f278caf48c60acf4d49e15a4d371296f97beb7c6bc504af43933c09c1a81469004d289012dea404d4a471cdfafeb6cd8a5949decb2ff9ac4cd02812d8c0c",
+              "payload_hex": "636c65",
+              "received_ms": 1165.319
+            },
+            {
+              "seq": 9,
+              "timestamp_ms": 1795755487846,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "8d66624504e3bdbaaf801e6dbdc45f1ba1ecd2791c5064e96d591e8a62c1012542dce7c567943fd2c5357c9c75043e04ea9e41750364cb9fc161dec43f054802",
+              "payload_hex": "2e",
+              "received_ms": 1210.77
+            },
+            {
+              "seq": 10,
+              "timestamp_ms": 1795755487894,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "62e549b53d936ce5fe3eda870bb620d5936df05001c95f06e64efcf2d84b458243508f800c3ed72e6ecd34cbe9550a4a5b17222c68f53bf34b4da867f89b490f",
+              "payload_hex": "0a",
+              "received_ms": 1258.423
+            },
+            {
+              "seq": 11,
+              "timestamp_ms": 1795755487947,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "62ebc8007733b51baa2b49f04bae53da99a679c0bec5ec02f2c04f2393cb221fd8d8bad5401511d8e5588b69863c2ef25e737e19167d48d59e9cca34e14fbe0c",
+              "payload_hex": "0a",
+              "received_ms": 1311.644
+            },
+            {
+              "seq": 12,
+              "timestamp_ms": 1795755487995,
+              "sha256": "df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c",
+              "signature_hex": "48d9cb17a5bd5933a65a1d96e9436fa6cde4fd8e2160a2bc603299797e6b83f39f3596ce5601f3da9d5790458e487df111ca36183463e6314e2f967cc5378005",
+              "payload_hex": "42",
+              "received_ms": 1359.624
+            },
+            {
+              "seq": 13,
+              "timestamp_ms": 1795755488053,
+              "sha256": "6393507a33556ff939295d9a31b1e21b53c391f7c64eefa95226110c39dc56df",
+              "signature_hex": "718adc455031dc35f66dee15a3f36069a2c6d3f1e3bb6dba801ed626eb19de3de29adb00b7a5c014b90c3567cab7f3eea149dc56e343227dc5a54f58fd29ce0d",
+              "payload_hex": "696379",
+              "received_ms": 1417.273
+            },
+            {
+              "seq": 14,
+              "timestamp_ms": 1795755488113,
+              "sha256": "808701ba8422fa3d839406f5f92d6b5f262b908bf4af6a8010b5440f25ea8c91",
+              "signature_hex": "1f7e9df029c6dccc139c6b7523b7f8f1a18c6b75b4f2bb9049df40b91ded695dad207d895690a543df6d9dfe510f4fb55b095749cd137cd057a898b21509f80d",
+              "payload_hex": "636c65",
+              "received_ms": 1481.828
+            },
+            {
+              "seq": 15,
+              "timestamp_ms": 1795755488145,
+              "sha256": "a8bdfde11f2443a17f53ad0c9eb033c86a916c4575fe9cbce4c6a0d5af432aed",
+              "signature_hex": "75ec89c7ad2a3bcf49a241604988ce074fe75bc911a69cfea4adc607558a51601bda18d89dc6ae6f6ee6c2fa832217f22c54913f4e84708b961339b1951f4d08",
+              "payload_hex": "206973",
+              "received_ms": 1509.992
+            },
+            {
+              "seq": 16,
+              "timestamp_ms": 1795755488195,
+              "sha256": "7de598b3ff8a99638e1f9bf49260baa0d98e069dde32d1f2e153adb5ce478242",
+              "signature_hex": "597353e81264e9155c7478afd1b2b9c1509fb19ecf671d3bc732d67cc28a72a88549b3c5736f6334cc3c9f82d1f36c24056cf419e5392b05d075ad63c4b65308",
+              "payload_hex": "2061",
+              "received_ms": 1559.983
+            },
+            {
+              "seq": 17,
+              "timestamp_ms": 1795755488249,
+              "sha256": "b501bd224e86c1367a1506d07622e5d413ce80c481a526662def8c11cd084343",
+              "signature_hex": "c6d89fea778e9dd7a7f5f8b74d83b86435253d8bc1d4b51821840a0ce980c730f402a17de36d3ac0ec1391e42954c02fa2198c4792a5655d86bd2c202c813a0a",
+              "payload_hex": "206d616368696e65",
+              "received_ms": 1616.869
+            },
+            {
+              "seq": 18,
+              "timestamp_ms": 1795755488304,
+              "sha256": "5278bc4f5c21ec7e87673db65518421ddc5113b2360c7a0e915c0d111e29ed11",
+              "signature_hex": "b2ae405d5fe599a4705b8841b9795c1c91bfad5325a6442b3620636a0709d80191e523d879ad259855ae2fed782308c775068cb26fc9385f43ca13e643244500",
+              "payload_hex": "2074686174",
+              "received_ms": 1670.232
+            },
+            {
+              "seq": 19,
+              "timestamp_ms": 1795755488363,
+              "sha256": "e4417b8003a7b0b452f34e72fbf7ff927882e21a51345859dd43411fe4bb9665",
+              "signature_hex": "1e62e59c0ff9995764c87a15a6d1b92a6e6a59a19bbd9017a5e9ab55e703884a373506785d02b77051c382c75f0f3852d1be7d316c7c548cc7d61e014c23f609",
+              "payload_hex": "20686173",
+              "received_ms": 1728.937
+            },
+            {
+              "seq": 20,
+              "timestamp_ms": 1795755488439,
+              "sha256": "a1cf9dacf127a1871cd1bbf39db42e8247d16f0f52e06d68ba3bd160c0e9c2a9",
+              "signature_hex": "a9ba92c90a61445c03f19bbeaad25d1214c691784998e8be5cb44bf6caf563a63f2ff3ecd476fd64f25cd487b6d666e2646d44e957d7ce9591e0fbddf08dcc0a",
+              "payload_hex": "206265656e",
+              "received_ms": 1803.9
+            },
+            {
+              "seq": 21,
+              "timestamp_ms": 1795755488545,
+              "sha256": "f194a918f0553de844ff9f9c4c8fc63ddedd8e8f211a1974c2a845eddc8fad5e",
+              "signature_hex": "cdd7d29bfc6217468d3bfb5eb3f8e48bf521d29140f9489feaf622e858ca40771372404f4bfa88c6e556ece172717c3a3ea928aac33f12fb6e3552418a0f2807",
+              "payload_hex": "2075736564",
+              "received_ms": 1912.672
+            },
+            {
+              "seq": 22,
+              "timestamp_ms": 1795755488652,
+              "sha256": "a3fa396491822fb5a54491f2162b08d9eb96af80d2fd51d62afb123268a108ea",
+              "signature_hex": "43f79f13d4298b79ed916b9546493750c861681489c1e4791cb9414fe1cc41d04e795ec60da4eeb8e91e0b9ce76eaa8da169c8a599f3543c0d868615ae8d5f09",
+              "payload_hex": "20666f72",
+              "received_ms": 2016.935
+            },
+            {
+              "seq": 23,
+              "timestamp_ms": 1795755488717,
+              "sha256": "a6d7fabc65cade388b2cb921f53ba7c3ca25dc6b04e7bd3bdd90f87dd6fbccf5",
+              "signature_hex": "53a531c1e3963ca75b70e3c103bc6ba5355b1dc84c269ec4683c69670cb7f7da7487874446580359c7e6734336e89204f653869315f258782ba450ced87bd205",
+              "payload_hex": "207472616e73706f7274",
+              "received_ms": 2081.928
+            }
+          ],
+          "prompt": "Write one sentence describing a bicycle.",
+          "direct_response": {
+            "choices": [
+              {
+                "finish_reason": "length",
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "\nWrite one sentence describing a bicycle.\n\nBicycle is a machine that has been used for transport"
+                }
+              }
+            ],
+            "created": 1795755490,
+            "model": "tinyllama-cpu-review",
+            "system_fingerprint": "b1-5d8bb90",
+            "object": "chat.completion",
+            "usage": {
+              "completion_tokens": 24,
+              "prompt_tokens": 21,
+              "total_tokens": 45
+            },
+            "id": "chatcmpl-qIS0OkEkyo1eky8YZD43n6V8f395wkqZ",
+            "timings": {
+              "cache_n": 20,
+              "prompt_n": 1,
+              "prompt_ms": 57.182,
+              "prompt_per_token_ms": 57.182,
+              "prompt_per_second": 17.488020705816513,
+              "predicted_n": 24,
+              "predicted_ms": 1412.318,
+              "predicted_per_token_ms": 58.846583333333335,
+              "predicted_per_second": 16.993340026821155
+            }
+          },
+          "matched_direct_greedy_output": true,
+          "generated_tokens": 24,
+          "end_to_end_tokens_per_second": 11.52
+        },
+        {
+          "task_id": "f2b48cd7-43c2-4d6d-a68f-88d0d1b7c168",
+          "first_inventory_wait_ms": 0.0,
+          "preplacement_refusals": 0,
+          "executor": "db2e27fece8c5fd2fbf8ffa5db4649d3",
+          "public_key_hex": "5f22766eccea3204a3a302f9120a8060dd3b51347307e5aabe59a7da1ec58fdf",
+          "output": "\nThe first three prime numbers are:\n1. 3\n2. 3\n3. 3\n",
+          "output_sha256": "329a232c210adca2caf3f7e66b9e6da070d0cebcfaae217481c246c3fd7f8ebd",
+          "first_signed_chunk_ms": 634.637,
+          "duration_ms": 1970.111,
+          "chunks": [
+            {
+              "seq": 0,
+              "timestamp_ms": 1795755490832,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "f74c057082f1e60487f38e451153a2f64d06fe2f959ddce466b0324ce650e064e3439cd9d450b68eeddebfd1963bb16c7846f7a84dc80b5883edca7cf25ced05",
+              "payload_hex": "0a",
+              "received_ms": 634.637
+            },
+            {
+              "seq": 1,
+              "timestamp_ms": 1795755490896,
+              "sha256": "b344d80e24a3679999fa964450b34bc24d1578a35509f934c1418b0a20d21a67",
+              "signature_hex": "19bf5ff5f4605c0628464d1c004a64b230df5da79969de00d4832046cce2f8a0f310c99df81404cc15b558da22436a854f980abf687f0e5d10d4604cabdb340a",
+              "payload_hex": "546865",
+              "received_ms": 694.078
+            },
+            {
+              "seq": 2,
+              "timestamp_ms": 1795755490962,
+              "sha256": "390f3d6aeae10b332b72e76467052d8e9e6b121acea3de14b5d475aeadd688d8",
+              "signature_hex": "f50bccb57b0e9e6bc97efd1a5e48848163aa1aaf565c2b810893c82cbecc64d87f092e33d981235b438e1be8f2bda14b66a95f0773fb9641b9b532e7e3037c01",
+              "payload_hex": "206669727374",
+              "received_ms": 759.607
+            },
+            {
+              "seq": 3,
+              "timestamp_ms": 1795755491022,
+              "sha256": "d269c1637fe988422654f5843688a753d0e6e411135d466468c2cda6688c4f1d",
+              "signature_hex": "3fa0a80bb6facaac11944d679c416abc0ac3d52a8d206b8234f9b127a35dd01b553f6116a4f13835f775d6afec6f646237d03560f697dc5f4b8fbe997ac14a02",
+              "payload_hex": "207468726565",
+              "received_ms": 820.398
+            },
+            {
+              "seq": 4,
+              "timestamp_ms": 1795755491074,
+              "sha256": "be7ad1fd18ea984d8bfe3a36fc91200d064df5cfeacc37e653dea8cb0e48261c",
+              "signature_hex": "67fdc2303813b0b3d364757757d4c11b6559a5a37d053762f3af61359bdfce77ea5be4fd754d2adb28c4e5a1b9a6823a2c42192f2390a1a5da8218a00464f909",
+              "payload_hex": "207072696d65",
+              "received_ms": 871.747
+            },
+            {
+              "seq": 5,
+              "timestamp_ms": 1795755491126,
+              "sha256": "bf8904be16c5820928f309f7c77d410e9c2f13329b7e1746f87a2ef0a8dacd88",
+              "signature_hex": "782563a900bdae3d23dd9be8aa323cde4efe957a5859a1c575ba22787e649189c1b529972fbc1d1d29f46ceaa53bc1335618643fc261151757f05023dbee4403",
+              "payload_hex": "206e756d62657273",
+              "received_ms": 926.037
+            },
+            {
+              "seq": 6,
+              "timestamp_ms": 1795755491176,
+              "sha256": "2cd01b8ba779922a3b4a2af87298f0780259685eccfb760016646531e5df7fa2",
+              "signature_hex": "5e0cd5a12e1049d07621a9c4b40d966ad099c37bca2798fc1cfae07536af18d2f3d7e64d1dcbde77cae74a6c00c38a85f3c5d332354426428c3299e6e1c7e606",
+              "payload_hex": "20617265",
+              "received_ms": 973.477
+            },
+            {
+              "seq": 7,
+              "timestamp_ms": 1795755491228,
+              "sha256": "e7ac0786668e0ff0f02b62bd04f45ff636fd82db63b1104601c975dc005f3a67",
+              "signature_hex": "c35660afb10c4eef1d250677be0387176a5ac025a82633a9da55ad3e83b8eb4f0bc2c0eeaf4e948ca8dfbc7bf589c4e00a08cef44f97764e187f3f039360ad01",
+              "payload_hex": "3a",
+              "received_ms": 1026.064
+            },
+            {
+              "seq": 8,
+              "timestamp_ms": 1795755491277,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "a147f24340ec50b62ee307e7820d4d61be8e68f91907398fe92b1aabc8d8c9c8de4a8a2b222ce80cd673ed519d37fbf0cd846f0d030a8133a923394709f71b0e",
+              "payload_hex": "0a",
+              "received_ms": 1075.023
+            },
+            {
+              "seq": 9,
+              "timestamp_ms": 1795755491337,
+              "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
+              "signature_hex": "931f0f698124ff85d48f8f2a2ecc848416f0182b04ff8360dd90c8ce5c0e8429fdc72e45ae338249c866b5040238d3e75f2bf089c3bc70076056bd5482359303",
+              "payload_hex": "31",
+              "received_ms": 1134.547
+            },
+            {
+              "seq": 10,
+              "timestamp_ms": 1795755491386,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "8fd05f91eacd0dfa8c456d4db29ee83c189b0d7ea1b12a48011ac682148cd274967ee86e0e07b066bc4ae716c2abf3bc7f337927736b880ebb32815cabf77403",
+              "payload_hex": "2e",
+              "received_ms": 1184.362
+            },
+            {
+              "seq": 11,
+              "timestamp_ms": 1795755491450,
+              "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+              "signature_hex": "0ad4809f50355a96fb0a33b0f35c032096f2fb2fe8d4cffe38a3bcaea500d5fa2b4d857dc16080e7629be1cd61bf8bbeca152e664968d8daff934f3980aa2102",
+              "payload_hex": "20",
+              "received_ms": 1248.11
+            },
+            {
+              "seq": 12,
+              "timestamp_ms": 1795755491500,
+              "sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+              "signature_hex": "1bbccddc79d67d19c2a2521661bed31225277842fb3023ce2e57b3099dc0c89e0c1f6fdd8666b24c98237dfc69b375bebc0c246cb830cd6d7c44e31a1ffc2903",
+              "payload_hex": "33",
+              "received_ms": 1298.21
+            },
+            {
+              "seq": 13,
+              "timestamp_ms": 1795755491556,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "f927d4db1c48c07eac8e02f7be752eaec1b0a0ad435f361a6e693004769742a3da88d672969d13298e7b1f0430a0c4c9ce56d427311dcf0eb10fda8890d40901",
+              "payload_hex": "0a",
+              "received_ms": 1356.354
+            },
+            {
+              "seq": 14,
+              "timestamp_ms": 1795755491607,
+              "sha256": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+              "signature_hex": "6209f6400e99c92a025baab15e1d2e862a1da5d18fb538d545a835033aec0c6b6f57bafb7e5ff2e87f13b0d5e2c04b1fc213866f29a21de35ecf029dd29b9c0e",
+              "payload_hex": "32",
+              "received_ms": 1405.11
+            },
+            {
+              "seq": 15,
+              "timestamp_ms": 1795755491663,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "3b85c9d035fe5a2535d6e17d7222454f6a8bb686a5a800dc21188feef22d84aa64eae70c009db17147a2d6c2637426d259e92307d7c4affed7ef7bea6a4c6603",
+              "payload_hex": "2e",
+              "received_ms": 1460.64
+            },
+            {
+              "seq": 16,
+              "timestamp_ms": 1795755491723,
+              "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+              "signature_hex": "81bd4d4c4546b3072036f2017998cf9b7aa500ede2a6740f17cc48254ed242b9eacd22412ce557f4feb4ae93e4e83c090ffcd3efb6f9d10eccaedcd601c5780c",
+              "payload_hex": "20",
+              "received_ms": 1522.894
+            },
+            {
+              "seq": 17,
+              "timestamp_ms": 1795755491780,
+              "sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+              "signature_hex": "996b8281538cc969e039d1832ba68bb1adb6176bb90509599f3e5473502da08b08b1e5c48390af65f54f892f90879d75f7ab3d27c700842d56e68a355f6e780f",
+              "payload_hex": "33",
+              "received_ms": 1577.495
+            },
+            {
+              "seq": 18,
+              "timestamp_ms": 1795755491840,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "5cf846d8832b6f97e69c665150f95ea2e02ef890fdbebf7d4457adf55d9caff6b099d290ac58daf1fa72863ee21c7604dde255a961e845b455ca87cd04939704",
+              "payload_hex": "0a",
+              "received_ms": 1637.922
+            },
+            {
+              "seq": 19,
+              "timestamp_ms": 1795755491910,
+              "sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+              "signature_hex": "0f15c4d6e9c6802f0352db1b5b754440e709abda8d5d23f131b6bda8ab6b9fb24974895accba4bcc18f209359c8c4c7e6a9884973a1209ec4fb5331baa673d00",
+              "payload_hex": "33",
+              "received_ms": 1711.74
+            },
+            {
+              "seq": 20,
+              "timestamp_ms": 1795755491984,
+              "sha256": "cdb4ee2aea69cc6a83331bbe96dc2caa9a299d21329efb0336fc02a82e1839a8",
+              "signature_hex": "9a3b39b63097b2f87c6733205954a371d0abc3750d6433900b092b24d16ca9218ef3c4d79f900abc72027ef55bc97c3054a303745432ee70204fba9d5d34f607",
+              "payload_hex": "2e",
+              "received_ms": 1786.081
+            },
+            {
+              "seq": 21,
+              "timestamp_ms": 1795755492047,
+              "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+              "signature_hex": "2756ef243aaaab92d01be715be8cfe3f89bbf752270983af79db240f005beda68375ddcf862c56841bd5c4c1463d57d21d73557c9b008e0989026f8bfd5cf905",
+              "payload_hex": "20",
+              "received_ms": 1845.283
+            },
+            {
+              "seq": 22,
+              "timestamp_ms": 1795755492109,
+              "sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+              "signature_hex": "cb0bf34fd2b0b349f7e337bb6c7df3d5a4f04eaede10da67002d12ea4c663ff7addef7518b8d6a782b280e7167f611d7c46cd05baf554531f31489c1e57dc107",
+              "payload_hex": "33",
+              "received_ms": 1906.871
+            },
+            {
+              "seq": 23,
+              "timestamp_ms": 1795755492169,
+              "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "signature_hex": "8532928ba30d5f8e13d33b1df0faa49c40f0a5667be94a2dd8289dfafaaa063df44d1afdf3f16affc9ba3ccb39b4ee49ffdceb09e995ef757c5fe2b66b2adc0b",
+              "payload_hex": "0a",
+              "received_ms": 1967.128
+            }
+          ],
+          "prompt": "The first three prime numbers are",
+          "direct_response": {
+            "choices": [
+              {
+                "finish_reason": "length",
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": "\nThe first three prime numbers are:\n1. 3\n2. 3\n3. 3\n"
+                }
+              }
+            ],
+            "created": 1795755493,
+            "model": "tinyllama-cpu-review",
+            "system_fingerprint": "b1-5d8bb90",
+            "object": "chat.completion",
+            "usage": {
+              "completion_tokens": 24,
+              "prompt_tokens": 19,
+              "total_tokens": 43
+            },
+            "id": "chatcmpl-61IxD3T1aShGUsJh0SuCNyBI0HpIadyq",
+            "timings": {
+              "cache_n": 18,
+              "prompt_n": 1,
+              "prompt_ms": 61.679,
+              "prompt_per_token_ms": 61.679,
+              "prompt_per_second": 16.212973621491916,
+              "predicted_n": 24,
+              "predicted_ms": 1606.683,
+              "predicted_per_token_ms": 66.945125,
+              "predicted_per_second": 14.937607480753826
+            }
+          },
+          "matched_direct_greedy_output": true,
+          "generated_tokens": 24,
+          "end_to_end_tokens_per_second": 12.18
+        }
+      ]
+    }
+  ]
+}

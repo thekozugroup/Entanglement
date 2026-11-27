@@ -1,0 +1,25 @@
+{
+  "reviewer": "/root/tailroute",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "comparison_base": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "unchanged_control_file_sha256": {
+    "crates/entangle-runtime/src/kernel.rs": "a10b76ac9280beb4e13ce2850eb524e646b07f2049a903bce0df8de2657ab038",
+    "crates/entangle-runtime/src/loader.rs": "ad75192fd8f9b426e7fcde79914cb81aaeb48bf4dd5acb48e4bd0e43bb2d8eeb",
+    "crates/entangle-signing/src/package_io.rs": "105336af1b6bdec54d32a0032b9186b4f3184ec571fe7c10008652bcb7c9621b",
+    "crates/entangle-peers/src/store.rs": "3c92cfcfa296a5c2e431931bc04a2f455602837efccd583748f7fc4b4d6fa2c7",
+    "crates/entangle-bin/src/remote/routes.rs": "17d90463b1a6c64e9a5df8027be4d819a80055ed887036cf5a88ec53aadd30db",
+    "SECURITY.md": "a5df1754b03fee6a6b38c0d8df9203944bc42c8731d67135a21ee0f2d4278193"
+  },
+  "supporting_receipt_sha256": {
+    "workspace-test.json": "7a17aae66b89dd15a41ee421794a1aed74b58fa6b735e7b242724fa785c9d0cf",
+    "workspace-test-2.json": "a467a4632bfc5736f514152d11965aafe66f9421db9541885b74dd12c91db041",
+    "workspace-test-3.json": "f97ede63bca86a92fe98b68e983a237ebc7c38291d5ea749d2b582aa6294fa0c",
+    "image-unit-conformance.json": "a45f1b47cf86354be783c977cd7037f6da287dbe007b8ef5b3943b4e25424efa",
+    "image-timeout-recovery.json": "e414f69665d37b53574d02b9811f712248cd5e5679bee9e8089f1e43eca7d40d",
+    "publisher-rotation-rehearsal.json": "a88f806abae4ebfb639e81658ae88204f5520c8d0f5602cdc9f5119007076aba",
+    "publisher-incident-exercise.md": "5a6a1be782221d7cdfb5cbf91f6317a684a530ee371781f6a5254303edfc3a70"
+  },
+  "reviewed_at_utc": "2026-11-27T04:53:13.967373+00:00"
+}

@@ -1,0 +1,9 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+   Compiling entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+   Compiling entangle-pairing v0.1.0 (/workspace/Entanglement/crates/entangle-pairing)
+   Compiling entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+   Compiling entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+    Finished `release` profile [optimized] target(s) in 11m 10s

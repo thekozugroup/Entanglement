@@ -1,0 +1,13 @@
+{
+  "exit_code": 1,
+  "error": "RuntimeError('Error: startup policy check failed (spec \u00a711 #16)\\n\\nCaused by:\\n    ENTANGLE-E0050: daemon is in multi-node mode but peer allowlist is empty\\n')",
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "rows": {
+    "old-cli-new-daemon": null
+  },
+  "synthetic_raw": {
+    "exit_code": null,
+    "error": null,
+    "output_sha256": null
+  }
+}

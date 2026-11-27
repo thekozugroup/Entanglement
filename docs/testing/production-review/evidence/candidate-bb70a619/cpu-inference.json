@@ -1,0 +1,21 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-bb70a619/real-inference/verify.py",
+    "--server",
+    "/tmp/entanglement-cpu-server-b6910/bin/llama-server",
+    "--model",
+    "/tmp/entangle-llama-cpu-model/TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf",
+    "--bin-dir",
+    "target/release",
+    "--output",
+    "docs/testing/production-review/evidence/candidate-bb70a619/real-inference/result.json"
+  ],
+  "started_utc": "2026-11-27T04:57:48.257228+00:00",
+  "finished_utc": "2026-11-27T04:58:14.281492+00:00",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-bb70a619/cpu-inference.log",
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

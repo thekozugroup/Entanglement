@@ -1,0 +1,111 @@
+{
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 docs/testing/production-review/evidence/candidate-bb70a619/real-inference/independent-verify.py docs/testing/production-review/evidence/candidate-bb70a619/real-inference/result.json --root /workspace/Entanglement --peer-fingerprint /tmp/entangle-peer-fingerprint-relocatable",
+  "exit_code": 0,
+  "started_utc": "2026-11-27T05:00:29+00:00",
+  "finished_utc": "2026-11-27T05:00:29+00:00",
+  "result_sha256": "565e55d068a05783b1046f34ebc14849e615bdc0abdc87a57ff0b0d43d0ab2b7",
+  "server_log_sha256": "6c3d0aa3cd49251338163e4612d13d7c54bf00548c33053bba6252c6446aac13",
+  "verifier_sha256": "1a0083dce6be48ff2bde9ea2c03bffec758bf04eab2c6a1d97a8d16ab355d490",
+  "peer_fingerprint_helper_sha256": "69bfa550e14036e97bdccba4f41b7640b0f8adf7ee6d85952657a4b452f99fe6",
+  "peer_fingerprint_source_sha256": "83db329566a5121d1d71688251440ec43a3213f891513d82d3f9904a8b0f8cd7",
+  "release_binaries_sha256": {
+    "entangle": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+    "entangled": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042"
+  },
+  "release_manifest_sha256": "765eee4dd10b83071cffe6388d8a4a4e475a8457c06e5fbfce1b57f5bbd10fca",
+  "server_sha256": "a76bd2f23b061182fae9ac025d5f716c156a2b11d5c32bdc074c2a808d9108b9",
+  "server_library_sha256": {
+    "libggml-base.so": "a828e775abe021b0c32577f87430418b6f79fbd3c80edc9332a5ea23110f44e1",
+    "libggml-cpu.so": "75fea176288c30776628afc797a644f8fe9020c8f28477c315097f09513dd487",
+    "libggml.so": "228b26b67e8859fdbda825a8a5fbd379c0f39d6c784860f4997053368b72cc47",
+    "libllama.so": "f03d70d1855cf1bdd07d913c116be96178eacc009aaf9b993fc6e6af618218b2",
+    "libmtmd.so": "3c1b74ac298b995e8f60504ac183dbc6763aa2437f8463b80d5d0931fb98db05"
+  },
+  "model_sha256": "9ee11adf737960ff06123d5c4fba24d12c5b05ba460a7afa88950fbf2b61add0",
+  "verified_ed25519_chunks": 139,
+  "verified_direct_completion_tokens": 140,
+  "samples": [
+    {
+      "endpoint": "/v1/completions",
+      "peer": "f2f46fee78a71555fa5e9c64c5c4d61b",
+      "task_id": "50ce336d-3a53-4343-8abf-f55d85bb2100",
+      "prompt": "Finish the sequence using five words: winter, spring, summer,",
+      "chunks": 24,
+      "bytes": 84,
+      "output_sha256": "2480c68b0a3ea621ac6fae29e2a0d392811958f9197c93e82e4b1f069e94e566",
+      "first_ms": 1357.612,
+      "duration_ms": 3412.967,
+      "completion_tokens": 24,
+      "prompt_tokens": 15
+    },
+    {
+      "endpoint": "/v1/completions",
+      "peer": "f2f46fee78a71555fa5e9c64c5c4d61b",
+      "task_id": "761435f1-c1dd-4389-abe7-ff9d27deba24",
+      "prompt": "Write one sentence describing a bicycle.",
+      "chunks": 24,
+      "bytes": 72,
+      "output_sha256": "22ec104930c3d50fab9292ec5196c8a791405f5cfb7a8b3784cd250ca34a1b83",
+      "first_ms": 424.245,
+      "duration_ms": 1942.065,
+      "completion_tokens": 24,
+      "prompt_tokens": 10
+    },
+    {
+      "endpoint": "/v1/completions",
+      "peer": "f2f46fee78a71555fa5e9c64c5c4d61b",
+      "task_id": "5234741e-11cc-4fb2-a6c3-68b0b09f60b6",
+      "prompt": "The first three prime numbers are",
+      "chunks": 24,
+      "bytes": 69,
+      "output_sha256": "c47495f0ad59c1fb2563f8d17dab09b26002e61792149cd5daa534b406124e42",
+      "first_ms": 300.32,
+      "duration_ms": 1744.764,
+      "completion_tokens": 24,
+      "prompt_tokens": 7
+    },
+    {
+      "endpoint": "/v1/chat/completions",
+      "peer": "db2e27fece8c5fd2fbf8ffa5db4649d3",
+      "task_id": "51adf723-a94e-4674-ad40-b6b7f413ade0",
+      "prompt": "Finish the sequence using five words: winter, spring, summer,",
+      "chunks": 19,
+      "bytes": 69,
+      "output_sha256": "694b97353c26404b4e6bae295a4fe6a067d3bebd75dcb50682fe42f7f511ecf2",
+      "first_ms": 1249.221,
+      "duration_ms": 2556.073,
+      "completion_tokens": 20,
+      "prompt_tokens": 27
+    },
+    {
+      "endpoint": "/v1/chat/completions",
+      "peer": "db2e27fece8c5fd2fbf8ffa5db4649d3",
+      "task_id": "fb4f0b4e-f912-4b0f-b318-04f104e4a822",
+      "prompt": "Write one sentence describing a bicycle.",
+      "chunks": 24,
+      "bytes": 96,
+      "output_sha256": "e563e99e369c45b7858a119c971b474c37e6c5e820df807aed89cdabfe965f7e",
+      "first_ms": 704.122,
+      "duration_ms": 2082.937,
+      "completion_tokens": 24,
+      "prompt_tokens": 21
+    },
+    {
+      "endpoint": "/v1/chat/completions",
+      "peer": "db2e27fece8c5fd2fbf8ffa5db4649d3",
+      "task_id": "f2b48cd7-43c2-4d6d-a68f-88d0d1b7c168",
+      "prompt": "The first three prime numbers are",
+      "chunks": 24,
+      "bytes": 51,
+      "output_sha256": "329a232c210adca2caf3f7e66b9e6da070d0cebcfaae217481c246c3fd7f8ebd",
+      "first_ms": 634.637,
+      "duration_ms": 1970.111,
+      "completion_tokens": 24,
+      "prompt_tokens": 19
+    }
+  ],
+  "host_scope": "separate Entanglement processes on one x86_64 Linux host"
+}

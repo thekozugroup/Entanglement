@@ -1,0 +1,9 @@
+   Compiling simd-adler32 v0.3.10
+   Compiling adler2 v2.0.1
+   Compiling miniz_oxide v0.8.9
+   Compiling crc32fast v1.5.0
+   Compiling fdeflate v0.3.7
+   Compiling flate2 v1.1.9
+   Compiling png v0.18.1
+   Compiling entangle-image-dehaze v0.1.0 (/workspace/Entanglement/plugins/image-dehaze)
+    Finished `release` profile [optimized] target(s) in 8.07s

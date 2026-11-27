@@ -1,0 +1,31 @@
+{
+  "source_commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_commit_after": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "fixture_before_sha256": "5fb9e907b7573f501464533b938b2796344b56f836ea4edb75d8bf6558189528",
+  "fixture_after_sha256": "5fb9e907b7573f501464533b938b2796344b56f836ea4edb75d8bf6558189528",
+  "started_utc": "2026-11-27T04:45:53.482854+00:00",
+  "finished_utc": "2026-11-27T04:49:05.753598+00:00",
+  "toolchain": "rustc 1.91.1 (ed61e7d7e 2025-11-07)",
+  "host": "Linux x86_64",
+  "exit_code": 0,
+  "log": "workspace-test.log",
+  "log_sha256": "828bf3fd2111c5a7f03c9b6a2dd027e6e3d5f2b502c8fe6099a4553aa23748e7",
+  "test_threads": "default",
+  "result_sections": 104,
+  "counts": {
+    "passed": 774,
+    "failed": 0,
+    "ignored": 29,
+    "measured": 0,
+    "filtered_out": 0
+  },
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--workspace",
+    "--no-fail-fast"
+  ]
+}

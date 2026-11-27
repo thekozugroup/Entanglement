@@ -1,0 +1,7 @@
+# Candidate 1a772db2 iteration verdict
+
+**Disqualified for release qualification.** The frozen source ID was `sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be`. The locked, default-parallel workspace suite exited 101: 773 passed, one failed and 29 ignored. The single failure was `entangle_mesh_tailscale::tests::command::calls_only_read_only_status_and_reports_inactive_backend`, whose newly written test executable returned OS error 26 (`Text file busy`). The previously failing supervisor same-port rebind test passed in this run. Commit, source and tracked session fixture matched before and after. [Workspace receipt](workspace-test.json) · [Workspace log](workspace-test.log)
+
+The focused image unit-conformance commands passed 13 tests with zero failures. The fresh all-features locked dependency scan passed advisories, bans, licenses and sources on all 15 tracked graphs. Formatting, diff, actionlint, Clippy and rustdoc checks passed. The actual governance check still rejected single-holder roles and the absent rotation record. [Image unit receipt](image-unit-conformance.json) · [Dependency aggregate](dependencies.json) · [Clippy](clippy.json) · [Rustdoc](rustdoc.json) · [Governance](governance-real.json)
+
+This is an iteration verdict, not a completed 57-gate assessment. The failed suite is retained and is not turned into a pass by earlier targeted successes. A new source snapshot requires its own qualification.

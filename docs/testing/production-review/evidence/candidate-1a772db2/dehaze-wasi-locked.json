@@ -1,0 +1,21 @@
+{
+  "command": [
+    "cargo",
+    "build",
+    "--locked",
+    "--release",
+    "--target",
+    "wasm32-wasip2",
+    "--manifest-path",
+    "plugins/image-dehaze/Cargo.toml",
+    "--target-dir",
+    "target/catalog-smoke"
+  ],
+  "started_utc": "2026-11-27T04:42:28.936252+00:00",
+  "finished_utc": "2026-11-27T04:42:37.230495+00:00",
+  "source_before": "sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be",
+  "source_after": "sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-1a772db2/dehaze-wasi-locked.log",
+  "sha256": "7e37b002e76730b151ddd922132a762e8ba36a7778f3190494357f308341b663"
+}

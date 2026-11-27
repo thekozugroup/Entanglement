@@ -1,0 +1,285 @@
+{
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "test_sha256": "fcb8371095d58b1173377cf23255fc6dcf291b2f214127b39a97eaf58ac960c3",
+  "executables_sha256": {
+    "cli": "5f45cea4bb7ff57c073b7407d4aaa140a59f231390c6aee976f0fcee1b713439",
+    "daemon": "8bce7f9fa57f2c1d1cd111c01a5300bdb75e9b0018774a4303af783ae2355042",
+    "guest": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973"
+  },
+  "providers": {
+    "numpy": "2.2.4",
+    "scipy": "1.15.3",
+    "pypng": "0.20220715.0"
+  },
+  "synthetic": {
+    "scene-1": {
+      "before_mae": 0.20710258874207377,
+      "after_mae": 0.058744148473064646,
+      "newly_clipped_fraction": 0.0,
+      "whole_reference_pixel_mismatches": 0,
+      "atmospheric_rgb16": [
+        59398,
+        61356,
+        63967
+      ],
+      "output_rgb16be_sha256": "393d8fa05be359394e37f833093d6ea5b4baf570130db11ad33e06399494680a",
+      "peer": "33fc15c026d5c376998798558a53cddf"
+    },
+    "scene-2": {
+      "before_mae": 0.19222479113882637,
+      "after_mae": 0.055284920261676335,
+      "newly_clipped_fraction": 0.0,
+      "whole_reference_pixel_mismatches": 0,
+      "atmospheric_rgb16": [
+        62663,
+        57441,
+        53524
+      ],
+      "output_rgb16be_sha256": "6d14100338fdd3250a723747eee52b50c3f682c52e9c69ca9dc40325df2c45b9",
+      "peer": "294d424855eb3b40a2291c39d6980b76"
+    },
+    "scene-3": {
+      "before_mae": 0.19565482753000413,
+      "after_mae": 0.05626817431299963,
+      "newly_clipped_fraction": 0.0,
+      "whole_reference_pixel_mismatches": 0,
+      "atmospheric_rgb16": [
+        52221,
+        59401,
+        63318
+      ],
+      "output_rgb16be_sha256": "19a666b3245927261336062f924c52e9eb49a3892b191d191146837d2b31f7a6",
+      "peer": "33fc15c026d5c376998798558a53cddf"
+    },
+    "clear-control": {
+      "before_mae": 0.0,
+      "after_mae": 0.0028990817035850227,
+      "newly_clipped_fraction": 0.0,
+      "whole_reference_pixel_mismatches": 0,
+      "atmospheric_rgb16": [
+        11705,
+        44354,
+        678
+      ],
+      "output_rgb16be_sha256": "0e04aab273121c2ff3419312166cbf7b795babf2ece86a7a70da4984573b709b",
+      "peer": "294d424855eb3b40a2291c39d6980b76"
+    }
+  },
+  "photos": {
+    "canon_350d.cr2": {
+      "input_sha256": "8cbb84e04d93b005fe082da9c954122a612b5281af00aa088d767850f343fd38",
+      "sensor": [
+        3516,
+        2328
+      ],
+      "bayer_pattern": [
+        [
+          0,
+          1
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      "mosaic_observations": {
+        "visible_sample_percentiles_1_50_99": [
+          274.0,
+          320.0,
+          2734.0
+        ],
+        "black_levels": [
+          256,
+          256,
+          256,
+          256
+        ],
+        "white_level": 4095,
+        "orientation_flip": 0
+      },
+      "developed_dimensions": [
+        3474,
+        2314
+      ],
+      "rawpy_version": "0.25.1",
+      "rawpy_libraw_version": [
+        0,
+        21,
+        4
+      ],
+      "native_bindings_exact": true,
+      "decode_mae": 0.0,
+      "rawpy_rgb16be_sha256": "4d51768d2985c5667a368e5b0cf134636386a878927881a609e19900f23546f1",
+      "dcraw_emu_rgb16be_sha256": "4d51768d2985c5667a368e5b0cf134636386a878927881a609e19900f23546f1",
+      "atmospheric_rgb16": [
+        65534,
+        65535,
+        65535
+      ],
+      "reference_rgb16be_sha256": "b0f49c01d6ea96aaecbc50d8b03f39f3bd5332d2fcbd1196683b6b24aa6e9fc9",
+      "output_rgb16be_sha256": "b0f49c01d6ea96aaecbc50d8b03f39f3bd5332d2fcbd1196683b6b24aa6e9fc9",
+      "whole_reference_pixel_mismatches": 0,
+      "changed_samples": 23855181,
+      "receipt": {
+        "status": "processed",
+        "elapsed_ms": 36045.540055,
+        "version": 1,
+        "plugin": "95fe45c289750b0720980f037fd85699/image-dehaze@0.1.0",
+        "tile_edge": 1024,
+        "input": "canon_350d.cr2",
+        "output": "canon_350d.cr2.dehazed.png",
+        "input_blake3": "fc1607d95f73f9e52af675e61633e90760152eeb41c0cf8b844c777a0a1e7043",
+        "output_blake3": "16ad968c4c63a7adf2e701e8f099f05eb49e292ebc94c85bc099d606c777f4a2",
+        "width": 3474,
+        "height": 2314,
+        "workers": {
+          "294d424855eb3b40a2291c39d6980b76": 5,
+          "33fc15c026d5c376998798558a53cddf": 7
+        },
+        "tile_workers": [
+          "33fc15c026d5c376998798558a53cddf",
+          "294d424855eb3b40a2291c39d6980b76",
+          "294d424855eb3b40a2291c39d6980b76",
+          "33fc15c026d5c376998798558a53cddf",
+          "294d424855eb3b40a2291c39d6980b76",
+          "33fc15c026d5c376998798558a53cddf",
+          "294d424855eb3b40a2291c39d6980b76",
+          "33fc15c026d5c376998798558a53cddf",
+          "33fc15c026d5c376998798558a53cddf",
+          "33fc15c026d5c376998798558a53cddf",
+          "294d424855eb3b40a2291c39d6980b76",
+          "33fc15c026d5c376998798558a53cddf"
+        ]
+      }
+    },
+    "nikon_d40.nef": {
+      "input_sha256": "44e88bc77b7a531b22647bcd07b9393c4568062e8f0906d3bbdecb42fbe29e03",
+      "sensor": [
+        3040,
+        2014
+      ],
+      "bayer_pattern": [
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "mosaic_observations": {
+        "visible_sample_percentiles_1_50_99": [
+          18.0,
+          254.0,
+          2691.0
+        ],
+        "black_levels": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "white_level": 4095,
+        "orientation_flip": 0
+      },
+      "developed_dimensions": [
+        3039,
+        2014
+      ],
+      "rawpy_version": "0.25.1",
+      "rawpy_libraw_version": [
+        0,
+        21,
+        4
+      ],
+      "native_bindings_exact": true,
+      "decode_mae": 0.0,
+      "rawpy_rgb16be_sha256": "afd878bf5675172ab9c340b4cf0eef3ae8b1e44699322ff7998247fbc5018660",
+      "dcraw_emu_rgb16be_sha256": "afd878bf5675172ab9c340b4cf0eef3ae8b1e44699322ff7998247fbc5018660",
+      "atmospheric_rgb16": [
+        65535,
+        65534,
+        65535
+      ],
+      "reference_rgb16be_sha256": "bd27fafe90818d105bbbb0fc34593842329471127b167d0d13f519d41dda9b3f",
+      "output_rgb16be_sha256": "bd27fafe90818d105bbbb0fc34593842329471127b167d0d13f519d41dda9b3f",
+      "whole_reference_pixel_mismatches": 0,
+      "changed_samples": 18025612,
+      "receipt": {
+        "status": "processed",
+        "elapsed_ms": 18287.716253,
+        "version": 1,
+        "plugin": "95fe45c289750b0720980f037fd85699/image-dehaze@0.1.0",
+        "tile_edge": 1024,
+        "input": "nikon_d40.nef",
+        "output": "nikon_d40.nef.dehazed.png",
+        "input_blake3": "9d30436b8c980a294687e407e7189511e4d985f07f7a261bbd698a1959032273",
+        "output_blake3": "949e8d8433a922f2add66669a2be839afa80989870f5328475e7434a28d639c6",
+        "width": 3039,
+        "height": 2014,
+        "workers": {
+          "294d424855eb3b40a2291c39d6980b76": 4,
+          "33fc15c026d5c376998798558a53cddf": 2
+        },
+        "tile_workers": [
+          "33fc15c026d5c376998798558a53cddf",
+          "294d424855eb3b40a2291c39d6980b76",
+          "294d424855eb3b40a2291c39d6980b76",
+          "33fc15c026d5c376998798558a53cddf",
+          "294d424855eb3b40a2291c39d6980b76",
+          "294d424855eb3b40a2291c39d6980b76"
+        ]
+      }
+    }
+  },
+  "synthetic_manifest": {
+    "size": [
+      128,
+      96
+    ],
+    "space": "linear sRGB16",
+    "cases": {
+      "scene-1": {
+        "input_png_sha256": "dcb3033b2f492cb329a07a1e211e6a5e3856fb2597b9a37f589484f89a32c815",
+        "clear_rgb16be_sha256": "c0f87db11ca524608fdaefe5dbba2f61fa7faf0b7cde3b60d941ff6490683571"
+      },
+      "scene-2": {
+        "input_png_sha256": "7013aac153a43b330efc3c51b587a37e417f1a2c86786195808e9dc68f40dade",
+        "clear_rgb16be_sha256": "4c7de30d2d414cb932269d5802b745cba9478aad80fe992b66660537987724c4"
+      },
+      "scene-3": {
+        "input_png_sha256": "5979d20f9e2ce808780359b26c460994b95e01066ca2b091d65bdfc478bde07d",
+        "clear_rgb16be_sha256": "d7cb1e22df1e61f96ca9e6b4b965ff5454220f56d9c38312f079c7dea5da39d9"
+      },
+      "clear-control": {
+        "input_png_sha256": "74a10f2c204e06ff532d2eeb619f34ca55dcb8fa1c6cde11e2087b315d7fa69d",
+        "clear_rgb16be_sha256": "6f9ee72fa76f7ef64fbbc1afb2cb91424e3fd9195c8158624100cb18e331f4e1"
+      }
+    }
+  },
+  "peer_ids": [
+    "33fc15c026d5c376998798558a53cddf",
+    "294d424855eb3b40a2291c39d6980b76"
+  ],
+  "plugin": "95fe45c289750b0720980f037fd85699/image-dehaze@0.1.0",
+  "batch_summary": {
+    "status": "summary",
+    "processed": 2,
+    "resumed": 0,
+    "failed": 0,
+    "skipped": 0
+  },
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "checks": {
+    "aggregate_mae": true,
+    "two_scenes_improve": true,
+    "no_scene_above_1_05": true,
+    "clear_control": true,
+    "synthetic_whole_frame": true,
+    "both_raw_bindings_agree": true,
+    "genuine_photo_transform": true,
+    "expected_source_before_and_after": true,
+    "both_configured_workers_executed_photo_tiles": true
+  }
+}

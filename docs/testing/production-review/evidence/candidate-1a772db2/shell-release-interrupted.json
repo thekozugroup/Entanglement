@@ -1,0 +1,10 @@
+{
+  "source_commit": "1a772db2e69b03e51dc1c03db6feeba28dd234ae",
+  "source_id": "sha256:f2bf0e3c6eabe047696aee6c833420333ad951300e82f5f3b0f95281707b19be",
+  "stopped_utc": "2026-11-27T04:44:41.538490+00:00",
+  "completed_receipts": [
+    "wrapper-full-shells.receipt.json",
+    "release-command-run.receipt.json"
+  ],
+  "unfinished_scope": "optimized archive checks were waiting for an archive and were stopped when the candidate was disqualified"
+}

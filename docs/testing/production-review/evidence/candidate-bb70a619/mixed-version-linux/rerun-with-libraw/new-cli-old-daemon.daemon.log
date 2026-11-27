@@ -1,0 +1,1 @@
+{"timestamp":"2026-11-27T04:57:50.800905Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/ent-mixed-89p37ovt/new-cli-old-daemon/.entangle/identity.key"},"target":"entangle_bin::maintenance"}

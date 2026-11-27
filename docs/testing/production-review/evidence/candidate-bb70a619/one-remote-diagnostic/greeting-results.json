@@ -1,0 +1,1084 @@
+{
+  "source_before": {
+    "commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+    "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab"
+  },
+  "source_after": {
+    "commit": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+    "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab"
+  },
+  "test_driver_sha256": "1ebafc569beddee70221b9ab67cc42fbda10367c4ffc282b3f2c4917bcf248f0",
+  "pair_orders": [
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ]
+  ],
+  "all_results": [
+    {
+      "pair": 1,
+      "side": "baseline",
+      "start": "2026-11-27T05:10:43.807366+00:00",
+      "end": "2026-11-27T05:10:47.829533+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/baseline/entangled",
+      "log": "greeting-1-baseline.log",
+      "log_sha256": "89bd13ae6691c020a952a9cc225358be64721c3e1ad35ed3bd4f911aac6001cd",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.233,
+          "p95_ms": 0.9,
+          "rate": 3055.7
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.526,
+          "p95_ms": 0.835,
+          "rate": 7184.1
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.945,
+          "p95_ms": 2.783,
+          "rate": 470.4
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.394,
+          "p95_ms": 5.931,
+          "rate": 1043.0
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.945,
+        "p95_ms": 2.783,
+        "rate": 470.4
+      }
+    },
+    {
+      "pair": 1,
+      "side": "candidate",
+      "start": "2026-11-27T05:10:47.885875+00:00",
+      "end": "2026-11-27T05:10:52.130250+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/candidate/entangled",
+      "log": "greeting-1-candidate.log",
+      "log_sha256": "dddaa7d16fb71013f992596a4364fb8f87747a5f63a4534db3cc689d87cbaedb",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.226,
+          "p95_ms": 0.386,
+          "rate": 3683.2
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.531,
+          "p95_ms": 1.128,
+          "rate": 6444.2
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.923,
+          "p95_ms": 2.72,
+          "rate": 407.0
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.517,
+          "p95_ms": 7.15,
+          "rate": 1005.8
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.923,
+        "p95_ms": 2.72,
+        "rate": 407.0
+      }
+    },
+    {
+      "pair": 2,
+      "side": "candidate",
+      "start": "2026-11-27T05:10:52.149277+00:00",
+      "end": "2026-11-27T05:10:55.741528+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/candidate/entangled",
+      "log": "greeting-2-candidate.log",
+      "log_sha256": "c301342b36664cf763b525a53a05e43b3e1ecef98ae339468b7d0f1a8750e3d0",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.238,
+          "p95_ms": 0.415,
+          "rate": 3707.4
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.617,
+          "p95_ms": 0.962,
+          "rate": 6073.2
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.831,
+          "p95_ms": 2.566,
+          "rate": 511.9
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.278,
+          "p95_ms": 4.731,
+          "rate": 1158.3
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.831,
+        "p95_ms": 2.566,
+        "rate": 511.9
+      }
+    },
+    {
+      "pair": 2,
+      "side": "baseline",
+      "start": "2026-11-27T05:10:55.764236+00:00",
+      "end": "2026-11-27T05:10:59.507812+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/baseline/entangled",
+      "log": "greeting-2-baseline.log",
+      "log_sha256": "259e97aadb6d607c60df8f3f0593e8f76ba1e502b224c2445fc0bde4ff91b44b",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.268,
+          "p95_ms": 0.439,
+          "rate": 3391.7
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.613,
+          "p95_ms": 0.995,
+          "rate": 6085.6
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.933,
+          "p95_ms": 2.695,
+          "rate": 483.3
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.369,
+          "p95_ms": 4.855,
+          "rate": 1143.7
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.933,
+        "p95_ms": 2.695,
+        "rate": 483.3
+      }
+    },
+    {
+      "pair": 3,
+      "side": "baseline",
+      "start": "2026-11-27T05:10:59.523556+00:00",
+      "end": "2026-11-27T05:11:08.136722+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/baseline/entangled",
+      "log": "greeting-3-baseline.log",
+      "log_sha256": "02cf032980092cd83e1a2327a413926d5f62c3b14ef33d94c25a6d3eba5d6e57",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.259,
+          "p95_ms": 0.432,
+          "rate": 3496.8
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.638,
+          "p95_ms": 1.034,
+          "rate": 5874.3
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 4.459,
+          "p95_ms": 11.275,
+          "rate": 186.7
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 8.626,
+          "p95_ms": 19.225,
+          "rate": 428.2
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 4.459,
+        "p95_ms": 11.275,
+        "rate": 186.7
+      }
+    },
+    {
+      "pair": 3,
+      "side": "candidate",
+      "start": "2026-11-27T05:11:08.153233+00:00",
+      "end": "2026-11-27T05:11:11.871344+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/candidate/entangled",
+      "log": "greeting-3-candidate.log",
+      "log_sha256": "adc5b592bba716b6c87195cfd76ea76c1ec4037f3f004346395d2d2235398437",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.266,
+          "p95_ms": 0.674,
+          "rate": 2398.7
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.516,
+          "p95_ms": 0.978,
+          "rate": 6935.9
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.894,
+          "p95_ms": 2.409,
+          "rate": 506.1
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.301,
+          "p95_ms": 4.703,
+          "rate": 1172.4
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.894,
+        "p95_ms": 2.409,
+        "rate": 506.1
+      }
+    },
+    {
+      "pair": 4,
+      "side": "candidate",
+      "start": "2026-11-27T05:11:11.894824+00:00",
+      "end": "2026-11-27T05:11:15.386587+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/candidate/entangled",
+      "log": "greeting-4-candidate.log",
+      "log_sha256": "c1e4b788a58d393898cfcfd1f86c34cc34e4c86f6072279cad27b6cb2fd43f17",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.227,
+          "p95_ms": 0.371,
+          "rate": 3977.0
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.503,
+          "p95_ms": 0.881,
+          "rate": 7273.0
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.805,
+          "p95_ms": 2.4,
+          "rate": 514.9
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.277,
+          "p95_ms": 4.612,
+          "rate": 1177.9
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.805,
+        "p95_ms": 2.4,
+        "rate": 514.9
+      }
+    },
+    {
+      "pair": 4,
+      "side": "baseline",
+      "start": "2026-11-27T05:11:15.405973+00:00",
+      "end": "2026-11-27T05:11:19.204179+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/baseline/entangled",
+      "log": "greeting-4-baseline.log",
+      "log_sha256": "8610adf8c841fca4462b5a2831a360f58906684ba06016e19d2472d51f7d0549",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.197,
+          "p95_ms": 0.41,
+          "rate": 4148.8
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.648,
+          "p95_ms": 1.031,
+          "rate": 5822.7
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.927,
+          "p95_ms": 3.198,
+          "rate": 462.4
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.286,
+          "p95_ms": 4.819,
+          "rate": 1156.8
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.927,
+        "p95_ms": 3.198,
+        "rate": 462.4
+      }
+    },
+    {
+      "pair": 5,
+      "side": "baseline",
+      "start": "2026-11-27T05:11:19.220115+00:00",
+      "end": "2026-11-27T05:11:22.906814+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/baseline/entangled",
+      "log": "greeting-5-baseline.log",
+      "log_sha256": "00760183317d5a5da199b74e7e41d31af2fbb491f2c2be16e402be505493ecf7",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.255,
+          "p95_ms": 0.492,
+          "rate": 3085.0
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.58,
+          "p95_ms": 1.144,
+          "rate": 6096.1
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.884,
+          "p95_ms": 2.549,
+          "rate": 497.0
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.371,
+          "p95_ms": 4.62,
+          "rate": 1145.4
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.884,
+        "p95_ms": 2.549,
+        "rate": 497.0
+      }
+    },
+    {
+      "pair": 5,
+      "side": "candidate",
+      "start": "2026-11-27T05:11:22.922738+00:00",
+      "end": "2026-11-27T05:11:26.659134+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/candidate/entangled",
+      "log": "greeting-5-candidate.log",
+      "log_sha256": "fcad54c4a510b2ac225648d7c34132c86c32a63ec63e308b8ede6cc9c8a2778b",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.255,
+          "p95_ms": 0.491,
+          "rate": 3379.8
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.685,
+          "p95_ms": 1.39,
+          "rate": 5150.0
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.951,
+          "p95_ms": 2.763,
+          "rate": 481.0
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.237,
+          "p95_ms": 4.482,
+          "rate": 1194.4
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.951,
+        "p95_ms": 2.763,
+        "rate": 481.0
+      }
+    },
+    {
+      "pair": 6,
+      "side": "candidate",
+      "start": "2026-11-27T05:11:26.676125+00:00",
+      "end": "2026-11-27T05:11:30.466489+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/candidate/entangled",
+      "log": "greeting-6-candidate.log",
+      "log_sha256": "6c5aff8c4f34e773e0eee387932d627260ad8f15dcd885fc3c82c3ffe5b98d85",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.203,
+          "p95_ms": 0.387,
+          "rate": 3937.0
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.633,
+          "p95_ms": 1.013,
+          "rate": 5923.5
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.959,
+          "p95_ms": 2.985,
+          "rate": 470.0
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.39,
+          "p95_ms": 5.271,
+          "rate": 1112.7
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.959,
+        "p95_ms": 2.985,
+        "rate": 470.0
+      }
+    },
+    {
+      "pair": 6,
+      "side": "baseline",
+      "start": "2026-11-27T05:11:30.484758+00:00",
+      "end": "2026-11-27T05:11:34.294250+00:00",
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "compiler_census_before_and_after": [
+        [],
+        []
+      ],
+      "command": [
+        "taskset",
+        "-c",
+        "0-3",
+        "/workspace/Entanglement/target/debug/deps/daemon_compute-c88079e9439e32c3",
+        "benchmark::measure_dispatch",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "daemon": "/tmp/entangle-recovery-performance-bb70a619/baseline/entangled",
+      "log": "greeting-6-baseline.log",
+      "log_sha256": "dd3800a80546c522ef344ecffeea1126ce5fbcb5290cfe31ee69ab2c090925f7",
+      "all_routes": [
+        {
+          "route": "local",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 0.251,
+          "p95_ms": 0.446,
+          "rate": 3514.9
+        },
+        {
+          "route": "local",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 0.533,
+          "p95_ms": 1.299,
+          "rate": 6212.2
+        },
+        {
+          "route": "remote",
+          "clients": 1,
+          "calls": 1024,
+          "p50_ms": 1.925,
+          "p95_ms": 2.433,
+          "rate": 490.5
+        },
+        {
+          "route": "remote",
+          "clients": 4,
+          "calls": 1024,
+          "p50_ms": 3.352,
+          "p95_ms": 4.56,
+          "rate": 1159.9
+        }
+      ],
+      "remote_one": {
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.925,
+        "p95_ms": 2.433,
+        "rate": 490.5
+      }
+    }
+  ],
+  "remote_one_comparison": {
+    "arm_medians": [
+      {
+        "pair": 1,
+        "side": "baseline",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.945,
+        "p95_ms": 2.783,
+        "rate": 470.4
+      },
+      {
+        "pair": 1,
+        "side": "candidate",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.923,
+        "p95_ms": 2.72,
+        "rate": 407.0
+      },
+      {
+        "pair": 2,
+        "side": "candidate",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.831,
+        "p95_ms": 2.566,
+        "rate": 511.9
+      },
+      {
+        "pair": 2,
+        "side": "baseline",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.933,
+        "p95_ms": 2.695,
+        "rate": 483.3
+      },
+      {
+        "pair": 3,
+        "side": "baseline",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 4.459,
+        "p95_ms": 11.275,
+        "rate": 186.7
+      },
+      {
+        "pair": 3,
+        "side": "candidate",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.894,
+        "p95_ms": 2.409,
+        "rate": 506.1
+      },
+      {
+        "pair": 4,
+        "side": "candidate",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.805,
+        "p95_ms": 2.4,
+        "rate": 514.9
+      },
+      {
+        "pair": 4,
+        "side": "baseline",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.927,
+        "p95_ms": 3.198,
+        "rate": 462.4
+      },
+      {
+        "pair": 5,
+        "side": "baseline",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.884,
+        "p95_ms": 2.549,
+        "rate": 497.0
+      },
+      {
+        "pair": 5,
+        "side": "candidate",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.951,
+        "p95_ms": 2.763,
+        "rate": 481.0
+      },
+      {
+        "pair": 6,
+        "side": "candidate",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.959,
+        "p95_ms": 2.985,
+        "rate": 470.0
+      },
+      {
+        "pair": 6,
+        "side": "baseline",
+        "route": "remote",
+        "clients": 1,
+        "calls": 1024,
+        "p50_ms": 1.925,
+        "p95_ms": 2.433,
+        "rate": 490.5
+      }
+    ],
+    "build_medians": {
+      "baseline": {
+        "p50_ms": 1.9300000000000002,
+        "p95_ms": 2.739,
+        "rate": 476.85
+      },
+      "candidate": {
+        "p50_ms": 1.9085,
+        "p95_ms": 2.643,
+        "rate": 493.55
+      }
+    },
+    "pairs": [
+      {
+        "pair": 1,
+        "p50_ms": 0.9886889460154241,
+        "p95_ms": 0.9773625583902265,
+        "rate": 0.8652210884353742
+      },
+      {
+        "pair": 2,
+        "p50_ms": 0.9472322814278323,
+        "p95_ms": 0.9521335807050093,
+        "rate": 1.0591764949306848
+      },
+      {
+        "pair": 3,
+        "p50_ms": 0.42475891455483294,
+        "p95_ms": 0.21365853658536582,
+        "rate": 2.710765934654526
+      },
+      {
+        "pair": 4,
+        "p50_ms": 0.9366891541255837,
+        "p95_ms": 0.7504690431519699,
+        "rate": 1.113538062283737
+      },
+      {
+        "pair": 5,
+        "p50_ms": 1.0355626326963907,
+        "p95_ms": 1.0839544919576305,
+        "rate": 0.9678068410462777
+      },
+      {
+        "pair": 6,
+        "p50_ms": 1.0176623376623377,
+        "p95_ms": 1.2268803945745992,
+        "rate": 0.9582059123343527
+      }
+    ],
+    "ratios": {
+      "p50_ms": {
+        "median": 0.9679606137216282,
+        "minimum": 0.42475891455483294,
+        "maximum": 1.0355626326963907
+      },
+      "p95_ms": {
+        "median": 0.9647480695476178,
+        "minimum": 0.21365853658536582,
+        "maximum": 1.2268803945745992
+      },
+      "rate": {
+        "median": 1.0134916679884811,
+        "minimum": 0.8652210884353742,
+        "maximum": 2.710765934654526
+      }
+    },
+    "p95_limit_misses": 2,
+    "rate_limit_misses": 1
+  }
+}

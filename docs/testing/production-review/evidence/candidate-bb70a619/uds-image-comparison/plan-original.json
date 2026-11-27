@@ -1,0 +1,54 @@
+{
+  "prepared_utc": "2026-11-27T04:27:01.480787+00:00",
+  "orders": [
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ]
+  ],
+  "warm_calls_per_process": 3,
+  "timed_calls_per_process": 1,
+  "baseline_commit": "42bb9a3360ce2b4d5bcf2268dfa5a76bc6d6247e",
+  "baseline_source": "sha256:fcb2f28c293a30b2496d2a788442782aba96c3806d4e4d1e868d4c6db32dc348",
+  "baseline_archive_sha256": "20072dbc38c0fc0c8c67df92933dda5224d4ba1e4e82163c80597f438f4df1cf",
+  "baseline_binary_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "plugin_id": "ea3fb9233171423cc433655a077459ef/image-dehaze@0.1.0",
+  "publisher_key": "04ec9b28f02a777a0b43a3cd4391749049258e439717aa4f87e1f85fe782ed06",
+  "signed_package_sha256": {
+    "entangle.toml": "cf16a30c7fccd60316828ec754f5739ab9eb09a366ad47d643b5ed9c2bedd04e",
+    "plugin.wasm": "eb0e482edfa642479d5b16caccf39b8e4dac4c4d290699fe6d97ee5d9103b973",
+    "plugin.wasm.sig": "0505148ba84b3fbc815b6ac383addd8a7f82f61e0c001d772f807e9959cad395"
+  },
+  "timed_input_bytes": 6294518,
+  "input_sha256": {
+    "warm-64.png": "eb220db108d6e9061037d12a597a14f58585f6cfd2c7d3a63e96ec1bb2acaa30",
+    "timed-1024.png": "64ce38183ddc84e0c52f34eb5423d804a3706118b201c2969bec68147bbf5fd2"
+  },
+  "method": "fresh isolated daemons for all 12 arms, exact local trusted peer, no mesh network",
+  "wall_clock": "starts before launching GNU time and CLI and ends after child exit, includes UDS, guest and output-file write",
+  "memory": "GNU time child maximum RSS KiB; daemon /proc VmHWM KiB before/after each timed call",
+  "scope": "engineering comparator, Linux x86_64, one localhost plugin workload"
+}

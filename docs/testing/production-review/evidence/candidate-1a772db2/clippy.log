@@ -1,0 +1,7 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Checking entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+    Checking entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+    Finished `dev` profile [unoptimized] target(s) in 1m 55s

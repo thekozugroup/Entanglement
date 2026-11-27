@@ -1,0 +1,12 @@
+greeting 1 baseline {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.945, 'p95_ms': 2.783, 'rate': 470.4}
+greeting 1 candidate {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.923, 'p95_ms': 2.72, 'rate': 407.0}
+greeting 2 candidate {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.831, 'p95_ms': 2.566, 'rate': 511.9}
+greeting 2 baseline {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.933, 'p95_ms': 2.695, 'rate': 483.3}
+greeting 3 baseline {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 4.459, 'p95_ms': 11.275, 'rate': 186.7}
+greeting 3 candidate {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.894, 'p95_ms': 2.409, 'rate': 506.1}
+greeting 4 candidate {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.805, 'p95_ms': 2.4, 'rate': 514.9}
+greeting 4 baseline {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.927, 'p95_ms': 3.198, 'rate': 462.4}
+greeting 5 baseline {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.884, 'p95_ms': 2.549, 'rate': 497.0}
+greeting 5 candidate {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.951, 'p95_ms': 2.763, 'rate': 481.0}
+greeting 6 candidate {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.959, 'p95_ms': 2.985, 'rate': 470.0}
+greeting 6 baseline {'route': 'remote', 'clients': 1, 'calls': 1024, 'p50_ms': 1.925, 'p95_ms': 2.433, 'rate': 490.5}

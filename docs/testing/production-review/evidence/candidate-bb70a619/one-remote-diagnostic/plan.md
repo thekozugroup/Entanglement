@@ -1,0 +1,9 @@
+# Prespecified paired diagnostic
+
+The primary seven-route result remains the original gate evidence. This diagnostic compares the same verified release daemons, baseline `864ae27b` and candidate `bb70a619`, on the same Linux x86-64 VM. The candidate CLI performs setup for both daemons. The order for six fresh matched pairs is baseline then candidate, candidate then baseline, repeated three times.
+
+The image case uses the existing benchmark's four-client request driver, catalog image-resize component, all 24 JPEG inputs, and Pillow oracle. Each arm starts a new coordinator and one trusted worker. The worker is pinned to CPUs 0–2. The runner and coordinator share CPU 3, leaving CPU 4 outside the experimental process masks. The driver checks every live thread mask at warmup, warms one complete batch per route, then measures three complete 24-image batches over direct authenticated loopback QUIC and three on the worker's local Unix socket, in that order. Output bytes must match the primary validated corpus digests. The one-remote route is the primary diagnostic endpoint. Local image is secondary.
+
+A second secondary comparison reruns the exact existing four-route native greeting driver on six fresh matched pairs, inheriting CPU mask 0–3 for driver and daemons. The one-client QUIC route is the diagnostic endpoint. Other route measurements remain in the raw logs. Native driver and release ELFs must hash to the primary recorded bytes. Stop if any correctness assertion fails and retain the transcript.
+
+Compare median per-arm p95 and throughput against the same relative thresholds as the primary run, at most 1.05× p95 and at least 0.95× throughput. Report all matched arm medians and pair ratios, their medians and ranges, and count how often each threshold misses. Keep the controlled CPU, order, and setup differences visible. The measurements can show repetition or sensitivity to conditions within this VM.

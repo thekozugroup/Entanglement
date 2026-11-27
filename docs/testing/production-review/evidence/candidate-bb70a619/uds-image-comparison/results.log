@@ -1,0 +1,26 @@
+pair 1 baseline 1880.43 ms CLI 261856 KiB daemon 261720 KiB
+pair 1 candidate 1035.02 ms CLI 43536 KiB daemon 111556 KiB
+pair 2 candidate 1066.57 ms CLI 43360 KiB daemon 111484 KiB
+pair 2 baseline 1987.98 ms CLI 261724 KiB daemon 262376 KiB
+pair 3 baseline 1598.93 ms CLI 261784 KiB daemon 262188 KiB
+pair 3 candidate 1063.84 ms CLI 43416 KiB daemon 108348 KiB
+pair 4 candidate 1025.91 ms CLI 43528 KiB daemon 108992 KiB
+pair 4 baseline 1230.98 ms CLI 261540 KiB daemon 261252 KiB
+pair 5 baseline 1114.51 ms CLI 261540 KiB daemon 262968 KiB
+pair 5 candidate 1014.50 ms CLI 43436 KiB daemon 110312 KiB
+pair 6 candidate 987.12 ms CLI 43528 KiB daemon 110576 KiB
+pair 6 baseline 1366.11 ms CLI 261968 KiB daemon 262716 KiB
+{
+  "baseline": {
+    "wall_ms": 1482.520047,
+    "cli_peak_rss_kib": 261754.0,
+    "daemon_peak_rss_kib": 262282.0,
+    "daemon_warm_peak_rss_kib": 36536.0
+  },
+  "candidate": {
+    "wall_ms": 1030.4660595,
+    "cli_peak_rss_kib": 43482.0,
+    "daemon_peak_rss_kib": 110444.0,
+    "daemon_warm_peak_rss_kib": 35482.0
+  }
+}

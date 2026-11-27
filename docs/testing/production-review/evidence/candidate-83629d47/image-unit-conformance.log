@@ -1,0 +1,67 @@
+$ cargo test --offline --locked --manifest-path plugins/image-dehaze/Cargo.toml
+    Finished `test` profile [unoptimized] target(s) in 0.13s
+     Running unittests src/lib.rs (plugins/image-dehaze/target/debug/deps/entangle_image_dehaze-099270268e487091)
+
+running 7 tests
+test tests::enforces_wire_and_image_budgets_before_decoding ... ok
+test tests::preserves_geometry_and_emits_linear_rgb16_png ... ok
+test tests::rejects_unsupported_or_malformed_input ... ok
+test tests::ranks_dark_channel_and_brightness_ties_in_row_major_order ... ok
+test tests::removes_constructed_haze ... ok
+test tests::fixed_atmosphere_with_halo_matches_whole_image ... ok
+test tests::compares_to_slow_reference_at_borders_and_zero_atmosphere ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+   Doc-tests entangle_image_dehaze
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+$ cargo test --offline --locked -p entangle-cli --bin entangle cmd::image_raw::tests::libraw_camera_samples -- --exact --ignored --nocapture
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+   Compiling biscuit-auth v7.0.0-alpha.4
+   Compiling entangle-host v0.1.0 (/workspace/Entanglement/crates/entangle-host)
+   Compiling entangle-biscuits v0.1.0 (/workspace/Entanglement/crates/entangle-biscuits)
+   Compiling entangle-signing v0.1.0 (/workspace/Entanglement/crates/entangle-signing)
+   Compiling entangle-broker v0.1.0 (/workspace/Entanglement/crates/entangle-broker)
+   Compiling entangle-mesh-iroh v0.1.0 (/workspace/Entanglement/crates/entangle-mesh-iroh)
+   Compiling entangle-runtime v0.1.0 (/workspace/Entanglement/crates/entangle-runtime)
+   Compiling entangle-oci v0.1.0 (/workspace/Entanglement/crates/entangle-oci)
+   Compiling entangle-pairing v0.1.0 (/workspace/Entanglement/crates/entangle-pairing)
+   Compiling entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+   Compiling entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+    Finished `test` profile [unoptimized] target(s) in 2m 27s
+     Running unittests src/main.rs (target/debug/deps/entangle-9e879356242a4b8e)
+
+running 1 test
+test cmd::image_raw::tests::libraw_camera_samples ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 62 filtered out; finished in 3.08s
+
+$ cargo +1.91.1 test --offline --locked --release --manifest-path /tmp/entangle-raster-conformance/Cargo.toml -- --nocapture
+   Compiling entangle-raster-conformance v0.1.0 (/tmp/entangle-raster-conformance)
+    Finished `release` profile [optimized] target(s) in 4.58s
+     Running unittests src/lib.rs (/tmp/entangle-raster-conformance/target/release/deps/entangle_raster_conformance-2ca2c6663e650338)
+
+running 5 tests
+test image_raster::tests::raw_boundary_preserves_binary_prefix_and_rejects_unsupported_ranges ... ok
+test image_raster::tests::guest_tile_requires_expected_profile_geometry_and_complete_unique_grid ... ok
+test image_raster::tests::full_frame_dark_channel_ranks_match_naive_oracle_with_borders_and_ties ... ok
+test image_raster::tests::haloed_tiles_stitch_exactly_to_full_frame_reference_in_any_completion_order ... ok
+1033x1035 tile edge=512 tiles=9 global RGB=[40000, 30000, 20000], full 16-bit raster equality
+1033x1035 tile edge=1024 tiles=4 global RGB=[40000, 30000, 20000], full 16-bit raster equality
+test interoperability::native_guest_matches_whole_full_frame_through_host_tiles ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.61s
+
+   Doc-tests entangle_raster_conformance
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

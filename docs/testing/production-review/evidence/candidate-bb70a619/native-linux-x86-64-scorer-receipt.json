@@ -1,0 +1,10 @@
+{
+  "source_before": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "source_after": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "started_utc": "2026-11-27T04:53:06+00:00",
+  "finished_utc": "2026-11-27T04:53:21+00:00",
+  "exit_code": 0,
+  "sha256": "27781a7d980842f6ece435c5d937c5634647642b348a108b0f6c36d47d10e2fb",
+  "log": "docs/testing/production-review/evidence/candidate-bb70a619/native-linux-x86-64.log",
+  "command": "target/catalog-smoke-python/bin/python scripts/tests/native-release.py x86_64-unknown-linux-gnu target/release /workspace/Entanglement/docs/testing/production-review/evidence/candidate-bb70a619/native-linux-release.json"
+}

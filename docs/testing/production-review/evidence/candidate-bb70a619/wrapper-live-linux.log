@@ -1,0 +1,5 @@
+WRP-1 interactive authenticated installer and ordinary shell startup passed for Bash, Zsh and Fish.
+WRP-3 bash {'working': (0, False), 'unloaded-marker-cleared': (1, True), 'marker-inherited-command-only': (1, True), 'later-function': (1, True), 'later-alias': (1, True)}
+WRP-3 zsh {'working': (0, False), 'unloaded-marker-cleared': (1, True), 'marker-inherited-command-only': (1, True), 'later-function': (1, True), 'later-alias': (1, True)}
+WRP-3 fish {'working': (0, False), 'unloaded-marker-cleared': (1, True), 'marker-inherited-command-only': (1, True), 'later-function': (1, True), 'later-alias': (1, True)}
+Receipt SHA-256 e88402f8171238e9cb52f6b544936e5afe99fd6b5a9c5e1c68458618384d6f30
