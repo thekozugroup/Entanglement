@@ -1,0 +1,21 @@
+{
+  "purpose": "test-only reproducibility fixture",
+  "git_source_url": "https://github.com/thekozugroup/Entanglement.git",
+  "git_source_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+  "plugin_project": "examples/hello-world",
+  "plugin_id": "c2832e3b6281ffd3167449d22e8ab92b/hello-world@0.1.0",
+  "archive_sha256": "d84bb949cbc54643a1e91348f6e3ce51c1b08720b9cb497d7c8acb33428627f5",
+  "signature_sha256": "12001d4c3e8badf88dcf05f49952f1caa01dab779cedeea0d4f9b1e352ffeb33",
+  "test_publisher_public_key_hex": "859b26573d0e6cd28ac51808d99bdf35a12a3d29194f756faf2c3b981fb25e62",
+  "locked_fixture_provenance": {
+    "version": 1,
+    "source_url": "https://github.com/thekozugroup/Entanglement.git",
+    "source_commit": "864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2",
+    "project": "examples/hello-world",
+    "source_date_epoch": 1795747307,
+    "rust_toolchain": "1.91.1",
+    "lock_sha256": "f39de25a8789fe8c9b12e2b86c1f334223210aafc2ec8598d2a0c7055b8edea1",
+    "zstd_version": "1.6.0",
+    "zstd_threads": 1
+  }
+}
