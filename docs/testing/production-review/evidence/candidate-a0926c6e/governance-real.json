@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "scripts/check-release-governance.py"
+  ],
+  "started_utc": "2026-11-27T05:58:50.982293+00:00",
+  "finished_utc": "2026-11-27T05:58:51.086188+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "exit_code": 1,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/governance-real.log",
+  "sha256": "81f1a12437ebae26e8ca5cb871679793d1fcd5d5dc07645ee2a8832c1425b92d"
+}

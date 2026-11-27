@@ -1,0 +1,26 @@
+{
+  "reviewer": "/root/tailroute",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "started_utc": "2026-11-27T06:15:42.409196+00:00",
+  "finished_utc": "2026-11-27T06:15:57.180478+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "docs/testing/production-review/evidence/candidate-bb70a619/repeat-publisher-incident.py",
+    "--source-id",
+    "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+    "--archive",
+    "target/release-candidate/a0926c6ef347/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+  ],
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/publisher-incident-exercise.md",
+  "sha256": "3c6ffb65736602dec87f0fabcbd02329efa34f54e0a4d930fa290903df4fcf62",
+  "archive_sha256": "3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1",
+  "driver_sha256": "f5fa8d678f46862e8b6423ba8be2015948ad5dc1a0b8dd9954d585a2b3cfb56b",
+  "binary_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  }
+}

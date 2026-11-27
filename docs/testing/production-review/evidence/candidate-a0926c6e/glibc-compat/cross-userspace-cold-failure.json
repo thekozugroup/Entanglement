@@ -1,0 +1,19 @@
+{
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "archive_sha256": "7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc",
+  "exit_code": 1,
+  "error": "initial dispatch failed: 1 error: rpc -32000: dispatch error: placement: no live workers in pool",
+  "coordinator": "Ubuntu 22.04",
+  "worker": "Debian 12",
+  "last_control": "prior pre-load dispatch reported no live workers; it did not independently establish a successful authenticated capability exchange or running job",
+  "worker_listener_utc": "2026-11-27T06:22:59.890Z",
+  "worker_plugin_registered_utc": "2026-11-27T06:23:00.369Z",
+  "worker_shutdown_utc": "2026-11-27T06:23:03.430Z",
+  "timing_scope": "Original runner did not persist an exact monotonic RPC duration on failure. Registration to shutdown bounds command plus teardown at 3.061 seconds; later separately instrumented runs record true call times.",
+  "sha256": {
+    "cross-jammy-daemon.log": "a872baa7dc80afdfcda2d772f1c3a346c85701f75dfe1d6f26652da179599e92",
+    "cross-bookworm-daemon.log": "278221ee75fe45e33bcc5c1c52c7f5f3097cf2d63cb13c01e3276afa5a397e69",
+    "cross-userspace.py": "0a0f198bfb3e6d9652a52bb7b74599e0b94fcd83d0497f15ba606231834d3525"
+  }
+}

@@ -1,0 +1,7 @@
+Release governance check failed
+- core-runtime-lead needs two named holders (found 1)
+- mesh-lead needs two named holders (found 1)
+- agent-lead needs two named holders (found 1)
+- security-lead needs two named holders (found 1)
+- release-lead needs two named holders (found 1)
+- docs/governance/rotations.md is missing (architecture §12.1)

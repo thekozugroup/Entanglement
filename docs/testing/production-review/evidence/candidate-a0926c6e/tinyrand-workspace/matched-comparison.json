@@ -1,0 +1,92 @@
+{
+  "study": "single descriptive end-to-end workload pair",
+  "candidate_refs": [
+    "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+    "a0926c6ef3471aad01cedd256028437b249ef747"
+  ],
+  "report_sha256": [
+    "bf79c971ea91d0415924437bf42c637add14e01f2fdf860e3db0ab6beed72257",
+    "c3c41392174de9a7343df0732b9cb7911587d2b701571a256b42a2734054acc6"
+  ],
+  "input_checks": {
+    "upstream_commit": true,
+    "dependency_lock_sha256": true,
+    "driver_sha256": true,
+    "sharder_sha256": true,
+    "rustdoc_observer_sha256": true,
+    "command": true,
+    "prebuilt_ordinary_components": true,
+    "generated_standalone_doctest_components": true,
+    "fresh_distinct_worker_pairs": true,
+    "native_log": true
+  },
+  "named_status_differences": [],
+  "baseline_counts": {
+    "ordinary": {
+      "passed": 97,
+      "ignored": 7
+    },
+    "rustdoc": {
+      "passed": 27
+    }
+  },
+  "successor_counts": {
+    "ordinary": {
+      "passed": 97,
+      "ignored": 7
+    },
+    "rustdoc": {
+      "passed": 27
+    }
+  },
+  "native_to_distributed_difference_counts": [
+    7,
+    7
+  ],
+  "phase_elapsed": {
+    "cluster_setup": {
+      "baseline_s": 6.22926259399901,
+      "successor_s": 62.59649473899481,
+      "baseline_over_successor": 0.09951455940101482
+    },
+    "cargo_command": {
+      "baseline_s": 405.89283296899885,
+      "successor_s": 92.42988990100275,
+      "baseline_over_successor": 4.391359044176417
+    },
+    "ordinary_targets": {
+      "baseline_s": 0.715833936999843,
+      "successor_s": 6.3852333030008595,
+      "baseline_over_successor": 0.11210771839196909
+    },
+    "host_rustdoc_targets": {
+      "baseline_s": 403.3115072310029,
+      "successor_s": 75.77839706899249,
+      "baseline_over_successor": 5.322249121524802
+    },
+    "standalone_guest_ready_and_dispatch": {
+      "baseline_s": 383.4960775960026,
+      "successor_s": 2.334214107984735,
+      "baseline_over_successor": 164.29344518318302
+    }
+  },
+  "workload_load_context": [
+    {
+      "started_utc": "2026-11-27T05:46:31Z",
+      "finished_utc": "2026-11-27T05:53:17Z",
+      "loadavg_before": "1.05 0.46 0.98 1/804 725727",
+      "loadavg_after": "7.94 3.55 1.97 11/1010 738891",
+      "cgroup_cpu_before": "usage_usec 56855707759\nuser_usec 48110041109\nsystem_usec 8745666650\nnice_usec 0\nnr_periods 214156\nnr_throttled 90716\nthrottled_usec 6649475233\nnr_bursts 0\nburst_usec 0\n",
+      "cgroup_cpu_after": "usage_usec 57634970490\nuser_usec 48742094139\nsystem_usec 8892876351\nnice_usec 0\nnr_periods 218092\nnr_throttled 92225\nthrottled_usec 6778085586\nnr_bursts 0\nburst_usec 0\n"
+    },
+    {
+      "started_utc": "2026-11-27T06:17:08Z",
+      "finished_utc": "2026-11-27T06:18:40Z",
+      "loadavg_before": "12.87 8.06 6.12 22/1195 787612",
+      "loadavg_after": "25.25 15.52 9.29 19/1188 796949",
+      "cgroup_cpu_before": "usage_usec 62683656095\nuser_usec 53184374003\nsystem_usec 9499282092\nnice_usec 0\nnr_periods 231367\nnr_throttled 104319\nthrottled_usec 7912510811\nnr_bursts 0\nburst_usec 0\n",
+      "cgroup_cpu_after": "usage_usec 63299098557\nuser_usec 53658865449\nsystem_usec 9640233107\nnice_usec 0\nnr_periods 232912\nnr_throttled 105826\nthrottled_usec 8052300568\nnr_bursts 0\nburst_usec 0\n"
+    }
+  ],
+  "scope": "Fresh authenticated loopback workers on one shared Linux VM during qualification. No throughput SLA or causal confidence interval is estimated from a single pair. Rustdoc phase already includes the standalone dispatch time."
+}

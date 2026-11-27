@@ -1,0 +1,19 @@
+{
+  "compiler": "rustc 1.91.1 (ed61e7d7e 2025-11-07)\nbinary: rustc\ncommit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb\ncommit-date: 2025-11-07\nhost: x86_64-unknown-linux-gnu\nrelease: 1.91.1\nLLVM version: 21.1.2\n",
+  "tokio": "1.54.1",
+  "release_tokio_box_threshold": 16384,
+  "builds": {
+    "baseline": {
+      "revision": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+      "compiler_layout_full_sha256": "a46dfe3509d22f9f256cab4ac342bbf5559df2683f0b574de3504fe15a783cb6",
+      "server_blob": "388d6aedcd7e589ee2a6f9f522e7d9aeb3beef79",
+      "scheduler_blob": "33cb1c27f6b24d2778f54b19fdb53de5b74a2a4a"
+    },
+    "candidate": {
+      "revision": "a0926c6ef3471aad01cedd256028437b249ef747",
+      "compiler_layout_full_sha256": "1dec96ee8ab1f41d99f6bdd9152fdcedbd103dc5f07bdb929590ad7848fd0d00",
+      "server_blob": "388d6aedcd7e589ee2a6f9f522e7d9aeb3beef79",
+      "scheduler_blob": "b654964725b3845d3e99e2fe0ad03eec87d4b27d"
+    }
+  }
+}

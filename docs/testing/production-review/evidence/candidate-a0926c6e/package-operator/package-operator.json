@@ -1,0 +1,352 @@
+{
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /tmp/entangle-final-package-operator.py --candidate-root /workspace/Entanglement --cargo-entangle /workspace/Entanglement/target/release/cargo-entangle --output docs/testing/production-review/evidence/candidate-a0926c6e/package-operator --expected-source sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "started_at_utc": "2026-11-27T06:15:43+00:00",
+  "host": {
+    "kernel": "6.18.57",
+    "os": "Linux",
+    "arch": "x86_64"
+  },
+  "binary": "/workspace/Entanglement/target/release/cargo-entangle",
+  "binary_before": "c1315d894fa70143014b6e553270ed9cca4c517ffc32e0cd1b7a7ed9c5eba59c",
+  "candidate_lock_sha256": "2ea7955d2dd3a3b91c6a31832d1ea0d0bef4613d8bbce8083cce56675dded0d9",
+  "explicit_env": {
+    "CARGO_HOME": "/workspace/.entanglement-dev/cargo",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_NET_OFFLINE": null,
+    "RUSTUP_HOME": "/workspace/.entanglement-dev/rustup",
+    "RUSTUP_TOOLCHAIN": null
+  },
+  "stages": [
+    {
+      "name": "Source before the suite",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/production_score.py",
+        "--source-id"
+      ],
+      "cwd": "/workspace/Entanglement",
+      "exit_code": 0
+    },
+    {
+      "name": "Frozen Git commit",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/workspace/Entanglement",
+      "exit_code": 0
+    },
+    {
+      "name": "Git source timestamp",
+      "argv": [
+        "git",
+        "show",
+        "-s",
+        "--format=%ct",
+        "a0926c6ef3471aad01cedd256028437b249ef747"
+      ],
+      "cwd": "/workspace/Entanglement",
+      "exit_code": 0
+    },
+    {
+      "name": "Tool version",
+      "argv": [
+        "cargo",
+        "-Vv"
+      ],
+      "cwd": "/workspace/Entanglement",
+      "exit_code": 0
+    },
+    {
+      "name": "Tool version",
+      "argv": [
+        "rustc",
+        "-Vv"
+      ],
+      "cwd": "/workspace/Entanglement",
+      "exit_code": 0
+    },
+    {
+      "name": "Tool version",
+      "argv": [
+        "git",
+        "--version"
+      ],
+      "cwd": "/workspace/Entanglement",
+      "exit_code": 0
+    },
+    {
+      "name": "Tool version",
+      "argv": [
+        "zstd",
+        "--version"
+      ],
+      "cwd": "/workspace/Entanglement",
+      "exit_code": 0
+    },
+    {
+      "name": "Tool version",
+      "argv": [
+        "openssl",
+        "version"
+      ],
+      "cwd": "/workspace/Entanglement",
+      "exit_code": 0
+    },
+    {
+      "name": "Cargo resolves the candidate subcommand",
+      "argv": [
+        "cargo",
+        "entangle",
+        "--version"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Clone frozen source",
+      "argv": [
+        "git",
+        "clone",
+        "--no-local",
+        "--no-checkout",
+        "--",
+        "/workspace/Entanglement",
+        "/tmp/entangle final signed package lr1k24bh/first source checkout"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Check out exact candidate commit",
+      "argv": [
+        "git",
+        "checkout",
+        "--detach",
+        "a0926c6ef3471aad01cedd256028437b249ef747"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh/first source checkout",
+      "exit_code": 0
+    },
+    {
+      "name": "Clone frozen source",
+      "argv": [
+        "git",
+        "clone",
+        "--no-local",
+        "--no-checkout",
+        "--",
+        "/workspace/Entanglement",
+        "/tmp/entangle final signed package lr1k24bh/independent rebuild checkout"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Check out exact candidate commit",
+      "argv": [
+        "git",
+        "checkout",
+        "--detach",
+        "a0926c6ef3471aad01cedd256028437b249ef747"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh/independent rebuild checkout",
+      "exit_code": 0
+    },
+    {
+      "name": "Generate ephemeral fixture publisher",
+      "argv": [
+        "openssl",
+        "genpkey",
+        "-algorithm",
+        "Ed25519",
+        "-out",
+        "/tmp/entangle final signed package lr1k24bh/ephemeral publisher.pem"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Derive fixture verifying key",
+      "argv": [
+        "openssl",
+        "pkey",
+        "-in",
+        "/tmp/entangle final signed package lr1k24bh/ephemeral publisher.pem",
+        "-pubout",
+        "-out",
+        "/tmp/entangle final signed package lr1k24bh/publisher public.pem"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Read verifying key bytes",
+      "argv": [
+        "openssl",
+        "pkey",
+        "-pubin",
+        "-in",
+        "/tmp/entangle final signed package lr1k24bh/publisher public.pem",
+        "-outform",
+        "DER"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Package pinned hello-world source in a clean build",
+      "argv": [
+        "cargo",
+        "entangle",
+        "package",
+        "/tmp/entangle final signed package lr1k24bh/first source checkout/examples/hello-world",
+        "--source-url",
+        "https://github.com/thekozugroup/Entanglement.git",
+        "--key",
+        "/tmp/entangle final signed package lr1k24bh/ephemeral publisher.pem",
+        "--out",
+        "/tmp/entangle final signed package lr1k24bh/first package.tar.zst"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Package pinned hello-world source in a clean build",
+      "argv": [
+        "cargo",
+        "entangle",
+        "package",
+        "/tmp/entangle final signed package lr1k24bh/first source checkout/examples/hello-world",
+        "--source-url",
+        "https://github.com/thekozugroup/Entanglement.git",
+        "--key",
+        "/tmp/entangle final signed package lr1k24bh/ephemeral publisher.pem",
+        "--out",
+        "/tmp/entangle final signed package lr1k24bh/second package.tar.zst"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Decompress for archive layout inspection",
+      "argv": [
+        "zstd",
+        "-dc",
+        "--",
+        "/tmp/entangle final signed package lr1k24bh/first package.tar.zst"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Sign the compressed archive",
+      "argv": [
+        "cargo",
+        "entangle",
+        "sign",
+        "/tmp/entangle final signed package lr1k24bh/first package.tar.zst",
+        "--key",
+        "/tmp/entangle final signed package lr1k24bh/ephemeral publisher.pem"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Independently verify detached Ed25519 over archive SHA-256",
+      "argv": [
+        "openssl",
+        "pkeyutl",
+        "-verify",
+        "-pubin",
+        "-inkey",
+        "/tmp/entangle final signed package lr1k24bh/publisher public.pem",
+        "-sigfile",
+        "/tmp/entangle final signed package lr1k24bh/first package.tar.zst.sig",
+        "-rawin",
+        "-in",
+        "/tmp/entangle final signed package lr1k24bh/archive digest.bin"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Rebuild from an independently checked-out source",
+      "argv": [
+        "cargo",
+        "entangle",
+        "verify",
+        "--rebuild",
+        "/tmp/entangle final signed package lr1k24bh/first package.tar.zst",
+        "--keyring",
+        "/tmp/entangle final signed package lr1k24bh/fixture keyring.toml",
+        "--source",
+        "/tmp/entangle final signed package lr1k24bh/independent rebuild checkout"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 0
+    },
+    {
+      "name": "Reject tampering before resolving source",
+      "argv": [
+        "cargo",
+        "entangle",
+        "verify",
+        "--rebuild",
+        "/tmp/entangle final signed package lr1k24bh/first package.tar.zst",
+        "--keyring",
+        "/tmp/entangle final signed package lr1k24bh/fixture keyring.toml",
+        "--source",
+        "/tmp/entangle final signed package lr1k24bh/nonexistent source"
+      ],
+      "cwd": "/tmp/entangle final signed package lr1k24bh",
+      "exit_code": 1
+    },
+    {
+      "name": "Source after the suite",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "scripts/production_score.py",
+        "--source-id"
+      ],
+      "cwd": "/workspace/Entanglement",
+      "exit_code": 0
+    }
+  ],
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "serial_archive_sha256": [
+    "0fc9d8e50a71bd8949e67a6794c1a4d92c237b70584f7e6a57f4b4e07a3d949c",
+    "0fc9d8e50a71bd8949e67a6794c1a4d92c237b70584f7e6a57f4b4e07a3d949c"
+  ],
+  "archive_entry_sha256": {
+    "entangle.toml": "2acdf0c794166cfff51c509af9c275b46a8b75e77a782861d75321954581cbd5",
+    "plugin.wasm": "163fcf6985680660fcce7d30027ff6a013f32575bf5c2e8752d3492e9b3d01bc",
+    "plugin.wasm.sig": "72c47ebfae88452d12ce6e67321acd773cd9d39e2117cfef79fbdecf543cce05",
+    "rebuild.json": "2dd205535bc5962d62750ce28ba6da5eb263f18a7c1bd728c442c7fd5f4e057a"
+  },
+  "plugin_id": "01c7215b40d5070be76c4dae597b69e4/hello-world@0.1.0",
+  "provenance": {
+    "version": 1,
+    "source_url": "https://github.com/thekozugroup/Entanglement.git",
+    "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+    "project": "examples/hello-world",
+    "source_date_epoch": 1795759111,
+    "rust_toolchain": "1.91.1",
+    "lock_sha256": "f39de25a8789fe8c9b12e2b86c1f334223210aafc2ec8598d2a0c7055b8edea1",
+    "zstd_version": "1.6.0",
+    "zstd_threads": 1
+  },
+  "detached_signature_sha256": "bd4414457fab6821dcb623f21d2073f14c63b4bef38fabd9633ff1847b8131dc",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "binary_after": "c1315d894fa70143014b6e553270ed9cca4c517ffc32e0cd1b7a7ed9c5eba59c",
+  "source_matches": true,
+  "binary_matches": true,
+  "path": "docs/testing/production-review/evidence/candidate-a0926c6e/package-operator/package-operator.log",
+  "sha256": "ff5ff55d7dfc37b8248f7b8d70698dfe2ee10c7cc13db7ac580e102a3a5d2e66",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "exit_code": 0,
+  "observed_at_utc": "2026-11-27T06:21:15+00:00",
+  "claim": "Linux serial reproducibility and authenticated rebuild from an independent checkout with the final candidate operator binary and Git commit."
+}

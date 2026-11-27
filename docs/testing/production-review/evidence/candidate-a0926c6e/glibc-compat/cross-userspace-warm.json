@@ -1,0 +1,270 @@
+{
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "archive_sha256": "7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc",
+  "wasm_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+  "started_utc": "2026-11-27T06:25:05.231591+00:00",
+  "finished_utc": "2026-11-27T06:25:20.257124+00:00",
+  "scope": "two rootless amd64 Linux containers on one physical host, direct authenticated Iroh on an isolated bridge",
+  "network": {
+    "name": "ent-warm-3a347a3540",
+    "id": "9da86d926ba5c0112e219d7ba3de022c057489d309e5afec556e67df3b73fdde",
+    "internal": true,
+    "options": {
+      "com.docker.network.bridge.enable_ip_masquerade": "false"
+    }
+  },
+  "nodes": {
+    "jammy": {
+      "image": [
+        "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb"
+      ],
+      "container": "6ae25b113aa7cb8d95305f7cb0ab854e9a6080695f008a04d8349785a12aab38",
+      "ip": "172.18.0.2",
+      "published_ports": {},
+      "version": "22.04",
+      "glibc": "2.35",
+      "kernel_ipv4_routes": "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT                                                       \neth0\t000012AC\t00000000\t0001\t0\t0\t0\t0000FFFF\t0\t0\t0",
+      "executables": {
+        "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+        "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2"
+      },
+      "public": "f965b4d5c2af1bfbf63f0eb62ae02a8b2375ec198b38c335ce0301fbfd9bcda6",
+      "plugin": "fe82eb9c7abe9b63ef470b325b220c31/hello-world@0.1.0",
+      "peer": "fe82eb9c7abe9b63ef470b325b220c31",
+      "baseline": "fe82eb9c7abe9b63ef470b325b220c31/warm-control@0.1.0",
+      "config": "[mesh]\ntransports=[\"iroh\"]\nmulti_node=true\n[scheduler]\nrelay=false\nbind=\"172.18.0.2:7443\"\npeers=[\"cacb2f08b03191583e4aacb897e8541d2fd89ee86b18477978b4c146eaf36051@172.18.0.3:7443\"]\n",
+      "initial_mesh_status": {
+        "local_peer_id": "fe82eb9c7abe9b63ef470b325b220c31",
+        "local_display_name": "6ae25b113aa7",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "ready_utc": "2026-11-27T06:25:14.013402+00:00",
+      "graceful_exit": 0
+    },
+    "bookworm": {
+      "image": [
+        "debian@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e"
+      ],
+      "container": "8853a2aaf0406f7592059d7eccc949e2bfb3f365275f5b4eecb76b4f6f21f3df",
+      "ip": "172.18.0.3",
+      "published_ports": {},
+      "version": "12",
+      "glibc": "2.36",
+      "kernel_ipv4_routes": "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT                                                       \neth0\t000012AC\t00000000\t0001\t0\t0\t0\t0000FFFF\t0\t0\t0",
+      "executables": {
+        "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+        "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2"
+      },
+      "public": "cacb2f08b03191583e4aacb897e8541d2fd89ee86b18477978b4c146eaf36051",
+      "plugin": "44152bd01f23f246c2d30e3601c8892b/hello-world@0.1.0",
+      "peer": "44152bd01f23f246c2d30e3601c8892b",
+      "baseline": "44152bd01f23f246c2d30e3601c8892b/warm-control@0.1.0",
+      "config": "[mesh]\ntransports=[\"iroh\"]\nmulti_node=true\n[scheduler]\nrelay=false\nbind=\"172.18.0.3:7443\"\npeers=[\"f965b4d5c2af1bfbf63f0eb62ae02a8b2375ec198b38c335ce0301fbfd9bcda6@172.18.0.2:7443\"]\n",
+      "initial_mesh_status": {
+        "local_peer_id": "44152bd01f23f246c2d30e3601c8892b",
+        "local_display_name": "8853a2aaf040",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "ready_utc": "2026-11-27T06:25:14.305195+00:00",
+      "graceful_exit": 0
+    }
+  },
+  "dispatches": [
+    {
+      "bootstrap_control": [
+        {
+          "role": "jammy",
+          "worker": "bookworm",
+          "input": "485e28028a76e4bdd4534f60e67654e0",
+          "output": "Hello, 485e28028a76e4bdd4534f60e67654e0!",
+          "stderr": "Chosen: 44152bd01f23f246c2d30e3601c8892b (score=1.60)\nReason: fit ok, rtt=1004ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+          "exit": 0,
+          "elapsed_s": 0.0791,
+          "start_utc": "2026-11-27T06:25:14.898931+00:00",
+          "start_since_both_listeners_ready_s": 0.5934,
+          "end_since_both_listeners_ready_s": 0.6725
+        }
+      ],
+      "baseline_sole_inventory": [
+        "44152bd01f23f246c2d30e3601c8892b/warm-control@0.1.0"
+      ],
+      "worker_completions_before": 1,
+      "worker_completions_after": 2,
+      "worker_initial_inventory": {
+        "plugins": []
+      },
+      "coordinator": "jammy",
+      "worker": "bookworm",
+      "coordinator_inventory": {
+        "plugins": []
+      },
+      "worker_inventory": {
+        "plugins": [
+          "44152bd01f23f246c2d30e3601c8892b/hello-world@0.1.0"
+        ]
+      },
+      "command": [
+        "docker",
+        "exec",
+        "6ae25b113aa7cb8d95305f7cb0ab854e9a6080695f008a04d8349785a12aab38",
+        "/candidate/entangle",
+        "compute",
+        "dispatch",
+        "44152bd01f23f246c2d30e3601c8892b/hello-world@0.1.0",
+        "--raw",
+        "--input",
+        "7ae92587145aaa877609f57495d34bb5",
+        "--timeout-ms",
+        "5000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "44152bd01f23f246c2d30e3601c8892b"
+      ],
+      "input": "7ae92587145aaa877609f57495d34bb5",
+      "expected": "Hello, 7ae92587145aaa877609f57495d34bb5!",
+      "actual": "Hello, 7ae92587145aaa877609f57495d34bb5!",
+      "selected_peer": "44152bd01f23f246c2d30e3601c8892b",
+      "expected_peer": "44152bd01f23f246c2d30e3601c8892b",
+      "cli_diagnostic": "Chosen: 44152bd01f23f246c2d30e3601c8892b (score=2.18)\nReason: fit ok, rtt=10ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "elapsed_s": 0.3459,
+      "retries": []
+    },
+    {
+      "bootstrap_control": [
+        {
+          "role": "bookworm",
+          "worker": "jammy",
+          "input": "48dca7d8dff5525ff61d0ad747d2fc81",
+          "output": "Hello, 48dca7d8dff5525ff61d0ad747d2fc81!",
+          "stderr": "Chosen: fe82eb9c7abe9b63ef470b325b220c31 (score=2.19)\nReason: fit ok, rtt=7ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+          "exit": 0,
+          "elapsed_s": 0.1371,
+          "start_utc": "2026-11-27T06:25:16.936878+00:00",
+          "start_since_both_listeners_ready_s": 2.6314,
+          "end_since_both_listeners_ready_s": 2.7685
+        }
+      ],
+      "baseline_sole_inventory": [
+        "fe82eb9c7abe9b63ef470b325b220c31/warm-control@0.1.0"
+      ],
+      "worker_completions_before": 1,
+      "worker_completions_after": 2,
+      "worker_initial_inventory": {
+        "plugins": []
+      },
+      "coordinator": "bookworm",
+      "worker": "jammy",
+      "coordinator_inventory": {
+        "plugins": []
+      },
+      "worker_inventory": {
+        "plugins": [
+          "fe82eb9c7abe9b63ef470b325b220c31/hello-world@0.1.0"
+        ]
+      },
+      "command": [
+        "docker",
+        "exec",
+        "8853a2aaf0406f7592059d7eccc949e2bfb3f365275f5b4eecb76b4f6f21f3df",
+        "/candidate/entangle",
+        "compute",
+        "dispatch",
+        "fe82eb9c7abe9b63ef470b325b220c31/hello-world@0.1.0",
+        "--raw",
+        "--input",
+        "2dba77ba30f29ee5e0c49c5e31d9d030",
+        "--timeout-ms",
+        "5000",
+        "--cpu-cores",
+        "0.01",
+        "--integrity",
+        "trusted-executor",
+        "--allow",
+        "fe82eb9c7abe9b63ef470b325b220c31"
+      ],
+      "input": "2dba77ba30f29ee5e0c49c5e31d9d030",
+      "expected": "Hello, 2dba77ba30f29ee5e0c49c5e31d9d030!",
+      "actual": "Hello, 2dba77ba30f29ee5e0c49c5e31d9d030!",
+      "selected_peer": "fe82eb9c7abe9b63ef470b325b220c31",
+      "expected_peer": "fe82eb9c7abe9b63ef470b325b220c31",
+      "cli_diagnostic": "Chosen: fe82eb9c7abe9b63ef470b325b220c31 (score=2.18)\nReason: fit ok, rtt=12ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+      "elapsed_s": 1.5072,
+      "retries": []
+    }
+  ],
+  "cleanup": [
+    {
+      "command": [
+        "docker",
+        "exec",
+        "8853a2aaf0406f7592059d7eccc949e2bfb3f365275f5b4eecb76b4f6f21f3df",
+        "sh",
+        "-ec",
+        "kill -TERM \"$(cat /tmp/daemon.pid)\""
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "exec",
+        "6ae25b113aa7cb8d95305f7cb0ab854e9a6080695f008a04d8349785a12aab38",
+        "sh",
+        "-ec",
+        "kill -TERM \"$(cat /tmp/daemon.pid)\""
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "rm",
+        "-f",
+        "8853a2aaf0406f7592059d7eccc949e2bfb3f365275f5b4eecb76b4f6f21f3df"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "rm",
+        "-f",
+        "6ae25b113aa7cb8d95305f7cb0ab854e9a6080695f008a04d8349785a12aab38"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "network",
+        "rm",
+        "ent-warm-3a347a3540"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    }
+  ],
+  "daemon_log_sha256": {
+    "jammy": "ad2fa88931955d428d5f785f8ea0f5847de4cba09cdb10b0840bf3a56ebf423d",
+    "bookworm": "368f85b08b907b3edcfa6759d5c55fdf68017ce05b27eaba8d7db271876171af"
+  },
+  "exit_code": 0
+}

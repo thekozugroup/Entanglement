@@ -1,0 +1,25 @@
+{
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "started_utc": "2026-11-27T06:19:50.369903+00:00",
+  "finished_utc": "2026-11-27T06:20:14.569826+00:00",
+  "reviewer": "/root/tailroute",
+  "command": [
+    "readelf --dyn-syms --wide <archive binary>",
+    "docker run --rm --pull=never --network none --read-only --cap-drop ALL --security-opt no-new-privileges --mount type=bind,source=<archive binaries>,target=/archive,readonly <pinned image id> /bin/sh -c <read OS and GNU libc version then launch each --version>"
+  ],
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/canonical-linux-userlands.json",
+  "sha256": "738bd42a58faf702f84f29c8b0d21ab348a8fb34d2744565652adecac5e41396",
+  "archive_receipt_sha256": "24079462185cc164b5f7311b8164c547eb1e19709d678d9307bff38bd269a953",
+  "archive_sha256": "3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1",
+  "host_native_receipt_sha256": "86fafb22e2ab96b2b25c630117ae1025960f94a1ef0b23e3929c131eaf072f2c",
+  "binary_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "tested_userlands": 4,
+  "both_binaries_ran": 2
+}

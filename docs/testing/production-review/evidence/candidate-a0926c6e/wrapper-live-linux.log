@@ -1,0 +1,23 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/wrapper-live.py", line 207, in <module>
+    main()
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/wrapper-live.py", line 183, in main
+    obs=shell_run(sh,home,env,body,args.fish_tree)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/wrapper-live.py", line 109, in shell_run
+    return run(argv,os.environ,check=False)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/wrapper-live.py", line 35, in run
+    p = subprocess.run(list(map(str,cmd)), env=env, capture_output=True, timeout=timeout, text=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 550, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 1209, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 2116, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 1253, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '['docker', 'run', '--rm', '--pull=never', '--network=none', '--read-only', '--cap-drop=ALL', '--user', '1000:1000', '--tmpfs', '/tmp:rw,mode=1777', '-v', '/tmp/ent-wrapper-9m_519dt/fish:/tmp/ent-wrapper-9m_519dt/fish:rw', '-v', '/tmp/entangle-fish-check/extract/usr/bin/fish:/usr/bin/fish:ro', '-v', '/tmp/entangle-fish-check/extract/usr/share/fish:/usr/share/fish:ro', '-v', '/lib/x86_64-linux-gnu/libpcre2-32.so.0:/lib/x86_64-linux-gnu/libpcre2-32.so.0:ro', '-e', 'HOME=/tmp/ent-wrapper-9m_519dt/fish', '-e', 'XDG_CONFIG_HOME=/tmp/ent-wrapper-9m_519dt/fish/.config', '-e', 'SHELL=/usr/bin/fish', '-e', 'PATH=/tmp/ent-wrapper-9m_519dt/fish/bin:/usr/bin:/bin', '-e', 'TERM=xterm', 'debian:trixie-slim', 'fish', '-ic', "functions -e claude-code\nset -e ENTANGLE_WRAPPER_ACTIVE\necho marker=$ENTANGLE_WRAPPER_ACTIVE\ntype -t claude-code\neval 'claude-code --version'\necho dispatch-exit=$status\nentangle doctor"]' timed out after 12 seconds

@@ -1,0 +1,10 @@
+{
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "started_utc": "2026-11-27T06:01:34+00:00",
+  "finished_utc": "2026-11-27T06:01:36+00:00",
+  "exit_code": 0,
+  "sha256": "fa5a749893eb2514c46f9e3612c37f93bdb6629cb9baa85e4e1f269258332595",
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/deny-docs-testing-production-review-evidence-candidate-864ae27b-wasi-fs-conformance-fs-probe.log.gz",
+  "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/dependency-policy.toml advisories bans licenses sources"
+}

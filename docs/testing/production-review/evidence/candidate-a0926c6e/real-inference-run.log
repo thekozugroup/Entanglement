@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/verify.py", line 220, in <module>
+    main()
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/verify.py", line 206, in main
+    results.append(run_endpoint(local, bins, base, endpoint))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/verify.py", line 170, in run_endpoint
+    row = mesh_query(coordinator, worker, prompt, wait_for_discovery=not rows)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/verify.py", line 142, in mesh_query
+    raise RuntimeError("mesh inference exceeded the run deadline")
+RuntimeError: mesh inference exceeded the run deadline

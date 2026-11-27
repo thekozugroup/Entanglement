@@ -1,0 +1,13 @@
+{
+  "command": [
+    "target/catalog-smoke-python/bin/python",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/paired-performance-repeat/verify.py"
+  ],
+  "started_utc": "2026-11-27T06:30:37.331236+00:00",
+  "finished_utc": "2026-11-27T06:33:14.450269+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/paired-performance-repeat-suite.log",
+  "sha256": "b12ea52ae7c8a8b54cfc76558651678bc77313e4d9e3c88c70ed5d5bb2f327c3"
+}

@@ -1,0 +1,198 @@
+{
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "archive_sha256": "3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1",
+  "binary_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "reviewer": "/root/tailroute",
+  "readelf": {
+    "entangle": {
+      "tool": [
+        "readelf",
+        "--dyn-syms",
+        "--wide",
+        "entangle"
+      ],
+      "required_glibc_versions": [
+        "2.2.5",
+        "2.3",
+        "2.3.2",
+        "2.3.4",
+        "2.4",
+        "2.5",
+        "2.6",
+        "2.7",
+        "2.9",
+        "2.10",
+        "2.12",
+        "2.14",
+        "2.15",
+        "2.16",
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.27",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "max_glibc": "2.39",
+      "max_version_symbols": [
+        "pidfd_getpid",
+        "pidfd_spawnp"
+      ]
+    },
+    "entangled": {
+      "tool": [
+        "readelf",
+        "--dyn-syms",
+        "--wide",
+        "entangled"
+      ],
+      "required_glibc_versions": [
+        "2.2.5",
+        "2.3",
+        "2.3.2",
+        "2.3.4",
+        "2.4",
+        "2.6",
+        "2.7",
+        "2.9",
+        "2.10",
+        "2.12",
+        "2.14",
+        "2.15",
+        "2.16",
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "max_glibc": "2.39",
+      "max_version_symbols": [
+        "pidfd_getpid",
+        "pidfd_spawnp"
+      ]
+    }
+  },
+  "userlands": {
+    "ubuntu:22.04": {
+      "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "repo_digests": [
+        "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb"
+      ],
+      "os": "OS ubuntu 22.04",
+      "glibc": "glibc 2.35",
+      "binaries": {
+        "entangle": {
+          "command": [
+            "/archive/entangle",
+            "--version"
+          ],
+          "exit_code": 1,
+          "output": "/archive/entangle: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /archive/entangle)"
+        },
+        "entangled": {
+          "command": [
+            "/archive/entangled",
+            "--version"
+          ],
+          "exit_code": 1,
+          "output": "/archive/entangled: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /archive/entangled)"
+        }
+      }
+    },
+    "debian:bookworm-slim": {
+      "image_id": "sha256:b1cc73e64d14d8ef890b767427fe0cc67eb4b78ee513cc7166e739f25e2de095",
+      "repo_digests": [
+        "debian@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e"
+      ],
+      "os": "OS debian 12",
+      "glibc": "glibc 2.36",
+      "binaries": {
+        "entangle": {
+          "command": [
+            "/archive/entangle",
+            "--version"
+          ],
+          "exit_code": 1,
+          "output": "/archive/entangle: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /archive/entangle)"
+        },
+        "entangled": {
+          "command": [
+            "/archive/entangled",
+            "--version"
+          ],
+          "exit_code": 1,
+          "output": "/archive/entangled: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.39' not found (required by /archive/entangled)"
+        }
+      }
+    },
+    "ubuntu:24.04": {
+      "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "repo_digests": [
+        "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b"
+      ],
+      "os": "OS ubuntu 24.04",
+      "glibc": "glibc 2.39",
+      "binaries": {
+        "entangle": {
+          "command": [
+            "/archive/entangle",
+            "--version"
+          ],
+          "exit_code": 0,
+          "output": "entangle 0.1.0"
+        },
+        "entangled": {
+          "command": [
+            "/archive/entangled",
+            "--version"
+          ],
+          "exit_code": 0,
+          "output": "entangled 0.1.0"
+        }
+      }
+    },
+    "debian:trixie-slim": {
+      "image_id": "sha256:cf7c9dcedc058a74762f2e1f01f6254e2376f3752452ddb347c1bb2a17618fd7",
+      "repo_digests": [
+        "debian@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0"
+      ],
+      "os": "OS debian 13",
+      "glibc": "glibc 2.41",
+      "binaries": {
+        "entangle": {
+          "command": [
+            "/archive/entangle",
+            "--version"
+          ],
+          "exit_code": 0,
+          "output": "entangle 0.1.0"
+        },
+        "entangled": {
+          "command": [
+            "/archive/entangled",
+            "--version"
+          ],
+          "exit_code": 0,
+          "output": "entangled 0.1.0"
+        }
+      }
+    }
+  },
+  "scope": "Canonical optimized unsigned Linux archive. Four cached Linux x86_64 userlands sharing the local host kernel, offline, read-only container root and archive mounts. An exit code is recorded for each actual binary launch. The Jammy-built supplemental archive is a separate build."
+}

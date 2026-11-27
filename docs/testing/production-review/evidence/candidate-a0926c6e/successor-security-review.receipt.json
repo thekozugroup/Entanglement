@@ -1,0 +1,24 @@
+{
+  "reviewer": "/root/tailroute",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "started_utc": "2026-11-27T05:59:50.626271+00:00",
+  "finished_utc": "2026-11-27T06:16:01.011937+00:00",
+  "command": [
+    "Independent final-diff review plus exact-source Linux regressions and publisher incident rehearsal"
+  ],
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/successor-security-review.md",
+  "sha256": "3ca69594856236011b85befa9cd70a7486c13f5e921db7c3e1b72526dc201202",
+  "supporting_receipts_sha256": {
+    "defensive-scope.receipt.json": "034f0f43b8bf749100b9c42d5d32232975ada894b4386dbfb27da19fff5ebd70",
+    "authenticated-hot-load/receipt.json": "10f59f733067b2c95c871d3c64b3d7b59c6ee43c4fe0062e3070e91b33526e77",
+    "publisher-incident-exercise.receipt.json": "355b4545edaf57907465e5cdc58752f90d86ccd4ad85c2321f4c1db11a9de556",
+    "publisher-rotation-rehearsal.receipt.json": "07907b4d458d1ee548bd45d438bffc0dc28a8f1f70427966443cc287ffeac672",
+    "workspace-test.json": "cfb341cb5e9569069c41e3e99123c138dca72e0068de52e631d99f05fcf32f35",
+    "workspace-test-2.json": "7a19c02294fb5ecb8279868aca67eb4f4e554c7d3e90f31adf861e6b57364583",
+    "workspace-test-3.json": "a8b7b05de599bd5e68b7b542dbcc8c0c1ff8ddc1af9537dcd0e50fc0b105903b"
+  }
+}

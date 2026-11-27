@@ -1,0 +1,4 @@
+print-type-size type: `tokio::runtime::task::core::Cell<{async block@/workspace/Entanglement/crates/entangle-bin/src/server.rs:258:26: 258:36}, std::sync::Arc<tokio::runtime::scheduler::current_thread::Handle>>`: 4224 bytes, alignment: 128 bytes
+print-type-size type: `tokio::runtime::task::core::Cell<{async block@/workspace/Entanglement/crates/entangle-bin/src/server.rs:258:26: 258:36}, std::sync::Arc<tokio::runtime::scheduler::multi_thread::handle::Handle>>`: 4224 bytes, alignment: 128 bytes
+print-type-size type: `{async block@/workspace/Entanglement/crates/entangle-bin/src/server.rs:258:26: 258:36}`: 4080 bytes, alignment: 16 bytes
+print-type-size type: `{async fn body of server::serve_client()}`: 4000 bytes, alignment: 16 bytes

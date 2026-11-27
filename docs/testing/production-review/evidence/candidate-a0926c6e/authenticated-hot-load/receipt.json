@@ -1,0 +1,44 @@
+{
+  "reviewer": "/root/tailroute",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "started_utc": "2026-11-27T06:15:42.353900+00:00",
+  "finished_utc": "2026-11-27T06:15:58.854232+00:00",
+  "exit_code": 0,
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/authenticated-hot-load/check-v2.py",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--label",
+    "candidate",
+    "--revision",
+    "a0926c6ef3471aad01cedd256028437b249ef747",
+    "--expected-archive",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/linux-archive.json",
+    "--out",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/authenticated-hot-load/candidate.json"
+  ],
+  "comparison_command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/authenticated-hot-load/compare.py",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/authenticated-hot-load/baseline-v2.json",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/authenticated-hot-load/candidate.json",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/authenticated-hot-load/comparison.json"
+  ],
+  "verified_linux_archive_sha256": "3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1",
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/authenticated-hot-load/comparison.json",
+  "sha256": "42d7f2782a0f9944e32bcb5d3b482bc36d83687dc10f7c7be3d0cb209ab3690a",
+  "supporting_sha256": {
+    "comparison.log": "42d7f2782a0f9944e32bcb5d3b482bc36d83687dc10f7c7be3d0cb209ab3690a",
+    "baseline-v2.json": "4e9dfd1452da29dbd874d2ccbc3c3636c5f6fcf4622dacb26576e998e309621a",
+    "comparison.json": "42d7f2782a0f9944e32bcb5d3b482bc36d83687dc10f7c7be3d0cb209ab3690a",
+    "candidate.json": "92ef82f437d52385e5932c64a09afb041f07554b545aeab306e3f0a88351cff3",
+    "run.log": "4978fefcbe48a61e9b59ba92d65d9c8700d67bf52ce748f012c3b7cdd8d77414",
+    "check-v2.py": "1880a26c440a5bc4c12664feedb89502b5c25b6fe7dfb8b9874aacaa9e308c86",
+    "plan-v2.md": "4ed2760871d2420202f97f9dc6d5295e9eb6c099f59d95d4fd8992275cb881df",
+    "compare.py": "1022714fb961e95d5a62a59bf219fe02a34a425ec777bac0cda6f613ff2b6764"
+  }
+}

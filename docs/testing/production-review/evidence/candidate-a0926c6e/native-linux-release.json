@@ -1,0 +1,23 @@
+{
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "target": "x86_64-unknown-linux-gnu",
+  "os": "Debian GNU/Linux 13 (trixie)",
+  "machine": "x86_64",
+  "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "runner_arch": null,
+  "runner_image": null,
+  "run_id": null,
+  "binary_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "command": [
+    "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+    "/workspace/Entanglement/plugins/smoke_test.py",
+    "/workspace/Entanglement/target/release/entangle",
+    "/workspace/Entanglement/target/release/entangled",
+    "--two-node"
+  ],
+  "exit_code": 0
+}

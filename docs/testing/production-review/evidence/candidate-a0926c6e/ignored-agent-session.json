@@ -1,0 +1,22 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "entangle-agent-host",
+    "--test",
+    "session",
+    "--",
+    "--ignored",
+    "--test-threads=1"
+  ],
+  "started_utc": "2026-11-27T06:04:33.728657+00:00",
+  "finished_utc": "2026-11-27T06:04:36.497771+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/ignored-agent-session.log",
+  "sha256": "d5e1d7c684f98b0ade800ee889bb708df6880dabda8a4898e6f719d4d4a19927"
+}

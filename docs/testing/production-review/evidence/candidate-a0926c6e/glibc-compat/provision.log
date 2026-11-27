@@ -1,0 +1,39 @@
+['git', 'clone', '--shared', '--bare', '--no-tags', '/workspace/Entanglement', '/workspace/entangle-jammy-release-o7k9vcv7/objects.git']
+Cloning into bare repository '/workspace/entangle-jammy-release-o7k9vcv7/objects.git'...
+done.
+['git', '--git-dir', '/workspace/entangle-jammy-release-o7k9vcv7/objects.git', 'update-ref', 'refs/heads/frozen-compatible', 'a0926c6ef3471aad01cedd256028437b249ef747']
+['git', '--git-dir', '/workspace/entangle-jammy-release-o7k9vcv7/objects.git', 'bundle', 'create', '/workspace/entangle-jammy-release-o7k9vcv7/fixture/source.bundle', 'refs/heads/frozen-compatible']
+['git', 'bundle', 'verify', '/workspace/entangle-jammy-release-o7k9vcv7/fixture/source.bundle']
+/workspace/entangle-jammy-release-o7k9vcv7/fixture/source.bundle is okay
+The bundle contains this ref:
+a0926c6ef3471aad01cedd256028437b249ef747 refs/heads/frozen-compatible
+The bundle records a complete history.
+The bundle uses this hash algorithm: sha1
+['git', 'clone', '--branch', 'frozen-compatible', '/workspace/entangle-jammy-release-o7k9vcv7/fixture/source.bundle', '/workspace/entangle-jammy-release-o7k9vcv7/frozen']
+Cloning into '/workspace/entangle-jammy-release-o7k9vcv7/frozen'...
+['cp', '-al', '/workspace/entangle-jammy-release-mjuyx5hl/fixture/toolchain', '/workspace/entangle-jammy-release-mjuyx5hl/fixture/registry', '/workspace/entangle-jammy-release-o7k9vcv7/fixture']
+['docker', 'start', '1e0055e5ffcfae6c4ee03eb059b8c40b91c6686edd6862b139120b48a682fae2']
+1e0055e5ffcfae6c4ee03eb059b8c40b91c6686edd6862b139120b48a682fae2
+['docker', 'exec', '1e0055e5ffcfae6c4ee03eb059b8c40b91c6686edd6862b139120b48a682fae2', 'sh', '-ec', 'cat /proc/net/route; test "$(wc -l </proc/net/route)" -eq 1; getconf GNU_LIBC_VERSION; gcc -v; /fixture/toolchain/bin/rustc -Vv; sha256sum /fixture/toolchain/bin/rustc /fixture/toolchain/bin/cargo']
+Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT                                                       
+glibc 2.35
+Using built-in specs.
+COLLECT_GCC=gcc
+COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-linux-gnu/11/lto-wrapper
+OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+OFFLOAD_TARGET_DEFAULT=1
+Target: x86_64-linux-gnu
+Configured with: ../src/configure -v --with-pkgversion='Ubuntu 11.4.0-1ubuntu1~22.04.3' --with-bugurl=file:///usr/share/doc/gcc-11/README.Bugs --enable-languages=c,ada,c++,go,brig,d,fortran,objc,obj-c++,m2 --prefix=/usr --with-gcc-major-version-only --program-suffix=-11 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/gcc-11-0odw26/gcc-11-11.4.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/gcc-11-0odw26/gcc-11-11.4.0/debian/tmp-gcn/usr --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=2
+Thread model: posix
+Supported LTO compression algorithms: zlib zstd
+gcc version 11.4.0 (Ubuntu 11.4.0-1ubuntu1~22.04.3) 
+rustc 1.91.1 (ed61e7d7e 2025-11-07)
+binary: rustc
+commit-hash: ed61e7d7e242494fb7057f2657300d9e77bb4fcb
+commit-date: 2025-11-07
+host: x86_64-unknown-linux-gnu
+release: 1.91.1
+LLVM version: 21.1.2
+5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e  /fixture/toolchain/bin/rustc
+e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b  /fixture/toolchain/bin/cargo
+['docker', 'cp', '/workspace/entangle-jammy-release-o7k9vcv7/fixture/source.bundle', '1e0055e5ffcfae6c4ee03eb059b8c40b91c6686edd6862b139120b48a682fae2:/tmp/successor.bundle']

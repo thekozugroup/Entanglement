@@ -1,0 +1,93 @@
+{
+  "complete": true,
+  "count": 4,
+  "first_succeeded": 4,
+  "harness_sha256": {
+    "trial.py": "ef39252e07bc262931b3f9e96929f758622f07c65e5eb2871f301eab6f9a331a",
+    "catalog.py": "8607abad3556594960e703584f72b46b9b9580e1d76aca07ee89487819cbc347",
+    "run.py": "45c5be912810f8d14859b9c6fdf8165550f773cab9b6aaeadc1cf0b66ad2333b"
+  },
+  "trials": [
+    {
+      "index": 1,
+      "harness_exit": 0,
+      "elapsed_s": 15.523,
+      "raw_file": "trial-1/result.json",
+      "raw_sha256": "c7e8fd6e85cb5f79f6eddc0c1375e1d22bcd2b1fbba3e5a4563282a2ac4860f0",
+      "first_verified": true,
+      "first_exit": 0,
+      "first_error": null,
+      "first_elapsed_ms": 1708.87306,
+      "load_stop_to_first_start_ms": 123.41059,
+      "followup_verified": null,
+      "followup_elapsed_ms": null,
+      "listener_ages_ms": {
+        "jammy": 898.21479,
+        "bookworm": 598.064086
+      },
+      "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+      "archive_sha256": "7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc"
+    },
+    {
+      "index": 2,
+      "harness_exit": 0,
+      "elapsed_s": 20.622,
+      "raw_file": "trial-2/result.json",
+      "raw_sha256": "d13948f0ca3ab5c94b83ce0b338b63b99a6b0f554e489c818fabd957650aa2f2",
+      "first_verified": true,
+      "first_exit": 0,
+      "first_error": null,
+      "first_elapsed_ms": 1691.867134,
+      "load_stop_to_first_start_ms": 109.023392,
+      "followup_verified": null,
+      "followup_elapsed_ms": null,
+      "listener_ages_ms": {
+        "jammy": 891.63011,
+        "bookworm": 604.425206
+      },
+      "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+      "archive_sha256": "7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc"
+    },
+    {
+      "index": 3,
+      "harness_exit": 0,
+      "elapsed_s": 21.78,
+      "raw_file": "trial-3/result.json",
+      "raw_sha256": "67ce70d9a2926c8cd0314b9525fabb7177be8bf07ccb71c13eda070a01f49aed",
+      "first_verified": true,
+      "first_exit": 0,
+      "first_error": null,
+      "first_elapsed_ms": 1685.375363,
+      "load_stop_to_first_start_ms": 72.230194,
+      "followup_verified": null,
+      "followup_elapsed_ms": null,
+      "listener_ages_ms": {
+        "jammy": 1293.632044,
+        "bookworm": 1007.097608
+      },
+      "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+      "archive_sha256": "7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc"
+    },
+    {
+      "index": 4,
+      "harness_exit": 0,
+      "elapsed_s": 22.925,
+      "raw_file": "trial-4/result.json",
+      "raw_sha256": "9c4863aaa250bfc5c59415d53aa16f7bd7417c0069d788cd3cc9f73d7aefeba9",
+      "first_verified": true,
+      "first_exit": 0,
+      "first_error": null,
+      "first_elapsed_ms": 1826.649269,
+      "load_stop_to_first_start_ms": 67.061751,
+      "followup_verified": null,
+      "followup_elapsed_ms": null,
+      "listener_ages_ms": {
+        "jammy": 1360.007354,
+        "bookworm": 611.245811
+      },
+      "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+      "archive_sha256": "7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc"
+    }
+  ],
+  "claim": "Same-host rootless Jammy coordinator and Bookworm worker. Observer does not imply wire delivery or receipt by the coordinator."
+}

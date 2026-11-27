@@ -1,0 +1,79 @@
+{
+  "candidate_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "candidate_source": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "archive_sha256": "3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1",
+  "official_elf_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "sharder_sha256": "c7b8a4cde066f7b591a54a1aaba53a20d241bd052e4885578de45f977bf49a75",
+  "workspace": {
+    "distinct_cases": 224,
+    "native_remote_name_and_disposition_match": true,
+    "worker_case_counts": {
+      "6f39270c0ebcda2045b0681feb670f15": 121,
+      "b306a210dd81422281e35bc15656e504": 101
+    },
+    "native_exit": 0,
+    "cargo_remote_exit": 0,
+    "natural_upstream_flaky_transitions": 0
+  },
+  "separate_retry_control": {
+    "flaky": {
+      "name": "intentionally_fails_on_first_attempt",
+      "status": "flaky",
+      "attempts": [
+        {
+          "attempt": 1,
+          "peer": "e30fce124c6c9f80f60d297997b1b7ef",
+          "exit_code": null,
+          "stdout": "\nrunning 1 test\n",
+          "stderr": "\nthread 'main' (1) panicked at scripts/tests/fixtures/libtest_retry.rs:7:5:\nintentional first-attempt failure\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+          "status": "failed"
+        },
+        {
+          "attempt": 2,
+          "peer": "7d7d153e738a70aa9575e2e66b9e8abe",
+          "exit_code": 0,
+          "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s\n\n",
+          "stderr": "",
+          "status": "passed"
+        }
+      ]
+    },
+    "failed": {
+      "name": "intentionally_fails_on_every_attempt",
+      "status": "failed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "peer": "e30fce124c6c9f80f60d297997b1b7ef",
+          "exit_code": null,
+          "stdout": "\nrunning 1 test\n",
+          "stderr": "\nthread 'main' (1) panicked at scripts/tests/fixtures/libtest_retry.rs:13:5:\nintentional failure on every attempt\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+          "status": "failed"
+        },
+        {
+          "attempt": 2,
+          "peer": "7d7d153e738a70aa9575e2e66b9e8abe",
+          "exit_code": null,
+          "stdout": "\nrunning 1 test\n",
+          "stderr": "\nthread 'main' (1) panicked at scripts/tests/fixtures/libtest_retry.rs:13:5:\nintentional failure on every attempt\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+          "status": "failed"
+        }
+      ]
+    },
+    "ignored": {
+      "name": "intentionally_fails_on_every_attempt",
+      "status": "ignored",
+      "attempts": []
+    }
+  },
+  "supporting_sha256": {
+    "distributed-rust-workspace/rngs-receipt.json": "340c34a314cc63e8d68a7674a0e51e6dff5affb0eb54bb4276fdc3d652abdaf4",
+    "distributed-rust-workspace/rngs-native-parity.json": "0045f4446bab3eb16b4c0a755dc58208019b485cd6cb0c65df32e17da5315bb4",
+    "distributed-rust-release.json": "fa3d8fbbd21206cc097040776df93f5125f87684624654ced7a8991ad1de25b0",
+    "distributed-rust-release.receipt.json": "c1648313cc9f44c48fb2cb58921f6fcd8810393cd88054036bf897b55333ece9"
+  },
+  "scope": "Complete external workspace and intentionally controlled retry fixture share the same candidate production sharder. The natural-upstream-transition requirement remains unverified."
+}

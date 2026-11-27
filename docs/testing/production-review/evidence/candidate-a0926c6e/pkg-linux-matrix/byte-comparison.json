@@ -1,0 +1,16 @@
+{
+  "matrix_receipt_sha256": "01f93a779ac2b1ac239ba91ee83accb16498b614783dcec1f8cc9d76302d04c6",
+  "archive_sha256": {
+    "ubuntu-22.04.tar.zst": "9aba9778bf526db8727d60f27902c772b092c2c3577557b25dddd67b48f18545",
+    "ubuntu-24.04.tar.zst": "9aba9778bf526db8727d60f27902c772b092c2c3577557b25dddd67b48f18545"
+  },
+  "archive_size_bytes": {
+    "ubuntu-22.04.tar.zst": 20906,
+    "ubuntu-24.04.tar.zst": 20906
+  },
+  "comparison": "cmp -- ubuntu-22.04.tar.zst ubuntu-24.04.tar.zst on the exact two fresh runner outputs",
+  "exit_code": 0,
+  "output": "",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45"
+}

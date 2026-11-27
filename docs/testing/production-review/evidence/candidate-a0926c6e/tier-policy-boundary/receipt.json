@@ -1,0 +1,306 @@
+{
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /workspace/Entanglement/docs/testing/production-review/evidence/candidate-42bb9a33/tier-policy-boundary/verify.py --root /workspace/Entanglement --bin-dir /tmp/ent-tier-final-unf_t5ur --reference /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/linux-archive.json --output /workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/tier-policy-boundary",
+  "started_at_utc": "2026-11-27T06:15:50+00:00",
+  "release_source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "binary_hashes_before": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "host": {
+    "os": "Linux",
+    "kernel": "6.18.57",
+    "arch": "x86_64"
+  },
+  "commands": [
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "init",
+        "--non-interactive"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "openssl",
+        "pkey",
+        "-in",
+        "/tmp/ent-tier-policy-3pw5w16c/.entangle/identity.key",
+        "-pubout",
+        "-outform",
+        "DER"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "keyring",
+        "add",
+        "f9e100a0edf6a34356374bf5a3b7bb66457c5a6ca5c3ad6426508a936e98e3f0",
+        "--name",
+        "Tier policy conformance publisher"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "build",
+        "/tmp/ent-tier-policy-3pw5w16c/wasm-tier-five-incompatible-input",
+        "--wasm",
+        "/workspace/Entanglement/crates/entangle-host/tests/fixtures/hello-pong.wasm",
+        "--out",
+        "/tmp/ent-tier-policy-3pw5w16c/wasm-tier-five-incompatible"
+      ],
+      "exit_code": 1,
+      "pty_stdin": false,
+      "expected_exit": 1
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "build",
+        "/tmp/ent-tier-policy-3pw5w16c/wasm-tier-three-survivor-input",
+        "--wasm",
+        "/workspace/Entanglement/crates/entangle-host/tests/fixtures/hello-pong.wasm",
+        "--out",
+        "/tmp/ent-tier-policy-3pw5w16c/wasm-tier-three-survivor"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "build",
+        "/tmp/ent-tier-policy-3pw5w16c/native-elf-rejection-fixture-input",
+        "--wasm",
+        "/usr/bin/true",
+        "--out",
+        "/tmp/ent-tier-policy-3pw5w16c/native-elf-rejection-fixture"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "list"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "invoke",
+        "4bf9c9aa051b27d48277bc50c1b0fcfc/wasm-tier-three-survivor@0.1.0",
+        "--input",
+        "survivor",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "load",
+        "/tmp/ent-tier-policy-3pw5w16c/native-elf-rejection-fixture"
+      ],
+      "exit_code": 1,
+      "pty_stdin": false,
+      "expected_exit": 1
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "load",
+        "/tmp/ent-tier-policy-3pw5w16c/native-elf-rejection-fixture"
+      ],
+      "exit_code": 1,
+      "pty_stdin": false,
+      "expected_exit": 1
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "config",
+        "reload"
+      ],
+      "exit_code": 0,
+      "pty_stdin": true,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "list"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "invoke",
+        "4bf9c9aa051b27d48277bc50c1b0fcfc/wasm-tier-three-survivor@0.1.0",
+        "--input",
+        "survivor",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "load",
+        "/tmp/ent-tier-policy-3pw5w16c/native-elf-rejection-fixture"
+      ],
+      "exit_code": 1,
+      "pty_stdin": false,
+      "expected_exit": 1
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "security",
+        "set-max-tier",
+        "5"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "security",
+        "set-max-tier",
+        "3",
+        "--force-unload"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "list"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/tmp/ent-tier-final-unf_t5ur/entangle",
+        "plugins",
+        "invoke",
+        "4bf9c9aa051b27d48277bc50c1b0fcfc/wasm-tier-three-survivor@0.1.0",
+        "--input",
+        "survivor",
+        "--raw"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    },
+    {
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+        "/workspace/Entanglement/scripts/tests/max-tier.py",
+        "--bin-dir",
+        "/tmp/ent-tier-final-unf_t5ur"
+      ],
+      "exit_code": 0,
+      "pty_stdin": false,
+      "expected_exit": 0
+    }
+  ],
+  "fixture_sha256": {
+    "/workspace/Entanglement/crates/entangle-host/tests/fixtures/hello-pong.wasm": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+    "/usr/bin/true": "b381cc8c55ec524b9fa92897f0882e855357468b4a763519cec47e05994d61ff"
+  },
+  "fixtures": {
+    "survivor": {
+      "id": "4bf9c9aa051b27d48277bc50c1b0fcfc/wasm-tier-three-survivor@0.1.0",
+      "tier": 3,
+      "runtime": "wasm",
+      "capabilities": [
+        "compute.cpu"
+      ]
+    },
+    "native": {
+      "id": "4bf9c9aa051b27d48277bc50c1b0fcfc/native-elf-rejection-fixture@0.1.0",
+      "tier": 5,
+      "runtime": "native",
+      "capabilities": [
+        "compute.cpu"
+      ],
+      "executed": false
+    }
+  },
+  "daemon_exit": 0,
+  "exact_5_to_3": {
+    "applied_transitions": 2,
+    "loaded_survivor": true,
+    "affected": 0,
+    "cancel_prompt_reachable": false
+  },
+  "affected_set_5_to_2": {
+    "interactive_default": "unload-and-disable",
+    "cancel_restored": 5,
+    "forced_plugins": 2,
+    "stale_reviews_rejected": 2,
+    "restart_disabled": true
+  },
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "binary_hashes_after": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "evidence_type": "policy conformance",
+  "assessment": "The current package validator rejects tier-5 Wasm. A genuine signed ELF is also refused at native runtime admission. The literal loaded native agent-host prerequisite for ATC-MAX-1-3 remains unmet.",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "observed_at_utc": "2026-11-27T06:15:57+00:00",
+  "exit_code": 0,
+  "path": "docs/testing/production-review/evidence/candidate-a0926c6e/tier-policy-boundary/policy-boundary.log",
+  "sha256": "2cfbce1ab503178717440487580f54cfaa960a14d2cf85410ca1c431f5aba819",
+  "audit_path": "docs/testing/production-review/evidence/candidate-a0926c6e/tier-policy-boundary/daemon-audit.log",
+  "audit_sha256": "a8fae380228148512fcf45f1bc5bfe65a4ed54191b9d138cd01da9514de5762e",
+  "archive_sha256": "3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1",
+  "archive_members_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "controls_sha256": "d7068e65288845c4b7b662889e4f8e6e508425be9c899fc88000e9ef19c029c6",
+  "archive_verifier_sha256": "7082ab2e38a705e23793161da3b428e2d95464aa476bf186103675f8a7a25576"
+}

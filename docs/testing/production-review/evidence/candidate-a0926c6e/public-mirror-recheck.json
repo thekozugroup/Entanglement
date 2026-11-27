@@ -1,0 +1,13 @@
+{
+  "command": [
+    "python3",
+    "/tmp/entangle-a092-mirror.py"
+  ],
+  "started_utc": "2026-11-27T06:10:42.062999+00:00",
+  "finished_utc": "2026-11-27T06:10:42.883340+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "exit_code": 22,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/public-mirror-recheck.log",
+  "sha256": "d4692c520d9ef6970d9fcf4aad62c8ebef9c845aab198f0238ad01bc520df38c"
+}

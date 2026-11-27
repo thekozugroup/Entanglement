@@ -1,0 +1,97 @@
+docker run --rm --pull never --network none --read-only --security-opt no-new-privileges --platform linux/amd64 --user 65534:65534 --tmpfs /tmp:rw,nosuid,nodev,exec,mode=1777 --mount type=bind,src=/workspace/entangle-install-jammy-76hyg8wi,dst=/fixture,readonly ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b /bin/sh /fixture/run-in-container.sh 24.04 v0.1.0 entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz 2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098 607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.5 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo
+uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)
+dash
+ldd (Ubuntu GLIBC 2.39-0ubuntu8.9) 2.39
+Copyright (C) 2024 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Written by Roland McGrath and Ulrich Drepper.
+
+Installer case positive
+
+  platform    linux/x86_64  (target x86_64-unknown-linux-gnu)
+  version     v0.1.0
+  tarball     https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  checksum    https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+  install to  /tmp/entangle install.rvmPoX/home/positive installation/bin/entangle, /tmp/entangle install.rvmPoX/home/positive installation/bin/entangled
+
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+    ok: 7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc
+==> Extracting
+==> Installing into /tmp/entangle install.rvmPoX/home/positive installation/bin
+    /tmp/entangle install.rvmPoX/home/positive installation/bin/entangle
+    /tmp/entangle install.rvmPoX/home/positive installation/bin/entangled
+==> Verifying the installed binary
+    entangle 0.1.0
+
+warning: /tmp/entangle install.rvmPoX/home/positive installation/bin is not on your PATH. Add it, e.g.:
+    echo 'export PATH="/tmp/entangle install.rvmPoX/home/positive installation/bin:$PATH"' >> ~/.profile
+    export PATH="/tmp/entangle install.rvmPoX/home/positive installation/bin:$PATH"   # for this shell
+
+Entanglement 0.1.0 installed.
+
+Next steps:
+  entangle init          # generate an Ed25519 identity + ~/.entangle/config.toml
+                         # (add --non-interactive to accept the defaults)
+  entangled run          # start the daemon in the foreground
+  entangle doctor        # health check: identity, config, keyring, daemon
+
+Then, in another terminal:
+  entangle mesh status
+  entangle plugins list
+
+Shell completions:
+  entangle completions bash   # also zsh, fish, powershell, elvish
+
+Run it as a service (Linux):
+  packaging/entangled.service — hardened systemd unit; see docs/install.md.
+
+For independent publisher and Sigstore verification with a trusted Entangle CLI:
+  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sig
+  curl -fsSLO https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sigstore
+  entangle release verify entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz --publisher-key /path/to/trusted/release.pub
+exit = 0
+https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098  /tmp/entangle install.rvmPoX/home/positive installation/bin/entangle
+607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2  /tmp/entangle install.rvmPoX/home/positive installation/bin/entangled
+entangle 0.1.0
+entangled 0.1.0
+
+Installer case corrupt
+
+  platform    linux/x86_64  (target x86_64-unknown-linux-gnu)
+  version     v0.1.0
+  tarball     https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+  checksum    https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+  install to  /tmp/entangle install.rvmPoX/home/corrupt installation/bin/entangle, /tmp/entangle install.rvmPoX/home/corrupt installation/bin/entangled
+
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+==> Downloading entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+==> Verifying SHA-256
+error: SHA-256 MISMATCH for entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz — the download was corrupted or tampered with.
+    expected: 7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc
+    actual:   ff98e9f6d61a112635ea5d374189a626b14f8a741b9fdb7e665add2b9c1d0c68
+  The archive has been deleted and NOTHING was extracted or installed.
+  Please report this at https://github.com/thekozugroup/Entanglement/security/advisories/new
+exit = 1
+https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+
+Both archive-integrity checks passed.

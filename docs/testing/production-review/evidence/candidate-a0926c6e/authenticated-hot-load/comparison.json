@@ -1,0 +1,92 @@
+{
+  "plans_match": true,
+  "baseline_sha256": "4e9dfd1452da29dbd874d2ccbc3c3636c5f6fcf4622dacb26576e998e309621a",
+  "candidate_sha256": "92ef82f437d52385e5932c64a09afb041f07554b545aeab306e3f0a88351cff3",
+  "baseline_revision": "bb70a6193f8879b1feb3e6d3ceb8f2980413ce58",
+  "candidate_revision": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "baseline_trials": [
+    {
+      "trial": 1,
+      "route": "A to B",
+      "first_call_success": false,
+      "first_call_duration_s": 0.00029,
+      "load_to_first_success_s": 15.0294,
+      "pre_success_no_workers_replies": 30,
+      "observed_inventory_reads_by_completion": 2
+    },
+    {
+      "trial": 2,
+      "route": "B to A",
+      "first_call_success": false,
+      "first_call_duration_s": 0.00027,
+      "load_to_first_success_s": 15.0267,
+      "pre_success_no_workers_replies": 30,
+      "observed_inventory_reads_by_completion": 2
+    },
+    {
+      "trial": 3,
+      "route": "A to B",
+      "first_call_success": false,
+      "first_call_duration_s": 0.00026,
+      "load_to_first_success_s": 15.0316,
+      "pre_success_no_workers_replies": 30,
+      "observed_inventory_reads_by_completion": 2
+    },
+    {
+      "trial": 4,
+      "route": "B to A",
+      "first_call_success": false,
+      "first_call_duration_s": 0.00137,
+      "load_to_first_success_s": 15.0327,
+      "pre_success_no_workers_replies": 30,
+      "observed_inventory_reads_by_completion": 2
+    }
+  ],
+  "candidate_trials": [
+    {
+      "trial": 1,
+      "route": "A to B",
+      "first_call_success": true,
+      "first_call_duration_s": 0.06311,
+      "load_to_first_success_s": 0.0871,
+      "pre_success_no_workers_replies": 0,
+      "observed_inventory_reads_by_completion": 2
+    },
+    {
+      "trial": 2,
+      "route": "B to A",
+      "first_call_success": true,
+      "first_call_duration_s": 0.09111,
+      "load_to_first_success_s": 0.0956,
+      "pre_success_no_workers_replies": 0,
+      "observed_inventory_reads_by_completion": 2
+    },
+    {
+      "trial": 3,
+      "route": "A to B",
+      "first_call_success": true,
+      "first_call_duration_s": 0.05813,
+      "load_to_first_success_s": 0.0645,
+      "pre_success_no_workers_replies": 0,
+      "observed_inventory_reads_by_completion": 2
+    },
+    {
+      "trial": 4,
+      "route": "B to A",
+      "first_call_success": true,
+      "first_call_duration_s": 0.10138,
+      "load_to_first_success_s": 0.1057,
+      "pre_success_no_workers_replies": 0,
+      "observed_inventory_reads_by_completion": 2
+    }
+  ],
+  "baseline_median_s": 15.0305,
+  "candidate_median_s": 0.09135,
+  "candidate_max_s": 0.1057,
+  "candidate_under_10s_on_first_submission_all_four": true,
+  "baseline_parallel_and_policy_controls_passed": true,
+  "candidate_parallel_and_policy_controls_passed": true,
+  "baseline_burst_inventory_reads": 0,
+  "candidate_burst_inventory_reads": 1,
+  "scope": "same Linux x86_64 VM, actual authenticated Iroh QUIC on loopback, exactly one empty model catalog provider per worker. No physical or production WAN latency claim."
+}

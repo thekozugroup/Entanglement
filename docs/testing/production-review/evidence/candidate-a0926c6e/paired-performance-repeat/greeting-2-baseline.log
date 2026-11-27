@@ -1,0 +1,14 @@
+
+running 1 test
+daemon=/tmp/entangle-recovery-performance-a0926c6e/baseline/entangled
+{"timestamp":"2026-11-27T06:32:37.056354Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpGPv9DV/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T06:32:37.129653Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpGPv9DV/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+first package_load_ms=33.106 local_ms=0.533 remote_ms=2.645
+local concurrency=1 requests=1024 p50_ms=0.269 p95_ms=0.470 requests_per_s=3252.2
+local concurrency=4 requests=1024 p50_ms=0.617 p95_ms=1.002 requests_per_s=5870.7
+remote concurrency=1 requests=1024 p50_ms=2.085 p95_ms=3.655 requests_per_s=402.3
+remote concurrency=4 requests=1024 p50_ms=3.423 p95_ms=4.931 requests_per_s=1116.1
+test benchmark::measure_dispatch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 4.17s
+

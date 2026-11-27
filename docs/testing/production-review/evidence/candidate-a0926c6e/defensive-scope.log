@@ -1,0 +1,39 @@
+Compared bb70a6193f8879b1feb3e6d3ceb8f2980413ce58 to a0926c6ef3471aad01cedd256028437b249ef747
+Changed product/test files
+crates/entangle-bin/src/capabilities.rs
+crates/entangle-bin/src/lib.rs
+crates/entangle-bin/src/main.rs
+crates/entangle-bin/src/methods.rs
+crates/entangle-bin/src/state.rs
+crates/entangle-bin/tests/daemon_compute.rs
+crates/entangle-scheduler/src/dispatcher.rs
+crates/entangle-scheduler/src/lib.rs
+crates/entangle-scheduler/src/placement.rs
+crates/entangle-scheduler/src/worker.rs
+crates/entangle-scheduler/tests/dispatcher.rs
+scripts/run-rust-tests.py
+scripts/tests/test_run_rust_tests.py
+Unchanged authorization and isolation control files
+crates/entangle-bin/src/remote/routes.rs
+crates/entangle-bin/src/remote.rs
+crates/entangle-peers/src/store.rs
+crates/entangle-scheduler/src/remote.rs
+crates/entangle-mesh-iroh/src/transport.rs
+crates/entangle-runtime/src/kernel.rs
+crates/entangle-runtime/src/loader.rs
+crates/entangle-signing/src/package_io.rs
+crates/entangle-bin/src/server.rs
+crates/entangle-rpc/src/client.rs
+crates/entangle-cli/src/cmd/image.rs
+SECURITY.md
+['/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3', 'scripts/tests/test_run_rust_tests.py', '-v']
+test_captured_running_line_does_not_replace_the_libtest_header (__main__.ClassifyTests.test_captured_running_line_does_not_replace_the_libtest_header) ... ok
+test_completed_results_and_panic_abort (__main__.ClassifyTests.test_completed_results_and_panic_abort) ... ok
+test_rejects_ambiguous_or_malformed_results (__main__.ClassifyTests.test_rejects_ambiguous_or_malformed_results) ... ok
+test_ignore_and_retry_keep_attempts_and_outcomes (__main__.RetryTests.test_ignore_and_retry_keep_attempts_and_outcomes) ... ok
+test_listed_and_target_ignores_are_distinct (__main__.SuiteTests.test_listed_and_target_ignores_are_distinct) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.014s
+
+OK

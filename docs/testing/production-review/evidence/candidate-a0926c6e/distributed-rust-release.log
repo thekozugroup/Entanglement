@@ -1,0 +1,65 @@
+UTC start 2026-11-27T06:15:53Z
+source before sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45
+commit a0926c6ef3471aad01cedd256028437b249ef747
+rustc 1.91.1 (ed61e7d7e 2025-11-07)
+Linux 6.18.57 x86_64
+command tar -xzf /workspace/Entanglement/target/release-candidate/a0926c6ef347/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz -C /tmp/entangle-successor-libtest.l8mztx
+dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33  /tmp/entangle-successor-libtest.l8mztx/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823  /tmp/entangle-successor-libtest.l8mztx/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled
+command cargo test --offline --locked --target wasm32-wasip2 --target-dir /tmp/entangle-wasip2-libtest-target --no-run --test atc_spec -p entangle-types -p entangle-manifest --message-format=json
+    Blocking waiting for file lock on package cache
+    Finished `test` profile [unoptimized] target(s) in 3.76s
+command rustc --target wasm32-wasip2 --test scripts/tests/fixtures/libtest_retry.rs -o /tmp/entangle-successor-libtest.l8mztx/libtest_retry.wasm
+fbe5ae1ae9d2afaf0896a7330d586dfc90f8f89437e8093382225dad4162c190  /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-fad15992387f93fa.wasm
+e233af17248915a82bb5be9d9029ee11ab6c3d094bf90a71eeb5235f02d0a0ac  /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-d69e1d4f32c32f65.wasm
+b83bd884c88d0e3f3a54b1b70cc91e88f4ee74a1d91b39f7fa7f6d6edf7fe3bb  /tmp/entangle-successor-libtest.l8mztx/libtest_retry.wasm
+command python3 scripts/tests/distributed-rust-tests.py --bin-dir /tmp/entangle-successor-libtest.l8mztx/entanglement-v0.1.0-x86_64-unknown-linux-gnu --types-wasm /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-fad15992387f93fa.wasm --manifest-wasm /tmp/entangle-wasip2-libtest-target/wasm32-wasip2/debug/deps/atc_spec-d69e1d4f32c32f65.wasm --retry-wasm /tmp/entangle-successor-libtest.l8mztx/libtest_retry.wasm
+exit 0
+source after sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45
+UTC finish 2026-11-27T06:16:47Z
+{
+  "full": {
+    "counts": {
+      "passed": 14,
+      "flaky": 0,
+      "failed": 0,
+      "ignored": 8,
+      "error": 0
+    },
+    "filtered": 0,
+    "elapsed_ms": 445
+  },
+  "filtered": {
+    "counts": {
+      "passed": 5,
+      "flaky": 0,
+      "failed": 0,
+      "ignored": 0,
+      "error": 0
+    },
+    "filtered": 11,
+    "elapsed_ms": 223
+  },
+  "failure": {
+    "counts": {
+      "passed": 0,
+      "flaky": 0,
+      "failed": 1,
+      "ignored": 0,
+      "error": 0
+    },
+    "filtered": 1,
+    "elapsed_ms": 185
+  },
+  "retry_fixture": {
+    "counts": {
+      "passed": 0,
+      "flaky": 1,
+      "failed": 0,
+      "ignored": 1,
+      "error": 0
+    },
+    "filtered": 0,
+    "elapsed_ms": 300
+  }
+}

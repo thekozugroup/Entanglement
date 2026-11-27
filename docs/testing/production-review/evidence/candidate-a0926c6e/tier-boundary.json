@@ -1,0 +1,15 @@
+{
+  "command": [
+    "python3",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/tier-policy-boundary/verify.py",
+    "--archive",
+    "/workspace/Entanglement/target/release-candidate/a0926c6ef347/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+  ],
+  "started_utc": "2026-11-27T06:15:42.864511+00:00",
+  "finished_utc": "2026-11-27T06:15:58.765323+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/tier-boundary.log",
+  "sha256": "7c6181e827aa1f694703f707168e6198825fd3581fd0657c1e48160590640071"
+}

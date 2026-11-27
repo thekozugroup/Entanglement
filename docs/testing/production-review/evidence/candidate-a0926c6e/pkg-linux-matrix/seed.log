@@ -1,0 +1,8 @@
+/workspace/entangle-pkg-a0926c6e-5qb_ttg4/source.bundle is okay
+The bundle contains this ref:
+a0926c6ef3471aad01cedd256028437b249ef747 HEAD
+The bundle records a complete history.
+The bundle uses this hash algorithm: sha1
+373cfae1cd38a1d2e099394d1195771e6f15efb30710077d1e1ab56ffa3b9857  /workspace/entangle-pkg-a0926c6e-5qb_ttg4/source.bundle
+5eadaaf4fe086d76547b17dc3c1ba880d0082b93f7d8bc65612770da8e79fe8e  /workspace/entangle-pkg-a0926c6e-5qb_ttg4/toolchain/bin/rustc
+e60b4010303c19a131c058e3f054b4b3311433c4b2ee94ba8e09e165ff2a3b3b  /workspace/entangle-pkg-a0926c6e-5qb_ttg4/toolchain/bin/cargo

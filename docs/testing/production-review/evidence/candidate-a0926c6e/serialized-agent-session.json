@@ -1,0 +1,22 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--offline",
+    "--locked",
+    "-p",
+    "entangle-agent-host",
+    "--test",
+    "session",
+    "--",
+    "--include-ignored",
+    "--test-threads=1"
+  ],
+  "started_utc": "2026-11-27T06:05:23.281153+00:00",
+  "finished_utc": "2026-11-27T06:05:25.083648+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/serialized-agent-session.log",
+  "sha256": "6fa197e582f397d7ecb0e4678d354018b0fe796c44b5af72398b271ab19676b5"
+}

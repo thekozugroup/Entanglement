@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/repeat-image-timeout.py",
+    "--binaries",
+    "/workspace/Entanglement/target/release",
+    "--wasm",
+    "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_dehaze.wasm",
+    "--out",
+    "docs/testing/production-review/evidence/candidate-a0926c6e/image-timeout-recovery.json",
+    "--revision",
+    "a0926c6ef3471aad01cedd256028437b249ef747",
+    "--source",
+    "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45"
+  ],
+  "started_utc": "2026-11-27T06:15:42.811387+00:00",
+  "finished_utc": "2026-11-27T06:16:19.454070+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/photo-timeout.log",
+  "sha256": "097d5921f2d24cc22ce2410969d2365bb7a7869acd5874425f90ee22c704341f"
+}

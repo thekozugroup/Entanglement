@@ -1,0 +1,1614 @@
+{
+  "arms": [
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240652",
+          "nr_throttled": "107474",
+          "system_usec": "9981239801",
+          "throttled_usec": "8179776865",
+          "usage_usec": "65140749642",
+          "user_usec": "55159509841"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "2.95 3.41 5.38 1/911 820603",
+        "utc": "2026-11-27T06:33:20.541563+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/baseline",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-1-baseline.json"
+      ],
+      "arm": "baseline",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240602",
+          "nr_throttled": "107472",
+          "system_usec": "9979399996",
+          "throttled_usec": "8179683887",
+          "usage_usec": "65129039598",
+          "user_usec": "55149639602"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "2.86 3.40 5.39 1/911 820456",
+        "utc": "2026-11-27T06:33:15.484309+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "c57e1b095391bb23161c44f824ca86749bfa7017e0a77e706bc1a5836a5e0c38",
+      "elapsed_s": 5.057147227002133,
+      "exit": 0,
+      "images_s": 37.77992224650755,
+      "live_group_after": [],
+      "p95_ms": 141.09147399722133,
+      "pair": 1,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:17.524689+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              204,
+              "820497",
+              "entangled",
+              true
+            ],
+            [
+              112,
+              "820568",
+              "entangled",
+              true
+            ],
+            [
+              104,
+              "820537",
+              "entangled",
+              true
+            ],
+            [
+              55,
+              "820457",
+              "python",
+              true
+            ],
+            [
+              46,
+              "820584",
+              "entangled",
+              true
+            ],
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:19.541347+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              4,
+              "222",
+              "containerd",
+              false
+            ],
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:20.526930+00:00"
+        }
+      ],
+      "stdout_sha256": "06f7a483073df23c625f6b6ac4736dcbd298b99609475aecc9c6322b821f9bb8"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240703",
+          "nr_throttled": "107475",
+          "system_usec": "9982588243",
+          "throttled_usec": "8179860590",
+          "usage_usec": "65152667888",
+          "user_usec": "55170079644"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.27 3.47 5.39 1/911 820742",
+        "utc": "2026-11-27T06:33:25.586758+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/candidate",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-1-candidate.json"
+      ],
+      "arm": "candidate",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240653",
+          "nr_throttled": "107474",
+          "system_usec": "9981244171",
+          "throttled_usec": "8179776865",
+          "usage_usec": "65140762374",
+          "user_usec": "55159518203"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "2.95 3.41 5.38 1/911 820603",
+        "utc": "2026-11-27T06:33:20.554993+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "0fd7585d92b7a0d25fac820cc073cf24c5c2b2c9cdcd9ab87f2d4bcc08f1fbcc",
+      "elapsed_s": 5.031796502997167,
+      "exit": 0,
+      "images_s": 35.86046101119643,
+      "live_group_after": [],
+      "p95_ms": 132.91101100185188,
+      "pair": 1,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              13,
+              "202",
+              "dockerd",
+              false
+            ],
+            [
+              4,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:22.607939+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              220,
+              "820675",
+              "entangled",
+              true
+            ],
+            [
+              113,
+              "820706",
+              "entangled",
+              true
+            ],
+            [
+              111,
+              "820644",
+              "entangled",
+              true
+            ],
+            [
+              59,
+              "820604",
+              "python",
+              true
+            ],
+            [
+              43,
+              "820722",
+              "entangled",
+              true
+            ],
+            [
+              3,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:24.636287+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              1,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:25.574266+00:00"
+        }
+      ],
+      "stdout_sha256": "d6fe0bbbb469d0f494107fc3bc1e15f2f2d2823eaaff4492ca8776882784e11a"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240759",
+          "nr_throttled": "107477",
+          "system_usec": "9984151591",
+          "throttled_usec": "8179879297",
+          "usage_usec": "65165355827",
+          "user_usec": "55181204235"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.33 3.48 5.38 1/911 820899",
+        "utc": "2026-11-27T06:33:31.161852+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/candidate",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-2-candidate.json"
+      ],
+      "arm": "candidate",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240703",
+          "nr_throttled": "107475",
+          "system_usec": "9982588243",
+          "throttled_usec": "8179860590",
+          "usage_usec": "65152680303",
+          "user_usec": "55170092060"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.27 3.47 5.39 1/911 820742",
+        "utc": "2026-11-27T06:33:25.599019+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "9a19e9c6a3b8619c47939a397c40ebe2025c7cc463f637e25b5a527151256c98",
+      "elapsed_s": 5.562715330997889,
+      "exit": 0,
+      "images_s": 35.82180619845845,
+      "live_group_after": [],
+      "p95_ms": 186.2527890043566,
+      "pair": 2,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              4,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:27.638350+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              152,
+              "820845",
+              "entangled",
+              true
+            ],
+            [
+              103,
+              "820783",
+              "entangled",
+              true
+            ],
+            [
+              84,
+              "820814",
+              "entangled",
+              true
+            ],
+            [
+              70,
+              "820743",
+              "python",
+              true
+            ],
+            [
+              35,
+              "820861",
+              "entangled",
+              true
+            ],
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:29.666408+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "530",
+              "codex",
+              false
+            ],
+            [
+              1,
+              "222",
+              "containerd",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:31.148713+00:00"
+        }
+      ],
+      "stdout_sha256": "59daab4cd27239e6a96313e09e1176cab65f43a8b10f06ad254902e7f7cebca2"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240810",
+          "nr_throttled": "107478",
+          "system_usec": "9985595076",
+          "throttled_usec": "8179879345",
+          "usage_usec": "65177408692",
+          "user_usec": "55191813615"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.31 3.47 5.37 1/910 821040",
+        "utc": "2026-11-27T06:33:36.293532+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/baseline",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-2-baseline.json"
+      ],
+      "arm": "baseline",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240759",
+          "nr_throttled": "107477",
+          "system_usec": "9984154656",
+          "throttled_usec": "8179879297",
+          "usage_usec": "65165371020",
+          "user_usec": "55181216364"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.33 3.48 5.38 1/911 820899",
+        "utc": "2026-11-27T06:33:31.177629+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "fa30118b87a99fbf605862ff193c8a2c0c7b9ae26468e15b4e5a678543cc0529",
+      "elapsed_s": 5.115931423002621,
+      "exit": 0,
+      "images_s": 29.43822017786109,
+      "live_group_after": [],
+      "p95_ms": 187.37426000006963,
+      "pair": 2,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              6,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:33.295606+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              227,
+              "820971",
+              "entangled",
+              true
+            ],
+            [
+              116,
+              "820940",
+              "entangled",
+              true
+            ],
+            [
+              105,
+              "821002",
+              "entangled",
+              true
+            ],
+            [
+              55,
+              "821018",
+              "entangled",
+              true
+            ],
+            [
+              51,
+              "820900",
+              "python",
+              true
+            ],
+            [
+              3,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "222",
+              "containerd",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:35.336542+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              1,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:36.280936+00:00"
+        }
+      ],
+      "stdout_sha256": "ae31bdfc6d58f3dbc739d39195603608eea8fb41cc3f1892e9eb06a149a9e743"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240862",
+          "nr_throttled": "107481",
+          "system_usec": "9987126065",
+          "throttled_usec": "8179904686",
+          "usage_usec": "65189802974",
+          "user_usec": "55202676909"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.36 3.48 5.36 1/910 821187",
+        "utc": "2026-11-27T06:33:41.469670+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/baseline",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-3-baseline.json"
+      ],
+      "arm": "baseline",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240810",
+          "nr_throttled": "107478",
+          "system_usec": "9985595076",
+          "throttled_usec": "8179879345",
+          "usage_usec": "65177420253",
+          "user_usec": "55191825177"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.31 3.47 5.37 2/910 821040",
+        "utc": "2026-11-27T06:33:36.305776+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "994e799057a82f1d903340ea076bb44851f807fc547773e7b2c911964af5db6a",
+      "elapsed_s": 5.163830666999274,
+      "exit": 0,
+      "images_s": 36.06820974577534,
+      "live_group_after": [],
+      "p95_ms": 136.7755719984416,
+      "pair": 3,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              8,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:38.399548+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              233,
+              "821081",
+              "entangled",
+              true
+            ],
+            [
+              117,
+              "821112",
+              "entangled",
+              true
+            ],
+            [
+              115,
+              "821143",
+              "entangled",
+              true
+            ],
+            [
+              61,
+              "821159",
+              "entangled",
+              true
+            ],
+            [
+              48,
+              "821041",
+              "python",
+              true
+            ],
+            [
+              3,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              2,
+              "530",
+              "codex",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:40.424025+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              1,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:41.456590+00:00"
+        }
+      ],
+      "stdout_sha256": "f73940c4338df0240a84f7ef54774b89bc81f20eeb5565f12e7337735b693991"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240910",
+          "nr_throttled": "107482",
+          "system_usec": "9988208121",
+          "throttled_usec": "8179909418",
+          "usage_usec": "65200925398",
+          "user_usec": "55212717276"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.41 3.49 5.35 2/910 821337",
+        "utc": "2026-11-27T06:33:46.313259+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/candidate",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-3-candidate.json"
+      ],
+      "arm": "candidate",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240862",
+          "nr_throttled": "107481",
+          "system_usec": "9987130357",
+          "throttled_usec": "8179904686",
+          "usage_usec": "65189816596",
+          "user_usec": "55202686238"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.36 3.48 5.36 1/910 821187",
+        "utc": "2026-11-27T06:33:41.484265+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "7e408a95114e1450a7320812a20b77a92a8f26ca7ea0d6d9a18cf8e9e74c6a05",
+      "elapsed_s": 4.829028753003513,
+      "exit": 0,
+      "images_s": 33.924370500906406,
+      "live_group_after": [],
+      "p95_ms": 171.720065001864,
+      "pair": 3,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              4,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:43.543454+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              245,
+              "821228",
+              "entangled",
+              true
+            ],
+            [
+              120,
+              "821290",
+              "entangled",
+              true
+            ],
+            [
+              112,
+              "821259",
+              "entangled",
+              true
+            ],
+            [
+              52,
+              "821306",
+              "entangled",
+              true
+            ],
+            [
+              44,
+              "821188",
+              "python",
+              true
+            ],
+            [
+              5,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "222",
+              "containerd",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:45.606610+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "530",
+              "codex",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:46.295661+00:00"
+        }
+      ],
+      "stdout_sha256": "ce5d461ec322fd200a59cfed4fc74f7e3e98d15032a6a1f2d3ea8e193b843733"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240958",
+          "nr_throttled": "107483",
+          "system_usec": "9989317144",
+          "throttled_usec": "8179910132",
+          "usage_usec": "65212350203",
+          "user_usec": "55223033058"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.54 3.52 5.35 1/911 821476",
+        "utc": "2026-11-27T06:33:51.098385+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/candidate",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-4-candidate.json"
+      ],
+      "arm": "candidate",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240910",
+          "nr_throttled": "107482",
+          "system_usec": "9988208142",
+          "throttled_usec": "8179909418",
+          "usage_usec": "65200938125",
+          "user_usec": "55212729982"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.41 3.49 5.35 1/910 821337",
+        "utc": "2026-11-27T06:33:46.326817+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "7fb9448c815d86357c24abf25fc17f1d42f887a1b77d5b3fcef5dff1693e1ed7",
+      "elapsed_s": 4.7714406680024695,
+      "exit": 0,
+      "images_s": 38.52454275827559,
+      "live_group_after": [],
+      "p95_ms": 141.5305949994945,
+      "pair": 4,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              3,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "1",
+              "tail",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:48.370634+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              225,
+              "821440",
+              "entangled",
+              true
+            ],
+            [
+              122,
+              "821378",
+              "entangled",
+              true
+            ],
+            [
+              111,
+              "821409",
+              "entangled",
+              true
+            ],
+            [
+              59,
+              "821338",
+              "python",
+              true
+            ],
+            [
+              48,
+              "821456",
+              "entangled",
+              true
+            ],
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:50.395621+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:51.086092+00:00"
+        }
+      ],
+      "stdout_sha256": "54997ac3f6536a7ce0d5f115c7bd09bdfc1c0211649051d01bdbd0dc2eb6c208"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "241008",
+          "nr_throttled": "107483",
+          "system_usec": "9990666052",
+          "throttled_usec": "8179910132",
+          "usage_usec": "65223416103",
+          "user_usec": "55232750050"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.58 3.52 5.34 1/911 821635",
+        "utc": "2026-11-27T06:33:56.134572+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/baseline",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-4-baseline.json"
+      ],
+      "arm": "baseline",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "240958",
+          "nr_throttled": "107483",
+          "system_usec": "9989317144",
+          "throttled_usec": "8179910132",
+          "usage_usec": "65212361588",
+          "user_usec": "55223044443"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.54 3.52 5.35 1/911 821476",
+        "utc": "2026-11-27T06:33:51.110878+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "4410d08700ba8189f45998bde7e959f02a4e0bed5f3308bd08b80d1851b38264",
+      "elapsed_s": 5.023790619001375,
+      "exit": 0,
+      "images_s": 37.714084116255165,
+      "live_group_after": [],
+      "p95_ms": 137.92847500008065,
+      "pair": 4,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              5,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:53.168368+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              255,
+              "821517",
+              "entangled",
+              true
+            ],
+            [
+              129,
+              "821548",
+              "entangled",
+              true
+            ],
+            [
+              121,
+              "821579",
+              "entangled",
+              true
+            ],
+            [
+              53,
+              "821595",
+              "entangled",
+              true
+            ],
+            [
+              43,
+              "821477",
+              "python",
+              true
+            ],
+            [
+              3,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "193",
+              "slirp4netns",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:55.223827+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              3,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:56.120111+00:00"
+        }
+      ],
+      "stdout_sha256": "4c72dbae9f6901979ae48bb363d8de194b3da73a826be8e08d12696b8413bd52"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "241065",
+          "nr_throttled": "107484",
+          "system_usec": "9992732683",
+          "throttled_usec": "8179910802",
+          "usage_usec": "65235757141",
+          "user_usec": "55243024457"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.53 3.52 5.33 1/911 821804",
+        "utc": "2026-11-27T06:34:01.835338+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/baseline",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-5-baseline.json"
+      ],
+      "arm": "baseline",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "241008",
+          "nr_throttled": "107483",
+          "system_usec": "9990669655",
+          "throttled_usec": "8179910132",
+          "usage_usec": "65223430675",
+          "user_usec": "55232761020"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.58 3.52 5.34 1/911 821635",
+        "utc": "2026-11-27T06:33:56.149333+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "a814d05dce19324fa4c87ac6065869277f2ada4905063b3633a07b9f25d1e91c",
+      "elapsed_s": 5.685925532998226,
+      "exit": 0,
+      "images_s": 34.084296592164876,
+      "live_group_after": [],
+      "p95_ms": 179.7496110011707,
+      "pair": 5,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              5,
+              "530",
+              "codex",
+              false
+            ],
+            [
+              3,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:33:58.188830+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              77,
+              "821676",
+              "entangled",
+              true
+            ],
+            [
+              68,
+              "821722",
+              "entangled",
+              true
+            ],
+            [
+              48,
+              "821636",
+              "python",
+              true
+            ],
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "202",
+              "dockerd",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:00.214954+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              4,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:01.817343+00:00"
+        }
+      ],
+      "stdout_sha256": "c7fe3a63bdaf6a913a2b512d732cbe2c168ff80bf04e0031ad6212dfd317da5e"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "241116",
+          "nr_throttled": "107484",
+          "system_usec": "9994186061",
+          "throttled_usec": "8179910802",
+          "usage_usec": "65246889458",
+          "user_usec": "55252703396"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.49 3.51 5.32 1/911 821943",
+        "utc": "2026-11-27T06:34:06.859675+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/candidate",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-5-candidate.json"
+      ],
+      "arm": "candidate",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "241065",
+          "nr_throttled": "107484",
+          "system_usec": "9992740047",
+          "throttled_usec": "8179910802",
+          "usage_usec": "65235770842",
+          "user_usec": "55243030795"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.53 3.52 5.33 1/911 821804",
+        "utc": "2026-11-27T06:34:01.849660+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "70c114d811a7e0aee5ba6bfec56bfc3a1e2aaed8e1ad002b042ed1734b286aa9",
+      "elapsed_s": 5.010044148999441,
+      "exit": 0,
+      "images_s": 35.68194783402594,
+      "live_group_after": [],
+      "p95_ms": 138.94612500007497,
+      "pair": 5,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "222",
+              "containerd",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:03.879317+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              194,
+              "821876",
+              "entangled",
+              true
+            ],
+            [
+              114,
+              "821907",
+              "entangled",
+              true
+            ],
+            [
+              103,
+              "821845",
+              "entangled",
+              true
+            ],
+            [
+              54,
+              "821805",
+              "python",
+              true
+            ],
+            [
+              44,
+              "821923",
+              "entangled",
+              true
+            ],
+            [
+              3,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:05.903908+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:06.846377+00:00"
+        }
+      ],
+      "stdout_sha256": "d84a368c9720eb0fdbbbdda149c0f2d47c3d5d0121e158d0a568fedee623fdfc"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "241163",
+          "nr_throttled": "107486",
+          "system_usec": "9995312896",
+          "throttled_usec": "8179916651",
+          "usage_usec": "65257987565",
+          "user_usec": "55262674668"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.53 3.51 5.31 1/912 822101",
+        "utc": "2026-11-27T06:34:11.579941+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/candidate",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-6-candidate.json"
+      ],
+      "arm": "candidate",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "241116",
+          "nr_throttled": "107484",
+          "system_usec": "9994189722",
+          "throttled_usec": "8179910802",
+          "usage_usec": "65246902840",
+          "user_usec": "55252713117"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.49 3.51 5.32 1/911 821943",
+        "utc": "2026-11-27T06:34:06.873086+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "78408eb23ca04acc2f30717afcb170a685ded2e4ec4db026df7e54db91df97a4",
+      "elapsed_s": 4.706880097997782,
+      "exit": 0,
+      "images_s": 37.07632489629355,
+      "live_group_after": [],
+      "p95_ms": 126.89806400157977,
+      "pair": 6,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              1,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:08.906154+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              231,
+              "821984",
+              "entangled",
+              true
+            ],
+            [
+              122,
+              "822046",
+              "entangled",
+              true
+            ],
+            [
+              113,
+              "822015",
+              "entangled",
+              true
+            ],
+            [
+              53,
+              "821944",
+              "python",
+              true
+            ],
+            [
+              47,
+              "822062",
+              "entangled",
+              true
+            ],
+            [
+              3,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "530",
+              "codex",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:10.929767+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "222",
+              "containerd",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:11.566167+00:00"
+        }
+      ],
+      "stdout_sha256": "d70b6879aacad526e88617574f86bbe987c5328f5516a60bcccdd448d09520fd"
+    },
+    {
+      "after": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "241209",
+          "nr_throttled": "107489",
+          "system_usec": "9996407474",
+          "throttled_usec": "8179944797",
+          "usage_usec": "65269093997",
+          "user_usec": "55272686523"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.73 3.56 5.31 1/912 822252",
+        "utc": "2026-11-27T06:34:16.227586+00:00"
+      },
+      "argv": [
+        "/workspace/Entanglement/target/catalog-smoke-python/bin/python",
+        "/workspace/Entanglement/scripts/benchmark_image_batch.py",
+        "--bin-dir",
+        "/tmp/entangle-recovery-performance-a0926c6e/baseline",
+        "--wasm",
+        "/workspace/Entanglement/target/catalog-smoke/wasm32-wasip2/release/entangle_image_resize.wasm",
+        "--image",
+        "/usr/share/matplotlib/mpl-data/sample_data/grace_hopper.jpg",
+        "--route",
+        "three_remote",
+        "--results",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/three-remote-sensitivity/pair-6-baseline.json"
+      ],
+      "arm": "baseline",
+      "before": {
+        "cgroup_cpu": {
+          "burst_usec": "0",
+          "nice_usec": "0",
+          "nr_bursts": "0",
+          "nr_periods": "241163",
+          "nr_throttled": "107486",
+          "system_usec": "9995324259",
+          "throttled_usec": "8179916651",
+          "usage_usec": "65258004706",
+          "user_usec": "55262680447"
+        },
+        "cpu_max": "400000 100000",
+        "loadavg": "3.53 3.51 5.31 2/912 822101",
+        "utc": "2026-11-27T06:34:11.597188+00:00"
+      },
+      "cleanup_needed": [],
+      "driver_result_sha256": "75549537b4f4da1af7e9db5f5da95113a19f6e976226d20ba6a6f9bd5fb4439a",
+      "elapsed_s": 4.630153139994945,
+      "exit": 0,
+      "images_s": 36.33446991363059,
+      "live_group_after": [],
+      "p95_ms": 138.42508500238182,
+      "pair": 6,
+      "process_samples": [
+        {
+          "busy_by_cpu_ticks": [
+            [
+              4,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:13.658628+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              261,
+              "822142",
+              "entangled",
+              true
+            ],
+            [
+              135,
+              "822204",
+              "entangled",
+              true
+            ],
+            [
+              128,
+              "822173",
+              "entangled",
+              true
+            ],
+            [
+              51,
+              "822220",
+              "entangled",
+              true
+            ],
+            [
+              36,
+              "822102",
+              "python",
+              true
+            ],
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ],
+            [
+              1,
+              "222",
+              "containerd",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:15.683248+00:00"
+        },
+        {
+          "busy_by_cpu_ticks": [
+            [
+              2,
+              "820454",
+              "python3",
+              false
+            ]
+          ],
+          "utc": "2026-11-27T06:34:16.214103+00:00"
+        }
+      ],
+      "stdout_sha256": "91a745a9a98b6be5c42e16c911310b1d641a32841963cf1c1829cec48a357442"
+    }
+  ],
+  "clock_ticks_per_second": 100,
+  "images_s": {
+    "breaches": 2,
+    "median_ratio": 1.0209534684543518,
+    "medians": {
+      "baseline": 36.20133982970297,
+      "candidate": 35.841133604827434
+    },
+    "paired_ratios": [
+      0.9491936160485729,
+      1.216846873962785,
+      0.9405615288371766,
+      1.0214895485602182,
+      1.0468735283282427,
+      1.0204173883484855
+    ],
+    "range": [
+      0.9405615288371766,
+      1.216846873962785
+    ],
+    "repeated_directional_miss": false
+  },
+  "p95_ms": {
+    "breaches": 1,
+    "median_ratio": 0.9680174770428711,
+    "medians": {
+      "baseline": 139.75827949980157,
+      "candidate": 140.23835999978473
+    },
+    "paired_ratios": [
+      0.9420201464793645,
+      0.9940148076063777,
+      1.2554878220784962,
+      1.0261158546080622,
+      0.7729981958023264,
+      0.9167273691715363
+    ],
+    "range": [
+      0.7729981958023264,
+      1.2554878220784962
+    ],
+    "repeated_directional_miss": false
+  },
+  "plan_sha256": "df9089a5aff49e097d682ac4f14f123d85f7644999b98d38848f57614368148e",
+  "primary_sha256": "d6ac0a430e96870a9d3ed8b6dbdb8a1bd1f16cdcb7a2821040d14f20d5e4d9e6",
+  "script_sha256": "00b1b17d2633e54ab7f8b2281efec8e210e67d659822102b441a41faed44e1c3",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "utc_finished": "2026-11-27T06:34:16.323770+00:00",
+  "utc_started": "2026-11-27T06:33:15.484204+00:00"
+}

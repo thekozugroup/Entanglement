@@ -1,0 +1,31 @@
+{
+  "archive_sha256": "3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1",
+  "cli_sha256": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+  "temporary_key": "disposable local Ed25519 fixture",
+  "observations": [
+    {
+      "command": [
+        "/tmp/ent-frozen-strict-zj_x7u35/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "release",
+        "verify",
+        "/workspace/Entanglement/target/release-candidate/a0926c6ef347/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+        "--publisher-key",
+        "/tmp/ent-frozen-strict-zj_x7u35/local-fixture-public.pem"
+      ],
+      "exit_code": 1,
+      "stderr": "error: reading publisher signature /workspace/Entanglement/target/release-candidate/a0926c6ef347/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sig\n  caused by: No such file or directory (os error 2)"
+    },
+    {
+      "command": [
+        "/tmp/ent-frozen-strict-zj_x7u35/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+        "release",
+        "verify",
+        "/tmp/ent-frozen-strict-zj_x7u35/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+        "--publisher-key",
+        "/tmp/ent-frozen-strict-zj_x7u35/local-fixture-public.pem"
+      ],
+      "exit_code": 1,
+      "stderr": "error: reading Sigstore bundle /tmp/ent-frozen-strict-zj_x7u35/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sigstore\n  caused by: No such file or directory (os error 2)"
+    }
+  ]
+}

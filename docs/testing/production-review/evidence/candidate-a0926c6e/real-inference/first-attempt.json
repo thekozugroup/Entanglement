@@ -1,0 +1,31 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/verify.py",
+    "--server",
+    "/tmp/entanglement-cpu-server-b6910/bin/llama-server",
+    "--model",
+    "/tmp/entangle-llama-cpu-model/TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf",
+    "--bin-dir",
+    "/tmp/ent-llama-release-extract-rg0jvs2i/entanglement-v0.1.0-x86_64-unknown-linux-gnu",
+    "--output",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/result.json"
+  ],
+  "started_utc": "2026-11-27T06:15:51.254249+00:00",
+  "finished_utc": "2026-11-27T06:17:25.929104+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "exit_code": 1,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/real-inference-run.log",
+  "sha256": "1a11a0025bf52f6f0affdc82c73480cfbef62b89d906fb0d01d6d0940ba2f205",
+  "backend_log": "docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/first-attempt.server.log",
+  "backend_log_sha256": "c77abdd3dfd44528dc1b1f081f1f100972d56205a6a9526f09aff26cc9d8444a",
+  "attempted_endpoint": "/v1/completions",
+  "first_prompt": "Finish the sequence using five words: winter, spring, summer,",
+  "verified_cases": 0,
+  "inference_watchdog_seconds": 75,
+  "observed_backend_status": "The pinned model loaded, returned a healthy model inventory and processed the first 15-token prompt. The stream exceeded the watchdog. The backend logged cancellation of the first task and then logged HTTP 200 for that connection, without a generation completion record.",
+  "runner_scope": "One x86_64 Linux host while several Rust builds and independent workspace suites were running. This failed attempt does not establish its cause."
+}

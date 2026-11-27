@@ -1,0 +1,26 @@
+{
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "started_utc": "2026-11-27T06:15:42.925113+00:00",
+  "finished_utc": "2026-11-27T06:18:54.675502+00:00",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/link-test.py",
+    "--repo",
+    "/workspace/Entanglement",
+    "--bin-dir",
+    "/workspace/Entanglement/target/release",
+    "--pacer",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/packet-pacer.py"
+  ],
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/bandwidth-live-linux.json",
+  "sha256": "b0aa1a861e74a1bff631143437acf7e67da73d32862281a021dde699b065f1ad",
+  "diagnostic_sha256": "4592160ffeb6254277139974fd18b1ec1a814813cae471e556c741c96f49b5de",
+  "pacer_sha256": "fb555e0237b2ca0c7d44f6cc7d7eab5450a65de4338e16213cb29967fae5f912",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "archive_sha256": "3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1"
+}

@@ -1,0 +1,7 @@
+# Upstream Rust workspace and retry behavior
+
+Frozen a0926c6e ran the unmodified nine-crate rust-random/rngs workspace through native Cargo and two authenticated release workers. All 224 named ordinary cases and doctests had the same dispositions. The archive contains all attempts, worker IDs, signed artifacts and underlying results. The earlier source and dependency lock remain pinned. [Native comparison](rngs-native-parity.json) · [Raw distributed run](rngs-distributed.json.gz) · [Upstream lock](../../candidate-864ae27b/distributed-rust-workspace/rngs-Cargo.lock.gz)
+
+A separate deliberate first-attempt failure recovered on a different worker through the same release sharder. The permanent failure exhausted its retry, and the default-ignored case had zero attempts. No spontaneous fail–pass event occurred in the upstream workspace. [Combined source and attempt checks](combined-runner-check.json) · [Separate archive control](../distributed-rust-release.json)
+
+The Cargo adapter resolves ordinary binaries against Cargo compiler artifacts. Rustdoc supplies the actual name of a standalone example to the serial host transcript, and the signed command's raw exit is returned to Rustdoc. Merged Rust 2024 commands are identified by Rustdoc's generated runner and bundle, and individual outcomes are checked against their actual summaries. [Cargo driver](dispatch-cargo-workspace.py) · [Rustdoc observer](rustdoc_observer.py) · [Native verifier](summarize-qualification.py)

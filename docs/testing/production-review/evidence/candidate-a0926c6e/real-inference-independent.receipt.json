@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/independent-verify.py",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/result.json",
+    "--root",
+    "/workspace/Entanglement",
+    "--peer-fingerprint",
+    "/tmp/entangle-peer-fingerprint-relocatable"
+  ],
+  "started_utc": "2026-11-27T06:22:50.335999+00:00",
+  "finished_utc": "2026-11-27T06:22:51.062832+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/real-inference/independent-verification.json",
+  "sha256": "7d432e8f51b5ce5609400836ad0d3c403064e1275d602848f3b422031f04ca92"
+}

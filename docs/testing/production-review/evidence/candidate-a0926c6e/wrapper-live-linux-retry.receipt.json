@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/wrapper-live.py",
+    "--cli",
+    "/tmp/ent-a092-wrapper-5nt8snrw/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle",
+    "--fixture",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/package-operator/published-fixture",
+    "--fish-tree",
+    "/tmp/entangle-fish-check/extract",
+    "--out",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/wrapper-live-linux.json"
+  ],
+  "started_utc": "2026-11-27T06:22:52.845792+00:00",
+  "finished_utc": "2026-11-27T06:23:12.354368+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/wrapper-live-linux-retry.log",
+  "sha256": "9aba5b8b643a68f73230d6ef5fd9c5104543328f2078099bdee53db98551c6e0"
+}

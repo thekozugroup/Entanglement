@@ -1,0 +1,7 @@
+# Dispatch performance qualification
+
+Compare the frozen successor with the immediately preceding source bb70a619 on the same Linux x86-64 host. The engineering target on each of seven routes is candidate p95 at most 1.05 times baseline and candidate throughput at least 0.95 times baseline. No owner-approved production comparator is currently available.
+
+Use the existing 1/4-client local and Iroh one-remote signed greeting driver. Each arm warms 16 calls before 1,024 calls per route. Run three matched pairs with refreshed daemons in baseline/candidate, candidate/baseline, baseline/candidate order. Use the same final CLI for setup. For local, single-remote and three-remote signed image-resize, run three rotated trials of the original 24 JPEGs on four clients per route, checking each PNG against the independent oracle and all assigned peer IDs. Both builds use the identical guest and images. Record all elapsed times and source, executable, guest and output hashes. Run the two complete image arms candidate-first. Retain CPU samples and overlapping work. Report every gate miss without adjusting the limits.
+
+Separately measure signed plugin inventory hot-load with the preregistered two-daemon integration plan. Healthy placement should complete on the first ordinary call following the worker's load, correct peer and bytes, in under 10 seconds on every one of four controlled trials. A failed project-wide criterion remains failed or unverified regardless of this comparison. The live physical hosts and approved-baseline requirements remain open.

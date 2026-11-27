@@ -1,0 +1,206 @@
+{
+  "summary_sha256": "a86d080503ef245c7339ba10ca747f4ffd2e7e67c5950762b1da14b0ea7f4157",
+  "scope": "Empty per-receiver loopback model catalog calls happen after the authenticated capability gate and inventory snapshot; they do not expose serialized replies or client acknowledgement.",
+  "trials": [
+    {
+      "trial": 1,
+      "first_exit": 0,
+      "first_ms": 1708.87306,
+      "first_reported_error": null,
+      "load_to_first_end_ms": 1832.28365,
+      "precontrol_ms": 76.347098,
+      "listener_ages_ms": {
+        "jammy": 898.21479,
+        "bookworm": 598.064086
+      },
+      "actual_guest_calls": 1,
+      "followup_verified": null,
+      "observers": {
+        "jammy": {
+          "raw_sha256": "5bead6edf8d25e037178b2bfc1bc4890d6392eb3f4405b7f92b3651c846697d4",
+          "before_load_started": 1,
+          "in_first": 0,
+          "samples": [
+            {
+              "utc": "2026-11-27T06:34:45.605501+00:00",
+              "ms_from_load_finished": -468.312,
+              "ms_from_first_start": -591.723
+            }
+          ]
+        },
+        "bookworm": {
+          "raw_sha256": "5d98ca5fd2db9baa5dc6c1aaa70d567f3175d44ba4f771466295045aac0f29a1",
+          "before_load_started": 1,
+          "in_first": 2,
+          "samples": [
+            {
+              "utc": "2026-11-27T06:34:45.895946+00:00",
+              "ms_from_load_finished": -177.868,
+              "ms_from_first_start": -301.279
+            },
+            {
+              "utc": "2026-11-27T06:34:46.322222+00:00",
+              "ms_from_load_finished": 248.407,
+              "ms_from_first_start": 124.996
+            },
+            {
+              "utc": "2026-11-27T06:34:47.897525+00:00",
+              "ms_from_load_finished": 1823.713,
+              "ms_from_first_start": 1700.303
+            }
+          ]
+        }
+      }
+    },
+    {
+      "trial": 2,
+      "first_exit": 0,
+      "first_ms": 1691.867134,
+      "first_reported_error": null,
+      "load_to_first_end_ms": 1800.890526,
+      "precontrol_ms": 70.234819,
+      "listener_ages_ms": {
+        "jammy": 891.63011,
+        "bookworm": 604.425206
+      },
+      "actual_guest_calls": 1,
+      "followup_verified": null,
+      "observers": {
+        "jammy": {
+          "raw_sha256": "50d5f559c5b78bed3a705a73f5d3a614f88c9bd213e1e40fe018483fa0dbcb9a",
+          "before_load_started": 1,
+          "in_first": 0,
+          "samples": [
+            {
+              "utc": "2026-11-27T06:35:05.760228+00:00",
+              "ms_from_load_finished": -494.995,
+              "ms_from_first_start": -604.018
+            }
+          ]
+        },
+        "bookworm": {
+          "raw_sha256": "c0695e7aa6a0f97cd155f69d314678a81acbd65f3866ff1f1fe71b6adf0b550a",
+          "before_load_started": 1,
+          "in_first": 1,
+          "samples": [
+            {
+              "utc": "2026-11-27T06:35:06.044797+00:00",
+              "ms_from_load_finished": -210.425,
+              "ms_from_first_start": -319.448
+            },
+            {
+              "utc": "2026-11-27T06:35:06.279554+00:00",
+              "ms_from_load_finished": 24.332,
+              "ms_from_first_start": -84.692
+            },
+            {
+              "utc": "2026-11-27T06:35:08.047264+00:00",
+              "ms_from_load_finished": 1792.134,
+              "ms_from_first_start": 1683.111
+            }
+          ]
+        }
+      }
+    },
+    {
+      "trial": 3,
+      "first_exit": 0,
+      "first_ms": 1685.375363,
+      "first_reported_error": null,
+      "load_to_first_end_ms": 1757.605557,
+      "precontrol_ms": 117.838105,
+      "listener_ages_ms": {
+        "jammy": 1293.632044,
+        "bookworm": 1007.097608
+      },
+      "actual_guest_calls": 1,
+      "followup_verified": null,
+      "observers": {
+        "jammy": {
+          "raw_sha256": "86ba45211bee5af6ffa148f362d941034e8f77dcb0f035d2cd9a5dcaea6d8fb9",
+          "before_load_started": 1,
+          "in_first": 0,
+          "samples": [
+            {
+              "utc": "2026-11-27T06:35:27.293394+00:00",
+              "ms_from_load_finished": -923.663,
+              "ms_from_first_start": -995.893
+            }
+          ]
+        },
+        "bookworm": {
+          "raw_sha256": "5564fd2b1ecd45c1a090325534fbe127108c0544144e079f450f1c8d6a297776",
+          "before_load_started": 2,
+          "in_first": 1,
+          "samples": [
+            {
+              "utc": "2026-11-27T06:35:27.805440+00:00",
+              "ms_from_load_finished": -411.574,
+              "ms_from_first_start": -483.804
+            },
+            {
+              "utc": "2026-11-27T06:35:27.954649+00:00",
+              "ms_from_load_finished": -262.416,
+              "ms_from_first_start": -334.646
+            },
+            {
+              "utc": "2026-11-27T06:35:29.955127+00:00",
+              "ms_from_load_finished": 1738.079,
+              "ms_from_first_start": 1665.849
+            }
+          ]
+        }
+      }
+    },
+    {
+      "trial": 4,
+      "first_exit": 0,
+      "first_ms": 1826.649269,
+      "first_reported_error": null,
+      "load_to_first_end_ms": 1893.71102,
+      "precontrol_ms": 71.891613,
+      "listener_ages_ms": {
+        "jammy": 1360.007354,
+        "bookworm": 611.245811
+      },
+      "actual_guest_calls": 1,
+      "followup_verified": null,
+      "observers": {
+        "jammy": {
+          "raw_sha256": "589b19035c81ac8517a432ae2291c3c64bf819e445aad9e6fd5715bb46e47670",
+          "before_load_started": 1,
+          "in_first": 0,
+          "samples": [
+            {
+              "utc": "2026-11-27T06:35:50.373462+00:00",
+              "ms_from_load_finished": -783.48,
+              "ms_from_first_start": -850.542
+            }
+          ]
+        },
+        "bookworm": {
+          "raw_sha256": "57125228738751d366cf9f3a424f17f64189b11156ccca97741f4a5178af2d0b",
+          "before_load_started": 2,
+          "in_first": 1,
+          "samples": [
+            {
+              "utc": "2026-11-27T06:35:50.626648+00:00",
+              "ms_from_load_finished": -530.28,
+              "ms_from_first_start": -597.342
+            },
+            {
+              "utc": "2026-11-27T06:35:50.975996+00:00",
+              "ms_from_load_finished": -180.949,
+              "ms_from_first_start": -248.011
+            },
+            {
+              "utc": "2026-11-27T06:35:53.035586+00:00",
+              "ms_from_load_finished": 1878.65,
+              "ms_from_first_start": 1811.589
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

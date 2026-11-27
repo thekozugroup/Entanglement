@@ -1,0 +1,1454 @@
+   Compiling entangle-scheduler v0.1.0 (/workspace/Entanglement/crates/entangle-scheduler)
+   Compiling entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+   Compiling entangle-cli v0.1.0 (/workspace/Entanglement/crates/entangle-cli)
+    Finished `test` profile [unoptimized] target(s) in 1m 03s
+     Running unittests src/main.rs (target/debug/deps/cargo_entangle-2c665adc13726d9f)
+
+running 2 tests
+test source::tests::toolchain_requires_a_stable_patch_version ... ok
+test source::tests::external_wit_imports_require_pinned_versions ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/package.rs (target/debug/deps/package-7220ed835da92255)
+
+running 1 test
+test no_lockfile_rejected ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/verify_rebuild.rs (target/debug/deps/verify_rebuild-63818f6ba20b9971)
+
+running 1 test
+test happy_path ... ignored, builds the pinned hello-world component from independent Git checkouts
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_agent_host-00405cab1ff8b873)
+
+running 11 tests
+test adapters::tests::find_adapter_is_case_insensitive ... ok
+test adapters::tests::known_adapter_names_lists_all_three_phase1_adapters ... ok
+test gateway::tests::config_default_is_loopback_ephemeral ... ok
+test gateway::tests::gateway_holds_its_config ... ok
+test gateway::tests::generate_bearer_token_is_64_hex_chars ... ok
+test gateway::tests::generate_bearer_token_is_not_repeating ... ok
+test gateway::tests::start_returns_non_loopback_error_before_not_implemented ... ok
+test gateway::tests::start_returns_not_implemented_in_phase_1 ... ok
+test gateway::tests::validate_accepts_loopback ... ok
+test gateway::tests::validate_rejects_wildcard_bind_by_default ... ok
+test gateway::tests::validate_allows_wildcard_when_opted_in ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/adapters.rs (target/debug/deps/adapters-b185345305e549b2)
+
+running 9 tests
+test claude_code_rewrite_empty_creates_minimal_config_with_gateway_url ... ok
+test claude_code_rewrite_preserves_existing_servers ... ok
+test claude_code_snapshot_then_restore_round_trips ... ok
+test codex_snapshot_then_restore_round_trips ... ok
+test opencode_rewrite_preserves_existing_servers ... ok
+test codex_rewrite_empty_creates_minimal_config_with_gateway_url ... ok
+test opencode_snapshot_then_restore_round_trips ... ok
+test codex_rewrite_preserves_existing_servers ... ok
+test opencode_rewrite_empty_creates_minimal_config_with_gateway_url ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/session.rs (target/debug/deps/session-9d02e9689e2c4c47)
+
+running 2 tests
+test session_start_no_prior_config_restore_removes_file ... ok
+test session_start_and_restore_round_trips ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/matrix.rs (target/debug/deps/matrix-46577170e72d71ce)
+
+running 1 test
+test atc_matrix_full_coverage ... ignored, Phase-1.5 coverage gap is intentional; matrix is informational, not gating
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_bench-e7685db5586ebc49)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_bin-102cd31a8a527240)
+
+running 49 tests
+test capabilities::tests::demand_reserves_only_eight_waiting_and_skips_cancelled_waiters ... ok
+test capabilities::tests::earlier_periodic_result_cannot_replace_newer_demand_inventory ... ok
+test capabilities::tests::stopped_poller_closes_existing_and_future_requests ... ok
+test capabilities::tests::usable_report_does_not_wait_for_an_earlier_silent_peer ... ok
+test config::tests::cli_written_config_round_trips_with_all_fields_preserved ... ok
+test capabilities::tests::demand_can_reach_a_healthy_peer_while_periodic_is_stalled ... ok
+test config::tests::load_config_missing_file_yields_defaults ... ok
+test config::tests::empty_config_uses_defaults ... ok
+test capabilities::tests::overlapping_requests_share_route_checks_and_the_query ... ok
+test config::tests::unknown_field_is_a_hard_error ... ok
+test config::tests::out_of_range_tier_is_rejected_at_parse_time ... ok
+test inference::tests::frames_utf8_crlf_comments_and_multiline_data ... ok
+test inference::tests::prompts_cannot_select_endpoints_models_or_credentials ... ok
+test inference::tests::provider_restricts_loopback_and_supported_api_paths ... ok
+test maintenance::tests::evict_keeps_fresh_workers ... ok
+test maintenance::tests::evict_removes_workers_older_than_ttl ... ok
+test maintenance::tests::evict_without_pool_is_a_noop ... ok
+test inference::tests::tier_change_waits_for_readiness_probe ... ok
+test maintenance::tests::gc_noop_when_cache_dir_missing ... ok
+test maintenance::tests::gc_removes_old_files_keeps_new ... ok
+test maintenance::tests::rotate_logs_noop_below_threshold ... ok
+test maintenance::tests::rotate_logs_noop_when_file_missing ... ok
+test inference::tests::rejects_oversized_sse_lines_and_events ... ok
+test maintenance::tests::rotate_logs_triggers_above_threshold ... ok
+test maintenance::tests::warn_backup_succeeds_when_sentinel_absent ... ok
+test maintenance::tests::warn_key_rotation_noop_when_identity_missing ... ok
+test remote::routes::supervisor::tests::first_ephemeral_port_is_pinned_to_one_verified_socket ... ok
+test maintenance::tests::warn_backup_silent_when_sentinel_present ... ok
+test capabilities::tests::preplacement_refresh_respects_empty_allowlist_and_task_deadline ... ok
+test maintenance::tests::run_loop_evicts_stale_workers_and_shuts_down ... ok
+test remote::routes::tests::lan_hints_require_a_matching_key_and_an_explicit_reachable_scheduler_port ... ok
+test remote::routes::supervisor::tests::terminal_accept_withdraws_service_and_shutdown_interrupts_recovery ... ok
+test remote::routes::supervisor::tests::planned_shutdown_stops_the_active_listener_permanently ... ok
+test remote::routes::tests::snapshots_follow_only_mapped_online_nodes_and_current_trust ... ok
+test remote::routes::tests::static_routes_keep_the_working_hint_when_the_last_address_is_unreachable ... ok
+test remote::routes::tests::offline_start_preserves_identity_without_a_listener_and_other_modes_keep_working ... ok
+test remote::routes::tests::tailnet_only_bind_keeps_family_and_port_and_requires_local_node_ip ... ok
+test remote::tests::a_revoked_peer_is_refused ... ok
+test remote::tests::a_trusted_peer_is_authorized ... ok
+test remote::tests::an_empty_peer_store_authorizes_nobody ... ok
+test remote::tests::directory_admits_only_trusted_configured_peers ... ok
+test remote::routes::tests::tailnet_routes_on_a_mixed_endpoint_preserve_static_hints ... ok
+test remote::tests::directory_skips_our_own_address ... ok
+test server::tests::accept_backoff_is_monotonic_and_capped ... ok
+test remote::tests::transport_is_off_unless_explicitly_named ... ok
+test remote::routes::tests::mixed_listener_reloads_routes_and_status_from_the_local_cli ... ok
+test remote::routes::supervisor::tests::outbound_handle_uses_the_new_generation_without_resubmitting_jobs ... ok
+test server::tests::stalled_connections_are_reaped_by_read_timeout ... ok
+test server::tests::active_then_stalled_connection_is_reaped ... ok
+
+test result: ok. 49 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running unittests src/main.rs (target/debug/deps/entangled-cb2799b85581adb4)
+
+running 10 tests
+test hardware::linux::tests::meminfo_converts_kib_to_bytes_and_rejects_invalid_values ... ok
+test hardware::tests::daemon_reads_cpu_and_memory_from_the_current_system ... ok
+test hardware::linux::tests::v2_limits_include_parent_cgroups ... ok
+test identity_tests::ensure_identity_corrupt_file_errors ... ok
+test identity_tests::ensure_identity_propagates_unwritable_parent_error ... ok
+test npu::tests::detect_does_not_panic_or_block ... ok
+test hardware::linux::tests::v1_resolves_separate_cpu_and_memory_mounts ... ok
+test identity_tests::ensure_identity_creates_with_mode_0600_and_reloads ... ok
+test npu::tests::phase_1_detect_returns_none ... ok
+test metrics::tests::scraper_and_rpc_render_the_same_snapshot ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/config_compat.rs (target/debug/deps/config_compat-73fddf7fff3435b7)
+
+running 9 tests
+test cli_can_read_back_a_daemon_written_config ... ok
+test load_config_boots_on_a_cli_written_file ... ok
+test out_of_range_tiers_are_rejected_at_parse_time ... ok
+test partial_configs_fall_back_to_defaults ... ok
+test tier_boundaries_one_and_five_are_accepted ... ok
+test unknown_keys_are_rejected_in_every_section ... ok
+test every_cli_representable_value_crosses_the_boundary_intact ... ok
+test daemon_parses_the_cli_default_config ... ok
+test daemon_parses_the_bytes_written_by_legacy_init ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/config_policy.rs (target/debug/deps/config_policy-bae3b7386aa1ae16)
+
+running 5 tests
+test cli_written_config_parses_in_daemon_with_all_fields_preserved ... ok
+test multi_node_with_empty_peer_store_errors_with_e0050 ... ok
+test config_tier_ceiling_rejects_tier5_load ... ok
+test single_node_with_empty_peer_store_starts ... ok
+test multi_node_with_populated_peer_store_starts ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/daemon_compute.rs (target/debug/deps/daemon_compute-c20b67da690f00b7)
+
+running 6 tests
+test benchmark::measure_dispatch ... ignored, opt-in dispatch performance measurement; see docs/performance.md
+test discovers_and_runs_work_without_a_configured_peer_address ... ignored, requires working host multicast DNS
+{"timestamp":"2026-11-27T05:59:56.064269Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpwEPDWA/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T05:59:56.070937Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpxfzpZb/worker/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T05:59:56.073190Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpPb9Mgs/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T05:59:56.076180Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmptVgNqK/b/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T05:59:57.729300Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpwEPDWA/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T05:59:58.000421Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpPb9Mgs/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T05:59:58.120236Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmptVgNqK/a/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+test stream_delivery_rechecks_persisted_worker_trust ... ok
+{"timestamp":"2026-11-27T05:59:58.527597Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpxfzpZb/coordinator/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T05:59:59.101244Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpcIPGGj/worker/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T06:00:00.057543Z","level":"WARN","fields":{"message":"scheduler: refused task from a peer that is not in the trusted allowlist","peer":"cbb3819158c44edd38450336a14ce95c"},"target":"entangle_scheduler::remote"}
+test schedules_on_another_daemon_and_enforces_live_revocation ... ok
+{"timestamp":"2026-11-27T06:00:00.162932Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpcIPGGj/coordinator/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+test inference::configured_inference_streams_incremental_signed_chunks ... ok
+test first_submission_replans_after_a_trusted_worker_hot_load ... ok
+
+test result: ok. 4 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 5.13s
+
+     Running tests/remote_scheduler.rs (target/debug/deps/remote_scheduler-c46b259188688603)
+
+running 10 tests
+test a_configured_address_alone_grants_nothing ... ok
+test a_config_without_a_scheduler_section_still_parses ... ok
+test cross_node_dispatch_is_off_in_a_default_config ... ok
+test an_unparseable_bind_is_a_typed_startup_error ... ok
+test the_allowlist_reflects_the_peer_store_and_fails_closed ... ok
+test the_scheduler_endpoint_does_not_answer_the_control_alpn ... ok
+test the_transport_is_selected_by_name ... ok
+test a_paired_peer_gets_past_the_gate ... ok
+test an_unpaired_peer_is_refused_by_the_daemon ... ok
+test revoking_a_peer_stops_it_mid_session ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/rpc.rs (target/debug/deps/rpc-be8b3651d9e8aef4)
+
+running 7 tests
+test invalid_method_returns_minus_32601 ... ok
+test malformed_json_returns_minus_32700 ... ok
+test plugins_invoke_negative_cases_via_typed_client ... ok
+test plugins_list_returns_empty_list_initially ... ok
+test version_rpc_returns_versions ... ok
+test time_rpc_returns_unix_millis ... ok
+test plugins_load_invoke_round_trip_via_typed_client ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.82s
+
+     Running tests/server_hardening.rs (target/debug/deps/server_hardening-7334c4c29600461d)
+
+running 9 tests
+test duplicate_starters_leave_the_active_socket_reachable ... ok
+test live_legacy_listener_and_replacement_paths_are_preserved ... ok
+test refuses_to_replace_non_socket_file ... ok
+test compute_socket_decoding_preserves_envelopes_and_validation ... ok
+test socket_is_0600_and_created_parent_dir_is_0700 ... ok
+test stale_socket_is_replaced_and_served ... ok
+test sequential_connections_recycle_permits ... ok
+test over_cap_request_returns_minus_32600_and_closes ... ok
+test request_at_exactly_the_cap_succeeds ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.82s
+
+     Running tests/startup_plugins.rs (target/debug/deps/startup_plugins-8a1f3e4fcda9fe9e)
+
+running 3 tests
+{"timestamp":"2026-11-27T06:00:08.161761Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpu24I8L/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+test absent_config_does_not_load_installed_packages ... ok
+{"timestamp":"2026-11-27T06:00:10.357292Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpfraux6/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+test invalid_and_duplicate_packages_prevent_startup ... ok
+{"timestamp":"2026-11-27T06:00:11.626727Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/.tmpfraux6/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+test signed_configured_plugin_is_invocable_after_restart ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.57s
+
+     Running tests/state.rs (target/debug/deps/state-ded9de13bf64c5e8)
+
+running 7 tests
+test daemon_state_smoke ... ok
+test daemon_state_local_peer_id_matches_identity ... ok
+test mesh_peers_merges_trusted_only_when_no_discovery ... ok
+test mesh_peers_returns_trusted_from_store ... ok
+test mesh_status_trusted_peer_count ... ok
+test mesh_status_includes_real_local_peer_id ... ok
+test mesh_views_reflect_changes_from_another_store_and_report_read_errors ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_biscuits-1d9d9fa15f9874e6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bridge.rs (target/debug/deps/bridge-58f56e9b57acab2e)
+
+running 11 tests
+test atc_brg_10_capability_required_passes_through ... ok
+test atc_brg_2_missing_dest_pin_rejected ... ok
+test atc_brg_3_missing_rate_limit_rejected ... ok
+test atc_brg_1_full_attenuation_accepted ... ok
+test atc_brg_5_missing_expires_rejected ... ok
+test atc_brg_4_missing_total_bytes_rejected ... ok
+test atc_brg_6_missing_bridge_marker_rejected ... ok
+test atc_brg_7_ttl_over_one_hour_rejected ... ok
+test atc_brg_9_dest_pin_mismatch_rejected ... ok
+test atc_brg_8_rate_limit_over_max_rejected ... ok
+test bridge_verification_enforces_additional_signed_checks ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running tests/confinement.rs (target/debug/deps/confinement-9bf1596d41f893c3)
+
+running 5 tests
+test appended_peer_cannot_rebind ... ok
+test appended_capability_is_not_granted ... ok
+test appended_expires_keeps_tighter_authority_expiry ... ok
+test appended_rate_limit_cannot_raise_bridge_limit ... ok
+test appended_dest_pin_cannot_repin_destination ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/roundtrip.rs (target/debug/deps/roundtrip-c5de6aafd2091e0f)
+
+running 7 tests
+test missing_required_capability_rejected ... ok
+test expired_token_rejected ... ok
+test mint_then_verify_happy_path ... ok
+test wrong_peer_rejected ... ok
+test attenuate_with_bridge_facts_extracts_5 ... ok
+test reads_v6_ed25519_and_p256_tokens_and_enforces_their_checks ... ok
+test signed_datalog_checks_must_be_satisfied ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_broker-2602b2ff6fb780e1)
+
+running 19 tests
+test audit::tests::kind_discriminator_round_trips_every_variant ... ok
+test audit::tests::default_log_uses_default_cap_and_drops_nothing_when_under_it ... ok
+test audit::tests::filter_by_kind_only_returns_matching_variants ... ok
+test audit::tests::filter_since_drops_older_events ... ok
+test audit::tests::zero_capacity_is_clamped_to_one ... ok
+test audit::tests::record_caps_at_max_events_and_counts_dropped ... ok
+test broker::tests::grant_declared_capability_succeeds ... ok
+test broker::tests::duplicate_registration_refused_and_grants_preserved ... ok
+test broker::tests::release_grant_logs_audit_event ... ok
+test broker::tests::grant_undeclared_capability_denied ... ok
+test broker::tests::max_tier_allowed_blocks_high_tier ... ok
+test broker::tests::policy_allows_when_within_ceiling ... ok
+test broker::tests::startup_multi_node_no_allowlist_errors ... ok
+test policy::tests::check_startup_multi_node_no_allowlist_errors ... ok
+test broker::tests::tier_below_capability_caught_at_validation_layer ... ok
+test broker::tests::unregister_plugin_releases_outstanding_grants ... ok
+test policy::tests::check_startup_single_node_ok ... ok
+test policy::tests::default_policy_is_permissive ... ok
+test policy::tests::check_startup_multi_node_with_allowlist_ok ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/atc_spec.rs (target/debug/deps/atc_spec-b57b497a2bff8608)
+
+running 7 tests
+test atc_audit_1_every_decision_recorded ... ok
+test atc_audit_2_unregister_emits_released_and_unregistered ... ok
+test atc_cap_3_release_then_regrant_new_id ... ok
+test atc_cap_2_undeclared_capability_denied ... ok
+test atc_cap_1_grant_records_audit ... ok
+test atc_max_tier_1_native_blocked_by_sandboxed_ceiling ... ok
+test atc_max_tier_2_pure_plugin_allowed_under_native_ceiling ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/biscuit_grant.rs (target/debug/deps/biscuit_grant-311d8a9f0b652772)
+
+running 5 tests
+test grant_with_biscuit_signed_by_unknown_root_rejected ... ok
+test grant_with_biscuit_for_different_peer_rejected ... ok
+test grant_with_biscuit_missing_required_capability_rejected ... ok
+test grant_with_expired_biscuit_rejected ... ok
+test grant_with_valid_biscuit_succeeds ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src/main.rs (target/debug/deps/entangle-4029aa7243196301)
+
+running 64 tests
+test cmd::backup::archive::tests::external_or_parent_relative_startup_paths_require_operator_resolution ... ok
+test cmd::backup::archive::tests::extraction_rejects_parent_traversal_absolute_names_and_links ... ok
+test cmd::backup::archive::tests::snapshot_refuses_links_to_a_secret_outside_the_managed_tree ... ok
+test cmd::catalog::tests::a_missing_explicit_catalog_is_an_error_not_a_fallthrough ... ok
+test cmd::backup::tests::a_late_restore_error_removes_the_staged_plaintext ... ok
+test cmd::catalog::tests::entry_name_prefers_the_manifest_id ... ok
+test cmd::catalog::tests::cwd_plugins_wins_over_the_home_catalog ... ok
+test cmd::catalog::tests::env_wins_when_no_flag_is_passed ... ok
+test cmd::catalog::tests::find_entry_in_an_empty_catalog_explains_the_layout ... ok
+test cmd::catalog::tests::home_catalog_is_the_last_resort ... ok
+test cmd::catalog::tests::flag_wins_over_every_other_source ... ok
+test cmd::catalog::tests::find_entry_is_case_insensitive_and_suggests_on_a_miss ... ok
+test cmd::catalog::tests::scan_reads_name_tier_and_description_from_each_manifest ... ok
+test cmd::catalog::tests::nothing_found_names_all_four_locations_and_the_fix ... ok
+test cmd::image::files::tests::output_tree_cannot_overlap_input ... ok
+test cmd::catalog::tests::scan_skips_noise_and_isolates_broken_manifests ... ok
+test cmd::image::files::tests::traversal_refuses_linked_directories_and_raw_leaves ... ok
+test cmd::compute::semantic_flags::semantic_policy_transmits_limits_and_rejects_conflicting_executor_flags ... ok
+test cmd::image::tests::ordinary_filenames_stay_readable_and_control_characters_cannot_escape_a_row ... ok
+test cmd::image::files::tests::staged_publication_never_overwrites_an_existing_output ... ok
+test cmd::image_raster::tests::guest_tile_requires_expected_profile_geometry_and_complete_unique_grid ... ok
+test cmd::image_raster::tests::raw_boundary_preserves_binary_prefix_and_rejects_unsupported_ranges ... ok
+test cmd::image_raw::tests::identify_requires_one_bounded_size_record ... ok
+test cmd::image_raw::tests::libraw_camera_samples ... ignored, requires Debian LibRaw 0.21.4 and the two CC0 files in ENTANGLE_RAW_FIXTURES
+test cmd::image_raw::tests::output_requires_exact_rgb16_payload ... ok
+test cmd::image_raw::tests::rejects_oversized_source_before_copying ... ok
+test cmd::image_raw::tests::staging_hashes_the_open_descriptor_from_offset_zero ... ok
+test cmd::init::tests::backup_is_mode_0600 ... ok
+test cmd::init::tests::decide_import_differing_key_requires_confirmation ... ok
+test cmd::init::tests::decide_import_identical_key_is_skip ... ok
+test cmd::init::tests::decide_import_no_existing_writes ... ok
+test cmd::init::tests::decide_import_unparseable_existing_requires_confirmation ... ok
+test cmd::init::tests::preseeded_differing_identity_is_not_clobbered_without_confirmation ... ok
+test cmd::init::tests::preseeded_identical_identity_is_skip ... ok
+test cmd::package::tests::artifact_stem_underscores_dashes ... ok
+test cmd::package::tests::mismatched_signature_publisher_is_rejected ... ok
+test cmd::package::tests::missing_plugin_section_is_a_clear_error ... ok
+test cmd::package::tests::name_is_extracted_from_every_id_shape ... ok
+test cmd::package::tests::packaging_an_arbitrary_directory_produces_a_verifiable_bundle ... ok
+test cmd::package::tests::rendered_id_is_always_fully_qualified ... ok
+test cmd::package::tests::rendered_toml_contains_the_qualified_id ... ok
+test cmd::package::tests::stale_publisher_is_replaced ... ok
+test cmd::package::tests::tier_and_capabilities_are_preserved ... ok
+test cmd::package::tests::under_declared_tier_fails_with_e0042 ... ok
+test cmd::quickstart::tests::an_empty_catalog_explains_itself ... ok
+test cmd::quickstart::tests::an_unknown_catalog_still_yields_a_starter ... ok
+test cmd::quickstart::tests::every_starter_has_a_sample_input ... ok
+test cmd::quickstart::tests::starter_preference_is_honoured ... ok
+test cmd::release::tests::artifact_name_pins_the_exact_workflow_tag ... ok
+test cmd::release::tests::dual_sig_pass ... ignored, run scripts/tests/release-verify.sh with a verified Cosign executable on PATH
+test cmd::image_raster::tests::full_frame_dark_channel_ranks_match_naive_oracle_with_borders_and_ties ... ok
+test cmd::scaffold::tests::dependency_lines_are_valid_toml ... ok
+test cmd::scaffold::tests::generated_cargo_toml_is_well_formed ... ok
+test cmd::scaffold::tests::generated_lib_rs_mentions_the_sdk_entrypoint ... ok
+test cmd::release::tests::publisher_pem_round_trips_and_rejects_another_key ... ok
+test cmd::scaffold::tests::invalid_names_and_tiers_are_rejected ... ok
+test cmd::scaffold::tests::scaffold_writes_all_files_and_refuses_to_clobber ... ok
+test cmd::scaffold::tests::scaffolded_manifest_declares_no_capabilities ... ok
+test cmd::scaffold::tests::scaffolded_manifest_validates_after_id_substitution ... ok
+test cmd::scaffold::tests::scaffolded_plugin_id_is_fully_qualified ... ok
+test cmd::scaffold::tests::sdk_spec_parsing ... ok
+test cmd::wrapper::tests::earlier_exact_blocks_upgrade_and_modified_blocks_are_preserved ... ok
+test cmd::backup::archive::tests::restored_bridge_keeps_exhausted_grant_counters_and_excludes_transient_lock ... ok
+test cmd::image_raster::tests::haloed_tiles_stitch_exactly_to_full_frame_reference_in_any_completion_order ... ok
+
+test result: ok. 62 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.99s
+
+     Running tests/authoring.rs (target/debug/deps/authoring-0d876ec3b4ae7ee3)
+
+running 9 tests
+test build_without_an_identity_key_explains_how_to_get_one ... ok
+test build_without_a_manifest_points_at_the_scaffolder ... ok
+test build_works_on_a_hand_written_project_and_forces_a_qualified_id ... ok
+test plugins_new_generates_a_complete_project ... ok
+test plugins_new_rejects_a_native_only_tier ... ok
+test scaffolded_project_compiles_loads_and_invokes ... ignored, compiles real wasm: needs the wasm32-wasip2 target and a reachable registry
+test plugins_new_rejects_an_invalid_plugin_name ... ok
+test build_rejects_a_tier_below_its_capabilities ... ok
+test scaffold_then_build_produces_a_signed_dist ... ok
+
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/catalog.rs (target/debug/deps/catalog-b0685d211422ef1c)
+
+running 18 tests
+test available_json_is_machine_readable ... ok
+test available_lists_name_tier_and_description_from_each_manifest ... ok
+test available_reports_a_broken_plugin_without_hiding_the_others ... ok
+test available_on_an_empty_catalog_explains_the_expected_layout ... ok
+test an_explicit_catalog_that_is_missing_does_not_fall_through ... ok
+test install_of_an_unknown_name_lists_what_is_available ... ok
+test a_missing_wasm_target_prints_the_rustup_command ... ok
+test install_builds_signs_and_trusts_the_users_own_key ... ok
+test catalog_resolution_prefers_flag_then_env_then_cwd_then_home ... ok
+test install_without_an_identity_says_how_to_get_one ... ok
+test quickstart_against_the_repository_catalog ... ignored, compiles real wasm: needs the wasm32-wasip2 target, a reachable registry, and ./plugins
+test no_catalog_anywhere_names_every_location_and_the_fix ... ok
+test quickstart_is_safe_to_run_twice ... ok
+test quickstart_rejects_an_unknown_starter_by_name ... ok
+test installing_twice_is_idempotent_for_the_keyring ... ok
+test quickstart_without_a_catalog_explains_how_to_get_one ... ok
+test install_rejects_above_ceiling_before_writing_a_package_or_trusting_the_key ... ok
+test search_is_an_alias_for_available ... ok
+
+test result: ok. 17 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
+     Running tests/cli.rs (target/debug/deps/cli-b49f69706be4d7b6)
+
+running 12 tests
+test init_creates_files ... ok
+test init_idempotent ... ok
+test keyring_add_invalid_hex_errors ... ok
+test keyring_add_then_list_shows_entry ... ok
+test keyring_list_json_parses ... ok
+test keyring_remove_unknown_fails_with_not_found ... ok
+test plugins_list_with_no_daemon_errors_clearly ... ok
+test doctor_on_uninitialized_warns_then_exits_zero ... ok
+test doctor_on_initialized_succeeds ... ok
+test plugins_list_with_allow_local_falls_back ... ok
+test routine_error_has_no_backtrace_even_with_rust_backtrace ... ok
+test version_command_prints_versions ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/compute.rs (target/debug/deps/compute-b72a0378cc90e272)
+
+running 6 tests
+test compute_dispatch_help_lists_all_flags ... ok
+test compute_dispatch_with_no_daemon_errors_clearly ... ok
+test compute_subcommand_required ... ok
+test compute_help_mentions_dispatch ... ok
+test dispatch_writes_unmodified_binary_output_and_reports_the_worker_on_stderr ... ok
+test invalid_resource_requests_are_rejected_before_submission ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/distribution.rs (target/debug/deps/distribution-f021eff3d0ce1ae6)
+
+running 1 test
+test install_rejects_above_ceiling_without_mutation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/doctor.rs (target/debug/deps/doctor-28442727476c2a0d)
+
+running 4 tests
+test doctor_when_peers_empty_in_multi_node_warns ... ok
+test doctor_on_uninitialized_succeeds_with_warns_only ... ok
+test doctor_after_init_no_core_fails ... ok
+test doctor_when_identity_perms_too_loose_warns ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/init.rs (target/debug/deps/init-c2fca940f0b4adff)
+
+running 3 tests
+test init_non_interactive_creates_all_files ... ok
+test init_idempotent_second_run_does_not_regenerate_identity ... ok
+test init_with_no_overwrite_default_preserves_existing_config ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/mesh.rs (target/debug/deps/mesh-1e6734e1ce86ec86)
+
+running 7 tests
+test mesh_peers_with_no_daemon_errors_clearly ... ok
+test mesh_status_with_no_daemon_errors_clearly ... ok
+test mesh_trust_rejects_mismatched_id_and_key ... ok
+test mesh_peers_json_parses_with_allow_local ... ok
+test mesh_peers_with_allow_local_falls_back ... ok
+test mesh_trust_writes_peers_toml ... ok
+test mesh_untrust_removes_peer ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/pair.rs (target/debug/deps/pair-11057ee54a5c28fa)
+
+running 9 tests
+test manual_flag_selects_the_blob_channel ... ok
+test pair_help_shows_flags ... ok
+test pair_help_shows_network_flags ... ok
+test pair_tampered_request_blob_is_rejected ... ok
+test pair_wrong_code_aborts ... ok
+test pair_round_trip_happy_path ... ok
+test pair_wrong_prefix_is_rejected ... ok
+test pair_over_the_network_rejects_a_wrong_code ... ok
+test pair_over_the_network_stores_both_peers ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/release_verify.rs (target/debug/deps/release_verify-179079235c079bb0)
+
+running 1 test
+test release_verify_requires_both_signatures_at_the_normal_entry_point ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/version.rs (target/debug/deps/version-2dc74dd136ff357e)
+
+running 3 tests
+test version_with_no_daemon_says_not_reachable ... ok
+test version_with_no_identity_says_not_configured ... ok
+test version_prints_all_crate_versions ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/wrapper.rs (target/debug/deps/wrapper-0d52082fc98cddba)
+
+running 11 tests
+test fish_doctor_rechecks_actual_alias_function_and_missing_wrapper ... ignored, requires fish; set ENTANGLE_FISH to its executable and run explicitly
+test fish_wrapper_forwards_and_warns_when_sourced ... ignored, requires fish; set ENTANGLE_FISH to its executable and run explicitly
+test doctor_fails_when_opted_in_wrapper_was_not_loaded_and_agent_is_on_path ... ok
+test disabling_silences_an_already_running_shell_without_changing_forwarding ... ok
+test wrapper_preserves_config_comments_and_other_sections ... ok
+test wrapper_refuses_symlink_and_modified_managed_block_without_clobbering ... ok
+test zsh_doctor_rechecks_actual_alias_function_and_missing_wrapper ... ignored, requires zsh
+test zsh_wrapper_preserves_arguments_and_exit ... ignored, requires zsh; run explicitly when the shell is installed
+test wrapper_warns_passes_arguments_and_exit_and_disable_restores_user_file ... ok
+test bash_doctor_rechecks_actual_alias_function_and_missing_wrapper ... ok
+test noninteractive_install_opt_in_and_opt_out_persist_across_reinstall ... ok
+
+test result: ok. 7 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 6.26s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_core-f1dfbc5a852018c0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_host-ce9ca8c73be13f0b)
+
+running 7 tests
+test libtest::tests::test_name_cannot_supply_a_libtest_option ... ok
+test state::tests::push_log_caps_line_count_with_single_marker ... ok
+test state::tests::push_log_caps_total_bytes_with_single_marker ... ok
+test state::tests::push_log_under_caps_is_unchanged ... ok
+test plugin::tests::compile_invalid_bytes_errors ... ok
+test plugin::tests::engine_creates_ok ... ok
+test plugin::tests::component_missing_run_export_fails_at_load ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/fixture_invoke.rs (target/debug/deps/fixture_invoke-5c7aa6c6ac259d66)
+
+running 2 tests
+test hello_pong_fixture_returns_greeting_on_input ... ok
+test hello_pong_fixture_returns_pong_on_empty_input ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.28s
+
+     Running tests/limits_and_timeout.rs (target/debug/deps/limits_and_timeout-1b6662fad173c6f8)
+
+running 4 tests
+test stress_fixture_echoes_input_under_default_limits ... ok
+test memory_grow_loop_fails_fast_with_resource_exhausted ... ok
+test failing_instantiate_does_not_disturb_concurrent_invocation ... ok
+test concurrent_timeouts_do_not_cross_cancel ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.58s
+
+     Running tests/runtime_kind.rs (target/debug/deps/runtime_kind-e99d6e88d17db7bf)
+
+running 1 test
+test lie_at_instantiation_rejected ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_ipc-0e8f0c8a7d1943f3)
+
+running 23 tests
+test bus::tests::bus_no_subscribers_returns_error ... ok
+test bus::tests::bus_publish_two_subscribers_both_receive ... ok
+test bus::tests::bus_publish_one_subscriber_receives ... ok
+test bus::tests::bus_topic_filter_excludes_non_matching ... ok
+test bus::tests::slow_subscriber_gets_lagged_error ... ok
+test bus::tests::priority_can_be_set ... ok
+test bus::tests::topic_glob_edge_cases ... ok
+test bus::tests::subscriber_count_tracks_live_subscribers ... ok
+test bus::tests::subscriber_recv_after_drop_errors_closed ... ok
+test bus::tests::try_subscribe_topic_accepts_valid_pattern_and_filters ... ok
+test bus::tests::try_subscribe_topic_rejects_invalid_patterns ... ok
+test topic::tests::arity_mismatch_never_matches_without_double_star ... ok
+test topic::tests::double_star_is_only_special_as_a_whole_trailing_segment ... ok
+test topic::tests::new_rejects_empty_segments ... ok
+test topic::tests::new_still_accepts_valid_topics ... ok
+test topic::tests::validate_pattern_accepts_valid_patterns ... ok
+test topic::tests::validate_pattern_rejects_disallowed_characters ... ok
+test topic::tests::validate_pattern_rejects_empty_pattern ... ok
+test topic::tests::validate_pattern_rejects_empty_segments ... ok
+test topic::tests::validate_pattern_rejects_non_trailing_double_star ... ok
+test bus::tests::topic_matches_glob ... ok
+test bus::tests::topic_validation ... ok
+test bus::tests::subscribe_topic_unchecked_silently_never_matches_malformed_pattern ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_manifest-84b751d9169fc7a2)
+
+running 11 tests
+test validate::tests::rejected_native_with_tier2 ... ok
+test validate::tests::rejected_unknown_capability ... ok
+test validate::tests::rejected_uppercase_plugin_name ... ok
+test validate::tests::storage_share_parses_correctly ... ok
+test validate::tests::valid_declared_above_implied ... ok
+test validate::tests::valid_declared_equals_implied ... ok
+test validate::tests::validate_rejects_tier_0 ... ok
+test validate::tests::validate_rejects_tier_6 ... ok
+test validate::tests::rejected_wasm_with_tier5 ... ok
+test validate::tests::rejected_when_declared_below_implied ... ok
+test loader::tests::load_manifest_valid_roundtrip ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/atc_spec.rs (target/debug/deps/atc_spec-5d510c8733a9912d)
+
+running 6 tests
+test atc_man_1_tier_one_rejects_tier_three_capability ... ok
+test atc_man_1_tier_under_declared_rejected ... ok
+test atc_man_2_tier_over_declared_ok ... ok
+test canonical_under_declaration_names_specific_required_tier ... ok
+test atc_man_2_tier_five_accepts_only_tier_one_capabilities ... ok
+test separate_runtime_kind_is_recognized_and_conflicting_declarations_are_rejected ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_mesh_iroh-cd628baaff8d4e73)
+
+running 32 tests
+test error::tests::code_matches_display_prefix ... ok
+test error::tests::codes_are_unique ... ok
+test framing::tests::empty_stream_is_a_protocol_error ... ok
+test framing::tests::rejects_oversize_header_without_reading_the_body ... ok
+test framing::tests::in_cap_declaration_with_truncated_body_errors ... ok
+test framing::tests::round_trips_payload ... ok
+test framing::tests::truncated_body_is_a_protocol_error_not_a_hang ... ok
+test peer::tests::extra_addrs_are_deduped_and_ordered ... ok
+test peer::tests::format_and_parse_are_inverses ... ok
+test framing::tests::round_trips_payload_larger_than_one_read_chunk ... ok
+test framing::tests::round_trips_empty_payload ... ok
+test framing::tests::rejects_oversize_payload_on_write_without_emitting_bytes ... ok
+test peer::tests::parse_node_addr_rejects_bad_addr ... ok
+test peer::tests::parse_node_addr_rejects_non_hex ... ok
+test peer::tests::parse_node_addr_rejects_short_hex ... ok
+test peer::tests::parse_node_addr_round_trips_well_formed ... ok
+test peer::tests::peer_descriptor_round_trips_equality ... ok
+test peer::tests::peer_id_is_derived_from_public_key ... ok
+test tests::alpn_strings_match_spec ... ok
+test tests::default_config_binds_wildcard_ephemeral ... ok
+test tests::frame_cap_matches_documented_derivation ... ok
+test tests::loopback_config_is_offline ... ok
+test tests::normalized_clamps_frame_cap ... ok
+test tests::transport_trait_is_object_safe ... ok
+test transport::addr_tests::concrete_bind_passes_through_unchanged ... ok
+test transport::addr_tests::wildcard_v4_includes_loopback_so_same_host_pairing_works ... ok
+test transport::addr_tests::wildcard_v4_never_reports_the_wildcard ... ok
+test transport::addr_tests::wildcard_v6_expands_to_v6_addresses ... ok
+test transport::relay_test::authenticated_request_crosses_local_relay ... ignored, requires a loopback iroh-relay server, see docs/testing/local-relay.md
+test peer::tests::ipv6_long_address_round_trips ... ok
+test peer::tests::parse_node_addr_rejects_missing_at ... ok
+test transport::admission_test::idle_and_incomplete_openings_expire_without_limiting_an_admitted_request ... ok
+
+test result: ok. 31 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.49s
+
+     Running tests/loopback.rs (target/debug/deps/loopback-c770213f9486a064)
+
+running 14 tests
+test accept_returns_none_after_shutdown ... ok
+test alpn_mismatch_is_refused ... ok
+test identity_is_deterministic_in_the_seed ... ok
+test empty_payload_round_trips ... ok
+test advertised_node_addr_round_trips_and_dials ... ok
+test observed_peer_id_matches_ed25519_identity ... ok
+test oversize_frame_from_a_peer_is_rejected_on_the_header ... ok
+test relay_assisted_connect_reaches_a_relay ... ignored, requires public relay infrastructure and outbound internet access
+test one_connection_serves_many_requests ... ok
+test oversize_local_payload_is_refused_before_sending ... ok
+test payload_round_trips_over_real_quic ... ok
+test works_through_the_boxed_trait_object ... ok
+test signed_bridge_frame_is_metered_on_the_receiving_quic_endpoint ... ok
+test unreachable_peer_fails_with_a_typed_error_not_a_hang ... ok
+
+test result: ok. 13 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.38s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_mesh_local-c6647c3c0aa9c19d)
+
+running 14 tests
+test discovery::tests::bytes_default_and_clamp ... ok
+test discovery::tests::hardware_capacity_round_trips_in_existing_txt_fields ... ok
+test discovery::tests::cpu_cores_rejects_poisoned_values ... ok
+test discovery::tests::dial_targets_prefer_mesh_port_over_service_port ... ok
+test discovery::tests::dns_host_labels_are_scoped_to_the_entire_peer_id ... ok
+test discovery::tests::mesh_port_txt_is_bounded_and_rejects_zero ... ok
+test discovery::tests::public_key_txt_rejected_when_it_does_not_derive_to_peer_id ... ok
+test discovery::tests::hostname_label_is_dns_safe ... ok
+test discovery::tests::hardware_txt_keeps_old_cpu_only_records_usable ... ok
+test discovery::tests::public_key_txt_rejects_malformed_input ... ok
+test discovery::tests::sanitize_label_truncates_on_char_boundary ... ok
+test discovery::tests::sanitize_label_strips_control_chars ... ok
+test discovery::tests::public_key_txt_round_trips_when_consistent ... ok
+test discovery::tests::service_type_builder_rejects_malformed_types ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/discovery.rs (target/debug/deps/discovery-dec68657702984d1)
+
+running 6 tests
+test local_peer_hardware_with_gpu ... ok
+test default_config_has_no_hardware ... ok
+test local_peer_with_hardware_advert_fields ... ok
+test manual_two_instances_see_each_other ... ignored
+test smoke_announce_and_shutdown ... ok
+test double_start_announcing_is_already_running ... ok
+
+test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_mesh_tailscale-8691c27bfb6c841b)
+
+running 10 tests
+test tests::command::command_failures_do_not_accept_partial_status ... ok
+test tests::defaults_use_path_and_entanglement_acls ... ok
+test tests::command::calls_only_read_only_status_and_reports_inactive_backend ... ok
+test tests::missing_cli_reports_not_installed ... ok
+test tests::running_status_retains_only_node_addresses_and_distinguishes_offline_peers ... ok
+test tests::self_and_unidentified_nodes_are_excluded ... ok
+test tests::rejects_malformed_status_and_unparseable_addresses ... ok
+test tests::stopped_status_accepts_null_and_absent_go_collections ... ok
+test tests::command::oversized_cli_output_is_rejected ... ok
+test tests::command::hung_cli_times_out ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.01s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_observability-0b22ae870401357d)
+
+running 14 tests
+test metrics::tests::counter_increments_accumulate ... ok
+test metrics::tests::gauge_overrides_previous_value ... ok
+test metrics::tests::histogram_label_preserved_on_bucket_lines ... ok
+test metrics::tests::multiple_label_sets_kept_separate ... ok
+test metrics::tests::label_escaping_handles_quotes_and_backslashes ... ok
+test metrics::tests::histogram_buckets_are_cumulative ... ok
+test otel::tests::init_returns_not_implemented_in_phase_1 ... ok
+test otel::tests::validate_accepts_default_config ... ok
+test otel::tests::default_points_at_localhost_otel_collector ... ok
+test otel::tests::validate_rejects_empty_host ... ok
+test otel::tests::validate_rejects_non_http_scheme ... ok
+test metrics::tests::render_is_deterministic ... ok
+test otel::tests::validate_rejects_empty_service_name ... ok
+test otel::tests::init_propagates_validation_error_before_not_implemented ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_oci-6a1c5aaca10bb4f5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/distribution.rs (target/debug/deps/distribution-e0209d21a3bfbfa9)
+
+running 6 tests
+test in_memory_trust_labels_must_match_the_verifying_key ... ok
+test archive_rejects_duplicates_and_unexpected_files ... ok
+test rejects_special_manifest_and_linked_cached_files ... ok
+test archive_requires_same_trusted_publisher_on_both_signatures ... ok
+test mirror_listing_verified ... ok
+test oci_and_tarball_yield_same_authenticated_component ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_pairing-b371e65658a48dc4)
+
+running 34 tests
+test code::tests::display_grouped_inserts_dash ... ok
+test code::tests::from_str_rejects_5_digits ... ok
+test code::tests::from_str_rejects_letters_only ... ok
+test code::tests::debug_redacts_value ... ok
+test code::tests::from_str_strips_dashes_and_whitespace ... ok
+test envelope::tests::code_commit_includes_code ... ok
+test code::tests::from_u32_rejects_leading_zero_range ... ok
+test code::tests::generate_yields_in_range ... ok
+test code::tests::from_str_rejects_7_digits ... ok
+test envelope::tests::code_commit_includes_pubkey ... ok
+test envelope::tests::signing_payload_includes_code ... ok
+test fingerprint::tests::from_grouped_hex_rejects_short ... ok
+test fingerprint::tests::from_grouped_hex_round_trip ... ok
+test fingerprint::tests::from_public_key_is_deterministic ... ok
+test envelope::tests::signing_payload_includes_nonce ... ok
+test net::tests::accept_replayed_on_another_connection_is_refused ... ok
+test fingerprint::tests::display_format_is_four_groups_of_four ... ok
+test net::tests::debug_never_leaks_the_code ... ok
+test net::tests::dialer_rejects_offer_whose_key_is_not_the_connection_key ... ok
+test net::tests::display_names_from_the_wire_are_sanitized ... ok
+test net::tests::code_is_single_use ... ok
+test net::tests::offer_carries_nothing_derived_from_the_code ... ok
+test net::tests::oversize_and_malformed_frames_are_refused_not_parsed ... ok
+test net::tests::attempts_are_capped_and_the_session_dies ... ok
+test net::tests::wrong_protocol_version_is_refused ... ok
+test net::tests::correct_code_pairs_both_sides_mutually ... ok
+test session::tests::expired_request_rejected_at_responder ... ok
+test session::tests::code_redacted_in_debug ... ok
+test net::tests::wrong_code_is_refused_by_the_host ... ok
+test session::tests::tampered_initiator_pubkey_fails_responder_receive ... ok
+test session::tests::wrong_code_fails_at_responder_accept ... ok
+test net::tests::expired_session_refuses_even_the_correct_code ... ok
+test session::tests::tampered_signature_fails_initiator_handle_accept ... ok
+test session::tests::pairing_happy_path_yields_matching_pairs ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests/loopback_pairing.rs (target/debug/deps/loopback_pairing-5cf3085200279ad6)
+
+running 9 tests
+test a_pairing_beacon_is_discoverable_and_dialable ... ignored, requires real multicast mDNS on a live interface
+test correct_code_pairs_both_devices_over_quic ... ok
+test a_code_pairs_only_one_device ... ok
+test expired_session_refuses_the_correct_code_over_quic ... ok
+test listener_gives_up_when_the_session_expires ... ok
+test wrong_code_is_refused_over_quic ... ok
+test responder_waits_for_the_final_reply_to_drain ... ok
+test wrong_codes_are_capped_and_burn_the_session ... ok
+test dialing_a_non_listener_fails_cleanly ... ok
+
+test result: ok. 8 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 13.17s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_peers-470661418aa8ca1b)
+
+running 24 tests
+test peer::tests::new_validated_rejects_mismatched_id_and_key ... ok
+test peer::tests::new_validated_rejects_non_hex_key ... ok
+test peer::tests::new_validated_rejects_wrong_length_key ... ok
+test peer::tests::trust_level_kebab_form_round_trips_via_json ... ok
+test peer::tests::new_sets_trusted_level_and_no_last_seen ... ok
+test peer::tests::new_validated_accepts_matching_pair ... ok
+test store::tests::add_and_get ... ok
+test store::tests::add_same_peer_id_overwrites ... ok
+test peer::tests::trusted_peer_toml_round_trip_preserves_fields ... ok
+test store::tests::current_trust_requires_trusted_level_in_memory_and_on_disk ... ok
+test store::tests::crash_between_temp_write_and_rename_preserves_previous_file ... ok
+test store::tests::concurrent_writers_do_not_clobber ... ok
+test store::tests::empty_store_is_empty ... ok
+test store::tests::remove_peer ... ok
+test store::tests::open_skips_peer_with_mismatched_id_key ... ok
+test store::tests::revoke_unknown_peer_errors ... ok
+test store::tests::revoke_flips_trust_level ... ok
+test store::tests::open_creates_parent_dirs ... ok
+test store::tests::saved_file_has_0600_permissions ... ok
+test store::tests::stale_temp_file_does_not_block_save ... ok
+test store::tests::touch_last_seen_updates_field ... ok
+test store::tests::truncated_toml_is_parse_error_not_panic ... ok
+test store::tests::round_trip_persistence ... ok
+test store::tests::current_trust_observes_separate_store_changes_and_fails_closed ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_rpc-fdb1d90a0f1b7ad7)
+
+running 5 tests
+test client::tests::default_connect_timeout_is_two_seconds ... ok
+test client::tests::with_connect_timeout_overrides ... ok
+test client::tests::reply_frame_accepts_exact_cap_and_refuses_one_more_byte ... ok
+test client::tests::nullable_result_is_distinct_from_a_missing_or_ambiguous_result ... ok
+test client::tests::missing_socket_yields_daemon_not_running ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/client.rs (target/debug/deps/client-0131abed99356152)
+
+running 7 tests
+test test_daemon_not_running ... ok
+test metrics_rejects_mismatched_response_envelopes ... ok
+test test_malformed_response ... ok
+test test_malformed_missing_result_field ... ok
+test test_plugins_load_returns_plugin_id ... ok
+test test_version_happy_path ... ok
+test test_rpc_error_method_not_found ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/compute.rs (target/debug/deps/compute-0f00370d9e0d61cf)
+
+running 4 tests
+test compute_dispatch_no_daemon_returns_not_running ... ok
+test compute_dispatch_returns_typed_result_from_fake_server ... ok
+test compute_dispatch_trusted_executor_integrity_serialises ... ok
+test compute_dispatch_deterministic_integrity_serialises ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/mesh.rs (target/debug/deps/mesh-10cc84e54d689824)
+
+running 5 tests
+test mesh_peers_returns_empty_on_fresh_daemon ... ok
+test mesh_peers_parses_peer_fields ... ok
+test mesh_status_includes_local_peer_id ... ok
+test mesh_peers_propagates_rpc_error ... ok
+test mesh_status_zero_counts_on_fresh_daemon ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_runtime-815d8f63f4c8f7d2)
+
+running 20 tests
+test os_sandbox::tests::is_available_matrix ... ok
+test os_sandbox::tests::linux_probe_does_not_panic ... ok
+test os_sandbox::tests::probe_returns_a_known_variant ... ok
+test tests::cross_publisher_signature_blocks_load ... ok
+test tests::compile_failure_rolls_back_broker_registration ... ok
+test tests::invalid_lifecycle_capacity_returns_a_configuration_error ... ok
+test tests::direct_load_rejects_symlinks_even_when_the_target_is_correctly_signed ... ok
+test tests::double_load_leaves_broker_and_audit_state_unchanged ... ok
+test tests::invoke_plugin_emits_activated_and_idled ... ok
+test tests::direct_load_rejects_each_oversized_input_before_admission ... ok
+test tests::signed_native_manifest_cannot_load_a_wasm_surrogate_at_tier_five ... ok
+test tests::tampered_artifact_blocks_load ... ok
+test tests::tampered_manifest_blocks_load ... ok
+test tests::tier_above_ceiling_blocks_load ... ok
+test tests::native_service_lease_drains_before_a_lower_ceiling_takes_effect ... ok
+test tests::unknown_publisher_blocks_load ... ok
+test tests::load_plugin_end_to_end ... ok
+test tests::tier_change_reserves_admission_drains_work_and_rolls_back_a_failed_save ... ok
+test tests::subsequent_loads_observe_current_publisher_trust ... ok
+test tests::unload_plugin_emits_event_and_removes_from_list ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.45s
+
+     Running tests/hello_world_e2e.rs (target/debug/deps/hello_world_e2e-7bfbe7f1f1c0fff9)
+
+running 1 test
+test hello_world_full_pipeline ... ignored, requires wasm32-wasip2 target and runs cargo build out-of-process
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integrity.rs (target/debug/deps/integrity-5572ed0e385dc6ee)
+
+running 7 tests
+test atc_int_4_trusted_executor_rejects_when_local_peer_not_in_list ... ok
+test atc_int_3_trusted_executor_allowlist_passes_when_local_peer_in_list ... ok
+test atc_int_6_attested_returns_not_implemented ... ok
+test deterministic_verifier_requires_an_output_even_when_requested_count_is_zero ... ok
+test atc_int_5_semantic_equivalent_returns_not_implemented ... ok
+test atc_int_2_deterministic_insufficient_replicas_errors ... ok
+test atc_int_1_deterministic_n2_hash_match_succeeds ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.11s
+
+     Running tests/progressive_guest.rs (target/debug/deps/progressive_guest-3d2f3c0987d099c1)
+
+running 4 tests
+test negotiated_limits_and_closed_receiver_fail_the_wasm_guest ... ok
+test wasm_emits_progressive_rows_and_waits_for_each_acknowledgement ... ok
+test withholding_credit_pauses_compute_time_only_until_the_acknowledgement ... ok
+test withholding_stream_credit_cannot_stall_unload_or_tier_lowering ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.57s
+
+     Running tests/submitter_metric.rs (target/debug/deps/submitter_metric-86d482365c3dd081)
+
+running 1 test
+test only_the_submitter_can_prepare_a_trusted_local_comparator ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_scheduler-e78a394fb1b86773)
+
+running 48 tests
+test placement::tests::bandwidth_minimum_is_required_even_when_the_slower_worker_scores_better ... ok
+test placement::tests::choose_filters_workers_with_wrong_gpu_backend ... ok
+test placement::tests::choose_is_stable_lowest_peer_id_on_tie ... ok
+test placement::tests::choose_no_workers_returns_no_workers_error ... ok
+test placement::tests::choose_npu_vendor_match_is_case_insensitive ... ok
+test placement::tests::choose_picks_lowest_rtt_when_resources_equal ... ok
+test placement::tests::choose_poisoned_worker_cannot_outrank_honest ... ok
+test placement::tests::choose_prefers_low_load_among_equal_locality ... ok
+test placement::tests::choose_rejects_npu_vendor_mismatch_case_insensitive ... ok
+test placement::tests::choose_rejects_worker_with_too_little_vram ... ok
+test placement::tests::choose_returns_no_match_when_pool_empty_after_filter ... ok
+test placement::tests::gpu_any_backend_matches_metal_and_cuda ... ok
+test remote::tests::allowlist_admits_only_named_peers ... ok
+test placement::tests::choose_filters_workers_with_insufficient_memory ... ok
+test remote::tests::directory_lookup_is_keyed_by_identity ... ok
+test placement::tests::choose_filters_workers_lacking_gpu_when_required ... ok
+test remote::tests::empty_allowlist_authorizes_nobody ... ok
+test remote::tests::directory_round_trips_and_forgets ... ok
+test wire::tests::err_response_round_trips ... ok
+test placement::tests::choose_filters_nan_cpu_worker ... ok
+test wire::tests::bulk_payloads_match_v1_sequence_encoding_in_both_directions ... ok
+test wire::tests::error_codes_have_distinct_labels ... ok
+test wire::tests::future_version_is_detected_not_misparsed ... ok
+test wire::tests::garbage_never_panics ... ok
+test wire::tests::ok_response_round_trips ... ok
+test wire::tests::oversize_frame_is_refused_before_decoding ... ok
+test wire::tests::oversize_input_is_refused_at_decode ... ok
+test wire::tests::oversize_output_is_refused_by_the_caller ... ok
+test wire::tests::request_round_trips ... ok
+test wire::tests::trailing_bytes_are_rejected ... ok
+test wire::tests::truncated_frame_is_malformed_not_a_panic ... ok
+test wire::tests::future_response_version_is_detected ... ok
+test wire::tests::error_response_is_not_output_capped ... ok
+test remote::tests::ceilings_clamp_downward_only ... ok
+test worker::tests::dropping_a_reservation_after_expiry_cannot_release_a_new_workers_slot ... ok
+test worker::tests::authenticated_inventory_controls_placement_across_lan_updates ... ok
+test worker::tests::failed_cancelled_and_obsolete_reservations_leave_no_upload_observation ... ok
+test worker::tests::large_placement_uses_fresh_passive_uploads_and_retains_unknown_routes ... ok
+test worker::tests::live_filters_by_ttl ... ok
+test worker::tests::pool_upsert_and_live_returns_recent_only ... ok
+test worker::tests::remove_stale_drops_old_workers_returns_count ... ok
+test worker::tests::remove_stale_keeps_fresh_workers ... ok
+test worker::tests::upsert_enforces_max_workers_cap ... ok
+test worker::tests::upsert_rejects_poisoned_worker ... ok
+test worker::tests::validate_flags_poisoned_numeric_fields ... ok
+test worker::tests::worker_info_json_roundtrip_preserves_all_fields ... ok
+test worker::tests::pool_remove_drops_worker ... ok
+test work_unit::tests::atc_int_3_cannot_mutate_policy_until_replica_returns ... ok
+
+test result: ok. 48 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/dispatcher.rs (target/debug/deps/dispatcher-828034ebd50569b1)
+
+running 9 tests
+test fallback_requires_evidence_of_local_resources ... ok
+test oversized_input_is_rejected ... ok
+test attested_policy_returns_e0304_not_implemented ... ok
+test strict_remote_returns_not_implemented_when_placement_picks_remote_peer ... ok
+test trusted_executor_empty_allowlist_refused_e0303 ... ok
+test trusted_executor_without_remote_transport_refuses_local_fallback_e0303 ... ok
+test placement_scores_local_hardware_only_while_the_requested_plugin_is_loaded ... ok
+test oversized_output_is_rejected_e0300 ... ok
+test dispatch_with_empty_pool_falls_back_to_local_when_no_resources_required ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.56s
+
+     Running tests/remote_dispatch.rs (target/debug/deps/remote_dispatch-124b10583f123376)
+
+running 33 tests
+test a_caller_cannot_raise_the_executors_timeout_ceiling ... ok
+test a_peer_with_no_known_address_is_a_typed_error ... ok
+test a_plugin_missing_on_the_executor_surfaces_as_a_typed_error ... ok
+test a_future_wire_version_is_refused_not_misparsed ... ok
+test a_peer_outside_the_allowlist_cannot_make_this_node_execute_anything ... ok
+test a_node_not_serving_the_scheduler_alpn_executes_nothing ... ok
+test an_unreachable_peer_fails_with_a_typed_error_under_a_deadline ... ok
+test direct_client_checks_integrity_before_resolving_the_peer ... ok
+test a_self_inconsistent_frame_is_rejected_by_the_executor ... ok
+test an_empty_allowlist_refuses_every_peer ... ok
+test authorization_follows_the_authenticated_identity_not_the_payload ... ok
+test garbage_from_an_authorized_peer_is_answered_not_fatal ... ok
+test large_authenticated_upload_only_trains_after_a_successful_response ... ok
+test oversize_input_is_refused_by_the_executor ... ok
+test remote_descriptor_must_name_the_selected_key ... ok
+test oversize_output_is_refused ... ok
+test oversize_input_never_leaves_the_caller ... ok
+test overlapping_dispatches_spread_and_release_their_slots ... ok
+test stream_acceptance::completed_stream_drains_receipt_when_peer_stops_receiving_credit ... ok
+test repeated_remote_dispatches_stay_independent ... ok
+test stream_acceptance::only_authenticated_worker_signatures_deliver_chunks ... ok
+test semantic_acceptance::authenticated_inventory_distinguishes_metric_one_shot_and_progressive_worlds ... ok
+test stream_acceptance::replicated_stream_integrity_fails_before_route_lookup ... ok
+test stream_acceptance::reduced_active_cap_interrupts_compute_wasm_adapted_to_a_stream ... ok
+test stream_acceptance::credit_exhaustion_stalls_at_timeout_and_verified_credit_resumes ... ok
+test task_executes_on_the_other_node_and_output_comes_back ... ok
+test the_wire_refuses_to_encode_a_frame_over_the_transport_cap ... ok
+test semantic_acceptance::atc_int_1_2_3_5_submitter_only_signed_metric_and_output_guard ... ok
+test stream_acceptance::signed_wasm_guest_lines_cross_quic_under_credit ... ok
+test without_a_transport_strict_mode_still_refuses_remote_placement ... ok
+test without_a_transport_non_strict_mode_still_falls_back_to_local ... ok
+test trusted_executor_places_on_the_allowed_worker ... ok
+test stream_acceptance::three_missed_pings_close_channel ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 55.77s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_sdk-199e14a841d396b9)
+
+running 1 test
+test tests::sdk_version_is_set ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_signing-000bf39344d822c3)
+
+running 6 tests
+test keyring::tests::save_sets_owner_only_permissions ... ok
+test keyring::tests::rejects_inconsistent_persisted_fingerprints ... ok
+test keyring::tests::save_load_round_trip_preserves_entries ... ok
+test keyring::tests::save_tightens_permissions_on_existing_file ... ok
+test keyring::tests::file_edits_preserve_concurrent_additions ... ok
+test relay::tests::rolling_rate_and_overflow_boundaries_are_conservative ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/atc_spec.rs (target/debug/deps/atc_spec-a85df6b618496e2c)
+
+running 6 tests
+test atc_rep_1_signatures_are_deterministic ... ok
+test atc_sig_3_mutated_artifact_hash_mismatch ... ok
+test atc_sig_2_empty_keyring_unknown_publisher ... ok
+test atc_sig_5_unsupported_algorithm_rejected ... ok
+test atc_sig_4_mutated_signature_bad_signature ... ok
+test atc_sig_1_sign_verify_happy_path ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/bridge_attenuation.rs (target/debug/deps/bridge_attenuation-dcb8df0d1e754f9e)
+
+running 9 tests
+test canonical_ed25519_destination_resolves_to_paired_node_identity ... ok
+test expired_ttl_rejected ... ok
+test missing_rate_limit_rejected ... ok
+test missing_total_bytes_cap_rejected ... ok
+test no_bridge_marker_rejected ... ok
+test valid_bridge_accepted ... ok
+test wrong_dest_rejected ... ok
+test ceiling_and_holder_boundaries ... ok
+test all_five_signed_attenuations_are_required ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.20s
+
+     Running tests/integration.rs (target/debug/deps/integration-bec7703e92e17a02)
+
+running 11 tests
+test test_pem_round_trip_fingerprint_stable ... ok
+test test_deterministic_fingerprint_from_seed ... ok
+test test_keyring_round_trip ... ok
+test test_corrupted_signature_bad_signature ... ok
+test test_tampered_artifact_hash_mismatch ... ok
+test test_tampered_manifest_hash_mismatch ... ok
+test test_unsupported_algorithm ... ok
+test test_swapped_manifest_hash_bad_signature ... ok
+test test_unsupported_bundle_version ... ok
+test test_wrong_key_unknown_publisher ... ok
+test test_sign_and_verify_ok ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/total_bytes_cap.rs (target/debug/deps/total_bytes_cap-07c09385f364c656)
+
+running 3 tests
+test either_rate_limit_blocks_before_delivery_and_keeps_the_previous_balance ... ok
+test concurrent_receivers_deliver_exactly_the_available_budget ... ok
+test exact_boundary_survives_restart_and_further_attenuation ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_types-c3e43dc0a0ac0092)
+
+running 34 tests
+test capability::tests::custom_requires_pure ... ok
+test capability::tests::mesh_peer_requires_privileged ... ok
+test capability::tests::compute_gpu_requires_networked ... ok
+test capability::tests::compute_cpu_requires_sandboxed ... ok
+test capability::tests::host_docker_socket_requires_native ... ok
+test capability::tests::standard_variants_round_trips_min_tier ... ok
+test capability::tests::storage_local_plugin_requires_pure ... ok
+test capability::tests::storage_local_shared_requires_sandboxed ... ok
+test errors::tests::error_messages_contain_code ... ok
+test errors::tests::every_variant_carries_code ... ok
+test errors::tests::tier_below_capability_message ... ok
+test peer_id::tests::different_keys_different_ids ... ok
+test peer_id::tests::display_is_hex ... ok
+test peer_id::tests::from_hex_bad_length ... ok
+test peer_id::tests::stable_hex_value ... ok
+test peer_id::tests::stable_output ... ok
+test plugin_id::tests::invalid_name_uppercase ... ok
+test plugin_id::tests::invalid_publisher_short ... ok
+test plugin_id::tests::is_valid_name_checks ... ok
+test capability::tests::net_wan_requires_networked ... ok
+test capability::tests::standard_variants_includes_docker_socket_native_tier ... ok
+test plugin_id::tests::publisher_normalized_to_lowercase ... ok
+test plugin_id::tests::round_trip ... ok
+test resource::tests::default_is_all_zero ... ok
+test task::tests::channel_spec_defaults ... ok
+test task::tests::integrity_policy_none_eq ... ok
+test plugin_id::tests::parse_from_str ... ok
+test tier::tests::ordering ... ok
+test tier::tests::round_trip_u8 ... ok
+test tier::tests::try_from_six_errors ... ok
+test tier::tests::try_from_valid ... ok
+test tier::tests::try_from_zero_errors ... ok
+test task::tests::one_shot_defaults ... ok
+test tier::tests::display ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/atc_spec.rs (target/debug/deps/atc_spec-4a6ccf4287317c8f)
+
+running 16 tests
+test atc_brg_bridge_attenuation_suite ... ignored, Phase 3: requires entangle-broker + biscuit attenuation machinery (ATC-BRG-1 through ATC-BRG-6)
+test atc_bus_rotation_governance_invariants ... ignored, Phase 5+: operational invariants verified in release CI / governance docs
+test atc_int_2_max_output_bytes_field_carried ... ok
+test atc_int_3_integrity_policy_none_toml_round_trip ... ok
+test atc_int_4_semantic_equivalent_threshold_not_clamped_at_type_level ... ok
+test atc_int_4_streaming_deterministic_rejected_at_submit ... ignored, Phase 3: requires entangle-plugin-scheduler submit-time validation
+test atc_int_6_streaming_total_bytes_cap_enforced ... ignored, Phase 3: requires entangle-plugin-scheduler stream byte tracking
+test atc_mirror_release_operational_invariants ... ignored, Phase 5+: release/mirror invariants verified in release CI, not unit tests
+test atc_int_3_integrity_policy_trusted_executor_json_round_trip ... ok
+test atc_str_1_credit_exhaustion_stalls_at_timeout ... ignored, Phase 3: requires entangle-plugin-scheduler credit/stall machinery
+test atc_str_1_channel_spec_defaults_match_spec ... ok
+test atc_str_2_three_missed_pings_close_channel ... ignored, Phase 3: requires entangle-plugin-scheduler heartbeat ping/pong machinery
+test atc_str_3_forged_chunk_rejected ... ignored, Phase 3: requires entangle-plugin-scheduler chunk signing verification
+test atc_out_1_output_size_exceeded_display_format ... ok
+test atc_int_5_max_output_default_16mib ... ok
+test atc_str_2_partial_result_policy_kebab_case_serde ... ok
+
+test result: ok. 8 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/error_codes.rs (target/debug/deps/error_codes-b3fc1708561def1c)
+
+running 2 tests
+test error_codes_are_unique ... ok
+test doc_comments_match_emitted_codes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/entangle_wit-714338958adaf854)
+
+running 3 tests
+test tests::world_resolver_accepts_canonical_and_underscore_form ... ok
+test tests::wit_package_identifier_is_stable ... ok
+test tests::wit_files_returns_five_named_interfaces ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wit_parses.rs (target/debug/deps/wit_parses-993c88cf3ac5d10b)
+
+running 4 tests
+test worlds_resolve ... ok
+test package_constant_matches_world_files ... ok
+test wit_files_returns_all_files ... ok
+test wit_parses_with_wit_parser ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src/main.rs (target/debug/deps/xtask-016e4b112383d0fb)
+
+running 3 tests
+test tests::example_aliases_point_at_real_plugin_dirs ... ok
+test tests::workspace_root_contains_the_workspace_manifest ... ok
+test tests::generic_build_rejects_a_non_directory ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests entangle_agent_host
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_bench
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_bin
+
+running 1 test
+test crates/entangle-bin/src/maintenance.rs - maintenance::MaintenanceLoop::run (line 95) ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_biscuits
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_broker
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_host
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_ipc
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_manifest
+
+running 1 test
+test crates/entangle-manifest/src/lib.rs - (line 10) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+   Doc-tests entangle_mesh_iroh
+
+running 1 test
+test crates/entangle-mesh-iroh/src/lib.rs - (line 46) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+   Doc-tests entangle_mesh_local
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_mesh_tailscale
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_observability
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_oci
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_pairing
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_peers
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_rpc
+
+running 1 test
+test crates/entangle-rpc/src/lib.rs - (line 9) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+   Doc-tests entangle_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_scheduler
+
+running 1 test
+test crates/entangle-scheduler/src/remote.rs - remote::serve_tasks (line 856) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+
+   Doc-tests entangle_sdk
+
+running 3 tests
+test crates/entangle-sdk/src/lib.rs - (line 15) ... ignored
+test crates/entangle-sdk/src/lib.rs - entangle_plugin (line 93) ... ignored
+test crates/entangle-sdk/src/lib.rs - entangle_plugin (line 98) ... ignored
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_signing
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests entangle_types
+
+running 1 test
+test crates/entangle-types/src/plugin_id.rs - plugin_id::PluginId (line 19) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+   Doc-tests entangle_wit
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

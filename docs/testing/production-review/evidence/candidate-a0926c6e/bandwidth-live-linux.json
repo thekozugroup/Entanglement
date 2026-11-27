@@ -1,0 +1,361 @@
+{
+  "initial_nodes": {
+    "coordinator": {
+      "id": "e192750cd1da0d410e0838121558c7d34a9e5d3e5d06dce8429550ebef65063f",
+      "daemon_pid": 789548,
+      "mode": "none"
+    },
+    "fast": {
+      "id": "ae7c99d0158e082adc0d16aaa465e248d3341a97940e6c21eae5a30d1162657f",
+      "daemon_pid": 791854,
+      "mode": "none"
+    },
+    "slow": {
+      "id": "227e09ac91c778220cb6d1e1bb7a7d11c6826a7520e6cc7b0919a480a1057c08",
+      "daemon_pid": 793476,
+      "mode": "none"
+    }
+  },
+  "final_nodes": {
+    "coordinator": {
+      "id": "e192750cd1da0d410e0838121558c7d34a9e5d3e5d06dce8429550ebef65063f",
+      "daemon_pid": 789548,
+      "mode": "none"
+    },
+    "fast": {
+      "id": "ae7c99d0158e082adc0d16aaa465e248d3341a97940e6c21eae5a30d1162657f",
+      "daemon_pid": 791854,
+      "mode": "none"
+    },
+    "slow": {
+      "id": "227e09ac91c778220cb6d1e1bb7a7d11c6826a7520e6cc7b0919a480a1057c08",
+      "daemon_pid": 793476,
+      "mode": "none"
+    }
+  },
+  "scope": "three Linux network-disabled Docker namespaces on one host; no qdisc or host network changes",
+  "initial_upload_rate_limits_bps": {
+    "fast": null,
+    "slow": 8000000
+  },
+  "measured_upload_bps": {
+    "fast": 32671709,
+    "slow": 2127908
+  },
+  "reversed_upload_rate_limits_bps": {
+    "fast": 8000000,
+    "slow": null
+  },
+  "reversed_measured_upload_bps": {
+    "fast": 11325773,
+    "slow": 22849978
+  },
+  "peer_ids": {
+    "coordinator": "68b5637436fe0f0e03b7690b95174a72",
+    "fast": "1ef3c21b89f03b1a2b57f00476602aeb",
+    "slow": "d1ab594f6983c92b60144750a783c9f6"
+  },
+  "jobs": [
+    {
+      "phase": "fast-initial-small",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=47ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "measured_bps": null,
+      "input_bytes": 183,
+      "nonce": "9c258773a21240d5e26ac0dd",
+      "output": "\"9c258773a21240d5e26ac0dd\"",
+      "wall_s": 0.1455
+    },
+    {
+      "phase": "fast-train",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=47ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=unknown",
+      "measured_bps": "unknown",
+      "input_bytes": 786515,
+      "nonce": "7043fe0690b2eb0e821b3b42",
+      "output": "\"7043fe0690b2eb0e821b3b42\"",
+      "wall_s": 0.503
+    },
+    {
+      "phase": "fast-measure",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=11ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=32671709",
+      "measured_bps": 32671709,
+      "input_bytes": 786515,
+      "nonce": "8079fc2c43b0d8c48effb286",
+      "output": "\"8079fc2c43b0d8c48effb286\"",
+      "wall_s": 0.4426
+    },
+    {
+      "phase": "slow-initial-small",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=72ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "measured_bps": null,
+      "input_bytes": 183,
+      "nonce": "d77f4c3780c3dfc4670263e0",
+      "output": "\"d77f4c3780c3dfc4670263e0\"",
+      "wall_s": 0.2173
+    },
+    {
+      "phase": "slow-train",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=72ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=unknown",
+      "measured_bps": "unknown",
+      "input_bytes": 786515,
+      "nonce": "789c06a4c1eb052fe1f18106",
+      "output": "\"789c06a4c1eb052fe1f18106\"",
+      "wall_s": 3.1521
+    },
+    {
+      "phase": "slow-measure",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=72ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=2127908",
+      "measured_bps": 2127908,
+      "input_bytes": 786515,
+      "nonce": "3aa40b4a5ff39d0892e312e2",
+      "output": "\"3aa40b4a5ff39d0892e312e2\"",
+      "wall_s": 3.3899
+    },
+    {
+      "phase": "both-eligible",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=11ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=60918691",
+      "measured_bps": 60918691,
+      "input_bytes": 786515,
+      "nonce": "cab85b5957b8916e0d78745b",
+      "output": "\"cab85b5957b8916e0d78745b\"",
+      "wall_s": 0.5022
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=11ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=53397297",
+      "measured_bps": 53397297,
+      "input_bytes": 786515,
+      "nonce": "f8cb73b4413b5f6b0e56e0d0",
+      "output": "\"f8cb73b4413b5f6b0e56e0d0\"",
+      "wall_s": 3.3517
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=72ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=2127908",
+      "measured_bps": 2127908,
+      "input_bytes": 786515,
+      "nonce": "948b56994e6c839172f3026b",
+      "output": "\"948b56994e6c839172f3026b\"",
+      "wall_s": 0.9989
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=11ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=53397297",
+      "measured_bps": 53397297,
+      "input_bytes": 786515,
+      "nonce": "a2924b4e8630d1317821888c",
+      "output": "\"a2924b4e8630d1317821888c\"",
+      "wall_s": 2.4049
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=57ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=5733059",
+      "measured_bps": 5733059,
+      "input_bytes": 786515,
+      "nonce": "5730197d18969bf2923f0e1d",
+      "output": "\"5730197d18969bf2923f0e1d\"",
+      "wall_s": 0.5191
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=27ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=40743771",
+      "measured_bps": 40743771,
+      "input_bytes": 786515,
+      "nonce": "e35287b636fc76c512eb2225",
+      "output": "\"e35287b636fc76c512eb2225\"",
+      "wall_s": 4.0002
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=57ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=10904292",
+      "measured_bps": 10904292,
+      "input_bytes": 786515,
+      "nonce": "7c9c99729d3d384c7e0c0930",
+      "output": "\"7c9c99729d3d384c7e0c0930\"",
+      "wall_s": 1.5687
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=27ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=31015441",
+      "measured_bps": 31015441,
+      "input_bytes": 786515,
+      "nonce": "8c0b647e2c6651221f4aefc2",
+      "output": "\"8c0b647e2c6651221f4aefc2\"",
+      "wall_s": 3.4022
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=57ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=9551752",
+      "measured_bps": 9551752,
+      "input_bytes": 786515,
+      "nonce": "6170d8469c9c025480adf983",
+      "output": "\"6170d8469c9c025480adf983\"",
+      "wall_s": 0.5432
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=27ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=23789553",
+      "measured_bps": 23789553,
+      "input_bytes": 786515,
+      "nonce": "e32ee8dd777cea38ff6afd77",
+      "output": "\"e32ee8dd777cea38ff6afd77\"",
+      "wall_s": 3.2046
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=57ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=12412392",
+      "measured_bps": 12412392,
+      "input_bytes": 786515,
+      "nonce": "00c3316c2506fac0ac0d725c",
+      "output": "\"00c3316c2506fac0ac0d725c\"",
+      "wall_s": 0.5133
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=27ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=23789553",
+      "measured_bps": 23789553,
+      "input_bytes": 786515,
+      "nonce": "c57e08d621be4f16153788ae",
+      "output": "\"c57e08d621be4f16153788ae\"",
+      "wall_s": 2.9471
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=172ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=17316345",
+      "measured_bps": 17316345,
+      "input_bytes": 786515,
+      "nonce": "07d9ff476e555c57d112e628",
+      "output": "\"07d9ff476e555c57d112e628\"",
+      "wall_s": 0.6309
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=2045ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=18435355",
+      "measured_bps": 18435355,
+      "input_bytes": 786515,
+      "nonce": "4eb0b168f6756f84afc16936",
+      "output": "\"4eb0b168f6756f84afc16936\"",
+      "wall_s": 3.3622
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=172ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=20917546",
+      "measured_bps": 20917546,
+      "input_bytes": 786515,
+      "nonce": "2df3959bc61bd535aa436cfc",
+      "output": "\"2df3959bc61bd535aa436cfc\"",
+      "wall_s": 1.0767
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=2045ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=14384301",
+      "measured_bps": 14384301,
+      "input_bytes": 786515,
+      "nonce": "c38c0b89c737c3d42f70fb50",
+      "output": "\"c38c0b89c737c3d42f70fb50\"",
+      "wall_s": 2.903
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=172ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=18371734",
+      "measured_bps": 18371734,
+      "input_bytes": 786515,
+      "nonce": "507308b97c0cb56811d90f2c",
+      "output": "\"507308b97c0cb56811d90f2c\"",
+      "wall_s": 0.5507
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=2045ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=14384301",
+      "measured_bps": 14384301,
+      "input_bytes": 786515,
+      "nonce": "4b1affe12b208a057c55205d",
+      "output": "\"4b1affe12b208a057c55205d\"",
+      "wall_s": 3.1821
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=172ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=20695185",
+      "measured_bps": 20695185,
+      "input_bytes": 786515,
+      "nonce": "015832d7c71d33ce00aba329",
+      "output": "\"015832d7c71d33ce00aba329\"",
+      "wall_s": 1.1302
+    },
+    {
+      "phase": "fast-after-swap",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=29ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=11325773",
+      "measured_bps": 11325773,
+      "input_bytes": 786515,
+      "nonce": "77ba3a1d05272e726c3b0522",
+      "output": "\"77ba3a1d05272e726c3b0522\"",
+      "wall_s": 2.7039
+    },
+    {
+      "phase": "slow-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=56ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=22849978",
+      "measured_bps": 22849978,
+      "input_bytes": 786515,
+      "nonce": "cf703a407922f0f7c7967eea",
+      "output": "\"cf703a407922f0f7c7967eea\"",
+      "wall_s": 0.4155
+    },
+    {
+      "phase": "both-eligible-after-swap",
+      "chosen": "d1ab594f6983c92b60144750a783c9f6",
+      "reason": "fit ok, rtt=56ms, advertised_bw=0 bps, load=0.00, cost=1.00, in_flight=0, measured_upload_bps=26529658",
+      "measured_bps": 26529658,
+      "input_bytes": 786515,
+      "nonce": "50c61fe139f8212e59b407e6",
+      "output": "\"50c61fe139f8212e59b407e6\"",
+      "wall_s": 0.4764
+    },
+    {
+      "phase": "tiny-both",
+      "chosen": "1ef3c21b89f03b1a2b57f00476602aeb",
+      "reason": "fit ok, rtt=29ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "measured_bps": null,
+      "input_bytes": 183,
+      "nonce": "1497fe0805659d8967df6e7e",
+      "output": "\"1497fe0805659d8967df6e7e\"",
+      "wall_s": 0.1024
+    }
+  ],
+  "plugin": "68b5637436fe0f0e03b7690b95174a72/json-pointer@0.1.0",
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "binary_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "network_mode": {
+    "coordinator": "none",
+    "fast": "none",
+    "slow": "none"
+  }
+}

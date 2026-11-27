@@ -1,0 +1,281 @@
+{
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "archive_sha256": "7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc",
+  "wasm_sha256": "0133a18ac402480c88c23c582a235e300d8b54c3e6f79c2dc88794c2b0fb3e50",
+  "started_utc": "2026-11-27T06:35:31.672682+00:00",
+  "finished_utc": "2026-11-27T06:35:54.478752+00:00",
+  "scope": "Two rootless amd64 Linux application containers on one host, each with a loopback-only empty models observer sharing its network namespace; direct authenticated Iroh on an internal bridge",
+  "network": {
+    "name": "ent-cold4-195f8223b9",
+    "id": "6e2652b1a34960f777f5f6ed13d8c81cb2b29e7837b1896276ab9f4b5d354d50",
+    "internal": true,
+    "options": {
+      "com.docker.network.bridge.enable_ip_masquerade": "false"
+    }
+  },
+  "nodes": {
+    "jammy": {
+      "image": [
+        "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb"
+      ],
+      "container": "6e89abca2814f67a79fd74385eda476f4205e6a110ef8a1297a99ca09c301a96",
+      "ip": "172.18.0.2",
+      "published_ports": {},
+      "version": "22.04",
+      "glibc": "2.35",
+      "kernel_ipv4_routes": "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT                                                       \neth0\t000012AC\t00000000\t0001\t0\t0\t0\t0000FFFF\t0\t0\t0",
+      "executables": {
+        "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+        "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2"
+      },
+      "catalog_image_id": "sha256:d497f3e5689c500c07dd6c13dee73cd21ed4da604e09ecd99059843c09ab8cd6",
+      "catalog_container": "0ad83306ca257476967530c7f6e51709693c14eed24211c9cec1c05668dc9a30",
+      "public": "179a8aa0e798ad545efaa40ebd333b4d6ca8f37b6e67fd30496abb819b0303c8",
+      "plugin": "c6a2f773e47ceebf4b8f1a98bcf48ea3/hello-world@0.1.0",
+      "peer": "c6a2f773e47ceebf4b8f1a98bcf48ea3",
+      "config": "[mesh]\ntransports=[\"iroh\"]\nmulti_node=true\n[scheduler]\nrelay=false\nbind=\"172.18.0.2:7443\"\npeers=[\"19040d6044eebff597ba204cd2729c48bb7f5bb832367b5c45d6992304abc506@172.18.0.3:7443\"]\n[security]\nmax_tier_allowed=5\n[runtime.inference]\nendpoint=\"http://127.0.0.1:18678/v1/chat/completions\"\nmodel=\"cold-empty-catalog-observer\"\n",
+      "initial_mesh_status": {
+        "local_peer_id": "c6a2f773e47ceebf4b8f1a98bcf48ea3",
+        "local_display_name": "6e89abca2814",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "listener_ready_ns": 35007915027487,
+      "listener_ready_utc": "2026-11-27T06:35:49.864108+00:00",
+      "graceful_exit": 0
+    },
+    "bookworm": {
+      "image": [
+        "debian@sha256:e67eeead736ff7bbe258ef088bff683635c561b1fcfefad0806c1df4ab49ce0e"
+      ],
+      "container": "cf85390843f6861ac9c6e516a57d2ac16ac96dd786eef9e6efb99b57a5ff83c6",
+      "ip": "172.18.0.3",
+      "published_ports": {},
+      "version": "12",
+      "glibc": "2.36",
+      "kernel_ipv4_routes": "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT                                                       \neth0\t000012AC\t00000000\t0001\t0\t0\t0\t0000FFFF\t0\t0\t0",
+      "executables": {
+        "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+        "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2"
+      },
+      "catalog_image_id": "sha256:d497f3e5689c500c07dd6c13dee73cd21ed4da604e09ecd99059843c09ab8cd6",
+      "catalog_container": "ff8589a73896fd1d808e6c9c36ef00c75d5da67b867bc0759c61b8993830af7d",
+      "public": "19040d6044eebff597ba204cd2729c48bb7f5bb832367b5c45d6992304abc506",
+      "plugin": "4df3694dba7e7dece6e002c33f17f735/hello-world@0.1.0",
+      "peer": "4df3694dba7e7dece6e002c33f17f735",
+      "config": "[mesh]\ntransports=[\"iroh\"]\nmulti_node=true\n[scheduler]\nrelay=false\nbind=\"172.18.0.3:7443\"\npeers=[\"179a8aa0e798ad545efaa40ebd333b4d6ca8f37b6e67fd30496abb819b0303c8@172.18.0.2:7443\"]\n[security]\nmax_tier_allowed=5\n[runtime.inference]\nendpoint=\"http://127.0.0.1:18678/v1/chat/completions\"\nmodel=\"cold-empty-catalog-observer\"\n",
+      "initial_mesh_status": {
+        "local_peer_id": "4df3694dba7e7dece6e002c33f17f735",
+        "local_display_name": "cf85390843f6",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "listener_ready_ns": 35008663789030,
+      "listener_ready_utc": "2026-11-27T06:35:50.612781+00:00",
+      "graceful_exit": 0
+    }
+  },
+  "dispatches": [
+    {
+      "preload_control": {
+        "phase": "missing-before-load",
+        "input": "before-load",
+        "expected": "Hello, before-load!",
+        "expected_peer": "4df3694dba7e7dece6e002c33f17f735",
+        "chosen": null,
+        "command": [
+          "docker",
+          "exec",
+          "6e89abca2814f67a79fd74385eda476f4205e6a110ef8a1297a99ca09c301a96",
+          "/candidate/entangle",
+          "compute",
+          "dispatch",
+          "4df3694dba7e7dece6e002c33f17f735/hello-world@0.1.0",
+          "--raw",
+          "--input",
+          "before-load",
+          "--timeout-ms",
+          "5000",
+          "--cpu-cores",
+          "0.01",
+          "--integrity",
+          "trusted-executor",
+          "--allow",
+          "4df3694dba7e7dece6e002c33f17f735"
+        ],
+        "start_ns": 35008958466329,
+        "stop_ns": 35009030357942,
+        "start_utc": "2026-11-27T06:35:50.907458+00:00",
+        "stop_utc": "2026-11-27T06:35:50.979351+00:00",
+        "elapsed_ms": 71.891613,
+        "listener_age_start_ms": {
+          "jammy": 1043.438842,
+          "bookworm": 294.677299
+        },
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "error: rpc -32000: dispatch error: placement: no live workers in pool\n",
+        "verified": false
+      },
+      "initial_inventories": {
+        "jammy": {
+          "plugins": []
+        },
+        "bookworm": {
+          "plugins": []
+        }
+      },
+      "loaded_workers": {
+        "plugins": [
+          "4df3694dba7e7dece6e002c33f17f735/hello-world@0.1.0"
+        ]
+      },
+      "load_start_ns": 35009105971646,
+      "load_stop_ns": 35009207973090,
+      "load_start_utc": "2026-11-27T06:35:51.054964+00:00",
+      "load_stop_utc": "2026-11-27T06:35:51.156966+00:00",
+      "load_stop_to_first_start_ms": 67.061751,
+      "load_stop_to_first_end_ms": 1893.71102,
+      "first_submission": {
+        "phase": "first-after-load",
+        "input": "02657c008f65900ad705045744c21c08",
+        "expected": "Hello, 02657c008f65900ad705045744c21c08!",
+        "expected_peer": "4df3694dba7e7dece6e002c33f17f735",
+        "chosen": "4df3694dba7e7dece6e002c33f17f735",
+        "command": [
+          "docker",
+          "exec",
+          "6e89abca2814f67a79fd74385eda476f4205e6a110ef8a1297a99ca09c301a96",
+          "/candidate/entangle",
+          "compute",
+          "dispatch",
+          "4df3694dba7e7dece6e002c33f17f735/hello-world@0.1.0",
+          "--raw",
+          "--input",
+          "02657c008f65900ad705045744c21c08",
+          "--timeout-ms",
+          "5000",
+          "--cpu-cores",
+          "0.01",
+          "--integrity",
+          "trusted-executor",
+          "--allow",
+          "4df3694dba7e7dece6e002c33f17f735"
+        ],
+        "start_ns": 35009275034841,
+        "stop_ns": 35011101684110,
+        "start_utc": "2026-11-27T06:35:51.224026+00:00",
+        "stop_utc": "2026-11-27T06:35:53.050691+00:00",
+        "elapsed_ms": 1826.649269,
+        "listener_age_start_ms": {
+          "jammy": 1360.007354,
+          "bookworm": 611.245811
+        },
+        "exit_code": 0,
+        "stdout": "Hello, 02657c008f65900ad705045744c21c08!",
+        "stderr": "Chosen: 4df3694dba7e7dece6e002c33f17f735 (score=2.07)\nReason: fit ok, rtt=48ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0\n",
+        "verified": true
+      },
+      "remote_executions_before": 0,
+      "remote_executions_after_first": 1,
+      "followup": null
+    }
+  ],
+  "cleanup": [
+    {
+      "command": [
+        "docker",
+        "exec",
+        "cf85390843f6861ac9c6e516a57d2ac16ac96dd786eef9e6efb99b57a5ff83c6",
+        "sh",
+        "-ec",
+        "kill -TERM \"$(cat /tmp/daemon.pid)\""
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "exec",
+        "6e89abca2814f67a79fd74385eda476f4205e6a110ef8a1297a99ca09c301a96",
+        "sh",
+        "-ec",
+        "kill -TERM \"$(cat /tmp/daemon.pid)\""
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "rm",
+        "-f",
+        "ff8589a73896fd1d808e6c9c36ef00c75d5da67b867bc0759c61b8993830af7d"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "rm",
+        "-f",
+        "cf85390843f6861ac9c6e516a57d2ac16ac96dd786eef9e6efb99b57a5ff83c6"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "rm",
+        "-f",
+        "0ad83306ca257476967530c7f6e51709693c14eed24211c9cec1c05668dc9a30"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "rm",
+        "-f",
+        "6e89abca2814f67a79fd74385eda476f4205e6a110ef8a1297a99ca09c301a96"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "network",
+        "rm",
+        "ent-cold4-195f8223b9"
+      ],
+      "exit_code": 0,
+      "stderr": ""
+    }
+  ],
+  "daemon_log_sha256": {
+    "jammy": "a98f04992d2b6116cbf72492038dd3461160890bfe6376e203d684f615b2e9ba",
+    "bookworm": "fe28d905ee40353344d27ca43240a55d55e6f563adad29189602196d4c3b5f57"
+  },
+  "exit_code": 0,
+  "trial": 4,
+  "whole_pair_first_submission_passed": true,
+  "catalog_sha256": {
+    "jammy": "589b19035c81ac8517a432ae2291c3c64bf819e445aad9e6fd5715bb46e47670",
+    "bookworm": "57125228738751d366cf9f3a424f17f64189b11156ccca97741f4a5178af2d0b"
+  },
+  "catalog_observation": "Only one trusted peer on each node. GET /v1/models on its private loopback is called after authorized capability request and plugin inventory snapshot, before QUIC report acknowledgement; proves server-side request handling only."
+}

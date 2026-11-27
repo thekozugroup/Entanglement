@@ -1,0 +1,24 @@
+{
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "started_utc": "2026-11-27T06:00:20.673428+00:00",
+  "finished_utc": "2026-11-27T06:02:19.061366+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "entangle-cli",
+    "--test",
+    "wrapper",
+    "--",
+    "--include-ignored",
+    "--test-threads=1"
+  ],
+  "exit_code": 0,
+  "log": "wrapper-full-shells.log",
+  "log_sha256": "d1de28118394f705422ef2a0d28b3eccaba304100705a1439694015edc7949fe",
+  "shell_helper_sha256": "4c92eab236282e7f38928d1c617b384eb3e79b9e0ef00de479c9980bbb5f6a01",
+  "fish_sha256": "c34487ae348686f38f586ba3355eae87d47a66716c01f0bd001371073bef25f8"
+}

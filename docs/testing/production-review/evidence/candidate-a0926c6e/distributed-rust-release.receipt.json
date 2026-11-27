@@ -1,0 +1,17 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-successor-wasip2.sh",
+    "a0926c6ef3471aad01cedd256028437b249ef747",
+    "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+    "/workspace/Entanglement/target/release-candidate/a0926c6ef347/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+    "docs/testing/production-review/evidence/candidate-a0926c6e"
+  ],
+  "started_utc": "2026-11-27T06:17:52.573295+00:00",
+  "finished_utc": "2026-11-27T06:18:37.353947+00:00",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/distributed-rust-release.receipt.log",
+  "sha256": "51a77a4a7108801748d2735d84c09b8c10a073b4a8102f876c59a96f6043f49e"
+}

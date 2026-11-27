@@ -1,0 +1,22 @@
+image 1 baseline ['283.42', '197.74', '154.09']
+image 1 candidate ['215.48', '280.35', '197.96']
+image 2 candidate ['252.12', '275.22', '169.19']
+image 2 baseline ['243.74', '236.16', '281.49']
+image 3 baseline ['168.18', '223.08', '212.77']
+image 3 candidate ['220.80', '260.24', '207.46']
+image 4 candidate ['245.69', '261.75', '227.21']
+image 4 baseline ['206.54', '208.43', '255.14']
+image 5 baseline ['225.10', '254.30', '202.91']
+image 5 candidate ['220.18', '190.34', '239.04']
+image 6 candidate ['242.54', '173.56', '225.91']
+image 6 baseline ['283.88', '222.19', '227.91']
+Traceback (most recent call last):
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/paired-performance/verify.py", line 231, in <module>
+    main()
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/paired-performance/verify.py", line 212, in main
+    "wasm_sha256": sha(WASM), "signed_package_sha256": package_sha256, "driver_sha256": sha(__file__),
+                                                                                        ^^^^^^^^^^^^^
+  File "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/paired-performance/verify.py", line 37, in sha
+    with path.open("rb") as reader:
+         ^^^^^^^^^
+AttributeError: 'str' object has no attribute 'open'

@@ -1,0 +1,12 @@
+{"timestamp":"2026-11-27T06:34:45.576856Z","level":"INFO","fields":{"message":"entangled starting","version":"0.1.0","socket":"/tmp/home/.entangle/sock","pid":79},"target":"entangled"}
+{"timestamp":"2026-11-27T06:34:45.577094Z","level":"INFO","fields":{"message":"RPC server listening","socket_path":"/tmp/home/.entangle/sock"},"target":"entangle_bin::server"}
+{"timestamp":"2026-11-27T06:34:45.594492Z","level":"INFO","fields":{"message":"mesh.iroh scheduler transport listening","peer_id":"e6eb4b7143f0a803155db8aafd51a5f1","addrs":"[172.18.0.3:7443]","relay":false},"target":"entangle_bin::remote"}
+{"timestamp":"2026-11-27T06:34:45.594554Z","level":"INFO","fields":{"message":"configured local inference stream adapter","plugin":"e6eb4b7143f0a803155db8aafd51a5f1/openai-inference@0.1.0"},"target":"entangle_bin::remote"}
+{"timestamp":"2026-11-27T06:34:45.594584Z","level":"INFO","fields":{"message":"daemon identity ready","local_peer_id":"e6eb4b7143f0a803155db8aafd51a5f1"},"target":"entangled"}
+{"timestamp":"2026-11-27T06:34:45.596292Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/home/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T06:34:46.034356Z","level":"INFO","fields":{"message":"broker audit","event":"PluginRegistered { plugin: PluginId { publisher: \"e6eb4b7143f0a803155db8aafd51a5f1\", name: \"hello-world\", version: Version { major: 0, minor: 1, patch: 0 } }, declared_tier: Pure, implied_tier: Pure, effective_tier: Pure, at: SystemTime { tv_sec: 1795761286, tv_nsec: 34353151 } }"},"target":"entangle::audit"}
+{"timestamp":"2026-11-27T06:34:47.900184Z","level":"INFO","fields":{"message":"scheduler: executing task for remote peer","peer":"57f465709d8aabc54e265b8ad51de9b0","plugin":"e6eb4b7143f0a803155db8aafd51a5f1/hello-world@0.1.0","input_bytes":32,"timeout_ms":3483},"target":"entangle_scheduler::remote"}
+{"timestamp":"2026-11-27T06:34:48.054622Z","level":"INFO","fields":{"message":"received SIGTERM"},"target":"entangled"}
+{"timestamp":"2026-11-27T06:34:48.054642Z","level":"INFO","fields":{"message":"shutting down entangled"},"target":"entangled"}
+{"timestamp":"2026-11-27T06:34:48.054682Z","level":"INFO","fields":{"message":"maintenance loop shut down cleanly"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T06:34:48.055007Z","level":"INFO","fields":{"message":"entangled stopped"},"target":"entangled"}

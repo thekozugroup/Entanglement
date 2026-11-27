@@ -1,0 +1,11 @@
+{"timestamp":"2026-11-27T06:34:45.275982Z","level":"INFO","fields":{"message":"entangled starting","version":"0.1.0","socket":"/tmp/home/.entangle/sock","pid":84},"target":"entangled"}
+{"timestamp":"2026-11-27T06:34:45.276124Z","level":"INFO","fields":{"message":"RPC server listening","socket_path":"/tmp/home/.entangle/sock"},"target":"entangle_bin::server"}
+{"timestamp":"2026-11-27T06:34:45.294668Z","level":"INFO","fields":{"message":"mesh.iroh scheduler transport listening","peer_id":"57f465709d8aabc54e265b8ad51de9b0","addrs":"[172.18.0.2:7443]","relay":false},"target":"entangle_bin::remote"}
+{"timestamp":"2026-11-27T06:34:45.294784Z","level":"INFO","fields":{"message":"configured local inference stream adapter","plugin":"57f465709d8aabc54e265b8ad51de9b0/openai-inference@0.1.0"},"target":"entangle_bin::remote"}
+{"timestamp":"2026-11-27T06:34:45.294834Z","level":"INFO","fields":{"message":"daemon identity ready","local_peer_id":"57f465709d8aabc54e265b8ad51de9b0"},"target":"entangled"}
+{"timestamp":"2026-11-27T06:34:45.296451Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/tmp/home/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T06:34:47.898179Z","level":"DEBUG","fields":{"message":"dispatching task to remote peer","peer":"e6eb4b7143f0a803155db8aafd51a5f1","plugin":"e6eb4b7143f0a803155db8aafd51a5f1/hello-world@0.1.0"},"target":"entangle_scheduler::dispatcher"}
+{"timestamp":"2026-11-27T06:34:48.124807Z","level":"INFO","fields":{"message":"received SIGTERM"},"target":"entangled"}
+{"timestamp":"2026-11-27T06:34:48.124830Z","level":"INFO","fields":{"message":"shutting down entangled"},"target":"entangled"}
+{"timestamp":"2026-11-27T06:34:48.124968Z","level":"INFO","fields":{"message":"maintenance loop shut down cleanly"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T06:34:48.125855Z","level":"INFO","fields":{"message":"entangled stopped"},"target":"entangled"}

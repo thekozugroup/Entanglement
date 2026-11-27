@@ -1,0 +1,5 @@
+2026-11-27T06:10:28.888798+00:00 mirror.entanglement.dev
+DNS unavailable [Errno -3] Temporary failure in name resolution
+curl: (22) The requested URL returned error: 403
+HTTP 000, proxy CONNECT 403
+curl returned 22

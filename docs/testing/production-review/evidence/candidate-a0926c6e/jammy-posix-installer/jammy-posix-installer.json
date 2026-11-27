@@ -1,0 +1,51 @@
+{
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "archive": "/workspace/Entanglement/target/release-candidate/a0926c6ef347-ubuntu22/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+  "archive_sha256": "7a5972cbcd28c038cfc00d03d9c22e84c427c5195bf5c089ce1ec302bdd726fc",
+  "archive_receipt_sha256": "812832aa921d98d27db92ff24b63ef0db952a1db12ace2914b99369ffa36d0c5",
+  "checksum_sidecar_sha256": "440a6e0f96e315afe82ed15072c09d5755325cbbe945bee4c48ef4cfac71e276",
+  "installer_sha256": "f10a849eb788495cb744ee9a534ffc4fd9d88189f1288d3026ae96009a62a217",
+  "runner_sha256": "6c7c18d153032d8613a7bc410269f8784f8ea12f70fae74cb604b3393487b2de",
+  "fixture_transport_sha256": "87b432356b7f001f08eccd89f2650e199f407a2fddb2f72c3d551a9128d3e33c",
+  "installed_asset_sha256": {
+    "entangle": "2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098",
+    "entangled": "607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2"
+  },
+  "docker_security": [
+    "name=seccomp,profile=builtin",
+    "name=rootless",
+    "name=cgroupns"
+  ],
+  "scope": "The actual Jammy-built Linux x86_64 release archive was supplied by an offline URL fixture to the candidate POSIX installer. The official release checksum comparison, no-install on corrupt bytes, extracted ELF hashes and executables running in two Ubuntu userspaces were exercised without a hosted job.",
+  "results": {
+    "22.04": {
+      "image": "ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb",
+      "image_id": "sha256:4c738ec33362ed21d54f5e6ca4eadc9f2707fd6516cd7eb5be2a772dfdfaa938",
+      "command": "docker run --rm --pull never --network none --read-only --security-opt no-new-privileges --platform linux/amd64 --user 65534:65534 --tmpfs /tmp:rw,nosuid,nodev,exec,mode=1777 --mount type=bind,src=/workspace/entangle-install-jammy-76hyg8wi,dst=/fixture,readonly ubuntu@sha256:b000e69a50ff940390233025e7a337fb8469b509e2334fa4d018ac30f3e18cdb /bin/sh /fixture/run-in-container.sh 22.04 v0.1.0 entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz 2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098 607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+      "exit_code": 0,
+      "assertions_passed": true,
+      "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+      "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+      "started_at_utc": "2026-11-27T06:22:23+00:00",
+      "finished_at_utc": "2026-11-27T06:22:30+00:00",
+      "log": "ubuntu-22.04-installer.log",
+      "log_sha256": "26f1186c7005f9298025425520b5dfe5bf518811b8691a3fa7f67cacc933d8d9"
+    },
+    "24.04": {
+      "image": "ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b",
+      "image_id": "sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4",
+      "command": "docker run --rm --pull never --network none --read-only --security-opt no-new-privileges --platform linux/amd64 --user 65534:65534 --tmpfs /tmp:rw,nosuid,nodev,exec,mode=1777 --mount type=bind,src=/workspace/entangle-install-jammy-76hyg8wi,dst=/fixture,readonly ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b /bin/sh /fixture/run-in-container.sh 24.04 v0.1.0 entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz 2ba2a65fc301693fdce428b03568f99053114b8da243b72657cc678ec6a11098 607c2dca450a0717aedc5a259ee08118831e8b65352656eab6e5005b0239aed2",
+      "exit_code": 0,
+      "assertions_passed": true,
+      "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+      "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+      "started_at_utc": "2026-11-27T06:22:30+00:00",
+      "finished_at_utc": "2026-11-27T06:22:37+00:00",
+      "log": "ubuntu-24.04-installer.log",
+      "log_sha256": "9321294dca992eaa81735a337593e078e3af3c9dee287587b63051a50f218501"
+    }
+  },
+  "exit_code": 0
+}

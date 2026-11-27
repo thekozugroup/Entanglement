@@ -1,0 +1,31 @@
+{
+  "source_before": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_after": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_id": "sha256:a2848766dd5b69cf72246e7cba06c95afe1807d2556f00efec115cdd40cdca45",
+  "source_commit": "a0926c6ef3471aad01cedd256028437b249ef747",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "-B",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/auth-live.py",
+    "--bin-dir",
+    "/tmp/entangle-check-a0926c6e-archive",
+    "--out",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-a0926c6e/auth-live-linux.json"
+  ],
+  "exit_code": 0,
+  "started_utc": "2026-11-27T06:15:49.566081+00:00",
+  "finished_utc": "2026-11-27T06:16:18.827112+00:00",
+  "log": "docs/testing/production-review/evidence/candidate-a0926c6e/auth-live-linux.json",
+  "sha256": "2d0a820969e29a15e361311720bd6edb535b65311aa4f3a92d2687cd8719ef1b",
+  "diagnostic_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "archive_sha256": "3d63abf40ee1d78d222252063d5e92cd75373b12e1f9d7f4b34977c02c282be1",
+  "release_receipt_sha256": "1f779adb48fcb19244ed0370e3f2e408f18a68f433bff46b8b7a2c5c5f829cbf",
+  "archive_receipt_sha256": "24079462185cc164b5f7311b8164c547eb1e19709d678d9307bff38bd269a953",
+  "artifact_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "harness_sha256": "aab3368a858abb2d6ca2b0d4148ff4166e157b6705ed0ce7b94a1f2a98a3f892",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "stdout_sha256": "25a741585cc980bc8dc57871675633de0a93ece175f5185f5152433f5af45cfd"
+}
