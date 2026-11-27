@@ -125,35 +125,12 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           TARGET: ${{ matrix.target }}
         run: |
-          BINDIR="target/${TARGET}/release"
-          NAME="entanglement-${VERSION}-${TARGET}"
-          TARBALL="${NAME}.tar.gz"
-
-          # Stage both required executables in a fresh directory so a missing
-          # build output cannot produce a partial release artifact.
-          STAGE_ROOT="$(mktemp -d)"
-          trap 'rm -rf "${STAGE_ROOT}"' EXIT
-          STAGE="${STAGE_ROOT}/${NAME}"
-          mkdir -p "${STAGE}"
-          for bin in entangled entangle; do
-            if [ ! -x "${BINDIR}/${bin}" ]; then
-              echo "::error::Missing executable ${BINDIR}/${bin}" >&2
-              exit 1
-            fi
-            install -m 0755 "${BINDIR}/${bin}" "${STAGE}/${bin}"
-          done
-          cp LICENSE README.md docs/architecture.md docs/tutorial.md "${STAGE}/"
-          tar -czf "${TARBALL}" -C "${STAGE_ROOT}" "${NAME}"
-
-          # SHA-256
-          if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum "${TARBALL}" > "${TARBALL}.sha256"
-          else
-            shasum -a 256 "${TARBALL}" > "${TARBALL}.sha256"
-          fi
-
-          b3sum "${TARBALL}" > "${TARBALL}.b3"
-
+          python3 scripts/tests/test_package_native_release.py
+          # Use the checked-out tag's commit time for the tar and gzip headers.
+          SOURCE_DATE_EPOCH="$(git log -1 --no-show-signature --format=%ct HEAD)"
+          TARBALL="$(python3 scripts/package-native-release.py --version "${VERSION}" \
+            --target "${TARGET}" --bin-dir "target/${TARGET}/release" \
+            --source-date-epoch "${SOURCE_DATE_EPOCH}")"
           echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test unpacked native binaries
