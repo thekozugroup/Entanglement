@@ -111,9 +111,10 @@ class JUnitTests(unittest.TestCase):
         for status in ("failed", "error", "passed"):
             with self.subTest(status=status), self.assertRaisesRegex(ValueError, "attempt history"):
                 junit.validate_history(retry["name"], status, retry["attempts"])
-        refused = dict(attempt=2, peer="other", status="error", error_kind="suite_identity",
-                       error="signed package changed")
-        attempts = [retry["attempts"][0], refused]
-        junit.validate_history("retry", "error", attempts)
-        with self.assertRaisesRegex(ValueError, "retry followed"):
-            junit.validate_history("retry", "flaky", [*attempts, dict(retry["attempts"][1], attempt=3)])
+        for kind in ("suite_identity", "executor_integrity", "remote_rejected"):
+            refused = dict(attempt=2, peer="other", status="error", error_kind=kind,
+                           error="signed package changed")
+            attempts = [retry["attempts"][0], refused]
+            junit.validate_history("retry", "error", attempts)
+            with self.assertRaisesRegex(ValueError, "retry followed"):
+                junit.validate_history("retry", "flaky", [*attempts, dict(retry["attempts"][1], attempt=3)])

@@ -48,15 +48,18 @@ def validate_history(name, status, attempts):
                 raise ValueError(f"{name}: invalid captured output in attempt {index}")
         if attempt["status"] == "error" and not isinstance(attempt.get("error"), str):
             raise ValueError(f"{name}: missing error diagnostic in attempt {index}")
-        if attempt.get("error_kind") == "suite_identity" and attempt["status"] != "error":
-            raise ValueError(f"{name}: invalid identity error in attempt {index}")
+        if "error_kind" in attempt and (
+            not isinstance(attempt["error_kind"], str) or not attempt["error_kind"]
+            or attempt["status"] != "error"
+        ):
+            raise ValueError(f"{name}: invalid terminal error in attempt {index}")
         if index < len(attempts) and (attempt["status"] == "passed"
                 or (index == 1 and attempt["status"] == "ignored")
-                or attempt.get("error_kind") == "suite_identity"):
+                or "error_kind" in attempt):
             raise ValueError(f"{name}: retry followed a terminal result")
     if attempts:
         outcomes = [a["status"] for a in attempts]
-        if attempts[-1].get("error_kind") == "suite_identity":
+        if "error_kind" in attempts[-1]:
             expected = "error"
         elif outcomes[-1] == "passed":
             expected = "flaky" if "failed" in outcomes else "passed"
