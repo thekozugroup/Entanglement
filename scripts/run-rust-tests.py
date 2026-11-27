@@ -151,10 +151,10 @@ def run_test(dispatch, peers, index, name, ignored, retries):
 
 
 def run_suite(args, plugin):
-    def matches(name):
-        if args.filter is None:
-            return True
-        return name == args.filter if args.exact else args.filter in name
+    filters = (args.filter,) if isinstance(args.filter, str) else args.filter
+
+    def matches(name, selector):
+        return name == selector if args.exact else selector in name
 
     peers = args.peer
     dispatch = dispatcher(args.socket, plugin, args.timeout_ms)
@@ -165,7 +165,8 @@ def run_suite(args, plugin):
         if any(listing != listings[0] for listing in listings[1:]):
             raise DispatchError("workers disagree about the signed suite's test names or ignores")
         selected = [name for name in sorted(names)
-                    if matches(name) and not any(skip in name for skip in args.skip)
+                    if (not filters or any(matches(name, selector) for selector in filters))
+                    and not any(matches(name, skip) for skip in args.skip)
                     and (not args.ignored or name in ignored)]
         results = {}
         work = {}
@@ -203,9 +204,9 @@ def main():
     parser.add_argument("plugins", nargs="+", metavar="PLUGIN", help="operator-loaded, signed libtest plugin IDs")
     parser.add_argument("--socket", type=Path, default=Path.home() / ".entangle" / "sock")
     parser.add_argument("--peer", action="append", required=True, help="trusted remote peer ID")
-    parser.add_argument("--filter", help="libtest name substring")
-    parser.add_argument("--exact", action="store_true", help="match the complete test name")
-    parser.add_argument("--skip", action="append", default=[], help="exclude a name substring")
+    parser.add_argument("--filter", action="append", default=[], help="include a matching name (repeatable, any match)")
+    parser.add_argument("--exact", action="store_true", help="match complete names in filters and skips")
+    parser.add_argument("--skip", action="append", default=[], help="exclude a matching name (repeatable)")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--ignored", action="store_true", help="select ignored tests only")
     modes.add_argument("--include-ignored", action="store_true")
