@@ -1,0 +1,76 @@
+{
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "scope": "AArch64 GNU/Linux ISA under QEMU user-mode; one x86_64 Linux host. Independent local ARM signed catalog and native x86 coordinator to emulated ARM via isolated direct Iroh loopback; no physical ARM machine, multi-machine transport or GitHub Actions.",
+  "completed_utc": "2026-11-27T07:57:33.798434+00:00",
+  "exit_code": 0,
+  "archive": "/workspace/Entanglement/target/release-candidate/c19ef7587a22-aarch64/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz",
+  "archive_sha256": "5c8d7d283ade96af17665d4d103a2a8a904cf0502cb1170441e7267c5e235de6",
+  "archive_blake3": "9ebacfd81cfb5784f9feca76da997bd1839e746899f13b590d405e37e9a6cbb6",
+  "archive_bytes": 26045750,
+  "signing_status": "unsigned local ARM candidate; checksums verified and signature-required verification rejected the absent bundle",
+  "compiler": "rustc 1.91.1, full locked release workspace/--bins explicitly targeting aarch64-unknown-linux-gnu offline",
+  "compiler_elapsed_s": 688.383,
+  "emulator": "QEMU user-mode qemu-aarch64 10.0.13 Debian 1:10.0.13+ds-0+deb13u1",
+  "host_arch": "x86_64",
+  "target_elf_sha256": {
+    "entangle": "9baf5b5dc73f918cb7aee1ea2039f10f87577ebe53782edba6b8b29a5c60d7a3",
+    "entangled": "0ecbeb35f5b34e1f4da82957321ed6d2ae8d1e296f883e8aee65119998e24b19"
+  },
+  "max_import_glibc": {
+    "entangle": "2.39",
+    "entangled": "2.39"
+  },
+  "standalone": {
+    "plugin": "e8d1f6689771e2424003861c9c3e5faf/json-pointer@0.1.0",
+    "untrusted_exit": 1,
+    "expected": "\"bab426974521524707157bb28bfc7a96\"",
+    "actual": "\"bab426974521524707157bb28bfc7a96\"",
+    "zero_mesh_transports": true
+  },
+  "native_to_emulated": {
+    "zero_coordinator_local_plugins": true,
+    "selected": "f9f62abd45f23edd557b18ca86d2e880",
+    "expected_worker": "f9f62abd45f23edd557b18ca86d2e880",
+    "expected": "\"86f26d6e95c7eb576bf1d92b74c63ba1\"",
+    "actual": "\"86f26d6e95c7eb576bf1d92b74c63ba1\""
+  },
+  "private_container_removed": true,
+  "earlier_staging_attempts": [
+    "Live rootless cgroup update was rejected; stop/update/start succeeded before compilation. Container exposed managed aggregate memory/cpu values.",
+    "First offline attempt requested a missing generic rustup alias before compilation. Selected the installed 1.91.1 compiler directly.",
+    "Second preparatory attempt followed an existing read-only registry symlink before compilation. Made symlink setup idempotent and ran the unchanged Cargo command."
+  ],
+  "raw_sha256": {
+    "arm-archive.json": "c9377fc70d23be1cc180394f0195f87098639c808e563694d82a29764530deaa",
+    "arm-build-driver.py": "564baa777b373234317fa5059c89e7cdcf87c761772b8f2909e7204286d4824c",
+    "arm-build.json": "4beea7433b02e0c0a7ddf7e03c004eb2bc74027267bf535b79e9d00deb57f714",
+    "arm-workload-daemon.log": "c0c9932a3591bca4b826a84b05dee22401d2da0b1d7d4bb95fb36b0b1f3267bd",
+    "cleanup.json": "9ce630967bc5dd3e3ee725ac0c219886481269bae98db761434ba2546574c5d1",
+    "container.json": "343990a18eb263ee6ee77a51f90e73134e5320a575da7f67ccf21ff4c7076001",
+    "cross-build.log": "81dc4cedd6dd3a724016b29fc33fc7889cd3797c4841bfe824be84331f7fbc96",
+    "cross-build.sh": "010c09cbc29ac92765298026483a84b6326002c8adbdf9d3d6a327e1f2397683",
+    "debian-installed.txt": "3fbd6f8fd89c83b992cd4c32190abf48002e2a357ff4bcf1015b70ecae7372ae",
+    "emulator-smoke.log": "51b5fb2137f9cb6780c9e57adb0f6fa0d29570a50c58b5c2612d96e68e8dabfb",
+    "first-offline-toolchain-selection/arm-build-incomplete.json": "f178da90810f7513fd05f3abf39fd44a2b2c19396aeb8ba9562a6be67fb27d69",
+    "first-offline-toolchain-selection/cross-build.log": "5bf719d3ba17e0e9375c86ffe84ef6b187792da6e3ed83a6472e16de95e1648e",
+    "first-offline-toolchain-selection/cross-build.sh": "4d04bf69270a7872bccdbf78f22d2c501dc262d4499d593aedb274a07e11d7a9",
+    "inputs.json": "47c0e11ebf1cbb819d67050b061ff487532242360fb2ada5b0c85e051111b7c3",
+    "live-cgroup-update-diagnostic.log": "51c28f9791f0a96e7d261f7beaeee7b2b416ed6874cd1b38e5e10187504b025f",
+    "package-arm.py": "40a3b617dc96222fdbd02d9f2a3fd1404ba03592999aeabb52e87877e1153a43",
+    "provision-tools.log": "345de081b7ea2a5d9321f75a096b1cedb2a11c071dc84cf44a1a2f7a1492d3bd",
+    "provision-tools.sh": "33f6fd354c4e6ef5fd6082930029808adccc4089a2f0b841904a1cb292d0be0a",
+    "provision.json": "6038702347f88960cbdeb4ec55733231a2703e45df5a79442ac41d6b979b04a6",
+    "second-offline-seed-setup/arm-build-incomplete.json": "788f58b5f83c8e3f3a7772db8f865cd3780218fc588dc5af7319be457b241f32",
+    "second-offline-seed-setup/cross-build.log": "0b2d7e19db885f39904d73229397bf1aa4916877afeeb92ac00f9f50b0e8201c",
+    "second-offline-seed-setup/cross-build.sh": "dcb33f0e218eaa0d76736b6461e2ea66e405d1903f88e408600ca718b94b5e1a",
+    "signed-workload.json": "fa0af481679286ca9e63155bcb115534330756650748edef23f5319c5b0f7f35",
+    "signed-workload.py": "a1191f427d122655677286331af8d771487a495ac0ff46148b43b104cafeb9cc",
+    "standalone-daemon.log": "fc5f85e7218f84b556414c8278bde5c1bf6a956958551068e964e62691ce68e5",
+    "standalone-local.json": "2d10a229ef64878d81994e96e1ad096a55b5160e728e32c89aeab76f7eb5540a",
+    "standalone-local.py": "7af2b00cd5975ce309b98e49778525f0de93cd032a75c510f92f14c3cc82ca6c",
+    "verify-arm-archive.log": "b83c07719a0f985062f5f3cd231023a0d3a891b8f6cbcb5f59e43c252eac9aa5",
+    "workload-inputs.json": "8fe22587cd8445c3836fe2f67f21e6a3658813bcdaf3a29573d900394b9a378d",
+    "x86-workload-daemon.log": "1a05c8895f660edcf43fa8bfe10f7fe115f4a4bbd98f4e54009c13a61fda9edf"
+  }
+}

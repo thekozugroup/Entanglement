@@ -1,0 +1,79 @@
+{
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "scope": "Actual AArch64 GNU ELF CLI, daemon, Wasmtime JIT and signed catalog Wasm under explicit QEMU Linux user-mode on one x86_64 Linux host; direct loopback QUIC with native x86_64 coordinator, in the same disconnected container. No physical ARM hardware.",
+  "started_utc": "2026-11-27T07:56:21.413985+00:00",
+  "finished_utc": "2026-11-27T07:56:29.419069+00:00",
+  "exit_code": 0,
+  "arm_executables_sha256": {
+    "entangle": "9baf5b5dc73f918cb7aee1ea2039f10f87577ebe53782edba6b8b29a5c60d7a3",
+    "entangled": "0ecbeb35f5b34e1f4da82957321ed6d2ae8d1e296f883e8aee65119998e24b19"
+  },
+  "native_archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "native_executables_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "nodes": {
+    "arm": {
+      "public": "7668369bca425c183d0deac33d64c7f667f74ae52105f329f885333113cb21f3",
+      "peer": "f9f62abd45f23edd557b18ca86d2e880",
+      "plugin": "f9f62abd45f23edd557b18ca86d2e880/json-pointer@0.1.0",
+      "home": "/private/home-arm",
+      "port": 18443,
+      "initial_status": {
+        "local_peer_id": "f9f62abd45f23edd557b18ca86d2e880",
+        "local_display_name": "d73e4736fb6c",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "daemon_exit": 0
+    },
+    "x86": {
+      "public": "659adbe9a67dec81ddcc5e6e59e49b57066beb69a50f50be8829ae72505ed8fd",
+      "peer": "59cf914cfe57935521862384c87d6b69",
+      "plugin": "59cf914cfe57935521862384c87d6b69/json-pointer@0.1.0",
+      "home": "/private/home-x86",
+      "port": 28443,
+      "initial_status": {
+        "local_peer_id": "59cf914cfe57935521862384c87d6b69",
+        "local_display_name": "d73e4736fb6c",
+        "transports_active": [
+          "iroh"
+        ],
+        "seen_peer_count": 0,
+        "trusted_peer_count": 1
+      },
+      "daemon_exit": 0
+    }
+  },
+  "assertions": {
+    "arm_signed_local": {
+      "publisher_before_trust_exit": 1,
+      "before_trust_diagnostic": "error: rpc -32000: server error: signature: ENTANGLE-E0101: publisher fingerprint not in keyring",
+      "plugin": "f9f62abd45f23edd557b18ca86d2e880/json-pointer@0.1.0",
+      "load_output": "loaded f9f62abd45f23edd557b18ca86d2e880/json-pointer@0.1.0\n",
+      "input_json": "{\"pointer\": \"/items/0/value\", \"data\": {\"items\": [{\"value\": \"26ac43b081f09ad940108a5ab4df8d23\"}]}}",
+      "output": "\"26ac43b081f09ad940108a5ab4df8d23\"",
+      "expected": "\"26ac43b081f09ad940108a5ab4df8d23\""
+    },
+    "x86_to_emulated_arm": {
+      "coordinator_loaded_plugins": [],
+      "allowlist": [
+        "f9f62abd45f23edd557b18ca86d2e880"
+      ],
+      "selected_peer": "f9f62abd45f23edd557b18ca86d2e880",
+      "remote_reason": "Chosen: f9f62abd45f23edd557b18ca86d2e880 (score=2.17)\nReason: fit ok, rtt=16ms, bw=0 bps, load=0.00, cost=1.00, in_flight=0",
+      "plugin": "f9f62abd45f23edd557b18ca86d2e880/json-pointer@0.1.0",
+      "input_json": "{\"pointer\": \"/items/0/value\", \"data\": {\"items\": [{\"value\": \"86f26d6e95c7eb576bf1d92b74c63ba1\"}]}}",
+      "output": "\"86f26d6e95c7eb576bf1d92b74c63ba1\"",
+      "expected": "\"86f26d6e95c7eb576bf1d92b74c63ba1\""
+    }
+  },
+  "harness_sha256": "a1191f427d122655677286331af8d771487a495ac0ff46148b43b104cafeb9cc"
+}

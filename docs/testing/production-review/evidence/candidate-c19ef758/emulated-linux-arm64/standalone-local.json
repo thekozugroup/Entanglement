@@ -1,0 +1,37 @@
+{
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "started_utc": "2026-11-27T07:55:48.747766+00:00",
+  "finished_utc": "2026-11-27T07:55:53.903868+00:00",
+  "scope": "Both ARM64 ELF programs explicitly interpreted by QEMU on the native x86_64 kernel. Mesh disabled; offline local UDS and ordinary signed WASI JIT.",
+  "emulator": [
+    "/private/qemu/qemu-aarch64",
+    "-L",
+    "/usr/aarch64-linux-gnu"
+  ],
+  "arm_executables_sha256": {
+    "entangle": "9baf5b5dc73f918cb7aee1ea2039f10f87577ebe53782edba6b8b29a5c60d7a3",
+    "entangled": "0ecbeb35f5b34e1f4da82957321ed6d2ae8d1e296f883e8aee65119998e24b19"
+  },
+  "plugin": "e8d1f6689771e2424003861c9c3e5faf/json-pointer@0.1.0",
+  "publisher": "09d03e094749f1c7223de8a289ec5f420106d19c7411e45aaf7242cdba0481b7",
+  "wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "denied_code": 1,
+  "denied_stderr": "error: rpc -32000: server error: signature: ENTANGLE-E0101: publisher fingerprint not in keyring",
+  "load": "loaded e8d1f6689771e2424003861c9c3e5faf/json-pointer@0.1.0",
+  "before_invoke_status": {
+    "local_peer_id": "e8d1f6689771e2424003861c9c3e5faf",
+    "local_display_name": "d73e4736fb6c",
+    "transports_active": [],
+    "seen_peer_count": 0,
+    "trusted_peer_count": 0
+  },
+  "input": "{\"pointer\": \"/items/0/value\", \"data\": {\"items\": [{\"value\": \"bab426974521524707157bb28bfc7a96\"}]}}",
+  "expected": "\"bab426974521524707157bb28bfc7a96\"",
+  "actual": "\"bab426974521524707157bb28bfc7a96\"",
+  "daemon_exit": 0,
+  "daemon_log_sha256": "fc5f85e7218f84b556414c8278bde5c1bf6a956958551068e964e62691ce68e5",
+  "harness_sha256": "7af2b00cd5975ce309b98e49778525f0de93cd032a75c510f92f14c3cc82ca6c",
+  "exit_code": 0
+}

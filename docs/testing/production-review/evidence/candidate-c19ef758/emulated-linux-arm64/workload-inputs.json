@@ -1,0 +1,13 @@
+{
+  "root_native_source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "canonical_x86_archive_sha256": "1425bd75787f8e9f61ec9d6198add217b41ecea7d5dc37506508827368950787",
+  "canonical_elfs_sha256": {
+    "entangle": "dfd160a6158221624db5327ae3d1c86b94f36dc018ca82821bb0912604f45e33",
+    "entangled": "ae746362f564f20a6ae00d81883a4873078ad9f847684145341d57315b6fc823"
+  },
+  "canonical_receipt_sha256": "289c34b0ec24007c9e2a9fb726130a11595079d06005a151df3b4e755feca47e",
+  "catalog_plugin": "json-pointer@0.1.0",
+  "catalog_source_tree_id": "14a946aac15de3b9952eebe0bba5c82e47565b6a",
+  "catalog_wasm_sha256": "ce0711a821a91f7612bd2337581483bba736f2da6da47b4fd34d492738ae35fb",
+  "catalog_bytes_origin": "Same component bytes as the source-bound candidate-c19ef758 private recovery fixture. Fresh publisher signatures are produced independently for this run."
+}

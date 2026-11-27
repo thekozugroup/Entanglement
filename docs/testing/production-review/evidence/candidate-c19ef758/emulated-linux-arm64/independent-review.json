@@ -1,0 +1,19 @@
+{
+  "reviewed_utc": "2026-11-27T07:58:50.253743+00:00",
+  "reviewer": "independent QA /root/qa",
+  "source_id": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_at_review": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "summary_sha256": "0cfb922002769b24346464a7a804111b241c1c809229a5d4948be437234f2129",
+  "build_receipt_sha256": "4beea7433b02e0c0a7ddf7e03c004eb2bc74027267bf535b79e9d00deb57f714",
+  "standalone_receipt_sha256": "2d10a229ef64878d81994e96e1ad096a55b5160e728e32c89aeab76f7eb5540a",
+  "remote_receipt_sha256": "fa0af481679286ca9e63155bcb115534330756650748edef23f5319c5b0f7f35",
+  "verified_raw_files": 30,
+  "archive_sha256": "5c8d7d283ade96af17665d4d103a2a8a904cf0502cb1170441e7267c5e235de6",
+  "archive_blake3": "9ebacfd81cfb5784f9feca76da997bd1839e746899f13b590d405e37e9a6cbb6",
+  "verified_architecture": "GNU readelf of both extracted executables says AArch64, maximum required symbol GLIBC_2.39",
+  "verified_runtime": "Signed JSON Pointer was denied before publisher trust and produced the exact nonce after trust. Native x86 empty coordinator selected the allowed emulated ARM peer and returned the exact nonce; both daemon exits were zero.",
+  "limitations": "One x86_64 Linux host with explicit QEMU user mode, not native physical ARM or independent machines. One signed workload, not an exhaustive ARM catalog. Local unsigned archive; no release-signature or provenance credit.",
+  "score_impact": "No physical INTEROP-LINUX or production release gate credit; sealed ledgers unchanged.",
+  "exit_code": 0
+}

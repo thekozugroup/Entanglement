@@ -1,0 +1,24 @@
+{
+  "commit": "c19ef7587a2215ef9434b642413bebd0473caf20",
+  "source_before": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "source_after": "sha256:81d8219e78f71c2e2987800cec205d72c22d015e1db4e0fc7577ba424e4ef644",
+  "host_machine": "x86_64",
+  "target": "aarch64-unknown-linux-gnu",
+  "profile": "release; Cargo workspace optimizations and ThinLTO unchanged",
+  "command": [
+    "docker",
+    "exec",
+    "d73e4736fb6c57b87c9e29b49627d7a91443e321783a6e16250f78f3909f72b2",
+    "sh",
+    "/tmp/cross-build.sh"
+  ],
+  "cargo_command": "cargo build --release --workspace --bins --locked --target aarch64-unknown-linux-gnu --offline",
+  "start_utc": "2026-11-27T07:43:27.014204+00:00",
+  "finish_utc": "2026-11-27T07:43:27.412481+00:00",
+  "elapsed_s": 0.398,
+  "exit_code": 1,
+  "build_log_sha256": "5bf719d3ba17e0e9375c86ffe84ef6b187792da6e3ed83a6472e16de95e1648e",
+  "script_sha256": "4d04bf69270a7872bccdbf78f22d2c501dc262d4499d593aedb274a07e11d7a9",
+  "disk_free_start_bytes": 6871814144,
+  "disk_free_end_bytes": 6871801856
+}

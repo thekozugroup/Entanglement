@@ -1,0 +1,29 @@
+{
+  "id": "d73e4736fb6c57b87c9e29b49627d7a91443e321783a6e16250f78f3909f72b2",
+  "image": "sha256:1f6ce03d549c243be74e10c61378f8b9c134cf9463f58f45c3aab4ce016e5769",
+  "provision_command": [
+    "docker",
+    "create",
+    "--pull=never",
+    "--name",
+    "entangle-c19-arm-qual",
+    "--cpus",
+    "0.65",
+    "--memory",
+    "12g",
+    "--network",
+    "bridge",
+    "--security-opt",
+    "no-new-privileges",
+    "--mount",
+    "type=bind,src=/workspace/entangle-emulated-arm-c19ef758/frozen,dst=/src,readonly",
+    "--mount",
+    "type=bind,src=/workspace/entangle-emulated-arm-c19ef758/arm-std,dst=/usr/local/rustup/toolchains/1.91.1-x86_64-unknown-linux-gnu/lib/rustlib/aarch64-unknown-linux-gnu,readonly",
+    "--mount",
+    "type=bind,src=/workspace/entangle-jammy-release-o7k9vcv7/fixture/registry,dst=/seed-registry,readonly",
+    "sha256:1f6ce03d549c243be74e10c61378f8b9c134cf9463f58f45c3aab4ce016e5769",
+    "sleep",
+    "infinity"
+  ],
+  "pre_provision_free_bytes": 6958006272
+}

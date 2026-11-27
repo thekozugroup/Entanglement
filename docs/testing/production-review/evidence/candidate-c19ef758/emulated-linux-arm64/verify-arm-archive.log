@@ -1,0 +1,6 @@
+/workspace/entangle-emulated-arm-c19ef758/release-archive/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz: SHA-256 matched
+/workspace/entangle-emulated-arm-c19ef758/release-archive/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz: BLAKE3 matched
+/workspace/entangle-emulated-arm-c19ef758/release-archive/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz: checksum verification passed
+/workspace/entangle-emulated-arm-c19ef758/release-archive/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz: SHA-256 matched
+/workspace/entangle-emulated-arm-c19ef758/release-archive/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz: BLAKE3 matched
+error: missing Sigstore bundle /workspace/entangle-emulated-arm-c19ef758/release-archive/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz.sigstore

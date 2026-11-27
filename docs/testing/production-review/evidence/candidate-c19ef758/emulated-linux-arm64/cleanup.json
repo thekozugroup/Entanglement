@@ -1,0 +1,16 @@
+{
+  "container_id": "d73e4736fb6c57b87c9e29b49627d7a91443e321783a6e16250f78f3909f72b2",
+  "owned_container_removed": true,
+  "offline_at_shutdown": true,
+  "native_host_binfmt_registration_used": false,
+  "daemon_exit_codes": {
+    "arm": 0,
+    "x86": 0
+  },
+  "archive": "/workspace/Entanglement/target/release-candidate/c19ef7587a22-aarch64/entanglement-v0.1.0-aarch64-unknown-linux-gnu.tar.gz",
+  "verified_persisted_archive_sha256": "5c8d7d283ade96af17665d4d103a2a8a904cf0502cb1170441e7267c5e235de6",
+  "private_target_method": "only inside removed disposable container",
+  "private_target_usage": "1454563708\t/private/target",
+  "disk_free_before_container_removal_bytes": 4933738496,
+  "disk_free_after_container_removal_bytes": 9013706752
+}

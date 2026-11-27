@@ -1,0 +1,19 @@
+{
+  "rootless": true,
+  "source_mount_rw": false,
+  "image_id": "sha256:1f6ce03d549c243be74e10c61378f8b9c134cf9463f58f45c3aab4ce016e5769",
+  "network_mode_after": {},
+  "privileged": false,
+  "rootfs_added_bytes": 378500580,
+  "free_disk_after_provision": 6242488320,
+  "emulator_explicit": true,
+  "binfmt_touched": false,
+  "offline_smoke_command": [
+    "docker",
+    "exec",
+    "d73e4736fb6c57b87c9e29b49627d7a91443e321783a6e16250f78f3909f72b2",
+    "sh",
+    "-ec",
+    "test \"$(wc -l </proc/net/route)\" -eq 1; cat /proc/net/route; /private/qemu/qemu-aarch64 --version; aarch64-linux-gnu-readelf -h /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1; /private/qemu/qemu-aarch64 -L /usr/aarch64-linux-gnu /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1 --version; rustc --version --verbose; rustc --print target-libdir --target aarch64-unknown-linux-gnu; ld --version | head -1; readelf --version | head -1; id"
+  ]
+}

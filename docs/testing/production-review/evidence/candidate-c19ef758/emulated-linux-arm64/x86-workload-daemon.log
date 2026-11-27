@@ -1,0 +1,9 @@
+{"timestamp":"2026-11-27T07:56:25.038349Z","level":"INFO","fields":{"message":"entangled starting","version":"0.1.0","socket":"/private/home-x86/.entangle/sock","pid":7847},"target":"entangled"}
+{"timestamp":"2026-11-27T07:56:25.038746Z","level":"INFO","fields":{"message":"RPC server listening","socket_path":"/private/home-x86/.entangle/sock"},"target":"entangle_bin::server"}
+{"timestamp":"2026-11-27T07:56:25.212547Z","level":"INFO","fields":{"message":"mesh.iroh scheduler transport listening","peer_id":"59cf914cfe57935521862384c87d6b69","addrs":"[127.0.0.1:28443]","relay":false},"target":"entangle_bin::remote"}
+{"timestamp":"2026-11-27T07:56:25.212954Z","level":"INFO","fields":{"message":"daemon identity ready","local_peer_id":"59cf914cfe57935521862384c87d6b69"},"target":"entangled"}
+{"timestamp":"2026-11-27T07:56:25.213667Z","level":"WARN","fields":{"message":"maintenance: identity has no backup sentinel — after backing up, run: touch ~/.entangle/.identity_backed_up","identity":"/private/home-x86/.entangle/identity.key"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T07:56:29.021694Z","level":"INFO","fields":{"message":"received SIGTERM"},"target":"entangled"}
+{"timestamp":"2026-11-27T07:56:29.021784Z","level":"INFO","fields":{"message":"shutting down entangled"},"target":"entangled"}
+{"timestamp":"2026-11-27T07:56:29.021922Z","level":"INFO","fields":{"message":"maintenance loop shut down cleanly"},"target":"entangle_bin::maintenance"}
+{"timestamp":"2026-11-27T07:56:29.022367Z","level":"INFO","fields":{"message":"entangled stopped"},"target":"entangled"}
