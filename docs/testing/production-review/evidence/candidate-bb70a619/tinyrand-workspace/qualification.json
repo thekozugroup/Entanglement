@@ -1,0 +1,93 @@
+{
+  "upstream_commit": "8dd18ddefc9b057304441d9a7c112ba36d988dfe",
+  "source_id": "sha256:9cae32b67ebd4784779d1c37cd9cea5efc1a640fdfd71fca9a67dda8d9c777ab",
+  "workspace_members": [
+    "tinyrand",
+    "tinyrand-alloc",
+    "tinyrand-examples",
+    "tinyrand-std",
+    "tinyrand-tools"
+  ],
+  "rust_toolchain": "1.91.1",
+  "native_passed": {
+    "ordinary": 104,
+    "rustdoc": 27
+  },
+  "remote_cargo_exit": 101,
+  "remote_ordinary": {
+    "passed": 97,
+    "error": 7
+  },
+  "remote_ordinary_attempts_by_authenticated_worker": {
+    "2a3ff585525ab40f7875e2e9e2107770": 57,
+    "00ba594070df57bad4dca6fca857be3d": 54
+  },
+  "remote_failed_rustdoc_adapters": 27,
+  "nested_rustdoc_guest_exit_zero": 27,
+  "nested_rustdoc_guest_attempts_by_worker": {
+    "2a3ff585525ab40f7875e2e9e2107770": 20,
+    "00ba594070df57bad4dca6fca857be3d": 7
+  },
+  "ordinary_name_sets_agree": true,
+  "identical_dispositions": false,
+  "should_panic_dispositions": [
+    {
+      "case": "duration::tests::empty_duration_range",
+      "attempts": 2
+    },
+    {
+      "case": "tests::empty_u128_range",
+      "attempts": 2
+    },
+    {
+      "case": "tests::empty_u64_range",
+      "attempts": 2
+    },
+    {
+      "case": "tests::probability_panics_gt_1",
+      "attempts": 2
+    },
+    {
+      "case": "tests::probability_panics_lt_0",
+      "attempts": 2
+    },
+    {
+      "case": "tests::zero_lim_128",
+      "attempts": 2
+    },
+    {
+      "case": "tests::zero_lim_64",
+      "attempts": 2
+    }
+  ],
+  "ordinary_single_stochastic_case_run": {
+    "wasm_sha256": "f8bfe9ed20b0b3888ead6bf595431c16c68ba5406c57f97b7cbaf7f9a8851024",
+    "name": "thread_local::tests::with_thread_local",
+    "status": "passed",
+    "attempts": [
+      {
+        "attempt": 1,
+        "peer": "2a3ff585525ab40f7875e2e9e2107770",
+        "exit_code": 0,
+        "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s\n\n",
+        "stderr": "",
+        "status": "passed"
+      }
+    ]
+  },
+  "repeated_stochastic_campaign_started": false,
+  "raw_gzip_sha256": {
+    "Cargo.lock.gz": "9062d58d2d85d9d4670a6829f8e2feeec57ef912afb555fa2e6c73bf588cd520",
+    "distributed.json.gz": "cb0bd0f744677bacd9955fd6435f246b07325849dad8f6a71238e455005f4626",
+    "distributed.log.gz": "50b6ef67f5b01216c351f4f5d2df5625e026560f1e201c3e3f070fdffd652c0f",
+    "lock.log.gz": "8b171ae63753be92ada72f4c727080724f0301d1e9fe9cdd96fae596ec6bd043",
+    "meta.json.gz": "e8479721d3e065aad8abf16c3794940bbaee52bbd5e4687726964fac23935c9d",
+    "native-artifacts.jsonl.gz": "e889750d1580b7ed39e73a69828fd60df90836b1847cc606f88f7f5f39df8395",
+    "native-build.log.gz": "c7d1b62f8804077252f430b437f4811cc8d84b4f72cb68709332e01b6f7520ca",
+    "native.log.gz": "07e6b5e725aa1a07d63459f663687afb3b7e3bdc6871668afc1e07a12bb8ecc1",
+    "runner.log.gz": "85317a5228638981a896d9d77f887b9f221b08591cd48be93e603ce9d37fc4a1",
+    "unwind.log.gz": "4a6cff14c733e670d5edb362666c40b237ed1f7aa17c73016960f53acead001c",
+    "wasi.jsonl.gz": "a088d514588c9f5ed3130406cbc050995aa5a089fd612883fc40a58e58ce7798",
+    "wasi.log.gz": "d5e905a59cb9206c0167a00b545816c8b48e9a435056940d4b55cd10d23b14e0"
+  }
+}
