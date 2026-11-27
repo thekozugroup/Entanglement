@@ -1,0 +1,869 @@
+{
+  "validated_timed_calls": 131072,
+  "bootstrap": {
+    "replications": 50000,
+    "seed": 761485,
+    "unit": "matched pairs",
+    "method": "percentile, interpolated inclusive 2.5th and 97.5th percentiles"
+  },
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "stats": {
+    "p95_ms": {
+      "paired_ratio_median": 0.9887009886423455,
+      "interval95": [
+        0.9403685118271738,
+        1.0786589966280804
+      ],
+      "pairs_ratio_above_1": 7,
+      "median_daemon_by_stage": {
+        "baseline": 0.737233,
+        "candidate": 0.7108105
+      },
+      "median_ratio_by_baseline_position": {
+        "1": 0.9498621980819997,
+        "2": 1.035354127086081
+      }
+    },
+    "throughput": {
+      "paired_ratio_median": 0.9928683716358764,
+      "interval95": [
+        0.9647185392709497,
+        1.0324542724978047
+      ],
+      "pairs_ratio_above_1": 6,
+      "median_daemon_by_stage": {
+        "baseline": 7984.920145571328,
+        "candidate": 7943.561990975686
+      },
+      "median_ratio_by_baseline_position": {
+        "1": 0.9830481688883572,
+        "2": 0.9928683716358764
+      }
+    }
+  },
+  "arm_summary": {
+    "baseline": {
+      "throttled_periods": 0,
+      "throttled_usec": 0,
+      "elapsed_cgroup_periods": 85,
+      "median_worker_ticks": 86.5,
+      "median_client_ticks": 54.0,
+      "min_p95_ms": 0.699367,
+      "max_p95_ms": 0.836448
+    },
+    "candidate": {
+      "throttled_periods": 0,
+      "throttled_usec": 0,
+      "elapsed_cgroup_periods": 82,
+      "median_worker_ticks": 85.0,
+      "median_client_ticks": 53.0,
+      "min_p95_ms": 0.69018,
+      "max_p95_ms": 0.883549
+    }
+  },
+  "host_observed_ticks_by_process_name": {
+    "python3": 104
+  },
+  "pairs": {
+    "1": {
+      "baseline": {
+        "position": 1,
+        "p50_ms": 0.46363,
+        "p95_ms": 0.815521,
+        "p99_ms": 1.222085,
+        "max_ms": 3.042074,
+        "wall_ms": 514.59876,
+        "throughput": 7959.599436267588,
+        "client_ticks": 37,
+        "worker_ticks": 86,
+        "cgroup_deltas": {
+          "usage_usec": 1227099,
+          "user_usec": 477931,
+          "system_usec": 749168,
+          "nice_usec": 0,
+          "nr_periods": 6,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "candidate": {
+        "position": 2,
+        "p50_ms": 0.456275,
+        "p95_ms": 0.738997,
+        "p99_ms": 1.887502,
+        "max_ms": 8.004484,
+        "wall_ms": 531.483327,
+        "throughput": 7706.732820990263,
+        "client_ticks": 53,
+        "worker_ticks": 85,
+        "cgroup_deltas": {
+          "usage_usec": 1408316,
+          "user_usec": 579635,
+          "system_usec": 828681,
+          "nice_usec": 0,
+          "nr_periods": 6,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 0.9061655064676446,
+        "throughput": 0.9682312386066628
+      }
+    },
+    "2": {
+      "candidate": {
+        "position": 1,
+        "p50_ms": 0.46541,
+        "p95_ms": 0.878137,
+        "p99_ms": 2.138913,
+        "max_ms": 5.985194,
+        "wall_ms": 549.997012,
+        "throughput": 7447.313186494184,
+        "client_ticks": 44,
+        "worker_ticks": 85,
+        "cgroup_deltas": {
+          "usage_usec": 1334638,
+          "user_usec": 508222,
+          "system_usec": 826417,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "baseline": {
+        "position": 2,
+        "p50_ms": 0.462879,
+        "p95_ms": 0.779679,
+        "p99_ms": 2.692144,
+        "max_ms": 8.060389,
+        "wall_ms": 546.06907,
+        "throughput": 7500.8826264413765,
+        "client_ticks": 56,
+        "worker_ticks": 86,
+        "cgroup_deltas": {
+          "usage_usec": 1486803,
+          "user_usec": 657660,
+          "system_usec": 829142,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 1.1262801742768498,
+        "throughput": 0.992858248473539
+      }
+    },
+    "3": {
+      "candidate": {
+        "position": 1,
+        "p50_ms": 0.466629,
+        "p95_ms": 0.883549,
+        "p99_ms": 2.113855,
+        "max_ms": 9.243716,
+        "wall_ms": 558.413998,
+        "throughput": 7335.059677354291,
+        "client_ticks": 49,
+        "worker_ticks": 86,
+        "cgroup_deltas": {
+          "usage_usec": 1437953,
+          "user_usec": 561780,
+          "system_usec": 876172,
+          "nice_usec": 0,
+          "nr_periods": 6,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "baseline": {
+        "position": 2,
+        "p50_ms": 0.472166,
+        "p95_ms": 0.819118,
+        "p99_ms": 1.864631,
+        "max_ms": 7.05242,
+        "wall_ms": 541.917728,
+        "throughput": 7558.342878201615,
+        "client_ticks": 52,
+        "worker_ticks": 87,
+        "cgroup_deltas": {
+          "usage_usec": 1461377,
+          "user_usec": 592616,
+          "system_usec": 868761,
+          "nice_usec": 0,
+          "nr_periods": 6,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 1.0786589966280804,
+        "throughput": 0.9704587097402955
+      }
+    },
+    "4": {
+      "baseline": {
+        "position": 1,
+        "p50_ms": 0.45742,
+        "p95_ms": 0.730314,
+        "p99_ms": 1.025269,
+        "max_ms": 4.210758,
+        "wall_ms": 504.902924,
+        "throughput": 8112.450543067166,
+        "client_ticks": 46,
+        "worker_ticks": 84,
+        "cgroup_deltas": {
+          "usage_usec": 1354259,
+          "user_usec": 561089,
+          "system_usec": 793169,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "candidate": {
+        "position": 2,
+        "p50_ms": 0.450831,
+        "p95_ms": 0.696283,
+        "p99_ms": 1.002515,
+        "max_ms": 6.890758,
+        "wall_ms": 500.0334,
+        "throughput": 8191.452810952228,
+        "client_ticks": 53,
+        "worker_ticks": 79,
+        "cgroup_deltas": {
+          "usage_usec": 1369771,
+          "user_usec": 558731,
+          "system_usec": 811040,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 0.9534022352029401,
+        "throughput": 1.0097383974750487
+      }
+    },
+    "5": {
+      "baseline": {
+        "position": 1,
+        "p50_ms": 0.451179,
+        "p95_ms": 0.754703,
+        "p99_ms": 1.049119,
+        "max_ms": 2.249036,
+        "wall_ms": 497.427298,
+        "throughput": 8234.369155992721,
+        "client_ticks": 39,
+        "worker_ticks": 85,
+        "cgroup_deltas": {
+          "usage_usec": 1258942,
+          "user_usec": 500609,
+          "system_usec": 758333,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "candidate": {
+        "position": 2,
+        "p50_ms": 0.440359,
+        "p95_ms": 0.693146,
+        "p99_ms": 0.923296,
+        "max_ms": 2.44491,
+        "wall_ms": 479.460179,
+        "throughput": 8542.940956103885,
+        "client_ticks": 52,
+        "worker_ticks": 82,
+        "cgroup_deltas": {
+          "usage_usec": 1372842,
+          "user_usec": 602454,
+          "system_usec": 770388,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 0.918435464016971,
+        "throughput": 1.037473641789134
+      }
+    },
+    "6": {
+      "candidate": {
+        "position": 1,
+        "p50_ms": 0.462647,
+        "p95_ms": 0.848255,
+        "p99_ms": 1.82761,
+        "max_ms": 33.071316,
+        "wall_ms": 577.809233,
+        "throughput": 7088.844840248512,
+        "client_ticks": 57,
+        "worker_ticks": 88,
+        "cgroup_deltas": {
+          "usage_usec": 1514960,
+          "user_usec": 637268,
+          "system_usec": 877691,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "baseline": {
+        "position": 2,
+        "p50_ms": 0.4545,
+        "p95_ms": 0.741833,
+        "p99_ms": 1.199342,
+        "max_ms": 10.25745,
+        "wall_ms": 514.273818,
+        "throughput": 7964.628679580184,
+        "client_ticks": 55,
+        "worker_ticks": 87,
+        "cgroup_deltas": {
+          "usage_usec": 1449946,
+          "user_usec": 613543,
+          "system_usec": 836402,
+          "nice_usec": 0,
+          "nr_periods": 6,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 1.1434581637646208,
+        "throughput": 0.8900408450205571
+      }
+    },
+    "7": {
+      "candidate": {
+        "position": 1,
+        "p50_ms": 0.455234,
+        "p95_ms": 0.796158,
+        "p99_ms": 3.237176,
+        "max_ms": 8.120104,
+        "wall_ms": 561.580843,
+        "throughput": 7293.696092122573,
+        "client_ticks": 59,
+        "worker_ticks": 86,
+        "cgroup_deltas": {
+          "usage_usec": 1489958,
+          "user_usec": 614251,
+          "system_usec": 875706,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "baseline": {
+        "position": 2,
+        "p50_ms": 0.466008,
+        "p95_ms": 0.732633,
+        "p99_ms": 0.963222,
+        "max_ms": 2.79643,
+        "wall_ms": 510.10558,
+        "throughput": 8029.710241554308,
+        "client_ticks": 54,
+        "worker_ticks": 89,
+        "cgroup_deltas": {
+          "usage_usec": 1429712,
+          "user_usec": 580001,
+          "system_usec": 849712,
+          "nice_usec": 0,
+          "nr_periods": 6,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 1.0867078059546869,
+        "throughput": 0.9083386414589644
+      }
+    },
+    "8": {
+      "baseline": {
+        "position": 1,
+        "p50_ms": 0.46075,
+        "p95_ms": 0.776655,
+        "p99_ms": 2.393549,
+        "max_ms": 4.307693,
+        "wall_ms": 539.383575,
+        "throughput": 7593.853780215684,
+        "client_ticks": 58,
+        "worker_ticks": 85,
+        "cgroup_deltas": {
+          "usage_usec": 1434919,
+          "user_usec": 647002,
+          "system_usec": 787918,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "candidate": {
+        "position": 2,
+        "p50_ms": 0.457789,
+        "p95_ms": 0.693633,
+        "p99_ms": 0.85784,
+        "max_ms": 2.454256,
+        "wall_ms": 492.524746,
+        "throughput": 8316.33340916438,
+        "client_ticks": 52,
+        "worker_ticks": 85,
+        "cgroup_deltas": {
+          "usage_usec": 1381550,
+          "user_usec": 593187,
+          "system_usec": 788362,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 0.8931031152828477,
+        "throughput": 1.095140050079839
+      }
+    },
+    "9": {
+      "baseline": {
+        "position": 1,
+        "p50_ms": 0.448248,
+        "p95_ms": 0.699911,
+        "p99_ms": 0.983793,
+        "max_ms": 7.028989,
+        "wall_ms": 488.718144,
+        "throughput": 8381.108928094145,
+        "client_ticks": 52,
+        "worker_ticks": 77,
+        "cgroup_deltas": {
+          "usage_usec": 1304898,
+          "user_usec": 548159,
+          "system_usec": 756739,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "candidate": {
+        "position": 2,
+        "p50_ms": 0.456499,
+        "p95_ms": 0.72959,
+        "p99_ms": 1.585871,
+        "max_ms": 9.283005,
+        "wall_ms": 526.134816,
+        "throughput": 7785.076895576513,
+        "client_ticks": 52,
+        "worker_ticks": 88,
+        "cgroup_deltas": {
+          "usage_usec": 1420403,
+          "user_usec": 585511,
+          "system_usec": 834892,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 1.0424039627895547,
+        "throughput": 0.9288838699471278
+      }
+    },
+    "10": {
+      "candidate": {
+        "position": 1,
+        "p50_ms": 0.457475,
+        "p95_ms": 0.69018,
+        "p99_ms": 0.854125,
+        "max_ms": 2.867878,
+        "wall_ms": 493.908879,
+        "throughput": 8293.027669988496,
+        "client_ticks": 54,
+        "worker_ticks": 86,
+        "cgroup_deltas": {
+          "usage_usec": 1385498,
+          "user_usec": 596088,
+          "system_usec": 789409,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "baseline": {
+        "position": 2,
+        "p50_ms": 0.452819,
+        "p95_ms": 0.717218,
+        "p99_ms": 1.192361,
+        "max_ms": 46.210024,
+        "wall_ms": 544.400223,
+        "throughput": 7523.876418397426,
+        "client_ticks": 54,
+        "worker_ticks": 82,
+        "cgroup_deltas": {
+          "usage_usec": 1374012,
+          "user_usec": 594485,
+          "system_usec": 779527,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 0.9623015596373766,
+        "throughput": 1.1022280549040302
+      }
+    },
+    "11": {
+      "candidate": {
+        "position": 1,
+        "p50_ms": 0.459361,
+        "p95_ms": 0.701357,
+        "p99_ms": 0.884116,
+        "max_ms": 2.430778,
+        "wall_ms": 497.679928,
+        "throughput": 8230.1892633291,
+        "client_ticks": 52,
+        "worker_ticks": 85,
+        "cgroup_deltas": {
+          "usage_usec": 1388289,
+          "user_usec": 619855,
+          "system_usec": 768433,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "baseline": {
+        "position": 2,
+        "p50_ms": 0.466536,
+        "p95_ms": 0.706978,
+        "p99_ms": 0.91642,
+        "max_ms": 11.37839,
+        "wall_ms": 513.831768,
+        "throughput": 7971.480657848309,
+        "client_ticks": 54,
+        "worker_ticks": 88,
+        "cgroup_deltas": {
+          "usage_usec": 1418995,
+          "user_usec": 557807,
+          "system_usec": 861187,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 0.992049257544082,
+        "throughput": 1.032454272497805
+      }
+    },
+    "12": {
+      "baseline": {
+        "position": 1,
+        "p50_ms": 0.451399,
+        "p95_ms": 0.745261,
+        "p99_ms": 1.165606,
+        "max_ms": 2.900622,
+        "wall_ms": 498.731079,
+        "throughput": 8212.842897645045,
+        "client_ticks": 55,
+        "worker_ticks": 79,
+        "cgroup_deltas": {
+          "usage_usec": 1337607,
+          "user_usec": 565044,
+          "system_usec": 772564,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "candidate": {
+        "position": 2,
+        "p50_ms": 0.45259,
+        "p95_ms": 0.705257,
+        "p99_ms": 0.937191,
+        "max_ms": 9.49415,
+        "wall_ms": 500.360459,
+        "throughput": 8186.098494245725,
+        "client_ticks": 54,
+        "worker_ticks": 86,
+        "cgroup_deltas": {
+          "usage_usec": 1400344,
+          "user_usec": 535034,
+          "system_usec": 865311,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 0.9463221609610594,
+        "throughput": 0.9967435876063101
+      }
+    },
+    "13": {
+      "baseline": {
+        "position": 1,
+        "p50_ms": 0.462733,
+        "p95_ms": 0.719495,
+        "p99_ms": 0.898116,
+        "max_ms": 12.182857,
+        "wall_ms": 512.105005,
+        "throughput": 7998.359633294347,
+        "client_ticks": 56,
+        "worker_ticks": 88,
+        "cgroup_deltas": {
+          "usage_usec": 1425225,
+          "user_usec": 568984,
+          "system_usec": 856240,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "candidate": {
+        "position": 2,
+        "p50_ms": 0.460207,
+        "p95_ms": 0.809439,
+        "p99_ms": 1.281587,
+        "max_ms": 24.470273,
+        "wall_ms": 546.782597,
+        "throughput": 7491.094307816823,
+        "client_ticks": 36,
+        "worker_ticks": 82,
+        "cgroup_deltas": {
+          "usage_usec": 1233968,
+          "user_usec": 460333,
+          "system_usec": 773636,
+          "nice_usec": 0,
+          "nr_periods": 6,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 1.1250099027790326,
+        "throughput": 0.9365788300683608
+      }
+    },
+    "14": {
+      "candidate": {
+        "position": 1,
+        "p50_ms": 0.458112,
+        "p95_ms": 0.709533,
+        "p99_ms": 0.886217,
+        "max_ms": 3.013828,
+        "wall_ms": 497.846595,
+        "throughput": 8227.433995004023,
+        "client_ticks": 54,
+        "worker_ticks": 86,
+        "cgroup_deltas": {
+          "usage_usec": 1399932,
+          "user_usec": 612875,
+          "system_usec": 787057,
+          "nice_usec": 0,
+          "nr_periods": 4,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "baseline": {
+        "position": 2,
+        "p50_ms": 0.465818,
+        "p95_ms": 0.836448,
+        "p99_ms": 2.289817,
+        "max_ms": 5.249291,
+        "wall_ms": 549.521662,
+        "throughput": 7453.755298913039,
+        "client_ticks": 56,
+        "worker_ticks": 91,
+        "cgroup_deltas": {
+          "usage_usec": 1497373,
+          "user_usec": 626237,
+          "system_usec": 871136,
+          "nice_usec": 0,
+          "nr_periods": 6,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 0.8482691093767933,
+        "throughput": 1.1037971686840602
+      }
+    },
+    "15": {
+      "candidate": {
+        "position": 1,
+        "p50_ms": 0.444974,
+        "p95_ms": 0.705953,
+        "p99_ms": 0.939019,
+        "max_ms": 18.790781,
+        "wall_ms": 508.726582,
+        "throughput": 8051.476264316772,
+        "client_ticks": 53,
+        "worker_ticks": 82,
+        "cgroup_deltas": {
+          "usage_usec": 1381658,
+          "user_usec": 603500,
+          "system_usec": 778157,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "baseline": {
+        "position": 2,
+        "p50_ms": 0.456809,
+        "p95_ms": 0.716447,
+        "p99_ms": 0.987211,
+        "max_ms": 6.840747,
+        "wall_ms": 505.103683,
+        "throughput": 8109.226160601961,
+        "client_ticks": 54,
+        "worker_ticks": 87,
+        "cgroup_deltas": {
+          "usage_usec": 1448543,
+          "user_usec": 639240,
+          "system_usec": 809304,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 0.985352719740609,
+        "throughput": 0.9928784947982137
+      }
+    },
+    "16": {
+      "baseline": {
+        "position": 1,
+        "p50_ms": 0.459048,
+        "p95_ms": 0.699367,
+        "p99_ms": 0.90016,
+        "max_ms": 11.942833,
+        "wall_ms": 506.718654,
+        "throughput": 8083.38111823292,
+        "client_ticks": 53,
+        "worker_ticks": 87,
+        "cgroup_deltas": {
+          "usage_usec": 1470883,
+          "user_usec": 552556,
+          "system_usec": 918327,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "candidate": {
+        "position": 2,
+        "p50_ms": 0.447561,
+        "p95_ms": 0.712088,
+        "p99_ms": 1.036659,
+        "max_ms": 18.995251,
+        "wall_ms": 522.739172,
+        "throughput": 7835.647717634599,
+        "client_ticks": 53,
+        "worker_ticks": 81,
+        "cgroup_deltas": {
+          "usage_usec": 1390042,
+          "user_usec": 554417,
+          "system_usec": 835624,
+          "nice_usec": 0,
+          "nr_periods": 5,
+          "nr_throttled": 0,
+          "throttled_usec": 0,
+          "nr_bursts": 0,
+          "burst_usec": 0
+        }
+      },
+      "ratios": {
+        "p95_ms": 1.0181893054719484,
+        "throughput": 0.9693527501704042
+      }
+    }
+  }
+}

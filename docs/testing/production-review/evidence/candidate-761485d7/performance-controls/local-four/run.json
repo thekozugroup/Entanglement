@@ -1,0 +1,202 @@
+{
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "started": "2026-11-27T03:52:56.790781+00:00",
+  "daemon_sha256": {
+    "baseline": "5e11e7af5eae74c8cbec3f140e7322b98b9f5910cdb8cd269b53f9ae6d2b73f9",
+    "candidate": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "driver_sha256": "27556e7376d59341f50ac6cabb8d121d44e0e88ace85bc1b82426d9a7c5c8015",
+  "affinity": {
+    "clients": [
+      0,
+      1
+    ],
+    "daemons": [
+      2,
+      3
+    ]
+  },
+  "cpu_max": "400000 100000",
+  "clock_ticks_hz": 100,
+  "pairs": 16,
+  "warmup_per_arm": 1024,
+  "timed_per_arm": 4096,
+  "finished": "2026-11-27T03:53:23.186263+00:00",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "host_activity": [
+    {
+      "utc": "2026-11-27T03:52:57.698579+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:52:58.494792+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 4
+      }
+    },
+    {
+      "utc": "2026-11-27T03:52:59.311308+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 4
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:00.148250+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 7
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:00.987368+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 8
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:01.819643+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 9
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:02.646835+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 5
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:03.454113+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 5
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:04.231591+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:05.010709+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:05.809108+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 5
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:06.590606+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 4
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:07.380068+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 5
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:08.161157+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:08.941848+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:09.724288+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 4
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:10.502841+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:11.284636+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:12.064405+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:12.846167+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 4
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:13.639839+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 4
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:14.422475+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:15.218076+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 6
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:15.998908+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:16.782991+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:17.572007+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 5
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:18.386848+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 6
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:19.170951+00:00",
+      "active_4plus_ticks": {}
+    },
+    {
+      "utc": "2026-11-27T03:53:19.950437+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 4
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:20.733368+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 4
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:21.529839+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 4
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:22.345252+00:00",
+      "active_4plus_ticks": {
+        "542701:python3": 7
+      }
+    },
+    {
+      "utc": "2026-11-27T03:53:23.127039+00:00",
+      "active_4plus_ticks": {}
+    }
+  ],
+  "raw_gzip_sha256": "9f678bc76d4bbddb771ae94191ce815793bff1a1ec1f5500dff613fdddde0969",
+  "completed_arms": 32
+}
