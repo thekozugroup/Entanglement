@@ -9,28 +9,45 @@ import subprocess
 import sys
 import tempfile
 
+from native_release_layout import RELEASE_TARGETS, verify_archive_layout
 
-TARGETS = (
-    "x86_64-unknown-linux-gnu",
-    "aarch64-unknown-linux-gnu",
-    "aarch64-apple-darwin",
-    "x86_64-apple-darwin",
-)
+
 BUNDLE_MEDIA_TYPES = (
     "application/vnd.dev.sigstore.bundle.v0.3+json",
     "application/vnd.dev.sigstore.bundle+json;version=0.3",
 )
 
 
+def publish_signatures(signatures):
+    published = []
+    try:
+        for destination, staged in signatures.items():
+            os.link(staged, destination)
+            published.append((destination, staged))
+    except OSError as error:
+        rollback_errors = []
+        for destination, staged in reversed(published):
+            try:
+                if os.path.samestat(destination.lstat(), staged.stat()):
+                    destination.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as rollback:
+                rollback_errors.append(str(rollback))
+        if rollback_errors:
+            raise OSError(f"{error}. Signature rollback failed: {', '.join(rollback_errors)}") from error
+        raise
+
+
 def verify_release(directory, tag, signatures, publisher_key):
     if not re.fullmatch(r"v\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?", tag, re.ASCII):
         raise ValueError("promotion requires an installable release tag")
-    if not isinstance(signatures, dict) or set(signatures) != set(TARGETS):
+    if not isinstance(signatures, dict) or set(signatures) != set(RELEASE_TARGETS):
         raise ValueError("publisher signatures must include exactly the four release targets")
     if not publisher_key.strip():
         raise ValueError("configure the independently trusted ENTANGLE_RELEASE_PUBLISHER_KEY")
 
-    artifacts = {target: directory / f"entanglement-{tag}-{target}.tar.gz" for target in TARGETS}
+    artifacts = {target: directory / f"entanglement-{tag}-{target}.tar.gz" for target in RELEASE_TARGETS}
     for suffix in ("", ".sha256", ".b3", ".sigstore"):
         expected = {Path(str(path) + suffix) for path in artifacts.values()}
         if set(directory.glob(f"entanglement-*.tar.gz{suffix}")) != expected:
@@ -41,8 +58,7 @@ def verify_release(directory, tag, signatures, publisher_key):
     issuer = "https://token.actions.githubusercontent.com"
     identity = f"https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@refs/tags/{tag}"
     checksums = Path(__file__).resolve().with_name("verify-release.sh")
-    valid_signatures = {}
-    with tempfile.TemporaryDirectory() as scratch:
+    with tempfile.TemporaryDirectory(prefix=".entangle-promotion-", dir=directory) as scratch:
         key_path = Path(scratch) / "release.pub"
         key_path.write_text(publisher_key)
         # Check the configured key is Ed25519 SPKI before OpenSSL is allowed
@@ -52,6 +68,7 @@ def verify_release(directory, tag, signatures, publisher_key):
         ])
         if len(der) != 44 or not der.startswith(bytes.fromhex("302a300506032b6570032100")):
             raise ValueError("release publisher key must be Ed25519 SubjectPublicKeyInfo PEM")
+        valid_signatures = {}
         for target, artifact in artifacts.items():
             encoded = signatures[target]
             if not isinstance(encoded, str) or not re.fullmatch(r"[0-9A-Fa-f]{128}", encoded):
@@ -75,10 +92,10 @@ def verify_release(directory, tag, signatures, publisher_key):
                 "--certificate-oidc-issuer", issuer, "--certificate-identity", identity,
                 "--bundle", bundle, "--", artifact,
             ], check=True)
-            valid_signatures[artifact] = signature
+            verify_archive_layout(artifact, target)
+            valid_signatures[Path(str(artifact) + ".sig")] = staged_signature
 
-    for artifact, signature in valid_signatures.items():
-        Path(str(artifact) + ".sig").write_bytes(signature)
+        publish_signatures(valid_signatures)
 
 
 if __name__ == "__main__":

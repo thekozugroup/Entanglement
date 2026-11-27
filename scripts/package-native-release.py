@@ -12,13 +12,7 @@ import subprocess
 import tarfile
 import tempfile
 
-
-TARGETS = (
-    "aarch64-apple-darwin",
-    "aarch64-unknown-linux-gnu",
-    "x86_64-apple-darwin",
-    "x86_64-unknown-linux-gnu",
-)
+from native_release_layout import DIRECTORY_MODE, RELEASE_FILES, RELEASE_TARGETS
 
 
 def member(name, mode, epoch):
@@ -45,14 +39,6 @@ def add_file(archive, source, info):
 
 def package(source, binaries, output, basename, epoch):
     filename = basename + ".tar.gz"
-    inputs = (
-        (source / "LICENSE", 0o644),
-        (source / "README.md", 0o644),
-        (source / "docs/architecture.md", 0o644),
-        (binaries / "entangle", 0o755),
-        (binaries / "entangled", 0o755),
-        (source / "docs/tutorial.md", 0o644),
-    )
 
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".entangle-package-", dir=output) as scratch:
@@ -63,10 +49,12 @@ def package(source, binaries, output, basename, epoch):
             gzip.GzipFile(filename="", mode="wb", fileobj=raw, compresslevel=9, mtime=epoch) as compressed,
             tarfile.open(mode="w", fileobj=compressed, format=tarfile.USTAR_FORMAT) as tar,
         ):
-            directory = member(basename, 0o755, epoch)
+            directory = member(basename, DIRECTORY_MODE, epoch)
             directory.type = tarfile.DIRTYPE
             tar.addfile(directory)
-            for path, mode in inputs:
+            for relative_path, mode in RELEASE_FILES:
+                parent = binaries if mode & 0o111 else source
+                path = parent / relative_path
                 add_file(tar, path, member(f"{basename}/{path.name}", mode, epoch))
 
         digest = hashlib.sha256()
@@ -104,7 +92,7 @@ def main():
         "Archive and checksum paths must be unused in the output directory.",
     )
     parser.add_argument("--version", required=True, help="release tag such as v0.1.0")
-    parser.add_argument("--target", required=True, choices=TARGETS)
+    parser.add_argument("--target", required=True, choices=RELEASE_TARGETS)
     parser.add_argument("--bin-dir", required=True, type=Path)
     parser.add_argument("--source-date-epoch", required=True, type=int, metavar="SECONDS")
     parser.add_argument("--output-dir", type=Path, default=Path("."))
