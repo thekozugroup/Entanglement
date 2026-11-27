@@ -55,7 +55,12 @@ one observation per rubric ID. Every observation has `status` (`pass`, `fail`,
 or `not_evidenced`) and a concrete `reason`. A pass also requires `reviewer`,
 `reviewed_at_utc`, and a nonempty `evidence` list. Each evidence entry has
 `path` (workspace-relative), `sha256` (of the nonempty file), `source_id`,
-`command`, `exit_code` (zero), `claim`, and `observed_at_utc`. Attach enough
+`command`, `exit_code` (zero), `claim`, and `observed_at_utc`. An entry can also
+cite a workspace-relative JSON `receipt_path` with the command or review method.
+The scorer verifies that its
+`source_before` and `source_after` match the candidate, its `log`, `sha256` and
+`exit_code` match the evidence entry, and its UTC start and finish are ordered.
+Earlier reviews can still cite a log directly. Attach enough
 independent artifacts to establish **all** parts of the requirement. Negative
 or unavailable evidence belongs in `reason`, with a source path where possible.
 Historical mode preserves historical scores but never asserts current readiness.

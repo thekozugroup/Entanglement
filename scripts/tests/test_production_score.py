@@ -82,6 +82,39 @@ class ProductionScoreTests(unittest.TestCase):
         self.run["observations"]["ATC-MAN-1"]["evidence"][0]["path"] = "../outside"
         with self.assertRaises(ValueError): score.score(RUBRIC, self.run, self.root)
 
+    def test_declared_receipt_binds_both_sources_log_exit_and_time(self):
+        ev = self.run["observations"]["ATC-MAN-1"]["evidence"][0]
+        ev["receipt_path"] = "receipt.json"
+        receipt = {"command": ["fixture", "arg"], "source_before": SOURCE, "source_after": SOURCE, "log": ev["path"],
+                   "sha256": ev["sha256"], "exit_code": 0, "started_utc": "2026-11-27T12:00:00Z",
+                   "finished_utc": "2026-11-27T12:00:01+00:00"}
+        path = self.root / ev["receipt_path"]
+        path.write_text(json.dumps(receipt))
+        self.assertTrue(score.score(RUBRIC, self.run, self.root)["ready_over_95"])
+        manual = dict(receipt, method="independent review of test fixture")
+        del manual["command"]
+        path.write_text(json.dumps(manual))
+        self.assertTrue(score.score(RUBRIC, self.run, self.root)["ready_over_95"])
+        for changes in ({"source_before": "wrong"}, {"source_after": "wrong"}, {"log": "other"},
+                        {"sha256": "wrong"}, {"exit_code": 1}, {"exit_code": False},
+                        {"command": ""}, {"command": []}, {"command": None}, {"command": [17]},
+                        {"started_utc": "2026-11-27T12:00:02Z"}, {"finished_utc": "2026-11-27"},
+                        {"finished_utc": "2026-11-27T12:00:02+00:00:00.5"},
+                        {"finished_utc": None}):
+            with self.subTest(changes=changes):
+                path.write_text(json.dumps({**receipt, **changes}))
+                with self.assertRaises(ValueError):
+                    score.score(RUBRIC, self.run, self.root)
+
+    def test_declared_receipt_must_resolve_to_a_workspace_file(self):
+        ev = self.run["observations"]["ATC-MAN-1"]["evidence"][0]
+        (self.root / "cycle").symlink_to("cycle")
+        for ref in (None, "", "absent.json", "../outside", str(self.root / "log.txt"), "cycle"):
+            with self.subTest(ref=ref):
+                ev["receipt_path"] = ref
+                with self.assertRaises(ValueError):
+                    score.score(RUBRIC, self.run, self.root)
+
 
 if __name__ == "__main__":
     unittest.main()

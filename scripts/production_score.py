@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Score a fixed production rubric; evidence credibility needs independent review."""
 import argparse
+from datetime import datetime, timedelta
 import hashlib
 import json
 from pathlib import Path
@@ -35,6 +36,50 @@ def source_id(root=ROOT):
         digest.update(len(raw).to_bytes(8, "big")); digest.update(raw)
         digest.update(hashlib.sha256(content).digest())
     return "sha256:" + digest.hexdigest()
+
+
+def review_file(root, check, ref, kind):
+    if not isinstance(ref, str) or not ref or Path(ref).is_absolute():
+        raise ValueError(f"{check}: {kind} path must be workspace-relative")
+    try:
+        path = (root / ref).resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise ValueError(f"{check}: cannot resolve {kind} file {ref!r}") from error
+    if not path.is_relative_to(root.resolve()) or not path.is_file():
+        raise ValueError(f"{check}: {kind} file missing or outside workspace")
+    return path
+
+
+def validate_receipt(root, check, evidence):
+    """Check the execution record when a review cites one alongside its log."""
+    path = review_file(root, check, evidence["receipt_path"], "receipt")
+    receipt = json.loads(path.read_bytes())
+    if not isinstance(receipt, dict) or not (
+        receipt.get("source_before") == receipt.get("source_after") == evidence["source_id"]
+        and receipt.get("log") == evidence["path"]
+        and receipt.get("sha256") == evidence["sha256"]
+        and type(receipt.get("exit_code")) is int
+        and receipt["exit_code"] == evidence["exit_code"]
+    ):
+        raise ValueError(f"{check}: receipt disagrees with cited execution or log")
+    procedure = receipt.get("command", receipt.get("method"))
+    if isinstance(procedure, list) and procedure and all(isinstance(arg, str) for arg in procedure):
+        procedure = procedure[0]
+    if not isinstance(procedure, str) or not procedure.strip():
+        raise ValueError(f"{check}: receipt needs a command or review method")
+    times = []
+    for key in ("started_utc", "finished_utc"):
+        value = receipt.get(key)
+        if not isinstance(value, str) or not value.endswith(("Z", "+00:00")):
+            raise ValueError(f"{check}: receipt needs UTC start and finish times")
+        if value.endswith("Z"):
+            value = value[:-1] + "+00:00"
+        stamp = datetime.fromisoformat(value)
+        if stamp.utcoffset() != timedelta(0):
+            raise ValueError(f"{check}: receipt needs UTC start and finish times")
+        times.append(stamp)
+    if times[0] > times[1]:
+        raise ValueError(f"{check}: receipt finishes before it starts")
 
 
 def score(rubric, run, root=ROOT):
@@ -85,12 +130,12 @@ def score(rubric, run, root=ROOT):
                 raise ValueError(f"{item['id']}: pass evidence must have a zero exit code")
             if not ev.get("command") or not ev.get("claim") or not ev.get("observed_at_utc"):
                 raise ValueError(f"{item['id']}: evidence needs command, claim and observation time")
-            candidate = (root / ev.get("path", "")).resolve()
-            if not candidate.is_relative_to(root.resolve()) or not candidate.is_file():
-                raise ValueError(f"{item['id']}: evidence file missing or outside workspace")
+            candidate = review_file(root, item['id'], ev.get("path"), "evidence")
             data = candidate.read_bytes()
             if not data or hashlib.sha256(data).hexdigest() != ev.get("sha256"):
                 raise ValueError(f"{item['id']}: evidence file empty or digest mismatch")
+            if "receipt_path" in ev:
+                validate_receipt(root, item['id'], ev)
         counts[item["metric"]][status] += 1
     metrics = {}
     for metric, values in sorted(counts.items()):
