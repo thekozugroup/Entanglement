@@ -503,6 +503,7 @@ pub(crate) async fn ensure_initialised(
                 ..Default::default()
             }),
             mesh: MeshConfig {
+                bridge: Default::default(),
                 transports: answers.transports,
                 multi_node: false,
             },

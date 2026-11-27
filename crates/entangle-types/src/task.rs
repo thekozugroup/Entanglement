@@ -24,9 +24,9 @@ pub enum IntegrityPolicy {
     },
     /// Accept outputs that are semantically equivalent within a distance metric.
     SemanticEquivalent {
-        /// Name of the metric (e.g. `"cosine"`, `"rouge-l"`).
+        /// Fully qualified ID of the signed submitter-local distance metric.
         metric: String,
-        /// Minimum similarity threshold in `[0.0, 1.0]`.
+        /// Exclusive upper bound on pairwise distance, in `[0.0, 1.0]`.
         threshold: f32,
     },
     /// Accept output only from explicitly allow-listed peers.

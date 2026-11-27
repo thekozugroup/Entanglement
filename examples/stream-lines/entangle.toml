@@ -1,0 +1,12 @@
+[plugin]
+id = "PUBLISHER_PLACEHOLDER/stream-lines@0.1.0"
+version = "0.1.0"
+tier = 1
+runtime = "wasm"
+description = "Yield complete input lines under the receiver's negotiated credit window"
+
+[capabilities]
+
+[build]
+wit_world = "entangle:plugin/stream-plugin@0.1.0"
+target = "wasm32-wasip2"

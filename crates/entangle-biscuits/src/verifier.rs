@@ -1,8 +1,7 @@
 //! Biscuit verification and fact extraction (spec §6).
 //!
 //! [`verify`] parses a biscuit, checks token-level signature integrity, and
-//! extracts the typed [`ExtractedFacts`] by scanning each block's Datalog
-//! source individually.
+//! extracts the typed [`ExtractedFacts`] from each signed block's structured facts.
 //!
 //! **Trust scoping** (spec §6.4, SECURITY.md): attenuation can only *narrow*
 //! a token, never widen it. Grant-conferring facts — `capability(...)` and
@@ -18,9 +17,13 @@
 //! normal scope and execution limits.
 
 use biscuit_auth::{
-    builder_ext::AuthorizerExt, AuthorizerBuilder, AuthorizerLimits, Biscuit, PublicKey,
+    builder_ext::AuthorizerExt,
+    datalog::SymbolTable,
+    format::schema::{term::Content, AuthorizerSnapshot},
+    Authorizer, AuthorizerBuilder, AuthorizerLimits, Biscuit, DeserializationLimits, PublicKey,
 };
 use entangle_types::peer_id::PeerId;
+use prost::Message;
 use std::time::Duration;
 
 use crate::errors::BiscuitError;
@@ -77,115 +80,145 @@ pub struct ExtractedFacts {
 
 /// Parse raw biscuit bytes against `root_pubkey` and return the [`Biscuit`].
 pub fn parse(bytes: &[u8], root_pubkey: &PublicKey) -> Result<Biscuit, BiscuitError> {
-    Biscuit::from(bytes, root_pubkey).map_err(|e| BiscuitError::Parse(e.to_string()))
+    let mut limits = DeserializationLimits::allow_everything();
+    limits.max_token_size = 256 * 1024;
+    limits.max_blocks = 64;
+    Biscuit::from_with_limits(bytes, root_pubkey, &limits)
+        .map_err(|error| BiscuitError::Parse(error.to_string()))
 }
 
-/// Extract typed facts from a biscuit, scanning each block individually so
-/// that grant-conferring facts are confined to the authority block.
-fn extract_facts(biscuit: &Biscuit) -> Result<ExtractedFacts, BiscuitError> {
+/// The first signed block that completes a relay delegation owns its counter.
+/// Further attenuation never creates a fresh budget or extends its retention.
+pub(crate) struct VerifiedClaims {
+    pub facts: ExtractedFacts,
+    pub budget_anchor: Option<(usize, i64)>,
+}
+
+fn extract_facts(authorizer: &Authorizer, clock: bool) -> Result<VerifiedClaims, BiscuitError> {
+    // The public authorization snapshot preserves source blocks and typed terms.
+    // Only read literal facts in those blocks, never derived or ambient facts.
+    let bytes = authorizer
+        .to_raw_snapshot()
+        .map_err(|e| BiscuitError::Parse(e.to_string()))?;
+    let world = AuthorizerSnapshot::decode(bytes.as_slice())
+        .map_err(|e| BiscuitError::Parse(e.to_string()))?
+        .world;
+    let symbols =
+        SymbolTable::from(world.symbols).map_err(|e| BiscuitError::Parse(e.to_string()))?;
     let mut facts = ExtractedFacts::default();
-    for index in 0..biscuit.block_count() {
-        let source = biscuit
-            .print_block_source(index)
-            .map_err(|e| BiscuitError::Parse(format!("block {index}: {e}")))?;
-        scan_block_source(index, &source, &mut facts)?;
-    }
-    Ok(facts)
-}
-
-/// Scan one block's Datalog source for known fact predicates using
-/// prefix/suffix matching. Integer terms are parsed directly; string terms
-/// are unquoted.
-///
-/// `index` determines the trust scope: `capability`/`peer` facts are only
-/// accepted at [`AUTHORITY_BLOCK_INDEX`]; elsewhere they reject the token.
-fn scan_block_source(
-    index: usize,
-    block_source: &str,
-    facts: &mut ExtractedFacts,
-) -> Result<(), BiscuitError> {
-    for line in block_source.lines() {
-        // Block sources emit facts as e.g. `capability("foo");` — trim
-        // whitespace, trailing comma, and optional semicolon.
-        let line = line.trim().trim_end_matches(',').trim_end_matches(';');
-
-        if let Some(inner) = strip_predicate(line, "peer") {
-            if index != AUTHORITY_BLOCK_INDEX {
+    let mut budget_anchor = None;
+    for (index, block) in world.blocks.iter().enumerate() {
+        if clock
+            && block
+                .rules
+                .iter()
+                .any(|rule| symbols.get_symbol(rule.head.name) == Some("time"))
+        {
+            return Err(BiscuitError::Verify(
+                "relay clock is supplied by the receiver".into(),
+            ));
+        }
+        for fact in &block.facts {
+            let predicate = &fact.predicate;
+            let name = symbols
+                .get_symbol(predicate.name)
+                .ok_or_else(|| BiscuitError::MalformedClaim("unknown predicate".into()))?;
+            if clock && name == "time" {
+                return Err(BiscuitError::Verify(
+                    "relay clock is supplied by the receiver".into(),
+                ));
+            }
+            if !matches!(
+                name,
+                "peer"
+                    | "capability"
+                    | "expires"
+                    | "dest_pin"
+                    | "relay_dest_node"
+                    | "rate_limit_bps"
+                    | "relay_rate_max"
+                    | "total_bytes_cap"
+                    | "relay_total_bytes_max"
+                    | "bridge"
+                    | "bridge_cap"
+            ) {
+                continue;
+            }
+            if index != AUTHORITY_BLOCK_INDEX && matches!(name, "peer" | "capability") {
                 return Err(BiscuitError::Verify(format!(
-                    "peer fact in non-authority block {index}: \
-                     attenuation cannot rebind the issued-to peer"
+                    "{name} fact in non-authority block {index}"
                 )));
             }
-            if let Some(hex) = parse_string_term(inner) {
-                facts.issued_to = PeerId::from_hex(&hex).ok();
-            }
-        } else if let Some(inner) = strip_predicate(line, "capability") {
-            if index != AUTHORITY_BLOCK_INDEX {
-                return Err(BiscuitError::Verify(format!(
-                    "capability fact in non-authority block {index}: \
-                     attenuation cannot add capabilities"
-                )));
-            }
-            if let Some(s) = parse_string_term(inner) {
-                facts.authority_capabilities.push(s);
-            }
-        } else if let Some(inner) = strip_predicate(line, "expires") {
-            if let Ok(n) = inner.trim().parse::<i64>() {
-                facts.expires = Some(match facts.expires {
-                    None => n,
-                    Some(prev) => prev.min(n),
-                });
-            }
-        } else if let Some(inner) = strip_predicate(line, "dest_pin") {
-            if let Some(hex) = parse_string_term(inner) {
-                let peer = PeerId::from_hex(&hex)
-                    .map_err(|e| BiscuitError::MalformedClaim(format!("dest_pin: {e}")))?;
-                // First-write-wins: a later block cannot re-pin the destination.
-                if facts.dest_pin.is_none() {
-                    facts.dest_pin = Some(peer);
+            let bad = || BiscuitError::MalformedClaim(format!("{name} in block {index}"));
+            let [term] = predicate.terms.as_slice() else {
+                return Err(bad());
+            };
+            match (name, term.content.as_ref()) {
+                ("capability", Some(Content::String(id))) => {
+                    let value = symbols.get_symbol(*id).ok_or_else(bad)?;
+                    facts.authority_capabilities.push(value.to_owned());
                 }
+                ("peer" | "dest_pin" | "relay_dest_node", Some(Content::String(id))) => {
+                    let value = symbols.get_symbol(*id).ok_or_else(bad)?;
+                    let peer = if let Some(hex_key) = value.strip_prefix("ed25519:") {
+                        let key =
+                            PublicKey::from_bytes_hex(hex_key, biscuit_auth::Algorithm::Ed25519)
+                                .map_err(|_| bad())?;
+                        let bytes: [u8; 32] = key.to_bytes().try_into().map_err(|_| bad())?;
+                        PeerId::from_public_key_bytes(&bytes)
+                    } else {
+                        PeerId::from_hex(value).map_err(|_| bad())?
+                    };
+                    if name == "peer" {
+                        if facts
+                            .issued_to
+                            .replace(peer)
+                            .is_some_and(|previous| previous != peer)
+                        {
+                            return Err(bad());
+                        }
+                    } else {
+                        facts.dest_pin.get_or_insert(peer);
+                    }
+                }
+                ("expires", Some(Content::Integer(n))) => tighten(&mut facts.expires, *n),
+                ("expires", Some(Content::Date(n))) => {
+                    tighten(&mut facts.expires, i64::try_from(*n).map_err(|_| bad())?)
+                }
+                ("rate_limit_bps" | "relay_rate_max", Some(Content::Integer(n))) => {
+                    tighten(
+                        &mut facts.rate_limit_bps,
+                        u64::try_from(*n).map_err(|_| bad())?,
+                    );
+                }
+                ("total_bytes_cap" | "relay_total_bytes_max", Some(Content::Integer(n))) => {
+                    tighten(
+                        &mut facts.total_bytes_cap,
+                        u64::try_from(*n).map_err(|_| bad())?,
+                    );
+                }
+                ("bridge" | "bridge_cap", Some(Content::Bool(true))) => facts.bridge_marker = true,
+                _ => return Err(bad()),
             }
-        } else if let Some(inner) = strip_predicate(line, "rate_limit_bps") {
-            if let Ok(n) = inner.trim().parse::<u64>() {
-                facts.rate_limit_bps = Some(match facts.rate_limit_bps {
-                    None => n,
-                    Some(prev) => prev.min(n),
-                });
+        }
+        if facts.bridge_marker
+            && facts.dest_pin.is_some()
+            && facts.rate_limit_bps.is_some()
+            && facts.total_bytes_cap.is_some()
+        {
+            if let Some(expiry) = facts.expires {
+                budget_anchor.get_or_insert((index, expiry));
             }
-        } else if let Some(inner) = strip_predicate(line, "total_bytes_cap") {
-            if let Ok(n) = inner.trim().parse::<u64>() {
-                facts.total_bytes_cap = Some(match facts.total_bytes_cap {
-                    None => n,
-                    Some(prev) => prev.min(n),
-                });
-            }
-        } else if line == "bridge(true)" {
-            facts.bridge_marker = true;
         }
     }
-
-    Ok(())
+    Ok(VerifiedClaims {
+        facts,
+        budget_anchor,
+    })
 }
 
-/// Strip `pred(…)` and return the inner text, or `None` if line does not match.
-fn strip_predicate<'a>(line: &'a str, pred: &str) -> Option<&'a str> {
-    let prefix = format!("{pred}(");
-    if line.starts_with(&prefix) && line.ends_with(')') {
-        Some(&line[prefix.len()..line.len() - 1])
-    } else {
-        None
-    }
-}
-
-/// Parse a quoted string term `"…"` and return the unescaped content.
-fn parse_string_term(inner: &str) -> Option<String> {
-    let inner = inner.trim();
-    if inner.len() >= 2 && inner.starts_with('"') && inner.ends_with('"') {
-        let content = &inner[1..inner.len() - 1];
-        Some(content.replace("\\\"", "\"").replace("\\\\", "\\"))
-    } else {
-        None
-    }
+fn tighten<T: Ord + Copy>(slot: &mut Option<T>, value: T) {
+    *slot = Some(slot.map_or(value, |old| old.min(value)));
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -206,15 +239,75 @@ pub fn verify(
     ctx: &VerifyContext,
     require_capability: &str,
 ) -> Result<ExtractedFacts, BiscuitError> {
-    let facts = extract_facts(biscuit)?;
+    verify_claims(biscuit, ctx, require_capability, false)
+        .map(|result| result.facts)
+        .map_err(Into::into)
+}
+
+pub(crate) enum ScopeError {
+    Expired { expires: i64, now: i64 },
+    Biscuit(BiscuitError),
+}
+
+impl From<BiscuitError> for ScopeError {
+    fn from(error: BiscuitError) -> Self {
+        Self::Biscuit(error)
+    }
+}
+
+impl From<ScopeError> for BiscuitError {
+    fn from(error: ScopeError) -> Self {
+        match error {
+            ScopeError::Expired { expires, now } => {
+                Self::Verify(format!("token expired at {expires} (now={now})"))
+            }
+            ScopeError::Biscuit(error) => error,
+        }
+    }
+}
+
+pub(crate) fn authorizer_at(
+    biscuit: &Biscuit,
+    now: Option<i64>,
+) -> Result<Authorizer, BiscuitError> {
+    let mut builder = AuthorizerBuilder::new()
+        .set_limits(AuthorizerLimits {
+            max_time: Duration::from_millis(100),
+            ..Default::default()
+        })
+        .allow_all();
+    if let Some(now) = now {
+        let seconds =
+            u64::try_from(now).map_err(|_| BiscuitError::Verify("invalid relay clock".into()))?;
+        builder = builder
+            .fact(biscuit_auth::builder::Fact::new(
+                "time".into(),
+                vec![biscuit_auth::builder::Term::Date(seconds)],
+            ))
+            .map_err(|e| BiscuitError::Verify(e.to_string()))?;
+    }
+    builder
+        .build(biscuit)
+        .map_err(|e| BiscuitError::Verify(format!("Datalog authorization: {e}")))
+}
+
+pub(crate) fn verify_claims(
+    biscuit: &Biscuit,
+    ctx: &VerifyContext,
+    require_capability: &str,
+    clock: bool,
+) -> Result<VerifiedClaims, ScopeError> {
+    let mut authorizer = authorizer_at(biscuit, clock.then_some(ctx.now_unix_secs))?;
+    let verified = extract_facts(&authorizer, clock)?;
+    let facts = &verified.facts;
 
     // Check 1: expiry — token expired when now >= expires.
     if let Some(exp) = facts.expires {
         if ctx.now_unix_secs >= exp {
-            return Err(BiscuitError::Verify(format!(
-                "token expired at {exp} (now={now})",
-                now = ctx.now_unix_secs
-            )));
+            return Err(ScopeError::Expired {
+                expires: exp,
+                now: ctx.now_unix_secs,
+            });
         }
     }
 
@@ -228,7 +321,8 @@ pub fn verify(
                 "token issued to peer {} but local peer is {}",
                 issued.to_hex(),
                 ctx.local_peer_id.to_hex()
-            )));
+            ))
+            .into());
         }
     }
 
@@ -240,23 +334,15 @@ pub fn verify(
     {
         return Err(BiscuitError::Verify(format!(
             "required capability '{require_capability}' not present in authority block"
-        )));
+        ))
+        .into());
     }
 
     // The typed grant and restrictions above establish our allow policy.
     // Biscuit checks can narrow it further. Only token facts are available
     // to these checks; unsupported ambient predicates fail closed.
-    AuthorizerBuilder::new()
-        // The upstream 1 ms wall-clock deadline can elapse during ordinary
-        // thread preemption. Retain its fact and iteration bounds.
-        .set_limits(AuthorizerLimits {
-            max_time: Duration::from_millis(100),
-            ..Default::default()
-        })
-        .allow_all()
-        .build(biscuit)
-        .and_then(|mut authorizer| authorizer.authorize())
+    authorizer
+        .authorize()
         .map_err(|error| BiscuitError::Verify(format!("Datalog authorization: {error}")))?;
-
-    Ok(facts)
+    Ok(verified)
 }

@@ -2,6 +2,58 @@ use super::*;
 use entangle_mesh_tailscale::TailnetNode;
 use entangle_peers::{TrustLevel, TrustedPeer};
 
+#[tokio::test]
+async fn static_routes_keep_the_working_hint_when_the_last_address_is_unreachable() {
+    use entangle_mesh_iroh::{format_node_addr, serve, MeshTransport};
+
+    tokio::time::timeout(Duration::from_secs(10), async {
+        let bind = "127.0.0.1:0".parse().unwrap();
+        let worker = bind_scheduler(bind, false, &IdentityKeyPair::generate())
+            .await
+            .unwrap();
+        let key = worker.local_public_key();
+        let id = worker.local_peer_id();
+        let live = worker.local_addrs()[0];
+        let idle = std::net::UdpSocket::bind(bind).unwrap();
+        let stale = idle.local_addr().unwrap();
+        let server = tokio::spawn(serve(worker.clone(), |_, data| async move { data }));
+
+        let coordinator = IdentityKeyPair::generate();
+        let local = PeerId::from_public_key_bytes(coordinator.public().as_bytes());
+        let store = PeerStore::new();
+        store
+            .add(TrustedPeer::new(id, hex::encode(key), "worker".into()))
+            .unwrap();
+        let mut config = Config::default();
+        config.mesh.transports = vec!["iroh".into()];
+        config.scheduler.bind = bind.to_string();
+        config.scheduler.relay = false;
+        config.scheduler.peers = [live, live, stale]
+            .map(|addr| format_node_addr(&key, addr))
+            .into();
+        let prepared = prepare_scheduler(&config, &coordinator, &store, local)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(prepared.peer_ids, [id]);
+        let peer = prepared.addresses.lookup(&id).unwrap();
+        assert_eq!(peer.addrs().collect::<Vec<_>>(), [live, stale]);
+        assert_eq!(
+            prepared
+                .transport
+                .request(&peer, b"reachable")
+                .await
+                .unwrap(),
+            b"reachable"
+        );
+        prepared.transport.shutdown().await;
+        worker.shutdown().await;
+        server.await.unwrap();
+    })
+    .await
+    .expect("configured hints must reach the live worker");
+}
+
 fn node(id: &str, online: bool, ips: &[&str]) -> TailnetNode {
     TailnetNode {
         node_id: id.to_owned(),
@@ -70,6 +122,10 @@ fn snapshots_follow_only_mapped_online_nodes_and_current_trust() {
         trust: PeerStoreAllowlist::new(store.clone()),
     };
     let mut status = status();
+    status.peers[0].ips.extend([
+        "100.64.22.10".parse::<IpAddr>().unwrap(),
+        "100.64.22.9".parse().unwrap(),
+    ]);
     let update = |status: &TailnetStatus| {
         *addresses.tailnet.write().unwrap() =
             snapshot_routes(status, &mappings, "0.0.0.0:0".parse().unwrap());
@@ -84,7 +140,13 @@ fn snapshots_follow_only_mapped_online_nodes_and_current_trust() {
     store.add(peer).unwrap();
     let dial = addresses.lookup(&id).unwrap();
     assert_eq!(dial.public_key, key);
-    assert_eq!(dial.addr, "100.64.22.9:7300".parse().unwrap());
+    assert_eq!(
+        dial.addrs().collect::<Vec<_>>(),
+        [
+            "100.64.22.9:7300".parse().unwrap(),
+            "100.64.22.10:7300".parse().unwrap(),
+        ]
+    );
 
     status.peers[0].online = false;
     update(&status);

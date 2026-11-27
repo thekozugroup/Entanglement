@@ -1,0 +1,247 @@
+{
+  "name": "interim-locked-build-2026-11-27",
+  "captured_at_utc": "2026-11-27T01:18:44Z",
+  "source_id": "sha256:ff4b5039fae6a183fcf2e681e71537af151178f6ab4909f1c312b0f243c59dc7",
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "observations": {
+    "ATC-MAN-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-MAN-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-MAN-3": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-MAN-4": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-PKG-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-PKG-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-PKG-3": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-PKG-4": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-BRG-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-BRG-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-BRG-3": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-BRG-4": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-BRG-5": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-BRG-6": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-INT-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-INT-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-INT-3": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-INT-4": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-INT-5": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-STR-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-STR-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-STR-3": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-WRP-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-WRP-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-WRP-3": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-MAX-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-MAX-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-MAX-3": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-MIR-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-MIR-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-REL-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-REL-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-BUS-1": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "ATC-BUS-2": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "COR-CLI": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "COR-REMOTE": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "COR-PLATFORMS": {
+      "status": "fail",
+      "reason": "Three independent locked test invocations exited 101 before execution because Cargo.lock did not match the workspace; the required locked tests cannot pass on this snapshot. This is an in-progress candidate, not a final release result.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/interim-locked-build-2026-11-27.log",
+          "sha256": "66c36eb8d68f8aeea0e4cb134a12f04148912f43a486f7a67a4ee14330227350",
+          "source_id": "sha256:ff4b5039fae6a183fcf2e681e71537af151178f6ab4909f1c312b0f243c59dc7",
+          "command": "cargo test --locked -p entangle-manifest --test atc_spec; cargo test --locked -p entangle-host --test runtime_kind; cargo test --locked -p entangle-bin --test daemon_compute",
+          "exit_code": 101,
+          "observed_at_utc": "2026-11-27T01:18:44Z",
+          "claim": "Each invocation reported lockfile drift and exited 101; source hashes before and after are recorded in this receipt."
+        }
+      ]
+    },
+    "AUTH-LIVE": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "AUTH-WASI": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "AUTH-CHAIN": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "REL-RESTART": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "REL-PARTITION": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "REL-LIMITS": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "INTEROP-LINUX": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "INTEROP-MAC": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "INTEROP-WAN": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "INTEROP-TAILNET": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "INTEROP-LAN": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "PERF-LLM": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "PERF-IMAGE": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "PERF-TEST": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "PERF-BASELINE": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "OPS-RELEASE": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "OPS-GOVERNANCE": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "OPS-RECOVERY": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "OPS-SECURITY": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    },
+    "OPS-CI": {
+      "status": "not_evidenced",
+      "reason": "No independently reviewed evidence for the full criterion at this source snapshot."
+    }
+  }
+}

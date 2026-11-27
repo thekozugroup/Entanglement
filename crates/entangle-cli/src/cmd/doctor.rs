@@ -545,6 +545,15 @@ pub async fn run() -> anyhow::Result<()> {
     results.push(check_os_sandbox());
     results.push(check_disk_space());
     results.push(check_clock_skew(daemon_reachable).await);
+    match super::wrapper::shadowed_binary() {
+        Ok(Some(path)) => results.push(CheckResult::fail(
+            "wrapper",
+            "shadowed or not loaded",
+            format!("{} is reachable while the wrapper is not marked active; start a new configured shell. Parent-shell aliases and functions cannot be inspected by doctor", path.display()),
+        )),
+        Ok(None) => {},
+        Err(e) => results.push(CheckResult::warn("wrapper", "cannot inspect", e.to_string())),
+    }
 
     for r in &results {
         print_check(r, color);

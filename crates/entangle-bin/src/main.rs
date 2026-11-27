@@ -129,10 +129,10 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         .context("startup policy check failed (spec §11 #16)")?;
 
     // ── 3. Build kernel ───────────────────────────────────────────────────────
-    let kernel = Arc::new(
-        Kernel::from_keyring_file(cfg.kernel_config(), keyring_path)
-            .context("initializing runtime kernel")?,
-    );
+    let mut kernel = Kernel::from_keyring_file(cfg.kernel_config(), keyring_path)
+        .context("initializing runtime kernel")?;
+    kernel.restore_disabled_plugins(&cfg.runtime.disabled_plugins);
+    let kernel = Arc::new(kernel);
 
     for package in &cfg.runtime.plugins {
         anyhow::ensure!(
@@ -140,10 +140,11 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
             "startup plugin package path {} must be absolute",
             package.display()
         );
-        let plugin_id = kernel
-            .load_plugin_from_dir(package)
-            .await
-            .with_context(|| format!("loading startup plugin package {}", package.display()))?;
+        let plugin_id = match kernel.load_plugin_from_dir(package).await {
+            Err(entangle_runtime::RuntimeError::Disabled(_)) => continue,
+            result => result
+                .with_context(|| format!("loading startup plugin package {}", package.display()))?,
+        };
         tracing::info!(%plugin_id, package = %package.display(), "loaded startup plugin");
     }
 
@@ -169,11 +170,21 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
     let mut dispatcher = Dispatcher::new(worker_pool.clone(), kernel.clone(), local_peer_id)
         .with_local_worker(local_worker.clone());
     let mut capability_task = None;
+    let mut relay_service = None;
     if let Some(mesh) = &scheduler_mesh {
-        let client = Arc::new(RemoteDispatch::new(
-            mesh.transport.clone(),
-            mesh.addresses.clone(),
-        ));
+        let client = Arc::new(
+            RemoteDispatch::new(mesh.transport.clone(), mesh.addresses.clone())
+                .with_signer(identity.clone()),
+        );
+        let relay = Arc::new(entangle_bin::relay::RelayService::new(
+            &cfg,
+            identity.clone(),
+            peer_store.clone(),
+            client.clone(),
+        )?);
+        let bridge_handler: Option<Arc<dyn entangle_scheduler::relay::RelayHandler>> =
+            (cfg.mesh.bridge.enabled || cfg.mesh.bridge.receive).then_some(relay.clone());
+        relay_service = Some(relay);
         dispatcher = dispatcher.with_remote(client.clone());
         if !mesh.peer_ids.is_empty() || mesh.lan.is_some() {
             capability_task = Some(tokio::spawn(poll_capabilities(
@@ -183,14 +194,20 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
                 worker_pool.clone(),
             )));
         }
-        remote::spawn_task_server_with_capabilities(
+        remote::spawn_streaming_task_server(
             mesh.transport.clone(),
             kernel.clone(),
             peer_store.clone(),
-            local_peer_id,
             local_worker,
+            identity.clone(),
+            cfg.runtime.inference.as_ref(),
+            bridge_handler,
         );
     }
+    anyhow::ensure!(
+        relay_service.is_some() || !(cfg.mesh.bridge.enabled || cfg.mesh.bridge.receive),
+        "configured relay needs a live scheduler transport"
+    );
     let dispatcher = Arc::new(dispatcher);
 
     let mut daemon_state = DaemonState::new(
@@ -202,6 +219,8 @@ async fn run(args: RunArgs) -> anyhow::Result<()> {
         display_name,
     );
 
+    daemon_state.relay = relay_service;
+    daemon_state.config_path = Some(config_path);
     if let Some(mesh) = &scheduler_mesh {
         daemon_state.scheduler_transports = Some(mesh.active_transports.clone());
     }

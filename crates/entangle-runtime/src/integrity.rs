@@ -65,7 +65,8 @@ pub fn verify_deterministic(
     replicas: &[ReplicaOutput],
     required: u8,
 ) -> Result<&ReplicaOutput, IntegrityError> {
-    if (replicas.len() as u8) < required {
+    let required = required.max(1);
+    if replicas.len() < usize::from(required) {
         return Err(IntegrityError::InsufficientReplicas {
             actual: replicas.len(),
             required,

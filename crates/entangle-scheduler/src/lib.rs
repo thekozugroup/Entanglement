@@ -26,7 +26,10 @@ pub mod dispatcher;
 pub mod errors;
 pub mod placement;
 pub mod remote;
+mod semantic;
+pub mod stream;
 pub mod wire;
+mod work_unit;
 pub mod worker;
 
 pub use dispatcher::{DispatchError, DispatchResult, Dispatcher};
@@ -37,3 +40,5 @@ pub use remote::{
 };
 pub use wire::{RemoteErrorCode, RemoteOutcome, RemoteTaskRequest, RemoteTaskResponse, WireError};
 pub use worker::{WorkerInfo, WorkerPool};
+
+pub mod relay;

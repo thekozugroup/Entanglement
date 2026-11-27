@@ -226,38 +226,8 @@ fn atc_out_1_output_size_exceeded_display_format() {
 // Placeholder / deferred ATC IDs — require Phase 3+ runtime code
 // ---------------------------------------------------------------------------
 
-/// §16 ATC-INT-1 — verifier-locality: no worker instantiates the Wasm metric.
-///
-/// Requires wasmtime component-model tracing and entangle-plugin-scheduler.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/integrity/no_worker_metric_execution.rs
-/// Future iteration: Phase 3 (scheduler integration).
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler + wasmtime trace assertion"]
-fn atc_int_1_verifier_locality_no_worker_wasm_instantiation() {
-    unimplemented!("§16 ATC-INT-1 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-INT-2 (scheduler-tier) — custom metric NOT on submitter keyring rejected.
-///
-/// Requires MetricNotInKeyring error and keyring check in entangle-plugin-scheduler.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/integrity/keyring_check.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler keyring infrastructure"]
-fn atc_int_2_custom_metric_not_in_keyring_rejected() {
-    unimplemented!("§16 ATC-INT-2 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-INT-3 (scheduler-tier) — policy immutability mid-flight (INV-INT-1).
-///
-/// Requires control-frame mutation path and PolicyMutation error in scheduler.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/policy_immutability.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler control-frame policy-hash binding"]
-fn atc_int_3_policy_mutation_mid_flight_rejected() {
-    unimplemented!("§16 ATC-INT-3 — see crates/entangle-plugin-scheduler Phase 3")
-}
+// Real signed-replica acceptance for INT-1/2/3/5 lives in
+// entangle-scheduler/tests/remote_dispatch.rs and src/work_unit.rs.
 
 /// §16 ATC-INT-4 (scheduler-tier) — StreamingTask + Deterministic rejected at submit-time.
 ///
@@ -268,18 +238,6 @@ fn atc_int_3_policy_mutation_mid_flight_rejected() {
 #[ignore = "Phase 3: requires entangle-plugin-scheduler submit-time validation"]
 fn atc_int_4_streaming_deterministic_rejected_at_submit() {
     unimplemented!("§16 ATC-INT-4 — see crates/entangle-plugin-scheduler Phase 3")
-}
-
-/// §16 ATC-INT-5 (scheduler-tier) — OutputSizeExceeded before Wasm metric instantiation.
-///
-/// Requires scheduler result-acceptance pipeline + wasmtime instantiate-counter.
-/// Type-level portion covered by `atc_int_2_max_output_bytes_field_carried` above.
-/// Deferred to: crates/entangle-plugin-scheduler/tests/integrity/oversized_output_short_circuits.rs
-/// Future iteration: Phase 3.
-#[test]
-#[ignore = "Phase 3: requires entangle-plugin-scheduler result pipeline + wasmtime trace"]
-fn atc_int_5_oversized_output_short_circuits_before_metric() {
-    unimplemented!("§16 ATC-INT-5 (scheduler-tier) — see crates/entangle-plugin-scheduler Phase 3")
 }
 
 /// §16 ATC-INT-6 — StreamingTask total-byte cap enforced at runtime.

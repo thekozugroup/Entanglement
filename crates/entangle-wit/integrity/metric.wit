@@ -1,0 +1,10 @@
+package entangle:integrity@0.1.0;
+
+interface metric {
+    /// A finite, nonnegative distance between two worker outputs.
+    compare: func(a: list<u8>, b: list<u8>) -> f64;
+}
+
+world comparator {
+    export metric;
+}

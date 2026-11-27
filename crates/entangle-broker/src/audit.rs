@@ -19,6 +19,19 @@ use std::time::SystemTime;
 /// A single auditable decision made by the broker.
 #[derive(Clone, Debug)]
 pub enum AuditEvent {
+    /// An operator reviewed and applied or cancelled a live tier-ceiling change.
+    TierCeiling {
+        /// Operator-facing event identifier.
+        code: &'static str,
+        /// Previous runtime ceiling.
+        previous: Tier,
+        /// Proposed runtime ceiling.
+        proposed: Tier,
+        /// Affected plugin for a per-plugin unload event.
+        plugin: Option<PluginId>,
+        /// Time of the decision.
+        at: SystemTime,
+    },
     /// A plugin was successfully registered with the broker.
     PluginRegistered {
         /// The registered plugin.
@@ -81,6 +94,8 @@ pub enum AuditEvent {
 /// Discriminator for filtering [`AuditEvent`]s.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AuditKind {
+    /// An operator tier-ceiling decision.
+    TierCeiling,
     /// Matches [`AuditEvent::PluginRegistered`].
     PluginRegistered,
     /// Matches [`AuditEvent::PluginUnregistered`].
@@ -97,6 +112,7 @@ impl AuditEvent {
     /// Discriminator for this event variant.
     pub fn kind(&self) -> AuditKind {
         match self {
+            AuditEvent::TierCeiling { .. } => AuditKind::TierCeiling,
             AuditEvent::PluginRegistered { .. } => AuditKind::PluginRegistered,
             AuditEvent::PluginUnregistered { .. } => AuditKind::PluginUnregistered,
             AuditEvent::CapabilityGranted { .. } => AuditKind::CapabilityGranted,
@@ -108,6 +124,7 @@ impl AuditEvent {
     /// Wall-clock timestamp recorded with this event.
     pub fn at(&self) -> SystemTime {
         match *self {
+            AuditEvent::TierCeiling { at, .. } => at,
             AuditEvent::PluginRegistered { at, .. } => at,
             AuditEvent::PluginUnregistered { at, .. } => at,
             AuditEvent::CapabilityGranted { at, .. } => at,
@@ -162,7 +179,26 @@ impl AuditLog {
     /// When the log is at capacity the oldest retained event is evicted and
     /// the dropped counter incremented.
     pub fn record(&self, e: AuditEvent) {
-        tracing::info!(target: "entangle::audit", event = ?e, "broker audit");
+        match &e {
+            AuditEvent::TierCeiling {
+                code: "ENTANGLE-W0214",
+                previous,
+                proposed,
+                plugin: Some(id),
+                ..
+            } => {
+                tracing::warn!(target: "entangle::audit", code="ENTANGLE-W0214", plugin = %id, %previous, %proposed, "plugin drained and disabled")
+            }
+            AuditEvent::TierCeiling {
+                code,
+                previous,
+                proposed,
+                ..
+            } => {
+                tracing::info!(target: "entangle::audit", code, %previous, %proposed, "tier policy decision")
+            }
+            _ => tracing::info!(target: "entangle::audit", event = ?e, "broker audit"),
+        }
         let mut events = self.events.lock();
         while events.len() >= self.max_events {
             events.pop_front();

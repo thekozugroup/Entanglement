@@ -14,8 +14,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 entangle-types   = { workspace = true }
-entangle-signing = { workspace = true }
-biscuit-auth     = { workspace = true }
+# Read structured block facts from an already signature-verified authorizer snapshot.
+biscuit-auth     = { workspace = true, features = ["unsafe-protobuf-access"] }
+prost            = "0.14"
 serde            = { workspace = true, features = ["derive"] }
 thiserror        = { workspace = true }
 hex              = { workspace = true }

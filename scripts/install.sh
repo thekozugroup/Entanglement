@@ -80,10 +80,10 @@ Examples:
 
 Stronger verification:
   This installer always verifies the SHA-256 checksum published alongside the
-  tarball. Releases are additionally signed with cosign (keyless/sigstore) and
-  carry a BLAKE3 sidecar; to check those, download the tarball plus its
-  .sha256 / .b3 / .sigstore files and run scripts/verify-release.sh <tarball>
-  from a repository checkout (needs cosign, and b3sum for the BLAKE3 check).
+  tarball. For released artifacts, download the archive with its .sig and
+  .sigstore sidecars and use an existing trusted Entangle CLI:
+    entangle release verify <tarball> --publisher-key /path/to/trusted/release.pub
+  See docs/install.md for publisher key setup and checksum verification.
 EOF
 }
 
@@ -485,13 +485,11 @@ Shell completions:
 Run it as a service (Linux):
   packaging/entangled.service — hardened systemd unit; see docs/install.md.
 
-Want the stronger check? Every release is cosign-signed (keyless/sigstore) and
-carries a BLAKE3 sidecar. From a repository checkout:
+For independent publisher and Sigstore verification with a trusted Entangle CLI:
   curl -fsSLO ${TARBALL_URL}
-  curl -fsSLO ${TARBALL_URL}.sha256
-  curl -fsSLO ${TARBALL_URL}.b3
+  curl -fsSLO ${TARBALL_URL}.sig
   curl -fsSLO ${TARBALL_URL}.sigstore
-  ./scripts/verify-release.sh ${TARBALL}
+  entangle release verify ${TARBALL} --publisher-key /path/to/trusted/release.pub
 EOF
 }
 

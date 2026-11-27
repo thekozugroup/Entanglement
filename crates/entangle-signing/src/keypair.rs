@@ -1,7 +1,10 @@
 //! Ed25519 identity keypair — generation, serialization, and fingerprinting.
 
 use ed25519_dalek::{
-    pkcs8::{spki::der::pem::LineEnding, DecodePrivateKey, EncodePrivateKey},
+    pkcs8::{
+        spki::der::pem::LineEnding, DecodePrivateKey, DecodePublicKey, EncodePrivateKey,
+        EncodePublicKey,
+    },
     SigningKey, VerifyingKey,
 };
 use rand_core::OsRng;
@@ -111,6 +114,20 @@ impl std::fmt::Debug for IdentityPublicKey {
 }
 
 impl IdentityPublicKey {
+    /// Parse an Ed25519 SubjectPublicKeyInfo PEM public key.
+    pub fn from_pem(pem: &str) -> Result<Self, KeypairError> {
+        let verifying =
+            VerifyingKey::from_public_key_pem(pem).map_err(|e| KeypairError::Pem(e.to_string()))?;
+        Ok(Self { verifying })
+    }
+
+    /// Serialize the Ed25519 public key as SubjectPublicKeyInfo PEM.
+    pub fn to_pem(&self) -> String {
+        self.verifying
+            .to_public_key_pem(LineEnding::LF)
+            .expect("ed25519 public key always serializes to PEM")
+    }
+
     /// Construct from raw 32-byte compressed Edwards point.
     pub fn from_bytes(bytes: &[u8; 32]) -> Result<Self, KeypairError> {
         let verifying =
@@ -138,10 +155,9 @@ impl IdentityPublicKey {
 
     /// Verify a detached signature over `msg`.
     pub fn verify(&self, msg: &[u8], sig: &Signature) -> Result<(), SignatureError> {
-        use ed25519_dalek::Verifier as _;
         let raw = ed25519_dalek::Signature::from_bytes(&sig.0);
         self.verifying
-            .verify(msg, &raw)
+            .verify_strict(msg, &raw)
             .map_err(|e| SignatureError::VerificationFailed(e.to_string()))
     }
 }

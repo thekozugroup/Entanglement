@@ -42,10 +42,15 @@ impl IrohPeer {
     /// Add another address hint. All hints are raced when dialling.
     #[must_use]
     pub fn with_addr(mut self, addr: SocketAddr) -> Self {
+        self.add_addr(addr);
+        self
+    }
+
+    /// Retain a further reachability hint once, preserving its order.
+    pub fn add_addr(&mut self, addr: SocketAddr) {
         if addr != self.addr && !self.extra_addrs.contains(&addr) {
             self.extra_addrs.push(addr);
         }
-        self
     }
 
     /// All reachability hints, primary first.

@@ -77,6 +77,19 @@ pub enum ValidationError {
         capability: String,
     },
 
+    /// Canonical under-declaration error exposed by the crate-level validation API.
+    #[error(
+        "ENTANGLE-E0042: capability '{cap}' requires tier {min_tier:?}, declared {declared:?}"
+    )]
+    TierUnderDeclared {
+        /// Capability that failed the tier check.
+        cap: String,
+        /// Minimum tier for this specific capability and scope.
+        min_tier: Tier,
+        /// Tier in the submitted manifest.
+        declared: Tier,
+    },
+
     /// The combination of `runtime` and `tier` is forbidden by spec §4.4.1 case 3.
     #[error("runtime '{runtime:?}' incompatible with tier {tier:?}")]
     RuntimeTierMismatch {
@@ -107,6 +120,29 @@ pub enum ValidationError {
 /// Returns a [`ValidatedManifest`] on success, or the first
 /// [`ValidationError`] encountered.
 pub fn validate(m: Manifest) -> Result<ValidatedManifest, ValidationError> {
+    validate_with(m, |cap, _, implied, declared| {
+        ValidationError::TierBelowCapability {
+            capability: cap,
+            implied,
+            declared,
+        }
+    })
+}
+
+pub(crate) fn canonical(m: Manifest) -> Result<ValidatedManifest, ValidationError> {
+    validate_with(m, |cap, min_tier, _, declared| {
+        ValidationError::TierUnderDeclared {
+            cap,
+            min_tier,
+            declared,
+        }
+    })
+}
+
+fn validate_with(
+    m: Manifest,
+    underdeclared: fn(String, Tier, Tier, Tier) -> ValidationError,
+) -> Result<ValidatedManifest, ValidationError> {
     // Rule 1 — tier in range.
     let raw_tier = m.plugin.tier;
     if !(1..=5).contains(&raw_tier) {
@@ -134,22 +170,18 @@ pub fn validate(m: Manifest) -> Result<ValidatedManifest, ValidationError> {
 
     // Rule 5 (§4.4.1 case 1) — under-declared is rejected.
     if declared_tier < implied_tier {
-        // Find the first offending capability for the error message.
-        let (offending_key, _) = m
+        let (key, capability) = m
             .capabilities
-            .iter()
-            .find(|(k, v)| {
-                parse_capability(k, v)
-                    .map(|c| c.min_tier() > declared_tier)
-                    .unwrap_or(false)
-            })
-            .expect("implied_tier > declared means at least one cap exceeds it");
-
-        return Err(ValidationError::TierBelowCapability {
-            declared: declared_tier,
-            implied: implied_tier,
-            capability: offending_key.clone(),
-        });
+            .keys()
+            .zip(&capabilities)
+            .find(|(_, cap)| cap.min_tier() > declared_tier)
+            .expect("implied tier exceeds the declared tier");
+        return Err(underdeclared(
+            key.clone(),
+            capability.min_tier(),
+            implied_tier,
+            declared_tier,
+        ));
     }
 
     // Rule 6 (§4.4.1 case 2) — over-declared is fine; effective = declared.

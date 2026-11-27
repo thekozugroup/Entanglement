@@ -32,3 +32,10 @@ Run from within `crates/entangle-host/tests/fixtures/`, or adjust the relative p
 
 **Binary blob policy**: Committed `.wasm` files are binary blobs — this is intentional.  
 The source of truth is the `fixtures-src/` directory; the blob is reproducible via the build script above.
+
+The progressive streaming fixture is built from `examples/stream-lines` with the pinned Rust toolchain.
+
+```sh
+cargo build --locked --manifest-path examples/stream-lines/Cargo.toml --target wasm32-wasip2 --target-dir target/catalog-smoke --release
+cp target/catalog-smoke/wasm32-wasip2/release/stream_lines.wasm crates/entangle-host/tests/fixtures/stream-lines.wasm
+```

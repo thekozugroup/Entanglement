@@ -17,6 +17,13 @@ use std::sync::Arc;
 /// cheaply cloneable (`PeerStore` uses `Arc<RwLock<…>>` internally).
 #[derive(Clone)]
 pub struct DaemonState {
+    /// Mesh relay sender and optional authorized receiver.
+    pub relay: Option<Arc<crate::relay::RelayService>>,
+    pub(crate) streams: crate::streams::Sessions,
+    /// Operator config file owned by this daemon's control socket.
+    pub config_path: Option<std::path::PathBuf>,
+    /// Distinguishes reviews issued by a previous daemon process.
+    pub policy_session: String,
     /// The live plugin runtime kernel.
     pub kernel: Arc<Kernel>,
     /// Shared task dispatcher (wraps the worker pool).
@@ -53,6 +60,13 @@ impl DaemonState {
     ) -> Self {
         let local_peer_id = PeerId::from_public_key_bytes(identity.public().as_bytes());
         Self {
+            config_path: None,
+            relay: None,
+            streams: Default::default(),
+            policy_session: entangle_types::peer_id::PeerId::from_public_key_bytes(
+                IdentityKeyPair::generate().public().as_bytes(),
+            )
+            .to_hex(),
             kernel,
             dispatcher,
             worker_pool,

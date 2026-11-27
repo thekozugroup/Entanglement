@@ -26,6 +26,8 @@ pub mod integrity;
 pub mod kernel;
 pub mod lifecycle;
 pub mod loader;
+pub mod metric;
+pub use metric::VerifiedMetric;
 pub mod os_sandbox;
 
 #[cfg(test)]

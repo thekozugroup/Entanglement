@@ -1,0 +1,3 @@
+These sealed Biscuit tokens exercise the receiver's five required attenuations. The public verification key is in `issuer-public.pem.txt`. Evaluate at Unix timestamp 1000000 with the bridge and destination peer IDs derived from 32-byte arrays filled with 1 and 2 respectively. The destination mismatch vector uses 3 instead.
+
+The authority grants `mesh.relay` to the bridge. An appended signed block carries the destination, rate, lifetime bytes, expiry and marker. The valid vector also includes a signed `time` check that stops authorizing at Unix timestamp 1000500. The fixture tests read the sealed bytes directly.

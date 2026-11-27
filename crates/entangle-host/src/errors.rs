@@ -43,6 +43,23 @@ pub enum HostError {
     #[error("ENTANGLE-E0506: resource limit exceeded: {0}")]
     ResourceExhausted(anyhow::Error),
 
+    /// A stream exceeded its negotiated cumulative output budget.
+    #[error("ENTANGLE-E0506: stream total {actual} exceeds negotiated {limit} bytes")]
+    StreamTotalBytesExceeded {
+        /// Negotiated lifetime byte cap.
+        limit: u64,
+        /// Cumulative bytes including the rejected chunk.
+        actual: u64,
+    },
+    /// A stream produced an empty or oversized chunk.
+    #[error("ENTANGLE-E0506: invalid stream chunk size {actual} (limit {limit})")]
+    StreamChunkSizeExceeded {
+        /// Maximum bytes in one chunk.
+        limit: u32,
+        /// Actual chunk length.
+        actual: u64,
+    },
+
     /// ENTANGLE-E0507: the artifact format is incompatible with the declared runtime.
     #[error("ENTANGLE-E0507: declared runtime {declared} but artifact uses {observed} format")]
     RuntimeKindMismatch {

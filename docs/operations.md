@@ -120,6 +120,7 @@ max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
 | `[runtime]` | `metrics_bind` | socket address | disabled | Local Prometheus HTTP endpoint, for example `127.0.0.1:9898`. Requires a loopback IP. |
 | `[runtime]` | `bus_capacity` | usize | `1024` | Buffered-envelope capacity of the daemon's lifecycle event bus. Daemon-only tuning knob; not written by the CLI. |
 | `[runtime]` | `plugins` | array of strings | `[]` | Absolute paths to signed plugin package directories to load at startup. |
+| `[runtime.inference]` | `endpoint`, `model`, `token_env` | optional table | disabled | Opt in to signed streams from a local OpenAI-compatible model server. |
 | `[mesh]` | `transports` | array of strings | `[]` | `local` enables LAN mDNS, `iroh` enables configured QUIC routes, and `tailscale` enables routes discovered through the local Tailscale client. Select both `local` and `iroh` for automatic routes to paired LAN workers. |
 | `[scheduler]` | `bind` | socket address | `0.0.0.0:0` | Scheduler UDP listener. LAN discovery advertises the assigned port, including when `:0` selects it. Static and tailnet routes require a known worker port. |
 | `[scheduler]` | `peers` | array of strings | `[]` | Static Iroh worker addresses in `<public-key-hex>@<ip>:<port>` form. Paired workers discovered on the LAN can use an empty list. |
@@ -127,6 +128,7 @@ max_tier_allowed = 5       # default: 5 (Tier::Native — most permissive)
 | `[scheduler]` | `relay` | bool | `true` | Allow Iroh relay fallback when the `iroh` transport is enabled. |
 | `[mesh]` | `multi_node` | bool | `false` | When `true`, the daemon requires at least one trusted peer in `peers.toml` **before it will start**. See §5 for the exact failure. |
 | `[security]` | `max_tier_allowed` | integer 1–5 | `5` | Ceiling on the plugin tier the daemon will load (`Tier::Native` = 5 down to `Tier::Pure` = 1). A load above the ceiling is refused with `ENTANGLE-E0043`. Out-of-range values (`0` or `>5`) fail to parse. |
+| `[wrappers]` | `install` | bool | unset | Explicit opt-in or opt-out for shell warnings; an unset preference may be prompted for on an interactive install. |
 
 The daemon and CLI read the same configuration schema. Both validate `max_tier_allowed` as an integer from 1 through 5. Installing a plugin checks the tier ceiling before building or trusting the publisher. The temporary worker used by `--allow-local` also applies the ceiling when loading a signed package. Build-only installations (`--no-load`) can prepare components for a different device.
 
@@ -135,6 +137,18 @@ The daemon and CLI read the same configuration schema. Both validate `max_tier_a
 The daemon reads `~/.entangle/config.toml` and requires a resolvable home directory. Section 3 describes path resolution for the config and socket.
 
 ---
+
+### Adjusting the tier ceiling
+
+Run `entangle config validate` after editing `[security] max_tier_allowed`. It checks the proposed ceiling against the live plugin inventory and exits unsuccessfully if approval is needed. `entangle config reload` applies the tier policy to the running daemon. When the change affects loaded plugins, the terminal lists each ID and tier. Press Enter or `u` to drain and disable them, or `c` to restore the previous ceiling in the file.
+
+Plugin unload and tier policy operations wait up to five seconds for registry reservations and active work to drain. If a stream is waiting for receiver credit or a tier-5 inference call keeps its lease longer, the command returns an error before saving or unloading. Finish or cancel the active request, then retry. An already edited config file still holds your proposed value until you apply or cancel it.
+
+For automation, `entangle security set-max-tier 2 --force-unload` prints the affected plugins to stderr and records an `ENTANGLE-W0214` audit event for each plugin. Successful changes record `ENTANGLE-I0215`, and cancellation records `ENTANGLE-I0216`. If the file or inventory changes between review and approval, repeat the command to review the new state.
+
+The daemon preserves disabled IDs under `[runtime] disabled_plugins`, including across restarts and later ceiling increases. To re-enable a plugin, raise the ceiling if necessary, remove its ID from that list, run `entangle config reload` and load the signed package. Other daemon startup settings take effect at restart.
+
+The Linux acceptance check exercises this workflow with two signed tier-3 WebAssembly components. The current package loader supports WebAssembly. A native tier-5 agent-host needs a signed native supervisor with an enforced OS sandbox and working gateway.
 
 ### Running a worker on the LAN
 
@@ -168,7 +182,23 @@ From a source checkout on a Linux host with multicast enabled, run the two-daemo
 cargo test --locked -p entangle-bin --test daemon_compute -- --ignored --exact discovers_and_runs_work_without_a_configured_peer_address
 ```
 
+### Comparing outputs from three workers
+
+Load the same signed compute package on three distinct paired workers and load a signed comparator package on the submitting daemon. The comparator manifest declares tier 2 and the build world `entangle:integrity/comparator@0.1.0`. Its component exports `entangle:integrity/metric@0.1.0` with `compare(a: list<u8>, b: list<u8>) -> f64`. The local publisher keyring must contain its exact signing key at submission.
+
+```sh
+entangle plugins load /path/to/signed-comparator
+entangle compute dispatch '<job-publisher>/<job>@1.0.0' \
+  --input-file image.bin --integrity semantic-equivalent \
+  --metric '<metric-publisher>/<metric>@1.0.0' --threshold 0.25 \
+  --max-output-bytes 1048576 --timeout-ms 30000
+```
+
+Every selected worker must negotiate signed semantic replicas before the coordinator sends job bytes. The coordinator signs one work unit identifying the task, limits, comparator content digest, publisher and threshold. Each worker runs one copy of the job and returns its observed policy hash and raw output. The coordinator enforces the byte limit before invoking the local comparator on the three output pairs. At least two distances must be below the threshold. The result names the executor whose output has the most supporting comparisons. A worker with an older protocol causes this policy to fail closed. Unrelated one-shot tasks continue to use the original v1 protocol.
+
 ### Monitoring work
+
+The scheduler's QUIC listener admits up to 64 live connections, including incomplete handshakes, and reads up to eight opening request frames at once. The default handshake deadline is 15 seconds. Idle connections and incomplete opening frames expire after 30 seconds. Once a request enters its handler, its own execution, credit and heartbeat deadlines apply.
 
 Run `entangle metrics` as the daemon user to read Prometheus text over the control socket. For an HTTP scraper, set `metrics_bind = "127.0.0.1:9898"` under `[runtime]`, restart the daemon and scrape `GET /metrics`. The listener is accessible to other processes on the same host. Leave it disabled on a shared host when only the daemon owner should read metrics.
 
@@ -199,6 +229,31 @@ or advertising plugin availability. An invalid package or duplicate plugin ID
 fails startup with the package path and error. The default empty list leaves
 plugin loading to `entangle plugins load` or `entangle plugins install`.
 Remove an entry to keep its package unloaded on future restarts.
+
+### Streaming inference from a worker
+
+Run your OpenAI-compatible model server on the paired worker. For example, an operator with a local GGUF model can run `llama-server --host 127.0.0.1 --port 8080 --model /path/to/model.gguf --alias desktop-model`. Merge the following into the worker's config and restart `entangled`.
+
+```toml
+[runtime.inference]
+endpoint = "http://127.0.0.1:8080/v1/chat/completions"
+model = "desktop-model"
+# token_env = "ENTANGLE_INFERENCE_TOKEN"
+```
+
+Use a literal loopback address and either `/v1/chat/completions` or `/v1/completions`. If the backend requires a bearer token, set `token_env` to the name of a variable available to the daemon service. The model must appear in the backend's `/v1/models` response. The daemon checks that response when reporting its capabilities and each time it starts inference. The configured adapter ID appears in the worker startup log. It uses the worker's 32-digit identity fingerprint and the name `openai-inference@0.1.0`.
+
+On the paired coordinator, allow a capability polling cycle and submit a stream using the adapter ID and the worker's full peer ID.
+
+```sh
+entangle compute stream '<worker-fingerprint>/openai-inference@0.1.0' \
+  --allow '<worker-entanglement-peer-id>' --credit-window 32 \
+  --input '{"prompt":"Summarize the benefits of local inference.","max_tokens":128,"temperature":0.5}'
+```
+
+The adapter accepts one request at a time on the worker, with at most 64 KiB of input, 4096 requested tokens and a five-minute active execution limit by default. Backend I/O counts toward this limit. Waiting for credit to deliver a yielded chunk pauses it. One credit timeout reports a stall and a second interval without credit cancels the stream. Each interval defaults to 30 minutes. Output uses the task's byte and credit limits. The coordinator verifies each signed chunk before writing it to stdout. Job input can set the prompt, `max_tokens`, and optional `temperature`. The worker operator owns the endpoint, model and credentials.
+
+This is a daemon service using a model server you operate separately. It requires tier 5 and advertises a streaming-only capability. Lowering the live tier drains any active bounded inference request and disables new requests. If the server is offline, the model disappears, or the backend lacks the supported API, signed Wasm plugin streaming remains available to trusted peers. To run the transport check with local chat and completion SSE fixtures, use `cargo test --locked -p entangle-bin --test daemon_compute inference::configured_inference_streams_incremental_signed_chunks -- --exact`.
 
 ### Running a worker on a tailnet
 
@@ -407,62 +462,42 @@ grep -rn "ENTANGLE-E<code>" crates/*/src/
 
 ---
 
-## 7. Backup / restore of `identity.key`
+## 7. Encrypted node backup and recovery
 
-`identity.key` is the node's Ed25519 private key. **The daemon's `peer_id` —
-and every existing pairing — is derived from its public key.** There is no
-recovery path for a lost key:
-
-> **WARNING:** losing `identity.key` (or overwriting it without a backup)
-> permanently breaks every existing pairing. Every peer that trusted this
-> node's old public key will reject the new one; you must re-pair from
-> scratch on every peer with `entangle pair`.
-
-### Backup
-
-There is no dedicated `entangle backup` command in Phase 1 — back it up like
-any other secret file:
+The Ed25519 key at `~/.entangle/identity.key` determines the node's peer ID. To move a node while retaining existing pairings, stop its daemon and pause CLI changes to trust, config and plugin data. Keep the original node offline after starting its replacement.
 
 ```bash
-cp ~/.entangle/identity.key /secure/offline/location/identity.key.bak
-chmod 600 /secure/offline/location/identity.key.bak
+systemctl --user stop entangled
+entangle backup --to /secure/offline/location/node.entbak
 ```
 
-After backing it up, touch the sentinel the built-in maintenance loop checks
-for, so it stops nagging in the logs:
+Choose a strong, unique passphrase at the hidden prompt. Keep it separately from the encrypted backup. A password manager can pipe one passphrase line to `--passphrase-stdin`. When using a daemon started with a custom `--socket`, pass the same socket path to `entangle backup`. Backup takes the daemon socket lock and requires a new output filename outside the node directory.
+
+The snapshot includes `identity.key`, `keyring.toml`, `peers.toml`, `config.toml`, and the complete managed `plugins/` and `data/` directories. Place any startup packages under `~/.entangle/plugins/` and list their absolute paths in `[runtime].plugins`. On restore, those paths are updated for the replacement home. External storage and per-agent credentials need their own recovery procedures. For bridge or relay-receiver nodes, put the existing ledger under `~/.entangle/data/` and point `[mesh.bridge].ledger` at that absolute file. Backup takes the ledger's writer lock, retains its exact counters and relocates its path on restore. A ledger outside the managed data tree must be moved while the node is stopped. Never initialize a replacement for an existing ledger. Runtime sockets, logs and the bridge ledger lock are excluded.
+
+Version 1 encrypts and authenticates a bounded ustar archive with XChaCha20-Poly1305, a random 24-byte nonce and Argon2id v1.3 (64 MiB, three passes, four lanes, fresh 16-byte salt). It accepts up to 128 MiB of archive data and 16,384 entries. Symbolic links, hard-linked regular files, devices, and paths beyond the supported archive limits fail the backup.
+
+The archive restores trust as of the snapshot time. Record subsequent peer revocations and publisher removals so you can reapply them before reconnecting the replacement node. Bridge spending after the snapshot also needs reconciliation. Use the latest authoritative ledger, or keep the bridge/receiver offline until all previously issued grants expire before accepting new grants.
+
+On the new device, install compatible binaries. Use a fresh home owned by your account that has no `~/.entangle`. Restore before starting the service or running `entangle init`.
 
 ```bash
-touch ~/.entangle/.identity_backed_up
+entangle restore --from /secure/offline/location/node.entbak
+systemctl --user start entangled
+entangle mesh status --json
+entangle plugins list
 ```
 
-(`crates/entangle-bin/src/maintenance.rs`'s `warn_backup` check emits a
-`maintenance: identity has no backup sentinel …` warning on every tick while
-that sentinel file is absent. It does not track *how stale* your backup is —
-only whether one was ever acknowledged — so re-touch it after any deliberate
-key rotation, but there's no automated re-check on a schedule.)
+Restore authenticates the full ciphertext before extracting it into a private staging directory. It checks the identity, publisher keyring, peer store, configuration, and startup-package paths before atomically publishing the directory. An existing destination is preserved, including a concurrently created one. A process kill or power interruption before publication can leave a private `.entangle-restore-*` staging directory containing decrypted state. Once all restores have stopped, inspect the directory under the destination account and remove the interrupted staging copy. Compare the restored peer ID with the original ID, then dispatch a job from an existing paired node to verify connectivity and publisher trust. Update scheduler bindings or routes if the replacement machine has different interfaces or addresses.
 
-The maintenance loop also warns (does not fail) once the key is older than
-`key_rotation_warn_days` (default 365 days), as a rotation reminder.
+If power is lost while restoring, the destination may still be absent and an owner-only
+`.entangle-restore-*` directory can remain next to it. This staging directory can contain
+decrypted identity and plugin state. With all restore processes stopped, inspect the
+directory and remove the abandoned staging copy before retrying from the encrypted backup.
 
-### Restore
+After verifying a recovery copy, `touch ~/.entangle/.identity_backed_up` acknowledges the built-in maintenance reminder. The reminder tracks the presence of the sentinel. Create a fresh backup after identity, trust, plugin, or configuration changes.
 
-Stop the daemon, place the backed-up PEM at `~/.entangle/identity.key` with
-mode `0600`, and restart:
-
-```bash
-systemctl stop entangled          # or: docker stop entangled
-cp /secure/offline/location/identity.key.bak ~/.entangle/identity.key
-chmod 600 ~/.entangle/identity.key
-systemctl start entangled         # or: docker start entangled
-```
-
-`entangle init` also supports importing a PEM interactively (option `i` in
-the wizard, or non-interactively by pre-placing the file): if an identity
-already exists and differs from the one being imported, it requires explicit
-confirmation, takes an automatic `identity.key.bak-<unix_ts>` copy (mode
-`0600`) of the *old* key before overwriting, and offers to clear
-`peers.toml` (since the old pairings are now stale against the new key).
-Importing a byte-identical key is a no-op.
+The disposable Linux/macOS acceptance harness runs signed work before and after restoration, checks error paths and verifies that revocation still denies the original peer. Run it against the built binaries with `python3 scripts/tests/recovery.py --bin-dir target/debug`.
 
 ---
 
@@ -510,3 +545,24 @@ Docker, `docker logs -f entangled` shows the same JSON stream; pass
 | Cross-node capability grant refused with `ENTANGLE-E0100`/`E0101` | Biscuit signature doesn't verify, or the publisher/peer key isn't in the trust roots | Re-check the peer is actually paired (`entangle mesh peers`) and its key matches what's in `peers.toml`/`keyring.toml`. |
 | `clock-skew` check in `entangle doctor` reports `fail` | Local and daemon-host clocks have drifted >30s | Sync via NTP/chrony. Biscuit-auth tokens only tolerate ±60s, so severe drift breaks pairing TOFU and cross-node auth outright. |
 | mDNS peer discovery doesn't work under Docker on macOS | Docker Desktop's `network_mode: host` is scoped to its internal Linux VM, not the Mac's real network | Use a Linux host/VM for mDNS-dependent testing, or run `entangled` natively on macOS for local dev. See [`../docker/README.md`](../docker/README.md). |
+
+## 10. Optional agent shell warnings
+
+Shell warnings are an opt-in convenience, not a sandbox or a security boundary.
+Run `entangle wrapper enable --shell bash` (or `zsh` / `fish`) to add functions
+for `claude-code`, `codex`, and `aider`; start a new shell afterward. Each warns
+on stderr outside an Entanglement session and forwards the original arguments
+and exit status. `entangle wrapper status` shows the saved preference and files;
+`entangle wrapper repair --shell bash` restores an unmodified managed block.
+`entangle wrapper disable` removes managed blocks and records
+`[wrappers] install = false` without replacing unrelated TOML content. Existing
+modified blocks or symlinked startup files are refused for manual review.
+
+A first successful `entangle install` asks only on an interactive terminal when
+no preference exists. Scripts never prompt; `--wrapper` opts in explicitly and
+`--no-wrapper` records an opt-out. `entangle doctor` reports a reachable agent
+binary as potentially shadowed or not loaded when the opt-in exists but the
+launching environment lacks the wrapper marker. A child process cannot inspect
+the parent shell's aliases or functions, and the marker is not proof that an
+alias has not subsequently overridden one. Direct `command claude-code`
+bypasses the warning by design.

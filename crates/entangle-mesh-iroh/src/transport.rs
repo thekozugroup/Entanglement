@@ -2,13 +2,14 @@
 //! daemon's Ed25519 identity, plus the framed request/response round-trip.
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use entangle_signing::IdentityKeyPair;
 use entangle_types::peer_id::PeerId;
-use iroh::endpoint::{Connection, SendStream};
+use iroh::endpoint::{Connection, RecvStream, SendStream};
 use iroh::{Endpoint, EndpointAddr, RelayMode, SecretKey};
-use tokio::time::timeout;
+use tokio::{sync::Semaphore, task::JoinSet, time::timeout};
 use tracing::{debug, warn};
 
 use crate::error::MeshIrohError;
@@ -16,6 +17,8 @@ use crate::framing::{read_frame, write_frame};
 use crate::peer::IrohPeer;
 use crate::{MeshIrohConfig, MeshTransport};
 
+#[cfg(test)]
+mod admission_test;
 #[cfg(test)]
 mod relay_test;
 
@@ -251,12 +254,43 @@ impl MeshConn {
         self.remote_peer_id
     }
 
+    /// Direct remote socket on the currently selected QUIC path, when available.
+    pub fn selected_socket(&self) -> Option<SocketAddr> {
+        self.inner
+            .paths()
+            .iter()
+            .find(|p| p.is_selected())
+            .and_then(|p| match p.remote_addr() {
+                iroh::TransportAddr::Ip(addr) => Some(*addr),
+                _ => None,
+            })
+    }
+
     /// The authenticated raw Ed25519 public key of the remote end.
     ///
     /// `PeerId::from_public_key_bytes(&conn.remote_public_key())` equals
     /// [`MeshConn::remote_peer_id`] by construction.
     pub const fn remote_public_key(&self) -> [u8; 32] {
         self.remote_public_key
+    }
+
+    /// Open a persistent bidirectional stream and send the protocol opening frame.
+    pub async fn open_stream(&self, opening: &[u8]) -> Result<MeshDuplex, MeshIrohError> {
+        timeout(self.request_timeout, async {
+            let (mut send, recv) = self
+                .inner
+                .open_bi()
+                .await
+                .map_err(|e| MeshIrohError::Stream(e.to_string()))?;
+            write_frame(&mut send, opening, self.max_frame_bytes).await?;
+            Ok(MeshDuplex {
+                send,
+                recv,
+                max: self.max_frame_bytes,
+            })
+        })
+        .await
+        .map_err(|_| MeshIrohError::RequestTimeout(self.request_timeout))?
     }
 
     /// Send one framed request and wait for the framed response.
@@ -286,16 +320,36 @@ impl MeshConn {
     ///
     /// Returns `Ok(None)` when the peer closed the connection cleanly.
     pub async fn accept_request(&self) -> Result<Option<MeshRequest>, MeshIrohError> {
+        self.read_request(None).await
+    }
+
+    async fn read_request(
+        &self,
+        readers: Option<&Semaphore>,
+    ) -> Result<Option<MeshRequest>, MeshIrohError> {
         let (send, mut recv) = match self.inner.accept_bi().await {
             Ok(pair) => pair,
             Err(e) if is_clean_close(&e) => return Ok(None),
             Err(e) => return Err(MeshIrohError::Stream(format!("accepting stream: {e}"))),
         };
+        // Idle connections do not consume a frame buffer. FIFO admission only starts
+        // once the peer has actually opened its request stream.
+        let _read = match readers {
+            Some(available) => Some(
+                available
+                    .acquire()
+                    .await
+                    .map_err(|_| MeshIrohError::Stream("frame reader closed".into()))?,
+            ),
+            None => None,
+        };
         let payload = read_frame(&mut recv, self.max_frame_bytes).await?;
         Ok(Some(MeshRequest {
             payload,
+            recv,
             send,
             peer: self.remote_peer_id,
+            remote_socket: self.selected_socket(),
             max_frame_bytes: self.max_frame_bytes,
         }))
     }
@@ -331,13 +385,20 @@ fn is_clean_close(err: &iroh::endpoint::ConnectionError) -> bool {
 /// the requester observes a stream error rather than hanging.
 #[derive(Debug)]
 pub struct MeshRequest {
+    remote_socket: Option<SocketAddr>,
     payload: Vec<u8>,
+    recv: RecvStream,
     send: SendStream,
     peer: PeerId,
     max_frame_bytes: usize,
 }
 
 impl MeshRequest {
+    /// Direct remote socket selected when the opening frame was received.
+    pub fn selected_socket(&self) -> Option<SocketAddr> {
+        self.remote_socket
+    }
+
     /// The authenticated [`PeerId`] that sent this request.
     pub const fn peer_id(&self) -> PeerId {
         self.peer
@@ -353,6 +414,15 @@ impl MeshRequest {
         std::mem::take(&mut self.payload)
     }
 
+    /// Continue using both directions after decoding the initial request frame.
+    pub fn into_stream(self) -> MeshDuplex {
+        MeshDuplex {
+            send: self.send,
+            recv: self.recv,
+            max: self.max_frame_bytes,
+        }
+    }
+
     /// Send the framed response and finish the stream.
     pub async fn respond(mut self, payload: &[u8]) -> Result<(), MeshIrohError> {
         write_frame(&mut self.send, payload, self.max_frame_bytes).await?;
@@ -360,6 +430,47 @@ impl MeshRequest {
             .finish()
             .map_err(|e| MeshIrohError::Stream(format!("finishing response stream: {e}")))?;
         Ok(())
+    }
+}
+
+/// Both directions of an authenticated QUIC stream. Split them so a complete
+/// frame read can continue independently of heartbeats and outbound writes.
+pub struct MeshDuplex {
+    send: SendStream,
+    recv: RecvStream,
+    max: usize,
+}
+
+impl MeshDuplex {
+    /// Separate independently driven frame reader and writer.
+    pub fn split(self) -> (MeshFrameWriter, MeshFrameReader) {
+        (
+            MeshFrameWriter(self.send, self.max),
+            MeshFrameReader(self.recv, self.max),
+        )
+    }
+}
+
+/// Length-bounded outgoing QUIC frames.
+pub struct MeshFrameWriter(SendStream, usize);
+impl MeshFrameWriter {
+    /// Write one whole frame.
+    pub async fn send(&mut self, payload: &[u8]) -> Result<(), MeshIrohError> {
+        write_frame(&mut self.0, payload, self.1).await
+    }
+    /// Shut down the outgoing half after the last frame.
+    pub fn finish(&mut self) -> Result<(), MeshIrohError> {
+        self.0
+            .finish()
+            .map_err(|e| MeshIrohError::Stream(e.to_string()))
+    }
+}
+/// Length-bounded incoming QUIC frames.
+pub struct MeshFrameReader(RecvStream, usize);
+impl MeshFrameReader {
+    /// Read one frame with an additional caller-supplied protocol ceiling.
+    pub async fn receive(&mut self, max: usize) -> Result<Vec<u8>, MeshIrohError> {
+        read_frame(&mut self.0, self.1.min(max)).await
     }
 }
 
@@ -377,30 +488,92 @@ where
     H: Fn(PeerId, Vec<u8>) -> F + Clone + Send + Sync + 'static,
     F: std::future::Future<Output = Vec<u8>> + Send + 'static,
 {
+    serve_requests(transport, move |mut req| {
+        let handler = handler.clone();
+        async move {
+            let response = handler(req.peer_id(), req.take_payload()).await;
+            req.respond(&response).await
+        }
+    })
+    .await;
+}
+
+/// Serve authenticated requests that can upgrade to a duplex subprotocol.
+pub async fn serve_requests<H, F>(transport: std::sync::Arc<MeshIroh>, handler: H)
+where
+    H: Fn(MeshRequest) -> F + Clone + Send + Sync + 'static,
+    F: std::future::Future<Output = Result<(), MeshIrohError>> + Send + 'static,
+{
+    serve_bounded(
+        transport,
+        handler,
+        Arc::new(Semaphore::new(64)),
+        Arc::new(Semaphore::new(8)),
+    )
+    .await;
+}
+
+// Connections cover handshakes, idle clients and admitted operations. A smaller,
+// independent frame budget bounds concurrent opening payloads before a handler
+// can evaluate its application allowlist. An upgraded stream manages its own flow control.
+async fn serve_bounded<H, F>(
+    transport: Arc<MeshIroh>,
+    handler: H,
+    connections: Arc<Semaphore>,
+    readers: Arc<Semaphore>,
+) where
+    H: Fn(MeshRequest) -> F + Clone + Send + Sync + 'static,
+    F: std::future::Future<Output = Result<(), MeshIrohError>> + Send + 'static,
+{
+    let mut sessions = JoinSet::new();
     loop {
-        let conn = match transport.accept().await {
-            Ok(Some(conn)) => conn,
-            Ok(None) => return,
-            Err(e) => {
-                warn!(error = %e, "mesh.iroh: rejected inbound connection");
+        let incoming = tokio::select! {
+            biased;
+            joined = sessions.join_next(), if !sessions.is_empty() => {
+                if let Some(Err(error)) = joined {
+                    warn!(%error, "mesh.iroh: connection handler terminated");
+                }
                 continue;
             }
+            next = transport.endpoint.accept() => match next {
+                Some(incoming) => incoming,
+                None => return,
+            }
+        };
+        let Ok(slot) = connections.clone().try_acquire_owned() else {
+            incoming.refuse();
+            continue;
         };
         let handler = handler.clone();
-        tokio::spawn(async move {
+        let config = transport.config.clone();
+        let readers = readers.clone();
+        sessions.spawn(async move {
+            let _slot = slot;
+            let conn = match timeout(config.connect_timeout, incoming).await {
+                Ok(Ok(connection)) => MeshConn::wrap(connection, &config),
+                Ok(Err(error)) => {
+                    debug!(%error, "mesh.iroh: inbound handshake failed");
+                    return;
+                }
+                Err(_) => return,
+            };
             loop {
-                match conn.accept_request().await {
-                    Ok(Some(mut req)) => {
-                        let peer = req.peer_id();
-                        let response = handler(peer, req.take_payload()).await;
-                        if let Err(e) = req.respond(&response).await {
-                            warn!(%peer, error = %e, "mesh.iroh: response failed");
+                // Bound the idle wait, reader queue and the entire opening frame together.
+                // The admitted handler below can legitimately outlive this interval.
+                match timeout(config.request_timeout, conn.read_request(Some(&readers))).await {
+                    Ok(Ok(Some(req))) => {
+                        if let Err(error) = handler(req).await {
+                            warn!(peer = %conn.remote_peer_id(), %error, "mesh.iroh: response failed");
                             return;
                         }
                     }
-                    Ok(None) => return,
-                    Err(e) => {
-                        warn!(error = %e, "mesh.iroh: inbound request failed");
+                    Ok(Ok(None)) => return,
+                    Ok(Err(error)) => {
+                        debug!(peer = %conn.remote_peer_id(), %error, "mesh.iroh: inbound request failed");
+                        return;
+                    }
+                    Err(_) => {
+                        conn.close();
                         return;
                     }
                 }

@@ -170,3 +170,28 @@ fn atc_man_2_tier_five_accepts_only_tier_one_capabilities() {
 // crates/entangle-bin/tests/install_max_tier.rs::install_rejects_above_ceiling
 //
 // It is out of scope for this crate and will be covered in.
+
+#[test]
+fn canonical_under_declaration_names_specific_required_tier() {
+    let mut manifest = minimal_manifest("underdeclared", 1, Runtime::Wasm);
+    manifest
+        .capabilities
+        .insert("net.lan".into(), toml::Value::Table(Default::default()));
+    assert!(matches!(entangle_manifest::validate(manifest),
+        Err(entangle_manifest::Error::TierUnderDeclared { cap, min_tier: Tier::Networked, declared: Tier::Pure }) if cap == "net.lan"));
+}
+
+#[test]
+fn separate_runtime_kind_is_recognized_and_conflicting_declarations_are_rejected() {
+    let text = format!("[plugin]\nid='{PUB}/test@1.0.0'\nversion='1.0.0'\ntier=1\n[runtime]\nkind='wasm-component'\n");
+    let parsed: Manifest = toml::from_str(&text).unwrap();
+    assert_eq!(
+        entangle_manifest::validate(parsed).unwrap().runtime,
+        Runtime::Wasm
+    );
+    let conflict = text.replace("tier=1", "tier=1\nruntime='native'");
+    assert!(toml::from_str::<Manifest>(&conflict)
+        .unwrap_err()
+        .to_string()
+        .contains("conflicting"));
+}

@@ -10,12 +10,20 @@ Entanglement runs signed WASI 0.2 components. The manifest declares the permissi
 
 New installations enable LAN discovery and Iroh with public relays disabled. Paired nodes advertise their current addresses over mDNS. The scheduler authenticates a worker over QUIC and queries its hardware and loaded plugin versions before placing work. The optional Tailscale adapter discovers addresses on an existing tailnet and uses paired Entanglement keys to authenticate compute traffic. [Configure a tailnet worker](./docs/operations.md#running-a-worker-on-a-tailnet)
 
+The installer verifies publisher signatures on OCI images and HTTPS tarballs.
+Workers can also stream signed results under receiver-issued credit. A semantic
+integrity policy compares replica outputs in a signed Wasm comparator on the
+submitting device. [Package installation](./docs/plugin-authoring.md#install-a-prebuilt-component) · [Streaming](./docs/testing/streaming-compute.md)
+
 ## Examples
 
 The bundled catalog includes compression, CSV statistics, image resizing, JSON Pointer, JSON queries, Markdown rendering and QR encoding. List installed source projects with `entangle plugins available --catalog ./plugins`. [Plugin catalog](./plugins/)
 
 - [hello-world](./examples/hello-world/) — minimal tier-1 plugin returning a greeting.
 - [hash-it](./examples/hash-it/) — tier-2 BLAKE3 hasher with zero declared capabilities.
+
+- Produce lines progressively with a signed streaming guest. [stream-lines](./examples/stream-lines/)
+- Run a preapproved Rust WASI test target across paired workers and retain per-test results. [Distributed Rust tests](./docs/testing/distributed-rust-tests.md)
 
 ## Walkthrough
 
@@ -86,8 +94,8 @@ entangle quickstart
 | 1.5   | Distribution: Homebrew tap, Linux install script, signed release artifacts (SLSA L3 + cosign) | In progress |
 | 2     | Cross-node dispatch over Iroh QUIC + `mesh.iroh` transport + automatic pairing | Implemented in the source tree |
 | 2b    | Prometheus metrics, MCP gateway HTTP server, OS sandbox, OpenTelemetry export | Prometheus implemented. Other integrations remain in development |
-| 3     | Integrity policies: `Deterministic` cross-node replication, `SemanticEquivalent` with operator-supplied metric components, `Attested` for TEEs | Designed |
-| 4     | Streaming task model with chunk signing; speculative execution + straggler mitigation; reputation gossip | Designed |
+| 3 | Replicated result integrity | Signed semantic replica work and submitter-local comparator execution implemented. TEE attestation remains open. |
+| 4 | Streaming and scheduling | Credit-based signed streams implemented. Speculative execution and reputation gossip remain open. |
 | 5     | Native Windows AppContainer support; second-class agent-host adapters (Aider, Cursor); plugin marketplace | Deferred |
 
 ## Acknowledgements

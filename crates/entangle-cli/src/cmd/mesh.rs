@@ -2,6 +2,7 @@
 //! to the persisted peer store, which the scheduler reads for authorization.
 //! The tailnet command queries the local Tailscale installation directly.
 
+mod bridge;
 use anyhow::bail;
 use clap::{Args, Subcommand};
 use entangle_peers::{PeerStore, TrustedPeer};
@@ -23,6 +24,11 @@ pub struct MeshArgs {
 /// `entangle mesh` subcommands.
 #[derive(Subcommand)]
 pub enum MeshCmd {
+    /// Explicit inter-transport relay grants and destination inbox.
+    Bridge {
+        #[command(subcommand)]
+        cmd: bridge::BridgeCmd,
+    },
     /// List peers seen on the mesh, indicating which are trusted.
     Peers {
         /// Emit machine-readable JSON instead of the plain-text table.
@@ -71,6 +77,7 @@ pub enum MeshCmd {
 
 pub async fn run(args: MeshArgs) -> anyhow::Result<()> {
     match args.cmd {
+        MeshCmd::Bridge { cmd } => bridge::run(cmd).await,
         MeshCmd::Peers { json } => peers(json).await,
         MeshCmd::Status { json } => status(json).await,
         MeshCmd::Tailnet { json } => tailnet(json).await,

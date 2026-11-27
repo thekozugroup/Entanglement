@@ -55,6 +55,20 @@ jobs:
           toolchain: "1.91"
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo test --workspace --locked
+      - name: Install the pinned Cosign verifier
+        if: runner.os == 'Linux'
+        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        with:
+          cosign-release: v2.5.3
+      - name: Verify both release signatures against the pinned public fixture
+        if: runner.os == 'Linux'
+        run: bash scripts/tests/release-verify.sh
+      - name: Verify live tier changes and audit records
+        if: runner.os == 'Linux'
+        run: python3 scripts/tests/max-tier.py
+      - name: Restore encrypted node state and exercise existing paired route
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: python3 scripts/tests/recovery.py
       - name: Discover paired LAN worker and dispatch over QUIC
         if: runner.os == 'Linux'
         run: cargo test --locked -p entangle-bin --test daemon_compute -- --ignored --exact discovers_and_runs_work_without_a_configured_peer_address
@@ -84,9 +98,67 @@ jobs:
         run: |
           cargo build --locked -p entangle-cli -p entangle-bin
           python3 scripts/tests/live-publisher.py target/debug
+          python3 scripts/tests/oci-registry.py target/debug
           python3 -m venv target/catalog-smoke-python
           target/catalog-smoke-python/bin/pip install Pillow==12.2.0 zxing-cpp==2.3.0
           target/catalog-smoke-python/bin/python plugins/smoke_test.py target/debug/entangle target/debug/entangled --two-node
+      - name: Aggregate Rust suites and retries from two authenticated WASI workers
+        timeout-minutes: 10
+        env:
+          CARGO_PROFILE_DEV_DEBUG: "0"
+        run: |
+          cargo test --locked --target wasm32-wasip2 --no-run --test atc_spec \
+            -p entangle-types -p entangle-manifest --message-format=json > target/wasi-test-artifacts.json
+          types_wasm=$(jq -er 'select(.reason == "compiler-artifact" and .profile.test and .target.name == "atc_spec" and (.manifest_path | endswith("/entangle-types/Cargo.toml"))) | .executable' target/wasi-test-artifacts.json)
+          manifest_wasm=$(jq -er 'select(.reason == "compiler-artifact" and .profile.test and .target.name == "atc_spec" and (.manifest_path | endswith("/entangle-manifest/Cargo.toml"))) | .executable' target/wasi-test-artifacts.json)
+          rustc --target wasm32-wasip2 --test scripts/tests/fixtures/libtest_retry.rs -o target/libtest_retry.wasm
+          python3 scripts/tests/distributed-rust-tests.py --types-wasm "$types_wasm" \
+            --manifest-wasm "$manifest_wasm" --retry-wasm target/libtest_retry.wasm
+
+  native-workloads:
+    name: Native release workloads (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos-15
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch
+        with:
+          toolchain: "1.91"
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          key: native-workloads-${{ matrix.target }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Build and run on the target architecture
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          cargo build --release --locked -p entangle-cli -p entangle-bin
+          python3 -m venv target/native-workload-python
+          target/native-workload-python/bin/pip install Pillow==12.2.0 zxing-cpp==2.3.0
+          target/native-workload-python/bin/python scripts/tests/native-release.py "$TARGET" target/release target/native-workload.json
+      - name: Upload workload receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci-native-workload-${{ matrix.target }}
+          path: target/native-workload.json
+          if-no-files-found: error
 
   deny:
     name: cargo-deny
@@ -99,21 +171,39 @@ jobs:
           arguments: --all-features --locked
           command: check advisories bans licenses sources
 
+  standalone-lockfiles:
+    name: Enumerate shipped Cargo lockfiles
+    runs-on: ubuntu-24.04
+    outputs:
+      directories: ${{ steps.locks.outputs.directories }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - id: locks
+        run: |
+          python3 - <<'PYTHON'
+          import json, os, pathlib, subprocess
+          paths = subprocess.check_output(["git", "ls-files", "-z", "Cargo.lock", "*/Cargo.lock"]).split(b"\0")
+          directories = sorted(str(pathlib.Path(os.fsdecode(p)).parent) for p in paths if p and p != b"Cargo.lock")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              print("directories=" + json.dumps(directories), file=out)
+          PYTHON
+
   catalog-advisories:
-    name: Plugin advisories (${{ matrix.plugin }})
+    name: Standalone dependency checks (${{ matrix.directory }})
+    needs: standalone-lockfiles
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        plugin: [compress, csv-stats, image-resize, json-pointer, json-query, markdown-html, qr-encode]
+        directory: ${{ fromJSON(needs.standalone-lockfiles.outputs.directories) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
           rust-version: "1.91"
-          manifest-path: ./plugins/${{ matrix.plugin }}/Cargo.toml
+          manifest-path: ./${{ matrix.directory }}/Cargo.toml
           arguments: --locked
-          command: check advisories
+          command: check advisories bans licenses sources
           command-arguments: --config deny.toml
 
   docs:

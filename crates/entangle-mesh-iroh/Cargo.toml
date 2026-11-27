@@ -20,8 +20,11 @@ async-trait = { workspace = true }
 ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "rt", "time", "macros"] }
+tokio = { workspace = true, features = ["io-util", "rt", "sync", "time", "macros"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
+entangle-biscuits = { workspace = true }
+biscuit-auth = { workspace = true }
+tempfile = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

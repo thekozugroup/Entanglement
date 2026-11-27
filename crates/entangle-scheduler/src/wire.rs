@@ -62,6 +62,7 @@ pub struct RemoteTaskRequest {
     /// Fully-qualified plugin id: `<publisher>/<name>@<version>`.
     pub plugin: String,
     /// Serialised input payload.
+    #[serde(with = "serde_bytes")]
     pub input: Vec<u8>,
     /// Wall-clock timeout requested by the caller, in milliseconds. The
     /// executor clamps this down; it is a request, not a command.
@@ -123,6 +124,7 @@ pub enum RemoteOutcome {
     /// The plugin ran and produced `output`.
     Ok {
         /// Raw output bytes from the plugin.
+        #[serde(with = "serde_bytes")]
         output: Vec<u8>,
     },
     /// The task did not produce output. `message` is diagnostic text from the
@@ -159,6 +161,8 @@ pub enum RemoteErrorCode {
     Execution,
     /// The executor hit an unexpected internal condition.
     Internal,
+    /// Signed work-unit policy changed during execution.
+    PolicyMutation,
 }
 
 impl RemoteErrorCode {
@@ -173,6 +177,7 @@ impl RemoteErrorCode {
             Self::OutputTooLarge => "output-too-large",
             Self::Execution => "execution",
             Self::Internal => "internal",
+            Self::PolicyMutation => "policy-mutation",
         }
     }
 }
@@ -286,7 +291,7 @@ pub fn decode_response(
 }
 
 /// Shared decode path: cap → version → structure → no trailing bytes.
-fn decode<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<T, WireError> {
+pub(crate) fn decode<'de, T: Deserialize<'de>>(bytes: &'de [u8]) -> Result<T, WireError> {
     if bytes.len() > MAX_FRAME_BYTES {
         return Err(WireError::FrameTooLarge {
             actual: bytes.len(),
@@ -348,6 +353,50 @@ mod tests {
         let decoded =
             decode_response(&encode_response(&resp).expect("encode"), 1024).expect("decode");
         assert_eq!(decoded, resp);
+    }
+
+    #[test]
+    fn bulk_payloads_match_v1_sequence_encoding_in_both_directions() {
+        // Original v1 serialized Vec<u8> as a sequence of individual bytes.
+        // These legacy shapes deliberately use serde's ordinary Vec encoding.
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        enum LegacyOutcome {
+            Ok { output: Vec<u8> },
+        }
+
+        for size in [0, 1, 127, 128, 256, 16_384] {
+            let payload: Vec<u8> = (0..size).map(|i| i as u8).collect();
+            let mut request = RemoteTaskRequest::for_task(&sample_task());
+            request.input = payload.clone();
+            let legacy = postcard::to_allocvec(&(
+                request.v,
+                request.task_id,
+                &request.plugin,
+                &request.input,
+                request.timeout_ms,
+                request.max_input_bytes,
+                request.max_output_bytes,
+            ))
+            .unwrap();
+            assert_eq!(encode_request(&request).unwrap(), legacy);
+            assert_eq!(decode_request(&legacy).unwrap(), request);
+
+            let expected = (
+                WIRE_VERSION,
+                LegacyOutcome::Ok {
+                    output: payload.clone(),
+                },
+            );
+            let old = postcard::to_allocvec(&expected).unwrap();
+            let response = RemoteTaskResponse::ok(payload);
+            let new = encode_response(&response).unwrap();
+            assert_eq!(old, new);
+            assert_eq!(
+                postcard::from_bytes::<(u16, LegacyOutcome)>(&new).unwrap(),
+                expected
+            );
+            assert_eq!(decode_response(&old, size as u64).unwrap(), response);
+        }
     }
 
     #[test]

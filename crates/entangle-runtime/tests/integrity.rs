@@ -272,3 +272,23 @@ async fn atc_int_6_attested_returns_not_implemented() {
         "ATC-INT-6: error message must include stable ENTANGLE-E0304 code; got: {err}"
     );
 }
+
+#[test]
+fn deterministic_verifier_requires_an_output_even_when_requested_count_is_zero() {
+    use entangle_runtime::{verify_deterministic, IntegrityError, ReplicaOutput};
+    assert!(matches!(
+        verify_deterministic(&[], 0),
+        Err(IntegrityError::InsufficientReplicas {
+            required: 1,
+            actual: 0
+        })
+    ));
+    let replicas = vec![
+        ReplicaOutput {
+            bytes: vec![],
+            blake3: [0; 32]
+        };
+        256
+    ];
+    assert!(verify_deterministic(&replicas, 1).is_ok());
+}

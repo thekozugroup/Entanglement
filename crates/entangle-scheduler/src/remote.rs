@@ -68,6 +68,14 @@ use crate::wire::{
 pub trait PeerAddressBook: std::fmt::Debug + Send + Sync {
     /// The peer's current dialable descriptor, or `None` if unknown.
     fn lookup(&self, peer: &PeerId) -> Option<IrohPeer>;
+
+    /// Check current authority for an established worker stream. Persisted trust
+    /// implementations may authorize the identity independently of address churn.
+    fn permits_stream(&self, peer: &PeerId) -> bool {
+        self.lookup(peer).is_some_and(|addr| {
+            addr.peer_id == *peer && PeerId::from_public_key_bytes(&addr.public_key) == *peer
+        })
+    }
 }
 
 /// A simple in-memory [`PeerAddressBook`], cheap to clone and share.
@@ -125,6 +133,7 @@ pub struct RemoteDispatch {
     transport: DynMeshTransport,
     addresses: Arc<dyn PeerAddressBook>,
     overhead: Duration,
+    signer: Option<Arc<entangle_signing::IdentityKeyPair>>,
 }
 
 impl std::fmt::Debug for RemoteDispatch {
@@ -138,6 +147,40 @@ impl std::fmt::Debug for RemoteDispatch {
 }
 
 impl RemoteDispatch {
+    /// Resolve a paired peer and establish an identity-checked connection for a relay frame.
+    pub async fn connect_relay(
+        &self,
+        peer: PeerId,
+    ) -> Result<entangle_mesh_iroh::MeshConn, DispatchError> {
+        let addr = self.address(peer).await?;
+        self.transport
+            .connect(&addr)
+            .await
+            .map_err(|e| DispatchError::RemoteTransport {
+                peer,
+                reason: e.to_string(),
+            })
+    }
+
+    /// Start a duplex streaming invocation on an explicitly selected trusted worker.
+    pub async fn open_stream(
+        &self,
+        peer: PeerId,
+        task: entangle_types::task::StreamingTask,
+        input: &[u8],
+    ) -> Result<crate::stream::StreamingClient, crate::stream::StreamError> {
+        crate::stream::validate(&task, input.len(), Some(peer))?;
+        let addr = self
+            .address(peer)
+            .await
+            .map_err(|e| crate::stream::StreamError::Invalid(e.to_string()))?;
+        let conn = self.transport.connect(&addr).await?;
+        if conn.remote_peer_id() != peer {
+            return Err(crate::stream::StreamError::BadChunkSignature);
+        }
+        crate::stream::StreamingClient::start(conn, task, input, self.addresses.clone()).await
+    }
+
     /// Build a client over `transport`, resolving peers through `addresses`.
     ///
     /// `transport` must be speaking [`ALPN_SCHEDULER`]; a transport on another
@@ -149,6 +192,98 @@ impl RemoteDispatch {
             transport,
             addresses,
             overhead: DEFAULT_REMOTE_OVERHEAD,
+            signer: None,
+        }
+    }
+
+    /// Use the daemon identity to sign integrity-protected replica work units.
+    #[must_use]
+    pub fn with_signer(mut self, signer: entangle_signing::IdentityKeyPair) -> Self {
+        self.signer = Some(Arc::new(signer));
+        self
+    }
+
+    pub(crate) fn signed_request(
+        &self,
+        task: &OneShotTask,
+        policy: crate::work_unit::Policy,
+    ) -> Result<([u8; 32], Vec<u8>), DispatchError> {
+        let signer = self.signer.as_deref().ok_or_else(|| {
+            DispatchError::Integrity("submitter signing identity unavailable".into())
+        })?;
+        let request = encode_request(&RemoteTaskRequest::for_task(task))
+            .map_err(|e| DispatchError::Integrity(e.to_string()))?;
+        crate::work_unit::encode(signer, &request, policy).map_err(DispatchError::Integrity)
+    }
+
+    pub(crate) async fn negotiate_signed(&self, peer: PeerId) -> Result<IrohPeer, DispatchError> {
+        use crate::work_unit::PROBE;
+        let addr = self.address(peer).await?;
+        let failure = |reason: String| DispatchError::RemoteTransport { peer, reason };
+        let raw = self
+            .transport
+            .request(&addr, PROBE)
+            .await
+            .map_err(|e| failure(e.to_string()))?;
+        match decode_response(&raw, PROBE.len() as u64)
+            .map_err(|e| failure(e.to_string()))?
+            .outcome
+        {
+            RemoteOutcome::Ok { output } if output == PROBE => Ok(addr),
+            RemoteOutcome::Err { code, message } => Err(DispatchError::RemoteRejected {
+                peer,
+                code,
+                message,
+            }),
+            _ => Err(failure(
+                "worker does not support signed semantic replicas".into(),
+            )),
+        }
+    }
+
+    pub(crate) async fn signed_replica(
+        &self,
+        task: &OneShotTask,
+        addr: &IrohPeer,
+        hash: &[u8; 32],
+        frame: &[u8],
+    ) -> Result<Vec<u8>, DispatchError> {
+        use crate::work_unit::{check_receipt, BorrowedOutcome, RECEIPT_LEN};
+        let peer = addr.peer_id;
+        let failure = |reason: String| DispatchError::RemoteTransport { peer, reason };
+        let raw = self
+            .transport
+            .request(addr, frame)
+            .await
+            .map_err(|e| failure(e.to_string()))?;
+        let (_, outcome): (u16, BorrowedOutcome<'_>) =
+            crate::wire::decode(&raw).map_err(|e| failure(e.to_string()))?;
+        match outcome {
+            BorrowedOutcome::Ok { output } => {
+                if !check_receipt(output, task.id.as_bytes(), hash) {
+                    return Err(DispatchError::Integrity(
+                        "PolicyMutation: replica receipt does not match submitted policy and task"
+                            .into(),
+                    ));
+                }
+                let data = &output[RECEIPT_LEN..];
+                let actual = data.len() as u64;
+                if actual > task.max_output_bytes {
+                    return Err(DispatchError::OutputSizeExceeded(
+                        entangle_types::errors::EntangleError::OutputSizeExceeded {
+                            declared: task.max_output_bytes,
+                            actual,
+                            peer: peer.to_hex(),
+                        },
+                    ));
+                }
+                Ok(data.to_vec())
+            }
+            BorrowedOutcome::Err { code, message } => Err(DispatchError::RemoteRejected {
+                peer,
+                code,
+                message: message.to_owned(),
+            }),
         }
     }
 
@@ -378,7 +513,14 @@ pub const MAX_REMOTE_TASK_TIMEOUT_MS: u64 = 5 * 60 * 1_000;
 /// Clone is cheap; one instance serves every inbound connection.
 #[derive(Clone)]
 pub struct RemoteTaskServer {
+    relay_handler: Option<Arc<dyn crate::relay::RelayHandler>>,
+    streaming: Option<(
+        Arc<entangle_signing::IdentityKeyPair>,
+        Arc<dyn crate::stream::StreamExecutor>,
+    )>,
+    stream_slots: Arc<tokio::sync::Semaphore>,
     capabilities: Option<WorkerInfo>,
+    active: Arc<crate::work_unit::Active>,
     kernel: Arc<Kernel>,
     allowlist: Arc<dyn PeerAllowlist>,
     local_peer_id: PeerId,
@@ -408,6 +550,10 @@ impl RemoteTaskServer {
     ) -> Self {
         Self {
             capabilities: None,
+            relay_handler: None,
+            streaming: None,
+            stream_slots: Arc::new(tokio::sync::Semaphore::new(32)),
+            active: Arc::default(),
             kernel,
             allowlist,
             local_peer_id,
@@ -415,6 +561,25 @@ impl RemoteTaskServer {
             max_input_bytes: OneShotTask::DEFAULT_MAX_INPUT_BYTES,
             max_output_bytes: OneShotTask::DEFAULT_MAX_OUTPUT_BYTES,
         }
+    }
+
+    /// Enable the operator-configured endpoint/forwarder for signed relay frames.
+    pub fn with_relay_handler(
+        mut self,
+        handler: Option<Arc<dyn crate::relay::RelayHandler>>,
+    ) -> Self {
+        self.relay_handler = handler;
+        self
+    }
+
+    /// Enable signed duplex streams with the local identity and a bounded producer.
+    pub fn with_stream_executor(
+        mut self,
+        identity: entangle_signing::IdentityKeyPair,
+        executor: Arc<dyn crate::stream::StreamExecutor>,
+    ) -> Self {
+        self.streaming = Some((Arc::new(identity), executor));
+        self
     }
 
     /// Advertise this worker to authorized peers that request its capabilities.
@@ -510,11 +675,38 @@ impl RemoteTaskServer {
             );
         }
 
+        if payload == crate::work_unit::PROBE {
+            return RemoteTaskResponse::ok(crate::work_unit::PROBE.to_vec());
+        }
+        if payload.starts_with(crate::work_unit::MUTATE) {
+            return crate::work_unit::mutation();
+        }
+        if let Some(bytes) = payload.strip_prefix(crate::work_unit::WORK) {
+            let (request, lease) = match self.active.accept(from, bytes) {
+                Ok(work) => work,
+                Err(e) => return e,
+            };
+            let response = self.execute(from, request).await;
+            return match response.outcome {
+                RemoteOutcome::Ok { output } => match lease.complete(&output) {
+                    Ok(receipt) => RemoteTaskResponse::ok(receipt),
+                    Err(e) => e,
+                },
+                _ => response,
+            };
+        }
         if payload == CAPABILITIES_REQUEST {
+            let (plugins, mut streaming_plugins) = self.kernel.execution_plugins();
+            if let (Some((_, executor)), Some(_)) = (&self.streaming, &self.capabilities) {
+                streaming_plugins.extend(executor.streaming_plugins().await);
+            } else {
+                streaming_plugins.clear();
+            }
             return match &self.capabilities {
                 Some(worker) => match serde_json::to_vec(&WorkerCapabilities {
                     worker: worker.clone(),
-                    plugins: self.kernel.list_plugins().into_iter().collect(),
+                    plugins,
+                    streaming_plugins,
                 }) {
                     Ok(bytes) if bytes.len() <= MAX_CAPABILITIES_BYTES => {
                         RemoteTaskResponse::ok(bytes)
@@ -551,6 +743,10 @@ impl RemoteTaskServer {
             }
         };
 
+        self.execute(from, request).await
+    }
+
+    async fn execute(&self, from: PeerId, request: RemoteTaskRequest) -> RemoteTaskResponse {
         // The caller's own declared ceiling was already enforced by
         // `decode_request`; this is *this node's* ceiling, which the caller
         // cannot raise.
@@ -647,9 +843,62 @@ impl RemoteTaskServer {
 /// # }
 /// ```
 pub async fn serve_tasks(transport: Arc<MeshIroh>, server: Arc<RemoteTaskServer>) {
-    entangle_mesh_iroh::serve(transport, move |peer, bytes| {
-        let server = Arc::clone(&server);
-        async move { server.handle(peer, bytes).await }
+    entangle_mesh_iroh::serve_requests(transport, move |mut req| {
+        let server = server.clone();
+        async move {
+            let peer = req.peer_id();
+            if req.payload().starts_with(crate::relay::PREFIX) {
+                let Some(handler) = &server.relay_handler else {
+                    return req.respond(br#"{"Err":"relay disabled"}"#).await;
+                };
+                let allow = server.allowlist.clone();
+                if !tokio::task::spawn_blocking(move || allow.is_authorized(&peer))
+                    .await
+                    .unwrap_or(false)
+                {
+                    return req.respond(br#"{"Err":"not-authorized"}"#).await;
+                }
+                let Ok(_slot) = server.stream_slots.try_acquire() else {
+                    return req.respond(br#"{"Err":"worker busy"}"#).await;
+                };
+                let response = handler
+                    .handle(peer, req.selected_socket(), req.take_payload())
+                    .await;
+                return req.respond(&response).await;
+            }
+            if req.payload().starts_with(crate::stream::OPEN) {
+                let list = server.allowlist.clone();
+                let authorized = tokio::task::spawn_blocking(move || list.is_authorized(&peer))
+                    .await
+                    .unwrap_or(false);
+                let failure = |reason: &[u8]| {
+                    let mut v = vec![8u8];
+                    v.extend_from_slice(reason);
+                    v
+                };
+                if !authorized {
+                    return req.respond(&failure(b"not-authorized")).await;
+                }
+                let Some((signer, executor)) = &server.streaming else {
+                    return req.respond(&failure(b"streaming disabled")).await;
+                };
+                let Ok(_slot) = server.stream_slots.try_acquire() else {
+                    return req.respond(&failure(b"worker busy")).await;
+                };
+                return crate::stream::serve_worker(
+                    req,
+                    signer.clone(),
+                    executor.clone(),
+                    server.local_peer_id,
+                    server.allowlist.clone(),
+                    &server.kernel,
+                    server.max_timeout_ms,
+                )
+                .await;
+            }
+            let response = server.handle(peer, req.take_payload()).await;
+            req.respond(&response).await
+        }
     })
     .await;
 }

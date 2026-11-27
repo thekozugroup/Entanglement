@@ -1,0 +1,31 @@
+[package]
+name = "cargo-entangle"
+description = "Package and independently rebuild signed Entanglement components"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+entangle-manifest = { workspace = true }
+entangle-oci = { workspace = true }
+entangle-signing = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+semver = { workspace = true }
+sha2 = { workspace = true }
+tar = { workspace = true }
+tempfile = { workspace = true }
+toml = { workspace = true }
+url = "2"
+wit-parser = { workspace = true }
+zstd = { workspace = true, features = ["zstdmt"] }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }

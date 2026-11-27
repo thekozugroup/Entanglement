@@ -577,3 +577,114 @@ fn invalid_lifecycle_capacity_returns_a_configuration_error() {
         );
     }
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn tier_change_reserves_admission_drains_work_and_rolls_back_a_failed_save() {
+    let signer = IdentityKeyPair::generate();
+    let kernel =
+        std::sync::Arc::new(Kernel::new(KernelConfig::default(), keyring_for(&signer)).unwrap());
+    let dir = tempfile::tempdir().unwrap();
+    let wasm = include_bytes!("../../entangle-host/tests/fixtures/stress.wasm");
+    write_plugin_package(dir.path(), &signer, wasm, 3);
+    let id = kernel.load_plugin_from_dir(dir.path()).await.unwrap();
+    let reservation = kernel.reserve_tier_change(Tier::Pure).await.unwrap();
+    assert_eq!(reservation.affected(), [(id.clone(), Tier::Networked)]);
+    {
+        let blocked = kernel.unload(&id);
+        tokio::pin!(blocked);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), &mut blocked)
+                .await
+                .is_err()
+        );
+    }
+    reservation
+        .apply(Default::default(), || {
+            anyhow::bail!("simulated persistence failure")
+        })
+        .await
+        .unwrap_err();
+    assert!(kernel.has_plugin(&id));
+    assert_eq!(kernel.broker().policy().max_tier_allowed, Tier::Native);
+
+    let mut events = kernel.bus().subscribe();
+    let invoking = kernel.clone();
+    let requested = id.clone();
+    let task = tokio::spawn(async move { invoking.invoke(&requested, b"spin:250", 5000).await });
+    let activated = tokio::time::timeout(Duration::from_secs(5), events.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(activated.payload.phase, LifecyclePhase::Activated);
+
+    let change = kernel.reserve_tier_change(Tier::Pure).await.unwrap();
+    let mut reloading = Box::pin(kernel.load_plugin_from_dir(dir.path()));
+    assert!(
+        tokio::time::timeout(Duration::from_millis(10), &mut reloading)
+            .await
+            .is_err()
+    );
+    tokio::time::timeout(
+        Duration::from_secs(10),
+        change.apply(Default::default(), || Ok(())),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let finished = task.await.unwrap().unwrap();
+    assert_eq!(finished, b"spun");
+    assert_eq!(
+        events.recv().await.unwrap().payload.phase,
+        LifecyclePhase::Idled
+    );
+    assert_eq!(
+        events.recv().await.unwrap().payload.phase,
+        LifecyclePhase::Unloaded
+    );
+    assert!(reloading
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("ENTANGLE-E0043"));
+    assert!(!kernel.has_plugin(&id));
+}
+
+#[tokio::test]
+async fn signed_native_manifest_cannot_load_a_wasm_surrogate_at_tier_five() {
+    let signer = IdentityKeyPair::generate();
+    let kernel = Kernel::new(KernelConfig::default(), keyring_for(&signer)).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let named = write_plugin_package(dir.path(), &signer, &loadable_wasm(), 5);
+    let err = kernel.load_plugin_from_dir(dir.path()).await.unwrap_err();
+    assert!(matches!(err, crate::RuntimeError::NativeUnavailable(id) if id.to_string() == named));
+    assert!(kernel.list_plugins().is_empty());
+    assert!(kernel.broker().audit_log().is_empty());
+}
+
+#[tokio::test]
+async fn native_service_lease_drains_before_a_lower_ceiling_takes_effect() {
+    use std::time::Duration;
+    let kernel = Kernel::new(KernelConfig::default(), Keyring::new()).unwrap();
+    let in_flight = kernel.native_service_lease().await.unwrap();
+    let timed_out = tokio::time::timeout(
+        Duration::from_secs(10),
+        kernel.reserve_tier_change(Tier::Pure),
+    )
+    .await
+    .expect("policy reservation must terminate");
+    assert!(matches!(
+        timed_out,
+        Err(crate::RuntimeError::DrainTimeout(_))
+    ));
+    assert_eq!(kernel.broker().policy().max_tier_allowed, Tier::Native);
+    assert!(kernel.broker().audit_log().is_empty());
+    drop(in_flight);
+    kernel
+        .reserve_tier_change(Tier::Pure)
+        .await
+        .unwrap()
+        .apply(Default::default(), || Ok(()))
+        .await
+        .unwrap();
+    assert!(kernel.native_service_lease().await.is_err());
+}

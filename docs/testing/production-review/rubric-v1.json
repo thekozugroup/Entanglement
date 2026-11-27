@@ -1,0 +1,480 @@
+{
+  "schema": 1,
+  "frozen_at_utc": "2026-11-27T01:17:02Z",
+  "purpose": "Production readiness, independently of feature demonstrations",
+  "policy": {
+    "pass_rule": "binary; all stated conditions supported by immutable evidence for the exact candidate tree; anything else is not_evidenced",
+    "metric_score": "100 * passing checks / total checks in that metric",
+    "threshold": "each of six metric scores strictly greater than 95.0 AND every architecture and production hard gate passes",
+    "no_averaging": true,
+    "missing_evidence": "not_evidenced",
+    "failed_is_not_evidenced": false,
+    "baseline": "baseline-2026-11-26.md"
+  },
+  "metrics": [
+    "correctness",
+    "authorization_isolation",
+    "reliability",
+    "interoperability",
+    "performance",
+    "release_operations"
+  ],
+  "checks": [
+    {
+      "id": "ATC-MAN-1",
+      "metric": "correctness",
+      "requirement": "GIVEN  a entangle.toml with `tier = 1` and a capability whose `min_tier = 3`\n  WHEN   entangle-manifest::validate(manifest) is invoked\n  THEN   it returns Err(Error::TierUnderDeclared { cap, min_tier: 3, declared: 1 })\n  TEST   crates/entangle-manifest/tests/tier_check.rs::tier_under_declared",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-MAN-2",
+      "metric": "correctness",
+      "requirement": "GIVEN  a entangle.toml with `tier = 5` but only tier-1 capabilities declared\n  WHEN   entangle-manifest::validate(manifest) is invoked\n  THEN   it returns Ok(_) \u2014 over-declaration is allowed; tier acts as a ceiling\n  TEST   crates/entangle-manifest/tests/tier_check.rs::tier_over_declared_ok",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-MAN-3",
+      "metric": "correctness",
+      "requirement": "GIVEN  a entangle.toml with `runtime.kind = \"wasm-component\"` and a binary that is actually ELF\n  WHEN   entangle-host instantiates the plugin\n  THEN   instantiation fails with Err(Error::RuntimeKindMismatch { declared, observed })\n  TEST   crates/entangle-host/tests/runtime_kind.rs::lie_at_instantiation_rejected",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-MAN-4",
+      "metric": "correctness",
+      "requirement": "GIVEN  a entangle.toml with `tier = 3` AND a config with `[security] max_tier_allowed = 2`\n  WHEN   entangle install <manifest> is invoked\n  THEN   it returns Err(Error::TierExceeded { plugin_tier: 3, ceiling: 2 })\n  AND    no plugin state is mutated\n  TEST   crates/entangle-bin/tests/install_max_tier.rs::install_rejects_above_ceiling",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-PKG-1",
+      "metric": "release_operations",
+      "requirement": "GIVEN  the hello-world fixture at tests/fixtures/hello-world/ with pinned Cargo.lock + rust-toolchain.toml\n  WHEN   `cargo entangle package` runs twice in series in a clean workspace\n  THEN   sha256 of both.tar.zst outputs are identical\n  TEST.github/workflows/reproducibility.yml::serial_double_build",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-PKG-2",
+      "metric": "release_operations",
+      "requirement": "GIVEN  the hello-world fixture\n  WHEN   `cargo entangle package` runs on macOS-14 AND Ubuntu-22.04 AND Ubuntu-24.04 with the pinned toolchain\n  THEN   sha256 is identical across all three hosts\n  TEST.github/workflows/reproducibility.yml::cross_host_matrix",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-PKG-3",
+      "metric": "release_operations",
+      "requirement": "GIVEN  a workspace missing Cargo.lock\n  WHEN   `cargo entangle package` is invoked\n  THEN   it returns exit code != 0 with message containing \"Cargo.lock missing\"\n  TEST   crates/cargo-entangle/tests/package.rs::no_lockfile_rejected",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-PKG-4",
+      "metric": "release_operations",
+      "requirement": "GIVEN  a published.tar.zst +.sig + recorded source-commit\n  WHEN   `cargo entangle verify --rebuild` runs\n  THEN   exit code == 0 AND output contains \"PASS\"\n  TEST   crates/cargo-entangle/tests/verify_rebuild.rs::happy_path",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-BRG-1",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a bridge biscuit with all 5 attenuation facts (dest_pin, rate_limit, total_bytes_cap, ttl_le_3600s, bridge_marker)\n  WHEN   entangle-signing::verify_bridge(biscuit, verifier_node_id) runs\n  THEN   it returns Ok(BridgeCap {... })\n  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::valid_bridge_accepted",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-BRG-2",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a bridge biscuit missing the rate_limit fact\n  WHEN   entangle-signing::verify_bridge(biscuit, verifier_node_id) runs\n  THEN   it returns Err(ENTANGLE-E0118)\n  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::missing_rate_limit_rejected",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-BRG-3",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a bridge biscuit pinned to NodeId X but verified by NodeId Y (Y \u2260 X)\n  WHEN   entangle-signing::verify_bridge(biscuit, Y) runs\n  THEN   it returns Err(ENTANGLE-E0119)\n  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::wrong_dest_rejected",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-BRG-4",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a bridge biscuit whose TTL elapsed\n  WHEN   entangle-signing::verify_bridge(biscuit, verifier_node_id) at T_now > biscuit.ttl runs\n  THEN   it returns Err(ENTANGLE-E0120)\n  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::expired_ttl_rejected",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-BRG-5",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a bridge biscuit missing the total_bytes_cap fact\n  WHEN   entangle-signing::verify_bridge(biscuit, verifier_node_id) runs\n  THEN   it returns Err(ENTANGLE-E0122)\n  TEST   crates/entangle-signing/tests/bridge_attenuation.rs::missing_total_bytes_cap_rejected",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-BRG-6",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a valid bridge biscuit with total_bytes_cap = 1024\n  WHEN   the bridge has already relayed 1024 bytes under this cap\n         AND attempts to relay one more byte\n  THEN   the receiver rejects with Err(BridgeBudgetExhausted)\n  TEST   crates/entangle-plugin-mesh-bridge/tests/total_bytes_cap.rs",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-INT-1",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a SemanticEquivalent task with metric_cid = X and 3 worker peers\n  WHEN   the task executes end-to-end\n  THEN   no worker instantiates a wasm component matching X (verified via wasmtime trace)\n  AND    the submitter instantiates X exactly once per pair-comparison\n  TEST   crates/entangle-plugin-scheduler/tests/integrity/no_worker_metric_execution.rs",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-INT-2",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a custom metric plugin signed by a key NOT on the submitter's keyring\n  WHEN   submitter sends WorkUnit { integrity: SemanticEquivalent { metric: <unsigned>,... } }\n  THEN   entangle-plugin-scheduler::submit returns Err(MetricNotInKeyring)\n  TEST   crates/entangle-plugin-scheduler/tests/integrity/keyring_check.rs",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-INT-3",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a dispatched task with policy_hash H\n  WHEN   submitter attempts to send a control frame mutating the policy mid-flight\n  THEN   workers reject the frame with Err(PolicyMutation)\n  AND    each replica's observed_policy_hash == H at result-return time\n  TEST   crates/entangle-plugin-scheduler/tests/policy_immutability.rs::cannot_mutate_after_dispatch",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-INT-4",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a StreamingTask with Integrity::Deterministic {... }\n  WHEN   submitter calls scheduler::submit\n  THEN   the call returns Err(InvalidIntegrityForStreaming) with a hint to use TrustedExecutor\n  TEST   crates/entangle-plugin-scheduler/tests/submit_validation.rs::streaming_deterministic_rejected",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-INT-5",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a OneShotTask with max_output_bytes = 1024 AND Integrity::SemanticEquivalent { metric: M,... }\n  WHEN   a worker returns a ResultEnvelope with actual_bytes = 2048\n  THEN   the submitter rejects the result with Err(OutputSizeExceeded)\n  AND    no Wasm component matching M is instantiated on the submitter\n         (verified via wasmtime trace / instantiate-counter assertion)\n  AND    OutputSizeExceededWarning { peer_id, declared: 1024, actual: 2048 }\n         is emitted to telemetry\n  AND    reputation::get(peer_id) is strictly less than the pre-task value\n  TEST   crates/entangle-plugin-scheduler/tests/integrity/oversized_output_short_circuits.rs",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-STR-1",
+      "metric": "reliability",
+      "requirement": "GIVEN  a StreamingTask with task_timeout = 5s and a submitter that issues no Credit frames after the initial window\n  WHEN   the worker exhausts credits\n  THEN   within 5s \u00b1 0.5s the worker emits a StalledEvent and transitions to state=Stalled\n  TEST   crates/entangle-plugin-scheduler/tests/stream_stall.rs::credit_exhaustion_stalls_at_timeout",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-STR-2",
+      "metric": "reliability",
+      "requirement": "GIVEN  an active StreamingTask\n  WHEN   the network drops Pong frames for 3 consecutive 5s windows\n  THEN   the channel auto-closes with Reason::PeerLost within 15s \u00b1 2s\n  TEST   crates/entangle-plugin-scheduler/tests/stream_heartbeat.rs::three_missed_pings_close_channel",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-STR-3",
+      "metric": "reliability",
+      "requirement": "GIVEN  an executor with NodeId N issuing chunks\n  WHEN   submitter receives chunks\n  THEN   each chunk's signature verifies against N's pubkey\n  AND    a forged chunk (signed by NodeId N' \u2260 N) is rejected with Err(BadChunkSignature)\n  TEST   crates/entangle-plugin-scheduler/tests/stream_signing.rs::forged_chunk_rejected",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-WRP-1",
+      "metric": "correctness",
+      "requirement": "GIVEN  `entangle install` has run with default settings AND user opts in to wrappers\n  WHEN   the user runs `claude-code` in a fresh shell with ENTANGLE_SESSION_ID unset\n  THEN   stderr contains the string \"claude-code launched outside Entanglement session\"\n  AND    exit code matches `command claude-code --version` (warning is non-blocking)\n  TEST   tests/bats/wrapper.bats::warns_outside_session",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-WRP-2",
+      "metric": "correctness",
+      "requirement": "GIVEN  `entangle wrapper disable` has run\n  WHEN   the user runs `claude-code`\n  THEN   stderr does NOT contain the wrapper warning\n  TEST   tests/bats/wrapper.bats::disable_silences",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-WRP-3",
+      "metric": "correctness",
+      "requirement": "GIVEN  PATH is ordered such that /usr/local/bin/claude-code resolves before the shell function\n  WHEN   `entangle doctor` runs\n  THEN   stdout contains \"shadowed\" AND exit code == 1\n  TEST   tests/bats/doctor.bats::detects_shadowed_wrapper",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-MAX-1",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a daemon with max_tier_allowed = 5 AND tier-5 plugin \"agent-host\" loaded\n  WHEN   user lowers to max_tier_allowed = 3 via interactive `entangle config reload`\n  THEN   stdout contains \"agent-host\" in the affected list\n  AND    default action is unload-and-disable; cancel reverts the edit\n  TEST   tests/bats/max_tier.bats::interactive_lowering_prompts",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-MAX-2",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  same precondition as ATC-MAX-1\n  WHEN   `entangle security set-max-tier 3 --force-unload` runs\n  THEN   stderr contains the affected-plugin list AND audit log has ENTANGLE-W0214 entry per plugin\n  TEST   tests/bats/max_tier.bats::force_unload_is_loud",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-MAX-3",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  same precondition as ATC-MAX-1\n  WHEN   user chooses \"cancel\" at the prompt\n  THEN   max_tier_allowed remains 5 in config.toml\n  AND    audit log has ENTANGLE-I0216 entry\n  TEST   tests/bats/max_tier.bats::cancel_reverts_edit",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-MIR-1",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a plugin.tar.zst served by mirror.entanglement.dev\n  WHEN   entangle install verifies it\n  THEN   the verifier code path NEVER consults the mirror's identity for artifact bytes\n  TEST   crates/entangle-signing/tests/mirror_cdn_only.rs::no_mirror_in_artifact_trust",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-MIR-2",
+      "metric": "authorization_isolation",
+      "requirement": "GIVEN  a directory listing served by mirror with a valid mirror-listing signature\n  WHEN   entangle-oci::list_tags() is called\n  THEN   it returns the listing AND records the listing-signature verification result\n  TEST   crates/entangle-oci/tests/listing.rs::mirror_listing_verified",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-REL-1",
+      "metric": "release_operations",
+      "requirement": "GIVEN  a 1.0 RC release artifact\n  WHEN   verifier runs `entangle release verify <artifact>`\n  THEN   both Ed25519 (publisher) AND cosign (Rekor) signatures pass\n  TEST   tests/integration/release_verify.rs::dual_sig_pass",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-REL-2",
+      "metric": "release_operations",
+      "requirement": "GIVEN  the release-key ceremony rehearsal recorded in docs/governance/key-ceremony.md\n  WHEN   any 1 share is unavailable AND 2 shares are present\n  THEN   the signature can be reconstructed\n  AND    with only 1 share, reconstruction is impossible\n  TEST   tests/integration/shamir.rs::two_of_three",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-BUS-1",
+      "metric": "release_operations",
+      "requirement": "GIVEN  the git log + CODEOWNERS at HEAD\n  WHEN.github/workflows/bus-factor.yml runs (weekly + per-release)\n  THEN   for every role in {core-runtime, mesh, agent, security, release},\n         |active_holders(role)| \u2265 2 (active = \u22651 merge in trailing 60d)\n  AND    if any role drops below 2, a P0 GitHub issue is opened\n  TEST.github/workflows/bus-factor.yml::invariant_check",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "ATC-BUS-2",
+      "metric": "release_operations",
+      "requirement": "GIVEN  docs/governance/rotations.md\n  WHEN   a release is published\n  THEN   the most recent rotation note is dated within the trailing 35 days\n  AND    release fails if not\n  TEST.github/workflows/release.yml::rotation_note_fresh",
+      "kind": "architecture",
+      "hard_gate": true,
+      "source": "docs/architecture.md#15-acceptance-criteria-phase-1-deliverables-written-as-testable-contracts"
+    },
+    {
+      "id": "COR-CLI",
+      "metric": "correctness",
+      "requirement": "All seven bundled plugin workloads pass local production CLI and daemon smoke with independently decoded binary output; all assertions pass.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "COR-REMOTE",
+      "metric": "correctness",
+      "requirement": "All seven identical workloads pass through a separate empty coordinator to the trusted worker; assert selected peer and raw and output-file bytes.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "COR-PLATFORMS",
+      "metric": "correctness",
+      "requirement": "Locked test, fmt, clippy and rustdoc CI pass for the candidate commit on Linux and macOS runners; report exact runner architecture, logs and exit codes.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "AUTH-LIVE",
+      "metric": "authorization_isolation",
+      "requirement": "On separate running daemons, a revoked or removed peer immediately fails inbound and outbound work, observers cannot submit or receive work, unknown peers are rejected, and malformed trust store fails closed.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "AUTH-WASI",
+      "metric": "authorization_isolation",
+      "requirement": "On actual supported OS targets, a malicious WASI guest cannot access outside preopened roots or exceed filesystem permissions; cover symlinks, rename and trailing-slash cases.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "AUTH-CHAIN",
+      "metric": "authorization_isolation",
+      "requirement": "For candidate root and every shipped standalone lockfile, a current verified RustSec database scan plus configured bans, licenses and source checks passes without unexplained exceptions or yanked dependencies.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "REL-RESTART",
+      "metric": "reliability",
+      "requirement": "On supported OS hosts, terminate and restart daemon while work is active; test bounded failure and state restoration, trusted identity and plugin reloading; satisfy architecture mesh reconvergence <10 seconds.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "REL-PARTITION",
+      "metric": "reliability",
+      "requirement": "On two distinct hosts, disconnect and reconnect the link and restart the transport service; verify bounded timeouts, no stale authorization, and recovery with correctly attributed results.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "REL-LIMITS",
+      "metric": "reliability",
+      "requirement": "Show bounded concurrent work, input/output, memory, timeout and backpressure under overload, including no permanent unavailability after recovery.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "INTEROP-LINUX",
+      "metric": "interoperability",
+      "requirement": "Execute end-to-end release binary workloads on independent x86_64 and aarch64 Linux hosts, not compile-only or emulation; archive OS versions, hardware, commits, checksums and results.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "INTEROP-MAC",
+      "metric": "interoperability",
+      "requirement": "Execute end-to-end release binary workloads on independent Intel and Apple Silicon macOS hosts, not compile-only or emulation; archive OS versions, hardware, commits, checksums and results.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "INTEROP-WAN",
+      "metric": "interoperability",
+      "requirement": "Two independent networks execute authenticated QUIC over direct NAT traversal and via a public relay with direct route unavailable; verify observed path and selected peer.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "INTEROP-TAILNET",
+      "metric": "interoperability",
+      "requirement": "Execute docs/testing/tailnet-compute.md using two real tailnet hosts and actual access controls, including disconnect/reconnect; verify selected peer and exact output.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "INTEROP-LAN",
+      "metric": "interoperability",
+      "requirement": "Two physical hosts discover and execute via real LAN multicast without a manually configured address; verify chosen peer and identity.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "PERF-LLM",
+      "metric": "performance",
+      "requirement": "Architecture \u00a77.0 workload A on the specified class of GPU and a separate battery laptop: real 70B inference first token <300 ms and sustained >=30 tokens/s, with streaming trusted executor and recorded methodology.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "PERF-IMAGE",
+      "metric": "performance",
+      "requirement": "Architecture \u00a77.0 workload B: process 8,000 RAW photos across three desktop nodes; demonstrate at least 10x wall-clock speedup over the same single-machine workload and record methodology and measurements.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "PERF-TEST",
+      "metric": "performance",
+      "requirement": "Architecture \u00a77.0 workload C: execute a Rust monorepo test suite across peers, aggregate results, and demonstrate preservation of flaky-test semantics; archive command, logs and comparisons.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "PERF-BASELINE",
+      "metric": "performance",
+      "requirement": "Run repeatable local and remote dispatch benchmarks with full method, hardware, versions, sample counts and latency distributions; demonstrate no more than 5% regression against a previously approved, comparable baseline.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "OPS-RELEASE",
+      "metric": "release_operations",
+      "requirement": "For all four Linux/macOS x86_64/aarch64 release artifacts, build and independently verify actual release checksums, keyless signature, provenance and independent source rebuild; test installer on each target.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "OPS-GOVERNANCE",
+      "metric": "release_operations",
+      "requirement": "Run release governance against real commit history, CODEOWNERS, two active holders per role, actual 35-day rotation note and documented key ceremony; required external gate passes without placeholders.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "OPS-RECOVERY",
+      "metric": "release_operations",
+      "requirement": "On supported systems, demonstrate encrypted backup and recovery of identity, trust and plugin state onto a fresh node, and verify peer continuity and failure behavior.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "OPS-SECURITY",
+      "metric": "release_operations",
+      "requirement": "Complete an independent security review and disclosure/incident rehearsal with dated attributable evidence; no unresolved critical or high findings.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    },
+    {
+      "id": "OPS-CI",
+      "metric": "release_operations",
+      "requirement": "The candidate commit has completed all required real CI jobs, including clean supply chain, platform jobs, reproducibility and release governance; branch protection evidence confirms gates are required.",
+      "kind": "production_gate",
+      "hard_gate": true,
+      "source": "docs/architecture.md"
+    }
+  ]
+}

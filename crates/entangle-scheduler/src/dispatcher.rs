@@ -24,6 +24,9 @@ use std::time::Duration;
 /// Errors that can arise during task dispatch.
 #[derive(Debug, thiserror::Error)]
 pub enum DispatchError {
+    /// Submitter rejected the integrity policy, signed result or replica quorum.
+    #[error("integrity: {0}")]
+    Integrity(String),
     /// Placement failed to find a suitable worker.
     #[error("placement: {0}")]
     Placement(#[from] PlacementError),
@@ -111,16 +114,16 @@ pub struct DispatchResult {
 /// transport for tasks that placement sends to another machine.
 #[derive(Clone)]
 pub struct Dispatcher {
-    workers: WorkerPool,
-    kernel: Arc<Kernel>,
+    pub(crate) workers: WorkerPool,
+    pub(crate) kernel: Arc<Kernel>,
     /// Local peer id — if placement chooses this peer, run in-process.
-    local_peer_id: PeerId,
+    pub(crate) local_peer_id: PeerId,
     /// Locally measured hardware, independent of network observation lifetimes.
     local_worker: Option<WorkerInfo>,
     local_in_flight: InFlight,
     /// Cross-node dispatch client. `None` — the default — means this node has
     /// no mesh transport configured and behaves exactly as a local-only node.
-    remote: Option<Arc<RemoteDispatch>>,
+    pub(crate) remote: Option<Arc<RemoteDispatch>>,
     /// TTL for considering a worker live.
     pub worker_ttl: Duration,
     /// When true, refuse to silently fall back to local execution when
@@ -191,6 +194,32 @@ impl Dispatcher {
         self.remote.is_some()
     }
 
+    /// Select a live remote worker advertising this plugin, then open a signed
+    /// stream. Policy validation happens before address lookup or network I/O.
+    pub async fn dispatch_stream(
+        &self,
+        task: entangle_types::task::StreamingTask,
+        input: &[u8],
+    ) -> Result<(PeerId, crate::stream::StreamingClient), crate::stream::StreamError> {
+        crate::stream::validate(&task, input.len(), None)?;
+        let remote = self.remote.as_ref().ok_or_else(|| {
+            crate::stream::StreamError::Invalid("no remote scheduler transport".into())
+        })?;
+        let (choice, reservation) = self
+            .workers
+            .choose_stream(self.worker_ttl, &task.resources, &task.plugin, |peer| {
+                *peer != self.local_peer_id
+                    && match &task.integrity {
+                        IntegrityPolicy::TrustedExecutor { allowlist } => allowlist.contains(peer),
+                        _ => true,
+                    }
+            })
+            .map_err(|e| crate::stream::StreamError::Invalid(e.to_string()))?;
+        let mut stream = remote.open_stream(choice.peer_id, task, input).await?;
+        stream.reservation = Some(reservation);
+        Ok((choice.peer_id, stream))
+    }
+
     /// Dispatch a [`OneShotTask`]: place → run → return output.
     ///
     /// When placement chooses this node, the task runs on the local kernel.
@@ -219,6 +248,15 @@ impl Dispatcher {
             });
         }
 
+        if let IntegrityPolicy::SemanticEquivalent { metric, threshold } = &task.integrity {
+            return tokio::time::timeout(
+                Duration::from_millis(task.timeout_ms),
+                self.semantic(&task, metric, *threshold),
+            )
+            .await
+            .map_err(|_| DispatchError::Integrity("semantic task deadline exceeded".into()))?;
+        }
+
         let trusted: Option<HashSet<_>> = match &task.integrity {
             IntegrityPolicy::TrustedExecutor { allowlist } => Some(allowlist.iter().collect()),
             _ => None,
@@ -236,7 +274,7 @@ impl Dispatcher {
         let local = self
             .local_worker
             .as_ref()
-            .filter(|_| self.kernel.has_plugin(&task.plugin))
+            .filter(|_| self.kernel.has_compute_plugin(&task.plugin))
             .map(|worker| (worker, &self.local_in_flight));
         let local_allowed = self.local_worker.is_none() || local.is_some();
         let chosen = self.workers.choose(

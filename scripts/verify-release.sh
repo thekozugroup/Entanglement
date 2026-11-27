@@ -11,6 +11,9 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 TARBALL="$1"
+if [[ "${TARBALL}" != /* ]]; then
+    TARBALL="${PWD}/${TARBALL}"
+fi
 
 verify_digest() {
     local label="$1" sidecar="$2" expected actual
@@ -68,10 +71,56 @@ if [ ! -f "${TARBALL}.sigstore" ]; then
     exit 1
 fi
 
-cosign verify-blob \
-    --certificate-identity-regexp '^https://github\.com/thekozugroup/Entanglement/\.github/workflows/release\.yml@refs/tags/v[^/]+$' \
-    --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-    --bundle "${TARBALL}.sigstore" \
-    "${TARBALL}"
+release_filename='^entanglement-(v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?)-(x86_64-unknown-linux-gnu|aarch64-unknown-linux-gnu|aarch64-apple-darwin|x86_64-apple-darwin)\.tar\.gz$'
+if ! [[ "${TARBALL##*/}" =~ ${release_filename} ]]; then
+    echo 'error: use the original release filename to identify the tagged workflow' >&2
+    exit 1
+fi
+identity="https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@refs/tags/${BASH_REMATCH[1]}"
+if ! command -v python3 >/dev/null 2>&1; then
+    echo 'error: Python 3 is required to inspect the Sigstore bundle' >&2
+    exit 1
+fi
+bundle_dir=$(mktemp -d)
+trap 'rm -rf "${bundle_dir}"' EXIT
+cp "${TARBALL}.sigstore" "${bundle_dir}/bundle.sigstore"
+bundle_type=$(python3 - "${bundle_dir}" <<'PY'
+import base64
+import json
+from pathlib import Path
+import sys
+
+directory = Path(sys.argv[1])
+try:
+    bundle = json.loads((directory / "bundle.sigstore").read_bytes())
+    if bundle.get("mediaType") in (
+        "application/vnd.dev.sigstore.bundle.v0.3+json",
+        "application/vnd.dev.sigstore.bundle+json;version=0.3",
+    ) and isinstance(bundle.get("messageSignature"), dict):
+        print("v0.3")
+    else:
+        # Historic keyless cosign blob bundles carry the PEM certificate
+        # directly or as base64. Never accept a raw key from bundle metadata.
+        certificate = bundle["cert"].encode("ascii")
+        if not certificate.startswith(b"-----BEGIN CERTIFICATE-----"):
+            certificate = base64.b64decode(certificate, validate=True)
+        if not certificate.startswith(b"-----BEGIN CERTIFICATE-----"):
+            raise ValueError("legacy bundle did not contain an X.509 certificate")
+        (directory / "certificate.pem").write_bytes(certificate)
+        print("legacy")
+except (AttributeError, OSError, KeyError, TypeError, ValueError) as error:
+    sys.exit(f"error: invalid Sigstore release bundle: {error}")
+PY
+)
+
+cosign_arguments=(--certificate-identity "${identity}"
+    --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+    --bundle "${bundle_dir}/bundle.sigstore")
+if [ "${bundle_type}" = v0.3 ]; then
+    cosign_arguments+=(--new-bundle-format --offline)
+else
+    cosign_arguments+=(--certificate "${bundle_dir}/certificate.pem")
+fi
+cosign verify-blob "${cosign_arguments[@]}" -- "${TARBALL}"
 
 echo "✓ ${TARBALL} verified"

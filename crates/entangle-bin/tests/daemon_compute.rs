@@ -8,6 +8,9 @@ mod plugin;
 #[path = "common/dispatch_benchmark.rs"]
 mod benchmark;
 
+#[path = "common/inference.rs"]
+mod inference;
+
 use std::fs;
 use std::net::{SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};
@@ -329,6 +332,70 @@ async fn check_unverified_lan_advert(cluster: &Cluster) {
             }
             sleep(Duration::from_millis(100)).await;
         }
+        // The ordinary daemon RPC adapts legacy compute plugins into a bounded
+        // stream. Recheck detached signatures independently on the client.
+        use entangle_types::task::{
+            ChannelSpec, IntegrityPolicy, PartialResultPolicy, StreamingTask, TaskId,
+        };
+        let task = StreamingTask {
+            id: TaskId::new_v4(),
+            plugin: cluster.plugin_id.parse().unwrap(),
+            channel: ChannelSpec {
+                max_chunk_bytes: 4,
+                credit_window: 1,
+                ..Default::default()
+            },
+            resources: Default::default(),
+            integrity: IntegrityPolicy::TrustedExecutor {
+                allowlist: vec![cluster.worker.peer_id()],
+            },
+            timeout_ms: 5000,
+            partial_result: PartialResultPolicy::KeepSigned,
+        };
+        let handle = cluster
+            .submitter
+            .client
+            .stream_open(&entangle_rpc::StreamOpenParams {
+                task: task.clone(),
+                input: b"rpc".to_vec(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(handle.executor, cluster.worker.peer_id());
+        let mut all = Vec::new();
+        let mut seq = 0;
+        loop {
+            match cluster
+                .submitter
+                .client
+                .stream_read(&handle.session)
+                .await
+                .unwrap()
+            {
+                entangle_rpc::StreamRead::Waiting => continue,
+                entangle_rpc::StreamRead::Chunk {
+                    seq: received,
+                    timestamp_ms,
+                    signature,
+                    bytes,
+                } => {
+                    let chunk = entangle_scheduler::stream::SignedChunk {
+                        seq: received,
+                        timestamp_ms,
+                        signature,
+                        bytes,
+                    };
+                    chunk
+                        .verify(&cluster.worker.identity.public(), task.id, seq)
+                        .unwrap();
+                    all.extend_from_slice(&chunk.bytes);
+                    seq += 1;
+                }
+                entangle_rpc::StreamRead::Finished => break,
+                entangle_rpc::StreamRead::Stalled => panic!("consumer supplied credit"),
+            }
+        }
+        assert_eq!(all, b"Hello, rpc!");
         let mut job = request(&cluster.plugin_id);
         job.integrity = ComputeIntegrity::TrustedExecutor {
             allowlist: vec![id.clone()],
@@ -344,6 +411,83 @@ async fn check_unverified_lan_advert(cluster: &Cluster) {
             "{err}"
         );
     }
+}
+
+/// A healthy authenticated worker may lose authorization after a session opens.
+#[tokio::test]
+async fn stream_delivery_rechecks_persisted_worker_trust() {
+    let dir = tempfile::tempdir_in("/tmp").unwrap();
+    timeout(Duration::from_secs(35), async {
+        let cluster = start_cluster(dir.path(), Path::new(env!("CARGO_BIN_EXE_entangled"))).await;
+        first_remote(&cluster).await;
+        let worker = cluster.worker.peer_id();
+        let store_path = cluster.coordinator.home.join(".entangle/peers.toml");
+        let original = fs::read(&store_path).unwrap();
+        for corrupt in [false, true] {
+            use entangle_types::task::{
+                ChannelSpec, IntegrityPolicy, PartialResultPolicy, StreamingTask, TaskId,
+            };
+            let session = cluster
+                .submitter
+                .client
+                .stream_open(&entangle_rpc::StreamOpenParams {
+                    task: StreamingTask {
+                        id: TaskId::new_v4(),
+                        plugin: cluster.plugin_id.parse().unwrap(),
+                        channel: ChannelSpec {
+                            credit_window: 2,
+                            max_chunk_bytes: 2,
+                            ..Default::default()
+                        },
+                        integrity: IntegrityPolicy::TrustedExecutor {
+                            allowlist: vec![worker],
+                        },
+                        resources: Default::default(),
+                        partial_result: PartialResultPolicy::KeepSigned,
+                        timeout_ms: 5000,
+                    },
+                    input: b"rpc".to_vec(),
+                })
+                .await
+                .unwrap()
+                .session;
+            loop {
+                match cluster
+                    .submitter
+                    .client
+                    .stream_read(&session)
+                    .await
+                    .unwrap()
+                {
+                    entangle_rpc::StreamRead::Waiting => continue,
+                    entangle_rpc::StreamRead::Chunk { bytes, .. } => {
+                        assert_eq!(bytes, b"He");
+                        break;
+                    }
+                    other => panic!("unexpected first event {other:?}"),
+                }
+            }
+            if corrupt {
+                fs::write(&store_path, "malformed = [").unwrap();
+            } else {
+                cluster.coordinator.peers().revoke(&worker).unwrap();
+            }
+            let rejected = cluster
+                .submitter
+                .client
+                .stream_read(&session)
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(rejected, RpcError::Rpc { ref message, .. }
+                if message.contains("stream worker is no longer authorized")),
+                "{rejected}"
+            );
+            fs::write(&store_path, &original).unwrap();
+        }
+    })
+    .await
+    .expect("active-stream revocation did not finish");
 }
 
 /// Requires two local processes to receive multicast DNS through a host interface.

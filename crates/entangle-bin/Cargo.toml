@@ -17,10 +17,14 @@ name = "entangled"
 path = "src/main.rs"
 
 [dependencies]
+async-trait = { workspace = true }
+tempfile = { workspace = true }
+toml_edit = "0.22"
+blake3 = { workspace = true }
 rustix = { version = "1", features = ["fs"] }
 http-body-util = "0.1"
 hyper = { version = "1", features = ["server", "http1"] }
-hyper-util = { version = "0.1", features = ["tokio"] }
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
 entangle-mesh-tailscale = { path = "../entangle-mesh-tailscale" }
 entangle-types      = { workspace = true }
 entangle-rpc        = { path = "../entangle-rpc" }
@@ -48,7 +52,6 @@ directories = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
-tempfile = { workspace = true }
 entangle-signing = { workspace = true }
 entangle-peers   = { path = "../entangle-peers" }
 entangle-mesh-iroh = { workspace = true }

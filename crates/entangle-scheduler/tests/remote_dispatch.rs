@@ -130,6 +130,7 @@ fn loopback_config() -> MeshIrohConfig {
 
 /// One node: an identity, a kernel, and a QUIC endpoint.
 struct Node {
+    identity: IdentityKeyPair,
     peer_id: PeerId,
     kernel: Arc<Kernel>,
     transport: Arc<MeshIroh>,
@@ -149,6 +150,7 @@ impl Node {
                 .expect("loopback endpoint must bind"),
         );
         Self {
+            identity,
             peer_id: transport.local_peer_id(),
             kernel,
             transport,
@@ -1188,3 +1190,9 @@ async fn a_node_not_serving_the_scheduler_alpn_executes_nothing() {
         "expected a transport-level failure, got {err:?}"
     );
 }
+
+#[path = "cases/semantic.rs"]
+mod semantic_acceptance;
+
+#[path = "cases/stream.rs"]
+mod stream_acceptance;

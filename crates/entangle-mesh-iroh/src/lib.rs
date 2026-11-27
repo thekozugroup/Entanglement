@@ -69,6 +69,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod bridge;
 mod error;
 mod framing;
 mod peer;
@@ -82,7 +83,10 @@ use entangle_types::task::OneShotTask;
 
 pub use crate::error::MeshIrohError;
 pub use crate::peer::{format_node_addr, parse_node_addr, IrohPeer};
-pub use crate::transport::{serve, MeshConn, MeshIroh, MeshRequest};
+pub use crate::transport::{
+    serve, serve_requests, MeshConn, MeshDuplex, MeshFrameReader, MeshFrameWriter, MeshIroh,
+    MeshRequest,
+};
 
 /// ALPN for mesh membership / control traffic (spec §6.7). The default.
 pub const ALPN_CONTROL: &[u8] = b"entangle/control/1";

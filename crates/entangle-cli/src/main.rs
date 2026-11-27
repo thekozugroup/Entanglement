@@ -39,6 +39,16 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Encrypt this stopped node's identity, trust, installed plugins and data.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    Backup(cmd::backup::BackupArgs),
+    /// Recover an encrypted snapshot into a fresh node home.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    Restore(cmd::backup::RestoreArgs),
+    /// Validate or reload the daemon security ceiling.
+    Config(cmd::tier::ConfigArgs),
+    /// Change live security policy.
+    Security(cmd::tier::SecurityArgs),
     /// Zero to a working plugin in one command: identity, install, load, invoke.
     #[command(long_about = "\
 Zero to a working plugin in one command.
@@ -56,6 +66,13 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     Quickstart(QuickstartArgs),
     /// Generate identity, write ~/.entangle/identity.key and config.toml.
     Init(InitArgs),
+    /// Install an authenticated package into the local plugin store.
+    Install(cmd::distribution::InstallArgs),
+    /// Manage optional shell warnings for agents launched outside a session.
+    #[command(subcommand_required = true)]
+    Wrapper(cmd::wrapper::WrapperArgs),
+    /// Inspect a signed registry mirror listing.
+    Registry(cmd::distribution::RegistryArgs),
     /// Print detailed version information (CLI, runtime, toolchain, daemon).
     Version,
     /// Run health checks: identity, config, keyring, daemon reachability.
@@ -74,6 +91,8 @@ is downloaded — the starter plugin is built from source in a local catalog (se
     /// Dispatch compute tasks via the scheduler.
     #[command(subcommand_required = true)]
     Compute(ComputeArgs),
+    /// Verify an Entanglement release archive.
+    Release(cmd::release::ReleaseArgs),
     /// Print the detected platform and the sandbox primitive that would be used
     /// for tier-5 plugins on this host (spec §0.2).
     PrintPlatform,
@@ -132,8 +151,17 @@ async fn run() -> anyhow::Result<()> {
     }
 
     match cli.cmd {
+        Cmd::Config(args) => cmd::tier::config(args).await,
+        Cmd::Security(args) => cmd::tier::security(args).await,
         Cmd::Quickstart(a) => cmd::quickstart::run(a).await,
         Cmd::Init(a) => cmd::init::run(a).await,
+        Cmd::Install(a) => cmd::distribution::install(a).await,
+        Cmd::Wrapper(a) => cmd::wrapper::run(a),
+        Cmd::Registry(a) => cmd::distribution::registry(a).await,
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        Cmd::Backup(a) => cmd::backup::backup(a),
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        Cmd::Restore(a) => cmd::backup::restore(a),
         Cmd::Version => cmd::version::run().await,
         Cmd::Doctor => cmd::doctor::run().await,
         Cmd::Keyring(a) => cmd::keyring::run(a).await,
@@ -141,6 +169,7 @@ async fn run() -> anyhow::Result<()> {
         Cmd::Mesh(a) => cmd::mesh::run(a).await,
         Cmd::Pair(a) => cmd::pair::run(a).await,
         Cmd::Compute(a) => cmd::compute::run(a).await,
+        Cmd::Release(a) => cmd::release::run(a),
         Cmd::PrintPlatform => print_platform(),
         Cmd::Metrics => print_metrics().await,
         Cmd::Completions { shell } => generate_completions(shell),

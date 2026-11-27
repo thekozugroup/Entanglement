@@ -1461,9 +1461,9 @@ and `entangle doctor`, which runs 13 structured health checks (identity,
 config, keyring, peers, daemon reachability, OS sandbox, disk space, clock
 skew, and more — see `crates/entangle-cli/src/cmd/doctor.rs`).
 
-Everything below is **Phase 2 / planned design**, not implemented in Phase 1:
-`entangle logs`, `entangle trace task`, `entangle upgrade`, `entangle
-backup`/`restore`, and `entangle diag mesh` do not exist yet.
+The CLI also provides encrypted offline `entangle backup` and `entangle restore` for the managed state directory. The supported roots, archive limits and fresh-home recovery procedure are documented in [Operations §7](operations.md#7-encrypted-node-backup-and-recovery).
+
+Planned operator commands include `entangle logs`, `entangle trace task`, `entangle upgrade`, and `entangle diag mesh`.
 
 **Logs:** structured JSON to stderr by default. systemd captures via journald; macOS via `os_log`; Docker via stdout. Per-plugin log streams visible via `entangle logs <plugin-id> [--follow]`. Rotation handled by the host's logger or by the maintenance plugin. **Metrics:** the `observability` plugin exposes a Prometheus `/metrics` endpoint (loopback only by default). Standard metrics: capability grants, plugin uptime, mesh peer count, scheduler queue depth, biscuit verification latency. **Tracing:** OpenTelemetry exporter (optional). Span propagation across mesh via `traceparent` header on `entangle/*` ALPN streams. `entangle trace task <id>` shows the full distributed trace. **Upgrade:** `entangle upgrade` updates the binary atomically (downloads to side path, swaps symlink, restarts via supervisor). Plugins re-instantiate. Mesh re-converges in <10s. Daemon downtime: typically 1–2s. **Backup:** `entangle backup --to <path>` packages identity + trust + paired peers + plugin data dirs (configurable include/exclude). Encrypted. `entangle restore --from` restores onto a fresh install. **Disaster recovery:** lost laptop → restore from backup on new device → mesh peers see the same NodeId via the restored identity; OR rotate identity (§6.5) and let peers migrate. `entangle diag mesh` checks reachability and prints a triage report.
 

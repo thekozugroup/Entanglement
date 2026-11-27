@@ -21,3 +21,11 @@ pub use artifact::{sign_artifact, verify_artifact, VerificationError};
 pub use keypair::{IdentityKeyPair, IdentityPublicKey, KeypairError};
 pub use keyring::{Keyring, KeyringError, TrustEntry};
 pub use signature::{Signature, SignatureBundle, SignatureError};
+
+pub use entangle_biscuits::bridge::{verify_bridge, BridgeCap, RelayAuthorizationError};
+
+pub mod relay;
+pub use entangle_biscuits::bridge::{endpoint_key as relay_endpoint_key, mint_relay};
+/// Public authority key type used by the signed relay-delegation API.
+pub use entangle_biscuits::PublicKey as RelayPublicKey;
+pub use relay::{AuthorizedRelay, BridgeReceiver, RelayError};

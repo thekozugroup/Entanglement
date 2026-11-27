@@ -135,6 +135,10 @@ struct SchedulerAddresses {
 }
 
 impl PeerAddressBook for SchedulerAddresses {
+    fn permits_stream(&self, id: &PeerId) -> bool {
+        self.trust.is_authorized(id)
+    }
+
     fn lookup(&self, id: &PeerId) -> Option<IrohPeer> {
         let static_peer = self.static_peers.get(id).cloned();
         let tailnet = self
@@ -235,21 +239,19 @@ fn snapshot_routes(
         let Some(node) = online.get(mapping.node_id.as_str()) else {
             continue;
         };
-        let Some(ip) = node
+        let ips = node
             .ips
             .iter()
             .copied()
-            .find(|ip| ip.is_ipv4() == bind.is_ipv4() && is_tailnet_ip(*ip))
-        else {
-            continue;
-        };
-        let addr = SocketAddr::new(ip, mapping.port);
+            .filter(|ip| ip.is_ipv4() == bind.is_ipv4() && is_tailnet_ip(*ip));
         let id = PeerId::from_public_key_bytes(&mapping.public_key);
-        let peer = match routes.remove(&id) {
-            Some(peer) => peer.with_addr(addr),
-            None => IrohPeer::new(mapping.public_key, addr),
-        };
-        routes.insert(id, peer);
+        for ip in ips {
+            let addr = SocketAddr::new(ip, mapping.port);
+            routes
+                .entry(id)
+                .and_modify(|peer: &mut IrohPeer| peer.add_addr(addr))
+                .or_insert_with(|| IrohPeer::new(mapping.public_key, addr));
+        }
     }
     routes
 }
@@ -297,10 +299,8 @@ async fn prepare_with_discovery(
     let mut static_peers = HashMap::new();
     if iroh {
         active_transports.push("iroh".to_owned());
-        for peer in configured_peers(&cfg.scheduler, local_peer_id) {
-            peer_ids.insert(peer.peer_id);
-            static_peers.insert(peer.peer_id, peer);
-        }
+        static_peers = configured_peers(&cfg.scheduler, local_peer_id);
+        peer_ids.extend(static_peers.keys().copied());
     }
 
     let mut previous_error = None;

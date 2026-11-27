@@ -16,8 +16,12 @@
 pub mod bindings;
 pub mod engine;
 pub mod errors;
+mod libtest;
+pub use libtest::LIBTEST_WORLD;
+pub mod metric;
 pub mod plugin;
 pub mod state;
+pub mod stream;
 
 pub use engine::HostEngine;
 pub use errors::HostError;

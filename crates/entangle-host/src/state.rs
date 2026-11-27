@@ -83,6 +83,7 @@ impl ResourceLimits {
 /// environment variables, no network sockets. The capability broker
 /// will extend the context per-plugin based on the granted tier and manifest.
 pub struct HostState {
+    pub(crate) stream_output: Option<crate::stream::Output>,
     /// The plugin this store belongs to.
     pub plugin_id: PluginId,
     /// The effective capability tier for this plugin invocation.
@@ -104,6 +105,10 @@ pub struct HostState {
 }
 
 impl HostState {
+    pub(crate) fn replace_wasi(&mut self, wasi: WasiCtx) {
+        self.wasi = wasi;
+    }
+
     /// Create a new [`HostState`] with a minimal WASI context and the default
     /// [`ResourceLimits`].
     ///
@@ -121,6 +126,7 @@ impl HostState {
         // No filesystem, no network preopens — broker will add them per-capability.
         builder.inherit_stderr();
         Self {
+            stream_output: None,
             plugin_id,
             effective_tier,
             log_buffer: Vec::new(),

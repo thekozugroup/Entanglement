@@ -163,6 +163,9 @@ pub fn verify_artifact<'k>(
     // Step 6: signature verification — signed payload is the combined digest
     let pub_key = IdentityPublicKey::from_bytes(&entry.public_key)
         .map_err(|_| VerificationError::BadSignature)?;
+    if pub_key.fingerprint() != bundle.publisher_fingerprint {
+        return Err(VerificationError::UnknownPublisher);
+    }
     let sig = Signature(bundle.signature);
     pub_key
         .verify(
@@ -172,4 +175,33 @@ pub fn verify_artifact<'k>(
         .map_err(|_| VerificationError::BadSignature)?;
 
     Ok(entry)
+}
+
+/// Bind a verified signing key to the mandatory plugin publisher and optional signature section.
+pub fn verify_publisher_binding(
+    publisher: &str,
+    declared_signature: Option<(&str, &str)>,
+    signer: &str,
+    algorithm: &str,
+) -> Result<(), VerificationError> {
+    let check = |claimed: &str| {
+        if claimed.eq_ignore_ascii_case(signer) {
+            Ok(())
+        } else {
+            Err(VerificationError::PublisherMismatch {
+                manifest_publisher: claimed.to_owned(),
+                signer_fingerprint: signer.to_owned(),
+            })
+        }
+    };
+    check(publisher)?;
+    if let Some((claimed, declared_algorithm)) = declared_signature {
+        check(claimed)?;
+        if declared_algorithm != algorithm {
+            return Err(VerificationError::UnsupportedAlgorithm(
+                declared_algorithm.to_owned(),
+            ));
+        }
+    }
+    Ok(())
 }

@@ -14,11 +14,17 @@ import tomllib
 
 # Primary crate ownership from the maintainer handbooks and architecture §12.1.
 ROLE_CRATES = {
-    "core-runtime-lead": {"core", "runtime", "broker", "host", "types", "ipc"},
-    "mesh-lead": {"mesh-local", "mesh-iroh", "mesh-tailscale", "pairing", "peers"},
-    "agent-lead": {"agent-host"},
-    "security-lead": {"signing", "biscuits"},
-    "release-lead": {"manifest", "oci", "bin", "cli"},
+    "core-runtime-lead": {
+        "entangle-core", "entangle-runtime", "entangle-broker", "entangle-host", "entangle-types", "entangle-ipc",
+    },
+    "mesh-lead": {
+        "entangle-mesh-local", "entangle-mesh-iroh", "entangle-mesh-tailscale", "entangle-pairing", "entangle-peers",
+    },
+    "agent-lead": {"entangle-agent-host"},
+    "security-lead": {"entangle-signing", "entangle-biscuits"},
+    "release-lead": {
+        "entangle-manifest", "entangle-oci", "entangle-bin", "entangle-cli", "cargo-entangle",
+    },
 }
 
 
@@ -153,11 +159,11 @@ def check(bus_factor_only):
     for holder, files in recent_merges(repo, set.union(*holders.values()), now - timedelta(days=60), now):
         for path in files:
             parts = path.split("/", 2)
-            if len(parts) != 3 or parts[0] != "crates" or not parts[1].startswith("entangle-"):
+            if len(parts) != 3 or parts[0] != "crates":
                 continue
             if not owned_by(owners, path, holder):
                 continue
-            crate = parts[1].removeprefix("entangle-")
+            crate = parts[1]
             for role, crates in ROLE_CRATES.items():
                 if holder in holders[role] and crate in crates:
                     active[role].add(holder)

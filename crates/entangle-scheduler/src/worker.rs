@@ -92,8 +92,11 @@ pub struct WorkerPool {
 pub struct WorkerCapabilities {
     /// Resource capacities used by placement.
     pub worker: WorkerInfo,
-    /// Exact plugin versions this worker can run.
+    /// Exact loaded plugin versions this worker can run as one-shot work.
     pub plugins: HashSet<PluginId>,
+    /// Additional adapters that run only as streaming tasks.
+    #[serde(default, skip_serializing_if = "HashSet::is_empty")]
+    pub streaming_plugins: HashSet<PluginId>,
 }
 
 /// Shared only by dispatches using this observation (or the permanent local worker).
@@ -118,17 +121,27 @@ impl Drop for Reservation {
 
 #[derive(Default)]
 struct Observations {
+    // Separate from advertisement data: fresh self-reports must not erase a penalty.
+    semantic_reputation: Option<f64>,
     in_flight: InFlight,
     discovered: Option<(WorkerInfo, Instant)>,
     authenticated: Option<(WorkerCapabilities, Instant)>,
 }
 
 impl Observations {
-    fn live(&self, now: Instant, ttl: Duration, plugin: Option<&PluginId>) -> Option<&WorkerInfo> {
+    fn live(
+        &self,
+        now: Instant,
+        ttl: Duration,
+        plugin: Option<(&PluginId, bool)>,
+    ) -> Option<&WorkerInfo> {
         if let Some((report, seen)) = &self.authenticated {
             if now.duration_since(*seen) < ttl {
                 return plugin
-                    .is_none_or(|id| report.plugins.contains(id))
+                    .is_none_or(|(id, streaming)| {
+                        report.plugins.contains(id)
+                            || (streaming && report.streaming_plugins.contains(id))
+                    })
                     .then_some(&report.worker);
             }
         }
@@ -202,6 +215,22 @@ impl WorkerPool {
         true
     }
 
+    pub(crate) fn observe_semantic(&self, peer: &PeerId, agreed: bool) {
+        if let Some(entry) = self.inner.write().get_mut(peer) {
+            let previous = entry.semantic_reputation.unwrap_or(1.0);
+            entry.semantic_reputation = Some(0.9 * previous + 0.1 * f64::from(agreed));
+        }
+    }
+
+    /// EWMA of this retained worker's semantic correctness observations.
+    pub fn semantic_reputation(&self, peer: &PeerId) -> f64 {
+        self.inner
+            .read()
+            .get(peer)
+            .and_then(|entry| entry.semantic_reputation)
+            .unwrap_or(1.0)
+    }
+
     /// Remove a worker (peer revoked, network gone, etc.).
     pub fn remove(&self, peer_id: &PeerId) -> Option<WorkerInfo> {
         let old = self.inner.write().remove(peer_id)?;
@@ -241,6 +270,27 @@ impl WorkerPool {
         ttl: Duration,
         spec: &ResourceSpec,
         plugin: &PluginId,
+        local: Option<(&WorkerInfo, &InFlight)>,
+        eligible: impl Fn(&PeerId) -> bool,
+    ) -> Result<(PlacementChoice, Reservation), PlacementError> {
+        self.choose_for(ttl, spec, (plugin, false), local, eligible)
+    }
+
+    pub(crate) fn choose_stream(
+        &self,
+        ttl: Duration,
+        spec: &ResourceSpec,
+        plugin: &PluginId,
+        eligible: impl Fn(&PeerId) -> bool,
+    ) -> Result<(PlacementChoice, Reservation), PlacementError> {
+        self.choose_for(ttl, spec, (plugin, true), None, eligible)
+    }
+
+    fn choose_for(
+        &self,
+        ttl: Duration,
+        spec: &ResourceSpec,
+        plugin: (&PluginId, bool),
         local: Option<(&WorkerInfo, &InFlight)>,
         eligible: impl Fn(&PeerId) -> bool,
     ) -> Result<(PlacementChoice, Reservation), PlacementError> {
@@ -331,11 +381,15 @@ mod tests {
         pool.upsert_authenticated(WorkerCapabilities {
             worker: worker.clone(),
             plugins: [plugin.clone()].into(),
+            streaming_plugins: [missing.clone()].into(),
         });
         worker.memory_bytes = 0;
         pool.upsert(worker);
         assert!(fits(&plugin));
         assert!(!fits(&missing));
+        assert!(pool
+            .choose_stream(ttl, &ResourceSpec::default(), &missing, |_| true)
+            .is_ok());
         assert!(pool.live(ttl)[0].memory_bytes > 0);
 
         pool.remove_discovered(&id);

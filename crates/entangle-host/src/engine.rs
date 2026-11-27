@@ -83,6 +83,12 @@ impl HostEngine {
         )
         .context("add entangle:plugin host imports to linker")?;
 
+        crate::stream::bindings::entangle::plugin::stream::add_to_linker::<
+            HostState,
+            wasmtime::component::HasSelf<HostState>,
+        >(&mut linker, |state| state)
+        .context("add stream output interface")?;
+
         // Lifetime epoch ticker. Holds only a weak engine handle so it never
         // keeps the engine alive; exits when the last strong handle is gone
         // or when the guard's stop flag is set.

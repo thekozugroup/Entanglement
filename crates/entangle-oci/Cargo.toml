@@ -1,6 +1,6 @@
 [package]
 name = "entangle-oci"
-description = "Phase-2 OCI distribution: fetch and verify plugins from OCI registries (stub)"
+description = "Fetch, authenticate and install publisher-signed Entanglement packages"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,4 +16,22 @@ rustdoc-args = ["--cfg", "docsrs"]
 entangle-types = { workspace = true }
 entangle-signing = { workspace = true }
 anyhow = { workspace = true }
-thiserror = { workspace = true }
+entangle-manifest = { workspace = true }
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+sha2.workspace = true
+tar.workspace = true
+zstd.workspace = true
+tracing.workspace = true
+tempfile.workspace = true
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+url = "2"
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1", features = ["fs"] }
+
+[dev-dependencies]
+tokio.workspace = true

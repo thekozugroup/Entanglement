@@ -15,6 +15,8 @@
 //!   only from the store, never from an unauthenticated sighting)
 //! - `mesh/status`  → local_peer_id (identity-derived), display_name, real transport list, counts
 
+mod tier;
+
 use crate::state::DaemonState;
 use entangle_rpc::methods::{
     method, ComputeDispatchParams, ComputeDispatchResult, ComputeIntegrity, MeshStatusResult,
@@ -105,6 +107,7 @@ pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
     tracing::debug!(method = %req.method, "RPC dispatch");
 
     match req.method.as_str() {
+        m if m == method::TIER_POLICY => tier::dispatch(req.id, req.params, state).await,
         m if m == method::METRICS => ok_resp(req.id, state.render_metrics()),
         m if m == method::VERSION => handle_version(req.id),
         m if m == method::TIME => handle_time(req.id),
@@ -114,6 +117,34 @@ pub async fn dispatch(line: &str, state: &Arc<DaemonState>) -> String {
         m if m == method::PLUGINS_INVOKE => handle_plugins_invoke(req.id, req.params, state).await,
         m if m == method::MESH_PEERS => handle_mesh_peers(req.id, state).await,
         m if m == method::MESH_STATUS => handle_mesh_status(req.id, state).await,
+        "mesh/relay/send" => {
+            let Some(relay) = &state.relay else {
+                return error_resp(req.id, -32000, "scheduler relay transport unavailable");
+            };
+            let frame = match serde_json::from_value(req.params) {
+                Ok(f) => f,
+                Err(e) => return error_resp(req.id, -32602, e.to_string()),
+            };
+            match relay.send(frame).await {
+                Ok(()) => ok_resp(req.id, ()),
+                Err(e) => error_resp(req.id, -32000, e.to_string()),
+            }
+        }
+        "mesh/relay/read" => {
+            let Some(relay) = &state.relay else {
+                return error_resp(req.id, -32000, "relay inbox unavailable");
+            };
+            match relay.read() {
+                Ok(frame) => ok_resp(req.id, frame),
+                Err(e) => error_resp(req.id, -32000, e.to_string()),
+            }
+        }
+        m @ ("compute/stream/open" | "compute/stream/read" | "compute/stream/close") => {
+            match state.streams.handle(m, req.params, &state.dispatcher).await {
+                Ok(value) => ok_resp(req.id, value),
+                Err(error) => error_resp(req.id, -32000, error),
+            }
+        }
         m if m == method::COMPUTE_DISPATCH => {
             handle_compute_dispatch(req.id, req.params, state).await
         }
@@ -285,7 +316,16 @@ async fn handle_compute_dispatch(
     // A malformed peer hex in a TrustedExecutor allowlist is a hard error, not
     // a silently-dropped entry: swallowing it (the old `.unwrap_or_default()`)
     // could collapse the allowlist to empty and admit an unintended executor.
+    let mut output_limit = None;
     let integrity = match p.integrity {
+        ComputeIntegrity::SemanticEquivalent {
+            metric,
+            threshold,
+            max_output_bytes,
+        } => {
+            output_limit = max_output_bytes;
+            IntegrityPolicy::SemanticEquivalent { metric, threshold }
+        }
         ComputeIntegrity::None => IntegrityPolicy::None,
         ComputeIntegrity::Deterministic { replicas } => IntegrityPolicy::Deterministic { replicas },
         ComputeIntegrity::TrustedExecutor { ref allowlist } => {
@@ -310,6 +350,9 @@ async fn handle_compute_dispatch(
     let mut task = OneShotTask::with_defaults(plugin_id, p.input);
     task.resources = resources;
     task.integrity = integrity;
+    if let Some(cap) = output_limit {
+        task.max_output_bytes = task.max_output_bytes.min(cap);
+    }
     // Clamp the client-supplied timeout before it flows into the kernel.
     task.timeout_ms = p.timeout_ms.min(MAX_INVOKE_TIMEOUT_MS);
 

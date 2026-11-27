@@ -125,6 +125,11 @@ impl Client {
         self.call(method::METRICS, serde_json::Value::Null).await
     }
 
+    /// Review, apply or cancel an operator tier change.
+    pub async fn tier_policy(&self, params: TierPolicyParams) -> Result<TierReview, RpcError> {
+        self.call(method::TIER_POLICY, params).await
+    }
+
     /// `version` — return daemon / runtime / types version strings.
     pub async fn version(&self) -> Result<VersionResult, RpcError> {
         self.call(method::VERSION, serde_json::Value::Null).await
@@ -185,6 +190,28 @@ impl Client {
     pub async fn mesh_status(&self) -> Result<MeshStatusResult, RpcError> {
         self.call(method::MESH_STATUS, serde_json::Value::Null)
             .await
+    }
+
+    /// Submit one signed frame through a selected paired bridge.
+    pub async fn relay_send(&self, frame: &RelaySend) -> Result<(), RpcError> {
+        self.call("mesh/relay/send", frame).await
+    }
+    /// Pop the next verified frame from this receiver's inbox.
+    pub async fn relay_read(&self) -> Result<Option<RelayMessage>, RpcError> {
+        self.call("mesh/relay/read", ()).await
+    }
+
+    /// Start a streaming invocation and return its local session handle.
+    pub async fn stream_open(&self, params: &StreamOpenParams) -> Result<StreamHandle, RpcError> {
+        self.call("compute/stream/open", params).await
+    }
+    /// Pull the next verified chunk or control event.
+    pub async fn stream_read(&self, session: &str) -> Result<StreamRead, RpcError> {
+        self.call("compute/stream/read", session).await
+    }
+    /// Cancel an open session and release its worker reservation.
+    pub async fn stream_close(&self, session: &str) -> Result<(), RpcError> {
+        self.call("compute/stream/close", session).await
     }
 
     /// `compute/dispatch` — dispatch a one-shot task via the scheduler.

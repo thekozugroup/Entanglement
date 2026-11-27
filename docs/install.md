@@ -378,9 +378,12 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.profile
 
 ### Verify the release yourself (stronger than the checksum)
 
-Every release asset is also signed with cosign (keyless / sigstore, with SLSA
-build provenance) and carries a BLAKE3 sidecar. The installer checks SHA-256;
-[`scripts/verify-release.sh`](../scripts/verify-release.sh) checks all three.
+Promoted releases carry a detached Ed25519 publisher signature and a keyless
+Sigstore bundle with Rekor inclusion proof. Use a trusted copy of `entangle`
+and Cosign with v0.3 bundle support on your `PATH`. Obtain the release publisher
+public key from a trusted channel independent of the release download. The
+command uses `~/.entangle/release.pub` by default or accepts a PEM file through
+`--publisher-key`.
 
 ```bash
 TAG=v0.1.0
@@ -389,17 +392,26 @@ BASE="https://github.com/thekozugroup/Entanglement/releases/download/${TAG}"
 TARBALL="entanglement-${TAG}-${TARGET}.tar.gz"
 
 curl -fsSLO "${BASE}/${TARBALL}"
-curl -fsSLO "${BASE}/${TARBALL}.sha256"
-curl -fsSLO "${BASE}/${TARBALL}.b3"
+curl -fsSLO "${BASE}/${TARBALL}.sig"
 curl -fsSLO "${BASE}/${TARBALL}.sigstore"
 
-./scripts/verify-release.sh "${TARBALL}"   # from a repo checkout
+entangle release verify "${TARBALL}" --publisher-key /path/to/trusted/release.pub
 tar -xzf "${TARBALL}"
 install -m0755 "entanglement-${TAG}-${TARGET}/entangle"  ~/.local/bin/
 install -m0755 "entanglement-${TAG}-${TARGET}/entangled" ~/.local/bin/
 ```
 
-Official verification requires `sha256sum` or `shasum`, plus `cosign` and the release's Sigstore bundle. Install `b3sum` to check a published BLAKE3 sidecar. For an unsigned local build, `./scripts/verify-release.sh --checksums-only "$TARBALL"` checks the digest without authenticating the publisher.
+Keep the original archive filename so the CLI can pin the Sigstore certificate
+to the matching release tag. Cosign may need network access to obtain its
+trusted Sigstore material. The bundled Rekor proof is checked offline.
+
+The [verification script](../scripts/verify-release.sh) remains available for
+checksum and Sigstore verification of existing archives. It uses `sha256sum`
+or `shasum`, optionally `b3sum`, and Python 3 to inspect the Sigstore bundle.
+Keep the canonical release filename so it can verify the matching tag. For an
+unsigned local build, use
+`./scripts/verify-release.sh --checksums-only "$TARBALL"` to check the published
+digests.
 
 ---
 

@@ -509,3 +509,83 @@ async fn relay_assisted_connect_reaches_a_relay() {
         .expect("endpoint must reach a relay within 30s");
     assert!(!t.local_addrs().is_empty());
 }
+
+#[tokio::test]
+async fn signed_bridge_frame_is_metered_on_the_receiving_quic_endpoint() {
+    use biscuit_auth::PrivateKey;
+    use entangle_biscuits::{attenuate_biscuit, make_bridge_attenuation, mint, ClaimSet};
+    use entangle_signing::{BridgeReceiver, RelayError};
+
+    deadline("signed relay budget", async {
+        let local_id = IdentityKeyPair::generate();
+        let local_key = PrivateKey::from_pem(&local_id.to_pem()).unwrap();
+        let remote_key = PrivateKey::new();
+        let bridge = start(&IdentityKeyPair::generate()).await;
+        let dest = start(&local_id).await;
+        let bridge_id = bridge.local_peer_id();
+        let destination = dest.local_peer_id();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        let grant = |key: &PrivateKey| {
+            let base = mint(
+                key,
+                &ClaimSet::new()
+                    .issued_to(bridge_id)
+                    .capability("mesh.relay"),
+            )
+            .unwrap();
+            attenuate_biscuit(
+                &base,
+                &key.public(),
+                &make_bridge_attenuation(destination, 4096, 1024, now + 300),
+            )
+            .unwrap()
+        };
+        let origin_cap = grant(&remote_key);
+        let local_cap = grant(&local_key);
+        let dir = tempfile::tempdir().unwrap();
+        let ledger = dir.path().join("bridge.toml");
+        BridgeReceiver::initialize(&ledger).unwrap();
+        let receiver =
+            Arc::new(BridgeReceiver::open(&ledger, destination, local_key.public()).unwrap());
+        let server_dest = Arc::clone(&dest);
+        let worker = tokio::spawn(async move {
+            let conn = server_dest.accept().await.unwrap().unwrap();
+            for expected in [true, false] {
+                let mut request = conn.accept_request().await.unwrap().unwrap();
+                let result = entangle_mesh_iroh::bridge::deliver_bridge_frame(
+                    &mut request,
+                    Arc::clone(&receiver),
+                    remote_key.public(),
+                    origin_cap.clone(),
+                    local_cap.clone(),
+                    Vec::new(),
+                )
+                .await;
+                match result {
+                    Ok(bytes) => {
+                        assert!(expected);
+                        assert_eq!(bytes, vec![7; 1024]);
+                        request.respond(b"ok").await.unwrap();
+                    }
+                    Err(RelayError::BridgeBudgetExhausted) => {
+                        assert!(!expected);
+                        request.respond(b"exhausted").await.unwrap();
+                    }
+                    other => panic!("unexpected relay response: {other:?}"),
+                }
+            }
+            conn.closed().await;
+        });
+        let conn = bridge.connect(&peer_of(&dest)).await.unwrap();
+        assert_eq!(conn.request(&[7; 1024]).await.unwrap(), b"ok");
+        assert_eq!(conn.request(b"x").await.unwrap(), b"exhausted");
+        conn.close();
+        worker.await.unwrap();
+        bridge.shutdown().await;
+        dest.shutdown().await;
+    })
+    .await;
+}

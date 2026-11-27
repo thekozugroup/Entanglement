@@ -1,0 +1,86 @@
+name: WASI package reproducibility
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUSTUP_TOOLCHAIN: "1.91.1"
+
+jobs:
+  serial_double_build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: "1.91.1"
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Reject packages without a lockfile
+        run: cargo test --locked -p cargo-entangle --test package
+      - name: Compare two packages and independently rebuild the signed archive
+        run: cargo test --locked -p cargo-entangle --test verify_rebuild -- --ignored
+
+  cross_host_matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: "1.91.1"
+          targets: wasm32-wasip2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - name: Package hello-world with the test publisher
+        run: |
+          mkdir -p target/reproducibility
+          python3 - <<'PY'
+          from base64 import b64encode
+          from pathlib import Path
+
+          # PKCS#8 Ed25519 key derived from the shared public fixture seed.
+          fixture = bytes.fromhex('302e020100300506032b657004220420') + bytes([41]) * 32
+          text = b'-----BEGIN PRIVATE KEY-----\n' + b64encode(fixture) + b'\n-----END PRIVATE KEY-----\n'
+          Path('target/reproducibility/test-publisher.pem').write_bytes(text)
+          PY
+          cargo entangle package examples/hello-world \
+            --source-url https://github.com/thekozugroup/Entanglement.git \
+            --key target/reproducibility/test-publisher.pem \
+            --out target/reproducibility/hello-world.tar.zst
+          shasum -a 256 target/reproducibility/hello-world.tar.zst | cut -d ' ' -f 1 > target/reproducibility/${{ matrix.os }}.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package-digest-${{ matrix.os }}
+          path: target/reproducibility/${{ matrix.os }}.sha256
+          if-no-files-found: error
+
+  compare_hashes:
+    needs: cross_host_matrix
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: package-digest-*
+          path: digests
+          merge-multiple: true
+      - name: Compare the package SHA-256 digests across all three hosts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          names = ['ubuntu-22.04', 'ubuntu-24.04', 'macos-14']
+          digests = {host: (Path('digests') / f'{host}.sha256').read_text().strip() for host in names}
+          print(digests)
+          assert all(re.fullmatch(r'[0-9a-f]{64}', value) for value in digests.values())
+          assert len(set(digests.values())) == 1, 'package digests differ across hosts'
+          PY

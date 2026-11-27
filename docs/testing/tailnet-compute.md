@@ -24,3 +24,20 @@ ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
 For separate terminals, run `python3 scripts/tests/tailnet-compute.py worker` on the worker. Pipe its single JSON line into `python3 scripts/tests/tailnet-compute.py verify` on the coordinator. Both commands exit nonzero on failure.
 
 The coordinator checks that it sees the worker's stable node ID online, that the two daemons have distinct identities, and that the job's plugin is absent locally. It waits up to 60 seconds for the worker inventory to become available, requests 0.01 CPU cores, and lets the scheduler choose the executor. A successful run prints a JSON receipt with `transport`, `chosen_peer`, `plugin_id`, and `verified_output`. Save that receipt with the tested build and host OS versions. The check reads existing configuration and submits one job. Any service setup or pairing occurs before the check.
+
+## Run on a private WireGuard network
+
+The Linux Docker acceptance harness starts a private Headscale control plane and two Tailscale daemons on an internal bridge. Each node receives a kernel `tailscale0` interface in its own container network namespace. The application containers use the real Tailscale CLI and local daemon socket. The harness checks the direct WireGuard path, runs the signed remote compute check above and verifies that worker-side revocation denies another job. It creates disposable credentials and removes its containers and network on exit.
+
+Use Python 3.11+, OpenSSL, a local Linux Docker engine with access to `/dev/net/tun`, and Linux Entanglement binaries compatible with the test image. Prepare the binaries, Wasm artifact and images before starting the isolated test.
+
+```sh
+cargo build --locked --release -p entangle-bin -p entangle-cli
+cargo build --locked --release --target wasm32-wasip2 --manifest-path plugins/json-pointer/Cargo.toml
+docker pull headscale/headscale:0.27.1
+docker pull tailscale/tailscale:v1.92.5
+docker pull python:3.12-slim-trixie
+python3 scripts/tests/private-tailnet.py
+```
+
+Use `--bin-dir` and `--wasm` to select other built artifacts. The receipt includes the authenticated executor, generated plugin output, observed WireGuard path and revocation result.

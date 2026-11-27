@@ -19,6 +19,36 @@ Record each monthly rotation review in `docs/governance/rotations.md` under a
 those handles against the committed roster, CODEOWNERS, and recent merged
 pull requests to crates owned by each role.
 
+## Stage and promote a release
+
+A tag push builds the platform archives, checks release governance and tag CI,
+and attaches Sigstore bundles to the exact staged archives. Use the artifacts
+from that successful run for the publisher ceremony. The workflow expects the
+externally approved Ed25519 public key in the repository variable
+`ENTANGLE_RELEASE_PUBLISHER_KEY` as SubjectPublicKeyInfo PEM. Distribute that key
+to users through a trusted channel independent of the archives.
+
+Record the ceremony rehearsal in `docs/governance/key-ceremony.md` before
+cutting the tag. After the required maintainer approvals and two-of-three
+ceremony, the offline signing station can produce a raw signature for each
+staged archive with OpenSSL 3. The key path refers to the locally reconstructed
+release key.
+
+```sh
+openssl pkeyutl -sign -rawin -inkey "$RECONSTRUCTED_RELEASE_KEY" \
+  -in "$TARBALL" -out "$TARBALL.sig"
+```
+
+Run the Release workflow manually on the same tag. Supply the successful
+tag-push run ID as `staged_run`. Supply `publisher_signatures` as a JSON object
+with keys `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`,
+`aarch64-apple-darwin`, and `x86_64-apple-darwin`. Each value contains the 128
+hex characters from that target's 64-byte `.sig` file. The workflow downloads
+the staged bytes, checks both signatures against its trusted key and the
+tagged workflow identity, and publishes the verified assets. Private shares
+and private keys stay with their custodians. Record ceremony and custody
+evidence separately in the maintainers' authenticated release record.
+
 ## Decisions you can make solo
 
 - Cutting a patch release (x.y.Z) when the change is a clean bugfix with no public API impact and CI is green.

@@ -20,6 +20,16 @@ pub struct Config {
     /// written by an older CLI — which omits this section entirely — leaves
     /// the daemon single-machine, exactly as before.
     pub scheduler: SchedulerConfig,
+    /// Opt-in shell wrapper preference; absent means the user has not chosen.
+    pub wrappers: WrapperConfig,
+}
+
+/// User preference for optional shell warning wrappers.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct WrapperConfig {
+    /// Explicit choice; `None` means no preference has been recorded.
+    pub install: Option<bool>,
 }
 
 impl Config {
@@ -30,6 +40,19 @@ impl Config {
             multi_node: self.mesh.multi_node,
             bus_capacity: self.runtime.bus_capacity,
         }
+    }
+
+    /// Check a signed package before creating any persistent installation state.
+    pub fn check_install_tier(&self, tier: Tier) -> Result<(), InstallError> {
+        self.check_plugin_tier(tier).map_err(|error| match error {
+            entangle_broker::PolicyError::TierAboveCeiling { plugin, ceiling } => {
+                InstallError::TierExceeded {
+                    plugin_tier: plugin,
+                    ceiling,
+                }
+            }
+            other => InstallError::Policy(other),
+        })
     }
 
     /// Check a prospective installation against the operator's tier ceiling.
@@ -106,12 +129,34 @@ pub struct TailnetPeerConfig {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct MeshConfig {
+    /// Explicit opt-ins for inter-transport forwarding and local relay inbox delivery.
+    #[serde(skip_serializing_if = "BridgeConfig::is_default")]
+    pub bridge: BridgeConfig,
     /// Active transport backends. `"local"` enables mDNS discovery, `"iroh"`
     /// enables static QUIC routes, and `"tailscale"` enables tailnet routes.
     pub transports: Vec<String>,
     /// When `true` the daemon requires at least one trusted peer before
     /// starting (spec §11 #16, enforced via ENTANGLE-E0050 at startup).
     pub multi_node: bool,
+}
+
+/// Off-by-default inter-transport relay and destination inbox.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct BridgeConfig {
+    /// Permit relaying between the configured transport pairs.
+    pub enabled: bool,
+    /// Permitted bidirectional transport pairs, currently `iroh<->tailscale`.
+    pub pairs: Vec<String>,
+    /// Enable the receiver's bounded local RPC inbox.
+    pub receive: bool,
+    /// Path of the previously initialized per-receiver ledger.
+    pub ledger: Option<std::path::PathBuf>,
+}
+impl BridgeConfig {
+    fn is_default(&self) -> bool {
+        self == &Self::default()
+    }
 }
 
 /// Security policy configuration.
@@ -146,6 +191,11 @@ pub struct RuntimeConfig {
     pub metrics_bind: Option<std::net::SocketAddr>,
     /// Absolute paths to signed plugin package directories loaded at startup.
     pub plugins: Vec<PathBuf>,
+    /// Plugin IDs explicitly disabled by an operator's tier change.
+    pub disabled_plugins: Vec<String>,
+    /// Opt in to serving a local OpenAI-compatible model over mesh streams.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inference: Option<InferenceConfig>,
 }
 
 impl Default for RuntimeConfig {
@@ -154,8 +204,43 @@ impl Default for RuntimeConfig {
             bus_capacity: 1024,
             metrics_bind: None,
             plugins: Vec::new(),
+            disabled_plugins: Vec::new(),
+            inference: None,
         }
     }
+}
+
+/// Operator-owned connection to a local inference server.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InferenceConfig {
+    /// Complete literal-loopback HTTP chat or completion endpoint.
+    pub endpoint: String,
+    /// Model ID required in the server's `/v1/models` inventory.
+    pub model: String,
+    /// Environment variable containing the optional backend bearer token.
+    pub token_env: Option<String>,
+}
+
+/// Serialize read-modify-write operations on the atomic, replaceable config file.
+/// The stable directory inode also covers the first write on a fresh installation.
+pub fn lock_config_writer(path: &std::path::Path) -> anyhow::Result<std::fs::File> {
+    use anyhow::Context;
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(std::path::Path::new("."));
+    let mut builder = std::fs::DirBuilder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder.recursive(true).create(parent)?;
+    let lock = std::fs::File::open(parent)?;
+    lock.try_lock()
+        .context("configuration writer busy or unavailable; retry the change")?;
+    Ok(lock)
 }
 
 /// Load configuration from a TOML file, or return defaults if the file does
@@ -171,4 +256,20 @@ pub fn load_config(path: &std::path::Path) -> anyhow::Result<Config> {
     };
     let cfg: Config = toml::from_str(&raw)?;
     Ok(cfg)
+}
+
+/// Typed policy failure reported by the package installer.
+#[derive(Debug, thiserror::Error)]
+pub enum InstallError {
+    /// The package requires a higher tier than the operator allows.
+    #[error("ENTANGLE-E0043: plugin tier {plugin_tier:?} exceeds daemon ceiling {ceiling:?}")]
+    TierExceeded {
+        /// Effective tier requested by the verified manifest.
+        plugin_tier: Tier,
+        /// Operator's configured maximum tier.
+        ceiling: Tier,
+    },
+    /// Additional operator policy checks.
+    #[error(transparent)]
+    Policy(entangle_broker::PolicyError),
 }

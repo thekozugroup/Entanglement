@@ -1,0 +1,363 @@
+{
+  "base_revision": "233177f933c5b4e89aea6063cb06d449528ad065",
+  "candidate_description": "uncommitted working tree during integration; pre-semantic release build, exact daemon digest in trials",
+  "environment": {
+    "cgroup_cpu_max": "400000 100000",
+    "cgroup_memory_bytes": 34359738368,
+    "cpu": "Intel Xeon Platinum 8573C",
+    "cpu_monitor": "The immediately-before-launch ps comm/stat filter excluded zombies and showed no matching live cargo/rustc/linker/entangled process. The separate ps lifetime-CPU ranking included stale processes and did not record their states. Sampled selected non-zombie compiler/build processes every two seconds from 01:35:10 through 01:35:22 with zero matches. Other agents coordinated a quiet window. There was no exclusive host allocation.",
+    "daemons": 4,
+    "guest": "signed WASI Preview 2 catalog image-resize",
+    "iroh": "1.5.0",
+    "kernel": "Linux 6.18.57 x86_64",
+    "os": "Debian 13 trixie",
+    "rust": "1.91.1",
+    "virtual_cpu_ids": "0-4",
+    "wasmtime": "36.0.23"
+  },
+  "image": {
+    "after": {
+      "concurrency": 4,
+      "daemon_sha256": "51baa1f88ef3906c8b04ce18e5b5c673f34a510e4d85e6622860ea4942d49504",
+      "images": 24,
+      "input_bytes_per_batch": 3482013,
+      "input_sha256": "ad7339e9a76e3f5778f0a97a55bd77620a54fcab30324e9458282b5fad1ee5ac",
+      "median_images_s": {
+        "local": 34.18818608691471,
+        "one_remote": 37.216590834125235,
+        "three_remote": 38.55519805851397
+      },
+      "pillow_version": "12.2.0",
+      "png_digest_list_sha256": "cc355f03ea0cd50472e113b2b92509bca56458ad637152b33f5fbb28eeac441b",
+      "source_sha256": "a8ca6d734765703b09728ab47fe59f473d93ae3967fc24c7c0288c3c7adb7130",
+      "three_over_one_remote": 1.0359680237868891,
+      "throughput_target_met": false,
+      "trials": [
+        {
+          "images_s": 34.18818608691471,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 103.02665599738248,
+          "p95_ms": 181.0063650009397,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.7019968809981947,
+          "workers": {
+            "1ef39794a40ab313d96047131fdb68ba": 24
+          }
+        },
+        {
+          "images_s": 37.216590834125235,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 84.3370539987518,
+          "p95_ms": 192.03736599956756,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6448736830025155,
+          "workers": {
+            "1ef39794a40ab313d96047131fdb68ba": 24
+          }
+        },
+        {
+          "images_s": 35.13226557283839,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 101.18147100001806,
+          "p95_ms": 144.48146400172845,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6831327159998182,
+          "workers": {
+            "1ef39794a40ab313d96047131fdb68ba": 11,
+            "21516e73bfc69e77b256e974650c8981": 7,
+            "b141e270d5ffea740c7aca8bb46be908": 6
+          }
+        },
+        {
+          "images_s": 30.45886790882623,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 102.41405700071482,
+          "p95_ms": 257.59552599993185,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.7879478670001845,
+          "workers": {
+            "1ef39794a40ab313d96047131fdb68ba": 24
+          }
+        },
+        {
+          "images_s": 41.27049165675372,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 95.12453799834475,
+          "p95_ms": 116.36997400273685,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.5815292970000883,
+          "workers": {
+            "1ef39794a40ab313d96047131fdb68ba": 13,
+            "21516e73bfc69e77b256e974650c8981": 6,
+            "b141e270d5ffea740c7aca8bb46be908": 5
+          }
+        },
+        {
+          "images_s": 33.90813676819804,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 110.28503399938927,
+          "p95_ms": 133.49799899879145,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.7077947149991815,
+          "workers": {
+            "1ef39794a40ab313d96047131fdb68ba": 24
+          }
+        },
+        {
+          "images_s": 38.55519805851397,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 98.65603700018255,
+          "p95_ms": 122.22075899990159,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6224841580005886,
+          "workers": {
+            "1ef39794a40ab313d96047131fdb68ba": 12,
+            "21516e73bfc69e77b256e974650c8981": 6,
+            "b141e270d5ffea740c7aca8bb46be908": 6
+          }
+        },
+        {
+          "images_s": 49.73176344526155,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 62.91186700036633,
+          "p95_ms": 112.24418499841704,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.48258895999970264,
+          "workers": {
+            "1ef39794a40ab313d96047131fdb68ba": 24
+          }
+        },
+        {
+          "images_s": 38.41972653180916,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 94.09312899879296,
+          "p95_ms": 140.20474499920965,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.62467909499901,
+          "workers": {
+            "1ef39794a40ab313d96047131fdb68ba": 24
+          }
+        }
+      ],
+      "wasm_sha256": "b7898b0cbbb976c2f9b8b94c14791a1734ba3d0790af04c8003b12cae7534049"
+    },
+    "before": {
+      "concurrency": 4,
+      "daemon_sha256": "882373f6fcc85e50b5812b5225156ab907001b8b61a73787b3a402a997e14cdb",
+      "images": 24,
+      "input_bytes_per_batch": 3482013,
+      "input_sha256": "ad7339e9a76e3f5778f0a97a55bd77620a54fcab30324e9458282b5fad1ee5ac",
+      "median_images_s": {
+        "local": 41.915164137363966,
+        "one_remote": 35.17799028995233,
+        "three_remote": 38.122762487810476
+      },
+      "pillow_version": "12.2.0",
+      "png_digest_list_sha256": "cc355f03ea0cd50472e113b2b92509bca56458ad637152b33f5fbb28eeac441b",
+      "source_sha256": "a8ca6d734765703b09728ab47fe59f473d93ae3967fc24c7c0288c3c7adb7130",
+      "three_over_one_remote": 1.083710643319475,
+      "throughput_target_met": false,
+      "trials": [
+        {
+          "images_s": 41.32686398935957,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 73.97473099990748,
+          "p95_ms": 138.64885799921467,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5807360559992958,
+          "workers": {
+            "50addc8cf643aaa0ea5e9d5bf8803caa": 24
+          }
+        },
+        {
+          "images_s": 30.867587963937606,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 110.4830829972343,
+          "p95_ms": 223.3433100009279,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.777514589997736,
+          "workers": {
+            "50addc8cf643aaa0ea5e9d5bf8803caa": 24
+          }
+        },
+        {
+          "images_s": 35.47447829379423,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 105.57132800022373,
+          "p95_ms": 157.18286500123213,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6765427190002811,
+          "workers": {
+            "425ecf1a319808725fe78e755061fa8f": 13,
+            "4525c622793c1a91cdd8537cb14e387b": 5,
+            "50addc8cf643aaa0ea5e9d5bf8803caa": 6
+          }
+        },
+        {
+          "images_s": 38.74153670944632,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 92.12534499965841,
+          "p95_ms": 139.5388950004417,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6194901400012895,
+          "workers": {
+            "50addc8cf643aaa0ea5e9d5bf8803caa": 24
+          }
+        },
+        {
+          "images_s": 38.122762487810476,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 103.03020299761556,
+          "p95_ms": 130.4569720014115,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.6295451439982571,
+          "workers": {
+            "425ecf1a319808725fe78e755061fa8f": 12,
+            "4525c622793c1a91cdd8537cb14e387b": 6,
+            "50addc8cf643aaa0ea5e9d5bf8803caa": 6
+          }
+        },
+        {
+          "images_s": 42.220334382817754,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 74.57953199991607,
+          "p95_ms": 133.132424998621,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5684464690020832,
+          "workers": {
+            "50addc8cf643aaa0ea5e9d5bf8803caa": 24
+          }
+        },
+        {
+          "images_s": 40.50142874882854,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 92.08170599958976,
+          "p95_ms": 129.80555099784397,
+          "png_bytes": 2035585,
+          "route": "three_remote",
+          "wall_s": 0.5925716879974061,
+          "workers": {
+            "425ecf1a319808725fe78e755061fa8f": 13,
+            "4525c622793c1a91cdd8537cb14e387b": 6,
+            "50addc8cf643aaa0ea5e9d5bf8803caa": 5
+          }
+        },
+        {
+          "images_s": 41.915164137363966,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 83.63353700042353,
+          "p95_ms": 121.26239800272742,
+          "png_bytes": 2035585,
+          "route": "local",
+          "wall_s": 0.5725851370007149,
+          "workers": {
+            "50addc8cf643aaa0ea5e9d5bf8803caa": 24
+          }
+        },
+        {
+          "images_s": 35.17799028995233,
+          "max_channel_mae": 0.2352353050595238,
+          "p50_ms": 104.96191499987617,
+          "p95_ms": 159.96634200200788,
+          "png_bytes": 2035585,
+          "route": "one_remote",
+          "wall_s": 0.6822447730010026,
+          "workers": {
+            "50addc8cf643aaa0ea5e9d5bf8803caa": 24
+          }
+        }
+      ],
+      "wasm_sha256": "b7898b0cbbb976c2f9b8b94c14791a1734ba3d0790af04c8003b12cae7534049"
+    }
+  },
+  "when_utc": "2026-11-27 01:35:00\u201301:35:22",
+  "wire": [
+    {
+      "bytes": 64,
+      "iterations": 50000,
+      "maximum_us": 0.488,
+      "median_us": 0.462,
+      "minimum_us": 0.446,
+      "stage": "before",
+      "trials": 9
+    },
+    {
+      "bytes": 262144,
+      "iterations": 64,
+      "maximum_us": 1448.872,
+      "median_us": 1007.302,
+      "minimum_us": 970.651,
+      "stage": "before",
+      "trials": 9
+    },
+    {
+      "bytes": 64,
+      "iterations": 50000,
+      "maximum_us": 0.489,
+      "median_us": 0.4,
+      "minimum_us": 0.33,
+      "stage": "after",
+      "trials": 9
+    },
+    {
+      "bytes": 262144,
+      "iterations": 64,
+      "maximum_us": 218.359,
+      "median_us": 206.173,
+      "minimum_us": 196.596,
+      "stage": "after",
+      "trials": 9
+    },
+    {
+      "bytes": 64,
+      "iterations": 50000,
+      "maximum_us": 0.365,
+      "median_us": 0.345,
+      "minimum_us": 0.332,
+      "stage": "after",
+      "trials": 9
+    },
+    {
+      "bytes": 262144,
+      "iterations": 64,
+      "maximum_us": 268.024,
+      "median_us": 217.519,
+      "minimum_us": 197.611,
+      "stage": "after",
+      "trials": 9
+    },
+    {
+      "bytes": 64,
+      "iterations": 50000,
+      "maximum_us": 0.489,
+      "median_us": 0.471,
+      "minimum_us": 0.449,
+      "stage": "before",
+      "trials": 9
+    },
+    {
+      "bytes": 262144,
+      "iterations": 64,
+      "maximum_us": 1158.403,
+      "median_us": 1018.827,
+      "minimum_us": 968.008,
+      "stage": "before",
+      "trials": 9
+    }
+  ]
+}

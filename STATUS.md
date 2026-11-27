@@ -1,6 +1,12 @@
 # Entanglement release readiness
 
-This checkout implements trusted one-shot WASI compute across paired workers. The Linux and release checks below describe the evidence available for this release candidate.
+This checkout supports trusted one-shot and progressive WASI compute, signed
+semantic replica work and optional tailnet transport. The production rubric
+tracks 34 architecture contracts and 23 operational checks, including native
+hardware and release governance. [Production review](./docs/testing/production-review/README.md)
+
+The earlier release-candidate measurements below apply to the source revisions
+named in their reports. [Performance measurements](./docs/performance.md)
 
 **Recently landed**
 
@@ -40,7 +46,7 @@ This checkout implements trusted one-shot WASI compute across paired workers. Th
 | `entangle-mesh-local` | mDNS-SD discovery on `_entangle._udp.local`, hardware advert |
 | `entangle-mesh-iroh` | WAN Identity-bound QUIC mesh transport, ALPN and length-framed request/response |
 | `entangle-mesh-tailscale` | Read-only Tailscale node discovery and authenticated QUIC routing to mapped workers |
-| `entangle-oci` | OCI registry distribution — fetch/verify plugins (Phase 2 stub) |
+| `entangle-oci` | OCI tag/digest pulls, signed archive verification and signed mirror listings |
 | `entangle-peers` | Persistent allowlist (`~/.entangle/peers.toml`) |
 | `entangle-pairing` | 6-digit code + fingerprint mutual-TOFU state machine |
 | `entangle-biscuits` | biscuit-auth wrapper + bridge-attenuation enforcement |

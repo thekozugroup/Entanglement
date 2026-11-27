@@ -4,3 +4,4 @@
 
 [alias]
 xtask = "run --package xtask --release --"
+entangle = "run --locked --package cargo-entangle --"

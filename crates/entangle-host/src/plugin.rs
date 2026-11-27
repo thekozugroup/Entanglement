@@ -3,11 +3,13 @@
 use crate::bindings::PluginPre;
 use crate::engine::{HostEngine, EPOCH_TICK_MS};
 use crate::errors::HostError;
+use crate::libtest::LibtestCapture;
 use crate::state::{HostState, ResourceLimits};
 use entangle_types::{plugin_id::PluginId, tier::Tier};
 use std::time::Duration;
-use wasmtime::component::Component;
+use wasmtime::component::{Component, Linker};
 use wasmtime::{Store, Trap};
+use wasmtime_wasi::{p2::bindings::CommandPre, I32Exit};
 
 /// Extra wall-clock slack, beyond `timeout_ms`, granted to the tokio backstop
 /// timeout. The (precise) epoch deadline normally fires first; the backstop
@@ -25,9 +27,15 @@ const TIMEOUT_BACKSTOP_SLACK_MS: u64 = 250;
 pub struct LoadedPlugin {
     /// Pre-instantiated bindings: imports resolved against the engine's
     /// shared linker and the `run` export validated, at load time.
-    pre: PluginPre<HostState>,
+    pre: Exports,
     plugin_id: PluginId,
     effective_tier: Tier,
+}
+
+#[derive(Clone)]
+enum Exports {
+    Plugin(PluginPre<HostState>),
+    Libtest(CommandPre<HostState>),
 }
 
 impl Clone for LoadedPlugin {
@@ -65,6 +73,26 @@ impl LoadedPlugin {
         plugin_id: PluginId,
         effective_tier: Tier,
     ) -> Result<Self, HostError> {
+        Self::compile(engine, bytes, plugin_id, effective_tier, false)
+    }
+
+    /// Compile a pure WASI CLI test component. The runtime selects this only
+    /// when the operator loads a package with a matching signed build world.
+    pub fn from_libtest(
+        engine: &HostEngine,
+        bytes: &[u8],
+        plugin_id: PluginId,
+    ) -> Result<Self, HostError> {
+        Self::compile(engine, bytes, plugin_id, Tier::Pure, true)
+    }
+
+    fn compile(
+        engine: &HostEngine,
+        bytes: &[u8],
+        plugin_id: PluginId,
+        effective_tier: Tier,
+        libtest: bool,
+    ) -> Result<Self, HostError> {
         if bytes.starts_with(b"\x7fELF") {
             return Err(HostError::RuntimeKindMismatch {
                 declared: "wasm-component",
@@ -75,11 +103,25 @@ impl LoadedPlugin {
         // Resolve imports + validate exports once, at load time. This moves
         // linker work out of the invocation hot path (previously ~29% of
         // invoke latency) and rejects malformed components early.
-        let instance_pre = engine
-            .linker()
-            .instantiate_pre(&component)
-            .map_err(HostError::Instantiate)?;
-        let pre = PluginPre::new(instance_pre).map_err(HostError::Instantiate)?;
+        let pre = if libtest {
+            let mut linker = Linker::new(engine.engine());
+            wasmtime_wasi::p2::add_to_linker_async(&mut linker).map_err(HostError::LinkerSetup)?;
+            CommandPre::new(
+                linker
+                    .instantiate_pre(&component)
+                    .map_err(HostError::Instantiate)?,
+            )
+            .map(Exports::Libtest)
+        } else {
+            PluginPre::new(
+                engine
+                    .linker()
+                    .instantiate_pre(&component)
+                    .map_err(HostError::Instantiate)?,
+            )
+            .map(Exports::Plugin)
+        }
+        .map_err(HostError::Instantiate)?;
         Ok(Self {
             pre,
             plugin_id,
@@ -129,10 +171,11 @@ impl LoadedPlugin {
         timeout_ms: u64,
         limits: ResourceLimits,
     ) -> Result<PluginRunResult, HostError> {
-        let mut store = Store::new(
-            engine.engine(),
-            HostState::with_limits(self.plugin_id.clone(), self.effective_tier, limits),
-        );
+        let mut state = HostState::with_limits(self.plugin_id.clone(), self.effective_tier, limits);
+        let capture = matches!(&self.pre, Exports::Libtest(_))
+            .then(|| LibtestCapture::start(input, &mut state))
+            .transpose()?;
+        let mut store = Store::new(engine.engine(), state);
         // Enforce memory/table/instance caps on everything this store
         // allocates, including instantiation-time initial memories.
         store.limiter(|s| &mut s.limits);
@@ -140,37 +183,48 @@ impl LoadedPlugin {
         store.set_epoch_deadline(timeout_ms.div_ceil(EPOCH_TICK_MS).max(1));
 
         let invoke = async {
-            // Instantiate the pre-linked component in the async store.
-            let plugin = self
-                .pre
-                .instantiate_async(&mut store)
-                .await
-                .map_err(|e| classify_instantiate_error(e, timeout_ms))?;
-
-            // Call the `run` export.
-            plugin
-                .call_run(&mut store, input)
-                .await
-                .map_err(|e| classify_call_error(e, timeout_ms))
+            match &self.pre {
+                Exports::Plugin(pre) => {
+                    let plugin = pre
+                        .instantiate_async(&mut store)
+                        .await
+                        .map_err(|e| classify_instantiate_error(e, timeout_ms))?;
+                    plugin
+                        .call_run(&mut store, input)
+                        .await
+                        .map_err(|e| classify_call_error(e, timeout_ms))?
+                        .map_err(plugin_error)
+                }
+                Exports::Libtest(pre) => {
+                    let command = pre
+                        .instantiate_async(&mut store)
+                        .await
+                        .map_err(|e| classify_instantiate_error(e, timeout_ms))?;
+                    let exit_code = match command.wasi_cli_run().call_run(&mut store).await {
+                        Ok(Ok(())) => Some(0),
+                        Ok(Err(())) => Some(1),
+                        Err(error) => match error.downcast_ref::<I32Exit>() {
+                            Some(exit) => Some(exit.0),
+                            None if error.downcast_ref::<Trap>()
+                                == Some(&Trap::UnreachableCodeReached) =>
+                            {
+                                None
+                            }
+                            None => return Err(classify_call_error(error, timeout_ms)),
+                        },
+                    };
+                    capture
+                        .expect("WASI command has output capture")
+                        .result(exit_code)
+                }
+            }
         };
 
         let backstop = Duration::from_millis(timeout_ms.saturating_add(TIMEOUT_BACKSTOP_SLACK_MS));
-        let call_result = match tokio::time::timeout(backstop, invoke).await {
+        let output = match tokio::time::timeout(backstop, invoke).await {
             Ok(result) => result?,
             Err(_elapsed) => return Err(HostError::Timeout(timeout_ms)),
         };
-
-        // Map inner plugin-error to HostError.
-        let output = call_result.map_err(|plugin_err| {
-            use crate::bindings::entangle::plugin::types::PluginError;
-            let msg = match plugin_err {
-                PluginError::InvalidInput(s) => format!("invalid-input: {s}"),
-                PluginError::ResourceExhausted(s) => format!("resource-exhausted: {s}"),
-                PluginError::CapabilityDenied(s) => format!("capability-denied: {s}"),
-                PluginError::Internal(s) => format!("internal: {s}"),
-            };
-            HostError::PluginReturnedError(msg)
-        })?;
 
         let log_lines = std::mem::take(&mut store.data_mut().log_buffer);
         Ok(PluginRunResult { output, log_lines })
@@ -185,6 +239,17 @@ impl LoadedPlugin {
     pub fn effective_tier(&self) -> Tier {
         self.effective_tier
     }
+}
+
+fn plugin_error(error: crate::bindings::entangle::plugin::types::PluginError) -> HostError {
+    use crate::bindings::entangle::plugin::types::PluginError;
+    let message = match error {
+        PluginError::InvalidInput(s) => format!("invalid-input: {s}"),
+        PluginError::ResourceExhausted(s) => format!("resource-exhausted: {s}"),
+        PluginError::CapabilityDenied(s) => format!("capability-denied: {s}"),
+        PluginError::Internal(s) => format!("internal: {s}"),
+    };
+    HostError::PluginReturnedError(message)
 }
 
 /// `true` when `err`'s chain shows a denial from the store's resource limiter
@@ -207,7 +272,7 @@ fn is_resource_limit_error(err: &anyhow::Error) -> bool {
 }
 
 /// Classify an error from `instantiate_async`.
-fn classify_instantiate_error(err: anyhow::Error, timeout_ms: u64) -> HostError {
+pub(crate) fn classify_instantiate_error(err: anyhow::Error, timeout_ms: u64) -> HostError {
     if matches!(err.downcast_ref::<Trap>(), Some(Trap::Interrupt)) {
         HostError::Timeout(timeout_ms)
     } else if is_resource_limit_error(&err) {
@@ -218,7 +283,7 @@ fn classify_instantiate_error(err: anyhow::Error, timeout_ms: u64) -> HostError 
 }
 
 /// Classify an error from `call_run`.
-fn classify_call_error(err: anyhow::Error, timeout_ms: u64) -> HostError {
+pub(crate) fn classify_call_error(err: anyhow::Error, timeout_ms: u64) -> HostError {
     if matches!(err.downcast_ref::<Trap>(), Some(Trap::Interrupt)) {
         // Epoch deadline reached — the engine ticker advanced the epoch past
         // this store's per-invocation deadline.

@@ -1,0 +1,237 @@
+{
+  "name": "baseline-unverified",
+  "captured_at_utc": "2026-11-27T01:17:02Z",
+  "source_id": "sha256:985425c5a2a6b1338e27b675db526da061736da057a386326b5ae88572d43ed7",
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "historical_context": "docs/testing/production-review/baseline-2026-11-26.md",
+  "observations": {
+    "ATC-MAN-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-MAN-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-MAN-3": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-MAN-4": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-PKG-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-PKG-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-PKG-3": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-PKG-4": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-BRG-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-BRG-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-BRG-3": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-BRG-4": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-BRG-5": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-BRG-6": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-INT-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-INT-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-INT-3": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-INT-4": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-INT-5": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-STR-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-STR-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-STR-3": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-WRP-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-WRP-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-WRP-3": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-MAX-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-MAX-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-MAX-3": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-MIR-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-MIR-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-REL-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-REL-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-BUS-1": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "ATC-BUS-2": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "COR-CLI": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "COR-REMOTE": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "COR-PLATFORMS": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "AUTH-LIVE": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "AUTH-WASI": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "AUTH-CHAIN": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "REL-RESTART": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "REL-PARTITION": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "REL-LIMITS": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "INTEROP-LINUX": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "INTEROP-MAC": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "INTEROP-WAN": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "INTEROP-TAILNET": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "INTEROP-LAN": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "PERF-LLM": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "PERF-IMAGE": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "PERF-TEST": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "PERF-BASELINE": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "OPS-RELEASE": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "OPS-GOVERNANCE": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "OPS-RECOVERY": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "OPS-SECURITY": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    },
+    "OPS-CI": {
+      "status": "not_evidenced",
+      "reason": "Historical review preserved, but no independently reviewed evidence bound to this exact source snapshot and complete fixed requirement has been submitted."
+    }
+  }
+}

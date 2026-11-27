@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 
 /// Top-level shape of an `entangle.toml` manifest.
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(try_from = "WireManifest")]
 pub struct Manifest {
     /// `[plugin]` section (required).
     pub plugin: PluginSection,
@@ -26,6 +27,57 @@ pub struct Manifest {
     /// of the key that actually signed the artifact, and `algorithm` must
     /// match the bundle's algorithm. A mismatch fails the load.
     pub signature: Option<SignatureSection>,
+}
+
+// Keep the in-memory and serialized representation compatible with existing
+// packages while accepting the architecture's separate runtime declaration.
+#[derive(Deserialize)]
+struct WireManifest {
+    plugin: toml::Table,
+    runtime: Option<RuntimeDeclaration>,
+    #[serde(default)]
+    capabilities: BTreeMap<String, toml::Value>,
+    build: Option<BuildSection>,
+    signature: Option<SignatureSection>,
+}
+
+#[derive(Deserialize)]
+struct RuntimeDeclaration {
+    kind: Runtime,
+}
+
+impl TryFrom<WireManifest> for Manifest {
+    type Error = String;
+
+    fn try_from(mut wire: WireManifest) -> Result<Self, Self::Error> {
+        if let Some(runtime) = wire.runtime {
+            if let Some(existing) = wire.plugin.get("runtime") {
+                let kind: Runtime = existing
+                    .clone()
+                    .try_into()
+                    .map_err(|e: toml::de::Error| e.to_string())?;
+                if kind != runtime.kind {
+                    return Err("conflicting plugin.runtime and runtime.kind declarations".into());
+                }
+            } else {
+                let kind = match runtime.kind {
+                    Runtime::Wasm => "wasm",
+                    Runtime::Native => "native",
+                };
+                wire.plugin
+                    .insert("runtime".into(), toml::Value::String(kind.into()));
+            }
+        }
+        let plugin = toml::Value::Table(wire.plugin)
+            .try_into()
+            .map_err(|e: toml::de::Error| e.to_string())?;
+        Ok(Self {
+            plugin,
+            capabilities: wire.capabilities,
+            build: wire.build,
+            signature: wire.signature,
+        })
+    }
 }
 
 /// `[plugin]` section of `entangle.toml`.
@@ -53,8 +105,10 @@ pub struct PluginSection {
 #[serde(rename_all = "kebab-case")]
 pub enum Runtime {
     /// WebAssembly (wasip2) runtime.
+    #[serde(alias = "wasm-component")]
     Wasm,
     /// Native host process runtime.
+    #[serde(alias = "subprocess")]
     Native,
 }
 

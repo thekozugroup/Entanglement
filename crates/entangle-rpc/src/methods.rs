@@ -124,6 +124,16 @@ pub enum ComputeIntegrity {
         /// Number of independent execution replicas.
         replicas: u8,
     },
+    /// Run three distinct remote replicas and compare each output pair on the submitter.
+    SemanticEquivalent {
+        /// Fully qualified ID of a signed local comparator package.
+        metric: String,
+        /// Accept pairwise distances strictly below this value.
+        threshold: f32,
+        /// Per-replica byte ceiling, enforced before any comparison.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        max_output_bytes: Option<u64>,
+    },
     /// Accept output only from explicitly allow-listed peers (hex peer ids).
     TrustedExecutor {
         /// Hex-encoded peer ids whose outputs are trusted without further verification.
@@ -167,6 +177,8 @@ pub struct ComputeDispatchResult {
 
 /// Method name constants — kept in sync between client and server.
 pub mod method {
+    /// Review or commit a tier-policy change.
+    pub const TIER_POLICY: &str = "config/tier-policy";
     /// Render metrics from the live daemon.
     pub const METRICS: &str = "metrics";
     /// `version` — return daemon / runtime / types version strings.
@@ -187,4 +199,105 @@ pub mod method {
     pub const MESH_STATUS: &str = "mesh/status";
     /// `compute/dispatch` — dispatch a one-shot task via the scheduler.
     pub const COMPUTE_DISPATCH: &str = "compute/dispatch";
+}
+
+/// A live tier-policy review or a decision on a previously reviewed change.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TierPolicyParams {
+    /// Read the proposed ceiling from config when omitted.
+    pub target: Option<u8>,
+    /// Whether to review, accept or cancel.
+    pub action: TierPolicyAction,
+    /// Exact review the operator saw before making a decision.
+    pub approved: Option<TierReview>,
+}
+
+/// Operator actions for the tier-ceiling control RPC.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TierPolicyAction {
+    /// Compute the affected set without writing.
+    Review,
+    /// Persist the change and unload the approved plugins.
+    Apply,
+    /// Restore the previous ceiling and retain all plugins.
+    Cancel,
+}
+
+/// A consistent view of a proposed tier policy change.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TierReview {
+    /// Active daemon ceiling.
+    pub current: u8,
+    /// Proposed ceiling.
+    pub proposed: u8,
+    /// Sorted plugin IDs and tiers above the proposed ceiling.
+    pub affected: Vec<(String, u8)>,
+    /// Identifies the daemon, file contents and loaded registry revision.
+    pub revision: String,
+}
+
+/// Start a remote streaming invocation. The daemon chooses an eligible live worker.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StreamOpenParams {
+    /// Signed-policy task metadata and negotiated channel limits.
+    pub task: entangle_types::task::StreamingTask,
+    /// Initial guest input.
+    pub input: Vec<u8>,
+}
+/// Handle for one daemon-owned streaming session.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StreamHandle {
+    /// Randomly generated session ID.
+    pub session: String,
+    /// Authenticated executor peer.
+    pub executor: entangle_types::peer_id::PeerId,
+}
+/// Pull one event from the local daemon. Each successful chunk read releases one credit.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum StreamRead {
+    /// No application data arrived during this poll.
+    Waiting,
+    /// Verified signed chunk.
+    Chunk {
+        /// Zero-based sequence.
+        seq: u64,
+        /// Executor timestamp in milliseconds.
+        timestamp_ms: u64,
+        /// Detached Ed25519 signature.
+        signature: Vec<u8>,
+        /// Verified output payload.
+        bytes: Vec<u8>,
+    },
+    /// Worker ran out of credits and emitted a stall event.
+    Stalled,
+    /// End of the complete verified result.
+    Finished,
+}
+
+/// Paired bridge and destination, with independently signed grants from both endpoints.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RelaySend {
+    /// Bridge peer ID.
+    pub via: entangle_types::peer_id::PeerId,
+    /// Receiving endpoint.
+    pub destination: entangle_types::peer_id::PeerId,
+    /// Sealed grant signed by the submitting origin.
+    pub origin_grant: Vec<u8>,
+    /// Sealed grant signed by the recipient.
+    pub destination_grant: Vec<u8>,
+    /// At most 64 KiB of application payload.
+    pub bytes: Vec<u8>,
+}
+/// One verified frame from the bounded volatile receiver inbox.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RelayMessage {
+    /// Origin peer which signed the payload.
+    pub origin: entangle_types::peer_id::PeerId,
+    /// Authenticated immediate relay peer.
+    pub bridge: entangle_types::peer_id::PeerId,
+    /// Actual delivered bytes.
+    pub bytes: Vec<u8>,
 }

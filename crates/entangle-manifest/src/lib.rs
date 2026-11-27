@@ -16,6 +16,7 @@
 #![warn(missing_docs)]
 
 pub mod loader;
+pub mod render;
 pub mod schema;
 pub mod validate;
 
@@ -29,3 +30,11 @@ pub use validate::{ValidatedManifest, ValidationError};
 
 /// Type alias for the raw capabilities map stored in [`Manifest`].
 pub type CapabilitiesSection = std::collections::BTreeMap<String, toml::Value>;
+
+/// Validate a plugin manifest using the canonical §15 diagnostics.
+pub fn validate(manifest: Manifest) -> Result<ValidatedManifest, Error> {
+    validate::canonical(manifest)
+}
+
+/// Typed errors from the crate-level manifest validator.
+pub use validate::ValidationError as Error;

@@ -28,6 +28,7 @@
 mod routes;
 pub use routes::{prepare_scheduler, LanRoutes, PreparedScheduler};
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -155,6 +156,39 @@ pub fn spawn_task_server_with_capabilities(
     tokio::spawn(entangle_scheduler::serve_tasks(transport, Arc::new(server)))
 }
 
+/// Start both one-shot and signed streaming work using this daemon's own identity.
+pub fn spawn_streaming_task_server(
+    transport: Arc<MeshIroh>,
+    kernel: Arc<Kernel>,
+    store: PeerStore,
+    capabilities: WorkerInfo,
+    identity: IdentityKeyPair,
+    inference: Option<&crate::config::InferenceConfig>,
+    bridge: Option<Arc<dyn entangle_scheduler::relay::RelayHandler>>,
+) -> tokio::task::JoinHandle<()> {
+    let mut executor: Arc<dyn entangle_scheduler::stream::StreamExecutor> = kernel.clone();
+    if let Some(config) = inference {
+        match crate::inference::Inference::new(config, &identity, kernel.clone()) {
+            Ok(provider) => {
+                tracing::info!(plugin = %provider.id(), "configured local inference stream adapter");
+                executor = Arc::new(provider);
+            }
+            Err(error) => {
+                tracing::warn!(%error, "local inference disabled by invalid configuration");
+            }
+        }
+    }
+    let server = RemoteTaskServer::new(
+        kernel,
+        Arc::new(PeerStoreAllowlist::new(store)),
+        capabilities.peer_id,
+    )
+    .with_capabilities(capabilities)
+    .with_stream_executor(identity, executor)
+    .with_relay_handler(bridge);
+    tokio::spawn(entangle_scheduler::serve_tasks(transport, Arc::new(server)))
+}
+
 /// Build the outbound address book from `[scheduler] peers`.
 ///
 /// Each entry is a `<pubkey-hex>@host:port` long address, the same form
@@ -171,7 +205,7 @@ pub fn directory_from_config(
     local_peer_id: PeerId,
 ) -> PeerDirectory {
     let directory = PeerDirectory::new();
-    for peer in configured_peers(cfg, local_peer_id) {
+    for peer in configured_peers(cfg, local_peer_id).into_values() {
         if store.is_currently_trusted(&peer.peer_id) {
             directory.insert(peer);
         } else {
@@ -181,20 +215,23 @@ pub fn directory_from_config(
     directory
 }
 
-fn configured_peers(
-    cfg: &SchedulerConfig,
-    local_peer_id: PeerId,
-) -> impl Iterator<Item = IrohPeer> + '_ {
-    cfg.peers
-        .iter()
-        .filter_map(move |entry| match parse_node_addr(entry) {
-            Ok(peer) if peer.peer_id != local_peer_id => Some(peer),
-            Ok(_) => None,
+fn configured_peers(cfg: &SchedulerConfig, local_peer_id: PeerId) -> HashMap<PeerId, IrohPeer> {
+    let mut peers = HashMap::new();
+    for entry in &cfg.peers {
+        match parse_node_addr(entry) {
+            Ok(peer) if peer.peer_id != local_peer_id => {
+                peers
+                    .entry(peer.peer_id)
+                    .and_modify(|known: &mut IrohPeer| known.add_addr(peer.addr))
+                    .or_insert(peer);
+            }
+            Ok(_) => {}
             Err(e) => {
                 tracing::warn!(error = %e, "[scheduler] peers: skipping unparseable address");
-                None
             }
-        })
+        }
+    }
+    peers
 }
 
 #[cfg(test)]

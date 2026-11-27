@@ -243,6 +243,47 @@ cargo xtask hello-world build        # alias for examples/hello-world
 cargo xtask hash-it build            # alias for examples/hash-it
 ```
 
+### Produce a reproducible archive
+
+Run `cargo entangle package` for a committed WASI plugin project with a committed
+`Cargo.lock` and a `rust-toolchain.toml` that pins a stable patch release such as
+`1.91.1`. Pin external WIT package imports and `[build].wit_world` to exact
+versions. The build uses `wasm32-wasip2`, reads the source commit timestamp as
+`SOURCE_DATE_EPOCH`, and prints the archive's SHA-256. Use `--source-date-epoch`
+to record a different timestamp or `--source-url` to record an HTTPS Git URL
+in place of the checkout's `origin`.
+
+The Entanglement checkout provides `cargo entangle` as a Cargo alias. To use the
+subcommand in another repository, install the `cargo-entangle` binary with
+`cargo install --locked --path crates/cargo-entangle`. From this checkout, run
+the following commands with the publisher's identity key in `~/.entangle`.
+
+```sh
+cargo entangle package examples/hello-world --out target/hello-world.tar.zst
+cargo entangle sign target/hello-world.tar.zst
+```
+
+The archive includes the rendered manifest, component, signed component bundle,
+and `rebuild.json`. The sign command writes a sibling `.tar.zst.sig` containing
+the publisher's 64-byte Ed25519 signature over the archive SHA-256. Share both
+files with recipients. Record the source commit in a Git repository accessible
+at the HTTPS URL in the package so recipients can rebuild it.
+
+On the verifier, add the publisher's public key to the trusted keyring. Then
+verify both signatures and rebuild from the recorded commit.
+
+```sh
+entangle keyring add <PUBLISHER_PUBLIC_KEY_HEX> --name example-publisher
+cargo entangle verify --rebuild target/hello-world.tar.zst
+```
+
+`--source /path/to/git-checkout` selects a local Git repository containing that
+same commit. The verifier checks the signed lockfile digest and toolchain pin,
+uses the recorded timestamp, and compares the SHA-256 of the resulting archive.
+The verification build runs the publisher's Cargo build scripts, so run it on
+source you trust to build on the host. Archive verification and reproducibility
+checks are described in the [release checklist](release/reproducibility-checklist.md).
+
 ---
 
 ## 5. Trust your publisher key
@@ -321,3 +362,60 @@ keyring, and daemon reachability.
   §4.4 (manifest), §3.6 (artifact signing).
 - `docs/tutorial.md` — a narrated walkthrough using the bundled examples.
 - `examples/hello-world/`, `examples/hash-it/` — working plugins in-tree.
+
+
+## Install a prebuilt component
+
+Provision the publisher's Ed25519 public key through `entangle keyring add`.
+Install from a signed package directory, a local or HTTPS archive, or a registry.
+
+```sh
+entangle install ./dist
+entangle install ./example-1.0.0.tar.zst
+entangle install https://packages.example.org/example-1.0.0.tar.zst
+entangle install oci://registry.example.org/team/example:1.0.0
+```
+
+Installation checks the tier ceiling, verifies the component and manifest against
+the publisher keyring, compiles the component, and prints the content-addressed
+package directory. Activate it using `entangle plugins load <directory>`. Add
+that directory to `[runtime].plugins` for activation on daemon startup. To pin a
+registry pull to exact bytes, use `oci://registry/repository@sha256:<64 hex digits>`.
+A tag follows the registry's current selection and the installed ID identifies
+the actual signer. Use `--expect-id <publisher>/<plugin>@<version>` to require an independently known plugin identity. Public registries can issue anonymous repository-scoped pull
+tokens. Local development registries can use `--http-loopback` with an explicit
+loopback IP. HTTPS is the default.
+
+An OCI image manifest uses a SHA-256 descriptor for each of three regular
+blobs. The media types are `application/vnd.entangle.manifest.+toml`,
+`application/wasm`, and `application/vnd.entangle.signature.+ed25519`. The last
+blob contains the v2 TOML signature bundle. The archive profile contains four
+flat files (`entangle.toml`, `plugin.wasm`, `plugin.wasm.sig`, and `rebuild.json`).
+Its adjacent `.sig` is the raw 64-byte Ed25519 signature over the SHA-256 digest
+of the entire compressed archive. Both signatures must verify with the same
+trusted publisher.
+
+For signed tag enumeration, run `entangle registry tags oci://registry/repository
+--mirror-key <hex-public-key>` on one line. The mirror returns the full OCI tag
+list in one response with an `Entangle-Listing-Signature` header containing the
+hex Ed25519 signature of the bytes `entangle/oci-tags/v1`, a NUL byte, and the
+exact response body. The command checks the signed repository name and returns
+the verifying mirror fingerprint. Configure publisher and mirror keys separately.
+
+## Implement an output stream or comparator
+
+The `stream-plugin` world exports `start-stream`. The guest calls the WIT
+`yield-chunk` import for each nonempty chunk and returns the handle it used.
+The host awaits receiver credit for each write. One invocation can use one
+handle, and the worker enforces the negotiated chunk size, total output and
+deadline. A disconnected consumer causes a pending write to fail. The
+`examples/stream-lines` package demonstrates producing output one line at a
+time and returning downstream errors to the caller.
+
+A custom semantic comparator declares `entangle:integrity/comparator@0.1.0` in
+`[build].wit_world` and exports `entangle:integrity/metric@0.1.0`. Its
+`compare(a: list<u8>, b: list<u8>) -> f64` returns a finite nonnegative
+distance. The submitter loads the signed package, rechecks its publisher at
+submission, and instantiates one bounded guest per eligible output pair.
+The comparator has no host imports. Its CID is the BLAKE3 digest of the
+signed component. See the interface in `crates/entangle-wit/integrity/metric.wit`.

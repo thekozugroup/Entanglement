@@ -13,6 +13,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
+entangle-signing = { workspace = true }
+sha2 = { workspace = true }
 entangle-types     = { workspace = true }
 entangle-runtime   = { workspace = true }
 entangle-mesh-iroh = { workspace = true }
@@ -22,6 +24,7 @@ async-trait        = { workspace = true }
 thiserror          = { workspace = true }
 tracing            = { workspace = true }
 serde              = { workspace = true, features = ["derive"] }
+serde_bytes        = "0.11"
 serde_json         = { workspace = true }
 uuid               = { workspace = true }
 # Compact binary serde codec for the cross-node task envelope. Already in the
@@ -30,7 +33,12 @@ uuid               = { workspace = true }
 postcard           = { version = "1", default-features = false, features = ["use-std"] }
 
 [dev-dependencies]
+tracing-subscriber = { workspace = true }
+wat = "1"
 tokio            = { workspace = true, features = ["full"] }
 tempfile         = { workspace = true }
 toml             = { workspace = true }
-entangle-signing = { workspace = true }
+
+[[bench]]
+name = "wire_payload"
+harness = false

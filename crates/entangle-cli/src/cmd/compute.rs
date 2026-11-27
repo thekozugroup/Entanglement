@@ -38,8 +38,31 @@ pub struct ComputeArgs {
 
 #[derive(Subcommand)]
 pub enum ComputeCmd {
+    /// Stream verified signed chunks from a paired remote worker to stdout.
+    Stream(StreamArgs),
     /// Dispatch a one-shot plugin invocation via the scheduler.
     Dispatch(DispatchArgs),
+}
+
+#[derive(Args)]
+pub struct StreamArgs {
+    /// Loaded remote plugin ID.
+    plugin_id: String,
+    /// Initial UTF-8 input.
+    #[arg(long, default_value = "")]
+    input: String,
+    /// Optional trusted executor peer ID; may be repeated.
+    #[arg(long = "allow")]
+    allow: Vec<String>,
+    /// Maximum chunk bytes.
+    #[arg(long, default_value_t = 65_536)]
+    chunk_bytes: u64,
+    /// Maximum cumulative output bytes.
+    #[arg(long, default_value_t = 16_777_216)]
+    total_bytes: u64,
+    /// Initial and maximum outstanding chunks.
+    #[arg(long, default_value_t = 16)]
+    credit_window: u32,
 }
 
 #[derive(Args)]
@@ -83,13 +106,25 @@ pub struct DispatchArgs {
     #[arg(long, default_value_t = 0)]
     gpu_vram_min_mib: u64,
 
-    /// Integrity policy: none | deterministic | trusted-executor.
+    /// Integrity policy: none, deterministic, semantic-equivalent or trusted-executor.
     #[arg(long, default_value = "none")]
     integrity: String,
 
-    /// Number of replicas for --integrity deterministic.
-    #[arg(long, default_value_t = 2)]
-    replicas: u8,
+    /// Locally loaded comparator plugin ID for semantic-equivalent verification.
+    #[arg(long)]
+    metric: Option<String>,
+
+    /// Maximum accepted pairwise distance (exclusive) for semantic-equivalent.
+    #[arg(long)]
+    threshold: Option<f32>,
+
+    /// Maximum bytes per semantic replica result, checked before comparison.
+    #[arg(long)]
+    max_output_bytes: Option<u64>,
+
+    /// Number of replicas for deterministic verification (default 2).
+    #[arg(long)]
+    replicas: Option<u8>,
 
     /// Allow-listed peer hex ids for --integrity trusted-executor.
     /// May be repeated.
@@ -104,6 +139,7 @@ pub struct DispatchArgs {
 pub async fn run(args: ComputeArgs) -> anyhow::Result<()> {
     match args.cmd {
         ComputeCmd::Dispatch(args) => dispatch(args).await,
+        ComputeCmd::Stream(args) => stream(args).await,
     }
 }
 
@@ -123,12 +159,30 @@ fn allow_local() -> bool {
 
 fn parse_integrity(
     integrity: &str,
-    replicas: u8,
+    replicas: Option<u8>,
     allow: &[String],
+    metric: Option<String>,
+    threshold: Option<f32>,
+    max_output_bytes: Option<u64>,
 ) -> anyhow::Result<ComputeIntegrity> {
+    if integrity != "semantic-equivalent"
+        && (metric.is_some() || threshold.is_some() || max_output_bytes.is_some())
+    {
+        anyhow::bail!(
+            "--metric, --threshold and --max-output-bytes require --integrity semantic-equivalent"
+        );
+    }
     match integrity {
+        "semantic-equivalent" => {
+            anyhow::ensure!(allow.is_empty(), "--allow requires --integrity trusted-executor");
+            anyhow::ensure!(replicas.is_none(), "semantic-equivalent uses three distinct replicas and a two-pair quorum");
+            let metric = metric.ok_or_else(|| anyhow::anyhow!("--metric must name a signed local comparator"))?;
+            let threshold = threshold.ok_or_else(|| anyhow::anyhow!("--threshold must be specified"))?;
+            anyhow::ensure!((0.0..=1.0).contains(&threshold), "--threshold must be in [0, 1]");
+            Ok(ComputeIntegrity::SemanticEquivalent{metric,threshold,max_output_bytes})
+        },
         "none" => Ok(ComputeIntegrity::None),
-        "deterministic" => Ok(ComputeIntegrity::Deterministic { replicas }),
+        "deterministic" => Ok(ComputeIntegrity::Deterministic { replicas: replicas.unwrap_or(2) }),
         "trusted-executor" => {
             // Reject any malformed allowlist entry up front rather than
             // silently dropping it; the daemon receives only valid hex ids.
@@ -141,7 +195,7 @@ fn parse_integrity(
             })
         }
         other => Err(anyhow::anyhow!(
-            "unknown integrity mode '{other}'; expected one of: none, deterministic, trusted-executor"
+            "unknown integrity mode '{other}'; expected one of: none, deterministic, semantic-equivalent, trusted-executor"
         )),
     }
 }
@@ -176,6 +230,9 @@ async fn dispatch(args: DispatchArgs) -> anyhow::Result<()> {
         gpu_vram_min_mib,
         integrity,
         replicas,
+        metric,
+        threshold,
+        max_output_bytes,
         allow,
         raw,
         output_file,
@@ -192,7 +249,14 @@ async fn dispatch(args: DispatchArgs) -> anyhow::Result<()> {
         (None, None) => Vec::new(),
     };
 
-    let integrity_rpc = parse_integrity(&integrity, replicas, &allow)?;
+    let integrity_rpc = parse_integrity(
+        &integrity,
+        replicas,
+        &allow,
+        metric,
+        threshold,
+        max_output_bytes,
+    )?;
     let gpu_vram_min_bytes = gpu_vram_min_mib
         .checked_mul(1024 * 1024)
         .ok_or_else(|| anyhow::anyhow!("--gpu-vram-min-mib exceeds the supported byte range"))?;
@@ -252,7 +316,16 @@ async fn dispatch_local(params: ComputeDispatchParams) -> anyhow::Result<Compute
     };
 
     // Map integrity.
+    let mut output_limit = None;
     let integrity_policy = match integrity {
+        ComputeIntegrity::SemanticEquivalent {
+            metric,
+            threshold,
+            max_output_bytes,
+        } => {
+            output_limit = max_output_bytes;
+            IntegrityPolicy::SemanticEquivalent { metric, threshold }
+        }
         ComputeIntegrity::None => IntegrityPolicy::None,
         ComputeIntegrity::Deterministic { replicas } => IntegrityPolicy::Deterministic { replicas },
         ComputeIntegrity::TrustedExecutor { allowlist: allow } => {
@@ -272,6 +345,9 @@ async fn dispatch_local(params: ComputeDispatchParams) -> anyhow::Result<Compute
     let mut task = OneShotTask::with_defaults(pid, input);
     task.resources = resources;
     task.integrity = integrity_policy;
+    if let Some(cap) = output_limit {
+        task.max_output_bytes = task.max_output_bytes.min(cap);
+    }
     task.timeout_ms = timeout_ms;
 
     let dispatcher = Dispatcher::new(WorkerPool::new(), kernel, local_peer_id);
@@ -286,4 +362,87 @@ async fn dispatch_local(params: ComputeDispatchParams) -> anyhow::Result<Compute
         reason: result.chosen.reason,
         output: result.output,
     })
+}
+
+async fn stream(args: StreamArgs) -> anyhow::Result<()> {
+    use entangle_types::task::{ChannelSpec, PartialResultPolicy, StreamingTask, TaskId};
+    use std::io::Write;
+    let allowlist = args
+        .allow
+        .iter()
+        .map(|id| PeerId::from_hex(id))
+        .collect::<Result<Vec<_>, _>>()?;
+    let task = StreamingTask {
+        id: TaskId::new_v4(),
+        plugin: args.plugin_id.parse()?,
+        resources: ResourceSpec::default(),
+        channel: ChannelSpec {
+            max_chunk_bytes: args.chunk_bytes,
+            max_total_bytes: args.total_bytes,
+            credit_window: args.credit_window,
+            ..Default::default()
+        },
+        integrity: if allowlist.is_empty() {
+            IntegrityPolicy::None
+        } else {
+            IntegrityPolicy::TrustedExecutor { allowlist }
+        },
+        timeout_ms: 1_800_000,
+        partial_result: PartialResultPolicy::KeepSigned,
+    };
+    let client = rpc_client();
+    let handle = client
+        .stream_open(&entangle_rpc::StreamOpenParams {
+            task,
+            input: args.input.into_bytes(),
+        })
+        .await?;
+    eprintln!("stream executor {}", handle.executor);
+    let result = async {
+        loop {
+            match client.stream_read(&handle.session).await? {
+                entangle_rpc::StreamRead::Chunk { bytes, .. } => {
+                    let mut stdout = std::io::stdout().lock();
+                    stdout.write_all(&bytes)?;
+                    stdout.flush()?;
+                }
+                entangle_rpc::StreamRead::Finished => return Ok(()),
+                entangle_rpc::StreamRead::Waiting => {}
+                entangle_rpc::StreamRead::Stalled => eprintln!("worker waiting for stream credit"),
+            }
+        }
+    }
+    .await;
+    if result.is_err() {
+        let _ = client.stream_close(&handle.session).await;
+    }
+    result
+}
+
+#[cfg(test)]
+mod semantic_flags {
+    use super::*;
+
+    #[test]
+    fn semantic_policy_transmits_limits_and_rejects_conflicting_executor_flags() {
+        let parse = |count, allow: &[String]| {
+            parse_integrity(
+                "semantic-equivalent",
+                count,
+                allow,
+                Some("0123456789abcdef0123456789abcdef/metric@1.0.0".into()),
+                Some(0.2),
+                Some(1024),
+            )
+        };
+        assert!(
+            matches!(parse(None,&[]).unwrap(),ComputeIntegrity::SemanticEquivalent{threshold,max_output_bytes:Some(1024),..} if threshold == 0.2)
+        );
+        assert!(parse(Some(1), &[]).is_err());
+        assert!(parse(None, &["one-worker".into()]).is_err());
+        assert!(matches!(
+            parse_integrity("deterministic", None, &[], None, None, None).unwrap(),
+            ComputeIntegrity::Deterministic { replicas: 2 }
+        ));
+    }
 }

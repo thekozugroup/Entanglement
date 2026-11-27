@@ -13,6 +13,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
+entangle-biscuits = { workspace = true }
 entangle-types = { workspace = true }
 ed25519-dalek = { workspace = true }
 blake3 = { workspace = true }
@@ -22,3 +23,6 @@ serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
 thiserror = { workspace = true }
 tempfile = { workspace = true }
+
+[dev-dependencies]
+biscuit-auth = { workspace = true }

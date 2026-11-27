@@ -16,7 +16,9 @@ use crate::{
 };
 use entangle_biscuits::verifier;
 use entangle_manifest::ValidatedManifest;
-use entangle_types::{capability::CapabilityKind, peer_id::PeerId, plugin_id::PluginId};
+use entangle_types::{
+    capability::CapabilityKind, peer_id::PeerId, plugin_id::PluginId, tier::Tier,
+};
 use parking_lot::{Mutex, RwLock};
 use std::borrow::Cow;
 use std::collections::hash_map::Entry;
@@ -81,7 +83,7 @@ struct PluginRecord {
 /// a plugin cannot be unregistered or re-registered while any grant holds the
 /// read lock, and no other operation can change what the manifest declares.
 pub struct Broker {
-    policy: BrokerPolicy,
+    policy: RwLock<BrokerPolicy>,
     plugins: RwLock<HashMap<PluginId, PluginRecord>>,
     next_grant_id: AtomicU64,
     audit: Arc<AuditLog>,
@@ -91,7 +93,7 @@ impl Broker {
     /// Construct a broker with the given daemon-wide policy.
     pub fn new(policy: BrokerPolicy) -> Self {
         Self {
-            policy,
+            policy: RwLock::new(policy),
             plugins: RwLock::new(HashMap::new()),
             next_grant_id: AtomicU64::new(1),
             audit: Arc::new(AuditLog::default()),
@@ -103,9 +105,14 @@ impl Broker {
         self.audit.clone()
     }
 
-    /// Return a reference to the daemon-wide policy.
-    pub fn policy(&self) -> &BrokerPolicy {
-        &self.policy
+    /// Snapshot the active daemon policy.
+    pub fn policy(&self) -> BrokerPolicy {
+        self.policy.read().clone()
+    }
+
+    /// Update the admission ceiling after the runtime has drained affected plugins.
+    pub fn set_max_tier(&self, tier: Tier) {
+        self.policy.write().max_tier_allowed = tier;
     }
 
     /// Register a validated plugin manifest with the broker.
@@ -120,7 +127,8 @@ impl Broker {
     /// overwriting the live record (which would silently drop its outstanding
     /// grants with no `CapabilityReleased` audit trail).
     pub fn register_plugin(&self, manifest: ValidatedManifest) -> Result<(), BrokerError> {
-        self.policy.check_plugin_load(manifest.effective_tier)?;
+        let policy = self.policy.read();
+        policy.check_plugin_load(manifest.effective_tier)?;
 
         let plugin_id = manifest.plugin_id.clone();
         let declared_tier = manifest.declared_tier;
@@ -152,11 +160,16 @@ impl Broker {
 
     /// Unregister a plugin, automatically releasing all outstanding grants.
     pub fn unregister_plugin(&self, plugin: &PluginId) -> Result<(), BrokerError> {
-        let removed = self
-            .plugins
-            .write()
-            .remove(plugin)
-            .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))?;
+        self.remove_plugin(plugin)
+            .then_some(())
+            .ok_or_else(|| BrokerError::PluginNotRegistered(plugin.clone()))
+    }
+
+    /// Release registrations and grants if present. Returns whether a registration existed.
+    pub fn remove_plugin(&self, plugin: &PluginId) -> bool {
+        let Some(removed) = self.plugins.write().remove(plugin) else {
+            return false;
+        };
 
         // Release any outstanding grants. The record is ours now (it is out of
         // the registry and nobody else holds a reference), so the grant table
@@ -175,7 +188,7 @@ impl Broker {
             at: SystemTime::now(),
         });
 
-        Ok(())
+        true
     }
 
     /// Grant a capability the plugin declared at manifest time.
