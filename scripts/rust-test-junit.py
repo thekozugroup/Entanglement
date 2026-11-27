@@ -32,8 +32,7 @@ def finalize(element, source, counts):
                           time=f"{elapsed // 1000}.{elapsed % 1000:03d}")
 
 
-def add_case(suite, record):
-    name, status, attempts = record["name"], record["status"], record["attempts"]
+def validate_history(name, status, attempts):
     if not isinstance(name, str) or not name or status not in STATUSES or not isinstance(attempts, list):
         raise ValueError("invalid test case name, status, or attempts")
     if not attempts and status != "ignored":
@@ -49,16 +48,29 @@ def add_case(suite, record):
                 raise ValueError(f"{name}: invalid captured output in attempt {index}")
         if attempt["status"] == "error" and not isinstance(attempt.get("error"), str):
             raise ValueError(f"{name}: missing error diagnostic in attempt {index}")
-    if status in {"passed", "flaky"}:
-        if attempts[-1]["status"] != "passed" or (
-            any(a["status"] == "failed" for a in attempts[:-1]) != (status == "flaky")
-        ):
-            raise ValueError(f"{name}: successful result disagrees with attempt history")
-    if status == "ignored" and attempts and (
-        len(attempts) != 1 or attempts[0]["status"] != "ignored"
-    ):
-        raise ValueError(f"{name}: ignored result disagrees with attempt history")
+        if attempt.get("error_kind") == "suite_identity" and attempt["status"] != "error":
+            raise ValueError(f"{name}: invalid identity error in attempt {index}")
+        if index < len(attempts) and (attempt["status"] == "passed"
+                or (index == 1 and attempt["status"] == "ignored")
+                or attempt.get("error_kind") == "suite_identity"):
+            raise ValueError(f"{name}: retry followed a terminal result")
+    if attempts:
+        outcomes = [a["status"] for a in attempts]
+        if attempts[-1].get("error_kind") == "suite_identity":
+            expected = "error"
+        elif outcomes[-1] == "passed":
+            expected = "flaky" if "failed" in outcomes else "passed"
+        elif outcomes == ["ignored"]:
+            expected = "ignored"
+        else:
+            expected = "failed" if "failed" in outcomes else "error"
+        if status != expected:
+            raise ValueError(f"{name}: final status disagrees with attempt history")
 
+
+def add_case(suite, record):
+    name, status, attempts = record["name"], record["status"], record["attempts"]
+    validate_history(name, status, attempts)
     case = ET.SubElement(suite, "testcase", classname=suite.get("name"), name=xml_text(name))
     if status == "ignored":
         ET.SubElement(case, "skipped", message="ignored by Rust libtest")

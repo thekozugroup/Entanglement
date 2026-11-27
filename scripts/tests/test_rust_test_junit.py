@@ -105,3 +105,15 @@ class JUnitTests(unittest.TestCase):
         report["suites"][0]["results"][0]["attempts"][0].pop("stdout")
         with self.assertRaises(KeyError):
             junit.convert(report)
+
+    def test_terminal_status_must_match_the_attempts(self):
+        retry = report_fixture()["suites"][0]["results"][3]
+        for status in ("failed", "error", "passed"):
+            with self.subTest(status=status), self.assertRaisesRegex(ValueError, "attempt history"):
+                junit.validate_history(retry["name"], status, retry["attempts"])
+        refused = dict(attempt=2, peer="other", status="error", error_kind="suite_identity",
+                       error="signed package changed")
+        attempts = [retry["attempts"][0], refused]
+        junit.validate_history("retry", "error", attempts)
+        with self.assertRaisesRegex(ValueError, "retry followed"):
+            junit.validate_history("retry", "flaky", [*attempts, dict(retry["attempts"][1], attempt=3)])
