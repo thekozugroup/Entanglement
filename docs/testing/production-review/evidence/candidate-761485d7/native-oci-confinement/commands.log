@@ -1,0 +1,82 @@
+Frozen commit = 761485d7490a56c7215ad958db81949204c74245
+Source before = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+
+[2026-11-27T03:31:06.271+00:00] $ bash /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/native-oci-confinement/probe.sh
+Source before = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+2026-11-27T03:31:06Z
+Linux 6.18.57 x86_64
+["name=seccomp,profile=builtin","name=rootless","name=cgroupns"] cgroupDriver=none cgroupVersion=2
+linux/amd64 ID=sha256:2b147973fd863c93ced60f325461fe0e262b91317b008e6a2d961f13e81af0e4 RepoDigests=ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b
++ timeout 30s docker run --rm --pull=never --network none --read-only --cap-drop ALL --user 65534:65534 --security-opt no-new-privileges --ipc none --tmpfs /scratch:rw,nodev,nosuid,noexec,mode=1777,size=8m --memory 32m --pids-limit 16 --cpus 0.5 ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b /bin/sh -euc '
+    cat /proc/self/cgroup
+    for setting in memory.max pids.max cpu.max; do
+        printf "%s = " "$setting"
+        cat "/sys/fs/cgroup/$setting"
+    done
+    test "$(cat /sys/fs/cgroup/memory.max)" = 33554432
+    test "$(cat /sys/fs/cgroup/pids.max)" = 16
+    test "$(cat /sys/fs/cgroup/cpu.max)" = "50000 100000"
+'
+0::/
+memory.max = 34359738368
+pids.max = max
+cpu.max = 400000 100000
++ limits_exit=1
++ set +x
+Requested cgroup limits enforcement probe exit=1
++ timeout 30s docker run --rm --pull=never --network none --read-only --cap-drop ALL --user 65534:65534 --security-opt no-new-privileges --ipc none --tmpfs /scratch:rw,nodev,nosuid,noexec,mode=1777,size=8m ubuntu@sha256:562111b88caa79c71391c0c4d3c2114a7d5c35915c20561fd893cb1e07929e6b /bin/sh -euc '
+    id
+    cat /etc/os-release
+    test "$(id -u)" = 65534
+    awk "/^(CapEff|NoNewPrivs|Seccomp):/" /proc/self/status
+    grep -Eq "^CapEff:[[:space:]]+0+$" /proc/self/status
+    grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
+    grep -Eq "^Seccomp:[[:space:]]+2$" /proc/self/status
+    test "$(ls -1 /sys/class/net)" = lo
+    cat /proc/net/route
+    test "$(wc -l </proc/net/route)" -eq 1
+    test ! -S /run/docker.sock && test ! -S /var/run/docker.sock
+    test ! -d /workspace && test ! -d /root/.ssh
+    if (umask 077; printf unexpected > /tmp/entangle-readonly-test); then
+        echo "Container root filesystem unexpectedly allowed a /tmp write"
+        exit 1
+    fi
+    printf "scratch-write-only-fixture\n" > /scratch/result
+    test "$(cat /scratch/result)" = scratch-write-only-fixture
+    printf "#!/bin/sh\\nexit 0\\n" > /scratch/noexec-fixture
+    chmod 700 /scratch/noexec-fixture
+    if /scratch/noexec-fixture; then
+        echo "Scratch unexpectedly allowed direct execution"
+        exit 1
+    fi
+    echo "Confirmed offline interface, missing host workspace/socket, read-only rootfs and noexec scratch"
+'
+uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.5 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo
+CapEff:	0000000000000000
+NoNewPrivs:	1
+Seccomp:	2
+Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT                                                       
+/bin/sh: 14: cannot create /tmp/entangle-readonly-test: Read-only file system
+Confirmed offline interface, missing host workspace/socket, read-only rootfs and noexec scratch
+/bin/sh: 22: /scratch/noexec-fixture: Permission denied
++ set +x
+2026-11-27T03:31:13Z
+
+Exit = 0
+Source after = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+
+Suite exit = 0
+Source after = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281

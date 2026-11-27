@@ -1,0 +1,30 @@
+{
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "started_utc": "2026-11-27T03:36:46.660600+00:00",
+  "finished_utc": "2026-11-27T03:36:48.401223+00:00",
+  "command": [
+    "cargo",
+    "build",
+    "--release",
+    "--locked",
+    "-p",
+    "entangle-cli",
+    "-p",
+    "entangle-bin",
+    "-p",
+    "cargo-entangle",
+    "-p",
+    "xtask"
+  ],
+  "exit_code": 0,
+  "output": "    Finished `release` profile [optimized] target(s) in 1.09s\n",
+  "artifacts_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd",
+    "cargo-entangle": "1e46334a5ac5d0ca2fdb7f14a98321f51499efb35ae32fef72b8bee144e6e268",
+    "xtask": "7bd284d8feb961be68b8eba346148a56ae99441ba2d94422759d5146e9a38261"
+  },
+  "tracked_session_fixture_sha256": "5fb9e907b7573f501464533b938b2796344b56f836ea4edb75d8bf6558189528",
+  "source_drift_during_initial_build": "An optional ignored adapter test temporarily removed .mcp.json during the initial release build. Its exact committed bytes were restored before the build finished. The four rustc dependency files omit that path, and no Rust include or build-script reference names it. This repeat cargo invocation checked restored candidate sources and the recorded byte-identical outputs."
+}

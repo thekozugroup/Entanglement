@@ -1,0 +1,22 @@
+{
+  "reviewer": "/root/advert",
+  "source_commit": "761485d7490a56c7215ad958db81949204c74245",
+  "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "started_utc": "2026-11-27T03:38:31.161127+00:00",
+  "finished_utc": "2026-11-27T03:38:33.624587+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-761485d7/installed-uds.log",
+  "sha256": "dc5d6fa14f8997312dc9142643a644418d76842c436c4f24b978782ad9f00d9d",
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "docs/testing/production-review/evidence/candidate-761485d7/installed-uds.py"
+  ],
+  "archive_sha256": "da07d6662bda25c9da80974e81d12a62683173f1f67194d841d83c8536145f8a",
+  "binary_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "installer_fixture_sha256": "9c8a73a97d4af293359a4bbf41fe664cc9316e57728b76af9de769f7f3777395",
+  "harness_sha256": "097cf4a1c20eed802239fc69c87c84afd894f8885139e8c7c9059f8881479c92"
+}

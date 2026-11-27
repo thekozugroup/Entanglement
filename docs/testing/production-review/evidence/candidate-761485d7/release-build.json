@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "started_utc": "2026-11-27T03:29:41+00:00",
+  "finished_utc": "2026-11-27T03:35:55+00:00",
+  "command": "cargo build --release --locked -p entangle-cli -p entangle-bin -p cargo-entangle -p xtask",
+  "exit_code": 0,
+  "log": "release-build.log",
+  "log_sha256": "d18ca0dd3224d571dbb6a6e79cb03f88e05f73587d97c14a2628dea5085ec305"
+}

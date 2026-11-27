@@ -1,0 +1,238 @@
+{
+  "published": {
+    "count": 156,
+    "codes": {
+      "E0432": 2,
+      "E0425": 4,
+      "E0412": 10,
+      "E0659": 132,
+      "E0554": 1,
+      "E0658": 5,
+      "E0740": 1,
+      "E0308": 1
+    },
+    "first_distinct_errors": {
+      "unresolved import `libc::__wasi_fd_t`": [
+        "error[E0432]: unresolved import `libc::__wasi_fd_t`",
+        "  --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/sys/wasi/mod.rs:12:25",
+        "   |",
+        "12 | use libc::{self, c_int, __wasi_fd_t};",
+        "   |                         ^^^^^^^^^^^ no `__wasi_fd_t` in the root",
+        ""
+      ],
+      "unresolved import `sys::c::__wasi_fd_t`": [
+        "error[E0432]: unresolved import `sys::c::__wasi_fd_t`",
+        " --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/sys/wasi/impls.rs:5:17",
+        "  |",
+        "5 | use sys::{self, c::__wasi_fd_t};",
+        "  |                 ^^^^^^^^^^^^^^ no `__wasi_fd_t` in `sys::c`",
+        "  |",
+        "  = help: consider importing this unresolved item through its public re-export instead:",
+        "          sys::__wasi_fd_t",
+        ""
+      ],
+      "cannot find function `__wasi_sock_send` in crate `libc`": [
+        "error[E0425]: cannot find function `__wasi_sock_send` in crate `libc`",
+        "    --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:1174:32",
+        "     |",
+        "1174 |             let _errno = libc::__wasi_sock_send(",
+        "     |                                ^^^^^^^^^^^^^^^^ not found in `libc`",
+        ""
+      ],
+      "cannot find type `__wasi_fd_t` in crate `libc`": [
+        "error[E0412]: cannot find type `__wasi_fd_t` in crate `libc`",
+        "    --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:1175:41",
+        "     |",
+        "1175 |                 self.as_sock() as libc::__wasi_fd_t,",
+        "     |                                         ^^^^^^^^^^^ not found in `libc`",
+        ""
+      ],
+      "cannot find type `__wasi_roflags_t` in module `sys::c`": [
+        "error[E0412]: cannot find type `__wasi_roflags_t` in module `sys::c`",
+        "    --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:1207:37",
+        "     |",
+        "1207 |         let _ro_flags: *mut sys::c::__wasi_roflags_t = &mut 0;",
+        "     |                                     ^^^^^^^^^^^^^^^^ help: a type alias with a similar name exists: `__wasi_rights_t`",
+        "     |",
+        "    ::: /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.175/src/wasi/mod.rs:34:1",
+        "     |",
+        "  34 | pub type __wasi_rights_t = u64;",
+        "     | ------------------------ similarly named type alias `__wasi_rights_t` defined here"
+      ],
+      "cannot find type `__wasi_fd_t` in this scope": [
+        "error[E0412]: cannot find type `__wasi_fd_t` in this scope",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/sys/wasi/mod.rs:115:40",
+        "    |",
+        "115 |     pub unsafe fn getsockname(_socket: __wasi_fd_t, _address: *mut sockaddr,",
+        "    |                                        ^^^^^^^^^^^ not found in this scope",
+        ""
+      ],
+      "`SOL_SOCKET` is ambiguous": [
+        "error[E0659]: `SOL_SOCKET` is ambiguous",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:679:33",
+        "    |",
+        "679 |         set_opt(self.as_sock(), SOL_SOCKET, SO_RCVBUF, size as c_int)",
+        "    |                                 ^^^^^^^^^^ ambiguous name",
+        "    |",
+        "    = note: ambiguous because of multiple glob imports of a name in the same module",
+        "note: `SOL_SOCKET` could refer to the constant imported here",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:43:43",
+        "    |"
+      ],
+      "`SO_RCVBUF` is ambiguous": [
+        "error[E0659]: `SO_RCVBUF` is ambiguous",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:679:45",
+        "    |",
+        "679 |         set_opt(self.as_sock(), SOL_SOCKET, SO_RCVBUF, size as c_int)",
+        "    |                                             ^^^^^^^^^ ambiguous name",
+        "    |",
+        "    = note: ambiguous because of multiple glob imports of a name in the same module",
+        "note: `SO_RCVBUF` could refer to the constant imported here",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:43:43",
+        "    |"
+      ],
+      "`SO_SNDBUF` is ambiguous": [
+        "error[E0659]: `SO_SNDBUF` is ambiguous",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:687:45",
+        "    |",
+        "687 |         set_opt(self.as_sock(), SOL_SOCKET, SO_SNDBUF, size as c_int)",
+        "    |                                             ^^^^^^^^^ ambiguous name",
+        "    |",
+        "    = note: ambiguous because of multiple glob imports of a name in the same module",
+        "note: `SO_SNDBUF` could refer to the constant imported here",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:43:43",
+        "    |"
+      ],
+      "`IPPROTO_TCP` is ambiguous": [
+        "error[E0659]: `IPPROTO_TCP` is ambiguous",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:695:35",
+        "    |",
+        "695 |         set_opt(self.as_sock(), v(IPPROTO_TCP), TCP_NODELAY,",
+        "    |                                   ^^^^^^^^^^^ ambiguous name",
+        "    |",
+        "    = note: ambiguous because of multiple glob imports of a name in the same module",
+        "note: `IPPROTO_TCP` could refer to the constant imported here",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:43:43",
+        "    |"
+      ]
+    }
+  },
+  "workspace": {
+    "count": 156,
+    "codes": {
+      "E0432": 2,
+      "E0425": 4,
+      "E0412": 10,
+      "E0659": 132,
+      "E0554": 1,
+      "E0658": 5,
+      "E0740": 1,
+      "E0308": 1
+    },
+    "first_distinct_errors": {
+      "unresolved import `libc::__wasi_fd_t`": [
+        "error[E0432]: unresolved import `libc::__wasi_fd_t`",
+        "  --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/sys/wasi/mod.rs:12:25",
+        "   |",
+        "12 | use libc::{self, c_int, __wasi_fd_t};",
+        "   |                         ^^^^^^^^^^^ no `__wasi_fd_t` in the root",
+        ""
+      ],
+      "unresolved import `sys::c::__wasi_fd_t`": [
+        "error[E0432]: unresolved import `sys::c::__wasi_fd_t`",
+        " --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/sys/wasi/impls.rs:5:17",
+        "  |",
+        "5 | use sys::{self, c::__wasi_fd_t};",
+        "  |                 ^^^^^^^^^^^^^^ no `__wasi_fd_t` in `sys::c`",
+        "  |",
+        "  = help: consider importing this unresolved item through its public re-export instead:",
+        "          sys::__wasi_fd_t",
+        ""
+      ],
+      "cannot find function `__wasi_sock_send` in crate `libc`": [
+        "error[E0425]: cannot find function `__wasi_sock_send` in crate `libc`",
+        "    --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:1174:32",
+        "     |",
+        "1174 |             let _errno = libc::__wasi_sock_send(",
+        "     |                                ^^^^^^^^^^^^^^^^ not found in `libc`",
+        ""
+      ],
+      "cannot find type `__wasi_fd_t` in crate `libc`": [
+        "error[E0412]: cannot find type `__wasi_fd_t` in crate `libc`",
+        "    --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:1175:41",
+        "     |",
+        "1175 |                 self.as_sock() as libc::__wasi_fd_t,",
+        "     |                                         ^^^^^^^^^^^ not found in `libc`",
+        ""
+      ],
+      "cannot find type `__wasi_roflags_t` in module `sys::c`": [
+        "error[E0412]: cannot find type `__wasi_roflags_t` in module `sys::c`",
+        "    --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:1207:37",
+        "     |",
+        "1207 |         let _ro_flags: *mut sys::c::__wasi_roflags_t = &mut 0;",
+        "     |                                     ^^^^^^^^^^^^^^^^ help: a type alias with a similar name exists: `__wasi_rights_t`",
+        "     |",
+        "    ::: /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.191/src/wasi/mod.rs:38:1",
+        "     |",
+        "  38 | pub type __wasi_rights_t = u64;",
+        "     | ------------------------ similarly named type alias `__wasi_rights_t` defined here"
+      ],
+      "cannot find type `__wasi_fd_t` in this scope": [
+        "error[E0412]: cannot find type `__wasi_fd_t` in this scope",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/sys/wasi/mod.rs:115:40",
+        "    |",
+        "115 |     pub unsafe fn getsockname(_socket: __wasi_fd_t, _address: *mut sockaddr,",
+        "    |                                        ^^^^^^^^^^^ not found in this scope",
+        ""
+      ],
+      "`SOL_SOCKET` is ambiguous": [
+        "error[E0659]: `SOL_SOCKET` is ambiguous",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:679:33",
+        "    |",
+        "679 |         set_opt(self.as_sock(), SOL_SOCKET, SO_RCVBUF, size as c_int)",
+        "    |                                 ^^^^^^^^^^ ambiguous name",
+        "    |",
+        "    = note: ambiguous because of multiple glob imports of a name in the same module",
+        "note: `SOL_SOCKET` could refer to the constant imported here",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:43:43",
+        "    |"
+      ],
+      "`SO_RCVBUF` is ambiguous": [
+        "error[E0659]: `SO_RCVBUF` is ambiguous",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:679:45",
+        "    |",
+        "679 |         set_opt(self.as_sock(), SOL_SOCKET, SO_RCVBUF, size as c_int)",
+        "    |                                             ^^^^^^^^^ ambiguous name",
+        "    |",
+        "    = note: ambiguous because of multiple glob imports of a name in the same module",
+        "note: `SO_RCVBUF` could refer to the constant imported here",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:43:43",
+        "    |"
+      ],
+      "`SO_SNDBUF` is ambiguous": [
+        "error[E0659]: `SO_SNDBUF` is ambiguous",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:687:45",
+        "    |",
+        "687 |         set_opt(self.as_sock(), SOL_SOCKET, SO_SNDBUF, size as c_int)",
+        "    |                                             ^^^^^^^^^ ambiguous name",
+        "    |",
+        "    = note: ambiguous because of multiple glob imports of a name in the same module",
+        "note: `SO_SNDBUF` could refer to the constant imported here",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:43:43",
+        "    |"
+      ],
+      "`IPPROTO_TCP` is ambiguous": [
+        "error[E0659]: `IPPROTO_TCP` is ambiguous",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:695:35",
+        "    |",
+        "695 |         set_opt(self.as_sock(), v(IPPROTO_TCP), TCP_NODELAY,",
+        "    |                                   ^^^^^^^^^^^ ambiguous name",
+        "    |",
+        "    = note: ambiguous because of multiple glob imports of a name in the same module",
+        "note: `IPPROTO_TCP` could refer to the constant imported here",
+        "   --> /workspace/.entanglement-dev/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/net2-0.2.39/src/ext.rs:43:43",
+        "    |"
+      ]
+    }
+  }
+}

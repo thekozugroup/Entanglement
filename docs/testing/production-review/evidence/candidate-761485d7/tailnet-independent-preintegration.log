@@ -1,0 +1,71 @@
+Independent cold-start tailnet regressions at 732f171a406467cf7530258385a90e242b7ff0b0
+UTC 2026-11-27T03:28:58Z
+Source before sha256:f3e657d619cfa7c006d467eea8a0fa3ea17a722b76462e05be4818195055e3c9
+command cargo test --offline --locked -p entangle-bin --lib --test remote_scheduler
+    Finished `test` profile [unoptimized] target(s) in 0.80s
+     Running unittests src/lib.rs (/workspace/Entanglement/target/debug/deps/entangle_bin-263ec57a3dfcbe6e)
+
+running 42 tests
+test config::tests::empty_config_uses_defaults ... ok
+test config::tests::out_of_range_tier_is_rejected_at_parse_time ... ok
+test config::tests::unknown_field_is_a_hard_error ... ok
+test config::tests::load_config_missing_file_yields_defaults ... ok
+test inference::tests::frames_utf8_crlf_comments_and_multiline_data ... ok
+test config::tests::cli_written_config_round_trips_with_all_fields_preserved ... ok
+test inference::tests::prompts_cannot_select_endpoints_models_or_credentials ... ok
+test inference::tests::provider_restricts_loopback_and_supported_api_paths ... ok
+test maintenance::tests::evict_keeps_fresh_workers ... ok
+test maintenance::tests::evict_removes_workers_older_than_ttl ... ok
+test maintenance::tests::evict_without_pool_is_a_noop ... ok
+test maintenance::tests::gc_noop_when_cache_dir_missing ... ok
+test maintenance::tests::rotate_logs_noop_below_threshold ... ok
+test maintenance::tests::gc_removes_old_files_keeps_new ... ok
+test maintenance::tests::rotate_logs_noop_when_file_missing ... ok
+test inference::tests::rejects_oversized_sse_lines_and_events ... ok
+test maintenance::tests::warn_backup_silent_when_sentinel_present ... ok
+test maintenance::tests::warn_backup_succeeds_when_sentinel_absent ... ok
+test maintenance::tests::warn_key_rotation_noop_when_identity_missing ... ok
+test remote::routes::supervisor::tests::first_ephemeral_port_is_pinned_to_one_verified_socket ... ok
+test maintenance::tests::rotate_logs_triggers_above_threshold ... ok
+test maintenance::tests::run_loop_evicts_stale_workers_and_shuts_down ... ok
+test inference::tests::tier_change_waits_for_readiness_probe ... ok
+test remote::routes::tests::lan_hints_require_a_matching_key_and_an_explicit_reachable_scheduler_port ... ok
+test remote::routes::supervisor::tests::planned_shutdown_stops_the_active_listener_permanently ... ok
+test remote::routes::supervisor::tests::terminal_accept_withdraws_service_and_shutdown_interrupts_recovery ... ok
+test remote::routes::tests::snapshots_follow_only_mapped_online_nodes_and_current_trust ... ok
+test remote::routes::tests::offline_start_preserves_identity_without_a_listener_and_other_modes_keep_working ... ok
+test remote::routes::tests::tailnet_only_bind_keeps_family_and_port_and_requires_local_node_ip ... ok
+test remote::routes::tests::tailnet_routes_on_a_mixed_endpoint_preserve_static_hints ... ok
+test remote::tests::a_revoked_peer_is_refused ... ok
+test remote::tests::a_trusted_peer_is_authorized ... ok
+test remote::tests::an_empty_peer_store_authorizes_nobody ... ok
+test remote::tests::directory_admits_only_trusted_configured_peers ... ok
+test remote::tests::directory_skips_our_own_address ... ok
+test remote::tests::transport_is_off_unless_explicitly_named ... ok
+test server::tests::accept_backoff_is_monotonic_and_capped ... ok
+test remote::routes::tests::static_routes_keep_the_working_hint_when_the_last_address_is_unreachable ... ok
+test remote::routes::supervisor::tests::outbound_handle_uses_the_new_generation_without_resubmitting_jobs ... ok
+test remote::routes::tests::mixed_listener_reloads_routes_and_status_from_the_local_cli ... ok
+test server::tests::stalled_connections_are_reaped_by_read_timeout ... ok
+test server::tests::active_then_stalled_connection_is_reaped ... ok
+
+test result: ok. 42 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/remote_scheduler.rs (/workspace/Entanglement/target/debug/deps/remote_scheduler-2daf4efd1d483d49)
+
+running 10 tests
+test a_configured_address_alone_grants_nothing ... ok
+test a_config_without_a_scheduler_section_still_parses ... ok
+test cross_node_dispatch_is_off_in_a_default_config ... ok
+test an_unparseable_bind_is_a_typed_startup_error ... ok
+test the_allowlist_reflects_the_peer_store_and_fails_closed ... ok
+test the_scheduler_endpoint_does_not_answer_the_control_alpn ... ok
+test the_transport_is_selected_by_name ... ok
+test an_unpaired_peer_is_refused_by_the_daemon ... ok
+test a_paired_peer_gets_past_the_gate ... ok
+test revoking_a_peer_stops_it_mid_session ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+exit 0
+source after sha256:f3e657d619cfa7c006d467eea8a0fa3ea17a722b76462e05be4818195055e3c9

@@ -1,0 +1,202 @@
+
+$ /workspace/Entanglement/target/release/entangle init --non-interactive
+PTY stdin = False
+Exit = 0
+STDOUT
+
+Setting up identity...
+  Identity ready at /tmp/ent-tier-policy-0plncj6u/.entangle/identity.key (mode 0600)
+  Fingerprint: 6537-2714-69b6-339b-8e67-aab2-4bf5-d1c3
+  Wrote /tmp/ent-tier-policy-0plncj6u/.entangle/config.toml
+  Wrote /tmp/ent-tier-policy-0plncj6u/.entangle/peers.toml (empty)
+  Wrote /tmp/ent-tier-policy-0plncj6u/.entangle/keyring.toml (empty)
+
+Next steps:
+  - Install a plugin:        entangle plugins install <NAME>
+  - See what is available:   entangle plugins available
+  - Pair another device:     entangle pair
+  - Start the daemon:        entangled run
+  - Run diagnostics:         entangle doctor
+
+STDERR
+
+
+$ openssl pkey -in /tmp/ent-tier-policy-0plncj6u/.entangle/identity.key -pubout -outform DER
+PTY stdin = False
+Exit = 0
+Binary stdout length = 44
+
+$ /workspace/Entanglement/target/release/entangle keyring add 9e0439e2dc5cf77201b8c3b8a784b3ef6eed56126bcf6d0586393dc3c3689f1d --name 'Tier policy conformance publisher'
+PTY stdin = False
+Exit = 0
+STDOUT
+added 6537271469b6339b8e67aab24bf5d1c3 "Tier policy conformance publisher"
+
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins build /tmp/ent-tier-policy-0plncj6u/wasm-tier-five-incompatible-input --wasm /workspace/Entanglement/crates/entangle-host/tests/fixtures/hello-pong.wasm --out /tmp/ent-tier-policy-0plncj6u/wasm-tier-five-incompatible
+PTY stdin = False
+Exit = 1
+STDOUT
+
+STDERR
+error: the rendered entangle.toml is not a valid plugin manifest
+  caused by: runtime 'Wasm' incompatible with tier Native
+
+
+$ /workspace/Entanglement/target/release/entangle plugins build /tmp/ent-tier-policy-0plncj6u/wasm-tier-three-survivor-input --wasm /workspace/Entanglement/crates/entangle-host/tests/fixtures/hello-pong.wasm --out /tmp/ent-tier-policy-0plncj6u/wasm-tier-three-survivor
+PTY stdin = False
+Exit = 0
+STDOUT
+[entangle] publisher fingerprint: 6537271469b6339b8e67aab24bf5d1c3
+[entangle] plugin id:             6537271469b6339b8e67aab24bf5d1c3/wasm-tier-three-survivor@0.1.0
+[entangle] effective tier:        3
+[entangle] wrote /tmp/ent-tier-policy-0plncj6u/wasm-tier-three-survivor/plugin.wasm
+[entangle] wrote /tmp/ent-tier-policy-0plncj6u/wasm-tier-three-survivor/entangle.toml
+[entangle] wrote /tmp/ent-tier-policy-0plncj6u/wasm-tier-three-survivor/plugin.wasm.sig
+
+Next steps:
+  entangle keyring add 9e0439e2dc5cf77201b8c3b8a784b3ef6eed56126bcf6d0586393dc3c3689f1d --name self
+  entangle plugins load /tmp/ent-tier-policy-0plncj6u/wasm-tier-three-survivor
+  entangle plugins invoke 6537271469b6339b8e67aab24bf5d1c3/wasm-tier-three-survivor@0.1.0 --input 'world'
+
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins build /tmp/ent-tier-policy-0plncj6u/native-elf-rejection-fixture-input --wasm /usr/bin/true --out /tmp/ent-tier-policy-0plncj6u/native-elf-rejection-fixture
+PTY stdin = False
+Exit = 0
+STDOUT
+[entangle] publisher fingerprint: 6537271469b6339b8e67aab24bf5d1c3
+[entangle] plugin id:             6537271469b6339b8e67aab24bf5d1c3/native-elf-rejection-fixture@0.1.0
+[entangle] effective tier:        5
+[entangle] wrote /tmp/ent-tier-policy-0plncj6u/native-elf-rejection-fixture/plugin.wasm
+[entangle] wrote /tmp/ent-tier-policy-0plncj6u/native-elf-rejection-fixture/entangle.toml
+[entangle] wrote /tmp/ent-tier-policy-0plncj6u/native-elf-rejection-fixture/plugin.wasm.sig
+
+Next steps:
+  entangle keyring add 9e0439e2dc5cf77201b8c3b8a784b3ef6eed56126bcf6d0586393dc3c3689f1d --name self
+  entangle plugins load /tmp/ent-tier-policy-0plncj6u/native-elf-rejection-fixture
+  entangle plugins invoke 6537271469b6339b8e67aab24bf5d1c3/native-elf-rejection-fixture@0.1.0 --input 'world'
+
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins list
+PTY stdin = False
+Exit = 0
+STDOUT
+6537271469b6339b8e67aab24bf5d1c3/wasm-tier-three-survivor@0.1.0
+
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins invoke 6537271469b6339b8e67aab24bf5d1c3/wasm-tier-three-survivor@0.1.0 --input survivor --raw
+PTY stdin = False
+Exit = 0
+STDOUT
+Hello, survivor!
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins load /tmp/ent-tier-policy-0plncj6u/native-elf-rejection-fixture
+PTY stdin = False
+Exit = 1
+STDOUT
+
+STDERR
+error: rpc -32000: server error: native plugin '6537271469b6339b8e67aab24bf5d1c3/native-elf-rejection-fixture@0.1.0' requires a sandboxed native runner, which is unavailable
+
+
+$ /workspace/Entanglement/target/release/entangle plugins load /tmp/ent-tier-policy-0plncj6u/native-elf-rejection-fixture
+PTY stdin = False
+Exit = 1
+STDOUT
+
+STDERR
+error: rpc -32000: server error: signature: ENTANGLE-E0102: artifact hash mismatch (recomputed 5217b3bedee8433c1323fa1d3b54f5dd68a42b86a028afdffeddcb0513d5113a, bundle says 3eb634b413b5ae2e7139c5ddacb1cc8dad4ae2fbbec4c2316194cb818616f66f)
+
+
+$ /workspace/Entanglement/target/release/entangle config reload
+PTY stdin = True
+Exit = 0
+STDOUT
+Applied max_tier_allowed = 3.
+
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins list
+PTY stdin = False
+Exit = 0
+STDOUT
+6537271469b6339b8e67aab24bf5d1c3/wasm-tier-three-survivor@0.1.0
+
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins invoke 6537271469b6339b8e67aab24bf5d1c3/wasm-tier-three-survivor@0.1.0 --input survivor --raw
+PTY stdin = False
+Exit = 0
+STDOUT
+Hello, survivor!
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins load /tmp/ent-tier-policy-0plncj6u/native-elf-rejection-fixture
+PTY stdin = False
+Exit = 1
+STDOUT
+
+STDERR
+error: rpc -32000: server error: broker: policy: ENTANGLE-E0043: plugin tier Native exceeds daemon ceiling Networked
+
+
+$ /workspace/Entanglement/target/release/entangle security set-max-tier 5
+PTY stdin = False
+Exit = 0
+STDOUT
+Applied max_tier_allowed = 5.
+
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle security set-max-tier 3 --force-unload
+PTY stdin = False
+Exit = 0
+STDOUT
+Applied max_tier_allowed = 3.
+
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins list
+PTY stdin = False
+Exit = 0
+STDOUT
+6537271469b6339b8e67aab24bf5d1c3/wasm-tier-three-survivor@0.1.0
+
+STDERR
+
+
+$ /workspace/Entanglement/target/release/entangle plugins invoke 6537271469b6339b8e67aab24bf5d1c3/wasm-tier-three-survivor@0.1.0 --input survivor --raw
+PTY stdin = False
+Exit = 0
+STDOUT
+Hello, survivor!
+STDERR
+
+
+$ /opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 /workspace/Entanglement/scripts/tests/max-tier.py --bin-dir /workspace/Entanglement/target/release
+PTY stdin = False
+Exit = 0
+STDOUT
+{"interactive_default": "unload-and-disable", "cancel_restored": 5, "forced_plugins": 2, "stale_reviews_rejected": 2, "restart_disabled": true}
+
+STDERR
+
+
+Source before = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+Source after = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+Suite exit = 0

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-final-release-check.sh",
+    "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+    "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7"
+  ],
+  "started_utc": "2026-11-27T03:29:15.604002+00:00",
+  "finished_utc": "2026-11-27T03:30:51.489321+00:00",
+  "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_commit": "761485d7490a56c7215ad958db81949204c74245",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-761485d7/release-command-run.log",
+  "sha256": "0b4de01625a51bc99d29b8a25d7097cea27b7fcc3e95dd9a14ae4d41ff9ddbb4"
+}

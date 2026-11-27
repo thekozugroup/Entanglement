@@ -1,0 +1,25 @@
+{
+  "commit": "761485d7490a56c7215ad958db81949204c74245",
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "baseline_commit": "2602ce17ee37416770008fb71f1d6048c828f823",
+  "started_utc": "2026-11-27T03:29:04.798352+00:00",
+  "environment": {
+    "CARGO_HOME": "/workspace/.entanglement-dev/cargo",
+    "RUSTUP_HOME": "/workspace/.entanglement-dev/rustup",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_BUILD_JOBS": "4",
+    "TOKIO_WORKER_THREADS": "2",
+    "RAYON_NUM_THREADS": "2"
+  },
+  "test_diff_sha256": "a3b0c7aba28352451adb738cd9ad76f1dd106217928944474b2689c99e6e950b",
+  "finished_utc": "2026-11-27T03:33:14.515743+00:00",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "exit_codes": {
+    "workspace": 0,
+    "optional_parallel_initial": 101,
+    "agent_session_serial": 0,
+    "matrix": 0
+  },
+  "diagnostic": "Initial optional run omitted required test-threads=1; concurrently changed process CWD and removed tracked .mcp.json. The frozen blob was restored exactly. Failed receipt is preserved; only serial rerun is valid."
+}

@@ -1,0 +1,11 @@
+# Independent real inference validation
+
+The source-bound receipt for candidate `761485d7490a56c7215ad958db81949204c74245` is `result.json`, SHA-256 `dd691be28e2434af2f3566e2a6cca28a6fdd79b6a659dc39f3d8223897519701`. An independent verifier recalculated both BLAKE3-16 worker identities from their public keys and verified all 139 Ed25519 chunk signatures, sequence numbers, task bindings and payload digests. For each of six actual runs it reconstructed the output, checked its SHA-256 and compared the exact text and token count with a separately recorded direct backend response. All checks passed. [Independent verification](independent-verification.json) · [Verifier](independent-verify.py)
+
+The candidate CLI and daemon, model, driver, llama-server and all five recorded server shared-library files matched the receipt's SHA-256 values. The model was the recorded TinyLlama 1.1B quantized GGUF, CPU-only with two threads and zero GPU layers. The direct checks were separate non-streaming calls at temperature zero to the same backend; they do not establish model correctness or reproducibility across backends.
+
+All six accepted streams reported no preplacement refusals. First signed chunks took 317–959 ms and end-to-end generation rates were 10.25–15.45 tokens/s. Each sample generated 20–24 tokens, so these do not establish sustained rate. The coordinator, worker and model backend were separate processes on one Linux x86_64 host. Two earlier attempts did not complete: one encountered backend HTTP 503, and one encountered a worker-inventory readiness gap. They are retained in `initial-attempt.md`; the successful driver waits for backend health and reports any preplacement wait. No post-selection errors were retried.
+
+This is genuine functional CPU inference over authenticated loopback and both OpenAI-compatible endpoints. It does not satisfy the frozen PERF-LLM condition: that requires real 70B inference on the stated GPU, a separate battery laptop, <300ms first-token latency and >=30 tokens/s sustained. No such GPU, model, laptop or sustained workload was present.
+
+To reproduce signature checks, compile `independent-peer-fingerprint.rs` against a compatible locally built `blake3` rlib and run `independent-verify.py <result.json> --peer-fingerprint <helper>`; the verifier and exact six-sample data are archived beside this note.

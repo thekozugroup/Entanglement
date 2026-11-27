@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "/tmp/entangle-successor-publisher.py",
+    "--source-id",
+    "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+    "--archive",
+    "/workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz"
+  ],
+  "started_utc": "2026-11-27T03:36:44.093502+00:00",
+  "finished_utc": "2026-11-27T03:36:45.513493+00:00",
+  "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_commit": "761485d7490a56c7215ad958db81949204c74245",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-761485d7/publisher-rotation-rehearsal.log",
+  "sha256": "acd5b5d924690bb0f92655304e82455913ba1e247a0daaf55934b02398e23f67"
+}

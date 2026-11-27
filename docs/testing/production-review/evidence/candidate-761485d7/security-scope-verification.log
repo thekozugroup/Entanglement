@@ -1,0 +1,117 @@
+2026-11-27T03:35:52.420386+00:00
+commit 761485d7490a56c7215ad958db81949204c74245
+source sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+git diff --name-status 864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2 761485d7490a56c7215ad958db81949204c74245 -- . ':!docs/testing/production-review'
+M	crates/entangle-bin/src/main.rs
+M	crates/entangle-bin/src/remote.rs
+M	crates/entangle-bin/src/remote/routes.rs
+A	crates/entangle-bin/src/remote/routes/supervisor.rs
+A	crates/entangle-bin/src/remote/routes/supervisor/tests.rs
+M	crates/entangle-bin/src/remote/routes/tests.rs
+M	docs/operations.md
+M	docs/testing/tailnet-compute.md
+M	scripts/tests/private-tailnet.py
+A	scripts/tests/private_recovery.py
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:SECURITY.md
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-signing
+tree
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-runtime
+tree
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-oci
+tree
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-rpc
+tree
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-cli
+tree
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-peers
+tree
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-scheduler
+tree
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-mesh-iroh
+tree
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-mesh-tailscale
+tree
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-bin/src/methods.rs
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-bin/src/server.rs
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-bin/src/streams.rs
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-bin/src/inference.rs
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:crates/entangle-bin/src/relay.rs
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:scripts/install.sh
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:scripts/verify-release.sh
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:scripts/check-release-governance.py
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:.github/workflows/release.yml
+blob
+exit 0
+git cat-file -t 761485d7490a56c7215ad958db81949204c74245:docs/maintainers
+tree
+exit 0
+git diff --exit-code 864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2 761485d7490a56c7215ad958db81949204c74245 -- SECURITY.md crates/entangle-signing crates/entangle-runtime crates/entangle-oci crates/entangle-rpc crates/entangle-cli crates/entangle-peers crates/entangle-scheduler crates/entangle-mesh-iroh crates/entangle-mesh-tailscale crates/entangle-bin/src/methods.rs crates/entangle-bin/src/server.rs crates/entangle-bin/src/streams.rs crates/entangle-bin/src/inference.rs crates/entangle-bin/src/relay.rs scripts/install.sh scripts/verify-release.sh scripts/check-release-governance.py .github/workflows/release.yml docs/maintainers
+exit 0
+git diff --exit-code 732f171a406467cf7530258385a90e242b7ff0b0 761485d7490a56c7215ad958db81949204c74245 -- crates
+exit 0
+git diff --unified=1 864ae27bf3fd08e9d9c62abd4f43ff7bfd4c68c2 761485d7490a56c7215ad958db81949204c74245 -- crates/entangle-bin/src/remote.rs
+diff --git a/crates/entangle-bin/src/remote.rs b/crates/entangle-bin/src/remote.rs
+index d114e59..c70480e 100644
+--- a/crates/entangle-bin/src/remote.rs
++++ b/crates/entangle-bin/src/remote.rs
+@@ -168,2 +168,17 @@ pub fn spawn_streaming_task_server(
+ ) -> tokio::task::JoinHandle<()> {
++    tokio::spawn(entangle_scheduler::serve_tasks(
++        transport,
++        streaming_task_server(kernel, store, capabilities, identity, inference, bridge),
++    ))
++}
++
++/// Build the service once so replay protection and stream limits survive a socket replacement.
++pub fn streaming_task_server(
++    kernel: Arc<Kernel>,
++    store: PeerStore,
++    capabilities: WorkerInfo,
++    identity: IdentityKeyPair,
++    inference: Option<&crate::config::InferenceConfig>,
++    bridge: Option<Arc<dyn entangle_scheduler::relay::RelayHandler>>,
++) -> Arc<RemoteTaskServer> {
+     let mut executor: Arc<dyn entangle_scheduler::stream::StreamExecutor> = kernel.clone();
+@@ -188,3 +203,3 @@ pub fn spawn_streaming_task_server(
+     .with_relay_handler(bridge);
+-    tokio::spawn(entangle_scheduler::serve_tasks(transport, Arc::new(server)))
++    Arc::new(server)
+ }
+exit 0
+Independent preintegration test transcript SHA-256 5083bbd2d80094efeac735045d33b4e31c3dfd73b1af6a0d9dea1dd7be380f47 tailnet-independent-preintegration.log
+Validated same-source workspace-test.json log SHA-256 f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6
+Validated same-source release-command-run.receipt.json log SHA-256 0b4de01625a51bc99d29b8a25d7097cea27b7fcc3e95dd9a14ae4d41ff9ddbb4
+Frozen workspace test passed first_ephemeral_port_is_pinned_to_one_verified_socket
+Frozen workspace test passed terminal_accept_withdraws_service_and_shutdown_interrupts_recovery
+Frozen workspace test passed planned_shutdown_stops_the_active_listener_permanently
+Frozen workspace test passed offline_start_preserves_identity_without_a_listener_and_other_modes_keep_working
+Frozen workspace test passed revoking_a_peer_stops_it_mid_session
+source after sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281

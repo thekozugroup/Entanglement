@@ -1,0 +1,710 @@
+{
+  "name": "candidate-761485d7-interim",
+  "captured_at_utc": "2026-11-27T03:34:11.117193+00:00",
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "rubric_sha256": "d133c5f4f0df318c97080ea923ba65071d5599f05a7e1f1aa37b1fa2b1727322",
+  "observations": {
+    "INTEROP-MAC": {
+      "status": "not_evidenced",
+      "reason": "Real Intel and Apple Silicon macOS workloads are not demonstrated."
+    },
+    "ATC-MAX-1": {
+      "status": "not_evidenced",
+      "reason": "No actual tier-5 agent-host fixture has been demonstrated for the specified interactive 5 to 3 transition."
+    },
+    "ATC-PKG-4": {
+      "status": "not_evidenced",
+      "reason": "A public detached signed package for this successor and independent public fetch/rebuild have not yet been demonstrated."
+    },
+    "ATC-INT-2": {
+      "status": "pass",
+      "reason": "Untrusted signed metric is rejected before dispatch.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709201+00:00"
+    },
+    "PERF-IMAGE": {
+      "status": "not_evidenced",
+      "reason": "8,000 RAW images on three physical desktops and 10x speedup are not demonstrated."
+    },
+    "ATC-PKG-3": {
+      "status": "pass",
+      "reason": "Package command rejects absent Cargo.lock with the required message.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709183+00:00"
+    },
+    "ATC-REL-1": {
+      "status": "not_evidenced",
+      "reason": "No production signed 1.0 RC artifact and actual keyless inclusion proof is available."
+    },
+    "ATC-INT-3": {
+      "status": "pass",
+      "reason": "Active hash-bearing semantic work rejects mutation; three distinct replica receipts retain independently computed H. Legacy jobs without a hash are outside this specific given.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709204+00:00"
+    },
+    "PERF-LLM": {
+      "status": "not_evidenced",
+      "reason": "Real 70B inference on specified GPU and battery laptop workload is not demonstrated."
+    },
+    "ATC-BRG-5": {
+      "status": "pass",
+      "reason": "Missing byte cap returns E0122.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709194+00:00"
+    },
+    "OPS-RECOVERY": {
+      "status": "not_evidenced",
+      "reason": "Fresh Linux and supported macOS encrypted recovery remain pending."
+    },
+    "AUTH-WASI": {
+      "status": "not_evidenced",
+      "reason": "Full malicious filesystem cases on every supported OS host are not demonstrated."
+    },
+    "ATC-MAN-2": {
+      "status": "pass",
+      "reason": "Manifest validator accepts tier 5 with tier 1 capabilities.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709174+00:00"
+    },
+    "ATC-BRG-6": {
+      "status": "pass",
+      "reason": "Exact 1024-byte receiver cap accepts boundary and rejects next byte.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709196+00:00"
+    },
+    "ATC-BRG-2": {
+      "status": "pass",
+      "reason": "Omitting rate limit returns E0118.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709187+00:00"
+    },
+    "ATC-MAX-2": {
+      "status": "not_evidenced",
+      "reason": "No actual tier-5 agent-host fixture has been demonstrated for the specified forced 5 to 3 transition."
+    },
+    "ATC-REL-2": {
+      "status": "not_evidenced",
+      "reason": "No actual documented two-of-three production release key ceremony is available."
+    },
+    "ATC-INT-5": {
+      "status": "pass",
+      "reason": "Oversized semantic response is rejected with warning, reputation reduction and no metric invocation for that result.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709208+00:00"
+    },
+    "INTEROP-LINUX": {
+      "status": "not_evidenced",
+      "reason": "Independent x86-64 and aarch64 Linux host workload results are not both demonstrated."
+    },
+    "ATC-INT-4": {
+      "status": "pass",
+      "reason": "Streaming deterministic integrity returns typed refusal and display hints TrustedExecutor.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709206+00:00"
+    },
+    "REL-LIMITS": {
+      "status": "not_evidenced",
+      "reason": "Fresh release saturation/recovery evidence pending."
+    },
+    "ATC-BUS-1": {
+      "status": "fail",
+      "reason": "Fresh governance checker rejects five roles each having only one named holder.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/release-command-run.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/release-command-run.receipt.json",
+          "sha256": "0b4de01625a51bc99d29b8a25d7097cea27b7fcc3e95dd9a14ae4d41ff9ddbb4",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "bash /tmp/entangle-final-release-check.sh <candidate> <evidence-dir>",
+          "claim": "Individual real governance commands return 1 as logged; wrapper exits 0 because failure was expected.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:51.489321+00:00"
+        }
+      ]
+    },
+    "ATC-BRG-1": {
+      "status": "pass",
+      "reason": "Signed complete bridge facts validate.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709185+00:00"
+    },
+    "ATC-STR-1": {
+      "status": "pass",
+      "reason": "Actual QUIC worker stalls when credit exhausts within 5s tolerance.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709210+00:00"
+    },
+    "ATC-MAN-3": {
+      "status": "pass",
+      "reason": "Actual ELF input to the Wasm instantiation path returns RuntimeKindMismatch.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709178+00:00"
+    },
+    "COR-REMOTE": {
+      "status": "not_evidenced",
+      "reason": "Seven-workload candidate two-daemon release binary smoke is pending."
+    },
+    "OPS-CI": {
+      "status": "not_evidenced",
+      "reason": "Real required hosted CI and branch-protection results absent; user prohibited GitHub Actions."
+    },
+    "ATC-MAN-4": {
+      "status": "pass",
+      "reason": "Actual installer rejects tier 3 against tier 2 security ceiling without mutating profile and typed tier check is verified.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709180+00:00"
+    },
+    "ATC-INT-1": {
+      "status": "pass",
+      "reason": "Three actual QUIC replicas do not instantiate metric; submitter instantiates it once per pair.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709199+00:00"
+    },
+    "ATC-WRP-2": {
+      "status": "pass",
+      "reason": "A running shell stops warning after disable.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709216+00:00"
+    },
+    "REL-RESTART": {
+      "status": "not_evidenced",
+      "reason": "Fresh candidate active-work restart evidence pending; supported macOS host remains absent."
+    },
+    "INTEROP-LAN": {
+      "status": "not_evidenced",
+      "reason": "Physical distinct-host multicast discovery and authenticated workload are not demonstrated."
+    },
+    "ATC-MAX-3": {
+      "status": "not_evidenced",
+      "reason": "No actual tier-5 agent-host fixture has been demonstrated for the specified canceled 5 to 3 transition."
+    },
+    "COR-PLATFORMS": {
+      "status": "not_evidenced",
+      "reason": "All specified real Linux and macOS candidate runners are not demonstrated; GitHub Actions are forbidden."
+    },
+    "PERF-BASELINE": {
+      "status": "not_evidenced",
+      "reason": "Final candidate comparable benchmark and previously approved baseline are not yet demonstrated."
+    },
+    "AUTH-LIVE": {
+      "status": "not_evidenced",
+      "reason": "Fresh candidate live trust-revocation and both-direction denial test is pending."
+    },
+    "ATC-STR-2": {
+      "status": "pass",
+      "reason": "Three missed pongs produce PeerLost in tolerance.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709212+00:00"
+    },
+    "ATC-BUS-2": {
+      "status": "fail",
+      "reason": "Fresh governance checker rejects missing rotations.md.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/release-command-run.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/release-command-run.receipt.json",
+          "sha256": "0b4de01625a51bc99d29b8a25d7097cea27b7fcc3e95dd9a14ae4d41ff9ddbb4",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "bash /tmp/entangle-final-release-check.sh <candidate> <evidence-dir>",
+          "claim": "Individual real governance commands return 1 as logged; wrapper exits 0 because failure was expected.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:51.489321+00:00"
+        }
+      ]
+    },
+    "AUTH-CHAIN": {
+      "status": "pass",
+      "reason": "Current candidate and thirteen shipped standalone lockfiles passed current RustSec advisory and configured cargo-deny bans, license and source checks.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-crates-entangle-host-fixtures-src-hello-pong.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-crates-entangle-host-fixtures-src-hello-pong-scorer-receipt.json",
+          "sha256": "92e336f8abf599b24d70c46187530149bf2b7a59fa97562dc05ff75ef8eb1ead",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/hello-pong/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:29:51+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-crates-entangle-host-fixtures-src-stress.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-crates-entangle-host-fixtures-src-stress-scorer-receipt.json",
+          "sha256": "ea4e4cc970b66c3d574ab41f1610900618a9b3a8f229ea52ee58fd4afcc777d9",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path crates/entangle-host/fixtures-src/stress/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:29:53+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-docs-testing-production-review-evidence-candidate-864ae27b-wasi-fs-conformance-fs-probe.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-docs-testing-production-review-evidence-candidate-864ae27b-wasi-fs-conformance-fs-probe-scorer-receipt.json",
+          "sha256": "22b71023d46ff546a0cfc44f92b239fa81469fcb79335362cd6351f10b772805",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path docs/testing/production-review/evidence/candidate-864ae27b/wasi-fs-conformance/fs-probe/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:29:55+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-examples-hash-it.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-examples-hash-it-scorer-receipt.json",
+          "sha256": "fd6201de59d5e7fdfd123e54818ba3aa871fedb6860428dded8ddbe9ff7c49dd",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/hash-it/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:29:57+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-examples-hello-world.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-examples-hello-world-scorer-receipt.json",
+          "sha256": "0162ee97328da2ec2cadc107c0a1b6cea633aea099514c34febd06eff0d1a0b2",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/hello-world/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:00+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-examples-stream-lines.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-examples-stream-lines-scorer-receipt.json",
+          "sha256": "a1a6845a4831e0d986dc6e00b15b8dc1c57db319bfd6b29942dd0ad282af959f",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path examples/stream-lines/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:01+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-compress.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-compress-scorer-receipt.json",
+          "sha256": "6181162958bcde9734a6134a204d270098fd05180a77f21c65efc753a5ba9167",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/compress/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:03+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-csv-stats.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-csv-stats-scorer-receipt.json",
+          "sha256": "6220e4f3bc2f31605b2f8bc3c40783a1b27fd040c95257880593ed20d7290f6c",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/csv-stats/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:05+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-image-resize.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-image-resize-scorer-receipt.json",
+          "sha256": "598f61af4293202ca568927599bb905e12180c455bfe012efbc0018105fc3209",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/image-resize/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:07+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-json-pointer.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-json-pointer-scorer-receipt.json",
+          "sha256": "1438a08c272d35b403b1b3066a16dcde25e3783e6567d40a60fde49bee18bf1c",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/json-pointer/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:08+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-json-query.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-json-query-scorer-receipt.json",
+          "sha256": "83e012c46b6a7912caeb9a0889dd82fd1f8088e6de1fe3251d0ef7b0f616853c",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/json-query/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:10+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-markdown-html.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-markdown-html-scorer-receipt.json",
+          "sha256": "55e60c7900543d2f5b113d1fc613b0add8d66c2b9e5d014b52a15a96dd8928dc",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/markdown-html/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:11+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-qr-encode.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-plugins-qr-encode-scorer-receipt.json",
+          "sha256": "ad39d7bf29c727b82c6eb8b011debd0a0426f1c7a2dc3002a61eb4fc99e44a32",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path plugins/qr-encode/Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:12+00:00"
+        },
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/deny-workspace.log.gz",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/deny-workspace-scorer-receipt.json",
+          "sha256": "bae55262c1d535796443d75d36335cca79f322406cbc0be199e4ede47f84b5ed",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "/tmp/entanglement-supply-tools/bin/cargo-deny --locked --all-features --manifest-path Cargo.toml check --disable-fetch --config /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/dependency-policy.toml advisories bans licenses sources",
+          "claim": "Fresh source-bound successful receipt",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:29:49+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.733197+00:00"
+    },
+    "OPS-GOVERNANCE": {
+      "status": "fail",
+      "reason": "Fresh governance check fails: one named holder per role and no rotation note; key ceremony file is absent.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/release-command-run.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/release-command-run.receipt.json",
+          "sha256": "0b4de01625a51bc99d29b8a25d7097cea27b7fcc3e95dd9a14ae4d41ff9ddbb4",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "bash /tmp/entangle-final-release-check.sh <candidate> <evidence-dir>",
+          "claim": "Individual real governance commands return 1 as logged; wrapper exits 0 because failure was expected.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:30:51.489321+00:00"
+        }
+      ]
+    },
+    "ATC-PKG-2": {
+      "status": "not_evidenced",
+      "reason": "Fresh candidate Ubuntu user-space evidence pending; real macOS-14 and independent host evidence remain absent."
+    },
+    "ATC-WRP-1": {
+      "status": "not_evidenced",
+      "reason": "Actual successor release install and fresh-shell opt-in evidence is pending."
+    },
+    "ATC-MIR-2": {
+      "status": "pass",
+      "reason": "Local real TCP mirror listing verifies signed exact tags and records signer fingerprint; wrong key and repository are rejected.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709218+00:00"
+    },
+    "ATC-BRG-3": {
+      "status": "pass",
+      "reason": "Wrong destination returns E0119.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709189+00:00"
+    },
+    "COR-CLI": {
+      "status": "not_evidenced",
+      "reason": "Seven-workload candidate release binary smoke is pending."
+    },
+    "OPS-RELEASE": {
+      "status": "not_evidenced",
+      "reason": "Four real production signed archives, provenance, rebuilds and installers are not demonstrated."
+    },
+    "OPS-SECURITY": {
+      "status": "not_evidenced",
+      "reason": "Fresh candidate independent review and dated incident rehearsal are pending."
+    },
+    "REL-PARTITION": {
+      "status": "not_evidenced",
+      "reason": "Actual distinct-host link disconnect and transport restart are not demonstrated."
+    },
+    "INTEROP-TAILNET": {
+      "status": "not_evidenced",
+      "reason": "Two real tailnet hosts with access control and reconnection are not demonstrated."
+    },
+    "ATC-MAN-1": {
+      "status": "pass",
+      "reason": "Manifest validation rejects the underdeclared tier with typed error.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709152+00:00"
+    },
+    "ATC-MIR-1": {
+      "status": "not_evidenced",
+      "reason": "Signed publisher-vs-mirror boundary is tested locally, but named production mirror delivery is not shown."
+    },
+    "PERF-TEST": {
+      "status": "not_evidenced",
+      "reason": "Entire Rust workspace distributed with flaky aggregation is not demonstrated."
+    },
+    "ATC-STR-3": {
+      "status": "pass",
+      "reason": "Signed output verifies and different signer is rejected.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709214+00:00"
+    },
+    "ATC-WRP-3": {
+      "status": "not_evidenced",
+      "reason": "Candidate has new shell wrapper doctor tests; exact release interactive bypass cases are pending."
+    },
+    "ATC-BRG-4": {
+      "status": "pass",
+      "reason": "Expired TTL returns E0120.",
+      "evidence": [
+        {
+          "path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log",
+          "receipt_path": "docs/testing/production-review/evidence/candidate-761485d7/workspace-test.json",
+          "sha256": "f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6",
+          "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+          "command": "cargo test --locked --workspace --no-fail-fast",
+          "claim": "Candidate workspace suite passed with exact source stable.",
+          "exit_code": 0,
+          "observed_at_utc": "2026-11-27T03:31:48.932344+00:00"
+        }
+      ],
+      "reviewer": "independent QA agent /root/qa",
+      "reviewed_at_utc": "2026-11-27T03:34:04.709192+00:00"
+    },
+    "INTEROP-WAN": {
+      "status": "not_evidenced",
+      "reason": "Independent networks and actual direct NAT traversal plus forced public relay are not demonstrated."
+    },
+    "ATC-PKG-1": {
+      "status": "not_evidenced",
+      "reason": "Fresh successor serial clean package digest evidence is pending."
+    }
+  }
+}

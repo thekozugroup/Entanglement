@@ -1,0 +1,39 @@
+{
+  "packages": [
+    "imagemagick\t8:7.1.1.43+dfsg1-1+deb13u13",
+    "libraw23t64:amd64\t0.21.4-2+deb13u1",
+    "python3-numpy\t1:2.2.4+ds-1",
+    "python3-scipy\t1.15.3-1"
+  ],
+  "native_camera_decode": {
+    "provider": "rawsamples.ch via letmaik/rawpy",
+    "license": "CC BY-NC-SA 4.0",
+    "source_sha256": "37e290dbd0053f00e508d02a6b3a2a990432dad1eb74c40a52ca899f0f225ecc",
+    "bytes": 92675,
+    "libraw_open_status": 0,
+    "libraw_unpack_status": 0,
+    "sensor_dimensions": [
+      768,
+      512
+    ],
+    "image_dimensions": [
+      768,
+      512
+    ],
+    "decoded_image_metadata": "KDC 768x512 sRGB 16"
+  },
+  "synthetic_dehaze": {
+    "input": "generated 128x96 linear RGB scene",
+    "atmospheric_light": [
+      0.86,
+      0.93,
+      1.0
+    ],
+    "window": 15,
+    "omega": 0.95,
+    "minimum_transmission": 0.1,
+    "hazy_mean_absolute_error": 0.22314583333333338,
+    "recovered_mean_absolute_error": 0.017995631720430134,
+    "evaluated_pixels": 8192
+  }
+}

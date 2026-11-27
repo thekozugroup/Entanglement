@@ -1,0 +1,14 @@
+{
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 docs/testing/production-review/evidence/candidate-761485d7/release-checks/capture.py --root /workspace/Entanglement --expected-source sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281 --candidate-commit 761485d7490a56c7215ad958db81949204c74245 --group agent --output docs/testing/production-review/evidence/candidate-761485d7/agent-adapters --session-test target/debug/deps/session-f441ad9b297604ac",
+  "started_at_utc": "2026-11-27T03:32:10.869+00:00",
+  "candidate_commit": "761485d7490a56c7215ad958db81949204c74245",
+  "stages": [],
+  "source_before": "sha256:20cb3be3e480a6f7ff3281fdf32fbe7465ab92c0edd420bf91773750877bb8fd",
+  "error": "AssertionError()",
+  "source_after": "sha256:20cb3be3e480a6f7ff3281fdf32fbe7465ab92c0edd420bf91773750877bb8fd",
+  "source_id": "sha256:20cb3be3e480a6f7ff3281fdf32fbe7465ab92c0edd420bf91773750877bb8fd",
+  "finished_at_utc": "2026-11-27T03:32:11.221+00:00",
+  "exit_code": 1,
+  "path": "docs/testing/production-review/evidence/candidate-761485d7/agent-adapters/commands.log",
+  "sha256": "8283060d1c667ec4c4a2673b1c7f16777d89ebd3019d8a77517237ef76eec7df"
+}

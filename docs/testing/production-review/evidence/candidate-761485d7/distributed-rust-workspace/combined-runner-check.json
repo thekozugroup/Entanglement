@@ -1,0 +1,71 @@
+{
+  "candidate_commit": "761485d7490a56c7215ad958db81949204c74245",
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "archive_sha256": "da07d6662bda25c9da80974e81d12a62683173f1f67194d841d83c8536145f8a",
+  "official_binary_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "same_shipped_sharder_sha256": "5d5370b11f52530bfcd470473f0360b18539ea65abe759ab803819e76e24dcd6",
+  "workspace": {
+    "upstream": "https://github.com/rust-random/rngs",
+    "commit": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+    "all_case_names_and_dispositions_match": true,
+    "native_distinct_cases": 224,
+    "genuine_flaky_transitions": 0
+  },
+  "separate_deterministic_retry_control": {
+    "flaky": {
+      "report": "retry_fixture",
+      "case": "intentionally_fails_on_first_attempt",
+      "status": "flaky",
+      "attempts": [
+        {
+          "attempt": 1,
+          "peer": "690d38a9e513d2b91eb504148368caa4",
+          "status": "failed",
+          "exit_code": null
+        },
+        {
+          "attempt": 2,
+          "peer": "182755da257ee08f5a40a7a71c1080cb",
+          "status": "passed",
+          "exit_code": 0
+        }
+      ]
+    },
+    "failed": {
+      "report": "failure",
+      "case": "intentionally_fails_on_every_attempt",
+      "status": "failed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "peer": "690d38a9e513d2b91eb504148368caa4",
+          "status": "failed",
+          "exit_code": null
+        },
+        {
+          "attempt": 2,
+          "peer": "182755da257ee08f5a40a7a71c1080cb",
+          "status": "failed",
+          "exit_code": null
+        }
+      ]
+    },
+    "ignored": {
+      "report": "retry_fixture",
+      "case": "intentionally_fails_on_every_attempt",
+      "status": "ignored",
+      "attempts": []
+    }
+  },
+  "additional_unmodified_futures_first_attempt_passes": 3,
+  "scope": "Every ordinary workspace case and the retry-control cases used the same shipped run_suite/run_test/classify/dispatcher implementation. The six merged rustdoc executables used the shipped dispatcher and group-level parsing. No upstream spontaneous flake was observed.",
+  "raw_source_sha256": {
+    "distributed-rust-workspace/rngs-receipt.json": "6c972ec6356aafff1a429c91fdc5aaa958e0abdf600db729353606afaa0db285",
+    "distributed-rust-release.json": "a224b6e5dd3439a9569b943628bf7e6732c68170e8999c7c528c19472177d550",
+    "distributed-rust-release.receipt.json": "86148cff9dceb49a5f9e216f4da81c55cae1ac4ecae91121a638619bcbaad7ac",
+    "distributed-rust-workspace/futures-stream-select.json": "597c163f5f60c4d677317afcfdf4df6e7d16e100c66559ab0db10721d5a7fff5"
+  }
+}

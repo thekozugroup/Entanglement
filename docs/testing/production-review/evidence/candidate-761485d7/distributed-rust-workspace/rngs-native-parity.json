@@ -1,0 +1,36 @@
+{
+  "native_counts": {
+    "unit_and_integration": {
+      "passed": 198
+    },
+    "doctests": {
+      "ignored": 2,
+      "passed": 24
+    }
+  },
+  "distributed_counts": {
+    "unit_and_integration": {
+      "passed": 198
+    },
+    "doctests": {
+      "passed": 24,
+      "ignored": 2
+    }
+  },
+  "native_distinct_cases": 224,
+  "distributed_distinct_cases": 224,
+  "all_case_names_and_dispositions_match": true,
+  "differences": [],
+  "expected_workers": [
+    "16e4dd5e2188856f362939b09dcbf9f2",
+    "ef6108840d23a13645f8b269085d70a6"
+  ],
+  "observed_worker_attempts": {
+    "16e4dd5e2188856f362939b09dcbf9f2": 121,
+    "ef6108840d23a13645f8b269085d70a6": 101
+  },
+  "attempts": 222,
+  "cargo_exit": 0,
+  "native_log_sha256": "cc170f8b236fbcef739e499704e20c6675e2d8db6ec0a94fc0aedfce32fa1e62",
+  "remote_report_sha256": "3e0d579d3f69e98d862f93f8e758c51bce8b81340e18bba8c8cb6f3bd19333dc"
+}

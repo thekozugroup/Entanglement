@@ -1,0 +1,10 @@
+{
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "started_utc": "2026-11-27T03:30:41+00:00",
+  "finished_utc": "2026-11-27T03:31:08+00:00",
+  "command": "cargo doc --workspace --locked --no-deps",
+  "exit_code": 0,
+  "log": "rustdoc.log",
+  "log_sha256": "452c6daf2add858769ffd1a114480197afefffa34985c27f7f3bb6dd7937203d"
+}

@@ -1,0 +1,127 @@
+761485d7490a56c7215ad958db81949204c74245
+Linux 6.18.57 x86_64
+b3sum 1.8.1
+GitVersion:    v2.5.3
+GitCommit:     488ef8ceed5ab5d77379e9077a124a0d0df41d06
+da07d6662bda25c9da80974e81d12a62683173f1f67194d841d83c8536145f8a  /workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+3ebd688ce70ea5f7a3cc4bfd37397ce6c1675371eaa3c8f7ea1bc70cbedf5188  /workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256
+1e5a01390774d4bca98edf77bdb42394a337aacde137535ec87d2605dffd9c1e  /workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.b3
+9c8a73a97d4af293359a4bbf41fe664cc9316e57728b76af9de769f7f3777395  /tmp/entangle-final-installer-fixture.py
+6047e0979fbf96a30adb6ab327de8472f29ba471adce364543ac500c92c0396b  /tmp/entangle-final-release-tag-fixture.py
+
+UTC start 2026-11-27T03:36:19Z
+source before sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+command bash scripts/verify-release.sh --checksums-only /workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+/workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: SHA-256 matched
+/workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: BLAKE3 matched
+/workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: checksum verification passed
+exit 0 (expected 0)
+source after sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+UTC finish 2026-11-27T03:36:20Z
+
+UTC start 2026-11-27T03:36:20Z
+source before sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+command bash scripts/verify-release.sh /workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+/workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: SHA-256 matched
+/workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz: BLAKE3 matched
+error: missing Sigstore bundle /workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sigstore
+exit 1 (expected 1)
+source after sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+UTC finish 2026-11-27T03:36:20Z
+
+UTC start 2026-11-27T03:36:21Z
+source before sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+command python3 /tmp/entangle-final-installer-fixture.py --archive /workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+linux/x86_64 sha256sum mode=positive, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-o4oa22co/l0/home/install/bin -> 0
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 5fed908c19c37e3abe567de8e2d0b273e5f8edbd40058cd06a5ac9d6dd0619d0
+  entangle 1.2.3-rc.4, installed SHA-256 130ac2e6ffd622fea7e8cd2546ce7255a310f5a6471ba249efc9700d16fac698
+  entangled 1.2.3-rc.4, installed SHA-256 cc5790639b9bd5945ca5ec3e11a27d8b0ffd69abff684160e9302b63b30c110f
+darwin/aarch64 shasum mode=positive, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-o4oa22co/m0/home/install/bin -> 0
+  Entangle override env: OS=darwin ARCH=aarch64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-aarch64-apple-darwin.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 c6b2c8fc44216ffe799087b8cfd2f8492e54f73b6f2b0e3f0e85f5513726e669
+  entangle 1.2.3-rc.4, installed SHA-256 130ac2e6ffd622fea7e8cd2546ce7255a310f5a6471ba249efc9700d16fac698
+  entangled 1.2.3-rc.4, installed SHA-256 cc5790639b9bd5945ca5ec3e11a27d8b0ffd69abff684160e9302b63b30c110f
+linux/x86_64 sha256sum mode=mismatch, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-o4oa22co/l1/home/install/bin -> 1
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  rejected before extraction or installation: SHA-256 MISMATCH
+darwin/aarch64 shasum mode=mismatch, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-o4oa22co/m1/home/install/bin -> 1
+  Entangle override env: OS=darwin ARCH=aarch64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-aarch64-apple-darwin.tar.gz and adjacent .sha256, no latest lookup
+  rejected before extraction or installation: SHA-256 MISMATCH
+linux/x86_64 sha256sum mode=missing, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-o4oa22co/l2/home/install/bin -> 1
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  rejected before extraction or installation: checksum file missing
+darwin/aarch64 shasum mode=missing, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-o4oa22co/m2/home/install/bin -> 1
+  Entangle override env: OS=darwin ARCH=aarch64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-aarch64-apple-darwin.tar.gz and adjacent .sha256, no latest lookup
+  rejected before extraction or installation: checksum file missing
+linux/x86_64 openssl mode=positive, synthetic archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version v1.2.3-rc.4 --prefix /tmp/ent-final-install-o4oa22co/openssl/home/install/bin -> 0
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v1.2.3-rc.4/entanglement-v1.2.3-rc.4-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 e33dcaffdcfc6d784c58da8dd5b79eca30b87d081b82d199e2b8707bfc3d5876
+  entangle 1.2.3-rc.4, installed SHA-256 130ac2e6ffd622fea7e8cd2546ce7255a310f5a6471ba249efc9700d16fac698
+  entangled 1.2.3-rc.4, installed SHA-256 cc5790639b9bd5945ca5ec3e11a27d8b0ffd69abff684160e9302b63b30c110f
+linux/x86_64 sha256sum mode=positive, native archive
+  /bin/sh /workspace/Entanglement/scripts/install.sh --version 0.1.0 --prefix /tmp/ent-final-install-o4oa22co/native/home/install/bin -> 0
+  Entangle override env: OS=linux ARCH=x86_64; local downloader only
+  requested https://github.com/thekozugroup/Entanglement/releases/download/v0.1.0/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz and adjacent .sha256, no latest lookup
+  matched SHA-256 da07d6662bda25c9da80974e81d12a62683173f1f67194d841d83c8536145f8a
+  entangle 0.1.0, installed SHA-256 dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895
+  entangled 0.1.0, installed SHA-256 ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd
+exit 0 (expected 0)
+source after sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+UTC finish 2026-11-27T03:36:27Z
+
+UTC start 2026-11-27T03:36:27Z
+source before sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+command tar -xzf /workspace/Entanglement/target/release-candidate/761485d7490a/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz -C /tmp/entangle-final-unpack.5hl2ZL
+exit 0 (expected 0)
+source after sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+UTC finish 2026-11-27T03:36:29Z
+
+UTC start 2026-11-27T03:36:29Z
+source before sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+command /tmp/entangle-final-unpack.5hl2ZL/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle --version
+entangle 0.1.0
+exit 0 (expected 0)
+source after sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+UTC finish 2026-11-27T03:36:29Z
+
+UTC start 2026-11-27T03:36:30Z
+source before sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+command /tmp/entangle-final-unpack.5hl2ZL/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled --version
+entangled 0.1.0
+exit 0 (expected 0)
+source after sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+UTC finish 2026-11-27T03:36:30Z
+dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895  /tmp/entangle-final-unpack.5hl2ZL/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd  /tmp/entangle-final-unpack.5hl2ZL/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangled
+entangle highest GLIBC import GLIBC_2.39
+entangled highest GLIBC import GLIBC_2.39
+
+UTC start 2026-11-27T03:36:30Z
+source before sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+command python3 /tmp/entangle-final-release-tag-fixture.py /tmp/entangle-final-unpack.5hl2ZL/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle
+/tmp/entangle-final-unpack.5hl2ZL/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle release verify /tmp/ent-final-release-tag-gn0ii4sz/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz --publisher-key /tmp/ent-final-release-tag-gn0ii4sz/publisher.pub -> 1
+  real Cosign verified against the pinned historical root and rejected unrelated workflow for exact SAN https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@refs/tags/v0.1.0
+bash scripts/verify-release.sh /tmp/ent-final-release-tag-gn0ii4sz/entanglement-v0.1.0-x86_64-unknown-linux-gnu.tar.gz -> 1
+  real Cosign verified against the pinned historical root and rejected unrelated workflow for exact SAN https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@refs/tags/v0.1.0
+/tmp/entangle-final-unpack.5hl2ZL/entanglement-v0.1.0-x86_64-unknown-linux-gnu/entangle release verify /tmp/ent-final-release-tag-gn0ii4sz/entanglement-v0.1.1-rc.3-x86_64-unknown-linux-gnu.tar.gz --publisher-key /tmp/ent-final-release-tag-gn0ii4sz/publisher.pub -> 1
+  real Cosign verified against the pinned historical root and rejected unrelated workflow for exact SAN https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@refs/tags/v0.1.1-rc.3
+bash scripts/verify-release.sh /tmp/ent-final-release-tag-gn0ii4sz/entanglement-v0.1.1-rc.3-x86_64-unknown-linux-gnu.tar.gz -> 1
+  real Cosign verified against the pinned historical root and rejected unrelated workflow for exact SAN https://github.com/thekozugroup/Entanglement/.github/workflows/release.yml@refs/tags/v0.1.1-rc.3
+exit 0 (expected 0)
+source after sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+UTC finish 2026-11-27T03:36:33Z

@@ -1,0 +1,24 @@
+{
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 docs/testing/production-review/evidence/candidate-761485d7/release-checks/capture.py --root /workspace/Entanglement --expected-source sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281 --candidate-commit 761485d7490a56c7215ad958db81949204c74245 --group oci --output docs/testing/production-review/evidence/candidate-761485d7/native-oci-confinement",
+  "started_at_utc": "2026-11-27T03:31:06.086+00:00",
+  "candidate_commit": "761485d7490a56c7215ad958db81949204c74245",
+  "stages": [
+    {
+      "command": [
+        "bash",
+        "/workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/native-oci-confinement/probe.sh"
+      ],
+      "exit_code": 0,
+      "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+      "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281"
+    }
+  ],
+  "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "evidence_scope": "Fixed inert container operator test with observed resource-control limitation. No native adapter registration.",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "finished_at_utc": "2026-11-27T03:31:13.525+00:00",
+  "exit_code": 0,
+  "path": "docs/testing/production-review/evidence/candidate-761485d7/native-oci-confinement/commands.log",
+  "sha256": "83ea62788e940f2781a34f8d104cc7cc4344fbcadc62ed8d046c3dc1a8e48c0f"
+}

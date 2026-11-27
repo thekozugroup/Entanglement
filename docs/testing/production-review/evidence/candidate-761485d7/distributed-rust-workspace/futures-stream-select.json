@@ -1,0 +1,173 @@
+{
+  "candidate_source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "candidate_binary_hashes": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "upstream_revision": "d9bba94c239daa1175a5bb2958f37a5c72db3f6a",
+  "upstream_target_source_sha256": "299ba04655e2e65658c19b955381d457b8ef0d65cba60ac2cd66eb5eea64e287",
+  "wasm_sha256": "76b2333d7474c0fefbb6588573bd4f1ba6690bd061b2115d156e76d3186fb194",
+  "published_crate": "futures 0.3.32",
+  "test": "stream_select",
+  "bound": "Three runs; futures-util initializes a thread-local deterministic PRNG with a counter starting at zero in each fresh single-threaded store.",
+  "build_note": "The original published target file was compiled byte-for-byte with its public default futures dependency in an external manifest. The full published package and full upstream workspace are reported separately, including target and dependency errors.",
+  "started_utc": "2026-11-27T03:36:00Z",
+  "trials": [
+    {
+      "index": 1,
+      "exit": 0,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "56b71d5e7a59030f2b912cf038d3f611/futures-async-await-macros@0.1.0",
+            "listing_peers": [
+              "c8f50f2828a49678704426290e72bf6e",
+              "5852a9b64401d92d458e95358605fe8b"
+            ],
+            "filtered": 21,
+            "counts": {
+              "passed": 1,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 0
+            },
+            "elapsed_ms": 62,
+            "results": [
+              {
+                "name": "stream_select",
+                "status": "passed",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "c8f50f2828a49678704426290e72bf6e",
+                    "exit_code": 0,
+                    "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s\n\n",
+                    "stderr": "",
+                    "status": "passed"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 1,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 0
+        },
+        "filtered": 21,
+        "elapsed_ms": 62
+      }
+    },
+    {
+      "index": 2,
+      "exit": 0,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "56b71d5e7a59030f2b912cf038d3f611/futures-async-await-macros@0.1.0",
+            "listing_peers": [
+              "5852a9b64401d92d458e95358605fe8b",
+              "c8f50f2828a49678704426290e72bf6e"
+            ],
+            "filtered": 21,
+            "counts": {
+              "passed": 1,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 0
+            },
+            "elapsed_ms": 24,
+            "results": [
+              {
+                "name": "stream_select",
+                "status": "passed",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "5852a9b64401d92d458e95358605fe8b",
+                    "exit_code": 0,
+                    "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s\n\n",
+                    "stderr": "",
+                    "status": "passed"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 1,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 0
+        },
+        "filtered": 21,
+        "elapsed_ms": 24
+      }
+    },
+    {
+      "index": 3,
+      "exit": 0,
+      "stderr": "",
+      "report": {
+        "suites": [
+          {
+            "suite": "56b71d5e7a59030f2b912cf038d3f611/futures-async-await-macros@0.1.0",
+            "listing_peers": [
+              "c8f50f2828a49678704426290e72bf6e",
+              "5852a9b64401d92d458e95358605fe8b"
+            ],
+            "filtered": 21,
+            "counts": {
+              "passed": 1,
+              "flaky": 0,
+              "failed": 0,
+              "ignored": 0,
+              "error": 0
+            },
+            "elapsed_ms": 31,
+            "results": [
+              {
+                "name": "stream_select",
+                "status": "passed",
+                "attempts": [
+                  {
+                    "attempt": 1,
+                    "peer": "c8f50f2828a49678704426290e72bf6e",
+                    "exit_code": 0,
+                    "stdout": "\nrunning 1 test\n.\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s\n\n",
+                    "stderr": "",
+                    "status": "passed"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "counts": {
+          "passed": 1,
+          "flaky": 0,
+          "failed": 0,
+          "ignored": 0,
+          "error": 0
+        },
+        "filtered": 21,
+        "elapsed_ms": 31
+      }
+    }
+  ],
+  "peers": [
+    "c8f50f2828a49678704426290e72bf6e",
+    "5852a9b64401d92d458e95358605fe8b"
+  ],
+  "candidate_source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "finished_utc": "2026-11-27T03:36:03Z"
+}

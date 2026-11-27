@@ -1,0 +1,5 @@
+    Blocking waiting for file lock on build directory
+    Checking entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+ Documenting entangle-bin v0.1.0 (/workspace/Entanglement/crates/entangle-bin)
+    Finished `dev` profile [unoptimized] target(s) in 27.65s
+   Generated /workspace/Entanglement/target/doc/cargo_entangle/index.html and 26 other files

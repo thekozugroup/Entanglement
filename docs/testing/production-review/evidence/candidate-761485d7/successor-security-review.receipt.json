@@ -1,0 +1,34 @@
+{
+  "reviewer": "/root/advert",
+  "source_commit": "761485d7490a56c7215ad958db81949204c74245",
+  "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "started_utc": "2026-11-27T03:35:52.420386+00:00",
+  "finished_utc": "2026-11-27T03:39:59.757544+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-761485d7/successor-security-review.md",
+  "sha256": "0065566147c7fb115413f6bf3ef27861f4dcfa51af9f1ec13dc5b66e3ddf946d",
+  "method": "Independent scoped code review, exact Git object comparison, and source-bound executable proof verification",
+  "archive_sha256": "da07d6662bda25c9da80974e81d12a62683173f1f67194d841d83c8536145f8a",
+  "binary_sha256": {
+    "entangle": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+    "entangled": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd"
+  },
+  "open_high": 0,
+  "open_critical": 0,
+  "supporting_log": "docs/testing/production-review/evidence/candidate-761485d7/security-scope-verification.log",
+  "supporting_log_sha256": "15ce618a806b3e83a8d75a2797cd9bf13f620829f420fd13dfdbd269d01eb483",
+  "evidence_sha256": {
+    "security-scope-verification.log": "15ce618a806b3e83a8d75a2797cd9bf13f620829f420fd13dfdbd269d01eb483",
+    "lan-mdns-independent.log": "1a268b7c473d80668b7120e335adc86249d1a0953370b3ded06e875c5f2b5e46",
+    "release-command-run.log": "0b4de01625a51bc99d29b8a25d7097cea27b7fcc3e95dd9a14ae4d41ff9ddbb4",
+    "archive-command-run.log": "337daa083f2b7776dc936851071d3ab6a694edd3bb7959038dc3f13913c9b79b",
+    "installed-uds.log": "dc5d6fa14f8997312dc9142643a644418d76842c436c4f24b978782ad9f00d9d",
+    "publisher-rotation-rehearsal.log": "acd5b5d924690bb0f92655304e82455913ba1e247a0daaf55934b02398e23f67",
+    "publisher-incident-exercise.md": "342a2db3c4cd439c51bfe9a75772064d57f47719bd6723e85c9a75aede078d41",
+    "auth-live-linux.json": "baeed2663385f3f7a9a33433a3f37a137641bbccdc90151cf16d3082a5cbbeb7",
+    "loader-boundary-linux.json": "301c54f1316b24bf30b2592e582ae059c5c5a1b7afc9712ada207d1734b50ee5",
+    "loader-security-disposition.md": "33862eb8995ec5846ceb34c41ce674eeab5e7976b587dbd754ef8de69f3cde43",
+    "private-recovery-linux.json": "11f40910cba3e6c280a7f587c70a14cea842cd2447ca2ae61e46b0e3daf3055f"
+  }
+}

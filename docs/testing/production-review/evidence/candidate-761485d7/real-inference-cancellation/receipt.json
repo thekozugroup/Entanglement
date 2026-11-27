@@ -1,0 +1,29 @@
+{
+  "source_id": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 docs/testing/production-review/evidence/candidate-761485d7/real-inference-cancellation/verify.py --root /workspace/Entanglement --bin-dir target/release --expected-source sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281 --reference docs/testing/production-review/evidence/candidate-761485d7/linux-archive.json --prior-driver docs/testing/production-review/evidence/candidate-864ae27b/real-inference/verify.py --server /tmp/entanglement-cpu-server-b6910/bin/llama-server --model /tmp/entangle-llama-cpu-model/TinyLlama-1.1B-Chat-v1.0-IQ2_XXS.gguf --output docs/testing/production-review/evidence/candidate-761485d7/real-inference-cancellation",
+  "finished_at_utc": "2026-11-27T03:40:19.773+00:00",
+  "elapsed_ms": {
+    "close_rpc_ack": 3.871,
+    "worker_http_disconnect": 4.257,
+    "backend_socket_closed": 4.319,
+    "replacement_mesh_admission": 9.198,
+    "replacement_backend_forwarded": 11.68,
+    "replacement_first_signed_output": 607.239
+  },
+  "exit_code": 0,
+  "claim": "After verified first TinyLlama output, cancellation closed worker and backend sockets; llama.cpp recorded cancellation and released its single slot, then a different verified request completed with exact direct API parity.",
+  "backend_trace_lines": [
+    163,
+    165,
+    173
+  ],
+  "files_sha256": {
+    "result.json": "69892d259cf1f58c9eb54f2737048bd048ae85a5a9692d8819f7430b0b93333f",
+    "llama-server.log": "966fa9ac1e7020be92843c9341d0530c2dc7c7ca02cabe78dfa1ac9a14890e45",
+    "worker-daemon.log": "0e10c3bb5c91436857f2fa3a0d700160895940aecdaa99d71a2d8dc6d8086d18",
+    "coordinator-daemon.log": "2e172a404ba9d21bc0fb141f73a45ffb617dad9528e75bbf5a48bd108df0b85a",
+    "verify.py": "6f1231eb819e4e47794fd8c494946bac9fcb62e72265d8cfcd18451ab689ee4a"
+  }
+}

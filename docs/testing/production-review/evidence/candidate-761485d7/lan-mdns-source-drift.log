@@ -1,0 +1,8 @@
+761485d7490a56c7215ad958db81949204c74245 sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281 Linux 6.18.57 x86_64
+Compiled test /workspace/Entanglement/target/debug/deps/daemon_compute-694865561f332ffb a2ccca4ab78f6c4fdbbc52a42f74fdf9024e3db03930ff5db5823fb97a95deb7
+Embedded debug daemon /workspace/Entanglement/target/debug/entangled 60dfb5593c9892cac6d54a7855d784bf5a77f68fffeaaad11e825f109ff5c3e0
+Workspace transcript /workspace/Entanglement/docs/testing/production-review/evidence/candidate-761485d7/workspace-test.log f06b62032e3742ec84329c7f75fa6a59ec7ae0d058d77a392e5cf76cefb94de6
+One Linux host, fresh isolated homes and identities, empty configured peer routes, relay disabled.
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+eth0             UP             1e:a9:61:a3:38:a1 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+eth1             UP             c2:0e:1a:1a:a4:4e <BROADCAST,MULTICAST,UP,LOWER_UP>

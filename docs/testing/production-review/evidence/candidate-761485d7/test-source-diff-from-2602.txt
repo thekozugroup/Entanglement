@@ -1,0 +1,11 @@
+A	crates/entangle-bin/src/remote/routes/supervisor/tests.rs
+M	crates/entangle-bin/src/remote/routes/tests.rs
+M	crates/entangle-cli/tests/wrapper.rs
+M	crates/entangle-runtime/src/tests.rs
+A	docs/testing/production-review/evidence/candidate-2602ce17/package-operator/published-fixture/test-publisher-keyring.toml
+A	docs/testing/production-review/evidence/candidate-2602ce17/package-operator/published-fixture/test-publisher.pub.pem
+A	docs/testing/production-review/evidence/candidate-864ae27b/package-operator/published-fixture/test-publisher-keyring.toml
+A	docs/testing/production-review/evidence/candidate-864ae27b/package-operator/published-fixture/test-publisher.pub.pem
+A	docs/testing/production-review/evidence/candidate-864ae27b/test-source-diff-from-2602.txt
+M	scripts/tests/private-tailnet.py
+A	scripts/tests/private_recovery.py

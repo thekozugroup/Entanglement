@@ -1,0 +1,30 @@
+    Finished `test` profile [unoptimized] target(s) in 0.83s
+     Running tests/session.rs (target/debug/deps/session-7ce2c002b3a8dbbe)
+
+running 2 tests
+test session_start_and_restore_round_trips ... FAILED
+test session_start_no_prior_config_restore_removes_file ... FAILED
+
+failures:
+
+---- session_start_and_restore_round_trips stdout ----
+
+thread 'session_start_and_restore_round_trips' (500849) panicked at crates/entangle-agent-host/tests/session.rs:60:9:
+assertion `left == right` failed: gateway URL not injected
+  left: Null
+ right: "http://127.0.0.1:9000/mcp"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- session_start_no_prior_config_restore_removes_file stdout ----
+
+thread 'session_start_no_prior_config_restore_removes_file' (500850) panicked at crates/entangle-agent-host/tests/session.rs:39:42:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+
+failures:
+    session_start_and_restore_round_trips
+    session_start_no_prior_config_restore_removes_file
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p entangle-agent-host --test session`

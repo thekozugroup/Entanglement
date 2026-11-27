@@ -1,0 +1,13 @@
+{
+  "command": [
+    "bash",
+    "/tmp/entangle-public-761485d7.sh"
+  ],
+  "started_utc": "2026-11-27T03:40:21.196383+00:00",
+  "finished_utc": "2026-11-27T03:42:25.079214+00:00",
+  "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-761485d7/public-package-rebuild.log",
+  "sha256": "2725625b3e41f61ef18defb622bc4054baa5f1666b2a619d267e17e9eb348391"
+}

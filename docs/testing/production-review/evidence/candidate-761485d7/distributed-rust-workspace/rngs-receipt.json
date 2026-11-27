@@ -1,0 +1,72 @@
+{
+  "started_utc": "2026-11-27T03:36:23Z",
+  "finished_utc": "2026-11-27T03:37:54Z",
+  "elapsed_s": 90.4169780480006,
+  "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "command": [
+    "cargo",
+    "+1.91.1",
+    "test",
+    "--offline",
+    "--locked",
+    "--workspace",
+    "--target",
+    "wasm32-wasip2",
+    "--no-fail-fast"
+  ],
+  "daemon_sha256": "ed345717b93bde2b64e1284e9dd8f308a2f09da4997993ce71f9b8dc8df911cd",
+  "cli_sha256": "dace32646d0a67e08385db6a7d9fd8425a2d530fe966cbc438ace0ba38737895",
+  "driver_sha256": "38b2562db53914da0f6c084db5ec260f7bc3a30ce8b43634566cd4ea483cb8d9",
+  "upstream_commit": "aeaa3f312f915fdf72f0d43af6a84197b079bf81",
+  "upstream_diff": "",
+  "dependency_lock_sha256": "3192202a77857b38733c7594a9a67a8d2970d51c6176487b48c83578c58ea888",
+  "exit_code": 0,
+  "candidate_commit": "761485d7490a56c7215ad958db81949204c74245",
+  "native_command": "cargo +1.91.1 test --offline --locked --workspace --no-fail-fast",
+  "native_exit": 0,
+  "original_repo": "https://github.com/rust-random/rngs",
+  "native_parity": {
+    "native_counts": {
+      "unit_and_integration": {
+        "passed": 198
+      },
+      "doctests": {
+        "ignored": 2,
+        "passed": 24
+      }
+    },
+    "distributed_counts": {
+      "unit_and_integration": {
+        "passed": 198
+      },
+      "doctests": {
+        "passed": 24,
+        "ignored": 2
+      }
+    },
+    "native_distinct_cases": 224,
+    "distributed_distinct_cases": 224,
+    "all_case_names_and_dispositions_match": true,
+    "differences": [],
+    "expected_workers": [
+      "16e4dd5e2188856f362939b09dcbf9f2",
+      "ef6108840d23a13645f8b269085d70a6"
+    ],
+    "observed_worker_attempts": {
+      "16e4dd5e2188856f362939b09dcbf9f2": 121,
+      "ef6108840d23a13645f8b269085d70a6": 101
+    },
+    "attempts": 222,
+    "cargo_exit": 0,
+    "native_log_sha256": "cc170f8b236fbcef739e499704e20c6675e2d8db6ec0a94fc0aedfce32fa1e62",
+    "remote_report_sha256": "3e0d579d3f69e98d862f93f8e758c51bce8b81340e18bba8c8cb6f3bd19333dc"
+  },
+  "uncompressed_archive_sha256": {
+    "rngs-distributed.json.gz": "3e0d579d3f69e98d862f93f8e758c51bce8b81340e18bba8c8cb6f3bd19333dc",
+    "rngs-distributed-cargo.log.gz": "223bf638834052bfa0dbfeea991309b2f6166414ecfc0b5c35d5fa8e97cc3c3f",
+    "rngs-native-cargo.log.gz": "cc170f8b236fbcef739e499704e20c6675e2d8db6ec0a94fc0aedfce32fa1e62"
+  },
+  "sharder_sha256": "5d5370b11f52530bfcd470473f0360b18539ea65abe759ab803819e76e24dcd6",
+  "upstream_natural_flaky_transitions": 0
+}

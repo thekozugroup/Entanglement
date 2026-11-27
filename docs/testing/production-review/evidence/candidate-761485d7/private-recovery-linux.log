@@ -1,0 +1,28 @@
+cold boot without either Tailscale service: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port denied: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+scheduler port allowed: error: rpc -32000: dispatch error: placement: no live workers in pool
+worker tailscaled restart offline: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer a86c405fd73e8200c9cb954c3c327ffc failed: no answer within 11000ms (task timeout 1000ms + 10000ms overhead)
+coordinator tailscaled restart offline: error: rpc -32000: dispatch error: ENTANGLE-E0402: remote dispatch to peer a86c405fd73e8200c9cb954c3c327ffc failed: ENTANGLE-E0633: cannot connect to peer a86c405fd73e8200c9cb954c3c327ffc: closed
+revoked during disconnect: error: rpc -32000: dispatch error: ENTANGLE-E0403: peer a86c405fd73e8200c9cb954c3c327ffc rejected the task (not-authorized): peer is not in this node's trusted peer allowlist

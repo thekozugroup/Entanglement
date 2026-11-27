@@ -1,0 +1,19 @@
+Frozen commit = 761485d7490a56c7215ad958db81949204c74245
+Source before = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+
+[2026-11-27T03:34:04.418+00:00] $ /workspace/Entanglement/target/debug/deps/session-f441ad9b297604ac --ignored --test-threads=1 --nocapture
+CWD = /tmp/entangle-agent-scaffold-8twjv8z7
+Source before = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+
+running 2 tests
+test session_start_and_restore_round_trips ... ok
+test session_start_no_prior_config_restore_removes_file ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+Exit = 0
+Source after = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281
+
+Suite exit = 0
+Source after = sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281

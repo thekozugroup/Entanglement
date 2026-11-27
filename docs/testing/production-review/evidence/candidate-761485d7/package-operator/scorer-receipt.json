@@ -1,0 +1,10 @@
+{
+  "source_before": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "source_after": "sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281",
+  "started_utc": "2026-11-27T03:37:28+00:00",
+  "finished_utc": "2026-11-27T03:38:56+00:00",
+  "exit_code": 0,
+  "log": "docs/testing/production-review/evidence/candidate-761485d7/package-operator/package-operator.log",
+  "sha256": "d0b7d45115dff309c045ae00086955b6e0addcc07c4f5ffffb6cfedefcfd853c",
+  "command": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3 docs/testing/production-review/evidence/candidate-761485d7/package-operator/verify.py --candidate-root /workspace/Entanglement --cargo-entangle target/release/cargo-entangle --output docs/testing/production-review/evidence/candidate-761485d7/package-operator --expected-source sha256:d4bac68175f75abfc6b42773658c9022fd822051ffd1d6b38a58ab78df8c7281 --source-url https://github.com/thekozugroup/Entanglement.git"
+}
