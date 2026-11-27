@@ -119,6 +119,7 @@ fn snapshots_follow_only_mapped_online_nodes_and_current_trust() {
         lan: None,
         static_peers: HashMap::new(),
         tailnet: RwLock::new(HashMap::new()),
+        tailnet_demand: None,
         trust: PeerStoreAllowlist::new(store.clone()),
     };
     let mut status = status();
@@ -359,6 +360,137 @@ async fn mixed_listener_reloads_routes_and_status_from_the_local_cli() {
     mesh.transport.shutdown().await;
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn missing_mixed_route_wakes_local_status_and_hung_queries_leave_listener_intact() {
+    use entangle_mesh_tailscale::MeshTailscaleConfig;
+    use std::{fs, os::unix::fs::symlink, path::Path, process::Stdio};
+    use tokio::time::{sleep, timeout};
+
+    async fn wait_for_call(path: &Path, count: usize) -> u32 {
+        timeout(Duration::from_secs(3), async {
+            loop {
+                let calls = fs::read_to_string(path).unwrap_or_default();
+                if let Some(pid) = calls.lines().nth(count - 1) {
+                    return pid.parse().unwrap();
+                }
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("local status call started")
+    }
+
+    async fn wait_for_child_exit(pid: u32) {
+        timeout(Duration::from_secs(3), async {
+            loop {
+                let alive = tokio::process::Command::new("kill")
+                    .args(["-0", &pid.to_string()])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status()
+                    .await
+                    .unwrap()
+                    .success();
+                if !alive {
+                    break;
+                }
+                sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("timed out or aborted command was reaped");
+    }
+
+    timeout(Duration::from_secs(15), async {
+        let dir = tempfile::tempdir().unwrap();
+        let executable = dir.path().join("counted fixture");
+        let calls = executable.with_extension("calls");
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../entangle-mesh-tailscale/tests/fixtures/status-cli.sh");
+        symlink(fixture, &executable).unwrap();
+        let set_status = |online| {
+            let state = serde_json::json!({
+                "BackendState": "Running",
+                "Self": { "ID": "local", "Online": true, "TailscaleIPs": ["100.101.2.3"] },
+                "Peer": { "key": { "ID": "worker", "Online": online, "TailscaleIPs": ["100.64.1.2"] } }
+            });
+            let next = dir.path().join("latest.json");
+            fs::write(&next, state.to_string()).unwrap();
+            fs::rename(next, executable.with_extension("json")).unwrap();
+        };
+        set_status(false);
+        let mesh = MeshTailscale::new(MeshTailscaleConfig {
+            tailscale_cli: executable.to_str().unwrap().to_owned(),
+            ..Default::default()
+        });
+        let local = IdentityKeyPair::generate();
+        let local_id = PeerId::from_public_key_bytes(local.public().as_bytes());
+        let key = *IdentityKeyPair::generate().public().as_bytes();
+        let worker = PeerId::from_public_key_bytes(&key);
+        let absent_key = *IdentityKeyPair::generate().public().as_bytes();
+        let absent = PeerId::from_public_key_bytes(&absent_key);
+        let store = PeerStore::new();
+        let cfg: Config = toml::from_str(&format!(
+            r#"
+            [mesh]
+            transports = ["iroh", "tailscale"]
+            [scheduler]
+            bind = "0.0.0.0:0"
+            relay = false
+            [[scheduler.tailnet_peers]]
+            public_key = "{}"
+            node_id = "worker"
+            port = 7443
+            [[scheduler.tailnet_peers]]
+            public_key = "{}"
+            node_id = "absent"
+            port = 7443
+            "#,
+            hex::encode(key),
+            hex::encode(absent_key)
+        ))
+        .unwrap();
+        let mut prepared =
+            prepare_with_discovery(&cfg, &local, &store, local_id, mesh, Duration::from_secs(60))
+                .await
+                .unwrap()
+                .unwrap();
+        assert_eq!(fs::read_to_string(&calls).unwrap().lines().count(), 1);
+        assert_eq!(prepared.addresses.lookup_for_dispatch(&worker), (None, false));
+        store.add(TrustedPeer::new(worker, hex::encode(key), "worker".into())).unwrap();
+        store.add(TrustedPeer::new(absent, hex::encode(absent_key), "absent".into())).unwrap();
+        assert_eq!(prepared.addresses.lookup_for_dispatch(&worker), (None, true));
+        assert_eq!(prepared.addresses.lookup_for_dispatch(&local_id), (None, false));
+        set_status(true);
+        prepared.addresses.refresh_missing_route().await;
+        let (route, refresh) = prepared.addresses.lookup_for_dispatch(&worker);
+        assert!(!refresh);
+        assert_eq!(route.unwrap().addr, "100.64.1.2:7443".parse().unwrap());
+        assert_eq!(fs::read_to_string(&calls).unwrap().lines().count(), 2);
+
+        fs::write(executable.with_extension("hang"), "").unwrap();
+        sleep(Duration::from_secs(1)).await;
+        assert_eq!(prepared.addresses.lookup_for_dispatch(&absent), (None, true));
+        prepared.addresses.refresh_missing_route().await;
+        let pid = wait_for_call(&calls, 3).await;
+        wait_for_child_exit(pid).await;
+        assert!(prepared.addresses.lookup(&worker).is_some());
+        assert_eq!(&*prepared.active_transports.borrow(), &["iroh", "tailscale"]);
+
+        sleep(Duration::from_secs(1)).await;
+        let addresses = prepared.addresses.clone();
+        let waiter = tokio::spawn(async move { addresses.refresh_missing_route().await });
+        let pid = wait_for_call(&calls, 4).await;
+        prepared.shutdown().await;
+        waiter.await.unwrap();
+        wait_for_child_exit(pid).await;
+        assert_eq!(fs::read_to_string(&calls).unwrap().lines().count(), 4);
+    })
+    .await
+    .expect("bounded local route polls and shutdown");
+}
+
 #[test]
 fn tailnet_routes_on_a_mixed_endpoint_preserve_static_hints() {
     let key = *IdentityKeyPair::generate().public().as_bytes();
@@ -384,6 +516,7 @@ fn tailnet_routes_on_a_mixed_endpoint_preserve_static_hints() {
             }],
             "0.0.0.0:0".parse().unwrap(),
         )),
+        tailnet_demand: None,
         trust: PeerStoreAllowlist::new(store),
     };
     let dial = addresses.lookup(&id).unwrap();

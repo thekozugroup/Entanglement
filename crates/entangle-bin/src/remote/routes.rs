@@ -22,7 +22,9 @@ use super::{
     bind_scheduler, configured_peers, parse_bind, scheduler_transport_enabled, PeerStoreAllowlist,
 };
 
+mod demand;
 mod supervisor;
+use demand::{Demand, Updates};
 use supervisor::TailnetSupervisor;
 
 const REFRESH_INTERVAL: Duration = Duration::from_secs(30);
@@ -71,6 +73,7 @@ impl PreparedScheduler {
         self.listener.take();
         if let Some(refresh) = self.refresh.take() {
             refresh.abort();
+            let _ = refresh.await;
         }
         self.transport.shutdown().await;
         if let Some(task) = self.serving.take() {
@@ -173,15 +176,12 @@ struct SchedulerAddresses {
     // Swap whole snapshots so disappeared, offline and readdressed nodes
     // immediately lose their old hints after refresh.
     tailnet: RwLock<HashMap<PeerId, IrohPeer>>,
+    tailnet_demand: Option<Demand>,
     trust: PeerStoreAllowlist,
 }
 
-impl PeerAddressBook for SchedulerAddresses {
-    fn permits_stream(&self, id: &PeerId) -> bool {
-        self.trust.is_authorized(id)
-    }
-
-    fn lookup(&self, id: &PeerId) -> Option<IrohPeer> {
+impl SchedulerAddresses {
+    fn route_hints(&self, id: &PeerId) -> Option<IrohPeer> {
         let static_peer = self.static_peers.get(id).cloned();
         let tailnet = self
             .tailnet
@@ -191,10 +191,41 @@ impl PeerAddressBook for SchedulerAddresses {
         let lan = self.lan.as_ref().and_then(|routes| routes.lookup(id));
         let mut sources = [static_peer, tailnet, lan].into_iter().flatten();
         let first = sources.next()?;
-        let peer = sources.fold(first, |peer, extra| {
+        Some(sources.fold(first, |peer, extra| {
             extra.addrs().fold(peer, IrohPeer::with_addr)
-        });
-        self.trust.is_authorized(id).then_some(peer)
+        }))
+    }
+}
+
+#[async_trait::async_trait]
+impl PeerAddressBook for SchedulerAddresses {
+    fn permits_stream(&self, id: &PeerId) -> bool {
+        self.trust.is_authorized(id)
+    }
+
+    fn lookup(&self, id: &PeerId) -> Option<IrohPeer> {
+        self.route_hints(id)
+            .filter(|_| self.trust.is_authorized(id))
+    }
+
+    fn lookup_for_dispatch(&self, id: &PeerId) -> (Option<IrohPeer>, bool) {
+        let routes = self.route_hints(id);
+        let refresh = routes.is_none()
+            && self
+                .tailnet_demand
+                .as_ref()
+                .is_some_and(|demand| demand.is_mapped(id));
+        if (routes.is_some() || refresh) && self.trust.is_authorized(id) {
+            (routes, refresh)
+        } else {
+            (None, false)
+        }
+    }
+
+    async fn refresh_missing_route(&self) {
+        if let Some(demand) = &self.tailnet_demand {
+            demand.refresh().await;
+        }
     }
 }
 
@@ -402,20 +433,23 @@ async fn prepare_with_discovery(
             store: store.clone(),
         })
     });
+    let (tailnet_demand, mut requests) = Demand::channel(&mappings);
     let addresses = Arc::new(SchedulerAddresses {
         lan: lan.clone(),
         static_peers,
         tailnet: RwLock::new(tailnet),
+        tailnet_demand,
         trust: PeerStoreAllowlist::new(store.clone()),
     });
     let (active_tx, active_transports) = watch::channel(active_transports);
     let refresh = tailscale.then(|| {
         let addresses = addresses.clone();
         tokio::spawn(async move {
+            let mut updates = Updates::new(refresh_interval);
             loop {
-                tokio::time::sleep(refresh_interval).await;
-                let (updated, error) = match online_status(&mesh, bind).await {
-                    Ok((status, _)) => (snapshot_routes(&status, &mappings, bind), None),
+                let (status, done) = updates.next(&mut requests, &mesh, bind).await;
+                let (updated, error) = match status {
+                    Ok(status) => (snapshot_routes(&status, &mappings, bind), None),
                     Err(e) => (HashMap::new(), Some(e.to_string())),
                 };
                 if let Ok(mut routes) = addresses.tailnet.write() {
@@ -438,6 +472,9 @@ async fn prepare_with_discovery(
                         });
                     }
                     previous_error = error;
+                }
+                if let Some(done) = done {
+                    done.send_replace(());
                 }
             }
         })

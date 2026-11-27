@@ -65,9 +65,21 @@ use crate::wire::{
 /// Placement decides *who* runs a task; this decides *how to reach them*. The
 /// two are separate because a peer can be a legitimate placement target long
 /// before this node has learned a working address for it.
+#[async_trait::async_trait]
 pub trait PeerAddressBook: std::fmt::Debug + Send + Sync {
     /// The peer's current dialable descriptor, or `None` if unknown.
     fn lookup(&self, peer: &PeerId) -> Option<IrohPeer>;
+
+    /// Look up a selected one-shot worker and indicate whether a missing
+    /// route can be refreshed. Called on a blocking worker, like `lookup`.
+    fn lookup_for_dispatch(&self, peer: &PeerId) -> (Option<IrohPeer>, bool) {
+        (self.lookup(peer), false)
+    }
+
+    /// Wait briefly for an address update following an eligible dispatch miss.
+    /// The caller must look up the peer again and check its identity, since a
+    /// concurrent refresh may finish before this waiter attaches.
+    async fn refresh_missing_route(&self) {}
 
     /// Check current authority for an established worker stream. Persisted trust
     /// implementations may authorize the identity independently of address churn.
@@ -299,31 +311,53 @@ impl RemoteDispatch {
         self.transport.local_peer_id()
     }
 
-    async fn address(&self, peer: PeerId) -> Result<IrohPeer, DispatchError> {
+    async fn lookup_address(
+        &self,
+        peer: PeerId,
+        check_refresh: bool,
+    ) -> Result<(Option<IrohPeer>, bool), DispatchError> {
         let addresses = self.addresses.clone();
-        let addr = tokio::task::spawn_blocking(move || addresses.lookup(&peer))
-            .await
-            .map_err(|err| DispatchError::RemoteTransport {
-                peer,
-                reason: err.to_string(),
-            })?
-            .ok_or_else(|| DispatchError::RemoteTransport {
-                peer,
-                reason: "no known network address for this peer (not paired, or no address \
-                         learned yet)"
-                    .to_owned(),
-            })?;
+        let (addr, refresh) = tokio::task::spawn_blocking(move || {
+            if check_refresh {
+                addresses.lookup_for_dispatch(&peer)
+            } else {
+                (addresses.lookup(&peer), false)
+            }
+        })
+        .await
+        .map_err(|err| DispatchError::RemoteTransport {
+            peer,
+            reason: err.to_string(),
+        })?;
 
         // QUIC authenticates the descriptor's public key. Bind that key to
         // the peer whose eligibility placement and the integrity policy checked.
-        if addr.peer_id != peer || PeerId::from_public_key_bytes(&addr.public_key) != peer {
+        if addr.as_ref().is_some_and(|addr| {
+            addr.peer_id != peer || PeerId::from_public_key_bytes(&addr.public_key) != peer
+        }) {
             return Err(DispatchError::RemoteTransport {
                 peer,
                 reason: "address book returned a different peer identity".into(),
             });
         }
 
-        Ok(addr)
+        Ok((addr, refresh))
+    }
+
+    fn missing_address(peer: PeerId) -> DispatchError {
+        DispatchError::RemoteTransport {
+            peer,
+            reason:
+                "no known network address for this peer (not paired, or no address learned yet)"
+                    .to_owned(),
+        }
+    }
+
+    async fn address(&self, peer: PeerId) -> Result<IrohPeer, DispatchError> {
+        self.lookup_address(peer, false)
+            .await?
+            .0
+            .ok_or_else(|| Self::missing_address(peer))
     }
 
     /// Read this trusted worker's hardware advertisement over identity-bound QUIC.
@@ -408,44 +442,68 @@ impl RemoteDispatch {
             return Err(RuntimeError::Integrity(IntegrityError::NotImplemented(policy)).into());
         }
 
-        let addr = self.address(peer).await?;
+        let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
+        let route_timeout = || DispatchError::RemoteTransport {
+            peer,
+            reason: "deadline exceeded while refreshing the peer network address".into(),
+        };
+        let (mut addr, refresh) = self.lookup_address(peer, true).await?;
+        let refresh_started = if addr.is_none() && refresh {
+            if budget.is_zero() {
+                return Err(route_timeout());
+            }
+            let started = tokio::time::Instant::now();
+            let wait = async {
+                self.addresses.refresh_missing_route().await;
+                self.address(peer).await
+            };
+            addr = Some(
+                tokio::time::timeout(budget, wait)
+                    .await
+                    .map_err(|_| route_timeout())??,
+            );
+            Some(started)
+        } else {
+            None
+        };
+        let addr = addr.ok_or_else(|| Self::missing_address(peer))?;
         let request = RemoteTaskRequest::for_task(task);
         let frame = encode_request(&request).map_err(|e| DispatchError::RemoteTransport {
             peer,
             reason: format!("encoding request: {e}"),
         })?;
 
-        let budget = Duration::from_millis(task.timeout_ms).saturating_add(self.overhead);
         let transfer = async {
-            if task.input.len() >= crate::placement::MIN_UPLOAD_BYTES {
+            // Tokio's timeout polls the future before checking its deadline.
+            if refresh_started.is_some_and(|started| started.elapsed() >= budget) {
+                return Err(route_timeout());
+            }
+            let result = if task.input.len() >= crate::placement::MIN_UPLOAD_BYTES {
                 self.transport.request_with_upload(&addr, &frame).await
             } else {
                 self.transport
                     .request(&addr, &frame)
                     .await
                     .map(|raw| (raw, None))
-            }
+            };
+            result.map_err(|error| DispatchError::RemoteTransport {
+                peer,
+                reason: error.to_string(),
+            })
         };
-        let (raw, upload) = match tokio::time::timeout(budget, transfer).await {
-            Ok(Ok(bytes)) => bytes,
-            Ok(Err(e)) => {
-                return Err(DispatchError::RemoteTransport {
-                    peer,
-                    reason: e.to_string(),
-                })
-            }
-            Err(_elapsed) => {
-                return Err(DispatchError::RemoteTransport {
-                    peer,
-                    reason: format!(
-                        "no answer within {}ms (task timeout {}ms + {}ms overhead)",
-                        budget.as_millis(),
-                        task.timeout_ms,
-                        self.overhead.as_millis()
-                    ),
-                })
-            }
-        };
+        let remaining =
+            refresh_started.map_or(budget, |started| budget.saturating_sub(started.elapsed()));
+        let (raw, upload) = tokio::time::timeout(remaining, transfer)
+            .await
+            .map_err(|_| DispatchError::RemoteTransport {
+                peer,
+                reason: format!(
+                    "no answer before the {}ms transfer deadline (task timeout {}ms + {}ms overhead, including any route refresh)",
+                    budget.as_millis(),
+                    task.timeout_ms,
+                    self.overhead.as_millis()
+                ),
+            })??;
 
         // The peer's answer is untrusted input: size-check it against *our*
         // limit, not anything it told us.
@@ -929,9 +987,173 @@ pub async fn serve_tasks(transport: Arc<MeshIroh>, server: Arc<RemoteTaskServer>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use entangle_mesh_iroh::{MeshConn, MeshIrohError, MeshTransport};
+    use std::net::SocketAddr;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use tokio::sync::Notify;
 
     fn peer(byte: u8) -> PeerId {
         PeerId::from_public_key_bytes(&[byte; 32])
+    }
+
+    #[derive(Debug)]
+    struct RefreshableRoute {
+        hint: IrohPeer,
+        paired: AtomicBool,
+        learned: AtomicBool,
+        starting: Notify,
+        finish: Notify,
+        refreshes: AtomicUsize,
+    }
+
+    #[async_trait::async_trait]
+    impl PeerAddressBook for RefreshableRoute {
+        fn lookup(&self, peer: &PeerId) -> Option<IrohPeer> {
+            (*peer == self.hint.peer_id
+                && self.paired.load(Ordering::Relaxed)
+                && self.learned.load(Ordering::Relaxed))
+            .then(|| self.hint.clone())
+        }
+
+        fn lookup_for_dispatch(&self, peer: &PeerId) -> (Option<IrohPeer>, bool) {
+            let hint = self.lookup(peer);
+            let refresh =
+                hint.is_none() && *peer == self.hint.peer_id && self.paired.load(Ordering::Relaxed);
+            (hint, refresh)
+        }
+
+        async fn refresh_missing_route(&self) {
+            self.refreshes.fetch_add(1, Ordering::Relaxed);
+            self.starting.notify_one();
+            self.finish.notified().await;
+        }
+    }
+
+    #[derive(Debug, Default)]
+    struct CountDispatches {
+        requests: AtomicUsize,
+        reject: AtomicBool,
+    }
+
+    #[async_trait::async_trait]
+    impl MeshTransport for CountDispatches {
+        fn local_peer_id(&self) -> PeerId {
+            peer(0)
+        }
+        fn local_public_key(&self) -> [u8; 32] {
+            [0; 32]
+        }
+        fn local_addrs(&self) -> Vec<SocketAddr> {
+            vec![]
+        }
+        async fn connect(&self, _: &IrohPeer) -> Result<MeshConn, MeshIrohError> {
+            unreachable!("test accepts only one-shot task requests")
+        }
+        async fn accept(&self) -> Result<Option<MeshConn>, MeshIrohError> {
+            Ok(None)
+        }
+        async fn request(&self, worker: &IrohPeer, wire: &[u8]) -> Result<Vec<u8>, MeshIrohError> {
+            assert_eq!(worker.peer_id, peer(1));
+            let task = decode_request(wire).expect("encoded one-shot task");
+            assert_eq!(task.input, b"one invocation");
+            self.requests.fetch_add(1, Ordering::Relaxed);
+            let response = if self.reject.load(Ordering::Relaxed) {
+                RemoteTaskResponse::err(RemoteErrorCode::Execution, "fixture rejected the task")
+            } else {
+                RemoteTaskResponse::ok(b"executed".to_vec())
+            };
+            Ok(encode_response(&response).unwrap())
+        }
+        async fn shutdown(&self) {}
+    }
+
+    #[tokio::test]
+    async fn only_one_shot_route_misses_refresh_and_pairing_is_rechecked() {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let worker = peer(1);
+            let routes = Arc::new(RefreshableRoute {
+                hint: IrohPeer::new([1; 32], "100.64.0.2:7443".parse().unwrap()),
+                paired: AtomicBool::new(true),
+                learned: AtomicBool::new(false),
+                starting: Notify::new(),
+                finish: Notify::new(),
+                refreshes: AtomicUsize::new(0),
+            });
+            let transport = Arc::new(CountDispatches::default());
+            let client = RemoteDispatch::new(transport.clone(), routes.clone())
+                .with_overhead(Duration::ZERO);
+            let mut task = OneShotTask::with_defaults(
+                "0123456789abcdef0123456789abcdef/fixture@0.1.0"
+                    .parse()
+                    .unwrap(),
+                b"one invocation".to_vec(),
+            );
+            assert!(client.capabilities(worker).await.is_err());
+            assert_eq!(routes.refreshes.load(Ordering::Relaxed), 0);
+
+            task.integrity = IntegrityPolicy::TrustedExecutor {
+                allowlist: vec![peer(2)],
+            };
+            assert!(client.dispatch(&task, worker).await.is_err());
+            assert_eq!(routes.refreshes.load(Ordering::Relaxed), 0);
+            task.integrity = IntegrityPolicy::TrustedExecutor {
+                allowlist: vec![worker],
+            };
+            task.timeout_ms = 1000;
+            let first = client.dispatch(&task, worker);
+            tokio::pin!(first);
+            tokio::select! {
+                _ = routes.starting.notified() => {},
+                result = &mut first => panic!("dispatch finished before refresh: {result:?}"),
+            }
+            assert_eq!(transport.requests.load(Ordering::Relaxed), 0);
+            // Another request can publish while this caller is waiting. Always
+            // look again, even when this caller got no explicit completion.
+            routes.learned.store(true, Ordering::Relaxed);
+            routes.finish.notify_one();
+            assert_eq!(first.await.unwrap(), b"executed");
+            assert_eq!(client.dispatch(&task, worker).await.unwrap(), b"executed");
+            assert_eq!(routes.refreshes.load(Ordering::Relaxed), 1);
+            assert_eq!(transport.requests.load(Ordering::Relaxed), 2);
+            transport.reject.store(true, Ordering::Relaxed);
+            assert!(matches!(
+                client.dispatch(&task, worker).await,
+                Err(DispatchError::RemoteRejected {
+                    code: RemoteErrorCode::Execution,
+                    ..
+                })
+            ));
+            assert_eq!(routes.refreshes.load(Ordering::Relaxed), 1);
+            assert_eq!(transport.requests.load(Ordering::Relaxed), 3);
+
+            routes.learned.store(false, Ordering::Relaxed);
+            let revoked = client.dispatch(&task, worker);
+            tokio::pin!(revoked);
+            tokio::select! {
+                _ = routes.starting.notified() => {},
+                result = &mut revoked => panic!("dispatch finished before refresh: {result:?}"),
+            }
+            routes.paired.store(false, Ordering::Relaxed);
+            routes.learned.store(true, Ordering::Relaxed);
+            routes.finish.notify_one();
+            assert!(revoked.await.is_err());
+            assert!(client.dispatch(&task, worker).await.is_err());
+            assert_eq!(routes.refreshes.load(Ordering::Relaxed), 2);
+            assert_eq!(transport.requests.load(Ordering::Relaxed), 3);
+
+            routes.paired.store(true, Ordering::Relaxed);
+            routes.learned.store(false, Ordering::Relaxed);
+            let mut bounded = task.clone();
+            bounded.timeout_ms = 0;
+            assert!(client.dispatch(&bounded, worker).await.is_err());
+            assert_eq!(routes.refreshes.load(Ordering::Relaxed), 2);
+            bounded.timeout_ms = 25;
+            assert!(client.dispatch(&bounded, worker).await.is_err());
+            assert_eq!(routes.refreshes.load(Ordering::Relaxed), 3);
+            assert_eq!(transport.requests.load(Ordering::Relaxed), 3);
+        })
+        .await
+        .expect("bounded test dispatches");
     }
 
     #[test]

@@ -143,6 +143,7 @@ pub(super) struct TailnetSupervisor {
     addresses: Arc<SchedulerAddresses>,
     active: watch::Sender<Vec<String>>,
     refresh_interval: Duration,
+    requests: Option<demand::Requests>,
 }
 
 pub(super) async fn prepare(
@@ -158,9 +159,11 @@ pub(super) async fn prepare(
         requested.ip().is_unspecified() || is_tailnet_ip(requested.ip()),
         "Tailscale scheduler bind must select a local Tailscale IP or an address-family wildcard"
     );
+    let (tailnet_demand, requests) = Demand::channel(&mappings);
     let addresses = Arc::new(SchedulerAddresses {
         static_peers: HashMap::new(),
         tailnet: RwLock::new(HashMap::new()),
+        tailnet_demand,
         lan: None,
         trust: PeerStoreAllowlist::new(store.clone()),
     });
@@ -175,6 +178,7 @@ pub(super) async fn prepare(
         addresses: addresses.clone(),
         active,
         refresh_interval,
+        requests,
     };
     if let Err(error) = supervisor.activate().await {
         tracing::warn!(%error, "Tailscale scheduler starting offline; waiting for a verified local bind");
@@ -258,14 +262,17 @@ impl TailnetSupervisor {
         }
     }
 
-    async fn monitor_address(&self, bound: Option<SocketAddr>) -> anyhow::Result<()> {
+    async fn monitor_address(&mut self, bound: Option<SocketAddr>) -> anyhow::Result<()> {
         // Check the *current* exact bind; multiple local IPs may change order. On replacement,
         // A new bind may choose a different local IP only when the original config allowed it.
         let bound = bound.context("missing bound Tailscale scheduler socket")?;
+        let mut updates = Updates::new(self.refresh_interval);
         loop {
-            tokio::time::sleep(self.refresh_interval).await;
-            let (status, _) = online_status(&self.mesh, bound).await?;
-            self.report(Some(&status));
+            let (status, done) = updates.next(&mut self.requests, &self.mesh, bound).await;
+            self.report(Some(&status?));
+            if let Some(done) = done {
+                done.send_replace(());
+            }
         }
     }
 

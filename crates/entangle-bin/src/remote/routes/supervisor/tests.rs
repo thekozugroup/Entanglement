@@ -86,6 +86,7 @@ async fn check_service_shutdown(terminal: bool) {
         let addresses = Arc::new(SchedulerAddresses {
             static_peers: HashMap::new(),
             tailnet: RwLock::new(HashMap::new()),
+            tailnet_demand: None,
             lan: None,
             trust: PeerStoreAllowlist::new(store.clone()),
         });
@@ -111,6 +112,7 @@ async fn check_service_shutdown(terminal: bool) {
             addresses: addresses.clone(),
             active,
             refresh_interval: Duration::from_secs(60),
+            requests: None,
         };
         let server = Arc::new(RemoteTaskServer::new(
             Arc::new(Kernel::new(KernelConfig::default(), Keyring::new()).unwrap()),
