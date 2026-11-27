@@ -265,9 +265,11 @@ This is a daemon service using a model server you operate separately. It require
    the temporary pairing listener is unreachable, use `entangle pair --manual`
    on the coordinator and `entangle pair --responder --manual` on the worker
    to exchange blobs. On the coordinator, `entangle mesh tailnet --json` lists
-   visible Tailscale nodes with their stable `node_id`. Find the worker's paired
-   Entanglement `public_key_hex` in `~/.entangle/peers.toml`. These identifiers
-   come from independent systems. [Pairing walkthrough](tutorial.md#11-pair-a-second-device)
+   visible Tailscale nodes with their stable `node_id`. Compare the selected
+   ID with `Self.ID` in the worker's `tailscale status --json`. Find the
+   worker's paired Entanglement `peer_id` in the coordinator's
+   `~/.entangle/peers.toml`. The operator associates these two identities.
+   [Pairing walkthrough](tutorial.md#11-pair-a-second-device)
 3. On **both** hosts, add the following settings to `~/.entangle/config.toml`. Merge them with any existing sections. A Tailscale-only scheduler resolves the wildcard to the host's tailnet interface and disables Iroh relays.
 
 ```toml
@@ -278,14 +280,23 @@ transports = ["tailscale"]
 bind = "0.0.0.0:7443"
 ```
 
-4. On the **coordinator**, add one mapping for each worker. Replace both placeholders with the identifiers from step 2. Add the reverse mapping if the worker should also send jobs back.
+4. On the **coordinator**, link the online worker to its paired Entanglement identity. Use the two identifiers from step 2 and the worker's scheduler UDP port. To send jobs in both directions, run this command on each device with the other device's identifiers and port.
 
-```toml
-[[scheduler.tailnet_peers]]
-node_id = "<worker-stable-tailscale-node-id>"
-public_key = "<worker-64-digit-entanglement-public-key>"
-port = 7443
+```sh
+entangle mesh tailnet link '<worker-stable-tailscale-node-id>' \
+  --peer '<worker-entanglement-peer-id>' --port 7443
 ```
+
+   The command reads local Tailscale status and the current peer store, then saves the verified public key, stable node ID and port in `[[scheduler.tailnet_peers]]`. An identical mapping is safe to submit again. A conflicting mapping requires the operator to review the existing entry. Add `--json` for a machine-readable result.
+
+   When provisioning offline, the equivalent entry in the coordinator's `config.toml` uses the paired worker's 64-digit `public_key_hex` from `peers.toml`.
+
+   ```toml
+   [[scheduler.tailnet_peers]]
+   node_id = "<worker-stable-tailscale-node-id>"
+   public_key = "<worker-64-digit-entanglement-public-key>"
+   port = 7443
+   ```
 
 5. Configure the worker's signed plugin package as shown above and restart both Entanglement daemons. Check `entangle mesh status` for `tailscale` on each. On the coordinator, the following command restricts execution to the paired worker and prints the chosen peer and result. If the worker has a trusted route, this command can refresh its inventory before the next scheduled poll.
 

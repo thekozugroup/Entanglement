@@ -3,6 +3,7 @@
 //! The tailnet command queries the local Tailscale installation directly.
 
 mod bridge;
+mod tailnet;
 use anyhow::bail;
 use clap::{Args, Subcommand};
 use entangle_peers::{PeerStore, TrustedPeer};
@@ -41,11 +42,13 @@ pub enum MeshCmd {
         #[arg(long)]
         json: bool,
     },
-    /// Inspect the local Tailscale backend and list visible nodes and their stable IDs.
+    /// List visible Tailscale devices or link one to a trusted worker.
     Tailnet {
         /// Emit machine-readable JSON.
-        #[arg(long)]
+        #[arg(long, global = true)]
         json: bool,
+        #[command(subcommand)]
+        cmd: Option<tailnet::TailnetCmd>,
     },
     /// Add a peer to the persistent allowlist by pasting their public key hex.
     Trust {
@@ -80,7 +83,11 @@ pub async fn run(args: MeshArgs) -> anyhow::Result<()> {
         MeshCmd::Bridge { cmd } => bridge::run(cmd).await,
         MeshCmd::Peers { json } => peers(json).await,
         MeshCmd::Status { json } => status(json).await,
-        MeshCmd::Tailnet { json } => tailnet(json).await,
+        MeshCmd::Tailnet { json, cmd: None } => tailnet(json).await,
+        MeshCmd::Tailnet {
+            json,
+            cmd: Some(cmd),
+        } => tailnet::run(cmd, json).await,
         MeshCmd::Trust {
             peer_id,
             public_key_hex,

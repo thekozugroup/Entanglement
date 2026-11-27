@@ -117,6 +117,17 @@ pub struct TailnetStatus {
     pub peers: Vec<TailnetNode>,
 }
 
+/// Whether an address is in Tailscale's standard IPv4 or IPv6 node range.
+pub fn is_tailnet_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            let [a, b, ..] = v4.octets();
+            a == 100 && (64..128).contains(&b)
+        }
+        IpAddr::V6(v6) => v6.segments()[..3] == [0xfd7a, 0x115c, 0xa1e0],
+    }
+}
+
 impl TailnetStatus {
     /// Whether the local backend reports a running, online node.
     pub fn is_running(&self) -> bool {

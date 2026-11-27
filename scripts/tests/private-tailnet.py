@@ -80,6 +80,40 @@ def await_ready(name, *command):
     raise RuntimeError(f"{name} did not become ready")
 
 
+def link_worker(coordinator, worker):
+    """Configure the paired worker through the operator CLI and the coordinator's real LocalAPI."""
+    def operator(*args):
+        return json.loads(run("docker", "run", "--rm", "--pull=never", *coordinator["app_args"],
+                              APP, "entangle", "mesh", "tailnet", *args, "--json").stdout)
+
+    config = coordinator["home"] / ".entangle/config.toml"
+    peers = coordinator["home"] / ".entangle/peers.toml"
+    trusted_before = peers.read_bytes()
+    expected = tomllib.loads(config.read_text())
+    if expected["scheduler"].get("tailnet_peers"):
+        raise RuntimeError("expected an unmapped coordinator before operator link")
+    visible = operator()
+    if not any(peer["node_id"] == worker["id"] and peer["online"] for peer in visible["peers"]):
+        raise RuntimeError("operator tailnet status did not list the online worker's stable ID")
+
+    args = ("link", worker["id"], "--peer", worker["peer"], "--port", "7443")
+    first = operator(*args)
+    written = config.read_bytes()
+    second = operator(*args)
+    mapping = {"node_id": worker["id"], "public_key": worker["pub"], "port": 7443}
+    for result, changed in ((first, True), (second, False)):
+        if (result["changed"] is not changed or result["tailscale_enabled"] is not True
+                or result["peer_id"] != worker["peer"]
+                or any(result[key] != value for key, value in mapping.items())):
+            raise RuntimeError(f"unexpected operator link result: {result}")
+    expected["scheduler"]["tailnet_peers"] = [mapping]
+    if tomllib.loads(config.read_text()) != expected or config.read_bytes() != written:
+        raise RuntimeError("operator link did not persist one idempotent mapping")
+    if peers.read_bytes() != trusted_before:
+        raise RuntimeError("operator link changed the paired peer store")
+    return {"visible_online": True, "trust_preserved": True, "first": first, "repeat": second}
+
+
 def run_check(work, cleanup, binaries, wasm, bridge=False, recovery=False):
     network = "entangle-wg-" + secrets.token_hex(6)
     control = network + "-control"
@@ -163,36 +197,41 @@ def run_check(work, cleanup, binaries, wasm, bridge=False, recovery=False):
         node["peer"] = next(e["fingerprint"] for e in entries if e["public_key"] == node["pub"])
 
     cli(worker, "plugins", "build", REPO / "plugins/json-pointer", "--wasm", wasm, "--out", worker["home"] / "package")
-    if recovery:
-        # These enrolled devices still exist in Headscale, but the kernel links must be absent at app launch.
-        for node in nodes.values():
-            run("docker", "stop", "-t", "4", node["name"])
     for role, node in nodes.items():
         other = coordinator if role == "worker" else worker
         cli(node, "mesh", "trust", other["peer"], "--public-key-hex", other["pub"], "--display-name", "test peer")
         config = '[mesh]\ntransports=["tailscale"]\nmulti_node=true\n[scheduler]\nbind="0.0.0.0:7443"\n'
-        if role == "coordinator":
-            config += f'[[scheduler.tailnet_peers]]\nnode_id="{worker["id"]}"\npublic_key="{worker["pub"]}"\nport=7443\n'
         (node["home"] / ".entangle/config.toml").write_text(config)
-        app = node["name"] + "-app"
-        node["app"] = app
         # Rootless Docker can map host file ownership differently from the host's numeric UID.
         owner = run("docker", "run", "--rm", "--pull=never", "--network=none",
                     "-v", f'{node["home"]}:/home-check:ro', APP, "stat", "-c", "%u:%g", "/home-check").stdout.strip()
-        start(app, "--network", "container:" + node["namespace"], "--user", owner,
-              "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-              "-e", "HOME=/ent-home", "-e", "TOKIO_WORKER_THREADS=2",
-              "-v", f'{node["home"]}:/ent-home', "-v", f'{node["sock"]}:/var/run/tailscale',
-              "-v", f"{ts_cli}:/usr/local/bin/tailscale:ro", "-v", f"{binaries}/entangle:/usr/local/bin/entangle:ro",
-              "-v", f"{binaries}/entangled:/usr/local/bin/entangled:ro",
-              "-v", f"{REPO}/scripts/tests/tailnet-compute.py:/tmp/check.py:ro", APP, "entangled", "run")
+        node["app_args"] = [
+            "--network", "container:" + node["namespace"], "--user", owner,
+            "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+            "-e", "HOME=/ent-home", "-e", "TOKIO_WORKER_THREADS=2",
+            "-v", f'{node["home"]}:/ent-home', "-v", f'{node["sock"]}:/var/run/tailscale',
+            "-v", f"{ts_cli}:/usr/local/bin/tailscale:ro", "-v", f"{binaries}/entangle:/usr/local/bin/entangle:ro",
+            "-v", f"{binaries}/entangled:/usr/local/bin/entangled:ro",
+            "-v", f"{REPO}/scripts/tests/tailnet-compute.py:/tmp/check.py:ro",
+        ]
+    operator_link = link_worker(coordinator, worker)
+    if recovery:
+        # Retain the operator's configuration while exercising a cold, offline daemon boot.
+        for node in nodes.values():
+            run("docker", "stop", "-t", "4", node["name"])
+    for role, node in nodes.items():
+        app = node["name"] + "-app"
+        node["app"] = app
+        start(app, *node["app_args"], APP, "entangled", "run")
         await_ready(app, "entangle", "mesh", "status", "--json")
         if role == "worker":
             run("docker", "exec", app, "entangle", "plugins", "load", "/ent-home/package")
 
     if recovery:
         from private_recovery import check_recovery
-        return check_recovery(nodes, run, policy, cold_controls, ping.strip().splitlines()[-1])
+        receipt = check_recovery(nodes, run, policy, cold_controls, ping.strip().splitlines()[-1])
+        receipt["operator_link"] = operator_link
+        return receipt
 
     snapshot = run("docker", "exec", worker["app"], "python3", "/tmp/check.py", "worker").stdout
     receipt = json.loads(run("docker", "exec", "-i", coordinator["app"], "python3", "/tmp/check.py",
@@ -202,7 +241,8 @@ def run_check(work, cleanup, binaries, wasm, bridge=False, recovery=False):
                    receipt["plugin_id"], "--cpu-cores", "0.01", "--input", "{}", check=False)
     if rejected.returncode == 0 or "not-authorized" not in rejected.stderr:
         raise RuntimeError(f"worker did not reject the revoked submitter: {rejected.stderr}")
-    receipt.update(wireguard_path=ping.strip().splitlines()[-1], revocation="not-authorized")
+    receipt.update(wireguard_path=ping.strip().splitlines()[-1], revocation="not-authorized",
+                   operator_link=operator_link)
     if bridge:
         from private_bridge import run_bridge
         receipt["bridge"] = run_bridge(work, network, worker, coordinator, ts_cli, binaries,

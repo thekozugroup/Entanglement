@@ -8,7 +8,7 @@ use std::time::Duration;
 use anyhow::{ensure, Context};
 use entangle_mesh_iroh::{DynMeshTransport, IrohPeer, MeshIroh, MeshTransport};
 use entangle_mesh_local::{Discovery, PeerSeen};
-use entangle_mesh_tailscale::{MeshTailscale, TailnetStatus};
+use entangle_mesh_tailscale::{is_tailnet_ip, MeshTailscale, TailnetStatus};
 use entangle_peers::PeerStore;
 use entangle_scheduler::{PeerAddressBook, PeerAllowlist, RemoteTaskServer};
 use entangle_signing::{IdentityKeyPair, IdentityPublicKey};
@@ -248,18 +248,6 @@ impl Mapping {
             public_key,
             port: cfg.port.get(),
         })
-    }
-}
-
-// Accept only Tailscale's node-address space, including for the local bind.
-// Subnet routes, LAN addresses and exit-node routes do not designate nodes.
-fn is_tailnet_ip(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(v4) => {
-            let [a, b, ..] = v4.octets();
-            a == 100 && (64..128).contains(&b)
-        }
-        IpAddr::V6(v6) => v6.segments()[..3] == [0xfd7a, 0x115c, 0xa1e0],
     }
 }
 
