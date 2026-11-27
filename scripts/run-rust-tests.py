@@ -2,7 +2,8 @@
 """Shard a signed WASI libtest suite over paired Entanglement workers."""
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
+from collections import deque
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import json
 from pathlib import Path
 import re
@@ -127,27 +128,62 @@ def classify(result):
     raise DispatchError("exact libtest selector did not report one completed test")
 
 
-def run_test(dispatch, peers, index, name, ignored, retries):
-    attempts = []
-    for attempt in range(1, retries + 2):
-        peer = peers[(index + attempt - 1) % len(peers)]
-        record = {"attempt": attempt, "peer": peer}
-        try:
-            result = dispatch(peer, {"operation": "test", "name": name, "ignored": ignored,
-                                     "attempt": attempt})
-            record.update(result)
-            record["status"] = classify(result)
-        except DispatchError as error:
-            record.update(status="error", error=str(error))
-        attempts.append(record)
-        if record["status"] == "passed":
-            flaky = any(item["status"] == "failed" for item in attempts[:-1])
-            return {"name": name, "status": "flaky" if flaky else "passed", "attempts": attempts}
-        if record["status"] == "ignored" and attempt == 1:
-            return {"name": name, "status": "ignored", "attempts": attempts}
-        # An ignored retry leaves the earlier failure or error unresolved.
-    status = "failed" if any(item["status"] == "failed" for item in attempts) else "error"
-    return {"name": name, "status": status, "attempts": attempts}
+def run_attempt(dispatch, peer, name, ignored, attempt):
+    record = {"attempt": attempt, "peer": peer}
+    try:
+        result = dispatch(peer, {"operation": "test", "name": name, "ignored": ignored,
+                                 "attempt": attempt})
+        record.update(result)
+        record["status"] = classify(result)
+    except DispatchError as error:
+        record.update(status="error", error=str(error))
+    except Exception as error:
+        record.update(status="error", error=f"unexpected {type(error).__name__}: {error}")
+    return record
+
+
+def final_status(attempts, retries):
+    outcome = attempts[-1]["status"]
+    if outcome == "passed":
+        return "flaky" if any(a["status"] == "failed" for a in attempts[:-1]) else "passed"
+    if outcome == "ignored" and len(attempts) == 1:
+        return "ignored"
+    if len(attempts) <= retries:
+        return None
+    # An ignored retry leaves an earlier failure or error unresolved.
+    return "failed" if any(a["status"] == "failed" for a in attempts) else "error"
+
+
+def schedule_tests(executor, dispatch, peers, pending, ignored, retries, results):
+    # Each peer owns one dispatch slot. Only retries have a prescribed destination.
+    available = deque(range(len(peers)))
+    retry_queues = [deque() for _ in peers]
+    running = {}
+    while True:
+        for _ in range(len(available)):
+            worker = available.popleft()
+            queue = retry_queues[worker] or pending
+            if not queue:
+                available.append(worker)
+                continue
+            name = queue.popleft()
+            attempt = 1 + len(results[name]["attempts"])
+            future = executor.submit(run_attempt, dispatch, peers[worker], name,
+                                     name in ignored, attempt)
+            running[future] = (worker, name)
+        if not running:
+            return
+        completed, _ = wait(running, return_when=FIRST_COMPLETED)
+        for future in completed:
+            worker, name = running.pop(future)
+            available.append(worker)
+            attempts = results[name]["attempts"]
+            attempts.append(future.result())
+            status = final_status(attempts, retries)
+            if status is None:
+                retry_queues[(worker + 1) % len(peers)].append(name)
+            else:
+                results[name]["status"] = status
 
 
 def run_suite(args, plugin):
@@ -169,15 +205,14 @@ def run_suite(args, plugin):
                     and not any(matches(name, skip) for skip in args.skip)
                     and (not args.ignored or name in ignored)]
         results = {}
-        work = {}
+        pending = deque()
         for name in selected:
+            results[name] = {"name": name, "attempts": []}
             if name in ignored and not (args.ignored or args.include_ignored):
-                results[name] = {"name": name, "status": "ignored", "attempts": []}
+                results[name]["status"] = "ignored"
             else:
-                work[name] = executor.submit(
-                    run_test, dispatch, peers, len(work), name, name in ignored, args.retries
-                )
-        results.update((name, future.result()) for name, future in work.items())
+                pending.append(name)
+        schedule_tests(executor, dispatch, peers, pending, ignored, args.retries, results)
 
     counts = dict.fromkeys(STATUSES, 0)
     for result in results.values():

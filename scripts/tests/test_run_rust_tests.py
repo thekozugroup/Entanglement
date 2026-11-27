@@ -1,4 +1,7 @@
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 import importlib.util
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -87,7 +90,11 @@ class RetryTests(unittest.TestCase):
                         raise runner.DispatchError("connection lost")
                     return {"peer": peer, **responses[outcome]}
 
-                result = runner.run_test(dispatch, PEERS, 0, "case", False, retries)
+                with ThreadPoolExecutor(max_workers=len(PEERS)) as executor:
+                    results = {"case": {"name": "case", "attempts": []}}
+                    runner.schedule_tests(executor, dispatch, PEERS, deque(["case"]),
+                                          set(), retries, results)
+                result = results["case"]
                 self.assertEqual(result["status"], expected)
                 self.assertEqual(len(calls), len(sequence))
                 self.assertEqual(
@@ -99,6 +106,116 @@ class RetryTests(unittest.TestCase):
                                                "ignored": False, "attempt": attempt})
                 if sequence[0] == "error":
                     self.assertEqual(result["attempts"][0]["error"], "connection lost")
+
+
+class SchedulingTests(unittest.TestCase):
+    def schedule(self, names, peers, retries, dispatch):
+        results = {name: {"name": name, "attempts": []} for name in names}
+        with ThreadPoolExecutor(max_workers=len(peers)) as executor:
+            runner.schedule_tests(executor, dispatch, peers, deque(names), set(), retries, results)
+        return results
+
+    def test_available_worker_takes_independent_tests_without_a_backlog(self):
+        names = ["a_long", "b_short", "c_short", "d_last"]
+        started = threading.Event()
+        released = threading.Event()
+
+        def dispatch(peer, request):
+            name = request["name"]
+            if name == "a_long":
+                started.set()
+                if not released.wait(5):
+                    raise runner.DispatchError("the free worker did not drain the queue")
+            else:
+                if not started.wait(5):
+                    raise runner.DispatchError("the long test did not start")
+                if name == "d_last":
+                    released.set()
+            return {"peer": peer, **capture(PASSED)}
+
+        # Count submissions, including anything hidden in the executor's queue.
+        class MeasuredExecutor(ThreadPoolExecutor):
+            def __init__(self):
+                super().__init__(max_workers=len(PEERS))
+                self.futures = []
+                self.peak = 0
+
+            def submit(self, fn, *args):
+                self.futures = [future for future in self.futures if not future.done()]
+                self.peak = max(self.peak, len(self.futures) + 1)
+                future = super().submit(fn, *args)
+                self.futures.append(future)
+                return future
+
+        results = {name: {"name": name, "attempts": []} for name in names}
+        with MeasuredExecutor() as executor:
+            runner.schedule_tests(executor, dispatch, PEERS, deque(names), set(), 0, results)
+        self.assertEqual(executor.peak, len(PEERS))
+        self.assertEqual([results[name]["status"] for name in names], ["passed"] * 4)
+        self.assertEqual([results[name]["attempts"][0]["peer"] for name in names],
+                         [PEERS[0], PEERS[1], PEERS[1], PEERS[1]])
+
+    def test_waiting_retry_leaves_previous_worker_free_for_new_work(self):
+        long_started = threading.Event()
+        fresh_started = threading.Event()
+
+        def dispatch(peer, request):
+            name = request["name"]
+            if name == "a_retry" and request["attempt"] == 1:
+                if not long_started.wait(5):
+                    raise runner.DispatchError("long case never started")
+                return {"peer": peer, **capture(FAILED, 101)}
+            if name == "b_long":
+                long_started.set()
+                if not fresh_started.wait(5):
+                    raise runner.DispatchError("new work stalled behind a retry")
+            if name == "c_fresh":
+                fresh_started.set()
+            return {"peer": peer, **capture(PASSED)}
+
+        cases = self.schedule(["a_retry", "b_long", "c_fresh"], PEERS, 1, dispatch)
+        self.assertEqual(cases["a_retry"]["status"], "flaky")
+        self.assertEqual([a["peer"] for a in cases["a_retry"]["attempts"]], PEERS)
+        self.assertEqual(cases["b_long"]["status"], "passed")
+        self.assertEqual(cases["c_fresh"]["attempts"][0]["peer"], PEERS[0])
+
+    def test_simultaneous_retries_rotate_between_workers(self):
+        barrier = threading.Barrier(2)
+
+        def dispatch(peer, request):
+            if request["attempt"] == 1:
+                barrier.wait(timeout=5)
+                return {"peer": peer, **capture(FAILED, 101)}
+            return {"peer": peer, **capture(PASSED)}
+
+        results = self.schedule(["first", "second"], PEERS, 1, dispatch)
+        for name, order in [("first", PEERS), ("second", PEERS[::-1])]:
+            self.assertEqual(results[name]["status"], "flaky")
+            self.assertEqual([a["peer"] for a in results[name]["attempts"]], order)
+            self.assertEqual([a["attempt"] for a in results[name]["attempts"]], [1, 2])
+
+    def test_only_case_on_one_worker_exhausts_bounded_retries(self):
+        def dispatch(peer, request):
+            return {"peer": peer, **capture(FAILED, 101)}
+
+        result = self.schedule(["only"], PEERS[:1], 10, dispatch)["only"]
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual([a["attempt"] for a in result["attempts"]], list(range(1, 12)))
+        self.assertEqual({a["peer"] for a in result["attempts"]}, {PEERS[0]})
+
+    def test_unexpected_exception_is_an_attempt_error_and_other_cases_finish(self):
+        def dispatch(peer, request):
+            if request["name"] == "only_error":
+                raise RuntimeError("fixture unavailable")
+            return {"peer": peer, **capture(PASSED)}
+
+        results = self.schedule(["only_error", "works"], PEERS, 1, dispatch)
+        self.assertEqual(results["works"]["status"], "passed")
+        self.assertEqual(results["only_error"]["status"], "error")
+        attempts = results["only_error"]["attempts"]
+        self.assertEqual([a["peer"] for a in attempts], PEERS)
+        self.assertTrue(all(a["error"] == "unexpected RuntimeError: fixture unavailable"
+                            for a in attempts))
 
 
 class SuiteTests(unittest.TestCase):
